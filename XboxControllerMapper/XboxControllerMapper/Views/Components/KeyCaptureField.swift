@@ -94,65 +94,77 @@ struct KeyCaptureOverlay: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: KeyCaptureNSView, context: Context) {
-        nsView.isCapturing = isCapturing
         if isCapturing {
+            nsView.startCapturing()
             DispatchQueue.main.async {
                 nsView.window?.makeFirstResponder(nsView)
             }
+        } else {
+            nsView.stopCapturing()
         }
     }
 }
 
 class KeyCaptureNSView: NSView {
-    var isCapturing = false
     var onKeyCapture: ((CGKeyCode, ModifierFlags) -> Void)?
     var onEscape: (() -> Void)?
+    
+    private var localMonitor: Any?
 
     override var acceptsFirstResponder: Bool { true }
 
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if isCapturing {
-            return true
+    // No longer using performKeyEquivalent or keyDown directly for capture
+    // because addLocalMonitorForEvents is more robust for intercepting system shortcuts
+    
+    func startCapturing() {
+        guard localMonitor == nil else { return }
+        
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+            guard let self = self else { return event }
+            
+            // Handle Escape to cancel
+            if event.keyCode == kVK_Escape {
+                self.stopCapturing()
+                self.onEscape?()
+                return nil // Consume event
+            }
+            
+            // Skip modifier-only key presses (unless we want to support them later)
+            // But we still consume them to prevent system actions if needed? 
+            // The original logic skipped processing but didn't necessarily consume.
+            // Let's stick to original logic: if strictly modifier, return nil to consume but don't finish capture.
+            let modifierOnlyKeys: Set<Int> = [
+                kVK_Command, kVK_Shift, kVK_Option, kVK_Control,
+                kVK_RightCommand, kVK_RightShift, kVK_RightOption, kVK_RightControl
+            ]
+            
+            if modifierOnlyKeys.contains(Int(event.keyCode)) {
+                // We consume it so it doesn't trigger anything else, but we don't 'capture' it as a mapping yet
+                return nil
+            }
+            
+            // Capture the key with modifiers
+            var mods = ModifierFlags()
+            if event.modifierFlags.contains(.command) { mods.command = true }
+            if event.modifierFlags.contains(.option) { mods.option = true }
+            if event.modifierFlags.contains(.shift) { mods.shift = true }
+            if event.modifierFlags.contains(.control) { mods.control = true }
+            
+            self.onKeyCapture?(CGKeyCode(event.keyCode), mods)
+            self.stopCapturing()
+            return nil // Consume the event so it doesn't close window or beep
         }
-        return super.performKeyEquivalent(with: event)
     }
-
-    override func keyDown(with event: NSEvent) {
-        guard isCapturing else {
-            super.keyDown(with: event)
-            return
+    
+    func stopCapturing() {
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
         }
-
-        let keyCode = CGKeyCode(event.keyCode)
-
-        // Check for escape to cancel
-        if keyCode == CGKeyCode(kVK_Escape) {
-            onEscape?()
-            return
-        }
-
-        // Skip modifier-only key presses
-        let modifierOnlyKeys: Set<Int> = [
-            kVK_Command, kVK_Shift, kVK_Option, kVK_Control,
-            kVK_RightCommand, kVK_RightShift, kVK_RightOption, kVK_RightControl
-        ]
-        if modifierOnlyKeys.contains(Int(event.keyCode)) {
-            return
-        }
-
-        // Capture the key with modifiers
-        var mods = ModifierFlags()
-        if event.modifierFlags.contains(.command) { mods.command = true }
-        if event.modifierFlags.contains(.option) { mods.option = true }
-        if event.modifierFlags.contains(.shift) { mods.shift = true }
-        if event.modifierFlags.contains(.control) { mods.control = true }
-
-        onKeyCapture?(keyCode, mods)
     }
-
-    override func flagsChanged(with event: NSEvent) {
-        // Could capture modifier-only shortcuts here if needed
-        super.flagsChanged(with: event)
+    
+    deinit {
+        stopCapturing()
     }
 }
 
