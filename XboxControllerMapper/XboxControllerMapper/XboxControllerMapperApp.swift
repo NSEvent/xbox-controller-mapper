@@ -1,5 +1,6 @@
 import SwiftUI
 import GameController
+import Combine
 
 /// Holds all app services as a shared singleton
 @MainActor
@@ -9,22 +10,40 @@ final class ServiceContainer {
     let appMonitor: AppMonitor
     let mappingEngine: MappingEngine
     let inputMonitor: InputMonitor
+    let eventTapService: EventTapService
+    
+    // Store cancellables for subscriptions
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         let controllerService = ControllerService()
         let profileManager = ProfileManager()
         let appMonitor = AppMonitor()
         let inputMonitor = InputMonitor()
+        let eventTapService = EventTapService()
 
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
         self.inputMonitor = inputMonitor
+        self.eventTapService = eventTapService
         self.mappingEngine = MappingEngine(
             controllerService: controllerService,
             profileManager: profileManager,
             appMonitor: appMonitor
         )
+        
+        setupSubscriptions()
+    }
+    
+    private func setupSubscriptions() {
+        // Wire up Event Tap to Controller Service
+        eventTapService.onGuideButtonPressed
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                self?.controllerService.triggerGuideButton()
+            }
+            .store(in: &cancellables)
     }
 }
 
