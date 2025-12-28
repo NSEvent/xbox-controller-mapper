@@ -155,6 +155,11 @@ class InputSimulator {
         heldModifiers = []
     }
 
+    // MARK: - Mouse Button State
+
+    /// Tracks currently held mouse buttons to determine if moving should be a drag
+    private var heldMouseButtons: Set<CGMouseButton> = []
+
     // MARK: - Mouse Simulation
 
     /// Moves the mouse cursor by a delta
@@ -169,11 +174,29 @@ class InputSimulator {
         let newX = currentLocation.x + dx
         let newY = screenHeight - currentLocation.y + dy
 
+        // Determine event type based on held buttons (drag if button held)
+        let eventType: CGEventType
+        let mouseButton: CGMouseButton
+
+        if heldMouseButtons.contains(.left) {
+            eventType = .leftMouseDragged
+            mouseButton = .left
+        } else if heldMouseButtons.contains(.right) {
+            eventType = .rightMouseDragged
+            mouseButton = .right
+        } else if heldMouseButtons.contains(.center) {
+            eventType = .otherMouseDragged
+            mouseButton = .center
+        } else {
+            eventType = .mouseMoved
+            mouseButton = .left // Default for move events
+        }
+
         if let event = CGEvent(
             mouseEventSource: source,
-            mouseType: .mouseMoved,
+            mouseType: eventType,
             mouseCursorPosition: CGPoint(x: newX, y: newY),
-            mouseButton: .left
+            mouseButton: mouseButton
         ) {
             event.post(tap: .cghidEventTap)
         }
@@ -200,6 +223,9 @@ class InputSimulator {
 
     private func pressMouseButton(_ keyCode: CGKeyCode) {
         mouseButtonDown(keyCode)
+        // Helper to ensure precise click timing if needed, or just sequence them
+        // For simulated clicks, immediate up is usually fine, but physically
+        // distinct events are safer.
         mouseButtonUp(keyCode)
     }
 
@@ -212,6 +238,9 @@ class InputSimulator {
         let cgLocation = CGPoint(x: location.x, y: screenHeight - location.y)
 
         let (downType, button) = mouseEventType(for: keyCode, down: true)
+
+        // Track hold state
+        heldMouseButtons.insert(button)
 
         if let event = CGEvent(
             mouseEventSource: source,
@@ -232,6 +261,9 @@ class InputSimulator {
         let cgLocation = CGPoint(x: location.x, y: screenHeight - location.y)
 
         let (upType, button) = mouseEventType(for: keyCode, down: false)
+
+        // Update hold state
+        heldMouseButtons.remove(button)
 
         if let event = CGEvent(
             mouseEventSource: source,
