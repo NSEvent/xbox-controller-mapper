@@ -276,15 +276,4 @@ class ControllerService: ObservableObject {
         // Real implementation would use CHHapticEngine for supported controllers
         print("Haptic feedback requested: intensity=\(intensity), duration=\(duration)")
     }
-
-    /// Manually trigger the Guide button press (e.g. from EventTap)
-    func triggerGuideButton() {
-        print("Triggering Guide button from external source")
-        handleButton(.xbox, pressed: true)
-        
-        // Release it shortly after to simulate a tap
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.handleButton(.xbox, pressed: false)
-        }
-    }
 }
