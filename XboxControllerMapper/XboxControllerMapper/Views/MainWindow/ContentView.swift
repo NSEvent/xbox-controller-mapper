@@ -8,7 +8,7 @@ struct ContentView: View {
     @EnvironmentObject var mappingEngine: MappingEngine
 
     @State private var selectedButton: ControllerButton?
-    @State private var showingMappingSheet = false
+    @State private var configuringButton: ControllerButton?
     @State private var showingChordSheet = false
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
@@ -44,16 +44,14 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 700, minHeight: 500)
-        .sheet(isPresented: $showingMappingSheet) {
-            if let button = selectedButton {
-                ButtonMappingSheet(
-                    button: button,
-                    mapping: Binding(
-                        get: { profileManager.activeProfile?.buttonMappings[button] },
-                        set: { _ in }
-                    )
+        .sheet(item: $configuringButton) { button in
+            ButtonMappingSheet(
+                button: button,
+                mapping: Binding(
+                    get: { profileManager.activeProfile?.buttonMappings[button] },
+                    set: { _ in }
                 )
-            }
+            )
         }
         .sheet(isPresented: $showingChordSheet) {
             ChordMappingSheet()
@@ -116,7 +114,10 @@ struct ContentView: View {
                     // Async dispatch to avoid layout recursion if triggered during layout pass
                     DispatchQueue.main.async {
                         selectedButton = button
-                        showingMappingSheet = true
+                    DispatchQueue.main.async {
+                        selectedButton = button
+                        configuringButton = button
+                    }
                     }
                 }
             )

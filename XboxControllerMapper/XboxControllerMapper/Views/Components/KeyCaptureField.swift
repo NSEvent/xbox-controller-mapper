@@ -110,6 +110,13 @@ class KeyCaptureNSView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if isCapturing {
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func keyDown(with event: NSEvent) {
         guard isCapturing else {
             super.keyDown(with: event)
