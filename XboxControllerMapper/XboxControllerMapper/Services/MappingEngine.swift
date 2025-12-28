@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import Dispatch
 
 /// Coordinates controller input with profile mappings and input simulation
 @MainActor
@@ -18,8 +17,8 @@ class MappingEngine: ObservableObject {
     /// Tracks buttons that are part of an active chord
     private var activeChordButtons: Set<ControllerButton> = []
 
-    /// DispatchSourceTimer for joystick polling - works reliably in background
-    private var joystickTimer: DispatchSourceTimer?
+    /// Timer for joystick polling
+    private var joystickTimer: Timer?
     private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 60 Hz
 
     private var cancellables = Set<AnyCancellable>()
@@ -33,30 +32,29 @@ class MappingEngine: ObservableObject {
     }
 
     private func setupBindings() {
-        // Button press handler - use DispatchQueue.main for reliable background execution
+        // Button press handler
         controllerService.onButtonPressed = { [weak self] button in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.handleButtonPressed(button)
             }
         }
 
         // Button release handler
         controllerService.onButtonReleased = { [weak self] button, duration in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.handleButtonReleased(button, holdDuration: duration)
             }
         }
 
         // Chord handler
         controllerService.onChordDetected = { [weak self] buttons in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.handleChord(buttons)
             }
         }
 
         // Start joystick polling when controller connects
         controllerService.$isConnected
-            .receive(on: DispatchQueue.main)
             .sink { [weak self] connected in
                 if connected {
                     self?.startJoystickPolling()
@@ -170,25 +168,15 @@ class MappingEngine: ObservableObject {
     private func startJoystickPolling() {
         stopJoystickPolling()
 
-        // Use DispatchSourceTimer instead of Timer for reliable background execution
-        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .userInteractive))
-        timer.schedule(deadline: .now(), repeating: joystickPollInterval)
-        timer.setEventHandler { [weak self] in
-            // Dispatch to main actor for processing
+        joystickTimer = Timer.scheduledTimer(withTimeInterval: joystickPollInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.processJoysticks()
             }
         }
-        timer.resume()
-        joystickTimer = timer
-
-        #if DEBUG
-        print("🎮 Joystick polling started with DispatchSourceTimer")
-        #endif
     }
 
     private func stopJoystickPolling() {
-        joystickTimer?.cancel()
+        joystickTimer?.invalidate()
         joystickTimer = nil
     }
 
