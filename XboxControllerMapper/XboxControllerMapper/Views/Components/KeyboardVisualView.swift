@@ -197,24 +197,29 @@ struct KeyboardVisualView: View {
                 .foregroundColor(.secondary)
 
             HStack(spacing: 4) {
-                ForEach(13...25, id: \.self) { i in
-                    // F13-F20 have specific key codes, F21-F25 use sequential codes
-                    let keyCode: CGKeyCode
-                    switch i {
-                    case 13: keyCode = CGKeyCode(kVK_F13)
-                    case 14: keyCode = CGKeyCode(kVK_F14)
-                    case 15: keyCode = CGKeyCode(kVK_F15)
-                    case 16: keyCode = CGKeyCode(kVK_F16)
-                    case 17: keyCode = CGKeyCode(kVK_F17)
-                    case 18: keyCode = CGKeyCode(kVK_F18)
-                    case 19: keyCode = CGKeyCode(kVK_F19)
-                    case 20: keyCode = CGKeyCode(kVK_F20)
-                    default: keyCode = CGKeyCode(0x6A + (i - 21)) // F21-F25 approximation
-                    }
-                    KeyButton(keyCode: keyCode, label: "F\(i)", width: 38, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                ForEach(extendedFunctionKeys, id: \.label) { key in
+                    KeyButton(keyCode: key.code, label: key.label, width: 38, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 }
             }
         }
+    }
+
+    private var extendedFunctionKeys: [(label: String, code: CGKeyCode)] {
+        [
+            ("F13", CGKeyCode(kVK_F13)),
+            ("F14", CGKeyCode(kVK_F14)),
+            ("F15", CGKeyCode(kVK_F15)),
+            ("F16", CGKeyCode(kVK_F16)),
+            ("F17", CGKeyCode(kVK_F17)),
+            ("F18", CGKeyCode(kVK_F18)),
+            ("F19", CGKeyCode(kVK_F19)),
+            ("F20", CGKeyCode(kVK_F20)),
+            ("F21", CGKeyCode(0x6A)),
+            ("F22", CGKeyCode(0x6B)),
+            ("F23", CGKeyCode(0x6C)),
+            ("F24", CGKeyCode(0x6D)),
+            ("F25", CGKeyCode(0x6E))
+        ]
     }
 
     // MARK: - Navigation Keys
