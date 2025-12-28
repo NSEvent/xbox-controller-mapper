@@ -11,9 +11,10 @@ class InputMonitor: ObservableObject {
     
     init() {
         // Automatically start monitoring if permissions allow
-        if AXIsProcessTrusted() {
-            startMonitoring()
-        }
+        // DISABLED auto-start to debug blocking issue
+        // if AXIsProcessTrusted() {
+        //     startMonitoring()
+        // }
     }
     
     deinit {
@@ -32,8 +33,8 @@ class InputMonitor: ObservableObject {
         
         // 3. Register Global Monitor (Background)
         // We monitor flagsChanged (modifiers) and keyDown
-        // Note: keyDown might be blocked by Secure Input in some fields, but works generally.
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged, .otherMouseDown]) { [weak self] event in
+        // Removed .otherMouseDown to prevent potential interference
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
             self?.handleEvent(event)
         }
         
