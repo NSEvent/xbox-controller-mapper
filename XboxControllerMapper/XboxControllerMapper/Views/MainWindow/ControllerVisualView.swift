@@ -55,17 +55,15 @@ struct ControllerVisualView: View {
 
                     // Center: Special buttons in diamond layout
                     VStack(spacing: 8) {
-                        Spacer()
-
-                        // Top: Share button
-                        SpecialButton(button: .share, label: "⬆", selectedButton: $selectedButton, onTap: onButtonTap)
-
-                        // Middle row: View, Xbox, Menu
+                        // Top: Menu/View/Xbox row
                         HStack(spacing: 20) {
                             SpecialButton(button: .view, label: "⧉", selectedButton: $selectedButton, onTap: onButtonTap)
                             SpecialButton(button: .xbox, label: "ⓧ", isXboxButton: true, selectedButton: $selectedButton, onTap: onButtonTap)
                             SpecialButton(button: .menu, label: "≡", selectedButton: $selectedButton, onTap: onButtonTap)
                         }
+
+                        // Bottom: Share button (Upload)
+                        SpecialButton(button: .share, label: "⬆", selectedButton: $selectedButton, onTap: onButtonTap)
 
                         Spacer()
                     }
