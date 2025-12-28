@@ -12,9 +12,9 @@ class InputMonitor: ObservableObject {
     init() {
         // Automatically start monitoring if permissions allow
         // DISABLED auto-start to debug blocking issue
-        // if AXIsProcessTrusted() {
-        //     startMonitoring()
-        // }
+        if AXIsProcessTrusted() {
+            startMonitoring()
+        }
     }
     
     deinit {
