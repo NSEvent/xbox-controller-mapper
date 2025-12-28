@@ -2,12 +2,12 @@ import Foundation
 import Combine
 import Dispatch
 
-/// Coordinates controller input with profile mappings and input simulation
+/// Coordinates HID controller input with profile mappings and input simulation
 @MainActor
-class MappingEngine: ObservableObject {
+class HIDMappingEngine: ObservableObject {
     @Published var isEnabled = true
 
-    private let controllerService: ControllerService
+    private let controllerService: HIDControllerService
     private let profileManager: ProfileManager
     private let appMonitor: AppMonitor
     private let inputSimulator = InputSimulator()
@@ -18,13 +18,13 @@ class MappingEngine: ObservableObject {
     /// Tracks buttons that are part of an active chord
     private var activeChordButtons: Set<ControllerButton> = []
 
-    /// DispatchSourceTimer for joystick polling - works reliably in background
+    /// DispatchSourceTimer for joystick polling
     private var joystickTimer: DispatchSourceTimer?
     private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 60 Hz
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor) {
+    init(controllerService: HIDControllerService, profileManager: ProfileManager, appMonitor: AppMonitor) {
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
@@ -33,7 +33,7 @@ class MappingEngine: ObservableObject {
     }
 
     private func setupBindings() {
-        // Button press handler - use DispatchQueue.main for reliable background execution
+        // Button press handler
         controllerService.onButtonPressed = { [weak self] button in
             DispatchQueue.main.async {
                 self?.handleButtonPressed(button)
@@ -73,52 +73,46 @@ class MappingEngine: ObservableObject {
         guard isEnabled else { return }
         guard let profile = profileManager.activeProfile else { return }
 
-        // Get the effective mapping (considering app overrides)
+        #if DEBUG
+        print("🎮 HIDMappingEngine: Processing button press: \(button.displayName)")
+        #endif
+
         guard let mapping = profile.effectiveMapping(for: button, appBundleId: appMonitor.frontmostBundleId) else {
             return
         }
 
-        // For hold-type mappings, start holding immediately
         if mapping.isHoldModifier {
             heldButtons[button] = mapping
             inputSimulator.startHoldMapping(mapping)
         }
-        // For non-hold mappings, we wait for release to determine tap vs long-hold
     }
 
     private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         guard isEnabled else { return }
         guard let profile = profileManager.activeProfile else { return }
 
-        // If this button was part of a chord, skip individual handling
         if activeChordButtons.contains(button) {
             activeChordButtons.remove(button)
             return
         }
 
-        // If this was a held modifier, release it
         if let heldMapping = heldButtons[button] {
             inputSimulator.stopHoldMapping(heldMapping)
             heldButtons.removeValue(forKey: button)
             return
         }
 
-        // Get the effective mapping
         guard let mapping = profile.effectiveMapping(for: button, appBundleId: appMonitor.frontmostBundleId) else {
             return
         }
 
-        // Skip if this is a hold modifier (already handled)
         guard !mapping.isHoldModifier else { return }
 
-        // Check for long hold
         if let longHoldMapping = mapping.longHoldMapping,
            holdDuration >= longHoldMapping.threshold,
            !longHoldMapping.isEmpty {
-            // Execute long hold mapping
             executeLongHoldMapping(longHoldMapping)
         } else {
-            // Execute normal mapping
             inputSimulator.executeMapping(mapping)
         }
     }
@@ -127,7 +121,6 @@ class MappingEngine: ObservableObject {
         if let keyCode = mapping.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         } else if mapping.modifiers.hasAny {
-            // Modifier-only long hold
             let flags = mapping.modifiers.cgEventFlags
             inputSimulator.holdModifier(flags)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
@@ -140,20 +133,14 @@ class MappingEngine: ObservableObject {
         guard isEnabled else { return }
         guard let profile = profileManager.activeProfile else { return }
 
-        // Find matching chord mapping
         let matchingChord = profile.chordMappings.first { chord in
             chord.buttons == buttons
         }
 
-        guard let chord = matchingChord else {
-            // No chord match - process buttons individually
-            return
-        }
+        guard let chord = matchingChord else { return }
 
-        // Mark these buttons as part of a chord
         activeChordButtons = buttons
 
-        // Execute chord mapping
         if let keyCode = chord.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: chord.modifiers.cgEventFlags)
         } else if chord.modifiers.hasAny {
@@ -170,12 +157,10 @@ class MappingEngine: ObservableObject {
     private func startJoystickPolling() {
         stopJoystickPolling()
 
-        // Use DispatchSourceTimer instead of Timer for reliable background execution
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .userInteractive))
         timer.schedule(deadline: .now(), repeating: joystickPollInterval)
         timer.setEventHandler { [weak self] in
-            // Dispatch to main actor for processing
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 self?.processJoysticks()
             }
         }
@@ -183,7 +168,7 @@ class MappingEngine: ObservableObject {
         joystickTimer = timer
 
         #if DEBUG
-        print("🎮 Joystick polling started with DispatchSourceTimer")
+        print("🎮 HID Joystick polling started")
         #endif
     }
 
@@ -196,52 +181,38 @@ class MappingEngine: ObservableObject {
         guard isEnabled else { return }
         guard let settings = profileManager.activeProfile?.joystickSettings else { return }
 
-        // Process left joystick (mouse)
         let leftStick = controllerService.leftStick
         processMouseMovement(leftStick, settings: settings)
 
-        // Process right joystick (scroll)
         let rightStick = controllerService.rightStick
         processScrolling(rightStick, settings: settings)
     }
 
     private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings) {
-        // Apply deadzone
         let magnitude = sqrt(stick.x * stick.x + stick.y * stick.y)
         guard magnitude > settings.mouseDeadzone else { return }
 
-        // Normalize and apply deadzone
         let normalizedMagnitude = (magnitude - settings.mouseDeadzone) / (1.0 - settings.mouseDeadzone)
-
-        // Apply acceleration curve using the 0-1 acceleration setting
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.mouseAccelerationExponent)
 
-        // Calculate direction using the converted multiplier
         let dx = (stick.x / magnitude) * acceleratedMagnitude * settings.mouseMultiplier
         var dy = (stick.y / magnitude) * acceleratedMagnitude * settings.mouseMultiplier
 
-        // Invert Y if needed (joystick Y is inverted compared to screen coordinates)
         dy = settings.invertMouseY ? dy : -dy
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
     }
 
     private func processScrolling(_ stick: CGPoint, settings: JoystickSettings) {
-        // Apply deadzone
         let magnitude = sqrt(stick.x * stick.x + stick.y * stick.y)
         guard magnitude > settings.scrollDeadzone else { return }
 
-        // Normalize and apply deadzone
         let normalizedMagnitude = (magnitude - settings.scrollDeadzone) / (1.0 - settings.scrollDeadzone)
-
-        // Apply acceleration curve using the 0-1 acceleration setting
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.scrollAccelerationExponent)
 
-        // Calculate direction using the converted multiplier
         let dx = (stick.x / magnitude) * acceleratedMagnitude * settings.scrollMultiplier
         var dy = (stick.y / magnitude) * acceleratedMagnitude * settings.scrollMultiplier
 
-        // Invert Y if needed
         dy = settings.invertScrollY ? -dy : dy
 
         inputSimulator.scroll(dx: dx, dy: dy)
@@ -255,7 +226,6 @@ class MappingEngine: ObservableObject {
 
     func disable() {
         isEnabled = false
-        // Release any held buttons
         for (_, mapping) in heldButtons {
             inputSimulator.stopHoldMapping(mapping)
         }

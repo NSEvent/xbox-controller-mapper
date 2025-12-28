@@ -118,37 +118,37 @@ class ControllerService: ObservableObject {
             return
         }
 
-        // Face buttons
+        // Face buttons - use DispatchQueue.main.async for reliable background execution
         gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.a, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.a, pressed: pressed) }
         }
         gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.b, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.b, pressed: pressed) }
         }
         gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.x, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.x, pressed: pressed) }
         }
         gamepad.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.y, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.y, pressed: pressed) }
         }
 
         // Bumpers
         gamepad.leftShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.leftBumper, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.leftBumper, pressed: pressed) }
         }
         gamepad.rightShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.rightBumper, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.rightBumper, pressed: pressed) }
         }
 
         // Triggers (with value for analog sensitivity)
         gamepad.leftTrigger.valueChangedHandler = { [weak self] _, value, pressed in
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 self?.leftTriggerValue = value
                 self?.handleButton(.leftTrigger, pressed: pressed)
             }
         }
         gamepad.rightTrigger.valueChangedHandler = { [weak self] _, value, pressed in
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 self?.rightTriggerValue = value
                 self?.handleButton(.rightTrigger, pressed: pressed)
             }
@@ -156,47 +156,47 @@ class ControllerService: ObservableObject {
 
         // D-pad
         gamepad.dpad.up.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.dpadUp, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.dpadUp, pressed: pressed) }
         }
         gamepad.dpad.down.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.dpadDown, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.dpadDown, pressed: pressed) }
         }
         gamepad.dpad.left.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.dpadLeft, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.dpadLeft, pressed: pressed) }
         }
         gamepad.dpad.right.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.dpadRight, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.dpadRight, pressed: pressed) }
         }
 
         // Special buttons
         gamepad.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.menu, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.menu, pressed: pressed) }
         }
         gamepad.buttonOptions?.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.view, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.view, pressed: pressed) }
         }
         gamepad.buttonHome?.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.xbox, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.xbox, pressed: pressed) }
         }
 
         // Share button (Xbox Series controllers)
         if let xboxGamepad = gamepad as? GCXboxGamepad {
             xboxGamepad.buttonShare?.pressedChangedHandler = { [weak self] _, _, pressed in
-                Task { @MainActor in self?.handleButton(.share, pressed: pressed) }
+                DispatchQueue.main.async { self?.handleButton(.share, pressed: pressed) }
             }
         }
 
         // Thumbstick clicks
         gamepad.leftThumbstickButton?.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.leftThumbstick, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.leftThumbstick, pressed: pressed) }
         }
         gamepad.rightThumbstickButton?.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.rightThumbstick, pressed: pressed) }
+            DispatchQueue.main.async { self?.handleButton(.rightThumbstick, pressed: pressed) }
         }
 
         // Left joystick
         gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 let point = CGPoint(x: CGFloat(xValue), y: CGFloat(yValue))
                 self?.leftStick = point
                 self?.onLeftStickMoved?(point)
@@ -205,7 +205,7 @@ class ControllerService: ObservableObject {
 
         // Right joystick
         gamepad.rightThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
-            Task { @MainActor in
+            DispatchQueue.main.async {
                 let point = CGPoint(x: CGFloat(xValue), y: CGFloat(yValue))
                 self?.rightStick = point
                 self?.onRightStickMoved?(point)
@@ -214,6 +214,10 @@ class ControllerService: ObservableObject {
     }
 
     private func handleButton(_ button: ControllerButton, pressed: Bool) {
+        #if DEBUG
+        print("🎮 Controller event: \(button.displayName) \(pressed ? "pressed" : "released")")
+        #endif
+
         if pressed {
             buttonPressed(button)
         } else {
@@ -230,13 +234,15 @@ class ControllerService: ObservableObject {
         // Add to pending buttons for chord detection
         pendingButtons.insert(button)
 
-        // Reset chord timer
+        // Reset chord timer - use RunLoop.common mode so it works in background
         chordTimer?.invalidate()
-        chordTimer = Timer.scheduledTimer(withTimeInterval: chordWindow, repeats: false) { [weak self] _ in
+        let timer = Timer(timeInterval: chordWindow, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 self?.processChordOrSinglePress()
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        chordTimer = timer
     }
 
     private func buttonReleased(_ button: ControllerButton) {
