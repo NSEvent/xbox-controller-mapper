@@ -113,8 +113,11 @@ struct ContentView: View {
             ControllerVisualView(
                 selectedButton: $selectedButton,
                 onButtonTap: { button in
-                    selectedButton = button
-                    showingMappingSheet = true
+                    // Async dispatch to avoid layout recursion if triggered during layout pass
+                    DispatchQueue.main.async {
+                        selectedButton = button
+                        showingMappingSheet = true
+                    }
                 }
             )
 
