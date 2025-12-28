@@ -4,8 +4,7 @@ import SwiftUI
 struct MenuBarView: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
-
-    @State private var mappingEngine: MappingEngine?
+    @EnvironmentObject var mappingEngine: MappingEngine
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,45 +32,64 @@ struct MenuBarView: View {
     // MARK: - Connection Status
 
     private var connectionStatusSection: some View {
-        HStack(spacing: 12) {
-            Image(systemName: controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller")
-                .font(.title2)
-                .foregroundColor(controllerService.isConnected ? .green : .secondary)
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                Image(systemName: controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller")
+                    .font(.title2)
+                    .foregroundColor(controllerService.isConnected ? .green : .secondary)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(controllerService.isConnected ? "Connected" : "No Controller")
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(controllerService.isConnected ? "Connected" : "No Controller")
+                        .font(.headline)
 
-                if controllerService.isConnected {
-                    Text(controllerService.controllerName)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } else {
-                    Text("Connect via Bluetooth")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if controllerService.isConnected {
+                        Text(controllerService.controllerName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Connect via Bluetooth")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
+
+                Spacer()
             }
 
-            Spacer()
+            // Accessibility permission status
+            if !AppDelegate.isAccessibilityEnabled {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text("Accessibility permission required for global input")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(4)
+
+                Button("Open System Settings") {
+                    openAccessibilitySettings()
+                }
+                .font(.caption)
+            }
         }
         .padding(12)
+    }
+
+    private func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     // MARK: - Quick Controls
 
     private var quickControlsSection: some View {
         VStack(spacing: 8) {
-            Toggle(isOn: Binding(
-                get: { mappingEngine?.isEnabled ?? true },
-                set: { enabled in
-                    if enabled {
-                        mappingEngine?.enable()
-                    } else {
-                        mappingEngine?.disable()
-                    }
-                }
-            )) {
+            Toggle(isOn: $mappingEngine.isEnabled) {
                 HStack {
                     Image(systemName: "keyboard")
                     Text("Mapping Enabled")
@@ -177,7 +195,17 @@ struct ProfileRow: View {
 }
 
 #Preview {
-    MenuBarView()
-        .environmentObject(ControllerService())
-        .environmentObject(ProfileManager())
+    let controllerService = ControllerService()
+    let profileManager = ProfileManager()
+    let appMonitor = AppMonitor()
+    let mappingEngine = MappingEngine(
+        controllerService: controllerService,
+        profileManager: profileManager,
+        appMonitor: appMonitor
+    )
+
+    return MenuBarView()
+        .environmentObject(controllerService)
+        .environmentObject(profileManager)
+        .environmentObject(mappingEngine)
 }

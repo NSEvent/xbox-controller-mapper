@@ -30,8 +30,9 @@ struct JoystickSettings: Codable, Equatable {
 
     /// Converts 0-1 sensitivity to actual multiplier for mouse
     var mouseMultiplier: Double {
-        // Map 0-1 to 2-30 range (exponential for better feel)
-        return 2.0 + pow(mouseSensitivity, 1.5) * 28.0
+        // Map 0-1 to 2-60 range (exponential for better feel)
+        // Increased max for faster mouse movement at high sensitivity
+        return 2.0 + pow(mouseSensitivity, 1.5) * 58.0
     }
 
     /// Converts 0-1 sensitivity to actual multiplier for scroll

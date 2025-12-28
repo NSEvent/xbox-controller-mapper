@@ -9,8 +9,24 @@ class InputSimulator {
     /// Currently held modifier flags (for hold-type mappings)
     private var heldModifiers: CGEventFlags = []
 
+    /// Track if we've warned about accessibility
+    private var hasWarnedAboutAccessibility = false
+
     init() {
         eventSource = CGEventSource(stateID: .hidSystemState)
+        if eventSource == nil {
+            print("⚠️ Failed to create CGEventSource - input simulation may not work")
+        }
+    }
+
+    /// Check if we can post events (accessibility enabled)
+    private func checkAccessibility() -> Bool {
+        let trusted = AXIsProcessTrusted()
+        if !trusted && !hasWarnedAboutAccessibility {
+            hasWarnedAboutAccessibility = true
+            print("⚠️ Cannot post events - Accessibility permissions not granted")
+        }
+        return trusted
     }
 
     // MARK: - Keyboard Simulation
@@ -23,10 +39,15 @@ class InputSimulator {
             return
         }
 
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         // Combine explicit modifiers with any held modifiers
         let combinedModifiers = modifiers.union(heldModifiers)
+
+        #if DEBUG
+        print("🎮 Pressing key: \(keyCode) with modifiers: \(combinedModifiers.rawValue)")
+        #endif
 
         // Key down
         if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
@@ -48,6 +69,7 @@ class InputSimulator {
             return
         }
 
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         let combinedModifiers = modifiers.union(heldModifiers)
@@ -65,6 +87,7 @@ class InputSimulator {
             return
         }
 
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
@@ -80,6 +103,7 @@ class InputSimulator {
         heldModifiers.insert(modifier)
 
         // Post modifier key down events
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         if modifier.contains(.maskCommand) {
@@ -104,6 +128,7 @@ class InputSimulator {
     func releaseModifier(_ modifier: CGEventFlags) {
         heldModifiers.remove(modifier)
 
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         if modifier.contains(.maskCommand) {
@@ -134,6 +159,7 @@ class InputSimulator {
 
     /// Moves the mouse cursor by a delta
     func moveMouse(dx: CGFloat, dy: CGFloat) {
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         let currentLocation = NSEvent.mouseLocation
@@ -155,6 +181,7 @@ class InputSimulator {
 
     /// Scrolls by a delta
     func scroll(dx: CGFloat, dy: CGFloat) {
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         if let event = CGEvent(
@@ -177,6 +204,7 @@ class InputSimulator {
     }
 
     private func mouseButtonDown(_ keyCode: CGKeyCode) {
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         let location = NSEvent.mouseLocation
@@ -196,6 +224,7 @@ class InputSimulator {
     }
 
     private func mouseButtonUp(_ keyCode: CGKeyCode) {
+        guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
         let location = NSEvent.mouseLocation

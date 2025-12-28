@@ -24,6 +24,8 @@
 	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Xbox Controller Mapper needs Bluetooth access to connect to your Xbox controller.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Xbox Controller Mapper needs Bluetooth access to connect to your Xbox controller.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2024. All rights reserved.</string>
 	<key>NSPrincipalClass</key>

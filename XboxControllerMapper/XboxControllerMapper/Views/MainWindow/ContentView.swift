@@ -5,24 +5,13 @@ struct ContentView: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var appMonitor: AppMonitor
-
-    @StateObject private var mappingEngine: MappingEngine
+    @EnvironmentObject var mappingEngine: MappingEngine
 
     @State private var selectedButton: ControllerButton?
     @State private var showingMappingSheet = false
     @State private var showingChordSheet = false
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
-
-    init() {
-        // Note: We'll initialize the mapping engine properly in onAppear
-        // since we need access to environment objects
-        _mappingEngine = StateObject(wrappedValue: MappingEngine(
-            controllerService: ControllerService(),
-            profileManager: ProfileManager(),
-            appMonitor: AppMonitor()
-        ))
-    }
 
     var body: some View {
         HSplitView {
@@ -572,8 +561,18 @@ struct SettingsSheet: View {
 }
 
 #Preview {
-    ContentView()
-        .environmentObject(ControllerService())
-        .environmentObject(ProfileManager())
-        .environmentObject(AppMonitor())
+    let controllerService = ControllerService()
+    let profileManager = ProfileManager()
+    let appMonitor = AppMonitor()
+    let mappingEngine = MappingEngine(
+        controllerService: controllerService,
+        profileManager: profileManager,
+        appMonitor: appMonitor
+    )
+
+    return ContentView()
+        .environmentObject(controllerService)
+        .environmentObject(profileManager)
+        .environmentObject(appMonitor)
+        .environmentObject(mappingEngine)
 }
