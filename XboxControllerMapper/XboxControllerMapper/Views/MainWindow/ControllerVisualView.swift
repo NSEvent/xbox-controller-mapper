@@ -21,15 +21,15 @@ struct ControllerVisualView: View {
             // Buttons and controls
             VStack(spacing: 0) {
                 // Top section: Bumpers and Triggers
-                HStack(spacing: 100) {
+                HStack(spacing: 150) {
                     // Left bumper/trigger
-                    VStack(spacing: 8) {
+                    VStack(spacing: 32) {
                         TriggerButton(button: .leftTrigger, label: "LT", selectedButton: $selectedButton, onTap: onButtonTap)
                         BumperButton(button: .leftBumper, label: "LB", selectedButton: $selectedButton, onTap: onButtonTap)
                     }
 
                     // Right bumper/trigger
-                    VStack(spacing: 8) {
+                    VStack(spacing: 32) {
                         TriggerButton(button: .rightTrigger, label: "RT", selectedButton: $selectedButton, onTap: onButtonTap)
                         BumperButton(button: .rightBumper, label: "RB", selectedButton: $selectedButton, onTap: onButtonTap)
                     }
@@ -37,9 +37,9 @@ struct ControllerVisualView: View {
                 .padding(.top, 20)
 
                 // Middle section: Sticks, D-pad, Face buttons
-                HStack(spacing: 20) {
+                HStack(spacing: 50) {
                     // Left side: Left stick + D-pad
-                    VStack(spacing: 30) {
+                    VStack(spacing: 60) {
                         // Left stick
                         JoystickView(
                             position: controllerService.leftStick,
@@ -48,15 +48,16 @@ struct ControllerVisualView: View {
                             selectedButton: $selectedButton,
                             onTap: onButtonTap
                         )
+                        .frame(height: 140) // Match FaceButtons height for alignment
 
                         // D-pad
                         DPadView(selectedButton: $selectedButton, onTap: onButtonTap)
                     }
 
                     // Center: Special buttons in diamond layout
-                    VStack(spacing: 8) {
+                    VStack(spacing: 24) {
                         // Top: Menu/View/Xbox row
-                        HStack(spacing: 20) {
+                        HStack(spacing: 32) {
                             SpecialButton(button: .view, label: "⧉", selectedButton: $selectedButton, onTap: onButtonTap)
                             SpecialButton(button: .xbox, label: "ⓧ", isXboxButton: true, selectedButton: $selectedButton, onTap: onButtonTap)
                             SpecialButton(button: .menu, label: "≡", selectedButton: $selectedButton, onTap: onButtonTap)
@@ -70,7 +71,7 @@ struct ControllerVisualView: View {
                     .frame(width: 140)
 
                     // Right side: Face buttons + Right stick
-                    VStack(spacing: 30) {
+                    VStack(spacing: 50) {
                         // Face buttons (ABXY)
                         FaceButtonsView(selectedButton: $selectedButton, onTap: onButtonTap)
 
@@ -83,12 +84,18 @@ struct ControllerVisualView: View {
                             onTap: onButtonTap
                         )
                     }
+                    .padding(.top, 10) // Offset slightly to align center of Joystick with D-Pad center visually if needed, but primarily balancing the VStacks.
+                    // Actually, aligning D-Pad (132h) and Joystick (110h). D-Pad is taller.
+                    // If top elements are equal height (140), then bottoms start same Y.
+                    // DPad center is at Y + 66. Joystick center is at Y + 55.
+                    // So Joystick is 11px higher. To align centers, push Joystick down by 11px.
+                    // Let's add padding to Right VStack top or spacer.
                 }
                 .padding(.horizontal, 40)
                 .padding(.vertical, 20)
             }
         }
-        .frame(width: 480, height: 340)
+        .frame(width: 760, height: 540)
     }
 
     private func hasMapping(for button: ControllerButton) -> Bool {
@@ -160,12 +167,12 @@ struct JoystickView: View {
             // Outer ring (movement boundary)
             Circle()
                 .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                .frame(width: 74, height: 74)
+                .frame(width: 110, height: 110)
 
             // Inner track ring
             Circle()
                 .stroke(Color.gray.opacity(0.5), lineWidth: 2)
-                .frame(width: 70, height: 70)
+                .frame(width: 100, height: 100)
 
             // Movement trail/glow when stick is moved
             if isStickMoved {
@@ -181,13 +188,13 @@ struct JoystickView: View {
                     // Shadow/depth effect
                     Circle()
                         .fill(Color.black.opacity(0.3))
-                        .frame(width: 42, height: 42)
+                        .frame(width: 60, height: 60)
                         .offset(x: 1, y: 2)
 
                     // Main thumb
                     Circle()
                         .fill(buttonColor)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 58, height: 58)
 
                     // Highlight
                     Circle()
@@ -198,17 +205,35 @@ struct JoystickView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 40, height: 40)
+                        .frame(width: 58, height: 58)
 
                     // Label
                     Text(label)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.white)
                 }
             }
             .buttonStyle(.plain)
             .offset(x: position.x * movementRange, y: -position.y * movementRange)
             .animation(.interactiveSpring(response: 0.15, dampingFraction: 0.8), value: position)
+            
+            .animation(.interactiveSpring(response: 0.15, dampingFraction: 0.8), value: position)
+            
+            // Mapping label (below joystick)
+            if let mapping = mappingText {
+                Text(mapping)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.black.opacity(0.7))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.white, lineWidth: 1)
+                    )
+                    .cornerRadius(4)
+                    .offset(y: 60) // Position below the joystick
+            }
         }
     }
 
@@ -236,6 +261,10 @@ struct JoystickView: View {
             return .gray.opacity(0.6)
         }
     }
+    
+    private var mappingText: String? {
+        profileManager.activeProfile?.buttonMappings[button]?.displayString
+    }
 }
 
 // MARK: - D-Pad View
@@ -253,7 +282,7 @@ struct DPadView: View {
 
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
-                    .frame(width: 30, height: 30)
+                    .frame(width: 44, height: 44)
 
                 DPadButton(button: .dpadRight, label: "→", selectedButton: $selectedButton, onTap: onTap)
             }
@@ -276,7 +305,7 @@ struct DPadButton: View {
         Button(action: { onTap(button) }) {
             Rectangle()
                 .fill(buttonColor)
-                .frame(width: 30, height: 30)
+                .frame(width: 44, height: 44)
                 .overlay(
                     Rectangle()
                         .fill(
@@ -300,6 +329,39 @@ struct DPadButton: View {
                 .animation(.easeInOut(duration: 0.08), value: isPressed)
         }
         .buttonStyle(.plain)
+        .overlay(
+            // Mapping label
+            Group {
+                if let mapping = mappingText {
+                    Text(mapping)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.7))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.white, lineWidth: 1)
+                        )
+                        .cornerRadius(4)
+                        .offset(x: labelOffset.x, y: labelOffset.y)
+                }
+            }
+        )
+    }
+    
+    private var mappingText: String? {
+        profileManager.activeProfile?.buttonMappings[button]?.displayString
+    }
+    
+    private var labelOffset: CGPoint {
+        switch button {
+        case .dpadUp: return CGPoint(x: 0, y: -35)
+        case .dpadDown: return CGPoint(x: 0, y: 35)
+        case .dpadLeft: return CGPoint(x: -35, y: 0)
+        case .dpadRight: return CGPoint(x: 35, y: 0)
+        default: return .zero
+        }
     }
 
     private var isPressed: Bool {
@@ -330,16 +392,20 @@ struct FaceButtonsView: View {
     var onTap: (ControllerButton) -> Void
 
     var body: some View {
-        VStack(spacing: 5) {
+        ZStack {
             FaceButton(button: .y, label: "Y", color: .yellow, selectedButton: $selectedButton, onTap: onTap)
+                .offset(y: -40)
 
-            HStack(spacing: 30) {
-                FaceButton(button: .x, label: "X", color: .blue, selectedButton: $selectedButton, onTap: onTap)
-                FaceButton(button: .b, label: "B", color: .red, selectedButton: $selectedButton, onTap: onTap)
-            }
+            FaceButton(button: .x, label: "X", color: .blue, selectedButton: $selectedButton, onTap: onTap)
+                .offset(x: -40)
+            
+            FaceButton(button: .b, label: "B", color: .red, selectedButton: $selectedButton, onTap: onTap)
+                .offset(x: 40)
 
             FaceButton(button: .a, label: "A", color: .green, selectedButton: $selectedButton, onTap: onTap)
+                .offset(y: 40)
         }
+        .frame(width: 140, height: 140)
     }
 }
 
@@ -353,6 +419,22 @@ struct FaceButton: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
 
+
+    
+    private var mappingText: String? {
+        profileManager.activeProfile?.buttonMappings[button]?.displayString
+    }
+    
+    private var labelOffset: CGPoint {
+        switch button {
+        case .y: return CGPoint(x: 0, y: -40)
+        case .a: return CGPoint(x: 0, y: 40)
+        case .x: return CGPoint(x: -40, y: 0)
+        case .b: return CGPoint(x: 40, y: 0)
+        default: return .zero
+        }
+    }
+    
     var body: some View {
         Button(action: { onTap(button) }) {
             ZStack {
@@ -360,12 +442,12 @@ struct FaceButton: View {
                 if isPressed {
                     Circle()
                         .fill(Color.black.opacity(0.3))
-                        .frame(width: 38, height: 38)
+                        .frame(width: 56, height: 56)
                 }
 
                 Circle()
                     .fill(buttonColor)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 52, height: 52)
                     .overlay(
                         Circle()
                             .fill(
@@ -381,13 +463,33 @@ struct FaceButton: View {
                     )
                     .overlay(
                         Text(label)
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.white)
                     )
                     .shadow(color: isPressed ? color : .clear, radius: isPressed ? 8 : 0)
                     .scaleEffect(isPressed ? 0.92 : 1.0)
                     .animation(.easeInOut(duration: 0.1), value: isPressed)
             }
+            .overlay(
+                // Mapping label
+                Group {
+                    if let mapping = mappingText {
+                        Text(mapping)
+                            .fixedSize()
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.black.opacity(0.7))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(Color.white, lineWidth: 1)
+                            )
+                            .cornerRadius(4)
+                            .offset(x: labelOffset.x, y: labelOffset.y)
+                    }
+                }
+            )
         }
         .buttonStyle(.plain)
     }
@@ -427,9 +529,9 @@ struct BumperButton: View {
 
     var body: some View {
         Button(action: { onTap(button) }) {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(buttonColor)
-                .frame(width: 60, height: 25)
+                .frame(width: 95, height: 35)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .fill(
@@ -445,7 +547,7 @@ struct BumperButton: View {
                 )
                 .overlay(
                     Text(label)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)
                 )
                 .shadow(color: isPressed ? buttonColor : .clear, radius: isPressed ? 5 : 0)
@@ -453,6 +555,25 @@ struct BumperButton: View {
                 .animation(.easeInOut(duration: 0.1), value: isPressed)
         }
         .buttonStyle(.plain)
+        .overlay(
+            // Mapping label
+            Group {
+                if let mapping = mappingText {
+                    Text(mapping)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.7))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.white, lineWidth: 1)
+                        )
+                        .cornerRadius(4)
+                        .offset(y: -30)
+                }
+            }
+        )
     }
 
     private var isPressed: Bool {
@@ -474,6 +595,9 @@ struct BumperButton: View {
             return .gray.opacity(0.6)
         }
     }
+    private var mappingText: String? {
+        profileManager.activeProfile?.buttonMappings[button]?.displayString
+    }
 }
 
 struct TriggerButton: View {
@@ -487,9 +611,9 @@ struct TriggerButton: View {
 
     var body: some View {
         Button(action: { onTap(button) }) {
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(buttonColor)
-                .frame(width: 50, height: 30)
+                .frame(width: 80, height: 45)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
@@ -506,13 +630,13 @@ struct TriggerButton: View {
                 .overlay(
                     VStack(spacing: 2) {
                         Text(label)
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.white)
 
                         // Pressure indicator
                         RoundedRectangle(cornerRadius: 2)
                             .fill(Color.white.opacity(0.3))
-                            .frame(width: 40, height: 4)
+                            .frame(width: 60, height: 4)
                             .overlay(
                                 GeometryReader { geo in
                                     RoundedRectangle(cornerRadius: 2)
@@ -528,6 +652,25 @@ struct TriggerButton: View {
                 .animation(.easeInOut(duration: 0.1), value: isPressed)
         }
         .buttonStyle(.plain)
+        .overlay(
+            // Mapping label
+            Group {
+                if let mapping = mappingText {
+                    Text(mapping)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.7))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.white, lineWidth: 1)
+                        )
+                        .cornerRadius(4)
+                        .offset(y: -30)
+                }
+            }
+        )
     }
 
     private var triggerValue: Float {
@@ -564,6 +707,9 @@ struct TriggerButton: View {
             return .gray.opacity(0.6)
         }
     }
+    private var mappingText: String? {
+        profileManager.activeProfile?.buttonMappings[button]?.displayString
+    }
 }
 
 // MARK: - Special Buttons
@@ -578,19 +724,11 @@ struct SpecialButton: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
 
-    private var size: CGFloat { isXboxButton ? 30 : 24 }
+    private var size: CGFloat { isXboxButton ? 42 : 34 }
 
     var body: some View {
         Button(action: { onTap(button) }) {
             ZStack {
-                // Glow effect when pressed
-                if isPressed {
-                    Circle()
-                        .fill(buttonColor.opacity(0.4))
-                        .frame(width: size + 8, height: size + 8)
-                        .blur(radius: 4)
-                }
-
                 Circle()
                     .fill(buttonColor)
                     .frame(width: size, height: size)
@@ -609,14 +747,46 @@ struct SpecialButton: View {
                     )
                     .overlay(
                         Text(label)
-                            .font(.system(size: isXboxButton ? 14 : 10, weight: .bold))
+                            .font(.system(size: isXboxButton ? 18 : 14, weight: .bold))
                             .foregroundColor(.white)
                     )
                     .scaleEffect(isPressed ? 0.88 : 1.0)
                     .animation(.easeInOut(duration: 0.1), value: isPressed)
             }
+            .frame(width: size, height: size) // Fix frame to prevent layout shift
+            .overlay(
+                // Glow effect when pressed - overlay ignores layout
+                Group {
+                    if isPressed {
+                        Circle()
+                            .fill(buttonColor.opacity(0.4))
+                            .frame(width: size + 8, height: size + 8)
+                            .blur(radius: 4)
+                    }
+                }
+            )
         }
         .buttonStyle(.plain)
+        .overlay(
+            // Mapping label
+            Group {
+                if let mapping = mappingText {
+                    Text(mapping)
+                        .fixedSize()
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.black.opacity(0.7))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.white, lineWidth: 1)
+                        )
+                        .cornerRadius(4)
+                        .offset(y: 28)
+                }
+            }
+        )
     }
 
     private var isPressed: Bool {
@@ -639,6 +809,10 @@ struct SpecialButton: View {
         } else {
             return .gray.opacity(0.6)
         }
+    }
+    
+    private var mappingText: String? {
+        profileManager.activeProfile?.buttonMappings[button]?.displayString
     }
 }
 
