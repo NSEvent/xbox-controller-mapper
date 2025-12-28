@@ -175,8 +175,11 @@ class ControllerService: ObservableObject {
         gamepad.buttonOptions?.pressedChangedHandler = { [weak self] _, _, pressed in
             Task { @MainActor in self?.handleButton(.view, pressed: pressed) }
         }
-        gamepad.buttonHome?.pressedChangedHandler = { [weak self] _, _, pressed in
-            Task { @MainActor in self?.handleButton(.xbox, pressed: pressed) }
+        // Home button (extended gamepad controllers)
+        if let extendedGamepad = gamepad as? GCExtendedGamepad {
+            extendedGamepad.buttonHome?.pressedChangedHandler = { [weak self] _, _, pressed in
+                Task { @MainActor in self?.handleButton(.xbox, pressed: pressed) }
+            }
         }
 
         // Share button (Xbox Series controllers)
