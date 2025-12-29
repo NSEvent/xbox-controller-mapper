@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git commit:*)",
       "Bash(xcodebuild:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "WebSearch"
     ]
   }
 }

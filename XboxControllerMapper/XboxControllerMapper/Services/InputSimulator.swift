@@ -33,8 +33,8 @@ class InputSimulator: InputSimulatorProtocol {
     private var hasWarnedAboutAccessibility = false
 
     init() {
-        // .combinedSessionState is often more reliable for simulating user input that triggers system shortcuts
-        eventSource = CGEventSource(stateID: .combinedSessionState)
+        // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
+        eventSource = CGEventSource(stateID: .hidSystemState)
         if eventSource == nil {
             print("⚠️ Failed to create CGEventSource - input simulation may not work")
         }
@@ -77,7 +77,7 @@ class InputSimulator: InputSimulatorProtocol {
         func pressMod(_ key: Int, flag: CGEventFlags) {
             currentFlags.insert(flag)
             postKeyEvent(keyCode: CGKeyCode(key), keyDown: true, flags: currentFlags)
-            usleep(10000) // 10ms delay between modifiers
+            usleep(20000) // 20ms delay between modifiers
         }
 
         // Press modifier keys first (Command -> Shift -> Option -> Control)
@@ -88,24 +88,24 @@ class InputSimulator: InputSimulatorProtocol {
 
         // Small delay after modifiers
         if !modifiersToPress.isEmpty {
-            usleep(10000) // 10ms
+            usleep(20000) // 20ms
         }
 
         // Press the main key with all flags active
         postKeyEvent(keyCode: keyCode, keyDown: true, flags: currentFlags)
-        usleep(15000) // 15ms
+        usleep(50000) // 50ms press duration
         postKeyEvent(keyCode: keyCode, keyDown: false, flags: currentFlags)
 
         // Small delay before releasing modifiers
         if !modifiersToPress.isEmpty {
-            usleep(10000) // 10ms
+            usleep(20000) // 20ms
         }
 
         // Helper to release modifier
         func releaseMod(_ key: Int, flag: CGEventFlags) {
             currentFlags.remove(flag)
             postKeyEvent(keyCode: CGKeyCode(key), keyDown: false, flags: currentFlags)
-            usleep(10000) // 10ms delay between releases
+            usleep(20000) // 20ms delay between releases
         }
 
         // Release modifier keys (Control -> Option -> Shift -> Command)

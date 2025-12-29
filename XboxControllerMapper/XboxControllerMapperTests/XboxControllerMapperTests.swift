@@ -399,4 +399,81 @@ final class XboxControllerMapperTests: XCTestCase {
             XCTAssertTrue(mockInputSimulator.heldModifiers.contains([.maskCommand, .maskAlternate, .maskControl]), "Hyper modifiers should remain held")
         }
     }
+    
+    func testCommandDeleteShortcut() async throws {
+        await MainActor.run {
+            // Setup: Menu button -> Cmd + Delete
+            let mapping = KeyMapping.combo(KeyCodeMapping.delete, modifiers: .command)
+            
+            profileManager.setActiveProfile(Profile(
+                name: "DeleteTest",
+                buttonMappings: [.menu: mapping]
+            ))
+            
+            // 1. Press Menu
+            controllerService.buttonPressed(.menu)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            // 2. Release Menu
+            controllerService.buttonReleased(.menu)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            // Verify: executeMapping was called with Cmd + Delete
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event {
+                    return mapping.keyCode == KeyCodeMapping.delete && mapping.modifiers.command
+                }
+                return false
+            }, "Cmd + Delete should have been executed")
+        }
+    }
+    
+    func testHeldModifierWithDelete() async throws {
+        await MainActor.run {
+            // Setup: LB -> Hold Cmd, A -> Delete
+            profileManager.setActiveProfile(Profile(
+                name: "HeldDelete",
+                buttonMappings: [
+                    .leftBumper: .holdModifier(.command),
+                    .a: .key(KeyCodeMapping.delete)
+                ]
+            ))
+            
+            // 1. Press LB (Cmd)
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+            
+            // 2. Press A (Delete)
+            controllerService.buttonPressed(.a)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            // 3. Release A
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            // Verify: Delete was executed
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event {
+                    return mapping.keyCode == KeyCodeMapping.delete
+                }
+                return false
+            }, "Delete should have been executed")
+            
+            // Verify: Cmd was held during execution
+            // (Mock records state at startHoldMapping and executeMapping)
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+        }
+    }
 }
