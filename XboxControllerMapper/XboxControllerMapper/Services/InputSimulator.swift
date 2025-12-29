@@ -13,7 +13,8 @@ class InputSimulator {
     private var hasWarnedAboutAccessibility = false
 
     init() {
-        eventSource = CGEventSource(stateID: .hidSystemState)
+        // .combinedSessionState is often more reliable for simulating user input that triggers system shortcuts
+        eventSource = CGEventSource(stateID: .combinedSessionState)
         if eventSource == nil {
             print("⚠️ Failed to create CGEventSource - input simulation may not work")
         }
@@ -41,51 +42,57 @@ class InputSimulator {
 
         guard checkAccessibility() else { return }
 
-        // Combine explicit modifiers with any held modifiers
-        let combinedModifiers = modifiers.union(heldModifiers)
+        // We only need to simulate modifiers that aren't already held
+        let modifiersToPress = modifiers.subtracting(heldModifiers)
+        
+        // Start with currently held flags
+        var currentFlags = heldModifiers
 
         #if DEBUG
-        print("🎮 Pressing key: \(keyCode) (\(KeyCodeMapping.displayName(for: keyCode))) with modifiers: \(combinedModifiers.rawValue)")
+        print("🎮 Pressing key: \(keyCode) with modifiers: \(modifiers.rawValue) (Simulating: \(modifiersToPress.rawValue))")
+        print("   Current held modifiers: \(heldModifiers.rawValue)")
         #endif
 
-        // Press modifier keys first (like a real keyboard)
-        if combinedModifiers.contains(.maskCommand) {
-            postKeyEvent(keyCode: CGKeyCode(kVK_Command), keyDown: true)
+        // Helper to press modifier
+        func pressMod(_ key: Int, flag: CGEventFlags) {
+            currentFlags.insert(flag)
+            postKeyEvent(keyCode: CGKeyCode(key), keyDown: true, flags: currentFlags)
+            usleep(10000) // 10ms delay between modifiers
         }
-        if combinedModifiers.contains(.maskShift) {
-            postKeyEvent(keyCode: CGKeyCode(kVK_Shift), keyDown: true)
-        }
-        if combinedModifiers.contains(.maskAlternate) {
-            postKeyEvent(keyCode: CGKeyCode(kVK_Option), keyDown: true)
-        }
-        if combinedModifiers.contains(.maskControl) {
-            postKeyEvent(keyCode: CGKeyCode(kVK_Control), keyDown: true)
-        }
+
+        // Press modifier keys first (Command -> Shift -> Option -> Control)
+        if modifiersToPress.contains(.maskCommand) { pressMod(kVK_Command, flag: .maskCommand) }
+        if modifiersToPress.contains(.maskShift)   { pressMod(kVK_Shift,   flag: .maskShift) }
+        if modifiersToPress.contains(.maskAlternate){ pressMod(kVK_Option,  flag: .maskAlternate) }
+        if modifiersToPress.contains(.maskControl) { pressMod(kVK_Control, flag: .maskControl) }
 
         // Small delay after modifiers
-        usleep(5000) // 5ms
+        if !modifiersToPress.isEmpty {
+            usleep(10000) // 10ms
+        }
 
-        // Press the main key
-        postKeyEvent(keyCode: keyCode, keyDown: true, flags: combinedModifiers)
-        usleep(10000) // 10ms
-        postKeyEvent(keyCode: keyCode, keyDown: false, flags: combinedModifiers)
+        // Press the main key with all flags active
+        postKeyEvent(keyCode: keyCode, keyDown: true, flags: currentFlags)
+        usleep(15000) // 15ms
+        postKeyEvent(keyCode: keyCode, keyDown: false, flags: currentFlags)
 
         // Small delay before releasing modifiers
-        usleep(5000) // 5ms
+        if !modifiersToPress.isEmpty {
+            usleep(10000) // 10ms
+        }
 
-        // Release modifier keys
-        if combinedModifiers.contains(.maskControl) {
-            postKeyEvent(keyCode: CGKeyCode(kVK_Control), keyDown: false)
+        // Helper to release modifier
+        func releaseMod(_ key: Int, flag: CGEventFlags) {
+            currentFlags.remove(flag)
+            postKeyEvent(keyCode: CGKeyCode(key), keyDown: false, flags: currentFlags)
+            usleep(10000) // 10ms delay between releases
         }
-        if combinedModifiers.contains(.maskAlternate) {
-            postKeyEvent(keyCode: CGKeyCode(kVK_Option), keyDown: false)
-        }
-        if combinedModifiers.contains(.maskShift) {
-            postKeyEvent(keyCode: CGKeyCode(kVK_Shift), keyDown: false)
-        }
-        if combinedModifiers.contains(.maskCommand) {
-            postKeyEvent(keyCode: CGKeyCode(kVK_Command), keyDown: false)
-        }
+
+        // Release modifier keys (Control -> Option -> Shift -> Command)
+        if modifiersToPress.contains(.maskControl) { releaseMod(kVK_Control, flag: .maskControl) }
+        if modifiersToPress.contains(.maskAlternate){ releaseMod(kVK_Option,  flag: .maskAlternate) }
+        if modifiersToPress.contains(.maskShift)   { releaseMod(kVK_Shift,   flag: .maskShift) }
+        if modifiersToPress.contains(.maskCommand) { releaseMod(kVK_Command, flag: .maskCommand) }
 
         #if DEBUG
         print("  ✅ Key sequence completed")
@@ -94,8 +101,8 @@ class InputSimulator {
 
     /// Posts a single key event
     private func postKeyEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags = []) {
-        // Use nil source for maximum compatibility
-        guard let event = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: keyDown) else {
+        // Use the configured source
+        guard let event = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: keyDown) else {
             #if DEBUG
             print("  ❌ Failed to create event for keyCode \(keyCode)")
             #endif
