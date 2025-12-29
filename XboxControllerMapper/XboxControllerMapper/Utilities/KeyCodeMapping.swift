@@ -84,6 +84,20 @@ enum KeyCodeMapping {
     static let keyY: CGKeyCode = CGKeyCode(kVK_ANSI_Y)
     static let keyZ: CGKeyCode = CGKeyCode(kVK_ANSI_Z)
 
+    // MARK: - Symbol Keys
+
+    static let leftBracket: CGKeyCode = CGKeyCode(kVK_ANSI_LeftBracket)
+    static let rightBracket: CGKeyCode = CGKeyCode(kVK_ANSI_RightBracket)
+    static let semicolon: CGKeyCode = CGKeyCode(kVK_ANSI_Semicolon)
+    static let quote: CGKeyCode = CGKeyCode(kVK_ANSI_Quote)
+    static let comma: CGKeyCode = CGKeyCode(kVK_ANSI_Comma)
+    static let period: CGKeyCode = CGKeyCode(kVK_ANSI_Period)
+    static let slash: CGKeyCode = CGKeyCode(kVK_ANSI_Slash)
+    static let backslash: CGKeyCode = CGKeyCode(kVK_ANSI_Backslash)
+    static let minus: CGKeyCode = CGKeyCode(kVK_ANSI_Minus)
+    static let equal: CGKeyCode = CGKeyCode(kVK_ANSI_Equal)
+    static let grave: CGKeyCode = CGKeyCode(kVK_ANSI_Grave)
+
     // MARK: - Other Keys
 
     static let home: CGKeyCode = CGKeyCode(kVK_Home)
@@ -180,6 +194,25 @@ enum KeyCodeMapping {
         case kVK_ANSI_Y: return "Y"
         case kVK_ANSI_Z: return "Z"
 
+        // Symbols
+        case kVK_ANSI_LeftBracket: return "["
+        case kVK_ANSI_RightBracket: return "]"
+        case kVK_ANSI_Semicolon: return ";"
+        case kVK_ANSI_Quote: return "'"
+        case kVK_ANSI_Comma: return ","
+        case kVK_ANSI_Period: return "."
+        case kVK_ANSI_Slash: return "/"
+        case kVK_ANSI_Backslash: return "\\"
+        case kVK_ANSI_Minus: return "-"
+        case kVK_ANSI_Equal: return "="
+        case kVK_ANSI_Grave: return "`"
+
+        // Modifiers
+        case kVK_Command: return "Command"
+        case kVK_Shift: return "Shift"
+        case kVK_Option: return "Option"
+        case kVK_Control: return "Control"
+
         // Navigation
         case kVK_Home: return "Home"
         case kVK_End: return "End"
@@ -246,6 +279,19 @@ enum KeyCodeMapping {
         for i in 0...9 {
             options.append(("\(i)", numberCodes[i]))
         }
+
+        // Symbols
+        options.append(("[", leftBracket))
+        options.append(("]", rightBracket))
+        options.append((";", semicolon))
+        options.append(("'", quote))
+        options.append((",", comma))
+        options.append((".", period))
+        options.append(("/", slash))
+        options.append(("\\", backslash))
+        options.append(("-", minus))
+        options.append(("=", equal))
+        options.append(("`", grave))
 
         // Mouse buttons
         options.append(("Left Click", mouseLeftClick))
