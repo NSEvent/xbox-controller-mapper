@@ -153,13 +153,6 @@ class KeyCaptureNSView: NSView {
                 return nil  // Consume the event
             }
 
-            // Handle Escape to cancel
-            if event.type == .keyDown && event.keyCode == kVK_Escape {
-                self.stopCapturing()
-                self.onEscape?()
-                return nil
-            }
-
             let modifierOnlyKeys: Set<Int> = [
                 kVK_Command, kVK_Shift, kVK_Option, kVK_Control,
                 kVK_RightCommand, kVK_RightShift, kVK_RightOption, kVK_RightControl
