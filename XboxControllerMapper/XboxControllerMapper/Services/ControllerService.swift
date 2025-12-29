@@ -221,6 +221,9 @@ class ControllerService: ObservableObject {
     }
 
     private func handleButton(_ button: ControllerButton, pressed: Bool) {
+        #if DEBUG
+        print("🎮 handleButton: \(button.displayName) pressed=\(pressed)")
+        #endif
         if pressed {
             buttonPressed(button)
         } else {
