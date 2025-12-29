@@ -89,9 +89,17 @@ struct ButtonMappingSheet: View {
                     .font(.headline)
 
                 if let currentMapping = mapping {
-                    Text("Current: \(currentMapping.displayString)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 4) {
+                        Text("Current:")
+                        MappingLabelView(
+                            mapping: currentMapping,
+                            font: .caption,
+                            foregroundColor: .secondary,
+                            horizontal: true
+                        )
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
                 } else {
                     Text("No mapping configured")
                         .font(.caption)
@@ -563,9 +571,12 @@ struct AppOverrideRow: View {
 
             Spacer()
 
-            Text(mapping.displayString)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            MappingLabelView(
+                mapping: mapping,
+                font: .caption,
+                foregroundColor: .secondary,
+                horizontal: true
+            )
 
             Button(action: onRemove) {
                 Image(systemName: "minus.circle.fill")

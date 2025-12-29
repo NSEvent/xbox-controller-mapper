@@ -220,11 +220,8 @@ struct JoystickView: View {
             .animation(.interactiveSpring(response: 0.15, dampingFraction: 0.8), value: position)
             
             // Mapping label (below joystick)
-            if let mapping = mappingText {
-                Text(mapping)
-                    .multilineTextAlignment(.center)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white)
+            if let mapping = mapping {
+                MappingLabelView(mapping: mapping)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(Color.black.opacity(0.7))
@@ -261,8 +258,8 @@ struct JoystickView: View {
         }
     }
     
-    private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
+    private var mapping: KeyMapping? {
+        profileManager.activeProfile?.buttonMappings[button]
     }
 }
 
@@ -331,11 +328,8 @@ struct DPadButton: View {
         .overlay(
             // Mapping label
             Group {
-                if let mapping = mappingText {
-                    Text(mapping)
-                        .multilineTextAlignment(.center)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                if let mapping = mapping {
+                    MappingLabelView(mapping: mapping)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
                         .background(Color.black.opacity(0.7))
@@ -350,8 +344,8 @@ struct DPadButton: View {
         )
     }
     
-    private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
+    private var mapping: KeyMapping? {
+        profileManager.activeProfile?.buttonMappings[button]
     }
     
     private var labelOffset: CGPoint {
@@ -417,10 +411,8 @@ struct FaceButton: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
 
-
-    
-    private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
+    private var mapping: KeyMapping? {
+        profileManager.activeProfile?.buttonMappings[button]
     }
     
     private var labelOffset: CGPoint {
@@ -471,12 +463,9 @@ struct FaceButton: View {
             .overlay(
                 // Mapping label
                 Group {
-                    if let mapping = mappingText {
-                        Text(mapping)
-                            .multilineTextAlignment(.center)
+                    if let mapping = mapping {
+                        MappingLabelView(mapping: mapping)
                             .fixedSize()
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(Color.black.opacity(0.7))
@@ -555,11 +544,8 @@ struct BumperButton: View {
         .overlay(
             // Mapping label
             Group {
-                if let mapping = mappingText {
-                    Text(mapping)
-                        .multilineTextAlignment(.center)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                if let mapping = mapping {
+                    MappingLabelView(mapping: mapping)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
                         .background(Color.black.opacity(0.7))
@@ -591,8 +577,8 @@ struct BumperButton: View {
             return .gray.opacity(0.6)
         }
     }
-    private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
+    private var mapping: KeyMapping? {
+        profileManager.activeProfile?.buttonMappings[button]
     }
 }
 
@@ -651,11 +637,8 @@ struct TriggerButton: View {
         .overlay(
             // Mapping label
             Group {
-                if let mapping = mappingText {
-                    Text(mapping)
-                        .multilineTextAlignment(.center)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                if let mapping = mapping {
+                    MappingLabelView(mapping: mapping)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
                         .background(Color.black.opacity(0.7))
@@ -702,8 +685,8 @@ struct TriggerButton: View {
             return .gray.opacity(0.6)
         }
     }
-    private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
+    private var mapping: KeyMapping? {
+        profileManager.activeProfile?.buttonMappings[button]
     }
 }
 
@@ -765,12 +748,9 @@ struct SpecialButton: View {
         .overlay(
             // Mapping label
             Group {
-                if let mapping = mappingText {
-                    Text(mapping)
-                        .multilineTextAlignment(.center)
+                if let mapping = mapping {
+                    MappingLabelView(mapping: mapping)
                         .fixedSize()
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
                         .background(Color.black.opacity(0.7))
@@ -805,8 +785,8 @@ struct SpecialButton: View {
         }
     }
     
-    private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
+    private var mapping: KeyMapping? {
+        profileManager.activeProfile?.buttonMappings[button]
     }
 }
 
