@@ -25,6 +25,12 @@ struct ButtonMappingSheet: View {
     @State private var doubleTapModifiers = ModifierFlags()
     @State private var doubleTapThreshold: Double = 0.3
 
+    // Track if user manually overrode the hold setting
+    @State private var userHasInteractedWithHold = false
+    
+    // Prevent auto-logic from running during initial load
+    @State private var isLoading = true
+
     // App override state
     @State private var showingAppPicker = false
     @State private var appOverrides: [(bundleId: String, mapping: KeyMapping)] = []
@@ -67,6 +73,10 @@ struct ButtonMappingSheet: View {
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForDoubleTap)
         .onAppear {
             loadCurrentMapping()
+            // Allow state updates to settle before enabling auto-logic
+            DispatchQueue.main.async {
+                isLoading = false
+            }
         }
     }
 
@@ -155,28 +165,28 @@ struct ButtonMappingSheet: View {
                         .foregroundColor(.secondary)
                 }
 
-                // Only show hold modifier option for modifier-only mappings or mouse clicks
-                if keyCode == nil && modifiers.hasAny {
+                // Show hold option if any mapping is configured
+                if keyCode != nil || modifiers.hasAny {
                     Divider()
 
-                    Toggle("Hold modifier while button is held", isOn: $isHoldModifier)
-                        .font(.caption)
+                    Toggle("Hold action while button is held", isOn: Binding(
+                        get: { isHoldModifier },
+                        set: { newValue in
+                            isHoldModifier = newValue
+                            userHasInteractedWithHold = true
+                        }
+                    ))
+                    .font(.caption)
 
-                    Text("When enabled, the modifier stays pressed while the button is held")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } else if let code = keyCode, KeyCodeMapping.isMouseButton(code) {
-                    Divider()
-
-                    Toggle("Hold click while button is held", isOn: $isHoldModifier)
-                        .font(.caption)
-
-                    Text("When enabled, the mouse button stays pressed for dragging")
+                    Text(holdDescription)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
             .onChange(of: keyCode) { _, newValue in
+                guard !isLoading else { return }
+                guard !userHasInteractedWithHold else { return }
+                
                 if let code = newValue {
                     if KeyCodeMapping.isMouseButton(code) {
                         // Auto-enable hold for mouse clicks (useful for dragging)
@@ -187,6 +197,15 @@ struct ButtonMappingSheet: View {
                     }
                 } else if modifiers.hasAny {
                     // Auto-enable hold modifier for modifier-only mappings
+                    isHoldModifier = true
+                }
+            }
+            .onChange(of: modifiers) { _, newValue in
+                guard !isLoading else { return }
+                guard !userHasInteractedWithHold else { return }
+
+                if keyCode == nil && newValue.hasAny {
+                    // Auto-enable hold for modifier-only mappings
                     isHoldModifier = true
                 }
             }
@@ -206,6 +225,16 @@ struct ButtonMappingSheet: View {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
         }
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
+    }
+
+    private var holdDescription: String {
+        if let code = keyCode, KeyCodeMapping.isMouseButton(code) {
+            return "When enabled, the mouse button stays pressed for dragging"
+        } else if keyCode == nil && modifiers.hasAny {
+            return "When enabled, the modifier stays pressed while the button is held"
+        } else {
+            return "When enabled, the key action stays active while the button is held"
+        }
     }
 
     // MARK: - Long Hold Section
