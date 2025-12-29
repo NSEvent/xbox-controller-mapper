@@ -151,16 +151,13 @@ final class XboxControllerMapperTests: XCTestCase {
             let aMapping = KeyMapping(keyCode: 1)
             profileManager.setActiveProfile(Profile(name: "Test", buttonMappings: [.leftBumper: lbMapping, .a: aMapping]))
             
-            // Trigger chord directly
-            controllerService.onChordDetected?([.leftBumper, .a])
+            controllerService.buttonPressed(.leftBumper)
+            controllerService.buttonPressed(.a)
         }
-        await waitForTasks(0.2) // Longer wait for chord processing
+        await waitForTasks(0.3)
         
         await MainActor.run {
-            print("🛠️ Events after chord fallback: \(mockInputSimulator.events)")
-            print("🛠️ heldModifiers after chord fallback: \(mockInputSimulator.heldModifiers.rawValue)")
-            // Should have fallback to individual buttons. LB should be holding Cmd.
-            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "LB should be held after fallback. Events: \(mockInputSimulator.events)")
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "LB should be held after fallback")
             controllerService.buttonReleased(.a)
         }
         await waitForTasks()
@@ -181,31 +178,31 @@ final class XboxControllerMapperTests: XCTestCase {
             aMapping.doubleTapMapping = doubleTap
             profileManager.setActiveProfile(Profile(name: "DT", buttonMappings: [.leftBumper: lbMapping, .a: aMapping]))
             
-            controllerService.buttonPressed(.leftBumper)
+            controllerService.onButtonPressed?(.leftBumper)
         }
         await waitForTasks()
         
         await MainActor.run {
-            controllerService.buttonPressed(.a)
-            controllerService.buttonReleased(.a)
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.05)
         }
-        await waitForTasks(0.1) // Wait less than threshold
+        await waitForTasks(0.1)
         
         await MainActor.run {
-            controllerService.buttonPressed(.a)
-            controllerService.buttonReleased(.a)
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.05)
         }
-        await waitForTasks(0.3) // Wait for double tap to finish
+        await waitForTasks(0.3)
         
         await MainActor.run {
             XCTAssertFalse(mockInputSimulator.events.contains { event in
                 if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
                 return false
-            })
+            }, "Single tap should be cancelled")
             XCTAssertTrue(mockInputSimulator.events.contains { event in
                 if case .pressKey(let code, _) = event { return code == 2 }
                 return false
-            })
+            }, "Double tap should execute")
         }
     }
     
@@ -231,8 +228,8 @@ final class XboxControllerMapperTests: XCTestCase {
             profile.appOverrides["com.test.app"] = [.a: .key(2)]
             profileManager.setActiveProfile(profile)
             appMonitor.frontmostBundleId = "com.test.app"
-            controllerService.buttonPressed(.a)
-            controllerService.buttonReleased(.a)
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.1)
         }
         await waitForTasks()
         
@@ -292,7 +289,7 @@ final class XboxControllerMapperTests: XCTestCase {
     func testEngineDisablingReleasesModifiers() async throws {
         await MainActor.run {
             profileManager.setActiveProfile(Profile(name: "T", buttonMappings: [.leftBumper: .holdModifier(.command)]))
-            controllerService.buttonPressed(.leftBumper)
+            controllerService.onButtonPressed?(.leftBumper)
         }
         await waitForTasks()
         
