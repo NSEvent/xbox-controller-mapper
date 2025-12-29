@@ -155,10 +155,26 @@ struct ButtonMappingSheet: View {
                         .foregroundColor(.secondary)
                 }
 
-                Divider()
+                // Only show hold modifier option for modifier-only mappings
+                if keyCode == nil && modifiers.hasAny {
+                    Divider()
 
-                Toggle("Hold modifier while button is held", isOn: $isHoldModifier)
-                    .font(.caption)
+                    Toggle("Hold modifier while button is held", isOn: $isHoldModifier)
+                        .font(.caption)
+
+                    Text("When enabled, the modifier stays pressed while the button is held")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .onChange(of: keyCode) { _, newValue in
+                if newValue != nil {
+                    // Auto-disable hold modifier when a key is selected
+                    isHoldModifier = false
+                } else if modifiers.hasAny {
+                    // Auto-enable hold modifier for modifier-only mappings
+                    isHoldModifier = true
+                }
             }
             .padding(12)
             .background(Color(nsColor: .controlBackgroundColor))
