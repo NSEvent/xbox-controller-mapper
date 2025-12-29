@@ -83,6 +83,7 @@ struct KeyCaptureOverlay: NSViewRepresentable {
     func makeNSView(context: Context) -> KeyCaptureNSView {
         let view = KeyCaptureNSView()
         view.onKeyCapture = { code, mods in
+            // code is nil for modifier-only shortcuts
             self.keyCode = code
             self.modifiers = mods
             self.isCapturing = false
@@ -106,63 +107,95 @@ struct KeyCaptureOverlay: NSViewRepresentable {
 }
 
 class KeyCaptureNSView: NSView {
-    var onKeyCapture: ((CGKeyCode, ModifierFlags) -> Void)?
+    var onKeyCapture: ((CGKeyCode?, ModifierFlags) -> Void)?
     var onEscape: (() -> Void)?
-    
+
     private var localMonitor: Any?
+    private var currentModifiers = ModifierFlags()
+    private var peakModifiers = ModifierFlags()  // Tracks the maximum set of modifiers held
+    private var hasNonModifierKey = false
 
     override var acceptsFirstResponder: Bool { true }
 
-    // No longer using performKeyEquivalent or keyDown directly for capture
-    // because addLocalMonitorForEvents is more robust for intercepting system shortcuts
-    
     func startCapturing() {
         guard localMonitor == nil else { return }
-        
+
+        // Reset state
+        currentModifiers = ModifierFlags()
+        peakModifiers = ModifierFlags()
+        hasNonModifierKey = false
+
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
             guard let self = self else { return event }
-            
+
             // Handle Escape to cancel
-            if event.keyCode == kVK_Escape {
+            if event.type == .keyDown && event.keyCode == kVK_Escape {
                 self.stopCapturing()
                 self.onEscape?()
-                return nil // Consume event
+                return nil
             }
-            
-            // Skip modifier-only key presses (unless we want to support them later)
-            // But we still consume them to prevent system actions if needed? 
-            // The original logic skipped processing but didn't necessarily consume.
-            // Let's stick to original logic: if strictly modifier, return nil to consume but don't finish capture.
+
             let modifierOnlyKeys: Set<Int> = [
                 kVK_Command, kVK_Shift, kVK_Option, kVK_Control,
                 kVK_RightCommand, kVK_RightShift, kVK_RightOption, kVK_RightControl
             ]
-            
-            if modifierOnlyKeys.contains(Int(event.keyCode)) {
-                // We consume it so it doesn't trigger anything else, but we don't 'capture' it as a mapping yet
+
+            if event.type == .flagsChanged {
+                // Track current modifier state
+                var mods = ModifierFlags()
+                if event.modifierFlags.contains(.command) { mods.command = true }
+                if event.modifierFlags.contains(.option) { mods.option = true }
+                if event.modifierFlags.contains(.shift) { mods.shift = true }
+                if event.modifierFlags.contains(.control) { mods.control = true }
+
+                self.currentModifiers = mods
+
+                // Track the peak (maximum) modifiers held during this capture session
+                // This ensures Command+Shift captures both even if released one at a time
+                if mods.command { self.peakModifiers.command = true }
+                if mods.option { self.peakModifiers.option = true }
+                if mods.shift { self.peakModifiers.shift = true }
+                if mods.control { self.peakModifiers.control = true }
+
+                // If all modifiers are now released and no regular key was pressed,
+                // capture the peak modifiers as a modifier-only shortcut
+                if !mods.hasAny && self.peakModifiers.hasAny && !self.hasNonModifierKey {
+                    self.onKeyCapture?(nil, self.peakModifiers)
+                    self.stopCapturing()
+                }
+
+                return nil // Consume modifier events
+            }
+
+            // Regular key press (keyDown)
+            if event.type == .keyDown {
+                // Skip if it's a modifier key being reported as keyDown (shouldn't happen, but safety check)
+                if modifierOnlyKeys.contains(Int(event.keyCode)) {
+                    return nil
+                }
+
+                self.hasNonModifierKey = true
+
+                // Capture the key with current modifiers
+                self.onKeyCapture?(CGKeyCode(event.keyCode), self.currentModifiers)
+                self.stopCapturing()
                 return nil
             }
-            
-            // Capture the key with modifiers
-            var mods = ModifierFlags()
-            if event.modifierFlags.contains(.command) { mods.command = true }
-            if event.modifierFlags.contains(.option) { mods.option = true }
-            if event.modifierFlags.contains(.shift) { mods.shift = true }
-            if event.modifierFlags.contains(.control) { mods.control = true }
-            
-            self.onKeyCapture?(CGKeyCode(event.keyCode), mods)
-            self.stopCapturing()
-            return nil // Consume the event so it doesn't close window or beep
+
+            return event
         }
     }
-    
+
     func stopCapturing() {
         if let monitor = localMonitor {
             NSEvent.removeMonitor(monitor)
             localMonitor = nil
         }
+        currentModifiers = ModifierFlags()
+        peakModifiers = ModifierFlags()
+        hasNonModifierKey = false
     }
-    
+
     deinit {
         stopCapturing()
     }
