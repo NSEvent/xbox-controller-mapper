@@ -155,7 +155,7 @@ struct ButtonMappingSheet: View {
                         .foregroundColor(.secondary)
                 }
 
-                // Only show hold modifier option for modifier-only mappings
+                // Only show hold modifier option for modifier-only mappings or mouse clicks
                 if keyCode == nil && modifiers.hasAny {
                     Divider()
 
@@ -165,12 +165,26 @@ struct ButtonMappingSheet: View {
                     Text("When enabled, the modifier stays pressed while the button is held")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                } else if let code = keyCode, KeyCodeMapping.isMouseButton(code) {
+                    Divider()
+
+                    Toggle("Hold click while button is held", isOn: $isHoldModifier)
+                        .font(.caption)
+
+                    Text("When enabled, the mouse button stays pressed for dragging")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             .onChange(of: keyCode) { _, newValue in
-                if newValue != nil {
-                    // Auto-disable hold modifier when a key is selected
-                    isHoldModifier = false
+                if let code = newValue {
+                    if KeyCodeMapping.isMouseButton(code) {
+                        // Auto-enable hold for mouse clicks (useful for dragging)
+                        isHoldModifier = true
+                    } else {
+                        // Auto-disable hold modifier for regular keys
+                        isHoldModifier = false
+                    }
                 } else if modifiers.hasAny {
                     // Auto-enable hold modifier for modifier-only mappings
                     isHoldModifier = true
