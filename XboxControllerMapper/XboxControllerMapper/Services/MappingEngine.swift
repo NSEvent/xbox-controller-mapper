@@ -9,7 +9,7 @@ class MappingEngine: ObservableObject {
     private let controllerService: ControllerService
     private let profileManager: ProfileManager
     private let appMonitor: AppMonitor
-    private let inputSimulator = InputSimulator()
+    private let inputSimulator: InputSimulatorProtocol
 
     /// Tracks which buttons are currently being held (for hold-type mappings)
     private var heldButtons: [ControllerButton: KeyMapping] = [:]
@@ -35,10 +35,11 @@ class MappingEngine: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor) {
+    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor, inputSimulator: InputSimulatorProtocol = InputSimulator()) {
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
+        self.inputSimulator = inputSimulator
 
         setupBindings()
     }
@@ -271,6 +272,21 @@ class MappingEngine: ObservableObject {
 
         guard let chord = matchingChord else {
             // No chord match - process buttons individually
+            // We sort them so that modifiers (hold mappings) are processed first,
+            // allowing them to modify subsequent key presses in the same "chord" event.
+            let sortedButtons = buttons.sorted { button1, button2 in
+                let map1 = profile.effectiveMapping(for: button1, appBundleId: appMonitor.frontmostBundleId)
+                let map2 = profile.effectiveMapping(for: button2, appBundleId: appMonitor.frontmostBundleId)
+                
+                let isMod1 = map1?.isHoldModifier ?? false
+                let isMod2 = map2?.isHoldModifier ?? false
+                
+                return isMod1 && !isMod2
+            }
+            
+            for button in sortedButtons {
+                handleButtonPressed(button)
+            }
             return
         }
 

@@ -2,8 +2,20 @@ import Foundation
 import CoreGraphics
 import AppKit
 
+protocol InputSimulatorProtocol {
+    func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
+    func holdModifier(_ modifier: CGEventFlags)
+    func releaseModifier(_ modifier: CGEventFlags)
+    func releaseAllModifiers()
+    func moveMouse(dx: CGFloat, dy: CGFloat)
+    func scroll(dx: CGFloat, dy: CGFloat)
+    func executeMapping(_ mapping: KeyMapping)
+    func startHoldMapping(_ mapping: KeyMapping)
+    func stopHoldMapping(_ mapping: KeyMapping)
+}
+
 /// Service for simulating keyboard and mouse input via CGEvent
-class InputSimulator {
+class InputSimulator: InputSimulatorProtocol {
     private let eventSource: CGEventSource?
 
     /// Currently held modifier flags (for hold-type mappings)
