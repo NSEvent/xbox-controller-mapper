@@ -349,4 +349,54 @@ final class XboxControllerMapperTests: XCTestCase {
             }, "Quick tap should not be lost")
         }
     }
+    
+    func testHyperKeyWithArrow() async throws {
+        await MainActor.run {
+            // Setup: LB -> Hold Cmd + Opt + Ctrl (Hyper Key)
+            let hyperMapping = KeyMapping.holdModifier(ModifierFlags(command: true, option: true, control: true))
+            
+            // Setup: DpadUp -> Up Arrow
+            let upMapping = KeyMapping.key(KeyCodeMapping.upArrow)
+            
+            profileManager.setActiveProfile(Profile(
+                name: "Hyper",
+                buttonMappings: [
+                    .leftBumper: hyperMapping,
+                    .dpadUp: upMapping
+                ]
+            ))
+            
+            // 1. Press LB (Hyper)
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            // Verify Hyper modifiers are held
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains([.maskCommand, .maskAlternate, .maskControl]))
+            
+            // 2. Press DpadUp
+            controllerService.buttonPressed(.dpadUp)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            // 3. Release DpadUp (Trigger)
+            controllerService.buttonReleased(.dpadUp)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            // Verify: Up Arrow was executed
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event {
+                    return mapping.keyCode == KeyCodeMapping.upArrow
+                }
+                return false
+            }, "Up Arrow should have been executed")
+            
+            // Verify: Modifiers were still held at the end of the sequence
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains([.maskCommand, .maskAlternate, .maskControl]), "Hyper modifiers should remain held")
+        }
+    }
 }
