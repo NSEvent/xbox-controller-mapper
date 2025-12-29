@@ -93,9 +93,9 @@ struct ButtonMappingSheet: View {
                         Text("Current:")
                         MappingLabelView(
                             mapping: currentMapping,
+                            horizontal: true,
                             font: .caption,
-                            foregroundColor: .secondary,
-                            horizontal: true
+                            foregroundColor: .secondary
                         )
                     }
                     .font(.caption)
@@ -573,9 +573,9 @@ struct AppOverrideRow: View {
 
             MappingLabelView(
                 mapping: mapping,
+                horizontal: true,
                 font: .caption,
-                foregroundColor: .secondary,
-                horizontal: true
+                foregroundColor: .secondary
             )
 
             Button(action: onRemove) {

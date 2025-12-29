@@ -34,20 +34,27 @@ struct ControllerVisualView: View {
 
                     // Compact Controller Overlay (Just icons, no labels)
                     VStack(spacing: 15) {
-                        HStack(spacing: 120) {
-                            miniButton(.leftTrigger, label: "LT")
-                            miniButton(.rightTrigger, label: "RT")
+                        HStack(spacing: 140) {
+                            miniTrigger(.leftTrigger, label: "LT")
+                            miniTrigger(.rightTrigger, label: "RT")
                         }
+                        
+                        HStack(spacing: 120) {
+                            miniBumper(.leftBumper, label: "LB")
+                            miniBumper(.rightBumper, label: "RB")
+                        }
+                        .offset(y: -5) // Tweak vertical position to sit nicely under triggers
                         
                         HStack(spacing: 40) {
                             miniStick(.leftThumbstick, pos: controllerService.leftStick)
                             
-                            VStack(spacing: 8) {
-                                miniCircle(.xbox, size: 24)
-                                HStack(spacing: 15) {
-                                    miniCircle(.view, size: 18)
-                                    miniCircle(.menu, size: 18)
+                            VStack(spacing: 6) {
+                                miniCircle(.xbox, size: 22)
+                                HStack(spacing: 12) {
+                                    miniCircle(.view, size: 14)
+                                    miniCircle(.menu, size: 14)
                                 }
+                                miniCircle(.share, size: 10)
                             }
                             
                             miniFaceButtons()
@@ -110,21 +117,16 @@ struct ControllerVisualView: View {
     @ViewBuilder
     private func referenceRow(for button: ControllerButton) -> some View {
         Button(action: { onButtonTap(button) }) {
-            HStack(spacing: 10) {
-                // Button Indicator
-                ZStack {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(isPressed(button) ? Color.accentColor : Color(white: 0.2))
-                        .frame(width: 32, height: 24)
-                    
-                    Text(button.shortLabel)
-                        .font(.system(size: 10, weight: .black))
-                        .foregroundColor(.white)
-                }
+            HStack(spacing: 12) {
+                // Button Indicator (Authentic Xbox Styling)
+                ButtonIconView(button: button, isPressed: isPressed(button))
 
                 // Shortcut Labels
                 if let mapping = mapping(for: button) {
-                    MappingLabelView(mapping: mapping)
+                    MappingLabelView(
+                        mapping: mapping,
+                        font: .system(size: 15, weight: .semibold, design: .rounded)
+                    )
                 } else {
                     Text("Unmapped")
                         .font(.system(size: 12))
@@ -134,13 +136,14 @@ struct ControllerVisualView: View {
                 
                 Spacer()
             }
-            .padding(8)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
             .background(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: 8)
                     .fill(selectedButton == button ? Color.accentColor.opacity(0.1) : Color.clear)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: 8)
                     .stroke(selectedButton == button ? Color.accentColor : Color.clear, lineWidth: 1)
             )
         }
@@ -149,11 +152,27 @@ struct ControllerVisualView: View {
 
     // MARK: - Mini Controller Helpers
 
-    private func miniButton(_ button: ControllerButton, label: String) -> some View {
+    private func miniTrigger(_ button: ControllerButton, label: String) -> some View {
+        RoundedRectangle(cornerRadius: 3)
+            .fill(isPressed(button) ? Color.accentColor : Color.gray.opacity(0.4))
+            .frame(width: 34, height: 14)
+            .overlay(
+                Text(label)
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundColor(.white)
+            )
+            .shadow(color: .black.opacity(0.1), radius: 1)
+    }
+
+    private func miniBumper(_ button: ControllerButton, label: String) -> some View {
         RoundedRectangle(cornerRadius: 2)
             .fill(isPressed(button) ? Color.accentColor : Color.gray.opacity(0.3))
-            .frame(width: 30, height: 10)
-            .overlay(Text(label).font(.system(size: 6)).foregroundColor(.white))
+            .frame(width: 34, height: 10)
+            .overlay(
+                Text(label)
+                    .font(.system(size: 6, weight: .bold))
+                    .foregroundColor(.white)
+            )
     }
 
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
@@ -200,7 +219,7 @@ struct ControllerVisualView: View {
     }
 }
 
-// MARK: - Controller Body Shape (Reused)
+// MARK: - Controller Body Shape
 
 struct ControllerBodyShape: Shape {
     func path(in rect: CGRect) -> Path {
@@ -216,6 +235,103 @@ struct ControllerBodyShape: Shape {
         path.addQuadCurve(to: CGPoint(x: width * 0.2, y: height * 0.15), control: CGPoint(x: width * 0.02, y: height * 0.2))
         path.closeSubpath()
         return path
+    }
+}
+
+// MARK: - Shared Components
+
+struct MappingTag: View {
+    let mapping: KeyMapping
+    
+    var body: some View {
+        MappingLabelView(
+            mapping: mapping,
+            font: .system(size: 13, weight: .semibold),
+            foregroundColor: .primary
+        )
+        .fixedSize()
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.regularMaterial)
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
+    }
+}
+
+/// Authentic Xbox-style button icon
+struct ButtonIconView: View {
+    let button: ControllerButton
+    let isPressed: Bool
+    
+    var body: some View {
+        ZStack {
+            if isCircle {
+                Circle()
+                    .fill(backgroundColor)
+                    .frame(width: width, height: 24)
+                    .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 1)
+            } else {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(backgroundColor)
+                    .frame(width: width, height: 24)
+                    .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 1)
+            }
+            
+            Text(button.shortLabel)
+                .font(.system(size: fontSize, weight: .black))
+                .foregroundColor(foregroundColor)
+        }
+        .scaleEffect(isPressed ? 0.9 : 1.0)
+        .animation(.spring(response: 0.2), value: isPressed)
+    }
+    
+    private var isCircle: Bool {
+        switch button.category {
+        case .face, .special, .thumbstick: return true
+        default: return false
+        }
+    }
+    
+    private var width: CGFloat {
+        switch button.category {
+        case .face, .special, .thumbstick: return 24
+        case .dpad: return 24
+        case .bumper, .trigger: return 36
+        }
+    }
+    
+    private var fontSize: CGFloat {
+        switch button.category {
+        case .face: return 12
+        case .special: return 10
+        case .dpad: return 12
+        default: return 9
+        }
+    }
+    
+    private var backgroundColor: Color {
+        if isPressed { return Color.accentColor }
+        
+        switch button {
+        case .a: return .green
+        case .b: return .red
+        case .x: return .blue
+        case .y: return .yellow
+        case .xbox: return .green.opacity(0.8)
+        default: return Color(white: 0.2)
+        }
+    }
+    
+    private var foregroundColor: Color {
+        switch button {
+        case .a, .b, .x, .y: return .white
+        case .xbox: return .white
+        default: return .white
+        }
     }
 }
 
