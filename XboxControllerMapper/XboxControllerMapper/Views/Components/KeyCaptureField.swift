@@ -125,8 +125,33 @@ class KeyCaptureNSView: NSView {
         peakModifiers = ModifierFlags()
         hasNonModifierKey = false
 
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+        let eventMask: NSEvent.EventTypeMask = [
+            .keyDown, .flagsChanged,
+            .leftMouseDown, .rightMouseDown, .otherMouseDown
+        ]
+
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: eventMask) { [weak self] event in
             guard let self = self else { return event }
+
+            // Handle mouse clicks - capture immediately
+            // (activation click happens via onTapGesture before monitor starts)
+            if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .otherMouseDown {
+                let mouseKeyCode: CGKeyCode
+                switch event.type {
+                case .leftMouseDown:
+                    mouseKeyCode = KeyCodeMapping.mouseLeftClick
+                case .rightMouseDown:
+                    mouseKeyCode = KeyCodeMapping.mouseRightClick
+                case .otherMouseDown:
+                    mouseKeyCode = KeyCodeMapping.mouseMiddleClick
+                default:
+                    return event
+                }
+
+                self.onKeyCapture?(mouseKeyCode, self.currentModifiers)
+                self.stopCapturing()
+                return nil  // Consume the event
+            }
 
             // Handle Escape to cancel
             if event.type == .keyDown && event.keyCode == kVK_Escape {
