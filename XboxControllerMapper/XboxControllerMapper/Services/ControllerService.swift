@@ -44,6 +44,10 @@ class ControllerService: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     init() {
+        // Enable background event monitoring - this is the official API for
+        // receiving controller events when the app isn't frontmost
+        GCController.shouldMonitorBackgroundEvents = true
+
         setupNotifications()
         startDiscovery()
         checkConnectedControllers()

@@ -4,6 +4,8 @@ import GameController
 /// Holds all app services as a shared singleton
 @MainActor
 final class ServiceContainer {
+    static let shared = ServiceContainer()
+
     let controllerService: ControllerService
     let profileManager: ProfileManager
     let appMonitor: AppMonitor
@@ -32,27 +34,24 @@ final class ServiceContainer {
 struct XboxControllerMapperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
-    // Single container holding all services - using State since it's not ObservableObject
-    @State private var services = ServiceContainer()
-
     var body: some Scene {
+        // Original WindowGroup with ContentView
         WindowGroup {
             ContentView()
-                .environmentObject(services.controllerService)
-                .environmentObject(services.profileManager)
-                .environmentObject(services.appMonitor)
-                .environmentObject(services.mappingEngine)
-                .environmentObject(services.inputMonitor)
+                .environmentObject(ServiceContainer.shared.controllerService)
+                .environmentObject(ServiceContainer.shared.profileManager)
+                .environmentObject(ServiceContainer.shared.appMonitor)
+                .environmentObject(ServiceContainer.shared.mappingEngine)
+                .environmentObject(ServiceContainer.shared.inputMonitor)
         }
-        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
 
-        MenuBarExtra("Xbox Controller Mapper", systemImage: services.controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller") {
+        MenuBarExtra("Xbox Controller Mapper", systemImage: ServiceContainer.shared.controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller") {
             MenuBarView()
-                .environmentObject(services.controllerService)
-                .environmentObject(services.profileManager)
-                .environmentObject(services.mappingEngine)
-                .environmentObject(services.inputMonitor)
+                .environmentObject(ServiceContainer.shared.controllerService)
+                .environmentObject(ServiceContainer.shared.profileManager)
+                .environmentObject(ServiceContainer.shared.mappingEngine)
+                .environmentObject(ServiceContainer.shared.inputMonitor)
         }
         .menuBarExtraStyle(.window)
     }
