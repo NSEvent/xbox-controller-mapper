@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var showingChordSheet = false
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
+    @State private var uiScale: CGFloat = 1.0
 
     var body: some View {
         HSplitView {
@@ -44,7 +45,7 @@ struct ContentView: View {
                 .tabViewStyle(.automatic)
             }
         }
-        .frame(minWidth: 700, minHeight: 500)
+        .frame(minWidth: 900, minHeight: 650)
         .sheet(item: $configuringButton) { button in
             ButtonMappingSheet(
                 button: button,
@@ -60,6 +61,22 @@ struct ContentView: View {
         .sheet(isPresented: $showingSettingsSheet) {
             SettingsSheet()
         }
+        // Add keyboard shortcuts for scaling
+        .background(
+            Button("Zoom In") { uiScale = min(uiScale + 0.1, 2.0) }
+                .keyboardShortcut("+", modifiers: .command)
+                .hidden()
+        )
+        .background(
+            Button("Zoom Out") { uiScale = max(uiScale - 0.1, 0.5) }
+                .keyboardShortcut("-", modifiers: .command)
+                .hidden()
+        )
+        .background(
+            Button("Reset Zoom") { uiScale = 1.0 }
+                .keyboardShortcut("0", modifiers: .command)
+                .hidden()
+        )
     }
 
     // MARK: - Toolbar
@@ -106,9 +123,7 @@ struct ContentView: View {
     // MARK: - Controller Tab
 
     private var controllerTab: some View {
-        VStack(spacing: 20) {
-            Spacer()
-
+        ZStack {
             ControllerVisualView(
                 selectedButton: $selectedButton,
                 onButtonTap: { button in
@@ -122,10 +137,10 @@ struct ContentView: View {
                     }
                 }
             )
-
-            Spacer()
+            .scaleEffect(uiScale)
         }
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
     }
 
     // MARK: - Chords Tab

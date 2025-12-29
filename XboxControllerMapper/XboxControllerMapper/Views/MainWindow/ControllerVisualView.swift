@@ -15,7 +15,6 @@ struct ControllerVisualView: View {
                 referenceGroup(title: "Shoulder", buttons: [.leftTrigger, .leftBumper])
                 referenceGroup(title: "Movement", buttons: [.leftThumbstick])
                 referenceGroup(title: "D-Pad", buttons: [.dpadUp, .dpadLeft, .dpadRight, .dpadDown])
-                Spacer()
             }
             .frame(width: 220)
             .padding(.trailing, 20)
@@ -78,8 +77,6 @@ struct ControllerVisualView: View {
                         referenceRow(for: .share)
                     }
                 }
-                
-                Spacer()
             }
             .frame(width: 350)
 
@@ -88,7 +85,6 @@ struct ControllerVisualView: View {
                 referenceGroup(title: "Shoulder", buttons: [.rightTrigger, .rightBumper])
                 referenceGroup(title: "Actions", buttons: [.y, .b, .a, .x])
                 referenceGroup(title: "Camera", buttons: [.rightThumbstick])
-                Spacer()
             }
             .frame(width: 220)
             .padding(.leading, 20)
