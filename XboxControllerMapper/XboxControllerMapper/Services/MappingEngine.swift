@@ -23,6 +23,12 @@ class MappingEngine: ObservableObject {
     /// Tracks pending single-tap work items (cancelled if double-tap detected)
     private var pendingSingleTap: [ControllerButton: DispatchWorkItem] = [:]
 
+    /// Timers for detecting long holds while button is pressed
+    private var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
+
+    /// Tracks buttons that have already triggered their long-hold action during the current press
+    private var longHoldTriggered: Set<ControllerButton> = []
+
     /// Timer for joystick polling
     private var joystickTimer: Timer?
     private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 60 Hz
@@ -82,21 +88,68 @@ class MappingEngine: ObservableObject {
             return
         }
 
+        #if DEBUG
+        print("🔵 handleButtonPressed: \(button.displayName) isHoldModifier=\(mapping.isHoldModifier)")
+        #endif
+
         // For hold-type mappings, start holding immediately
         if mapping.isHoldModifier {
             heldButtons[button] = mapping
             inputSimulator.startHoldMapping(mapping)
+            return
         }
-        // For non-hold mappings, we wait for release to determine tap vs long-hold
+        
+        // Schedule long hold timer if configured
+        if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
+            let workItem = DispatchWorkItem { [weak self] in
+                Task { @MainActor in
+                    self?.handleLongHoldTriggered(button, mapping: longHold)
+                }
+            }
+            longHoldTimers[button] = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + longHold.threshold, execute: workItem)
+        }
+    }
+    
+    private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
+        longHoldTriggered.insert(button)
+        executeLongHoldMapping(mapping)
+        
+        #if DEBUG
+        print("⏱️ Long hold triggered for \(button.displayName)")
+        #endif
     }
 
     private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
-        guard isEnabled else { return }
-        guard let profile = profileManager.activeProfile else { return }
+        #if DEBUG
+        print("🔘 handleButtonReleased: \(button.displayName) duration=\(holdDuration)")
+        #endif
+
+        // Cancel pending long hold timer since button was released
+        if let timer = longHoldTimers[button] {
+            timer.cancel()
+            longHoldTimers.removeValue(forKey: button)
+        }
+
+        guard isEnabled else {
+            #if DEBUG
+            print("   ❌ Engine is disabled")
+            #endif
+            return
+        }
+        guard let profile = profileManager.activeProfile else {
+            #if DEBUG
+            print("   ❌ No active profile")
+            #endif
+            return
+        }
 
         // If this button was part of a chord, skip individual handling
         if activeChordButtons.contains(button) {
             activeChordButtons.remove(button)
+            #if DEBUG
+            print("   ⏭️ Was part of chord, skipping")
+            #endif
             return
         }
 
@@ -104,18 +157,38 @@ class MappingEngine: ObservableObject {
         if let heldMapping = heldButtons[button] {
             inputSimulator.stopHoldMapping(heldMapping)
             heldButtons.removeValue(forKey: button)
+            #if DEBUG
+            print("   🔓 Released held modifier")
+            #endif
             return
         }
 
         // Get the effective mapping
         guard let mapping = profile.effectiveMapping(for: button, appBundleId: appMonitor.frontmostBundleId) else {
+            #if DEBUG
+            print("   ❌ No mapping found for \(button.displayName)")
+            print("   Available mappings: \(profile.buttonMappings.keys.map { $0.displayName })")
+            #endif
             return
         }
+
+        #if DEBUG
+        print("   ✅ Found mapping: \(mapping.displayString)")
+        #endif
 
         // Skip if this is a hold modifier (already handled)
         guard !mapping.isHoldModifier else { return }
 
-        // Check for long hold first - long hold takes priority over double-tap
+        // If long hold was already triggered while holding, we're done
+        if longHoldTriggered.contains(button) {
+            longHoldTriggered.remove(button)
+            #if DEBUG
+            print("   ⏭️ Long hold already executed, skipping release actions")
+            #endif
+            return
+        }
+
+        // Check for long hold fallback (in case timer didn't fire but duration met)
         if let longHoldMapping = mapping.longHoldMapping,
            holdDuration >= longHoldMapping.threshold,
            !longHoldMapping.isEmpty {
@@ -306,6 +379,14 @@ class MappingEngine: ObservableObject {
             workItem.cancel()
         }
         pendingSingleTap.removeAll()
+        
+        // Cancel long hold timers
+        for (_, workItem) in longHoldTimers {
+            workItem.cancel()
+        }
+        longHoldTimers.removeAll()
+        longHoldTriggered.removeAll()
+        
         lastTapTime.removeAll()
         inputSimulator.releaseAllModifiers()
     }
