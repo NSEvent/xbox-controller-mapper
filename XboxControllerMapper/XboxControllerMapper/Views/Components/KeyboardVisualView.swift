@@ -61,6 +61,12 @@ struct KeyboardVisualView: View {
 
     // MARK: - Function Keys (F1-F12)
 
+    // F-key codes are NOT sequential, so we must use explicit arrays
+    private let f1to12Codes: [Int] = [
+        kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
+        kVK_F7, kVK_F8, kVK_F9, kVK_F10, kVK_F11, kVK_F12
+    ]
+
     private var functionKeyRow: some View {
         HStack(spacing: 4) {
             KeyButton(keyCode: CGKeyCode(kVK_Escape), label: "Esc", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
@@ -68,19 +74,19 @@ struct KeyboardVisualView: View {
             Spacer().frame(width: 20)
 
             ForEach(0..<4, id: \.self) { i in
-                KeyButton(keyCode: CGKeyCode(kVK_F1 + i), label: "F\(i + 1)", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                KeyButton(keyCode: CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             }
 
             Spacer().frame(width: 10)
 
             ForEach(4..<8, id: \.self) { i in
-                KeyButton(keyCode: CGKeyCode(kVK_F1 + i), label: "F\(i + 1)", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                KeyButton(keyCode: CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             }
 
             Spacer().frame(width: 10)
 
             ForEach(8..<12, id: \.self) { i in
-                KeyButton(keyCode: CGKeyCode(kVK_F1 + i), label: "F\(i + 1)", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                KeyButton(keyCode: CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             }
         }
     }

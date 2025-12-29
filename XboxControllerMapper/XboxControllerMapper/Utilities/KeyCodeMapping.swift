@@ -116,7 +116,7 @@ enum KeyCodeMapping {
         case kVK_UpArrow: return "↑"
         case kVK_DownArrow: return "↓"
 
-        // Function keys
+        // Function keys F1-F12
         case kVK_F1: return "F1"
         case kVK_F2: return "F2"
         case kVK_F3: return "F3"
@@ -129,6 +129,16 @@ enum KeyCodeMapping {
         case kVK_F10: return "F10"
         case kVK_F11: return "F11"
         case kVK_F12: return "F12"
+
+        // Extended function keys F13-F20
+        case kVK_F13: return "F13"
+        case kVK_F14: return "F14"
+        case kVK_F15: return "F15"
+        case kVK_F16: return "F16"
+        case kVK_F17: return "F17"
+        case kVK_F18: return "F18"
+        case kVK_F19: return "F19"
+        case kVK_F20: return "F20"
 
         // Numbers
         case kVK_ANSI_0: return "0"
@@ -202,10 +212,21 @@ enum KeyCodeMapping {
         options.append(("↑", upArrow))
         options.append(("↓", downArrow))
 
-        // Function keys
-        for i in 1...12 {
-            let code = CGKeyCode(kVK_F1 + i - 1)
-            options.append(("F\(i)", code))
+        // Function keys F1-F12 (key codes are NOT sequential)
+        let fKeyCodes: [Int] = [
+            kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
+            kVK_F7, kVK_F8, kVK_F9, kVK_F10, kVK_F11, kVK_F12
+        ]
+        for i in 0..<12 {
+            options.append(("F\(i + 1)", CGKeyCode(fKeyCodes[i])))
+        }
+
+        // Extended function keys F13-F20
+        let extFKeyCodes: [Int] = [
+            kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19, kVK_F20
+        ]
+        for i in 0..<8 {
+            options.append(("F\(i + 13)", CGKeyCode(extFKeyCodes[i])))
         }
 
         // Letters
@@ -218,10 +239,12 @@ enum KeyCodeMapping {
             options.append((String(letter), code))
         }
 
-        // Numbers
+        // Numbers (key codes are NOT sequential)
+        let numberCodes: [CGKeyCode] = [
+            key0, key1, key2, key3, key4, key5, key6, key7, key8, key9
+        ]
         for i in 0...9 {
-            let code = CGKeyCode(kVK_ANSI_0 + i)
-            options.append(("\(i)", code))
+            options.append(("\(i)", numberCodes[i]))
         }
 
         // Mouse buttons
