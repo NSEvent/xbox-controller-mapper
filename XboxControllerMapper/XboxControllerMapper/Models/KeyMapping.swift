@@ -69,6 +69,25 @@ struct KeyMapping: Codable, Equatable {
         return parts.joined(separator: " + ")
     }
 
+    /// Compact description including alternate mappings (for UI)
+    var compactDescription: String {
+        var parts: [String] = []
+
+        if !isEmpty {
+            parts.append(displayString)
+        }
+
+        if let longHold = longHoldMapping, !longHold.isEmpty {
+            parts.append("⏱ " + longHold.displayString)
+        }
+
+        if let doubleTap = doubleTapMapping, !doubleTap.isEmpty {
+            parts.append("×2 " + doubleTap.displayString)
+        }
+
+        return parts.joined(separator: "\n")
+    }
+
     /// Whether this mapping has any action
     var isEmpty: Bool {
         keyCode == nil && !modifiers.hasAny

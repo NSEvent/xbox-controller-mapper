@@ -222,6 +222,7 @@ struct JoystickView: View {
             // Mapping label (below joystick)
             if let mapping = mappingText {
                 Text(mapping)
+                    .multilineTextAlignment(.center)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
@@ -263,7 +264,7 @@ struct JoystickView: View {
     }
     
     private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.displayString
+        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
     }
 }
 
@@ -334,6 +335,7 @@ struct DPadButton: View {
             Group {
                 if let mapping = mappingText {
                     Text(mapping)
+                        .multilineTextAlignment(.center)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -351,7 +353,7 @@ struct DPadButton: View {
     }
     
     private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.displayString
+        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
     }
     
     private var labelOffset: CGPoint {
@@ -422,7 +424,7 @@ struct FaceButton: View {
 
     
     private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.displayString
+        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
     }
     
     private var labelOffset: CGPoint {
@@ -475,6 +477,7 @@ struct FaceButton: View {
                 Group {
                     if let mapping = mappingText {
                         Text(mapping)
+                            .multilineTextAlignment(.center)
                             .fixedSize()
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(.white)
@@ -560,6 +563,7 @@ struct BumperButton: View {
             Group {
                 if let mapping = mappingText {
                     Text(mapping)
+                        .multilineTextAlignment(.center)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -596,7 +600,7 @@ struct BumperButton: View {
         }
     }
     private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.displayString
+        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
     }
 }
 
@@ -657,6 +661,7 @@ struct TriggerButton: View {
             Group {
                 if let mapping = mappingText {
                     Text(mapping)
+                        .multilineTextAlignment(.center)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
@@ -708,7 +713,7 @@ struct TriggerButton: View {
         }
     }
     private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.displayString
+        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
     }
 }
 
@@ -772,6 +777,7 @@ struct SpecialButton: View {
             Group {
                 if let mapping = mappingText {
                     Text(mapping)
+                        .multilineTextAlignment(.center)
                         .fixedSize()
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
@@ -812,7 +818,7 @@ struct SpecialButton: View {
     }
     
     private var mappingText: String? {
-        profileManager.activeProfile?.buttonMappings[button]?.displayString
+        profileManager.activeProfile?.buttonMappings[button]?.compactDescription
     }
 }
 
