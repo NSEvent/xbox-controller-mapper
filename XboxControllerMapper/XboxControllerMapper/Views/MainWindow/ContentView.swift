@@ -123,15 +123,6 @@ struct ContentView: View {
                 }
             )
 
-            // Legend
-            HStack(spacing: 20) {
-                LegendItem(color: .gray.opacity(0.6), label: "Unmapped")
-                LegendItem(color: .blue.opacity(0.8), label: "Mapped")
-                LegendItem(color: .green, label: "Pressed")
-                LegendItem(color: .accentColor, label: "Selected")
-            }
-            .font(.caption)
-
             Spacer()
         }
         .padding()

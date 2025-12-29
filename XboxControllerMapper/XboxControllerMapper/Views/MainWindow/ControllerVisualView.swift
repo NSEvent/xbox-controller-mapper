@@ -251,9 +251,7 @@ struct JoystickView: View {
     }
 
     private var buttonColor: Color {
-        if selectedButton == button {
-            return .accentColor
-        } else if isPressed {
+        if isPressed {
             // Darker/more saturated when pressed
             return hasMapping ? Color.blue : Color(white: 0.3)
         } else if hasMapping {
@@ -375,9 +373,7 @@ struct DPadButton: View {
     }
 
     private var buttonColor: Color {
-        if selectedButton == button {
-            return .accentColor
-        } else if isPressed {
+        if isPressed {
             return hasMapping ? Color.blue.opacity(0.9) : Color(white: 0.3)
         } else if hasMapping {
             return .blue.opacity(0.7)
@@ -506,9 +502,7 @@ struct FaceButton: View {
     }
 
     private var buttonColor: Color {
-        if selectedButton == button {
-            return .accentColor
-        } else if isPressed {
+        if isPressed {
             // Darker when pressed
             return color.opacity(0.9)
         } else if hasMapping {
@@ -589,9 +583,7 @@ struct BumperButton: View {
     }
 
     private var buttonColor: Color {
-        if selectedButton == button {
-            return .accentColor
-        } else if isPressed {
+        if isPressed {
             return hasMapping ? Color.blue.opacity(0.9) : Color(white: 0.35)
         } else if hasMapping {
             return .blue.opacity(0.7)
@@ -698,9 +690,7 @@ struct TriggerButton: View {
     }
 
     private var buttonColor: Color {
-        if selectedButton == button {
-            return .accentColor
-        } else if isPressed || triggerValue > 0.1 {
+        if isPressed || triggerValue > 0.1 {
             // Darken based on trigger pressure
             let pressAmount = max(triggerValue, isPressed ? 0.5 : 0)
             return hasMapping
@@ -804,9 +794,7 @@ struct SpecialButton: View {
     }
 
     private var buttonColor: Color {
-        if selectedButton == button {
-            return .accentColor
-        } else if isPressed {
+        if isPressed {
             return isXboxButton ? .green.opacity(0.9) : (hasMapping ? Color.blue.opacity(0.9) : Color(white: 0.3))
         } else if hasMapping {
             return .blue.opacity(0.7)
