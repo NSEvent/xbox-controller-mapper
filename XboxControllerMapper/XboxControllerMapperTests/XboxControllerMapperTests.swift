@@ -21,23 +21,41 @@ class MockInputSimulator: InputSimulatorProtocol {
     
     var events: [Event] = []
     var heldModifiers: CGEventFlags = []
+    private var modifierCounts: [UInt64: Int] = [:]
 
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags) {
         events.append(.pressKey(keyCode, modifiers))
     }
     
     func holdModifier(_ modifier: CGEventFlags) {
-        heldModifiers.insert(modifier)
+        let masks: [CGEventFlags] = [.maskCommand, .maskAlternate, .maskShift, .maskControl]
+        for mask in masks where modifier.contains(mask) {
+            let count = modifierCounts[mask.rawValue] ?? 0
+            modifierCounts[mask.rawValue] = count + 1
+            if count == 0 {
+                heldModifiers.insert(mask)
+            }
+        }
         events.append(.holdModifier(modifier))
     }
     
     func releaseModifier(_ modifier: CGEventFlags) {
-        heldModifiers.remove(modifier)
+        let masks: [CGEventFlags] = [.maskCommand, .maskAlternate, .maskShift, .maskControl]
+        for mask in masks where modifier.contains(mask) {
+            let count = modifierCounts[mask.rawValue] ?? 0
+            if count > 0 {
+                modifierCounts[mask.rawValue] = count - 1
+                if count == 1 {
+                    heldModifiers.remove(mask)
+                }
+            }
+        }
         events.append(.releaseModifier(modifier))
     }
     
     func releaseAllModifiers() {
         heldModifiers = []
+        modifierCounts.removeAll()
         events.append(.releaseAllModifiers)
     }
     
@@ -55,14 +73,14 @@ class MockInputSimulator: InputSimulatorProtocol {
     
     func startHoldMapping(_ mapping: KeyMapping) {
         if mapping.modifiers.hasAny {
-            heldModifiers.insert(mapping.modifiers.cgEventFlags)
+            holdModifier(mapping.modifiers.cgEventFlags)
         }
         events.append(.startHoldMapping(mapping))
     }
     
     func stopHoldMapping(_ mapping: KeyMapping) {
         if mapping.modifiers.hasAny {
-            heldModifiers.remove(mapping.modifiers.cgEventFlags)
+            releaseModifier(mapping.modifiers.cgEventFlags)
         }
         events.append(.stopHoldMapping(mapping))
     }
@@ -70,7 +88,6 @@ class MockInputSimulator: InputSimulatorProtocol {
 
 // MARK: - Tests
 
-@MainActor
 final class XboxControllerMapperTests: XCTestCase {
     
     var controllerService: ControllerService!
@@ -80,156 +97,259 @@ final class XboxControllerMapperTests: XCTestCase {
     var mappingEngine: MappingEngine!
     
     override func setUp() async throws {
-        controllerService = ControllerService()
-        profileManager = ProfileManager()
-        appMonitor = AppMonitor()
-        mockInputSimulator = MockInputSimulator()
-        
-        mappingEngine = MappingEngine(
-            controllerService: controllerService,
-            profileManager: profileManager,
-            appMonitor: appMonitor,
-            inputSimulator: mockInputSimulator
-        )
-        
-        mappingEngine.enable()
+        await MainActor.run {
+            controllerService = ControllerService()
+            profileManager = ProfileManager()
+            appMonitor = AppMonitor()
+            mockInputSimulator = MockInputSimulator()
+            
+            mappingEngine = MappingEngine(
+                controllerService: controllerService,
+                profileManager: profileManager,
+                appMonitor: appMonitor,
+                inputSimulator: mockInputSimulator
+            )
+            
+            mappingEngine.enable()
+        }
     }
     
-    func testModifierCombinationMapping() throws {
-        // Setup: LB -> Hold Command + Shift, A -> Key 'S'
-        
-        let lbMapping = KeyMapping(
-            modifiers: ModifierFlags(command: true, shift: true),
-            isHoldModifier: true
-        )
-        
-        let aMapping = KeyMapping(keyCode: 1) // Key 'S'
-        
-        let profile = Profile(
-            name: "Test Profile",
-            buttonMappings: [
-                .leftBumper: lbMapping,
-                .a: aMapping
-            ]
-        )
-        
-        profileManager.setActiveProfile(profile)
-        
-        guard let onButtonPressed = controllerService.onButtonPressed else {
-            XCTFail("MappingEngine didn't set onButtonPressed")
-            return
+    private func waitForTasks(_ delay: TimeInterval = 0.1) async {
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        await Task.yield()
+    }
+
+    func testModifierCombinationMapping() async throws {
+        await MainActor.run {
+            let lbMapping = KeyMapping.holdModifier(.command)
+            let aMapping = KeyMapping(keyCode: 1)
+            profileManager.setActiveProfile(Profile(name: "Test", buttonMappings: [.leftBumper: lbMapping, .a: aMapping]))
+            
+            controllerService.buttonPressed(.leftBumper)
         }
+        await waitForTasks()
         
-        guard let onButtonReleased = controllerService.onButtonReleased else {
-            XCTFail("MappingEngine didn't set onButtonReleased")
-            return
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
         }
+        await waitForTasks()
         
-        // 1. Press Left Bumper
-        onButtonPressed(.leftBumper)
-        
-        let expectation1 = XCTestExpectation(description: "LB Pressed processed")
-        DispatchQueue.main.async { expectation1.fulfill() }
-        wait(for: [expectation1], timeout: 1.0)
-        
-        XCTAssertTrue(mockInputSimulator.events.contains { event in
-            if case .startHoldMapping(let mapping) = event {
-                return mapping.isHoldModifier && mapping.modifiers.command && mapping.modifiers.shift
-            }
-            return false
-        }, "Should have started holding modifiers")
-        
-        // 2. Press A
-        onButtonPressed(.a)
-        
-        let expectation2 = XCTestExpectation(description: "A Pressed processed")
-        DispatchQueue.main.async { expectation2.fulfill() }
-        wait(for: [expectation2], timeout: 1.0)
-        
-        // 3. Release A (trigger)
-        onButtonReleased(.a, 0.1)
-        
-        let expectation3 = XCTestExpectation(description: "A Released processed")
-        DispatchQueue.main.async { expectation3.fulfill() }
-        wait(for: [expectation3], timeout: 1.0)
-        
-        // Verify 'S' was pressed
-        // And importantly, that modifiers were held at that time
-        
-        XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "Command should be held during A press")
-        XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskShift), "Shift should be held during A press")
-        
-        XCTAssertTrue(mockInputSimulator.events.contains { event in
-            if case .executeMapping(let mapping) = event {
-                return mapping.keyCode == 1
-            }
-            return false
-        }, "Should have executed mapping for 'S'")
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                return false
+            })
+        }
     }
     
-    func testSimultaneousPressWithNoChordMapping() throws {
-        // Setup: LB -> Hold Command + Shift, A -> Key 'S'
-        // No chord mapping defined for LB + A
-        
-        let lbMapping = KeyMapping(
-            modifiers: ModifierFlags(command: true, shift: true),
-            isHoldModifier: true
-        )
-        
-        let aMapping = KeyMapping(keyCode: 1) // Key 'S'
-        
-        let profile = Profile(
-            name: "Test Profile",
-            buttonMappings: [
-                .leftBumper: lbMapping,
-                .a: aMapping
-            ]
-        )
-        
-        profileManager.setActiveProfile(profile)
-        
-        guard let onChordDetected = controllerService.onChordDetected else {
-            XCTFail("MappingEngine didn't set onChordDetected")
-            return
+    func testSimultaneousPressWithNoChordMapping() async throws {
+        await MainActor.run {
+            let lbMapping = KeyMapping.holdModifier(.command)
+            let aMapping = KeyMapping(keyCode: 1)
+            profileManager.setActiveProfile(Profile(name: "Test", buttonMappings: [.leftBumper: lbMapping, .a: aMapping]))
+            
+            // Trigger chord directly
+            controllerService.onChordDetected?([.leftBumper, .a])
         }
+        await waitForTasks(0.2) // Longer wait for chord processing
         
-        // Simulate simultaneous press (Chord detected by ControllerService)
-        // This happens when buttons are pressed within 50ms of each other
-        onChordDetected([.leftBumper, .a])
-        
-        let expectation = XCTestExpectation(description: "Chord processed")
-        DispatchQueue.main.async { expectation.fulfill() }
-        wait(for: [expectation], timeout: 1.0)
-        
-        // Expectation: Since no chord mapping exists, it should fall back to individual actions.
-        // LB should start holding immediately (as it's a hold modifier)
-        
-        XCTAssertTrue(mockInputSimulator.events.contains { event in
-            if case .startHoldMapping(let mapping) = event {
-                return mapping.isHoldModifier && mapping.modifiers.command && mapping.modifiers.shift
-            }
-            return false
-        }, "Should have started holding modifiers (fallback behavior)")
-        
-        // A is a key mapping, which triggers on release (to distinguish from long hold)
-        // So we must simulate release of A
-        guard let onButtonReleased = controllerService.onButtonReleased else {
-             XCTFail("MappingEngine didn't set onButtonReleased")
-             return
+        await MainActor.run {
+            print("🛠️ Events after chord fallback: \(mockInputSimulator.events)")
+            print("🛠️ heldModifiers after chord fallback: \(mockInputSimulator.heldModifiers.rawValue)")
+            // Should have fallback to individual buttons. LB should be holding Cmd.
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "LB should be held after fallback. Events: \(mockInputSimulator.events)")
+            controllerService.buttonReleased(.a)
         }
+        await waitForTasks()
         
-        onButtonReleased(.a, 0.1)
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                return false
+            })
+        }
+    }
+    
+    func testDoubleTapWithHeldModifier() async throws {
+        await MainActor.run {
+            let lbMapping = KeyMapping.holdModifier(.command)
+            let doubleTap = DoubleTapMapping(keyCode: 2, threshold: 0.2)
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.doubleTapMapping = doubleTap
+            profileManager.setActiveProfile(Profile(name: "DT", buttonMappings: [.leftBumper: lbMapping, .a: aMapping]))
+            
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks()
         
-        let expectation2 = XCTestExpectation(description: "A Release processed")
-        DispatchQueue.main.async { expectation2.fulfill() }
-        wait(for: [expectation2], timeout: 1.0)
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.1) // Wait less than threshold
         
-        // Now 'S' should be executed
-        XCTAssertTrue(mockInputSimulator.events.contains { event in
-            if case .executeMapping(let mapping) = event {
-                return mapping.keyCode == 1
-            }
-            return false
-        }, "Should have executed mapping for 'S' (fallback behavior)")
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.3) // Wait for double tap to finish
+        
+        await MainActor.run {
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                return false
+            })
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 2 }
+                return false
+            })
+        }
+    }
+    
+    func testChordMappingPrecedence() async throws {
+        await MainActor.run {
+            let chordMapping = ChordMapping(buttons: [.a, .b], keyCode: 3)
+            profileManager.setActiveProfile(Profile(name: "Chord", buttonMappings: [.a: .key(1), .b: .key(2)], chordMappings: [chordMapping]))
+            controllerService.onChordDetected?([.a, .b])
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 3 }
+                return false
+            })
+        }
+    }
+    
+    func testAppSpecificOverride() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "App", buttonMappings: [.a: .key(1)])
+            profile.appOverrides["com.test.app"] = [.a: .key(2)]
+            profileManager.setActiveProfile(profile)
+            appMonitor.frontmostBundleId = "com.test.app"
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 2 }
+                return false
+            })
+        }
+    }
+    
+    func testLongHold() async throws {
+        await MainActor.run {
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.longHoldMapping = LongHoldMapping(keyCode: 2, threshold: 0.1)
+            profileManager.setActiveProfile(Profile(name: "Hold", buttonMappings: [.a: aMapping]))
+            controllerService.buttonPressed(.a)
+        }
+        await waitForTasks(0.2)
+        
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 2 }
+                return false
+            })
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                return false
+            })
+        }
+    }
+    
+    func testJoystickMouseMovement() async throws {
+        await MainActor.run {
+            controllerService.isConnected = true
+        }
+        await waitForTasks(0.2)
+        
+        await MainActor.run {
+            controllerService.leftStick = CGPoint(x: 0.5, y: 0.5)
+        }
+        await waitForTasks(0.2)
+        
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .moveMouse = event { return true }
+                return false
+            })
+        }
+    }
+    
+    func testEngineDisablingReleasesModifiers() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "T", buttonMappings: [.leftBumper: .holdModifier(.command)]))
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+            mappingEngine.disable()
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            XCTAssertFalse(mockInputSimulator.heldModifiers.contains(.maskCommand))
+        }
+    }
+    
+    func testOverlappingModifierHoldBug() async throws {
+        await MainActor.run {
+            let lbMapping = KeyMapping.holdModifier(.command)
+            let rbMapping = KeyMapping.holdModifier(ModifierFlags(command: true, shift: true))
+            profileManager.setActiveProfile(Profile(name: "O", buttonMappings: [.leftBumper: lbMapping, .rightBumper: rbMapping]))
+            
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            controllerService.buttonPressed(.rightBumper)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            controllerService.buttonReleased(.leftBumper)
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "Command should still be held by RB")
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskShift), "Shift should still be held by RB")
+        }
+    }
+    
+    func testQuickTapLostBug() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Q", buttonMappings: [.leftBumper: .holdModifier(.command)]))
+            controllerService.chordWindow = 0.2
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks(0.05)
+        await MainActor.run {
+            controllerService.buttonReleased(.leftBumper)
+        }
+        await waitForTasks(0.3)
+        
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .startHoldMapping = event { return true }
+                return false
+            }, "Quick tap should not be lost")
+        }
     }
 }

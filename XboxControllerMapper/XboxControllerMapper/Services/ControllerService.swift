@@ -38,8 +38,9 @@ class ControllerService: ObservableObject {
 
     // Chord detection
     private var chordTimer: Timer?
-    private let chordWindow: TimeInterval = 0.05  // 50ms window for chord detection
+    internal var chordWindow: TimeInterval = 0.05  // 50ms window for chord detection
     private var pendingButtons: Set<ControllerButton> = []
+    private var capturedButtonsInWindow: Set<ControllerButton> = []
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -231,7 +232,7 @@ class ControllerService: ObservableObject {
         }
     }
 
-    private func buttonPressed(_ button: ControllerButton) {
+    internal func buttonPressed(_ button: ControllerButton) {
         guard !activeButtons.contains(button) else { return }
 
         activeButtons.insert(button)
@@ -239,6 +240,7 @@ class ControllerService: ObservableObject {
 
         // Add to pending buttons for chord detection
         pendingButtons.insert(button)
+        capturedButtonsInWindow.insert(button)
 
         // Reset chord timer
         chordTimer?.invalidate()
@@ -249,7 +251,7 @@ class ControllerService: ObservableObject {
         }
     }
 
-    private func buttonReleased(_ button: ControllerButton) {
+    internal func buttonReleased(_ button: ControllerButton) {
         guard activeButtons.contains(button) else { return }
 
         activeButtons.remove(button)
@@ -269,14 +271,18 @@ class ControllerService: ObservableObject {
     }
 
     private func processChordOrSinglePress() {
-        if pendingButtons.count >= 2 {
+        #if DEBUG
+        print("🔍 processChordOrSinglePress: captured=\(capturedButtonsInWindow.map { $0.displayName })")
+        #endif
+        if capturedButtonsInWindow.count >= 2 {
             // Chord detected
-            onChordDetected?(pendingButtons)
-        } else if let button = pendingButtons.first {
+            onChordDetected?(capturedButtonsInWindow)
+        } else if let button = capturedButtonsInWindow.first {
             // Single button press
             onButtonPressed?(button)
         }
 
+        capturedButtonsInWindow.removeAll()
         pendingButtons.removeAll()
     }
 

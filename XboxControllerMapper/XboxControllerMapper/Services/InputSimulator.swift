@@ -20,6 +20,14 @@ class InputSimulator: InputSimulatorProtocol {
 
     /// Currently held modifier flags (for hold-type mappings)
     private var heldModifiers: CGEventFlags = []
+    
+    /// Reference counts for each modifier key to support overlapping mappings
+    private var modifierCounts: [UInt64: Int] = [
+        CGEventFlags.maskCommand.rawValue: 0,
+        CGEventFlags.maskAlternate.rawValue: 0,
+        CGEventFlags.maskShift.rawValue: 0,
+        CGEventFlags.maskControl.rawValue: 0
+    ]
 
     /// Track if we've warned about accessibility
     private var hasWarnedAboutAccessibility = false
@@ -167,58 +175,72 @@ class InputSimulator: InputSimulatorProtocol {
 
     /// Starts holding a modifier (for bumper/trigger modifier mappings)
     func holdModifier(_ modifier: CGEventFlags) {
-        heldModifiers.insert(modifier)
-
-        // Post modifier key down events
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
-        if modifier.contains(.maskCommand) {
-            CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Command), keyDown: true)?
-                .post(tap: .cghidEventTap)
-        }
-        if modifier.contains(.maskAlternate) {
-            CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Option), keyDown: true)?
-                .post(tap: .cghidEventTap)
-        }
-        if modifier.contains(.maskShift) {
-            CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Shift), keyDown: true)?
-                .post(tap: .cghidEventTap)
-        }
-        if modifier.contains(.maskControl) {
-            CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Control), keyDown: true)?
-                .post(tap: .cghidEventTap)
+        let masks: [CGEventFlags] = [.maskCommand, .maskAlternate, .maskShift, .maskControl]
+        let vKeys: [UInt64: Int] = [
+            CGEventFlags.maskCommand.rawValue: kVK_Command,
+            CGEventFlags.maskAlternate.rawValue: kVK_Option,
+            CGEventFlags.maskShift.rawValue: kVK_Shift,
+            CGEventFlags.maskControl.rawValue: kVK_Control
+        ]
+
+        for mask in masks where modifier.contains(mask) {
+            let key = mask.rawValue
+            let count = modifierCounts[key] ?? 0
+            modifierCounts[key] = count + 1
+            
+            if count == 0 {
+                // First time this modifier is being held
+                heldModifiers.insert(mask)
+                if let vKey = vKeys[key] {
+                    CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: true)?
+                        .post(tap: .cghidEventTap)
+                }
+            }
         }
     }
 
     /// Stops holding a modifier
     func releaseModifier(_ modifier: CGEventFlags) {
-        heldModifiers.remove(modifier)
-
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
-        if modifier.contains(.maskCommand) {
-            CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Command), keyDown: false)?
-                .post(tap: .cghidEventTap)
-        }
-        if modifier.contains(.maskAlternate) {
-            CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Option), keyDown: false)?
-                .post(tap: .cghidEventTap)
-        }
-        if modifier.contains(.maskShift) {
-            CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Shift), keyDown: false)?
-                .post(tap: .cghidEventTap)
-        }
-        if modifier.contains(.maskControl) {
-            CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_Control), keyDown: false)?
-                .post(tap: .cghidEventTap)
+        let masks: [CGEventFlags] = [.maskCommand, .maskAlternate, .maskShift, .maskControl]
+        let vKeys: [UInt64: Int] = [
+            CGEventFlags.maskCommand.rawValue: kVK_Command,
+            CGEventFlags.maskAlternate.rawValue: kVK_Option,
+            CGEventFlags.maskShift.rawValue: kVK_Shift,
+            CGEventFlags.maskControl.rawValue: kVK_Control
+        ]
+
+        for mask in masks where modifier.contains(mask) {
+            let key = mask.rawValue
+            let count = modifierCounts[key] ?? 0
+            if count > 0 {
+                modifierCounts[key] = count - 1
+                
+                if count == 1 {
+                    // Last button holding this modifier released
+                    heldModifiers.remove(mask)
+                    if let vKey = vKeys[key] {
+                        CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: false)?
+                            .post(tap: .cghidEventTap)
+                    }
+                }
+            }
         }
     }
 
     /// Releases all held modifiers
     func releaseAllModifiers() {
-        releaseModifier(heldModifiers)
+        let currentHeld = heldModifiers
+        releaseModifier(currentHeld)
+        // Reset all counts to zero
+        for key in modifierCounts.keys {
+            modifierCounts[key] = 0
+        }
         heldModifiers = []
     }
 

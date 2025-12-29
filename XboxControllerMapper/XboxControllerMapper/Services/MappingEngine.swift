@@ -262,6 +262,9 @@ class MappingEngine: ObservableObject {
     }
 
     private func handleChord(_ buttons: Set<ControllerButton>) {
+        #if DEBUG
+        print("🔍 handleChord: buttons=\(buttons.map { $0.displayName })")
+        #endif
         guard isEnabled else { return }
         guard let profile = profileManager.activeProfile else { return }
 
@@ -272,8 +275,6 @@ class MappingEngine: ObservableObject {
 
         guard let chord = matchingChord else {
             // No chord match - process buttons individually
-            // We sort them so that modifiers (hold mappings) are processed first,
-            // allowing them to modify subsequent key presses in the same "chord" event.
             let sortedButtons = buttons.sorted { button1, button2 in
                 let map1 = profile.effectiveMapping(for: button1, appBundleId: appMonitor.frontmostBundleId)
                 let map2 = profile.effectiveMapping(for: button2, appBundleId: appMonitor.frontmostBundleId)
@@ -283,6 +284,10 @@ class MappingEngine: ObservableObject {
                 
                 return isMod1 && !isMod2
             }
+            
+            #if DEBUG
+            print("   ⏭️ Fallback to individual: \(sortedButtons.map { $0.displayName })")
+            #endif
             
             for button in sortedButtons {
                 handleButtonPressed(button)
