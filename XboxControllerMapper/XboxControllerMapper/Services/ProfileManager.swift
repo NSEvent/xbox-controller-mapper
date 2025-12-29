@@ -9,34 +9,36 @@ class ProfileManager: ObservableObject {
     @Published var activeProfileId: UUID?
 
     private let fileManager = FileManager.default
-    private let profilesDirectory: URL
+    private let configURL: URL
 
     init() {
-        // Create profiles directory in Application Support
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        profilesDirectory = appSupport.appendingPathComponent("XboxControllerMapper/Profiles", isDirectory: true)
+        // Create ~/.xcontrollermapper directory
+        let home = fileManager.homeDirectoryForCurrentUser
+        let configDir = home.appendingPathComponent(".xcontrollermapper", isDirectory: true)
+        configURL = configDir.appendingPathComponent("config.json")
 
-        createDirectoryIfNeeded()
-        loadProfiles()
+        createDirectoryIfNeeded(at: configDir)
+        loadConfiguration()
 
         // Create default profile if none exist
         if profiles.isEmpty {
             let defaultProfile = Profile.createDefault()
             profiles.append(defaultProfile)
-            saveProfile(defaultProfile)
             setActiveProfile(defaultProfile)
-        } else if let defaultProfile = profiles.first(where: { $0.isDefault }) {
-            setActiveProfile(defaultProfile)
-        } else if let firstProfile = profiles.first {
-            setActiveProfile(firstProfile)
+        } else if activeProfile == nil {
+             if let defaultProfile = profiles.first(where: { $0.isDefault }) {
+                setActiveProfile(defaultProfile)
+            } else if let firstProfile = profiles.first {
+                setActiveProfile(firstProfile)
+            }
         }
     }
 
-    private func createDirectoryIfNeeded() {
+    private func createDirectoryIfNeeded(at url: URL) {
         do {
-            try fileManager.createDirectory(at: profilesDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
         } catch {
-            print("Failed to create profiles directory: \(error)")
+            print("Failed to create config directory: \(error)")
         }
     }
 
@@ -56,7 +58,7 @@ class ProfileManager: ObservableObject {
         }
 
         profiles.append(newProfile)
-        saveProfile(newProfile)
+        saveConfiguration()
         return newProfile
     }
 
@@ -65,10 +67,7 @@ class ProfileManager: ObservableObject {
         guard profiles.count > 1 else { return }
 
         profiles.removeAll { $0.id == profile.id }
-
-        // Delete file
-        let fileURL = profilesDirectory.appendingPathComponent("\(profile.id.uuidString).json")
-        try? fileManager.removeItem(at: fileURL)
+        saveConfiguration()
 
         // If we deleted the active profile, switch to another
         if activeProfileId == profile.id {
@@ -90,7 +89,7 @@ class ProfileManager: ObservableObject {
             profiles[index] = updatedProfile
         }
 
-        saveProfile(updatedProfile)
+        saveConfiguration()
 
         if activeProfileId == profile.id {
             activeProfile = updatedProfile
@@ -100,9 +99,7 @@ class ProfileManager: ObservableObject {
     func setActiveProfile(_ profile: Profile) {
         activeProfile = profile
         activeProfileId = profile.id
-
-        // Save preference
-        UserDefaults.standard.set(profile.id.uuidString, forKey: "activeProfileId")
+        saveConfiguration()
     }
 
     func renameProfile(_ profile: Profile, to newName: String) {
@@ -195,42 +192,40 @@ class ProfileManager: ObservableObject {
 
     // MARK: - Persistence
 
-    private func loadProfiles() {
-        guard let files = try? fileManager.contentsOfDirectory(at: profilesDirectory, includingPropertiesForKeys: nil) else {
-            return
-        }
+    private struct Configuration: Codable {
+        var profiles: [Profile]
+        var activeProfileId: UUID?
+    }
+
+    private func loadConfiguration() {
+        guard let data = try? Data(contentsOf: configURL) else { return }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        profiles = files
-            .filter { $0.pathExtension == "json" }
-            .compactMap { url -> Profile? in
-                guard let data = try? Data(contentsOf: url) else { return nil }
-                return try? decoder.decode(Profile.self, from: data)
+        if let config = try? decoder.decode(Configuration.self, from: data) {
+            self.profiles = config.profiles.sorted { $0.createdAt < $1.createdAt }
+            
+            if let activeId = config.activeProfileId,
+               let profile = profiles.first(where: { $0.id == activeId }) {
+                self.activeProfile = profile
+                self.activeProfileId = activeId
             }
-            .sorted { $0.createdAt < $1.createdAt }
-
-        // Restore active profile
-        if let savedId = UserDefaults.standard.string(forKey: "activeProfileId"),
-           let uuid = UUID(uuidString: savedId),
-           let profile = profiles.first(where: { $0.id == uuid }) {
-            activeProfile = profile
-            activeProfileId = uuid
         }
     }
 
-    private func saveProfile(_ profile: Profile) {
+    private func saveConfiguration() {
+        let config = Configuration(profiles: profiles, activeProfileId: activeProfileId)
+        
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = .prettyPrinted
 
         do {
-            let data = try encoder.encode(profile)
-            let fileURL = profilesDirectory.appendingPathComponent("\(profile.id.uuidString).json")
-            try data.write(to: fileURL)
+            let data = try encoder.encode(config)
+            try data.write(to: configURL)
         } catch {
-            print("Failed to save profile: \(error)")
+            print("Failed to save configuration: \(error)")
         }
     }
 
@@ -258,7 +253,7 @@ class ProfileManager: ObservableObject {
         profile.isDefault = false
 
         profiles.append(profile)
-        saveProfile(profile)
+        saveConfiguration()
 
         return profile
     }

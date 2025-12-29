@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Main window content view
 struct ContentView: View {
@@ -198,6 +199,9 @@ struct ProfileSidebar: View {
 
     @State private var showingNewProfileAlert = false
     @State private var newProfileName = ""
+    @State private var isImporting = false
+    @State private var isExporting = false
+    @State private var profileToExport: Profile?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -208,10 +212,19 @@ struct ProfileSidebar: View {
 
                 Spacer()
 
-                Button(action: { showingNewProfileAlert = true }) {
+                Menu {
+                    Button("New Profile") {
+                        showingNewProfileAlert = true
+                    }
+                    Button("Import Profile...") {
+                        isImporting = true
+                    }
+                } label: {
                     Image(systemName: "plus")
+                        .frame(width: 20, height: 20)
                 }
-                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                .fixedSize()
             }
             .padding(12)
 
@@ -236,6 +249,11 @@ struct ProfileSidebar: View {
 
                             Button("Rename") {
                                 // Would show rename sheet
+                            }
+                            
+                            Button("Export...") {
+                                profileToExport = profile
+                                isExporting = true
                             }
 
                             Divider()
@@ -262,6 +280,61 @@ struct ProfileSidebar: View {
                 }
             }
         }
+        .fileImporter(
+            isPresented: $isImporting,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                do {
+                    let profile = try profileManager.importProfile(from: url)
+                    profileManager.setActiveProfile(profile)
+                } catch {
+                    print("Import failed: \(error)")
+                }
+            case .failure(let error):
+                print("Import failed: \(error)")
+            }
+        }
+        .fileExporter(
+            isPresented: $isExporting,
+            document: ProfileDocument(profile: profileToExport),
+            contentType: .json,
+            defaultFilename: profileToExport?.name ?? "Profile"
+        ) { result in
+            if case .failure(let error) = result {
+                print("Export failed: \(error)")
+            }
+        }
+    }
+}
+
+struct ProfileDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+
+    var profile: Profile?
+
+    init(profile: Profile?) {
+        self.profile = profile
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        // Not used for export-only
+        let data = try configuration.file.regularFileContents
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        self.profile = try? decoder.decode(Profile.self, from: data!)
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        guard let profile = profile else { throw CocoaError(.fileWriteUnknown) }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = .prettyPrinted
+        let data = try encoder.encode(profile)
+        return FileWrapper(regularFileWithContents: data)
     }
 }
 
