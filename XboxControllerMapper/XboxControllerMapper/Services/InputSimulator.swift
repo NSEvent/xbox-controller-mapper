@@ -40,26 +40,74 @@ class InputSimulator {
         }
 
         guard checkAccessibility() else { return }
-        guard let source = eventSource else { return }
 
         // Combine explicit modifiers with any held modifiers
         let combinedModifiers = modifiers.union(heldModifiers)
 
         #if DEBUG
-        print("🎮 Pressing key: \(keyCode) with modifiers: \(combinedModifiers.rawValue)")
+        print("🎮 Pressing key: \(keyCode) (\(KeyCodeMapping.displayName(for: keyCode))) with modifiers: \(combinedModifiers.rawValue)")
         #endif
 
-        // Key down
-        if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
-            event.flags = combinedModifiers
-            event.post(tap: .cghidEventTap)
+        // Press modifier keys first (like a real keyboard)
+        if combinedModifiers.contains(.maskCommand) {
+            postKeyEvent(keyCode: CGKeyCode(kVK_Command), keyDown: true)
+        }
+        if combinedModifiers.contains(.maskShift) {
+            postKeyEvent(keyCode: CGKeyCode(kVK_Shift), keyDown: true)
+        }
+        if combinedModifiers.contains(.maskAlternate) {
+            postKeyEvent(keyCode: CGKeyCode(kVK_Option), keyDown: true)
+        }
+        if combinedModifiers.contains(.maskControl) {
+            postKeyEvent(keyCode: CGKeyCode(kVK_Control), keyDown: true)
         }
 
-        // Key up
-        if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
-            event.flags = combinedModifiers
-            event.post(tap: .cghidEventTap)
+        // Small delay after modifiers
+        usleep(5000) // 5ms
+
+        // Press the main key
+        postKeyEvent(keyCode: keyCode, keyDown: true, flags: combinedModifiers)
+        usleep(10000) // 10ms
+        postKeyEvent(keyCode: keyCode, keyDown: false, flags: combinedModifiers)
+
+        // Small delay before releasing modifiers
+        usleep(5000) // 5ms
+
+        // Release modifier keys
+        if combinedModifiers.contains(.maskControl) {
+            postKeyEvent(keyCode: CGKeyCode(kVK_Control), keyDown: false)
         }
+        if combinedModifiers.contains(.maskAlternate) {
+            postKeyEvent(keyCode: CGKeyCode(kVK_Option), keyDown: false)
+        }
+        if combinedModifiers.contains(.maskShift) {
+            postKeyEvent(keyCode: CGKeyCode(kVK_Shift), keyDown: false)
+        }
+        if combinedModifiers.contains(.maskCommand) {
+            postKeyEvent(keyCode: CGKeyCode(kVK_Command), keyDown: false)
+        }
+
+        #if DEBUG
+        print("  ✅ Key sequence completed")
+        #endif
+    }
+
+    /// Posts a single key event
+    private func postKeyEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags = []) {
+        // Use nil source for maximum compatibility
+        guard let event = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: keyDown) else {
+            #if DEBUG
+            print("  ❌ Failed to create event for keyCode \(keyCode)")
+            #endif
+            return
+        }
+
+        if flags.rawValue != 0 {
+            event.flags = flags
+        }
+
+        // Post to HID tap
+        event.post(tap: .cghidEventTap)
     }
 
     /// Holds a key down (for continuous actions)
@@ -292,6 +340,14 @@ class InputSimulator {
 
     /// Executes a key mapping
     func executeMapping(_ mapping: KeyMapping) {
+        #if DEBUG
+        print("📋 executeMapping called:")
+        print("   keyCode: \(mapping.keyCode?.description ?? "nil")")
+        print("   modifiers - cmd:\(mapping.modifiers.command) opt:\(mapping.modifiers.option) shift:\(mapping.modifiers.shift) ctrl:\(mapping.modifiers.control)")
+        print("   cgEventFlags: \(mapping.modifiers.cgEventFlags.rawValue)")
+        print("   isHoldModifier: \(mapping.isHoldModifier)")
+        #endif
+
         if mapping.isHoldModifier {
             // This is handled by hold/release methods
             return
@@ -311,19 +367,25 @@ class InputSimulator {
 
     /// Starts holding a mapping (for hold-type mappings)
     func startHoldMapping(_ mapping: KeyMapping) {
-        if mapping.isHoldModifier {
+        // Hold any modifiers
+        if mapping.modifiers.hasAny {
             holdModifier(mapping.modifiers.cgEventFlags)
-        } else if let keyCode = mapping.keyCode {
+        }
+        // Hold the key/mouse button
+        if let keyCode = mapping.keyCode {
             keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         }
     }
 
     /// Stops holding a mapping
     func stopHoldMapping(_ mapping: KeyMapping) {
-        if mapping.isHoldModifier {
-            releaseModifier(mapping.modifiers.cgEventFlags)
-        } else if let keyCode = mapping.keyCode {
+        // Release the key/mouse button first
+        if let keyCode = mapping.keyCode {
             keyUp(keyCode)
+        }
+        // Then release modifiers
+        if mapping.modifiers.hasAny {
+            releaseModifier(mapping.modifiers.cgEventFlags)
         }
     }
 }
