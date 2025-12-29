@@ -20,6 +20,11 @@ struct ButtonMappingSheet: View {
     @State private var longHoldModifiers = ModifierFlags()
     @State private var longHoldThreshold: Double = 0.5
 
+    @State private var enableDoubleTap = false
+    @State private var doubleTapKeyCode: CGKeyCode?
+    @State private var doubleTapModifiers = ModifierFlags()
+    @State private var doubleTapThreshold: Double = 0.3
+
     // App override state
     @State private var showingAppPicker = false
     @State private var appOverrides: [(bundleId: String, mapping: KeyMapping)] = []
@@ -27,6 +32,11 @@ struct ButtonMappingSheet: View {
     // Keyboard visual state
     @State private var showingKeyboardForPrimary = false
     @State private var showingKeyboardForLongHold = false
+    @State private var showingKeyboardForDoubleTap = false
+
+    private var showingAnyKeyboard: Bool {
+        showingKeyboardForPrimary || showingKeyboardForLongHold || showingKeyboardForDoubleTap
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,6 +50,7 @@ struct ButtonMappingSheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     primaryMappingSection
                     longHoldSection
+                    doubleTapSection
                     appOverridesSection
                 }
                 .padding(20)
@@ -50,9 +61,10 @@ struct ButtonMappingSheet: View {
             // Footer
             footer
         }
-        .frame(width: showingKeyboardForPrimary || showingKeyboardForLongHold ? 750 : 500, height: showingKeyboardForPrimary || showingKeyboardForLongHold ? 700 : 550)
+        .frame(width: showingAnyKeyboard ? 750 : 500, height: showingAnyKeyboard ? 700 : 550)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForPrimary)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForLongHold)
+        .animation(.easeInOut(duration: 0.2), value: showingKeyboardForDoubleTap)
         .onAppear {
             loadCurrentMapping()
         }
@@ -239,6 +251,83 @@ struct ButtonMappingSheet: View {
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
     }
 
+    // MARK: - Double Tap Section
+
+    private var doubleTapSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Toggle("Enable Double Tap Action", isOn: $enableDoubleTap)
+                    .font(.headline)
+
+                Spacer()
+
+                if enableDoubleTap {
+                    Button(action: { showingKeyboardForDoubleTap.toggle() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: showingKeyboardForDoubleTap ? "keyboard.chevron.compact.down" : "keyboard")
+                            Text(showingKeyboardForDoubleTap ? "Hide" : "Show Keyboard")
+                        }
+                        .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
+                }
+            }
+
+            if enableDoubleTap {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Tap Window:")
+                            .font(.subheadline)
+
+                        Slider(value: $doubleTapThreshold, in: 0.15...0.6, step: 0.05)
+
+                        Text("\(doubleTapThreshold, specifier: "%.2f")s")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .frame(width: 45)
+                    }
+
+                    Text("Two taps within this time window trigger the double-tap action")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    // Current selection display
+                    HStack {
+                        Text("Double Tap Action:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        Text(doubleTapMappingDisplay)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+
+                    if showingKeyboardForDoubleTap {
+                        KeyboardVisualView(selectedKeyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
+                    } else {
+                        KeyCaptureField(keyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
+                    }
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .cornerRadius(8)
+            }
+        }
+    }
+
+    private var doubleTapMappingDisplay: String {
+        var parts: [String] = []
+        if doubleTapModifiers.command { parts.append("⌘") }
+        if doubleTapModifiers.option { parts.append("⌥") }
+        if doubleTapModifiers.shift { parts.append("⇧") }
+        if doubleTapModifiers.control { parts.append("⌃") }
+        if let keyCode = doubleTapKeyCode {
+            parts.append(KeyCodeMapping.displayName(for: keyCode))
+        }
+        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
+    }
+
     // MARK: - App Overrides Section
 
     private var appOverridesSection: some View {
@@ -325,6 +414,13 @@ struct ButtonMappingSheet: View {
                 longHoldModifiers = longHold.modifiers
                 longHoldThreshold = longHold.threshold
             }
+
+            if let doubleTap = existingMapping.doubleTapMapping {
+                enableDoubleTap = true
+                doubleTapKeyCode = doubleTap.keyCode
+                doubleTapModifiers = doubleTap.modifiers
+                doubleTapThreshold = doubleTap.threshold
+            }
         }
 
         // Load app overrides
@@ -347,6 +443,14 @@ struct ButtonMappingSheet: View {
                 keyCode: longHoldKeyCode,
                 modifiers: longHoldModifiers,
                 threshold: longHoldThreshold
+            )
+        }
+
+        if enableDoubleTap && (doubleTapKeyCode != nil || doubleTapModifiers.hasAny) {
+            newMapping.doubleTapMapping = DoubleTapMapping(
+                keyCode: doubleTapKeyCode,
+                modifiers: doubleTapModifiers,
+                threshold: doubleTapThreshold
             )
         }
 

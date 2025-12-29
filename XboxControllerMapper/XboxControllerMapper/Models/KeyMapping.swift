@@ -12,6 +12,9 @@ struct KeyMapping: Codable, Equatable {
     /// Optional alternate mapping for long hold
     var longHoldMapping: LongHoldMapping?
 
+    /// Optional alternate mapping for double tap
+    var doubleTapMapping: DoubleTapMapping?
+
     /// Whether this mapping acts as a held modifier (released when button released)
     var isHoldModifier: Bool
 
@@ -19,11 +22,13 @@ struct KeyMapping: Codable, Equatable {
         keyCode: CGKeyCode? = nil,
         modifiers: ModifierFlags = ModifierFlags(),
         longHoldMapping: LongHoldMapping? = nil,
+        doubleTapMapping: DoubleTapMapping? = nil,
         isHoldModifier: Bool = false
     ) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.longHoldMapping = longHoldMapping
+        self.doubleTapMapping = doubleTapMapping
         self.isHoldModifier = isHoldModifier
     }
 
@@ -77,6 +82,39 @@ struct LongHoldMapping: Codable, Equatable {
     var threshold: TimeInterval
 
     init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+        self.threshold = threshold
+    }
+
+    var displayString: String {
+        var parts: [String] = []
+
+        if modifiers.command { parts.append("⌘") }
+        if modifiers.option { parts.append("⌥") }
+        if modifiers.shift { parts.append("⇧") }
+        if modifiers.control { parts.append("⌃") }
+
+        if let keyCode = keyCode {
+            parts.append(KeyCodeMapping.displayName(for: keyCode))
+        }
+
+        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
+    }
+
+    var isEmpty: Bool {
+        keyCode == nil && !modifiers.hasAny
+    }
+}
+
+/// Wraps double tap configuration
+struct DoubleTapMapping: Codable, Equatable {
+    var keyCode: CGKeyCode?
+    var modifiers: ModifierFlags
+    /// Time window within which two taps must occur to count as double-tap (default 0.3s)
+    var threshold: TimeInterval
+
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = threshold

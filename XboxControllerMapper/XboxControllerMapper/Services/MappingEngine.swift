@@ -17,6 +17,12 @@ class MappingEngine: ObservableObject {
     /// Tracks buttons that are part of an active chord
     private var activeChordButtons: Set<ControllerButton> = []
 
+    /// Tracks last tap time for each button (for double-tap detection)
+    private var lastTapTime: [ControllerButton: Date] = [:]
+
+    /// Tracks pending single-tap work items (cancelled if double-tap detected)
+    private var pendingSingleTap: [ControllerButton: DispatchWorkItem] = [:]
+
     /// Timer for joystick polling
     private var joystickTimer: Timer?
     private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 60 Hz
@@ -109,14 +115,48 @@ class MappingEngine: ObservableObject {
         // Skip if this is a hold modifier (already handled)
         guard !mapping.isHoldModifier else { return }
 
-        // Check for long hold
+        // Check for long hold first - long hold takes priority over double-tap
         if let longHoldMapping = mapping.longHoldMapping,
            holdDuration >= longHoldMapping.threshold,
            !longHoldMapping.isEmpty {
-            // Execute long hold mapping
+            // Cancel any pending single-tap since this was a long hold
+            pendingSingleTap[button]?.cancel()
+            pendingSingleTap.removeValue(forKey: button)
+            lastTapTime.removeValue(forKey: button)
             executeLongHoldMapping(longHoldMapping)
+            return
+        }
+
+        // Check for double-tap
+        if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
+            let now = Date()
+
+            // Check if there's a pending single-tap (meaning first tap already happened)
+            if let pending = pendingSingleTap[button],
+               let lastTap = lastTapTime[button],
+               now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
+                // This is a double-tap - cancel the pending single-tap
+                pending.cancel()
+                pendingSingleTap.removeValue(forKey: button)
+                lastTapTime.removeValue(forKey: button)
+                executeDoubleTapMapping(doubleTapMapping)
+                return
+            }
+
+            // This might be the first tap of a double-tap sequence
+            // Schedule a delayed single-tap that can be cancelled if second tap comes
+            lastTapTime[button] = now
+            let workItem = DispatchWorkItem { [weak self] in
+                Task { @MainActor in
+                    self?.pendingSingleTap.removeValue(forKey: button)
+                    self?.lastTapTime.removeValue(forKey: button)
+                    self?.inputSimulator.executeMapping(mapping)
+                }
+            }
+            pendingSingleTap[button] = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
         } else {
-            // Execute normal mapping
+            // No double-tap mapping - execute immediately
             inputSimulator.executeMapping(mapping)
         }
     }
@@ -126,6 +166,19 @@ class MappingEngine: ObservableObject {
             inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         } else if mapping.modifiers.hasAny {
             // Modifier-only long hold
+            let flags = mapping.modifiers.cgEventFlags
+            inputSimulator.holdModifier(flags)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.inputSimulator.releaseModifier(flags)
+            }
+        }
+    }
+
+    private func executeDoubleTapMapping(_ mapping: DoubleTapMapping) {
+        if let keyCode = mapping.keyCode {
+            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+        } else if mapping.modifiers.hasAny {
+            // Modifier-only double tap
             let flags = mapping.modifiers.cgEventFlags
             inputSimulator.holdModifier(flags)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
@@ -248,6 +301,12 @@ class MappingEngine: ObservableObject {
             inputSimulator.stopHoldMapping(mapping)
         }
         heldButtons.removeAll()
+        // Cancel any pending single-taps
+        for (_, workItem) in pendingSingleTap {
+            workItem.cancel()
+        }
+        pendingSingleTap.removeAll()
+        lastTapTime.removeAll()
         inputSimulator.releaseAllModifiers()
     }
 
