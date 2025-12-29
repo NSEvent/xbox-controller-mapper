@@ -10,10 +10,10 @@ struct KeyboardVisualView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Modifier checkboxes at the top
-            modifierRow
+            // Extended function keys (F13-F20) at the very top
+            extendedFunctionKeyRow
 
-            // Function key row (F1-F12 + extras)
+            // Function key row (Esc + F1-F12)
             functionKeyRow
 
             // Main keyboard
@@ -25,11 +25,11 @@ struct KeyboardVisualView: View {
                 bottomRow
             }
 
-            // Extended function keys (F13-F25)
-            extendedFunctionKeyRow
-
             // Navigation keys
             navigationKeyRow
+
+            // Modifier checkboxes at the bottom
+            modifierRow
         }
         .padding()
         .background(Color(nsColor: .windowBackgroundColor))
@@ -56,7 +56,7 @@ struct KeyboardVisualView: View {
                 .foregroundColor(.red)
             }
         }
-        .padding(.bottom, 8)
+        .padding(.top, 8)
     }
 
     // MARK: - Function Keys (F1-F12)
@@ -146,7 +146,7 @@ struct KeyboardVisualView: View {
 
     private var zxcvRow: some View {
         HStack(spacing: 4) {
-            KeyButton(keyCode: CGKeyCode(kVK_Shift), label: "Shift", width: 80, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift)
 
             let zxcvKeys = ["Z", "X", "C", "V", "B", "N", "M"]
             let zxcvCodes: [Int] = [kVK_ANSI_Z, kVK_ANSI_X, kVK_ANSI_C, kVK_ANSI_V, kVK_ANSI_B, kVK_ANSI_N, kVK_ANSI_M]
@@ -158,7 +158,7 @@ struct KeyboardVisualView: View {
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Comma), label: ",", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Period), label: ".", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Slash), label: "/", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-            KeyButton(keyCode: CGKeyCode(kVK_RightShift), label: "Shift", width: 80, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift)
         }
     }
 
@@ -167,14 +167,14 @@ struct KeyboardVisualView: View {
     private var bottomRow: some View {
         HStack(spacing: 4) {
             KeyButton(keyCode: CGKeyCode(kVK_Function), label: "Fn", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-            KeyButton(keyCode: CGKeyCode(kVK_Control), label: "⌃", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-            KeyButton(keyCode: CGKeyCode(kVK_Option), label: "⌥", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-            KeyButton(keyCode: CGKeyCode(kVK_Command), label: "⌘", width: 50, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+            ModifierKeyButton(label: "⌃", width: 40, isActive: $modifiers.control)
+            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option)
+            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command)
 
             KeyButton(keyCode: CGKeyCode(kVK_Space), label: "Space", width: 200, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
 
-            KeyButton(keyCode: CGKeyCode(kVK_RightCommand), label: "⌘", width: 50, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-            KeyButton(keyCode: CGKeyCode(kVK_RightOption), label: "⌥", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command)
+            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option)
 
             // Arrow keys cluster
             VStack(spacing: 2) {
@@ -188,23 +188,25 @@ struct KeyboardVisualView: View {
         }
     }
 
-    // MARK: - Extended Function Keys (F13-F25)
+    // MARK: - Extended Function Keys (F13-F20)
 
     private var extendedFunctionKeyRow: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Extended Function Keys")
+            Text("Extended Function Keys (F13-F20)")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             HStack(spacing: 4) {
                 ForEach(extendedFunctionKeys, id: \.label) { key in
-                    KeyButton(keyCode: key.code, label: key.label, width: 38, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    KeyButton(keyCode: key.code, label: key.label, width: 42, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 }
             }
         }
     }
 
     private var extendedFunctionKeys: [(label: String, code: CGKeyCode)] {
+        // macOS officially supports F13-F20 as extended function keys
+        // F21-F25 have overlapping codes with other keys, so we omit them
         [
             ("F13", CGKeyCode(kVK_F13)),
             ("F14", CGKeyCode(kVK_F14)),
@@ -213,12 +215,7 @@ struct KeyboardVisualView: View {
             ("F17", CGKeyCode(kVK_F17)),
             ("F18", CGKeyCode(kVK_F18)),
             ("F19", CGKeyCode(kVK_F19)),
-            ("F20", CGKeyCode(kVK_F20)),
-            ("F21", CGKeyCode(0x6A)),
-            ("F22", CGKeyCode(0x6B)),
-            ("F23", CGKeyCode(0x6C)),
-            ("F24", CGKeyCode(0x6D)),
-            ("F25", CGKeyCode(0x6E))
+            ("F20", CGKeyCode(kVK_F20))
         ]
     }
 
@@ -245,6 +242,69 @@ struct KeyboardVisualView: View {
                 KeyButton(keyCode: KeyCodeMapping.mouseRightClick, label: "R Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.mouseMiddleClick, label: "M Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             }
+        }
+    }
+}
+
+// MARK: - Modifier Key Button (toggleable)
+
+struct ModifierKeyButton: View {
+    let label: String
+    var width: CGFloat = 40
+    var height: CGFloat = 32
+    @Binding var isActive: Bool
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: { isActive.toggle() }) {
+            Text(label)
+                .font(.system(size: fontSize, weight: .medium))
+                .frame(width: width, height: height)
+                .background(backgroundColor)
+                .foregroundColor(foregroundColor)
+                .cornerRadius(4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(borderColor, lineWidth: isActive ? 2 : 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+
+    private var fontSize: CGFloat {
+        if label.count > 4 {
+            return 9
+        } else if label.count > 2 {
+            return 10
+        }
+        return 12
+    }
+
+    private var backgroundColor: Color {
+        if isActive {
+            return .accentColor
+        } else if isHovered {
+            return Color.accentColor.opacity(0.3)
+        } else {
+            return Color(nsColor: .controlBackgroundColor)
+        }
+    }
+
+    private var foregroundColor: Color {
+        isActive ? .white : .primary
+    }
+
+    private var borderColor: Color {
+        if isActive {
+            return .accentColor
+        } else if isHovered {
+            return .accentColor.opacity(0.5)
+        } else {
+            return .gray.opacity(0.3)
         }
     }
 }
