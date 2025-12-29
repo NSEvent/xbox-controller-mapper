@@ -121,31 +121,33 @@ struct ControllerVisualView: View {
                 // Button Indicator (Authentic Xbox Styling)
                 ButtonIconView(button: button, isPressed: isPressed(button))
 
-                // Shortcut Labels
-                if let mapping = mapping(for: button) {
-                    MappingLabelView(
-                        mapping: mapping,
-                        font: .system(size: 15, weight: .semibold, design: .rounded)
-                    )
-                } else {
-                    Text("Unmapped")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary.opacity(0.5))
-                        .italic()
+                // Shortcut Labels Container
+                HStack {
+                    if let mapping = mapping(for: button) {
+                        MappingLabelView(
+                            mapping: mapping,
+                            font: .system(size: 15, weight: .semibold, design: .rounded)
+                        )
+                    } else {
+                        Text("Unmapped")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary.opacity(0.5))
+                            .italic()
+                    }
+                    Spacer()
                 }
-                
-                Spacer()
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(selectedButton == button ? Color.accentColor : Color.gray.opacity(0.2), lineWidth: selectedButton == button ? 2 : 1)
+                )
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(selectedButton == button ? Color.accentColor.opacity(0.1) : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(selectedButton == button ? Color.accentColor : Color.clear, lineWidth: 1)
-            )
         }
         .buttonStyle(.plain)
     }
