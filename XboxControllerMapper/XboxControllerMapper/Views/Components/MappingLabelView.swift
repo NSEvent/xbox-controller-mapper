@@ -3,17 +3,17 @@ import SwiftUI
 /// A view that displays a key mapping with colored icons for long hold and double tap
 struct MappingLabelView: View {
     let mapping: KeyMapping
-    var font: Font = .system(size: 11, weight: .bold)
-    var foregroundColor: Color = .white
+    var font: Font = .system(size: 14, weight: .bold) // Increased base font size
+    var foregroundColor: Color = .primary
     var horizontal: Bool = false
 
     var body: some View {
         if horizontal {
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 content
             }
         } else {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 content
             }
         }
@@ -22,29 +22,31 @@ struct MappingLabelView: View {
     @ViewBuilder
     private var content: some View {
         if !mapping.isEmpty {
-            Text(mapping.displayString)
-                .font(font)
-                .foregroundColor(foregroundColor)
+            labelRow(text: mapping.displayString, icon: nil, color: .primary)
         }
 
         if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
-            HStack(spacing: 2) {
-                Text("⏱")
-                    .foregroundColor(.orange)
-                Text(longHold.displayString)
-            }
-            .font(font)
-            .foregroundColor(foregroundColor)
+            labelRow(text: longHold.displayString, icon: "⏱", color: .orange)
         }
 
         if let doubleTap = mapping.doubleTapMapping, !doubleTap.isEmpty {
-            HStack(spacing: 2) {
-                Text("×2")
-                    .foregroundColor(.cyan)
-                Text(doubleTap.displayString)
+            labelRow(text: doubleTap.displayString, icon: "×2", color: .cyan)
+        }
+    }
+
+    @ViewBuilder
+    private func labelRow(text: String, icon: String?, color: Color) -> some View {
+        HStack(spacing: 6) {
+            if let icon = icon {
+                Text(icon)
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundColor(color)
+                    .frame(width: 24, alignment: .leading)
             }
-            .font(font)
-            .foregroundColor(foregroundColor)
+            
+            Text(text)
+                .font(.system(size: 15, weight: .semibold, design: .monospaced)) // Monospaced for better shortcut readability
+                .foregroundColor(.primary)
         }
     }
 }
