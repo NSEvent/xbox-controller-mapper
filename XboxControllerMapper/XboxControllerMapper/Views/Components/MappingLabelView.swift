@@ -45,13 +45,22 @@ struct MappingLabelView: View {
                     .padding(.vertical, 2)
                     .background(color)
                     .cornerRadius(3)
-                    .frame(width: 24)
             }
             
             Text(text)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+                .font(font)
+                .foregroundColor(foregroundColor)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.primary.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+        )
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
