@@ -85,9 +85,9 @@ struct ControllerVisualView: View {
 
             // Right Column: Face buttons and Right-side inputs
             VStack(alignment: .leading, spacing: 16) {
+                referenceGroup(title: "Shoulder", buttons: [.rightTrigger, .rightBumper])
                 referenceGroup(title: "Actions", buttons: [.y, .b, .a, .x])
                 referenceGroup(title: "Camera", buttons: [.rightThumbstick])
-                referenceGroup(title: "Shoulder", buttons: [.rightTrigger, .rightBumper])
                 Spacer()
             }
             .frame(width: 220)
@@ -106,7 +106,7 @@ struct ControllerVisualView: View {
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)
 
-            VStack(spacing: 2) {
+            VStack(spacing: 12) {
                 ForEach(buttons) { button in
                     referenceRow(for: button)
                 }
@@ -136,7 +136,7 @@ struct ControllerVisualView: View {
                 
                 Spacer()
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .padding(.horizontal, 10)
             .background(
                 RoundedRectangle(cornerRadius: 8)
