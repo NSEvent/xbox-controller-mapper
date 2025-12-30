@@ -135,7 +135,7 @@ final class XboxControllerMapperTests: XCTestCase {
             controllerService.buttonPressed(.a)
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks()
+        await waitForTasks(0.2) // Increased from default
         
         await MainActor.run {
             XCTAssertTrue(mockInputSimulator.events.contains { event in
@@ -160,7 +160,7 @@ final class XboxControllerMapperTests: XCTestCase {
             XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "LB should be held after fallback")
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks()
+        await waitForTasks(0.2) // Increased from default
         
         await MainActor.run {
             XCTAssertTrue(mockInputSimulator.events.contains { event in
@@ -231,7 +231,7 @@ final class XboxControllerMapperTests: XCTestCase {
             controllerService.onButtonPressed?(.a)
             controllerService.onButtonReleased?(.a, 0.1)
         }
-        await waitForTasks()
+        await waitForTasks(0.2) // Increased
         
         await MainActor.run {
             XCTAssertTrue(mockInputSimulator.events.contains { event in
@@ -257,7 +257,7 @@ final class XboxControllerMapperTests: XCTestCase {
             })
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks()
+        await waitForTasks(0.2) // Increased
         
         await MainActor.run {
             XCTAssertFalse(mockInputSimulator.events.contains { event in
@@ -384,7 +384,7 @@ final class XboxControllerMapperTests: XCTestCase {
             // 3. Release DpadUp (Trigger)
             controllerService.buttonReleased(.dpadUp)
         }
-        await waitForTasks()
+        await waitForTasks(0.2) // Increased
         
         await MainActor.run {
             // Verify: Up Arrow was executed
@@ -419,7 +419,7 @@ final class XboxControllerMapperTests: XCTestCase {
             // 2. Release Menu
             controllerService.buttonReleased(.menu)
         }
-        await waitForTasks()
+        await waitForTasks(0.2) // Increased
         
         await MainActor.run {
             // Verify: executeMapping was called with Cmd + Delete
@@ -460,7 +460,7 @@ final class XboxControllerMapperTests: XCTestCase {
             // 3. Release A
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks()
+        await waitForTasks(0.2) // Increased
         
         await MainActor.run {
             // Verify: Delete was executed
@@ -474,6 +474,53 @@ final class XboxControllerMapperTests: XCTestCase {
             // Verify: Cmd was held during execution
             // (Mock records state at startHoldMapping and executeMapping)
             XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+        }
+    }
+    
+    func testChordPreventsIndividualActions() async throws {
+        await MainActor.run {
+            // Setup: A -> key 1, B -> key 2, [A, B] -> key 3 (Chord)
+            let aMapping = KeyMapping.key(1)
+            let bMapping = KeyMapping.key(2)
+            let chordMapping = ChordMapping(buttons: [.a, .b], keyCode: 3)
+            
+            profileManager.setActiveProfile(Profile(
+                name: "ChordTest",
+                buttonMappings: [.a: aMapping, .b: bMapping],
+                chordMappings: [chordMapping]
+            ))
+            
+            // 1. Simulate fast tap of A and B (released before chord timer)
+            // This represents the race condition where release happens before the 50ms window
+            
+            // We simulate what MappingEngine sees:
+            // 1. A release (engine doesn't know about chord yet)
+            controllerService.onButtonReleased?(.a, 0.02)
+            // 2. B release
+            controllerService.onButtonReleased?(.b, 0.02)
+            // 3. Chord detected (timer finally fired)
+            controllerService.onChordDetected?([.a, .b])
+        }
+        await waitForTasks()
+        
+        await MainActor.run {
+            // Verify individual actions DID NOT execute
+            // CURRENTLY THIS WILL FAIL because the engine executes them immediately on release if not already in activeChordButtons
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                return false
+            }, "Button A action should NOT execute")
+            
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 2 }
+                return false
+            }, "Button B action should NOT execute")
+
+            // Verify chord action executed
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 3 }
+                return false
+            }, "Chord action should execute")
         }
     }
 }

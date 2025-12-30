@@ -44,7 +44,7 @@ class ControllerService: ObservableObject {
 
     // Chord detection
     private var chordTimer: Timer?
-    internal var chordWindow: TimeInterval = 0.05  // 50ms window for chord detection
+    internal var chordWindow: TimeInterval = 0.10  // 100ms window for chord detection
     private var pendingButtons: Set<ControllerButton> = []
     private var capturedButtonsInWindow: Set<ControllerButton> = []
 

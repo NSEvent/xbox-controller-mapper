@@ -23,6 +23,9 @@ class MappingEngine: ObservableObject {
     /// Tracks pending single-tap work items (cancelled if double-tap detected)
     private var pendingSingleTap: [ControllerButton: DispatchWorkItem] = [:]
 
+    /// Tracks pending individual release actions (cancelled if chord detected)
+    private var pendingReleaseActions: [ControllerButton: DispatchWorkItem] = [:]
+
     /// Timers for detecting long holds while button is pressed
     private var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
 
@@ -230,8 +233,17 @@ class MappingEngine: ObservableObject {
             pendingSingleTap[button] = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
         } else {
-            // No double-tap mapping - execute immediately
-            inputSimulator.executeMapping(mapping)
+            // No double-tap mapping - execute after a short delay to allow for chord cancellation
+            let workItem = DispatchWorkItem { [weak self] in
+                Task { @MainActor in
+                    self?.pendingReleaseActions.removeValue(forKey: button)
+                    self?.inputSimulator.executeMapping(mapping)
+                }
+            }
+            pendingReleaseActions[button] = workItem
+            // Use chord window + a small margin (aligned with 100ms window)
+            let delay = 0.12 
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
         }
     }
 
@@ -267,6 +279,17 @@ class MappingEngine: ObservableObject {
         #endif
         guard isEnabled else { return }
         guard let profile = profileManager.activeProfile else { return }
+
+        // Cancel any pending individual release actions for these buttons
+        for button in buttons {
+            if let pending = pendingReleaseActions[button] {
+                pending.cancel()
+                pendingReleaseActions.removeValue(forKey: button)
+                #if DEBUG
+                print("   🚫 Cancelled pending individual action for \(button.displayName)")
+                #endif
+            }
+        }
 
         // Find matching chord mapping
         let matchingChord = profile.chordMappings.first { chord in
