@@ -135,24 +135,69 @@ struct ContentView: View {
     // MARK: - Controller Tab
 
     private var controllerTab: some View {
-        ZStack {
-            ControllerVisualView(
-                selectedButton: $selectedButton,
-                onButtonTap: { button in
-                    // Async dispatch to avoid layout recursion if triggered during layout pass
-                    DispatchQueue.main.async {
-                        selectedButton = button
-                    DispatchQueue.main.async {
-                        selectedButton = button
-                        configuringButton = button
+        VStack(spacing: 0) {
+            ZStack {
+                ControllerVisualView(
+                    selectedButton: $selectedButton,
+                    onButtonTap: { button in
+                        // Async dispatch to avoid layout recursion if triggered during layout pass
+                        DispatchQueue.main.async {
+                            selectedButton = button
+                            configuringButton = button
+                        }
                     }
+                )
+                .scaleEffect(uiScale)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+
+            // Mapped Chords Display
+            if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Chord Actions")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(profile.chordMappings) { chord in
+                                HStack(spacing: 8) {
+                                    HStack(spacing: 2) {
+                                        ForEach(Array(chord.buttons).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { button in
+                                            ButtonIconView(button: button)
+                                        }
+                                    }
+                                    
+                                    Image(systemName: "arrow.right")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text(chord.actionDisplayString)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color(nsColor: .controlBackgroundColor))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 12)
                     }
                 }
-            )
-            .scaleEffect(uiScale)
+                .padding(.top, 8)
+                .background(Color(nsColor: .windowBackgroundColor))
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
     }
 
 
@@ -411,8 +456,11 @@ struct ChordRow: View {
 
     var body: some View {
         HStack {
-            Text(chord.buttonsDisplayString)
-                .font(.body)
+            HStack(spacing: 4) {
+                ForEach(Array(chord.buttons).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { button in
+                    ButtonIconView(button: button)
+                }
+            }
 
             Image(systemName: "arrow.right")
                 .foregroundColor(.secondary)
@@ -452,22 +500,18 @@ struct ChordMappingSheet: View {
                 Text("Select buttons (2 or more):")
                     .font(.subheadline)
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 60))], spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 50))], spacing: 12) {
                     ForEach(ControllerButton.allCases) { button in
-                        Toggle(isOn: Binding(
-                            get: { selectedButtons.contains(button) },
-                            set: { selected in
-                                if selected {
-                                    selectedButtons.insert(button)
-                                } else {
-                                    selectedButtons.remove(button)
-                                }
+                        Button(action: {
+                            if selectedButtons.contains(button) {
+                                selectedButtons.remove(button)
+                            } else {
+                                selectedButtons.insert(button)
                             }
-                        )) {
-                            Text(button.shortLabel)
-                                .font(.caption)
+                        }) {
+                            ButtonIconView(button: button, isPressed: selectedButtons.contains(button))
                         }
-                        .toggleStyle(.button)
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -500,7 +544,7 @@ struct ChordMappingSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 400)
+        .frame(width: 450)
     }
 }
 
