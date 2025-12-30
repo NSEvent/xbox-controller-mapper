@@ -53,6 +53,15 @@ struct Profile: Codable, Identifiable, Equatable {
         return buttonMappings[button]
     }
 
+    /// Validates the profile for sanity
+    func isValid() -> Bool {
+        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return false
+        }
+        
+        return joystickSettings.isValid()
+    }
+
     /// Creates a default profile with sensible mappings
     static func createDefault() -> Profile {
         var mappings: [ControllerButton: KeyMapping] = [:]

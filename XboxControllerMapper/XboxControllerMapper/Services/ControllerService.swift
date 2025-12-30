@@ -308,7 +308,7 @@ class ControllerService: ObservableObject {
         print("🔍 processChordOrSinglePress: captured=\(capturedButtonsInWindow.map { $0.displayName })")
         #endif
         if capturedButtonsInWindow.count >= 2 {
-            // Chord detected  
+        // Chord detected  
             onChordDetected?(capturedButtonsInWindow)
         } else if let button = capturedButtonsInWindow.first {
             // Single button press

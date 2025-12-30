@@ -28,6 +28,17 @@ struct JoystickSettings: Codable, Equatable {
 
     static let `default` = JoystickSettings()
 
+    /// Validates settings ranges
+    func isValid() -> Bool {
+        let range = 0.0...1.0
+        return range.contains(mouseSensitivity) &&
+               range.contains(scrollSensitivity) &&
+               range.contains(mouseDeadzone) &&
+               range.contains(scrollDeadzone) &&
+               range.contains(mouseAcceleration) &&
+               range.contains(scrollAcceleration)
+    }
+
     /// Converts 0-1 sensitivity to actual multiplier for mouse
     var mouseMultiplier: Double {
         // Map 0-1 to 2-60 range (exponential for better feel)

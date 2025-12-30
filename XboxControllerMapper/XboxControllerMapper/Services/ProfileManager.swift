@@ -198,19 +198,36 @@ class ProfileManager: ObservableObject {
     }
 
     private func loadConfiguration() {
-        guard let data = try? Data(contentsOf: configURL) else { return }
+        // Check if file exists first to differentiate between "no config" and "read error"
+        guard fileManager.fileExists(atPath: configURL.path) else {
+            return
+        }
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        if let config = try? decoder.decode(Configuration.self, from: data) {
-            self.profiles = config.profiles.sorted { $0.createdAt < $1.createdAt }
+        do {
+            let data = try Data(contentsOf: configURL)
             
-            if let activeId = config.activeProfileId,
-               let profile = profiles.first(where: { $0.id == activeId }) {
-                self.activeProfile = profile
-                self.activeProfileId = activeId
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+
+            let config = try decoder.decode(Configuration.self, from: data)
+            
+            // Validation: Filter out invalid profiles
+            let validProfiles = config.profiles.filter { $0.isValid() }
+            
+            if !validProfiles.isEmpty {
+                self.profiles = validProfiles.sorted { $0.createdAt < $1.createdAt }
+                
+                if let activeId = config.activeProfileId,
+                   let profile = profiles.first(where: { $0.id == activeId }) {
+                    self.activeProfile = profile
+                    self.activeProfileId = activeId
+                } else {
+                    self.activeProfile = nil
+                    self.activeProfileId = nil
+                }
             }
+        } catch {
+            print("Failed to load configuration: \(error)")
         }
     }
 
