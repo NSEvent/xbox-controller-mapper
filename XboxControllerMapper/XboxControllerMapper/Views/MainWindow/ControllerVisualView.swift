@@ -1,4 +1,5 @@
 import SwiftUI
+import GameController
 
 /// Interactive visual representation of an Xbox controller with a professional Reference Page layout
 struct ControllerVisualView: View {
@@ -34,8 +35,8 @@ struct ControllerVisualView: View {
                     // Compact Controller Overlay (Just icons, no labels)
                     VStack(spacing: 15) {
                         HStack(spacing: 140) {
-                            miniTrigger(.leftTrigger, label: "LT")
-                            miniTrigger(.rightTrigger, label: "RT")
+                            miniTrigger(.leftTrigger, label: "LT", value: controllerService.leftTriggerValue)
+                            miniTrigger(.rightTrigger, label: "RT", value: controllerService.rightTriggerValue)
                         }
                         
                         HStack(spacing: 120) {
@@ -49,6 +50,13 @@ struct ControllerVisualView: View {
                             
                             VStack(spacing: 6) {
                                 miniCircle(.xbox, size: 22)
+                                
+                                // Battery Status
+                                if controllerService.isConnected {
+                                    BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
+                                        .frame(height: 10)
+                                }
+
                                 HStack(spacing: 12) {
                                     miniCircle(.view, size: 14)
                                     miniCircle(.menu, size: 14)
@@ -150,16 +158,24 @@ struct ControllerVisualView: View {
 
     // MARK: - Mini Controller Helpers
 
-    private func miniTrigger(_ button: ControllerButton, label: String) -> some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(isPressed(button) ? Color.accentColor : Color.gray.opacity(0.4))
-            .frame(width: 34, height: 14)
-            .overlay(
-                Text(label)
-                    .font(.system(size: 7, weight: .bold))
-                    .foregroundColor(.white)
-            )
-            .shadow(color: .black.opacity(0.1), radius: 1)
+    private func miniTrigger(_ button: ControllerButton, label: String, value: Float) -> some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.gray.opacity(0.4))
+                .frame(width: 34, height: 14)
+            
+            // Fill based on pressure
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.accentColor)
+                .frame(width: 34, height: 14 * CGFloat(value))
+                .opacity(isPressed(button) ? 1.0 : 0.6)
+            
+            Text(label)
+                .font(.system(size: 7, weight: .bold))
+                .foregroundColor(.white)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 3))
+        .shadow(color: .black.opacity(0.1), radius: 1)
     }
 
     private func miniBumper(_ button: ControllerButton, label: String) -> some View {
@@ -253,6 +269,52 @@ struct ControllerBodyShape: Shape {
 }
 
 // MARK: - Shared Components
+
+struct BatteryView: View {
+    let level: Float
+    let state: GCDeviceBattery.State
+    
+    var body: some View {
+        HStack(spacing: 2) {
+            if state == .charging {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 8))
+                    .foregroundColor(.yellow)
+            }
+            
+            ZStack(alignment: .leading) {
+                // Battery outline
+                RoundedRectangle(cornerRadius: 1)
+                    .stroke(Color.gray, lineWidth: 1)
+                    .frame(width: 16, height: 8)
+                
+                // Fill
+                if level >= 0 {
+                    RoundedRectangle(cornerRadius: 0.5)
+                        .fill(batteryColor)
+                        .frame(width: 14 * CGFloat(level), height: 6)
+                        .padding(.leading, 1)
+                } else {
+                    // Unknown level
+                    Text("?")
+                        .font(.system(size: 6))
+                        .frame(width: 16)
+                }
+            }
+            
+            // Battery tip
+            Rectangle()
+                .fill(Color.gray)
+                .frame(width: 1, height: 3)
+        }
+    }
+    
+    private var batteryColor: Color {
+        if level > 0.6 { return .green }
+        if level > 0.2 { return .orange }
+        return .red
+    }
+}
 
 struct MappingTag: View {
     let mapping: KeyMapping

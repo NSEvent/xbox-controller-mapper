@@ -24,6 +24,12 @@ class ControllerService: ObservableObject {
     /// Right trigger pressure (0 to 1)
     @Published var rightTriggerValue: Float = 0
 
+    /// Battery level (0 to 1)
+    @Published var batteryLevel: Float = -1
+    
+    /// Battery state
+    @Published var batteryState: GCDeviceBattery.State = .unknown
+
     // Button press timestamps for long-hold detection
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
 
@@ -102,6 +108,7 @@ class ControllerService: ObservableObject {
         controllerName = controller.vendorName ?? "Xbox Controller"
 
         setupInputHandlers(for: controller)
+        updateBatteryInfo()
 
         print("Controller connected: \(controllerName)")
     }
@@ -113,8 +120,21 @@ class ControllerService: ObservableObject {
         activeButtons.removeAll()
         leftStick = .zero
         rightStick = .zero
+        batteryLevel = -1
+        batteryState = .unknown
 
         print("Controller disconnected")
+    }
+
+    private func updateBatteryInfo() {
+        guard let battery = connectedController?.battery else { return }
+        batteryLevel = battery.batteryLevel
+        batteryState = battery.batteryState
+        
+        // Schedule next update in 30 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+            self?.updateBatteryInfo()
+        }
     }
 
     private func setupInputHandlers(for controller: GCController) {
