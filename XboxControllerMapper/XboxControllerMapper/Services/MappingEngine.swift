@@ -104,10 +104,18 @@ class MappingEngine: ObservableObject {
                 heldButtons[button] = mapping
                 inputSimulator.startHoldMapping(mapping)
             } else {
-                // Button was already released (quick tap) - execute as a simple press
-                if let keyCode = mapping.keyCode {
-                    inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+                // Button was already released (quick tap) - schedule as simple press
+                // with delay to allow chord cancellation
+                let workItem = DispatchWorkItem { [weak self] in
+                    Task { @MainActor in
+                        self?.pendingReleaseActions.removeValue(forKey: button)
+                        if let keyCode = mapping.keyCode {
+                            self?.inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+                        }
+                    }
                 }
+                pendingReleaseActions[button] = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: workItem)
             }
             return
         }
