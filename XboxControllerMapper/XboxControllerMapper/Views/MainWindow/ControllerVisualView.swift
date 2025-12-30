@@ -284,28 +284,35 @@ struct BatteryView: View {
             
             ZStack(alignment: .leading) {
                 // Battery outline
-                RoundedRectangle(cornerRadius: 1)
-                    .stroke(Color.gray, lineWidth: 1)
-                    .frame(width: 16, height: 8)
+                RoundedRectangle(cornerRadius: 2)
+                    .stroke(Color.primary.opacity(0.4), lineWidth: 1)
+                    .frame(width: 22, height: 10)
                 
+                // Empty track background
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 20, height: 8)
+                    .padding(.leading, 1)
+
                 // Fill
                 if level >= 0 {
-                    RoundedRectangle(cornerRadius: 0.5)
+                    RoundedRectangle(cornerRadius: 1.5)
                         .fill(batteryColor)
-                        .frame(width: 14 * CGFloat(level), height: 6)
+                        .frame(width: max(2, 20 * CGFloat(level)), height: 8) // Min width 2 so even 0% is visible
                         .padding(.leading, 1)
                 } else {
                     // Unknown level
                     Text("?")
-                        .font(.system(size: 6))
-                        .frame(width: 16)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 22, height: 10, alignment: .center)
                 }
             }
             
             // Battery tip
-            Rectangle()
-                .fill(Color.gray)
-                .frame(width: 1, height: 3)
+            RoundedRectangle(cornerRadius: 1)
+                .fill(Color.primary.opacity(0.4))
+                .frame(width: 2, height: 4)
         }
     }
     

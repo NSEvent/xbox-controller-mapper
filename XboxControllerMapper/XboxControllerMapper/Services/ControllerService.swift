@@ -127,13 +127,16 @@ class ControllerService: ObservableObject {
     }
 
     private func updateBatteryInfo() {
-        guard let battery = connectedController?.battery else { return }
-        batteryLevel = battery.batteryLevel
-        batteryState = battery.batteryState
+        if let battery = connectedController?.battery {
+            batteryLevel = battery.batteryLevel
+            batteryState = battery.batteryState
+        }
         
-        // Schedule next update in 30 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
-            self?.updateBatteryInfo()
+        // Schedule next update if still connected
+        if isConnected {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+                self?.updateBatteryInfo()
+            }
         }
     }
 
