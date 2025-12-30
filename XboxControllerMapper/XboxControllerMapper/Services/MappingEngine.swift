@@ -96,10 +96,19 @@ class MappingEngine: ObservableObject {
         print("🔵 handleButtonPressed: \(button.displayName) isHoldModifier=\(mapping.isHoldModifier)")
         #endif
 
-        // For hold-type mappings, start holding immediately
+        // For hold-type mappings, start holding immediately - but only if button is still pressed
         if mapping.isHoldModifier {
-            heldButtons[button] = mapping
-            inputSimulator.startHoldMapping(mapping)
+            // Check if button is still actually pressed (it might have been released
+            // during the chord detection window for quick taps)
+            if controllerService.activeButtons.contains(button) {
+                heldButtons[button] = mapping
+                inputSimulator.startHoldMapping(mapping)
+            } else {
+                // Button was already released (quick tap) - execute as a simple press
+                if let keyCode = mapping.keyCode {
+                    inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+                }
+            }
             return
         }
         
