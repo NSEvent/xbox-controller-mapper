@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
     @State private var uiScale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0 // Track last scale for gesture
 
     var body: some View {
         HSplitView {
@@ -76,6 +77,17 @@ struct ContentView: View {
             Button("Reset Zoom") { uiScale = 1.0 }
                 .keyboardShortcut("0", modifiers: .command)
                 .hidden()
+        )
+        .gesture(
+            MagnificationGesture()
+                .onChanged { value in
+                    let delta = value / lastScale
+                    lastScale = value
+                    uiScale = min(max(uiScale * delta, 0.5), 2.0)
+                }
+                .onEnded { _ in
+                    lastScale = 1.0
+                }
         )
     }
 
@@ -142,6 +154,7 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
     }
+
 
     // MARK: - Chords Tab
 
@@ -272,6 +285,10 @@ struct ProfileSidebar: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden) // Optional: cleaner look
+            // Prevent arrow keys from changing selection by disabling focus
+            // Note: This might prevent keyboard navigation entirely for the list, which is what is requested.
+            .focusable(false)
         }
         .alert("New Profile", isPresented: $showingNewProfileAlert) {
             TextField("Profile name", text: $newProfileName)
