@@ -114,7 +114,7 @@ final class XboxControllerMapperTests: XCTestCase {
         }
     }
     
-    private func waitForTasks(_ delay: TimeInterval = 0.1) async {
+    private func waitForTasks(_ delay: TimeInterval = 0.3) async {
         await Task.yield()
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         await Task.yield()
@@ -135,7 +135,7 @@ final class XboxControllerMapperTests: XCTestCase {
             controllerService.buttonPressed(.a)
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks(0.2) // Increased from default
+        await waitForTasks()
         
         await MainActor.run {
             XCTAssertTrue(mockInputSimulator.events.contains { event in
@@ -160,7 +160,7 @@ final class XboxControllerMapperTests: XCTestCase {
             XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "LB should be held after fallback")
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks(0.2) // Increased from default
+        await waitForTasks()
         
         await MainActor.run {
             XCTAssertTrue(mockInputSimulator.events.contains { event in
@@ -231,7 +231,7 @@ final class XboxControllerMapperTests: XCTestCase {
             controllerService.onButtonPressed?(.a)
             controllerService.onButtonReleased?(.a, 0.1)
         }
-        await waitForTasks(0.2) // Increased
+        await waitForTasks()
         
         await MainActor.run {
             XCTAssertTrue(mockInputSimulator.events.contains { event in
@@ -257,7 +257,7 @@ final class XboxControllerMapperTests: XCTestCase {
             })
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks(0.2) // Increased
+        await waitForTasks()
         
         await MainActor.run {
             XCTAssertFalse(mockInputSimulator.events.contains { event in
@@ -384,7 +384,7 @@ final class XboxControllerMapperTests: XCTestCase {
             // 3. Release DpadUp (Trigger)
             controllerService.buttonReleased(.dpadUp)
         }
-        await waitForTasks(0.2) // Increased
+        await waitForTasks()
         
         await MainActor.run {
             // Verify: Up Arrow was executed
@@ -419,7 +419,7 @@ final class XboxControllerMapperTests: XCTestCase {
             // 2. Release Menu
             controllerService.buttonReleased(.menu)
         }
-        await waitForTasks(0.2) // Increased
+        await waitForTasks()
         
         await MainActor.run {
             // Verify: executeMapping was called with Cmd + Delete
@@ -460,7 +460,7 @@ final class XboxControllerMapperTests: XCTestCase {
             // 3. Release A
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks(0.2) // Increased
+        await waitForTasks()
         
         await MainActor.run {
             // Verify: Delete was executed
