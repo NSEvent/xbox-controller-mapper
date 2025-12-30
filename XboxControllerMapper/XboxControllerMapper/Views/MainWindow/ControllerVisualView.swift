@@ -201,8 +201,24 @@ struct ControllerVisualView: View {
 
     private func miniDPad() -> some View {
         ZStack {
+            // Vertical bar background
             Rectangle().fill(Color.gray.opacity(0.3)).frame(width: 8, height: 24)
+            // Horizontal bar background
             Rectangle().fill(Color.gray.opacity(0.3)).frame(width: 24, height: 8)
+            
+            // Active states overlay
+            if isPressed(.dpadUp) {
+                Rectangle().fill(Color.accentColor).frame(width: 8, height: 10).offset(y: -7)
+            }
+            if isPressed(.dpadDown) {
+                Rectangle().fill(Color.accentColor).frame(width: 8, height: 10).offset(y: 7)
+            }
+            if isPressed(.dpadLeft) {
+                Rectangle().fill(Color.accentColor).frame(width: 10, height: 8).offset(x: -7)
+            }
+            if isPressed(.dpadRight) {
+                Rectangle().fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7)
+            }
         }
     }
 
