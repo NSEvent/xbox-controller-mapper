@@ -114,7 +114,7 @@ final class XboxControllerMapperTests: XCTestCase {
         }
     }
     
-    private func waitForTasks(_ delay: TimeInterval = 0.3) async {
+    private func waitForTasks(_ delay: TimeInterval = 0.4) async {
         await Task.yield()
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         await Task.yield()
@@ -248,7 +248,7 @@ final class XboxControllerMapperTests: XCTestCase {
             profileManager.setActiveProfile(Profile(name: "Hold", buttonMappings: [.a: aMapping]))
             controllerService.buttonPressed(.a)
         }
-        await waitForTasks(0.2)
+        await waitForTasks(0.4)
         
         await MainActor.run {
             XCTAssertTrue(mockInputSimulator.events.contains { event in

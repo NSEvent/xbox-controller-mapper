@@ -241,8 +241,8 @@ class MappingEngine: ObservableObject {
                 }
             }
             pendingReleaseActions[button] = workItem
-            // Use chord window + a small margin (aligned with 100ms window)
-            let delay = 0.12 
+            // Use chord window + a small margin (aligned with 150ms window)
+            let delay = 0.18 
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
         }
     }
@@ -287,6 +287,16 @@ class MappingEngine: ObservableObject {
                 pendingReleaseActions.removeValue(forKey: button)
                 #if DEBUG
                 print("   🚫 Cancelled pending individual action for \(button.displayName)")
+                #endif
+            }
+            
+            // Also cancel pending single-taps (for buttons with double-tap mappings)
+            if let pendingTap = pendingSingleTap[button] {
+                pendingTap.cancel()
+                pendingSingleTap.removeValue(forKey: button)
+                lastTapTime.removeValue(forKey: button)
+                #if DEBUG
+                print("   🚫 Cancelled pending single-tap for \(button.displayName)")
                 #endif
             }
         }
