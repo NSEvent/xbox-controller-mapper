@@ -49,6 +49,9 @@ class ControllerService: ObservableObject {
     private var capturedButtonsInWindow: Set<ControllerButton> = []
 
     private var cancellables = Set<AnyCancellable>()
+    
+    // Low-level monitor for Xbox Guide button
+    private let guideMonitor = XboxGuideMonitor()
 
     init() {
         // Enable background event monitoring - this is the official API for
@@ -58,6 +61,13 @@ class ControllerService: ObservableObject {
         setupNotifications()
         startDiscovery()
         checkConnectedControllers()
+        
+        // Setup Guide button callback
+        guideMonitor.onGuideButtonAction = { [weak self] isPressed in
+            Task { @MainActor in
+                self?.handleButton(.xbox, pressed: isPressed)
+            }
+        }
     }
 
     func cleanup() {
