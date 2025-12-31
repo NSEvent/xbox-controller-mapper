@@ -33,8 +33,8 @@ class MappingEngine: ObservableObject {
     /// Tracks buttons that have already triggered their long-hold action during the current press
     private var longHoldTriggered: Set<ControllerButton> = []
 
-    /// Timer for joystick polling
-    private var joystickTimer: Timer?
+    /// Timer for joystick polling (using DispatchSourceTimer for lower overhead)
+    private var joystickTimer: DispatchSourceTimer?
     private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 60 Hz
 
     private var cancellables = Set<AnyCancellable>()
@@ -267,7 +267,7 @@ class MappingEngine: ObservableObject {
             }
             pendingReleaseActions[button] = workItem
             // Use chord window + a small margin (aligned with 150ms window)
-            let delay = 0.18 
+            let delay = 0.18
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
         }
     }
@@ -375,15 +375,17 @@ class MappingEngine: ObservableObject {
     private func startJoystickPolling() {
         stopJoystickPolling()
 
-        joystickTimer = Timer.scheduledTimer(withTimeInterval: joystickPollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.processJoysticks()
-            }
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+        timer.schedule(deadline: .now(), repeating: joystickPollInterval, leeway: .microseconds(100))
+        timer.setEventHandler { [weak self] in
+            self?.processJoysticks()
         }
+        timer.resume()
+        joystickTimer = timer
     }
 
     private func stopJoystickPolling() {
-        joystickTimer?.invalidate()
+        joystickTimer?.cancel()
         joystickTimer = nil
     }
 
@@ -401,19 +403,25 @@ class MappingEngine: ObservableObject {
     }
 
     private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings) {
-        // Apply deadzone
-        let magnitude = sqrt(stick.x * stick.x + stick.y * stick.y)
-        guard magnitude > settings.mouseDeadzone else { return }
+        // Fast path: skip if clearly in deadzone (avoid sqrt for common case)
+        let deadzone = settings.mouseDeadzone
+        let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
+        let deadzoneSquared = deadzone * deadzone
+        guard magnitudeSquared > deadzoneSquared else { return }
+
+        // Only compute sqrt when we know we're outside deadzone
+        let magnitude = sqrt(magnitudeSquared)
 
         // Normalize and apply deadzone
-        let normalizedMagnitude = (magnitude - settings.mouseDeadzone) / (1.0 - settings.mouseDeadzone)
+        let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
 
         // Apply acceleration curve using the 0-1 acceleration setting
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.mouseAccelerationExponent)
 
         // Calculate direction using the converted multiplier
-        let dx = (stick.x / magnitude) * acceleratedMagnitude * settings.mouseMultiplier
-        var dy = (stick.y / magnitude) * acceleratedMagnitude * settings.mouseMultiplier
+        let scale = acceleratedMagnitude * settings.mouseMultiplier / magnitude
+        let dx = stick.x * scale
+        var dy = stick.y * scale
 
         // Invert Y if needed (joystick Y is inverted compared to screen coordinates)
         dy = settings.invertMouseY ? dy : -dy
@@ -422,19 +430,25 @@ class MappingEngine: ObservableObject {
     }
 
     private func processScrolling(_ stick: CGPoint, settings: JoystickSettings) {
-        // Apply deadzone
-        let magnitude = sqrt(stick.x * stick.x + stick.y * stick.y)
-        guard magnitude > settings.scrollDeadzone else { return }
+        // Fast path: skip if clearly in deadzone (avoid sqrt for common case)
+        let deadzone = settings.scrollDeadzone
+        let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
+        let deadzoneSquared = deadzone * deadzone
+        guard magnitudeSquared > deadzoneSquared else { return }
+
+        // Only compute sqrt when we know we're outside deadzone
+        let magnitude = sqrt(magnitudeSquared)
 
         // Normalize and apply deadzone
-        let normalizedMagnitude = (magnitude - settings.scrollDeadzone) / (1.0 - settings.scrollDeadzone)
+        let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
 
         // Apply acceleration curve using the 0-1 acceleration setting
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.scrollAccelerationExponent)
 
         // Calculate direction using the converted multiplier
-        let dx = (stick.x / magnitude) * acceleratedMagnitude * settings.scrollMultiplier
-        var dy = (stick.y / magnitude) * acceleratedMagnitude * settings.scrollMultiplier
+        let scale = acceleratedMagnitude * settings.scrollMultiplier / magnitude
+        let dx = stick.x * scale
+        var dy = stick.y * scale
 
         // Invert Y if needed
         dy = settings.invertScrollY ? -dy : dy

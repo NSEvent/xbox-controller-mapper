@@ -20,7 +20,7 @@ class InputSimulator: InputSimulatorProtocol {
 
     /// Currently held modifier flags (for hold-type mappings)
     private var heldModifiers: CGEventFlags = []
-    
+
     /// Reference counts for each modifier key to support overlapping mappings
     private var modifierCounts: [UInt64: Int] = [
         CGEventFlags.maskCommand.rawValue: 0,
@@ -31,6 +31,9 @@ class InputSimulator: InputSimulatorProtocol {
 
     /// Track if we've warned about accessibility
     private var hasWarnedAboutAccessibility = false
+
+    /// Dedicated high-priority queue for key simulation (avoids blocking main thread with usleep)
+    private let simulationQueue = DispatchQueue(label: "com.xboxmapper.input", qos: .userInteractive)
 
     init() {
         // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
@@ -62,61 +65,66 @@ class InputSimulator: InputSimulatorProtocol {
 
         guard checkAccessibility() else { return }
 
-        // We only need to simulate modifiers that aren't already held
+        // Capture state needed for async execution
         let modifiersToPress = modifiers.subtracting(heldModifiers)
-        
-        // Start with currently held flags
-        var currentFlags = heldModifiers
+        let startingFlags = heldModifiers
 
         #if DEBUG
         print("🎮 Pressing key: \(keyCode) with modifiers: \(modifiers.rawValue) (Simulating: \(modifiersToPress.rawValue))")
         print("   Current held modifiers: \(heldModifiers.rawValue)")
         #endif
 
-        // Helper to press modifier
-        func pressMod(_ key: Int, flag: CGEventFlags) {
-            currentFlags.insert(flag)
-            postKeyEvent(keyCode: CGKeyCode(key), keyDown: true, flags: currentFlags)
-            usleep(20000) // 20ms delay between modifiers
+        // Run key simulation on dedicated queue to avoid blocking main thread
+        simulationQueue.async { [weak self] in
+            guard let self = self else { return }
+
+            var currentFlags = startingFlags
+
+            // Helper to press modifier
+            func pressMod(_ key: Int, flag: CGEventFlags) {
+                currentFlags.insert(flag)
+                self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: true, flags: currentFlags)
+                usleep(20000) // 20ms delay between modifiers
+            }
+
+            // Press modifier keys first (Command -> Shift -> Option -> Control)
+            if modifiersToPress.contains(.maskCommand) { pressMod(kVK_Command, flag: .maskCommand) }
+            if modifiersToPress.contains(.maskShift)   { pressMod(kVK_Shift,   flag: .maskShift) }
+            if modifiersToPress.contains(.maskAlternate){ pressMod(kVK_Option,  flag: .maskAlternate) }
+            if modifiersToPress.contains(.maskControl) { pressMod(kVK_Control, flag: .maskControl) }
+
+            // Small delay after modifiers
+            if !modifiersToPress.isEmpty {
+                usleep(20000) // 20ms
+            }
+
+            // Press the main key with all flags active
+            self.postKeyEvent(keyCode: keyCode, keyDown: true, flags: currentFlags)
+            usleep(50000) // 50ms press duration
+            self.postKeyEvent(keyCode: keyCode, keyDown: false, flags: currentFlags)
+
+            // Small delay before releasing modifiers
+            if !modifiersToPress.isEmpty {
+                usleep(20000) // 20ms
+            }
+
+            // Helper to release modifier
+            func releaseMod(_ key: Int, flag: CGEventFlags) {
+                currentFlags.remove(flag)
+                self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: false, flags: currentFlags)
+                usleep(20000) // 20ms delay between releases
+            }
+
+            // Release modifier keys (Control -> Option -> Shift -> Command)
+            if modifiersToPress.contains(.maskControl) { releaseMod(kVK_Control, flag: .maskControl) }
+            if modifiersToPress.contains(.maskAlternate){ releaseMod(kVK_Option,  flag: .maskAlternate) }
+            if modifiersToPress.contains(.maskShift)   { releaseMod(kVK_Shift,   flag: .maskShift) }
+            if modifiersToPress.contains(.maskCommand) { releaseMod(kVK_Command, flag: .maskCommand) }
+
+            #if DEBUG
+            print("  ✅ Key sequence completed")
+            #endif
         }
-
-        // Press modifier keys first (Command -> Shift -> Option -> Control)
-        if modifiersToPress.contains(.maskCommand) { pressMod(kVK_Command, flag: .maskCommand) }
-        if modifiersToPress.contains(.maskShift)   { pressMod(kVK_Shift,   flag: .maskShift) }
-        if modifiersToPress.contains(.maskAlternate){ pressMod(kVK_Option,  flag: .maskAlternate) }
-        if modifiersToPress.contains(.maskControl) { pressMod(kVK_Control, flag: .maskControl) }
-
-        // Small delay after modifiers
-        if !modifiersToPress.isEmpty {
-            usleep(20000) // 20ms
-        }
-
-        // Press the main key with all flags active
-        postKeyEvent(keyCode: keyCode, keyDown: true, flags: currentFlags)
-        usleep(50000) // 50ms press duration
-        postKeyEvent(keyCode: keyCode, keyDown: false, flags: currentFlags)
-
-        // Small delay before releasing modifiers
-        if !modifiersToPress.isEmpty {
-            usleep(20000) // 20ms
-        }
-
-        // Helper to release modifier
-        func releaseMod(_ key: Int, flag: CGEventFlags) {
-            currentFlags.remove(flag)
-            postKeyEvent(keyCode: CGKeyCode(key), keyDown: false, flags: currentFlags)
-            usleep(20000) // 20ms delay between releases
-        }
-
-        // Release modifier keys (Control -> Option -> Shift -> Command)
-        if modifiersToPress.contains(.maskControl) { releaseMod(kVK_Control, flag: .maskControl) }
-        if modifiersToPress.contains(.maskAlternate){ releaseMod(kVK_Option,  flag: .maskAlternate) }
-        if modifiersToPress.contains(.maskShift)   { releaseMod(kVK_Shift,   flag: .maskShift) }
-        if modifiersToPress.contains(.maskCommand) { releaseMod(kVK_Command, flag: .maskCommand) }
-
-        #if DEBUG
-        print("  ✅ Key sequence completed")
-        #endif
     }
 
     /// Posts a single key event
