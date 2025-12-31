@@ -7,6 +7,7 @@ class ProfileManager: ObservableObject {
     @Published var profiles: [Profile] = []
     @Published var activeProfile: Profile?
     @Published var activeProfileId: UUID?
+    @Published var uiScale: CGFloat = 1.0
 
     private let fileManager = FileManager.default
     private let configURL: URL
@@ -40,6 +41,13 @@ class ProfileManager: ObservableObject {
         } catch {
             print("Failed to create config directory: \(error)")
         }
+    }
+    
+    // MARK: - UI Settings
+    
+    func setUiScale(_ scale: CGFloat) {
+        uiScale = scale
+        saveConfiguration()
     }
 
     // MARK: - Profile Management
@@ -195,6 +203,7 @@ class ProfileManager: ObservableObject {
     private struct Configuration: Codable {
         var profiles: [Profile]
         var activeProfileId: UUID?
+        var uiScale: CGFloat?
     }
 
     private func loadConfiguration() {
@@ -226,13 +235,21 @@ class ProfileManager: ObservableObject {
                     self.activeProfileId = nil
                 }
             }
+            
+            if let scale = config.uiScale {
+                self.uiScale = scale
+            }
         } catch {
             print("Failed to load configuration: \(error)")
         }
     }
 
     private func saveConfiguration() {
-        let config = Configuration(profiles: profiles, activeProfileId: activeProfileId)
+        let config = Configuration(
+            profiles: profiles,
+            activeProfileId: activeProfileId,
+            uiScale: uiScale
+        )
         
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

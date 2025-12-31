@@ -13,7 +13,6 @@ struct ContentView: View {
     @State private var showingChordSheet = false
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
-    @State private var uiScale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0 // Track last scale for gesture
 
     var body: some View {
@@ -67,17 +66,17 @@ struct ContentView: View {
         }
         // Add keyboard shortcuts for scaling
         .background(
-            Button("Zoom In") { uiScale = min(uiScale + 0.1, 2.0) }
+            Button("Zoom In") { profileManager.setUiScale(min(profileManager.uiScale + 0.1, 2.0)) }
                 .keyboardShortcut("+", modifiers: .command)
                 .hidden()
         )
         .background(
-            Button("Zoom Out") { uiScale = max(uiScale - 0.1, 0.5) }
+            Button("Zoom Out") { profileManager.setUiScale(max(profileManager.uiScale - 0.1, 0.5)) }
                 .keyboardShortcut("-", modifiers: .command)
                 .hidden()
         )
         .background(
-            Button("Reset Zoom") { uiScale = 1.0 }
+            Button("Reset Zoom") { profileManager.setUiScale(1.0) }
                 .keyboardShortcut("0", modifiers: .command)
                 .hidden()
         )
@@ -86,10 +85,11 @@ struct ContentView: View {
                 .onChanged { value in
                     let delta = value / lastScale
                     lastScale = value
-                    uiScale = min(max(uiScale * delta, 0.5), 2.0)
+                    profileManager.uiScale = min(max(profileManager.uiScale * delta, 0.5), 2.0)
                 }
                 .onEnded { _ in
                     lastScale = 1.0
+                    profileManager.setUiScale(profileManager.uiScale)
                 }
         )
     }
@@ -141,7 +141,7 @@ struct ContentView: View {
                         }
                     }
                 )
-                .scaleEffect(uiScale)
+                .scaleEffect(profileManager.uiScale)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
