@@ -24,9 +24,13 @@ struct InputLogView: View {
     }
 }
 
-private struct LogEntryView: View {
+private struct LogEntryView: View, Equatable {
     let entry: InputLogEntry
     let isLast: Bool
+    
+    static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
+        lhs.isLast == rhs.isLast && lhs.entry == rhs.entry
+    }
     
     var body: some View {
         HStack(spacing: 0) {
