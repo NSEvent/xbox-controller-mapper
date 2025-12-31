@@ -47,6 +47,7 @@ class ControllerService: ObservableObject {
     internal var chordWindow: TimeInterval = 0.15  // 150ms window for chord detection
     private var pendingButtons: Set<ControllerButton> = []
     private var capturedButtonsInWindow: Set<ControllerButton> = []
+    private var pendingReleases: [ControllerButton: TimeInterval] = [:]
 
     private var cancellables = Set<AnyCancellable>()
     
@@ -266,6 +267,13 @@ class ControllerService: ObservableObject {
     }
 
     internal func buttonPressed(_ button: ControllerButton) {
+        // If this button is already captured in the current window, it means we are pressing it AGAIN
+        // within the window (fast double tap). We should flush the previous events first.
+        if capturedButtonsInWindow.contains(button) {
+            processChordOrSinglePress()
+            chordTimer?.invalidate()
+        }
+
         guard !activeButtons.contains(button) else { return }
 
         activeButtons.insert(button)
@@ -298,9 +306,13 @@ class ControllerService: ObservableObject {
         }
 
         buttonPressTimestamps.removeValue(forKey: button)
-        pendingButtons.remove(button)
 
-        onButtonReleased?(button, holdDuration)
+        // If this button is currently pending a chord decision, defer the release event
+        if pendingButtons.contains(button) {
+            pendingReleases[button] = holdDuration
+        } else {
+            onButtonReleased?(button, holdDuration)
+        }
     }
 
     private func processChordOrSinglePress() {
@@ -314,9 +326,17 @@ class ControllerService: ObservableObject {
             // Single button press
             onButtonPressed?(button)
         }
+        
+        // Handle deferred releases for any buttons that were involved
+        for button in capturedButtonsInWindow {
+            if let duration = pendingReleases[button] {
+                onButtonReleased?(button, duration)
+            }
+        }
 
         capturedButtonsInWindow.removeAll()
         pendingButtons.removeAll()
+        pendingReleases.removeAll()
     }
 
     /// Trigger haptic feedback on the controller
