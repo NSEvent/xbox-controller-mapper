@@ -18,12 +18,12 @@ struct ButtonMappingSheet: View {
     @State private var enableLongHold = false
     @State private var longHoldKeyCode: CGKeyCode?
     @State private var longHoldModifiers = ModifierFlags()
-    @State private var longHoldThreshold: Double = 0.5
+    @State private var longHoldThreshold: Double = 0.2
 
     @State private var enableDoubleTap = false
     @State private var doubleTapKeyCode: CGKeyCode?
     @State private var doubleTapModifiers = ModifierFlags()
-    @State private var doubleTapThreshold: Double = 0.3
+    @State private var doubleTapThreshold: Double = 0.4
 
     // Track if user manually overrode the hold setting
     @State private var userHasInteractedWithHold = false
@@ -277,7 +277,7 @@ struct ButtonMappingSheet: View {
                         Text("Hold Duration:")
                             .font(.subheadline)
 
-                        Slider(value: $longHoldThreshold, in: 0.3...2.0, step: 0.1)
+                        Slider(value: $longHoldThreshold, in: 0.2...2.0, step: 0.1)
 
                         Text("\(longHoldThreshold, specifier: "%.1f")s")
                             .font(.caption)
@@ -350,7 +350,7 @@ struct ButtonMappingSheet: View {
                         Text("Tap Window:")
                             .font(.subheadline)
 
-                        Slider(value: $doubleTapThreshold, in: 0.15...0.6, step: 0.05)
+                        Slider(value: $doubleTapThreshold, in: 0.2...0.6, step: 0.05)
 
                         Text("\(doubleTapThreshold, specifier: "%.2f")s")
                             .font(.caption)
