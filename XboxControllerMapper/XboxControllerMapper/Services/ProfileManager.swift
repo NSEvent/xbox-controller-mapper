@@ -47,7 +47,7 @@ class ProfileManager: ObservableObject {
     func createProfile(name: String, basedOn template: Profile? = nil) -> Profile {
         var newProfile: Profile
         if let template = template {
-            newProfile = template
+        newProfile = template
             newProfile.id = UUID()
             newProfile.name = name
             newProfile.isDefault = false

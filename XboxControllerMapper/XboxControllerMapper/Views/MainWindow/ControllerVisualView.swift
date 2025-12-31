@@ -180,26 +180,25 @@ struct ControllerVisualView: View {
             startPoint: .top,
             endPoint: .bottom
         )
-        .clipShape(ContainerRelativeShape()) // Clip to parent shape
-        .padding(1)
     }
 
     private func miniTrigger(_ button: ControllerButton, label: String, value: Float) -> some View {
         let color = Color(white: 0.2) // Dark grey plastic
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
         
         return ZStack(alignment: .bottom) {
             // Background
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            shape
                 .fill(jewelGradient(color, pressed: false))
-                .overlay(glassOverlay)
-                .frame(width: 34, height: 14)
+                .overlay(glassOverlay.clipShape(shape))
+                .frame(width: 34, height: 18)
             
             // Fill based on pressure
             if value > 0 {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                shape
                     .fill(jewelGradient(Color.accentColor, pressed: isPressed(button)))
-                    .frame(width: 34, height: 14 * CGFloat(value))
-                    .overlay(glassOverlay)
+                    .frame(width: 34, height: 18 * CGFloat(value))
+                    .overlay(glassOverlay.clipShape(shape))
             }
             
             Text(label)
@@ -207,17 +206,18 @@ struct ControllerVisualView: View {
                 .foregroundColor(.white.opacity(0.9))
                 .shadow(radius: 1)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .clipShape(shape)
         .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
     }
 
     private func miniBumper(_ button: ControllerButton, label: String) -> some View {
         let color = isPressed(button) ? Color.accentColor : Color(white: 0.25)
+        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
         
-        return RoundedRectangle(cornerRadius: 3, style: .continuous)
+        return shape
             .fill(jewelGradient(color, pressed: isPressed(button)))
-            .overlay(glassOverlay)
-            .frame(width: 34, height: 10)
+            .overlay(glassOverlay.clipShape(shape))
+            .frame(width: 38, height: 9)
             .overlay(
                 Text(label)
                     .font(.system(size: 6, weight: .bold))
@@ -242,7 +242,7 @@ struct ControllerVisualView: View {
             let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
             Circle()
                 .fill(jewelGradient(color, pressed: isPressed(button)))
-                .overlay(glassOverlay)
+                .overlay(glassOverlay.clipShape(Circle()))
                 .frame(width: 20, height: 20)
                 .offset(x: pos.x * 5, y: -pos.y * 5)
                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
@@ -254,7 +254,7 @@ struct ControllerVisualView: View {
         
         return Circle()
             .fill(jewelGradient(color, pressed: isPressed(button)))
-            .overlay(glassOverlay)
+            .overlay(glassOverlay.clipShape(Circle()))
             .frame(width: size, height: size)
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
     }
@@ -265,7 +265,7 @@ struct ControllerVisualView: View {
         
         return Circle()
             .fill(jewelGradient(displayColor, pressed: isPressed(button)))
-            .overlay(glassOverlay)
+            .overlay(glassOverlay.clipShape(Circle()))
             .frame(width: 12, height: 12)
             .shadow(color: displayColor.opacity(0.4), radius: 2)
     }
