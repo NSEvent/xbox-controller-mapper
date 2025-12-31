@@ -37,24 +37,23 @@ class InputLogService: ObservableObject {
         pendingEntries.removeAll()
         isUpdateScheduled = false
         lock.unlock()
-        
+
         guard !newItems.isEmpty else { return }
-        
-        withAnimation(.easeOut(duration: 0.2)) {
-            // New items come in chronological order [Event 1, Event 2, Event 3]
-            // We want newest at the top/left: [Event 3, Event 2, Event 1, Old...]
-            
-            if newItems.count >= 8 {
-                // If we have a flood of new items, just take the newest 8
-                self.entries = Array(newItems.suffix(8)).reversed()
-            } else {
-                // Insert new items at the start
-                self.entries.insert(contentsOf: newItems.reversed(), at: 0)
-                
-                // Trim excess
-                if self.entries.count > 8 {
-                    self.entries = Array(self.entries.prefix(8))
-                }
+
+        // Update entries without blocking animation - let the view handle animations
+        // New items come in chronological order [Event 1, Event 2, Event 3]
+        // We want newest at the top/left: [Event 3, Event 2, Event 1, Old...]
+
+        if newItems.count >= 8 {
+            // If we have a flood of new items, just take the newest 8
+            self.entries = Array(newItems.suffix(8)).reversed()
+        } else {
+            // Insert new items at the start
+            self.entries.insert(contentsOf: newItems.reversed(), at: 0)
+
+            // Trim excess
+            if self.entries.count > 8 {
+                self.entries = Array(self.entries.prefix(8))
             }
         }
         self.scheduleCleanup()
@@ -77,13 +76,12 @@ class InputLogService: ObservableObject {
 
         let now = Date()
         let threshold = now.addingTimeInterval(-retentionDuration)
-        
+
         // Optimization: Only check the last item (oldest) since the list is sorted.
         // If the oldest hasn't expired, nothing has.
         if let last = entries.last, last.timestamp < threshold {
-            withAnimation(.easeOut(duration: 0.5)) {
-                entries.removeAll { $0.timestamp < threshold }
-            }
+            // Remove expired entries without blocking animation
+            entries.removeAll { $0.timestamp < threshold }
         }
     }
 }

@@ -81,10 +81,8 @@ private struct LogEntryView: View, Equatable {
                     .padding(.horizontal, 2)
             }
         }
-        .transition(.asymmetric(
-            insertion: .scale.combined(with: .opacity).animation(.spring(response: 0.3, dampingFraction: 0.6)),
-            removal: .opacity.combined(with: .scale(scale: 0.8)).animation(.easeOut(duration: 0.3))
-        ))
+        // Use simple opacity transition - complex spring animations block input handling
+        .transition(.opacity)
     }
     
     private func badgeColor(for type: InputEventType) -> Color {

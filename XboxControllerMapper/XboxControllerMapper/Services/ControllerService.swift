@@ -12,17 +12,24 @@ class ControllerService: ObservableObject {
     /// Currently pressed buttons
     @Published var activeButtons: Set<ControllerButton> = []
 
-    /// Left joystick position (-1 to 1)
-    @Published var leftStick: CGPoint = .zero
+    /// Left joystick position (-1 to 1) - internal, not published to avoid UI thrashing
+    var leftStick: CGPoint = .zero
 
-    /// Right joystick position (-1 to 1)
-    @Published var rightStick: CGPoint = .zero
+    /// Right joystick position (-1 to 1) - internal, not published to avoid UI thrashing
+    var rightStick: CGPoint = .zero
 
-    /// Left trigger pressure (0 to 1)
-    @Published var leftTriggerValue: Float = 0
+    /// Left trigger pressure (0 to 1) - internal, not published to avoid UI thrashing
+    var leftTriggerValue: Float = 0
 
-    /// Right trigger pressure (0 to 1)
-    @Published var rightTriggerValue: Float = 0
+    /// Right trigger pressure (0 to 1) - internal, not published to avoid UI thrashing
+    var rightTriggerValue: Float = 0
+
+    // MARK: - Throttled UI Display Values (updated at ~15Hz to avoid UI blocking)
+    @Published var displayLeftStick: CGPoint = .zero
+    @Published var displayRightStick: CGPoint = .zero
+    @Published var displayLeftTrigger: Float = 0
+    @Published var displayRightTrigger: Float = 0
+    private var displayUpdateTimer: DispatchSourceTimer?
 
     /// Battery level (0 to 1)
     @Published var batteryLevel: Float = -1
@@ -133,6 +140,7 @@ class ControllerService: ObservableObject {
 
         setupInputHandlers(for: controller)
         updateBatteryInfo()
+        startDisplayUpdateTimer()
 
         print("Controller connected: \(controllerName)")
     }
@@ -146,8 +154,48 @@ class ControllerService: ObservableObject {
         rightStick = .zero
         batteryLevel = -1
         batteryState = .unknown
+        stopDisplayUpdateTimer()
 
         print("Controller disconnected")
+    }
+
+    // MARK: - Display Update Timer (throttled UI updates)
+
+    private func startDisplayUpdateTimer() {
+        stopDisplayUpdateTimer()
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+        // Update display values at 15Hz - smooth enough for visual feedback, low enough to not block input
+        timer.schedule(deadline: .now(), repeating: 1.0 / 15.0, leeway: .milliseconds(10))
+        timer.setEventHandler { [weak self] in
+            guard let self = self else { return }
+            // Only update if values changed significantly to avoid unnecessary UI updates
+            if abs(self.displayLeftStick.x - self.leftStick.x) > 0.01 ||
+               abs(self.displayLeftStick.y - self.leftStick.y) > 0.01 {
+                self.displayLeftStick = self.leftStick
+            }
+            if abs(self.displayRightStick.x - self.rightStick.x) > 0.01 ||
+               abs(self.displayRightStick.y - self.rightStick.y) > 0.01 {
+                self.displayRightStick = self.rightStick
+            }
+            if abs(self.displayLeftTrigger - self.leftTriggerValue) > 0.01 {
+                self.displayLeftTrigger = self.leftTriggerValue
+            }
+            if abs(self.displayRightTrigger - self.rightTriggerValue) > 0.01 {
+                self.displayRightTrigger = self.rightTriggerValue
+            }
+        }
+        timer.resume()
+        displayUpdateTimer = timer
+    }
+
+    private func stopDisplayUpdateTimer() {
+        displayUpdateTimer?.cancel()
+        displayUpdateTimer = nil
+        // Reset display values
+        displayLeftStick = .zero
+        displayRightStick = .zero
+        displayLeftTrigger = 0
+        displayRightTrigger = 0
     }
 
     private func updateBatteryInfo() {

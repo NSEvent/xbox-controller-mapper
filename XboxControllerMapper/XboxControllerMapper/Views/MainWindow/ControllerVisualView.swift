@@ -33,20 +33,21 @@ struct ControllerVisualView: View {
                         .frame(width: 320, height: 220)
 
                     // Compact Controller Overlay (Just icons, no labels)
+                    // Uses throttled display values (15Hz) instead of raw values (60Hz) to avoid UI blocking
                     VStack(spacing: 15) {
                         HStack(spacing: 140) {
-                            miniTrigger(.leftTrigger, label: "LT", value: controllerService.leftTriggerValue)
-                            miniTrigger(.rightTrigger, label: "RT", value: controllerService.rightTriggerValue)
+                            miniTrigger(.leftTrigger, label: "LT", value: controllerService.displayLeftTrigger)
+                            miniTrigger(.rightTrigger, label: "RT", value: controllerService.displayRightTrigger)
                         }
-                        
+
                         HStack(spacing: 120) {
                             miniBumper(.leftBumper, label: "LB")
                             miniBumper(.rightBumper, label: "RB")
                         }
                         .offset(y: -5) // Tweak vertical position to sit nicely under triggers
-                        
+
                         HStack(spacing: 40) {
-                            miniStick(.leftThumbstick, pos: controllerService.leftStick)
+                            miniStick(.leftThumbstick, pos: controllerService.displayLeftStick)
                             
                             VStack(spacing: 6) {
                                 miniCircle(.xbox, size: 22)
@@ -68,7 +69,7 @@ struct ControllerVisualView: View {
                         
                         HStack(spacing: 80) {
                             miniDPad()
-                            miniStick(.rightThumbstick, pos: controllerService.rightStick)
+                            miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
                         }
                     }
                 }
