@@ -156,77 +156,119 @@ struct ControllerVisualView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Mini Controller Helpers
+    // MARK: - Mini Controller Helpers (Sexy/Glassy Style)
+
+    private var darkSurfaceGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(white: 0.25), Color(white: 0.1)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var glassStroke: LinearGradient {
+        LinearGradient(
+            colors: [.white.opacity(0.5), .white.opacity(0.05), .black.opacity(0.3)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
     private func miniTrigger(_ button: ControllerButton, label: String, value: Float) -> some View {
         ZStack(alignment: .bottom) {
+            // Background
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color.primary.opacity(0.05))
+                .fill(darkSurfaceGradient)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                        .strokeBorder(glassStroke, lineWidth: 0.5)
                 )
                 .frame(width: 34, height: 14)
             
             // Fill based on pressure
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color.accentColor)
+                .fill(Color.accentColor.gradient)
                 .frame(width: 34, height: 14 * CGFloat(value))
                 .opacity(isPressed(button) ? 1.0 : 0.6)
+                .shadow(color: Color.accentColor.opacity(0.5), radius: isPressed(button) ? 4 : 0)
             
             Text(label)
                 .font(.system(size: 7, weight: .bold))
-                .foregroundColor(isPressed(button) ? .white : .secondary)
+                .foregroundColor(isPressed(button) ? .white : .gray)
+                .shadow(radius: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 
     private func miniBumper(_ button: ControllerButton, label: String) -> some View {
         RoundedRectangle(cornerRadius: 3, style: .continuous)
-            .fill(isPressed(button) ? Color.accentColor : Color.primary.opacity(0.05))
+            .fill(isPressed(button) ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(darkSurfaceGradient))
             .overlay(
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .stroke(Color.primary.opacity(isPressed(button) ? 0 : 0.1), lineWidth: 1)
+                    .strokeBorder(glassStroke, lineWidth: 0.5)
             )
             .frame(width: 34, height: 10)
+            .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.5) : .clear, radius: 4)
             .overlay(
                 Text(label)
                     .font(.system(size: 6, weight: .bold))
-                    .foregroundColor(isPressed(button) ? .white : .secondary)
+                    .foregroundColor(isPressed(button) ? .white : .gray)
             )
     }
 
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
         ZStack {
+            // Base well
             Circle()
-                .fill(Color.primary.opacity(0.05))
-                .overlay(Circle().stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                .fill(
+                    LinearGradient(
+                        colors: [Color(white: 0.1), Color(white: 0.2)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(Circle().stroke(Color(white: 0.3), lineWidth: 0.5))
                 .frame(width: 30, height: 30)
+                .shadow(color: .black.opacity(0.5), radius: 1, x: 0, y: 1) // Inner shadow simulation
             
+            // Stick Cap
             Circle()
-                .fill(isPressed(button) ? Color.accentColor : Color.primary.opacity(0.5))
+                .fill(isPressed(button) ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(darkSurfaceGradient))
+                .overlay(
+                    Circle().strokeBorder(glassStroke, lineWidth: 0.5)
+                )
                 .frame(width: 20, height: 20)
                 .offset(x: pos.x * 5, y: -pos.y * 5)
-                .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
         }
     }
 
     private func miniCircle(_ button: ControllerButton, size: CGFloat) -> some View {
         Circle()
-            .fill(isPressed(button) ? Color.accentColor : Color.primary.opacity(0.05))
+            .fill(isPressed(button) ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(darkSurfaceGradient))
             .overlay(
-                Circle().stroke(Color.primary.opacity(isPressed(button) ? 0 : 0.1), lineWidth: 1)
+                Circle().strokeBorder(glassStroke, lineWidth: 0.5)
             )
             .frame(width: size, height: size)
+            .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.5) : .clear, radius: 3)
     }
 
     private func miniFaceButton(_ button: ControllerButton, color: Color) -> some View {
         Circle()
-            .fill(isPressed(button) ? color : color.opacity(0.15))
+            .fill(isPressed(button) ? AnyShapeStyle(color.gradient) : AnyShapeStyle(darkSurfaceGradient))
             .overlay(
-                Circle().stroke(isPressed(button) ? Color.clear : color.opacity(0.3), lineWidth: 1)
+                Circle().strokeBorder(glassStroke, lineWidth: 0.5)
+            )
+            .overlay(
+                // Small colored dot or letter if unpressed to identify
+                Group {
+                    if !isPressed(button) {
+                        Circle().fill(color).frame(width: 4, height: 4).blur(radius: 0.5)
+                    }
+                }
             )
             .frame(width: 12, height: 12)
+            .shadow(color: isPressed(button) ? color.opacity(0.6) : .clear, radius: 4)
     }
 
     private func miniFaceButtons() -> some View {
@@ -246,20 +288,21 @@ struct ControllerVisualView: View {
                 RoundedRectangle(cornerRadius: 2).frame(width: 8, height: 24)
                 RoundedRectangle(cornerRadius: 2).frame(width: 24, height: 8)
             }
-            .foregroundColor(Color.primary.opacity(0.05))
+            .foregroundStyle(darkSurfaceGradient)
+            .shadow(radius: 1)
             
             // Active states
             if isPressed(.dpadUp) {
-                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 8, height: 10).offset(y: -7)
+                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 8, height: 10).offset(y: -7).shadow(color: .accentColor, radius: 3)
             }
             if isPressed(.dpadDown) {
-                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 8, height: 10).offset(y: 7)
+                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 8, height: 10).offset(y: 7).shadow(color: .accentColor, radius: 3)
             }
             if isPressed(.dpadLeft) {
-                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: -7)
+                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: -7).shadow(color: .accentColor, radius: 3)
             }
             if isPressed(.dpadRight) {
-                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7)
+                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7).shadow(color: .accentColor, radius: 3)
             }
         }
     }
