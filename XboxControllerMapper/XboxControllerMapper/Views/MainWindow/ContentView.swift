@@ -510,6 +510,12 @@ struct ChordMappingSheet: View {
                             }
                         }) {
                             ButtonIconView(button: button, isPressed: selectedButtons.contains(button))
+                                .opacity(selectedButtons.contains(button) ? 1.0 : 0.7)
+                                .overlay {
+                                    if selectedButtons.contains(button) {
+                                        selectionBorder(for: button)
+                                    }
+                                }
                         }
                         .buttonStyle(.plain)
                     }
@@ -545,6 +551,26 @@ struct ChordMappingSheet: View {
         }
         .padding(20)
         .frame(width: 450)
+    }
+    
+    @ViewBuilder
+    private func selectionBorder(for button: ControllerButton) -> some View {
+        let isCircle: Bool = {
+            switch button.category {
+            case .face, .special, .thumbstick, .dpad: return true
+            default: return false
+            }
+        }()
+        
+        if isCircle {
+            Circle()
+                .stroke(Color.accentColor, lineWidth: 3)
+                .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
+        } else {
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(Color.accentColor, lineWidth: 3)
+                .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
+        }
     }
 }
 
