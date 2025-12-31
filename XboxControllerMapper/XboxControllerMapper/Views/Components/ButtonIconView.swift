@@ -65,6 +65,7 @@ struct ButtonIconView: View {
             contentView
                 .shadow(color: .black.opacity(0.4), radius: 1, x: 0, y: 1)
         }
+        .drawingGroup()
         .frame(width: width, height: height)
         .scaleEffect(isPressed ? 0.92 : 1.0)
         .animation(.spring(response: 0.25, dampingFraction: 0.55), value: isPressed)
