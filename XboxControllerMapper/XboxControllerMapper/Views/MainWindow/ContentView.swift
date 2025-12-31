@@ -746,6 +746,16 @@ struct JoystickSettingsView: View {
                     description: "Ignore small movements"
                 )
 
+                SliderRow(
+                    label: "Double-Tap Boost",
+                    value: Binding(
+                        get: { settings.scrollBoostMultiplier },
+                        set: { updateSettings(\.scrollBoostMultiplier, $0) }
+                    ),
+                    range: 1...4,
+                    description: "Speed multiplier after double-tap up/down"
+                )
+
                 Toggle("Invert Y Axis", isOn: Binding(
                     get: { settings.invertScrollY },
                     set: { updateSettings(\.invertScrollY, $0) }

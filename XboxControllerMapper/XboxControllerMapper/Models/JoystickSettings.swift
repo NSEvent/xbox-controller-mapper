@@ -26,6 +26,9 @@ struct JoystickSettings: Codable, Equatable {
     /// Acceleration curve for scrolling (0.0 = linear, 1.0 = max acceleration)
     var scrollAcceleration: Double = 0.5
 
+    /// Multiplier applied to scroll speed after a double-tap up/down
+    var scrollBoostMultiplier: Double = 2.0
+
     static let `default` = JoystickSettings()
 
     /// Validates settings ranges
@@ -36,7 +39,8 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(mouseDeadzone) &&
                range.contains(scrollDeadzone) &&
                range.contains(mouseAcceleration) &&
-               range.contains(scrollAcceleration)
+               range.contains(scrollAcceleration) &&
+               (1.0...4.0).contains(scrollBoostMultiplier)
     }
 
     /// Converts 0-1 sensitivity to actual multiplier for mouse
@@ -62,5 +66,47 @@ struct JoystickSettings: Codable, Equatable {
     var scrollAccelerationExponent: Double {
         // Map 0-1 to 1.0-2.5
         return 1.0 + scrollAcceleration * 1.5
+    }
+}
+
+// MARK: - Custom Codable (handles new fields with defaults)
+
+extension JoystickSettings {
+    enum CodingKeys: String, CodingKey {
+        case mouseSensitivity
+        case scrollSensitivity
+        case mouseDeadzone
+        case scrollDeadzone
+        case invertMouseY
+        case invertScrollY
+        case mouseAcceleration
+        case scrollAcceleration
+        case scrollBoostMultiplier
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        mouseSensitivity = try container.decodeIfPresent(Double.self, forKey: .mouseSensitivity) ?? 0.5
+        scrollSensitivity = try container.decodeIfPresent(Double.self, forKey: .scrollSensitivity) ?? 0.5
+        mouseDeadzone = try container.decodeIfPresent(Double.self, forKey: .mouseDeadzone) ?? 0.15
+        scrollDeadzone = try container.decodeIfPresent(Double.self, forKey: .scrollDeadzone) ?? 0.15
+        invertMouseY = try container.decodeIfPresent(Bool.self, forKey: .invertMouseY) ?? false
+        invertScrollY = try container.decodeIfPresent(Bool.self, forKey: .invertScrollY) ?? false
+        mouseAcceleration = try container.decodeIfPresent(Double.self, forKey: .mouseAcceleration) ?? 0.5
+        scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5
+        scrollBoostMultiplier = try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(mouseSensitivity, forKey: .mouseSensitivity)
+        try container.encode(scrollSensitivity, forKey: .scrollSensitivity)
+        try container.encode(mouseDeadzone, forKey: .mouseDeadzone)
+        try container.encode(scrollDeadzone, forKey: .scrollDeadzone)
+        try container.encode(invertMouseY, forKey: .invertMouseY)
+        try container.encode(invertScrollY, forKey: .invertScrollY)
+        try container.encode(mouseAcceleration, forKey: .mouseAcceleration)
+        try container.encode(scrollAcceleration, forKey: .scrollAcceleration)
+        try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
     }
 }

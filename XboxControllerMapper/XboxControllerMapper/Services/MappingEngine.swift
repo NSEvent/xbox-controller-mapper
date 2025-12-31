@@ -46,6 +46,15 @@ class MappingEngine: ObservableObject {
     private var lastJoystickSampleTime: TimeInterval = 0
     private let minJoystickCutoffHz: Double = 4.0
     private let maxJoystickCutoffHz: Double = 14.0
+    private let scrollTapThreshold: Double = 0.45
+    private let scrollDoubleTapWindow: TimeInterval = 0.4
+    private let scrollTapDirectionRatio: Double = 0.8
+    private var rightStickWasOutsideDeadzone = false
+    private var rightStickPeakYAbs: Double = 0
+    private var rightStickLastDirection: Int = 0
+    private var lastRightStickTapTime: TimeInterval = 0
+    private var lastRightStickTapDirection: Int = 0
+    private var scrollBoostDirection: Int = 0
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -454,6 +463,12 @@ class MappingEngine: ObservableObject {
         smoothedLeftStick = .zero
         smoothedRightStick = .zero
         lastJoystickSampleTime = 0
+        rightStickWasOutsideDeadzone = false
+        rightStickPeakYAbs = 0
+        rightStickLastDirection = 0
+        lastRightStickTapTime = 0
+        lastRightStickTapDirection = 0
+        scrollBoostDirection = 0
     }
 
     private func processJoysticks() {
@@ -477,6 +492,7 @@ class MappingEngine: ObservableObject {
 
         // Process right joystick (scroll)
         let rightStick = controllerService.rightStick
+        updateScrollDoubleTapState(rawStick: rightStick, settings: settings, now: now)
         let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
         let rightDeadzoneSquared = settings.scrollDeadzone * settings.scrollDeadzone
         if rightMagnitudeSquared <= rightDeadzoneSquared {
@@ -484,7 +500,7 @@ class MappingEngine: ObservableObject {
         } else {
             smoothedRightStick = smoothStick(rightStick, previous: smoothedRightStick, dt: dt)
         }
-        processScrolling(smoothedRightStick, settings: settings)
+        processScrolling(smoothedRightStick, rawStick: rightStick, settings: settings, now: now)
     }
 
     private func smoothStick(_ raw: CGPoint, previous: CGPoint, dt: TimeInterval) -> CGPoint {
@@ -495,6 +511,45 @@ class MappingEngine: ObservableObject {
         let newX = Double(previous.x) + alpha * (Double(raw.x) - Double(previous.x))
         let newY = Double(previous.y) + alpha * (Double(raw.y) - Double(previous.y))
         return CGPoint(x: newX, y: newY)
+    }
+
+    private func updateScrollDoubleTapState(rawStick: CGPoint, settings: JoystickSettings, now: TimeInterval) {
+        let deadzone = settings.scrollDeadzone
+        let magnitudeSquared = rawStick.x * rawStick.x + rawStick.y * rawStick.y
+        let deadzoneSquared = deadzone * deadzone
+        let isOutside = magnitudeSquared > deadzoneSquared
+
+        if scrollBoostDirection != 0, isOutside {
+            let currentDirection = rawStick.y >= 0 ? 1 : -1
+            if abs(rawStick.y) >= abs(rawStick.x) * scrollTapDirectionRatio,
+               currentDirection != scrollBoostDirection {
+                scrollBoostDirection = 0
+            }
+        }
+
+        if isOutside {
+            rightStickWasOutsideDeadzone = true
+            rightStickPeakYAbs = max(rightStickPeakYAbs, abs(Double(rawStick.y)))
+            if abs(rawStick.y) >= abs(rawStick.x) * scrollTapDirectionRatio {
+                rightStickLastDirection = rawStick.y >= 0 ? 1 : -1
+            }
+            return
+        }
+
+        guard rightStickWasOutsideDeadzone else { return }
+        rightStickWasOutsideDeadzone = false
+
+        if rightStickPeakYAbs >= scrollTapThreshold, rightStickLastDirection != 0 {
+            if now - lastRightStickTapTime <= scrollDoubleTapWindow,
+               rightStickLastDirection == lastRightStickTapDirection {
+                scrollBoostDirection = rightStickLastDirection
+            }
+            lastRightStickTapTime = now
+            lastRightStickTapDirection = rightStickLastDirection
+        }
+
+        rightStickPeakYAbs = 0
+        rightStickLastDirection = 0
     }
 
     private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings) {
@@ -524,7 +579,7 @@ class MappingEngine: ObservableObject {
         inputSimulator.moveMouse(dx: dx, dy: dy)
     }
 
-    private func processScrolling(_ stick: CGPoint, settings: JoystickSettings) {
+    private func processScrolling(_ stick: CGPoint, rawStick: CGPoint, settings: JoystickSettings, now: TimeInterval) {
         // Fast path: skip if clearly in deadzone (avoid sqrt for common case)
         let deadzone = settings.scrollDeadzone
         let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
@@ -547,6 +602,11 @@ class MappingEngine: ObservableObject {
 
         // Invert Y if needed
         dy = settings.invertScrollY ? -dy : dy
+
+        if scrollBoostDirection != 0,
+           (rawStick.y >= 0 ? 1 : -1) == scrollBoostDirection {
+            dy *= settings.scrollBoostMultiplier
+        }
 
         inputSimulator.scroll(dx: dx, dy: dy)
     }
