@@ -53,6 +53,9 @@ class ControllerService: ObservableObject {
     
     // Low-level monitor for Xbox Guide button
     private let guideMonitor = XboxGuideMonitor()
+    
+    // Low-level monitor for Battery (Bluetooth Workaround for macOS/Xbox issue)
+    private let batteryMonitor = BluetoothBatteryMonitor()
 
     init() {
         // Enable background event monitoring - this is the official API for
@@ -69,10 +72,20 @@ class ControllerService: ObservableObject {
                 self?.handleButton(.xbox, pressed: isPressed)
             }
         }
+        
+        // Setup Battery Monitor (IOKit)
+        batteryMonitor.startMonitoring()
+        batteryMonitor.$batteryLevel
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] level in
+                self?.updateBatteryInfo()
+            }
+            .store(in: &cancellables)
     }
 
     func cleanup() {
         stopDiscovery()
+        batteryMonitor.stopMonitoring()
     }
 
     private func setupNotifications() {
@@ -138,6 +151,14 @@ class ControllerService: ObservableObject {
     }
 
     private func updateBatteryInfo() {
+        // Priority 1: Bluetooth Monitor (Workaround for Xbox Series controllers)
+        if let ioLevel = batteryMonitor.batteryLevel {
+            batteryLevel = Float(ioLevel) / 100.0
+            batteryState = batteryMonitor.isCharging ? .charging : .discharging
+            return
+        }
+        
+        // Priority 2: Standard GameController Framework
         if let battery = connectedController?.battery {
             batteryLevel = battery.batteryLevel
             batteryState = battery.batteryState

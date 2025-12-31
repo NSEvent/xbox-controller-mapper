@@ -54,7 +54,6 @@ struct ControllerVisualView: View {
                                 // Battery Status
                                 if controllerService.isConnected {
                                     BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
-                                        .frame(height: 10)
                                 }
 
                                 HStack(spacing: 12) {
@@ -386,6 +385,11 @@ struct BatteryView: View {
     let level: Float
     let state: GCDeviceBattery.State
     
+    // Xbox controllers on macOS often report 0.0 with unknown state when data is unavailable
+    private var isUnknown: Bool {
+        level < 0 || (level == 0 && state == .unknown)
+    }
+    
     var body: some View {
         HStack(spacing: 2) {
             if state == .charging {
@@ -398,26 +402,34 @@ struct BatteryView: View {
                 // Battery outline
                 RoundedRectangle(cornerRadius: 2)
                     .stroke(Color.primary.opacity(0.4), lineWidth: 1)
-                    .frame(width: 22, height: 10)
+                    .frame(width: 30, height: 14)
                 
                 // Empty track background
                 RoundedRectangle(cornerRadius: 1.5)
                     .fill(Color.gray.opacity(0.2))
-                    .frame(width: 20, height: 8)
+                    .frame(width: 28, height: 12)
                     .padding(.leading, 1)
 
                 // Fill
-                if level >= 0 {
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(batteryColor)
-                        .frame(width: max(2, 20 * CGFloat(level)), height: 8) // Min width 2 so even 0% is visible
-                        .padding(.leading, 1)
+                if !isUnknown {
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(batteryColor)
+                            .frame(width: max(2, 28 * CGFloat(level)), height: 12)
+                        
+                        Text("\(Int(level * 100))%")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.white)
+                            .shadow(color: .black.opacity(0.6), radius: 1, x: 0, y: 0)
+                            .frame(width: 28, alignment: .center)
+                    }
+                    .padding(.leading, 1)
                 } else {
                     // Unknown level
                     Text("?")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.secondary)
-                        .frame(width: 22, height: 10, alignment: .center)
+                        .frame(width: 30, height: 14, alignment: .center)
                 }
             }
             
@@ -426,6 +438,7 @@ struct BatteryView: View {
                 .fill(Color.primary.opacity(0.4))
                 .frame(width: 2, height: 4)
         }
+        .help(isUnknown ? "Battery level unavailable (common macOS limitation for Xbox controllers)" : "Battery: \(Int(level * 100))%")
     }
     
     private var batteryColor: Color {
