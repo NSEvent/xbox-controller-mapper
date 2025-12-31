@@ -500,26 +500,67 @@ struct ChordMappingSheet: View {
                 Text("Select buttons (2 or more):")
                     .font(.subheadline)
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 50))], spacing: 12) {
-                    ForEach(ControllerButton.allCases) { button in
-                        Button(action: {
-                            if selectedButtons.contains(button) {
-                                selectedButtons.remove(button)
-                            } else {
-                                selectedButtons.insert(button)
-                            }
-                        }) {
-                            ButtonIconView(button: button, isPressed: selectedButtons.contains(button))
-                                .opacity(selectedButtons.contains(button) ? 1.0 : 0.7)
-                                .overlay {
-                                    if selectedButtons.contains(button) {
-                                        selectionBorder(for: button)
-                                    }
-                                }
+                // Visual Controller Layout
+                VStack(spacing: 10) {
+                    // Top Row: Triggers & Bumpers
+                    HStack(spacing: 120) {
+                        VStack(spacing: 8) {
+                            toggleButton(.leftTrigger)
+                            toggleButton(.leftBumper)
                         }
-                        .buttonStyle(.plain)
+                        
+                        VStack(spacing: 8) {
+                            toggleButton(.rightTrigger)
+                            toggleButton(.rightBumper)
+                        }
+                    }
+                    
+                    // Middle Row: Sticks, D-Pad, Face Buttons, System
+                    HStack(alignment: .top, spacing: 40) {
+                        // Left Column: Stick & D-Pad
+                        VStack(spacing: 25) {
+                            toggleButton(.leftThumbstick)
+                             
+                            // D-Pad Cross
+                            VStack(spacing: 2) {
+                                toggleButton(.dpadUp)
+                                HStack(spacing: 25) {
+                                    toggleButton(.dpadLeft)
+                                    toggleButton(.dpadRight)
+                                }
+                                toggleButton(.dpadDown)
+                            }
+                        }
+                        
+                        // Center Column: System Buttons
+                        VStack(spacing: 15) {
+                            toggleButton(.xbox)
+                            HStack(spacing: 25) {
+                                toggleButton(.view)
+                                toggleButton(.menu)
+                            }
+                            toggleButton(.share)
+                        }
+                        .padding(.top, 15)
+                        
+                        // Right Column: Face Buttons & Stick
+                        VStack(spacing: 25) {
+                            // Face Buttons Diamond
+                            VStack(spacing: 2) {
+                                toggleButton(.y)
+                                HStack(spacing: 25) {
+                                    toggleButton(.x)
+                                    toggleButton(.b)
+                                }
+                                toggleButton(.a)
+                            }
+                            
+                            toggleButton(.rightThumbstick)
+                        }
                     }
                 }
+                .padding(.vertical, 20)
+                .frame(maxWidth: .infinity)
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -550,7 +591,32 @@ struct ChordMappingSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 450)
+        .frame(width: 600)
+    }
+    
+    @ViewBuilder
+    private func toggleButton(_ button: ControllerButton) -> some View {
+        let scale: CGFloat = 1.3
+        
+        Button(action: {
+            if selectedButtons.contains(button) {
+                selectedButtons.remove(button)
+            } else {
+                selectedButtons.insert(button)
+            }
+        }) {
+            ButtonIconView(button: button, isPressed: selectedButtons.contains(button))
+                .scaleEffect(scale)
+                .frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)
+                .opacity(selectedButtons.contains(button) ? 1.0 : 0.7)
+                .overlay {
+                    if selectedButtons.contains(button) {
+                        selectionBorder(for: button)
+                            .scaleEffect(scale)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
     }
     
     @ViewBuilder
@@ -570,6 +636,20 @@ struct ChordMappingSheet: View {
             RoundedRectangle(cornerRadius: 5)
                 .stroke(Color.accentColor, lineWidth: 3)
                 .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
+        }
+    }
+
+    private func buttonWidth(for button: ControllerButton) -> CGFloat {
+        switch button.category {
+        case .face, .special, .thumbstick, .dpad: return 28
+        case .bumper, .trigger: return 42
+        }
+    }
+    
+    private func buttonHeight(for button: ControllerButton) -> CGFloat {
+        switch button.category {
+        case .face, .special, .thumbstick, .dpad: return 28
+        case .bumper, .trigger: return 22
         }
     }
 }
