@@ -257,6 +257,11 @@ class InputSimulator: InputSimulatorProtocol {
     /// Tracks currently held mouse buttons to determine if moving should be a drag
     private var heldMouseButtons: Set<CGMouseButton> = []
 
+    /// Tracks click timing for double/triple click detection
+    private var lastClickTime: [CGMouseButton: Date] = [:]
+    private var clickCounts: [CGMouseButton: Int64] = [:]
+    private let multiClickThreshold: TimeInterval = 0.5  // 500ms between clicks for multi-click
+
     // MARK: - Mouse Simulation
 
     /// Moves the mouse cursor by a delta
@@ -339,12 +344,28 @@ class InputSimulator: InputSimulatorProtocol {
         // Track hold state
         heldMouseButtons.insert(button)
 
+        // Calculate click count for double/triple click support
+        let now = Date()
+        let clickCount: Int64
+        if let lastTime = lastClickTime[button],
+           now.timeIntervalSince(lastTime) < multiClickThreshold {
+            // Within threshold - increment click count
+            clickCount = (clickCounts[button] ?? 0) + 1
+        } else {
+            // Outside threshold - reset to single click
+            clickCount = 1
+        }
+        clickCounts[button] = clickCount
+        lastClickTime[button] = now
+
         if let event = CGEvent(
             mouseEventSource: source,
             mouseType: downType,
             mouseCursorPosition: cgLocation,
             mouseButton: button
         ) {
+            // Set click count for double/triple click recognition
+            event.setIntegerValueField(.mouseEventClickState, value: clickCount)
             event.post(tap: .cghidEventTap)
         }
     }
@@ -362,12 +383,17 @@ class InputSimulator: InputSimulatorProtocol {
         // Update hold state
         heldMouseButtons.remove(button)
 
+        // Use the same click count as the down event
+        let clickCount = clickCounts[button] ?? 1
+
         if let event = CGEvent(
             mouseEventSource: source,
             mouseType: upType,
             mouseCursorPosition: cgLocation,
             mouseButton: button
         ) {
+            // Set click count to match down event for proper double/triple click
+            event.setIntegerValueField(.mouseEventClickState, value: clickCount)
             event.post(tap: .cghidEventTap)
         }
     }
