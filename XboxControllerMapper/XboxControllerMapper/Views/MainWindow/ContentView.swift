@@ -33,14 +33,17 @@ struct ContentView: View {
                 TabView(selection: $selectedTab) {
                     // Controller Visual
                     controllerTab
+                        .tabItem { Text("Buttons") }
                         .tag(0)
 
                     // Chords
                     chordsTab
+                        .tabItem { Text("Chords") }
                         .tag(1)
 
                     // Joystick Settings
                     joystickSettingsTab
+                        .tabItem { Text("Joysticks") }
                         .tag(2)
                 }
                 .tabViewStyle(.automatic)
@@ -107,15 +110,6 @@ struct ContentView: View {
             }
 
             Spacer()
-
-            // Tab picker
-            Picker("", selection: $selectedTab) {
-                Text("Buttons").tag(0)
-                Text("Chords").tag(1)
-                Text("Joysticks").tag(2)
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 300)
 
             Spacer()
 
@@ -295,17 +289,17 @@ struct ProfileSidebar: View {
             Divider()
 
             // Profile list
-            List(selection: Binding(
-                get: { profileManager.activeProfileId },
-                set: { id in
-                    if let id = id, let profile = profileManager.profiles.first(where: { $0.id == id }) {
-                        profileManager.setActiveProfile(profile)
-                    }
-                }
-            )) {
+            List {
                 ForEach(profileManager.profiles) { profile in
                     ProfileListRow(profile: profile)
-                        .tag(profile.id)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            profileManager.setActiveProfile(profile)
+                        }
+                        .listRowBackground(
+                            profile.id == profileManager.activeProfileId ? Color.accentColor.opacity(0.15) : Color.clear
+                        )
                         .contextMenu {
                             Button("Duplicate") {
                                 _ = profileManager.duplicateProfile(profile)
@@ -331,9 +325,6 @@ struct ProfileSidebar: View {
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden) // Optional: cleaner look
-            // Prevent arrow keys from changing selection by disabling focus
-            // Note: This might prevent keyboard navigation entirely for the list, which is what is requested.
-            .focusable(false)
         }
         .alert("New Profile", isPresented: $showingNewProfileAlert) {
             TextField("Profile name", text: $newProfileName)
