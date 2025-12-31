@@ -44,6 +44,12 @@ struct ButtonMappingSheet: View {
         showingKeyboardForPrimary || showingKeyboardForLongHold || showingKeyboardForDoubleTap
     }
 
+    /// Check if the primary action is a mouse click - disables double tap/long hold
+    private var primaryIsMouseClick: Bool {
+        guard let code = keyCode else { return false }
+        return KeyCodeMapping.isMouseButton(code)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -196,19 +202,27 @@ struct ButtonMappingSheet: View {
             }
             .onChange(of: keyCode) { _, newValue in
                 guard !isLoading else { return }
-                guard !userHasInteractedWithHold else { return }
-                
-                if let code = newValue {
-                    if KeyCodeMapping.isMouseButton(code) {
-                        // Auto-enable hold for mouse clicks (useful for dragging)
+
+                if let code = newValue, KeyCodeMapping.isMouseButton(code) {
+                    // Mouse clicks: auto-enable hold and disable long hold/double tap
+                    if !userHasInteractedWithHold {
                         isHoldModifier = true
-                    } else {
+                    }
+                    // Clear long hold and double tap for mouse clicks
+                    enableLongHold = false
+                    enableDoubleTap = false
+                    longHoldKeyCode = nil
+                    longHoldModifiers = ModifierFlags()
+                    doubleTapKeyCode = nil
+                    doubleTapModifiers = ModifierFlags()
+                } else if !userHasInteractedWithHold {
+                    if newValue != nil {
                         // Auto-disable hold modifier for regular keys
                         isHoldModifier = false
+                    } else if modifiers.hasAny {
+                        // Auto-enable hold modifier for modifier-only mappings
+                        isHoldModifier = true
                     }
-                } else if modifiers.hasAny {
-                    // Auto-enable hold modifier for modifier-only mappings
-                    isHoldModifier = true
                 }
             }
             .onChange(of: modifiers) { _, newValue in
@@ -255,10 +269,11 @@ struct ButtonMappingSheet: View {
             HStack {
                 Toggle("Enable Long Hold Action", isOn: $enableLongHold)
                     .font(.headline)
+                    .disabled(primaryIsMouseClick)
 
                 Spacer()
 
-                if enableLongHold {
+                if enableLongHold && !primaryIsMouseClick {
                     Button(action: { showingKeyboardForLongHold.toggle() }) {
                         HStack(spacing: 4) {
                             Image(systemName: showingKeyboardForLongHold ? "keyboard.chevron.compact.down" : "keyboard")
@@ -271,7 +286,18 @@ struct ButtonMappingSheet: View {
                 }
             }
 
-            if enableLongHold {
+            if primaryIsMouseClick {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("Long hold is not available when the primary action is a mouse click. Mouse clicks use rapid pressing for double/triple click instead.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if enableLongHold {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Hold Duration:")
@@ -328,10 +354,11 @@ struct ButtonMappingSheet: View {
             HStack {
                 Toggle("Enable Double Tap Action", isOn: $enableDoubleTap)
                     .font(.headline)
+                    .disabled(primaryIsMouseClick)
 
                 Spacer()
 
-                if enableDoubleTap {
+                if enableDoubleTap && !primaryIsMouseClick {
                     Button(action: { showingKeyboardForDoubleTap.toggle() }) {
                         HStack(spacing: 4) {
                             Image(systemName: showingKeyboardForDoubleTap ? "keyboard.chevron.compact.down" : "keyboard")
@@ -344,7 +371,18 @@ struct ButtonMappingSheet: View {
                 }
             }
 
-            if enableDoubleTap {
+            if primaryIsMouseClick {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("Double tap is not available when the primary action is a mouse click. Press the button twice quickly to double-click, or three times for triple-click.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if enableDoubleTap {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Tap Window:")
