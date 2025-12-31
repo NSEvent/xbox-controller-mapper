@@ -16,11 +16,15 @@ struct InputLogView: View {
                             
                             if entry.type != .singlePress {
                                 Text(entry.type.rawValue)
-                                    .font(.system(size: 9, weight: .bold))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 2)
-                                    .background(Capsule().fill(Color.secondary.opacity(0.2)))
-                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Capsule().fill(badgeColor(for: entry.type).opacity(0.2)))
+                                    .foregroundColor(badgeColor(for: entry.type))
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(badgeColor(for: entry.type).opacity(0.5), lineWidth: 1)
+                                    )
                             }
                         }
                         .padding(.horizontal, 8)
@@ -65,5 +69,14 @@ struct InputLogView: View {
                 .foregroundColor(Color(nsColor: .separatorColor)),
             alignment: .bottom
         )
+    }
+    
+    private func badgeColor(for type: InputEventType) -> Color {
+        switch type {
+        case .singlePress: return .secondary
+        case .doubleTap: return .orange
+        case .longPress: return .purple
+        case .chord: return .blue
+        }
     }
 }
