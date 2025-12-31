@@ -73,7 +73,7 @@ class ControllerService: ObservableObject {
             }
         }
         
-        // Setup Battery Monitor (IOKit)
+        // Setup Battery Monitor (Bluetooth GATT Workaround)
         batteryMonitor.startMonitoring()
         batteryMonitor.$batteryLevel
             .receive(on: DispatchQueue.main)
