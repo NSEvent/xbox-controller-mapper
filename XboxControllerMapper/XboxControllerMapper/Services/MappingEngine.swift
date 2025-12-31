@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CoreGraphics
 
 /// Coordinates controller input with profile mappings and input simulation
 @MainActor
@@ -39,6 +40,12 @@ class MappingEngine: ObservableObject {
     /// Timer for joystick polling (using DispatchSourceTimer for lower overhead)
     private var joystickTimer: DispatchSourceTimer?
     private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 60 Hz
+
+    private var smoothedLeftStick: CGPoint = .zero
+    private var smoothedRightStick: CGPoint = .zero
+    private var lastJoystickSampleTime: TimeInterval = 0
+    private let minJoystickCutoffHz: Double = 4.0
+    private let maxJoystickCutoffHz: Double = 14.0
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -444,19 +451,50 @@ class MappingEngine: ObservableObject {
     private func stopJoystickPolling() {
         joystickTimer?.cancel()
         joystickTimer = nil
+        smoothedLeftStick = .zero
+        smoothedRightStick = .zero
+        lastJoystickSampleTime = 0
     }
 
     private func processJoysticks() {
         guard isEnabled else { return }
         guard let settings = profileManager.activeProfile?.joystickSettings else { return }
 
+        let now = CFAbsoluteTimeGetCurrent()
+        let dt = lastJoystickSampleTime > 0 ? now - lastJoystickSampleTime : joystickPollInterval
+        lastJoystickSampleTime = now
+
         // Process left joystick (mouse)
         let leftStick = controllerService.leftStick
-        processMouseMovement(leftStick, settings: settings)
+        let leftMagnitudeSquared = leftStick.x * leftStick.x + leftStick.y * leftStick.y
+        let leftDeadzoneSquared = settings.mouseDeadzone * settings.mouseDeadzone
+        if leftMagnitudeSquared <= leftDeadzoneSquared {
+            smoothedLeftStick = .zero
+        } else {
+            smoothedLeftStick = smoothStick(leftStick, previous: smoothedLeftStick, dt: dt)
+        }
+        processMouseMovement(smoothedLeftStick, settings: settings)
 
         // Process right joystick (scroll)
         let rightStick = controllerService.rightStick
-        processScrolling(rightStick, settings: settings)
+        let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
+        let rightDeadzoneSquared = settings.scrollDeadzone * settings.scrollDeadzone
+        if rightMagnitudeSquared <= rightDeadzoneSquared {
+            smoothedRightStick = .zero
+        } else {
+            smoothedRightStick = smoothStick(rightStick, previous: smoothedRightStick, dt: dt)
+        }
+        processScrolling(smoothedRightStick, settings: settings)
+    }
+
+    private func smoothStick(_ raw: CGPoint, previous: CGPoint, dt: TimeInterval) -> CGPoint {
+        let magnitude = sqrt(Double(raw.x * raw.x + raw.y * raw.y))
+        let t = min(1.0, magnitude * 1.2)
+        let cutoff = minJoystickCutoffHz + (maxJoystickCutoffHz - minJoystickCutoffHz) * t
+        let alpha = 1.0 - exp(-2.0 * Double.pi * cutoff * max(0.0, dt))
+        let newX = Double(previous.x) + alpha * (Double(raw.x) - Double(previous.x))
+        let newY = Double(previous.y) + alpha * (Double(raw.y) - Double(previous.y))
+        return CGPoint(x: newX, y: newY)
     }
 
     private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings) {
