@@ -7,6 +7,7 @@ struct ContentView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var appMonitor: AppMonitor
     @EnvironmentObject var mappingEngine: MappingEngine
+    @EnvironmentObject var inputLogService: InputLogService
 
     @State private var selectedButton: ControllerButton?
     @State private var configuringButton: ControllerButton?
@@ -130,6 +131,8 @@ struct ContentView: View {
 
     private var controllerTab: some View {
         VStack(spacing: 0) {
+            InputLogView()
+            
             ZStack {
                 ControllerVisualView(
                     selectedButton: $selectedButton,
@@ -805,10 +808,12 @@ struct SettingsSheet: View {
     let controllerService = ControllerService()
     let profileManager = ProfileManager()
     let appMonitor = AppMonitor()
+    let inputLogService = InputLogService()
     let mappingEngine = MappingEngine(
         controllerService: controllerService,
         profileManager: profileManager,
-        appMonitor: appMonitor
+        appMonitor: appMonitor,
+        inputLogService: inputLogService
     )
 
     return ContentView()
@@ -816,4 +821,5 @@ struct SettingsSheet: View {
         .environmentObject(profileManager)
         .environmentObject(appMonitor)
         .environmentObject(mappingEngine)
+        .environmentObject(inputLogService)
 }

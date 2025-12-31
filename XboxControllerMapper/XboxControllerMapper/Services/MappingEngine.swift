@@ -10,6 +10,7 @@ class MappingEngine: ObservableObject {
     private let profileManager: ProfileManager
     private let appMonitor: AppMonitor
     private let inputSimulator: InputSimulatorProtocol
+    private let inputLogService: InputLogService?
 
     /// Tracks which buttons are currently being held (for hold-type mappings)
     private var heldButtons: [ControllerButton: KeyMapping] = [:]
@@ -38,11 +39,12 @@ class MappingEngine: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor, inputSimulator: InputSimulatorProtocol = InputSimulator()) {
+    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor, inputSimulator: InputSimulatorProtocol = InputSimulator(), inputLogService: InputLogService? = nil) {
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
         self.inputSimulator = inputSimulator
+        self.inputLogService = inputLogService
 
         setupBindings()
     }
@@ -103,6 +105,7 @@ class MappingEngine: ObservableObject {
             if controllerService.activeButtons.contains(button) {
                 heldButtons[button] = mapping
                 inputSimulator.startHoldMapping(mapping)
+                inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
             } else {
                 // Button was already released (quick tap) - schedule as simple press
                 // with delay to allow chord cancellation
@@ -111,6 +114,7 @@ class MappingEngine: ObservableObject {
                         self?.pendingReleaseActions.removeValue(forKey: button)
                         if let keyCode = mapping.keyCode {
                             self?.inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+                            self?.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
                         }
                     }
                 }
@@ -135,6 +139,7 @@ class MappingEngine: ObservableObject {
     private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
         longHoldTriggered.insert(button)
         executeLongHoldMapping(mapping)
+        inputLogService?.log(buttons: [button], type: .longPress, action: mapping.displayString)
         
         #if DEBUG
         print("⏱️ Long hold triggered for \(button.displayName)")
@@ -234,6 +239,7 @@ class MappingEngine: ObservableObject {
                 pendingSingleTap.removeValue(forKey: button)
                 lastTapTime.removeValue(forKey: button)
                 executeDoubleTapMapping(doubleTapMapping)
+                inputLogService?.log(buttons: [button], type: .doubleTap, action: doubleTapMapping.displayString)
                 return
             }
 
@@ -245,6 +251,7 @@ class MappingEngine: ObservableObject {
                     self?.pendingSingleTap.removeValue(forKey: button)
                     self?.lastTapTime.removeValue(forKey: button)
                     self?.inputSimulator.executeMapping(mapping)
+                    self?.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
                 }
             }
             pendingSingleTap[button] = workItem
@@ -255,6 +262,7 @@ class MappingEngine: ObservableObject {
                 Task { @MainActor in
                     self?.pendingReleaseActions.removeValue(forKey: button)
                     self?.inputSimulator.executeMapping(mapping)
+                    self?.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
                 }
             }
             pendingReleaseActions[button] = workItem
@@ -347,6 +355,8 @@ class MappingEngine: ObservableObject {
 
         // Mark these buttons as part of a chord
         activeChordButtons = buttons
+
+        inputLogService?.log(buttons: Array(buttons), type: .chord, action: chord.actionDisplayString)
 
         // Execute chord mapping
         if let keyCode = chord.keyCode {

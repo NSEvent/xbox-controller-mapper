@@ -11,21 +11,25 @@ final class ServiceContainer {
     let appMonitor: AppMonitor
     let mappingEngine: MappingEngine
     let inputMonitor: InputMonitor
+    let inputLogService: InputLogService
 
     init() {
         let controllerService = ControllerService()
         let profileManager = ProfileManager()
         let appMonitor = AppMonitor()
         let inputMonitor = InputMonitor()
+        let inputLogService = InputLogService()
 
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
         self.inputMonitor = inputMonitor
+        self.inputLogService = inputLogService
         self.mappingEngine = MappingEngine(
             controllerService: controllerService,
             profileManager: profileManager,
-            appMonitor: appMonitor
+            appMonitor: appMonitor,
+            inputLogService: inputLogService
         )
     }
 }
@@ -43,6 +47,7 @@ struct XboxControllerMapperApp: App {
                 .environmentObject(ServiceContainer.shared.appMonitor)
                 .environmentObject(ServiceContainer.shared.mappingEngine)
                 .environmentObject(ServiceContainer.shared.inputMonitor)
+                .environmentObject(ServiceContainer.shared.inputLogService)
         }
         .windowResizability(.contentSize)
 

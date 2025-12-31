@@ -1,0 +1,69 @@
+import SwiftUI
+
+struct InputLogView: View {
+    @EnvironmentObject var inputLogService: InputLogService
+    
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(inputLogService.entries) { entry in
+                    VStack(spacing: 6) {
+                        // Top: Button(s) + Type
+                        HStack(spacing: 4) {
+                            ForEach(entry.buttons, id: \.self) { button in
+                                ButtonIconView(button: button)
+                            }
+                            
+                            if entry.type != .singlePress {
+                                Text(entry.type.rawValue)
+                                    .font(.system(size: 9, weight: .bold))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.secondary.opacity(0.2)))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(nsColor: .controlBackgroundColor))
+                                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                        )
+                        
+                        // Bottom: Action
+                        Text(entry.actionDescription)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.accentColor)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                        
+                    }
+                    .padding(.horizontal, 8)
+                    .transition(.asymmetric(
+                        insertion: .scale.combined(with: .opacity).animation(.spring(response: 0.3, dampingFraction: 0.6)),
+                        removal: .opacity.combined(with: .scale(scale: 0.8)).animation(.easeOut(duration: 0.3))
+                    ))
+                    
+                    // Separator arrow (optional, maybe just spacing is enough)
+                    if entry.id != inputLogService.entries.last?.id {
+                        Image(systemName: "chevron.left") // Newest is at left/start
+                            .font(.caption2)
+                            .foregroundColor(.secondary.opacity(0.3))
+                            .padding(.horizontal, 2)
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+        .frame(height: 70)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.8))
+        .overlay(
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color(nsColor: .separatorColor)),
+            alignment: .bottom
+        )
+    }
+}
