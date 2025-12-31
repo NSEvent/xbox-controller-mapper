@@ -11,7 +11,8 @@ class InputLogService: ObservableObject {
         let entry = InputLogEntry(buttons: buttons, type: type, actionDescription: action)
         
         DispatchQueue.main.async {
-            withAnimation(.spring()) {
+            // Use a faster, simpler animation for list updates (sliding)
+            withAnimation(.easeOut(duration: 0.2)) {
                 self.entries.insert(entry, at: 0) // Newest first
                 
                 // Keep list manageable
@@ -32,19 +33,21 @@ class InputLogService: ObservableObject {
     }
     
     private func cleanup() {
+        guard !entries.isEmpty else {
+            timer?.invalidate()
+            timer = nil
+            return
+        }
+
         let now = Date()
         let threshold = now.addingTimeInterval(-retentionDuration)
         
-        // Check if we need to remove anything
-        if entries.contains(where: { $0.timestamp < threshold }) {
+        // Optimization: Only check the last item (oldest) since the list is sorted.
+        // If the oldest hasn't expired, nothing has.
+        if let last = entries.last, last.timestamp < threshold {
             withAnimation(.easeOut(duration: 0.5)) {
                 entries.removeAll { $0.timestamp < threshold }
             }
-        }
-        
-        if entries.isEmpty {
-            timer?.invalidate()
-            timer = nil
         }
     }
 }
