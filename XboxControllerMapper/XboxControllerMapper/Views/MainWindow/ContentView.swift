@@ -260,6 +260,9 @@ struct ProfileSidebar: View {
 
     @State private var showingNewProfileAlert = false
     @State private var newProfileName = ""
+    @State private var showingRenameProfileAlert = false
+    @State private var renameProfileName = ""
+    @State private var profileToRename: Profile?
     @State private var isImporting = false
     @State private var isExporting = false
     @State private var profileToExport: Profile?
@@ -309,7 +312,9 @@ struct ProfileSidebar: View {
                             }
 
                             Button("Rename") {
-                                // Would show rename sheet
+                                profileToRename = profile
+                                renameProfileName = profile.name
+                                showingRenameProfileAlert = true
                             }
                             
                             Button("Export...") {
@@ -340,6 +345,20 @@ struct ProfileSidebar: View {
                     profileManager.setActiveProfile(profile)
                     newProfileName = ""
                 }
+            }
+        }
+        .alert("Rename Profile", isPresented: $showingRenameProfileAlert) {
+            TextField("Profile name", text: $renameProfileName)
+            Button("Cancel", role: .cancel) {
+                renameProfileName = ""
+                profileToRename = nil
+            }
+            Button("Rename") {
+                if !renameProfileName.isEmpty, let profile = profileToRename {
+                    profileManager.renameProfile(profile, to: renameProfileName)
+                }
+                renameProfileName = ""
+                profileToRename = nil
             }
         }
         .fileImporter(
