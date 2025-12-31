@@ -208,6 +208,7 @@ struct ControllerVisualView: View {
         }
         .clipShape(shape)
         .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
+        .onTapGesture { onButtonTap(button) }
     }
 
     private func miniBumper(_ button: ControllerButton, label: String) -> some View {
@@ -225,6 +226,7 @@ struct ControllerVisualView: View {
                     .shadow(radius: 1)
             )
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
+            .onTapGesture { onButtonTap(button) }
     }
 
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
@@ -247,6 +249,7 @@ struct ControllerVisualView: View {
                 .offset(x: pos.x * 5, y: -pos.y * 5)
                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
         }
+        .onTapGesture { onButtonTap(button) }
     }
 
     private func miniCircle(_ button: ControllerButton, size: CGFloat) -> some View {
@@ -257,6 +260,7 @@ struct ControllerVisualView: View {
             .overlay(glassOverlay.clipShape(Circle()))
             .frame(width: size, height: size)
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
+            .onTapGesture { onButtonTap(button) }
     }
 
     private func miniFaceButton(_ button: ControllerButton, color: Color) -> some View {
@@ -268,6 +272,7 @@ struct ControllerVisualView: View {
             .overlay(glassOverlay.clipShape(Circle()))
             .frame(width: 12, height: 12)
             .shadow(color: displayColor.opacity(0.4), radius: 2)
+            .onTapGesture { onButtonTap(button) }
     }
 
     private func miniFaceButtons() -> some View {
@@ -304,6 +309,33 @@ struct ControllerVisualView: View {
             }
             if isPressed(.dpadRight) {
                 RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7).blur(radius: 2)
+            }
+            
+            // Tap zones
+            Group {
+                // Up
+                Rectangle().fill(Color.black.opacity(0.001))
+                    .frame(width: 20, height: 20)
+                    .offset(y: -10)
+                    .onTapGesture { onButtonTap(.dpadUp) }
+                
+                // Down
+                Rectangle().fill(Color.black.opacity(0.001))
+                    .frame(width: 20, height: 20)
+                    .offset(y: 10)
+                    .onTapGesture { onButtonTap(.dpadDown) }
+                
+                // Left
+                Rectangle().fill(Color.black.opacity(0.001))
+                    .frame(width: 20, height: 20)
+                    .offset(x: -10)
+                    .onTapGesture { onButtonTap(.dpadLeft) }
+                
+                // Right
+                Rectangle().fill(Color.black.opacity(0.001))
+                    .frame(width: 20, height: 20)
+                    .offset(x: 10)
+                    .onTapGesture { onButtonTap(.dpadRight) }
             }
         }
     }
