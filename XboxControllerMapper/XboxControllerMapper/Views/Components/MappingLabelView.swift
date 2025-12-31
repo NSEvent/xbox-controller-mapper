@@ -23,6 +23,13 @@ struct MappingLabelView: View {
     private var content: some View {
         if !mapping.isEmpty {
             labelRow(text: mapping.displayString, icon: nil, color: .primary)
+        } else if (mapping.longHoldMapping?.isEmpty ?? true) && (mapping.doubleTapMapping?.isEmpty ?? true) {
+            Text("Unmapped")
+                .font(font)
+                .foregroundColor(.secondary)
+                .italic()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
         }
 
         if let longHold = mapping.longHoldMapping, !longHold.isEmpty {

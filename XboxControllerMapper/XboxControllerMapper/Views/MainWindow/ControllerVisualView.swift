@@ -347,7 +347,17 @@ struct ControllerVisualView: View {
     }
 
     private func mapping(for button: ControllerButton) -> KeyMapping? {
-        profileManager.activeProfile?.buttonMappings[button]
+        guard let mapping = profileManager.activeProfile?.buttonMappings[button] else { return nil }
+        
+        // If the mapping is effectively empty (no primary, no long hold, no double tap), return nil
+        // so the UI renders it as "Unmapped"
+        if mapping.isEmpty && 
+           (mapping.longHoldMapping?.isEmpty ?? true) && 
+           (mapping.doubleTapMapping?.isEmpty ?? true) {
+            return nil
+        }
+        
+        return mapping
     }
 }
 
