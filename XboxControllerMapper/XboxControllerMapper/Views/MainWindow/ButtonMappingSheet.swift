@@ -25,6 +25,9 @@ struct ButtonMappingSheet: View {
     @State private var doubleTapModifiers = ModifierFlags()
     @State private var doubleTapThreshold: Double = 0.4
 
+    @State private var enableRepeat = false
+    @State private var repeatRate: Double = 20.0  // Actions per second (fast default)
+
     // Track if user manually overrode the hold setting
     @State private var userHasInteractedWithHold = false
     
@@ -61,6 +64,7 @@ struct ButtonMappingSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     primaryMappingSection
+                    repeatSection
                     longHoldSection
                     doubleTapSection
                     appOverridesSection
@@ -191,9 +195,14 @@ struct ButtonMappingSheet: View {
                         set: { newValue in
                             isHoldModifier = newValue
                             userHasInteractedWithHold = true
+                            // Disable repeat when enabling hold modifier (mutually exclusive)
+                            if newValue {
+                                enableRepeat = false
+                            }
                         }
                     ))
                     .font(.caption)
+                    .disabled(enableRepeat)
 
                     Text(holdDescription)
                         .font(.caption)
@@ -204,13 +213,14 @@ struct ButtonMappingSheet: View {
                 guard !isLoading else { return }
 
                 if let code = newValue, KeyCodeMapping.isMouseButton(code) {
-                    // Mouse clicks: auto-enable hold and disable long hold/double tap
+                    // Mouse clicks: auto-enable hold and disable long hold/double tap/repeat
                     if !userHasInteractedWithHold {
                         isHoldModifier = true
                     }
-                    // Clear long hold and double tap for mouse clicks
+                    // Clear long hold, double tap, and repeat for mouse clicks
                     enableLongHold = false
                     enableDoubleTap = false
+                    enableRepeat = false
                     longHoldKeyCode = nil
                     longHoldModifiers = ModifierFlags()
                     doubleTapKeyCode = nil
@@ -436,6 +446,71 @@ struct ButtonMappingSheet: View {
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
     }
 
+    // MARK: - Repeat Section
+
+    private var repeatSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle("Repeat Action While Held", isOn: Binding(
+                get: { enableRepeat },
+                set: { newValue in
+                    enableRepeat = newValue
+                    // Disable hold modifier when enabling repeat (mutually exclusive)
+                    if newValue {
+                        isHoldModifier = false
+                        userHasInteractedWithHold = true
+                    }
+                }
+            ))
+            .font(.headline)
+            .disabled(primaryIsMouseClick || isHoldModifier)
+
+            if primaryIsMouseClick {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("Repeat is not available when the primary action is a mouse click.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if isHoldModifier {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("Repeat is not available when \"Hold action while button is held\" is enabled. These options are mutually exclusive.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if enableRepeat {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Repeat Rate:")
+                            .font(.subheadline)
+
+                        Slider(value: $repeatRate, in: 5...50, step: 1)
+
+                        Text("\(Int(repeatRate))/s")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .frame(width: 35)
+                    }
+
+                    Text("The action will be triggered \(Int(repeatRate)) times per second while the button is held")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .cornerRadius(8)
+            }
+        }
+    }
+
     // MARK: - App Overrides Section
 
     private var appOverridesSection: some View {
@@ -529,6 +604,11 @@ struct ButtonMappingSheet: View {
                 doubleTapModifiers = doubleTap.modifiers
                 doubleTapThreshold = doubleTap.threshold
             }
+
+            if let repeatConfig = existingMapping.repeatMapping, repeatConfig.enabled {
+                enableRepeat = true
+                repeatRate = repeatConfig.ratePerSecond
+            }
         }
 
         // Load app overrides
@@ -559,6 +639,13 @@ struct ButtonMappingSheet: View {
                 keyCode: doubleTapKeyCode,
                 modifiers: doubleTapModifiers,
                 threshold: doubleTapThreshold
+            )
+        }
+
+        if enableRepeat {
+            newMapping.repeatMapping = RepeatMapping(
+                enabled: true,
+                interval: 1.0 / repeatRate
             )
         }
 

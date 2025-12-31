@@ -15,6 +15,9 @@ struct KeyMapping: Codable, Equatable {
     /// Optional alternate mapping for double tap
     var doubleTapMapping: DoubleTapMapping?
 
+    /// Optional repeat configuration for holding the button
+    var repeatMapping: RepeatMapping?
+
     /// Whether this mapping acts as a held modifier (released when button released)
     var isHoldModifier: Bool
 
@@ -23,12 +26,14 @@ struct KeyMapping: Codable, Equatable {
         modifiers: ModifierFlags = ModifierFlags(),
         longHoldMapping: LongHoldMapping? = nil,
         doubleTapMapping: DoubleTapMapping? = nil,
+        repeatMapping: RepeatMapping? = nil,
         isHoldModifier: Bool = false
     ) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.longHoldMapping = longHoldMapping
         self.doubleTapMapping = doubleTapMapping
+        self.repeatMapping = repeatMapping
         self.isHoldModifier = isHoldModifier
     }
 
@@ -83,6 +88,10 @@ struct KeyMapping: Codable, Equatable {
 
         if let doubleTap = doubleTapMapping, !doubleTap.isEmpty {
             parts.append("×2 " + doubleTap.displayString)
+        }
+
+        if let repeatConfig = repeatMapping, repeatConfig.enabled {
+            parts.append("↻ \(Int(repeatConfig.ratePerSecond))/s")
         }
 
         return parts.joined(separator: "\n")
@@ -156,6 +165,25 @@ struct DoubleTapMapping: Codable, Equatable {
 
     var isEmpty: Bool {
         keyCode == nil && !modifiers.hasAny
+    }
+}
+
+/// Wraps repeat-while-held configuration
+struct RepeatMapping: Codable, Equatable {
+    /// Whether repeat is enabled
+    var enabled: Bool
+    /// Interval between repeats in seconds (default 0.05s = 20 per second)
+    var interval: TimeInterval
+
+    init(enabled: Bool = false, interval: TimeInterval = 0.05) {
+        self.enabled = enabled
+        self.interval = interval
+    }
+
+    /// Repeat rate in actions per second
+    var ratePerSecond: Double {
+        get { 1.0 / interval }
+        set { interval = 1.0 / newValue }
     }
 }
 

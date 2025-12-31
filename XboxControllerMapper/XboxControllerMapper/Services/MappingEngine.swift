@@ -33,6 +33,9 @@ class MappingEngine: ObservableObject {
     /// Tracks buttons that have already triggered their long-hold action during the current press
     private var longHoldTriggered: Set<ControllerButton> = []
 
+    /// Timers for repeat-while-held functionality
+    private var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
+
     /// Timer for joystick polling (using DispatchSourceTimer for lower overhead)
     private var joystickTimer: DispatchSourceTimer?
     private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 60 Hz
@@ -134,6 +137,49 @@ class MappingEngine: ObservableObject {
             longHoldTimers[button] = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + longHold.threshold, execute: workItem)
         }
+
+        // Start repeat timer if configured
+        if let repeatConfig = mapping.repeatMapping, repeatConfig.enabled {
+            startRepeatTimer(for: button, mapping: mapping, interval: repeatConfig.interval)
+        }
+    }
+
+    private func startRepeatTimer(for button: ControllerButton, mapping: KeyMapping, interval: TimeInterval) {
+        // Stop any existing repeat timer for this button
+        stopRepeatTimer(for: button)
+
+        // Execute action immediately on first press
+        inputSimulator.executeMapping(mapping)
+        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+
+        // Create a repeating timer
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+        timer.schedule(deadline: .now() + interval, repeating: interval)
+        timer.setEventHandler { [weak self] in
+            guard let self = self else { return }
+            // Check if button is still pressed
+            guard self.controllerService.activeButtons.contains(button) else {
+                self.stopRepeatTimer(for: button)
+                return
+            }
+            self.inputSimulator.executeMapping(mapping)
+        }
+        timer.resume()
+        repeatTimers[button] = timer
+
+        #if DEBUG
+        print("↻ Started repeat timer for \(button.displayName) at \(1.0/interval)/s")
+        #endif
+    }
+
+    private func stopRepeatTimer(for button: ControllerButton) {
+        if let timer = repeatTimers[button] {
+            timer.cancel()
+            repeatTimers.removeValue(forKey: button)
+            #if DEBUG
+            print("↻ Stopped repeat timer for \(button.displayName)")
+            #endif
+        }
     }
     
     private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
@@ -150,6 +196,9 @@ class MappingEngine: ObservableObject {
         #if DEBUG
         print("🔘 handleButtonReleased: \(button.displayName) duration=\(holdDuration)")
         #endif
+
+        // Stop repeat timer if active
+        stopRepeatTimer(for: button)
 
         // Cancel pending long hold timer since button was released
         if let timer = longHoldTimers[button] {
@@ -204,6 +253,14 @@ class MappingEngine: ObservableObject {
 
         // Skip if this is a hold modifier (already handled)
         guard !mapping.isHoldModifier else { return }
+
+        // Skip if repeat was enabled (action already executed on press)
+        if let repeatConfig = mapping.repeatMapping, repeatConfig.enabled {
+            #if DEBUG
+            print("   ⏭️ Repeat was active, skipping release action")
+            #endif
+            return
+        }
 
         // If long hold was already triggered while holding, we're done
         if longHoldTriggered.contains(button) {
@@ -474,14 +531,20 @@ class MappingEngine: ObservableObject {
             workItem.cancel()
         }
         pendingSingleTap.removeAll()
-        
+
         // Cancel long hold timers
         for (_, workItem) in longHoldTimers {
             workItem.cancel()
         }
         longHoldTimers.removeAll()
         longHoldTriggered.removeAll()
-        
+
+        // Cancel repeat timers
+        for (_, timer) in repeatTimers {
+            timer.cancel()
+        }
+        repeatTimers.removeAll()
+
         lastTapTime.removeAll()
         inputSimulator.releaseAllModifiers()
     }
