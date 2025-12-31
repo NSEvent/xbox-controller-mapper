@@ -82,6 +82,27 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// SF Symbol name if available
+    var systemImageName: String? {
+        switch self {
+        case .dpadUp: return "arrowtriangle.up.fill"
+        case .dpadDown: return "arrowtriangle.down.fill"
+        case .dpadLeft: return "arrowtriangle.left.fill"
+        case .dpadRight: return "arrowtriangle.right.fill"
+        case .menu: return "line.3.horizontal"
+        case .view: return "rectangle.on.rectangle"
+        case .share: return "square.and.arrow.up"
+        case .xbox: return "xbox.logo" // Fallback might be needed if not available, usually circle.grid.cross or similar
+        case .leftThumbstick: return "l.circle"
+        case .rightThumbstick: return "r.circle"
+        case .a: return "a.circle"
+        case .b: return "b.circle"
+        case .x: return "x.circle"
+        case .y: return "y.circle"
+        default: return nil
+        }
+    }
+
     /// Category for grouping in UI
     var category: ButtonCategory {
         switch self {

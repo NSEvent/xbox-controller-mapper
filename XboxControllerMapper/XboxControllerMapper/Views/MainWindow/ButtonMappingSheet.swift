@@ -84,6 +84,9 @@ struct ButtonMappingSheet: View {
 
     private var header: some View {
         HStack {
+            ButtonIconView(button: button, isPressed: false)
+                .padding(.trailing, 8)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text("Configure \(button.displayName)")
                     .font(.headline)

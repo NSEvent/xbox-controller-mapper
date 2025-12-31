@@ -160,80 +160,106 @@ struct ControllerVisualView: View {
 
     private func miniTrigger(_ button: ControllerButton, label: String, value: Float) -> some View {
         ZStack(alignment: .bottom) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color.gray.opacity(0.4))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.primary.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                )
                 .frame(width: 34, height: 14)
             
             // Fill based on pressure
-            RoundedRectangle(cornerRadius: 3)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(Color.accentColor)
                 .frame(width: 34, height: 14 * CGFloat(value))
                 .opacity(isPressed(button) ? 1.0 : 0.6)
             
             Text(label)
                 .font(.system(size: 7, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(isPressed(button) ? .white : .secondary)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 3))
-        .shadow(color: .black.opacity(0.1), radius: 1)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 
     private func miniBumper(_ button: ControllerButton, label: String) -> some View {
-        RoundedRectangle(cornerRadius: 2)
-            .fill(isPressed(button) ? Color.accentColor : Color.gray.opacity(0.3))
+        RoundedRectangle(cornerRadius: 3, style: .continuous)
+            .fill(isPressed(button) ? Color.accentColor : Color.primary.opacity(0.05))
+            .overlay(
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .stroke(Color.primary.opacity(isPressed(button) ? 0 : 0.1), lineWidth: 1)
+            )
             .frame(width: 34, height: 10)
             .overlay(
                 Text(label)
                     .font(.system(size: 6, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(isPressed(button) ? .white : .secondary)
             )
     }
 
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
         ZStack {
-            Circle().fill(Color.gray.opacity(0.2)).frame(width: 30, height: 30)
             Circle()
-                .fill(isPressed(button) ? Color.accentColor : Color.gray)
+                .fill(Color.primary.opacity(0.05))
+                .overlay(Circle().stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                .frame(width: 30, height: 30)
+            
+            Circle()
+                .fill(isPressed(button) ? Color.accentColor : Color.primary.opacity(0.5))
                 .frame(width: 20, height: 20)
                 .offset(x: pos.x * 5, y: -pos.y * 5)
+                .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
         }
     }
 
     private func miniCircle(_ button: ControllerButton, size: CGFloat) -> some View {
         Circle()
-            .fill(isPressed(button) ? Color.accentColor : Color.gray.opacity(0.5))
+            .fill(isPressed(button) ? Color.accentColor : Color.primary.opacity(0.05))
+            .overlay(
+                Circle().stroke(Color.primary.opacity(isPressed(button) ? 0 : 0.1), lineWidth: 1)
+            )
             .frame(width: size, height: size)
+    }
+
+    private func miniFaceButton(_ button: ControllerButton, color: Color) -> some View {
+        Circle()
+            .fill(isPressed(button) ? color : color.opacity(0.15))
+            .overlay(
+                Circle().stroke(isPressed(button) ? Color.clear : color.opacity(0.3), lineWidth: 1)
+            )
+            .frame(width: 12, height: 12)
     }
 
     private func miniFaceButtons() -> some View {
         ZStack {
-            miniCircle(.y, size: 12).offset(y: -12)
-            miniCircle(.a, size: 12).offset(y: 12)
-            miniCircle(.x, size: 12).offset(x: -12)
-            miniCircle(.b, size: 12).offset(x: 12)
+            miniFaceButton(.y, color: .orange).offset(y: -12)
+            miniFaceButton(.a, color: .green).offset(y: 12)
+            miniFaceButton(.x, color: .blue).offset(x: -12)
+            miniFaceButton(.b, color: .red).offset(x: 12)
         }
         .frame(width: 40, height: 40)
     }
 
     private func miniDPad() -> some View {
         ZStack {
-            // Vertical bar background
-            Rectangle().fill(Color.gray.opacity(0.3)).frame(width: 8, height: 24)
-            // Horizontal bar background
-            Rectangle().fill(Color.gray.opacity(0.3)).frame(width: 24, height: 8)
+            // Background Cross
+            Group {
+                RoundedRectangle(cornerRadius: 2).frame(width: 8, height: 24)
+                RoundedRectangle(cornerRadius: 2).frame(width: 24, height: 8)
+            }
+            .foregroundColor(Color.primary.opacity(0.05))
             
-            // Active states overlay
+            // Active states
             if isPressed(.dpadUp) {
-                Rectangle().fill(Color.accentColor).frame(width: 8, height: 10).offset(y: -7)
+                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 8, height: 10).offset(y: -7)
             }
             if isPressed(.dpadDown) {
-                Rectangle().fill(Color.accentColor).frame(width: 8, height: 10).offset(y: 7)
+                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 8, height: 10).offset(y: 7)
             }
             if isPressed(.dpadLeft) {
-                Rectangle().fill(Color.accentColor).frame(width: 10, height: 8).offset(x: -7)
+                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: -7)
             }
             if isPressed(.dpadRight) {
-                Rectangle().fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7)
+                RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7)
             }
         }
     }

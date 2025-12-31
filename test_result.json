@@ -1,0 +1,772 @@
+{
+  "_type" : {
+    "_name" : "ActionsInvocationRecord"
+  },
+  "actions" : {
+    "_type" : {
+      "_name" : "Array"
+    },
+    "_values" : [
+      {
+        "_type" : {
+          "_name" : "ActionRecord"
+        },
+        "actionResult" : {
+          "_type" : {
+            "_name" : "ActionResult"
+          },
+          "coverage" : {
+            "_type" : {
+              "_name" : "CodeCoverageInfo"
+            },
+            "archiveRef" : {
+              "_type" : {
+                "_name" : "Reference"
+              },
+              "id" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "0~k-iG-u-SHVHgE2EXxYuMvq7BbJvtSjUEYyiNo9d4yZhNRX_ro9cCk_MzUIzN0l56qJNFtXynkGxIo1FefPSqRQ=="
+              }
+            },
+            "hasCoverageData" : {
+              "_type" : {
+                "_name" : "Bool"
+              },
+              "_value" : "true"
+            },
+            "reportRef" : {
+              "_type" : {
+                "_name" : "Reference"
+              },
+              "id" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "0~Eo61ppPxsaRVrSjrsdXoRpH1of5yb7uQkk2SmHdIqZ5viuARJOn6vABA-S4bKWKXQsC2ESgufmHuoVrgaJL2nw=="
+              }
+            }
+          },
+          "diagnosticsRef" : {
+            "_type" : {
+              "_name" : "Reference"
+            },
+            "id" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "0~UriD8mtkaRiUhyhkOsxcOghmQekcmdPUzg1Wjtf8Bjhq7rE_nhSlKX-H8To4hiDO6ABMUR41tgY7JKdZVscE9w=="
+            }
+          },
+          "issues" : {
+            "_type" : {
+              "_name" : "ResultIssueSummaries"
+            },
+            "testFailureSummaries" : {
+              "_type" : {
+                "_name" : "Array"
+              },
+              "_values" : [
+                {
+                  "_type" : {
+                    "_name" : "TestFailureIssueSummary",
+                    "_supertype" : {
+                      "_name" : "IssueSummary"
+                    }
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Uncategorized"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Crash: XboxControllerMapper at ProfileManagerTests.testLoadInvalidJSON(). libsystem_c.dylib: abort() called"
+                  },
+                  "testCaseName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ProfileManagerTests.testLoadInvalidJSON()"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "TestFailureIssueSummary",
+                    "_supertype" : {
+                      "_name" : "IssueSummary"
+                    }
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Uncategorized"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Crash: XboxControllerMapper at ProfileManagerTests.testLoadProfileWithEmptyName(). libsystem_c.dylib: abort() called"
+                  },
+                  "testCaseName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ProfileManagerTests.testLoadProfileWithEmptyName()"
+                  }
+                },
+                {
+                  "_type" : {
+                    "_name" : "TestFailureIssueSummary",
+                    "_supertype" : {
+                      "_name" : "IssueSummary"
+                    }
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "DVTTextDocumentLocation"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Uncategorized"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Crash: XboxControllerMapper at ProfileManagerTests.testLoadValidConfiguration(). libsystem_c.dylib: abort() called"
+                  },
+                  "testCaseName" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "ProfileManagerTests.testLoadValidConfiguration()"
+                  }
+                }
+              ]
+            }
+          },
+          "logRef" : {
+            "_type" : {
+              "_name" : "Reference"
+            },
+            "id" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "0~WUs6Nxd6zTSy5Ir4icXm7HIkaEZO_oYB0thq6qP2m6QpKc5REiGjNTRFGwfWcM2c5Hp0jknXCUPWC71ZFw0b3g=="
+            },
+            "targetType" : {
+              "_type" : {
+                "_name" : "TypeDefinition"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "ActivityLogSection"
+              }
+            }
+          },
+          "metrics" : {
+            "_type" : {
+              "_name" : "ResultMetrics"
+            },
+            "testsCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "3"
+            },
+            "testsFailedCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "3"
+            }
+          },
+          "resultName" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "action"
+          },
+          "status" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "failed"
+          },
+          "testsRef" : {
+            "_type" : {
+              "_name" : "Reference"
+            },
+            "id" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "0~yRDqHkl5Fg0WLo2L7mfmc3MCNYYhUNPvQ1_a6ofoN2ELtMWjOpG_1IWO6EEeVOykL1kaWo2_SEyqgZhUrDywZw=="
+            },
+            "targetType" : {
+              "_type" : {
+                "_name" : "TypeDefinition"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "ActionTestPlanRunSummaries"
+              }
+            }
+          }
+        },
+        "buildResult" : {
+          "_type" : {
+            "_name" : "ActionResult"
+          },
+          "coverage" : {
+            "_type" : {
+              "_name" : "CodeCoverageInfo"
+            }
+          },
+          "issues" : {
+            "_type" : {
+              "_name" : "ResultIssueSummaries"
+            },
+            "warningSummaries" : {
+              "_type" : {
+                "_name" : "Array"
+              },
+              "_values" : [
+                {
+                  "_type" : {
+                    "_name" : "IssueSummary"
+                  },
+                  "documentLocationInCreatingWorkspace" : {
+                    "_type" : {
+                      "_name" : "DocumentLocation"
+                    },
+                    "concreteTypeName" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "Xcode3ProjectDocumentLocation"
+                    },
+                    "url" : {
+                      "_type" : {
+                        "_name" : "String"
+                      },
+                      "_value" : "file:\/\/\/Users\/kevin\/projects\/xbox-controller-mapper\/XboxControllerMapper\/XboxControllerMapper.xcodeproj#Timestamp=788815544.443203&XcodeLocation=%7B%22Selection%22:%7B%22Editor%22:%22Xcode3TargetEditor%22,%22Target%22:%22XboxControllerMapper%22,%22Xcode3BuildPhasesEditorLocations%22:%5B%7B%224902bd821ac1bfb42e38154205ab04a711507dda31d75de817a8a26b87371c50%22:%5B%5B%224902bd821ac1bfb42e38154205ab04a7416ce566d96cc612512fbb97f32c240b%22%5D%5D%7D%5D,%22Xcode3TargetEditorLocations%22:%5B%7B%22Selected%20Build%20Files%22:%5B%5B%224902bd821ac1bfb42e38154205ab04a7416ce566d96cc612512fbb97f32c240b%22%5D%5D%7D%5D%7D%7D"
+                    }
+                  },
+                  "issueType" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "Warning"
+                  },
+                  "message" : {
+                    "_type" : {
+                      "_name" : "String"
+                    },
+                    "_value" : "The Copy Bundle Resources build phase contains this target's Info.plist file '\/Users\/kevin\/projects\/xbox-controller-mapper\/XboxControllerMapper\/XboxControllerMapper\/Info.plist'."
+                  }
+                }
+              ]
+            }
+          },
+          "logRef" : {
+            "_type" : {
+              "_name" : "Reference"
+            },
+            "id" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "0~_cQthK3iYpd78tIZVXUQ09NEP0lvf-vTGWx5XM0ddBcsUZMUYExEPBzz9r7mUEY2MGUVrfHqt8EZ-orSCwVVpA=="
+            },
+            "targetType" : {
+              "_type" : {
+                "_name" : "TypeDefinition"
+              },
+              "name" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "ActivityLogSection"
+              }
+            }
+          },
+          "metrics" : {
+            "_type" : {
+              "_name" : "ResultMetrics"
+            },
+            "warningCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "1"
+            }
+          },
+          "resultName" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "build"
+          },
+          "status" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "succeeded"
+          }
+        },
+        "endedTime" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2025-12-30T11:27:47.934-0800"
+        },
+        "runDestination" : {
+          "_type" : {
+            "_name" : "ActionRunDestinationRecord"
+          },
+          "displayName" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "My Mac"
+          },
+          "localComputerRecord" : {
+            "_type" : {
+              "_name" : "ActionDeviceRecord"
+            },
+            "busSpeedInMHz" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "cpuCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "1"
+            },
+            "cpuKind" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "Apple M3 Max"
+            },
+            "cpuSpeedInMHz" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "identifier" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "00006034-000C30312244001C"
+            },
+            "isConcreteDevice" : {
+              "_type" : {
+                "_name" : "Bool"
+              },
+              "_value" : "true"
+            },
+            "logicalCPUCoresPerPackage" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "14"
+            },
+            "modelCode" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "Mac15,11"
+            },
+            "modelName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "MacBook Pro"
+            },
+            "modelUTI" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "com.apple.macbookpro-16-late-2023-2"
+            },
+            "name" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "My Mac"
+            },
+            "nativeArchitecture" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "arm64e"
+            },
+            "operatingSystemVersion" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "26.2"
+            },
+            "operatingSystemVersionWithBuildNumber" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "26.2 (25C56)"
+            },
+            "physicalCPUCoresPerPackage" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "14"
+            },
+            "platformRecord" : {
+              "_type" : {
+                "_name" : "ActionPlatformRecord"
+              },
+              "identifier" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.platform.macosx"
+              },
+              "userDescription" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "macOS"
+              }
+            },
+            "ramSizeInMegabytes" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "36864"
+            }
+          },
+          "targetArchitecture" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "arm64"
+          },
+          "targetDeviceRecord" : {
+            "_type" : {
+              "_name" : "ActionDeviceRecord"
+            },
+            "busSpeedInMHz" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "cpuCount" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "1"
+            },
+            "cpuKind" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "Apple M3 Max"
+            },
+            "cpuSpeedInMHz" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "0"
+            },
+            "identifier" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "00006034-000C30312244001C"
+            },
+            "isConcreteDevice" : {
+              "_type" : {
+                "_name" : "Bool"
+              },
+              "_value" : "true"
+            },
+            "logicalCPUCoresPerPackage" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "14"
+            },
+            "modelCode" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "Mac15,11"
+            },
+            "modelName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "MacBook Pro"
+            },
+            "modelUTI" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "com.apple.macbookpro-16-late-2023-2"
+            },
+            "name" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "My Mac"
+            },
+            "nativeArchitecture" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "arm64e"
+            },
+            "operatingSystemVersion" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "26.2"
+            },
+            "operatingSystemVersionWithBuildNumber" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "26.2 (25C56)"
+            },
+            "physicalCPUCoresPerPackage" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "14"
+            },
+            "platformRecord" : {
+              "_type" : {
+                "_name" : "ActionPlatformRecord"
+              },
+              "identifier" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "com.apple.platform.macosx"
+              },
+              "userDescription" : {
+                "_type" : {
+                  "_name" : "String"
+                },
+                "_value" : "macOS"
+              }
+            },
+            "ramSizeInMegabytes" : {
+              "_type" : {
+                "_name" : "Int"
+              },
+              "_value" : "36864"
+            }
+          },
+          "targetSDKRecord" : {
+            "_type" : {
+              "_name" : "ActionSDKRecord"
+            },
+            "identifier" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "macosx26.1"
+            },
+            "name" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "macOS 26.1"
+            },
+            "operatingSystemVersion" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "26.1"
+            }
+          }
+        },
+        "schemeCommandName" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Test"
+        },
+        "schemeTaskName" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "BuildAndAction"
+        },
+        "startedTime" : {
+          "_type" : {
+            "_name" : "Date"
+          },
+          "_value" : "2025-12-30T11:25:43.185-0800"
+        },
+        "testPlanName" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "XboxControllerMapper"
+        },
+        "title" : {
+          "_type" : {
+            "_name" : "String"
+          },
+          "_value" : "Testing project XboxControllerMapper with scheme XboxControllerMapper"
+        }
+      }
+    ]
+  },
+  "issues" : {
+    "_type" : {
+      "_name" : "ResultIssueSummaries"
+    },
+    "warningSummaries" : {
+      "_type" : {
+        "_name" : "Array"
+      },
+      "_values" : [
+        {
+          "_type" : {
+            "_name" : "IssueSummary"
+          },
+          "documentLocationInCreatingWorkspace" : {
+            "_type" : {
+              "_name" : "DocumentLocation"
+            },
+            "concreteTypeName" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "Xcode3ProjectDocumentLocation"
+            },
+            "url" : {
+              "_type" : {
+                "_name" : "String"
+              },
+              "_value" : "file:\/\/\/Users\/kevin\/projects\/xbox-controller-mapper\/XboxControllerMapper\/XboxControllerMapper.xcodeproj#Timestamp=788815544.443203&XcodeLocation=%7B%22Selection%22:%7B%22Editor%22:%22Xcode3TargetEditor%22,%22Target%22:%22XboxControllerMapper%22,%22Xcode3BuildPhasesEditorLocations%22:%5B%7B%224902bd821ac1bfb42e38154205ab04a711507dda31d75de817a8a26b87371c50%22:%5B%5B%224902bd821ac1bfb42e38154205ab04a7416ce566d96cc612512fbb97f32c240b%22%5D%5D%7D%5D,%22Xcode3TargetEditorLocations%22:%5B%7B%22Selected%20Build%20Files%22:%5B%5B%224902bd821ac1bfb42e38154205ab04a7416ce566d96cc612512fbb97f32c240b%22%5D%5D%7D%5D%7D%7D"
+            }
+          },
+          "issueType" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "Warning"
+          },
+          "message" : {
+            "_type" : {
+              "_name" : "String"
+            },
+            "_value" : "The Copy Bundle Resources build phase contains this target's Info.plist file '\/Users\/kevin\/projects\/xbox-controller-mapper\/XboxControllerMapper\/XboxControllerMapper\/Info.plist'."
+          }
+        }
+      ]
+    }
+  },
+  "metadataRef" : {
+    "_type" : {
+      "_name" : "Reference"
+    },
+    "id" : {
+      "_type" : {
+        "_name" : "String"
+      },
+      "_value" : "0~AjPXvQ1yqY_-zw25lOFAb_whS2P5U_o3WFigIl-VM7xJ0er1TFgbKgKtw3O6HVehjH7XNgtx_CcSGLgeFE3C-w=="
+    },
+    "targetType" : {
+      "_type" : {
+        "_name" : "TypeDefinition"
+      },
+      "name" : {
+        "_type" : {
+          "_name" : "String"
+        },
+        "_value" : "ActionsInvocationMetadata"
+      }
+    }
+  },
+  "metrics" : {
+    "_type" : {
+      "_name" : "ResultMetrics"
+    },
+    "testsCount" : {
+      "_type" : {
+        "_name" : "Int"
+      },
+      "_value" : "3"
+    },
+    "testsFailedCount" : {
+      "_type" : {
+        "_name" : "Int"
+      },
+      "_value" : "3"
+    },
+    "totalCoveragePercentage" : {
+      "_type" : {
+        "_name" : "Double"
+      },
+      "_value" : "0.2917350848385331"
+    },
+    "warningCount" : {
+      "_type" : {
+        "_name" : "Int"
+      },
+      "_value" : "1"
+    }
+  }
+}
