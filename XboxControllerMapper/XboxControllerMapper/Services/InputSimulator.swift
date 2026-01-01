@@ -32,8 +32,14 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Track if we've warned about accessibility
     private var hasWarnedAboutAccessibility = false
 
-    /// Dedicated high-priority queue for key simulation (avoids blocking main thread with usleep)
-    private let simulationQueue = DispatchQueue(label: "com.xboxmapper.input", qos: .userInteractive)
+    /// dedicated high-priority queue for key simulation (avoids blocking main thread with usleep)
+    private let keyboardQueue = DispatchQueue(label: "com.xboxmapper.keyboard", qos: .userInteractive)
+    
+    /// Dedicated high-priority queue for mouse movement (avoids blocking by keyboard sleeps)
+    private let mouseQueue = DispatchQueue(label: "com.xboxmapper.mouse", qos: .userInteractive)
+    
+    /// Lock for protecting shared state
+    private let stateLock = NSLock()
 
     init() {
         // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
@@ -65,17 +71,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         guard checkAccessibility() else { return }
 
-        // Capture state needed for async execution
-        let modifiersToPress = modifiers.subtracting(heldModifiers)
-        let startingFlags = heldModifiers
+        // Capture state needed for async execution safely
+        stateLock.lock()
+        let currentHeldModifiers = heldModifiers
+        stateLock.unlock()
+        
+        let modifiersToPress = modifiers.subtracting(currentHeldModifiers)
+        let startingFlags = currentHeldModifiers
 
         #if DEBUG
         print("🎮 Pressing key: \(keyCode) with modifiers: \(modifiers.rawValue) (Simulating: \(modifiersToPress.rawValue))")
-        print("   Current held modifiers: \(heldModifiers.rawValue)")
+        print("   Current held modifiers: \(currentHeldModifiers.rawValue)")
         #endif
 
-        // Run key simulation on dedicated queue to avoid blocking main thread
-        simulationQueue.async { [weak self] in
+        // Run key simulation on dedicated queue
+        keyboardQueue.async { [weak self] in
             guard let self = self else { return }
 
             var currentFlags = startingFlags
@@ -159,10 +169,14 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
+        
+        stateLock.lock()
+        let currentHeld = heldModifiers
+        stateLock.unlock()
 
         // Combine modifiers with special key flags (Fn, NumPad for arrows, etc.)
         let specialFlags = specialKeyFlags(for: keyCode)
-        let combinedModifiers = modifiers.union(heldModifiers).union(specialFlags)
+        let combinedModifiers = modifiers.union(currentHeld).union(specialFlags)
 
         if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
             event.flags = combinedModifiers
@@ -179,10 +193,14 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
+        
+        stateLock.lock()
+        let currentHeld = heldModifiers
+        stateLock.unlock()
 
         // Include special key flags on release as well
         let specialFlags = specialKeyFlags(for: keyCode)
-        let combinedFlags = heldModifiers.union(specialFlags)
+        let combinedFlags = currentHeld.union(specialFlags)
 
         if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
             event.flags = combinedFlags
@@ -204,6 +222,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             CGEventFlags.maskShift.rawValue: kVK_Shift,
             CGEventFlags.maskControl.rawValue: kVK_Control
         ]
+        
+        stateLock.lock()
+        defer { stateLock.unlock() }
 
         for mask in masks where modifier.contains(mask) {
             let key = mask.rawValue
@@ -213,6 +234,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if count == 0 {
                 // First time this modifier is being held
                 heldModifiers.insert(mask)
+                // Need to post event inside lock or copy state? 
+                // Posting is fast, let's do it inside lock to ensure consistent state/event ordering locally.
                 if let vKey = vKeys[key] {
                     if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: true) {
                         // Set flags to include this modifier and any already-held modifiers
@@ -236,6 +259,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             CGEventFlags.maskShift.rawValue: kVK_Shift,
             CGEventFlags.maskControl.rawValue: kVK_Control
         ]
+        
+        stateLock.lock()
+        defer { stateLock.unlock() }
 
         for mask in masks where modifier.contains(mask) {
             let key = mask.rawValue
@@ -257,13 +283,19 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Releases all held modifiers
     func releaseAllModifiers() {
+        stateLock.lock()
         let currentHeld = heldModifiers
+        stateLock.unlock()
+        
         releaseModifier(currentHeld)
+        
+        stateLock.lock()
         // Reset all counts to zero
         for key in modifierCounts.keys {
             modifierCounts[key] = 0
         }
         heldModifiers = []
+        stateLock.unlock()
     }
 
     // MARK: - Mouse Button State
@@ -280,17 +312,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Moves the mouse cursor by a delta
     func moveMouse(dx: CGFloat, dy: CGFloat) {
-        // Capture state needed for async execution
-        // Note: We don't check accessibility here to fail fast, but the async block checks it.
-        // We capture held buttons on the calling thread to ensure consistency? 
-        // Actually, heldMouseButtons is modified on the main thread (via key mappings). 
-        // If moveMouse is called from background, and heldMouseButtons is modified on Main, we have a race.
-        // But InputSimulator is generally used from Main for keys, and now background for mouse.
-        // Let's assume heldMouseButtons is only for drag state which is rare for analog stick.
-        // For safety, we should protect heldMouseButtons or just copy it. 
-        // Since we are inside InputSimulator, let's just dispatch async.
-        
-        simulationQueue.async { [weak self] in
+        // Dispatch to dedicated mouse queue
+        mouseQueue.async { [weak self] in
             guard let self = self else { return }
             guard self.checkAccessibility() else { return }
             guard let source = self.eventSource else { return }
@@ -303,23 +326,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             let newY = screenHeight - currentLocation.y + dy
             
             // Determine event type based on held buttons (drag if button held)
-            // Accessing self.heldMouseButtons here (on background) while it might be modified on Main (via pressMouseButton) is a race.
-            // However, pressMouseButton dispatches to simulationQueue for the actual event post?
-            // No, pressMouseButton currently calls mouseButtonDown which calls checkAccessibility/CGEvent on the calling thread (Main).
-            // InputSimulator needs a thread-safety pass if mixed usage occurs. 
-            // For now, let's assume the race on heldMouseButtons is acceptable for a prototype or we accept it.
-            // Ideally, we should make all state access inside InputSimulator happen on simulationQueue.
-            
             let eventType: CGEventType
             let mouseButton: CGMouseButton
+            
+            // Safe state access
+            self.stateLock.lock()
+            let heldButtons = self.heldMouseButtons
+            self.stateLock.unlock()
 
-            if self.heldMouseButtons.contains(.left) {
+            if heldButtons.contains(.left) {
                 eventType = .leftMouseDragged
                 mouseButton = .left
-            } else if self.heldMouseButtons.contains(.right) {
+            } else if heldButtons.contains(.right) {
                 eventType = .rightMouseDragged
                 mouseButton = .right
-            } else if self.heldMouseButtons.contains(.center) {
+            } else if heldButtons.contains(.center) {
                 eventType = .otherMouseDragged
                 mouseButton = .center
             } else {
@@ -340,7 +361,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Scrolls by a delta
     func scroll(dx: CGFloat, dy: CGFloat) {
-        simulationQueue.async { [weak self] in
+        mouseQueue.async { [weak self] in
             guard let self = self else { return }
             guard self.checkAccessibility() else { return }
             guard let source = self.eventSource else { return }
@@ -377,6 +398,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let cgLocation = CGPoint(x: location.x, y: screenHeight - location.y)
 
         let (downType, button) = mouseEventType(for: keyCode, down: true)
+        
+        stateLock.lock()
+        defer { stateLock.unlock() }
 
         // Track hold state
         heldMouseButtons.insert(button)
@@ -416,6 +440,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let cgLocation = CGPoint(x: location.x, y: screenHeight - location.y)
 
         let (upType, button) = mouseEventType(for: keyCode, down: false)
+
+        stateLock.lock()
+        defer { stateLock.unlock() }
 
         // Update hold state
         heldMouseButtons.remove(button)
