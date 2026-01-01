@@ -39,7 +39,7 @@ class MappingEngine: ObservableObject {
 
     /// Timer for joystick polling (using DispatchSourceTimer for lower overhead)
     private var joystickTimer: DispatchSourceTimer?
-    private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 1000 Hz
+    private let joystickPollInterval: TimeInterval = 1.0 / 120.0  // 1000 Hz
 
     // MARK: - Loop State
     private let pollingQueue = DispatchQueue(label: "com.xboxmapper.polling", qos: .userInteractive)
@@ -545,12 +545,8 @@ class MappingEngine: ObservableObject {
         let leftMagnitudeSquared = leftStick.x * leftStick.x + leftStick.y * leftStick.y
         let leftDeadzoneSquared = settings.mouseDeadzone * settings.mouseDeadzone
         
-        if leftMagnitudeSquared <= leftDeadzoneSquared {
-            loopState.smoothedLeftStick = .zero
-        } else {
-            loopState.smoothedLeftStick = smoothStick(leftStick, previous: loopState.smoothedLeftStick, dt: dt)
-        }
-        processMouseMovement(loopState.smoothedLeftStick, settings: settings)
+        // Remove smoothing - pass raw value (deadzone handled in processMouseMovement)
+        processMouseMovement(leftStick, settings: settings)
 
         // Process right joystick (scroll)
         let rightStick = controllerService.threadSafeRightStick
