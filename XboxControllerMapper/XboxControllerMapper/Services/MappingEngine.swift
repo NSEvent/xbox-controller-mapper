@@ -114,7 +114,10 @@ class MappingEngine: ObservableObject {
         }
 
         #if DEBUG
-        print("🔵 handleButtonPressed: \(button.displayName) isHoldModifier=\(mapping.isHoldModifier)")
+        print("🔵 handleButtonPressed: \(button.displayName) (\(button.rawValue))")
+        print("   isHoldModifier=\(mapping.isHoldModifier)")
+        print("   modifiers: cmd=\(mapping.modifiers.command) opt=\(mapping.modifiers.option) shift=\(mapping.modifiers.shift) ctrl=\(mapping.modifiers.control)")
+        print("   keyCode: \(mapping.keyCode?.description ?? "nil")")
         #endif
 
         // For hold-type mappings, start holding immediately - but only if button is still pressed

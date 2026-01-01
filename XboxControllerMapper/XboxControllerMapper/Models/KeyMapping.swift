@@ -205,6 +205,9 @@ struct ModifierFlags: Codable, Equatable {
         if option { flags.insert(.maskAlternate) }
         if shift { flags.insert(.maskShift) }
         if control { flags.insert(.maskControl) }
+        #if DEBUG
+        print("🏳️ cgEventFlags: cmd=\(command) opt=\(option) shift=\(shift) ctrl=\(control) -> rawValue=\(flags.rawValue)")
+        #endif
         return flags
     }
 
