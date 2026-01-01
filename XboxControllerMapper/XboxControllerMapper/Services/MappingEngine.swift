@@ -122,6 +122,24 @@ class MappingEngine: ObservableObject {
 
         // For hold-type mappings, start holding immediately - but only if button is still pressed
         if mapping.isHoldModifier {
+            // Check for double-tap before starting hold modifier
+            if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
+                let now = Date()
+                if let lastTap = lastTapTime[button],
+                   now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
+                    // This is a double-tap - execute double-tap action instead of hold
+                    lastTapTime.removeValue(forKey: button)
+                    executeDoubleTapMapping(doubleTapMapping)
+                    inputLogService?.log(buttons: [button], type: .doubleTap, action: doubleTapMapping.displayString)
+                    #if DEBUG
+                    print("   ⏩ Double-tap detected on hold modifier, executing double-tap action")
+                    #endif
+                    return
+                }
+                // Record this tap time for potential double-tap detection
+                lastTapTime[button] = now
+            }
+
             // Check if button is still actually pressed (it might have been released
             // during the chord detection window for quick taps)
             if controllerService.activeButtons.contains(button) {
