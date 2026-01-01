@@ -195,9 +195,12 @@ struct ButtonMappingSheet: View {
                         set: { newValue in
                             isHoldModifier = newValue
                             userHasInteractedWithHold = true
-                            // Disable repeat when enabling hold modifier (mutually exclusive)
+                            // Disable repeat and long hold when enabling hold modifier (mutually exclusive)
                             if newValue {
                                 enableRepeat = false
+                                enableLongHold = false
+                                longHoldKeyCode = nil
+                                longHoldModifiers = ModifierFlags()
                             }
                         }
                     ))
@@ -207,6 +210,9 @@ struct ButtonMappingSheet: View {
                     Text(holdDescription)
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    // Long Hold section (moved inside Primary Action)
+                    longHoldContent
                 }
             }
             .onChange(of: keyCode) { _, newValue in
@@ -274,75 +280,91 @@ struct ButtonMappingSheet: View {
 
     // MARK: - Long Hold Section
 
-    private var longHoldSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Toggle("Enable Long Hold Action", isOn: $enableLongHold)
-                    .font(.headline)
-                    .disabled(primaryIsMouseClick)
+    /// Whether long hold should be disabled (mouse click or hold modifier enabled)
+    private var longHoldDisabled: Bool {
+        primaryIsMouseClick || isHoldModifier
+    }
 
-                Spacer()
+    /// Long hold content shown inside primary action section
+    @ViewBuilder
+    private var longHoldContent: some View {
+        Divider()
+            .padding(.vertical, 4)
 
-                if enableLongHold && !primaryIsMouseClick {
-                    Button(action: { showingKeyboardForLongHold.toggle() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: showingKeyboardForLongHold ? "keyboard.chevron.compact.down" : "keyboard")
-                            Text(showingKeyboardForLongHold ? "Hide" : "Show Keyboard")
-                        }
-                        .font(.caption)
+        HStack {
+            Toggle("Enable Long Hold Action", isOn: $enableLongHold)
+                .font(.caption)
+                .disabled(longHoldDisabled)
+
+            Spacer()
+
+            if enableLongHold && !longHoldDisabled {
+                Button(action: { showingKeyboardForLongHold.toggle() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: showingKeyboardForLongHold ? "keyboard.chevron.compact.down" : "keyboard")
+                        Text(showingKeyboardForLongHold ? "Hide" : "Show Keyboard")
                     }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.accentColor)
+                    .font(.caption)
                 }
-            }
-
-            if primaryIsMouseClick {
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.secondary)
-                    Text("Long hold is not available when the primary action is a mouse click. Mouse clicks use rapid pressing for double/triple click instead.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(12)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-                .cornerRadius(8)
-            } else if enableLongHold {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Hold Duration:")
-                            .font(.subheadline)
-
-                        Slider(value: $longHoldThreshold, in: 0.2...2.0, step: 0.1)
-
-                        Text("\(longHoldThreshold, specifier: "%.1f")s")
-                            .font(.caption)
-                            .monospacedDigit()
-                            .frame(width: 40)
-                    }
-
-                    // Current selection display
-                    HStack {
-                        Text("Long Hold Action:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-
-                        Text(longHoldMappingDisplay)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
-
-                    if showingKeyboardForLongHold {
-                        KeyboardVisualView(selectedKeyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
-                    } else {
-                        KeyCaptureField(keyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
-                    }
-                }
-                .padding(12)
-                .background(Color(nsColor: .controlBackgroundColor))
-                .cornerRadius(8)
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
             }
         }
+
+        if primaryIsMouseClick {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(.secondary)
+                Text("Long hold is not available for mouse clicks.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if isHoldModifier {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(.secondary)
+                Text("Long hold is not available when \"Hold action\" is enabled.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if enableLongHold {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Hold Duration:")
+                        .font(.caption)
+
+                    Slider(value: $longHoldThreshold, in: 0.2...2.0, step: 0.1)
+
+                    Text("\(longHoldThreshold, specifier: "%.1f")s")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .frame(width: 40)
+                }
+
+                // Current selection display
+                HStack {
+                    Text("Long Hold Action:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text(longHoldMappingDisplay)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+
+                if showingKeyboardForLongHold {
+                    KeyboardVisualView(selectedKeyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                } else {
+                    KeyCaptureField(keyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    /// Long hold section kept for backwards compatibility but now empty
+    private var longHoldSection: some View {
+        EmptyView()
     }
 
     private var longHoldMappingDisplay: String {
