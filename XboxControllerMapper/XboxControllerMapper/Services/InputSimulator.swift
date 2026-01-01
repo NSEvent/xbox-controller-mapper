@@ -137,8 +137,13 @@ class InputSimulator: InputSimulatorProtocol {
             return
         }
 
-        if flags.rawValue != 0 {
-            event.flags = flags
+        // Add special flags for arrow keys, function keys, etc.
+        // These flags (Fn, NumPad) are required for apps like Rectangle to recognize shortcuts
+        let specialFlags = specialKeyFlags(for: keyCode)
+        let combinedFlags = flags.union(specialFlags)
+
+        if combinedFlags.rawValue != 0 {
+            event.flags = combinedFlags
         }
 
         // Post to HID tap
@@ -155,7 +160,9 @@ class InputSimulator: InputSimulatorProtocol {
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
-        let combinedModifiers = modifiers.union(heldModifiers)
+        // Combine modifiers with special key flags (Fn, NumPad for arrows, etc.)
+        let specialFlags = specialKeyFlags(for: keyCode)
+        let combinedModifiers = modifiers.union(heldModifiers).union(specialFlags)
 
         if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
             event.flags = combinedModifiers
@@ -173,8 +180,12 @@ class InputSimulator: InputSimulatorProtocol {
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
+        // Include special key flags on release as well
+        let specialFlags = specialKeyFlags(for: keyCode)
+        let combinedFlags = heldModifiers.union(specialFlags)
+
         if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
-            event.flags = heldModifiers
+            event.flags = combinedFlags
             event.post(tap: .cghidEventTap)
         }
     }
@@ -198,13 +209,16 @@ class InputSimulator: InputSimulatorProtocol {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             modifierCounts[key] = count + 1
-            
+
             if count == 0 {
                 // First time this modifier is being held
                 heldModifiers.insert(mask)
                 if let vKey = vKeys[key] {
-                    CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: true)?
-                        .post(tap: .cghidEventTap)
+                    if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: true) {
+                        // Set flags to include this modifier and any already-held modifiers
+                        event.flags = heldModifiers
+                        event.post(tap: .cghidEventTap)
+                    }
                 }
             }
         }
@@ -472,3 +486,58 @@ private let kVK_Command = 0x37
 private let kVK_Shift = 0x38
 private let kVK_Option = 0x3A
 private let kVK_Control = 0x3B
+
+// Arrow key codes
+private let kVK_LeftArrow: CGKeyCode = 0x7B
+private let kVK_RightArrow: CGKeyCode = 0x7C
+private let kVK_DownArrow: CGKeyCode = 0x7D
+private let kVK_UpArrow: CGKeyCode = 0x7E
+
+// Function key codes
+private let kVK_F1: CGKeyCode = 0x7A
+private let kVK_F2: CGKeyCode = 0x78
+private let kVK_F3: CGKeyCode = 0x63
+private let kVK_F4: CGKeyCode = 0x76
+private let kVK_F5: CGKeyCode = 0x60
+private let kVK_F6: CGKeyCode = 0x61
+private let kVK_F7: CGKeyCode = 0x62
+private let kVK_F8: CGKeyCode = 0x64
+private let kVK_F9: CGKeyCode = 0x65
+private let kVK_F10: CGKeyCode = 0x6D
+private let kVK_F11: CGKeyCode = 0x67
+private let kVK_F12: CGKeyCode = 0x6F
+
+// Navigation keys
+private let kVK_Home: CGKeyCode = 0x73
+private let kVK_End: CGKeyCode = 0x77
+private let kVK_PageUp: CGKeyCode = 0x74
+private let kVK_PageDown: CGKeyCode = 0x79
+private let kVK_ForwardDelete: CGKeyCode = 0x75
+
+/// Keys that require NumPad and/or Fn flags to be recognized properly by apps
+private let numPadKeys: Set<CGKeyCode> = [
+    kVK_LeftArrow, kVK_RightArrow, kVK_DownArrow, kVK_UpArrow,
+    kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown, kVK_ForwardDelete
+]
+
+/// Keys that require the Fn flag
+private let fnKeys: Set<CGKeyCode> = [
+    kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
+    kVK_F7, kVK_F8, kVK_F9, kVK_F10, kVK_F11, kVK_F12,
+    kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown, kVK_ForwardDelete,
+    kVK_LeftArrow, kVK_RightArrow, kVK_DownArrow, kVK_UpArrow
+]
+
+/// Returns additional flags needed for special keys (arrow keys, function keys, etc.)
+private func specialKeyFlags(for keyCode: CGKeyCode) -> CGEventFlags {
+    var flags: CGEventFlags = []
+
+    if numPadKeys.contains(keyCode) {
+        flags.insert(.maskNumericPad)
+    }
+    if fnKeys.contains(keyCode) {
+        flags.insert(.maskSecondaryFn)
+    }
+
+    return flags
+}
