@@ -39,7 +39,7 @@ class MappingEngine: ObservableObject {
 
     /// Timer for joystick polling (using DispatchSourceTimer for lower overhead)
     private var joystickTimer: DispatchSourceTimer?
-    private let joystickPollInterval: TimeInterval = 1.0 / 1000.0  // 1000 Hz
+    private let joystickPollInterval: TimeInterval = 1.0 / 60.0  // 1000 Hz
 
     // MARK: - Loop State
     private let pollingQueue = DispatchQueue(label: "com.xboxmapper.polling", qos: .userInteractive)
