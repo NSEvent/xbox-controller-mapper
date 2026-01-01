@@ -12,17 +12,52 @@ class ControllerService: ObservableObject {
     /// Currently pressed buttons
     @Published var activeButtons: Set<ControllerButton> = []
 
-    /// Left joystick position (-1 to 1) - internal, not published to avoid UI thrashing
-    var leftStick: CGPoint = .zero
+    // MARK: - Thread-Safe Input State (High Performance)
+    private final class Storage: @unchecked Sendable {
+        let lock = NSLock()
+        var leftStick: CGPoint = .zero
+        var rightStick: CGPoint = .zero
+        var leftTrigger: Float = 0
+        var rightTrigger: Float = 0
+    }
+    
+    private let storage = Storage()
+    
+    nonisolated var threadSafeLeftStick: CGPoint {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.leftStick
+    }
+    
+    nonisolated var threadSafeRightStick: CGPoint {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.rightStick
+    }
+    
+    nonisolated var threadSafeLeftTrigger: Float {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.leftTrigger
+    }
+    
+    nonisolated var threadSafeRightTrigger: Float {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.rightTrigger
+    }
 
-    /// Right joystick position (-1 to 1) - internal, not published to avoid UI thrashing
-    var rightStick: CGPoint = .zero
+    /// Left joystick position (-1 to 1) - UI/Legacy use only
+    @Published var leftStick: CGPoint = .zero
 
-    /// Left trigger pressure (0 to 1) - internal, not published to avoid UI thrashing
-    var leftTriggerValue: Float = 0
+    /// Right joystick position (-1 to 1) - UI/Legacy use only
+    @Published var rightStick: CGPoint = .zero
 
-    /// Right trigger pressure (0 to 1) - internal, not published to avoid UI thrashing
-    var rightTriggerValue: Float = 0
+    /// Left trigger pressure (0 to 1) - UI/Legacy use only
+    @Published var leftTriggerValue: Float = 0
+
+    /// Right trigger pressure (0 to 1) - UI/Legacy use only
+    @Published var rightTriggerValue: Float = 0
 
     // MARK: - Throttled UI Display Values (updated at ~15Hz to avoid UI blocking)
     @Published var displayLeftStick: CGPoint = .zero
@@ -168,20 +203,33 @@ class ControllerService: ObservableObject {
         timer.schedule(deadline: .now(), repeating: 1.0 / 15.0, leeway: .milliseconds(10))
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
-            // Only update if values changed significantly to avoid unnecessary UI updates
-            if abs(self.displayLeftStick.x - self.leftStick.x) > 0.01 ||
-               abs(self.displayLeftStick.y - self.leftStick.y) > 0.01 {
-                self.displayLeftStick = self.leftStick
+            
+            // Sync thread-safe values to UI properties
+            let tsLeft = self.threadSafeLeftStick
+            let tsRight = self.threadSafeRightStick
+            let tsLeftTrig = self.threadSafeLeftTrigger
+            let tsRightTrig = self.threadSafeRightTrigger
+            
+            // Update legacy/UI properties
+            self.leftStick = tsLeft
+            self.rightStick = tsRight
+            self.leftTriggerValue = tsLeftTrig
+            self.rightTriggerValue = tsRightTrig
+            
+            // Only update display values if values changed significantly to avoid unnecessary UI updates
+            if abs(self.displayLeftStick.x - tsLeft.x) > 0.01 ||
+               abs(self.displayLeftStick.y - tsLeft.y) > 0.01 {
+                self.displayLeftStick = tsLeft
             }
-            if abs(self.displayRightStick.x - self.rightStick.x) > 0.01 ||
-               abs(self.displayRightStick.y - self.rightStick.y) > 0.01 {
-                self.displayRightStick = self.rightStick
+            if abs(self.displayRightStick.x - tsRight.x) > 0.01 ||
+               abs(self.displayRightStick.y - tsRight.y) > 0.01 {
+                self.displayRightStick = tsRight
             }
-            if abs(self.displayLeftTrigger - self.leftTriggerValue) > 0.01 {
-                self.displayLeftTrigger = self.leftTriggerValue
+            if abs(self.displayLeftTrigger - tsLeftTrig) > 0.01 {
+                self.displayLeftTrigger = tsLeftTrig
             }
-            if abs(self.displayRightTrigger - self.rightTriggerValue) > 0.01 {
-                self.displayRightTrigger = self.rightTriggerValue
+            if abs(self.displayRightTrigger - tsRightTrig) > 0.01 {
+                self.displayRightTrigger = tsRightTrig
             }
         }
         timer.resume()
@@ -220,6 +268,8 @@ class ControllerService: ObservableObject {
         }
     }
 
+
+
     private func setupInputHandlers(for controller: GCController) {
         guard let gamepad = controller.extendedGamepad else {
             print("Controller does not support extended gamepad profile")
@@ -250,16 +300,10 @@ class ControllerService: ObservableObject {
 
         // Triggers (with value for analog sensitivity)
         gamepad.leftTrigger.valueChangedHandler = { [weak self] _, value, pressed in
-            DispatchQueue.main.async {
-                self?.leftTriggerValue = value
-                self?.handleButton(.leftTrigger, pressed: pressed)
-            }
+            self?.updateLeftTrigger(value, pressed: pressed)
         }
         gamepad.rightTrigger.valueChangedHandler = { [weak self] _, value, pressed in
-            DispatchQueue.main.async {
-                self?.rightTriggerValue = value
-                self?.handleButton(.rightTrigger, pressed: pressed)
-            }
+            self?.updateRightTrigger(value, pressed: pressed)
         }
 
         // D-pad
@@ -305,22 +349,57 @@ class ControllerService: ObservableObject {
             DispatchQueue.main.async { self?.handleButton(.rightThumbstick, pressed: pressed) }
         }
 
-        // Left joystick - store values directly, callbacks are already on main
+        // Left joystick - store values directly in thread-safe storage
         gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
-            DispatchQueue.main.async {
-                let point = CGPoint(x: CGFloat(xValue), y: CGFloat(yValue))
-                self?.leftStick = point
-                self?.onLeftStickMoved?(point)
-            }
+            self?.updateLeftStick(x: xValue, y: yValue)
         }
 
         // Right joystick
         gamepad.rightThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
-            DispatchQueue.main.async {
-                let point = CGPoint(x: CGFloat(xValue), y: CGFloat(yValue))
-                self?.rightStick = point
-                self?.onRightStickMoved?(point)
-            }
+            self?.updateRightStick(x: xValue, y: yValue)
+        }
+    }
+    
+    // MARK: - Thread-Safe Update Helpers
+    
+    nonisolated private func updateLeftStick(x: Float, y: Float) {
+        storage.lock.lock()
+        storage.leftStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
+        storage.lock.unlock()
+        
+        // Notify main thread for callbacks if needed
+        Task { @MainActor in
+            self.onLeftStickMoved?(CGPoint(x: CGFloat(x), y: CGFloat(y)))
+        }
+    }
+    
+    nonisolated private func updateRightStick(x: Float, y: Float) {
+        storage.lock.lock()
+        storage.rightStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
+        storage.lock.unlock()
+        
+        Task { @MainActor in
+            self.onRightStickMoved?(CGPoint(x: CGFloat(x), y: CGFloat(y)))
+        }
+    }
+    
+    nonisolated private func updateLeftTrigger(_ value: Float, pressed: Bool) {
+        storage.lock.lock()
+        storage.leftTrigger = value
+        storage.lock.unlock()
+        
+        Task { @MainActor in
+            self.handleButton(.leftTrigger, pressed: pressed)
+        }
+    }
+    
+    nonisolated private func updateRightTrigger(_ value: Float, pressed: Bool) {
+        storage.lock.lock()
+        storage.rightTrigger = value
+        storage.lock.unlock()
+        
+        Task { @MainActor in
+            self.handleButton(.rightTrigger, pressed: pressed)
         }
     }
 

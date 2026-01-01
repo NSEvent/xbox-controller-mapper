@@ -19,70 +19,124 @@ class MockInputSimulator: InputSimulatorProtocol {
         case stopHoldMapping(KeyMapping)
     }
     
-    var events: [Event] = []
-    var heldModifiers: CGEventFlags = []
+    private let lock = NSLock()
+    
+    private var _events: [Event] = []
+    var events: [Event] {
+        lock.lock()
+        defer { lock.unlock() }
+        return _events
+    }
+    
+    private var _heldModifiers: CGEventFlags = []
+    var heldModifiers: CGEventFlags {
+        lock.lock()
+        defer { lock.unlock() }
+        return _heldModifiers
+    }
+    
     private var modifierCounts: [UInt64: Int] = [:]
 
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags) {
-        events.append(.pressKey(keyCode, modifiers))
+        lock.lock()
+        defer { lock.unlock() }
+        _events.append(.pressKey(keyCode, modifiers))
     }
     
     func holdModifier(_ modifier: CGEventFlags) {
+        lock.lock()
+        defer { lock.unlock() }
         let masks: [CGEventFlags] = [.maskCommand, .maskAlternate, .maskShift, .maskControl]
         for mask in masks where modifier.contains(mask) {
             let count = modifierCounts[mask.rawValue] ?? 0
             modifierCounts[mask.rawValue] = count + 1
             if count == 0 {
-                heldModifiers.insert(mask)
+                _heldModifiers.insert(mask)
             }
         }
-        events.append(.holdModifier(modifier))
+        _events.append(.holdModifier(modifier))
     }
     
     func releaseModifier(_ modifier: CGEventFlags) {
+        lock.lock()
+        defer { lock.unlock() }
         let masks: [CGEventFlags] = [.maskCommand, .maskAlternate, .maskShift, .maskControl]
         for mask in masks where modifier.contains(mask) {
             let count = modifierCounts[mask.rawValue] ?? 0
             if count > 0 {
                 modifierCounts[mask.rawValue] = count - 1
                 if count == 1 {
-                    heldModifiers.remove(mask)
+                    _heldModifiers.remove(mask)
                 }
             }
         }
-        events.append(.releaseModifier(modifier))
+        _events.append(.releaseModifier(modifier))
     }
     
     func releaseAllModifiers() {
-        heldModifiers = []
+        lock.lock()
+        defer { lock.unlock() }
+        _heldModifiers = []
         modifierCounts.removeAll()
-        events.append(.releaseAllModifiers)
+        _events.append(.releaseAllModifiers)
     }
     
     func moveMouse(dx: CGFloat, dy: CGFloat) {
-        events.append(.moveMouse(dx, dy))
+        lock.lock()
+        defer { lock.unlock() }
+        _events.append(.moveMouse(dx, dy))
     }
     
     func scroll(dx: CGFloat, dy: CGFloat) {
-        events.append(.scroll(dx, dy))
+        lock.lock()
+        defer { lock.unlock() }
+        _events.append(.scroll(dx, dy))
     }
     
     func executeMapping(_ mapping: KeyMapping) {
-        events.append(.executeMapping(mapping))
+        lock.lock()
+        defer { lock.unlock() }
+        _events.append(.executeMapping(mapping))
     }
     
     func startHoldMapping(_ mapping: KeyMapping) {
+        lock.lock()
+        // We need to call internal methods or duplicate logic to avoid deadlock if we called self.holdModifier
+        // But holdModifier logic is simple.
+        // Let's just implement it inline or call a private helper if needed.
+        // But here we can just append event and update state.
+        // Wait, holdModifier updates modifierCounts. We should replicate that.
+        // Simplest is to unlock, call holdModifier, lock, append event.
+        // But holdModifier appends event too.
+        // The original code:
+        /*
         if mapping.modifiers.hasAny {
             holdModifier(mapping.modifiers.cgEventFlags)
         }
         events.append(.startHoldMapping(mapping))
+        */
+        lock.unlock()
+        
+        if mapping.modifiers.hasAny {
+            holdModifier(mapping.modifiers.cgEventFlags)
+        }
+        
+        lock.lock()
+        defer { lock.unlock() }
+        _events.append(.startHoldMapping(mapping))
     }
     
     func stopHoldMapping(_ mapping: KeyMapping) {
+        lock.lock()
+        lock.unlock()
+        
         if mapping.modifiers.hasAny {
             releaseModifier(mapping.modifiers.cgEventFlags)
         }
-        events.append(.stopHoldMapping(mapping))
+        
+        lock.lock()
+        defer { lock.unlock() }
+        _events.append(.stopHoldMapping(mapping))
     }
 }
 
