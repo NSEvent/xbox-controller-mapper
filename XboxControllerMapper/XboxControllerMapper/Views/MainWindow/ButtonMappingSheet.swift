@@ -64,7 +64,6 @@ struct ButtonMappingSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     primaryMappingSection
-                    repeatSection
                     longHoldSection
                     doubleTapSection
                     appOverridesSection
@@ -211,8 +210,8 @@ struct ButtonMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    // Long Hold section (moved inside Primary Action)
-                    longHoldContent
+                    // Repeat section (moved inside Primary Action)
+                    repeatContent
                 }
             }
             .onChange(of: keyCode) { _, newValue in
@@ -282,89 +281,100 @@ struct ButtonMappingSheet: View {
 
     /// Whether long hold should be disabled (mouse click or hold modifier enabled)
     private var longHoldDisabled: Bool {
-        primaryIsMouseClick || isHoldModifier
+        primaryIsMouseClick || isHoldModifier || enableRepeat
     }
 
-    /// Long hold content shown inside primary action section
-    @ViewBuilder
-    private var longHoldContent: some View {
-        Divider()
-            .padding(.vertical, 4)
+    private var longHoldSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Toggle("Enable Long Hold Action", isOn: $enableLongHold)
+                    .font(.headline)
+                    .disabled(longHoldDisabled)
 
-        HStack {
-            Toggle("Enable Long Hold Action", isOn: $enableLongHold)
-                .font(.caption)
-                .disabled(longHoldDisabled)
+                Spacer()
 
-            Spacer()
-
-            if enableLongHold && !longHoldDisabled {
-                Button(action: { showingKeyboardForLongHold.toggle() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: showingKeyboardForLongHold ? "keyboard.chevron.compact.down" : "keyboard")
-                        Text(showingKeyboardForLongHold ? "Hide" : "Show Keyboard")
+                if enableLongHold && !longHoldDisabled {
+                    Button(action: { showingKeyboardForLongHold.toggle() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: showingKeyboardForLongHold ? "keyboard.chevron.compact.down" : "keyboard")
+                            Text(showingKeyboardForLongHold ? "Hide" : "Show Keyboard")
+                        }
+                        .font(.caption)
                     }
-                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(.accentColor)
             }
-        }
 
-        if primaryIsMouseClick {
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle")
-                    .foregroundColor(.secondary)
-                Text("Long hold is not available for mouse clicks.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        } else if isHoldModifier {
-            HStack(spacing: 8) {
-                Image(systemName: "info.circle")
-                    .foregroundColor(.secondary)
-                Text("Long hold is not available when \"Hold action\" is enabled.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        } else if enableLongHold {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Hold Duration:")
-                        .font(.caption)
-
-                    Slider(value: $longHoldThreshold, in: 0.2...2.0, step: 0.1)
-
-                    Text("\(longHoldThreshold, specifier: "%.1f")s")
-                        .font(.caption)
-                        .monospacedDigit()
-                        .frame(width: 40)
-                }
-
-                // Current selection display
-                HStack {
-                    Text("Long Hold Action:")
+            if primaryIsMouseClick {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("Long hold is not available for mouse clicks.")
                         .font(.caption)
                         .foregroundColor(.secondary)
-
-                    Text(longHoldMappingDisplay)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if isHoldModifier {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("Long hold is not available when \"Hold action\" is enabled.")
                         .font(.caption)
-                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
                 }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if enableRepeat {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                    Text("Long hold is not available when \"Repeat Action\" is enabled.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            } else if enableLongHold {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Hold Duration:")
+                            .font(.subheadline)
 
-                if showingKeyboardForLongHold {
-                    KeyboardVisualView(selectedKeyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
-                } else {
-                    KeyCaptureField(keyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                        Slider(value: $longHoldThreshold, in: 0.2...2.0, step: 0.1)
+
+                        Text("\(longHoldThreshold, specifier: "%.1f")s")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .frame(width: 40)
+                    }
+
+                    // Current selection display
+                    HStack {
+                        Text("Long Hold Action:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        Text(longHoldMappingDisplay)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+
+                    if showingKeyboardForLongHold {
+                        KeyboardVisualView(selectedKeyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                    } else {
+                        KeyCaptureField(keyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                    }
                 }
+                .padding(12)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .cornerRadius(8)
             }
-            .padding(.top, 4)
         }
-    }
-
-    /// Long hold section kept for backwards compatibility but now empty
-    private var longHoldSection: some View {
-        EmptyView()
     }
 
     private var longHoldMappingDisplay: String {
@@ -468,68 +478,65 @@ struct ButtonMappingSheet: View {
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
     }
 
-    // MARK: - Repeat Section
+    // MARK: - Repeat Content
 
-    private var repeatSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Toggle("Repeat Action While Held", isOn: Binding(
-                get: { enableRepeat },
-                set: { newValue in
-                    enableRepeat = newValue
-                    // Disable hold modifier when enabling repeat (mutually exclusive)
-                    if newValue {
-                        isHoldModifier = false
-                        userHasInteractedWithHold = true
-                    }
+    @ViewBuilder
+    private var repeatContent: some View {
+        Divider()
+            .padding(.vertical, 4)
+
+        Toggle("Repeat Action While Held", isOn: Binding(
+            get: { enableRepeat },
+            set: { newValue in
+                enableRepeat = newValue
+                // Disable hold modifier when enabling repeat (mutually exclusive)
+                if newValue {
+                    isHoldModifier = false
+                    enableLongHold = false
+                    longHoldKeyCode = nil
+                    longHoldModifiers = ModifierFlags()
+                    userHasInteractedWithHold = true
                 }
-            ))
-            .font(.headline)
-            .disabled(primaryIsMouseClick || isHoldModifier)
-
-            if primaryIsMouseClick {
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.secondary)
-                    Text("Repeat is not available when the primary action is a mouse click.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(12)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-                .cornerRadius(8)
-            } else if isHoldModifier {
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.secondary)
-                    Text("Repeat is not available when \"Hold action while button is held\" is enabled. These options are mutually exclusive.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(12)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-                .cornerRadius(8)
-            } else if enableRepeat {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Repeat Rate:")
-                            .font(.subheadline)
-
-                        Slider(value: $repeatRate, in: 5...50, step: 1)
-
-                        Text("\(Int(repeatRate))/s")
-                            .font(.caption)
-                            .monospacedDigit()
-                            .frame(width: 35)
-                    }
-
-                    Text("The action will be triggered \(Int(repeatRate)) times per second while the button is held")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(12)
-                .background(Color(nsColor: .controlBackgroundColor))
-                .cornerRadius(8)
             }
+        ))
+        .font(.caption)
+        .disabled(primaryIsMouseClick || isHoldModifier)
+
+        if primaryIsMouseClick {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(.secondary)
+                Text("Repeat is not available for mouse clicks.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if isHoldModifier {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .foregroundColor(.secondary)
+                Text("Repeat is not available when \"Hold action\" is enabled.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if enableRepeat {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Repeat Rate:")
+                        .font(.caption)
+
+                    Slider(value: $repeatRate, in: 5...50, step: 1)
+
+                    Text("\(Int(repeatRate))/s")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .frame(width: 35)
+                }
+
+                Text("The action will be triggered \(Int(repeatRate)) times per second while the button is held")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 4)
         }
     }
 
