@@ -308,6 +308,27 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var clickCounts: [CGMouseButton: Int64] = [:]
     private let multiClickThreshold: TimeInterval = 0.5  // 500ms between clicks for multi-click
 
+    /// Tracks sub-pixel movement residuals to prevent quantization stickiness
+    private var residualMovement: CGPoint = .zero
+
+    /// Returns the union of all screen frames in Core Graphics coordinates
+    private func validScreenBounds() -> CGRect {
+        var validFrame = CGRect.null
+        let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
+        
+        for screen in NSScreen.screens {
+            let screenRect = screen.frame
+            // Convert AppKit (bottom-left origin) to CoreGraphics (top-left origin)
+            // CG Y = PrimaryHeight - (AppKitY + AppKitHeight)
+            // The logic: AppKit Y origin is bottom-left. CG Y origin is top-left of primary screen.
+            let cgOriginY = primaryHeight - (screenRect.origin.y + screenRect.height)
+            let cgRect = CGRect(x: screenRect.origin.x, y: cgOriginY, width: screenRect.width, height: screenRect.height)
+            
+            validFrame = validFrame.union(cgRect)
+        }
+        return validFrame
+    }
+
     // MARK: - Mouse Simulation
 
     /// Moves the mouse cursor by a delta
@@ -318,6 +339,20 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             guard self.checkAccessibility() else { return }
             guard let source = self.eventSource else { return }
 
+            // Apply new delta to residual
+            let totalDx = dx + self.residualMovement.x
+            let totalDy = dy + self.residualMovement.y
+
+            // Calculate integer pixels to move (rounding to nearest)
+            let moveX = round(totalDx)
+            let moveY = round(totalDy)
+
+            // Update residual (keep the sub-pixel part)
+            self.residualMovement = CGPoint(x: totalDx - moveX, y: totalDy - moveY)
+
+            // If no pixel-level movement, skip to preserve residual for next frame
+            if moveX == 0 && moveY == 0 { return }
+
             let currentLocation = NSEvent.mouseLocation
             // Use CoreGraphics to get the primary display height. This is thread-safe and
             // correctly identifies the "Frame 0" screen for coordinate conversion, preventing
@@ -325,8 +360,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
 
             // Convert from bottom-left origin to top-left origin
-            let newX = currentLocation.x + dx
-            let newY = primaryDisplayHeight - currentLocation.y + dy
+            let newX = currentLocation.x + moveX
+            let newY = primaryDisplayHeight - currentLocation.y + moveY
             
             // Determine event type based on held buttons (drag if button held)
             let eventType: CGEventType
@@ -351,10 +386,19 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseButton = .left // Default for move events
             }
 
+            // Clamp to valid screen bounds to avoid off-screen warps (which cause stickiness)
+            let bounds = self.validScreenBounds()
+            let clampedX = max(bounds.minX, min(bounds.maxX - 1, newX))
+            let clampedY = max(bounds.minY, min(bounds.maxY - 1, newY))
+            let newPoint = CGPoint(x: clampedX, y: clampedY)
+
+            // Warp the cursor first to bypass "sticky edges" when crossing screens
+            _ = CGWarpMouseCursorPosition(newPoint)
+
             if let event = CGEvent(
                 mouseEventSource: source,
                 mouseType: eventType,
-                mouseCursorPosition: CGPoint(x: newX, y: newY),
+                mouseCursorPosition: newPoint,
                 mouseButton: mouseButton
             ) {
                 event.post(tap: .cghidEventTap)
