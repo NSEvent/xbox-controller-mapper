@@ -228,6 +228,9 @@ struct ContentView: View {
                             profileManager.removeChord(chord)
                         })
                     }
+                    .onMove { source, destination in
+                        profileManager.moveChords(from: source, to: destination)
+                    }
                 }
             } else {
                 VStack(spacing: 12) {
@@ -476,6 +479,10 @@ struct ChordRow: View {
 
     var body: some View {
         HStack {
+            Image(systemName: "line.3.horizontal")
+                .foregroundColor(.secondary.opacity(0.5))
+                .font(.caption)
+
             HStack(spacing: 4) {
                 ForEach(Array(chord.buttons).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { button in
                     ButtonIconView(button: button)

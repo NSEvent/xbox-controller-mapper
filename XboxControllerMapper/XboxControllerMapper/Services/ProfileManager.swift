@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 /// Manages profile persistence and selection
 @MainActor
@@ -186,6 +187,13 @@ class ProfileManager: ObservableObject {
         if let index = targetProfile.chordMappings.firstIndex(where: { $0.id == chord.id }) {
             targetProfile.chordMappings[index] = chord
         }
+        updateProfile(targetProfile)
+    }
+
+    func moveChords(from source: IndexSet, to destination: Int, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.chordMappings.move(fromOffsets: source, toOffset: destination)
         updateProfile(targetProfile)
     }
 
