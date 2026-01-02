@@ -618,21 +618,10 @@ class MappingEngine: ObservableObject {
         let focusFlags = settings.focusModeModifier.cgEventFlags
 
         // Determine if focus mode is active
-        let isFocusActive: Bool
-        if focusFlags.rawValue == 0 {
-            // Focus mode disabled
-            isFocusActive = false
-        } else {
-            // Check if we're holding the modifier via controller (most reliable for controller input)
-            let isHeldByController = inputSimulator.isHoldingModifiers(focusFlags)
-
-            // Check system state for keyboard-held modifiers (only trust if controller isn't involved)
-            let systemFlags = CGEventSource.flagsState(.hidSystemState)
-            let isHeldByKeyboard = !isHeldByController && systemFlags.contains(focusFlags)
-
-            // Focus is active if held by either source
-            isFocusActive = isHeldByController || isHeldByKeyboard
-        }
+        // Only use our internal controller state - this prevents false triggers from
+        // shortcuts that briefly hold the same modifier (e.g., Command+C triggering
+        // focus mode haptics when focus mode uses Command)
+        let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
 
         // Detect focus mode transitions and trigger haptic feedback
         // Note: state.lock is already held by caller (processJoysticks)
