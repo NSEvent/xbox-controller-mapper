@@ -5,7 +5,8 @@
       "Bash(xcodebuild:*)",
       "Bash(git add:*)",
       "WebSearch",
-      "Bash(scanhid:*)"
+      "Bash(scanhid:*)",
+      "Bash(grep:*)"
     ]
   }
 }

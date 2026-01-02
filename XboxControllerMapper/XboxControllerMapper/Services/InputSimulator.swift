@@ -256,8 +256,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     // Last button holding this modifier released
                     heldModifiers.remove(mask)
                     if let vKey = vKeys[key] {
-                        CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: false)?
-                            .post(tap: .cghidEventTap)
+                        if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: false) {
+                            // Set flags to the new state (without this modifier) for proper release
+                            event.flags = heldModifiers
+                            event.post(tap: .cghidEventTap)
+                        }
                     }
                 }
             }

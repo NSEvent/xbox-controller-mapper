@@ -329,16 +329,19 @@ class MappingEngine: ObservableObject {
             return
         }
         
+        // Check for held mapping - must release even for chord buttons
+        // (chord fallback may have started a hold mapping that needs cleanup)
+        if let heldMapping = state.heldButtons[button] {
+            state.heldButtons.removeValue(forKey: button)
+            state.activeChordButtons.remove(button)  // Also clear chord state if present
+            state.lock.unlock()
+            inputSimulator.stopHoldMapping(heldMapping)
+            return
+        }
+
         if state.activeChordButtons.contains(button) {
             state.activeChordButtons.remove(button)
             state.lock.unlock()
-            return
-        }
-        
-        if let heldMapping = state.heldButtons[button] {
-            state.heldButtons.removeValue(forKey: button)
-            state.lock.unlock() // Release lock before calling input sim
-            inputSimulator.stopHoldMapping(heldMapping)
             return
         }
         
