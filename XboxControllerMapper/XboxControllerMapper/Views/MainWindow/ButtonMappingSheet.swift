@@ -18,7 +18,7 @@ struct ButtonMappingSheet: View {
     @State private var enableLongHold = false
     @State private var longHoldKeyCode: CGKeyCode?
     @State private var longHoldModifiers = ModifierFlags()
-    @State private var longHoldThreshold: Double = 0.2
+    @State private var longHoldThreshold: Double = 0.5
 
     @State private var enableDoubleTap = false
     @State private var doubleTapKeyCode: CGKeyCode?
