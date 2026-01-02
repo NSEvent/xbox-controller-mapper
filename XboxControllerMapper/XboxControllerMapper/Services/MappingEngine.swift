@@ -145,6 +145,12 @@ class MappingEngine: ObservableObject {
 
     // MARK: - Button Handling
 
+    private func isButtonUsedInChords(_ button: ControllerButton, in profile: Profile) -> Bool {
+        return profile.chordMappings.contains { chord in
+            chord.buttons.contains(button)
+        }
+    }
+
     private func handleButtonPressed(_ button: ControllerButton) {
         guard isEnabled else { return }
         guard let profile = profileManager.activeProfile else { return }
@@ -161,8 +167,17 @@ class MappingEngine: ObservableObject {
         print("   keyCode: \(mapping.keyCode?.description ?? "nil")")
         #endif
 
+        // Auto-optimize Mouse Clicks: Treat as hold modifier (Down on Press, Up on Release)
+        // if not part of a chord or double-tap. This ensures zero latency.
+        let isMouseClick = mapping.keyCode.map { KeyCodeMapping.isMouseButton($0) } ?? false
+        let isChordPart = isButtonUsedInChords(button, in: profile)
+        let hasDoubleTap = mapping.doubleTapMapping != nil && !mapping.doubleTapMapping!.isEmpty
+        
+        // Treat as hold if explicitly set OR if it's a safe mouse click
+        let shouldTreatAsHold = mapping.isHoldModifier || (isMouseClick && !isChordPart && !hasDoubleTap)
+
         // For hold-type mappings, start holding immediately - but only if button is still pressed
-        if mapping.isHoldModifier {
+        if shouldTreatAsHold {
             // Check for double-tap before starting hold modifier
             if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
                 let now = Date()
@@ -401,8 +416,11 @@ class MappingEngine: ObservableObject {
                 }
             }
             pendingReleaseActions[button] = workItem
-            // Use chord window + a small margin (aligned with 150ms window)
-            let delay = 0.18
+            
+            // Only delay if necessary for chord detection
+            let isChordPart = isButtonUsedInChords(button, in: profile)
+            let delay = isChordPart ? 0.18 : 0.0
+            
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
         }
     }
