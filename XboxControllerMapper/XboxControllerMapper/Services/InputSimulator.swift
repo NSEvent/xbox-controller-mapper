@@ -319,17 +319,29 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             guard let source = self.eventSource else { return }
 
             let currentLocation = NSEvent.mouseLocation
-            let screenHeight = NSScreen.main?.frame.height ?? 0
+            
+            // Fetch main screen frame synchronously on main thread to ensure safety
+            var screenFrame: CGRect = .zero
+            DispatchQueue.main.sync {
+                screenFrame = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
+            }
+            
+            let screenHeight = screenFrame.height
 
-            // Convert from bottom-left origin to top-left origin
-            let newX = currentLocation.x + dx
-            let newY = screenHeight - currentLocation.y + dy
+            // Calculate target position with clamping
+            let rawX = currentLocation.x + dx
+            let currentCGY = screenHeight - currentLocation.y
+            let rawCGY = currentCGY + dy
+            
+            // Clamp to screen bounds
+            // Using a 1-pixel margin to avoid edge sticky behavior if OS logic kicks in at exactly 0 or max
+            let destX = max(screenFrame.minX + 1, min(screenFrame.maxX - 2, rawX))
+            let destY_CG = max(1, min(screenHeight - 2, rawCGY))
             
             // Determine event type based on held buttons (drag if button held)
             let eventType: CGEventType
             let mouseButton: CGMouseButton
             
-            // Safe state access
             self.stateLock.lock()
             let heldButtons = self.heldMouseButtons
             self.stateLock.unlock()
@@ -351,7 +363,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if let event = CGEvent(
                 mouseEventSource: source,
                 mouseType: eventType,
-                mouseCursorPosition: CGPoint(x: newX, y: newY),
+                mouseCursorPosition: CGPoint(x: destX, y: destY_CG),
                 mouseButton: mouseButton
             ) {
                 event.post(tap: .cghidEventTap)
