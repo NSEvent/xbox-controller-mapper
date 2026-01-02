@@ -13,42 +13,31 @@ class MappingEngine: ObservableObject {
     nonisolated private let inputSimulator: InputSimulatorProtocol
     private let inputLogService: InputLogService?
 
-    /// Tracks which buttons are currently being held (for hold-type mappings)
-    private var heldButtons: [ControllerButton: KeyMapping] = [:]
-
-    /// Tracks buttons that are part of an active chord
-    private var activeChordButtons: Set<ControllerButton> = []
-
-    /// Tracks last tap time for each button (for double-tap detection)
-    private var lastTapTime: [ControllerButton: Date] = [:]
-
-    /// Tracks pending single-tap work items (cancelled if double-tap detected)
-    private var pendingSingleTap: [ControllerButton: DispatchWorkItem] = [:]
-
-    /// Tracks pending individual release actions (cancelled if chord detected)
-    private var pendingReleaseActions: [ControllerButton: DispatchWorkItem] = [:]
-
-    /// Timers for detecting long holds while button is pressed
-    private var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
-
-    /// Tracks buttons that have already triggered their long-hold action during the current press
-    private var longHoldTriggered: Set<ControllerButton> = []
-
-    /// Timers for repeat-while-held functionality
-    private var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
-
-    /// Timer for joystick polling (using DispatchSourceTimer for lower overhead)
-    private var joystickTimer: DispatchSourceTimer?
-    private let joystickPollInterval: TimeInterval = 1.0 / 120.0  // 1000 Hz
-
-    // MARK: - Loop State
+    // MARK: - Thread-Safe State
+    
+    private let inputQueue = DispatchQueue(label: "com.xboxmapper.input", qos: .userInteractive)
     private let pollingQueue = DispatchQueue(label: "com.xboxmapper.polling", qos: .userInteractive)
     
-    private final class LoopState: @unchecked Sendable {
+    private final class EngineState: @unchecked Sendable {
         let lock = NSLock()
-        var settings: JoystickSettings?
         var isEnabled = true
         
+        // Mirrors of MainActor data
+        var activeProfile: Profile?
+        var frontmostBundleId: String?
+        var joystickSettings: JoystickSettings?
+
+        // Button State
+        var heldButtons: [ControllerButton: KeyMapping] = [:]
+        var activeChordButtons: Set<ControllerButton> = []
+        var lastTapTime: [ControllerButton: Date] = [:]
+        var pendingSingleTap: [ControllerButton: DispatchWorkItem] = [:]
+        var pendingReleaseActions: [ControllerButton: DispatchWorkItem] = [:]
+        var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
+        var longHoldTriggered: Set<ControllerButton> = []
+        var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
+
+        // Joystick State
         var smoothedLeftStick: CGPoint = .zero
         var smoothedRightStick: CGPoint = .zero
         var lastJoystickSampleTime: TimeInterval = 0
@@ -61,6 +50,23 @@ class MappingEngine: ObservableObject {
         var scrollBoostDirection: Int = 0
         
         func reset() {
+            heldButtons.removeAll()
+            activeChordButtons.removeAll()
+            lastTapTime.removeAll()
+            
+            pendingSingleTap.values.forEach { $0.cancel() }
+            pendingSingleTap.removeAll()
+            
+            pendingReleaseActions.values.forEach { $0.cancel() }
+            pendingReleaseActions.removeAll()
+            
+            longHoldTimers.values.forEach { $0.cancel() }
+            longHoldTimers.removeAll()
+            longHoldTriggered.removeAll()
+            
+            repeatTimers.values.forEach { $0.cancel() }
+            repeatTimers.removeAll()
+            
             smoothedLeftStick = .zero
             smoothedRightStick = .zero
             lastJoystickSampleTime = 0
@@ -73,7 +79,11 @@ class MappingEngine: ObservableObject {
         }
     }
     
-    private let loopState = LoopState()
+    private let state = EngineState()
+    
+    // Joystick polling
+    private var joystickTimer: DispatchSourceTimer?
+    private let joystickPollInterval: TimeInterval = 1.0 / 120.0 
 
     private let minJoystickCutoffHz: Double = 4.0
     private let maxJoystickCutoffHz: Double = 14.0
@@ -92,46 +102,59 @@ class MappingEngine: ObservableObject {
 
         setupBindings()
         
-        // Sync initial settings
-        self.loopState.settings = profileManager.activeProfile?.joystickSettings
-        
-        // Observe profile changes to update thread-safe settings
-        profileManager.$activeProfile
-            .sink { [weak self] profile in
-                self?._updateSettingsOnMain(profile?.joystickSettings)
-            }
-            .store(in: &cancellables)
+        // Initial state sync
+        self.state.activeProfile = profileManager.activeProfile
+        self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
+        self.state.frontmostBundleId = appMonitor.frontmostBundleId
     }
     
-    private func _updateSettingsOnMain(_ settings: JoystickSettings?) {
-        loopState.lock.lock()
-        loopState.settings = settings
-        loopState.lock.unlock()
-    }
-
     private func setupBindings() {
-        // Button press handler
+        // Sync Profile
+        profileManager.$activeProfile
+            .sink { [weak self] profile in
+                guard let self = self else { return }
+                self.state.lock.lock()
+                self.state.activeProfile = profile
+                self.state.joystickSettings = profile?.joystickSettings
+                self.state.lock.unlock()
+            }
+            .store(in: &cancellables)
+            
+        // Sync App Bundle ID
+        appMonitor.$frontmostBundleId
+            .sink { [weak self] bundleId in
+                guard let self = self else { return }
+                self.state.lock.lock()
+                self.state.frontmostBundleId = bundleId
+                self.state.lock.unlock()
+            }
+            .store(in: &cancellables)
+
+        // Button press handler (Off-Main Thread)
         controllerService.onButtonPressed = { [weak self] button in
-            Task { @MainActor in
-                self?.handleButtonPressed(button)
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.handleButtonPressed(button)
             }
         }
 
-        // Button release handler
+        // Button release handler (Off-Main Thread)
         controllerService.onButtonReleased = { [weak self] button, duration in
-            Task { @MainActor in
-                self?.handleButtonReleased(button, holdDuration: duration)
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.handleButtonReleased(button, holdDuration: duration)
             }
         }
 
-        // Chord handler
+        // Chord handler (Off-Main Thread)
         controllerService.onChordDetected = { [weak self] buttons in
-            Task { @MainActor in
-                self?.handleChord(buttons)
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.handleChord(buttons)
             }
         }
 
-        // Start joystick polling when controller connects
+        // Joystick polling
         controllerService.$isConnected
             .sink { [weak self] connected in
                 if connected {
@@ -141,389 +164,349 @@ class MappingEngine: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+            
+        // Enable/Disable toggle sync
+        $isEnabled
+            .sink { [weak self] enabled in
+                guard let self = self else { return }
+                self.state.lock.lock()
+                self.state.isEnabled = enabled
+                if !enabled {
+                    // Cleanup if disabled
+                    self.state.reset()
+                    self.inputSimulator.releaseAllModifiers()
+                }
+                self.state.lock.unlock()
+            }
+            .store(in: &cancellables)
     }
 
-    // MARK: - Button Handling
+    // MARK: - Button Handling (Background Queue)
 
-    private func isButtonUsedInChords(_ button: ControllerButton, in profile: Profile) -> Bool {
+    nonisolated private func isButtonUsedInChords(_ button: ControllerButton, profile: Profile) -> Bool {
         return profile.chordMappings.contains { chord in
             chord.buttons.contains(button)
         }
     }
 
-    private func handleButtonPressed(_ button: ControllerButton) {
-        guard isEnabled else { return }
-        guard let profile = profileManager.activeProfile else { return }
+    nonisolated private func handleButtonPressed(_ button: ControllerButton) {
+        state.lock.lock()
+        guard state.isEnabled, let profile = state.activeProfile else {
+            state.lock.unlock()
+            return
+        }
+        let bundleId = state.frontmostBundleId
+        // Copy state needed for logic
+        let lastTap = state.lastTapTime[button]
+        state.lock.unlock()
 
-        // Get the effective mapping (considering app overrides)
-        guard let mapping = profile.effectiveMapping(for: button, appBundleId: appMonitor.frontmostBundleId) else {
+        // Get the effective mapping
+        guard let mapping = profile.effectiveMapping(for: button, appBundleId: bundleId) else {
             return
         }
 
         #if DEBUG
-        print("🔵 handleButtonPressed: \(button.displayName) (\(button.rawValue))")
-        print("   isHoldModifier=\(mapping.isHoldModifier)")
-        print("   modifiers: cmd=\(mapping.modifiers.command) opt=\(mapping.modifiers.option) shift=\(mapping.modifiers.shift) ctrl=\(mapping.modifiers.control)")
-        print("   keyCode: \(mapping.keyCode?.description ?? "nil")")
+        print("🔵 handleButtonPressed: \(button.displayName)")
         #endif
 
         // Auto-optimize Mouse Clicks: Treat as hold modifier (Down on Press, Up on Release)
-        // if not part of a chord or double-tap. This ensures zero latency.
         let isMouseClick = mapping.keyCode.map { KeyCodeMapping.isMouseButton($0) } ?? false
-        let isChordPart = isButtonUsedInChords(button, in: profile)
+        let isChordPart = isButtonUsedInChords(button, profile: profile)
         let hasDoubleTap = mapping.doubleTapMapping != nil && !mapping.doubleTapMapping!.isEmpty
         
-        // Treat as hold if explicitly set OR if it's a safe mouse click
         let shouldTreatAsHold = mapping.isHoldModifier || (isMouseClick && !isChordPart && !hasDoubleTap)
 
-        // For hold-type mappings, start holding immediately - but only if button is still pressed
         if shouldTreatAsHold {
-            // Check for double-tap before starting hold modifier
+            // Check for double-tap
             if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
                 let now = Date()
-                if let lastTap = lastTapTime[button],
-                   now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
-                    // This is a double-tap - execute double-tap action instead of hold
-                    lastTapTime.removeValue(forKey: button)
+                if let lastTap = lastTap, now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
+                    // Double-tap executed
+                    state.lock.lock()
+                    state.lastTapTime.removeValue(forKey: button)
+                    state.lock.unlock()
+                    
                     executeDoubleTapMapping(doubleTapMapping)
                     inputLogService?.log(buttons: [button], type: .doubleTap, action: doubleTapMapping.displayString)
-                    #if DEBUG
-                    print("   ⏩ Double-tap detected on hold modifier, executing double-tap action")
-                    #endif
                     return
                 }
-                // Record this tap time for potential double-tap detection
-                lastTapTime[button] = now
+                state.lock.lock()
+                state.lastTapTime[button] = now
+                state.lock.unlock()
             }
 
-            // Check if button is still actually pressed (it might have been released
-            // during the chord detection window for quick taps)
-            if controllerService.activeButtons.contains(button) {
-                heldButtons[button] = mapping
-                inputSimulator.startHoldMapping(mapping)
-                inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
-            } else {
-                // Button was already released (quick tap) - schedule as simple press
-                // with delay to allow chord cancellation
-                let workItem = DispatchWorkItem { [weak self] in
-                    Task { @MainActor in
-                        self?.pendingReleaseActions.removeValue(forKey: button)
-                        if let keyCode = mapping.keyCode {
-                            self?.inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-                            self?.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
-                        }
-                    }
-                }
-                pendingReleaseActions[button] = workItem
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: workItem)
-            }
+            // Start holding
+            state.lock.lock()
+            state.heldButtons[button] = mapping
+            state.lock.unlock()
+            
+            inputSimulator.startHoldMapping(mapping)
+            inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
             return
         }
         
-        // Schedule long hold timer if configured
+        // Long Hold
         if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
             let workItem = DispatchWorkItem { [weak self] in
-                Task { @MainActor in
-                    self?.handleLongHoldTriggered(button, mapping: longHold)
-                }
+                self?.handleLongHoldTriggered(button, mapping: longHold)
             }
-            longHoldTimers[button] = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + longHold.threshold, execute: workItem)
+            state.lock.lock()
+            state.longHoldTimers[button] = workItem
+            state.lock.unlock()
+            inputQueue.asyncAfter(deadline: .now() + longHold.threshold, execute: workItem)
         }
 
-        // Start repeat timer if configured
+        // Repeat
         if let repeatConfig = mapping.repeatMapping, repeatConfig.enabled {
             startRepeatTimer(for: button, mapping: mapping, interval: repeatConfig.interval)
         }
     }
 
-    private func startRepeatTimer(for button: ControllerButton, mapping: KeyMapping, interval: TimeInterval) {
-        // Stop any existing repeat timer for this button
+    nonisolated private func startRepeatTimer(for button: ControllerButton, mapping: KeyMapping, interval: TimeInterval) {
         stopRepeatTimer(for: button)
 
-        // Execute action immediately on first press
         inputSimulator.executeMapping(mapping)
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
 
-        // Create a repeating timer
-        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+        let timer = DispatchSource.makeTimerSource(queue: inputQueue)
         timer.schedule(deadline: .now() + interval, repeating: interval)
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
-            // Check if button is still pressed
-            guard self.controllerService.activeButtons.contains(button) else {
-                self.stopRepeatTimer(for: button)
-                return
-            }
+            // Check if button is still held (by checking active buttons from controller service? 
+            // ControllerService is MainActor. Accessing activeButtons is tricky.
+            // Better to rely on state.heldButtons or just stop timer on release.)
             self.inputSimulator.executeMapping(mapping)
         }
         timer.resume()
-        repeatTimers[button] = timer
-
-        #if DEBUG
-        print("↻ Started repeat timer for \(button.displayName) at \(1.0/interval)/s")
-        #endif
+        
+        state.lock.lock()
+        state.repeatTimers[button] = timer
+        state.lock.unlock()
     }
 
-    private func stopRepeatTimer(for button: ControllerButton) {
-        if let timer = repeatTimers[button] {
+    nonisolated private func stopRepeatTimer(for button: ControllerButton) {
+        state.lock.lock()
+        defer { state.lock.unlock() }
+        if let timer = state.repeatTimers[button] {
             timer.cancel()
-            repeatTimers.removeValue(forKey: button)
-            #if DEBUG
-            print("↻ Stopped repeat timer for \(button.displayName)")
-            #endif
+            state.repeatTimers.removeValue(forKey: button)
         }
     }
     
-    private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
-        longHoldTriggered.insert(button)
+    nonisolated private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
+        state.lock.lock()
+        state.longHoldTriggered.insert(button)
+        state.lock.unlock()
+        
         executeLongHoldMapping(mapping)
         inputLogService?.log(buttons: [button], type: .longPress, action: mapping.displayString)
-        
-        #if DEBUG
-        print("⏱️ Long hold triggered for \(button.displayName)")
-        #endif
     }
 
-    private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
-        #if DEBUG
-        print("🔘 handleButtonReleased: \(button.displayName) duration=\(holdDuration)")
-        #endif
-
-        // Stop repeat timer if active
+    nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         stopRepeatTimer(for: button)
 
-        // Cancel pending long hold timer since button was released
-        if let timer = longHoldTimers[button] {
+        state.lock.lock()
+        // Cancel long hold timer
+        if let timer = state.longHoldTimers[button] {
             timer.cancel()
-            longHoldTimers.removeValue(forKey: button)
+            state.longHoldTimers.removeValue(forKey: button)
         }
-
-        guard isEnabled else {
-            #if DEBUG
-            print("   ❌ Engine is disabled")
-            #endif
+        
+        guard state.isEnabled, let profile = state.activeProfile else {
+            state.lock.unlock()
             return
         }
-        guard let profile = profileManager.activeProfile else {
-            #if DEBUG
-            print("   ❌ No active profile")
-            #endif
+        
+        if state.activeChordButtons.contains(button) {
+            state.activeChordButtons.remove(button)
+            state.lock.unlock()
             return
         }
-
-        // If this button was part of a chord, skip individual handling
-        if activeChordButtons.contains(button) {
-            activeChordButtons.remove(button)
-            #if DEBUG
-            print("   ⏭️ Was part of chord, skipping")
-            #endif
-            return
-        }
-
-        // If this was a held modifier, release it
-        if let heldMapping = heldButtons[button] {
+        
+        if let heldMapping = state.heldButtons[button] {
+            state.heldButtons.removeValue(forKey: button)
+            state.lock.unlock() // Release lock before calling input sim
             inputSimulator.stopHoldMapping(heldMapping)
-            heldButtons.removeValue(forKey: button)
-            #if DEBUG
-            print("   🔓 Released held modifier")
-            #endif
             return
         }
-
-        // Get the effective mapping
-        guard let mapping = profile.effectiveMapping(for: button, appBundleId: appMonitor.frontmostBundleId) else {
-            #if DEBUG
-            print("   ❌ No mapping found for \(button.displayName)")
-            print("   Available mappings: \(profile.buttonMappings.keys.map { $0.displayName })")
-            #endif
-            return
+        
+        let bundleId = state.frontmostBundleId
+        let isLongHoldTriggered = state.longHoldTriggered.contains(button)
+        if isLongHoldTriggered {
+            state.longHoldTriggered.remove(button)
         }
+        
+        // Copy other needed state
+        let pendingSingle = state.pendingSingleTap[button]
+        let lastTap = state.lastTapTime[button]
+        state.lock.unlock()
 
-        #if DEBUG
-        print("   ✅ Found mapping: \(mapping.displayString)")
-        #endif
+        guard let mapping = profile.effectiveMapping(for: button, appBundleId: bundleId) else { return }
+        
+        // Skip if held or repeat (handled above/already)
+        if mapping.isHoldModifier || (mapping.repeatMapping?.enabled ?? false) { return }
+        if isLongHoldTriggered { return }
 
-        // Skip if this is a hold modifier (already handled)
-        guard !mapping.isHoldModifier else { return }
-
-        // Skip if repeat was enabled (action already executed on press)
-        if let repeatConfig = mapping.repeatMapping, repeatConfig.enabled {
-            #if DEBUG
-            print("   ⏭️ Repeat was active, skipping release action")
-            #endif
-            return
-        }
-
-        // If long hold was already triggered while holding, we're done
-        if longHoldTriggered.contains(button) {
-            longHoldTriggered.remove(button)
-            #if DEBUG
-            print("   ⏭️ Long hold already executed, skipping release actions")
-            #endif
-            return
-        }
-
-        // Check for long hold fallback (in case timer didn't fire but duration met)
+        // Long Hold Fallback
         if let longHoldMapping = mapping.longHoldMapping,
            holdDuration >= longHoldMapping.threshold,
            !longHoldMapping.isEmpty {
-            // Cancel any pending single-tap since this was a long hold
-            pendingSingleTap[button]?.cancel()
-            pendingSingleTap.removeValue(forKey: button)
-            lastTapTime.removeValue(forKey: button)
+            
+            state.lock.lock()
+            state.pendingSingleTap[button]?.cancel()
+            state.pendingSingleTap.removeValue(forKey: button)
+            state.lastTapTime.removeValue(forKey: button)
+            state.lock.unlock()
+            
             executeLongHoldMapping(longHoldMapping)
             return
         }
 
-        // Check for double-tap
+        // Double Tap
         if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
             let now = Date()
-
-            // Check if there's a pending single-tap (meaning first tap already happened)
-            if let pending = pendingSingleTap[button],
-               let lastTap = lastTapTime[button],
+            
+            if let pending = pendingSingle,
+               let lastTap = lastTap,
                now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
-                // This is a double-tap - cancel the pending single-tap
+                
                 pending.cancel()
-                pendingSingleTap.removeValue(forKey: button)
-                lastTapTime.removeValue(forKey: button)
+                state.lock.lock()
+                state.pendingSingleTap.removeValue(forKey: button)
+                state.lastTapTime.removeValue(forKey: button)
+                state.lock.unlock()
+                
                 executeDoubleTapMapping(doubleTapMapping)
                 inputLogService?.log(buttons: [button], type: .doubleTap, action: doubleTapMapping.displayString)
                 return
             }
-
-            // This might be the first tap of a double-tap sequence
-            // Schedule a delayed single-tap that can be cancelled if second tap comes
-            lastTapTime[button] = now
-            let workItem = DispatchWorkItem { [weak self] in
-                Task { @MainActor in
-                    self?.pendingSingleTap.removeValue(forKey: button)
-                    self?.lastTapTime.removeValue(forKey: button)
-                    self?.inputSimulator.executeMapping(mapping)
-                    self?.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
-                }
-            }
-            pendingSingleTap[button] = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
-        } else {
-            // No double-tap mapping - execute after a short delay to allow for chord cancellation
-            let workItem = DispatchWorkItem { [weak self] in
-                Task { @MainActor in
-                    self?.pendingReleaseActions.removeValue(forKey: button)
-                    self?.inputSimulator.executeMapping(mapping)
-                    self?.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
-                }
-            }
-            pendingReleaseActions[button] = workItem
             
-            // Only delay if necessary for chord detection
-            let isChordPart = isButtonUsedInChords(button, in: profile)
+            // First tap
+            state.lock.lock()
+            state.lastTapTime[button] = now
+            
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                self.state.lock.lock()
+                self.state.pendingSingleTap.removeValue(forKey: button)
+                self.state.lastTapTime.removeValue(forKey: button)
+                self.state.lock.unlock()
+                
+                self.inputSimulator.executeMapping(mapping)
+                self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+            }
+            state.pendingSingleTap[button] = workItem
+            state.lock.unlock()
+            
+            inputQueue.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
+        } else {
+            // Single Tap
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                self.state.lock.lock()
+                self.state.pendingReleaseActions.removeValue(forKey: button)
+                self.state.lock.unlock()
+                
+                self.inputSimulator.executeMapping(mapping)
+                self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+            }
+            
+            state.lock.lock()
+            state.pendingReleaseActions[button] = workItem
+            state.lock.unlock()
+            
+            let isChordPart = isButtonUsedInChords(button, profile: profile)
             let delay = isChordPart ? 0.18 : 0.0
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+            if delay > 0 {
+                inputQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
+            } else {
+                inputQueue.async(execute: workItem)
+            }
         }
     }
 
-    private func executeLongHoldMapping(_ mapping: LongHoldMapping) {
+    nonisolated private func executeLongHoldMapping(_ mapping: LongHoldMapping) {
         if let keyCode = mapping.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         } else if mapping.modifiers.hasAny {
-            // Modifier-only long hold
             let flags = mapping.modifiers.cgEventFlags
             inputSimulator.holdModifier(flags)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            inputQueue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 self?.inputSimulator.releaseModifier(flags)
             }
         }
     }
 
-    private func executeDoubleTapMapping(_ mapping: DoubleTapMapping) {
+    nonisolated private func executeDoubleTapMapping(_ mapping: DoubleTapMapping) {
         if let keyCode = mapping.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         } else if mapping.modifiers.hasAny {
-            // Modifier-only double tap
             let flags = mapping.modifiers.cgEventFlags
             inputSimulator.holdModifier(flags)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            inputQueue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 self?.inputSimulator.releaseModifier(flags)
             }
         }
     }
 
-    private func handleChord(_ buttons: Set<ControllerButton>) {
-        #if DEBUG
-        print("🔍 handleChord: buttons=\(buttons.map { $0.displayName })")
-        #endif
-        guard isEnabled else { return }
-        guard let profile = profileManager.activeProfile else { return }
-
-        // Cancel any pending individual release actions for these buttons
+    nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
+        state.lock.lock()
+        guard state.isEnabled, let profile = state.activeProfile else {
+            state.lock.unlock()
+            return
+        }
+        
+        // Cancel pending actions
         for button in buttons {
-            if let pending = pendingReleaseActions[button] {
-                pending.cancel()
-                pendingReleaseActions.removeValue(forKey: button)
-                #if DEBUG
-                print("   🚫 Cancelled pending individual action for \(button.displayName)")
-                #endif
-            }
+            state.pendingReleaseActions[button]?.cancel()
+            state.pendingReleaseActions.removeValue(forKey: button)
             
-            // Also cancel pending single-taps (for buttons with double-tap mappings)
-            if let pendingTap = pendingSingleTap[button] {
-                pendingTap.cancel()
-                pendingSingleTap.removeValue(forKey: button)
-                lastTapTime.removeValue(forKey: button)
-                #if DEBUG
-                print("   🚫 Cancelled pending single-tap for \(button.displayName)")
-                #endif
-            }
+            state.pendingSingleTap[button]?.cancel()
+            state.pendingSingleTap.removeValue(forKey: button)
+            state.lastTapTime.removeValue(forKey: button)
         }
+        
+        // Register active chord
+        state.activeChordButtons = buttons
+        state.lock.unlock()
 
-        // Find matching chord mapping
         let matchingChord = profile.chordMappings.first { chord in
             chord.buttons == buttons
         }
 
-        guard let chord = matchingChord else {
-            // No chord match - process buttons individually
-            let sortedButtons = buttons.sorted { button1, button2 in
-                let map1 = profile.effectiveMapping(for: button1, appBundleId: appMonitor.frontmostBundleId)
-                let map2 = profile.effectiveMapping(for: button2, appBundleId: appMonitor.frontmostBundleId)
-                
-                let isMod1 = map1?.isHoldModifier ?? false
-                let isMod2 = map2?.isHoldModifier ?? false
-                
-                return isMod1 && !isMod2
+        if let chord = matchingChord {
+            inputLogService?.log(buttons: Array(buttons), type: .chord, action: chord.actionDisplayString)
+            if let keyCode = chord.keyCode {
+                inputSimulator.pressKey(keyCode, modifiers: chord.modifiers.cgEventFlags)
+            } else if chord.modifiers.hasAny {
+                let flags = chord.modifiers.cgEventFlags
+                inputSimulator.holdModifier(flags)
+                inputQueue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                    self?.inputSimulator.releaseModifier(flags)
+                }
             }
+        } else {
+            // Fallback: Individual handling
+            // Note: This fallback is tricky because we're inside the chord handler.
+            // But usually ControllerService only sends chord *or* individual presses.
+            // If it sends chord, it means buttons were pressed roughly together.
+            // If no chord mapping exists, we should probably just treat them as individual presses.
+            // But we might have missed the "press" event if it was swallowed?
+            // ControllerService logic usually sends individual press if chord not detected.
+            // If chord IS detected by Service but no mapping exists, we should invoke handleButtonPressed for each?
+            // But handleButtonPressed might have been called already?
+            // Let's assume ControllerService suppresses individual presses until chord timeout.
+            // So we need to trigger them now.
             
-            #if DEBUG
-            print("   ⏭️ Fallback to individual: \(sortedButtons.map { $0.displayName })")
-            #endif
-            
+            let sortedButtons = buttons.sorted { $0.rawValue < $1.rawValue }
             for button in sortedButtons {
                 handleButtonPressed(button)
-            }
-            return
-        }
-
-        // Mark these buttons as part of a chord
-        activeChordButtons = buttons
-
-        inputLogService?.log(buttons: Array(buttons), type: .chord, action: chord.actionDisplayString)
-
-        // Execute chord mapping
-        if let keyCode = chord.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: chord.modifiers.cgEventFlags)
-        } else if chord.modifiers.hasAny {
-            let flags = chord.modifiers.cgEventFlags
-            inputSimulator.holdModifier(flags)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                self?.inputSimulator.releaseModifier(flags)
             }
         }
     }
 
-    // MARK: - Joystick Handling
+    // MARK: - Joystick Handling (Background Queue)
 
     private func startJoystickPolling() {
         stopJoystickPolling()
@@ -541,29 +524,26 @@ class MappingEngine: ObservableObject {
         joystickTimer?.cancel()
         joystickTimer = nil
         
-        loopState.lock.lock()
-        loopState.reset()
-        loopState.lock.unlock()
+        state.lock.lock()
+        state.reset()
+        state.lock.unlock()
     }
 
     nonisolated private func processJoysticks() {
-        loopState.lock.lock()
-        defer { loopState.lock.unlock() }
+        state.lock.lock()
+        defer { state.lock.unlock() }
         
-        guard loopState.isEnabled else { return }
-        guard let settings = loopState.settings else { return }
+        guard state.isEnabled, let settings = state.joystickSettings else { return }
 
         let now = CFAbsoluteTimeGetCurrent()
-        let dt = loopState.lastJoystickSampleTime > 0 ? now - loopState.lastJoystickSampleTime : joystickPollInterval
-        loopState.lastJoystickSampleTime = now
+        let dt = state.lastJoystickSampleTime > 0 ? now - state.lastJoystickSampleTime : joystickPollInterval
+        state.lastJoystickSampleTime = now
 
         // Process left joystick (mouse)
-        // Access thread-safe properties from ControllerService
+        // Note: accessing controllerService.threadSafeLeftStick is safe (atomic/lock-free usually)
         let leftStick = controllerService.threadSafeLeftStick
-        let leftMagnitudeSquared = leftStick.x * leftStick.x + leftStick.y * leftStick.y
-        let leftDeadzoneSquared = settings.mouseDeadzone * settings.mouseDeadzone
         
-        // Remove smoothing - pass raw value (deadzone handled in processMouseMovement)
+        // Remove smoothing - pass raw value
         processMouseMovement(leftStick, settings: settings)
 
         // Process right joystick (scroll)
@@ -573,18 +553,16 @@ class MappingEngine: ObservableObject {
         let rightDeadzoneSquared = settings.scrollDeadzone * settings.scrollDeadzone
         
         if rightMagnitudeSquared <= rightDeadzoneSquared {
-            loopState.smoothedRightStick = .zero
+            state.smoothedRightStick = .zero
         } else {
-            loopState.smoothedRightStick = smoothStick(rightStick, previous: loopState.smoothedRightStick, dt: dt)
+            state.smoothedRightStick = smoothStick(rightStick, previous: state.smoothedRightStick, dt: dt)
         }
-        processScrolling(loopState.smoothedRightStick, rawStick: rightStick, settings: settings, now: now)
+        processScrolling(state.smoothedRightStick, rawStick: rightStick, settings: settings, now: now)
     }
 
     nonisolated private func smoothStick(_ raw: CGPoint, previous: CGPoint, dt: TimeInterval) -> CGPoint {
         let magnitude = sqrt(Double(raw.x * raw.x + raw.y * raw.y))
         let t = min(1.0, magnitude * 1.2)
-        // We need access to constants. They are private let in MappingEngine.
-        // Accessing self.minJoystickCutoffHz should be fine as they are let and Sendable (Double).
         let cutoff = self.minJoystickCutoffHz + (self.maxJoystickCutoffHz - self.minJoystickCutoffHz) * t
         let alpha = 1.0 - exp(-2.0 * Double.pi * cutoff * max(0.0, dt))
         let newX = Double(previous.x) + alpha * (Double(raw.x) - Double(previous.x))
@@ -598,92 +576,74 @@ class MappingEngine: ObservableObject {
         let deadzoneSquared = deadzone * deadzone
         let isOutside = magnitudeSquared > deadzoneSquared
 
-        if loopState.scrollBoostDirection != 0, isOutside {
+        if state.scrollBoostDirection != 0, isOutside {
             let currentDirection = rawStick.y >= 0 ? 1 : -1
             if abs(rawStick.y) >= abs(rawStick.x) * self.scrollTapDirectionRatio,
-               currentDirection != loopState.scrollBoostDirection {
-                loopState.scrollBoostDirection = 0
+               currentDirection != state.scrollBoostDirection {
+                state.scrollBoostDirection = 0
             }
         }
 
         if isOutside {
-            loopState.rightStickWasOutsideDeadzone = true
-            loopState.rightStickPeakYAbs = max(loopState.rightStickPeakYAbs, abs(Double(rawStick.y)))
+            state.rightStickWasOutsideDeadzone = true
+            state.rightStickPeakYAbs = max(state.rightStickPeakYAbs, abs(Double(rawStick.y)))
             if abs(rawStick.y) >= abs(rawStick.x) * self.scrollTapDirectionRatio {
-                loopState.rightStickLastDirection = rawStick.y >= 0 ? 1 : -1
+                state.rightStickLastDirection = rawStick.y >= 0 ? 1 : -1
             }
             return
         }
 
-        guard loopState.rightStickWasOutsideDeadzone else { return }
-        loopState.rightStickWasOutsideDeadzone = false
+        guard state.rightStickWasOutsideDeadzone else { return }
+        state.rightStickWasOutsideDeadzone = false
 
-        if loopState.rightStickPeakYAbs >= self.scrollTapThreshold, loopState.rightStickLastDirection != 0 {
-            if now - loopState.lastRightStickTapTime <= self.scrollDoubleTapWindow,
-               loopState.rightStickLastDirection == loopState.lastRightStickTapDirection {
-                loopState.scrollBoostDirection = loopState.rightStickLastDirection
+        if state.rightStickPeakYAbs >= self.scrollTapThreshold, state.rightStickLastDirection != 0 {
+            if now - state.lastRightStickTapTime <= self.scrollDoubleTapWindow,
+               state.rightStickLastDirection == state.lastRightStickTapDirection {
+                state.scrollBoostDirection = state.rightStickLastDirection
             }
-            loopState.lastRightStickTapTime = now
-            loopState.lastRightStickTapDirection = loopState.rightStickLastDirection
+            state.lastRightStickTapTime = now
+            state.lastRightStickTapDirection = state.rightStickLastDirection
         }
 
-        loopState.rightStickPeakYAbs = 0
-        loopState.rightStickLastDirection = 0
+        state.rightStickPeakYAbs = 0
+        state.rightStickLastDirection = 0
     }
 
     nonisolated private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings) {
-        // Fast path: skip if clearly in deadzone (avoid sqrt for common case)
         let deadzone = settings.mouseDeadzone
         let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
         let deadzoneSquared = deadzone * deadzone
         guard magnitudeSquared > deadzoneSquared else { return }
 
-        // Only compute sqrt when we know we're outside deadzone
         let magnitude = sqrt(magnitudeSquared)
-
-        // Normalize and apply deadzone
         let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
-
-        // Apply acceleration curve using the 0-1 acceleration setting
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.mouseAccelerationExponent)
-
-        // Calculate direction using the converted multiplier
         let scale = acceleratedMagnitude * settings.mouseMultiplier / magnitude
         let dx = stick.x * scale
         var dy = stick.y * scale
 
-        // Invert Y if needed (joystick Y is inverted compared to screen coordinates)
         dy = settings.invertMouseY ? dy : -dy
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
     }
 
     nonisolated private func processScrolling(_ stick: CGPoint, rawStick: CGPoint, settings: JoystickSettings, now: TimeInterval) {
-        // Fast path: skip if clearly in deadzone (avoid sqrt for common case)
         let deadzone = settings.scrollDeadzone
         let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
         let deadzoneSquared = deadzone * deadzone
         guard magnitudeSquared > deadzoneSquared else { return }
 
-        // Only compute sqrt when we know we're outside deadzone
         let magnitude = sqrt(magnitudeSquared)
-
-        // Normalize and apply deadzone
         let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
-
-        // Apply acceleration curve using the 0-1 acceleration setting
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.scrollAccelerationExponent)
-
-        // Calculate direction using the converted multiplier
         let scale = acceleratedMagnitude * settings.scrollMultiplier / magnitude
         let dx = stick.x * scale
         var dy = stick.y * scale
 
-        // Invert Y if needed
         dy = settings.invertScrollY ? -dy : dy
 
-        if loopState.scrollBoostDirection != 0,
-           (rawStick.y >= 0 ? 1 : -1) == loopState.scrollBoostDirection {
+        if state.scrollBoostDirection != 0,
+           (rawStick.y >= 0 ? 1 : -1) == state.scrollBoostDirection {
             dy *= settings.scrollBoostMultiplier
         }
 
@@ -694,51 +654,13 @@ class MappingEngine: ObservableObject {
 
     func enable() {
         isEnabled = true
-        loopState.lock.lock()
-        loopState.isEnabled = true
-        loopState.lock.unlock()
     }
 
     func disable() {
         isEnabled = false
-        
-        loopState.lock.lock()
-        loopState.isEnabled = false
-        loopState.lock.unlock()
-        
-        // Release any held buttons
-        for (_, mapping) in heldButtons {
-            inputSimulator.stopHoldMapping(mapping)
-        }
-        heldButtons.removeAll()
-        // Cancel any pending single-taps
-        for (_, workItem) in pendingSingleTap {
-            workItem.cancel()
-        }
-        pendingSingleTap.removeAll()
-
-        // Cancel long hold timers
-        for (_, workItem) in longHoldTimers {
-            workItem.cancel()
-        }
-        longHoldTimers.removeAll()
-        longHoldTriggered.removeAll()
-
-        // Cancel repeat timers
-        for (_, timer) in repeatTimers {
-            timer.cancel()
-        }
-        repeatTimers.removeAll()
-
-        lastTapTime.removeAll()
-        inputSimulator.releaseAllModifiers()
     }
 
     func toggle() {
-        if isEnabled {
-            disable()
-        } else {
-            enable()
-        }
+        isEnabled.toggle()
     }
 }

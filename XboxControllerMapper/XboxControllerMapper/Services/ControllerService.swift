@@ -2,6 +2,34 @@ import Foundation
 import GameController
 import Combine
 
+// MARK: - Thread-Safe Input State (High Performance)
+
+private final class ControllerStorage: @unchecked Sendable {
+    let lock = NSLock()
+    var leftStick: CGPoint = .zero
+    var rightStick: CGPoint = .zero
+    var leftTrigger: Float = 0
+    var rightTrigger: Float = 0
+    
+    // Button State
+    var activeButtons: Set<ControllerButton> = []
+    var buttonPressTimestamps: [ControllerButton: Date] = [:]
+    
+    // Chord Detection State
+    var pendingButtons: Set<ControllerButton> = []
+    var capturedButtonsInWindow: Set<ControllerButton> = []
+    var pendingReleases: [ControllerButton: TimeInterval] = [:]
+    var chordWorkItem: DispatchWorkItem?
+    var chordWindow: TimeInterval = 0.15
+    
+    // Callbacks
+    var onButtonPressed: ((ControllerButton) -> Void)?
+    var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)?
+    var onChordDetected: ((Set<ControllerButton>) -> Void)?
+    var onLeftStickMoved: ((CGPoint) -> Void)?
+    var onRightStickMoved: ((CGPoint) -> Void)?
+}
+
 /// Service for managing Xbox controller connection and input
 @MainActor
 class ControllerService: ObservableObject {
@@ -9,19 +37,11 @@ class ControllerService: ObservableObject {
     @Published var connectedController: GCController?
     @Published var controllerName: String = ""
 
-    /// Currently pressed buttons
+    /// Currently pressed buttons (UI use only, updated asynchronously)
     @Published var activeButtons: Set<ControllerButton> = []
-
-    // MARK: - Thread-Safe Input State (High Performance)
-    private final class Storage: @unchecked Sendable {
-        let lock = NSLock()
-        var leftStick: CGPoint = .zero
-        var rightStick: CGPoint = .zero
-        var leftTrigger: Float = 0
-        var rightTrigger: Float = 0
-    }
     
-    private let storage = Storage()
+    private let controllerQueue = DispatchQueue(label: "com.xboxmapper.controller", qos: .userInteractive)
+    private let storage = ControllerStorage()
     
     nonisolated var threadSafeLeftStick: CGPoint {
         storage.lock.lock()
@@ -45,6 +65,13 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.rightTrigger
+    }
+    
+    // Accessor for MappingEngine to check active buttons thread-safely
+    nonisolated var threadSafeActiveButtons: Set<ControllerButton> {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.activeButtons
     }
 
     /// Left joystick position (-1 to 1) - UI/Legacy use only
@@ -72,24 +99,27 @@ class ControllerService: ObservableObject {
     /// Battery state
     @Published var batteryState: GCDeviceBattery.State = .unknown
 
-    // Button press timestamps for long-hold detection
-    var buttonPressTimestamps: [ControllerButton: Date] = [:]
-
-    // Callback for button events
-    var onButtonPressed: ((ControllerButton) -> Void)?
-    var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)?
-    var onChordDetected: ((Set<ControllerButton>) -> Void)?
-
-    // Joystick callbacks
-    var onLeftStickMoved: ((CGPoint) -> Void)?
-    var onRightStickMoved: ((CGPoint) -> Void)?
-
-    // Chord detection - using DispatchWorkItem for lower overhead than Timer
-    private var chordWorkItem: DispatchWorkItem?
-    internal var chordWindow: TimeInterval = 0.15  // 150ms window for chord detection
-    private var pendingButtons: Set<ControllerButton> = []
-    private var capturedButtonsInWindow: Set<ControllerButton> = []
-    private var pendingReleases: [ControllerButton: TimeInterval] = [:]
+    // Callback proxies (Thread-safe storage backing)
+    var onButtonPressed: ((ControllerButton) -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onButtonPressed }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onButtonPressed = newValue }
+    }
+    var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onButtonReleased }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onButtonReleased = newValue }
+    }
+    var onChordDetected: ((Set<ControllerButton>) -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onChordDetected }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onChordDetected = newValue }
+    }
+    var onLeftStickMoved: ((CGPoint) -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onLeftStickMoved }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onLeftStickMoved = newValue }
+    }
+    var onRightStickMoved: ((CGPoint) -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onRightStickMoved }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onRightStickMoved = newValue }
+    }
 
     private var cancellables = Set<AnyCancellable>()
     
@@ -100,22 +130,19 @@ class ControllerService: ObservableObject {
     private let batteryMonitor = BluetoothBatteryMonitor()
 
     init() {
-        // Enable background event monitoring - this is the official API for
-        // receiving controller events when the app isn't frontmost
         GCController.shouldMonitorBackgroundEvents = true
 
         setupNotifications()
         startDiscovery()
         checkConnectedControllers()
         
-        // Setup Guide button callback
         guideMonitor.onGuideButtonAction = { [weak self] isPressed in
-            Task { @MainActor in
-                self?.handleButton(.xbox, pressed: isPressed)
+            guard let self = self else { return }
+            self.controllerQueue.async {
+                self.handleButton(.xbox, pressed: isPressed)
             }
         }
         
-        // Setup Battery Monitor (Bluetooth GATT Workaround)
         batteryMonitor.startMonitoring()
         batteryMonitor.$batteryLevel
             .receive(on: DispatchQueue.main)
@@ -162,7 +189,6 @@ class ControllerService: ObservableObject {
     }
 
     private func checkConnectedControllers() {
-        // Check for already connected controllers
         if let controller = GCController.controllers().first {
             controllerConnected(controller)
         }
@@ -190,33 +216,40 @@ class ControllerService: ObservableObject {
         batteryLevel = -1
         batteryState = .unknown
         stopDisplayUpdateTimer()
+        
+        storage.lock.lock()
+        storage.activeButtons.removeAll()
+        storage.buttonPressTimestamps.removeAll()
+        storage.pendingButtons.removeAll()
+        storage.capturedButtonsInWindow.removeAll()
+        storage.pendingReleases.removeAll()
+        storage.chordWorkItem?.cancel()
+        storage.leftStick = .zero
+        storage.rightStick = .zero
+        storage.lock.unlock()
 
         print("Controller disconnected")
     }
 
-    // MARK: - Display Update Timer (throttled UI updates)
+    // MARK: - Display Update Timer
 
     private func startDisplayUpdateTimer() {
         stopDisplayUpdateTimer()
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
-        // Update display values at 15Hz - smooth enough for visual feedback, low enough to not block input
         timer.schedule(deadline: .now(), repeating: 1.0 / 15.0, leeway: .milliseconds(10))
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
             
-            // Sync thread-safe values to UI properties
             let tsLeft = self.threadSafeLeftStick
             let tsRight = self.threadSafeRightStick
             let tsLeftTrig = self.threadSafeLeftTrigger
             let tsRightTrig = self.threadSafeRightTrigger
             
-            // Update legacy/UI properties
             self.leftStick = tsLeft
             self.rightStick = tsRight
             self.leftTriggerValue = tsLeftTrig
             self.rightTriggerValue = tsRightTrig
             
-            // Only update display values if values changed significantly to avoid unnecessary UI updates
             if abs(self.displayLeftStick.x - tsLeft.x) > 0.01 ||
                abs(self.displayLeftStick.y - tsLeft.y) > 0.01 {
                 self.displayLeftStick = tsLeft
@@ -239,7 +272,6 @@ class ControllerService: ObservableObject {
     private func stopDisplayUpdateTimer() {
         displayUpdateTimer?.cancel()
         displayUpdateTimer = nil
-        // Reset display values
         displayLeftStick = .zero
         displayRightStick = .zero
         displayLeftTrigger = 0
@@ -247,20 +279,17 @@ class ControllerService: ObservableObject {
     }
 
     private func updateBatteryInfo() {
-        // Priority 1: Bluetooth Monitor (Workaround for Xbox Series controllers)
         if let ioLevel = batteryMonitor.batteryLevel {
             batteryLevel = Float(ioLevel) / 100.0
             batteryState = batteryMonitor.isCharging ? .charging : .discharging
             return
         }
         
-        // Priority 2: Standard GameController Framework
         if let battery = connectedController?.battery {
             batteryLevel = battery.batteryLevel
             batteryState = battery.batteryState
         }
         
-        // Schedule next update if still connected
         if isConnected {
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
                 self?.updateBatteryInfo()
@@ -268,37 +297,33 @@ class ControllerService: ObservableObject {
         }
     }
 
-
-
     private func setupInputHandlers(for controller: GCController) {
-        guard let gamepad = controller.extendedGamepad else {
-            print("Controller does not support extended gamepad profile")
-            return
-        }
+        guard let gamepad = controller.extendedGamepad else { return }
 
-        // Face buttons - use DispatchQueue.main.async for lower overhead than Task
+        // Use controllerQueue for all button inputs
+        
         gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.a, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.a, pressed: pressed) }
         }
         gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.b, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.b, pressed: pressed) }
         }
         gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.x, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.x, pressed: pressed) }
         }
         gamepad.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.y, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.y, pressed: pressed) }
         }
 
         // Bumpers
         gamepad.leftShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.leftBumper, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.leftBumper, pressed: pressed) }
         }
         gamepad.rightShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.rightBumper, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.rightBumper, pressed: pressed) }
         }
 
-        // Triggers (with value for analog sensitivity)
+        // Triggers
         gamepad.leftTrigger.valueChangedHandler = { [weak self] _, value, pressed in
             self?.updateLeftTrigger(value, pressed: pressed)
         }
@@ -308,53 +333,49 @@ class ControllerService: ObservableObject {
 
         // D-pad
         gamepad.dpad.up.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.dpadUp, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.dpadUp, pressed: pressed) }
         }
         gamepad.dpad.down.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.dpadDown, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.dpadDown, pressed: pressed) }
         }
         gamepad.dpad.left.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.dpadLeft, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.dpadLeft, pressed: pressed) }
         }
         gamepad.dpad.right.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.dpadRight, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.dpadRight, pressed: pressed) }
         }
 
         // Special buttons
         gamepad.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.menu, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.menu, pressed: pressed) }
         }
         gamepad.buttonOptions?.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.view, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.view, pressed: pressed) }
         }
-        // Home button (extended gamepad controllers)
+        
         if let extendedGamepad = gamepad as? GCExtendedGamepad {
             extendedGamepad.buttonHome?.pressedChangedHandler = { [weak self] _, _, pressed in
-                DispatchQueue.main.async { self?.handleButton(.xbox, pressed: pressed) }
+                self?.controllerQueue.async { self?.handleButton(.xbox, pressed: pressed) }
             }
         }
 
-        // Share button (Xbox Series controllers)
         if let xboxGamepad = gamepad as? GCXboxGamepad {
             xboxGamepad.buttonShare?.pressedChangedHandler = { [weak self] _, _, pressed in
-                DispatchQueue.main.async { self?.handleButton(.share, pressed: pressed) }
+                self?.controllerQueue.async { self?.handleButton(.share, pressed: pressed) }
             }
         }
 
-        // Thumbstick clicks
         gamepad.leftThumbstickButton?.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.leftThumbstick, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.leftThumbstick, pressed: pressed) }
         }
         gamepad.rightThumbstickButton?.pressedChangedHandler = { [weak self] _, _, pressed in
-            DispatchQueue.main.async { self?.handleButton(.rightThumbstick, pressed: pressed) }
+            self?.controllerQueue.async { self?.handleButton(.rightThumbstick, pressed: pressed) }
         }
 
-        // Left joystick - store values directly in thread-safe storage
         gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.updateLeftStick(x: xValue, y: yValue)
         }
 
-        // Right joystick
         gamepad.rightThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.updateRightStick(x: xValue, y: yValue)
         }
@@ -367,7 +388,6 @@ class ControllerService: ObservableObject {
         storage.leftStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
         storage.lock.unlock()
         
-        // Notify main thread for callbacks if needed
         Task { @MainActor in
             self.onLeftStickMoved?(CGPoint(x: CGFloat(x), y: CGFloat(y)))
         }
@@ -388,7 +408,7 @@ class ControllerService: ObservableObject {
         storage.leftTrigger = value
         storage.lock.unlock()
         
-        Task { @MainActor in
+        controllerQueue.async {
             self.handleButton(.leftTrigger, pressed: pressed)
         }
     }
@@ -398,15 +418,12 @@ class ControllerService: ObservableObject {
         storage.rightTrigger = value
         storage.lock.unlock()
         
-        Task { @MainActor in
+        controllerQueue.async {
             self.handleButton(.rightTrigger, pressed: pressed)
         }
     }
 
-    private func handleButton(_ button: ControllerButton, pressed: Bool) {
-        #if DEBUG
-        print("🎮 handleButton: \(button.displayName) pressed=\(pressed)")
-        #endif
+    nonisolated private func handleButton(_ button: ControllerButton, pressed: Bool) {
         if pressed {
             buttonPressed(button)
         } else {
@@ -414,83 +431,107 @@ class ControllerService: ObservableObject {
         }
     }
 
-    internal func buttonPressed(_ button: ControllerButton) {
-        // If this button is already captured in the current window, it means we are pressing it AGAIN
-        // within the window (fast double tap). We should flush the previous events first.
-        if capturedButtonsInWindow.contains(button) {
-            chordWorkItem?.cancel()
+    nonisolated internal func buttonPressed(_ button: ControllerButton) {
+        storage.lock.lock()
+        
+        // Fast Double Tap Check
+        if storage.capturedButtonsInWindow.contains(button) {
+            storage.chordWorkItem?.cancel()
+            storage.lock.unlock()
             processChordOrSinglePress()
+            storage.lock.lock()
         }
 
-        guard !activeButtons.contains(button) else { return }
+        guard !storage.activeButtons.contains(button) else {
+            storage.lock.unlock()
+            return
+        }
 
-        activeButtons.insert(button)
-        buttonPressTimestamps[button] = Date()
-
-        // Add to pending buttons for chord detection
-        pendingButtons.insert(button)
-        capturedButtonsInWindow.insert(button)
-
-        // Reset chord detection using DispatchWorkItem (lower overhead than Timer)
-        chordWorkItem?.cancel()
+        storage.activeButtons.insert(button)
+        storage.buttonPressTimestamps[button] = Date()
+        storage.pendingButtons.insert(button)
+        storage.capturedButtonsInWindow.insert(button)
+        
+        let uiButtons = storage.activeButtons
+        
+        // Chord Detection
+        storage.chordWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.processChordOrSinglePress()
         }
-        chordWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + chordWindow, execute: workItem)
+        storage.chordWorkItem = workItem
+        let window = storage.chordWindow
+        storage.lock.unlock()
+        
+        Task { @MainActor in
+            self.activeButtons = uiButtons
+        }
+        
+        controllerQueue.asyncAfter(deadline: .now() + window, execute: workItem)
     }
 
-    internal func buttonReleased(_ button: ControllerButton) {
-        guard activeButtons.contains(button) else { return }
+    nonisolated internal func buttonReleased(_ button: ControllerButton) {
+        storage.lock.lock()
+        guard storage.activeButtons.contains(button) else {
+            storage.lock.unlock()
+            return
+        }
 
-        activeButtons.remove(button)
-
-        // Calculate hold duration
+        storage.activeButtons.remove(button)
+        let pressTime = storage.buttonPressTimestamps.removeValue(forKey: button)
+        let uiButtons = storage.activeButtons
+        storage.lock.unlock()
+        
+        Task { @MainActor in
+            self.activeButtons = uiButtons
+        }
+        
         let holdDuration: TimeInterval
-        if let pressTime = buttonPressTimestamps[button] {
-            holdDuration = Date().timeIntervalSince(pressTime)
+        if let time = pressTime {
+            holdDuration = Date().timeIntervalSince(time)
         } else {
             holdDuration = 0
         }
 
-        buttonPressTimestamps.removeValue(forKey: button)
-
-        // If this button is currently pending a chord decision, defer the release event
-        if pendingButtons.contains(button) {
-            pendingReleases[button] = holdDuration
+        storage.lock.lock()
+        if storage.pendingButtons.contains(button) {
+            storage.pendingReleases[button] = holdDuration
+            storage.lock.unlock()
         } else {
-            onButtonReleased?(button, holdDuration)
+            let callback = storage.onButtonReleased
+            storage.lock.unlock()
+            callback?(button, holdDuration)
         }
     }
 
-    private func processChordOrSinglePress() {
-        #if DEBUG
-        print("🔍 processChordOrSinglePress: captured=\(capturedButtonsInWindow.map { $0.displayName })")
-        #endif
-        if capturedButtonsInWindow.count >= 2 {
-        // Chord detected  
-            onChordDetected?(capturedButtonsInWindow)
-        } else if let button = capturedButtonsInWindow.first {
-            // Single button press
-            onButtonPressed?(button)
+    nonisolated private func processChordOrSinglePress() {
+        storage.lock.lock()
+        let captured = storage.capturedButtonsInWindow
+        
+        // Clear state
+        storage.capturedButtonsInWindow.removeAll()
+        storage.pendingButtons.removeAll()
+        
+        // Copy releases to process
+        let releases = storage.pendingReleases
+        storage.pendingReleases.removeAll()
+        
+        let chordCallback = storage.onChordDetected
+        let pressCallback = storage.onButtonPressed
+        let releaseCallback = storage.onButtonReleased
+        
+        storage.lock.unlock()
+
+        if captured.count >= 2 {
+            chordCallback?(captured)
+        } else if let button = captured.first {
+            pressCallback?(button)
         }
         
-        // Handle deferred releases for any buttons that were involved
-        for button in capturedButtonsInWindow {
-            if let duration = pendingReleases[button] {
-                onButtonReleased?(button, duration)
+        for button in captured {
+            if let duration = releases[button] {
+                releaseCallback?(button, duration)
             }
         }
-
-        capturedButtonsInWindow.removeAll()
-        pendingButtons.removeAll()
-        pendingReleases.removeAll()
-    }
-
-    /// Trigger haptic feedback on the controller
-    func triggerHaptic(intensity: Float = 0.5, duration: TimeInterval = 0.1) {
-        // Haptics API varies by controller - this is a placeholder
-        // Real implementation would use CHHapticEngine for supported controllers
-        print("Haptic feedback requested: intensity=\(intensity), duration=\(duration)")
     }
 }
