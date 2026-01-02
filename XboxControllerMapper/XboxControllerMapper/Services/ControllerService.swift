@@ -1,6 +1,7 @@
 import Foundation
 import GameController
 import Combine
+import CoreHaptics
 
 // MARK: - Thread-Safe Input State (High Performance)
 
@@ -129,6 +130,10 @@ class ControllerService: ObservableObject {
     // Low-level monitor for Battery (Bluetooth Workaround for macOS/Xbox issue)
     private let batteryMonitor = BluetoothBatteryMonitor()
 
+    // Haptic engines for controller feedback (try multiple localities)
+    private var hapticEngines: [CHHapticEngine] = []
+    private let hapticQueue = DispatchQueue(label: "com.xboxmapper.haptic", qos: .userInitiated)
+
     init() {
         GCController.shouldMonitorBackgroundEvents = true
 
@@ -200,6 +205,7 @@ class ControllerService: ObservableObject {
         controllerName = controller.vendorName ?? "Xbox Controller"
 
         setupInputHandlers(for: controller)
+        setupHaptics(for: controller)
         updateBatteryInfo()
         startDisplayUpdateTimer()
 
@@ -216,6 +222,7 @@ class ControllerService: ObservableObject {
         batteryLevel = -1
         batteryState = .unknown
         stopDisplayUpdateTimer()
+        stopHaptics()
         
         storage.lock.lock()
         storage.activeButtons.removeAll()
@@ -531,6 +538,92 @@ class ControllerService: ObservableObject {
         for button in captured {
             if let duration = releases[button] {
                 releaseCallback?(button, duration)
+            }
+        }
+    }
+
+    // MARK: - Haptic Feedback
+
+    private func setupHaptics(for controller: GCController) {
+        guard let haptics = controller.haptics else {
+            print("⚠️ Controller does not support haptics")
+            return
+        }
+
+        // Try multiple localities - Xbox controllers may respond to different ones
+        let localities: [GCHapticsLocality] = [.default, .handles, .leftHandle, .rightHandle, .leftTrigger, .rightTrigger]
+
+        for locality in localities {
+            if let engine = haptics.createEngine(withLocality: locality) {
+                engine.resetHandler = { [weak engine] in
+                    // Restart engine if it stops
+                    try? engine?.start()
+                }
+                engine.stoppedHandler = { reason in
+                    print("Haptic engine stopped: \(reason)")
+                }
+                do {
+                    try engine.start()
+                    hapticEngines.append(engine)
+                    print("✓ Haptic engine started for locality: \(locality)")
+                } catch {
+                    print("✗ Failed to start haptic engine for \(locality): \(error)")
+                }
+            }
+        }
+
+        if hapticEngines.isEmpty {
+            print("⚠️ No haptic engines could be created")
+        } else {
+            print("✓ Created \(hapticEngines.count) haptic engine(s)")
+        }
+    }
+
+    private func stopHaptics() {
+        for engine in hapticEngines {
+            engine.stop()
+        }
+        hapticEngines.removeAll()
+    }
+
+    /// Plays a haptic pulse on the controller
+    /// - Parameters:
+    ///   - intensity: Haptic intensity from 0.0 to 1.0
+    ///   - duration: Duration in seconds
+    nonisolated func playHaptic(intensity: Float = 0.5, sharpness: Float = 0.5, duration: TimeInterval = 0.1) {
+        hapticQueue.async { [weak self] in
+            guard let engines = self?.hapticEngines, !engines.isEmpty else { return }
+
+            // Use continuous haptic for more noticeable feedback on game controllers
+            do {
+                let events = [
+                    CHHapticEvent(
+                        eventType: .hapticContinuous,
+                        parameters: [
+                            CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
+                            CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness)
+                        ],
+                        relativeTime: 0,
+                        duration: duration
+                    )
+                ]
+                let pattern = try CHHapticPattern(events: events, parameters: [])
+
+                // Play on all available engines for maximum effect
+                for engine in engines {
+                    do {
+                        let player = try engine.makePlayer(with: pattern)
+                        try player.start(atTime: CHHapticTimeImmediate)
+                    } catch {
+                        // Try to restart engine and retry once
+                        try? engine.start()
+                        if let player = try? engine.makePlayer(with: pattern) {
+                            try? player.start(atTime: CHHapticTimeImmediate)
+                        }
+                    }
+                }
+            } catch {
+                print("Haptic pattern error: \(error)")
             }
         }
     }

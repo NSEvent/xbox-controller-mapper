@@ -48,6 +48,9 @@ class MappingEngine: ObservableObject {
         var lastRightStickTapTime: TimeInterval = 0
         var lastRightStickTapDirection: Int = 0
         var scrollBoostDirection: Int = 0
+
+        // Focus mode state tracking for haptic feedback
+        var wasFocusActive = false
         
         func reset() {
             heldButtons.removeAll()
@@ -76,6 +79,7 @@ class MappingEngine: ObservableObject {
             lastRightStickTapTime = 0
             lastRightStickTapDirection = 0
             scrollBoostDirection = 0
+            wasFocusActive = false
         }
     }
     
@@ -83,7 +87,7 @@ class MappingEngine: ObservableObject {
     
     // Joystick polling
     private var joystickTimer: DispatchSourceTimer?
-    private let joystickPollInterval: TimeInterval = 1.0 / 120.0 
+    private let joystickPollInterval: TimeInterval = 1.0 / 120.0
 
     private let minJoystickCutoffHz: Double = 4.0
     private let maxJoystickCutoffHz: Double = 14.0
@@ -610,6 +614,25 @@ class MappingEngine: ObservableObject {
     }
 
     nonisolated private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings) {
+        // Focus Mode Logic - check BEFORE deadzone to detect transitions even when stick is idle
+        // Check global modifier state (includes both physical keyboard and our simulated events)
+        let currentFlags = CGEventSource.flagsState(.hidSystemState)
+        let focusFlags = settings.focusModeModifier.cgEventFlags
+
+        // Active if ANY of the configured focus flags are held.
+        // If focus modifier is empty, focus mode is disabled.
+        let isFocusActive = focusFlags.rawValue != 0 && currentFlags.contains(focusFlags)
+
+        // Detect focus mode transitions and trigger haptic feedback
+        // Note: state.lock is already held by caller (processJoysticks)
+        let wasFocusActive = state.wasFocusActive
+        if isFocusActive != wasFocusActive {
+            state.wasFocusActive = isFocusActive
+            // Haptic feedback runs async internally, won't block input
+            performFocusModeHaptic(entering: isFocusActive)
+        }
+
+        // Early exit if stick is within deadzone
         let deadzone = settings.mouseDeadzone
         let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
         let deadzoneSquared = deadzone * deadzone
@@ -618,18 +641,9 @@ class MappingEngine: ObservableObject {
         let magnitude = sqrt(magnitudeSquared)
         let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.mouseAccelerationExponent)
-        
-        // Focus Mode Logic
-        // Check global modifier state (includes both physical keyboard and our simulated events)
-        let currentFlags = CGEventSource.flagsState(.hidSystemState)
-        let focusFlags = settings.focusModeModifier.cgEventFlags
-        
-        // Active if ANY of the configured focus flags are held.
-        // If focus modifier is empty, focus mode is disabled.
-        let isFocusActive = focusFlags.rawValue != 0 && currentFlags.contains(focusFlags)
-        
+
         let multiplier = isFocusActive ? settings.focusMultiplier : settings.mouseMultiplier
-        
+
         let scale = acceleratedMagnitude * multiplier / magnitude
         let dx = stick.x * scale
         var dy = stick.y * scale
@@ -637,6 +651,16 @@ class MappingEngine: ObservableObject {
         dy = settings.invertMouseY ? dy : -dy
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
+    }
+
+    /// Performs haptic feedback for focus mode transitions on the controller
+    nonisolated private func performFocusModeHaptic(entering: Bool) {
+        // Different feel for entering vs exiting focus mode
+        // Use stronger, longer pulse for entering; shorter pulse for exiting
+        let intensity: Float = entering ? 1.0 : 0.6
+        let sharpness: Float = entering ? 1.0 : 0.5
+        let duration: TimeInterval = entering ? 0.15 : 0.08
+        controllerService.playHaptic(intensity: intensity, sharpness: sharpness, duration: duration)
     }
 
     nonisolated private func processScrolling(_ stick: CGPoint, rawStick: CGPoint, settings: JoystickSettings, now: TimeInterval) {

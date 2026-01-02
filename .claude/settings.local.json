@@ -4,7 +4,8 @@
       "Bash(git commit:*)",
       "Bash(xcodebuild:*)",
       "Bash(git add:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(scanhid:*)"
     ]
   }
 }
