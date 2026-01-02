@@ -655,11 +655,11 @@ class MappingEngine: ObservableObject {
 
     /// Performs haptic feedback for focus mode transitions on the controller
     nonisolated private func performFocusModeHaptic(entering: Bool) {
-        // Different feel for entering vs exiting focus mode
-        // Use stronger, longer pulse for entering; shorter pulse for exiting
-        let intensity: Float = entering ? 1.0 : 0.6
-        let sharpness: Float = entering ? 1.0 : 0.5
-        let duration: TimeInterval = entering ? 0.15 : 0.08
+        // Both enter and exit get strong haptics, but with different feel
+        // Enter: sharp click, Exit: softer thud
+        let intensity: Float = 1.0
+        let sharpness: Float = entering ? 1.0 : 0.3
+        let duration: TimeInterval = entering ? 0.12 : 0.15
         controllerService.playHaptic(intensity: intensity, sharpness: sharpness, duration: duration)
     }
 
