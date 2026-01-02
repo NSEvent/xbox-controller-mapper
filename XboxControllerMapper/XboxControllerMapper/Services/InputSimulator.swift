@@ -319,11 +319,14 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             guard let source = self.eventSource else { return }
 
             let currentLocation = NSEvent.mouseLocation
-            let screenHeight = NSScreen.main?.frame.height ?? 0
+            // Use CoreGraphics to get the primary display height. This is thread-safe and
+            // correctly identifies the "Frame 0" screen for coordinate conversion, preventing
+            // issues when NSScreen.main (focused screen) differs from the primary screen.
+            let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
 
             // Convert from bottom-left origin to top-left origin
             let newX = currentLocation.x + dx
-            let newY = screenHeight - currentLocation.y + dy
+            let newY = primaryDisplayHeight - currentLocation.y + dy
             
             // Determine event type based on held buttons (drag if button held)
             let eventType: CGEventType
@@ -394,8 +397,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         guard let source = eventSource else { return }
 
         let location = NSEvent.mouseLocation
-        let screenHeight = NSScreen.main?.frame.height ?? 0
-        let cgLocation = CGPoint(x: location.x, y: screenHeight - location.y)
+        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
 
         let (downType, button) = mouseEventType(for: keyCode, down: true)
         
@@ -436,8 +439,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         guard let source = eventSource else { return }
 
         let location = NSEvent.mouseLocation
-        let screenHeight = NSScreen.main?.frame.height ?? 0
-        let cgLocation = CGPoint(x: location.x, y: screenHeight - location.y)
+        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
 
         let (upType, button) = mouseEventType(for: keyCode, down: false)
 
