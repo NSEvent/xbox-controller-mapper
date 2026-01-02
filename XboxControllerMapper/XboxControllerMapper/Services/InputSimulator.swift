@@ -47,6 +47,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         if eventSource == nil {
             print("⚠️ Failed to create CGEventSource - input simulation may not work")
         }
+        
+        // Listen for screen changes to invalidate cache
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.stateLock.lock()
+            self?.cachedScreenBounds = nil
+            self?.stateLock.unlock()
+        }
     }
 
     /// Check if we can post events (accessibility enabled)
@@ -311,22 +318,42 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Tracks sub-pixel movement residuals to prevent quantization stickiness
     private var residualMovement: CGPoint = .zero
 
+    /// Cached union of all screen frames
+    private var cachedScreenBounds: CGRect?
+
+    // MARK: - Mouse Button State
+
     /// Returns the union of all screen frames in Core Graphics coordinates
     private func validScreenBounds() -> CGRect {
-        var validFrame = CGRect.null
-        let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
-        
-        for screen in NSScreen.screens {
-            let screenRect = screen.frame
-            // Convert AppKit (bottom-left origin) to CoreGraphics (top-left origin)
-            // CG Y = PrimaryHeight - (AppKitY + AppKitHeight)
-            // The logic: AppKit Y origin is bottom-left. CG Y origin is top-left of primary screen.
-            let cgOriginY = primaryHeight - (screenRect.origin.y + screenRect.height)
-            let cgRect = CGRect(x: screenRect.origin.x, y: cgOriginY, width: screenRect.width, height: screenRect.height)
-            
-            validFrame = validFrame.union(cgRect)
+        stateLock.lock()
+        if let cached = cachedScreenBounds {
+            stateLock.unlock()
+            return cached
         }
-        return validFrame
+        stateLock.unlock()
+
+        // Recalculate on main thread safely
+        let bounds = DispatchQueue.main.sync {
+            var validFrame = CGRect.null
+            let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
+            
+            for screen in NSScreen.screens {
+                let screenRect = screen.frame
+                // Convert AppKit (bottom-left origin) to CoreGraphics (top-left origin)
+                // CG Y = PrimaryHeight - (AppKitY + AppKitHeight)
+                let cgOriginY = primaryHeight - (screenRect.origin.y + screenRect.height)
+                let cgRect = CGRect(x: screenRect.origin.x, y: cgOriginY, width: screenRect.width, height: screenRect.height)
+                
+                validFrame = validFrame.union(cgRect)
+            }
+            return validFrame
+        }
+
+        stateLock.lock()
+        cachedScreenBounds = bounds
+        stateLock.unlock()
+        
+        return bounds
     }
 
     // MARK: - Mouse Simulation
