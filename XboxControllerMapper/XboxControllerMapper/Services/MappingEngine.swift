@@ -51,6 +51,12 @@ class MappingEngine: ObservableObject {
 
         // Focus mode state tracking for haptic feedback
         var wasFocusActive = false
+
+        // Smooth multiplier transition to prevent mouse jump when exiting focus mode
+        var currentMultiplier: Double = 0
+
+        // Brief pause after exiting focus mode to let user adjust joystick
+        var focusExitTime: TimeInterval = 0
         
         func reset() {
             heldButtons.removeAll()
@@ -80,6 +86,8 @@ class MappingEngine: ObservableObject {
             lastRightStickTapDirection = 0
             scrollBoostDirection = 0
             wasFocusActive = false
+            currentMultiplier = 0
+            focusExitTime = 0
         }
     }
     
@@ -626,10 +634,25 @@ class MappingEngine: ObservableObject {
         // Detect focus mode transitions and trigger haptic feedback
         // Note: state.lock is already held by caller (processJoysticks)
         let wasFocusActive = state.wasFocusActive
+        let now = CFAbsoluteTimeGetCurrent()
+
         if isFocusActive != wasFocusActive {
             state.wasFocusActive = isFocusActive
             // Haptic feedback runs async internally, won't block input
             performFocusModeHaptic(entering: isFocusActive)
+
+            // When exiting focus mode, record the time so we can pause movement briefly
+            if !isFocusActive {
+                state.focusExitTime = now
+                // Reset multiplier to focus level so it ramps up from there
+                state.currentMultiplier = settings.focusMultiplier
+            }
+        }
+
+        // Brief pause after exiting focus mode (100ms) to let user adjust joystick
+        let focusExitPauseDuration: TimeInterval = 0.1
+        if state.focusExitTime > 0 && (now - state.focusExitTime) < focusExitPauseDuration {
+            return  // Skip mouse movement during pause
         }
 
         // Early exit if stick is within deadzone
@@ -642,9 +665,21 @@ class MappingEngine: ObservableObject {
         let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.mouseAccelerationExponent)
 
-        let multiplier = isFocusActive ? settings.focusMultiplier : settings.mouseMultiplier
+        // Smooth multiplier transition to prevent mouse jump when exiting focus mode
+        let targetMultiplier = isFocusActive ? settings.focusMultiplier : settings.mouseMultiplier
 
-        let scale = acceleratedMagnitude * multiplier / magnitude
+        // Initialize currentMultiplier if zero (first run)
+        if state.currentMultiplier == 0 {
+            state.currentMultiplier = targetMultiplier
+        }
+
+        // Exponential smoothing: ~100ms transition time at 120Hz polling
+        // alpha = 1 - e^(-dt/tau), where tau is time constant
+        // For 120Hz and ~100ms transition: alpha ≈ 0.08
+        let smoothingAlpha = 0.08
+        state.currentMultiplier += smoothingAlpha * (targetMultiplier - state.currentMultiplier)
+
+        let scale = acceleratedMagnitude * state.currentMultiplier / magnitude
         let dx = stick.x * scale
         var dy = stick.y * scale
 
@@ -657,7 +692,7 @@ class MappingEngine: ObservableObject {
     nonisolated private func performFocusModeHaptic(entering: Bool) {
         // Both enter and exit get strong haptics, but with different feel
         // Enter: sharp click, Exit: softer thud
-        let intensity: Float = 1.0
+        let intensity: Float = 0.5
         let sharpness: Float = entering ? 1.0 : 0.3
         let duration: TimeInterval = entering ? 0.12 : 0.15
         controllerService.playHaptic(intensity: intensity, sharpness: sharpness, duration: duration)
