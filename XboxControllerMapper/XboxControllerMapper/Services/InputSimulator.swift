@@ -7,6 +7,7 @@ protocol InputSimulatorProtocol: Sendable {
     func holdModifier(_ modifier: CGEventFlags)
     func releaseModifier(_ modifier: CGEventFlags)
     func releaseAllModifiers()
+    func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool
     func moveMouse(dx: CGFloat, dy: CGFloat)
     func scroll(dx: CGFloat, dy: CGFloat)
     func executeMapping(_ mapping: KeyMapping)
@@ -261,6 +262,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 }
             }
         }
+    }
+
+    /// Checks if we are currently holding the specified modifiers via controller
+    func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return !modifier.isEmpty && heldModifiers.contains(modifier)
     }
 
     /// Releases all held modifiers

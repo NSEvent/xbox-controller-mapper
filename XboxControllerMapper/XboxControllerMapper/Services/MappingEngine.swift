@@ -615,13 +615,24 @@ class MappingEngine: ObservableObject {
 
     nonisolated private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings) {
         // Focus Mode Logic - check BEFORE deadzone to detect transitions even when stick is idle
-        // Check global modifier state (includes both physical keyboard and our simulated events)
-        let currentFlags = CGEventSource.flagsState(.hidSystemState)
         let focusFlags = settings.focusModeModifier.cgEventFlags
 
-        // Active if ANY of the configured focus flags are held.
-        // If focus modifier is empty, focus mode is disabled.
-        let isFocusActive = focusFlags.rawValue != 0 && currentFlags.contains(focusFlags)
+        // Determine if focus mode is active
+        let isFocusActive: Bool
+        if focusFlags.rawValue == 0 {
+            // Focus mode disabled
+            isFocusActive = false
+        } else {
+            // Check if we're holding the modifier via controller (most reliable for controller input)
+            let isHeldByController = inputSimulator.isHoldingModifiers(focusFlags)
+
+            // Check system state for keyboard-held modifiers (only trust if controller isn't involved)
+            let systemFlags = CGEventSource.flagsState(.hidSystemState)
+            let isHeldByKeyboard = !isHeldByController && systemFlags.contains(focusFlags)
+
+            // Focus is active if held by either source
+            isFocusActive = isHeldByController || isHeldByKeyboard
+        }
 
         // Detect focus mode transitions and trigger haptic feedback
         // Note: state.lock is already held by caller (processJoysticks)
