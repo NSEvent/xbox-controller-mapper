@@ -41,31 +41,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Lock for protecting shared state
     private let stateLock = NSLock()
 
-    init() {
-        // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
-        eventSource = CGEventSource(stateID: .hidSystemState)
-        if eventSource == nil {
-            print("⚠️ Failed to create CGEventSource - input simulation may not work")
-        }
-        
-        // Listen for screen changes to invalidate cache
-        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.stateLock.lock()
-            self?.cachedScreenBounds = nil
-            self?.stateLock.unlock()
-        }
-    }
-
-    /// Check if we can post events (accessibility enabled)
-    private func checkAccessibility() -> Bool {
-        let trusted = AXIsProcessTrusted()
-        if !trusted && !hasWarnedAboutAccessibility {
-            hasWarnedAboutAccessibility = true
-            print("⚠️ Cannot post events - Accessibility permissions not granted")
-        }
-        return trusted
-    }
-
     // MARK: - Keyboard Simulation
 
     /// Simulates a key press with optional modifiers
@@ -320,20 +295,51 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Cached union of all screen frames
     private var cachedScreenBounds: CGRect?
-
-    // MARK: - Mouse Button State
-
-    /// Returns the union of all screen frames in Core Graphics coordinates
-    private func validScreenBounds() -> CGRect {
-        stateLock.lock()
-        if let cached = cachedScreenBounds {
-            stateLock.unlock()
-            return cached
+    /// Cached primary display height
+    private var cachedPrimaryHeight: CGFloat?
+    /// Cached accessibility state
+    private var isAccessibilityTrusted: Bool = false
+    
+    init() {
+        // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
+        eventSource = CGEventSource(stateID: .hidSystemState)
+        if eventSource == nil {
+            print("⚠️ Failed to create CGEventSource - input simulation may not work")
         }
-        stateLock.unlock()
+        
+        // Check accessibility once on init
+        isAccessibilityTrusted = AXIsProcessTrusted()
+        
+        // Listen for screen changes to invalidate cache
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.stateLock.lock()
+            self?.cachedScreenBounds = nil
+            self?.cachedPrimaryHeight = nil
+            self?.stateLock.unlock()
+        }
+    }
+
+    /// Check if we can post events (using cached state)
+    private func checkAccessibility() -> Bool {
+        if !isAccessibilityTrusted {
+            // Re-check just in case user granted it recently
+            isAccessibilityTrusted = AXIsProcessTrusted()
+            if !isAccessibilityTrusted && !hasWarnedAboutAccessibility {
+                hasWarnedAboutAccessibility = true
+                print("⚠️ Cannot post events - Accessibility permissions not granted")
+            }
+        }
+        return isAccessibilityTrusted
+    }
+
+    /// Ensures screen bounds and height are cached. Must be called with stateLock held.
+    private func ensureScreenCache() -> (CGRect, CGFloat) {
+        if let bounds = cachedScreenBounds, let height = cachedPrimaryHeight {
+            return (bounds, height)
+        }
 
         // Recalculate on main thread safely
-        let bounds = DispatchQueue.main.sync {
+        let (bounds, height) = DispatchQueue.main.sync {
             var validFrame = CGRect.null
             let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
             
@@ -346,14 +352,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 
                 validFrame = validFrame.union(cgRect)
             }
-            return validFrame
+            return (validFrame, primaryHeight)
         }
 
-        stateLock.lock()
         cachedScreenBounds = bounds
-        stateLock.unlock()
-        
-        return bounds
+        cachedPrimaryHeight = height
+        return (bounds, height)
     }
 
     // MARK: - Mouse Simulation
@@ -380,12 +384,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // If no pixel-level movement, skip to preserve residual for next frame
             if moveX == 0 && moveY == 0 { return }
 
-            let currentLocation = NSEvent.mouseLocation
-            // Use CoreGraphics to get the primary display height. This is thread-safe and
-            // correctly identifies the "Frame 0" screen for coordinate conversion, preventing
-            // issues when NSScreen.main (focused screen) differs from the primary screen.
-            let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+            // Single lock acquisition for all state
+            self.stateLock.lock()
+            let heldButtons = self.heldMouseButtons
+            let (bounds, primaryDisplayHeight) = self.ensureScreenCache()
+            self.stateLock.unlock()
 
+            let currentLocation = NSEvent.mouseLocation
+            
+            // Use cached primary display height for coordinate conversion
             // Convert from bottom-left origin to top-left origin
             let newX = currentLocation.x + moveX
             let newY = primaryDisplayHeight - currentLocation.y + moveY
@@ -394,11 +401,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             let eventType: CGEventType
             let mouseButton: CGMouseButton
             
-            // Safe state access
-            self.stateLock.lock()
-            let heldButtons = self.heldMouseButtons
-            self.stateLock.unlock()
-
             if heldButtons.contains(.left) {
                 eventType = .leftMouseDragged
                 mouseButton = .left
@@ -414,7 +416,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             }
 
             // Clamp to valid screen bounds to avoid off-screen warps (which cause stickiness)
-            let bounds = self.validScreenBounds()
             let clampedX = max(bounds.minX, min(bounds.maxX - 1, newX))
             let clampedY = max(bounds.minY, min(bounds.maxY - 1, newY))
             let newPoint = CGPoint(x: clampedX, y: clampedY)
