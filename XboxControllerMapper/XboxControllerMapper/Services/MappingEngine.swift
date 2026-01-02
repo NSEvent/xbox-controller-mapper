@@ -618,7 +618,19 @@ class MappingEngine: ObservableObject {
         let magnitude = sqrt(magnitudeSquared)
         let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.mouseAccelerationExponent)
-        let scale = acceleratedMagnitude * settings.mouseMultiplier / magnitude
+        
+        // Focus Mode Logic
+        // Check global modifier state (includes both physical keyboard and our simulated events)
+        let currentFlags = CGEventSource.flagsState(.hidSystemState)
+        let focusFlags = settings.focusModeModifier.cgEventFlags
+        
+        // Active if ANY of the configured focus flags are held.
+        // If focus modifier is empty, focus mode is disabled.
+        let isFocusActive = focusFlags.rawValue != 0 && currentFlags.contains(focusFlags)
+        
+        let multiplier = isFocusActive ? settings.focusMultiplier : settings.mouseMultiplier
+        
+        let scale = acceleratedMagnitude * multiplier / magnitude
         let dx = stick.x * scale
         var dy = stick.y * scale
 

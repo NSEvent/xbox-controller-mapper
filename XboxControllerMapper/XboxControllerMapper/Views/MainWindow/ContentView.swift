@@ -715,6 +715,63 @@ struct JoystickSettingsView: View {
                 ))
             }
 
+            Section("Focus Mode (Precision)") {
+                SliderRow(
+                    label: "Focus Speed",
+                    value: Binding(
+                        get: { settings.focusModeSensitivity },
+                        set: { updateSettings(\.focusModeSensitivity, $0) }
+                    ),
+                    range: 0...0.5,
+                    description: "Sensitivity when holding modifier"
+                )
+
+                VStack(alignment: .leading) {
+                    Text("Activation Modifier")
+                    HStack(spacing: 12) {
+                        Toggle("⌘", isOn: Binding(
+                            get: { settings.focusModeModifier.command },
+                            set: { 
+                                var new = settings.focusModeModifier
+                                new.command = $0
+                                updateSettings(\.focusModeModifier, new)
+                            }
+                        ))
+                        .toggleStyle(.button)
+
+                        Toggle("⌥", isOn: Binding(
+                            get: { settings.focusModeModifier.option },
+                            set: { 
+                                var new = settings.focusModeModifier
+                                new.option = $0
+                                updateSettings(\.focusModeModifier, new)
+                            }
+                        ))
+                        .toggleStyle(.button)
+
+                        Toggle("⌃", isOn: Binding(
+                            get: { settings.focusModeModifier.control },
+                            set: { 
+                                var new = settings.focusModeModifier
+                                new.control = $0
+                                updateSettings(\.focusModeModifier, new)
+                            }
+                        ))
+                        .toggleStyle(.button)
+
+                        Toggle("⇧", isOn: Binding(
+                            get: { settings.focusModeModifier.shift },
+                            set: { 
+                                var new = settings.focusModeModifier
+                                new.shift = $0
+                                updateSettings(\.focusModeModifier, new)
+                            }
+                        ))
+                        .toggleStyle(.button)
+                    }
+                }
+            }
+
             Section("Right Joystick (Scroll)") {
                 SliderRow(
                     label: "Sensitivity",

@@ -29,6 +29,12 @@ struct JoystickSettings: Codable, Equatable {
     /// Multiplier applied to scroll speed after a double-tap up/down
     var scrollBoostMultiplier: Double = 2.0
 
+    /// Sensitivity to use when focus modifier is held (0.0 - 1.0)
+    var focusModeSensitivity: Double = 0.1
+
+    /// Modifier that triggers focus mode (slower mouse speed)
+    var focusModeModifier: ModifierFlags = .command
+
     static let `default` = JoystickSettings()
 
     /// Validates settings ranges
@@ -40,15 +46,23 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(scrollDeadzone) &&
                range.contains(mouseAcceleration) &&
                range.contains(scrollAcceleration) &&
-               (1.0...4.0).contains(scrollBoostMultiplier)
+               (1.0...4.0).contains(scrollBoostMultiplier) &&
+               range.contains(focusModeSensitivity)
     }
 
     /// Converts 0-1 sensitivity to actual multiplier for mouse
     var mouseMultiplier: Double {
+        return calculateMouseMultiplier(sensitivity: mouseSensitivity)
+    }
+
+    /// Converts 0-1 focus sensitivity to actual multiplier for mouse
+    var focusMultiplier: Double {
+        return calculateMouseMultiplier(sensitivity: focusModeSensitivity)
+    }
+    
+    private func calculateMouseMultiplier(sensitivity: Double) -> Double {
         // Map 0-1 to 2-120 range (exponential for better feel)
-        // Midpoint (0.5) with power 3.0 results in 0.125 factor, 
-        // which matches old power 1.5 at 0.25 sensitivity.
-        return 2.0 + pow(mouseSensitivity, 3.0) * 118.0
+        return 2.0 + pow(sensitivity, 3.0) * 118.0
     }
 
     /// Converts 0-1 sensitivity to actual multiplier for scroll
@@ -83,6 +97,8 @@ extension JoystickSettings {
         case mouseAcceleration
         case scrollAcceleration
         case scrollBoostMultiplier
+        case focusModeSensitivity
+        case focusModeModifier
     }
 
     init(from decoder: Decoder) throws {
@@ -96,6 +112,8 @@ extension JoystickSettings {
         mouseAcceleration = try container.decodeIfPresent(Double.self, forKey: .mouseAcceleration) ?? 0.5
         scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5
         scrollBoostMultiplier = try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0
+        focusModeSensitivity = try container.decodeIfPresent(Double.self, forKey: .focusModeSensitivity) ?? 0.2
+        focusModeModifier = try container.decodeIfPresent(ModifierFlags.self, forKey: .focusModeModifier) ?? .command
     }
 
     func encode(to encoder: Encoder) throws {
@@ -109,5 +127,7 @@ extension JoystickSettings {
         try container.encode(mouseAcceleration, forKey: .mouseAcceleration)
         try container.encode(scrollAcceleration, forKey: .scrollAcceleration)
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
+        try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)
+        try container.encode(focusModeModifier, forKey: .focusModeModifier)
     }
 }
