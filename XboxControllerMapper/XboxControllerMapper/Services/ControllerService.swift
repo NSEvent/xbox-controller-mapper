@@ -493,14 +493,4 @@ class ControllerService: ObservableObject {
         // Real implementation would use CHHapticEngine for supported controllers
         print("Haptic feedback requested: intensity=\(intensity), duration=\(duration)")
     }
-    
-    // MARK: - Test Helpers
-    
-    func simulateLeftStickMove(x: CGFloat, y: CGFloat) {
-        updateLeftStick(x: Float(x), y: Float(y))
-    }
-    
-    func simulateRightStickMove(x: CGFloat, y: CGFloat) {
-        updateRightStick(x: Float(x), y: Float(y))
-    }
 }

@@ -100,6 +100,23 @@ class MockInputSimulator: InputSimulatorProtocol {
     }
     
     func startHoldMapping(_ mapping: KeyMapping) {
+        lock.lock()
+        // We need to call internal methods or duplicate logic to avoid deadlock if we called self.holdModifier
+        // But holdModifier logic is simple.
+        // Let's just implement it inline or call a private helper if needed.
+        // But here we can just append event and update state.
+        // Wait, holdModifier updates modifierCounts. We should replicate that.
+        // Simplest is to unlock, call holdModifier, lock, append event.
+        // But holdModifier appends event too.
+        // The original code:
+        /*
+        if mapping.modifiers.hasAny {
+            holdModifier(mapping.modifiers.cgEventFlags)
+        }
+        events.append(.startHoldMapping(mapping))
+        */
+        lock.unlock()
+        
         if mapping.modifiers.hasAny {
             holdModifier(mapping.modifiers.cgEventFlags)
         }
@@ -311,7 +328,7 @@ final class XboxControllerMapperTests: XCTestCase {
         await waitForTasks(0.2)
         
         await MainActor.run {
-            controllerService.simulateLeftStickMove(x: 0.5, y: 0.5)
+            controllerService.leftStick = CGPoint(x: 0.5, y: 0.5)
         }
         await waitForTasks(0.2)
         
