@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var selectedButton: ControllerButton?
     @State private var configuringButton: ControllerButton?
     @State private var showingChordSheet = false
+    @State private var editingChord: ChordMapping?
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
     @State private var lastScale: CGFloat = 1.0 // Track last scale for gesture
@@ -61,6 +62,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingChordSheet) {
             ChordMappingSheet()
+        }
+        .sheet(item: $editingChord) { chord in
+            ChordMappingSheet(editingChord: chord)
         }
         .sheet(isPresented: $showingSettingsSheet) {
             SettingsSheet()
@@ -218,9 +222,11 @@ struct ContentView: View {
             if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
                 List {
                     ForEach(profile.chordMappings) { chord in
-                        ChordRow(chord: chord) {
+                        ChordRow(chord: chord, onEdit: {
+                            editingChord = chord
+                        }, onDelete: {
                             profileManager.removeChord(chord)
-                        }
+                        })
                     }
                 }
             } else {
@@ -465,6 +471,7 @@ struct LegendItem: View {
 
 struct ChordRow: View {
     let chord: ChordMapping
+    var onEdit: () -> Void
     var onDelete: () -> Void
 
     var body: some View {
@@ -484,6 +491,12 @@ struct ChordRow: View {
 
             Spacer()
 
+            Button(action: onEdit) {
+                Image(systemName: "pencil")
+                    .foregroundColor(.accentColor)
+            }
+            .buttonStyle(.plain)
+
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
@@ -500,13 +513,17 @@ struct ChordMappingSheet: View {
     @EnvironmentObject var profileManager: ProfileManager
     @Environment(\.dismiss) private var dismiss
 
+    var editingChord: ChordMapping?
+
     @State private var selectedButtons: Set<ControllerButton> = []
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
 
+    private var isEditing: Bool { editingChord != nil }
+
     var body: some View {
         VStack(spacing: 20) {
-            Text("Add Chord")
+            Text(isEditing ? "Edit Chord" : "Add Chord")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -590,13 +607,21 @@ struct ChordMappingSheet: View {
 
                 Spacer()
 
-                Button("Add") {
-                    let chord = ChordMapping(
-                        buttons: selectedButtons,
-                        keyCode: keyCode,
-                        modifiers: modifiers
-                    )
-                    profileManager.addChord(chord)
+                Button(isEditing ? "Save" : "Add") {
+                    if let existingChord = editingChord {
+                        var updatedChord = existingChord
+                        updatedChord.buttons = selectedButtons
+                        updatedChord.keyCode = keyCode
+                        updatedChord.modifiers = modifiers
+                        profileManager.updateChord(updatedChord)
+                    } else {
+                        let chord = ChordMapping(
+                            buttons: selectedButtons,
+                            keyCode: keyCode,
+                            modifiers: modifiers
+                        )
+                        profileManager.addChord(chord)
+                    }
                     dismiss()
                 }
                 .disabled(selectedButtons.count < 2 || (keyCode == nil && !modifiers.hasAny))
@@ -605,8 +630,15 @@ struct ChordMappingSheet: View {
         }
         .padding(20)
         .frame(width: 600)
+        .onAppear {
+            if let chord = editingChord {
+                selectedButtons = chord.buttons
+                keyCode = chord.keyCode
+                modifiers = chord.modifiers
+            }
+        }
     }
-    
+
     @ViewBuilder
     private func toggleButton(_ button: ControllerButton) -> some View {
         let scale: CGFloat = 1.3
