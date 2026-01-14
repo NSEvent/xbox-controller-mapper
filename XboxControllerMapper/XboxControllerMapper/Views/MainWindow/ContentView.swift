@@ -385,6 +385,7 @@ struct ProfileSidebar: View {
                     // Import failed, profile not loaded
                 }
             case .failure:
+                print("File import failed")
                 // File selection failed
             }
         }
