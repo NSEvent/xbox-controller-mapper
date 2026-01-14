@@ -40,7 +40,7 @@ class ProfileManager: ObservableObject {
         do {
             try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
         } catch {
-            print("Failed to create config directory: \(error)")
+            // Directory creation failed, but we'll handle it gracefully
         }
     }
     
@@ -248,7 +248,7 @@ class ProfileManager: ObservableObject {
                 self.uiScale = scale
             }
         } catch {
-            print("Failed to load configuration: \(error)")
+            // Configuration load failed, will use defaults
         }
     }
 
@@ -267,7 +267,7 @@ class ProfileManager: ObservableObject {
             let data = try encoder.encode(config)
             try data.write(to: configURL)
         } catch {
-            print("Failed to save configuration: \(error)")
+            // Configuration save failed silently
         }
     }
 

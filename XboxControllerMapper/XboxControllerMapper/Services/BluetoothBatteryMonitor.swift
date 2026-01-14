@@ -41,13 +41,11 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     private func scanForControllers() {
         // First, check for already connected devices (common for controllers)
         let connected = centralManager.retrieveConnectedPeripherals(withServices: [batteryServiceUUID])
-        
+
         if let controller = connected.first(where: { $0.name?.localizedCaseInsensitiveContains("Xbox") == true }) {
-            print("Found connected Xbox controller via retrieveConnectedPeripherals: \(controller.name ?? "Unknown")")
             connect(to: controller)
         } else {
             // Scan for new devices
-            print("Scanning for Xbox controllers with Battery Service...")
             centralManager.scanForPeripherals(withServices: [batteryServiceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
         }
     }
@@ -65,7 +63,6 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
         case .poweredOn:
             scanForControllers()
         case .poweredOff, .resetting, .unauthorized, .unknown, .unsupported:
-            print("Bluetooth state changed to: \(central.state.rawValue)")
             stopMonitoring()
         @unknown default:
             break
@@ -75,26 +72,23 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
         // Check if it's likely an Xbox controller
         if let name = peripheral.name, name.localizedCaseInsensitiveContains("Xbox") {
-            print("Discovered Xbox controller: \(name)")
             centralManager.stopScan()
             connect(to: peripheral)
         }
     }
     
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        print("Connected to BLE peripheral: \(peripheral.name ?? "Unknown")")
         peripheral.discoverServices([batteryServiceUUID])
     }
     
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        print("Failed to connect: \(error?.localizedDescription ?? "Unknown error")")
+        // Connection failed, will retry on next scan
     }
     
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        print("Disconnected from BLE peripheral")
         connectedPeripheral = nil
         batteryCharacteristic = nil
-        
+
         // Retry scanning
         if central.state == .poweredOn {
             scanForControllers()
@@ -118,7 +112,6 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
         
         for characteristic in characteristics {
             if characteristic.uuid == batteryLevelUUID {
-                print("Found Battery Level Characteristic")
                 batteryCharacteristic = characteristic
                 peripheral.readValue(for: characteristic)
                 peripheral.setNotifyValue(true, for: characteristic)
@@ -128,18 +121,16 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         if let error = error {
-            print("Error reading battery characteristic: \(error)")
             return
         }
-        
+
         if characteristic.uuid == batteryLevelUUID, let value = characteristic.value {
             // Battery level is a single byte (0-100)
             let level = Int(value.first ?? 0)
-            print("BLE Battery Level Update: \(level)%")
-            
+
             DispatchQueue.main.async {
                 self.batteryLevel = level
-                // Assuming not charging if on BLE, or we can't tell. 
+                // Assuming not charging if on BLE, or we can't tell.
                 // Xbox controllers often just report level.
             }
         }

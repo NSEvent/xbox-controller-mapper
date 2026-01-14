@@ -92,7 +92,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func requestAccessibilityPermissions() {
         // First check if we already have permissions
         if AXIsProcessTrusted() {
-            print("Accessibility permissions granted - global input simulation enabled")
             return
         }
 

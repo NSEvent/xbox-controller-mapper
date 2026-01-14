@@ -22,7 +22,6 @@ private func setupHIDManager() {
     // Create an HID Manager
     hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
     guard let hidManager = hidManager else {
-        print("❌ HID: Failed to create IOHIDManager")
         return
     }
 
@@ -51,11 +50,6 @@ private func setupHIDManager() {
 
     // Open
     let status = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
-    if status != kIOReturnSuccess {
-        print("❌ HID: Failed to open IOHIDManager: \(status)")
-    } else {
-        print("✅ HID: Monitor started for Xbox Guide button")
-    }
 }
 
 private func stopHIDManager() {
@@ -68,12 +62,9 @@ private func stopHIDManager() {
 // MARK: - Handlers
 
 fileprivate func deviceMatched(_ device: IOHIDDevice) {
-    let name = getDeviceName(device)
-    print("🎮 HID: Device matched: \(name)")
 }
 
 fileprivate func deviceRemoved(_ device: IOHIDDevice) {
-    print("🎮 HID: Device removed")
 }
 
 fileprivate func handleInput(_ value: IOHIDValue) {

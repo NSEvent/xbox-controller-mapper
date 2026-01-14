@@ -184,9 +184,7 @@ class ControllerService: ObservableObject {
     }
 
     private func startDiscovery() {
-        GCController.startWirelessControllerDiscovery {
-            print("Wireless controller discovery completed")
-        }
+        GCController.startWirelessControllerDiscovery()
     }
 
     private func stopDiscovery() {
@@ -208,8 +206,6 @@ class ControllerService: ObservableObject {
         setupHaptics(for: controller)
         updateBatteryInfo()
         startDisplayUpdateTimer()
-
-        print("Controller connected: \(controllerName)")
     }
 
     private func controllerDisconnected() {
@@ -223,7 +219,7 @@ class ControllerService: ObservableObject {
         batteryState = .unknown
         stopDisplayUpdateTimer()
         stopHaptics()
-        
+
         storage.lock.lock()
         storage.activeButtons.removeAll()
         storage.buttonPressTimestamps.removeAll()
@@ -234,8 +230,6 @@ class ControllerService: ObservableObject {
         storage.leftStick = .zero
         storage.rightStick = .zero
         storage.lock.unlock()
-
-        print("Controller disconnected")
     }
 
     // MARK: - Display Update Timer
@@ -546,7 +540,6 @@ class ControllerService: ObservableObject {
 
     private func setupHaptics(for controller: GCController) {
         guard let haptics = controller.haptics else {
-            print("⚠️ Controller does not support haptics")
             return
         }
 
@@ -559,23 +552,13 @@ class ControllerService: ObservableObject {
                     // Restart engine if it stops
                     try? engine?.start()
                 }
-                engine.stoppedHandler = { reason in
-                    print("Haptic engine stopped: \(reason)")
-                }
                 do {
                     try engine.start()
                     hapticEngines.append(engine)
-                    print("✓ Haptic engine started for locality: \(locality)")
                 } catch {
-                    print("✗ Failed to start haptic engine for \(locality): \(error)")
+                    // Engine startup failed, continue to next locality
                 }
             }
-        }
-
-        if hapticEngines.isEmpty {
-            print("⚠️ No haptic engines could be created")
-        } else {
-            print("✓ Created \(hapticEngines.count) haptic engine(s)")
         }
     }
 
@@ -623,7 +606,7 @@ class ControllerService: ObservableObject {
                     }
                 }
             } catch {
-                print("Haptic pattern error: \(error)")
+                // Haptic pattern error, continue silently
             }
         }
     }

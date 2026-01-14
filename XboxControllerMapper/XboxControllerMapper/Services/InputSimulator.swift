@@ -314,9 +314,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     init() {
         // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
         eventSource = CGEventSource(stateID: .hidSystemState)
-        if eventSource == nil {
-            print("⚠️ Failed to create CGEventSource - input simulation may not work")
-        }
         
         // Check accessibility once on init
         isAccessibilityTrusted = AXIsProcessTrusted()
@@ -335,10 +332,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         if !isAccessibilityTrusted {
             // Re-check just in case user granted it recently
             isAccessibilityTrusted = AXIsProcessTrusted()
-            if !isAccessibilityTrusted && !hasWarnedAboutAccessibility {
-                hasWarnedAboutAccessibility = true
-                print("⚠️ Cannot post events - Accessibility permissions not granted")
-            }
         }
         return isAccessibilityTrusted
     }

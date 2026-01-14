@@ -20,7 +20,6 @@ class InputMonitor: ObservableObject {
 
     func startMonitoring() {
         guard AXIsProcessTrusted() else {
-            print("Accessibility permissions not granted. Cannot monitor events.")
             return
         }
 
@@ -32,8 +31,6 @@ class InputMonitor: ObservableObject {
             self?.handleEvent(event)
             return event
         }
-
-        print("InputMonitor started (local only - background via GCController API).")
     }
 
     func stopMonitoring() {
@@ -41,7 +38,6 @@ class InputMonitor: ObservableObject {
             NSEvent.removeMonitor(monitor)
             localMonitor = nil
         }
-        print("InputMonitor stopped.")
     }
 
     private func handleEvent(_ event: NSEvent) {

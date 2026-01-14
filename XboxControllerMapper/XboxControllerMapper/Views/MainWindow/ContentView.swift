@@ -382,10 +382,10 @@ struct ProfileSidebar: View {
                     let profile = try profileManager.importProfile(from: url)
                     profileManager.setActiveProfile(profile)
                 } catch {
-                    print("Import failed: \(error)")
+                    // Import failed, profile not loaded
                 }
-            case .failure(let error):
-                print("Import failed: \(error)")
+            case .failure:
+                // File selection failed
             }
         }
         .fileExporter(
@@ -394,9 +394,7 @@ struct ProfileSidebar: View {
             contentType: .json,
             defaultFilename: profileToExport?.name ?? "Profile"
         ) { result in
-            if case .failure(let error) = result {
-                print("Export failed: \(error)")
-            }
+            // Export completed, success or failure handled by system
         }
     }
 }
