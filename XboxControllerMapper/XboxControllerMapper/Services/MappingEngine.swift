@@ -2,6 +2,59 @@ import Foundation
 import Combine
 import CoreGraphics
 
+// MARK: - Mapping Execution Helper
+
+/// Handles execution of different mapping types (simple, hold, long-hold, double-tap)
+private struct MappingExecutor {
+    private let inputSimulator: InputSimulatorProtocol
+    private let inputQueue: DispatchQueue
+    private let inputLogService: InputLogService?
+
+    init(inputSimulator: InputSimulatorProtocol, inputQueue: DispatchQueue, inputLogService: InputLogService?) {
+        self.inputSimulator = inputSimulator
+        self.inputQueue = inputQueue
+        self.inputLogService = inputLogService
+    }
+
+    /// Executes a simple key mapping
+    func executeMapping(_ mapping: KeyMapping, for button: ControllerButton, logType: InputEventType = .singlePress) {
+        if let keyCode = mapping.keyCode {
+            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+        } else if mapping.modifiers.hasAny {
+            executeTapModifier(mapping.modifiers.cgEventFlags)
+        }
+        inputLogService?.log(buttons: [button], type: logType, action: mapping.displayString)
+    }
+
+    /// Executes a long-hold mapping
+    func executeLongHold(_ mapping: LongHoldMapping, for button: ControllerButton) {
+        if let keyCode = mapping.keyCode {
+            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+        } else if mapping.modifiers.hasAny {
+            executeTapModifier(mapping.modifiers.cgEventFlags)
+        }
+        inputLogService?.log(buttons: [button], type: .longPress, action: mapping.displayString)
+    }
+
+    /// Executes a double-tap mapping
+    func executeDoubleTap(_ mapping: DoubleTapMapping, for button: ControllerButton) {
+        if let keyCode = mapping.keyCode {
+            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+        } else if mapping.modifiers.hasAny {
+            executeTapModifier(mapping.modifiers.cgEventFlags)
+        }
+        inputLogService?.log(buttons: [button], type: .doubleTap, action: mapping.displayString)
+    }
+
+    /// Helper: Execute a modifier-only mapping (tap modifiers briefly)
+    private func executeTapModifier(_ flags: CGEventFlags) {
+        inputSimulator.holdModifier(flags)
+        inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [inputSimulator] in
+            inputSimulator.releaseModifier(flags)
+        }
+    }
+}
+
 /// Orchestrates Xbox controller input to keyboard/mouse output mapping
 ///
 /// The MappingEngine is the central coordinator that:
@@ -35,6 +88,7 @@ class MappingEngine: ObservableObject {
     private let appMonitor: AppMonitor
     nonisolated private let inputSimulator: InputSimulatorProtocol
     private let inputLogService: InputLogService?
+    nonisolated private let mappingExecutor: MappingExecutor
 
     // MARK: - Thread-Safe State
     
@@ -152,6 +206,7 @@ class MappingEngine: ObservableObject {
         self.appMonitor = appMonitor
         self.inputSimulator = inputSimulator
         self.inputLogService = inputLogService
+        self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService)
 
         setupBindings()
         
@@ -279,8 +334,7 @@ class MappingEngine: ObservableObject {
                     state.lastTapTime.removeValue(forKey: button)
                     state.lock.unlock()
                     
-                    executeDoubleTapMapping(doubleTapMapping)
-                    inputLogService?.log(buttons: [button], type: .doubleTap, action: doubleTapMapping.displayString)
+                    mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
                     return
                 }
                 state.lock.lock()
@@ -351,8 +405,7 @@ class MappingEngine: ObservableObject {
         state.longHoldTriggered.insert(button)
         state.lock.unlock()
         
-        executeLongHoldMapping(mapping)
-        inputLogService?.log(buttons: [button], type: .longPress, action: mapping.displayString)
+        mappingExecutor.executeLongHold(mapping, for: button)
     }
 
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
@@ -414,7 +467,7 @@ class MappingEngine: ObservableObject {
             state.lastTapTime.removeValue(forKey: button)
             state.lock.unlock()
             
-            executeLongHoldMapping(longHoldMapping)
+            mappingExecutor.executeLongHold(longHoldMapping, for: button)
             return
         }
 
@@ -432,8 +485,7 @@ class MappingEngine: ObservableObject {
                 state.lastTapTime.removeValue(forKey: button)
                 state.lock.unlock()
                 
-                executeDoubleTapMapping(doubleTapMapping)
-                inputLogService?.log(buttons: [button], type: .doubleTap, action: doubleTapMapping.displayString)
+                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
                 return
             }
             
@@ -482,29 +534,6 @@ class MappingEngine: ObservableObject {
         }
     }
 
-    nonisolated private func executeLongHoldMapping(_ mapping: LongHoldMapping) {
-        if let keyCode = mapping.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-        } else if mapping.modifiers.hasAny {
-            let flags = mapping.modifiers.cgEventFlags
-            inputSimulator.holdModifier(flags)
-            inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [weak self] in
-                self?.inputSimulator.releaseModifier(flags)
-            }
-        }
-    }
-
-    nonisolated private func executeDoubleTapMapping(_ mapping: DoubleTapMapping) {
-        if let keyCode = mapping.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-        } else if mapping.modifiers.hasAny {
-            let flags = mapping.modifiers.cgEventFlags
-            inputSimulator.holdModifier(flags)
-            inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [weak self] in
-                self?.inputSimulator.releaseModifier(flags)
-            }
-        }
-    }
 
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
         state.lock.lock()
