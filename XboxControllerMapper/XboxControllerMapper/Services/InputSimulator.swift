@@ -15,6 +15,25 @@ protocol InputSimulatorProtocol: Sendable {
     func stopHoldMapping(_ mapping: KeyMapping)
 }
 
+// MARK: - Modifier Key Handler
+
+/// Helper class to manage modifier key reference counting and state
+private class ModifierKeyState {
+    /// Maps modifier mask to virtual key code
+    static let maskToKeyCode: [UInt64: Int] = [
+        CGEventFlags.maskCommand.rawValue: kVK_Command,
+        CGEventFlags.maskAlternate.rawValue: kVK_Option,
+        CGEventFlags.maskShift.rawValue: kVK_Shift,
+        CGEventFlags.maskControl.rawValue: kVK_Control
+    ]
+
+    /// List of modifier masks in order for iteration
+    static let modifierMasks: [CGEventFlags] = [
+        .maskCommand, .maskAlternate, .maskShift, .maskControl
+    ]
+}
+
+
 /// Service for simulating keyboard and mouse input via CGEvent
 class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private let eventSource: CGEventSource?
@@ -198,18 +217,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
-        let masks: [CGEventFlags] = [.maskCommand, .maskAlternate, .maskShift, .maskControl]
-        let vKeys: [UInt64: Int] = [
-            CGEventFlags.maskCommand.rawValue: kVK_Command,
-            CGEventFlags.maskAlternate.rawValue: kVK_Option,
-            CGEventFlags.maskShift.rawValue: kVK_Shift,
-            CGEventFlags.maskControl.rawValue: kVK_Control
-        ]
-        
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        for mask in masks where modifier.contains(mask) {
+        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             modifierCounts[key] = count + 1
@@ -217,11 +228,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if count == 0 {
                 // First time this modifier is being held
                 heldModifiers.insert(mask)
-                // Need to post event inside lock or copy state? 
-                // Posting is fast, let's do it inside lock to ensure consistent state/event ordering locally.
-                if let vKey = vKeys[key] {
+                if let vKey = ModifierKeyState.maskToKeyCode[key] {
                     if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: true) {
-                        // Set flags to include this modifier and any already-held modifiers
                         event.flags = heldModifiers
                         event.post(tap: .cghidEventTap)
                     }
@@ -235,29 +243,20 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
-        let masks: [CGEventFlags] = [.maskCommand, .maskAlternate, .maskShift, .maskControl]
-        let vKeys: [UInt64: Int] = [
-            CGEventFlags.maskCommand.rawValue: kVK_Command,
-            CGEventFlags.maskAlternate.rawValue: kVK_Option,
-            CGEventFlags.maskShift.rawValue: kVK_Shift,
-            CGEventFlags.maskControl.rawValue: kVK_Control
-        ]
-        
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        for mask in masks where modifier.contains(mask) {
+        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             if count > 0 {
                 modifierCounts[key] = count - 1
-                
+
                 if count == 1 {
                     // Last button holding this modifier released
                     heldModifiers.remove(mask)
-                    if let vKey = vKeys[key] {
+                    if let vKey = ModifierKeyState.maskToKeyCode[key] {
                         if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: false) {
-                            // Set flags to the new state (without this modifier) for proper release
                             event.flags = heldModifiers
                             event.post(tap: .cghidEventTap)
                         }
