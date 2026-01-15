@@ -304,11 +304,9 @@ class MappingEngine: ObservableObject {
             return
         }
         let bundleId = state.frontmostBundleId
-        // Copy state needed for logic
         let lastTap = state.lastTapTime[button]
         state.lock.unlock()
 
-        // Get the effective mapping
         guard let mapping = profile.effectiveMapping(for: button, appBundleId: bundleId) else {
             return
         }
@@ -317,56 +315,63 @@ class MappingEngine: ObservableObject {
         print("🔵 handleButtonPressed: \(button.displayName)")
         #endif
 
-        // Auto-optimize Mouse Clicks: Treat as hold modifier (Down on Press, Up on Release)
+        // Determine if this should be treated as a held mapping
         let isMouseClick = mapping.keyCode.map { KeyCodeMapping.isMouseButton($0) } ?? false
         let isChordPart = isButtonUsedInChords(button, profile: profile)
         let hasDoubleTap = mapping.doubleTapMapping != nil && !mapping.doubleTapMapping!.isEmpty
-        
         let shouldTreatAsHold = mapping.isHoldModifier || (isMouseClick && !isChordPart && !hasDoubleTap)
 
         if shouldTreatAsHold {
-            // Check for double-tap
-            if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
-                let now = Date()
-                if let lastTap = lastTap, now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
-                    // Double-tap executed
-                    state.lock.lock()
-                    state.lastTapTime.removeValue(forKey: button)
-                    state.lock.unlock()
-                    
-                    mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
-                    return
-                }
-                state.lock.lock()
-                state.lastTapTime[button] = now
-                state.lock.unlock()
-            }
-
-            // Start holding
-            state.lock.lock()
-            state.heldButtons[button] = mapping
-            state.lock.unlock()
-            
-            inputSimulator.startHoldMapping(mapping)
-            inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+            handleHoldMapping(button, mapping: mapping, lastTap: lastTap)
             return
         }
-        
-        // Long Hold
+
+        // Set up long-hold timer if applicable
         if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
-            let workItem = DispatchWorkItem { [weak self] in
-                self?.handleLongHoldTriggered(button, mapping: longHold)
-            }
-            state.lock.lock()
-            state.longHoldTimers[button] = workItem
-            state.lock.unlock()
-            inputQueue.asyncAfter(deadline: .now() + longHold.threshold, execute: workItem)
+            setupLongHoldTimer(for: button, mapping: longHold)
         }
 
-        // Repeat
+        // Set up repeat if applicable
         if let repeatConfig = mapping.repeatMapping, repeatConfig.enabled {
             startRepeatTimer(for: button, mapping: mapping, interval: repeatConfig.interval)
         }
+    }
+
+    /// Handles mapping that should be treated as continuously held
+    nonisolated private func handleHoldMapping(_ button: ControllerButton, mapping: KeyMapping, lastTap: Date?) {
+        // Check for double-tap
+        if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
+            let now = Date()
+            if let lastTap = lastTap, now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
+                state.lock.lock()
+                state.lastTapTime.removeValue(forKey: button)
+                state.lock.unlock()
+                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
+                return
+            }
+            state.lock.lock()
+            state.lastTapTime[button] = now
+            state.lock.unlock()
+        }
+
+        // Start holding the mapping
+        state.lock.lock()
+        state.heldButtons[button] = mapping
+        state.lock.unlock()
+
+        inputSimulator.startHoldMapping(mapping)
+        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+    }
+
+    /// Sets up a timer for long-hold detection
+    nonisolated private func setupLongHoldTimer(for button: ControllerButton, mapping: LongHoldMapping) {
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.handleLongHoldTriggered(button, mapping: mapping)
+        }
+        state.lock.lock()
+        state.longHoldTimers[button] = workItem
+        state.lock.unlock()
+        inputQueue.asyncAfter(deadline: .now() + mapping.threshold, execute: workItem)
     }
 
     nonisolated private func startRepeatTimer(for button: ControllerButton, mapping: KeyMapping, interval: TimeInterval) {
