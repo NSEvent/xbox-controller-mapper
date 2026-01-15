@@ -416,129 +416,184 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         stopRepeatTimer(for: button)
 
+        // Cleanup: cancel long hold timer and check for held/chord buttons
+        if let releaseResult = cleanupReleaseTimers(for: button) {
+            if case .heldMapping(let heldMapping) = releaseResult {
+                inputSimulator.stopHoldMapping(heldMapping)
+            }
+            return
+        }
+
+        // Get button mapping and verify constraints
+        guard let (mapping, profile, bundleId, isLongHoldTriggered) = getReleaseContext(for: button) else { return }
+
+        // Skip special cases (hold modifiers, repeat mappings, already triggered long holds)
+        if shouldSkipRelease(mapping: mapping, isLongHoldTriggered: isLongHoldTriggered) { return }
+
+        // Try to handle as long hold fallback
+        if let longHoldMapping = mapping.longHoldMapping,
+           holdDuration >= longHoldMapping.threshold,
+           !longHoldMapping.isEmpty {
+            clearTapState(for: button)
+            mappingExecutor.executeLongHold(longHoldMapping, for: button)
+            return
+        }
+
+        // Get pending tap info for double-tap detection
+        let (pendingSingle, lastTap) = getPendingTapInfo(for: button)
+
+        // Try to handle as double tap
+        if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
+            // handleDoubleTapIfReady returns true if double-tap executed, false if scheduling first tap
+            // Either way, we're done - don't call handleSingleTap
+            _ = handleDoubleTapIfReady(button, mapping: mapping, pendingSingle: pendingSingle, lastTap: lastTap, doubleTapMapping: doubleTapMapping)
+        } else {
+            // Default to single tap (no double-tap mapping)
+            handleSingleTap(button, mapping: mapping, profile: profile)
+        }
+    }
+
+    // MARK: - Release Handler Helpers
+
+    /// Result of cleanup checks during button release
+    enum ReleaseCleanupResult {
+        case heldMapping(KeyMapping)
+        case chordButton
+    }
+
+    /// Cleanup timers and check for held/chord buttons that bypass normal release handling
+    nonisolated private func cleanupReleaseTimers(for button: ControllerButton) -> ReleaseCleanupResult? {
         state.lock.lock()
+        defer { state.lock.unlock() }
+
         // Cancel long hold timer
         if let timer = state.longHoldTimers[button] {
             timer.cancel()
             state.longHoldTimers.removeValue(forKey: button)
         }
-        
-        guard state.isEnabled, let profile = state.activeProfile else {
-            state.lock.unlock()
-            return
-        }
-        
+
+        guard state.isEnabled, let profile = state.activeProfile else { return nil }
+
         // Check for held mapping - must release even for chord buttons
         // (chord fallback may have started a hold mapping that needs cleanup)
         if let heldMapping = state.heldButtons[button] {
             state.heldButtons.removeValue(forKey: button)
-            state.activeChordButtons.remove(button)  // Also clear chord state if present
-            state.lock.unlock()
-            inputSimulator.stopHoldMapping(heldMapping)
-            return
+            state.activeChordButtons.remove(button)
+            return .heldMapping(heldMapping)
         }
 
+        // Check if button is part of active chord - skip normal release handling
         if state.activeChordButtons.contains(button) {
             state.activeChordButtons.remove(button)
-            state.lock.unlock()
-            return
+            return .chordButton
         }
-        
+
+        return nil
+    }
+
+    /// Get the context needed for release handling (mapping, profile, bundleId, etc.)
+    nonisolated private func getReleaseContext(for button: ControllerButton) -> (KeyMapping, Profile, String?, Bool)? {
+        state.lock.lock()
+        defer { state.lock.unlock() }
+
+        guard state.isEnabled, let profile = state.activeProfile else { return nil }
+
         let bundleId = state.frontmostBundleId
-        let isLongHoldTriggered = state.longHoldTriggered.contains(button)
+        var isLongHoldTriggered = state.longHoldTriggered.contains(button)
         if isLongHoldTriggered {
             state.longHoldTriggered.remove(button)
         }
-        
-        // Copy other needed state
-        let pendingSingle = state.pendingSingleTap[button]
-        let lastTap = state.lastTapTime[button]
-        state.lock.unlock()
 
-        guard let mapping = profile.effectiveMapping(for: button, appBundleId: bundleId) else { return }
-        
-        // Skip if held or repeat (handled above/already)
-        if mapping.isHoldModifier || (mapping.repeatMapping?.enabled ?? false) { return }
-        if isLongHoldTriggered { return }
+        guard let mapping = profile.effectiveMapping(for: button, appBundleId: bundleId) else { return nil }
 
-        // Long Hold Fallback
-        if let longHoldMapping = mapping.longHoldMapping,
-           holdDuration >= longHoldMapping.threshold,
-           !longHoldMapping.isEmpty {
-            
-            state.lock.lock()
-            state.pendingSingleTap[button]?.cancel()
-            state.pendingSingleTap.removeValue(forKey: button)
-            state.lastTapTime.removeValue(forKey: button)
-            state.lock.unlock()
-            
-            mappingExecutor.executeLongHold(longHoldMapping, for: button)
-            return
-        }
-
-        // Double Tap
-        if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
-            let now = Date()
-            
-            if let pending = pendingSingle,
-               let lastTap = lastTap,
-               now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
-                
-                pending.cancel()
-                state.lock.lock()
-                state.pendingSingleTap.removeValue(forKey: button)
-                state.lastTapTime.removeValue(forKey: button)
-                state.lock.unlock()
-                
-                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
-                return
-            }
-            
-            // First tap
-            state.lock.lock()
-            state.lastTapTime[button] = now
-            
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                self.state.lock.lock()
-                self.state.pendingSingleTap.removeValue(forKey: button)
-                self.state.lastTapTime.removeValue(forKey: button)
-                self.state.lock.unlock()
-                
-                self.inputSimulator.executeMapping(mapping)
-                self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
-            }
-            state.pendingSingleTap[button] = workItem
-            state.lock.unlock()
-            
-            inputQueue.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
-        } else {
-            // Single Tap
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                self.state.lock.lock()
-                self.state.pendingReleaseActions.removeValue(forKey: button)
-                self.state.lock.unlock()
-                
-                self.inputSimulator.executeMapping(mapping)
-                self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
-            }
-            
-            state.lock.lock()
-            state.pendingReleaseActions[button] = workItem
-            state.lock.unlock()
-            
-            let isChordPart = isButtonUsedInChords(button, profile: profile)
-            let delay = isChordPart ? Config.chordReleaseProcessingDelay : 0.0
-            
-            if delay > 0 {
-                inputQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
-            } else {
-                inputQueue.async(execute: workItem)
-            }
-        }
+        return (mapping, profile, bundleId, isLongHoldTriggered)
     }
 
+    /// Check if button release should be skipped (hold modifier, repeat, already triggered long hold)
+    nonisolated private func shouldSkipRelease(mapping: KeyMapping, isLongHoldTriggered: Bool) -> Bool {
+        mapping.isHoldModifier || (mapping.repeatMapping?.enabled ?? false) || isLongHoldTriggered
+    }
+
+    /// Get pending tap state for double-tap detection
+    nonisolated private func getPendingTapInfo(for button: ControllerButton) -> (DispatchWorkItem?, Date?) {
+        state.lock.lock()
+        defer { state.lock.unlock() }
+
+        return (state.pendingSingleTap[button], state.lastTapTime[button])
+    }
+
+    /// Clear pending tap state (used when double-tap window expires or long-hold triggers)
+    nonisolated private func clearTapState(for button: ControllerButton) {
+        state.lock.lock()
+        state.pendingSingleTap[button]?.cancel()
+        state.pendingSingleTap.removeValue(forKey: button)
+        state.lastTapTime.removeValue(forKey: button)
+        state.lock.unlock()
+    }
+
+    /// Handle double-tap detection - returns true if double-tap was executed
+    nonisolated private func handleDoubleTapIfReady(
+        _ button: ControllerButton,
+        mapping: KeyMapping,
+        pendingSingle: DispatchWorkItem?,
+        lastTap: Date?,
+        doubleTapMapping: DoubleTapMapping
+    ) -> Bool {
+        let now = Date()
+
+        // Check if we have a pending tap within the double-tap window
+        if let pending = pendingSingle,
+           let lastTap = lastTap,
+           now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
+
+            pending.cancel()
+            clearTapState(for: button)
+            mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
+            return true
+        }
+
+        // First tap in potential double-tap sequence - schedule single tap fallback
+        state.lock.lock()
+        state.lastTapTime[button] = now
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.clearTapState(for: button)
+            self.inputSimulator.executeMapping(mapping)
+            self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+        }
+        state.pendingSingleTap[button] = workItem
+        state.lock.unlock()
+
+        inputQueue.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
+        return false
+    }
+
+    /// Handle single tap - either immediate or delayed if button is part of chord mapping
+    nonisolated private func handleSingleTap(_ button: ControllerButton, mapping: KeyMapping, profile: Profile) {
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.state.lock.lock()
+            self.state.pendingReleaseActions.removeValue(forKey: button)
+            self.state.lock.unlock()
+
+            self.inputSimulator.executeMapping(mapping)
+            self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+        }
+
+        state.lock.lock()
+        state.pendingReleaseActions[button] = workItem
+        state.lock.unlock()
+
+        let isChordPart = isButtonUsedInChords(button, profile: profile)
+        let delay = isChordPart ? Config.chordReleaseProcessingDelay : 0.0
+
+        if delay > 0 {
+            inputQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
+        } else {
+            inputQueue.async(execute: workItem)
+        }
+    }
 
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
         state.lock.lock()
