@@ -80,7 +80,13 @@ class MockInputSimulator: InputSimulatorProtocol {
         modifierCounts.removeAll()
         _events.append(.releaseAllModifiers)
     }
-    
+
+    func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !modifier.isEmpty && _heldModifiers.contains(modifier)
+    }
+
     func moveMouse(dx: CGFloat, dy: CGFloat) {
         lock.lock()
         defer { lock.unlock() }

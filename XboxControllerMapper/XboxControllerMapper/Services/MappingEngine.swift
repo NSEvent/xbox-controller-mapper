@@ -95,13 +95,6 @@ class MappingEngine: ObservableObject {
     
     // Joystick polling
     private var joystickTimer: DispatchSourceTimer?
-    private let joystickPollInterval: TimeInterval = 1.0 / 120.0
-
-    private let minJoystickCutoffHz: Double = 4.0
-    private let maxJoystickCutoffHz: Double = 14.0
-    private let scrollTapThreshold: Double = 0.45
-    private let scrollDoubleTapWindow: TimeInterval = 0.4
-    private let scrollTapDirectionRatio: Double = 0.8
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -431,7 +424,7 @@ class MappingEngine: ObservableObject {
             state.lock.unlock()
             
             let isChordPart = isButtonUsedInChords(button, profile: profile)
-            let delay = isChordPart ? 0.18 : 0.0
+            let delay = isChordPart ? Config.chordReleaseProcessingDelay : 0.0
             
             if delay > 0 {
                 inputQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
@@ -447,7 +440,7 @@ class MappingEngine: ObservableObject {
         } else if mapping.modifiers.hasAny {
             let flags = mapping.modifiers.cgEventFlags
             inputSimulator.holdModifier(flags)
-            inputQueue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [weak self] in
                 self?.inputSimulator.releaseModifier(flags)
             }
         }
@@ -459,7 +452,7 @@ class MappingEngine: ObservableObject {
         } else if mapping.modifiers.hasAny {
             let flags = mapping.modifiers.cgEventFlags
             inputSimulator.holdModifier(flags)
-            inputQueue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [weak self] in
                 self?.inputSimulator.releaseModifier(flags)
             }
         }
@@ -497,7 +490,7 @@ class MappingEngine: ObservableObject {
             } else if chord.modifiers.hasAny {
                 let flags = chord.modifiers.cgEventFlags
                 inputSimulator.holdModifier(flags)
-                inputQueue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [weak self] in
                     self?.inputSimulator.releaseModifier(flags)
                 }
             }
@@ -527,7 +520,7 @@ class MappingEngine: ObservableObject {
         stopJoystickPolling()
 
         let timer = DispatchSource.makeTimerSource(queue: pollingQueue)
-        timer.schedule(deadline: .now(), repeating: joystickPollInterval, leeway: .microseconds(100))
+        timer.schedule(deadline: .now(), repeating: Config.joystickPollInterval, leeway: .microseconds(100))
         timer.setEventHandler { [weak self] in
             self?.processJoysticks()
         }
@@ -551,7 +544,7 @@ class MappingEngine: ObservableObject {
         guard state.isEnabled, let settings = state.joystickSettings else { return }
 
         let now = CFAbsoluteTimeGetCurrent()
-        let dt = state.lastJoystickSampleTime > 0 ? now - state.lastJoystickSampleTime : joystickPollInterval
+        let dt = state.lastJoystickSampleTime > 0 ? now - state.lastJoystickSampleTime : Config.joystickPollInterval
         state.lastJoystickSampleTime = now
 
         // Process left joystick (mouse)
@@ -578,7 +571,7 @@ class MappingEngine: ObservableObject {
     nonisolated private func smoothStick(_ raw: CGPoint, previous: CGPoint, dt: TimeInterval) -> CGPoint {
         let magnitude = sqrt(Double(raw.x * raw.x + raw.y * raw.y))
         let t = min(1.0, magnitude * 1.2)
-        let cutoff = self.minJoystickCutoffHz + (self.maxJoystickCutoffHz - self.minJoystickCutoffHz) * t
+        let cutoff = Config.joystickMinCutoffFrequency + (Config.joystickMaxCutoffFrequency - Config.joystickMinCutoffFrequency) * t
         let alpha = 1.0 - exp(-2.0 * Double.pi * cutoff * max(0.0, dt))
         let newX = Double(previous.x) + alpha * (Double(raw.x) - Double(previous.x))
         let newY = Double(previous.y) + alpha * (Double(raw.y) - Double(previous.y))
@@ -593,7 +586,7 @@ class MappingEngine: ObservableObject {
 
         if state.scrollBoostDirection != 0, isOutside {
             let currentDirection = rawStick.y >= 0 ? 1 : -1
-            if abs(rawStick.y) >= abs(rawStick.x) * self.scrollTapDirectionRatio,
+            if abs(rawStick.y) >= abs(rawStick.x) * Config.scrollTapDirectionRatio,
                currentDirection != state.scrollBoostDirection {
                 state.scrollBoostDirection = 0
             }
@@ -602,7 +595,7 @@ class MappingEngine: ObservableObject {
         if isOutside {
             state.rightStickWasOutsideDeadzone = true
             state.rightStickPeakYAbs = max(state.rightStickPeakYAbs, abs(Double(rawStick.y)))
-            if abs(rawStick.y) >= abs(rawStick.x) * self.scrollTapDirectionRatio {
+            if abs(rawStick.y) >= abs(rawStick.x) * Config.scrollTapDirectionRatio {
                 state.rightStickLastDirection = rawStick.y >= 0 ? 1 : -1
             }
             return
@@ -611,8 +604,8 @@ class MappingEngine: ObservableObject {
         guard state.rightStickWasOutsideDeadzone else { return }
         state.rightStickWasOutsideDeadzone = false
 
-        if state.rightStickPeakYAbs >= self.scrollTapThreshold, state.rightStickLastDirection != 0 {
-            if now - state.lastRightStickTapTime <= self.scrollDoubleTapWindow,
+        if state.rightStickPeakYAbs >= Config.scrollTapThreshold, state.rightStickLastDirection != 0 {
+            if now - state.lastRightStickTapTime <= Config.scrollDoubleTapWindow,
                state.rightStickLastDirection == state.lastRightStickTapDirection {
                 state.scrollBoostDirection = state.rightStickLastDirection
             }
@@ -652,9 +645,8 @@ class MappingEngine: ObservableObject {
             }
         }
 
-        // Brief pause after exiting focus mode (100ms) to let user adjust joystick
-        let focusExitPauseDuration: TimeInterval = 0.1
-        if state.focusExitTime > 0 && (now - state.focusExitTime) < focusExitPauseDuration {
+        // Brief pause after exiting focus mode to let user adjust joystick
+        if state.focusExitTime > 0 && (now - state.focusExitTime) < Config.focusExitPauseDuration {
             return  // Skip mouse movement during pause
         }
 
@@ -676,11 +668,9 @@ class MappingEngine: ObservableObject {
             state.currentMultiplier = targetMultiplier
         }
 
-        // Exponential smoothing: ~100ms transition time at 120Hz polling
+        // Exponential smoothing: transition time at configured polling rate
         // alpha = 1 - e^(-dt/tau), where tau is time constant
-        // For 120Hz and ~100ms transition: alpha ≈ 0.08
-        let smoothingAlpha = 0.08
-        state.currentMultiplier += smoothingAlpha * (targetMultiplier - state.currentMultiplier)
+        state.currentMultiplier += Config.focusMultiplierSmoothingAlpha * (targetMultiplier - state.currentMultiplier)
 
         let scale = acceleratedMagnitude * state.currentMultiplier / magnitude
         let dx = stick.x * scale
@@ -694,10 +684,9 @@ class MappingEngine: ObservableObject {
     /// Performs haptic feedback for focus mode transitions on the controller
     nonisolated private func performFocusModeHaptic(entering: Bool) {
         // Both enter and exit get strong haptics, but with different feel
-        // Enter: sharp click, Exit: softer thud
-        let intensity: Float = 0.5
-        let sharpness: Float = entering ? 1.0 : 0.3
-        let duration: TimeInterval = entering ? 0.12 : 0.15
+        let intensity: Float = entering ? Config.focusEntryHapticIntensity : Config.focusExitHapticIntensity
+        let sharpness: Float = entering ? Config.focusEntryHapticSharpness : Config.focusExitHapticSharpness
+        let duration: TimeInterval = entering ? Config.focusEntryHapticDuration : Config.focusExitHapticDuration
         controllerService.playHaptic(intensity: intensity, sharpness: sharpness, duration: duration)
     }
 

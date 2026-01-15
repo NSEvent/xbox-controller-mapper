@@ -87,6 +87,20 @@ class ControllerService: ObservableObject {
     /// Right trigger pressure (0 to 1) - UI/Legacy use only
     @Published var rightTriggerValue: Float = 0
 
+    /// Chord detection window (accessible for testing and configuration)
+    var chordWindow: TimeInterval {
+        get {
+            storage.lock.lock()
+            defer { storage.lock.unlock() }
+            return storage.chordWindow
+        }
+        set {
+            storage.lock.lock()
+            storage.chordWindow = newValue
+            storage.lock.unlock()
+        }
+    }
+
     // MARK: - Throttled UI Display Values (updated at ~15Hz to avoid UI blocking)
     @Published var displayLeftStick: CGPoint = .zero
     @Published var displayRightStick: CGPoint = .zero
@@ -237,7 +251,7 @@ class ControllerService: ObservableObject {
     private func startDisplayUpdateTimer() {
         stopDisplayUpdateTimer()
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
-        timer.schedule(deadline: .now(), repeating: 1.0 / 15.0, leeway: .milliseconds(10))
+        timer.schedule(deadline: .now(), repeating: Config.displayRefreshInterval, leeway: .milliseconds(10))
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
             
@@ -251,18 +265,18 @@ class ControllerService: ObservableObject {
             self.leftTriggerValue = tsLeftTrig
             self.rightTriggerValue = tsRightTrig
             
-            if abs(self.displayLeftStick.x - tsLeft.x) > 0.01 ||
-               abs(self.displayLeftStick.y - tsLeft.y) > 0.01 {
+            if abs(self.displayLeftStick.x - tsLeft.x) > Config.displayUpdateDeadzone ||
+               abs(self.displayLeftStick.y - tsLeft.y) > Config.displayUpdateDeadzone {
                 self.displayLeftStick = tsLeft
             }
-            if abs(self.displayRightStick.x - tsRight.x) > 0.01 ||
-               abs(self.displayRightStick.y - tsRight.y) > 0.01 {
+            if abs(self.displayRightStick.x - tsRight.x) > Config.displayUpdateDeadzone ||
+               abs(self.displayRightStick.y - tsRight.y) > Config.displayUpdateDeadzone {
                 self.displayRightStick = tsRight
             }
-            if abs(self.displayLeftTrigger - tsLeftTrig) > 0.01 {
+            if abs(self.displayLeftTrigger - tsLeftTrig) > Float(Config.displayUpdateDeadzone) {
                 self.displayLeftTrigger = tsLeftTrig
             }
-            if abs(self.displayRightTrigger - tsRightTrig) > 0.01 {
+            if abs(self.displayRightTrigger - tsRightTrig) > Float(Config.displayUpdateDeadzone) {
                 self.displayRightTrigger = tsRightTrig
             }
         }
@@ -292,7 +306,7 @@ class ControllerService: ObservableObject {
         }
         
         if isConnected {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Config.batteryUpdateInterval) { [weak self] in
                 self?.updateBatteryInfo()
             }
         }

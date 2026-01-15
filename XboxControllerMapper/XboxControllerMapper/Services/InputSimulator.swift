@@ -77,7 +77,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             func pressMod(_ key: Int, flag: CGEventFlags) {
                 currentFlags.insert(flag)
                 self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: true, flags: currentFlags)
-                usleep(20000) // 20ms delay between modifiers
+                usleep(Config.modifierPressDelay)
             }
 
             // Press modifier keys first (Command -> Shift -> Option -> Control)
@@ -88,24 +88,24 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             // Small delay after modifiers
             if !modifiersToPress.isEmpty {
-                usleep(20000) // 20ms
+                usleep(Config.postModifierDelay)
             }
 
             // Press the main key with all flags active
             self.postKeyEvent(keyCode: keyCode, keyDown: true, flags: currentFlags)
-            usleep(50000) // 50ms press duration
+            usleep(Config.keyPressDuration)
             self.postKeyEvent(keyCode: keyCode, keyDown: false, flags: currentFlags)
 
             // Small delay before releasing modifiers
             if !modifiersToPress.isEmpty {
-                usleep(20000) // 20ms
+                usleep(Config.preReleaseDelay)
             }
 
             // Helper to release modifier
             func releaseMod(_ key: Int, flag: CGEventFlags) {
                 currentFlags.remove(flag)
                 self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: false, flags: currentFlags)
-                usleep(20000) // 20ms delay between releases
+                usleep(Config.modifierPressDelay)
             }
 
             // Release modifier keys (Control -> Option -> Shift -> Command)
@@ -299,7 +299,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Tracks click timing for double/triple click detection
     private var lastClickTime: [CGMouseButton: Date] = [:]
     private var clickCounts: [CGMouseButton: Int64] = [:]
-    private let multiClickThreshold: TimeInterval = 0.5  // 500ms between clicks for multi-click
 
     /// Tracks sub-pixel movement residuals to prevent quantization stickiness
     private var residualMovement: CGPoint = .zero
@@ -488,7 +487,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let now = Date()
         let clickCount: Int64
         if let lastTime = lastClickTime[button],
-           now.timeIntervalSince(lastTime) < multiClickThreshold {
+           now.timeIntervalSince(lastTime) < Config.multiClickThreshold {
             // Within threshold - increment click count
             clickCount = (clickCounts[button] ?? 0) + 1
         } else {
@@ -577,7 +576,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // Modifier-only mapping - tap the modifiers
             let flags = mapping.modifiers.cgEventFlags
             holdModifier(flags)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [weak self] in
                 self?.releaseModifier(flags)
             }
         }
