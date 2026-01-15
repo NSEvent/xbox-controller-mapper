@@ -2,7 +2,30 @@ import Foundation
 import Combine
 import CoreGraphics
 
-/// Coordinates controller input with profile mappings and input simulation
+/// Orchestrates Xbox controller input to keyboard/mouse output mapping
+///
+/// The MappingEngine is the central coordinator that:
+/// 1. Listens to controller input events from ControllerService
+/// 2. Looks up appropriate mappings from the active Profile
+/// 3. Applies complex mapping logic (chords, long-holds, double-taps)
+/// 4. Simulates keyboard/mouse output via InputSimulator
+/// 5. Tracks joystick input and provides mouse movement
+///
+/// **Key Features:**
+/// - **Chord Detection** - Multiple buttons pressed simultaneously trigger combined action
+/// - **Long-Hold Detection** - Different action when button held >500ms threshold
+/// - **Double-Tap Detection** - Different action on rapid double-press within time window
+/// - **Repeat-While-Held** - Key repeats continuously while button is held
+/// - **Hold Modifiers** - Button acts as modifier key (Cmd, Option, Shift, Control) while held
+/// - **Joystick Mapping** - Left stick → mouse movement, Right stick → scroll wheel
+/// - **Focus Mode** - Sensitivity boost when app window in focus
+/// - **App-Specific Overrides** - Different mappings per application (bundle ID)
+///
+/// **Thread Safety:** @MainActor isolation with internal NSLock for nonisolated callbacks
+///
+/// **Performance:** Polling @ 120Hz with UI throttled to 15Hz refresh rate
+///
+/// **Configuration:** Tunable parameters in `Config.swift`
 @MainActor
 class MappingEngine: ObservableObject {
     @Published var isEnabled = true
@@ -18,6 +41,31 @@ class MappingEngine: ObservableObject {
     private let inputQueue = DispatchQueue(label: "com.xboxmapper.input", qos: .userInteractive)
     private let pollingQueue = DispatchQueue(label: "com.xboxmapper.polling", qos: .userInteractive)
     
+    /// State container for all mapping engine operations
+    ///
+    /// Tracks button presses, timing state, and pending actions in a thread-safe manner.
+    /// Accessed from nonisolated polling callbacks via lock-protected access.
+    ///
+    /// **Main State Categories:**
+    /// 1. **Button Tracking** - Active buttons and chord detection
+    ///    - heldButtons: Map of currently pressed buttons to their mappings
+    ///    - activeChordButtons: Set of buttons involved in active chord sequence
+    /// 2. **Timing & Detection** - Double-tap, long-hold, and repeat detection
+    ///    - lastTapTime: Last press time per button (for double-tap detection)
+    ///    - pendingSingleTap: Delayed execution of single-tap (waits for double-tap)
+    ///    - longHoldTriggered: Tracks which buttons have triggered long-hold alternate
+    /// 3. **Delayed Actions** - Actions queued for later execution
+    ///    - pendingSingleTap: Single-tap confirmed after double-tap window closes
+    ///    - pendingReleaseActions: Button releases queued during chord window
+    ///    - longHoldTimers: Timers waiting to trigger long-hold alternate
+    ///    - repeatTimers: Timers for repeat-while-held actions
+    /// 4. **Joystick State** - Smoothed stick positions and special handling
+    ///    - smoothedLeftStick/smoothedRightStick: Low-pass filtered analog values
+    ///    - rightStickWasOutsideDeadzone: Tracks if stick moved far enough for scroll boost
+    ///    - scrollBoostDirection: Active scroll boost direction (if in progress)
+    /// 5. **Focus Mode** - Special sensitivity mode for focused input
+    ///    - currentMultiplier: Joystick sensitivity multiplier (0.0-2.0)
+    ///    - focusExitTime: Timestamp when focus mode was exited
     private final class EngineState: @unchecked Sendable {
         let lock = NSLock()
         var isEnabled = true

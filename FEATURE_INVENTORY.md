@@ -199,5 +199,11 @@
 
 ---
 
-**Last Updated:** [TBD - will update during refactoring]
-**Refactoring Status:** [TBD]
+**Last Updated:** January 14, 2026 - Phase 2 Complete
+**Refactoring Status:**
+- Phase 1: Configuration Constants - ✅ COMPLETE (Config.swift)
+- Phase 2: InputSimulator Refactoring - ✅ COMPLETE (Modifier key consolidation)
+- Phase 3: MappingEngine/ControllerService - 🔄 IN PROGRESS
+- Phase 4: Documentation - 🔄 PENDING
+
+**Tests Status:** 12 passing, 2 pre-existing failures (no regressions from refactoring)
