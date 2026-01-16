@@ -38,7 +38,7 @@ A native macOS application that maps Xbox controller inputs to keyboard shortcut
 **[Download Xbox Controller Mapper](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** - Get the latest signed and notarized build.
 
 1. Purchase and download from Gumroad
-2. Unzip and move `XboxControllerMapper.app` to `/Applications`
+2. Unzip and move the app to `/Applications`
 3. Launch and grant Accessibility permissions when prompted
 
 The app is signed with an Apple Developer ID certificate and notarized by Apple, so it will run without Gatekeeper warnings.

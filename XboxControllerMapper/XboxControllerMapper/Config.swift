@@ -88,7 +88,7 @@ struct Config {
     /// Default profile configuration directory
     static let configDirectory: String = {
         let homeDir = NSHomeDirectory()
-        return (homeDir as NSString).appendingPathComponent(".xcontrollermapper")
+        return (homeDir as NSString).appendingPathComponent(".xbox-controller-mapper")
     }()
 
     /// Configuration file name

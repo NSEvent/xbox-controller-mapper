@@ -14,9 +14,9 @@ class ProfileManager: ObservableObject {
     private let configURL: URL
 
     init() {
-        // Create ~/.xcontrollermapper directory
+        // Create ~/.xbox-controller-mapper directory
         let home = fileManager.homeDirectoryForCurrentUser
-        let configDir = home.appendingPathComponent(".xcontrollermapper", isDirectory: true)
+        let configDir = home.appendingPathComponent(".xbox-controller-mapper", isDirectory: true)
         configURL = configDir.appendingPathComponent("config.json")
 
         createDirectoryIfNeeded(at: configDir)

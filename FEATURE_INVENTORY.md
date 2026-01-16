@@ -49,7 +49,7 @@
 - [ ] Active profile persistence and switching
 - [ ] Default profile creation on first launch
 - [ ] Profile import/export via JSON
-- [ ] Profile storage in ~/.xcontrollermapper/config.json
+- [ ] Profile storage in ~/.xbox-controller-mapper/config.json
 - [ ] UI scale setting persistence per profile
 - [ ] Button mapping persistence (18 mappings × profiles)
 - [ ] Chord mapping persistence
@@ -147,7 +147,7 @@
 ### Configuration & Persistence
 - [ ] JSON-based profile storage
 - [ ] Human-readable config file format
-- [ ] Automatic directory creation (~/.xcontrollermapper/)
+- [ ] Automatic directory creation (~/.xbox-controller-mapper/)
 - [ ] Error handling for config I/O
 - [ ] Default configuration values
 

@@ -90,8 +90,8 @@ Map your Xbox controller to keyboard shortcuts, mouse movements, and scroll acti
 
 ### Installation
 
-1. Download \`XboxControllerMapper-${MARKETING_VERSION}.zip\`
-2. Unzip and move to Applications
+1. Download the zip file
+2. Unzip and move the app to Applications
 3. Launch and grant Accessibility permissions when prompted
 
 ### Requirements
