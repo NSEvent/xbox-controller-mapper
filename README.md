@@ -42,7 +42,7 @@ With the rise of whisper-driven voice transcription, just hook up any button to 
 ### Configure Button
 ![Configure Button](screenshots/2-configure-button.png)
 
-### Keyboard Shortcut Capture
+### Extended Keyboard Shortcut Capture
 ![Keyboard Shortcut Capture](screenshots/3-configure-button-keyboard.png)
 
 ### Chord Mappings
