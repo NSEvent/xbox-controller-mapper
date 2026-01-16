@@ -7,6 +7,12 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 
 A native macOS application that maps Xbox controller inputs to keyboard shortcuts, mouse movements, and scroll actions.
 
+I created this app because I wanted to vibe code with an Xbox controller and use all my regular shortcuts.
+
+I found other existing apps to be lacking or not configurable enough.
+
+With the rise of whisper-driven voice transcription, just hook up any button to your favorite voice transcription program (mine is the open-source VoiceInk) and you now have full typing abilities with only the controller.
+
 ## Features
 
 - **Button Mapping**: Map any Xbox controller button to keyboard shortcuts
@@ -20,6 +26,7 @@ A native macOS application that maps Xbox controller inputs to keyboard shortcut
   - Left joystick → Mouse movement
   - Right joystick → Scrolling
   - Configurable sensitivity and deadzone
+  - Hold modifier (RT by default) to use sensitive mouse movement
 
 - **Per-App Overrides**: Configure different mappings for specific applications
 
