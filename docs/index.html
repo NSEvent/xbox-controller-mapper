@@ -737,6 +737,45 @@
         .alert strong {
             color: var(--accent);
         }
+
+        /* Screenshots gallery */
+        .screenshots-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .screenshot-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .screenshot-item:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 30px var(--glow);
+            transform: translateY(-4px);
+        }
+
+        .screenshot-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .screenshot-item figcaption {
+            padding: 1rem 1.25rem;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            border-top: 1px solid var(--border);
+        }
+
+        .screenshot-item figcaption strong {
+            color: var(--text);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
     </style>
 </head>
 <body>
@@ -946,6 +985,56 @@
                         <p>Settings saved to <code>~/.xbox-controller-mapper/config.json</code></p>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <section id="screenshots">
+            <div class="section-header">
+                <span class="section-tag">Gallery</span>
+                <h2>Screenshots</h2>
+                <p class="section-desc">See the app in action</p>
+            </div>
+
+            <div class="screenshots-grid">
+                <figure class="screenshot-item">
+                    <img src="https://www.kevintang.xyz/apps/xbox-controller-mapper/1-button-mapping-screen.png" alt="Button Mapping Screen" loading="lazy">
+                    <figcaption>
+                        <strong>Button Mappings</strong>
+                        Visual controller layout with all your button mappings at a glance
+                    </figcaption>
+                </figure>
+
+                <figure class="screenshot-item">
+                    <img src="https://www.kevintang.xyz/apps/xbox-controller-mapper/2-configure-button.png" alt="Configure Button" loading="lazy">
+                    <figcaption>
+                        <strong>Configure Button</strong>
+                        Map any button to keyboard shortcuts, modifiers, or long-hold actions
+                    </figcaption>
+                </figure>
+
+                <figure class="screenshot-item">
+                    <img src="https://www.kevintang.xyz/apps/xbox-controller-mapper/3-configure-button-keyboard.png" alt="Keyboard Shortcut Capture" loading="lazy">
+                    <figcaption>
+                        <strong>Extended Keyboard Shortcut Capture</strong>
+                        Capture any key combination including function keys and special keys
+                    </figcaption>
+                </figure>
+
+                <figure class="screenshot-item">
+                    <img src="https://www.kevintang.xyz/apps/xbox-controller-mapper/4-chord-screen.png" alt="Chord Mappings" loading="lazy">
+                    <figcaption>
+                        <strong>Chord Mappings</strong>
+                        Combine multiple buttons for even more shortcuts
+                    </figcaption>
+                </figure>
+
+                <figure class="screenshot-item">
+                    <img src="https://www.kevintang.xyz/apps/xbox-controller-mapper/5-joystick-settings.png" alt="Joystick Settings" loading="lazy">
+                    <figcaption>
+                        <strong>Joystick Settings</strong>
+                        Fine-tune mouse sensitivity, deadzone, and scroll speed
+                    </figcaption>
+                </figure>
             </div>
         </section>
 
