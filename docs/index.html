@@ -5,28 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Xbox Controller Mapper - Support</title>
     <style>
-        :root {
-            --primary: #107C10;
-            --primary-dark: #0e6b0e;
-            --bg: #fafafa;
-            --card-bg: #ffffff;
-            --text: #1a1a1a;
-            --text-muted: #666;
-            --border: #e0e0e0;
-            --code-bg: #f4f4f4;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --primary: #2ecc40;
-                --primary-dark: #27ae35;
-                --bg: #121212;
-                --card-bg: #1e1e1e;
-                --text: #e0e0e0;
-                --text-muted: #999;
-                --border: #333;
-                --code-bg: #2a2a2a;
-            }
+        :root {
+            --accent: #00ff88;
+            --accent-dim: #00cc6a;
+            --bg-deep: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-elevated: #1a1a24;
+            --text: #e8e8f0;
+            --text-dim: #8888a0;
+            --border: #2a2a3a;
+            --glow: rgba(0, 255, 136, 0.15);
         }
 
         * {
@@ -35,347 +25,734 @@
             padding: 0;
         }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: var(--bg);
+            font-family: 'Space Grotesk', -apple-system, sans-serif;
+            background: var(--bg-deep);
             color: var(--text);
-            line-height: 1.6;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* Animated background grid */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-glow {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 20%, rgba(0, 255, 136, 0.08) 0%, transparent 40%),
+                        radial-gradient(circle at 70% 80%, rgba(100, 100, 255, 0.05) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
-            padding: 2rem 1.5rem;
+            padding: 0 1.5rem;
+            position: relative;
+            z-index: 1;
         }
 
+        /* Header */
         header {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             text-align: center;
-            padding: 3rem 1rem;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: white;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .logo {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%);
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 0 60px var(--glow), inset 0 1px 0 rgba(255,255,255,0.05);
+            position: relative;
+        }
+
+        .logo::before {
+            content: '🎮';
+            font-size: 3.5rem;
+        }
+
+        .logo::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 34px;
+            background: linear-gradient(135deg, var(--accent), transparent 50%);
+            z-index: -1;
+            opacity: 0.5;
         }
 
         header h1 {
-            font-size: 2.5rem;
+            font-size: clamp(2.5rem, 8vw, 4rem);
             font-weight: 700;
-            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
+            font-size: 1.25rem;
+            color: var(--text-dim);
+            max-width: 500px;
+            margin-bottom: 2.5rem;
         }
 
-        .download-btn {
-            display: inline-block;
-            margin-top: 1.5rem;
-            padding: 0.75rem 2rem;
-            background: white;
-            color: var(--primary);
-            text-decoration: none;
-            border-radius: 8px;
+        .cta-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-family: inherit;
             font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
         }
 
-        .download-btn:hover {
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-deep);
+            box-shadow: 0 0 30px var(--glow);
+        }
+
+        .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            box-shadow: 0 0 50px var(--glow), 0 10px 40px rgba(0,0,0,0.3);
         }
 
+        .btn-secondary {
+            background: var(--bg-elevated);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card);
+            border-color: var(--accent);
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            animation: float 2s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-10px); }
+        }
+
+        /* Navigation */
         nav {
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
             z-index: 100;
+            padding: 1rem 0;
+            background: rgba(10, 10, 15, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
         }
 
         nav ul {
             display: flex;
             justify-content: center;
-            flex-wrap: wrap;
-            list-style: none;
-            padding: 0.75rem;
             gap: 0.5rem;
+            list-style: none;
+            flex-wrap: wrap;
         }
 
         nav a {
-            color: var(--text);
+            color: var(--text-dim);
             text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
             font-size: 0.9rem;
-            transition: background 0.2s;
+            font-weight: 500;
+            transition: all 0.2s;
         }
 
         nav a:hover {
-            background: var(--code-bg);
+            color: var(--accent);
+            background: var(--bg-elevated);
         }
 
+        /* Sections */
         section {
-            margin-bottom: 3rem;
+            padding: 6rem 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-tag {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            background: var(--glow);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
         }
 
         h2 {
-            font-size: 1.75rem;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--primary);
-        }
-
-        h3 {
-            font-size: 1.25rem;
-            margin: 1.5rem 0 1rem;
-            color: var(--text);
-        }
-
-        p {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
             margin-bottom: 1rem;
         }
 
+        .section-desc {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Cards */
         .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
+            background: var(--bg-card);
             border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 255, 136, 0.3);
+            box-shadow: 0 0 40px var(--glow);
         }
 
         .card h3 {
-            margin-top: 0;
-        }
-
-        ol, ul {
-            margin-left: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
-        li {
-            margin-bottom: 0.5rem;
-        }
-
-        code {
-            background: var(--code-bg);
-            padding: 0.2rem 0.5rem;
-            border-radius: 4px;
-            font-family: 'SF Mono', Monaco, monospace;
-            font-size: 0.9em;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-        }
-
-        th, td {
-            text-align: left;
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        th {
+            font-size: 1.25rem;
             font-weight: 600;
-            background: var(--code-bg);
-        }
-
-        .faq-item {
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            margin-bottom: 0.75rem;
-            overflow: hidden;
-        }
-
-        .faq-question {
-            width: 100%;
-            padding: 1rem 1.25rem;
-            background: var(--card-bg);
-            border: none;
-            text-align: left;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 500;
-            color: var(--text);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: background 0.2s;
-        }
-
-        .faq-question:hover {
-            background: var(--code-bg);
-        }
-
-        .faq-question::after {
-            content: '+';
-            font-size: 1.5rem;
-            font-weight: 300;
-            color: var(--text-muted);
-            transition: transform 0.2s;
-        }
-
-        .faq-item.open .faq-question::after {
-            transform: rotate(45deg);
-        }
-
-        .faq-answer {
-            display: none;
-            padding: 1rem 1.25rem;
-            background: var(--bg);
-            border-top: 1px solid var(--border);
-        }
-
-        .faq-item.open .faq-answer {
-            display: block;
-        }
-
-        .faq-answer p:last-child {
-            margin-bottom: 0;
-        }
-
-        .troubleshoot-item {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
             margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
-        .troubleshoot-item h4 {
-            color: var(--primary);
-            margin-bottom: 0.75rem;
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-elevated);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
         }
 
-        .key {
-            display: inline-block;
-            padding: 0.15rem 0.5rem;
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            font-family: -apple-system, sans-serif;
-            font-size: 0.9em;
-        }
-
-        .requirements {
+        /* Requirements grid */
+        .requirements-grid {
             display: grid;
-            gap: 1rem;
+            gap: 1.5rem;
+            margin-bottom: 4rem;
         }
 
-        @media (min-width: 600px) {
-            .requirements {
+        @media (min-width: 700px) {
+            .requirements-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
         }
 
         .requirement {
             text-align: center;
-            padding: 1.5rem;
-            background: var(--card-bg);
-            border-radius: 8px;
+            padding: 2.5rem 1.5rem;
+        }
+
+        .requirement .card-icon {
+            width: 64px;
+            height: 64px;
+            font-size: 2rem;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-deep) 100%);
             border: 1px solid var(--border);
         }
 
-        .requirement-icon {
-            font-size: 2rem;
+        .requirement h4 {
+            font-size: 1.1rem;
             margin-bottom: 0.5rem;
         }
 
-        .requirement h4 {
-            font-size: 1rem;
-            margin-bottom: 0.25rem;
-        }
-
         .requirement p {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin: 0;
+            color: var(--text-dim);
+            font-size: 0.9rem;
         }
 
+        /* Steps */
         .steps {
-            counter-reset: step;
+            display: grid;
+            gap: 1rem;
+        }
+
+        @media (min-width: 700px) {
+            .steps {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .step {
-            position: relative;
-            padding-left: 3rem;
-            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            padding: 1.5rem;
         }
 
-        .step::before {
-            counter-increment: step;
-            content: counter(step);
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 2rem;
-            height: 2rem;
-            background: var(--primary);
-            color: white;
+        .step-num {
+            width: 36px;
+            height: 36px;
+            background: var(--accent);
+            color: var(--bg-deep);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .step-content h4 {
+            margin-bottom: 0.25rem;
+        }
+
+        .step-content p {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .step-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .step-content a:hover {
+            text-decoration: underline;
+        }
+
+        /* Features */
+        .features-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 700px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-list li::before {
+            content: '→';
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Code */
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            background: var(--bg-deep);
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .key {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.75rem;
+            height: 1.75rem;
+            padding: 0 0.4rem;
+            background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-deep) 100%);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: -apple-system, sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            box-shadow: 0 2px 0 var(--border);
+        }
+
+        /* Troubleshooting */
+        .trouble-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .trouble-item {
+            padding: 1.5rem;
+        }
+
+        .trouble-item h4 {
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .trouble-item ol {
+            margin-left: 1.25rem;
+            color: var(--text-dim);
+        }
+
+        .trouble-item li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* FAQ */
+        .faq-grid {
+            display: grid;
+            gap: 3rem;
+        }
+
+        @media (min-width: 700px) {
+            .faq-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .faq-category h3 {
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .faq-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .faq-q {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            text-align: left;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.2s;
+        }
+
+        .faq-q:hover {
+            background: var(--bg-elevated);
+        }
+
+        .faq-q::after {
+            content: '+';
+            font-size: 1.25rem;
+            color: var(--accent);
+            transition: transform 0.3s;
+        }
+
+        .faq-item.open .faq-q {
+            border-radius: 10px 10px 0 0;
+            border-bottom-color: transparent;
+        }
+
+        .faq-item.open .faq-q::after {
+            transform: rotate(45deg);
+        }
+
+        .faq-a {
+            display: none;
+            padding: 1.25rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .faq-item.open .faq-a {
+            display: block;
+        }
+
+        .faq-a p {
+            margin-bottom: 0.75rem;
+        }
+
+        .faq-a p:last-child {
+            margin-bottom: 0;
+        }
+
+        .faq-a ul {
+            margin-left: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 4rem 0;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent);
+        }
+
+        .copyright {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        /* Table styling */
+        .mapping-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .mapping-table th,
+        .mapping-table td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .mapping-table th {
+            color: var(--text-dim);
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .mapping-table td:first-child {
+            font-weight: 500;
+        }
+
+        .mapping-table td:last-child {
+            color: var(--text-dim);
+        }
+
+        /* Chord examples */
+        .chord-example {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .chord-example:last-child {
+            border-bottom: none;
+        }
+
+        .chord-buttons {
+            display: flex;
+            gap: 0.25rem;
+            align-items: center;
+        }
+
+        .chord-btn {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .chord-arrow {
+            color: var(--accent);
+            margin: 0 0.5rem;
+        }
+
+        .chord-result {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        /* Joystick visual */
+        .joystick-mapping {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .joystick-item {
+            text-align: center;
+        }
+
+        .joystick-circle {
+            width: 80px;
+            height: 80px;
+            background: var(--bg-deep);
+            border: 2px solid var(--border);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
+            margin: 0 auto 0.75rem;
+            position: relative;
+        }
+
+        .joystick-circle::before {
+            content: '';
+            width: 30px;
+            height: 30px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--glow);
+        }
+
+        .joystick-item h4 {
             font-size: 0.9rem;
+            margin-bottom: 0.25rem;
         }
 
-        footer {
-            text-align: center;
-            padding: 2rem;
-            background: var(--card-bg);
-            border-top: 1px solid var(--border);
-            margin-top: 3rem;
+        .joystick-item p {
+            color: var(--text-dim);
+            font-size: 0.85rem;
         }
 
-        footer a {
-            color: var(--primary);
-            text-decoration: none;
+        /* Alert box */
+        .alert {
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin-top: 1.5rem;
         }
 
-        footer a:hover {
-            text-decoration: underline;
+        .alert p {
+            margin: 0;
+            color: var(--text-dim);
         }
 
-        .links {
-            display: flex;
-            justify-content: center;
-            gap: 2rem;
-            margin-bottom: 1rem;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            background: var(--primary);
-            color: white;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-left: 0.5rem;
-        }
-
-        .faq-category {
-            margin-bottom: 2rem;
-        }
-
-        .faq-category h3 {
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
+        .alert strong {
+            color: var(--accent);
         }
     </style>
 </head>
 <body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+
     <header>
+        <div class="logo"></div>
         <h1>Xbox Controller Mapper</h1>
-        <p>Map your Xbox controller to keyboard shortcuts, mouse, and scroll on macOS</p>
-        <a href="https://thekevintang.gumroad.com/l/xbox-controller-mapper" class="download-btn">Download on Gumroad</a>
+        <p>Transform your Xbox controller into a powerful productivity tool for macOS</p>
+        <div class="cta-group">
+            <a href="https://thekevintang.gumroad.com/l/xbox-controller-mapper" class="btn btn-primary">
+                Download Now
+            </a>
+            <a href="https://github.com/NSEvent/xbox-controller-mapper" class="btn btn-secondary">
+                View Source
+            </a>
+        </div>
+        <div class="scroll-hint">
+            <span>Scroll to explore</span>
+            <span>↓</span>
+        </div>
     </header>
 
     <nav>
         <ul>
-            <li><a href="#getting-started">Getting Started</a></li>
+            <li><a href="#setup">Setup</a></li>
             <li><a href="#features">Features</a></li>
             <li><a href="#troubleshooting">Troubleshooting</a></li>
             <li><a href="#faq">FAQ</a></li>
@@ -383,340 +760,373 @@
     </nav>
 
     <div class="container">
-        <section id="getting-started">
-            <h2>Getting Started</h2>
+        <section id="setup">
+            <div class="section-header">
+                <span class="section-tag">Getting Started</span>
+                <h2>Quick Setup</h2>
+                <p class="section-desc">Get up and running in under a minute</p>
+            </div>
 
-            <h3>Requirements</h3>
-            <div class="requirements">
-                <div class="requirement">
-                    <div class="requirement-icon">💻</div>
+            <div class="requirements-grid">
+                <div class="card requirement">
+                    <div class="card-icon">💻</div>
                     <h4>macOS 14.0+</h4>
                     <p>Sonoma or later</p>
                 </div>
-                <div class="requirement">
-                    <div class="requirement-icon">🎮</div>
+                <div class="card requirement">
+                    <div class="card-icon">🎮</div>
                     <h4>Xbox Controller</h4>
                     <p>Bluetooth enabled</p>
                 </div>
-                <div class="requirement">
-                    <div class="requirement-icon">🔐</div>
+                <div class="card requirement">
+                    <div class="card-icon">🔐</div>
                     <h4>Accessibility</h4>
                     <p>Permission required</p>
                 </div>
             </div>
 
-            <h3>Installation</h3>
             <div class="steps">
-                <div class="step">
-                    <strong>Download</strong> the app from <a href="https://thekevintang.gumroad.com/l/xbox-controller-mapper">Gumroad</a>
+                <div class="card step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                        <h4>Download</h4>
+                        <p>Get the app from <a href="https://thekevintang.gumroad.com/l/xbox-controller-mapper">Gumroad</a></p>
+                    </div>
                 </div>
-                <div class="step">
-                    <strong>Unzip</strong> and move the app to <code>/Applications</code>
+                <div class="card step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                        <h4>Install</h4>
+                        <p>Unzip and move to <code>/Applications</code></p>
+                    </div>
                 </div>
-                <div class="step">
-                    <strong>Launch</strong> the app and grant Accessibility permissions when prompted
+                <div class="card step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                        <h4>Authorize</h4>
+                        <p>Grant Accessibility permissions when prompted</p>
+                    </div>
                 </div>
-                <div class="step">
-                    <strong>Connect</strong> your Xbox controller via Bluetooth
+                <div class="card step">
+                    <div class="step-num">4</div>
+                    <div class="step-content">
+                        <h4>Connect</h4>
+                        <p>Pair your Xbox controller via Bluetooth</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="card">
-                <h3>Granting Accessibility Permissions</h3>
-                <p>The app requires Accessibility permissions to simulate keyboard and mouse input:</p>
-                <ol>
-                    <li>When prompted, click "Open System Settings"</li>
-                    <li>Find "Xbox Controller Mapper" in the list</li>
-                    <li>Toggle it <strong>ON</strong></li>
-                    <li>Restart the app if needed</li>
-                </ol>
-                <p style="margin-bottom: 0;"><strong>Why is this needed?</strong> The app uses Apple's CGEvent API to generate keyboard and mouse events. This is the same API used by accessibility tools and input remapping utilities.</p>
+            <div class="alert">
+                <p><strong>Why Accessibility permissions?</strong> The app uses Apple's CGEvent API to simulate keyboard and mouse input. This is the same API used by accessibility tools and automation software. The app is fully open source so you can verify it doesn't do anything nefarious.</p>
             </div>
         </section>
 
         <section id="features">
-            <h2>Features</h2>
-
-            <div class="card">
-                <h3>Button Mapping</h3>
-                <p>Click any button on the controller visualization to configure its mapping:</p>
-                <table>
-                    <tr>
-                        <th>Feature</th>
-                        <th>Description</th>
-                    </tr>
-                    <tr>
-                        <td>Simple Key</td>
-                        <td>Press controller button → send keystroke</td>
-                    </tr>
-                    <tr>
-                        <td>Modifier + Key</td>
-                        <td>Send combinations like <span class="key">⌘</span>+<span class="key">C</span></td>
-                    </tr>
-                    <tr>
-                        <td>Hold Modifier</td>
-                        <td>Hold button to hold <span class="key">⌘</span> <span class="key">⌥</span> <span class="key">⇧</span> <span class="key">⌃</span></td>
-                    </tr>
-                    <tr>
-                        <td>Long Hold</td>
-                        <td>Different action when held longer</td>
-                    </tr>
-                    <tr>
-                        <td>Double Tap</td>
-                        <td>Different action on quick double press</td>
-                    </tr>
-                    <tr>
-                        <td>Repeat</td>
-                        <td>Auto-repeat while holding</td>
-                    </tr>
-                </table>
+            <div class="section-header">
+                <span class="section-tag">Capabilities</span>
+                <h2>Features</h2>
+                <p class="section-desc">Everything you need for controller-driven productivity</p>
             </div>
 
-            <div class="card">
-                <h3>Chord Mappings</h3>
-                <p>Press multiple buttons simultaneously for a single action:</p>
-                <ul>
-                    <li><strong>RB + X</strong> → <span class="key">⌘</span>+<span class="key">Delete</span> (forward delete)</li>
-                    <li><strong>LB + View</strong> → <span class="key">⌘</span>+<span class="key">-</span> (zoom out)</li>
-                </ul>
-                <p style="margin-bottom: 0;">Configure chords in the "Chords" tab.</p>
-            </div>
+            <div class="features-grid">
+                <div class="card">
+                    <h3><span class="card-icon">⌨️</span> Button Mapping</h3>
+                    <table class="mapping-table">
+                        <tr>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td>Simple Key</td>
+                            <td>Single keystroke per press</td>
+                        </tr>
+                        <tr>
+                            <td>Modifier + Key</td>
+                            <td><span class="key">⌘</span><span class="key">C</span> combinations</td>
+                        </tr>
+                        <tr>
+                            <td>Hold Modifier</td>
+                            <td>Hold button = hold modifier</td>
+                        </tr>
+                        <tr>
+                            <td>Long Hold</td>
+                            <td>Different action on long press</td>
+                        </tr>
+                        <tr>
+                            <td>Double Tap</td>
+                            <td>Quick double press trigger</td>
+                        </tr>
+                        <tr>
+                            <td>Repeat</td>
+                            <td>Auto-repeat while holding</td>
+                        </tr>
+                    </table>
+                </div>
 
-            <div class="card">
-                <h3>Joystick Control</h3>
-                <table>
-                    <tr>
-                        <th>Joystick</th>
-                        <th>Function</th>
-                    </tr>
-                    <tr>
-                        <td>Left Stick</td>
-                        <td>Mouse movement</td>
-                    </tr>
-                    <tr>
-                        <td>Right Stick</td>
-                        <td>Scroll wheel</td>
-                    </tr>
-                </table>
-                <p><strong>Adjustable settings:</strong></p>
-                <ul style="margin-bottom: 0;">
-                    <li><strong>Sensitivity</strong> - Movement speed</li>
-                    <li><strong>Deadzone</strong> - Prevents drift</li>
-                    <li><strong>Acceleration</strong> - Speed curve</li>
-                    <li><strong>Focus Mode</strong> - Hold modifier for precise movement</li>
-                </ul>
-            </div>
+                <div class="card">
+                    <h3><span class="card-icon">🔗</span> Chord Mappings</h3>
+                    <p style="color: var(--text-dim); margin-bottom: 1rem;">Press multiple buttons for one action</p>
 
-            <div class="card">
-                <h3>Profiles</h3>
-                <p>Create multiple profiles for different use cases. Each profile stores:</p>
-                <ul style="margin-bottom: 0;">
-                    <li>Button mappings</li>
-                    <li>Chord configurations</li>
-                    <li>Joystick settings</li>
-                </ul>
-                <p style="margin-top: 1rem; margin-bottom: 0;">Switch profiles from the menu bar. Settings are saved to <code>~/.xbox-controller-mapper/config.json</code></p>
+                    <div class="chord-example">
+                        <div class="chord-buttons">
+                            <span class="chord-btn">RB</span>
+                            <span>+</span>
+                            <span class="chord-btn">X</span>
+                        </div>
+                        <span class="chord-arrow">→</span>
+                        <span class="chord-result"><span class="key">⌘</span> <span class="key">⌫</span> Forward delete</span>
+                    </div>
+                    <div class="chord-example">
+                        <div class="chord-buttons">
+                            <span class="chord-btn">LB</span>
+                            <span>+</span>
+                            <span class="chord-btn">View</span>
+                        </div>
+                        <span class="chord-arrow">→</span>
+                        <span class="chord-result"><span class="key">⌘</span> <span class="key">-</span> Zoom out</span>
+                    </div>
+                    <div class="chord-example">
+                        <div class="chord-buttons">
+                            <span class="chord-btn">RB</span>
+                            <span>+</span>
+                            <span class="chord-btn">View</span>
+                        </div>
+                        <span class="chord-arrow">→</span>
+                        <span class="chord-result"><span class="key">⌘</span> <span class="key">=</span> Zoom in</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3><span class="card-icon">🕹️</span> Joystick Control</h3>
+
+                    <div class="joystick-mapping">
+                        <div class="joystick-item">
+                            <div class="joystick-circle"></div>
+                            <h4>Left Stick</h4>
+                            <p>Mouse cursor</p>
+                        </div>
+                        <div class="joystick-item">
+                            <div class="joystick-circle"></div>
+                            <h4>Right Stick</h4>
+                            <p>Scroll wheel</p>
+                        </div>
+                    </div>
+
+                    <ul class="feature-list">
+                        <li>Adjustable sensitivity & deadzone</li>
+                        <li>Acceleration curves</li>
+                        <li>Focus mode for precision</li>
+                        <li>Invert Y-axis option</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h3><span class="card-icon">👤</span> Profiles</h3>
+                    <p style="color: var(--text-dim); margin-bottom: 1rem;">Create multiple configurations for different workflows</p>
+
+                    <ul class="feature-list">
+                        <li>Unlimited profiles</li>
+                        <li>Quick switch from menu bar</li>
+                        <li>Export & share configs</li>
+                        <li>Per-profile joystick settings</li>
+                    </ul>
+
+                    <div class="alert" style="margin-top: 1rem;">
+                        <p>Settings saved to <code>~/.xbox-controller-mapper/config.json</code></p>
+                    </div>
+                </div>
             </div>
         </section>
 
         <section id="troubleshooting">
-            <h2>Troubleshooting</h2>
-
-            <div class="troubleshoot-item">
-                <h4>Controller Not Detected</h4>
-                <ol style="margin-bottom: 0;">
-                    <li>Check Bluetooth connection in System Settings</li>
-                    <li>Re-pair: Forget the device and pair again</li>
-                    <li>Restart the app</li>
-                    <li>Check controller battery level</li>
-                </ol>
+            <div class="section-header">
+                <span class="section-tag">Help</span>
+                <h2>Troubleshooting</h2>
+                <p class="section-desc">Solutions to common issues</p>
             </div>
 
-            <div class="troubleshoot-item">
-                <h4>Button Presses Not Working</h4>
-                <ol style="margin-bottom: 0;">
-                    <li>Verify Accessibility permissions (System Settings → Privacy & Security → Accessibility)</li>
-                    <li>Toggle the permission off and on</li>
-                    <li>Restart the app after granting permissions</li>
-                    <li>Check the enable/disable toggle in the menu bar</li>
-                </ol>
-            </div>
+            <div class="trouble-grid">
+                <div class="card trouble-item">
+                    <h4>Controller Not Detected</h4>
+                    <ol>
+                        <li>Check Bluetooth connection in System Settings</li>
+                        <li>Forget the device and re-pair</li>
+                        <li>Restart the app</li>
+                        <li>Check controller battery level</li>
+                    </ol>
+                </div>
 
-            <div class="troubleshoot-item">
-                <h4>Mouse/Scroll Issues</h4>
-                <ol style="margin-bottom: 0;">
-                    <li>Increase deadzone if joystick drifts</li>
-                    <li>Adjust sensitivity if movement is too slow/fast</li>
-                    <li>Verify mapping is enabled in menu bar</li>
-                </ol>
-            </div>
+                <div class="card trouble-item">
+                    <h4>Button Presses Not Working</h4>
+                    <ol>
+                        <li>Verify Accessibility permissions (System Settings → Privacy & Security → Accessibility)</li>
+                        <li>Toggle the permission off and on</li>
+                        <li>Restart the app after granting permissions</li>
+                        <li>Check enable/disable toggle in menu bar</li>
+                    </ol>
+                </div>
 
-            <div class="troubleshoot-item">
-                <h4>Stuck Modifier Keys</h4>
-                <p style="margin-bottom: 0;">If a modifier gets stuck after disconnecting: press the physical modifier key on your keyboard, or restart the app.</p>
-            </div>
+                <div class="card trouble-item">
+                    <h4>Mouse/Scroll Issues</h4>
+                    <ol>
+                        <li>Increase deadzone if joystick drifts</li>
+                        <li>Adjust sensitivity for desired speed</li>
+                        <li>Verify mapping is enabled in menu bar</li>
+                    </ol>
+                </div>
 
-            <div class="troubleshoot-item">
-                <h4>App Won't Launch</h4>
-                <ol style="margin-bottom: 0;">
-                    <li>Check macOS version (requires 14.0+)</li>
-                    <li>Reset config: Delete <code>~/.xbox-controller-mapper/config.json</code></li>
-                    <li>Check Console.app for crash logs</li>
-                </ol>
+                <div class="card trouble-item">
+                    <h4>Stuck Modifier Keys</h4>
+                    <ol>
+                        <li>Press the physical modifier key on your keyboard</li>
+                        <li>Or restart the app to clear all held modifiers</li>
+                    </ol>
+                </div>
+
+                <div class="card trouble-item">
+                    <h4>App Won't Launch</h4>
+                    <ol>
+                        <li>Check macOS version (requires 14.0+)</li>
+                        <li>Reset config: Delete <code>~/.xbox-controller-mapper/config.json</code></li>
+                        <li>Check Console.app for crash logs</li>
+                    </ol>
+                </div>
             </div>
         </section>
 
         <section id="faq">
-            <h2>Frequently Asked Questions</h2>
-
-            <div class="faq-category">
-                <h3>General</h3>
-
-                <div class="faq-item">
-                    <button class="faq-question">Is my data safe? This app requires Accessibility permissions.</button>
-                    <div class="faq-answer">
-                        <p>Yes. The app is fully open source so you can verify exactly what it does. It does not connect to the internet, collect data, or log your inputs. Controller inputs are translated to keyboard/mouse events in real-time and immediately discarded.</p>
-                        <p>The app is signed with an Apple Developer ID certificate and notarized by Apple.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question">Does the app work with third-party Xbox controllers?</button>
-                    <div class="faq-answer">
-                        <p>The app uses Apple's GameController framework, which supports official Xbox controllers. Third-party controllers may work if macOS recognizes them as Xbox controllers, but compatibility varies.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question">Can I use multiple controllers at once?</button>
-                    <div class="faq-answer">
-                        <p>Currently, the app supports one controller at a time. The first connected Xbox controller will be used.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question">Does this work with games?</button>
-                    <div class="faq-answer">
-                        <p>The app is designed for productivity use (coding, browsing, general computer use). Most games have native controller support and don't need this app. Using the app with games may cause conflicts or double inputs.</p>
-                    </div>
-                </div>
+            <div class="section-header">
+                <span class="section-tag">Questions</span>
+                <h2>FAQ</h2>
+                <p class="section-desc">Answers to frequently asked questions</p>
             </div>
 
-            <div class="faq-category">
-                <h3>Mapping</h3>
+            <div class="faq-grid">
+                <div class="faq-category">
+                    <h3>General</h3>
 
-                <div class="faq-item">
-                    <button class="faq-question">How do I make a button act as a held modifier?</button>
-                    <div class="faq-answer">
-                        <p>When configuring a button, select only the modifier (<span class="key">⌘</span> <span class="key">⌥</span> <span class="key">⇧</span> <span class="key">⌃</span>) without a key, and enable "Hold Modifier". The modifier will be held while the button is pressed and released when you let go.</p>
+                    <div class="faq-item">
+                        <button class="faq-q">Is my data safe with Accessibility permissions?</button>
+                        <div class="faq-a">
+                            <p>Yes. The app is fully open source — you can verify exactly what it does. It doesn't connect to the internet, collect data, or log your inputs.</p>
+                            <p>Controller inputs are translated to keyboard/mouse events in real-time and immediately discarded. The app is signed and notarized by Apple.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-q">Does it work with third-party controllers?</button>
+                        <div class="faq-a">
+                            <p>The app uses Apple's GameController framework, which supports official Xbox controllers. Third-party controllers may work if macOS recognizes them as Xbox controllers, but compatibility varies.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-q">Can I use multiple controllers?</button>
+                        <div class="faq-a">
+                            <p>Currently, the app supports one controller at a time. The first connected Xbox controller will be used.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-q">Does this work with games?</button>
+                        <div class="faq-a">
+                            <p>The app is designed for productivity (coding, browsing, general use). Most games have native controller support. Using both may cause conflicts or double inputs.</p>
+                        </div>
                     </div>
                 </div>
 
-                <div class="faq-item">
-                    <button class="faq-question">Can I map a button to mouse clicks?</button>
-                    <div class="faq-answer">
-                        <p>Yes. In the key capture field, you can select "Mouse Left Click" or "Mouse Right Click" as the action.</p>
+                <div class="faq-category">
+                    <h3>Mapping</h3>
+
+                    <div class="faq-item">
+                        <button class="faq-q">How do I create a held modifier?</button>
+                        <div class="faq-a">
+                            <p>When configuring a button, select only the modifier (<span class="key">⌘</span> <span class="key">⌥</span> <span class="key">⇧</span> <span class="key">⌃</span>) without a key, and enable "Hold Modifier".</p>
+                            <p>The modifier will be active while the button is pressed.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-q">Can I map to mouse clicks?</button>
+                        <div class="faq-a">
+                            <p>Yes. In the key capture field, select "Mouse Left Click" or "Mouse Right Click" as the action.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-q">Long hold vs double tap — how do they interact?</button>
+                        <div class="faq-a">
+                            <p>They're independent:</p>
+                            <ul>
+                                <li>Quick tap → normal action</li>
+                                <li>Quick double-tap → double-tap action</li>
+                                <li>Hold past threshold → long-hold action</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-q">Can I disable a button?</button>
+                        <div class="faq-a">
+                            <p>Yes. Clear all mappings from the button configuration. It will do nothing when pressed.</p>
+                        </div>
                     </div>
                 </div>
 
-                <div class="faq-item">
-                    <button class="faq-question">How do long hold and double tap work together?</button>
-                    <div class="faq-answer">
-                        <p>They're independent:</p>
-                        <ul>
-                            <li>Quick tap → normal action</li>
-                            <li>Quick double-tap → double-tap action</li>
-                            <li>Hold past threshold → long-hold action</li>
-                        </ul>
+                <div class="faq-category">
+                    <h3>Joystick</h3>
+
+                    <div class="faq-item">
+                        <button class="faq-q">My joystick drifts on its own</button>
+                        <div class="faq-a">
+                            <p>Increase the deadzone setting. 15-20% usually eliminates drift while maintaining responsiveness.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-q">How do I get precise cursor control?</button>
+                        <div class="faq-a">
+                            <p>Use Focus Mode. Set a modifier as the trigger, then hold it while moving the joystick for slower, precise movement.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-q">Can I swap joystick functions?</button>
+                        <div class="faq-a">
+                            <p>Currently, left stick is always mouse and right stick is always scroll. This isn't configurable yet.</p>
+                        </div>
                     </div>
                 </div>
 
-                <div class="faq-item">
-                    <button class="faq-question">What's the difference between a chord and a long hold?</button>
-                    <div class="faq-answer">
-                        <p>A <strong>chord</strong> requires pressing multiple buttons simultaneously. A <strong>long hold</strong> requires holding a single button for a longer duration.</p>
+                <div class="faq-category">
+                    <h3>Technical</h3>
+
+                    <div class="faq-item">
+                        <button class="faq-q">Where are profiles stored?</button>
+                        <div class="faq-a">
+                            <p>Profiles save to <code>~/.xbox-controller-mapper/config.json</code> — a human-readable JSON file you can backup or share.</p>
+                        </div>
                     </div>
-                </div>
 
-                <div class="faq-item">
-                    <button class="faq-question">Can I disable a button completely?</button>
-                    <div class="faq-answer">
-                        <p>Yes. Clear the mapping by removing the key code and all modifiers. The button will do nothing when pressed.</p>
+                    <div class="faq-item">
+                        <button class="faq-q">Does it work with Karabiner-Elements?</button>
+                        <div class="faq-a">
+                            <p>Generally yes. They operate at different levels — this app handles controller input, Karabiner handles keyboard input. They typically don't conflict.</p>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <div class="faq-category">
-                <h3>Joystick</h3>
-
-                <div class="faq-item">
-                    <button class="faq-question">My joystick drifts when I'm not touching it.</button>
-                    <div class="faq-answer">
-                        <p>Increase the deadzone setting. A deadzone of 15-20% usually eliminates drift while maintaining responsiveness.</p>
+                    <div class="faq-item">
+                        <button class="faq-q">Can I run it at login?</button>
+                        <div class="faq-a">
+                            <p>Yes. Add Xbox Controller Mapper to System Settings → General → Login Items.</p>
+                        </div>
                     </div>
-                </div>
 
-                <div class="faq-item">
-                    <button class="faq-question">How do I get precise mouse control?</button>
-                    <div class="faq-answer">
-                        <p>Use Focus Mode. Configure a modifier key as the focus mode trigger, then hold that modifier while using the joystick for slower, more precise movement.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question">Can I swap the left and right joystick functions?</button>
-                    <div class="faq-answer">
-                        <p>Currently, left joystick is always mouse and right joystick is always scroll. This is not configurable.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="faq-category">
-                <h3>Profiles</h3>
-
-                <div class="faq-item">
-                    <button class="faq-question">Where are my profiles stored?</button>
-                    <div class="faq-answer">
-                        <p>Profiles are saved to <code>~/.xbox-controller-mapper/config.json</code>. This is a human-readable JSON file.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question">Can I share profiles with others?</button>
-                    <div class="faq-answer">
-                        <p>Yes. You can copy the config.json file or use the export feature to share individual profiles.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question">I lost my settings. Can I recover them?</button>
-                    <div class="faq-answer">
-                        <p>If you have Time Machine backups, you can restore <code>~/.xbox-controller-mapper/config.json</code> from a backup.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="faq-category">
-                <h3>Technical</h3>
-
-                <div class="faq-item">
-                    <button class="faq-question">Does the app work with Karabiner-Elements?</button>
-                    <div class="faq-answer">
-                        <p>Generally yes. The apps operate at different levels (Xbox Controller Mapper handles controller input, Karabiner handles keyboard input), so they typically don't conflict.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question">Can I run the app at login?</button>
-                    <div class="faq-answer">
-                        <p>Yes. Add Xbox Controller Mapper to System Settings → General → Login Items.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button class="faq-question">Why does the app need to stay running?</button>
-                    <div class="faq-answer">
-                        <p>The app continuously monitors controller input and translates it to keyboard/mouse events in real-time. Quitting the app stops all mapping.</p>
+                    <div class="faq-item">
+                        <button class="faq-q">Why must the app stay running?</button>
+                        <div class="faq-a">
+                            <p>The app continuously monitors controller input and translates it to keyboard/mouse events in real-time. Quitting stops all mapping.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -724,19 +1134,18 @@
     </div>
 
     <footer>
-        <div class="links">
+        <div class="footer-links">
             <a href="https://github.com/NSEvent/xbox-controller-mapper/issues">Report Issue</a>
             <a href="https://github.com/NSEvent/xbox-controller-mapper">Source Code</a>
             <a href="https://thekevintang.gumroad.com/l/xbox-controller-mapper">Purchase</a>
         </div>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Xbox Controller Mapper &copy; 2025</p>
+        <p class="copyright">Xbox Controller Mapper © 2025</p>
     </footer>
 
     <script>
-        document.querySelectorAll('.faq-question').forEach(button => {
-            button.addEventListener('click', () => {
-                const item = button.parentElement;
-                item.classList.toggle('open');
+        document.querySelectorAll('.faq-q').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.parentElement.classList.toggle('open');
             });
         });
     </script>
