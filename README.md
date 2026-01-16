@@ -7,6 +7,10 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 
 A native macOS application that maps Xbox controller inputs to keyboard shortcuts, mouse movements, and scroll actions.
 
+**[Website & Documentation](https://www.kevintang.xyz/apps/xbox-controller-mapper)** | **[Download](https://thekevintang.gumroad.com/l/xbox-controller-mapper)**
+
+![Xbox Controller Mapper - Button Mappings](screenshots/1-button-mapping-screen.png)
+
 I created this app because I wanted to vibe code with an Xbox controller and use all my regular shortcuts.
 
 I found other existing apps to be lacking or not configurable enough.
@@ -31,6 +35,23 @@ With the rise of whisper-driven voice transcription, just hook up any button to 
 - **Profile System**: Create and switch between multiple mapping profiles
 
 - **Visual Interface**: Interactive controller-shaped UI for easy configuration
+
+<details>
+<summary>More Screenshots</summary>
+
+### Configure Button
+![Configure Button](screenshots/2-configure-button.png)
+
+### Keyboard Shortcut Capture
+![Keyboard Shortcut Capture](screenshots/3-configure-button-keyboard.png)
+
+### Chord Mappings
+![Chord Mappings](screenshots/4-chord-screen.png)
+
+### Joystick Settings
+![Joystick Settings](screenshots/5-joystick-settings.png)
+
+</details>
 
 ## Requirements
 

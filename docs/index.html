@@ -3,7 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xbox Controller Mapper - Support</title>
+    <title>Xbox Controller Mapper for macOS - Map Controller to Keyboard & Mouse</title>
+    <meta name="description" content="Map your Xbox controller to keyboard shortcuts, mouse movements, and scroll on macOS. Open source, signed and notarized by Apple. Support chords, long-hold, double-tap, and profiles.">
+    <meta name="keywords" content="xbox controller mapper, macos controller, xbox keyboard mapping, controller to keyboard mac, xbox controller mac, controller mouse, gamepad keyboard mapper">
+    <link rel="canonical" href="https://kevintang.xyz/apps/xbox-controller-mapper">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Xbox Controller Mapper for macOS">
+    <meta property="og:description" content="Transform your Xbox controller into a productivity tool. Map buttons to keyboard shortcuts, use joysticks for mouse and scroll.">
+    <meta property="og:url" content="https://kevintang.xyz/apps/xbox-controller-mapper">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Kevin Tang">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Xbox Controller Mapper for macOS">
+    <meta name="twitter:description" content="Map your Xbox controller to keyboard shortcuts, mouse, and scroll on macOS.">
+    <meta name="twitter:image" content="https://kevintang.xyz/apps/xbox-controller-mapper/og-image.png">
+    <meta property="og:image" content="https://kevintang.xyz/apps/xbox-controller-mapper/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -87,31 +110,19 @@
         .logo {
             width: 120px;
             height: 120px;
-            background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%);
             border-radius: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             margin-bottom: 2rem;
-            border: 1px solid var(--border);
-            box-shadow: 0 0 60px var(--glow), inset 0 1px 0 rgba(255,255,255,0.05);
+            box-shadow: 0 0 60px var(--glow);
             position: relative;
+            overflow: hidden;
         }
 
-        .logo::before {
-            content: '🎮';
-            font-size: 3.5rem;
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
-        .logo::after {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 34px;
-            background: linear-gradient(135deg, var(--accent), transparent 50%);
-            z-index: -1;
-            opacity: 0.5;
-        }
 
         header h1 {
             font-size: clamp(2.5rem, 8vw, 4rem);
@@ -733,7 +744,7 @@
     <div class="bg-glow"></div>
 
     <header>
-        <div class="logo"></div>
+        <div class="logo"><img src="app-icon.png" alt="Xbox Controller Mapper icon"></div>
         <h1>Xbox Controller Mapper</h1>
         <p>Transform your Xbox controller into a powerful productivity tool for macOS</p>
         <div class="cta-group">
