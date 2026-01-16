@@ -75,6 +75,7 @@ playground.xcworkspace
 
 # Build artifacts
 build/
+release/
 DerivedData/
 
 # User-specific Xcode files
