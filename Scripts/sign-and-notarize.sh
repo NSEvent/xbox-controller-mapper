@@ -55,7 +55,8 @@ xcodebuild -project "$PROJECT" \
     -scheme "$SCHEME" \
     -configuration Release \
     -derivedDataPath "$BUILD_DIR" \
-    -arch arm64 -arch x86_64 \
+    ARCHS="arm64 x86_64" \
+    ONLY_ACTIVE_ARCH="NO" \
     DEVELOPMENT_TEAM="$TEAM_ID" \
     MARKETING_VERSION="$MARKETING_VERSION" \
     CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
