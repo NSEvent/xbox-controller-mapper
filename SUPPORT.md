@@ -203,9 +203,9 @@ A: If you have Time Machine backups, you can restore `~/.xbox-controller-mapper/
 
 A: The app uses Carbon virtual key codes, which are standard macOS key codes. These are documented in Apple's Events.h header file.
 
-**Q: Does the app work with Karabiner-Elements?**
+**Q: Does the app work with Karabiner-Elements or Hammerspoon?**
 
-A: Generally yes, but there may be conflicts if both apps try to process the same inputs. The apps operate at different levels (Xbox Controller Mapper works with controller input, Karabiner works with keyboard input), so they typically don't conflict.
+A: Generally yes. They operate at different levels — this app handles controller input, while Karabiner and Hammerspoon handle keyboard input and automation. They typically don't conflict.
 
 **Q: Can I run the app at login?**
 
