@@ -96,7 +96,7 @@ Create multiple profiles for different use cases:
 ### Button Presses Not Working
 
 1. **Check Accessibility permissions**: System Settings > Privacy & Security > Accessibility
-2. **Toggle the permission off and on**: Sometimes macOS needs a refresh
+2. **Remove and re-add the app**: Select the app in the list, click the minus button to remove it, then re-add it
 3. **Restart the app** after granting permissions
 4. **Check if mapping is enabled**: Look for the enable/disable toggle in the menu bar
 
