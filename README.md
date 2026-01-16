@@ -36,7 +36,7 @@ With the rise of whisper-driven voice transcription, just hook up any button to 
 
 - **Visual Interface**: Interactive controller-shaped UI for easy configuration
 
-<details>
+<details open>
 <summary>More Screenshots</summary>
 
 ### Configure Button
