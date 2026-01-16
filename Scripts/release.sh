@@ -80,44 +80,11 @@ echo "Created tag: $TAG"
 echo "Pushing tag to origin..."
 git push origin "$TAG"
 
-# Create GitHub release
-echo ""
-echo "=== Creating GitHub Release ==="
-RELEASE_NOTES=$(cat <<EOF
-## Xbox Controller Mapper ${MARKETING_VERSION}
-
-Map your Xbox controller to keyboard shortcuts, mouse movements, and scroll actions on macOS.
-
-### Installation
-
-1. Download the zip file
-2. Unzip and move the app to Applications
-3. Launch and grant Accessibility permissions when prompted
-
-### Requirements
-
-- macOS 14.0 or later
-- Xbox controller with Bluetooth
-- Accessibility permissions (required for input simulation)
-
-### What's New
-
-See [CHANGELOG.md](https://github.com/NSEvent/xbox-controller-mapper/blob/main/CHANGELOG.md) for details.
-EOF
-)
-
-gh release create "$TAG" \
-    --title "Xbox Controller Mapper ${MARKETING_VERSION}" \
-    --notes "$RELEASE_NOTES" \
-    "$APP_ZIP"
-
 echo ""
 echo "=== Release Complete ==="
-echo "GitHub Release: https://github.com/NSEvent/xbox-controller-mapper/releases/tag/${TAG}"
+echo "Tag created: $TAG"
 echo ""
-echo "Next steps:"
-echo "  1. Upload $APP_ZIP to Gumroad"
-echo "  2. Verify the release on GitHub"
+echo "Next step: Upload $APP_ZIP to Gumroad"
 echo ""
 
 # Open release folder in Finder for easy Gumroad upload
