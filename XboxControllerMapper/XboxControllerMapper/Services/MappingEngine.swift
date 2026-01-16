@@ -307,7 +307,7 @@ class MappingEngine: ObservableObject {
         let lastTap = state.lastTapTime[button]
         state.lock.unlock()
 
-        guard let mapping = profile.effectiveMapping(for: button, appBundleId: bundleId) else {
+        guard let mapping = profile.buttonMappings[button] else {
             return
         }
 
@@ -504,7 +504,7 @@ class MappingEngine: ObservableObject {
             state.longHoldTriggered.remove(button)
         }
 
-        guard let mapping = profile.effectiveMapping(for: button, appBundleId: bundleId) else { return nil }
+        guard let mapping = profile.buttonMappings[button] else { return nil }
 
         return (mapping, profile, bundleId, isLongHoldTriggered)
     }

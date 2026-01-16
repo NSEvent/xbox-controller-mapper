@@ -282,25 +282,6 @@ final class XboxControllerMapperTests: XCTestCase {
         }
     }
     
-    func testAppSpecificOverride() async throws {
-        await MainActor.run {
-            var profile = Profile(name: "App", buttonMappings: [.a: .key(1)])
-            profile.appOverrides["com.test.app"] = [.a: .key(2)]
-            profileManager.setActiveProfile(profile)
-            appMonitor.frontmostBundleId = "com.test.app"
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.1)
-        }
-        await waitForTasks()
-        
-        await MainActor.run {
-            XCTAssertTrue(mockInputSimulator.events.contains { event in
-                if case .executeMapping(let mapping) = event { return mapping.keyCode == 2 }
-                return false
-            })
-        }
-    }
-    
     func testLongHold() async throws {
         await MainActor.run {
             var aMapping = KeyMapping(keyCode: 1)

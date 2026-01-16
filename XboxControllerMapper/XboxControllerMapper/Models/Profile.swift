@@ -17,17 +17,13 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Joystick settings
     var joystickSettings: JoystickSettings
 
-    /// App-specific overrides: bundleIdentifier -> button mappings
-    var appOverrides: [String: [ControllerButton: KeyMapping]]
-
     init(
         id: UUID = UUID(),
         name: String,
         isDefault: Bool = false,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         chordMappings: [ChordMapping] = [],
-        joystickSettings: JoystickSettings = .default,
-        appOverrides: [String: [ControllerButton: KeyMapping]] = [:]
+        joystickSettings: JoystickSettings = .default
     ) {
         self.id = id
         self.name = name
@@ -37,20 +33,6 @@ struct Profile: Codable, Identifiable, Equatable {
         self.buttonMappings = buttonMappings
         self.chordMappings = chordMappings
         self.joystickSettings = joystickSettings
-        self.appOverrides = appOverrides
-    }
-
-    /// Gets the effective mapping for a button, considering app overrides
-    func effectiveMapping(for button: ControllerButton, appBundleId: String?) -> KeyMapping? {
-        // Check app-specific override first
-        if let bundleId = appBundleId,
-           let appMappings = appOverrides[bundleId],
-           let mapping = appMappings[button] {
-            return mapping
-        }
-
-        // Fall back to default mapping
-        return buttonMappings[button]
     }
 
     /// Validates the profile for sanity
@@ -215,7 +197,7 @@ struct Profile: Codable, Identifiable, Equatable {
 extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isDefault, createdAt, modifiedAt
-        case buttonMappings, chordMappings, joystickSettings, appOverrides
+        case buttonMappings, chordMappings, joystickSettings
     }
 
     init(from decoder: Decoder) throws {
@@ -236,15 +218,6 @@ extension Profile {
 
         chordMappings = try container.decode([ChordMapping].self, forKey: .chordMappings)
         joystickSettings = try container.decode(JoystickSettings.self, forKey: .joystickSettings)
-
-        // Decode app overrides
-        let stringKeyedOverrides = try container.decode([String: [String: KeyMapping]].self, forKey: .appOverrides)
-        appOverrides = stringKeyedOverrides.mapValues { stringDict in
-            Dictionary(uniqueKeysWithValues: stringDict.compactMap { key, value in
-                guard let button = ControllerButton(rawValue: key) else { return nil }
-                return (button, value)
-            })
-        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -262,11 +235,5 @@ extension Profile {
 
         try container.encode(chordMappings, forKey: .chordMappings)
         try container.encode(joystickSettings, forKey: .joystickSettings)
-
-        // Encode app overrides
-        let stringKeyedOverrides = appOverrides.mapValues { dict in
-            Dictionary(uniqueKeysWithValues: dict.map { ($0.key.rawValue, $0.value) })
-        }
-        try container.encode(stringKeyedOverrides, forKey: .appOverrides)
     }
 }

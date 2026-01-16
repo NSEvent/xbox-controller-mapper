@@ -34,10 +34,6 @@ struct ButtonMappingSheet: View {
     // Prevent auto-logic from running during initial load
     @State private var isLoading = true
 
-    // App override state
-    @State private var showingAppPicker = false
-    @State private var appOverrides: [(bundleId: String, mapping: KeyMapping)] = []
-
     // Keyboard visual state
     @State private var showingKeyboardForPrimary = false
     @State private var showingKeyboardForLongHold = false
@@ -66,7 +62,6 @@ struct ButtonMappingSheet: View {
                     primaryMappingSection
                     longHoldSection
                     doubleTapSection
-                    appOverridesSection
                 }
                 .padding(20)
             }
@@ -540,51 +535,6 @@ struct ButtonMappingSheet: View {
         }
     }
 
-    // MARK: - App Overrides Section
-
-    private var appOverridesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("App-Specific Overrides")
-                    .font(.headline)
-
-                Spacer()
-
-                Button(action: { showingAppPicker = true }) {
-                    Label("Add App", systemImage: "plus")
-                        .font(.caption)
-                }
-            }
-
-            if appOverrides.isEmpty {
-                Text("No app-specific overrides configured")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(12)
-                    .frame(maxWidth: .infinity)
-                    .background(Color(nsColor: .controlBackgroundColor))
-                    .cornerRadius(8)
-            } else {
-                ForEach(appOverrides.indices, id: \.self) { index in
-                    AppOverrideRow(
-                        bundleId: appOverrides[index].bundleId,
-                        mapping: appOverrides[index].mapping,
-                        onRemove: {
-                            appOverrides.remove(at: index)
-                        }
-                    )
-                }
-            }
-        }
-        .sheet(isPresented: $showingAppPicker) {
-            AppPickerSheet { bundleId in
-                // Add new override with empty mapping
-                appOverrides.append((bundleId: bundleId, mapping: KeyMapping()))
-            }
-            .environmentObject(appMonitor)
-        }
-    }
-
     // MARK: - Footer
 
     private var footer: some View {
@@ -639,13 +589,6 @@ struct ButtonMappingSheet: View {
                 repeatRate = repeatConfig.ratePerSecond
             }
         }
-
-        // Load app overrides
-        for (bundleId, mappings) in profile.appOverrides {
-            if let overrideMapping = mappings[button] {
-                appOverrides.append((bundleId: bundleId, mapping: overrideMapping))
-            }
-        }
     }
 
     private func saveMapping() {
@@ -680,11 +623,6 @@ struct ButtonMappingSheet: View {
 
         profileManager.setMapping(newMapping, for: button)
 
-        // Save app overrides
-        for override in appOverrides {
-            profileManager.setAppOverride(override.mapping, for: button, appBundleId: override.bundleId)
-        }
-
         mapping = newMapping
         dismiss()
     }
@@ -692,116 +630,8 @@ struct ButtonMappingSheet: View {
     private func clearMapping() {
         profileManager.removeMapping(for: button)
 
-        // Remove app overrides for this button
-        for override in appOverrides {
-            profileManager.removeAppOverride(for: button, appBundleId: override.bundleId)
-        }
-
         mapping = nil
         dismiss()
-    }
-}
-
-// MARK: - App Override Row
-
-struct AppOverrideRow: View {
-    let bundleId: String
-    let mapping: KeyMapping
-    var onRemove: () -> Void
-
-    @EnvironmentObject var appMonitor: AppMonitor
-
-    var body: some View {
-        HStack {
-            if let appInfo = appMonitor.appInfo(for: bundleId) {
-                if let icon = appInfo.icon {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .frame(width: 20, height: 20)
-                }
-                Text(appInfo.name)
-                    .font(.caption)
-            } else {
-                Text(bundleId)
-                    .font(.caption)
-            }
-
-            Spacer()
-
-            MappingLabelView(
-                mapping: mapping,
-                horizontal: true,
-                font: .caption,
-                foregroundColor: .secondary
-            )
-
-            Button(action: onRemove) {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundColor(.red)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(8)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(6)
-    }
-}
-
-// MARK: - App Picker Sheet
-
-struct AppPickerSheet: View {
-    var onSelect: (String) -> Void
-
-    @EnvironmentObject var appMonitor: AppMonitor
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var searchText = ""
-
-    var filteredApps: [AppInfo] {
-        let apps = appMonitor.installedApplications
-        if searchText.isEmpty {
-            return apps
-        }
-        return apps.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Select Application")
-                    .font(.headline)
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding()
-
-            TextField("Search apps...", text: $searchText)
-                .textFieldStyle(.roundedBorder)
-                .padding(.horizontal)
-
-            List(filteredApps) { app in
-                Button(action: {
-                    onSelect(app.bundleIdentifier)
-                    dismiss()
-                }) {
-                    HStack {
-                        if let icon = app.icon {
-                            Image(nsImage: icon)
-                                .resizable()
-                                .frame(width: 24, height: 24)
-                        }
-                        Text(app.name)
-                        Spacer()
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .frame(width: 350, height: 400)
     }
 }
 

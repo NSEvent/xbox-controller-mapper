@@ -28,8 +28,6 @@ With the rise of whisper-driven voice transcription, just hook up any button to 
   - Configurable sensitivity and deadzone
   - Hold modifier (RT by default) to use sensitive mouse movement
 
-- **Per-App Overrides**: Configure different mappings for specific applications
-
 - **Profile System**: Create and switch between multiple mapping profiles
 
 - **Visual Interface**: Interactive controller-shaped UI for easy configuration

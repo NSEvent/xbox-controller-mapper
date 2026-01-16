@@ -138,33 +138,6 @@ class ProfileManager: ObservableObject {
         return targetProfile?.buttonMappings[button]
     }
 
-    // MARK: - App Overrides
-
-    func setAppOverride(_ mapping: KeyMapping, for button: ControllerButton, appBundleId: String, in profile: Profile? = nil) {
-        guard var targetProfile = profile ?? activeProfile else { return }
-
-        if targetProfile.appOverrides[appBundleId] == nil {
-            targetProfile.appOverrides[appBundleId] = [:]
-        }
-        targetProfile.appOverrides[appBundleId]?[button] = mapping
-        updateProfile(targetProfile)
-    }
-
-    func removeAppOverride(for button: ControllerButton, appBundleId: String, in profile: Profile? = nil) {
-        guard var targetProfile = profile ?? activeProfile else { return }
-
-        targetProfile.appOverrides[appBundleId]?.removeValue(forKey: button)
-        if targetProfile.appOverrides[appBundleId]?.isEmpty == true {
-            targetProfile.appOverrides.removeValue(forKey: appBundleId)
-        }
-        updateProfile(targetProfile)
-    }
-
-    func getAppsWithOverrides(in profile: Profile? = nil) -> [String] {
-        guard let targetProfile = profile ?? activeProfile else { return [] }
-        return Array(targetProfile.appOverrides.keys)
-    }
-
     // MARK: - Chord Mapping
 
     func addChord(_ chord: ChordMapping, in profile: Profile? = nil) {
