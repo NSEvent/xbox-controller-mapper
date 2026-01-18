@@ -1014,6 +1014,7 @@ struct LEDSettingsView: View {
                             set: { updateColor($0) }
                         )
                     )
+                    .frame(height: 44)
 
                     Picker("Brightness", selection: Binding(
                         get: { settings.lightBarBrightness },
@@ -1172,13 +1173,25 @@ struct LEDSettingsView: View {
 struct LightBarColorPicker: NSViewRepresentable {
     @Binding var color: Color
 
-    func makeNSView(context: Context) -> NSColorWell {
+    func makeNSView(context: Context) -> NSView {
+        let container = NSView()
+
         let colorWell = NSColorWell()
         colorWell.color = NSColor(color)
         colorWell.target = context.coordinator
         colorWell.action = #selector(Coordinator.colorChanged(_:))
-        colorWell.controlSize = .regular
+        colorWell.controlSize = .large
+        colorWell.translatesAutoresizingMaskIntoConstraints = false
         context.coordinator.colorWell = colorWell
+
+        container.addSubview(colorWell)
+
+        NSLayoutConstraint.activate([
+            colorWell.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            colorWell.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            colorWell.topAnchor.constraint(equalTo: container.topAnchor),
+            colorWell.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
 
         let panel = NSColorPanel.shared
         panel.showsAlpha = false
@@ -1192,13 +1205,13 @@ struct LightBarColorPicker: NSViewRepresentable {
             object: panel
         )
 
-        return colorWell
+        return container
     }
 
-    func updateNSView(_ nsView: NSColorWell, context: Context) {
+    func updateNSView(_ nsView: NSView, context: Context) {
         // Only update if not actively selecting to prevent feedback loop
-        if !context.coordinator.isSelecting {
-            nsView.color = NSColor(color)
+        if !context.coordinator.isSelecting, let colorWell = context.coordinator.colorWell {
+            colorWell.color = NSColor(color)
         }
     }
 

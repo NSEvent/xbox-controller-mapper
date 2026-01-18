@@ -679,6 +679,9 @@ class ControllerService: ObservableObject {
         // Mute button LED (byte 9)
         report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
 
+        // LED brightness (byte 43)
+        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.byteValue
+
         // Player LEDs (byte 44)
         report[dataOffset + DualSenseHIDConstants.playerLEDsOffset] = settings.playerLEDs.bitmask
 
@@ -719,6 +722,9 @@ class ControllerService: ObservableObject {
 
         // Mute button LED (byte 9 from data start)
         report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
+
+        // LED brightness (byte 43 from data start)
+        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.byteValue
 
         // Player LEDs (byte 44 from data start)
         report[dataOffset + DualSenseHIDConstants.playerLEDsOffset] = settings.playerLEDs.bitmask
