@@ -34,48 +34,10 @@ struct ControllerVisualView: View {
 
                     // Compact Controller Overlay (Just icons, no labels)
                     // Uses throttled display values (15Hz) instead of raw values (60Hz) to avoid UI blocking
-                    VStack(spacing: 15) {
-                        HStack(spacing: 140) {
-                            miniTrigger(.leftTrigger, label: "LT", value: controllerService.displayLeftTrigger)
-                            miniTrigger(.rightTrigger, label: "RT", value: controllerService.displayRightTrigger)
-                        }
-
-                        HStack(spacing: 120) {
-                            miniBumper(.leftBumper, label: "LB")
-                            miniBumper(.rightBumper, label: "RB")
-                        }
-                        .offset(y: -5) // Tweak vertical position to sit nicely under triggers
-
-                        HStack(spacing: 40) {
-                            miniStick(.leftThumbstick, pos: controllerService.displayLeftStick)
-                            
-                            VStack(spacing: 6) {
-                                miniCircle(.xbox, size: 22)
-
-                                // Battery Status
-                                if controllerService.isConnected {
-                                    BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
-                                }
-
-                                HStack(spacing: 12) {
-                                    miniCircle(.view, size: 14)
-                                    miniCircle(.menu, size: 14)
-                                }
-                                // Show mic mute for DualSense, share for Xbox
-                                if isDualSense {
-                                    miniCircle(.micMute, size: 10)
-                                } else {
-                                    miniCircle(.share, size: 10)
-                                }
-                            }
-                            
-                            miniFaceButtons()
-                        }
-                        
-                        HStack(spacing: 80) {
-                            miniDPad()
-                            miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
-                        }
+                    if isDualSense {
+                        dualSenseOverlay
+                    } else {
+                        xboxOverlay
                     }
                 }
                 
@@ -111,6 +73,126 @@ struct ControllerVisualView: View {
     }
 
     // MARK: - Controller Body
+
+    // MARK: - Xbox Controller Overlay
+
+    private var xboxOverlay: some View {
+        VStack(spacing: 15) {
+            HStack(spacing: 140) {
+                miniTrigger(.leftTrigger, label: "LT", value: controllerService.displayLeftTrigger)
+                miniTrigger(.rightTrigger, label: "RT", value: controllerService.displayRightTrigger)
+            }
+
+            HStack(spacing: 120) {
+                miniBumper(.leftBumper, label: "LB")
+                miniBumper(.rightBumper, label: "RB")
+            }
+            .offset(y: -5)
+
+            HStack(spacing: 40) {
+                miniStick(.leftThumbstick, pos: controllerService.displayLeftStick)
+
+                VStack(spacing: 6) {
+                    miniCircle(.xbox, size: 22)
+
+                    if controllerService.isConnected {
+                        BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
+                    }
+
+                    HStack(spacing: 12) {
+                        miniCircle(.view, size: 14)
+                        miniCircle(.menu, size: 14)
+                    }
+                    miniCircle(.share, size: 10)
+                }
+
+                miniFaceButtons()
+            }
+
+            HStack(spacing: 80) {
+                miniDPad()
+                miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
+            }
+        }
+    }
+
+    // MARK: - DualSense Controller Overlay
+
+    private var dualSenseOverlay: some View {
+        VStack(spacing: 12) {
+            // Top row: Triggers with battery in center
+            HStack(spacing: 50) {
+                miniTrigger(.leftTrigger, label: "L2", value: controllerService.displayLeftTrigger)
+
+                if controllerService.isConnected {
+                    BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
+                        .frame(width: 40)
+                } else {
+                    Spacer().frame(width: 40)
+                }
+
+                miniTrigger(.rightTrigger, label: "R2", value: controllerService.displayRightTrigger)
+            }
+
+            // Bumpers with Options/Create below them
+            HStack(spacing: 80) {
+                VStack(spacing: 8) {
+                    miniBumper(.leftBumper, label: "L1")
+                    miniCircle(.view, size: 12) // Create button
+                }
+                VStack(spacing: 8) {
+                    miniBumper(.rightBumper, label: "R1")
+                    miniCircle(.menu, size: 12) // Options button
+                }
+            }
+            .offset(y: -5)
+
+            // Middle row: D-pad, Touchpad, Face buttons
+            // D-pad and face buttons are wider apart than the sticks below
+            HStack(spacing: 0) {
+                miniDPad()
+                    .frame(width: 60, alignment: .center)
+
+                Spacer().frame(width: 15)
+
+                miniTouchpad()
+
+                Spacer().frame(width: 15)
+
+                miniFaceButtons()
+                    .frame(width: 60, alignment: .center)
+            }
+            .frame(width: 240)
+
+            // Bottom row: Sticks with PS button and mic in center
+            HStack(spacing: 30) {
+                miniStick(.leftThumbstick, pos: controllerService.displayLeftStick)
+
+                VStack(spacing: 4) {
+                    miniCircle(.xbox, size: 18) // PS button
+                    miniCircle(.micMute, size: 10) // Mic mute below PS
+                }
+
+                miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
+            }
+        }
+    }
+
+    // MARK: - Mini Touchpad
+
+    private func miniTouchpad() -> some View {
+        let color = isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.25)
+
+        return RoundedRectangle(cornerRadius: 6)
+            .fill(jewelGradient(color, pressed: isPressed(.touchpadButton)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
+            )
+            .frame(width: 70, height: 35)
+            .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+            .onTapGesture { onButtonTap(.touchpadButton) }
+    }
 
     @ViewBuilder
     private var controllerBodyView: some View {
