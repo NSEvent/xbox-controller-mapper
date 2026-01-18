@@ -2,12 +2,17 @@ import SwiftUI
 
 struct InputLogView: View {
     @EnvironmentObject var inputLogService: InputLogService
-    
+    @EnvironmentObject var controllerService: ControllerService
+
+    private var isDualSense: Bool {
+        controllerService.threadSafeIsDualSense
+    }
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 0) {
                 ForEach(inputLogService.entries) { entry in
-                    LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id)
+                    LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isDualSense: isDualSense)
                 }
             }
             .padding(.horizontal)
@@ -27,18 +32,19 @@ struct InputLogView: View {
 private struct LogEntryView: View, Equatable {
     let entry: InputLogEntry
     let isLast: Bool
-    
+    let isDualSense: Bool
+
     static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
-        lhs.isLast == rhs.isLast && lhs.entry == rhs.entry
+        lhs.isLast == rhs.isLast && lhs.entry == rhs.entry && lhs.isDualSense == rhs.isDualSense
     }
-    
+
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 6) {
                 // Top: Button(s) + Type
                 HStack(spacing: 4) {
                     ForEach(entry.buttons, id: \.self) { button in
-                        ButtonIconView(button: button)
+                        ButtonIconView(button: button, isDualSense: isDualSense)
                     }
                     
                     if entry.type != .singlePress {

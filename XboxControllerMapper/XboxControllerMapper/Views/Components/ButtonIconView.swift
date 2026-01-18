@@ -1,13 +1,16 @@
 import SwiftUI
 
 /// Nostalgic Xbox 360-inspired "Jewel" buttons with a modern macOS glass finish.
+/// Automatically shows PlayStation symbols when isDualSense is true.
 struct ButtonIconView: View {
     let button: ControllerButton
     let isPressed: Bool
-    
-    init(button: ControllerButton, isPressed: Bool = false) {
+    let isDualSense: Bool
+
+    init(button: ControllerButton, isPressed: Bool = false, isDualSense: Bool = false) {
         self.button = button
         self.isPressed = isPressed
+        self.isDualSense = isDualSense
     }
     
     var body: some View {
@@ -112,16 +115,40 @@ struct ButtonIconView: View {
     }
     
     private var baseColor: Color {
-        // Vibrant "Jewel" colors inspired by Xbox 360 controller
+        // Use PlayStation style for DualSense face buttons (dark background), standard colors for others
+        if isDualSense {
+            switch button {
+            // PlayStation face buttons: dark/black background (symbols are colored)
+            case .a, .b, .x, .y: return Color(white: 0.12)
+            // Other buttons use standard dark grey like Xbox (not black)
+            case .xbox: return Color(white: 0.3)
+            case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.25)
+            case .leftThumbstick, .rightThumbstick: return Color(white: 0.3)
+            default: return Color(white: 0.2) // Bumpers/Triggers
+            }
+        } else {
+            // Vibrant "Jewel" colors inspired by Xbox 360 controller
+            switch button {
+            case .a: return Color(red: 0.4, green: 0.8, blue: 0.2) // Vibrant Green
+            case .b: return Color(red: 0.9, green: 0.2, blue: 0.2) // Jewel Red
+            case .x: return Color(red: 0.1, green: 0.4, blue: 0.9) // Deep Blue
+            case .y: return Color(red: 1.0, green: 0.7, blue: 0.0) // Amber/Gold
+            case .xbox: return Color(white: 0.85) // Silver/Chrome
+            case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.25) // Dark Grey Plastic
+            case .leftThumbstick, .rightThumbstick: return Color(white: 0.3)
+            default: return Color(white: 0.2) // Bumpers/Triggers - Dark Grey/Black
+            }
+        }
+    }
+
+    /// Symbol color for PlayStation face buttons (colored shapes on dark background)
+    private var playstationSymbolColor: Color {
         switch button {
-        case .a: return Color(red: 0.4, green: 0.8, blue: 0.2) // Vibrant Green
-        case .b: return Color(red: 0.9, green: 0.2, blue: 0.2) // Jewel Red
-        case .x: return Color(red: 0.1, green: 0.4, blue: 0.9) // Deep Blue
-        case .y: return Color(red: 1.0, green: 0.7, blue: 0.0) // Amber/Gold
-        case .xbox: return Color(white: 0.85) // Silver/Chrome
-        case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.25) // Dark Grey Plastic
-        case .leftThumbstick, .rightThumbstick: return Color(white: 0.3)
-        default: return Color(white: 0.2) // Bumpers/Triggers - Dark Grey/Black
+        case .a: return Color(red: 0.55, green: 0.70, blue: 0.95) // Cross - Light Blue
+        case .b: return Color(red: 1.0, green: 0.45, blue: 0.50)  // Circle - Red/Pink
+        case .x: return Color(red: 0.90, green: 0.55, blue: 0.75) // Square - Pink/Magenta
+        case .y: return Color(red: 0.45, green: 0.85, blue: 0.75) // Triangle - Teal/Cyan
+        default: return .white
         }
     }
     
@@ -140,14 +167,20 @@ struct ButtonIconView: View {
     @ViewBuilder
     private var contentView: some View {
         Group {
-            if let systemImage = button.systemImageName {
-                Image(systemName: systemImage)
-            } else {
-                Text(button.shortLabel)
+            // For DualSense face buttons, use colored text symbols on dark background
+            if isDualSense && button.category == .face {
+                Text(button.shortLabel(forDualSense: true))
                     .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                    .foregroundColor(playstationSymbolColor)
+            } else if let systemImage = button.systemImageName(forDualSense: isDualSense) {
+                Image(systemName: systemImage)
+                    .foregroundColor(.white.opacity(0.95))
+            } else {
+                Text(button.shortLabel(forDualSense: isDualSense))
+                    .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.95))
             }
         }
-        .foregroundColor(.white.opacity(0.95))
         .font(.system(size: fontSize, weight: .bold))
     }
 }

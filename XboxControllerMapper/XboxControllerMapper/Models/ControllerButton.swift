@@ -34,6 +34,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
 
     // DualSense-specific
     case touchpadButton  // Touchpad click (DualSense only)
+    case micMute         // Mic mute button (DualSense only)
 
     var id: String { rawValue }
 
@@ -59,6 +60,29 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .leftThumbstick: return "Left Stick"
         case .rightThumbstick: return "Right Stick"
         case .touchpadButton: return "Touchpad"
+        case .micMute: return "Mic Mute"
+        }
+    }
+
+    /// Display name appropriate for the controller type
+    func displayName(forDualSense isDualSense: Bool) -> String {
+        guard isDualSense else { return displayName }
+        switch self {
+        case .a: return "Cross"
+        case .b: return "Circle"
+        case .x: return "Square"
+        case .y: return "Triangle"
+        case .leftBumper: return "L1"
+        case .rightBumper: return "R1"
+        case .leftTrigger: return "L2"
+        case .rightTrigger: return "R2"
+        case .menu: return "Options"
+        case .view: return "Create"
+        case .share: return "Share"  // DualSense Edge has this, standard doesn't
+        case .xbox: return "PS"
+        case .leftThumbstick: return "L3"
+        case .rightThumbstick: return "R3"
+        default: return displayName
         }
     }
 
@@ -84,28 +108,74 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .leftThumbstick: return "L3"
         case .rightThumbstick: return "R3"
         case .touchpadButton: return "TP"
+        case .micMute: return "🎤"
+        }
+    }
+
+    /// Short label appropriate for the controller type
+    func shortLabel(forDualSense isDualSense: Bool) -> String {
+        guard isDualSense else { return shortLabel }
+        switch self {
+        case .a: return "✕"
+        case .b: return "○"
+        case .x: return "□"
+        case .y: return "△"
+        case .leftBumper: return "L1"
+        case .rightBumper: return "R1"
+        case .leftTrigger: return "L2"
+        case .rightTrigger: return "R2"
+        case .menu: return "☰"
+        case .view: return "▢"  // Create button symbol
+        case .xbox: return "ⓟ"  // PS button
+        default: return shortLabel
         }
     }
 
     /// SF Symbol name if available
     var systemImageName: String? {
-        switch self {
-        case .dpadUp: return "arrowtriangle.up.fill"
-        case .dpadDown: return "arrowtriangle.down.fill"
-        case .dpadLeft: return "arrowtriangle.left.fill"
-        case .dpadRight: return "arrowtriangle.right.fill"
-        case .menu: return "line.3.horizontal"
-        case .view: return "rectangle.on.rectangle"
-        case .share: return "square.and.arrow.up"
-        case .xbox: return "xbox.logo" // Fallback might be needed if not available, usually circle.grid.cross or similar
-        case .leftThumbstick: return "l.circle"
-        case .rightThumbstick: return "r.circle"
-        case .a: return "a.circle"
-        case .b: return "b.circle"
-        case .x: return "x.circle"
-        case .y: return "y.circle"
-        case .touchpadButton: return "hand.point.up.left"
-        default: return nil
+        systemImageName(forDualSense: false)
+    }
+
+    /// SF Symbol name appropriate for the controller type
+    func systemImageName(forDualSense isDualSense: Bool) -> String? {
+        if isDualSense {
+            switch self {
+            case .dpadUp: return "arrowtriangle.up.fill"
+            case .dpadDown: return "arrowtriangle.down.fill"
+            case .dpadLeft: return "arrowtriangle.left.fill"
+            case .dpadRight: return "arrowtriangle.right.fill"
+            case .menu: return "line.3.horizontal"
+            case .view: return "square.on.square"  // Create button
+            case .share: return "square.and.arrow.up"
+            case .xbox: return "playstation.logo"  // PS button
+            case .leftThumbstick: return "l3.button.angledbottom.horizontal.left"
+            case .rightThumbstick: return "r3.button.angledbottom.horizontal.right"
+            case .touchpadButton: return "hand.point.up.left"
+            case .micMute: return "mic.slash"
+            // Face buttons use text symbols for DualSense, not SF Symbols
+            case .a, .b, .x, .y: return nil
+            default: return nil
+            }
+        } else {
+            switch self {
+            case .dpadUp: return "arrowtriangle.up.fill"
+            case .dpadDown: return "arrowtriangle.down.fill"
+            case .dpadLeft: return "arrowtriangle.left.fill"
+            case .dpadRight: return "arrowtriangle.right.fill"
+            case .menu: return "line.3.horizontal"
+            case .view: return "rectangle.on.rectangle"
+            case .share: return "square.and.arrow.up"
+            case .xbox: return "xbox.logo"
+            case .leftThumbstick: return "l.circle"
+            case .rightThumbstick: return "r.circle"
+            case .a: return "a.circle"
+            case .b: return "b.circle"
+            case .x: return "x.circle"
+            case .y: return "y.circle"
+            case .touchpadButton: return "hand.point.up.left"
+            case .micMute: return "mic.slash"
+            default: return nil
+            }
         }
     }
 
@@ -124,9 +194,29 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return .special
         case .leftThumbstick, .rightThumbstick:
             return .thumbstick
-        case .touchpadButton:
-            return .touchpad
+        case .touchpadButton, .micMute:
+            return .touchpad  // DualSense-specific buttons
         }
+    }
+
+    /// Whether this button is only available on DualSense controllers
+    var isDualSenseOnly: Bool {
+        switch self {
+        case .touchpadButton, .micMute:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Buttons available for Xbox controllers
+    static var xboxButtons: [ControllerButton] {
+        allCases.filter { !$0.isDualSenseOnly }
+    }
+
+    /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)
+    static var dualSenseButtons: [ControllerButton] {
+        allCases.filter { $0 != .share }
     }
 }
 

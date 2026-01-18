@@ -162,14 +162,14 @@ struct ContentView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
-                    
+
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(profile.chordMappings) { chord in
                                 HStack(spacing: 8) {
                                     HStack(spacing: 2) {
                                         ForEach(Array(chord.buttons).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { button in
-                                            ButtonIconView(button: button)
+                                            ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsDualSense)
                                         }
                                     }
                                     
@@ -472,9 +472,14 @@ struct LegendItem: View {
 // MARK: - Chord Row
 
 struct ChordRow: View {
+    @EnvironmentObject var controllerService: ControllerService
     let chord: ChordMapping
     var onEdit: () -> Void
     var onDelete: () -> Void
+
+    private var isDualSense: Bool {
+        controllerService.threadSafeIsDualSense
+    }
 
     var body: some View {
         HStack {
@@ -484,7 +489,7 @@ struct ChordRow: View {
 
             HStack(spacing: 4) {
                 ForEach(Array(chord.buttons).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { button in
-                    ButtonIconView(button: button)
+                    ButtonIconView(button: button, isDualSense: isDualSense)
                 }
             }
 
@@ -517,9 +522,14 @@ struct ChordRow: View {
 
 struct ChordMappingSheet: View {
     @EnvironmentObject var profileManager: ProfileManager
+    @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
 
     var editingChord: ChordMapping?
+
+    private var isDualSense: Bool {
+        controllerService.threadSafeIsDualSense
+    }
 
     @State private var selectedButtons: Set<ControllerButton> = []
     @State private var keyCode: CGKeyCode?
@@ -575,7 +585,16 @@ struct ChordMappingSheet: View {
                                 toggleButton(.view)
                                 toggleButton(.menu)
                             }
-                            toggleButton(.share)
+                            // Show mic mute for DualSense, share for Xbox
+                            if isDualSense {
+                                toggleButton(.micMute)
+                            } else {
+                                toggleButton(.share)
+                            }
+                            // Touchpad button only for DualSense
+                            if isDualSense {
+                                toggleButton(.touchpadButton)
+                            }
                         }
                         .padding(.top, 15)
                         
@@ -648,7 +667,7 @@ struct ChordMappingSheet: View {
     @ViewBuilder
     private func toggleButton(_ button: ControllerButton) -> some View {
         let scale: CGFloat = 1.3
-        
+
         Button(action: {
             if selectedButtons.contains(button) {
                 selectedButtons.remove(button)
@@ -656,7 +675,7 @@ struct ChordMappingSheet: View {
                 selectedButtons.insert(button)
             }
         }) {
-            ButtonIconView(button: button, isPressed: selectedButtons.contains(button))
+            ButtonIconView(button: button, isPressed: selectedButtons.contains(button), isDualSense: isDualSense)
                 .scaleEffect(scale)
                 .frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)
                 .opacity(selectedButtons.contains(button) ? 1.0 : 0.7)
@@ -711,6 +730,7 @@ struct ChordMappingSheet: View {
 
 struct JoystickSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
+    @EnvironmentObject var controllerService: ControllerService
 
     var settings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -755,56 +775,59 @@ struct JoystickSettingsView: View {
                 ))
             }
 
-            Section("Touchpad (DualSense)") {
-                SliderRow(
-                    label: "Sensitivity",
-                    value: Binding(
-                        get: { settings.touchpadSensitivity },
-                        set: { updateSettings(\.touchpadSensitivity, $0) }
-                    ),
-                    range: 0...1,
-                    description: "Touchpad cursor speed"
-                )
+            // Only show touchpad settings when a DualSense controller is connected
+            if controllerService.threadSafeIsDualSense {
+                Section("Touchpad (DualSense)") {
+                    SliderRow(
+                        label: "Sensitivity",
+                        value: Binding(
+                            get: { settings.touchpadSensitivity },
+                            set: { updateSettings(\.touchpadSensitivity, $0) }
+                        ),
+                        range: 0...1,
+                        description: "Touchpad cursor speed"
+                    )
 
-                SliderRow(
-                    label: "Acceleration",
-                    value: Binding(
-                        get: { settings.touchpadAcceleration },
-                        set: { updateSettings(\.touchpadAcceleration, $0) }
-                    ),
-                    range: 0...1,
-                    description: "0 = linear, 1 = max curve"
-                )
+                    SliderRow(
+                        label: "Acceleration",
+                        value: Binding(
+                            get: { settings.touchpadAcceleration },
+                            set: { updateSettings(\.touchpadAcceleration, $0) }
+                        ),
+                        range: 0...1,
+                        description: "0 = linear, 1 = max curve"
+                    )
 
-                SliderRow(
-                    label: "Deadzone",
-                    value: Binding(
-                        get: { settings.touchpadDeadzone },
-                        set: { updateSettings(\.touchpadDeadzone, $0) }
-                    ),
-                    range: 0...0.1,
-                    description: "Ignore tiny jitter"
-                )
+                    SliderRow(
+                        label: "Deadzone",
+                        value: Binding(
+                            get: { settings.touchpadDeadzone },
+                            set: { updateSettings(\.touchpadDeadzone, $0) }
+                        ),
+                        range: 0...0.1,
+                        description: "Ignore tiny jitter"
+                    )
 
-                SliderRow(
-                    label: "Smoothing",
-                    value: Binding(
-                        get: { settings.touchpadSmoothing },
-                        set: { updateSettings(\.touchpadSmoothing, $0) }
-                    ),
-                    range: 0...1,
-                    description: "Reduce jitter"
-                )
+                    SliderRow(
+                        label: "Smoothing",
+                        value: Binding(
+                            get: { settings.touchpadSmoothing },
+                            set: { updateSettings(\.touchpadSmoothing, $0) }
+                        ),
+                        range: 0...1,
+                        description: "Reduce jitter"
+                    )
 
-                SliderRow(
-                    label: "Two-Finger Pan",
-                    value: Binding(
-                        get: { settings.touchpadPanSensitivity },
-                        set: { updateSettings(\.touchpadPanSensitivity, $0) }
-                    ),
-                    range: 0...1,
-                    description: "Scroll speed for two-finger pan"
-                )
+                    SliderRow(
+                        label: "Two-Finger Pan",
+                        value: Binding(
+                            get: { settings.touchpadPanSensitivity },
+                            set: { updateSettings(\.touchpadPanSensitivity, $0) }
+                        ),
+                        range: 0...1,
+                        description: "Scroll speed for two-finger pan"
+                    )
+                }
             }
 
             Section("Focus Mode (Precision)") {

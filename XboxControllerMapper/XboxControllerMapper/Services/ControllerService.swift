@@ -2,6 +2,8 @@ import Foundation
 import GameController
 import Combine
 import CoreHaptics
+import IOKit
+import IOKit.hid
 
 // MARK: - Thread-Safe Input State (High Performance)
 
@@ -33,6 +35,7 @@ private final class ControllerStorage: @unchecked Sendable {
     // Button State
     var activeButtons: Set<ControllerButton> = []
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
+    var lastMicButtonState: Bool = false
 
     // Chord Detection State
     var pendingButtons: Set<ControllerButton> = []
@@ -63,6 +66,11 @@ class ControllerService: ObservableObject {
     
     private let controllerQueue = DispatchQueue(label: "com.xboxmapper.controller", qos: .userInteractive)
     private let storage = ControllerStorage()
+
+    // HID monitoring for DualSense mic button (not exposed by GameController framework)
+    private var hidManager: IOHIDManager?
+    private var hidReportBuffer: UnsafeMutablePointer<UInt8>?
+    private var hidDevice: IOHIDDevice?
     
     nonisolated var threadSafeLeftStick: CGPoint {
         storage.lock.lock()
@@ -294,6 +302,7 @@ class ControllerService: ObservableObject {
         batteryState = .unknown
         stopDisplayUpdateTimer()
         stopHaptics()
+        cleanupHIDMonitoring()  // Clean up mic button monitoring
 
         storage.lock.lock()
         storage.activeButtons.removeAll()
@@ -311,6 +320,7 @@ class ControllerService: ObservableObject {
         storage.touchpadPreviousPosition = .zero
         storage.pendingTouchpadDelta = nil
         storage.touchpadFramesSinceTouch = 0
+        storage.lastMicButtonState = false
         storage.lock.unlock()
     }
 
@@ -484,6 +494,97 @@ class ControllerService: ObservableObject {
             // Touchpad secondary finger position (for gestures)
             dualSenseGamepad.touchpadSecondary.valueChangedHandler = { [weak self] _, xValue, yValue in
                 self?.updateTouchpadSecondary(x: xValue, y: yValue)
+            }
+
+            // Set up HID monitoring for mic button (not exposed by GameController framework)
+            setupMicButtonMonitoring()
+        }
+    }
+
+    // MARK: - DualSense Mic Button Monitoring (via IOKit HID)
+
+    private func setupMicButtonMonitoring() {
+        // Clean up any existing HID manager
+        cleanupHIDMonitoring()
+
+        // Allocate report buffer (must persist for callbacks)
+        hidReportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 100)
+
+        // Create HID manager
+        hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+        guard let manager = hidManager else { return }
+
+        // Match DualSense controller
+        let matchingDict: [String: Any] = [
+            kIOHIDVendorIDKey as String: 0x054C,  // Sony
+            kIOHIDProductIDKey as String: 0x0CE6, // DualSense
+        ]
+        IOHIDManagerSetDeviceMatching(manager, matchingDict as CFDictionary)
+
+        // Schedule with run loop first
+        IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+
+        // Get connected devices and set up input report callback on each
+        if let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> {
+            for device in devices {
+                setupHIDDeviceCallback(device)
+            }
+        }
+    }
+
+    private func setupHIDDeviceCallback(_ device: IOHIDDevice) {
+        hidDevice = device
+        guard let buffer = hidReportBuffer else { return }
+
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        IOHIDDeviceRegisterInputReportCallback(device, buffer, 100, { context, result, sender, type, reportID, report, reportLength in
+            guard let context = context else { return }
+            let service = Unmanaged<ControllerService>.fromOpaque(context).takeUnretainedValue()
+            service.handleHIDReport(reportID: reportID, report: report, length: Int(reportLength))
+        }, context)
+
+        IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+    }
+
+    private func cleanupHIDMonitoring() {
+        if let device = hidDevice {
+            IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        }
+        hidDevice = nil
+
+        if let manager = hidManager {
+            IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+            IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        }
+        hidManager = nil
+
+        if let buffer = hidReportBuffer {
+            buffer.deallocate()
+        }
+        hidReportBuffer = nil
+    }
+
+    nonisolated private func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
+        // Only process report 0x31 (Bluetooth input report) with sufficient length
+        guard reportID == 0x31 && length >= 12 else { return }
+
+        // Mic button is at byte 11, bit 2 in Bluetooth report
+        // Report structure: [0]=reportID, ... [11]=buttons2 (PS/Touch/Mute)
+        let buttons2 = report[11]
+        let micPressed = (buttons2 & 0x04) != 0
+
+        // Detect state change (thread-safe)
+        storage.lock.lock()
+        let changed = micPressed != storage.lastMicButtonState
+        if changed {
+            storage.lastMicButtonState = micPressed
+        }
+        storage.lock.unlock()
+
+        if changed {
+            controllerQueue.async { [weak self] in
+                self?.handleButton(.micMute, pressed: micPressed)
             }
         }
     }

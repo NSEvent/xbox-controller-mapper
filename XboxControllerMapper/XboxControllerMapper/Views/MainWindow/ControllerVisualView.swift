@@ -1,13 +1,18 @@
 import SwiftUI
 import GameController
 
-/// Interactive visual representation of an Xbox controller with a professional Reference Page layout
+/// Interactive visual representation of a controller with a professional Reference Page layout
+/// Automatically adapts to show Xbox or DualSense layouts based on connected controller
 struct ControllerVisualView: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
 
     @Binding var selectedButton: ControllerButton?
     var onButtonTap: (ControllerButton) -> Void
+
+    private var isDualSense: Bool {
+        controllerService.threadSafeIsDualSense
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
@@ -23,13 +28,8 @@ struct ControllerVisualView: View {
             // Center Column: Controller Graphic and System Buttons
             VStack(spacing: 30) {
                 ZStack {
-                    ControllerBodyShape()
-                        .fill(LinearGradient(
-                            colors: [Color(white: 0.95), Color(white: 0.9)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+                    // Controller body - adapts to DualSense or Xbox shape
+                    controllerBodyView
                         .frame(width: 320, height: 220)
 
                     // Compact Controller Overlay (Just icons, no labels)
@@ -51,7 +51,7 @@ struct ControllerVisualView: View {
                             
                             VStack(spacing: 6) {
                                 miniCircle(.xbox, size: 22)
-                                
+
                                 // Battery Status
                                 if controllerService.isConnected {
                                     BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
@@ -61,7 +61,12 @@ struct ControllerVisualView: View {
                                     miniCircle(.view, size: 14)
                                     miniCircle(.menu, size: 14)
                                 }
-                                miniCircle(.share, size: 10)
+                                // Show mic mute for DualSense, share for Xbox
+                                if isDualSense {
+                                    miniCircle(.micMute, size: 10)
+                                } else {
+                                    miniCircle(.share, size: 10)
+                                }
                             }
                             
                             miniFaceButtons()
@@ -82,7 +87,12 @@ struct ControllerVisualView: View {
                     }
                     VStack(alignment: .leading) {
                         referenceRow(for: .menu)
-                        referenceRow(for: .share)
+                        // Show mic mute for DualSense, share for Xbox
+                        if isDualSense {
+                            referenceRow(for: .micMute)
+                        } else {
+                            referenceRow(for: .share)
+                        }
                     }
                 }
             }
@@ -98,6 +108,29 @@ struct ControllerVisualView: View {
             .padding(.leading, 20)
         }
         .padding(20)
+    }
+
+    // MARK: - Controller Body
+
+    @ViewBuilder
+    private var controllerBodyView: some View {
+        if isDualSense {
+            DualSenseBodyShape()
+                .fill(LinearGradient(
+                    colors: [Color(white: 0.95), Color(white: 0.88)], // DualSense white/light grey
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        } else {
+            ControllerBodyShape()
+                .fill(LinearGradient(
+                    colors: [Color(white: 0.95), Color(white: 0.9)], // Xbox light theme
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        }
     }
 
     // MARK: - Reference UI Components
@@ -122,8 +155,8 @@ struct ControllerVisualView: View {
     private func referenceRow(for button: ControllerButton) -> some View {
         Button(action: { onButtonTap(button) }) {
             HStack(spacing: 12) {
-                // Button Indicator (Authentic Xbox Styling)
-                ButtonIconView(button: button, isPressed: isPressed(button))
+                // Button Indicator (adapts to Xbox or DualSense styling)
+                ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isDualSense)
 
                 // Shortcut Labels Container
                 HStack {
@@ -253,20 +286,36 @@ struct ControllerVisualView: View {
     }
 
     private func miniCircle(_ button: ControllerButton, size: CGFloat) -> some View {
-        let color = isPressed(button) ? Color.accentColor : Color(white: 0.3) // System buttons usually grey
-        
-        return Circle()
-            .fill(jewelGradient(color, pressed: isPressed(button)))
-            .overlay(glassOverlay.clipShape(Circle()))
-            .frame(width: size, height: size)
-            .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
-            .onTapGesture { onButtonTap(button) }
+        // Use silver/chrome for Xbox/PS button, grey for others
+        let baseColor: Color = {
+            if button == .xbox {
+                return Color(white: 0.85) // Silver/Chrome for both Xbox and PlayStation
+            }
+            return Color(white: 0.3)
+        }()
+        let color = isPressed(button) ? Color.accentColor : baseColor
+
+        return ZStack {
+            Circle()
+                .fill(jewelGradient(color, pressed: isPressed(button)))
+                .overlay(glassOverlay.clipShape(Circle()))
+
+            // Add Xbox or PlayStation logo for the center button
+            if button == .xbox {
+                Image(systemName: isDualSense ? "playstation.logo" : "xbox.logo")
+                    .font(.system(size: size * 0.45, weight: .medium))
+                    .foregroundColor(isPressed(button) ? .white : Color(white: 0.3))
+            }
+        }
+        .frame(width: size, height: size)
+        .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
+        .onTapGesture { onButtonTap(button) }
     }
 
     private func miniFaceButton(_ button: ControllerButton, color: Color) -> some View {
         // Use the vibrant colors for A/B/X/Y even when not pressed, just like the real controller
         let displayColor = isPressed(button) ? color.opacity(0.8) : color
-        
+
         return Circle()
             .fill(jewelGradient(displayColor, pressed: isPressed(button)))
             .overlay(glassOverlay.clipShape(Circle()))
@@ -275,12 +324,59 @@ struct ControllerVisualView: View {
             .onTapGesture { onButtonTap(button) }
     }
 
+    /// PlayStation-style face button: dark background with colored symbol
+    private func miniPSFaceButton(_ button: ControllerButton, symbolColor: Color) -> some View {
+        let bgColor = Color(white: 0.12)
+        let symbol: String = {
+            switch button {
+            case .a: return "✕"
+            case .b: return "○"
+            case .x: return "□"
+            case .y: return "△"
+            default: return ""
+            }
+        }()
+
+        return ZStack {
+            Circle()
+                .fill(jewelGradient(bgColor, pressed: isPressed(button)))
+                .overlay(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.15), location: 0),
+                            .init(color: .clear, location: 0.5),
+                            .init(color: .black.opacity(0.2), location: 1.0)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .clipShape(Circle())
+                )
+
+            Text(symbol)
+                .font(.system(size: 7, weight: .bold))
+                .foregroundColor(isPressed(button) ? symbolColor.opacity(0.7) : symbolColor)
+        }
+        .frame(width: 12, height: 12)
+        .shadow(color: symbolColor.opacity(0.3), radius: 2)
+        .onTapGesture { onButtonTap(button) }
+    }
+
     private func miniFaceButtons() -> some View {
         ZStack {
-            miniFaceButton(.y, color: Color(red: 1.0, green: 0.7, blue: 0.0)).offset(y: -12)
-            miniFaceButton(.a, color: Color(red: 0.4, green: 0.8, blue: 0.2)).offset(y: 12)
-            miniFaceButton(.x, color: Color(red: 0.1, green: 0.4, blue: 0.9)).offset(x: -12)
-            miniFaceButton(.b, color: Color(red: 0.9, green: 0.2, blue: 0.2)).offset(x: 12)
+            if isDualSense {
+                // PlayStation style: dark background with colored symbols
+                miniPSFaceButton(.y, symbolColor: Color(red: 0.45, green: 0.85, blue: 0.75)).offset(y: -12) // Triangle - Teal
+                miniPSFaceButton(.a, symbolColor: Color(red: 0.55, green: 0.70, blue: 0.95)).offset(y: 12)  // Cross - Light Blue
+                miniPSFaceButton(.x, symbolColor: Color(red: 0.90, green: 0.55, blue: 0.75)).offset(x: -12) // Square - Pink
+                miniPSFaceButton(.b, symbolColor: Color(red: 1.0, green: 0.45, blue: 0.50)).offset(x: 12)   // Circle - Red/Pink
+            } else {
+                // Xbox layout and colors (colored background)
+                miniFaceButton(.y, color: Color(red: 1.0, green: 0.7, blue: 0.0)).offset(y: -12) // Yellow
+                miniFaceButton(.a, color: Color(red: 0.4, green: 0.8, blue: 0.2)).offset(y: 12)  // Green
+                miniFaceButton(.x, color: Color(red: 0.1, green: 0.4, blue: 0.9)).offset(x: -12) // Blue
+                miniFaceButton(.b, color: Color(red: 0.9, green: 0.2, blue: 0.2)).offset(x: 12)  // Red
+            }
         }
         .frame(width: 40, height: 40)
     }
@@ -361,7 +457,7 @@ struct ControllerVisualView: View {
     }
 }
 
-// MARK: - Controller Body Shape
+// MARK: - Controller Body Shapes
 
 struct ControllerBodyShape: Shape {
     func path(in rect: CGRect) -> Path {
@@ -375,6 +471,59 @@ struct ControllerBodyShape: Shape {
         path.addQuadCurve(to: CGPoint(x: width * 0.25, y: height * 0.9), control: CGPoint(x: width * 0.5, y: height * 0.75))
         path.addCurve(to: CGPoint(x: width * 0.05, y: height * 0.35), control1: CGPoint(x: width * 0.1, y: height * 0.85), control2: CGPoint(x: width * 0.0, y: height * 0.6))
         path.addQuadCurve(to: CGPoint(x: width * 0.2, y: height * 0.15), control: CGPoint(x: width * 0.02, y: height * 0.2))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// DualSense controller body shape - more symmetric and rounded than Xbox
+struct DualSenseBodyShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.width
+        let height = rect.height
+
+        // DualSense has a more symmetric, rounded shape with wider grips
+        // Top edge - flatter than Xbox
+        path.move(to: CGPoint(x: width * 0.18, y: height * 0.12))
+        path.addCurve(
+            to: CGPoint(x: width * 0.82, y: height * 0.12),
+            control1: CGPoint(x: width * 0.35, y: height * 0.02),
+            control2: CGPoint(x: width * 0.65, y: height * 0.02)
+        )
+
+        // Right side - more vertical drop for DualSense grips
+        path.addQuadCurve(
+            to: CGPoint(x: width * 0.92, y: height * 0.35),
+            control: CGPoint(x: width * 0.95, y: height * 0.18)
+        )
+
+        // Right grip - straighter, more ergonomic curve
+        path.addCurve(
+            to: CGPoint(x: width * 0.72, y: height * 0.92),
+            control1: CGPoint(x: width * 0.95, y: height * 0.55),
+            control2: CGPoint(x: width * 0.85, y: height * 0.88)
+        )
+
+        // Bottom center - DualSense has a flatter bottom with touchpad indent
+        path.addQuadCurve(
+            to: CGPoint(x: width * 0.28, y: height * 0.92),
+            control: CGPoint(x: width * 0.5, y: height * 0.82)
+        )
+
+        // Left grip - mirror of right
+        path.addCurve(
+            to: CGPoint(x: width * 0.08, y: height * 0.35),
+            control1: CGPoint(x: width * 0.15, y: height * 0.88),
+            control2: CGPoint(x: width * 0.05, y: height * 0.55)
+        )
+
+        // Back to top left
+        path.addQuadCurve(
+            to: CGPoint(x: width * 0.18, y: height * 0.12),
+            control: CGPoint(x: width * 0.05, y: height * 0.18)
+        )
+
         path.closeSubpath()
         return path
     }
