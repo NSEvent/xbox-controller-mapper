@@ -29,8 +29,8 @@ struct JoystickSettings: Codable, Equatable {
     /// Touchpad acceleration curve (0.0 = linear, 1.0 = max acceleration)
     var touchpadAcceleration: Double = 0.5
 
-    /// Deadzone for touchpad movement (0.0 - 0.1)
-    var touchpadDeadzone: Double = 0.0
+    /// Deadzone for touchpad movement (0.0 - 0.005)
+    var touchpadDeadzone: Double = 0.001
 
     /// Smoothing amount for touchpad movement (0.0 - 1.0)
     var touchpadSmoothing: Double = 0.4
@@ -62,7 +62,7 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(mouseAcceleration) &&
                range.contains(touchpadSensitivity) &&
                range.contains(touchpadAcceleration) &&
-               (0.0...0.1).contains(touchpadDeadzone) &&
+               (0.0...0.005).contains(touchpadDeadzone) &&
                range.contains(touchpadSmoothing) &&
                range.contains(touchpadPanSensitivity) &&
                range.contains(scrollAcceleration) &&
@@ -163,7 +163,7 @@ extension JoystickSettings {
         mouseAcceleration = try container.decodeIfPresent(Double.self, forKey: .mouseAcceleration) ?? 0.5
         touchpadSensitivity = try container.decodeIfPresent(Double.self, forKey: .touchpadSensitivity) ?? 0.5
         touchpadAcceleration = try container.decodeIfPresent(Double.self, forKey: .touchpadAcceleration) ?? 0.5
-        touchpadDeadzone = try container.decodeIfPresent(Double.self, forKey: .touchpadDeadzone) ?? 0.0
+        touchpadDeadzone = try container.decodeIfPresent(Double.self, forKey: .touchpadDeadzone) ?? 0.001
         touchpadSmoothing = try container.decodeIfPresent(Double.self, forKey: .touchpadSmoothing) ?? 0.4
         touchpadPanSensitivity = try container.decodeIfPresent(Double.self, forKey: .touchpadPanSensitivity) ?? 0.5
         scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5

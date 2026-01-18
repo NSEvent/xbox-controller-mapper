@@ -46,6 +46,13 @@ struct ContentView: View {
                     joystickSettingsTab
                         .tabItem { Text("Joysticks") }
                         .tag(2)
+
+                    // Touchpad Settings (only shown when controller has touchpad)
+                    if controllerService.threadSafeIsDualSense {
+                        touchpadSettingsTab
+                            .tabItem { Text("Touchpad") }
+                            .tag(3)
+                    }
                 }
                 .tabViewStyle(.automatic)
             }
@@ -259,6 +266,12 @@ struct ContentView: View {
 
     private var joystickSettingsTab: some View {
         JoystickSettingsView()
+    }
+
+    // MARK: - Touchpad Settings Tab
+
+    private var touchpadSettingsTab: some View {
+        TouchpadSettingsView()
     }
 }
 
@@ -730,7 +743,6 @@ struct ChordMappingSheet: View {
 
 struct JoystickSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
-    @EnvironmentObject var controllerService: ControllerService
 
     var settings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -773,61 +785,6 @@ struct JoystickSettingsView: View {
                     get: { settings.invertMouseY },
                     set: { updateSettings(\.invertMouseY, $0) }
                 ))
-            }
-
-            // Only show touchpad settings when a DualSense controller is connected
-            if controllerService.threadSafeIsDualSense {
-                Section("Touchpad (DualSense)") {
-                    SliderRow(
-                        label: "Sensitivity",
-                        value: Binding(
-                            get: { settings.touchpadSensitivity },
-                            set: { updateSettings(\.touchpadSensitivity, $0) }
-                        ),
-                        range: 0...1,
-                        description: "Touchpad cursor speed"
-                    )
-
-                    SliderRow(
-                        label: "Acceleration",
-                        value: Binding(
-                            get: { settings.touchpadAcceleration },
-                            set: { updateSettings(\.touchpadAcceleration, $0) }
-                        ),
-                        range: 0...1,
-                        description: "0 = linear, 1 = max curve"
-                    )
-
-                    SliderRow(
-                        label: "Deadzone",
-                        value: Binding(
-                            get: { settings.touchpadDeadzone },
-                            set: { updateSettings(\.touchpadDeadzone, $0) }
-                        ),
-                        range: 0...0.1,
-                        description: "Ignore tiny jitter"
-                    )
-
-                    SliderRow(
-                        label: "Smoothing",
-                        value: Binding(
-                            get: { settings.touchpadSmoothing },
-                            set: { updateSettings(\.touchpadSmoothing, $0) }
-                        ),
-                        range: 0...1,
-                        description: "Reduce jitter"
-                    )
-
-                    SliderRow(
-                        label: "Two-Finger Pan",
-                        value: Binding(
-                            get: { settings.touchpadPanSensitivity },
-                            set: { updateSettings(\.touchpadPanSensitivity, $0) }
-                        ),
-                        range: 0...1,
-                        description: "Scroll speed for two-finger pan"
-                    )
-                }
             }
 
             Section("Focus Mode (Precision)") {
@@ -932,6 +889,80 @@ struct JoystickSettingsView: View {
                     get: { settings.invertScrollY },
                     set: { updateSettings(\.invertScrollY, $0) }
                 ))
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private func updateSettings<T>(_ keyPath: WritableKeyPath<JoystickSettings, T>, _ value: T) {
+        var newSettings = settings
+        newSettings[keyPath: keyPath] = value
+        profileManager.updateJoystickSettings(newSettings)
+    }
+}
+
+// MARK: - Touchpad Settings View
+
+struct TouchpadSettingsView: View {
+    @EnvironmentObject var profileManager: ProfileManager
+
+    var settings: JoystickSettings {
+        profileManager.activeProfile?.joystickSettings ?? .default
+    }
+
+    var body: some View {
+        Form {
+            Section("Touchpad (DualSense)") {
+                SliderRow(
+                    label: "Sensitivity",
+                    value: Binding(
+                        get: { settings.touchpadSensitivity },
+                        set: { updateSettings(\.touchpadSensitivity, $0) }
+                    ),
+                    range: 0...1,
+                    description: "Touchpad cursor speed"
+                )
+
+                SliderRow(
+                    label: "Acceleration",
+                    value: Binding(
+                        get: { settings.touchpadAcceleration },
+                        set: { updateSettings(\.touchpadAcceleration, $0) }
+                    ),
+                    range: 0...1,
+                    description: "0 = linear, 1 = max curve"
+                )
+
+                SliderRow(
+                    label: "Deadzone",
+                    value: Binding(
+                        get: { settings.touchpadDeadzone },
+                        set: { updateSettings(\.touchpadDeadzone, $0) }
+                    ),
+                    range: 0...0.005,
+                    description: "Ignore tiny jitter"
+                )
+
+                SliderRow(
+                    label: "Smoothing",
+                    value: Binding(
+                        get: { settings.touchpadSmoothing },
+                        set: { updateSettings(\.touchpadSmoothing, $0) }
+                    ),
+                    range: 0...1,
+                    description: "Reduce jitter"
+                )
+
+                SliderRow(
+                    label: "Two-Finger Pan",
+                    value: Binding(
+                        get: { settings.touchpadPanSensitivity },
+                        set: { updateSettings(\.touchpadPanSensitivity, $0) }
+                    ),
+                    range: 0...1,
+                    description: "Scroll speed for two-finger pan"
+                )
             }
         }
         .formStyle(.grouped)
