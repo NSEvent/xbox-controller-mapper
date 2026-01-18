@@ -995,9 +995,24 @@ struct LEDSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
 
+    @State private var partyModeEnabled = false
+    @State private var partyModeTimer: Timer?
+    @State private var partyHue: Double = 0.0
+    @State private var partyLEDIndex: Int = 0
+    @State private var partyLEDDirection: Int = 1  // 1 = counting up, -1 = counting down
+
     var settings: DualSenseLEDSettings {
         profileManager.activeProfile?.dualSenseLEDSettings ?? .default
     }
+
+    // Player LED patterns for party mode (symmetric patterns cycling)
+    private let partyLEDPatterns: [PlayerLEDs] = [
+        PlayerLEDs(led1: false, led2: false, led3: true, led4: false, led5: false),   // Center only
+        PlayerLEDs(led1: false, led2: true, led3: false, led4: true, led5: false),    // Inner pair
+        PlayerLEDs(led1: true, led2: false, led3: false, led4: false, led5: true),    // Outer pair
+        PlayerLEDs(led1: true, led2: true, led3: false, led4: true, led5: true),      // Both pairs
+        PlayerLEDs(led1: true, led2: true, led3: true, led4: true, led5: true),       // All on
+    ]
 
     var body: some View {
         Form {
@@ -1006,6 +1021,7 @@ struct LEDSettingsView: View {
                     get: { settings.lightBarEnabled },
                     set: { updateSettings(\.lightBarEnabled, $0) }
                 ))
+                .disabled(partyModeEnabled)
 
                 if settings.lightBarEnabled {
                     LightBarColorPicker(
@@ -1015,6 +1031,8 @@ struct LEDSettingsView: View {
                         )
                     )
                     .frame(height: 44)
+                    .disabled(partyModeEnabled)
+                    .opacity(partyModeEnabled ? 0.5 : 1.0)
 
                     Picker("Brightness", selection: Binding(
                         get: { settings.lightBarBrightness },
@@ -1025,6 +1043,7 @@ struct LEDSettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .disabled(partyModeEnabled)
                 }
             }
 
@@ -1038,6 +1057,7 @@ struct LEDSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .disabled(partyModeEnabled)
             }
 
             Section("Player LEDs") {
@@ -1047,6 +1067,8 @@ struct LEDSettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
+                .disabled(partyModeEnabled)
+                .opacity(partyModeEnabled ? 0.5 : 1.0)
 
                 HStack {
                     Text("Presets:")
@@ -1079,6 +1101,24 @@ struct LEDSettingsView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                 }
+                .disabled(partyModeEnabled)
+            }
+
+            Section("Party Mode") {
+                Toggle("Enable Party Mode", isOn: $partyModeEnabled)
+                    .onChange(of: partyModeEnabled) { _, enabled in
+                        if enabled {
+                            startPartyMode()
+                        } else {
+                            stopPartyMode()
+                        }
+                    }
+
+                if partyModeEnabled {
+                    Text("Rainbow lightbar, cycling player LEDs, breathing mute button")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .formStyle(.grouped)
@@ -1087,11 +1127,70 @@ struct LEDSettingsView: View {
             applySettingsToController()
         }
         .onDisappear {
-            // Close the color panel when navigating away from this tab
+            // Stop party mode and close the color panel when navigating away
+            stopPartyMode()
+            partyModeEnabled = false
             if NSColorPanel.shared.isVisible {
                 NSColorPanel.shared.close()
             }
         }
+    }
+
+    // MARK: - Party Mode
+
+    private func startPartyMode() {
+        partyHue = 0.0
+        partyLEDIndex = 0
+        partyLEDDirection = 1
+
+        // Set mute button to breathing
+        var newSettings = settings
+        newSettings.muteButtonLED = .breathing
+        profileManager.updateDualSenseLEDSettings(newSettings)
+
+        // Start timer for animation (30 FPS for smooth rainbow)
+        partyModeTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
+            updatePartyMode()
+        }
+    }
+
+    private func stopPartyMode() {
+        partyModeTimer?.invalidate()
+        partyModeTimer = nil
+
+        // Restore saved settings
+        applySettingsToController()
+    }
+
+    private func updatePartyMode() {
+        // Cycle hue for rainbow effect
+        partyHue += 0.005  // Complete cycle in ~6.6 seconds
+        if partyHue >= 1.0 {
+            partyHue = 0.0
+        }
+
+        // Update player LED pattern every ~0.5 seconds (15 frames)
+        let frameCount = Int(partyHue * 200) % 15
+        if frameCount == 0 {
+            partyLEDIndex += partyLEDDirection
+            if partyLEDIndex >= partyLEDPatterns.count - 1 {
+                partyLEDDirection = -1
+            } else if partyLEDIndex <= 0 {
+                partyLEDDirection = 1
+            }
+        }
+
+        // Create party settings
+        let rainbowColor = Color(hue: partyHue, saturation: 1.0, brightness: 1.0)
+        var partySettings = DualSenseLEDSettings()
+        partySettings.lightBarEnabled = true
+        partySettings.lightBarColor = CodableColor(color: rainbowColor)
+        partySettings.lightBarBrightness = .bright
+        partySettings.muteButtonLED = .breathing
+        partySettings.playerLEDs = partyLEDPatterns[max(0, min(partyLEDIndex, partyLEDPatterns.count - 1))]
+
+        // Apply directly to controller (don't save to profile)
+        controllerService.applyLEDSettings(partySettings)
     }
 
     @ViewBuilder
