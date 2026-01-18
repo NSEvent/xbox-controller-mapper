@@ -119,60 +119,50 @@ struct ControllerVisualView: View {
     // MARK: - DualSense Controller Overlay
 
     private var dualSenseOverlay: some View {
-        VStack(spacing: 12) {
-            // Top row: Triggers with battery in center
-            HStack(spacing: 50) {
+        VStack(spacing: 4) {
+            // Row 1: Triggers (top)
+            HStack(spacing: 150) {
                 miniTrigger(.leftTrigger, label: "L2", value: controllerService.displayLeftTrigger)
-
-                if controllerService.isConnected {
-                    BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
-                        .frame(width: 40)
-                } else {
-                    Spacer().frame(width: 40)
-                }
-
                 miniTrigger(.rightTrigger, label: "R2", value: controllerService.displayRightTrigger)
             }
 
-            // Bumpers with Options/Create below them
-            HStack(spacing: 80) {
-                VStack(spacing: 8) {
-                    miniBumper(.leftBumper, label: "L1")
-                    miniCircle(.view, size: 12) // Create button
-                }
-                VStack(spacing: 8) {
-                    miniBumper(.rightBumper, label: "R1")
-                    miniCircle(.menu, size: 12) // Options button
-                }
+            // Row 2: Bumpers
+            HStack(spacing: 130) {
+                miniBumper(.leftBumper, label: "L1")
+                miniBumper(.rightBumper, label: "R1")
             }
-            .offset(y: -5)
 
-            // Middle row: D-pad, Touchpad, Face buttons
-            // D-pad and face buttons are wider apart than the sticks below
-            HStack(spacing: 0) {
+            // Row 3: Battery indicator (above touchpad)
+            if controllerService.isConnected {
+                BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
+                    .frame(width: 40)
+            }
+
+            // Row 4: D-pad + Touchpad section + Face buttons (straddling touchpad)
+            HStack(spacing: 8) {
                 miniDPad()
-                    .frame(width: 60, alignment: .center)
+                    .frame(width: 40)
+                    .offset(y: 15)
 
-                Spacer().frame(width: 15)
-
-                miniTouchpad()
-
-                Spacer().frame(width: 15)
+                // Center: Create + Touchpad + Options
+                HStack(alignment: .top, spacing: 6) {
+                    miniCircle(.view, size: 12)  // Create button
+                    miniTouchpad()
+                    miniCircle(.menu, size: 12)  // Options button
+                }
 
                 miniFaceButtons()
-                    .frame(width: 60, alignment: .center)
+                    .frame(width: 40)
+                    .offset(y: 15)
             }
-            .frame(width: 240)
 
-            // Bottom row: Sticks with PS button and mic in center
-            HStack(spacing: 30) {
+            // Row 5: Sticks with PS/Mic in center (bottom)
+            HStack(spacing: 20) {
                 miniStick(.leftThumbstick, pos: controllerService.displayLeftStick)
-
-                VStack(spacing: 4) {
-                    miniCircle(.xbox, size: 18) // PS button
-                    miniBumperWithIcon(.micMute, icon: "mic.slash", width: 18) // Mic mute - pill shape, PS button width
+                VStack(spacing: 3) {
+                    miniCircle(.xbox, size: 16)  // PS button
+                    miniBumperWithIcon(.micMute, icon: "mic.slash", width: 16)  // Mic mute
                 }
-
                 miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
             }
         }
@@ -183,13 +173,13 @@ struct ControllerVisualView: View {
     private func miniTouchpad() -> some View {
         let color = isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.25)
 
-        return RoundedRectangle(cornerRadius: 6)
+        return RoundedRectangle(cornerRadius: 10)
             .fill(jewelGradient(color, pressed: isPressed(.touchpadButton)))
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
             )
-            .frame(width: 70, height: 35)
+            .frame(width: 100, height: 50) // Larger touchpad
             .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
             .onTapGesture { onButtonTap(.touchpadButton) }
     }
