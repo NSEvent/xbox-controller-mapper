@@ -408,6 +408,8 @@ class MappingEngine: ObservableObject {
         state.lock.unlock()
 
         guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
+            // Log unmapped button presses so they still appear in history
+            inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
             return
         }
 
