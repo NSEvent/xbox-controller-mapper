@@ -172,16 +172,45 @@ struct ControllerVisualView: View {
 
     private func miniTouchpad() -> some View {
         let color = isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.25)
+        let touchpadWidth: CGFloat = 100
+        let touchpadHeight: CGFloat = 50
 
-        return RoundedRectangle(cornerRadius: 10)
-            .fill(jewelGradient(color, pressed: isPressed(.touchpadButton)))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
-            )
-            .frame(width: 100, height: 50) // Larger touchpad
-            .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-            .onTapGesture { onButtonTap(.touchpadButton) }
+        return ZStack {
+            // Base touchpad shape
+            RoundedRectangle(cornerRadius: 10)
+                .fill(jewelGradient(color, pressed: isPressed(.touchpadButton)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
+                )
+
+            // Primary touch point
+            if controllerService.displayIsTouchpadTouching {
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 10, height: 10)
+                    .shadow(color: .white.opacity(0.5), radius: 3)
+                    .offset(
+                        x: controllerService.displayTouchpadPosition.x * (touchpadWidth / 2 - 5),
+                        y: -controllerService.displayTouchpadPosition.y * (touchpadHeight / 2 - 5)
+                    )
+            }
+
+            // Secondary touch point (two-finger)
+            if controllerService.displayIsTouchpadSecondaryTouching {
+                Circle()
+                    .fill(Color.white.opacity(0.6))
+                    .frame(width: 8, height: 8)
+                    .shadow(color: .white.opacity(0.4), radius: 2)
+                    .offset(
+                        x: controllerService.displayTouchpadSecondaryPosition.x * (touchpadWidth / 2 - 4),
+                        y: -controllerService.displayTouchpadSecondaryPosition.y * (touchpadHeight / 2 - 4)
+                    )
+            }
+        }
+        .frame(width: touchpadWidth, height: touchpadHeight)
+        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+        .onTapGesture { onButtonTap(.touchpadButton) }
     }
 
     @ViewBuilder

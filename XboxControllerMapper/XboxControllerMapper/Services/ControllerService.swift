@@ -167,6 +167,10 @@ class ControllerService: ObservableObject {
     @Published var displayRightStick: CGPoint = .zero
     @Published var displayLeftTrigger: Float = 0
     @Published var displayRightTrigger: Float = 0
+    @Published var displayTouchpadPosition: CGPoint = .zero
+    @Published var displayTouchpadSecondaryPosition: CGPoint = .zero
+    @Published var displayIsTouchpadTouching: Bool = false
+    @Published var displayIsTouchpadSecondaryTouching: Bool = false
     private var displayUpdateTimer: DispatchSourceTimer?
 
     /// Battery level (0 to 1)
@@ -357,6 +361,27 @@ class ControllerService: ObservableObject {
             if abs(self.displayRightTrigger - tsRightTrig) > Float(Config.displayUpdateDeadzone) {
                 self.displayRightTrigger = tsRightTrig
             }
+
+            // Touchpad display updates
+            self.storage.lock.lock()
+            let touchPos = self.storage.touchpadPosition
+            let touchSecPos = self.storage.touchpadSecondaryPosition
+            let isTouching = self.storage.isTouchpadTouching
+            let isSecTouching = self.storage.isTouchpadSecondaryTouching
+            self.storage.lock.unlock()
+
+            if self.displayTouchpadPosition != touchPos {
+                self.displayTouchpadPosition = touchPos
+            }
+            if self.displayTouchpadSecondaryPosition != touchSecPos {
+                self.displayTouchpadSecondaryPosition = touchSecPos
+            }
+            if self.displayIsTouchpadTouching != isTouching {
+                self.displayIsTouchpadTouching = isTouching
+            }
+            if self.displayIsTouchpadSecondaryTouching != isSecTouching {
+                self.displayIsTouchpadSecondaryTouching = isSecTouching
+            }
         }
         timer.resume()
         displayUpdateTimer = timer
@@ -369,6 +394,10 @@ class ControllerService: ObservableObject {
         displayRightStick = .zero
         displayLeftTrigger = 0
         displayRightTrigger = 0
+        displayTouchpadPosition = .zero
+        displayTouchpadSecondaryPosition = .zero
+        displayIsTouchpadTouching = false
+        displayIsTouchpadSecondaryTouching = false
     }
 
     private func updateBatteryInfo() {
