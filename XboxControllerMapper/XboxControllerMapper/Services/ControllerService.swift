@@ -125,6 +125,7 @@ class ControllerService: ObservableObject {
     private var hidManager: IOHIDManager?
     private var hidReportBuffer: UnsafeMutablePointer<UInt8>?
     private var hidDevice: IOHIDDevice?
+    private var bluetoothOutputSeq: UInt8 = 0  // Sequence number for Bluetooth output reports (0-15)
     
     nonisolated var threadSafeLeftStick: CGPoint {
         storage.lock.lock()
@@ -731,12 +732,17 @@ class ControllerService: ObservableObject {
         // Report ID
         report[0] = DualSenseHIDConstants.bluetoothOutputReportID
 
-        // Bluetooth header
-        report[1] = 0x02
-        report[2] = 0x00
-        report[3] = 0x00
+        // Bluetooth header per Linux kernel hid-playstation.c:
+        // - Byte 1: seq_tag = (sequence_number << 4) | tag_field
+        // - Byte 2: tag = 0x10 (DS_OUTPUT_TAG)
+        report[1] = (bluetoothOutputSeq << 4) | 0x00  // Upper 4 bits = seq number, lower 4 bits = 0
+        report[2] = 0x10  // DS_OUTPUT_TAG
 
-        let dataOffset = 4
+        // Increment sequence number (wraps at 16)
+        bluetoothOutputSeq = (bluetoothOutputSeq + 1) & 0x0F
+
+        // Data starts at byte 3 (after report_id, seq_tag, tag)
+        let dataOffset = 3
 
         // Valid flags - same as USB
         report[dataOffset + 0] = 0xFF  // flag0: enable all
@@ -762,6 +768,7 @@ class ControllerService: ObservableObject {
         report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
 
         // Calculate CRC32 for Bluetooth (last 4 bytes)
+        // CRC is computed over: seed byte (0xA2) + bytes 1-73 of report
         let crcData = Data([0xA2] + report[1..<74])
         let crc = crc32(crcData)
         report[74] = UInt8(crc & 0xFF)
