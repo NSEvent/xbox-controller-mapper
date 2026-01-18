@@ -19,6 +19,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var isDualSense: Bool = false
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
     var touchpadFramesSinceTouch: Int = 0  // Skip first frames after touch to let position settle
+    var touchpadSuppressUntil: TimeInterval = 0
 
     // Button State
     var activeButtons: Set<ControllerButton> = []
@@ -447,6 +448,7 @@ class ControllerService: ObservableObject {
 
             // Touchpad button (click)
             dualSenseGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
+                self?.suppressTouchpadMovement()
                 self?.controllerQueue.async { self?.handleButton(.touchpadButton, pressed: pressed) }
             }
 
@@ -485,10 +487,29 @@ class ControllerService: ObservableObject {
 
         let newPosition = CGPoint(x: CGFloat(x), y: CGFloat(y))
         let wasTouching = storage.isTouchpadTouching
+        let now = CFAbsoluteTimeGetCurrent()
 
         // Detect if finger is on touchpad (non-zero position indicates touch)
         // GCControllerDirectionPad returns 0,0 when no finger is present
         let isTouching = abs(x) > 0.001 || abs(y) > 0.001
+
+        if now < storage.touchpadSuppressUntil {
+            if isTouching {
+                storage.isTouchpadTouching = true
+                storage.touchpadFramesSinceTouch = 0
+                storage.pendingTouchpadDelta = nil
+                storage.touchpadPosition = newPosition
+                storage.touchpadPreviousPosition = newPosition
+            } else {
+                storage.isTouchpadTouching = false
+                storage.touchpadPosition = .zero
+                storage.touchpadPreviousPosition = .zero
+                storage.touchpadFramesSinceTouch = 0
+                storage.pendingTouchpadDelta = nil
+            }
+            storage.lock.unlock()
+            return
+        }
 
         if isTouching {
             if wasTouching {
@@ -565,6 +586,14 @@ class ControllerService: ObservableObject {
             storage.pendingTouchpadDelta = nil
             storage.lock.unlock()
         }
+    }
+
+    nonisolated private func suppressTouchpadMovement() {
+        storage.lock.lock()
+        storage.touchpadSuppressUntil = CFAbsoluteTimeGetCurrent() + Config.touchpadClickSuppressDuration
+        storage.pendingTouchpadDelta = nil
+        storage.touchpadFramesSinceTouch = 0
+        storage.lock.unlock()
     }
 
     nonisolated private func updateLeftTrigger(_ value: Float, pressed: Bool) {
