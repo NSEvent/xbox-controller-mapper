@@ -4,6 +4,7 @@ import Combine
 import CoreHaptics
 import IOKit
 import IOKit.hid
+import SwiftUI
 
 // MARK: - DualSense HID Constants
 
@@ -101,7 +102,22 @@ class ControllerService: ObservableObject {
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
     @Published var activeButtons: Set<ControllerButton> = []
-    
+
+    /// Party mode state
+    @Published var partyModeEnabled = false
+    private var partyModeTimer: Timer?
+    private var partyHue: Double = 0.0
+    private var partyLEDIndex: Int = 0
+    private var partyLEDDirection: Int = 1
+
+    private let partyLEDPatterns: [PlayerLEDs] = [
+        PlayerLEDs(led1: false, led2: false, led3: true, led4: false, led5: false),
+        PlayerLEDs(led1: false, led2: true, led3: false, led4: true, led5: false),
+        PlayerLEDs(led1: true, led2: false, led3: false, led4: false, led5: true),
+        PlayerLEDs(led1: true, led2: true, led3: false, led4: true, led5: true),
+        PlayerLEDs(led1: true, led2: true, led3: true, led4: true, led5: true),
+    ]
+
     private let controllerQueue = DispatchQueue(label: "com.xboxmapper.controller", qos: .userInteractive)
     private let storage = ControllerStorage()
 
@@ -775,6 +791,64 @@ class ControllerService: ObservableObject {
             }
         }
         return ~crc
+    }
+
+    // MARK: - Party Mode
+
+    func setPartyMode(_ enabled: Bool, savedSettings: DualSenseLEDSettings) {
+        if enabled {
+            startPartyMode()
+        } else {
+            stopPartyMode(restoreSettings: savedSettings)
+        }
+        partyModeEnabled = enabled
+    }
+
+    private func startPartyMode() {
+        partyHue = 0.0
+        partyLEDIndex = 0
+        partyLEDDirection = 1
+
+        partyModeTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updatePartyMode()
+            }
+        }
+    }
+
+    private func stopPartyMode(restoreSettings: DualSenseLEDSettings) {
+        partyModeTimer?.invalidate()
+        partyModeTimer = nil
+        applyLEDSettings(restoreSettings)
+    }
+
+    private func updatePartyMode() {
+        guard partyModeEnabled else { return }
+
+        partyHue += 0.005
+        if partyHue >= 1.0 {
+            partyHue = 0.0
+        }
+
+        let frameCount = Int(partyHue * 200) % 15
+        if frameCount == 0 {
+            partyLEDIndex += partyLEDDirection
+            if partyLEDIndex >= partyLEDPatterns.count - 1 {
+                partyLEDDirection = -1
+            } else if partyLEDIndex <= 0 {
+                partyLEDDirection = 1
+            }
+        }
+
+        let rainbowColor = Color(hue: partyHue, saturation: 1.0, brightness: 1.0)
+        var partySettings = DualSenseLEDSettings()
+        partySettings.lightBarEnabled = true
+        partySettings.lightBarColor = CodableColor(color: rainbowColor)
+        partySettings.lightBarBrightness = .bright
+        partySettings.muteButtonLED = .breathing
+        partySettings.playerLEDs = partyLEDPatterns[max(0, min(partyLEDIndex, partyLEDPatterns.count - 1))]
+
+        applyLEDSettings(partySettings)
     }
 
     nonisolated private func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
