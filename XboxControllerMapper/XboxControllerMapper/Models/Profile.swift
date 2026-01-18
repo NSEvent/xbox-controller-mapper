@@ -17,13 +17,17 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Joystick settings
     var joystickSettings: JoystickSettings
 
+    /// DualSense LED settings
+    var dualSenseLEDSettings: DualSenseLEDSettings
+
     init(
         id: UUID = UUID(),
         name: String,
         isDefault: Bool = false,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         chordMappings: [ChordMapping] = [],
-        joystickSettings: JoystickSettings = .default
+        joystickSettings: JoystickSettings = .default,
+        dualSenseLEDSettings: DualSenseLEDSettings = .default
     ) {
         self.id = id
         self.name = name
@@ -33,6 +37,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.buttonMappings = buttonMappings
         self.chordMappings = chordMappings
         self.joystickSettings = joystickSettings
+        self.dualSenseLEDSettings = dualSenseLEDSettings
     }
 
     /// Validates the profile for sanity
@@ -41,7 +46,7 @@ struct Profile: Codable, Identifiable, Equatable {
             return false
         }
         
-        return joystickSettings.isValid()
+        return joystickSettings.isValid() && dualSenseLEDSettings.isValid()
     }
 
     /// Creates a default profile with sensible mappings
@@ -206,6 +211,7 @@ extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isDefault, createdAt, modifiedAt
         case buttonMappings, chordMappings, joystickSettings
+        case dualSenseLEDSettings
     }
 
     init(from decoder: Decoder) throws {
@@ -226,6 +232,7 @@ extension Profile {
 
         chordMappings = try container.decode([ChordMapping].self, forKey: .chordMappings)
         joystickSettings = try container.decode(JoystickSettings.self, forKey: .joystickSettings)
+        dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings) ?? .default
     }
 
     func encode(to encoder: Encoder) throws {
@@ -243,5 +250,6 @@ extension Profile {
 
         try container.encode(chordMappings, forKey: .chordMappings)
         try container.encode(joystickSettings, forKey: .joystickSettings)
+        try container.encode(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
     }
 }

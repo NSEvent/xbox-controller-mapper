@@ -53,6 +53,13 @@ struct ContentView: View {
                             .tabItem { Text("Touchpad") }
                             .tag(3)
                     }
+
+                    // LED Settings (only shown for DualSense)
+                    if controllerService.threadSafeIsDualSense {
+                        ledSettingsTab
+                            .tabItem { Text("LEDs") }
+                            .tag(4)
+                    }
                 }
                 .tabViewStyle(.automatic)
             }
@@ -272,6 +279,12 @@ struct ContentView: View {
 
     private var touchpadSettingsTab: some View {
         TouchpadSettingsView()
+    }
+
+    // MARK: - LED Settings Tab
+
+    private var ledSettingsTab: some View {
+        LEDSettingsView()
     }
 }
 
@@ -973,6 +986,175 @@ struct TouchpadSettingsView: View {
         var newSettings = settings
         newSettings[keyPath: keyPath] = value
         profileManager.updateJoystickSettings(newSettings)
+    }
+}
+
+// MARK: - LED Settings View
+
+struct LEDSettingsView: View {
+    @EnvironmentObject var profileManager: ProfileManager
+    @EnvironmentObject var controllerService: ControllerService
+
+    var settings: DualSenseLEDSettings {
+        profileManager.activeProfile?.dualSenseLEDSettings ?? .default
+    }
+
+    var body: some View {
+        Form {
+            Section("Light Bar") {
+                Toggle("Enabled", isOn: Binding(
+                    get: { settings.lightBarEnabled },
+                    set: { updateSettings(\.lightBarEnabled, $0) }
+                ))
+
+                if settings.lightBarEnabled {
+                    ColorPicker("Color", selection: Binding(
+                        get: { settings.lightBarColor.color },
+                        set: { updateColor($0) }
+                    ))
+
+                    Picker("Brightness", selection: Binding(
+                        get: { settings.lightBarBrightness },
+                        set: { updateSettings(\.lightBarBrightness, $0) }
+                    )) {
+                        ForEach(LightBarBrightness.allCases, id: \.self) { brightness in
+                            Text(brightness.displayName).tag(brightness)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+
+            Section("Mute Button LED") {
+                Picker("Mode", selection: Binding(
+                    get: { settings.muteButtonLED },
+                    set: { updateSettings(\.muteButtonLED, $0) }
+                )) {
+                    ForEach(MuteButtonLEDMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Section("Player LEDs") {
+                HStack(spacing: 12) {
+                    ForEach(0..<5) { index in
+                        playerLEDToggle(index: index)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                HStack {
+                    Text("Presets:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Button("P1") { applyPlayerPreset(.player1) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                    Button("P2") { applyPlayerPreset(.player2) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                    Button("P3") { applyPlayerPreset(.player3) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                    Button("P4") { applyPlayerPreset(.player4) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                    Button("All") { applyPlayerPreset(.allOn) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                    Button("Off") { applyPlayerPreset(.default) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
+            }
+
+            Section {
+                Button("Apply to Controller") {
+                    applySettingsToController()
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+        .onAppear {
+            applySettingsToController()
+        }
+    }
+
+    @ViewBuilder
+    private func playerLEDToggle(index: Int) -> some View {
+        let isOn = getPlayerLED(index: index)
+        Button(action: {
+            togglePlayerLED(index: index)
+        }) {
+            Circle()
+                .fill(isOn ? Color.white : Color.gray.opacity(0.3))
+                .frame(width: 24, height: 24)
+                .overlay(
+                    Circle()
+                        .stroke(Color.gray.opacity(0.5), lineWidth: 1)
+                )
+                .shadow(color: isOn ? .white.opacity(0.8) : .clear, radius: 4)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func getPlayerLED(index: Int) -> Bool {
+        switch index {
+        case 0: return settings.playerLEDs.led1
+        case 1: return settings.playerLEDs.led2
+        case 2: return settings.playerLEDs.led3
+        case 3: return settings.playerLEDs.led4
+        case 4: return settings.playerLEDs.led5
+        default: return false
+        }
+    }
+
+    private func togglePlayerLED(index: Int) {
+        var newLEDs = settings.playerLEDs
+        switch index {
+        case 0: newLEDs.led1.toggle()
+        case 1: newLEDs.led2.toggle()
+        case 2: newLEDs.led3.toggle()
+        case 3: newLEDs.led4.toggle()
+        case 4: newLEDs.led5.toggle()
+        default: break
+        }
+        updateSettings(\.playerLEDs, newLEDs)
+    }
+
+    private func applyPlayerPreset(_ preset: PlayerLEDs) {
+        updateSettings(\.playerLEDs, preset)
+    }
+
+    private func updateSettings<T>(_ keyPath: WritableKeyPath<DualSenseLEDSettings, T>, _ value: T) {
+        var newSettings = settings
+        newSettings[keyPath: keyPath] = value
+        profileManager.updateDualSenseLEDSettings(newSettings)
+        applySettingsToController()
+    }
+
+    private func updateColor(_ color: Color) {
+        var newSettings = settings
+        newSettings.lightBarColor = CodableColor(color: color)
+        profileManager.updateDualSenseLEDSettings(newSettings)
+        applySettingsToController()
+    }
+
+    private func applySettingsToController() {
+        controllerService.applyLEDSettings(settings)
     }
 }
 

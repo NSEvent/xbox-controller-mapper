@@ -5,6 +5,39 @@ import CoreHaptics
 import IOKit
 import IOKit.hid
 
+// MARK: - DualSense HID Constants
+
+private enum DualSenseHIDConstants {
+    // Report IDs
+    static let usbOutputReportID: UInt8 = 0x02
+    static let bluetoothOutputReportID: UInt8 = 0x31
+
+    // Report sizes
+    static let usbReportSize = 64
+    static let bluetoothReportSize = 78
+
+    // Common byte offsets (0-indexed within common data section)
+    static let validFlag0Offset = 0
+    static let validFlag1Offset = 1
+    static let muteButtonLEDOffset = 8
+    static let validFlag2Offset = 38
+    static let lightbarSetupOffset = 41
+    static let ledBrightnessOffset = 42
+    static let playerLEDsOffset = 43
+    static let lightbarRedOffset = 44
+    static let lightbarGreenOffset = 45
+    static let lightbarBlueOffset = 46
+
+    // Valid flag bits
+    static let validFlag1MuteLED: UInt8 = 0x01
+    static let validFlag1Lightbar: UInt8 = 0x04
+    static let validFlag1PlayerLEDs: UInt8 = 0x10
+    static let validFlag2LightbarSetup: UInt8 = 0x02
+
+    // Lightbar setup value
+    static let lightbarSetupEnable: UInt8 = 0x01
+}
+
 // MARK: - Thread-Safe Input State (High Performance)
 
 private final class ControllerStorage: @unchecked Sendable {
@@ -24,6 +57,8 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadSecondaryLastUpdate: TimeInterval = 0
     var touchpadSecondaryLastTouchTime: TimeInterval = 0
     var isDualSense: Bool = false
+    var isBluetoothConnection: Bool = false
+    var currentLEDSettings: DualSenseLEDSettings?
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
     var touchpadFramesSinceTouch: Int = 0  // Skip first frames after touch to let position settle
     var touchpadSecondaryFramesSinceTouch: Int = 0
@@ -136,6 +171,12 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isDualSense
+    }
+
+    nonisolated var threadSafeLEDSettings: DualSenseLEDSettings? {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.currentLEDSettings
     }
 
     /// Left joystick position (-1 to 1) - UI/Legacy use only
@@ -566,6 +607,7 @@ class ControllerService: ObservableObject {
 
     private func setupHIDDeviceCallback(_ device: IOHIDDevice) {
         hidDevice = device
+        detectConnectionType(device: device)
         guard let buffer = hidReportBuffer else { return }
 
         let context = Unmanaged.passUnretained(self).toOpaque()
@@ -594,6 +636,148 @@ class ControllerService: ObservableObject {
             buffer.deallocate()
         }
         hidReportBuffer = nil
+    }
+
+    // MARK: - DualSense LED Control
+
+    private func detectConnectionType(device: IOHIDDevice) {
+        if let transport = IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String {
+            storage.lock.lock()
+            storage.isBluetoothConnection = (transport.lowercased() == "bluetooth")
+            storage.lock.unlock()
+        }
+    }
+
+    /// Applies LED settings to the connected DualSense controller
+    func applyLEDSettings(_ settings: DualSenseLEDSettings) {
+        storage.lock.lock()
+        let isDualSense = storage.isDualSense
+        let isBluetooth = storage.isBluetoothConnection
+        storage.currentLEDSettings = settings
+        storage.lock.unlock()
+
+        guard isDualSense, let device = hidDevice else { return }
+
+        if isBluetooth {
+            sendBluetoothOutputReport(device: device, settings: settings)
+        } else {
+            sendUSBOutputReport(device: device, settings: settings)
+        }
+    }
+
+    private func sendUSBOutputReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
+        var report = [UInt8](repeating: 0, count: DualSenseHIDConstants.usbReportSize)
+
+        // Report ID
+        report[0] = DualSenseHIDConstants.usbOutputReportID
+
+        // Valid flags - indicate which features we're setting
+        let dataOffset = 1
+        report[dataOffset + DualSenseHIDConstants.validFlag0Offset] = 0x00
+        report[dataOffset + DualSenseHIDConstants.validFlag1Offset] =
+            DualSenseHIDConstants.validFlag1MuteLED |
+            DualSenseHIDConstants.validFlag1Lightbar |
+            DualSenseHIDConstants.validFlag1PlayerLEDs
+
+        // Mute button LED
+        report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
+
+        // Lightbar setup
+        report[dataOffset + DualSenseHIDConstants.validFlag2Offset] = DualSenseHIDConstants.validFlag2LightbarSetup
+        report[dataOffset + DualSenseHIDConstants.lightbarSetupOffset] = settings.lightBarEnabled ? DualSenseHIDConstants.lightbarSetupEnable : 0x00
+
+        // LED brightness
+        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.byteValue
+
+        // Player LEDs
+        report[dataOffset + DualSenseHIDConstants.playerLEDsOffset] = settings.playerLEDs.bitmask
+
+        // Light bar color
+        report[dataOffset + DualSenseHIDConstants.lightbarRedOffset] = settings.lightBarColor.redByte
+        report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = settings.lightBarColor.greenByte
+        report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = settings.lightBarColor.blueByte
+
+        let result = IOHIDDeviceSetReport(
+            device,
+            kIOHIDReportTypeOutput,
+            CFIndex(DualSenseHIDConstants.usbOutputReportID),
+            report,
+            report.count
+        )
+
+        if result != kIOReturnSuccess {
+            print("Failed to send USB LED report: \(result)")
+        }
+    }
+
+    private func sendBluetoothOutputReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
+        var report = [UInt8](repeating: 0, count: DualSenseHIDConstants.bluetoothReportSize)
+
+        // Report ID
+        report[0] = DualSenseHIDConstants.bluetoothOutputReportID
+
+        // Bluetooth header
+        report[1] = 0x02
+        report[2] = 0x00
+        report[3] = 0x00
+
+        let dataOffset = 4
+
+        // Valid flags
+        report[dataOffset + DualSenseHIDConstants.validFlag0Offset] = 0x00
+        report[dataOffset + DualSenseHIDConstants.validFlag1Offset] =
+            DualSenseHIDConstants.validFlag1MuteLED |
+            DualSenseHIDConstants.validFlag1Lightbar |
+            DualSenseHIDConstants.validFlag1PlayerLEDs
+
+        // Mute button LED
+        report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
+
+        // Lightbar setup
+        report[dataOffset + DualSenseHIDConstants.validFlag2Offset] = DualSenseHIDConstants.validFlag2LightbarSetup
+        report[dataOffset + DualSenseHIDConstants.lightbarSetupOffset] = settings.lightBarEnabled ? DualSenseHIDConstants.lightbarSetupEnable : 0x00
+
+        // LED brightness
+        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.byteValue
+
+        // Player LEDs
+        report[dataOffset + DualSenseHIDConstants.playerLEDsOffset] = settings.playerLEDs.bitmask
+
+        // Light bar color
+        report[dataOffset + DualSenseHIDConstants.lightbarRedOffset] = settings.lightBarColor.redByte
+        report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = settings.lightBarColor.greenByte
+        report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = settings.lightBarColor.blueByte
+
+        // Calculate CRC32 for Bluetooth (last 4 bytes)
+        let crcData = Data([0xA2] + report[1..<74])
+        let crc = crc32(crcData)
+        report[74] = UInt8(crc & 0xFF)
+        report[75] = UInt8((crc >> 8) & 0xFF)
+        report[76] = UInt8((crc >> 16) & 0xFF)
+        report[77] = UInt8((crc >> 24) & 0xFF)
+
+        let result = IOHIDDeviceSetReport(
+            device,
+            kIOHIDReportTypeOutput,
+            CFIndex(DualSenseHIDConstants.bluetoothOutputReportID),
+            report,
+            report.count
+        )
+
+        if result != kIOReturnSuccess {
+            print("Failed to send Bluetooth LED report: \(result)")
+        }
+    }
+
+    private func crc32(_ data: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFFFFFF
+        for byte in data {
+            crc ^= UInt32(byte)
+            for _ in 0..<8 {
+                crc = (crc >> 1) ^ (crc & 1 == 1 ? 0xEDB88320 : 0)
+            }
+        }
+        return ~crc
     }
 
     nonisolated private func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {

@@ -179,6 +179,15 @@ class ProfileManager: ObservableObject {
         updateProfile(targetProfile)
     }
 
+    // MARK: - DualSense LED Settings
+
+    func updateDualSenseLEDSettings(_ settings: DualSenseLEDSettings, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.dualSenseLEDSettings = settings
+        updateProfile(targetProfile)
+    }
+
     // MARK: - Persistence
 
     private struct Configuration: Codable {
