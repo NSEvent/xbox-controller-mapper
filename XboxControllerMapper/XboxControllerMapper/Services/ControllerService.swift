@@ -19,7 +19,8 @@ private final class ControllerStorage: @unchecked Sendable {
     var isDualSense: Bool = false
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
     var touchpadFramesSinceTouch: Int = 0  // Skip first frames after touch to let position settle
-    var touchpadSuppressUntil: TimeInterval = 0
+    var touchpadClickArmed: Bool = false
+    var touchpadClickStartPosition: CGPoint = .zero
 
     // Button State
     var activeButtons: Set<ControllerButton> = []
@@ -448,7 +449,7 @@ class ControllerService: ObservableObject {
 
             // Touchpad button (click)
             dualSenseGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
-                self?.suppressTouchpadMovement()
+                self?.armTouchpadClick(pressed: pressed)
                 self?.controllerQueue.async { self?.handleButton(.touchpadButton, pressed: pressed) }
             }
 
@@ -487,32 +488,33 @@ class ControllerService: ObservableObject {
 
         let newPosition = CGPoint(x: CGFloat(x), y: CGFloat(y))
         let wasTouching = storage.isTouchpadTouching
-        let now = CFAbsoluteTimeGetCurrent()
-
         // Detect if finger is on touchpad (non-zero position indicates touch)
         // GCControllerDirectionPad returns 0,0 when no finger is present
         let isTouching = abs(x) > 0.001 || abs(y) > 0.001
 
-        if now < storage.touchpadSuppressUntil {
-            if isTouching {
-                storage.isTouchpadTouching = true
-                storage.touchpadFramesSinceTouch = 0
-                storage.pendingTouchpadDelta = nil
-                storage.touchpadPosition = newPosition
-                storage.touchpadPreviousPosition = newPosition
-            } else {
-                storage.isTouchpadTouching = false
-                storage.touchpadPosition = .zero
-                storage.touchpadPreviousPosition = .zero
-                storage.touchpadFramesSinceTouch = 0
-                storage.pendingTouchpadDelta = nil
-            }
-            storage.lock.unlock()
-            return
-        }
-
         if isTouching {
             if wasTouching {
+                if storage.touchpadClickArmed {
+                    let distance = Double(hypot(
+                        newPosition.x - storage.touchpadClickStartPosition.x,
+                        newPosition.y - storage.touchpadClickStartPosition.y
+                    ))
+                    if distance < Config.touchpadClickMovementThreshold {
+                        storage.touchpadPosition = newPosition
+                        storage.touchpadPreviousPosition = newPosition
+                        storage.pendingTouchpadDelta = nil
+                        storage.lock.unlock()
+                        return
+                    }
+
+                    storage.touchpadClickArmed = false
+                    storage.touchpadPosition = newPosition
+                    storage.touchpadPreviousPosition = newPosition
+                    storage.pendingTouchpadDelta = nil
+                    storage.lock.unlock()
+                    return
+                }
+
                 // Increment frame counter
                 storage.touchpadFramesSinceTouch += 1
 
@@ -575,6 +577,9 @@ class ControllerService: ObservableObject {
                 storage.isTouchpadTouching = true
                 storage.touchpadFramesSinceTouch = 0
                 storage.pendingTouchpadDelta = nil
+                if storage.touchpadClickArmed {
+                    storage.touchpadClickStartPosition = newPosition
+                }
                 storage.lock.unlock()
             }
         } else {
@@ -584,15 +589,21 @@ class ControllerService: ObservableObject {
             storage.touchpadPreviousPosition = .zero
             storage.touchpadFramesSinceTouch = 0
             storage.pendingTouchpadDelta = nil
+            storage.touchpadClickArmed = false
             storage.lock.unlock()
         }
     }
 
-    nonisolated private func suppressTouchpadMovement() {
+    nonisolated private func armTouchpadClick(pressed: Bool) {
         storage.lock.lock()
-        storage.touchpadSuppressUntil = CFAbsoluteTimeGetCurrent() + Config.touchpadClickSuppressDuration
-        storage.pendingTouchpadDelta = nil
-        storage.touchpadFramesSinceTouch = 0
+        if pressed {
+            storage.touchpadClickArmed = true
+            storage.touchpadClickStartPosition = storage.touchpadPosition
+            storage.pendingTouchpadDelta = nil
+            storage.touchpadFramesSinceTouch = 0
+        } else {
+            storage.touchpadClickArmed = false
+        }
         storage.lock.unlock()
     }
 

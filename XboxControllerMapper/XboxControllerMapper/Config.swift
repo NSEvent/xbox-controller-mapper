@@ -90,8 +90,8 @@ struct Config {
     static let touchpadMinSmoothingAlpha: Double = 0.1
     /// Reset smoothing if touchpad events pause longer than this
     static let touchpadSmoothingResetInterval: TimeInterval = 0.12
-    /// Suppress touchpad movement right after click to prevent cursor bump
-    static let touchpadClickSuppressDuration: TimeInterval = 0.16
+    /// Movement threshold to ignore click-induced touchpad jitter
+    static let touchpadClickMovementThreshold: Double = 0.015
 
     // MARK: - Button Processing
     /// Delay for chord button release processing (seconds)
