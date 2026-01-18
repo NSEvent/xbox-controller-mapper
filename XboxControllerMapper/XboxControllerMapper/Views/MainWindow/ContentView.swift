@@ -755,6 +755,48 @@ struct JoystickSettingsView: View {
                 ))
             }
 
+            Section("Touchpad (DualSense)") {
+                SliderRow(
+                    label: "Sensitivity",
+                    value: Binding(
+                        get: { settings.touchpadSensitivity },
+                        set: { updateSettings(\.touchpadSensitivity, $0) }
+                    ),
+                    range: 0...1,
+                    description: "Touchpad cursor speed"
+                )
+
+                SliderRow(
+                    label: "Acceleration",
+                    value: Binding(
+                        get: { settings.touchpadAcceleration },
+                        set: { updateSettings(\.touchpadAcceleration, $0) }
+                    ),
+                    range: 0...1,
+                    description: "0 = linear, 1 = max curve"
+                )
+
+                SliderRow(
+                    label: "Deadzone",
+                    value: Binding(
+                        get: { settings.touchpadDeadzone },
+                        set: { updateSettings(\.touchpadDeadzone, $0) }
+                    ),
+                    range: 0...0.1,
+                    description: "Ignore tiny jitter"
+                )
+
+                SliderRow(
+                    label: "Smoothing",
+                    value: Binding(
+                        get: { settings.touchpadSmoothing },
+                        set: { updateSettings(\.touchpadSmoothing, $0) }
+                    ),
+                    range: 0...1,
+                    description: "Reduce jitter"
+                )
+            }
+
             Section("Focus Mode (Precision)") {
                 SliderRow(
                     label: "Focus Speed",

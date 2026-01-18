@@ -82,6 +82,14 @@ struct Config {
     /// The touchpad reports normalized values (-1 to 1), so we scale up for usable mouse movement
     /// Higher values = faster/more sensitive touchpad
     static let touchpadSensitivityMultiplier: Double = 15.0
+    /// Touchpad delta magnitude used to normalize acceleration curve
+    static let touchpadAccelerationMaxDelta: Double = 0.12
+    /// Maximum boost applied by touchpad acceleration
+    static let touchpadAccelerationMaxBoost: Double = 2.0
+    /// Minimum smoothing alpha to prevent freezing at max smoothing
+    static let touchpadMinSmoothingAlpha: Double = 0.1
+    /// Reset smoothing if touchpad events pause longer than this
+    static let touchpadSmoothingResetInterval: TimeInterval = 0.12
 
     // MARK: - Button Processing
     /// Delay for chord button release processing (seconds)

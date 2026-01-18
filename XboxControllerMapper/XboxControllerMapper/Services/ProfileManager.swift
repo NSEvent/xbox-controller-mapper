@@ -200,9 +200,29 @@ class ProfileManager: ObservableObject {
             decoder.dateDecodingStrategy = .iso8601
 
             let config = try decoder.decode(Configuration.self, from: data)
+            var didMigrate = false
+
+            let migratedProfiles = config.profiles.map { profile in
+                var updated = profile
+                if updated.joystickSettings.touchpadSensitivity == 0.8 &&
+                    updated.joystickSettings.touchpadAcceleration == 0.9 &&
+                    updated.joystickSettings.touchpadDeadzone == 0.0 &&
+                    updated.joystickSettings.touchpadSmoothing == 0.4 {
+                    updated.joystickSettings.touchpadSensitivity = 0.5
+                    updated.joystickSettings.touchpadAcceleration = 0.5
+                    didMigrate = true
+                } else if updated.joystickSettings.touchpadSensitivity == 0.5 &&
+                            updated.joystickSettings.touchpadAcceleration == 0.5 &&
+                            updated.joystickSettings.touchpadDeadzone == 0.01 &&
+                            updated.joystickSettings.touchpadSmoothing == 0.4 {
+                    updated.joystickSettings.touchpadDeadzone = 0.0
+                    didMigrate = true
+                }
+                return updated
+            }
             
             // Validation: Filter out invalid profiles
-            let validProfiles = config.profiles.filter { $0.isValid() }
+            let validProfiles = migratedProfiles.filter { $0.isValid() }
             
             if !validProfiles.isEmpty {
                 self.profiles = validProfiles.sorted { $0.createdAt < $1.createdAt }
@@ -219,6 +239,10 @@ class ProfileManager: ObservableObject {
             
             if let scale = config.uiScale {
                 self.uiScale = scale
+            }
+            
+            if didMigrate {
+                saveConfiguration()
             }
         } catch {
             // Configuration load failed, will use defaults

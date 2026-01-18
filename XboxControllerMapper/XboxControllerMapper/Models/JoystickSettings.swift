@@ -23,6 +23,18 @@ struct JoystickSettings: Codable, Equatable {
     /// Acceleration curve for mouse movement (0.0 = linear, 1.0 = max acceleration)
     var mouseAcceleration: Double = 0.5
 
+    /// Touchpad sensitivity (0.0 - 1.0)
+    var touchpadSensitivity: Double = 0.5
+
+    /// Touchpad acceleration curve (0.0 = linear, 1.0 = max acceleration)
+    var touchpadAcceleration: Double = 0.5
+
+    /// Deadzone for touchpad movement (0.0 - 0.1)
+    var touchpadDeadzone: Double = 0.0
+
+    /// Smoothing amount for touchpad movement (0.0 - 1.0)
+    var touchpadSmoothing: Double = 0.4
+
     /// Acceleration curve for scrolling (0.0 = linear, 1.0 = max acceleration)
     var scrollAcceleration: Double = 0.5
 
@@ -45,6 +57,10 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(mouseDeadzone) &&
                range.contains(scrollDeadzone) &&
                range.contains(mouseAcceleration) &&
+               range.contains(touchpadSensitivity) &&
+               range.contains(touchpadAcceleration) &&
+               (0.0...0.1).contains(touchpadDeadzone) &&
+               range.contains(touchpadSmoothing) &&
                range.contains(scrollAcceleration) &&
                (1.0...4.0).contains(scrollBoostMultiplier) &&
                range.contains(focusModeSensitivity)
@@ -65,6 +81,26 @@ struct JoystickSettings: Codable, Equatable {
         return 2.0 + pow(sensitivity, 3.0) * 118.0
     }
 
+    private func calibratedTouchpadValue(_ raw: Double, boost: Double) -> Double {
+        // Calibration curve: keeps 0 and 1 stable, but maps 0.5 -> 0.5 + boost * 0.25.
+        return min(1.0, max(0.0, raw + boost * raw * (1.0 - raw)))
+    }
+
+    /// Touchpad sensitivity after calibration (0.5 UI -> ~0.8 effective)
+    var effectiveTouchpadSensitivity: Double {
+        calibratedTouchpadValue(touchpadSensitivity, boost: 1.2)
+    }
+
+    /// Touchpad acceleration after calibration (0.5 UI -> ~0.9 effective)
+    var effectiveTouchpadAcceleration: Double {
+        calibratedTouchpadValue(touchpadAcceleration, boost: 1.6)
+    }
+
+    /// Converts 0-1 sensitivity to touchpad multiplier (0.25 - 1.75)
+    var touchpadSensitivityMultiplier: Double {
+        return 0.25 + effectiveTouchpadSensitivity * 1.5
+    }
+
     /// Converts 0-1 sensitivity to actual multiplier for scroll
     var scrollMultiplier: Double {
         // Map 0-1 to 1-30 range
@@ -75,6 +111,12 @@ struct JoystickSettings: Codable, Equatable {
     var mouseAccelerationExponent: Double {
         // Map 0-1 to 1.0-3.0 (1.0 = linear, higher = more acceleration)
         return 1.0 + mouseAcceleration * 2.0
+    }
+
+    /// Converts 0-1 acceleration to exponent value
+    var touchpadAccelerationExponent: Double {
+        // Map 0-1 to 1.0-3.0 (1.0 = linear, higher = more acceleration)
+        return 1.0 + effectiveTouchpadAcceleration * 2.0
     }
 
     /// Converts 0-1 acceleration to exponent value
@@ -95,6 +137,10 @@ extension JoystickSettings {
         case invertMouseY
         case invertScrollY
         case mouseAcceleration
+        case touchpadSensitivity
+        case touchpadAcceleration
+        case touchpadDeadzone
+        case touchpadSmoothing
         case scrollAcceleration
         case scrollBoostMultiplier
         case focusModeSensitivity
@@ -110,6 +156,10 @@ extension JoystickSettings {
         invertMouseY = try container.decodeIfPresent(Bool.self, forKey: .invertMouseY) ?? false
         invertScrollY = try container.decodeIfPresent(Bool.self, forKey: .invertScrollY) ?? false
         mouseAcceleration = try container.decodeIfPresent(Double.self, forKey: .mouseAcceleration) ?? 0.5
+        touchpadSensitivity = try container.decodeIfPresent(Double.self, forKey: .touchpadSensitivity) ?? 0.5
+        touchpadAcceleration = try container.decodeIfPresent(Double.self, forKey: .touchpadAcceleration) ?? 0.5
+        touchpadDeadzone = try container.decodeIfPresent(Double.self, forKey: .touchpadDeadzone) ?? 0.0
+        touchpadSmoothing = try container.decodeIfPresent(Double.self, forKey: .touchpadSmoothing) ?? 0.4
         scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5
         scrollBoostMultiplier = try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0
         focusModeSensitivity = try container.decodeIfPresent(Double.self, forKey: .focusModeSensitivity) ?? 0.2
@@ -125,6 +175,10 @@ extension JoystickSettings {
         try container.encode(invertMouseY, forKey: .invertMouseY)
         try container.encode(invertScrollY, forKey: .invertScrollY)
         try container.encode(mouseAcceleration, forKey: .mouseAcceleration)
+        try container.encode(touchpadSensitivity, forKey: .touchpadSensitivity)
+        try container.encode(touchpadAcceleration, forKey: .touchpadAcceleration)
+        try container.encode(touchpadDeadzone, forKey: .touchpadDeadzone)
+        try container.encode(touchpadSmoothing, forKey: .touchpadSmoothing)
         try container.encode(scrollAcceleration, forKey: .scrollAcceleration)
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
         try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)

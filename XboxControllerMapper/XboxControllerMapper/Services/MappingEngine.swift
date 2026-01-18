@@ -143,6 +143,8 @@ class MappingEngine: ObservableObject {
         var smoothedLeftStick: CGPoint = .zero
         var smoothedRightStick: CGPoint = .zero
         var lastJoystickSampleTime: TimeInterval = 0
+        var smoothedTouchpadDelta: CGPoint = .zero
+        var lastTouchpadSampleTime: TimeInterval = 0
         
         var rightStickWasOutsideDeadzone = false
         var rightStickPeakYAbs: Double = 0
@@ -181,6 +183,8 @@ class MappingEngine: ObservableObject {
             smoothedLeftStick = .zero
             smoothedRightStick = .zero
             lastJoystickSampleTime = 0
+            smoothedTouchpadDelta = .zero
+            lastTouchpadSampleTime = 0
             rightStickWasOutsideDeadzone = false
             rightStickPeakYAbs = 0
             rightStickLastDirection = 0
@@ -870,17 +874,48 @@ class MappingEngine: ObservableObject {
         }
         state.lock.unlock()
 
-        // Skip tiny movements
-        guard abs(delta.x) > 0.001 || abs(delta.y) > 0.001 else { return }
+        let now = CFAbsoluteTimeGetCurrent()
+        var smoothedDelta: CGPoint = .zero
+        var lastSampleTime: TimeInterval = 0
+
+        state.lock.lock()
+        smoothedDelta = state.smoothedTouchpadDelta
+        lastSampleTime = state.lastTouchpadSampleTime
+        state.lock.unlock()
+
+        let resetSmoothing = lastSampleTime == 0 || (now - lastSampleTime) > Config.touchpadSmoothingResetInterval
+        if resetSmoothing || settings.touchpadSmoothing <= 0 {
+            smoothedDelta = delta
+        } else {
+            let alpha = max(Config.touchpadMinSmoothingAlpha, 1.0 - settings.touchpadSmoothing)
+            smoothedDelta = CGPoint(
+                x: smoothedDelta.x + (delta.x - smoothedDelta.x) * alpha,
+                y: smoothedDelta.y + (delta.y - smoothedDelta.y) * alpha
+            )
+        }
+
+        state.lock.lock()
+        state.smoothedTouchpadDelta = smoothedDelta
+        state.lastTouchpadSampleTime = now
+        state.lock.unlock()
+
+        let magnitude = Double(hypot(smoothedDelta.x, smoothedDelta.y))
+        guard magnitude > settings.touchpadDeadzone else { return }
+
+        let normalized = min(magnitude / Config.touchpadAccelerationMaxDelta, 1.0)
+        let curve = pow(normalized, settings.touchpadAccelerationExponent)
+        let accelScale = 1.0 + settings.effectiveTouchpadAcceleration * Config.touchpadAccelerationMaxBoost * curve
 
         // The touchpad coordinates are normalized (-1 to 1), so delta is small
         // Scale up to get reasonable mouse movement
         // Use mouse sensitivity settings for consistency with left stick
-        let sensitivity = settings.mouseMultiplier * Config.touchpadSensitivityMultiplier
+        let sensitivity = settings.mouseMultiplier
+            * Config.touchpadSensitivityMultiplier
+            * settings.touchpadSensitivityMultiplier
 
-        let dx = Double(delta.x) * sensitivity
+        let dx = Double(smoothedDelta.x) * accelScale * sensitivity
         // Invert Y by default (touchpad up = mouse up, but Y axis is inverted in coordinate system)
-        var dy = -Double(delta.y) * sensitivity
+        var dy = -Double(smoothedDelta.y) * accelScale * sensitivity
 
         // Respect mouse Y inversion setting
         if settings.invertMouseY {
