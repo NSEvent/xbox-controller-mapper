@@ -30,6 +30,8 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadClickArmed: Bool = false
     var touchpadClickStartPosition: CGPoint = .zero
     var touchpadMovementBlocked: Bool = false
+    var touchpadTouchStartTime: TimeInterval = 0  // Time when finger first touched
+    var touchpadTouchStartPosition: CGPoint = .zero  // Position when finger first touched
     var touchpadDebugLastLogTime: TimeInterval = 0
 
     // Button State
@@ -701,6 +703,25 @@ class ControllerService: ObservableObject {
                     return
                 }
 
+                // Touch settle: suppress movement for short taps/holds where finger is stationary
+                // Only allow movement after settle time OR finger has moved significantly from start
+                let timeSinceTouchStart = now - storage.touchpadTouchStartTime
+                let distanceFromStart = Double(hypot(
+                    newPosition.x - storage.touchpadTouchStartPosition.x,
+                    newPosition.y - storage.touchpadTouchStartPosition.y
+                ))
+                let inSettlePeriod = timeSinceTouchStart < Config.touchpadTouchSettleInterval
+                let belowMovementThreshold = distanceFromStart < Config.touchpadClickMovementThreshold
+
+                if inSettlePeriod && belowMovementThreshold {
+                    // Still settling - update position but don't generate movement
+                    storage.touchpadPosition = newPosition
+                    storage.touchpadPreviousPosition = newPosition
+                    storage.pendingTouchpadDelta = nil
+                    storage.lock.unlock()
+                    return
+                }
+
                 // Finger still touching - calculate delta
                 let delta = CGPoint(
                     x: newPosition.x - storage.touchpadPosition.x,
@@ -785,6 +806,8 @@ class ControllerService: ObservableObject {
                 storage.isTouchpadTouching = true
                 storage.touchpadFramesSinceTouch = 0
                 storage.pendingTouchpadDelta = nil
+                storage.touchpadTouchStartTime = now
+                storage.touchpadTouchStartPosition = newPosition
                 if storage.touchpadClickArmed {
                     storage.touchpadClickStartPosition = newPosition
                 }
