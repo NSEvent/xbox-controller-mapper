@@ -795,6 +795,16 @@ struct JoystickSettingsView: View {
                     range: 0...1,
                     description: "Reduce jitter"
                 )
+
+                SliderRow(
+                    label: "Two-Finger Pan",
+                    value: Binding(
+                        get: { settings.touchpadPanSensitivity },
+                        set: { updateSettings(\.touchpadPanSensitivity, $0) }
+                    ),
+                    range: 0...1,
+                    description: "Scroll speed for two-finger pan"
+                )
             }
 
             Section("Focus Mode (Precision)") {

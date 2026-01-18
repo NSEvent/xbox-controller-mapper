@@ -145,6 +145,12 @@ class MappingEngine: ObservableObject {
         var lastJoystickSampleTime: TimeInterval = 0
         var smoothedTouchpadDelta: CGPoint = .zero
         var lastTouchpadSampleTime: TimeInterval = 0
+        var smoothedTouchpadCenterDelta: CGPoint = .zero
+        var smoothedTouchpadDistanceDelta: Double = 0
+        var lastTouchpadGestureSampleTime: TimeInterval = 0
+        var isTouchpadGestureActive = false
+        var touchpadScrollResidualX: Double = 0
+        var touchpadScrollResidualY: Double = 0
         
         var rightStickWasOutsideDeadzone = false
         var rightStickPeakYAbs: Double = 0
@@ -185,6 +191,12 @@ class MappingEngine: ObservableObject {
             lastJoystickSampleTime = 0
             smoothedTouchpadDelta = .zero
             lastTouchpadSampleTime = 0
+            smoothedTouchpadCenterDelta = .zero
+            smoothedTouchpadDistanceDelta = 0
+            lastTouchpadGestureSampleTime = 0
+            isTouchpadGestureActive = false
+            touchpadScrollResidualX = 0
+            touchpadScrollResidualY = 0
             rightStickWasOutsideDeadzone = false
             rightStickPeakYAbs = 0
             rightStickLastDirection = 0
@@ -282,6 +294,14 @@ class MappingEngine: ObservableObject {
             guard let self = self else { return }
             self.pollingQueue.async {
                 self.processTouchpadMovement(delta)
+            }
+        }
+
+        // Touchpad gesture handler (DualSense two-finger)
+        controllerService.onTouchpadGesture = { [weak self] gesture in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadGesture(gesture)
             }
         }
             
@@ -872,7 +892,17 @@ class MappingEngine: ObservableObject {
             state.lock.unlock()
             return
         }
+        let isGestureActive = state.isTouchpadGestureActive
         state.lock.unlock()
+
+        let movementBlocked = controllerService.threadSafeIsTouchpadMovementBlocked
+        if isGestureActive || movementBlocked {
+            state.lock.lock()
+            state.smoothedTouchpadDelta = .zero
+            state.lastTouchpadSampleTime = 0
+            state.lock.unlock()
+            return
+        }
 
         let now = CFAbsoluteTimeGetCurrent()
         var smoothedDelta: CGPoint = .zero
@@ -923,6 +953,95 @@ class MappingEngine: ObservableObject {
         }
 
         inputSimulator.moveMouse(dx: CGFloat(dx), dy: CGFloat(dy))
+    }
+
+    /// Process two-finger touchpad gestures (pan + pinch zoom)
+    nonisolated private func processTouchpadGesture(_ gesture: TouchpadGesture) {
+        state.lock.lock()
+        guard state.isEnabled, let settings = state.joystickSettings else {
+            state.lock.unlock()
+            return
+        }
+        let wasActive = state.isTouchpadGestureActive
+        let isActive = gesture.isPrimaryTouching && gesture.isSecondaryTouching
+        state.isTouchpadGestureActive = isActive
+        var smoothedCenter = state.smoothedTouchpadCenterDelta
+        var smoothedDistance = state.smoothedTouchpadDistanceDelta
+        let lastSampleTime = state.lastTouchpadGestureSampleTime
+        var residualX = state.touchpadScrollResidualX
+        var residualY = state.touchpadScrollResidualY
+        state.lock.unlock()
+
+        guard isActive else {
+            if wasActive {
+                inputSimulator.scroll(
+                    dx: 0,
+                    dy: 0,
+                    phase: .ended,
+                    momentumPhase: nil,
+                    isContinuous: true,
+                    flags: []
+                )
+            }
+            state.lock.lock()
+            state.smoothedTouchpadCenterDelta = .zero
+            state.smoothedTouchpadDistanceDelta = 0
+            state.lastTouchpadGestureSampleTime = 0
+            state.touchpadScrollResidualX = 0
+            state.touchpadScrollResidualY = 0
+            state.lock.unlock()
+            return
+        }
+
+        let now = CFAbsoluteTimeGetCurrent()
+        if lastSampleTime == 0 ||
+            (now - lastSampleTime) > Config.touchpadSmoothingResetInterval ||
+            settings.touchpadSmoothing <= 0 {
+            smoothedCenter = gesture.centerDelta
+            smoothedDistance = gesture.distanceDelta
+        } else {
+            let alpha = max(Config.touchpadMinSmoothingAlpha, 1.0 - settings.touchpadSmoothing)
+            smoothedCenter = CGPoint(
+                x: smoothedCenter.x + (gesture.centerDelta.x - smoothedCenter.x) * alpha,
+                y: smoothedCenter.y + (gesture.centerDelta.y - smoothedCenter.y) * alpha
+            )
+            smoothedDistance += (gesture.distanceDelta - smoothedDistance) * alpha
+        }
+
+        state.lock.lock()
+        state.smoothedTouchpadCenterDelta = smoothedCenter
+        state.smoothedTouchpadDistanceDelta = smoothedDistance
+        state.lastTouchpadGestureSampleTime = now
+        state.lock.unlock()
+
+        let phase: CGScrollPhase = wasActive ? .changed : .began
+
+        let panMagnitude = Double(hypot(smoothedCenter.x, smoothedCenter.y))
+        guard panMagnitude > Config.touchpadPanDeadzone else { return }
+
+        let panScale = settings.touchpadPanSensitivity * Config.touchpadPanSensitivityMultiplier
+        var dx = Double(smoothedCenter.x) * panScale
+        var dy = -Double(smoothedCenter.y) * panScale
+        dy = settings.invertScrollY ? -dy : dy
+        let combinedDx = dx + residualX
+        let combinedDy = dy + residualY
+        let sendDx = combinedDx.rounded(.towardZero)
+        let sendDy = combinedDy.rounded(.towardZero)
+        residualX = combinedDx - sendDx
+        residualY = combinedDy - sendDy
+        state.lock.lock()
+        state.touchpadScrollResidualX = residualX
+        state.touchpadScrollResidualY = residualY
+        state.lock.unlock()
+        guard abs(sendDx) >= 1 || abs(sendDy) >= 1 else { return }
+        inputSimulator.scroll(
+            dx: CGFloat(sendDx),
+            dy: CGFloat(sendDy),
+            phase: phase,
+            momentumPhase: nil,
+            isContinuous: true,
+            flags: []
+        )
     }
 
     /// Performs haptic feedback for focus mode transitions on the controller

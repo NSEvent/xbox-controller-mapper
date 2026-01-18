@@ -92,6 +92,20 @@ struct Config {
     static let touchpadSmoothingResetInterval: TimeInterval = 0.12
     /// Movement threshold to ignore click-induced touchpad jitter
     static let touchpadClickMovementThreshold: Double = 0.015
+    /// Two-finger pan scaling (normalized delta -> pixel scroll)
+    static let touchpadPanSensitivityMultiplier: Double = 600.0
+    /// Minimum pan movement to start scrolling
+    static let touchpadPanDeadzone: Double = 0.002
+    /// Minimum distance between fingers to treat as two-finger gesture
+    static let touchpadTwoFingerMinDistance: Double = 0.06
+    /// How long to consider secondary touch valid without updates
+    static let touchpadSecondaryStaleInterval: TimeInterval = 0.15
+    /// UserDefaults key to enable touchpad debug logging
+    static let touchpadDebugLoggingKey: String = "touchpad.debug"
+    /// Env var to enable touchpad debug logging
+    static let touchpadDebugEnvKey: String = "XCM_TOUCHPAD_DEBUG"
+    /// Minimum interval between touchpad debug logs
+    static let touchpadDebugLogInterval: TimeInterval = 0.05
 
     // MARK: - Button Processing
     /// Delay for chord button release processing (seconds)

@@ -183,6 +183,7 @@ struct Profile: Codable, Identifiable, Equatable {
             touchpadAcceleration: 0.5,
             touchpadDeadzone: 0.0,
             touchpadSmoothing: 0.4,
+            touchpadPanSensitivity: 0.5,
             scrollAcceleration: 0.5,
             scrollBoostMultiplier: 4.0,
             focusModeSensitivity: 0.1,

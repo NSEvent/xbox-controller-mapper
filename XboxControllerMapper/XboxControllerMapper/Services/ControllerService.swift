@@ -15,12 +15,20 @@ private final class ControllerStorage: @unchecked Sendable {
     // Touchpad State (DualSense only)
     var touchpadPosition: CGPoint = .zero
     var touchpadPreviousPosition: CGPoint = .zero
+    var touchpadSecondaryPosition: CGPoint = .zero
+    var touchpadSecondaryPreviousPosition: CGPoint = .zero
     var isTouchpadTouching: Bool = false
+    var isTouchpadSecondaryTouching: Bool = false
+    var touchpadSecondaryLastUpdate: TimeInterval = 0
+    var touchpadSecondaryLastTouchTime: TimeInterval = 0
     var isDualSense: Bool = false
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
     var touchpadFramesSinceTouch: Int = 0  // Skip first frames after touch to let position settle
+    var touchpadSecondaryFramesSinceTouch: Int = 0
     var touchpadClickArmed: Bool = false
     var touchpadClickStartPosition: CGPoint = .zero
+    var touchpadMovementBlocked: Bool = false
+    var touchpadDebugLastLogTime: TimeInterval = 0
 
     // Button State
     var activeButtons: Set<ControllerButton> = []
@@ -40,6 +48,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var onLeftStickMoved: ((CGPoint) -> Void)?
     var onRightStickMoved: ((CGPoint) -> Void)?
     var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
+    var onTouchpadGesture: ((TouchpadGesture) -> Void)?
 }
 
 /// Service for managing Xbox controller connection and input
@@ -102,6 +111,15 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isTouchpadTouching
+    }
+
+    nonisolated var threadSafeIsTouchpadMovementBlocked: Bool {
+        let now = CFAbsoluteTimeGetCurrent()
+        storage.lock.lock()
+        let blocked = storage.touchpadMovementBlocked ||
+            (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+        storage.lock.unlock()
+        return blocked
     }
 
     nonisolated var threadSafeIsDualSense: Bool {
@@ -173,6 +191,10 @@ class ControllerService: ObservableObject {
     var onTouchpadMoved: ((CGPoint) -> Void)? {
         get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadMoved }
         set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadMoved = newValue }
+    }
+    var onTouchpadGesture: ((TouchpadGesture) -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadGesture }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadGesture = newValue }
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -458,6 +480,11 @@ class ControllerService: ObservableObject {
             dualSenseGamepad.touchpadPrimary.valueChangedHandler = { [weak self] _, xValue, yValue in
                 self?.updateTouchpad(x: xValue, y: yValue)
             }
+
+            // Touchpad secondary finger position (for gestures)
+            dualSenseGamepad.touchpadSecondary.valueChangedHandler = { [weak self] _, xValue, yValue in
+                self?.updateTouchpadSecondary(x: xValue, y: yValue)
+            }
         }
     }
 
@@ -484,10 +511,19 @@ class ControllerService: ObservableObject {
     }
 
     nonisolated private func updateTouchpad(x: Float, y: Float) {
+        defer { logTouchpadDebugIfNeeded(source: "primary") }
         storage.lock.lock()
 
         let newPosition = CGPoint(x: CGFloat(x), y: CGFloat(y))
         let wasTouching = storage.isTouchpadTouching
+        let wasTwoFinger = storage.isTouchpadTouching && storage.isTouchpadSecondaryTouching
+        let gestureCallback = storage.onTouchpadGesture
+        let now = CFAbsoluteTimeGetCurrent()
+        let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+        if secondaryFresh {
+            storage.touchpadMovementBlocked = true
+        }
+
         // Detect if finger is on touchpad (non-zero position indicates touch)
         // GCControllerDirectionPad returns 0,0 when no finger is present
         let isTouching = abs(x) > 0.001 || abs(y) > 0.001
@@ -511,6 +547,14 @@ class ControllerService: ObservableObject {
                     storage.touchpadPosition = newPosition
                     storage.touchpadPreviousPosition = newPosition
                     storage.pendingTouchpadDelta = nil
+                    storage.lock.unlock()
+                    return
+                }
+
+                if storage.touchpadMovementBlocked || secondaryFresh {
+                    storage.pendingTouchpadDelta = nil
+                    storage.touchpadPreviousPosition = newPosition
+                    storage.touchpadPosition = newPosition
                     storage.lock.unlock()
                     return
                 }
@@ -564,10 +608,44 @@ class ControllerService: ObservableObject {
                     storage.pendingTouchpadDelta = nil
                 }
 
+                let distance = hypot(
+                    storage.touchpadPosition.x - storage.touchpadSecondaryPosition.x,
+                    storage.touchpadPosition.y - storage.touchpadSecondaryPosition.y
+                )
+                let isTwoFinger = secondaryFresh && Double(distance) > Config.touchpadTwoFingerMinDistance
+                var gesture: TouchpadGesture?
+                if isTwoFinger {
+                    let currentCenter = CGPoint(
+                        x: (storage.touchpadPosition.x + storage.touchpadSecondaryPosition.x) * 0.5,
+                        y: (storage.touchpadPosition.y + storage.touchpadSecondaryPosition.y) * 0.5
+                    )
+                    let previousCenter = CGPoint(
+                        x: (storage.touchpadPreviousPosition.x + storage.touchpadSecondaryPreviousPosition.x) * 0.5,
+                        y: (storage.touchpadPreviousPosition.y + storage.touchpadSecondaryPreviousPosition.y) * 0.5
+                    )
+                    let centerDelta = CGPoint(
+                        x: currentCenter.x - previousCenter.x,
+                        y: currentCenter.y - previousCenter.y
+                    )
+                    let currentDistance = distance
+                    let previousDistance = hypot(
+                        storage.touchpadPreviousPosition.x - storage.touchpadSecondaryPreviousPosition.x,
+                        storage.touchpadPreviousPosition.y - storage.touchpadSecondaryPreviousPosition.y
+                    )
+                    gesture = TouchpadGesture(
+                        centerDelta: centerDelta,
+                        distanceDelta: Double(currentDistance - previousDistance),
+                        isPrimaryTouching: storage.isTouchpadTouching,
+                        isSecondaryTouching: storage.isTouchpadSecondaryTouching
+                    )
+                }
+
+                let isSecondaryTouching = storage.isTouchpadSecondaryTouching
                 storage.lock.unlock()
 
-                // Apply previous pending delta
-                if let pending = previousPending {
+                if let gesture {
+                    gestureCallback?(gesture)
+                } else if let pending = previousPending, !isSecondaryTouching {
                     callback?(pending)
                 }
             } else {
@@ -590,8 +668,187 @@ class ControllerService: ObservableObject {
             storage.touchpadFramesSinceTouch = 0
             storage.pendingTouchpadDelta = nil
             storage.touchpadClickArmed = false
+            storage.touchpadMovementBlocked = false
+            let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+            let isTwoFinger = storage.isTouchpadTouching && isSecondaryTouching
             storage.lock.unlock()
+
+            if wasTwoFinger && !isTwoFinger {
+                gestureCallback?(TouchpadGesture(
+                    centerDelta: .zero,
+                    distanceDelta: 0,
+                    isPrimaryTouching: false,
+                    isSecondaryTouching: isSecondaryTouching
+                ))
+            }
         }
+    }
+
+    nonisolated private func updateTouchpadSecondary(x: Float, y: Float) {
+        defer { logTouchpadDebugIfNeeded(source: "secondary") }
+        storage.lock.lock()
+
+        let newPosition = CGPoint(x: CGFloat(x), y: CGFloat(y))
+        let wasTouching = storage.isTouchpadSecondaryTouching
+        let wasTwoFinger = storage.isTouchpadTouching && storage.isTouchpadSecondaryTouching
+        let gestureCallback = storage.onTouchpadGesture
+        let now = CFAbsoluteTimeGetCurrent()
+
+        // Detect if finger is on touchpad (non-zero position indicates touch)
+        let isTouching = abs(x) > 0.001 || abs(y) > 0.001
+
+        if isTouching {
+            if wasTouching {
+                storage.touchpadSecondaryFramesSinceTouch += 1
+                storage.touchpadSecondaryLastUpdate = now
+                storage.touchpadSecondaryLastTouchTime = now
+
+                // Skip first 2 frames after touch to let position settle
+                if storage.touchpadSecondaryFramesSinceTouch <= 2 {
+                    storage.touchpadSecondaryPosition = newPosition
+                    storage.touchpadSecondaryPreviousPosition = newPosition
+                    storage.lock.unlock()
+                    return
+                }
+
+                let delta = CGPoint(
+                    x: newPosition.x - storage.touchpadSecondaryPosition.x,
+                    y: newPosition.y - storage.touchpadSecondaryPosition.y
+                )
+
+                let jumpThreshold: CGFloat = 0.3
+                let isJump = abs(delta.x) > jumpThreshold || abs(delta.y) > jumpThreshold
+                if isJump {
+                    storage.touchpadSecondaryPosition = newPosition
+                    storage.touchpadSecondaryPreviousPosition = newPosition
+                    storage.lock.unlock()
+                    return
+                }
+
+                storage.touchpadSecondaryPreviousPosition = storage.touchpadSecondaryPosition
+                storage.touchpadSecondaryPosition = newPosition
+            } else {
+                storage.touchpadSecondaryPosition = newPosition
+                storage.touchpadSecondaryPreviousPosition = newPosition
+                storage.isTouchpadSecondaryTouching = true
+                storage.touchpadSecondaryFramesSinceTouch = 0
+                storage.touchpadSecondaryLastUpdate = now
+                storage.touchpadSecondaryLastTouchTime = now
+                storage.touchpadMovementBlocked = true
+                let isPrimaryTouching = storage.isTouchpadTouching
+                let gestureCallback = storage.onTouchpadGesture
+                storage.lock.unlock()
+
+                if isPrimaryTouching {
+                    gestureCallback?(TouchpadGesture(
+                        centerDelta: .zero,
+                        distanceDelta: 0,
+                        isPrimaryTouching: true,
+                        isSecondaryTouching: true
+                    ))
+                }
+                return
+            }
+
+            let distance = hypot(
+                storage.touchpadPosition.x - storage.touchpadSecondaryPosition.x,
+                storage.touchpadPosition.y - storage.touchpadSecondaryPosition.y
+            )
+            let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+            let isTwoFinger = storage.isTouchpadTouching &&
+                secondaryFresh &&
+                Double(distance) > Config.touchpadTwoFingerMinDistance
+            if isTwoFinger {
+                let currentCenter = CGPoint(
+                    x: (storage.touchpadPosition.x + storage.touchpadSecondaryPosition.x) * 0.5,
+                    y: (storage.touchpadPosition.y + storage.touchpadSecondaryPosition.y) * 0.5
+                )
+                let previousCenter = CGPoint(
+                    x: (storage.touchpadPreviousPosition.x + storage.touchpadSecondaryPreviousPosition.x) * 0.5,
+                    y: (storage.touchpadPreviousPosition.y + storage.touchpadSecondaryPreviousPosition.y) * 0.5
+                )
+                let centerDelta = CGPoint(
+                    x: currentCenter.x - previousCenter.x,
+                    y: currentCenter.y - previousCenter.y
+                )
+                let currentDistance = distance
+                let previousDistance = hypot(
+                    storage.touchpadPreviousPosition.x - storage.touchpadSecondaryPreviousPosition.x,
+                    storage.touchpadPreviousPosition.y - storage.touchpadSecondaryPreviousPosition.y
+                )
+                let gesture = TouchpadGesture(
+                    centerDelta: centerDelta,
+                    distanceDelta: Double(currentDistance - previousDistance),
+                    isPrimaryTouching: storage.isTouchpadTouching,
+                    isSecondaryTouching: storage.isTouchpadSecondaryTouching
+                )
+                storage.lock.unlock()
+                gestureCallback?(gesture)
+            } else {
+                storage.lock.unlock()
+            }
+        } else {
+            storage.isTouchpadSecondaryTouching = false
+            storage.touchpadSecondaryPosition = .zero
+            storage.touchpadSecondaryPreviousPosition = .zero
+            storage.touchpadSecondaryFramesSinceTouch = 0
+            storage.touchpadSecondaryLastUpdate = now
+            storage.touchpadMovementBlocked = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+            let isPrimaryTouching = storage.isTouchpadTouching
+            let isTwoFinger = isPrimaryTouching && storage.isTouchpadSecondaryTouching
+            storage.lock.unlock()
+
+            if wasTwoFinger && !isTwoFinger {
+                gestureCallback?(TouchpadGesture(
+                    centerDelta: .zero,
+                    distanceDelta: 0,
+                    isPrimaryTouching: isPrimaryTouching,
+                    isSecondaryTouching: false
+                ))
+            } else if isPrimaryTouching {
+                gestureCallback?(TouchpadGesture(
+                    centerDelta: .zero,
+                    distanceDelta: 0,
+                    isPrimaryTouching: true,
+                    isSecondaryTouching: false
+                ))
+            }
+        }
+    }
+
+    nonisolated private func logTouchpadDebugIfNeeded(source: String) {
+        let envEnabled = ProcessInfo.processInfo.environment[Config.touchpadDebugEnvKey] == "1"
+        let defaultsEnabled = UserDefaults.standard.bool(forKey: Config.touchpadDebugLoggingKey)
+        guard envEnabled || defaultsEnabled else { return }
+
+        let now = CFAbsoluteTimeGetCurrent()
+        storage.lock.lock()
+        if now - storage.touchpadDebugLastLogTime < Config.touchpadDebugLogInterval {
+            storage.lock.unlock()
+            return
+        }
+        storage.touchpadDebugLastLogTime = now
+
+        let primary = storage.touchpadPosition
+        let secondary = storage.touchpadSecondaryPosition
+        let primaryTouching = storage.isTouchpadTouching
+        let secondaryTouching = storage.isTouchpadSecondaryTouching
+        let blocked = storage.touchpadMovementBlocked
+        let distance = hypot(primary.x - secondary.x, primary.y - secondary.y)
+        let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+        storage.lock.unlock()
+
+        print(String(
+            format: "TP[%@] p=(%.3f,%.3f) s=(%.3f,%.3f) touch=%d/%d blocked=%d dist=%.3f fresh=%d",
+            source,
+            primary.x, primary.y,
+            secondary.x, secondary.y,
+            primaryTouching ? 1 : 0,
+            secondaryTouching ? 1 : 0,
+            blocked ? 1 : 0,
+            distance,
+            secondaryFresh ? 1 : 0
+        ))
     }
 
     nonisolated private func armTouchpadClick(pressed: Bool) {

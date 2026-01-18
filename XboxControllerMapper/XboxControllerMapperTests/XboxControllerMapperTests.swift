@@ -93,7 +93,14 @@ class MockInputSimulator: InputSimulatorProtocol {
         _events.append(.moveMouse(dx, dy))
     }
     
-    func scroll(dx: CGFloat, dy: CGFloat) {
+    func scroll(
+        dx: CGFloat,
+        dy: CGFloat,
+        phase: CGScrollPhase?,
+        momentumPhase: CGMomentumScrollPhase?,
+        isContinuous: Bool,
+        flags: CGEventFlags
+    ) {
         lock.lock()
         defer { lock.unlock() }
         _events.append(.scroll(dx, dy))

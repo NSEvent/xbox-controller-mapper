@@ -9,10 +9,23 @@ protocol InputSimulatorProtocol: Sendable {
     func releaseAllModifiers()
     func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool
     func moveMouse(dx: CGFloat, dy: CGFloat)
-    func scroll(dx: CGFloat, dy: CGFloat)
+    func scroll(
+        dx: CGFloat,
+        dy: CGFloat,
+        phase: CGScrollPhase?,
+        momentumPhase: CGMomentumScrollPhase?,
+        isContinuous: Bool,
+        flags: CGEventFlags
+    )
     func executeMapping(_ mapping: KeyMapping)
     func startHoldMapping(_ mapping: KeyMapping)
     func stopHoldMapping(_ mapping: KeyMapping)
+}
+
+extension InputSimulatorProtocol {
+    func scroll(dx: CGFloat, dy: CGFloat) {
+        scroll(dx: dx, dy: dy, phase: nil, momentumPhase: nil, isContinuous: false, flags: [])
+    }
 }
 
 // MARK: - Modifier Key Handler
@@ -437,7 +450,14 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     }
 
     /// Scrolls by a delta
-    func scroll(dx: CGFloat, dy: CGFloat) {
+    func scroll(
+        dx: CGFloat,
+        dy: CGFloat,
+        phase: CGScrollPhase?,
+        momentumPhase: CGMomentumScrollPhase?,
+        isContinuous: Bool,
+        flags: CGEventFlags
+    ) {
         mouseQueue.async { [weak self] in
             guard let self = self else { return }
             guard self.checkAccessibility() else { return }
@@ -451,6 +471,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 wheel2: Int32(dx),
                 wheel3: 0
             ) {
+                if isContinuous {
+                    event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+                }
+                if let phase {
+                    event.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
+                }
+                if let momentumPhase {
+                    event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: Int64(momentumPhase.rawValue))
+                }
+                if flags.rawValue != 0 {
+                    event.flags = flags
+                }
                 event.post(tap: .cghidEventTap)
             }
         }

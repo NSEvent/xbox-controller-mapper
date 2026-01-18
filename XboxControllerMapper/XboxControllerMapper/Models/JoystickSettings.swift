@@ -35,6 +35,9 @@ struct JoystickSettings: Codable, Equatable {
     /// Smoothing amount for touchpad movement (0.0 - 1.0)
     var touchpadSmoothing: Double = 0.4
 
+    /// Two-finger pan sensitivity (0.0 - 1.0)
+    var touchpadPanSensitivity: Double = 0.5
+
     /// Acceleration curve for scrolling (0.0 = linear, 1.0 = max acceleration)
     var scrollAcceleration: Double = 0.5
 
@@ -61,6 +64,7 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(touchpadAcceleration) &&
                (0.0...0.1).contains(touchpadDeadzone) &&
                range.contains(touchpadSmoothing) &&
+               range.contains(touchpadPanSensitivity) &&
                range.contains(scrollAcceleration) &&
                (1.0...4.0).contains(scrollBoostMultiplier) &&
                range.contains(focusModeSensitivity)
@@ -141,6 +145,7 @@ extension JoystickSettings {
         case touchpadAcceleration
         case touchpadDeadzone
         case touchpadSmoothing
+        case touchpadPanSensitivity
         case scrollAcceleration
         case scrollBoostMultiplier
         case focusModeSensitivity
@@ -160,6 +165,7 @@ extension JoystickSettings {
         touchpadAcceleration = try container.decodeIfPresent(Double.self, forKey: .touchpadAcceleration) ?? 0.5
         touchpadDeadzone = try container.decodeIfPresent(Double.self, forKey: .touchpadDeadzone) ?? 0.0
         touchpadSmoothing = try container.decodeIfPresent(Double.self, forKey: .touchpadSmoothing) ?? 0.4
+        touchpadPanSensitivity = try container.decodeIfPresent(Double.self, forKey: .touchpadPanSensitivity) ?? 0.5
         scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5
         scrollBoostMultiplier = try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0
         focusModeSensitivity = try container.decodeIfPresent(Double.self, forKey: .focusModeSensitivity) ?? 0.2
@@ -179,6 +185,7 @@ extension JoystickSettings {
         try container.encode(touchpadAcceleration, forKey: .touchpadAcceleration)
         try container.encode(touchpadDeadzone, forKey: .touchpadDeadzone)
         try container.encode(touchpadSmoothing, forKey: .touchpadSmoothing)
+        try container.encode(touchpadPanSensitivity, forKey: .touchpadPanSensitivity)
         try container.encode(scrollAcceleration, forKey: .scrollAcceleration)
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
         try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)
