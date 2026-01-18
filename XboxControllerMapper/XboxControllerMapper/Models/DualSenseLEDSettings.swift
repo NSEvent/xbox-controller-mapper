@@ -7,7 +7,17 @@ enum LightBarBrightness: String, Codable, CaseIterable {
     case mid = "mid"
     case dim = "dim"
 
-    var byteValue: UInt8 {
+    /// Multiplier for RGB values (0-255 scale)
+    var multiplier: UInt8 {
+        switch self {
+        case .bright: return 255
+        case .mid: return 128
+        case .dim: return 64
+        }
+    }
+
+    /// Value for player LED brightness byte (0-2)
+    var playerLEDBrightness: UInt8 {
         switch self {
         case .bright: return 0x00
         case .mid: return 0x01

@@ -684,16 +684,17 @@ class ControllerService: ObservableObject {
         // Mute button LED (byte 9)
         report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
 
-        // LED brightness (byte 43)
-        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.byteValue
+        // Player/mute LED brightness (byte 43) - values 0-2
+        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.playerLEDBrightness
 
         // Player LEDs (byte 44)
         report[dataOffset + DualSenseHIDConstants.playerLEDsOffset] = settings.playerLEDs.bitmask
 
-        // Light bar color (bytes 45, 46, 47)
-        report[dataOffset + DualSenseHIDConstants.lightbarRedOffset] = settings.lightBarColor.redByte
-        report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = settings.lightBarColor.greenByte
-        report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = settings.lightBarColor.blueByte
+        // Light bar color (bytes 45, 46, 47) - apply brightness multiplier to RGB
+        let brightness = UInt16(settings.lightBarBrightness.multiplier)
+        report[dataOffset + DualSenseHIDConstants.lightbarRedOffset] = UInt8(UInt16(settings.lightBarColor.redByte) * brightness / 255)
+        report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = UInt8(UInt16(settings.lightBarColor.greenByte) * brightness / 255)
+        report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
 
         let result = IOHIDDeviceSetReport(
             device,
@@ -732,16 +733,17 @@ class ControllerService: ObservableObject {
         // Mute button LED (byte 9 from data start)
         report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
 
-        // LED brightness (byte 43 from data start)
-        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.byteValue
+        // Player/mute LED brightness (byte 43 from data start) - values 0-2
+        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.playerLEDBrightness
 
         // Player LEDs (byte 44 from data start)
         report[dataOffset + DualSenseHIDConstants.playerLEDsOffset] = settings.playerLEDs.bitmask
 
-        // Light bar color (bytes 45, 46, 47 from data start)
-        report[dataOffset + DualSenseHIDConstants.lightbarRedOffset] = settings.lightBarColor.redByte
-        report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = settings.lightBarColor.greenByte
-        report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = settings.lightBarColor.blueByte
+        // Light bar color (bytes 45, 46, 47 from data start) - apply brightness multiplier to RGB
+        let brightness = UInt16(settings.lightBarBrightness.multiplier)
+        report[dataOffset + DualSenseHIDConstants.lightbarRedOffset] = UInt8(UInt16(settings.lightBarColor.redByte) * brightness / 255)
+        report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = UInt8(UInt16(settings.lightBarColor.greenByte) * brightness / 255)
+        report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
 
         // Calculate CRC32 for Bluetooth (last 4 bytes)
         let crcData = Data([0xA2] + report[1..<74])
