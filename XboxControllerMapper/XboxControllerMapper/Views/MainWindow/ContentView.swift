@@ -1124,12 +1124,21 @@ struct LEDSettingsView: View {
 
     private func togglePlayerLED(index: Int) {
         var newLEDs = settings.playerLEDs
+        // Enforce symmetric patterns - LEDs mirror around center
         switch index {
-        case 0: newLEDs.led1.toggle()
-        case 1: newLEDs.led2.toggle()
-        case 2: newLEDs.led3.toggle()
-        case 3: newLEDs.led4.toggle()
-        case 4: newLEDs.led5.toggle()
+        case 0, 4:
+            // Far left and far right are linked
+            let newState = !newLEDs.led1
+            newLEDs.led1 = newState
+            newLEDs.led5 = newState
+        case 1, 3:
+            // Inner left and inner right are linked
+            let newState = !newLEDs.led2
+            newLEDs.led2 = newState
+            newLEDs.led4 = newState
+        case 2:
+            // Center LED toggles independently
+            newLEDs.led3.toggle()
         default: break
         }
         updateSettings(\.playerLEDs, newLEDs)
@@ -1188,16 +1197,18 @@ struct LightBarColorPicker: NSViewRepresentable {
 
     class Coordinator: NSObject {
         var parent: LightBarColorPicker
+        private var hasPositionedPanel = false
+        private var panelWasVisible = false
 
         init(_ parent: LightBarColorPicker) {
             self.parent = parent
             super.init()
 
-            // Observe when color well is activated to position the panel
+            // Observe when color panel becomes visible to position it once
             NotificationCenter.default.addObserver(
                 self,
-                selector: #selector(colorWellActivated(_:)),
-                name: NSColorPanel.colorDidChangeNotification,
+                selector: #selector(checkPanelVisibility),
+                name: NSWindow.didUpdateNotification,
                 object: NSColorPanel.shared
             )
         }
@@ -1206,8 +1217,18 @@ struct LightBarColorPicker: NSViewRepresentable {
             parent.color = Color(sender.color)
         }
 
-        @objc func colorWellActivated(_ notification: Notification) {
-            // Position panel to the right of the main window
+        @objc func checkPanelVisibility() {
+            let panel = NSColorPanel.shared
+            let isVisible = panel.isVisible
+
+            // Position only when panel first becomes visible
+            if isVisible && !panelWasVisible {
+                positionPanel()
+            }
+            panelWasVisible = isVisible
+        }
+
+        private func positionPanel() {
             if let window = NSApp.mainWindow {
                 let panel = NSColorPanel.shared
                 let windowFrame = window.frame
