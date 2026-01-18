@@ -11,24 +11,32 @@ private final class ControllerStorage: @unchecked Sendable {
     var rightStick: CGPoint = .zero
     var leftTrigger: Float = 0
     var rightTrigger: Float = 0
-    
+
+    // Touchpad State (DualSense only)
+    var touchpadPosition: CGPoint = .zero
+    var touchpadPreviousPosition: CGPoint = .zero
+    var isTouchpadTouching: Bool = false
+    var isDualSense: Bool = false
+    var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
+
     // Button State
     var activeButtons: Set<ControllerButton> = []
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
-    
+
     // Chord Detection State
     var pendingButtons: Set<ControllerButton> = []
     var capturedButtonsInWindow: Set<ControllerButton> = []
     var pendingReleases: [ControllerButton: TimeInterval] = [:]
     var chordWorkItem: DispatchWorkItem?
     var chordWindow: TimeInterval = 0.15
-    
+
     // Callbacks
     var onButtonPressed: ((ControllerButton) -> Void)?
     var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)?
     var onChordDetected: ((Set<ControllerButton>) -> Void)?
     var onLeftStickMoved: ((CGPoint) -> Void)?
     var onRightStickMoved: ((CGPoint) -> Void)?
+    var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
 }
 
 /// Service for managing Xbox controller connection and input
@@ -73,6 +81,30 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.activeButtons
+    }
+
+    // Touchpad accessors (DualSense only)
+    nonisolated var threadSafeTouchpadDelta: CGPoint {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        guard storage.isTouchpadTouching else { return .zero }
+        let delta = CGPoint(
+            x: storage.touchpadPosition.x - storage.touchpadPreviousPosition.x,
+            y: storage.touchpadPosition.y - storage.touchpadPreviousPosition.y
+        )
+        return delta
+    }
+
+    nonisolated var threadSafeIsTouchpadTouching: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isTouchpadTouching
+    }
+
+    nonisolated var threadSafeIsDualSense: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isDualSense
     }
 
     /// Left joystick position (-1 to 1) - UI/Legacy use only
@@ -134,6 +166,10 @@ class ControllerService: ObservableObject {
     var onRightStickMoved: ((CGPoint) -> Void)? {
         get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onRightStickMoved }
         set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onRightStickMoved = newValue }
+    }
+    var onTouchpadMoved: ((CGPoint) -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadMoved }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadMoved = newValue }
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -243,6 +279,12 @@ class ControllerService: ObservableObject {
         storage.chordWorkItem?.cancel()
         storage.leftStick = .zero
         storage.rightStick = .zero
+        // Reset DualSense state
+        storage.isDualSense = false
+        storage.isTouchpadTouching = false
+        storage.touchpadPosition = .zero
+        storage.touchpadPreviousPosition = .zero
+        storage.pendingTouchpadDelta = nil
         storage.lock.unlock()
     }
 
@@ -394,8 +436,26 @@ class ControllerService: ObservableObject {
         gamepad.rightThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.updateRightStick(x: xValue, y: yValue)
         }
+
+        // DualSense-specific: Touchpad support
+        if let dualSenseGamepad = gamepad as? GCDualSenseGamepad {
+            storage.lock.lock()
+            storage.isDualSense = true
+            storage.lock.unlock()
+
+            // Touchpad button (click)
+            dualSenseGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
+                self?.controllerQueue.async { self?.handleButton(.touchpadButton, pressed: pressed) }
+            }
+
+            // Touchpad primary finger position (for mouse control)
+            // The touchpad provides X/Y from -1 to 1, we track position and calculate delta
+            dualSenseGamepad.touchpadPrimary.valueChangedHandler = { [weak self] _, xValue, yValue in
+                self?.updateTouchpad(x: xValue, y: yValue)
+            }
+        }
     }
-    
+
     // MARK: - Thread-Safe Update Helpers
     
     nonisolated private func updateLeftStick(x: Float, y: Float) {
@@ -412,12 +472,85 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         storage.rightStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
         storage.lock.unlock()
-        
+
         Task { @MainActor in
             self.onRightStickMoved?(CGPoint(x: CGFloat(x), y: CGFloat(y)))
         }
     }
-    
+
+    nonisolated private func updateTouchpad(x: Float, y: Float) {
+        storage.lock.lock()
+
+        let newPosition = CGPoint(x: CGFloat(x), y: CGFloat(y))
+        let wasTouching = storage.isTouchpadTouching
+
+        // Detect if finger is on touchpad (non-zero position indicates touch)
+        // GCControllerDirectionPad returns 0,0 when no finger is present
+        let isTouching = abs(x) > 0.001 || abs(y) > 0.001
+
+        if isTouching {
+            if wasTouching {
+                // Finger still touching - calculate delta
+                let delta = CGPoint(
+                    x: newPosition.x - storage.touchpadPosition.x,
+                    y: newPosition.y - storage.touchpadPosition.y
+                )
+
+                // Detect sudden large jumps which indicate:
+                // 1. Finger lift (touchpad sends edge position before resetting)
+                // 2. Position wrap/reset during long drags
+                // Ignore deltas larger than threshold (normal finger movement is much smaller)
+                let jumpThreshold: CGFloat = 0.3
+                let isJump = abs(delta.x) > jumpThreshold || abs(delta.y) > jumpThreshold
+
+                if isJump {
+                    // Treat as new touch - reset position, don't apply delta
+                    storage.touchpadPosition = newPosition
+                    storage.touchpadPreviousPosition = newPosition
+                    storage.pendingTouchpadDelta = nil
+                    storage.lock.unlock()
+                    return
+                }
+
+                storage.touchpadPreviousPosition = storage.touchpadPosition
+                storage.touchpadPosition = newPosition
+
+                // Apply the PREVIOUS pending delta (if any), then store current as pending
+                // This 1-frame delay filters out artifacts right before finger lift
+                let previousPending = storage.pendingTouchpadDelta
+                let callback = storage.onTouchpadMoved
+
+                // Store current delta as pending for next frame
+                if abs(delta.x) > 0.001 || abs(delta.y) > 0.001 {
+                    storage.pendingTouchpadDelta = delta
+                } else {
+                    storage.pendingTouchpadDelta = nil
+                }
+
+                storage.lock.unlock()
+
+                // Apply previous pending delta
+                if let pending = previousPending {
+                    callback?(pending)
+                }
+            } else {
+                // Finger just touched - initialize position, no delta yet
+                storage.touchpadPosition = newPosition
+                storage.touchpadPreviousPosition = newPosition
+                storage.isTouchpadTouching = true
+                storage.pendingTouchpadDelta = nil
+                storage.lock.unlock()
+            }
+        } else {
+            // Finger lifted - discard any pending delta (it was likely lift artifact)
+            storage.isTouchpadTouching = false
+            storage.touchpadPosition = .zero
+            storage.touchpadPreviousPosition = .zero
+            storage.pendingTouchpadDelta = nil
+            storage.lock.unlock()
+        }
+    }
+
     nonisolated private func updateLeftTrigger(_ value: Float, pressed: Bool) {
         storage.lock.lock()
         storage.leftTrigger = value

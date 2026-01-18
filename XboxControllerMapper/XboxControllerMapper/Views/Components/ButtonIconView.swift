@@ -88,6 +88,7 @@ struct ButtonIconView: View {
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 42
+        case .touchpad: return 48  // Wider for touchpad
         }
     }
     

@@ -32,6 +32,9 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case leftThumbstick
     case rightThumbstick
 
+    // DualSense-specific
+    case touchpadButton  // Touchpad click (DualSense only)
+
     var id: String { rawValue }
 
     /// Human-readable display name
@@ -55,6 +58,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .xbox: return "Xbox"
         case .leftThumbstick: return "Left Stick"
         case .rightThumbstick: return "Right Stick"
+        case .touchpadButton: return "Touchpad"
         }
     }
 
@@ -79,6 +83,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .xbox: return "⊗"
         case .leftThumbstick: return "L3"
         case .rightThumbstick: return "R3"
+        case .touchpadButton: return "TP"
         }
     }
 
@@ -99,6 +104,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .b: return "b.circle"
         case .x: return "x.circle"
         case .y: return "y.circle"
+        case .touchpadButton: return "hand.point.up.left"
         default: return nil
         }
     }
@@ -118,6 +124,8 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return .special
         case .leftThumbstick, .rightThumbstick:
             return .thumbstick
+        case .touchpadButton:
+            return .touchpad
         }
     }
 }
@@ -129,6 +137,7 @@ enum ButtonCategory: String, CaseIterable {
     case dpad
     case special
     case thumbstick
+    case touchpad
 
     var displayName: String {
         switch self {
@@ -138,6 +147,7 @@ enum ButtonCategory: String, CaseIterable {
         case .dpad: return "D-Pad"
         case .special: return "Special"
         case .thumbstick: return "Thumbsticks"
+        case .touchpad: return "Touchpad"
         }
     }
 }

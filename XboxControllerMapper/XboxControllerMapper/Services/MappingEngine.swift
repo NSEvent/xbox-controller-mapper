@@ -272,6 +272,14 @@ class MappingEngine: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        // Touchpad movement handler (DualSense only)
+        controllerService.onTouchpadMoved = { [weak self] delta in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadMovement(delta)
+            }
+        }
             
         // Enable/Disable toggle sync
         $isEnabled
@@ -816,6 +824,36 @@ class MappingEngine: ObservableObject {
         dy = settings.invertMouseY ? dy : -dy
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
+    }
+
+    /// Process touchpad movement for mouse control (DualSense only)
+    /// Unlike joystick which is position-based (continuous velocity), touchpad is delta-based (like a laptop trackpad)
+    nonisolated private func processTouchpadMovement(_ delta: CGPoint) {
+        state.lock.lock()
+        guard state.isEnabled, let settings = state.joystickSettings else {
+            state.lock.unlock()
+            return
+        }
+        state.lock.unlock()
+
+        // Skip tiny movements
+        guard abs(delta.x) > 0.001 || abs(delta.y) > 0.001 else { return }
+
+        // The touchpad coordinates are normalized (-1 to 1), so delta is small
+        // Scale up to get reasonable mouse movement
+        // Use mouse sensitivity settings for consistency with left stick
+        let sensitivity = settings.mouseMultiplier * Config.touchpadSensitivityMultiplier
+
+        let dx = Double(delta.x) * sensitivity
+        // Invert Y by default (touchpad up = mouse up, but Y axis is inverted in coordinate system)
+        var dy = -Double(delta.y) * sensitivity
+
+        // Respect mouse Y inversion setting
+        if settings.invertMouseY {
+            dy = -dy
+        }
+
+        inputSimulator.moveMouse(dx: CGFloat(dx), dy: CGFloat(dy))
     }
 
     /// Performs haptic feedback for focus mode transitions on the controller

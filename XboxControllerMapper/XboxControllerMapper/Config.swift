@@ -77,6 +77,12 @@ struct Config {
     /// Time threshold for distinguishing multi-clicks (seconds)
     static let multiClickThreshold: TimeInterval = 0.5
 
+    // MARK: - DualSense Touchpad
+    /// Sensitivity multiplier for touchpad mouse movement
+    /// The touchpad reports normalized values (-1 to 1), so we scale up for usable mouse movement
+    /// Higher values = faster/more sensitive touchpad
+    static let touchpadSensitivityMultiplier: Double = 15.0
+
     // MARK: - Button Processing
     /// Delay for chord button release processing (seconds)
     static let chordReleaseProcessingDelay: TimeInterval = 0.18

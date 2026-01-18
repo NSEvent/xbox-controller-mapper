@@ -694,13 +694,15 @@ struct ChordMappingSheet: View {
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 42
+        case .touchpad: return 48
         }
     }
-    
+
     private func buttonHeight(for button: ControllerButton) -> CGFloat {
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 22
+        case .touchpad: return 24
         }
     }
 }
