@@ -995,6 +995,8 @@ struct LEDSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
 
+    @State private var showingInstructions = false
+
     var settings: DualSenseLEDSettings {
         profileManager.activeProfile?.dualSenseLEDSettings ?? .default
     }
@@ -1081,6 +1083,7 @@ struct LEDSettingsView: View {
             Section {
                 Button("Apply to Controller") {
                     applySettingsToController()
+                    showingInstructions = true
                 }
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity)
@@ -1088,8 +1091,10 @@ struct LEDSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .onAppear {
-            applySettingsToController()
+        .alert("LED Settings Applied", isPresented: $showingInstructions) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("To see LED changes on your DualSense controller:\n\n1. Turn off the controller by holding the PlayStation button\n2. Disconnect the USB cable\n3. Turn on the controller (it will connect via Bluetooth)\n4. Plug the USB cable back in\n\nThe LED settings will now be visible.")
         }
     }
 
@@ -1143,14 +1148,12 @@ struct LEDSettingsView: View {
         var newSettings = settings
         newSettings[keyPath: keyPath] = value
         profileManager.updateDualSenseLEDSettings(newSettings)
-        applySettingsToController()
     }
 
     private func updateColor(_ color: Color) {
         var newSettings = settings
         newSettings.lightBarColor = CodableColor(color: color)
         profileManager.updateDualSenseLEDSettings(newSettings)
-        applySettingsToController()
     }
 
     private func applySettingsToController() {
