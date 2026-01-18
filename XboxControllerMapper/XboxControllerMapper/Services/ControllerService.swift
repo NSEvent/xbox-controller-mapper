@@ -18,6 +18,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var isTouchpadTouching: Bool = false
     var isDualSense: Bool = false
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
+    var touchpadFramesSinceTouch: Int = 0  // Skip first frames after touch to let position settle
 
     // Button State
     var activeButtons: Set<ControllerButton> = []
@@ -285,6 +286,7 @@ class ControllerService: ObservableObject {
         storage.touchpadPosition = .zero
         storage.touchpadPreviousPosition = .zero
         storage.pendingTouchpadDelta = nil
+        storage.touchpadFramesSinceTouch = 0
         storage.lock.unlock()
     }
 
@@ -490,6 +492,18 @@ class ControllerService: ObservableObject {
 
         if isTouching {
             if wasTouching {
+                // Increment frame counter
+                storage.touchpadFramesSinceTouch += 1
+
+                // Skip first 2 frames after touch to let position settle
+                // This prevents spurious movement when finger first contacts touchpad
+                if storage.touchpadFramesSinceTouch <= 2 {
+                    storage.touchpadPosition = newPosition
+                    storage.touchpadPreviousPosition = newPosition
+                    storage.lock.unlock()
+                    return
+                }
+
                 // Finger still touching - calculate delta
                 let delta = CGPoint(
                     x: newPosition.x - storage.touchpadPosition.x,
@@ -538,6 +552,7 @@ class ControllerService: ObservableObject {
                 storage.touchpadPosition = newPosition
                 storage.touchpadPreviousPosition = newPosition
                 storage.isTouchpadTouching = true
+                storage.touchpadFramesSinceTouch = 0
                 storage.pendingTouchpadDelta = nil
                 storage.lock.unlock()
             }
@@ -546,6 +561,7 @@ class ControllerService: ObservableObject {
             storage.isTouchpadTouching = false
             storage.touchpadPosition = .zero
             storage.touchpadPreviousPosition = .zero
+            storage.touchpadFramesSinceTouch = 0
             storage.pendingTouchpadDelta = nil
             storage.lock.unlock()
         }
