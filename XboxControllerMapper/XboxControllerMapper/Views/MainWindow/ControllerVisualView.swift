@@ -585,52 +585,56 @@ struct ControllerBodyShape: Shape {
     }
 }
 
-/// DualSense controller body shape - more symmetric and rounded than Xbox
+/// DualSense controller body shape - distinctive split design with wing-like grips
 struct DualSenseBodyShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let width = rect.width
         let height = rect.height
 
-        // DualSense has a more symmetric, rounded shape with wider grips
-        // Top edge - flatter than Xbox
-        path.move(to: CGPoint(x: width * 0.18, y: height * 0.12))
-        path.addCurve(
-            to: CGPoint(x: width * 0.82, y: height * 0.12),
-            control1: CGPoint(x: width * 0.35, y: height * 0.02),
-            control2: CGPoint(x: width * 0.65, y: height * 0.02)
-        )
+        // DualSense key features: wing-like handles that flare out, split/V bottom
 
-        // Right side - more vertical drop for DualSense grips
+        // Start at top-left
+        path.move(to: CGPoint(x: width * 0.18, y: height * 0.10))
+
+        // Top edge - wide and flat
         path.addQuadCurve(
-            to: CGPoint(x: width * 0.92, y: height * 0.35),
-            control: CGPoint(x: width * 0.95, y: height * 0.18)
+            to: CGPoint(x: width * 0.82, y: height * 0.10),
+            control: CGPoint(x: width * 0.5, y: height * 0.05)
         )
 
-        // Right grip - straighter, more ergonomic curve
+        // Right shoulder - curves outward to the wing
         path.addCurve(
-            to: CGPoint(x: width * 0.72, y: height * 0.92),
-            control1: CGPoint(x: width * 0.95, y: height * 0.55),
-            control2: CGPoint(x: width * 0.85, y: height * 0.88)
+            to: CGPoint(x: width * 0.98, y: height * 0.45),
+            control1: CGPoint(x: width * 0.92, y: height * 0.10),
+            control2: CGPoint(x: width * 1.0, y: height * 0.28)
         )
 
-        // Bottom center - DualSense has a flatter bottom with touchpad indent
-        path.addQuadCurve(
-            to: CGPoint(x: width * 0.28, y: height * 0.92),
-            control: CGPoint(x: width * 0.5, y: height * 0.82)
-        )
-
-        // Left grip - mirror of right
+        // Right wing/handle - flares out then curves back in dramatically
         path.addCurve(
-            to: CGPoint(x: width * 0.08, y: height * 0.35),
-            control1: CGPoint(x: width * 0.15, y: height * 0.88),
-            control2: CGPoint(x: width * 0.05, y: height * 0.55)
+            to: CGPoint(x: width * 0.62, y: height * 0.95),
+            control1: CGPoint(x: width * 0.98, y: height * 0.70),
+            control2: CGPoint(x: width * 0.78, y: height * 0.92)
         )
 
-        // Back to top left
+        // Bottom split - smooth convex curve bulging outward
         path.addQuadCurve(
-            to: CGPoint(x: width * 0.18, y: height * 0.12),
-            control: CGPoint(x: width * 0.05, y: height * 0.18)
+            to: CGPoint(x: width * 0.38, y: height * 0.95),
+            control: CGPoint(x: width * 0.5, y: height * 0.98)
+        )
+
+        // Left wing/handle - mirror of right
+        path.addCurve(
+            to: CGPoint(x: width * 0.02, y: height * 0.45),
+            control1: CGPoint(x: width * 0.22, y: height * 0.92),
+            control2: CGPoint(x: width * 0.02, y: height * 0.70)
+        )
+
+        // Left shoulder - curves back to top
+        path.addCurve(
+            to: CGPoint(x: width * 0.18, y: height * 0.10),
+            control1: CGPoint(x: width * 0.0, y: height * 0.28),
+            control2: CGPoint(x: width * 0.08, y: height * 0.10)
         )
 
         path.closeSubpath()
