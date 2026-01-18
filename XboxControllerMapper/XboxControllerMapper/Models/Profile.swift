@@ -151,6 +151,9 @@ struct Profile: Codable, Identifiable, Equatable {
             doubleTapMapping: DoubleTapMapping(keyCode: KeyCodeMapping.keyW, modifiers: .command, threshold: 0.4)
         )
 
+        // DualSense touchpad click = Mouse left click (hold modifier style)
+        mappings[.touchpadButton] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
+
         // Chord mappings
         let chords: [ChordMapping] = [
             // RB + X = Cmd+Delete

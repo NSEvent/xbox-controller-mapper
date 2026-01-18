@@ -315,7 +315,7 @@ class MappingEngine: ObservableObject {
         let lastTap = state.lastTapTime[button]
         state.lock.unlock()
 
-        guard let mapping = profile.buttonMappings[button] else {
+        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
             return
         }
 
@@ -512,9 +512,20 @@ class MappingEngine: ObservableObject {
             state.longHoldTriggered.remove(button)
         }
 
-        guard let mapping = profile.buttonMappings[button] else { return nil }
+        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else { return nil }
 
         return (mapping, profile, bundleId, isLongHoldTriggered)
+    }
+
+    /// Returns a default mapping for buttons that should have fallback behavior
+    nonisolated private func defaultMapping(for button: ControllerButton) -> KeyMapping? {
+        switch button {
+        case .touchpadButton:
+            // DualSense touchpad click defaults to left mouse click
+            return KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
+        default:
+            return nil
+        }
     }
 
     /// Check if button release should be skipped (hold modifier, repeat, already triggered long hold)
