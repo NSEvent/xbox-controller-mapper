@@ -1091,6 +1091,9 @@ struct LEDSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear {
+            applySettingsToController()
+        }
         .alert("LED Settings Applied", isPresented: $showingInstructions) {
             Button("OK", role: .cancel) { }
         } message: {

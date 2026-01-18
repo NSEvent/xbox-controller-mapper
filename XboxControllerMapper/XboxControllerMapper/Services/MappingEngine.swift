@@ -306,6 +306,20 @@ class MappingEngine: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Apply LED settings when DualSense connects
+        controllerService.$isConnected
+            .combineLatest(profileManager.$activeProfile)
+            .sink { [weak self] connected, profile in
+                guard let self = self, connected else { return }
+                if self.controllerService.threadSafeIsDualSense,
+                   let ledSettings = profile?.dualSenseLEDSettings {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.controllerService.applyLEDSettings(ledSettings)
+                    }
+                }
+            }
+            .store(in: &cancellables)
+
         // Touchpad movement handler (DualSense only)
         controllerService.onTouchpadMoved = { [weak self] delta in
             guard let self = self else { return }
