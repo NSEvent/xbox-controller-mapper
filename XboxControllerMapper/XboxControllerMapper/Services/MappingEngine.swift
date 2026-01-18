@@ -435,8 +435,20 @@ class MappingEngine: ObservableObject {
         // Get button mapping and verify constraints
         guard let (mapping, profile, bundleId, isLongHoldTriggered) = getReleaseContext(for: button) else { return }
 
-        // Skip special cases (hold modifiers, repeat mappings, already triggered long holds)
-        if shouldSkipRelease(mapping: mapping, isLongHoldTriggered: isLongHoldTriggered) { return }
+        // Check if this is a repeat mapping - we still want to detect double-taps for these
+        let isRepeatMapping = mapping.repeatMapping?.enabled ?? false
+        let hasDoubleTap = mapping.doubleTapMapping != nil && !mapping.doubleTapMapping!.isEmpty
+
+        // Skip special cases (hold modifiers, already triggered long holds)
+        // But allow repeat mappings through if they have double-tap configured
+        if shouldSkipRelease(mapping: mapping, isLongHoldTriggered: isLongHoldTriggered) {
+            // Exception: still check for double-tap on repeat mappings
+            if isRepeatMapping && hasDoubleTap {
+                let (pendingSingle, lastTap) = getPendingTapInfo(for: button)
+                _ = handleDoubleTapIfReady(button, mapping: mapping, pendingSingle: pendingSingle, lastTap: lastTap, doubleTapMapping: mapping.doubleTapMapping!, skipSingleTap: true)
+            }
+            return
+        }
 
         // Try to handle as long hold fallback
         if let longHoldMapping = mapping.longHoldMapping,
@@ -551,30 +563,41 @@ class MappingEngine: ObservableObject {
     }
 
     /// Handle double-tap detection - returns true if double-tap was executed
+    /// - Parameter skipSingleTap: If true, don't schedule single-tap fallback (used for repeat mappings where primary action already fired)
     nonisolated private func handleDoubleTapIfReady(
         _ button: ControllerButton,
         mapping: KeyMapping,
         pendingSingle: DispatchWorkItem?,
         lastTap: Date?,
-        doubleTapMapping: DoubleTapMapping
+        doubleTapMapping: DoubleTapMapping,
+        skipSingleTap: Bool = false
     ) -> Bool {
         let now = Date()
 
         // Check if we have a pending tap within the double-tap window
-        if let pending = pendingSingle,
-           let lastTap = lastTap,
+        if let lastTap = lastTap,
            now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
 
-            pending.cancel()
+            if let pending = pendingSingle {
+                pending.cancel()
+            }
             clearTapState(for: button)
             mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
             return true
         }
 
-        // First tap in potential double-tap sequence - schedule single tap fallback
+        // First tap in potential double-tap sequence
         state.lock.lock()
         state.lastTapTime[button] = now
 
+        if skipSingleTap {
+            // For repeat mappings: just record tap time, don't schedule single-tap
+            // (the repeat action already fired on press)
+            state.lock.unlock()
+            return false
+        }
+
+        // Schedule single tap fallback
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             self.clearTapState(for: button)
