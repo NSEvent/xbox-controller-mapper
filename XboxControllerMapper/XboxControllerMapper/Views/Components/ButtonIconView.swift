@@ -81,20 +81,24 @@ struct ButtonIconView: View {
     }
     
     private var isCircle: Bool {
+        // Mic mute is circular like special buttons
+        if button == .micMute { return true }
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return true
         default: return false
         }
     }
-    
+
     private var width: CGFloat {
+        // Mic mute uses same width as special buttons (circular)
+        if button == .micMute { return 28 }
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 42
         case .touchpad: return 48  // Wider for touchpad
         }
     }
-    
+
     private var height: CGFloat {
         isCircle ? width : 22
     }

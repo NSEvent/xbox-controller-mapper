@@ -170,7 +170,7 @@ struct ControllerVisualView: View {
 
                 VStack(spacing: 4) {
                     miniCircle(.xbox, size: 18) // PS button
-                    miniCircle(.micMute, size: 10) // Mic mute below PS
+                    miniBumperWithIcon(.micMute, icon: "mic.slash", width: 18) // Mic mute - pill shape, PS button width
                 }
 
                 miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
@@ -329,7 +329,7 @@ struct ControllerVisualView: View {
     private func miniBumper(_ button: ControllerButton, label: String) -> some View {
         let color = isPressed(button) ? Color.accentColor : Color(white: 0.25)
         let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
-        
+
         return shape
             .fill(jewelGradient(color, pressed: isPressed(button)))
             .overlay(glassOverlay.clipShape(shape))
@@ -342,6 +342,43 @@ struct ControllerVisualView: View {
             )
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
             .onTapGesture { onButtonTap(button) }
+    }
+
+    /// Bumper-shaped button with an icon inside (used for mic mute on DualSense)
+    private func miniBumperWithIcon(_ button: ControllerButton, icon: String, width: CGFloat = 38) -> some View {
+        let color = isPressed(button) ? Color.accentColor : Color(white: 0.25)
+        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
+
+        return shape
+            .fill(jewelGradient(color, pressed: isPressed(button)))
+            .overlay(glassOverlay.clipShape(shape))
+            .frame(width: width, height: 9)
+            .overlay(
+                Image(systemName: icon)
+                    .font(.system(size: 6, weight: .bold))
+                    .foregroundColor(.white)
+                    .shadow(radius: 1)
+            )
+            .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
+            .onTapGesture { onButtonTap(button) }
+    }
+
+    /// Circle button with a custom icon (used for Create button on DualSense)
+    private func miniCircleWithIcon(_ button: ControllerButton, size: CGFloat, icon: String) -> some View {
+        let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
+
+        return ZStack {
+            Circle()
+                .fill(jewelGradient(color, pressed: isPressed(button)))
+                .overlay(glassOverlay.clipShape(Circle()))
+
+            Image(systemName: icon)
+                .font(.system(size: size * 0.5, weight: .medium))
+                .foregroundColor(.white)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
+        .onTapGesture { onButtonTap(button) }
     }
 
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
