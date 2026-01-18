@@ -100,6 +100,28 @@ struct Config {
     static let touchpadTwoFingerMinDistance: Double = 0.06
     /// How long to consider secondary touch valid without updates
     static let touchpadSecondaryStaleInterval: TimeInterval = 0.15
+    /// Momentum tick frequency (Hz)
+    static let touchpadMomentumFrequency: Double = 120.0
+    /// Momentum tick interval (seconds)
+    static let touchpadMomentumTickInterval: TimeInterval = 1.0 / touchpadMomentumFrequency
+    /// Minimum time delta used for momentum calculations
+    static let touchpadMomentumMinDeltaTime: TimeInterval = 1.0 / 240.0
+    /// Max idle time before momentum is suppressed
+    static let touchpadMomentumMaxIdleInterval: TimeInterval = 0.12
+    /// Exponential decay rate for momentum velocity (per second)
+    static let touchpadMomentumDecay: Double = 3.8
+    /// Minimum velocity to start momentum after lift (pixels/second)
+    static let touchpadMomentumStartVelocity: Double = 180.0
+    /// Minimum velocity to keep momentum running (pixels/second)
+    static let touchpadMomentumStopVelocity: Double = 40.0
+    /// Maximum time since last fast pan sample to start momentum after lift (seconds)
+    static let touchpadMomentumReleaseWindow: TimeInterval = 0.1
+    /// Clamp momentum velocity to avoid spikes (pixels/second)
+    static let touchpadMomentumMaxVelocity: Double = 14000.0
+    /// Smoothing for gesture velocity estimation (0-1)
+    static let touchpadMomentumVelocitySmoothingAlpha: Double = 0.35
+    /// Boost applied to captured momentum velocity
+    static let touchpadMomentumBoost: Double = 1.8
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging
