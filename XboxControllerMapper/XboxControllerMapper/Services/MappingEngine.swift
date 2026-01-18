@@ -306,13 +306,14 @@ class MappingEngine: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Apply LED settings when DualSense connects
+        // Apply LED settings only when DualSense first connects (not on profile changes)
         controllerService.$isConnected
-            .combineLatest(profileManager.$activeProfile)
-            .sink { [weak self] connected, profile in
-                guard let self = self, connected else { return }
+            .removeDuplicates()
+            .filter { $0 == true }  // Only react to connection events
+            .sink { [weak self] _ in
+                guard let self = self else { return }
                 if self.controllerService.threadSafeIsDualSense,
-                   let ledSettings = profile?.dualSenseLEDSettings {
+                   let ledSettings = self.profileManager.activeProfile?.dualSenseLEDSettings {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         self.controllerService.applyLEDSettings(ledSettings)
                     }
