@@ -671,28 +671,18 @@ class ControllerService: ObservableObject {
         // Report ID
         report[0] = DualSenseHIDConstants.usbOutputReportID
 
-        // Valid flags - indicate which features we're setting
+        // Valid flags - pydualsense uses 0xFF for flag0 and 0x57 for flag1
         let dataOffset = 1
-        report[dataOffset + DualSenseHIDConstants.validFlag0Offset] = 0x00
-        report[dataOffset + DualSenseHIDConstants.validFlag1Offset] =
-            DualSenseHIDConstants.validFlag1MuteLED |
-            DualSenseHIDConstants.validFlag1Lightbar |
-            DualSenseHIDConstants.validFlag1PlayerLEDs
+        report[dataOffset + 0] = 0xFF  // flag0: enable all
+        report[dataOffset + 1] = 0x57  // flag1: 0x01|0x02|0x04|0x10|0x40 (LED strips, mic, player LEDs)
 
-        // Mute button LED
+        // Mute button LED (byte 9)
         report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
 
-        // Lightbar setup
-        report[dataOffset + DualSenseHIDConstants.validFlag2Offset] = DualSenseHIDConstants.validFlag2LightbarSetup
-        report[dataOffset + DualSenseHIDConstants.lightbarSetupOffset] = settings.lightBarEnabled ? DualSenseHIDConstants.lightbarSetupEnable : 0x00
-
-        // LED brightness
-        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.byteValue
-
-        // Player LEDs
+        // Player LEDs (byte 44)
         report[dataOffset + DualSenseHIDConstants.playerLEDsOffset] = settings.playerLEDs.bitmask
 
-        // Light bar color
+        // Light bar color (bytes 45, 46, 47)
         report[dataOffset + DualSenseHIDConstants.lightbarRedOffset] = settings.lightBarColor.redByte
         report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = settings.lightBarColor.greenByte
         report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = settings.lightBarColor.blueByte
@@ -723,27 +713,17 @@ class ControllerService: ObservableObject {
 
         let dataOffset = 4
 
-        // Valid flags
-        report[dataOffset + DualSenseHIDConstants.validFlag0Offset] = 0x00
-        report[dataOffset + DualSenseHIDConstants.validFlag1Offset] =
-            DualSenseHIDConstants.validFlag1MuteLED |
-            DualSenseHIDConstants.validFlag1Lightbar |
-            DualSenseHIDConstants.validFlag1PlayerLEDs
+        // Valid flags - same as USB
+        report[dataOffset + 0] = 0xFF  // flag0: enable all
+        report[dataOffset + 1] = 0x57  // flag1: 0x01|0x02|0x04|0x10|0x40
 
-        // Mute button LED
+        // Mute button LED (byte 9 from data start)
         report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
 
-        // Lightbar setup
-        report[dataOffset + DualSenseHIDConstants.validFlag2Offset] = DualSenseHIDConstants.validFlag2LightbarSetup
-        report[dataOffset + DualSenseHIDConstants.lightbarSetupOffset] = settings.lightBarEnabled ? DualSenseHIDConstants.lightbarSetupEnable : 0x00
-
-        // LED brightness
-        report[dataOffset + DualSenseHIDConstants.ledBrightnessOffset] = settings.lightBarBrightness.byteValue
-
-        // Player LEDs
+        // Player LEDs (byte 44 from data start)
         report[dataOffset + DualSenseHIDConstants.playerLEDsOffset] = settings.playerLEDs.bitmask
 
-        // Light bar color
+        // Light bar color (bytes 45, 46, 47 from data start)
         report[dataOffset + DualSenseHIDConstants.lightbarRedOffset] = settings.lightBarColor.redByte
         report[dataOffset + DualSenseHIDConstants.lightbarGreenOffset] = settings.lightBarColor.greenByte
         report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = settings.lightBarColor.blueByte
