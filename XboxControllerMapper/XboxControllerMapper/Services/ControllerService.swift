@@ -33,6 +33,7 @@ private enum DualSenseHIDConstants {
     static let validFlag1Lightbar: UInt8 = 0x04
     static let validFlag1PlayerLEDs: UInt8 = 0x10
     static let validFlag2LightbarSetup: UInt8 = 0x02
+    static let validFlag2LEDBrightness: UInt8 = 0x01
 
     // Lightbar setup value
     static let lightbarSetupEnable: UInt8 = 0x01
@@ -676,6 +677,10 @@ class ControllerService: ObservableObject {
         report[dataOffset + 0] = 0xFF  // flag0: enable all
         report[dataOffset + 1] = 0x57  // flag1: 0x01|0x02|0x04|0x10|0x40 (LED strips, mic, player LEDs)
 
+        // Set valid_flag2 for LED brightness and lightbar setup control
+        report[dataOffset + DualSenseHIDConstants.validFlag2Offset] =
+            DualSenseHIDConstants.validFlag2LEDBrightness | DualSenseHIDConstants.validFlag2LightbarSetup
+
         // Mute button LED (byte 9)
         report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
 
@@ -719,6 +724,10 @@ class ControllerService: ObservableObject {
         // Valid flags - same as USB
         report[dataOffset + 0] = 0xFF  // flag0: enable all
         report[dataOffset + 1] = 0x57  // flag1: 0x01|0x02|0x04|0x10|0x40
+
+        // Set valid_flag2 for LED brightness and lightbar setup control
+        report[dataOffset + DualSenseHIDConstants.validFlag2Offset] =
+            DualSenseHIDConstants.validFlag2LEDBrightness | DualSenseHIDConstants.validFlag2LightbarSetup
 
         // Mute button LED (byte 9 from data start)
         report[dataOffset + DualSenseHIDConstants.muteButtonLEDOffset] = settings.muteButtonLED.byteValue
