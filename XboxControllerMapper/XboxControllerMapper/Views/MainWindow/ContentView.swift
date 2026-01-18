@@ -1178,17 +1178,28 @@ struct LightBarColorPicker: NSViewRepresentable {
         colorWell.target = context.coordinator
         colorWell.action = #selector(Coordinator.colorChanged(_:))
         colorWell.controlSize = .regular
+        context.coordinator.colorWell = colorWell
 
-        // Configure the color panel to open to the right
         let panel = NSColorPanel.shared
         panel.showsAlpha = false
         panel.mode = .wheel
+
+        // Observe color panel changes for continuous updates
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.panelColorChanged(_:)),
+            name: NSColorPanel.colorDidChangeNotification,
+            object: panel
+        )
 
         return colorWell
     }
 
     func updateNSView(_ nsView: NSColorWell, context: Context) {
-        nsView.color = NSColor(color)
+        // Only update if not actively selecting to prevent feedback loop
+        if !context.coordinator.isSelecting {
+            nsView.color = NSColor(color)
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -1197,14 +1208,14 @@ struct LightBarColorPicker: NSViewRepresentable {
 
     class Coordinator: NSObject {
         var parent: LightBarColorPicker
-        private var hasPositionedPanel = false
+        weak var colorWell: NSColorWell?
         private var panelWasVisible = false
+        var isSelecting = false
 
         init(_ parent: LightBarColorPicker) {
             self.parent = parent
             super.init()
 
-            // Observe when color panel becomes visible to position it once
             NotificationCenter.default.addObserver(
                 self,
                 selector: #selector(checkPanelVisibility),
@@ -1214,7 +1225,20 @@ struct LightBarColorPicker: NSViewRepresentable {
         }
 
         @objc func colorChanged(_ sender: NSColorWell) {
-            parent.color = Color(sender.color)
+            isSelecting = false
+            let nsColor = sender.color.usingColorSpace(.deviceRGB) ?? sender.color
+            parent.color = Color(red: Double(nsColor.redComponent),
+                                 green: Double(nsColor.greenComponent),
+                                 blue: Double(nsColor.blueComponent))
+        }
+
+        @objc func panelColorChanged(_ notification: Notification) {
+            isSelecting = true
+            let panel = NSColorPanel.shared
+            let nsColor = panel.color.usingColorSpace(.deviceRGB) ?? panel.color
+            parent.color = Color(red: Double(nsColor.redComponent),
+                                 green: Double(nsColor.greenComponent),
+                                 blue: Double(nsColor.blueComponent))
         }
 
         @objc func checkPanelVisibility() {
@@ -1223,23 +1247,28 @@ struct LightBarColorPicker: NSViewRepresentable {
 
             // Position only when panel first becomes visible
             if isVisible && !panelWasVisible {
-                positionPanel()
+                positionPanelNextToColorWell()
             }
             panelWasVisible = isVisible
         }
 
-        private func positionPanel() {
-            if let window = NSApp.mainWindow {
-                let panel = NSColorPanel.shared
-                let windowFrame = window.frame
-                let panelSize = panel.frame.size
+        private func positionPanelNextToColorWell() {
+            guard let colorWell = colorWell,
+                  let window = colorWell.window else { return }
 
-                let newOrigin = NSPoint(
-                    x: windowFrame.maxX + 10,
-                    y: windowFrame.midY - panelSize.height / 2
-                )
-                panel.setFrameOrigin(newOrigin)
-            }
+            let panel = NSColorPanel.shared
+
+            // Get the color well's frame in screen coordinates
+            let wellFrameInWindow = colorWell.convert(colorWell.bounds, to: nil)
+            let wellFrameOnScreen = window.convertToScreen(wellFrameInWindow)
+
+            // Position panel to the right of the color well, aligned to top
+            let panelSize = panel.frame.size
+            let newOrigin = NSPoint(
+                x: wellFrameOnScreen.maxX + 10,
+                y: wellFrameOnScreen.maxY - panelSize.height
+            )
+            panel.setFrameOrigin(newOrigin)
         }
 
         deinit {
