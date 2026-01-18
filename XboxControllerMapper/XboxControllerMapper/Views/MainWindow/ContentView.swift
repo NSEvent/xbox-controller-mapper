@@ -1008,10 +1008,12 @@ struct LEDSettingsView: View {
                 ))
 
                 if settings.lightBarEnabled {
-                    ColorPicker("Color", selection: Binding(
-                        get: { settings.lightBarColor.color },
-                        set: { updateColor($0) }
-                    ))
+                    LightBarColorPicker(
+                        color: Binding(
+                            get: { settings.lightBarColor.color },
+                            set: { updateColor($0) }
+                        )
+                    )
 
                     Picker("Brightness", selection: Binding(
                         get: { settings.lightBarBrightness },
@@ -1083,6 +1085,12 @@ struct LEDSettingsView: View {
         .onAppear {
             applySettingsToController()
         }
+        .onDisappear {
+            // Close the color panel when navigating away from this tab
+            if NSColorPanel.shared.isVisible {
+                NSColorPanel.shared.close()
+            }
+        }
     }
 
     @ViewBuilder
@@ -1147,6 +1155,75 @@ struct LEDSettingsView: View {
 
     private func applySettingsToController() {
         controllerService.applyLEDSettings(settings)
+    }
+}
+
+// MARK: - Light Bar Color Picker
+
+struct LightBarColorPicker: NSViewRepresentable {
+    @Binding var color: Color
+
+    func makeNSView(context: Context) -> NSColorWell {
+        let colorWell = NSColorWell()
+        colorWell.color = NSColor(color)
+        colorWell.target = context.coordinator
+        colorWell.action = #selector(Coordinator.colorChanged(_:))
+        colorWell.controlSize = .regular
+
+        // Configure the color panel to open to the right
+        let panel = NSColorPanel.shared
+        panel.showsAlpha = false
+        panel.mode = .wheel
+
+        return colorWell
+    }
+
+    func updateNSView(_ nsView: NSColorWell, context: Context) {
+        nsView.color = NSColor(color)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject {
+        var parent: LightBarColorPicker
+
+        init(_ parent: LightBarColorPicker) {
+            self.parent = parent
+            super.init()
+
+            // Observe when color well is activated to position the panel
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(colorWellActivated(_:)),
+                name: NSColorPanel.colorDidChangeNotification,
+                object: NSColorPanel.shared
+            )
+        }
+
+        @objc func colorChanged(_ sender: NSColorWell) {
+            parent.color = Color(sender.color)
+        }
+
+        @objc func colorWellActivated(_ notification: Notification) {
+            // Position panel to the right of the main window
+            if let window = NSApp.mainWindow {
+                let panel = NSColorPanel.shared
+                let windowFrame = window.frame
+                let panelSize = panel.frame.size
+
+                let newOrigin = NSPoint(
+                    x: windowFrame.maxX + 10,
+                    y: windowFrame.midY - panelSize.height / 2
+                )
+                panel.setFrameOrigin(newOrigin)
+            }
+        }
+
+        deinit {
+            NotificationCenter.default.removeObserver(self)
+        }
     }
 }
 
