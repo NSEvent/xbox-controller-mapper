@@ -660,9 +660,13 @@ class ControllerService: ObservableObject {
 
     private func detectConnectionType(device: IOHIDDevice) {
         if let transport = IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String {
+            let isBluetooth = (transport.lowercased() == "bluetooth")
+            print("[LED] Detected connection type: \(transport) (isBluetooth=\(isBluetooth))")
             storage.lock.lock()
-            storage.isBluetoothConnection = (transport.lowercased() == "bluetooth")
+            storage.isBluetoothConnection = isBluetooth
             storage.lock.unlock()
+        } else {
+            print("[LED] Could not detect connection type, defaulting to USB")
         }
     }
 
@@ -674,8 +678,12 @@ class ControllerService: ObservableObject {
         storage.currentLEDSettings = settings
         storage.lock.unlock()
 
-        guard isDualSense, let device = hidDevice else { return }
+        guard isDualSense, let device = hidDevice else {
+            print("[LED] No DualSense device available (isDualSense=\(isDualSense), hidDevice=\(hidDevice != nil))")
+            return
+        }
 
+        print("[LED] Applying settings via \(isBluetooth ? "Bluetooth" : "USB")")
         if isBluetooth {
             sendBluetoothOutputReport(device: device, settings: settings)
         } else {
@@ -776,6 +784,10 @@ class ControllerService: ObservableObject {
         report[76] = UInt8((crc >> 16) & 0xFF)
         report[77] = UInt8((crc >> 24) & 0xFF)
 
+        // Debug: print first 10 bytes of report
+        let headerBytes = report[0..<10].map { String(format: "%02X", $0) }.joined(separator: " ")
+        print("[LED] BT Report header: \(headerBytes), seq=\((bluetoothOutputSeq + 15) & 0x0F)")
+
         let result = IOHIDDeviceSetReport(
             device,
             kIOHIDReportTypeOutput,
@@ -784,8 +796,10 @@ class ControllerService: ObservableObject {
             report.count
         )
 
-        if result != kIOReturnSuccess {
-            print("Failed to send Bluetooth LED report: \(result)")
+        if result == kIOReturnSuccess {
+            print("[LED] Bluetooth report sent successfully")
+        } else {
+            print("[LED] Failed to send Bluetooth LED report: \(String(format: "0x%08X", result))")
         }
     }
 
