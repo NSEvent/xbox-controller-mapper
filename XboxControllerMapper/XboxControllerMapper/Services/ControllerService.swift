@@ -5,6 +5,8 @@ import CoreHaptics
 import IOKit
 import IOKit.hid
 import SwiftUI
+import CoreAudio
+import AudioToolbox
 
 // MARK: - DualSense HID Constants
 
@@ -21,6 +23,7 @@ private enum DualSenseHIDConstants {
     static let validFlag0Offset = 0
     static let validFlag1Offset = 1
     static let muteButtonLEDOffset = 8
+    static let powerSaveControlOffset = 9
     static let validFlag2Offset = 38
     static let lightbarSetupOffset = 41
     static let ledBrightnessOffset = 42
@@ -31,10 +34,14 @@ private enum DualSenseHIDConstants {
 
     // Valid flag bits
     static let validFlag1MuteLED: UInt8 = 0x01
+    static let validFlag1PowerSaveControl: UInt8 = 0x02
     static let validFlag1Lightbar: UInt8 = 0x04
     static let validFlag1PlayerLEDs: UInt8 = 0x10
     static let validFlag2LightbarSetup: UInt8 = 0x02
     static let validFlag2LEDBrightness: UInt8 = 0x01
+
+    // Power save control bits
+    static let powerSaveControlMicMute: UInt8 = 0x10
 
     // Lightbar setup value
     static let lightbarSetupEnable: UInt8 = 0x01
@@ -645,6 +652,14 @@ class ControllerService: ObservableObject {
         }, context)
 
         IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+
+        // Enable microphone when connected via USB
+        storage.lock.lock()
+        let isBluetooth = storage.isBluetoothConnection
+        storage.lock.unlock()
+        if !isBluetooth {
+            enableMicrophone(device: device)
+        }
     }
 
     private func cleanupHIDMonitoring() {
@@ -679,6 +694,182 @@ class ControllerService: ObservableObject {
         } else {
             print("[LED] Could not detect connection type, defaulting to USB")
             isBluetoothConnection = false
+        }
+    }
+
+    /// Enables the microphone on the DualSense controller using CoreAudio
+    private func enableMicrophone(device: IOHIDDevice) {
+        print("[Mic] enableMicrophone called, searching for DualSense audio device...")
+        // Use CoreAudio to find and unmute the DualSense microphone
+        unmuteDualSenseMicrophone()
+    }
+
+    /// Finds the DualSense audio input device and unmutes it via CoreAudio
+    private func unmuteDualSenseMicrophone() {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var dataSize: UInt32 = 0
+        var status = AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize
+        )
+
+        guard status == noErr else {
+            print("[Mic] Failed to get audio devices size: \(status)")
+            return
+        }
+
+        let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var audioDevices = [AudioDeviceID](repeating: 0, count: deviceCount)
+
+        status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &audioDevices
+        )
+
+        guard status == noErr else {
+            print("[Mic] Failed to get audio devices: \(status)")
+            return
+        }
+
+        // Find and unmute ALL DualSense microphone devices
+        // (There may be multiple audio devices for the same controller)
+        var foundAny = false
+        for deviceID in audioDevices {
+            guard let deviceName = getAudioDeviceName(deviceID) else { continue }
+
+            // Check if this is a DualSense device
+            if deviceName.lowercased().contains("dualsense") ||
+               deviceName.lowercased().contains("wireless controller") {
+
+                // Check if it has input channels (is a microphone)
+                if hasInputChannels(deviceID) {
+                    print("[Mic] Found DualSense microphone: \(deviceName) (ID: \(deviceID))")
+                    unmuteMicrophone(deviceID: deviceID)
+                    foundAny = true
+                }
+            }
+        }
+
+        if !foundAny {
+            print("[Mic] DualSense microphone not found in audio devices")
+        }
+    }
+
+    private func getAudioDeviceName(_ deviceID: AudioDeviceID) -> String? {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceNameCFString,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var name: CFString?
+        var dataSize = UInt32(MemoryLayout<CFString?>.size)
+
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &name
+        )
+
+        guard status == noErr, let deviceName = name else { return nil }
+        return deviceName as String
+    }
+
+    private func hasInputChannels(_ deviceID: AudioDeviceID) -> Bool {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamConfiguration,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var dataSize: UInt32 = 0
+        let status = AudioObjectGetPropertyDataSize(deviceID, &propertyAddress, 0, nil, &dataSize)
+
+        guard status == noErr, dataSize > 0 else { return false }
+
+        let bufferListPointer = UnsafeMutablePointer<AudioBufferList>.allocate(capacity: 1)
+        defer { bufferListPointer.deallocate() }
+
+        let getStatus = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, bufferListPointer)
+        guard getStatus == noErr else { return false }
+
+        let bufferList = bufferListPointer.pointee
+        return bufferList.mNumberBuffers > 0
+    }
+
+    private func unmuteMicrophone(deviceID: AudioDeviceID) {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        // Check if mute property exists
+        guard AudioObjectHasProperty(deviceID, &propertyAddress) else {
+            print("[Mic] Device does not have mute property, trying master channel")
+            // Try with master element (0) or channel 1
+            unmuteMicrophoneChannel(deviceID: deviceID, channel: 1)
+            return
+        }
+
+        // Get current mute state
+        var isMuted: UInt32 = 0
+        var dataSize = UInt32(MemoryLayout<UInt32>.size)
+
+        var status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &isMuted)
+        if status == noErr {
+            print("[Mic] Current mute state: \(isMuted == 1 ? "muted" : "unmuted")")
+        }
+
+        // Set mute to false (0)
+        var muteValue: UInt32 = 0
+        status = AudioObjectSetPropertyData(deviceID, &propertyAddress, 0, nil, dataSize, &muteValue)
+
+        if status == noErr {
+            print("[Mic] Successfully unmuted DualSense microphone")
+        } else {
+            print("[Mic] Failed to unmute microphone: \(status)")
+            // Try channel-specific unmute
+            unmuteMicrophoneChannel(deviceID: deviceID, channel: 1)
+        }
+    }
+
+    private func unmuteMicrophoneChannel(deviceID: AudioDeviceID, channel: UInt32) {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: channel
+        )
+
+        guard AudioObjectHasProperty(deviceID, &propertyAddress) else {
+            print("[Mic] Channel \(channel) does not have mute property")
+            return
+        }
+
+        var muteValue: UInt32 = 0
+        let dataSize = UInt32(MemoryLayout<UInt32>.size)
+
+        let status = AudioObjectSetPropertyData(deviceID, &propertyAddress, 0, nil, dataSize, &muteValue)
+
+        if status == noErr {
+            print("[Mic] Successfully unmuted channel \(channel)")
+        } else {
+            print("[Mic] Failed to unmute channel \(channel): \(status)")
         }
     }
 
