@@ -735,22 +735,21 @@ class ControllerService: ObservableObject {
     }
 
     private func sendBluetoothOutputReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
-        var report = [UInt8](repeating: 0, count: DualSenseHIDConstants.bluetoothReportSize)
-
-        // Report ID
-        report[0] = DualSenseHIDConstants.bluetoothOutputReportID
+        // Build report WITHOUT report ID at position 0 (IOHIDDeviceSetReport takes it separately)
+        // Total size is 77 bytes (78 - 1 for report ID)
+        var report = [UInt8](repeating: 0, count: DualSenseHIDConstants.bluetoothReportSize - 1)
 
         // Bluetooth header per Linux kernel hid-playstation.c:
-        // - Byte 1: seq_tag = (sequence_number << 4) | tag_field
-        // - Byte 2: tag = 0x10 (DS_OUTPUT_TAG)
-        report[1] = (bluetoothOutputSeq << 4) | 0x00  // Upper 4 bits = seq number, lower 4 bits = 0
-        report[2] = 0x10  // DS_OUTPUT_TAG
+        // - Byte 0: seq_tag = (sequence_number << 4) | tag_field
+        // - Byte 1: tag = 0x10 (DS_OUTPUT_TAG)
+        report[0] = (bluetoothOutputSeq << 4) | 0x00  // Upper 4 bits = seq number, lower 4 bits = 0
+        report[1] = 0x10  // DS_OUTPUT_TAG
 
         // Increment sequence number (wraps at 16)
         bluetoothOutputSeq = (bluetoothOutputSeq + 1) & 0x0F
 
-        // Data starts at byte 3 (after report_id, seq_tag, tag)
-        let dataOffset = 3
+        // Data starts at byte 2 (after seq_tag, tag)
+        let dataOffset = 2
 
         // Valid flags - same as USB
         report[dataOffset + 0] = 0xFF  // flag0: enable all
@@ -776,17 +775,17 @@ class ControllerService: ObservableObject {
         report[dataOffset + DualSenseHIDConstants.lightbarBlueOffset] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
 
         // Calculate CRC32 for Bluetooth (last 4 bytes)
-        // CRC is computed over: seed byte (0xA2) + bytes 1-73 of report
-        let crcData = Data([0xA2] + report[1..<74])
+        // CRC is computed over: seed byte (0xA2) + report ID (0x31) + bytes 0-72 of report
+        let crcData = Data([0xA2, DualSenseHIDConstants.bluetoothOutputReportID] + report[0..<73])
         let crc = crc32(crcData)
-        report[74] = UInt8(crc & 0xFF)
-        report[75] = UInt8((crc >> 8) & 0xFF)
-        report[76] = UInt8((crc >> 16) & 0xFF)
-        report[77] = UInt8((crc >> 24) & 0xFF)
+        report[73] = UInt8(crc & 0xFF)
+        report[74] = UInt8((crc >> 8) & 0xFF)
+        report[75] = UInt8((crc >> 16) & 0xFF)
+        report[76] = UInt8((crc >> 24) & 0xFF)
 
         // Debug: print first 10 bytes of report
         let headerBytes = report[0..<10].map { String(format: "%02X", $0) }.joined(separator: " ")
-        print("[LED] BT Report header: \(headerBytes), seq=\((bluetoothOutputSeq + 15) & 0x0F)")
+        print("[LED] BT Report (no ID): \(headerBytes), seq=\((bluetoothOutputSeq + 15) & 0x0F)")
 
         let result = IOHIDDeviceSetReport(
             device,
