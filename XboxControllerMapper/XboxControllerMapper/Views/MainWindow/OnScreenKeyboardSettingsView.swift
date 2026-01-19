@@ -47,11 +47,6 @@ struct OnScreenKeyboardSettingsView: View {
 
                 Divider()
 
-                // App Bar Section
-                appBarSection
-
-                Divider()
-
                 // Text Snippets Section
                 textSnippetsSection
 
@@ -69,6 +64,11 @@ struct OnScreenKeyboardSettingsView: View {
 
                 // Terminal App Settings
                 terminalAppSection
+
+                Divider()
+
+                // App Bar Section
+                appBarSection
             }
             .padding(24)
         }
@@ -145,8 +145,9 @@ struct OnScreenKeyboardSettingsView: View {
                     }
                 }
                 .listStyle(.plain)
-                .frame(height: min(CGFloat(appBarItems.count) * 44, 220))
+                .frame(height: CGFloat(appBarItems.count) * 32)
                 .scrollContentBackground(.hidden)
+                .scrollDisabled(true)
             }
         }
     }
@@ -154,6 +155,10 @@ struct OnScreenKeyboardSettingsView: View {
     @ViewBuilder
     private func appBarListRow(_ item: AppBarItem) -> some View {
         HStack {
+            Image(systemName: "line.3.horizontal")
+                .foregroundColor(.secondary)
+                .frame(width: 20)
+
             // App icon
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
                let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
