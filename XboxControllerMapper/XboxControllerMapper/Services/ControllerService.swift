@@ -787,7 +787,8 @@ class ControllerService: ObservableObject {
         let headerBytes = report[0..<10].map { String(format: "%02X", $0) }.joined(separator: " ")
         print("[LED] BT Report (no ID): \(headerBytes), seq=\((bluetoothOutputSeq + 15) & 0x0F)")
 
-        let result = IOHIDDeviceSetReport(
+        // Try Output Report first
+        var result = IOHIDDeviceSetReport(
             device,
             kIOHIDReportTypeOutput,
             CFIndex(DualSenseHIDConstants.bluetoothOutputReportID),
@@ -796,9 +797,24 @@ class ControllerService: ObservableObject {
         )
 
         if result == kIOReturnSuccess {
-            print("[LED] Bluetooth report sent successfully")
+            print("[LED] Bluetooth output report sent successfully")
         } else {
-            print("[LED] Failed to send Bluetooth LED report: \(String(format: "0x%08X", result))")
+            print("[LED] Output report failed (\(String(format: "0x%08X", result))), trying feature report...")
+
+            // Try Feature Report as fallback (some macOS Bluetooth implementations handle these differently)
+            result = IOHIDDeviceSetReport(
+                device,
+                kIOHIDReportTypeFeature,
+                CFIndex(DualSenseHIDConstants.bluetoothOutputReportID),
+                report,
+                report.count
+            )
+
+            if result == kIOReturnSuccess {
+                print("[LED] Bluetooth feature report sent successfully")
+            } else {
+                print("[LED] Failed to send Bluetooth LED report: \(String(format: "0x%08X", result))")
+            }
         }
     }
 
