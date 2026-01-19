@@ -95,7 +95,7 @@ struct Config {
     /// Time after touch starts before movement is allowed (prevents tap-induced drift)
     static let touchpadTouchSettleInterval: TimeInterval = 0.08
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
-    static let touchpadPanSensitivityMultiplier: Double = 600.0
+    static let touchpadPanSensitivityMultiplier: Double = 900.0
     /// Minimum pan movement to start scrolling
     static let touchpadPanDeadzone: Double = 0.002
     /// Minimum distance between fingers to treat as two-finger gesture
@@ -109,21 +109,21 @@ struct Config {
     /// Minimum time delta used for momentum calculations
     static let touchpadMomentumMinDeltaTime: TimeInterval = 1.0 / 240.0
     /// Max idle time before momentum is suppressed
-    static let touchpadMomentumMaxIdleInterval: TimeInterval = 0.12
+    static let touchpadMomentumMaxIdleInterval: TimeInterval = 1.5
     /// Exponential decay rate for momentum velocity (per second)
-    static let touchpadMomentumDecay: Double = 3.8
+    static let touchpadMomentumDecay: Double = 0.7
     /// Minimum velocity to start momentum after lift (pixels/second)
-    static let touchpadMomentumStartVelocity: Double = 180.0
+    static let touchpadMomentumStartVelocity: Double = 50.0
     /// Minimum velocity to keep momentum running (pixels/second)
-    static let touchpadMomentumStopVelocity: Double = 40.0
+    static let touchpadMomentumStopVelocity: Double = 5.0
     /// Maximum time since last fast pan sample to start momentum after lift (seconds)
     static let touchpadMomentumReleaseWindow: TimeInterval = 0.1
     /// Clamp momentum velocity to avoid spikes (pixels/second)
-    static let touchpadMomentumMaxVelocity: Double = 14000.0
+    static let touchpadMomentumMaxVelocity: Double = 20000.0
     /// Smoothing for gesture velocity estimation (0-1)
     static let touchpadMomentumVelocitySmoothingAlpha: Double = 0.35
     /// Boost applied to captured momentum velocity
-    static let touchpadMomentumBoost: Double = 1.8
+    static let touchpadMomentumBoost: Double = 2.5
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging
