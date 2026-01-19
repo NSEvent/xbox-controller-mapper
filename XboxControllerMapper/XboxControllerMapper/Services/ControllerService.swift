@@ -78,6 +78,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadTouchStartTime: TimeInterval = 0  // Time when finger first touched
     var touchpadTouchStartPosition: CGPoint = .zero  // Position when finger first touched
     var touchpadMaxDistanceFromStart: Double = 0  // Max distance traveled during touch (for tap detection)
+    var touchpadLastTapTime: TimeInterval = 0  // Time of last detected tap (for double-tap cooldown)
     var touchpadDebugLastLogTime: TimeInterval = 0
 
     // Button State
@@ -1551,6 +1552,11 @@ class ControllerService: ObservableObject {
                 storage.touchpadTouchStartTime = now
                 storage.touchpadTouchStartPosition = newPosition
                 storage.touchpadMaxDistanceFromStart = 0
+                // Block movement if this touch starts within cooldown of a previous tap
+                // This prevents double-tap from causing mouse movement between taps
+                if (now - storage.touchpadLastTapTime) < Config.touchpadTapCooldown {
+                    storage.touchpadMovementBlocked = true
+                }
                 if storage.touchpadClickArmed {
                     storage.touchpadClickStartPosition = newPosition
                 }
@@ -1567,6 +1573,9 @@ class ControllerService: ObservableObject {
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement
             let tapCallback = isTap ? storage.onTouchpadTap : nil
+            if isTap {
+                storage.touchpadLastTapTime = now
+            }
 
             storage.isTouchpadTouching = false
             storage.touchpadPosition = .zero

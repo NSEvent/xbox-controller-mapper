@@ -101,6 +101,8 @@ struct Config {
     /// Maximum movement during a tap for it to still be recognized as a tap
     /// DualSense touchpad has significant inherent jitter, so this needs to be fairly high
     static let touchpadTapMaxMovement: Double = 0.35
+    /// Cooldown period after a tap where movement is suppressed (prevents double-tap drift)
+    static let touchpadTapCooldown: TimeInterval = 0.2
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
     static let touchpadPanSensitivityMultiplier: Double = 600.0
     /// Minimum pan movement to start scrolling
