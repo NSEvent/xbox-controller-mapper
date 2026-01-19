@@ -111,6 +111,11 @@ enum KeyCodeMapping {
     static let mouseRightClick: CGKeyCode = 0xF001
     static let mouseMiddleClick: CGKeyCode = 0xF002
 
+    // MARK: - Special Action Markers
+
+    /// Shows on-screen keyboard while button is held
+    static let showOnScreenKeyboard: CGKeyCode = 0xF010
+
     // MARK: - Display Names
 
     /// Returns a human-readable name for a key code
@@ -224,6 +229,9 @@ enum KeyCodeMapping {
         case 0xF001: return "Right Click"
         case 0xF002: return "Middle Click"
 
+        // Special actions
+        case 0xF010: return "On-Screen Keyboard"
+
         default: return "Key \(keyCode)"
         }
     }
@@ -298,11 +306,24 @@ enum KeyCodeMapping {
         options.append(("Right Click", mouseRightClick))
         options.append(("Middle Click", mouseMiddleClick))
 
+        // Special actions
+        options.append(("On-Screen Keyboard", showOnScreenKeyboard))
+
         return options
     }
 
     /// Checks if a key code represents a mouse button
     static func isMouseButton(_ keyCode: CGKeyCode) -> Bool {
         keyCode == mouseLeftClick || keyCode == mouseRightClick || keyCode == mouseMiddleClick
+    }
+
+    /// Checks if a key code represents a special action (on-screen keyboard, etc.)
+    static func isSpecialAction(_ keyCode: CGKeyCode) -> Bool {
+        keyCode == showOnScreenKeyboard
+    }
+
+    /// Checks if a key code is a special marker that shouldn't be sent as a key event
+    static func isSpecialMarker(_ keyCode: CGKeyCode) -> Bool {
+        isMouseButton(keyCode) || isSpecialAction(keyCode)
     }
 }

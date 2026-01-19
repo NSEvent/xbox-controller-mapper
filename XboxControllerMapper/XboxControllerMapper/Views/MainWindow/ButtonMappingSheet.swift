@@ -49,6 +49,17 @@ struct ButtonMappingSheet: View {
         return KeyCodeMapping.isMouseButton(code)
     }
 
+    /// Check if the primary action is on-screen keyboard - disables double tap/long hold/repeat
+    private var primaryIsOnScreenKeyboard: Bool {
+        guard let code = keyCode else { return false }
+        return KeyCodeMapping.isSpecialAction(code)
+    }
+
+    /// Check if the primary action disables advanced features (mouse click or special action)
+    private var primaryDisablesAdvancedFeatures: Bool {
+        primaryIsMouseClick || primaryIsOnScreenKeyboard
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -212,12 +223,12 @@ struct ButtonMappingSheet: View {
             .onChange(of: keyCode) { _, newValue in
                 guard !isLoading else { return }
 
-                if let code = newValue, KeyCodeMapping.isMouseButton(code) {
-                    // Mouse clicks: auto-enable hold and disable long hold/double tap/repeat
+                if let code = newValue, KeyCodeMapping.isMouseButton(code) || KeyCodeMapping.isSpecialAction(code) {
+                    // Mouse clicks and special actions: auto-enable hold and disable long hold/double tap/repeat
                     if !userHasInteractedWithHold {
                         isHoldModifier = true
                     }
-                    // Clear long hold, double tap, and repeat for mouse clicks
+                    // Clear long hold, double tap, and repeat
                     enableLongHold = false
                     enableDoubleTap = false
                     enableRepeat = false
@@ -274,9 +285,9 @@ struct ButtonMappingSheet: View {
 
     // MARK: - Long Hold Section
 
-    /// Whether long hold should be disabled (mouse click or hold modifier enabled)
+    /// Whether long hold should be disabled (mouse click, special action, or hold modifier enabled)
     private var longHoldDisabled: Bool {
-        primaryIsMouseClick || isHoldModifier || enableRepeat
+        primaryDisablesAdvancedFeatures || isHoldModifier || enableRepeat
     }
 
     private var longHoldSection: some View {
@@ -301,11 +312,11 @@ struct ButtonMappingSheet: View {
                 }
             }
 
-            if primaryIsMouseClick {
+            if primaryDisablesAdvancedFeatures {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
-                    Text("Long hold is not available for mouse clicks.")
+                    Text("Long hold is not available for \(primaryIsMouseClick ? "mouse clicks" : "on-screen keyboard").")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -391,11 +402,11 @@ struct ButtonMappingSheet: View {
             HStack {
                 Toggle("Enable Double Tap Action", isOn: $enableDoubleTap)
                     .font(.headline)
-                    .disabled(primaryIsMouseClick)
+                    .disabled(primaryDisablesAdvancedFeatures)
 
                 Spacer()
 
-                if enableDoubleTap && !primaryIsMouseClick {
+                if enableDoubleTap && !primaryDisablesAdvancedFeatures {
                     Button(action: { showingKeyboardForDoubleTap.toggle() }) {
                         HStack(spacing: 4) {
                             Image(systemName: showingKeyboardForDoubleTap ? "keyboard.chevron.compact.down" : "keyboard")
@@ -408,11 +419,13 @@ struct ButtonMappingSheet: View {
                 }
             }
 
-            if primaryIsMouseClick {
+            if primaryDisablesAdvancedFeatures {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
-                    Text("Double tap is not available when the primary action is a mouse click. Press the button twice quickly to double-click, or three times for triple-click.")
+                    Text(primaryIsMouseClick
+                         ? "Double tap is not available when the primary action is a mouse click. Press the button twice quickly to double-click, or three times for triple-click."
+                         : "Double tap is not available when the primary action is the on-screen keyboard.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -495,13 +508,13 @@ struct ButtonMappingSheet: View {
             }
         ))
         .font(.caption)
-        .disabled(primaryIsMouseClick || isHoldModifier)
+        .disabled(primaryDisablesAdvancedFeatures || isHoldModifier)
 
-        if primaryIsMouseClick {
+        if primaryDisablesAdvancedFeatures {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle")
                     .foregroundColor(.secondary)
-                Text("Repeat is not available for mouse clicks.")
+                Text("Repeat is not available for \(primaryIsMouseClick ? "mouse clicks" : "on-screen keyboard").")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

@@ -201,6 +201,7 @@ class MappingEngine: ObservableObject {
         var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
         var longHoldTriggered: Set<ControllerButton> = []
         var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
+        var onScreenKeyboardButton: ControllerButton? = nil  // Tracks which button is showing the on-screen keyboard
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
@@ -313,6 +314,9 @@ class MappingEngine: ObservableObject {
         self.inputSimulator = inputSimulator
         self.inputLogService = inputLogService
         self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService)
+
+        // Set up on-screen keyboard manager with our input simulator
+        OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
 
         setupBindings()
         
@@ -543,6 +547,13 @@ class MappingEngine: ObservableObject {
         print("🔵 handleButtonPressed: \(button.displayName)")
         #endif
 
+        // Check for special actions
+        let isOnScreenKeyboard = mapping.keyCode == KeyCodeMapping.showOnScreenKeyboard
+        if isOnScreenKeyboard {
+            handleOnScreenKeyboardPressed(button)
+            return
+        }
+
         // Determine if this should be treated as a held mapping
         let isMouseClick = mapping.keyCode.map { KeyCodeMapping.isMouseButton($0) } ?? false
         let isChordPart = isButtonUsedInChords(button, profile: profile)
@@ -591,6 +602,34 @@ class MappingEngine: ObservableObject {
 
         inputSimulator.startHoldMapping(mapping)
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+    }
+
+    /// Handles on-screen keyboard button press (shows keyboard)
+    nonisolated private func handleOnScreenKeyboardPressed(_ button: ControllerButton) {
+        state.lock.lock()
+        state.onScreenKeyboardButton = button
+        state.lock.unlock()
+
+        DispatchQueue.main.async {
+            OnScreenKeyboardManager.shared.show()
+        }
+        inputLogService?.log(buttons: [button], type: .singlePress, action: "On-Screen Keyboard")
+    }
+
+    /// Handles on-screen keyboard button release (hides keyboard)
+    nonisolated private func handleOnScreenKeyboardReleased(_ button: ControllerButton) {
+        state.lock.lock()
+        let wasKeyboardButton = state.onScreenKeyboardButton == button
+        if wasKeyboardButton {
+            state.onScreenKeyboardButton = nil
+        }
+        state.lock.unlock()
+
+        if wasKeyboardButton {
+            DispatchQueue.main.async {
+                OnScreenKeyboardManager.shared.hide()
+            }
+        }
     }
 
     /// Sets up a timer for long-hold detection
@@ -647,6 +686,9 @@ class MappingEngine: ObservableObject {
 
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         stopRepeatTimer(for: button)
+
+        // Check if this button was showing the on-screen keyboard
+        handleOnScreenKeyboardReleased(button)
 
         // Cleanup: cancel long hold timer and check for held/chord buttons
         if let releaseResult = cleanupReleaseTimers(for: button) {

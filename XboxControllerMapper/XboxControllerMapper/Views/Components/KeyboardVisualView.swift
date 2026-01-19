@@ -247,6 +247,11 @@ struct KeyboardVisualView: View {
                 KeyButton(keyCode: KeyCodeMapping.mouseLeftClick, label: "L Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.mouseRightClick, label: "R Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.mouseMiddleClick, label: "M Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+
+                Spacer().frame(width: 20)
+
+                // Special actions
+                KeyButton(keyCode: KeyCodeMapping.showOnScreenKeyboard, label: "⌨ Keyboard", width: 80, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             }
         }
     }
