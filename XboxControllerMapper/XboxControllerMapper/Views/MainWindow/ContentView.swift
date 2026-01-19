@@ -60,6 +60,13 @@ struct ContentView: View {
                             .tabItem { Text("LEDs") }
                             .tag(4)
                     }
+
+                    // Microphone Settings (only shown for DualSense)
+                    if controllerService.threadSafeIsDualSense {
+                        microphoneSettingsTab
+                            .tabItem { Text("Microphone") }
+                            .tag(5)
+                    }
                 }
                 .tabViewStyle(.automatic)
             }
@@ -285,6 +292,12 @@ struct ContentView: View {
 
     private var ledSettingsTab: some View {
         LEDSettingsView()
+    }
+
+    // MARK: - Microphone Settings Tab
+
+    private var microphoneSettingsTab: some View {
+        MicrophoneSettingsView()
     }
 }
 
@@ -1201,6 +1214,146 @@ struct LEDSettingsView: View {
         if !controllerService.partyModeEnabled {
             controllerService.applyLEDSettings(settings)
         }
+    }
+}
+
+// MARK: - Microphone Settings View
+
+struct MicrophoneSettingsView: View {
+    @EnvironmentObject var controllerService: ControllerService
+
+    var body: some View {
+        Form {
+            // USB requirement notice (same as LEDs tab)
+            if controllerService.isBluetoothConnection {
+                Section {
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("Microphone control requires USB connection on macOS. Connect via USB to use the DualSense microphone.")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            Section("Microphone Control") {
+                Toggle("Mute Microphone", isOn: Binding(
+                    get: { controllerService.isMicMuted },
+                    set: { controllerService.setMicMuted($0) }
+                ))
+                .disabled(controllerService.isBluetoothConnection)
+
+                Text("Use this to mute or unmute the built-in microphone on your DualSense controller.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section("Audio Input Test") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Speak into your controller to test the microphone input level:")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+
+                    // Audio level meter
+                    AudioLevelMeter(level: controllerService.micAudioLevel)
+                        .frame(height: 24)
+
+                    HStack {
+                        Text("Level:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(Int(controllerService.micAudioLevel * 100))%")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            .disabled(controllerService.isBluetoothConnection || controllerService.isMicMuted)
+            .opacity((controllerService.isBluetoothConnection || controllerService.isMicMuted) ? 0.5 : 1.0)
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Tips", systemImage: "lightbulb")
+                        .font(.headline)
+
+                    Text("• The DualSense microphone appears as \"DualSense Wireless Controller\" in System Settings → Sound → Input")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text("• You can select it as your input device in apps like Discord, Zoom, or FaceTime")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text("• The mute button on the controller (between the analog sticks) can also toggle mute")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+        .onAppear {
+            controllerService.refreshMicMuteState()
+            if !controllerService.isBluetoothConnection && !controllerService.isMicMuted {
+                controllerService.startMicLevelMonitoring()
+            }
+        }
+        .onDisappear {
+            controllerService.stopMicLevelMonitoring()
+        }
+        .onChange(of: controllerService.isMicMuted) { _, isMuted in
+            if isMuted {
+                controllerService.stopMicLevelMonitoring()
+            } else if !controllerService.isBluetoothConnection {
+                controllerService.startMicLevelMonitoring()
+            }
+        }
+    }
+}
+
+// MARK: - Audio Level Meter
+
+struct AudioLevelMeter: View {
+    let level: Float
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                // Background
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.2))
+
+                // Level indicator
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(levelColor)
+                    .frame(width: max(0, geometry.size.width * CGFloat(level)))
+
+                // Segment markers
+                HStack(spacing: 0) {
+                    ForEach(0..<20, id: \.self) { i in
+                        if i > 0 {
+                            Rectangle()
+                                .fill(Color.black.opacity(0.2))
+                                .frame(width: 1)
+                        }
+                        Spacer()
+                    }
+                }
+            }
+        }
+    }
+
+    private var levelColor: LinearGradient {
+        LinearGradient(
+            colors: [.green, .yellow, .orange, .red],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
     }
 }
 

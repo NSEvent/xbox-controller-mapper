@@ -33,6 +33,8 @@
 	<string>Xbox Controller Mapper needs Bluetooth access to connect to your Xbox controller.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>Xbox Controller Mapper needs Bluetooth access to connect to your Xbox controller.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Xbox Controller Mapper needs microphone access to test the DualSense controller's built-in microphone and display audio input levels.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2024-2025 Kevin Tang. All rights reserved.</string>
 	<key>NSPrincipalClass</key>

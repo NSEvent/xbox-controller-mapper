@@ -7,6 +7,7 @@ import IOKit.hid
 import SwiftUI
 import CoreAudio
 import AudioToolbox
+import AVFoundation
 
 // MARK: - DualSense HID Constants
 
@@ -115,6 +116,14 @@ class ControllerService: ObservableObject {
 
     /// Whether the current connection is Bluetooth (for UI display)
     @Published var isBluetoothConnection = false
+
+    /// Microphone state
+    @Published var isMicMuted = false
+    @Published var micAudioLevel: Float = 0.0
+    private var micDeviceID: AudioDeviceID?
+    private var micLevelTimer: Timer?
+    private var audioEngine: AVAudioEngine?
+
     private var partyModeTimer: Timer?
     private var partyHue: Double = 0.0
     private var partyLEDIndex: Int = 0
@@ -764,6 +773,8 @@ class ControllerService: ObservableObject {
 
         if !foundAny {
             print("[Mic] DualSense microphone not found in audio devices")
+        } else {
+            print("[Mic] micDeviceID is now: \(String(describing: micDeviceID))")
         }
     }
 
@@ -821,19 +832,22 @@ class ControllerService: ObservableObject {
 
         // Check if mute property exists
         guard AudioObjectHasProperty(deviceID, &propertyAddress) else {
-            print("[Mic] Device does not have mute property, trying master channel")
-            // Try with master element (0) or channel 1
+            print("[Mic] Device \(deviceID) does not have mute property, trying channel 1")
+            // Try with channel 1
             unmuteMicrophoneChannel(deviceID: deviceID, channel: 1)
             return
         }
 
+        // Store this device as the controllable mic device
+        micDeviceID = deviceID
+
         // Get current mute state
-        var isMuted: UInt32 = 0
+        var currentMuted: UInt32 = 0
         var dataSize = UInt32(MemoryLayout<UInt32>.size)
 
-        var status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &isMuted)
+        var status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &currentMuted)
         if status == noErr {
-            print("[Mic] Current mute state: \(isMuted == 1 ? "muted" : "unmuted")")
+            print("[Mic] Current mute state for device \(deviceID): \(currentMuted == 1 ? "muted" : "unmuted")")
         }
 
         // Set mute to false (0)
@@ -841,7 +855,8 @@ class ControllerService: ObservableObject {
         status = AudioObjectSetPropertyData(deviceID, &propertyAddress, 0, nil, dataSize, &muteValue)
 
         if status == noErr {
-            print("[Mic] Successfully unmuted DualSense microphone")
+            print("[Mic] Successfully unmuted DualSense microphone (device \(deviceID))")
+            isMicMuted = false
         } else {
             print("[Mic] Failed to unmute microphone: \(status)")
             // Try channel-specific unmute
@@ -870,6 +885,220 @@ class ControllerService: ObservableObject {
             print("[Mic] Successfully unmuted channel \(channel)")
         } else {
             print("[Mic] Failed to unmute channel \(channel): \(status)")
+        }
+    }
+
+    private func hasMuteProperty(_ deviceID: AudioDeviceID) -> Bool {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        return AudioObjectHasProperty(deviceID, &propertyAddress)
+    }
+
+    // MARK: - Public Microphone Control
+
+    /// Sets the mute state of the DualSense microphone
+    func setMicMuted(_ muted: Bool) {
+        guard let deviceID = micDeviceID else {
+            print("[Mic] No DualSense microphone device available")
+            return
+        }
+
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var muteValue: UInt32 = muted ? 1 : 0
+        let dataSize = UInt32(MemoryLayout<UInt32>.size)
+
+        let status = AudioObjectSetPropertyData(deviceID, &propertyAddress, 0, nil, dataSize, &muteValue)
+
+        if status == noErr {
+            isMicMuted = muted
+            print("[Mic] Microphone \(muted ? "muted" : "unmuted")")
+        } else {
+            print("[Mic] Failed to set mute state: \(status)")
+        }
+    }
+
+    /// Starts monitoring the microphone audio level using AVAudioEngine
+    func startMicLevelMonitoring() {
+        stopMicLevelMonitoring()
+
+        guard let deviceID = micDeviceID else {
+            print("[Mic] No DualSense microphone device for level monitoring")
+            return
+        }
+
+        // Request microphone permission first
+        requestMicrophonePermission { [weak self] granted in
+            guard granted else {
+                print("[Mic] Microphone permission denied")
+                return
+            }
+
+            guard let self = self else { return }
+
+            Task { @MainActor in
+                self.startAudioEngine()
+            }
+        }
+    }
+
+    /// Requests microphone permission from the user
+    private func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            print("[Mic] Microphone permission already granted")
+            completion(true)
+        case .notDetermined:
+            print("[Mic] Requesting microphone permission...")
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                print("[Mic] Microphone permission \(granted ? "granted" : "denied")")
+                completion(granted)
+            }
+        case .denied, .restricted:
+            print("[Mic] Microphone permission denied or restricted")
+            completion(false)
+        @unknown default:
+            completion(false)
+        }
+    }
+
+    /// Starts the audio engine for level monitoring (called after permission granted)
+    private func startAudioEngine() {
+        // Set DualSense as the input device BEFORE creating the engine
+        setDualSenseAsInputDevice()
+
+        // Small delay to let the system recognize the device change
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self = self else { return }
+
+            let engine = AVAudioEngine()
+
+            // Force the engine to use the new default device
+            let inputNode = engine.inputNode
+            let format = inputNode.outputFormat(forBus: 0)
+
+            print("[Mic] Audio format: \(format)")
+
+            // Install tap on input node to monitor audio levels
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+                guard let self = self else { return }
+
+                let channelData = buffer.floatChannelData?[0]
+                let frameLength = Int(buffer.frameLength)
+
+                guard let data = channelData, frameLength > 0 else { return }
+
+                // Calculate RMS (root mean square) for audio level
+                var sum: Float = 0
+                for i in 0..<frameLength {
+                    sum += data[i] * data[i]
+                }
+                let rms = sqrt(sum / Float(frameLength))
+
+                // Convert to a 0-1 scale (with some amplification for visibility)
+                let level = min(1.0, rms * 8.0)
+
+                Task { @MainActor in
+                    self.micAudioLevel = level
+                }
+            }
+
+            do {
+                try engine.start()
+                self.audioEngine = engine
+                print("[Mic] Audio level monitoring started successfully")
+            } catch {
+                print("[Mic] Failed to start audio engine: \(error)")
+            }
+        }
+    }
+
+    /// Stops monitoring the microphone audio level
+    func stopMicLevelMonitoring() {
+        if let engine = audioEngine {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+            audioEngine = nil
+            print("[Mic] Audio level monitoring stopped")
+        }
+        micLevelTimer?.invalidate()
+        micLevelTimer = nil
+        micAudioLevel = 0
+    }
+
+    /// Gets the current default input device
+    private func getCurrentDefaultInputDevice() -> AudioDeviceID? {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var deviceID: AudioDeviceID = 0
+        var dataSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &deviceID
+        )
+
+        return status == noErr ? deviceID : nil
+    }
+
+    /// Sets the DualSense microphone as the system input device for monitoring
+    private func setDualSenseAsInputDevice() {
+        guard let deviceID = micDeviceID else { return }
+
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var deviceIDCopy = deviceID
+        let status = AudioObjectSetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            UInt32(MemoryLayout<AudioDeviceID>.size),
+            &deviceIDCopy
+        )
+
+        if status == noErr {
+            print("[Mic] Set DualSense (device \(deviceID)) as default input device")
+        } else {
+            print("[Mic] Failed to set DualSense as input: \(status)")
+        }
+    }
+
+    /// Refreshes microphone mute state from the device
+    func refreshMicMuteState() {
+        guard let deviceID = micDeviceID else { return }
+
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var isMuted: UInt32 = 0
+        var dataSize = UInt32(MemoryLayout<UInt32>.size)
+
+        let status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &isMuted)
+        if status == noErr {
+            self.isMicMuted = isMuted == 1
         }
     }
 
