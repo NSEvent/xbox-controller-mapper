@@ -74,6 +74,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadSecondaryFramesSinceTouch: Int = 0
     var touchpadClickArmed: Bool = false
     var touchpadClickStartPosition: CGPoint = .zero
+    var touchpadClickFiredDuringTouch: Bool = false  // Suppress tap after physical click
     var touchpadMovementBlocked: Bool = false
     var touchpadTouchStartTime: TimeInterval = 0  // Time when finger first touched
     var touchpadTouchStartPosition: CGPoint = .zero  // Position when finger first touched
@@ -465,6 +466,7 @@ class ControllerService: ObservableObject {
         storage.touchpadSecondaryFramesSinceTouch = 0
         storage.touchpadClickArmed = false
         storage.touchpadClickStartPosition = .zero
+        storage.touchpadClickFiredDuringTouch = false
         storage.touchpadMovementBlocked = false
         storage.touchpadTouchStartTime = 0
         storage.touchpadTouchStartPosition = .zero
@@ -1723,16 +1725,20 @@ class ControllerService: ObservableObject {
             let touchDuration = now - storage.touchpadTouchStartTime
             let touchDistance = storage.touchpadMaxDistanceFromStart
             let wasTwoFingerDuringTouch = storage.touchpadWasTwoFingerDuringTouch
+            let clickFiredDuringTouch = storage.touchpadClickFiredDuringTouch
 
-            // Single-finger tap: short duration, minimal movement, NOT a two-finger gesture, and long tap not fired
+            // Single-finger tap: short duration, minimal movement, NOT a two-finger gesture,
+            // long tap not fired, and no physical click during this touch
             let isSingleTap = wasTouching &&
                 !wasTwoFingerDuringTouch &&
                 !longTapFired &&
+                !clickFiredDuringTouch &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement
             let tapCallback = isSingleTap ? storage.onTouchpadTap : nil
 
-            // Two-finger tap: both fingers had short duration and minimal movement, and long tap not fired
+            // Two-finger tap: both fingers had short duration and minimal movement, long tap not fired,
+            // and no physical click during this touch
             // Secondary finger uses more lenient threshold due to touchpad noise
             // Also check that there wasn't significant gesture (scroll/pinch) movement
             let secondaryTouchDuration = now - storage.touchpadSecondaryTouchStartTime
@@ -1741,6 +1747,7 @@ class ControllerService: ObservableObject {
             let pinchDistance = storage.touchpadTwoFingerPinchDistance
             let isTwoFingerTap = wasTwoFingerDuringTouch &&
                 !longTapFired &&
+                !clickFiredDuringTouch &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement &&
                 secondaryTouchDuration < Config.touchpadTapMaxDuration &&
@@ -1759,6 +1766,7 @@ class ControllerService: ObservableObject {
             storage.touchpadFramesSinceTouch = 0
             storage.pendingTouchpadDelta = nil
             storage.touchpadClickArmed = false
+            storage.touchpadClickFiredDuringTouch = false
             storage.touchpadMovementBlocked = false
             storage.touchpadLongTapFired = false
             let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
@@ -1991,6 +1999,7 @@ class ControllerService: ObservableObject {
         if pressed {
             storage.touchpadClickArmed = true
             storage.touchpadClickStartPosition = storage.touchpadPosition
+            storage.touchpadClickFiredDuringTouch = true  // Suppress tap when touch ends
             storage.pendingTouchpadDelta = nil
             storage.touchpadFramesSinceTouch = 0
 
