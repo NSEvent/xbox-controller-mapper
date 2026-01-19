@@ -163,6 +163,7 @@ class MappingEngine: ObservableObject {
         var touchpadMomentumPeakMagnitude: Double = 0
         var smoothedTouchpadPanVelocity: CGPoint = .zero
         var touchpadPinchAccumulator: Double = 0
+        var touchpadMagnifyGestureActive: Bool = false
 
         var rightStickWasOutsideDeadzone = false
         var rightStickPeakYAbs: Double = 0
@@ -221,6 +222,7 @@ class MappingEngine: ObservableObject {
             touchpadMomentumPeakMagnitude = 0
             smoothedTouchpadPanVelocity = .zero
             touchpadPinchAccumulator = 0
+            touchpadMagnifyGestureActive = false
             rightStickWasOutsideDeadzone = false
             rightStickPeakYAbs = 0
             rightStickLastDirection = 0
@@ -1120,6 +1122,18 @@ class MappingEngine: ObservableObject {
         }
 
         guard isActive else {
+            // End magnify gesture if it was active
+            state.lock.lock()
+            let wasMagnifyActive = state.touchpadMagnifyGestureActive
+            if wasMagnifyActive {
+                state.touchpadMagnifyGestureActive = false
+                state.touchpadPinchAccumulator = 0
+            }
+            state.lock.unlock()
+            if wasMagnifyActive {
+                postMagnifyGestureEvent(0, 2)  // end gesture (phase 2)
+            }
+
             if wasActive {
                 inputSimulator.scroll(
                     dx: 0,
@@ -1228,33 +1242,25 @@ class MappingEngine: ObservableObject {
             state.touchpadScrollResidualX = 0
             state.touchpadScrollResidualY = 0
 
-            // Accumulate pinch delta to trigger discrete zoom steps
-            state.touchpadPinchAccumulator += smoothedDistance
-            let threshold = 0.08  // Accumulate enough pinch before triggering zoom
-            let shouldZoomIn = state.touchpadPinchAccumulator > threshold
-            let shouldZoomOut = state.touchpadPinchAccumulator < -threshold
+            // Use native macOS magnify gesture
+            // Scale the pinch distance to a reasonable magnification value
+            let magnification = smoothedDistance * Config.touchpadPinchSensitivityMultiplier / 1000.0
 
-            if shouldZoomIn {
-                // Calculate zoom steps based on accumulated magnitude (1-3 keypresses)
-                let steps = min(3, max(1, Int(state.touchpadPinchAccumulator / threshold)))
-                state.touchpadPinchAccumulator = 0
+            if !state.touchpadMagnifyGestureActive {
+                // Start new magnify gesture
+                state.touchpadMagnifyGestureActive = true
                 state.lock.unlock()
-                // Cmd+Plus (or Cmd+Equals which is same key)
-                for _ in 0..<steps {
-                    inputSimulator.pressKey(0x18, modifiers: .maskCommand)  // 0x18 = '=' key (plus without shift)
-                }
-            } else if shouldZoomOut {
-                // Calculate zoom steps based on accumulated magnitude (1-3 keypresses)
-                let steps = min(3, max(1, Int(abs(state.touchpadPinchAccumulator) / threshold)))
-                state.touchpadPinchAccumulator = 0
-                state.lock.unlock()
-                // Cmd+Minus
-                for _ in 0..<steps {
-                    inputSimulator.pressKey(0x1B, modifiers: .maskCommand)  // 0x1B = '-' key
-                }
+                postMagnifyGestureEvent(0, 0)  // begin gesture (phase 0)
+                postMagnifyGestureEvent(magnification, 1)  // first magnify event (phase 1)
             } else {
                 state.lock.unlock()
+                postMagnifyGestureEvent(magnification, 1)  // continue magnify (phase 1)
             }
+
+            // Track accumulated pinch for scroll suppression
+            state.lock.lock()
+            state.touchpadPinchAccumulator += abs(smoothedDistance)
+            state.lock.unlock()
             return
         }
 

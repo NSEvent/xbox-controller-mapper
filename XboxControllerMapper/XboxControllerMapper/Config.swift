@@ -111,14 +111,14 @@ struct Config {
     /// Higher = requires more deliberate pinch to trigger zoom
     static let touchpadPinchDeadzone: Double = 0.03
     /// Sensitivity multiplier for pinch-to-zoom (distance delta -> scroll amount)
-    static let touchpadPinchSensitivityMultiplier: Double = 2000.0
+    static let touchpadPinchSensitivityMultiplier: Double = 12000.0
     /// Ratio threshold: if pinch/pan ratio exceeds this, treat as pinch gesture
     /// Higher = pinch must be more dominant over pan to trigger zoom
     static let touchpadPinchVsPanRatio: Double = 1.8
     /// Cooldown period after a tap where movement is suppressed (prevents double-tap drift)
     static let touchpadTapCooldown: TimeInterval = 0.2
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
-    static let touchpadPanSensitivityMultiplier: Double = 1000.0
+    static let touchpadPanSensitivityMultiplier: Double = 4000.0
     /// Minimum pan movement to start scrolling
     static let touchpadPanDeadzone: Double = 0.002
     /// Minimum distance between fingers to treat as two-finger gesture
