@@ -473,6 +473,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             ) {
                 if isContinuous {
                     event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+                    // Set instant mouser to 0 to indicate trackpad (not mouse)
+                    event.setIntegerValueField(.scrollWheelEventInstantMouser, value: 0)
+                    // Set point delta fields for native trackpad emulation
+                    // Chrome and other browsers require these fields to recognize trackpad gestures
+                    event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(dy))
+                    event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(dx))
+                    // Set fixed-point delta fields (16.16 fixed-point format)
+                    // Native trackpads set these for precise sub-pixel scrolling
+                    event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: Double(dy))
+                    event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: Double(dx))
+                    // Set scroll count to indicate this is a gesture event
+                    event.setIntegerValueField(.scrollWheelEventScrollCount, value: 1)
                 }
                 if let phase {
                     event.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
