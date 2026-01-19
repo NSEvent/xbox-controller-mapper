@@ -1230,22 +1230,26 @@ class MappingEngine: ObservableObject {
 
             // Accumulate pinch delta to trigger discrete zoom steps
             state.touchpadPinchAccumulator += smoothedDistance
-            let threshold = 0.20  // Accumulate enough pinch before triggering zoom
+            let threshold = 0.08  // Accumulate enough pinch before triggering zoom
             let shouldZoomIn = state.touchpadPinchAccumulator > threshold
             let shouldZoomOut = state.touchpadPinchAccumulator < -threshold
 
             if shouldZoomIn {
+                // Calculate zoom steps based on accumulated magnitude (1-3 keypresses)
+                let steps = min(3, max(1, Int(state.touchpadPinchAccumulator / threshold)))
                 state.touchpadPinchAccumulator = 0
                 state.lock.unlock()
-                // Cmd+Plus (or Cmd+Equals which is same key) - send multiple for faster zoom
-                for _ in 0..<3 {
+                // Cmd+Plus (or Cmd+Equals which is same key)
+                for _ in 0..<steps {
                     inputSimulator.pressKey(0x18, modifiers: .maskCommand)  // 0x18 = '=' key (plus without shift)
                 }
             } else if shouldZoomOut {
+                // Calculate zoom steps based on accumulated magnitude (1-3 keypresses)
+                let steps = min(3, max(1, Int(abs(state.touchpadPinchAccumulator) / threshold)))
                 state.touchpadPinchAccumulator = 0
                 state.lock.unlock()
-                // Cmd+Minus - send multiple for faster zoom
-                for _ in 0..<3 {
+                // Cmd+Minus
+                for _ in 0..<steps {
                     inputSimulator.pressKey(0x1B, modifiers: .maskCommand)  // 0x1B = '-' key
                 }
             } else {
@@ -1259,7 +1263,7 @@ class MappingEngine: ObservableObject {
         state.lock.lock()
         let pinchAccumMagnitude = abs(state.touchpadPinchAccumulator)
         state.lock.unlock()
-        if pinchAccumMagnitude > 0.08 {
+        if pinchAccumMagnitude > 0.05 {
             return
         }
 
