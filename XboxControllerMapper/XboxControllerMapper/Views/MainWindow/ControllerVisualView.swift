@@ -29,7 +29,22 @@ struct ControllerVisualView: View {
             VStack(spacing: 20) {
                 // Touchpad section (DualSense only) - above controller
                 if isDualSense {
-                    referenceGroup(title: "Touchpad", buttons: [.touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap])
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("TOUCHPAD")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 4)
+                        HStack(spacing: 20) {
+                            VStack(alignment: .trailing) {
+                                referenceRow(for: .touchpadButton)
+                                referenceRow(for: .touchpadTap)
+                            }
+                            VStack(alignment: .leading) {
+                                referenceRow(for: .touchpadTwoFingerButton)
+                                referenceRow(for: .touchpadTwoFingerTap)
+                            }
+                        }
+                    }
                 }
 
                 ZStack {
