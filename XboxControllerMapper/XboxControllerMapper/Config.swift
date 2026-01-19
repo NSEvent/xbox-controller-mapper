@@ -95,7 +95,7 @@ struct Config {
     /// Time after touch starts before movement is allowed (prevents tap-induced drift)
     static let touchpadTouchSettleInterval: TimeInterval = 0.08
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
-    static let touchpadPanSensitivityMultiplier: Double = 900.0
+    static let touchpadPanSensitivityMultiplier: Double = 500.0
     /// Minimum pan movement to start scrolling
     static let touchpadPanDeadzone: Double = 0.002
     /// Minimum distance between fingers to treat as two-finger gesture
@@ -115,7 +115,7 @@ struct Config {
     /// Minimum velocity to start momentum after lift (pixels/second)
     static let touchpadMomentumStartVelocity: Double = 50.0
     /// Minimum velocity to keep momentum running (pixels/second)
-    static let touchpadMomentumStopVelocity: Double = 5.0
+    static let touchpadMomentumStopVelocity: Double = 30.0
     /// Maximum time since last fast pan sample to start momentum after lift (seconds)
     static let touchpadMomentumReleaseWindow: TimeInterval = 0.1
     /// Clamp momentum velocity to avoid spikes (pixels/second)
@@ -123,7 +123,7 @@ struct Config {
     /// Smoothing for gesture velocity estimation (0-1)
     static let touchpadMomentumVelocitySmoothingAlpha: Double = 0.35
     /// Boost applied to captured momentum velocity
-    static let touchpadMomentumBoost: Double = 2.5
+    static let touchpadMomentumBoost: Double = 1.5
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging
