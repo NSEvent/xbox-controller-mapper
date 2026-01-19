@@ -107,6 +107,9 @@ struct Config {
     /// Maximum cumulative gesture (center) movement for two-finger tap
     /// If the gesture center moved more than this, it's a scroll/pan, not a tap
     static let touchpadTwoFingerTapMaxGestureDistance: Double = 0.05
+    /// Maximum cumulative pinch (finger distance change) for two-finger tap
+    /// If fingers moved apart/together more than this, it's a pinch/zoom, not a tap
+    static let touchpadTwoFingerTapMaxPinchDistance: Double = 0.05
     /// Minimum pinch (distance change) to trigger zoom gesture
     /// Higher = requires more deliberate pinch to trigger zoom
     static let touchpadPinchDeadzone: Double = 0.05

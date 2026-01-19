@@ -92,6 +92,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadTwoFingerClickArmed: Bool = false  // Track button press with two fingers
     var touchpadWasTwoFingerDuringTouch: Bool = false  // Track if two fingers touched during this primary touch
     var touchpadTwoFingerGestureDistance: Double = 0  // Cumulative center movement during two-finger gesture
+    var touchpadTwoFingerPinchDistance: Double = 0  // Cumulative pinch (distance change) during two-finger gesture
 
     // Button State
     var activeButtons: Set<ControllerButton> = []
@@ -1629,6 +1630,7 @@ class ControllerService: ObservableObject {
                     )
                     // Accumulate gesture movement to distinguish tap from pan/scroll
                     storage.touchpadTwoFingerGestureDistance += hypot(Double(centerDelta.x), Double(centerDelta.y))
+                    storage.touchpadTwoFingerPinchDistance += abs(Double(currentDistance - previousDistance))
                 }
 
                 let isSecondaryTouching = storage.isTouchpadSecondaryTouching
@@ -1653,6 +1655,7 @@ class ControllerService: ObservableObject {
                 let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
                 storage.touchpadWasTwoFingerDuringTouch = secondaryFresh
                 storage.touchpadTwoFingerGestureDistance = 0  // Reset for new touch session
+                storage.touchpadTwoFingerPinchDistance = 0
                 // Block movement if this touch starts within cooldown of a previous tap
                 // This prevents double-tap from causing mouse movement between taps
                 if (now - storage.touchpadLastTapTime) < Config.touchpadTapCooldown {
@@ -1680,16 +1683,18 @@ class ControllerService: ObservableObject {
 
             // Two-finger tap: both fingers had short duration and minimal movement
             // Secondary finger uses more lenient threshold due to touchpad noise
-            // Also check that there wasn't significant gesture (scroll) movement
+            // Also check that there wasn't significant gesture (scroll/pinch) movement
             let secondaryTouchDuration = now - storage.touchpadSecondaryTouchStartTime
             let secondaryTouchDistance = storage.touchpadSecondaryMaxDistanceFromStart
             let gestureDistance = storage.touchpadTwoFingerGestureDistance
+            let pinchDistance = storage.touchpadTwoFingerPinchDistance
             let isTwoFingerTap = wasTwoFingerDuringTouch &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement &&
                 secondaryTouchDuration < Config.touchpadTapMaxDuration &&
                 secondaryTouchDistance < Config.touchpadTwoFingerTapMaxMovement &&
-                gestureDistance < Config.touchpadTwoFingerTapMaxGestureDistance
+                gestureDistance < Config.touchpadTwoFingerTapMaxGestureDistance &&
+                pinchDistance < Config.touchpadTwoFingerTapMaxPinchDistance
             let twoFingerTapCallback = isTwoFingerTap ? storage.onTouchpadTwoFingerTap : nil
 
             if isSingleTap || isTwoFingerTap {
@@ -1855,6 +1860,7 @@ class ControllerService: ObservableObject {
                 )
                 // Accumulate gesture movement to distinguish tap from pan/scroll
                 storage.touchpadTwoFingerGestureDistance += hypot(Double(centerDelta.x), Double(centerDelta.y))
+                storage.touchpadTwoFingerPinchDistance += abs(Double(currentDistance - previousDistance))
                 storage.lock.unlock()
                 gestureCallback?(gesture)
             } else {
