@@ -47,31 +47,31 @@ struct ContentView: View {
                         .tabItem { Text("Joysticks") }
                         .tag(2)
 
+                    // On-Screen Keyboard Settings
+                    keyboardSettingsTab
+                        .tabItem { Text("Keyboard") }
+                        .tag(3)
+
                     // Touchpad Settings (only shown when controller has touchpad)
                     if controllerService.threadSafeIsDualSense {
                         touchpadSettingsTab
                             .tabItem { Text("Touchpad") }
-                            .tag(3)
+                            .tag(4)
                     }
 
                     // LED Settings (only shown for DualSense)
                     if controllerService.threadSafeIsDualSense {
                         ledSettingsTab
                             .tabItem { Text("LEDs") }
-                            .tag(4)
+                            .tag(5)
                     }
 
                     // Microphone Settings (only shown for DualSense)
                     if controllerService.threadSafeIsDualSense {
                         microphoneSettingsTab
                             .tabItem { Text("Microphone") }
-                            .tag(5)
+                            .tag(6)
                     }
-
-                    // On-Screen Keyboard Settings
-                    keyboardSettingsTab
-                        .tabItem { Text("Keyboard") }
-                        .tag(6)
                 }
                 .tabViewStyle(.automatic)
             }

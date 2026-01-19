@@ -66,17 +66,20 @@ struct OnScreenKeyboardView: View {
             // Function key row (Esc + F1-F12)
             functionKeyRow
 
-            // Main keyboard
-            VStack(spacing: keySpacing) {
-                numberRow
-                qwertyRow
-                asdfRow
-                zxcvRow
-                bottomRow
-            }
+            // Main keyboard with navigation column
+            HStack(alignment: .top, spacing: keySpacing * 2) {
+                // Main keyboard
+                VStack(spacing: keySpacing) {
+                    numberRow
+                    qwertyRow
+                    asdfRow
+                    zxcvRow
+                    bottomRow
+                }
 
-            // Navigation keys
-            navigationKeyRow
+                // Navigation keys column
+                navigationKeyColumn
+            }
         }
         .padding(20)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
@@ -407,13 +410,13 @@ struct OnScreenKeyboardView: View {
 
     // MARK: - Navigation Keys
 
-    private var navigationKeyRow: some View {
-        HStack(spacing: keySpacing) {
-            clickableKey(CGKeyCode(kVK_Home), label: "Home", width: 82)
-            clickableKey(CGKeyCode(kVK_End), label: "End", width: 82)
-            clickableKey(CGKeyCode(kVK_PageUp), label: "PgUp", width: 82)
-            clickableKey(CGKeyCode(kVK_PageDown), label: "PgDn", width: 82)
-            clickableKey(CGKeyCode(kVK_ForwardDelete), label: "Del", width: 82)
+    private var navigationKeyColumn: some View {
+        VStack(spacing: keySpacing) {
+            clickableKey(CGKeyCode(kVK_ForwardDelete), label: "Del")
+            clickableKey(CGKeyCode(kVK_Home), label: "Home")
+            clickableKey(CGKeyCode(kVK_End), label: "End")
+            clickableKey(CGKeyCode(kVK_PageUp), label: "PgUp")
+            clickableKey(CGKeyCode(kVK_PageDown), label: "PgDn")
         }
     }
 
