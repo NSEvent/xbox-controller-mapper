@@ -162,7 +162,8 @@ class MappingEngine: ObservableObject {
         var touchpadMomentumPeakVelocity: CGPoint = .zero
         var touchpadMomentumPeakMagnitude: Double = 0
         var smoothedTouchpadPanVelocity: CGPoint = .zero
-        
+        var touchpadPinchAccumulator: Double = 0
+
         var rightStickWasOutsideDeadzone = false
         var rightStickPeakYAbs: Double = 0
         var rightStickLastDirection: Int = 0
@@ -219,6 +220,7 @@ class MappingEngine: ObservableObject {
             touchpadMomentumPeakVelocity = .zero
             touchpadMomentumPeakMagnitude = 0
             smoothedTouchpadPanVelocity = .zero
+            touchpadPinchAccumulator = 0
             rightStickWasOutsideDeadzone = false
             rightStickPeakYAbs = 0
             rightStickLastDirection = 0
@@ -1199,7 +1201,64 @@ class MappingEngine: ObservableObject {
             )
         }
 
+        // Check if this is a pinch (zoom) gesture vs pan (scroll) gesture
+        let pinchMagnitude = abs(smoothedDistance)
         let panMagnitude = Double(hypot(smoothedCenter.x, smoothedCenter.y))
+        let ratio = pinchMagnitude / max(panMagnitude, 0.001)
+
+        // Debug logging
+        print("[PINCH] pinch=\(String(format: "%.4f", pinchMagnitude)) pan=\(String(format: "%.4f", panMagnitude)) ratio=\(String(format: "%.2f", ratio)) (need pinch>\(Config.touchpadPinchDeadzone), ratio>\(Config.touchpadPinchVsPanRatio))")
+
+        // Determine if pinch is dominant over pan
+        let isPinchGesture = pinchMagnitude > Config.touchpadPinchDeadzone &&
+            (panMagnitude < Config.touchpadPanDeadzone ||
+             ratio > Config.touchpadPinchVsPanRatio)
+
+        if isPinchGesture {
+            // Pinch-to-zoom: emit Cmd+Plus or Cmd+Minus (universal zoom shortcuts)
+            // Pinch out (distance increases, positive) = zoom in = Cmd+Plus
+            // Pinch in (distance decreases, negative) = zoom out = Cmd+Minus
+
+            // Reset pan-related state since we're doing pinch
+            state.lock.lock()
+            state.smoothedTouchpadPanVelocity = .zero
+            state.touchpadMomentumVelocity = .zero
+            state.touchpadMomentumCandidateVelocity = .zero
+            state.touchpadMomentumCandidateTime = 0
+            state.touchpadScrollResidualX = 0
+            state.touchpadScrollResidualY = 0
+
+            // Accumulate pinch delta to trigger discrete zoom steps
+            state.touchpadPinchAccumulator += smoothedDistance
+            let threshold = 0.20  // Accumulate enough pinch before triggering zoom
+            let shouldZoomIn = state.touchpadPinchAccumulator > threshold
+            let shouldZoomOut = state.touchpadPinchAccumulator < -threshold
+
+            if shouldZoomIn {
+                state.touchpadPinchAccumulator = 0
+                state.lock.unlock()
+                // Cmd+Plus (or Cmd+Equals which is same key)
+                inputSimulator.pressKey(0x18, modifiers: .maskCommand)  // 0x18 = '=' key (plus without shift)
+            } else if shouldZoomOut {
+                state.touchpadPinchAccumulator = 0
+                state.lock.unlock()
+                // Cmd+Minus
+                inputSimulator.pressKey(0x1B, modifiers: .maskCommand)  // 0x1B = '-' key
+            } else {
+                state.lock.unlock()
+            }
+            return
+        }
+
+        // If we've accumulated significant pinch, suppress scrolling
+        // Only suppress when accumulator is large enough to indicate intentional pinch
+        state.lock.lock()
+        let pinchAccumMagnitude = abs(state.touchpadPinchAccumulator)
+        state.lock.unlock()
+        if pinchAccumMagnitude > 0.08 {
+            return
+        }
+
         guard panMagnitude > Config.touchpadPanDeadzone else {
             let now = CFAbsoluteTimeGetCurrent()
             state.lock.lock()
