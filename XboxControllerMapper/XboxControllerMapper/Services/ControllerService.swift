@@ -78,6 +78,10 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadTouchStartTime: TimeInterval = 0  // Time when finger first touched
     var touchpadTouchStartPosition: CGPoint = .zero  // Position when finger first touched
     var touchpadDebugLastLogTime: TimeInterval = 0
+    var touchpadIdleSentinel: CGPoint? = nil
+    var touchpadSecondaryIdleSentinel: CGPoint? = nil
+    var touchpadHasSeenTouch: Bool = false
+    var touchpadSecondaryHasSeenTouch: Bool = false
 
     // Button State
     var activeButtons: Set<ControllerButton> = []
@@ -145,6 +149,10 @@ class ControllerService: ObservableObject {
     private var hidReportBuffer: UnsafeMutablePointer<UInt8>?
     private var hidDevice: IOHIDDevice?
     private var bluetoothOutputSeq: UInt8 = 0  // Sequence number for Bluetooth output reports (0-15)
+
+    private enum TouchpadIdleSentinelConfig {
+        static let activationThreshold: CGFloat = 0.02
+    }
     
     nonisolated var threadSafeLeftStick: CGPoint {
         storage.lock.lock()
@@ -375,8 +383,15 @@ class ControllerService: ObservableObject {
         isConnected = true
         controllerName = controller.vendorName ?? "Xbox Controller"
 
+        storage.lock.lock()
+        resetTouchpadStateLocked()
+        storage.lock.unlock()
+
         setupInputHandlers(for: controller)
         setupHaptics(for: controller)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.playHaptic(intensity: 0.7, sharpness: 0.6, duration: 0.12)
+        }
         updateBatteryInfo()
         startDisplayUpdateTimer()
     }
@@ -405,13 +420,32 @@ class ControllerService: ObservableObject {
         storage.rightStick = .zero
         // Reset DualSense state
         storage.isDualSense = false
-        storage.isTouchpadTouching = false
-        storage.touchpadPosition = .zero
-        storage.touchpadPreviousPosition = .zero
-        storage.pendingTouchpadDelta = nil
-        storage.touchpadFramesSinceTouch = 0
+        resetTouchpadStateLocked()
         storage.lastMicButtonState = false
         storage.lock.unlock()
+    }
+
+    private func resetTouchpadStateLocked() {
+        storage.isTouchpadTouching = false
+        storage.isTouchpadSecondaryTouching = false
+        storage.touchpadPosition = .zero
+        storage.touchpadPreviousPosition = .zero
+        storage.touchpadSecondaryPosition = .zero
+        storage.touchpadSecondaryPreviousPosition = .zero
+        storage.touchpadSecondaryLastUpdate = 0
+        storage.touchpadSecondaryLastTouchTime = 0
+        storage.pendingTouchpadDelta = nil
+        storage.touchpadFramesSinceTouch = 0
+        storage.touchpadSecondaryFramesSinceTouch = 0
+        storage.touchpadClickArmed = false
+        storage.touchpadClickStartPosition = .zero
+        storage.touchpadMovementBlocked = false
+        storage.touchpadTouchStartTime = 0
+        storage.touchpadTouchStartPosition = .zero
+        storage.touchpadIdleSentinel = nil
+        storage.touchpadSecondaryIdleSentinel = nil
+        storage.touchpadHasSeenTouch = false
+        storage.touchpadSecondaryHasSeenTouch = false
     }
 
     // MARK: - Display Update Timer
@@ -593,6 +627,11 @@ class ControllerService: ObservableObject {
             storage.lock.lock()
             storage.isDualSense = true
             storage.lock.unlock()
+
+            // Avoid system gesture delays on touchpad input
+            dualSenseGamepad.touchpadPrimary.preferredSystemGestureState = .alwaysReceive
+            dualSenseGamepad.touchpadSecondary.preferredSystemGestureState = .alwaysReceive
+            dualSenseGamepad.touchpadButton.preferredSystemGestureState = .alwaysReceive
 
             // Touchpad button (click)
             dualSenseGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
@@ -1381,7 +1420,25 @@ class ControllerService: ObservableObject {
 
         // Detect if finger is on touchpad (non-zero position indicates touch)
         // GCControllerDirectionPad returns 0,0 when no finger is present
-        let isTouching = abs(x) > 0.001 || abs(y) > 0.001
+        var isTouching = abs(x) > 0.001 || abs(y) > 0.001
+        if !storage.touchpadHasSeenTouch, isTouching {
+            if let sentinel = storage.touchpadIdleSentinel {
+                let isNearSentinel = abs(newPosition.x - sentinel.x) <= TouchpadIdleSentinelConfig.activationThreshold &&
+                    abs(newPosition.y - sentinel.y) <= TouchpadIdleSentinelConfig.activationThreshold
+                if isNearSentinel {
+                    isTouching = false
+                } else {
+                    storage.touchpadHasSeenTouch = true
+                    storage.touchpadIdleSentinel = nil
+                }
+            } else {
+                storage.touchpadIdleSentinel = newPosition
+                isTouching = false
+            }
+        }
+        if isTouching {
+            storage.touchpadHasSeenTouch = true
+        }
 
         if isTouching {
             if wasTouching {
@@ -1571,7 +1628,25 @@ class ControllerService: ObservableObject {
         let now = CFAbsoluteTimeGetCurrent()
 
         // Detect if finger is on touchpad (non-zero position indicates touch)
-        let isTouching = abs(x) > 0.001 || abs(y) > 0.001
+        var isTouching = abs(x) > 0.001 || abs(y) > 0.001
+        if !storage.touchpadSecondaryHasSeenTouch, isTouching {
+            if let sentinel = storage.touchpadSecondaryIdleSentinel {
+                let isNearSentinel = abs(newPosition.x - sentinel.x) <= TouchpadIdleSentinelConfig.activationThreshold &&
+                    abs(newPosition.y - sentinel.y) <= TouchpadIdleSentinelConfig.activationThreshold
+                if isNearSentinel {
+                    isTouching = false
+                } else {
+                    storage.touchpadSecondaryHasSeenTouch = true
+                    storage.touchpadSecondaryIdleSentinel = nil
+                }
+            } else {
+                storage.touchpadSecondaryIdleSentinel = newPosition
+                isTouching = false
+            }
+        }
+        if isTouching {
+            storage.touchpadSecondaryHasSeenTouch = true
+        }
 
         if isTouching {
             if wasTouching {
