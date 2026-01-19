@@ -136,13 +136,50 @@ struct OnScreenKeyboardSettingsView: View {
                     .italic()
                     .padding(.vertical, 8)
             } else {
-                ForEach(appBarItems) { item in
-                    appBarRow(item)
+                List {
+                    ForEach(appBarItems) { item in
+                        appBarListRow(item)
+                    }
+                    .onMove { source, destination in
+                        profileManager.moveAppBarItems(from: source, to: destination)
+                    }
                 }
-                .onMove { source, destination in
-                    profileManager.moveAppBarItems(from: source, to: destination)
-                }
+                .listStyle(.plain)
+                .frame(height: min(CGFloat(appBarItems.count) * 44, 220))
+                .scrollContentBackground(.hidden)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func appBarListRow(_ item: AppBarItem) -> some View {
+        HStack {
+            // App icon
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
+               let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 24, height: 24)
+            } else {
+                Image(systemName: "app.fill")
+                    .resizable()
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(.secondary)
+            }
+
+            Text(item.displayName)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer()
+
+            Button {
+                profileManager.removeAppBarItem(item)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.borderless)
         }
     }
 
@@ -218,46 +255,6 @@ struct OnScreenKeyboardSettingsView: View {
         .onDisappear {
             appPickerSearchText = ""
         }
-    }
-
-    @ViewBuilder
-    private func appBarRow(_ item: AppBarItem) -> some View {
-        HStack {
-            Image(systemName: "line.3.horizontal")
-                .foregroundColor(.secondary)
-                .frame(width: 20)
-
-            // App icon
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
-               let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
-                Image(nsImage: icon)
-                    .resizable()
-                    .frame(width: 24, height: 24)
-            } else {
-                Image(systemName: "app.fill")
-                    .resizable()
-                    .frame(width: 24, height: 24)
-                    .foregroundColor(.secondary)
-            }
-
-            Text(item.displayName)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Spacer()
-
-            Button {
-                profileManager.removeAppBarItem(item)
-            } label: {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
-            }
-            .buttonStyle(.borderless)
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(6)
     }
 
     // MARK: - Typing Speed Section
