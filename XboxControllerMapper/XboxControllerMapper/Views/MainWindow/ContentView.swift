@@ -1001,6 +1001,19 @@ struct LEDSettingsView: View {
 
     var body: some View {
         Form {
+            if controllerService.isBluetoothConnection {
+                Section {
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("LED control requires USB connection on macOS. Settings will be applied when you connect via USB.")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
             Section("Light Bar") {
                 Toggle("Enabled", isOn: Binding(
                     get: { settings.lightBarEnabled },

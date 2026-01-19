@@ -105,6 +105,9 @@ class ControllerService: ObservableObject {
 
     /// Party mode state
     @Published var partyModeEnabled = false
+
+    /// Whether the current connection is Bluetooth (for UI display)
+    @Published var isBluetoothConnection = false
     private var partyModeTimer: Timer?
     private var partyHue: Double = 0.0
     private var partyLEDIndex: Int = 0
@@ -189,6 +192,12 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isDualSense
+    }
+
+    nonisolated var threadSafeIsBluetoothConnection: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isBluetoothConnection
     }
 
     nonisolated var threadSafeLEDSettings: DualSenseLEDSettings? {
@@ -665,8 +674,11 @@ class ControllerService: ObservableObject {
             storage.lock.lock()
             storage.isBluetoothConnection = isBluetooth
             storage.lock.unlock()
+            // Update published property for UI
+            isBluetoothConnection = isBluetooth
         } else {
             print("[LED] Could not detect connection type, defaulting to USB")
+            isBluetoothConnection = false
         }
     }
 
