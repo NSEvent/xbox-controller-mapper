@@ -38,6 +38,12 @@ struct JoystickSettings: Codable, Equatable {
     /// Two-finger pan sensitivity (0.0 - 1.0)
     var touchpadPanSensitivity: Double = 0.5
 
+    /// Zoom to pan ratio threshold (higher = pinch must be more dominant to trigger zoom)
+    var touchpadZoomToPanRatio: Double = 1.65
+
+    /// Whether to use native magnify gestures (true) or Cmd+Plus/Minus (false) for zoom
+    var touchpadUseNativeZoom: Bool = true
+
     /// Acceleration curve for scrolling (0.0 = linear, 1.0 = max acceleration)
     var scrollAcceleration: Double = 0.5
 
@@ -65,6 +71,7 @@ struct JoystickSettings: Codable, Equatable {
                (0.0...0.005).contains(touchpadDeadzone) &&
                range.contains(touchpadSmoothing) &&
                range.contains(touchpadPanSensitivity) &&
+               (0.5...5.0).contains(touchpadZoomToPanRatio) &&
                range.contains(scrollAcceleration) &&
                (1.0...4.0).contains(scrollBoostMultiplier) &&
                range.contains(focusModeSensitivity)
@@ -146,6 +153,8 @@ extension JoystickSettings {
         case touchpadDeadzone
         case touchpadSmoothing
         case touchpadPanSensitivity
+        case touchpadZoomToPanRatio
+        case touchpadUseNativeZoom
         case scrollAcceleration
         case scrollBoostMultiplier
         case focusModeSensitivity
@@ -166,6 +175,8 @@ extension JoystickSettings {
         touchpadDeadzone = try container.decodeIfPresent(Double.self, forKey: .touchpadDeadzone) ?? 0.001
         touchpadSmoothing = try container.decodeIfPresent(Double.self, forKey: .touchpadSmoothing) ?? 0.4
         touchpadPanSensitivity = try container.decodeIfPresent(Double.self, forKey: .touchpadPanSensitivity) ?? 0.5
+        touchpadZoomToPanRatio = try container.decodeIfPresent(Double.self, forKey: .touchpadZoomToPanRatio) ?? 1.65
+        touchpadUseNativeZoom = try container.decodeIfPresent(Bool.self, forKey: .touchpadUseNativeZoom) ?? true
         scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5
         scrollBoostMultiplier = try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0
         focusModeSensitivity = try container.decodeIfPresent(Double.self, forKey: .focusModeSensitivity) ?? 0.2
@@ -186,6 +197,8 @@ extension JoystickSettings {
         try container.encode(touchpadDeadzone, forKey: .touchpadDeadzone)
         try container.encode(touchpadSmoothing, forKey: .touchpadSmoothing)
         try container.encode(touchpadPanSensitivity, forKey: .touchpadPanSensitivity)
+        try container.encode(touchpadZoomToPanRatio, forKey: .touchpadZoomToPanRatio)
+        try container.encode(touchpadUseNativeZoom, forKey: .touchpadUseNativeZoom)
         try container.encode(scrollAcceleration, forKey: .scrollAcceleration)
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
         try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)

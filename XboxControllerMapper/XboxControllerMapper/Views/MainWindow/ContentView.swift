@@ -989,6 +989,28 @@ struct TouchpadSettingsView: View {
                     range: 0...1,
                     description: "Scroll speed for two-finger pan"
                 )
+
+                SliderRow(
+                    label: "Zoom to Pan Ratio",
+                    value: Binding(
+                        get: { settings.touchpadZoomToPanRatio },
+                        set: { updateSettings(\.touchpadZoomToPanRatio, $0) }
+                    ),
+                    range: 0.5...5.0,
+                    description: "Higher = pinch must be more dominant to zoom"
+                )
+
+                Toggle(isOn: Binding(
+                    get: { settings.touchpadUseNativeZoom },
+                    set: { updateSettings(\.touchpadUseNativeZoom, $0) }
+                )) {
+                    VStack(alignment: .leading) {
+                        Text("Native Zoom Gestures")
+                        Text("Use macOS magnify gestures instead of Cmd+Plus/Minus")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
         }
         .formStyle(.grouped)
