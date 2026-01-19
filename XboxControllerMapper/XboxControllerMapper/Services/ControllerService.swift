@@ -99,6 +99,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var activeButtons: Set<ControllerButton> = []
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
     var lastMicButtonState: Bool = false
+    var lastPSButtonState: Bool = false
 
     // Chord Detection State
     var pendingButtons: Set<ControllerButton> = []
@@ -1415,20 +1416,31 @@ class ControllerService: ObservableObject {
         // Only process report 0x31 (Bluetooth input report) with sufficient length
         guard reportID == 0x31 && length >= 12 else { return }
 
-        // Mic button is at byte 11, bit 2 in Bluetooth report
-        // Report structure: [0]=reportID, ... [11]=buttons2 (PS/Touch/Mute)
+        // Byte 11 contains buttons2 (PS/Touch/Mute) in Bluetooth report
+        // Report structure: [0]=reportID, ... [11]=buttons2
+        // Bit 0: PS button, Bit 1: Touchpad button, Bit 2: Mic mute
         let buttons2 = report[11]
+        let psPressed = (buttons2 & 0x01) != 0
         let micPressed = (buttons2 & 0x04) != 0
 
-        // Detect state change (thread-safe)
+        // Detect state changes (thread-safe)
         storage.lock.lock()
-        let changed = micPressed != storage.lastMicButtonState
-        if changed {
+        let psChanged = psPressed != storage.lastPSButtonState
+        let micChanged = micPressed != storage.lastMicButtonState
+        if psChanged {
+            storage.lastPSButtonState = psPressed
+        }
+        if micChanged {
             storage.lastMicButtonState = micPressed
         }
         storage.lock.unlock()
 
-        if changed {
+        if psChanged {
+            controllerQueue.async { [weak self] in
+                self?.handleButton(.xbox, pressed: psPressed)
+            }
+        }
+        if micChanged {
             controllerQueue.async { [weak self] in
                 self?.handleButton(.micMute, pressed: micPressed)
             }
