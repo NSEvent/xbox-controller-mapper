@@ -991,13 +991,13 @@ struct TouchpadSettingsView: View {
                 )
 
                 SliderRow(
-                    label: "Zoom to Pan Ratio",
+                    label: "Pan to Zoom Ratio",
                     value: Binding(
                         get: { settings.touchpadZoomToPanRatio },
                         set: { updateSettings(\.touchpadZoomToPanRatio, $0) }
                     ),
                     range: 0.5...5.0,
-                    description: "Higher = pinch must be more dominant to zoom"
+                    description: "Low = easier to zoom, High = easier to pan"
                 )
 
                 Toggle(isOn: Binding(

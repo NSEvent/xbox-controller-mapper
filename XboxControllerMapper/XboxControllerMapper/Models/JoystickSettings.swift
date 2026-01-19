@@ -38,7 +38,7 @@ struct JoystickSettings: Codable, Equatable {
     /// Two-finger pan sensitivity (0.0 - 1.0)
     var touchpadPanSensitivity: Double = 0.5
 
-    /// Zoom to pan ratio threshold (higher = pinch must be more dominant to trigger zoom)
+    /// Pan to zoom ratio threshold (low = easier to zoom, high = easier to pan)
     var touchpadZoomToPanRatio: Double = 1.65
 
     /// Whether to use native magnify gestures (true) or Cmd+Plus/Minus (false) for zoom
