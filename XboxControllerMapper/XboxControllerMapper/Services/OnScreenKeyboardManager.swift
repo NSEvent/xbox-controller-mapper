@@ -15,6 +15,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private var defaultTerminalApp: String = "Terminal"
     private var typingDelay: Double = 0.03
     private var appBarItems: [AppBarItem] = []
+    private var showExtendedFunctionKeys: Bool = false
     private var cancellables = Set<AnyCancellable>()
 
     private init() {}
@@ -25,12 +26,13 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     /// Updates the quick texts and app bar items to display on the keyboard
-    func setQuickTexts(_ texts: [QuickText], defaultTerminal: String, typingDelay: Double = 0.03, appBarItems: [AppBarItem] = []) {
-        let changed = self.quickTexts != texts || self.defaultTerminalApp != defaultTerminal || self.appBarItems != appBarItems
+    func setQuickTexts(_ texts: [QuickText], defaultTerminal: String, typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], showExtendedFunctionKeys: Bool = false) {
+        let changed = self.quickTexts != texts || self.defaultTerminalApp != defaultTerminal || self.appBarItems != appBarItems || self.showExtendedFunctionKeys != showExtendedFunctionKeys
         self.quickTexts = texts
         self.defaultTerminalApp = defaultTerminal
         self.typingDelay = typingDelay
         self.appBarItems = appBarItems
+        self.showExtendedFunctionKeys = showExtendedFunctionKeys
 
         // Recreate panel if content changed
         if changed && panel != nil {
@@ -70,7 +72,8 @@ class OnScreenKeyboardManager: ObservableObject {
                 self?.activateApp(bundleIdentifier: bundleIdentifier)
             },
             quickTexts: quickTexts,
-            appBarItems: appBarItems
+            appBarItems: appBarItems,
+            showExtendedFunctionKeys: showExtendedFunctionKeys
         )
 
         let hostingView = NSHostingView(rootView: keyboardView)

@@ -46,7 +46,8 @@ final class ServiceContainer {
             settings.quickTexts,
             defaultTerminal: settings.defaultTerminalApp,
             typingDelay: settings.typingDelay,
-            appBarItems: settings.appBarItems
+            appBarItems: settings.appBarItems,
+            showExtendedFunctionKeys: settings.showExtendedFunctionKeys
         )
 
         // Observe changes
@@ -57,7 +58,8 @@ final class ServiceContainer {
                     settings.quickTexts,
                     defaultTerminal: settings.defaultTerminalApp,
                     typingDelay: settings.typingDelay,
-                    appBarItems: settings.appBarItems
+                    appBarItems: settings.appBarItems,
+                    showExtendedFunctionKeys: settings.showExtendedFunctionKeys
                 )
             }
             .store(in: &cancellables)

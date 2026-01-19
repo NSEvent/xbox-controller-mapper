@@ -27,6 +27,8 @@ struct OnScreenKeyboardSettings: Codable {
     var typingDelay: Double = 0.03  // 30ms default, roughly 33 chars/second
     /// Apps to show in the app bar for quick switching
     var appBarItems: [AppBarItem] = []
+    /// Show extended function keys (F13-F20) above F1-F12
+    var showExtendedFunctionKeys: Bool = false
 
     /// Available terminal apps to choose from
     static let terminalOptions = [
@@ -57,16 +59,18 @@ struct OnScreenKeyboardSettings: Codable {
         defaultTerminalApp = try container.decodeIfPresent(String.self, forKey: .defaultTerminalApp) ?? "Terminal"
         typingDelay = try container.decodeIfPresent(Double.self, forKey: .typingDelay) ?? 0.03
         appBarItems = try container.decodeIfPresent([AppBarItem].self, forKey: .appBarItems) ?? []
+        showExtendedFunctionKeys = try container.decodeIfPresent(Bool.self, forKey: .showExtendedFunctionKeys) ?? false
     }
 
-    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = []) {
+    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], showExtendedFunctionKeys: Bool = false) {
         self.quickTexts = quickTexts
         self.defaultTerminalApp = defaultTerminalApp
         self.typingDelay = typingDelay
         self.appBarItems = appBarItems
+        self.showExtendedFunctionKeys = showExtendedFunctionKeys
     }
 
     private enum CodingKeys: String, CodingKey {
-        case quickTexts, defaultTerminalApp, typingDelay, appBarItems
+        case quickTexts, defaultTerminalApp, typingDelay, appBarItems, showExtendedFunctionKeys
     }
 }

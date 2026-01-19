@@ -69,6 +69,11 @@ struct OnScreenKeyboardSettingsView: View {
 
                 // App Bar Section
                 appBarSection
+
+                Divider()
+
+                // Extended Function Keys Section
+                extendedFunctionKeysSection
             }
             .padding(24)
         }
@@ -259,6 +264,32 @@ struct OnScreenKeyboardSettingsView: View {
         .frame(width: 400, height: 500)
         .onDisappear {
             appPickerSearchText = ""
+        }
+    }
+
+    // MARK: - Extended Function Keys Section
+
+    private var extendedFunctionKeysSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Extended Function Keys")
+                .font(.headline)
+
+            Toggle(isOn: Binding(
+                get: { profileManager.onScreenKeyboardSettings.showExtendedFunctionKeys },
+                set: { newValue in
+                    var settings = profileManager.onScreenKeyboardSettings
+                    settings.showExtendedFunctionKeys = newValue
+                    profileManager.updateOnScreenKeyboardSettings(settings)
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Show F13-F20 Keys")
+                    Text("Display extended function keys (F13-F20) in a row above F1-F12.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
         }
     }
 
