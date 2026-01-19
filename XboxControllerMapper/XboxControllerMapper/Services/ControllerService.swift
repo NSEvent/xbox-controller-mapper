@@ -85,6 +85,14 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadHasSeenTouch: Bool = false
     var touchpadSecondaryHasSeenTouch: Bool = false
 
+    // Two-finger tap detection
+    var touchpadSecondaryTouchStartTime: TimeInterval = 0
+    var touchpadSecondaryTouchStartPosition: CGPoint = .zero
+    var touchpadSecondaryMaxDistanceFromStart: Double = 0
+    var touchpadTwoFingerClickArmed: Bool = false  // Track button press with two fingers
+    var touchpadWasTwoFingerDuringTouch: Bool = false  // Track if two fingers touched during this primary touch
+    var touchpadTwoFingerGestureDistance: Double = 0  // Cumulative center movement during two-finger gesture
+
     // Button State
     var activeButtons: Set<ControllerButton> = []
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
@@ -106,6 +114,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
     var onTouchpadGesture: ((TouchpadGesture) -> Void)?
     var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
+    var onTouchpadTwoFingerTap: (() -> Void)?  // Two-finger tap or click (right-click)
 }
 
 /// Service for managing Xbox controller connection and input
@@ -308,6 +317,10 @@ class ControllerService: ObservableObject {
     var onTouchpadTap: (() -> Void)? {
         get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadTap }
         set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadTap = newValue }
+    }
+    var onTouchpadTwoFingerTap: (() -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadTwoFingerTap }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadTwoFingerTap = newValue }
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -641,9 +654,34 @@ class ControllerService: ObservableObject {
             dualSenseGamepad.touchpadButton.preferredSystemGestureState = .alwaysReceive
 
             // Touchpad button (click)
+            // Two-finger + click triggers right-click (via onTouchpadTwoFingerTap callback)
             dualSenseGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
-                self?.armTouchpadClick(pressed: pressed)
-                self?.controllerQueue.async { self?.handleButton(.touchpadButton, pressed: pressed) }
+                guard let self = self else { return }
+                let isTwoFingerClick = self.armTouchpadClick(pressed: pressed)
+
+                if pressed {
+                    // On button press: check if this will be a two-finger click
+                    self.storage.lock.lock()
+                    let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
+                    self.storage.lock.unlock()
+
+                    if !willBeTwoFingerClick {
+                        // Normal button handling only if not a two-finger click
+                        self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
+                    }
+                } else {
+                    // On button release
+                    if isTwoFingerClick {
+                        // Two-finger click detected - fire right-click callback
+                        self.storage.lock.lock()
+                        let callback = self.storage.onTouchpadTwoFingerTap
+                        self.storage.lock.unlock()
+                        self.controllerQueue.async { callback?() }
+                    } else {
+                        // Normal button handling
+                        self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
+                    }
+                }
             }
 
             // Touchpad primary finger position (for mouse control)
@@ -1589,6 +1627,8 @@ class ControllerService: ObservableObject {
                         isPrimaryTouching: storage.isTouchpadTouching,
                         isSecondaryTouching: storage.isTouchpadSecondaryTouching
                     )
+                    // Accumulate gesture movement to distinguish tap from pan/scroll
+                    storage.touchpadTwoFingerGestureDistance += hypot(Double(centerDelta.x), Double(centerDelta.y))
                 }
 
                 let isSecondaryTouching = storage.isTouchpadSecondaryTouching
@@ -1609,6 +1649,10 @@ class ControllerService: ObservableObject {
                 storage.touchpadTouchStartTime = now
                 storage.touchpadTouchStartPosition = newPosition
                 storage.touchpadMaxDistanceFromStart = 0
+                // Check if secondary is already touching (for two-finger tap detection)
+                let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+                storage.touchpadWasTwoFingerDuringTouch = secondaryFresh
+                storage.touchpadTwoFingerGestureDistance = 0  // Reset for new touch session
                 // Block movement if this touch starts within cooldown of a previous tap
                 // This prevents double-tap from causing mouse movement between taps
                 if (now - storage.touchpadLastTapTime) < Config.touchpadTapCooldown {
@@ -1625,12 +1669,30 @@ class ControllerService: ObservableObject {
             // Use maxDistanceFromStart instead of final position (which may be corrupted by lift artifacts)
             let touchDuration = now - storage.touchpadTouchStartTime
             let touchDistance = storage.touchpadMaxDistanceFromStart
-            let isTap = wasTouching &&
-                !wasTwoFinger &&
+            let wasTwoFingerDuringTouch = storage.touchpadWasTwoFingerDuringTouch
+
+            // Single-finger tap: short duration, minimal movement, and NOT a two-finger gesture
+            let isSingleTap = wasTouching &&
+                !wasTwoFingerDuringTouch &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement
-            let tapCallback = isTap ? storage.onTouchpadTap : nil
-            if isTap {
+            let tapCallback = isSingleTap ? storage.onTouchpadTap : nil
+
+            // Two-finger tap: both fingers had short duration and minimal movement
+            // Secondary finger uses more lenient threshold due to touchpad noise
+            // Also check that there wasn't significant gesture (scroll) movement
+            let secondaryTouchDuration = now - storage.touchpadSecondaryTouchStartTime
+            let secondaryTouchDistance = storage.touchpadSecondaryMaxDistanceFromStart
+            let gestureDistance = storage.touchpadTwoFingerGestureDistance
+            let isTwoFingerTap = wasTwoFingerDuringTouch &&
+                touchDuration < Config.touchpadTapMaxDuration &&
+                touchDistance < Config.touchpadTapMaxMovement &&
+                secondaryTouchDuration < Config.touchpadTapMaxDuration &&
+                secondaryTouchDistance < Config.touchpadTwoFingerTapMaxMovement &&
+                gestureDistance < Config.touchpadTwoFingerTapMaxGestureDistance
+            let twoFingerTapCallback = isTwoFingerTap ? storage.onTouchpadTwoFingerTap : nil
+
+            if isSingleTap || isTwoFingerTap {
                 storage.touchpadLastTapTime = now
             }
 
@@ -1647,6 +1709,7 @@ class ControllerService: ObservableObject {
 
             // Fire tap callback if it was a tap
             tapCallback?()
+            twoFingerTapCallback?()
 
             if wasTwoFinger && !isTwoFinger {
                 gestureCallback?(TouchpadGesture(
@@ -1720,15 +1783,30 @@ class ControllerService: ObservableObject {
 
                 storage.touchpadSecondaryPreviousPosition = storage.touchpadSecondaryPosition
                 storage.touchpadSecondaryPosition = newPosition
+
+                // Track max distance from start for two-finger tap detection
+                let distanceFromStart = hypot(
+                    Double(newPosition.x - storage.touchpadSecondaryTouchStartPosition.x),
+                    Double(newPosition.y - storage.touchpadSecondaryTouchStartPosition.y)
+                )
+                storage.touchpadSecondaryMaxDistanceFromStart = max(storage.touchpadSecondaryMaxDistanceFromStart, distanceFromStart)
             } else {
+                // Finger just touched - initialize position and tracking for two-finger tap
                 storage.touchpadSecondaryPosition = newPosition
                 storage.touchpadSecondaryPreviousPosition = newPosition
                 storage.isTouchpadSecondaryTouching = true
                 storage.touchpadSecondaryFramesSinceTouch = 0
                 storage.touchpadSecondaryLastUpdate = now
                 storage.touchpadSecondaryLastTouchTime = now
+                storage.touchpadSecondaryTouchStartTime = now
+                storage.touchpadSecondaryTouchStartPosition = newPosition
+                storage.touchpadSecondaryMaxDistanceFromStart = 0
                 storage.touchpadMovementBlocked = true
                 let isPrimaryTouching = storage.isTouchpadTouching
+                // Mark that two fingers touched during this primary touch session
+                if isPrimaryTouching {
+                    storage.touchpadWasTwoFingerDuringTouch = true
+                }
                 let gestureCallback = storage.onTouchpadGesture
                 storage.lock.unlock()
 
@@ -1775,6 +1853,8 @@ class ControllerService: ObservableObject {
                     isPrimaryTouching: storage.isTouchpadTouching,
                     isSecondaryTouching: storage.isTouchpadSecondaryTouching
                 )
+                // Accumulate gesture movement to distinguish tap from pan/scroll
+                storage.touchpadTwoFingerGestureDistance += hypot(Double(centerDelta.x), Double(centerDelta.y))
                 storage.lock.unlock()
                 gestureCallback?(gesture)
             } else {
@@ -1844,17 +1924,31 @@ class ControllerService: ObservableObject {
         ))
     }
 
-    nonisolated private func armTouchpadClick(pressed: Bool) {
+    /// Arms/disarms touchpad click and detects two-finger clicks.
+    /// Returns true if this is a two-finger click (on release), in which case the normal button handling should be suppressed.
+    nonisolated private func armTouchpadClick(pressed: Bool) -> Bool {
+        let now = CFAbsoluteTimeGetCurrent()
         storage.lock.lock()
         if pressed {
             storage.touchpadClickArmed = true
             storage.touchpadClickStartPosition = storage.touchpadPosition
             storage.pendingTouchpadDelta = nil
             storage.touchpadFramesSinceTouch = 0
+
+            // Check if two fingers are on the touchpad
+            let isPrimaryTouching = storage.isTouchpadTouching
+            let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+            let isTwoFinger = isPrimaryTouching && secondaryFresh
+            storage.touchpadTwoFingerClickArmed = isTwoFinger
+            storage.lock.unlock()
+            return false  // On press, don't suppress yet
         } else {
             storage.touchpadClickArmed = false
+            let wasTwoFingerClick = storage.touchpadTwoFingerClickArmed
+            storage.touchpadTwoFingerClickArmed = false
+            storage.lock.unlock()
+            return wasTwoFingerClick  // On release, return whether to suppress normal handling
         }
-        storage.lock.unlock()
     }
 
     nonisolated private func updateLeftTrigger(_ value: Float, pressed: Bool) {

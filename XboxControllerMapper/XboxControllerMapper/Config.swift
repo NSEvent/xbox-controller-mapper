@@ -101,6 +101,12 @@ struct Config {
     /// Maximum movement during a tap for it to still be recognized as a tap
     /// DualSense touchpad has significant inherent jitter, so this needs to be fairly high
     static let touchpadTapMaxMovement: Double = 0.35
+    /// Maximum movement for secondary finger in two-finger tap (more lenient due to touchpad noise)
+    /// DualSense secondary finger tracking is very noisy, needs high threshold
+    static let touchpadTwoFingerTapMaxMovement: Double = 0.9
+    /// Maximum cumulative gesture (center) movement for two-finger tap
+    /// If the gesture center moved more than this, it's a scroll/pan, not a tap
+    static let touchpadTwoFingerTapMaxGestureDistance: Double = 0.05
     /// Cooldown period after a tap where movement is suppressed (prevents double-tap drift)
     static let touchpadTapCooldown: TimeInterval = 0.2
     /// Two-finger pan scaling (normalized delta -> pixel scroll)

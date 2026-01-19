@@ -353,6 +353,14 @@ class MappingEngine: ObservableObject {
             }
         }
 
+        // Touchpad two-finger tap handler (two-finger tap or two-finger + click = right click)
+        controllerService.onTouchpadTwoFingerTap = { [weak self] in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadTwoFingerTap()
+            }
+        }
+
         // Enable/Disable toggle sync
         $isEnabled
             .sink { [weak self] enabled in
@@ -1000,6 +1008,19 @@ class MappingEngine: ObservableObject {
 
         // Tap triggers left click
         inputSimulator.pressKey(KeyCodeMapping.mouseLeftClick, modifiers: [])
+    }
+
+    /// Process touchpad two-finger tap or two-finger click gesture (right click)
+    nonisolated private func processTouchpadTwoFingerTap() {
+        state.lock.lock()
+        guard state.isEnabled else {
+            state.lock.unlock()
+            return
+        }
+        state.lock.unlock()
+
+        // Two-finger tap/click triggers right click
+        inputSimulator.pressKey(KeyCodeMapping.mouseRightClick, modifiers: [])
     }
 
     /// Process touchpad movement for mouse control (DualSense only)
