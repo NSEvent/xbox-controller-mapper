@@ -1,5 +1,6 @@
 import SwiftUI
 import GameController
+import Combine
 
 /// Holds all app services as a shared singleton
 @MainActor
@@ -12,6 +13,8 @@ final class ServiceContainer {
     let mappingEngine: MappingEngine
     let inputMonitor: InputMonitor
     let inputLogService: InputLogService
+
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         let controllerService = ControllerService()
@@ -31,6 +34,31 @@ final class ServiceContainer {
             appMonitor: appMonitor,
             inputLogService: inputLogService
         )
+
+        // Wire up on-screen keyboard quick texts from profile manager
+        setupOnScreenKeyboardObserver(profileManager: profileManager)
+    }
+
+    private func setupOnScreenKeyboardObserver(profileManager: ProfileManager) {
+        // Initial update
+        let settings = profileManager.onScreenKeyboardSettings
+        OnScreenKeyboardManager.shared.setQuickTexts(
+            settings.quickTexts,
+            defaultTerminal: settings.defaultTerminalApp,
+            typingDelay: settings.typingDelay
+        )
+
+        // Observe changes
+        profileManager.$onScreenKeyboardSettings
+            .receive(on: DispatchQueue.main)
+            .sink { settings in
+                OnScreenKeyboardManager.shared.setQuickTexts(
+                    settings.quickTexts,
+                    defaultTerminal: settings.defaultTerminalApp,
+                    typingDelay: settings.typingDelay
+                )
+            }
+            .store(in: &cancellables)
     }
 }
 

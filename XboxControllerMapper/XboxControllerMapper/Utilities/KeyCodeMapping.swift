@@ -326,4 +326,77 @@ enum KeyCodeMapping {
     static func isSpecialMarker(_ keyCode: CGKeyCode) -> Bool {
         isMouseButton(keyCode) || isSpecialAction(keyCode)
     }
+
+    // MARK: - Character to Key Code Mapping
+
+    /// Returns the key code and whether shift is required for a given character
+    /// Returns nil for characters that cannot be typed with a standard US keyboard
+    static func keyInfo(for character: Character) -> (keyCode: CGKeyCode, needsShift: Bool)? {
+        let char = character.lowercased().first ?? character
+
+        // Letters (a-z)
+        if let scalar = char.unicodeScalars.first, scalar.value >= 97 && scalar.value <= 122 {
+            let letterCodes: [CGKeyCode] = [
+                keyA, keyB, keyC, keyD, keyE, keyF, keyG, keyH, keyI, keyJ, keyK, keyL, keyM,
+                keyN, keyO, keyP, keyQ, keyR, keyS, keyT, keyU, keyV, keyW, keyX, keyY, keyZ
+            ]
+            let index = Int(scalar.value - 97)
+            return (letterCodes[index], character.isUppercase)
+        }
+
+        // Numbers and their shifted symbols
+        switch character {
+        case "0": return (key0, false)
+        case "1": return (key1, false)
+        case "2": return (key2, false)
+        case "3": return (key3, false)
+        case "4": return (key4, false)
+        case "5": return (key5, false)
+        case "6": return (key6, false)
+        case "7": return (key7, false)
+        case "8": return (key8, false)
+        case "9": return (key9, false)
+        case ")": return (key0, true)
+        case "!": return (key1, true)
+        case "@": return (key2, true)
+        case "#": return (key3, true)
+        case "$": return (key4, true)
+        case "%": return (key5, true)
+        case "^": return (key6, true)
+        case "&": return (key7, true)
+        case "*": return (key8, true)
+        case "(": return (key9, true)
+        default: break
+        }
+
+        // Punctuation and symbols
+        switch character {
+        case " ": return (space, false)
+        case "\n", "\r": return (`return`, false)
+        case "\t": return (tab, false)
+        case "-": return (minus, false)
+        case "_": return (minus, true)
+        case "=": return (equal, false)
+        case "+": return (equal, true)
+        case "[": return (leftBracket, false)
+        case "{": return (leftBracket, true)
+        case "]": return (rightBracket, false)
+        case "}": return (rightBracket, true)
+        case "\\": return (backslash, false)
+        case "|": return (backslash, true)
+        case ";": return (semicolon, false)
+        case ":": return (semicolon, true)
+        case "'": return (quote, false)
+        case "\"": return (quote, true)
+        case ",": return (comma, false)
+        case "<": return (comma, true)
+        case ".": return (period, false)
+        case ">": return (period, true)
+        case "/": return (slash, false)
+        case "?": return (slash, true)
+        case "`": return (grave, false)
+        case "~": return (grave, true)
+        default: return nil
+        }
+    }
 }

@@ -9,9 +9,11 @@ class ProfileManager: ObservableObject {
     @Published var activeProfile: Profile?
     @Published var activeProfileId: UUID?
     @Published var uiScale: CGFloat = 1.0
+    @Published var onScreenKeyboardSettings = OnScreenKeyboardSettings()
 
     private let fileManager = FileManager.default
     private let configURL: URL
+    private var loadSucceeded = false  // Track if initial load succeeded to prevent clobbering
 
     init() {
         // Create ~/.xbox-controller-mapper directory
@@ -188,12 +190,52 @@ class ProfileManager: ObservableObject {
         updateProfile(targetProfile)
     }
 
+    // MARK: - On-Screen Keyboard Settings
+
+    func updateOnScreenKeyboardSettings(_ settings: OnScreenKeyboardSettings) {
+        onScreenKeyboardSettings = settings
+        saveConfiguration()
+    }
+
+    func addQuickText(_ quickText: QuickText) {
+        onScreenKeyboardSettings.quickTexts.append(quickText)
+        saveConfiguration()
+    }
+
+    func removeQuickText(_ quickText: QuickText) {
+        onScreenKeyboardSettings.quickTexts.removeAll { $0.id == quickText.id }
+        saveConfiguration()
+    }
+
+    func updateQuickText(_ quickText: QuickText) {
+        if let index = onScreenKeyboardSettings.quickTexts.firstIndex(where: { $0.id == quickText.id }) {
+            onScreenKeyboardSettings.quickTexts[index] = quickText
+        }
+        saveConfiguration()
+    }
+
+    func moveQuickTexts(from source: IndexSet, to destination: Int) {
+        onScreenKeyboardSettings.quickTexts.move(fromOffsets: source, toOffset: destination)
+        saveConfiguration()
+    }
+
+    func setDefaultTerminalApp(_ appName: String) {
+        onScreenKeyboardSettings.defaultTerminalApp = appName
+        saveConfiguration()
+    }
+
+    func setTypingDelay(_ delay: Double) {
+        onScreenKeyboardSettings.typingDelay = delay
+        saveConfiguration()
+    }
+
     // MARK: - Persistence
 
     private struct Configuration: Codable {
         var profiles: [Profile]
         var activeProfileId: UUID?
         var uiScale: CGFloat?
+        var onScreenKeyboardSettings: OnScreenKeyboardSettings?
     }
 
     private func loadConfiguration() {
@@ -232,10 +274,10 @@ class ProfileManager: ObservableObject {
             
             // Validation: Filter out invalid profiles
             let validProfiles = migratedProfiles.filter { $0.isValid() }
-            
+
             if !validProfiles.isEmpty {
                 self.profiles = validProfiles.sorted { $0.createdAt < $1.createdAt }
-                
+
                 if let activeId = config.activeProfileId,
                    let profile = profiles.first(where: { $0.id == activeId }) {
                     self.activeProfile = profile
@@ -245,26 +287,71 @@ class ProfileManager: ObservableObject {
                     self.activeProfileId = nil
                 }
             }
-            
+
             if let scale = config.uiScale {
                 self.uiScale = scale
             }
-            
+
+            if let keyboardSettings = config.onScreenKeyboardSettings {
+                self.onScreenKeyboardSettings = keyboardSettings
+            }
+
+            loadSucceeded = true  // Mark that we successfully loaded the config
+
             if didMigrate {
                 saveConfiguration()
             }
         } catch {
-            // Configuration load failed, will use defaults
+            NSLog("[ProfileManager] Configuration load failed: \(error)")
+            // DO NOT set loadSucceeded = true, so we won't overwrite corrupted/incompatible config
+        }
+    }
+
+    /// Creates a backup of the config file before saving
+    private func createBackup() {
+        guard fileManager.fileExists(atPath: configURL.path) else { return }
+
+        let backupDir = configURL.deletingLastPathComponent().appendingPathComponent("backups", isDirectory: true)
+        try? fileManager.createDirectory(at: backupDir, withIntermediateDirectories: true)
+
+        // Keep last 5 backups with timestamps
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = dateFormatter.string(from: Date())
+        let backupURL = backupDir.appendingPathComponent("config_\(timestamp).json")
+
+        try? fileManager.copyItem(at: configURL, to: backupURL)
+
+        // Clean up old backups (keep only last 5)
+        if let backups = try? fileManager.contentsOfDirectory(at: backupDir, includingPropertiesForKeys: [.creationDateKey]) {
+            let sortedBackups = backups
+                .filter { $0.pathExtension == "json" }
+                .sorted { (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast >
+                          (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast }
+
+            for backup in sortedBackups.dropFirst(5) {
+                try? fileManager.removeItem(at: backup)
+            }
         }
     }
 
     private func saveConfiguration() {
+        // Safety check: don't save if load failed (to avoid clobbering existing config)
+        guard loadSucceeded || !fileManager.fileExists(atPath: configURL.path) else {
+            NSLog("[ProfileManager] Skipping save - config load failed earlier, refusing to clobber existing config")
+            return
+        }
+
+        // Create backup before saving
+        createBackup()
+
         let config = Configuration(
             profiles: profiles,
             activeProfileId: activeProfileId,
-            uiScale: uiScale
+            uiScale: uiScale,
+            onScreenKeyboardSettings: onScreenKeyboardSettings
         )
-        
+
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = .prettyPrinted

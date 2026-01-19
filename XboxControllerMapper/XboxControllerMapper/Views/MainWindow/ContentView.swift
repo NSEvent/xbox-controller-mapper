@@ -67,6 +67,11 @@ struct ContentView: View {
                             .tabItem { Text("Microphone") }
                             .tag(5)
                     }
+
+                    // On-Screen Keyboard Settings
+                    keyboardSettingsTab
+                        .tabItem { Text("Keyboard") }
+                        .tag(6)
                 }
                 .tabViewStyle(.automatic)
             }
@@ -298,6 +303,10 @@ struct ContentView: View {
 
     private var microphoneSettingsTab: some View {
         MicrophoneSettingsView()
+    }
+
+    private var keyboardSettingsTab: some View {
+        OnScreenKeyboardSettingsView()
     }
 }
 
