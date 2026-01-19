@@ -81,8 +81,10 @@ struct ButtonIconView: View {
     }
     
     private var isCircle: Bool {
-        // Mic mute is circular like special buttons
-        if button == .micMute { return true }
+        // Mic mute and touchpad tap gestures are circular like special buttons
+        // Touchpad press buttons use rounded square
+        if button == .micMute || button == .touchpadTap || button == .touchpadTwoFingerTap { return true }
+        if button == .touchpadButton || button == .touchpadTwoFingerButton { return false }
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return true
         default: return false
@@ -90,17 +92,25 @@ struct ButtonIconView: View {
     }
 
     private var width: CGFloat {
-        // Mic mute uses same width as special buttons (circular)
-        if button == .micMute { return 28 }
+        // Mic mute and single touchpad tap use same width as special buttons (circular)
+        if button == .micMute || button == .touchpadTap { return 28 }
+        // Two-finger tap is slightly wider to fit "2" + icon
+        if button == .touchpadTwoFingerTap { return 32 }
+        // Touchpad press buttons are rounded squares
+        if button == .touchpadButton { return 32 }
+        // Two-finger press is wider to fit "2" + icon
+        if button == .touchpadTwoFingerButton { return 36 }
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 42
-        case .touchpad: return 48  // Wider for touchpad
+        case .touchpad: return 48  // Wider for touchpad click
         }
     }
 
     private var height: CGFloat {
-        isCircle ? width : 22
+        // Touchpad press buttons are square
+        if button == .touchpadButton || button == .touchpadTwoFingerButton { return width }
+        return isCircle ? width : 22
     }
     
     // MARK: - Colors & Gradients
@@ -176,6 +186,24 @@ struct ButtonIconView: View {
                 Text(button.shortLabel(forDualSense: true))
                     .font(.system(size: fontSize, weight: .bold, design: .rounded))
                     .foregroundColor(playstationSymbolColor)
+            } else if button == .touchpadTwoFingerButton {
+                // Two-finger press: pointing finger icon + "2"
+                HStack(spacing: 1) {
+                    Image(systemName: "hand.point.up.left")
+                        .font(.system(size: fontSize - 2, weight: .medium))
+                    Text("2")
+                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.white.opacity(0.95))
+            } else if button == .touchpadTwoFingerTap {
+                // Two-finger tap: tap finger icon + "2"
+                HStack(spacing: 1) {
+                    Image(systemName: "hand.tap")
+                        .font(.system(size: fontSize - 2, weight: .medium))
+                    Text("2")
+                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.white.opacity(0.95))
             } else if let systemImage = button.systemImageName(forDualSense: isDualSense) {
                 Image(systemName: systemImage)
                     .foregroundColor(.white.opacity(0.95))

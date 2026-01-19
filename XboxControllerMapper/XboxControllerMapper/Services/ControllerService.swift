@@ -655,7 +655,7 @@ class ControllerService: ObservableObject {
             dualSenseGamepad.touchpadButton.preferredSystemGestureState = .alwaysReceive
 
             // Touchpad button (click)
-            // Two-finger + click triggers right-click (via onTouchpadTwoFingerTap callback)
+            // Two-finger + click triggers touchpadTwoFingerButton, single finger triggers touchpadButton
             dualSenseGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
                 guard let self = self else { return }
                 let isTwoFingerClick = self.armTouchpadClick(pressed: pressed)
@@ -666,20 +666,20 @@ class ControllerService: ObservableObject {
                     let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
                     self.storage.lock.unlock()
 
-                    if !willBeTwoFingerClick {
-                        // Normal button handling only if not a two-finger click
+                    if willBeTwoFingerClick {
+                        // Two-finger button press
+                        self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
+                    } else {
+                        // Normal single-finger button press
                         self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
                     }
                 } else {
                     // On button release
                     if isTwoFingerClick {
-                        // Two-finger click detected - fire right-click callback
-                        self.storage.lock.lock()
-                        let callback = self.storage.onTouchpadTwoFingerTap
-                        self.storage.lock.unlock()
-                        self.controllerQueue.async { callback?() }
+                        // Two-finger button release
+                        self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: false) }
                     } else {
-                        // Normal button handling
+                        // Normal single-finger button release
                         self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
                     }
                 }

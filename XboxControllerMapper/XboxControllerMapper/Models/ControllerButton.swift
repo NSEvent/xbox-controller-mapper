@@ -33,8 +33,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case rightThumbstick
 
     // DualSense-specific
-    case touchpadButton  // Touchpad click (DualSense only)
-    case micMute         // Mic mute button (DualSense only)
+    case touchpadButton           // Touchpad click (DualSense only)
+    case touchpadTwoFingerButton  // Two-finger touchpad click (DualSense only)
+    case touchpadTap              // Single tap on touchpad (DualSense only)
+    case touchpadTwoFingerTap     // Two-finger tap on touchpad (DualSense only)
+    case micMute                  // Mic mute button (DualSense only)
 
     var id: String { rawValue }
 
@@ -59,7 +62,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .xbox: return "Xbox"
         case .leftThumbstick: return "Left Stick"
         case .rightThumbstick: return "Right Stick"
-        case .touchpadButton: return "Touchpad"
+        case .touchpadButton: return "Touchpad Press"
+        case .touchpadTwoFingerButton: return "Touchpad 2-Finger Press"
+        case .touchpadTap: return "Touchpad Tap"
+        case .touchpadTwoFingerTap: return "Touchpad 2-Finger Tap"
         case .micMute: return "Mic Mute"
         }
     }
@@ -108,6 +114,9 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .leftThumbstick: return "L3"
         case .rightThumbstick: return "R3"
         case .touchpadButton: return "TP"
+        case .touchpadTwoFingerButton: return "2P"
+        case .touchpadTap: return "1T"
+        case .touchpadTwoFingerTap: return "2"
         case .micMute: return "🎤"
         }
     }
@@ -145,12 +154,15 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .dpadLeft: return "arrowtriangle.left.fill"
             case .dpadRight: return "arrowtriangle.right.fill"
             case .menu: return "line.3.horizontal"
-            case .view: return "square.on.square"  // Create button
+            case .view: return "square.and.arrow.up"  // Create/Share button (upload icon)
             case .share: return "square.and.arrow.up"
             case .xbox: return "playstation.logo"  // PS button
             case .leftThumbstick: return "l3.button.angledbottom.horizontal.left"
             case .rightThumbstick: return "r3.button.angledbottom.horizontal.right"
             case .touchpadButton: return "hand.point.up.left"
+            case .touchpadTwoFingerButton: return nil  // Use text label "2P"
+            case .touchpadTap: return "hand.tap"
+            case .touchpadTwoFingerTap: return "hand.tap"
             case .micMute: return "mic.slash"
             // Face buttons use text symbols for DualSense, not SF Symbols
             case .a, .b, .x, .y: return nil
@@ -194,7 +206,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return .special
         case .leftThumbstick, .rightThumbstick:
             return .thumbstick
-        case .touchpadButton, .micMute:
+        case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute:
             return .touchpad  // DualSense-specific buttons
         }
     }
@@ -202,7 +214,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     /// Whether this button is only available on DualSense controllers
     var isDualSenseOnly: Bool {
         switch self {
-        case .touchpadButton, .micMute:
+        case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute:
             return true
         default:
             return false

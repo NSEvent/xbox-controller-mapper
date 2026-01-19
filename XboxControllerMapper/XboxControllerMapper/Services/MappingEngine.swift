@@ -676,6 +676,15 @@ class MappingEngine: ObservableObject {
         case .touchpadButton:
             // DualSense touchpad click defaults to left mouse click
             return KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
+        case .touchpadTwoFingerButton:
+            // DualSense touchpad two-finger click defaults to right mouse click
+            return KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true)
+        case .touchpadTap:
+            // DualSense touchpad single tap defaults to left mouse click
+            return KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
+        case .touchpadTwoFingerTap:
+            // DualSense touchpad two-finger tap defaults to right mouse click
+            return KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true)
         default:
             return nil
         }
@@ -1001,30 +1010,42 @@ class MappingEngine: ObservableObject {
         inputSimulator.moveMouse(dx: dx, dy: dy)
     }
 
-    /// Process touchpad tap gesture (single tap = left click)
+    /// Process touchpad tap gesture (uses user mapping, defaults to left click)
     nonisolated private func processTouchpadTap() {
         state.lock.lock()
-        guard state.isEnabled else {
+        guard state.isEnabled, let profile = state.activeProfile else {
             state.lock.unlock()
             return
         }
         state.lock.unlock()
 
-        // Tap triggers left click
-        inputSimulator.pressKey(KeyCodeMapping.mouseLeftClick, modifiers: [])
+        let button = ControllerButton.touchpadTap
+        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
+            inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
+            return
+        }
+
+        inputSimulator.executeMapping(mapping)
+        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
     }
 
-    /// Process touchpad two-finger tap or two-finger click gesture (right click)
+    /// Process touchpad two-finger tap gesture (uses user mapping, defaults to right click)
     nonisolated private func processTouchpadTwoFingerTap() {
         state.lock.lock()
-        guard state.isEnabled else {
+        guard state.isEnabled, let profile = state.activeProfile else {
             state.lock.unlock()
             return
         }
         state.lock.unlock()
 
-        // Two-finger tap/click triggers right click
-        inputSimulator.pressKey(KeyCodeMapping.mouseRightClick, modifiers: [])
+        let button = ControllerButton.touchpadTwoFingerTap
+        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
+            inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
+            return
+        }
+
+        inputSimulator.executeMapping(mapping)
+        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
     }
 
     /// Process touchpad movement for mouse control (DualSense only)

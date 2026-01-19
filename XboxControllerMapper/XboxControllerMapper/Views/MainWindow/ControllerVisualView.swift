@@ -26,7 +26,12 @@ struct ControllerVisualView: View {
             .padding(.trailing, 20)
 
             // Center Column: Controller Graphic and System Buttons
-            VStack(spacing: 30) {
+            VStack(spacing: 20) {
+                // Touchpad section (DualSense only) - above controller
+                if isDualSense {
+                    referenceGroup(title: "Touchpad", buttons: [.touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap])
+                }
+
                 ZStack {
                     // Controller body - adapts to DualSense or Xbox shape
                     controllerBodyView
@@ -40,7 +45,7 @@ struct ControllerVisualView: View {
                         xboxOverlay
                     }
                 }
-                
+
                 // System Buttons Reference
                 HStack(spacing: 20) {
                     VStack(alignment: .trailing) {
@@ -393,6 +398,24 @@ struct ControllerVisualView: View {
 
             Image(systemName: icon)
                 .font(.system(size: size * 0.5, weight: .medium))
+                .foregroundColor(.white)
+        }
+        .frame(width: size, height: size)
+        .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
+        .onTapGesture { onButtonTap(button) }
+    }
+
+    /// Circle button with a text label (used for two-finger tap on DualSense)
+    private func miniCircleWithLabel(_ button: ControllerButton, size: CGFloat, label: String) -> some View {
+        let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
+
+        return ZStack {
+            Circle()
+                .fill(jewelGradient(color, pressed: isPressed(button)))
+                .overlay(glassOverlay.clipShape(Circle()))
+
+            Text(label)
+                .font(.system(size: size * 0.5, weight: .bold))
                 .foregroundColor(.white)
         }
         .frame(width: size, height: size)
