@@ -114,6 +114,8 @@ struct Config {
     static let touchpadMomentumDecay: Double = 0.7
     /// Minimum velocity to start momentum after lift (pixels/second)
     static let touchpadMomentumStartVelocity: Double = 800.0
+    /// Minimum duration velocity must exceed threshold before momentum is triggered (seconds)
+    static let touchpadMomentumSustainedDuration: TimeInterval = 0.03
     /// Minimum velocity to keep momentum running (pixels/second)
     static let touchpadMomentumStopVelocity: Double = 30.0
     /// Maximum time since last fast pan sample to start momentum after lift (seconds)
@@ -122,8 +124,12 @@ struct Config {
     static let touchpadMomentumMaxVelocity: Double = 20000.0
     /// Smoothing for gesture velocity estimation (0-1)
     static let touchpadMomentumVelocitySmoothingAlpha: Double = 0.35
-    /// Boost applied to captured momentum velocity
-    static let touchpadMomentumBoost: Double = 2.5
+    /// Minimum boost applied at threshold velocity
+    static let touchpadMomentumBoostMin: Double = 0.8
+    /// Maximum boost applied at high velocities
+    static let touchpadMomentumBoostMax: Double = 2.5
+    /// Velocity at which max boost is reached (pixels/second)
+    static let touchpadMomentumBoostMaxVelocity: Double = 5000.0
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging
