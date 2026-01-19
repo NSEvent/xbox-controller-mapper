@@ -96,10 +96,8 @@ struct ButtonIconView: View {
         if button == .micMute || button == .touchpadTap { return 28 }
         // Two-finger tap is slightly wider to fit "2" + icon
         if button == .touchpadTwoFingerTap { return 32 }
-        // Touchpad press buttons are rounded squares
-        if button == .touchpadButton { return 32 }
-        // Two-finger press is wider to fit "2" + icon
-        if button == .touchpadTwoFingerButton { return 36 }
+        // Touchpad press buttons are rounded squares (same size for 1 and 2 finger)
+        if button == .touchpadButton || button == .touchpadTwoFingerButton { return 32 }
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 42
