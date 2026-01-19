@@ -1,8 +1,41 @@
 import Foundation
 import CoreGraphics
 
+// MARK: - KeyBindingRepresentable Protocol
+
+/// Protocol for types that represent a key binding with modifiers
+protocol KeyBindingRepresentable {
+    var keyCode: CGKeyCode? { get }
+    var modifiers: ModifierFlags { get }
+}
+
+extension KeyBindingRepresentable {
+    /// Human-readable description of the key binding
+    var displayString: String {
+        var parts: [String] = []
+
+        if modifiers.command { parts.append("⌘") }
+        if modifiers.option { parts.append("⌥") }
+        if modifiers.shift { parts.append("⇧") }
+        if modifiers.control { parts.append("⌃") }
+
+        if let keyCode = keyCode {
+            parts.append(KeyCodeMapping.displayName(for: keyCode))
+        }
+
+        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
+    }
+
+    /// Whether this binding has any action
+    var isEmpty: Bool {
+        keyCode == nil && !modifiers.hasAny
+    }
+}
+
+// MARK: - KeyMapping
+
 /// Represents a keyboard shortcut mapping
-struct KeyMapping: Codable, Equatable {
+struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
     /// The key code to simulate (nil for modifier-only mappings)
     var keyCode: CGKeyCode?
 
@@ -52,7 +85,7 @@ struct KeyMapping: Codable, Equatable {
         KeyMapping(keyCode: keyCode, modifiers: modifiers)
     }
 
-    /// Human-readable description of the mapping
+    /// Human-readable description of the mapping (overrides protocol to add hold indicator)
     var displayString: String {
         var parts: [String] = []
 
@@ -67,6 +100,7 @@ struct KeyMapping: Codable, Equatable {
             return "None"
         }
 
+        // Special handling for hold modifier mappings
         if isHoldModifier && keyCode == nil {
             return parts.joined() + " (hold)"
         }
@@ -97,14 +131,11 @@ struct KeyMapping: Codable, Equatable {
         return parts.joined(separator: "\n")
     }
 
-    /// Whether this mapping has any action
-    var isEmpty: Bool {
-        keyCode == nil && !modifiers.hasAny
-    }
+    // Note: isEmpty is provided by KeyBindingRepresentable protocol extension
 }
 
 /// Wraps long hold configuration to avoid recursive struct issues
-struct LongHoldMapping: Codable, Equatable {
+struct LongHoldMapping: Codable, Equatable, KeyBindingRepresentable {
     var keyCode: CGKeyCode?
     var modifiers: ModifierFlags
     var threshold: TimeInterval
@@ -115,28 +146,11 @@ struct LongHoldMapping: Codable, Equatable {
         self.threshold = threshold
     }
 
-    var displayString: String {
-        var parts: [String] = []
-
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
-
-        if let keyCode = keyCode {
-            parts.append(KeyCodeMapping.displayName(for: keyCode))
-        }
-
-        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
-    }
-
-    var isEmpty: Bool {
-        keyCode == nil && !modifiers.hasAny
-    }
+    // Note: displayString and isEmpty are provided by KeyBindingRepresentable protocol extension
 }
 
 /// Wraps double tap configuration
-struct DoubleTapMapping: Codable, Equatable {
+struct DoubleTapMapping: Codable, Equatable, KeyBindingRepresentable {
     var keyCode: CGKeyCode?
     var modifiers: ModifierFlags
     /// Time window within which two taps must occur to count as double-tap (default 0.3s)
@@ -148,24 +162,7 @@ struct DoubleTapMapping: Codable, Equatable {
         self.threshold = threshold
     }
 
-    var displayString: String {
-        var parts: [String] = []
-
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
-
-        if let keyCode = keyCode {
-            parts.append(KeyCodeMapping.displayName(for: keyCode))
-        }
-
-        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
-    }
-
-    var isEmpty: Bool {
-        keyCode == nil && !modifiers.hasAny
-    }
+    // Note: displayString and isEmpty are provided by KeyBindingRepresentable protocol extension
 }
 
 /// Wraps repeat-while-held configuration

@@ -194,13 +194,6 @@ class ControllerService: ObservableObject {
         defer { storage.lock.unlock() }
         return storage.rightTrigger
     }
-    
-    // Accessor for MappingEngine to check active buttons thread-safely
-    nonisolated var threadSafeActiveButtons: Set<ControllerButton> {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.activeButtons
-    }
 
     // Touchpad accessors (DualSense only)
     nonisolated var threadSafeTouchpadDelta: CGPoint {
@@ -1462,10 +1455,17 @@ class ControllerService: ObservableObject {
         }
     }
 
+    // MARK: - Primary Touchpad Handler
+
+    /// Handles primary touchpad finger input. This is a state machine with three main states:
+    /// 1. Touch Start: Initialize position tracking and start long tap timer
+    /// 2. Touch Continue: Calculate deltas, detect gestures, handle tap cooldowns
+    /// 3. Touch End: Detect taps, cleanup state, fire callbacks
     nonisolated private func updateTouchpad(x: Float, y: Float) {
         defer { logTouchpadDebugIfNeeded(source: "primary") }
         storage.lock.lock()
 
+        // MARK: Initial Setup
         let newPosition = CGPoint(x: CGFloat(x), y: CGFloat(y))
         let wasTouching = storage.isTouchpadTouching
         let wasTwoFinger = storage.isTouchpadTouching && storage.isTouchpadSecondaryTouching
@@ -1476,6 +1476,7 @@ class ControllerService: ObservableObject {
             storage.touchpadMovementBlocked = true
         }
 
+        // MARK: Sentinel-based Touch Detection
         // Detect if finger is on touchpad (non-zero position indicates touch)
         // GCControllerDirectionPad returns 0,0 when no finger is present
         var isTouching = abs(x) > 0.001 || abs(y) > 0.001

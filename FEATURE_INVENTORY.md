@@ -84,6 +84,87 @@
 - [ ] Detection of Xbox center (Guide) button
 - [ ] Special handling for Guide button presses
 
+### DualSense Controller Support
+
+#### Controller Detection & Button Mapping
+- [ ] DualSense controller detection via GCDualSenseGamepad
+- [ ] PlayStation button labels in UI (Cross, Circle, Square, Triangle)
+- [ ] L1/R1/L2/R2/L3/R3 naming convention for DualSense
+- [ ] Options/Create button naming (Menu/View equivalents)
+- [ ] PS button detection (Xbox equivalent)
+- [ ] Mic mute button detection and mapping
+
+#### Touchpad Mouse Control
+- [ ] Single-finger touchpad drag → mouse cursor movement
+- [ ] Touchpad sensitivity setting (0-1 scale)
+- [ ] Touchpad acceleration curve setting
+- [ ] Touchpad deadzone setting (filter small movements)
+- [ ] Touchpad smoothing (low-pass filter for jitter reduction)
+- [ ] Movement threshold to filter click-induced jitter
+- [ ] Touch settle time (prevent tap-induced drift)
+
+#### Touchpad Click & Tap Gestures
+- [ ] Touchpad physical click → mappable button (default: left click)
+- [ ] Two-finger touchpad click → mappable button (default: right click)
+- [ ] Single tap gesture → mappable action (default: left click)
+- [ ] Double tap gesture → mappable action
+- [ ] Long tap gesture (touch held without moving) → mappable action
+- [ ] Two-finger tap gesture → mappable action (default: right click)
+- [ ] Two-finger long tap gesture → mappable action
+- [ ] Tap duration and movement thresholds for gesture detection
+- [ ] Cooldown after tap to prevent double-tap mouse drift
+
+#### Two-Finger Scroll Gestures
+- [ ] Two-finger pan → vertical/horizontal scroll
+- [ ] Pan sensitivity setting
+- [ ] Pan deadzone (minimum movement to start scrolling)
+- [ ] Momentum scrolling after finger lift (inertia)
+- [ ] Velocity-based momentum decay
+- [ ] Momentum start/stop velocity thresholds
+- [ ] Momentum boost scaling based on velocity
+- [ ] Chrome scroll compatibility (native trackpad gesture simulation)
+
+#### Pinch-to-Zoom Gestures
+- [ ] Two-finger pinch → zoom in/out
+- [ ] Native macOS magnify gesture support (true trackpad feel)
+- [ ] Fallback to Cmd+Plus/Minus keyboard zoom
+- [ ] Toggle between native zoom and keyboard zoom
+- [ ] Pinch vs pan ratio threshold (gesture disambiguation)
+- [ ] Pinch deadzone (minimum distance change to trigger)
+- [ ] Pinch sensitivity multiplier
+- [ ] Suppression of two-finger tap during pinch/pan gestures
+
+#### LED Control
+- [ ] Lightbar RGB color control via color picker
+- [ ] Lightbar brightness settings (Bright/Medium/Dim)
+- [ ] Lightbar enable/disable toggle
+- [ ] Player LEDs control (5 individual LEDs)
+- [ ] Player LED preset patterns (Player 1-4, All On)
+- [ ] Mute button LED modes (Off/On/Breathing)
+- [ ] Party mode (animated rainbow effect on lightbar)
+- [ ] LED settings persistence per profile
+- [ ] Apply LED settings immediately on UI change
+- [ ] Bluetooth LED control with output report header handling
+- [ ] Bluetooth LED limitation notice in UI
+
+#### Microphone Support
+- [ ] DualSense built-in microphone access (USB connection only)
+- [ ] Mic mute button mapping
+- [ ] Audio level meter visualization in UI
+- [ ] Microphone auto-enable on USB connect
+- [ ] Dedicated Microphone settings tab
+
+#### DualSense-Specific UI
+- [ ] DualSense controller body visualization
+- [ ] Live touchpad touch point visualization (shows finger positions)
+- [ ] Touchpad button category in controller visual
+- [ ] Two-column layout for touchpad gesture buttons
+- [ ] Dedicated Touchpad settings tab with sensitivity sliders
+- [ ] Dedicated LEDs settings tab with color picker
+- [ ] Dedicated Microphone tab with mute control and level meter
+- [ ] DualSense-specific SF Symbols (playstation.logo, hand.tap, etc.)
+- [ ] Touchpad priming with connect haptic (fixes Bluetooth touchpad init)
+
 ### Input Monitoring & Logging
 - [ ] Physical keyboard input monitoring
 - [ ] Physical mouse input monitoring
@@ -204,11 +285,13 @@
 
 ---
 
-**Last Updated:** January 14, 2026 - Phase 2 Complete
+**Last Updated:** January 19, 2026 - Major Refactoring Complete
 **Refactoring Status:**
-- Phase 1: Configuration Constants - ✅ COMPLETE (Config.swift)
-- Phase 2: InputSimulator Refactoring - ✅ COMPLETE (Modifier key consolidation)
-- Phase 3: MappingEngine/ControllerService - 🔄 IN PROGRESS
-- Phase 4: Documentation - 🔄 PENDING
+- Phase 1: Quick Wins - ✅ COMPLETE (KeyBindingRepresentable, ButtonColors, defer patterns, unused code)
+- Phase 2: Method Documentation - ✅ COMPLETE (MARK comments added to complex methods)
+- Phase 3: State Organization - ✅ PARTIAL (TouchpadGestureState struct defined)
+- Phase 4: View Cleanup - ✅ COMPLETE (drawingGroup, helper methods)
 
-**Tests Status:** 12 passing, 2 pre-existing failures (no regressions from refactoring)
+**DualSense Features:** Comprehensive touchpad, LED, and microphone support added (55+ commits)
+
+**Tests Status:** 11 passing, 2 pre-existing timing failures (no regressions from refactoring)

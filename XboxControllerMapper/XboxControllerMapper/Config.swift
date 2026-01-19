@@ -192,3 +192,44 @@ struct Config {
     /// Interval between battery info updates (seconds)
     static let batteryUpdateInterval: TimeInterval = 10.0
 }
+
+// MARK: - Button Colors
+
+import SwiftUI
+
+/// Centralized color definitions for controller face buttons
+enum ButtonColors {
+    // MARK: - Xbox Face Button Colors
+    static let xboxA = Color(red: 0.4, green: 0.8, blue: 0.2)   // Vibrant Green
+    static let xboxB = Color(red: 0.9, green: 0.2, blue: 0.2)   // Jewel Red
+    static let xboxX = Color(red: 0.1, green: 0.4, blue: 0.9)   // Deep Blue
+    static let xboxY = Color(red: 1.0, green: 0.7, blue: 0.0)   // Amber/Gold
+
+    // MARK: - PlayStation Face Button Colors
+    static let psCross = Color(red: 0.55, green: 0.70, blue: 0.95)    // Light Blue
+    static let psCircle = Color(red: 1.0, green: 0.45, blue: 0.50)    // Red/Pink
+    static let psSquare = Color(red: 0.90, green: 0.55, blue: 0.75)   // Pink/Magenta
+    static let psTriangle = Color(red: 0.45, green: 0.85, blue: 0.75) // Teal/Cyan
+
+    /// Get Xbox face button color for a button
+    static func xbox(_ button: ControllerButton) -> Color? {
+        switch button {
+        case .a: return xboxA
+        case .b: return xboxB
+        case .x: return xboxX
+        case .y: return xboxY
+        default: return nil
+        }
+    }
+
+    /// Get PlayStation face button color for a button
+    static func playStation(_ button: ControllerButton) -> Color? {
+        switch button {
+        case .a: return psCross     // Cross
+        case .b: return psCircle    // Circle
+        case .x: return psSquare    // Square
+        case .y: return psTriangle  // Triangle
+        default: return nil
+        }
+    }
+}

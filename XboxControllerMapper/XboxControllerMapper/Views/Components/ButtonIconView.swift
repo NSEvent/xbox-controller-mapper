@@ -142,11 +142,10 @@ struct ButtonIconView: View {
             }
         } else {
             // Vibrant "Jewel" colors inspired by Xbox 360 controller
+            if let xboxColor = ButtonColors.xbox(button) {
+                return xboxColor
+            }
             switch button {
-            case .a: return Color(red: 0.4, green: 0.8, blue: 0.2) // Vibrant Green
-            case .b: return Color(red: 0.9, green: 0.2, blue: 0.2) // Jewel Red
-            case .x: return Color(red: 0.1, green: 0.4, blue: 0.9) // Deep Blue
-            case .y: return Color(red: 1.0, green: 0.7, blue: 0.0) // Amber/Gold
             case .xbox: return Color(white: 0.85) // Silver/Chrome
             case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.25) // Dark Grey Plastic
             case .leftThumbstick, .rightThumbstick: return Color(white: 0.3)
@@ -157,13 +156,7 @@ struct ButtonIconView: View {
 
     /// Symbol color for PlayStation face buttons (colored shapes on dark background)
     private var playstationSymbolColor: Color {
-        switch button {
-        case .a: return Color(red: 0.55, green: 0.70, blue: 0.95) // Cross - Light Blue
-        case .b: return Color(red: 1.0, green: 0.45, blue: 0.50)  // Circle - Red/Pink
-        case .x: return Color(red: 0.90, green: 0.55, blue: 0.75) // Square - Pink/Magenta
-        case .y: return Color(red: 0.45, green: 0.85, blue: 0.75) // Triangle - Teal/Cyan
-        default: return .white
-        }
+        ButtonColors.playStation(button) ?? .white
     }
     
     // MARK: - Content

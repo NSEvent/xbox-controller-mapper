@@ -97,6 +97,7 @@ struct ControllerVisualView: View {
     // MARK: - Xbox Controller Overlay
 
     private var xboxOverlay: some View {
+        // Use drawingGroup for better rendering performance on complex overlays
         VStack(spacing: 15) {
             HStack(spacing: 140) {
                 miniTrigger(.leftTrigger, label: "LT", value: controllerService.displayLeftTrigger)
@@ -134,11 +135,13 @@ struct ControllerVisualView: View {
                 miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
             }
         }
+        .drawingGroup() // Optimize rendering for complex overlay
     }
 
     // MARK: - DualSense Controller Overlay
 
     private var dualSenseOverlay: some View {
+        // Use drawingGroup for better rendering performance on complex overlays
         VStack(spacing: 4) {
             // Row 1: Triggers (top)
             HStack(spacing: 150) {
@@ -186,6 +189,7 @@ struct ControllerVisualView: View {
                 miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
             }
         }
+        .drawingGroup() // Optimize rendering for complex overlay
     }
 
     // MARK: - Mini Touchpad
@@ -542,16 +546,16 @@ struct ControllerVisualView: View {
         ZStack {
             if isDualSense {
                 // PlayStation style: dark background with colored symbols
-                miniPSFaceButton(.y, symbolColor: Color(red: 0.45, green: 0.85, blue: 0.75)).offset(y: -12) // Triangle - Teal
-                miniPSFaceButton(.a, symbolColor: Color(red: 0.55, green: 0.70, blue: 0.95)).offset(y: 12)  // Cross - Light Blue
-                miniPSFaceButton(.x, symbolColor: Color(red: 0.90, green: 0.55, blue: 0.75)).offset(x: -12) // Square - Pink
-                miniPSFaceButton(.b, symbolColor: Color(red: 1.0, green: 0.45, blue: 0.50)).offset(x: 12)   // Circle - Red/Pink
+                miniPSFaceButton(.y, symbolColor: ButtonColors.psTriangle).offset(y: -12)
+                miniPSFaceButton(.a, symbolColor: ButtonColors.psCross).offset(y: 12)
+                miniPSFaceButton(.x, symbolColor: ButtonColors.psSquare).offset(x: -12)
+                miniPSFaceButton(.b, symbolColor: ButtonColors.psCircle).offset(x: 12)
             } else {
                 // Xbox layout and colors (colored background)
-                miniFaceButton(.y, color: Color(red: 1.0, green: 0.7, blue: 0.0)).offset(y: -12) // Yellow
-                miniFaceButton(.a, color: Color(red: 0.4, green: 0.8, blue: 0.2)).offset(y: 12)  // Green
-                miniFaceButton(.x, color: Color(red: 0.1, green: 0.4, blue: 0.9)).offset(x: -12) // Blue
-                miniFaceButton(.b, color: Color(red: 0.9, green: 0.2, blue: 0.2)).offset(x: 12)  // Red
+                miniFaceButton(.y, color: ButtonColors.xboxY).offset(y: -12)
+                miniFaceButton(.a, color: ButtonColors.xboxA).offset(y: 12)
+                miniFaceButton(.x, color: ButtonColors.xboxX).offset(x: -12)
+                miniFaceButton(.b, color: ButtonColors.xboxB).offset(x: 12)
             }
         }
         .frame(width: 40, height: 40)

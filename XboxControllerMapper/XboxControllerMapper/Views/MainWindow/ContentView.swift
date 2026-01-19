@@ -1110,29 +1110,12 @@ struct LEDSettingsView: View {
 
                     Spacer()
 
-                    Button("P1") { applyPlayerPreset(.player1) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
-                    Button("P2") { applyPlayerPreset(.player2) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
-                    Button("P3") { applyPlayerPreset(.player3) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
-                    Button("P4") { applyPlayerPreset(.player4) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
-                    Button("All") { applyPlayerPreset(.allOn) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
-                    Button("Off") { applyPlayerPreset(.default) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                    playerPresetButton("P1", preset: .player1)
+                    playerPresetButton("P2", preset: .player2)
+                    playerPresetButton("P3", preset: .player3)
+                    playerPresetButton("P4", preset: .player4)
+                    playerPresetButton("All", preset: .allOn)
+                    playerPresetButton("Off", preset: .default)
                 }
                 .disabled(controllerService.partyModeEnabled)
             }
@@ -1216,6 +1199,14 @@ struct LEDSettingsView: View {
 
     private func applyPlayerPreset(_ preset: PlayerLEDs) {
         updateSettings(\.playerLEDs, preset)
+    }
+
+    /// Helper view builder for player LED preset buttons (reduces code duplication)
+    @ViewBuilder
+    private func playerPresetButton(_ label: String, preset: PlayerLEDs) -> some View {
+        Button(label) { applyPlayerPreset(preset) }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
     }
 
     private func updateSettings<T>(_ keyPath: WritableKeyPath<DualSenseLEDSettings, T>, _ value: T) {

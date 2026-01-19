@@ -598,7 +598,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     // MARK: - Mapping Execution
 
-    /// Executes a key mapping
+    /// Executes a key mapping (does a full press+release cycle)
     func executeMapping(_ mapping: KeyMapping) {
         #if DEBUG
         print("📋 executeMapping called:")
@@ -608,12 +608,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         print("   isHoldModifier: \(mapping.isHoldModifier)")
         #endif
 
-        if mapping.isHoldModifier {
-            // This is handled by hold/release methods
-            return
-        }
-
         if let keyCode = mapping.keyCode {
+            // For any mapping with a key code, do a full press (handles both regular keys and mouse buttons)
             pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         } else if mapping.modifiers.hasAny {
             // Modifier-only mapping - tap the modifiers

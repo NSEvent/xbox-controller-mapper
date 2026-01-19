@@ -120,6 +120,69 @@ class MappingEngine: ObservableObject {
     /// 5. **Focus Mode** - Special sensitivity mode for focused input
     ///    - currentMultiplier: Joystick sensitivity multiplier (0.0-2.0)
     ///    - focusExitTime: Timestamp when focus mode was exited
+
+    // MARK: - Touchpad Gesture State
+
+    /// Groups all touchpad gesture-related state for better organization
+    private struct TouchpadGestureState {
+        // Single-finger movement smoothing
+        var smoothedDelta: CGPoint = .zero
+        var lastSampleTime: TimeInterval = 0
+
+        // Two-finger gesture smoothing
+        var smoothedCenterDelta: CGPoint = .zero
+        var smoothedDistanceDelta: Double = 0
+        var lastGestureSampleTime: TimeInterval = 0
+        var isGestureActive = false
+
+        // Scroll residuals for sub-pixel accumulation
+        var scrollResidualX: Double = 0
+        var scrollResidualY: Double = 0
+
+        // Momentum physics state
+        var momentumVelocity: CGPoint = .zero
+        var momentumLastUpdate: TimeInterval = 0
+        var momentumLastGestureTime: TimeInterval = 0
+        var momentumWasActive = false
+        var momentumCandidateVelocity: CGPoint = .zero
+        var momentumCandidateTime: TimeInterval = 0
+        var momentumHighVelocityStartTime: TimeInterval = 0
+        var momentumHighVelocitySampleCount: Int = 0
+        var momentumPeakVelocity: CGPoint = .zero
+        var momentumPeakMagnitude: Double = 0
+        var smoothedPanVelocity: CGPoint = .zero
+
+        // Pinch/zoom state
+        var pinchAccumulator: Double = 0
+        var magnifyGestureActive: Bool = false
+
+        mutating func reset() {
+            smoothedDelta = .zero
+            lastSampleTime = 0
+            smoothedCenterDelta = .zero
+            smoothedDistanceDelta = 0
+            lastGestureSampleTime = 0
+            isGestureActive = false
+            scrollResidualX = 0
+            scrollResidualY = 0
+            momentumVelocity = .zero
+            momentumLastUpdate = 0
+            momentumLastGestureTime = 0
+            momentumWasActive = false
+            momentumCandidateVelocity = .zero
+            momentumCandidateTime = 0
+            momentumHighVelocityStartTime = 0
+            momentumHighVelocitySampleCount = 0
+            momentumPeakVelocity = .zero
+            momentumPeakMagnitude = 0
+            smoothedPanVelocity = .zero
+            pinchAccumulator = 0
+            magnifyGestureActive = false
+        }
+    }
+
+    // MARK: - Engine State
+
     private final class EngineState: @unchecked Sendable {
         let lock = NSLock()
         var isEnabled = true
@@ -470,7 +533,7 @@ class MappingEngine: ObservableObject {
         let lastTap = state.lastTapTime[button]
         state.lock.unlock()
 
-        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
+        guard let mapping = effectiveMapping(for: button, in: profile) else {
             // Log unmapped button presses so they still appear in history
             inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
             return
@@ -509,20 +572,22 @@ class MappingEngine: ObservableObject {
             let now = Date()
             if let lastTap = lastTap, now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
                 state.lock.lock()
+                defer { state.lock.unlock() }
                 state.lastTapTime.removeValue(forKey: button)
-                state.lock.unlock()
                 mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
                 return
             }
             state.lock.lock()
+            defer { state.lock.unlock() }
             state.lastTapTime[button] = now
-            state.lock.unlock()
         }
 
         // Start holding the mapping
-        state.lock.lock()
-        state.heldButtons[button] = mapping
-        state.lock.unlock()
+        do {
+            state.lock.lock()
+            defer { state.lock.unlock() }
+            state.heldButtons[button] = mapping
+        }
 
         inputSimulator.startHoldMapping(mapping)
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
@@ -533,9 +598,11 @@ class MappingEngine: ObservableObject {
         let workItem = DispatchWorkItem { [weak self] in
             self?.handleLongHoldTriggered(button, mapping: mapping)
         }
-        state.lock.lock()
-        state.longHoldTimers[button] = workItem
-        state.lock.unlock()
+        do {
+            state.lock.lock()
+            defer { state.lock.unlock() }
+            state.longHoldTimers[button] = workItem
+        }
         inputQueue.asyncAfter(deadline: .now() + mapping.threshold, execute: workItem)
     }
 
@@ -549,16 +616,16 @@ class MappingEngine: ObservableObject {
         timer.schedule(deadline: .now() + interval, repeating: interval)
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
-            // Check if button is still held (by checking active buttons from controller service? 
+            // Check if button is still held (by checking active buttons from controller service?
             // ControllerService is MainActor. Accessing activeButtons is tricky.
             // Better to rely on state.heldButtons or just stop timer on release.)
             self.inputSimulator.executeMapping(mapping)
         }
         timer.resume()
-        
+
         state.lock.lock()
+        defer { state.lock.unlock() }
         state.repeatTimers[button] = timer
-        state.lock.unlock()
     }
 
     nonisolated private func stopRepeatTimer(for button: ControllerButton) {
@@ -681,9 +748,17 @@ class MappingEngine: ObservableObject {
             state.longHoldTriggered.remove(button)
         }
 
-        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else { return nil }
+        guard let mapping = effectiveMapping(for: button, in: profile) else { return nil }
 
         return (mapping, profile, bundleId, isLongHoldTriggered)
+    }
+
+    /// Returns the effective mapping for a button, using default if profile mapping is empty or missing
+    nonisolated private func effectiveMapping(for button: ControllerButton, in profile: Profile) -> KeyMapping? {
+        if let mapping = profile.buttonMappings[button], !mapping.isEmpty {
+            return mapping
+        }
+        return defaultMapping(for: button)
     }
 
     /// Returns a default mapping for buttons that should have fallback behavior
@@ -1048,7 +1123,7 @@ class MappingEngine: ObservableObject {
         let lastTap = state.lastTapTime[button]
         state.lock.unlock()
 
-        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
+        guard let mapping = effectiveMapping(for: button, in: profile) else {
             inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
             return
         }
@@ -1119,17 +1194,15 @@ class MappingEngine: ObservableObject {
         state.lastTapTime.removeValue(forKey: button)
         state.lock.unlock()
 
-        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
+        // Long tap only executes if there's an explicit long hold mapping configured
+        // (no default fallback like regular taps have)
+        guard let mapping = profile.buttonMappings[button],
+              let longHoldMapping = mapping.longHoldMapping,
+              !longHoldMapping.isEmpty else {
             return
         }
 
-        // Execute long hold mapping if configured, otherwise execute normal mapping
-        if let longHoldMapping = mapping.longHoldMapping, !longHoldMapping.isEmpty {
-            mappingExecutor.executeLongHold(longHoldMapping, for: button)
-        } else {
-            inputSimulator.executeMapping(mapping)
-            inputLogService?.log(buttons: [button], type: .longPress, action: mapping.displayString)
-        }
+        mappingExecutor.executeLongHold(longHoldMapping, for: button)
     }
 
     /// Process touchpad movement for mouse control (DualSense only)
@@ -1203,8 +1276,17 @@ class MappingEngine: ObservableObject {
         inputSimulator.moveMouse(dx: CGFloat(dx), dy: CGFloat(dy))
     }
 
+    // MARK: - Two-Finger Touchpad Gestures
+
     /// Process two-finger touchpad gestures (pan + pinch zoom)
+    /// This method handles:
+    /// 1. Gesture lifecycle (begin/change/end phases)
+    /// 2. Delta smoothing for consistent feel
+    /// 3. Pinch vs Pan discrimination
+    /// 4. Native magnify gestures or Cmd+Plus/Minus zoom
+    /// 5. Scroll with momentum physics
     nonisolated private func processTouchpadGesture(_ gesture: TouchpadGesture) {
+        // MARK: State Snapshot
         state.lock.lock()
         guard state.isEnabled, let settings = state.joystickSettings else {
             state.lock.unlock()
@@ -1325,8 +1407,10 @@ class MappingEngine: ObservableObject {
         let panMagnitude = Double(hypot(smoothedCenter.x, smoothedCenter.y))
         let ratio = pinchMagnitude / max(panMagnitude, 0.001)
 
-        // Debug logging
-        NSLog("[PINCH] pinch=%.4f pan=%.4f ratio=%.2f (need pinch>%.2f, ratio>%.2f)", pinchMagnitude, panMagnitude, ratio, Config.touchpadPinchDeadzone, settings.touchpadZoomToPanRatio)
+        #if DEBUG
+        // Debug logging (disabled in release for performance - this runs at 120Hz)
+        // NSLog("[PINCH] pinch=%.4f pan=%.4f ratio=%.2f (need pinch>%.2f, ratio>%.2f)", pinchMagnitude, panMagnitude, ratio, Config.touchpadPinchDeadzone, settings.touchpadZoomToPanRatio)
+        #endif
 
         // Determine if pinch is dominant over pan
         let isPinchGesture = pinchMagnitude > Config.touchpadPinchDeadzone &&

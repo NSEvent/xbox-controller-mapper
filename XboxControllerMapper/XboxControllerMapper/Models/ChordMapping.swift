@@ -49,9 +49,4 @@ struct ChordMapping: Codable, Identifiable, Equatable {
 
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
     }
-
-    /// Whether this chord has a valid configuration
-    var isValid: Bool {
-        buttons.count >= 2 && (keyCode != nil || modifiers.hasAny)
-    }
 }
