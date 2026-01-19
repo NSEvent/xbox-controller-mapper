@@ -1596,6 +1596,11 @@ class ControllerService: ObservableObject {
                 ))
                 if currentDistance > storage.touchpadMaxDistanceFromStart {
                     storage.touchpadMaxDistanceFromStart = currentDistance
+                    // Cancel long tap timer if finger moved too much (uses tighter threshold)
+                    if currentDistance >= Config.touchpadLongTapMaxMovement {
+                        storage.touchpadLongTapTimer?.cancel()
+                        storage.touchpadLongTapTimer = nil
+                    }
                 }
 
                 // Apply the PREVIOUS pending delta (if any), then store current as pending
@@ -1692,7 +1697,7 @@ class ControllerService: ObservableObject {
                         let stillTouching = self.storage.isTouchpadTouching
                         let isTwoFinger = self.storage.touchpadWasTwoFingerDuringTouch
                         let callback = isTwoFinger ? self.storage.onTouchpadTwoFingerLongTap : self.storage.onTouchpadLongTap
-                        if stillTouching && distance < Config.touchpadTapMaxMovement {
+                        if stillTouching && distance < Config.touchpadLongTapMaxMovement {
                             self.storage.touchpadLongTapFired = true
                             self.storage.lock.unlock()
                             self.controllerQueue.async { callback?() }
