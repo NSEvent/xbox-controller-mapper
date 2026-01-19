@@ -90,10 +90,19 @@ struct Config {
     static let touchpadMinSmoothingAlpha: Double = 0.1
     /// Reset smoothing if touchpad events pause longer than this
     static let touchpadSmoothingResetInterval: TimeInterval = 0.12
-    /// Movement threshold to ignore click-induced touchpad jitter
-    static let touchpadClickMovementThreshold: Double = 0.015
+    /// Movement threshold to ignore click-induced touchpad jitter and tap drift
+    /// DualSense touchpad has inherent drift of ~0.02-0.03 even when holding still
+    static let touchpadClickMovementThreshold: Double = 0.04
     /// Time after touch starts before movement is allowed (prevents tap-induced drift)
-    static let touchpadTouchSettleInterval: TimeInterval = 0.08
+    /// Increased to 150ms to cover most tap durations
+    static let touchpadTouchSettleInterval: TimeInterval = 0.15
+    /// Maximum duration for a touch to be recognized as a tap (for tap-to-click gesture)
+    static let touchpadTapMaxDuration: TimeInterval = 0.5
+    /// Maximum movement during a tap for it to still be recognized as a tap
+    /// DualSense touchpad has significant inherent jitter, so this needs to be fairly high
+    static let touchpadTapMaxMovement: Double = 0.35
+    /// Cooldown period after a tap where movement is suppressed (prevents double-tap drift)
+    static let touchpadTapCooldown: TimeInterval = 0.2
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
     static let touchpadPanSensitivityMultiplier: Double = 1000.0
     /// Minimum pan movement to start scrolling

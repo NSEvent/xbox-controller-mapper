@@ -77,6 +77,8 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadMovementBlocked: Bool = false
     var touchpadTouchStartTime: TimeInterval = 0  // Time when finger first touched
     var touchpadTouchStartPosition: CGPoint = .zero  // Position when finger first touched
+    var touchpadMaxDistanceFromStart: Double = 0  // Max distance traveled during touch (for tap detection)
+    var touchpadLastTapTime: TimeInterval = 0  // Time of last detected tap (for double-tap cooldown)
     var touchpadDebugLastLogTime: TimeInterval = 0
     var touchpadIdleSentinel: CGPoint? = nil
     var touchpadSecondaryIdleSentinel: CGPoint? = nil
@@ -103,6 +105,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var onRightStickMoved: ((CGPoint) -> Void)?
     var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
     var onTouchpadGesture: ((TouchpadGesture) -> Void)?
+    var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
 }
 
 /// Service for managing Xbox controller connection and input
@@ -301,6 +304,10 @@ class ControllerService: ObservableObject {
     var onTouchpadGesture: ((TouchpadGesture) -> Void)? {
         get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadGesture }
         set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadGesture = newValue }
+    }
+    var onTouchpadTap: (() -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadTap }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadTap = newValue }
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -1476,9 +1483,13 @@ class ControllerService: ObservableObject {
 
                 // Skip first 2 frames after touch to let position settle
                 // This prevents spurious movement when finger first contacts touchpad
+                // Update touchStartPosition so the settle check uses the stable position
+                // (the initial touch position from hardware can be noisy/incorrect)
+                // NOTE: Do NOT update touchpadTouchStartTime - keep counting from original touch
                 if storage.touchpadFramesSinceTouch <= 2 {
                     storage.touchpadPosition = newPosition
                     storage.touchpadPreviousPosition = newPosition
+                    storage.touchpadTouchStartPosition = newPosition
                     storage.lock.unlock()
                     return
                 }
@@ -1526,6 +1537,15 @@ class ControllerService: ObservableObject {
 
                 storage.touchpadPreviousPosition = storage.touchpadPosition
                 storage.touchpadPosition = newPosition
+
+                // Track max distance from start for tap detection
+                let currentDistance = Double(hypot(
+                    newPosition.x - storage.touchpadTouchStartPosition.x,
+                    newPosition.y - storage.touchpadTouchStartPosition.y
+                ))
+                if currentDistance > storage.touchpadMaxDistanceFromStart {
+                    storage.touchpadMaxDistanceFromStart = currentDistance
+                }
 
                 // Apply the PREVIOUS pending delta (if any), then store current as pending
                 // This 1-frame delay filters out artifacts right before finger lift
@@ -1588,6 +1608,12 @@ class ControllerService: ObservableObject {
                 storage.pendingTouchpadDelta = nil
                 storage.touchpadTouchStartTime = now
                 storage.touchpadTouchStartPosition = newPosition
+                storage.touchpadMaxDistanceFromStart = 0
+                // Block movement if this touch starts within cooldown of a previous tap
+                // This prevents double-tap from causing mouse movement between taps
+                if (now - storage.touchpadLastTapTime) < Config.touchpadTapCooldown {
+                    storage.touchpadMovementBlocked = true
+                }
                 if storage.touchpadClickArmed {
                     storage.touchpadClickStartPosition = newPosition
                 }
@@ -1595,6 +1621,19 @@ class ControllerService: ObservableObject {
             }
         } else {
             // Finger lifted - discard any pending delta (it was likely lift artifact)
+            // Check for tap: short touch duration with minimal movement
+            // Use maxDistanceFromStart instead of final position (which may be corrupted by lift artifacts)
+            let touchDuration = now - storage.touchpadTouchStartTime
+            let touchDistance = storage.touchpadMaxDistanceFromStart
+            let isTap = wasTouching &&
+                !wasTwoFinger &&
+                touchDuration < Config.touchpadTapMaxDuration &&
+                touchDistance < Config.touchpadTapMaxMovement
+            let tapCallback = isTap ? storage.onTouchpadTap : nil
+            if isTap {
+                storage.touchpadLastTapTime = now
+            }
+
             storage.isTouchpadTouching = false
             storage.touchpadPosition = .zero
             storage.touchpadPreviousPosition = .zero
@@ -1605,6 +1644,9 @@ class ControllerService: ObservableObject {
             let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
             let isTwoFinger = storage.isTouchpadTouching && isSecondaryTouching
             storage.lock.unlock()
+
+            // Fire tap callback if it was a tap
+            tapCallback?()
 
             if wasTwoFinger && !isTwoFinger {
                 gestureCallback?(TouchpadGesture(
