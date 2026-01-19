@@ -600,13 +600,11 @@ struct ChordMappingSheet: View {
                         }
                     }
                     
-                    // Middle Row: Sticks, D-Pad, Face Buttons, System
+                    // Middle Row: D-Pad, System, Face Buttons, Sticks
                     HStack(alignment: .top, spacing: 40) {
-                        // Left Column: Stick & D-Pad
+                        // Left Column: D-Pad & L3 Stick
                         VStack(spacing: 25) {
-                            toggleButton(.leftThumbstick)
-                             
-                            // D-Pad Cross
+                            // D-Pad Cross (aligned with face buttons)
                             VStack(spacing: 2) {
                                 toggleButton(.dpadUp)
                                 HStack(spacing: 25) {
@@ -615,6 +613,8 @@ struct ChordMappingSheet: View {
                                 }
                                 toggleButton(.dpadDown)
                             }
+
+                            toggleButton(.leftThumbstick)
                         }
                         
                         // Center Column: System Buttons
@@ -728,20 +728,39 @@ struct ChordMappingSheet: View {
         .buttonStyle(.plain)
     }
     
+    private enum SelectionShape {
+        case circle, square, roundedRect
+    }
+
     @ViewBuilder
     private func selectionBorder(for button: ControllerButton) -> some View {
-        let isCircle: Bool = {
-            switch button.category {
-            case .face, .special, .thumbstick, .dpad: return true
-            default: return false
+        let shape: SelectionShape = {
+            switch button {
+            case .micMute:
+                return .circle  // Mic mute is circular
+            case .touchpadButton:
+                return .square  // Touchpad click is square
+            default:
+                switch button.category {
+                case .face, .special, .thumbstick, .dpad:
+                    return .circle
+                default:
+                    return .roundedRect
+                }
             }
         }()
-        
-        if isCircle {
+
+        switch shape {
+        case .circle:
             Circle()
                 .stroke(Color.accentColor, lineWidth: 3)
                 .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
-        } else {
+        case .square:
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.accentColor, lineWidth: 3)
+                .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
+                .aspectRatio(1, contentMode: .fit)
+        case .roundedRect:
             RoundedRectangle(cornerRadius: 5)
                 .stroke(Color.accentColor, lineWidth: 3)
                 .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
