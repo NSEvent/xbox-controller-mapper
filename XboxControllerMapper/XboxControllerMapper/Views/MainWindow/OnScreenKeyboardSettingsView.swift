@@ -11,6 +11,11 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var editingCommandId: UUID?
     @State private var editText = ""
     @State private var hasRequestedAutomation = false
+    @State private var automationPermissionGranted = false
+    @State private var customTerminalApp = ""
+    @State private var isUsingCustomTerminal = false
+    @State private var showingAppPicker = false
+    @State private var appPickerSearchText = ""
 
     private var textSnippets: [QuickText] {
         profileManager.onScreenKeyboardSettings.quickTexts.filter { !$0.isTerminalCommand }
@@ -18,6 +23,14 @@ struct OnScreenKeyboardSettingsView: View {
 
     private var terminalCommands: [QuickText] {
         profileManager.onScreenKeyboardSettings.quickTexts.filter { $0.isTerminalCommand }
+    }
+
+    private var appBarItems: [AppBarItem] {
+        profileManager.onScreenKeyboardSettings.appBarItems
+    }
+
+    private var installedApps: [AppInfo] {
+        AppMonitor().installedApplications
     }
 
     var body: some View {
@@ -34,18 +47,23 @@ struct OnScreenKeyboardSettingsView: View {
 
                 Divider()
 
+                // App Bar Section
+                appBarSection
+
+                Divider()
+
                 // Text Snippets Section
                 textSnippetsSection
 
                 Divider()
 
-                // Terminal Commands Section
-                terminalCommandsSection
+                // Typing Speed Settings (related to text snippets)
+                typingSpeedSection
 
                 Divider()
 
-                // Typing Speed Settings
-                typingSpeedSection
+                // Terminal Commands Section
+                terminalCommandsSection
 
                 Divider()
 
@@ -55,19 +73,15 @@ struct OnScreenKeyboardSettingsView: View {
             .padding(24)
         }
         .onAppear {
-            requestAutomationPermissionIfNeeded()
+            checkAutomationPermission()
+            setupCustomTerminal()
         }
     }
 
     // MARK: - Automation Permission
 
-    private func requestAutomationPermissionIfNeeded() {
-        // Only request once per app session
-        guard !hasRequestedAutomation else { return }
-        hasRequestedAutomation = true
-
-        // Run a simple AppleScript that targets Terminal to trigger the permission prompt
-        // This is a no-op script that just checks if Terminal is running
+    private func checkAutomationPermission() {
+        // Run a simple AppleScript to check if we have permission
         let script = """
         tell application "System Events"
             return name of first process whose frontmost is true
@@ -78,9 +92,172 @@ struct OnScreenKeyboardSettingsView: View {
             var error: NSDictionary?
             if let scriptObject = NSAppleScript(source: script) {
                 scriptObject.executeAndReturnError(&error)
-                // We don't care about the result - we just want to trigger the permission prompt
+                DispatchQueue.main.async {
+                    // If no error, permission was granted
+                    automationPermissionGranted = (error == nil)
+                }
             }
         }
+    }
+
+    private func setupCustomTerminal() {
+        let currentTerminal = profileManager.onScreenKeyboardSettings.defaultTerminalApp
+        if !OnScreenKeyboardSettings.terminalOptions.contains(currentTerminal) {
+            isUsingCustomTerminal = true
+            customTerminalApp = currentTerminal
+        }
+    }
+
+    // MARK: - App Bar Section
+
+    private var appBarSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("App Bar")
+                .font(.headline)
+
+            Text("Add apps for quick switching from the on-screen keyboard.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            // Add app button
+            Button {
+                showingAppPicker = true
+            } label: {
+                Label("Add App", systemImage: "plus.app")
+            }
+            .sheet(isPresented: $showingAppPicker) {
+                appPickerSheet
+            }
+
+            // List of app bar items
+            if appBarItems.isEmpty {
+                Text("No apps added yet")
+                    .foregroundColor(.secondary)
+                    .italic()
+                    .padding(.vertical, 8)
+            } else {
+                ForEach(appBarItems) { item in
+                    appBarRow(item)
+                }
+                .onMove { source, destination in
+                    profileManager.moveAppBarItems(from: source, to: destination)
+                }
+            }
+        }
+    }
+
+    private var appPickerSheet: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Add App")
+                    .font(.headline)
+                Spacer()
+                Button("Done") {
+                    showingAppPicker = false
+                }
+            }
+            .padding()
+
+            Divider()
+
+            // Search field
+            TextField("Search apps...", text: $appPickerSearchText)
+                .textFieldStyle(.roundedBorder)
+                .padding()
+
+            Divider()
+
+            // App list
+            List {
+                let filteredApps = installedApps.filter { app in
+                    appPickerSearchText.isEmpty ||
+                    app.name.localizedCaseInsensitiveContains(appPickerSearchText)
+                }
+
+                ForEach(filteredApps) { app in
+                    let alreadyAdded = appBarItems.contains { $0.bundleIdentifier == app.bundleIdentifier }
+
+                    Button {
+                        if !alreadyAdded {
+                            let item = AppBarItem(
+                                bundleIdentifier: app.bundleIdentifier,
+                                displayName: app.name
+                            )
+                            profileManager.addAppBarItem(item)
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            if let icon = app.icon {
+                                Image(nsImage: icon)
+                                    .resizable()
+                                    .frame(width: 32, height: 32)
+                            } else {
+                                Image(systemName: "app.fill")
+                                    .resizable()
+                                    .frame(width: 32, height: 32)
+                            }
+
+                            Text(app.name)
+
+                            Spacer()
+
+                            if alreadyAdded {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(alreadyAdded)
+                }
+            }
+        }
+        .frame(width: 400, height: 500)
+        .onDisappear {
+            appPickerSearchText = ""
+        }
+    }
+
+    @ViewBuilder
+    private func appBarRow(_ item: AppBarItem) -> some View {
+        HStack {
+            Image(systemName: "line.3.horizontal")
+                .foregroundColor(.secondary)
+                .frame(width: 20)
+
+            // App icon
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
+               let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 24, height: 24)
+            } else {
+                Image(systemName: "app.fill")
+                    .resizable()
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(.secondary)
+            }
+
+            Text(item.displayName)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer()
+
+            Button {
+                profileManager.removeAppBarItem(item)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .cornerRadius(6)
     }
 
     // MARK: - Typing Speed Section
@@ -198,40 +375,89 @@ struct OnScreenKeyboardSettingsView: View {
             Text("Default Terminal App")
                 .font(.headline)
 
-            Picker("Terminal", selection: Binding(
-                get: { profileManager.onScreenKeyboardSettings.defaultTerminalApp },
-                set: { profileManager.setDefaultTerminalApp($0) }
-            )) {
-                ForEach(OnScreenKeyboardSettings.terminalOptions, id: \.self) { option in
-                    Text(option).tag(option)
+            HStack(spacing: 12) {
+                Picker("Terminal", selection: Binding(
+                    get: {
+                        let current = profileManager.onScreenKeyboardSettings.defaultTerminalApp
+                        if OnScreenKeyboardSettings.terminalOptions.contains(current) {
+                            return current
+                        }
+                        return "Other"
+                    },
+                    set: { newValue in
+                        if newValue == "Other" {
+                            isUsingCustomTerminal = true
+                        } else {
+                            isUsingCustomTerminal = false
+                            profileManager.setDefaultTerminalApp(newValue)
+                        }
+                    }
+                )) {
+                    ForEach(OnScreenKeyboardSettings.terminalOptions, id: \.self) { option in
+                        Text(option).tag(option)
+                    }
+                    Divider()
+                    Text("Other...").tag("Other")
+                }
+                .pickerStyle(.menu)
+                .frame(width: 150)
+
+                if isUsingCustomTerminal {
+                    TextField("App name", text: $customTerminalApp)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 150)
+                        .onSubmit {
+                            if !customTerminalApp.isEmpty {
+                                profileManager.setDefaultTerminalApp(customTerminalApp)
+                            }
+                        }
+
+                    Button("Set") {
+                        if !customTerminalApp.isEmpty {
+                            profileManager.setDefaultTerminalApp(customTerminalApp)
+                        }
+                    }
+                    .disabled(customTerminalApp.isEmpty)
                 }
             }
-            .pickerStyle(.menu)
-            .frame(width: 200)
 
             Text("The terminal app to use when running terminal commands.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            // Permissions note
+            // Permissions status
             GroupBox {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
-                        Text("Automation Permission Required")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
+                    if automationPermissionGranted {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Automation Permission Granted")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
 
-                    Text("Terminal commands require Automation permission. If commands don't work, grant permission in System Settings.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        Text("Terminal commands are ready to use.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(.orange)
+                            Text("Automation Permission Required")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
 
-                    Button("Open Automation Settings") {
-                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+                        Text("Terminal commands require Automation permission. If commands don't work, grant permission in System Settings.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Button("Open Automation Settings") {
+                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+                        }
+                        .buttonStyle(.link)
                     }
-                    .buttonStyle(.link)
                 }
                 .padding(4)
             }

@@ -229,6 +229,23 @@ class ProfileManager: ObservableObject {
         saveConfiguration()
     }
 
+    // MARK: - App Bar Items
+
+    func addAppBarItem(_ item: AppBarItem) {
+        onScreenKeyboardSettings.appBarItems.append(item)
+        saveConfiguration()
+    }
+
+    func removeAppBarItem(_ item: AppBarItem) {
+        onScreenKeyboardSettings.appBarItems.removeAll { $0.id == item.id }
+        saveConfiguration()
+    }
+
+    func moveAppBarItems(from source: IndexSet, to destination: Int) {
+        onScreenKeyboardSettings.appBarItems.move(fromOffsets: source, toOffset: destination)
+        saveConfiguration()
+    }
+
     // MARK: - Persistence
 
     private struct Configuration: Codable {

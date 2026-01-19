@@ -14,6 +14,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private var quickTexts: [QuickText] = []
     private var defaultTerminalApp: String = "Terminal"
     private var typingDelay: Double = 0.03
+    private var appBarItems: [AppBarItem] = []
     private var cancellables = Set<AnyCancellable>()
 
     private init() {}
@@ -23,12 +24,13 @@ class OnScreenKeyboardManager: ObservableObject {
         self.inputSimulator = simulator
     }
 
-    /// Updates the quick texts to display on the keyboard
-    func setQuickTexts(_ texts: [QuickText], defaultTerminal: String, typingDelay: Double = 0.03) {
-        let changed = self.quickTexts != texts || self.defaultTerminalApp != defaultTerminal
+    /// Updates the quick texts and app bar items to display on the keyboard
+    func setQuickTexts(_ texts: [QuickText], defaultTerminal: String, typingDelay: Double = 0.03, appBarItems: [AppBarItem] = []) {
+        let changed = self.quickTexts != texts || self.defaultTerminalApp != defaultTerminal || self.appBarItems != appBarItems
         self.quickTexts = texts
         self.defaultTerminalApp = defaultTerminal
         self.typingDelay = typingDelay
+        self.appBarItems = appBarItems
 
         // Recreate panel if content changed
         if changed && panel != nil {
@@ -64,7 +66,11 @@ class OnScreenKeyboardManager: ObservableObject {
             onQuickText: { [weak self] quickText in
                 self?.handleQuickText(quickText)
             },
-            quickTexts: quickTexts
+            onAppActivate: { [weak self] bundleIdentifier in
+                self?.activateApp(bundleIdentifier: bundleIdentifier)
+            },
+            quickTexts: quickTexts,
+            appBarItems: appBarItems
         )
 
         let hostingView = NSHostingView(rootView: keyboardView)
@@ -164,9 +170,32 @@ class OnScreenKeyboardManager: ObservableObject {
         }
     }
 
-    /// Types a string of text character by character using CGEvent
+    /// Activates an app by its bundle identifier
+    private func activateApp(bundleIdentifier: String) {
+        NSLog("[OnScreenKeyboard] activateApp: \(bundleIdentifier)")
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+            let configuration = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, error in
+                if let error = error {
+                    NSLog("[OnScreenKeyboard] Failed to activate app: \(error.localizedDescription)")
+                } else {
+                    NSLog("[OnScreenKeyboard] Activated app: \(app?.localizedName ?? bundleIdentifier)")
+                }
+            }
+        } else {
+            NSLog("[OnScreenKeyboard] App not found: \(bundleIdentifier)")
+        }
+    }
+
+    /// Types a string of text (paste mode if delay is 0, otherwise character-by-character)
     private func typeText(_ text: String) {
         NSLog("[OnScreenKeyboard] typeText: '\(text)' with delay: \(typingDelay)")
+
+        // If delay is 0, use paste mode (clipboard)
+        if typingDelay == 0 {
+            pasteText(text)
+            return
+        }
 
         let characters = Array(text)
         let delay = typingDelay
@@ -214,6 +243,44 @@ class OnScreenKeyboardManager: ObservableObject {
         }
     }
 
+    /// Pastes text using clipboard (Cmd+V)
+    private func pasteText(_ text: String) {
+        NSLog("[OnScreenKeyboard] pasteText: '\(text)'")
+
+        // Save current clipboard contents
+        let pasteboard = NSPasteboard.general
+        let previousContents = pasteboard.string(forType: .string)
+
+        // Set our text to clipboard
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        // Small delay to ensure clipboard is ready
+        DispatchQueue.global(qos: .userInitiated).async {
+            Thread.sleep(forTimeInterval: 0.05)
+
+            // Simulate Cmd+V to paste
+            let source = CGEventSource(stateID: .hidSystemState)
+
+            if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),  // 9 = V key
+               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) {
+                keyDown.flags = .maskCommand
+                keyUp.flags = .maskCommand
+                keyDown.post(tap: .cghidEventTap)
+                keyUp.post(tap: .cghidEventTap)
+            }
+
+            // Restore previous clipboard after a delay
+            Thread.sleep(forTimeInterval: 0.3)
+            DispatchQueue.main.async {
+                if let previous = previousContents {
+                    pasteboard.clearContents()
+                    pasteboard.setString(previous, forType: .string)
+                }
+            }
+        }
+    }
+
     /// Executes a command in the terminal using AppleScript
     private func executeTerminalCommand(_ command: String) {
         NSLog("[OnScreenKeyboard] executeTerminalCommand: '\(command)', terminal: \(defaultTerminalApp)")
@@ -230,13 +297,7 @@ class OnScreenKeyboardManager: ObservableObject {
             script = """
             tell application "iTerm"
                 activate
-                if (count of windows) = 0 then
-                    create window with default profile
-                else
-                    tell current window
-                        create tab with default profile
-                    end tell
-                end if
+                create window with default profile
                 delay 0.3
                 tell current session of current window
                     write text "\(escapedCommand)"

@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Carbon.HIToolbox
 
 /// A clickable on-screen keyboard that sends key presses to the system
@@ -7,14 +8,20 @@ struct OnScreenKeyboardView: View {
     var onKeyPress: (CGKeyCode, ModifierFlags) -> Void
     /// Callback to execute a quick text (text snippet or terminal command)
     var onQuickText: ((QuickText) -> Void)?
+    /// Callback to activate an app from the app bar
+    var onAppActivate: ((String) -> Void)?
     /// Quick texts to display above keyboard
     var quickTexts: [QuickText] = []
+    /// App bar items for quick app switching
+    var appBarItems: [AppBarItem] = []
 
     @State private var activeModifiers = ModifierFlags()
     @State private var hoveredKey: CGKeyCode?
     @State private var pressedKey: CGKeyCode?
     @State private var hoveredQuickTextId: UUID?
     @State private var pressedQuickTextId: UUID?
+    @State private var hoveredAppBarItemId: UUID?
+    @State private var pressedAppBarItemId: UUID?
 
     // Key size constants - increase for larger keyboard
     private let keyWidth: CGFloat = 54
@@ -31,6 +38,13 @@ struct OnScreenKeyboardView: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            // App bar section (if any apps configured)
+            if !appBarItems.isEmpty {
+                appBarSection
+                Divider()
+                    .padding(.horizontal, 8)
+            }
+
             // Quick text sections (if any)
             if !quickTexts.isEmpty {
                 quickTextSection
@@ -57,6 +71,86 @@ struct OnScreenKeyboardView: View {
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
+    }
+
+    // MARK: - App Bar Section
+
+    private var appBarSection: some View {
+        HStack(spacing: 8) {
+            ForEach(appBarItems) { item in
+                appBarButton(item)
+            }
+        }
+    }
+
+    private func appBarButton(_ item: AppBarItem) -> some View {
+        let isHovered = hoveredAppBarItemId == item.id
+        let isPressed = pressedAppBarItemId == item.id
+        let iconSize: CGFloat = 48
+
+        return Button {
+            pressedAppBarItemId = item.id
+            onAppActivate?(item.bundleIdentifier)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                if pressedAppBarItemId == item.id {
+                    pressedAppBarItemId = nil
+                }
+            }
+        } label: {
+            VStack(spacing: 4) {
+                appIcon(for: item.bundleIdentifier)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: iconSize, height: iconSize)
+
+                Text(item.displayName)
+                    .font(.system(size: 10))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: iconSize + 16)
+            }
+            .padding(8)
+            .background(appBarBackground(isHovered: isHovered, isPressed: isPressed))
+            .foregroundColor(isPressed ? .white : .primary)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(appBarBorderColor(isHovered: isHovered, isPressed: isPressed), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredAppBarItemId = hovering ? item.id : nil
+        }
+    }
+
+    private func appIcon(for bundleIdentifier: String) -> Image {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier),
+           let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+            return Image(nsImage: icon)
+        }
+        // Fallback icon for apps not installed
+        return Image(systemName: "app.fill")
+    }
+
+    private func appBarBackground(isHovered: Bool, isPressed: Bool) -> Color {
+        if isPressed {
+            return .accentColor
+        } else if isHovered {
+            return Color.accentColor.opacity(0.3)
+        } else {
+            return Color(nsColor: .controlBackgroundColor)
+        }
+    }
+
+    private func appBarBorderColor(isHovered: Bool, isPressed: Bool) -> Color {
+        if isPressed {
+            return .accentColor
+        } else if isHovered {
+            return Color.accentColor.opacity(0.5)
+        } else {
+            return .gray.opacity(0.3)
+        }
     }
 
     // MARK: - Quick Text Section

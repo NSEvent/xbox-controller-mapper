@@ -45,7 +45,8 @@ final class ServiceContainer {
         OnScreenKeyboardManager.shared.setQuickTexts(
             settings.quickTexts,
             defaultTerminal: settings.defaultTerminalApp,
-            typingDelay: settings.typingDelay
+            typingDelay: settings.typingDelay,
+            appBarItems: settings.appBarItems
         )
 
         // Observe changes
@@ -55,7 +56,8 @@ final class ServiceContainer {
                 OnScreenKeyboardManager.shared.setQuickTexts(
                     settings.quickTexts,
                     defaultTerminal: settings.defaultTerminalApp,
-                    typingDelay: settings.typingDelay
+                    typingDelay: settings.typingDelay,
+                    appBarItems: settings.appBarItems
                 )
             }
             .store(in: &cancellables)
