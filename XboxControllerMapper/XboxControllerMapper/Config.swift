@@ -96,6 +96,11 @@ struct Config {
     /// Time after touch starts before movement is allowed (prevents tap-induced drift)
     /// Increased to 150ms to cover most tap durations
     static let touchpadTouchSettleInterval: TimeInterval = 0.15
+    /// Maximum duration for a touch to be recognized as a tap (for tap-to-click gesture)
+    static let touchpadTapMaxDuration: TimeInterval = 0.5
+    /// Maximum movement during a tap for it to still be recognized as a tap
+    /// DualSense touchpad has significant inherent jitter, so this needs to be fairly high
+    static let touchpadTapMaxMovement: Double = 0.35
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
     static let touchpadPanSensitivityMultiplier: Double = 600.0
     /// Minimum pan movement to start scrolling

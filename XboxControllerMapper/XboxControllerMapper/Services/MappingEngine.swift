@@ -336,7 +336,15 @@ class MappingEngine: ObservableObject {
                 self.processTouchpadGesture(gesture)
             }
         }
-            
+
+        // Touchpad tap handler (single tap = left click by default)
+        controllerService.onTouchpadTap = { [weak self] in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadTap()
+            }
+        }
+
         // Enable/Disable toggle sync
         $isEnabled
             .sink { [weak self] enabled in
@@ -967,6 +975,19 @@ class MappingEngine: ObservableObject {
         dy = settings.invertMouseY ? dy : -dy
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
+    }
+
+    /// Process touchpad tap gesture (single tap = left click)
+    nonisolated private func processTouchpadTap() {
+        state.lock.lock()
+        guard state.isEnabled else {
+            state.lock.unlock()
+            return
+        }
+        state.lock.unlock()
+
+        // Tap triggers left click
+        inputSimulator.pressKey(KeyCodeMapping.mouseLeftClick, modifiers: [])
     }
 
     /// Process touchpad movement for mouse control (DualSense only)
