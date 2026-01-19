@@ -202,6 +202,7 @@ class MappingEngine: ObservableObject {
         var longHoldTriggered: Set<ControllerButton> = []
         var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
         var onScreenKeyboardButton: ControllerButton? = nil  // Tracks which button is showing the on-screen keyboard
+        var onScreenKeyboardHoldMode: Bool = false  // Whether keyboard should hide on button release
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
@@ -550,7 +551,7 @@ class MappingEngine: ObservableObject {
         // Check for special actions
         let isOnScreenKeyboard = mapping.keyCode == KeyCodeMapping.showOnScreenKeyboard
         if isOnScreenKeyboard {
-            handleOnScreenKeyboardPressed(button)
+            handleOnScreenKeyboardPressed(button, holdMode: mapping.isHoldModifier)
             return
         }
 
@@ -604,28 +605,38 @@ class MappingEngine: ObservableObject {
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
     }
 
-    /// Handles on-screen keyboard button press (shows keyboard)
-    nonisolated private func handleOnScreenKeyboardPressed(_ button: ControllerButton) {
+    /// Handles on-screen keyboard button press
+    /// - holdMode: If true, shows keyboard while held. If false, toggles keyboard on/off.
+    nonisolated private func handleOnScreenKeyboardPressed(_ button: ControllerButton, holdMode: Bool) {
         state.lock.lock()
         state.onScreenKeyboardButton = button
+        state.onScreenKeyboardHoldMode = holdMode
         state.lock.unlock()
 
         DispatchQueue.main.async {
-            OnScreenKeyboardManager.shared.show()
+            if holdMode {
+                // Hold mode: always show on press
+                OnScreenKeyboardManager.shared.show()
+            } else {
+                // Toggle mode: toggle visibility on press
+                OnScreenKeyboardManager.shared.toggle()
+            }
         }
         inputLogService?.log(buttons: [button], type: .singlePress, action: "On-Screen Keyboard")
     }
 
-    /// Handles on-screen keyboard button release (hides keyboard)
+    /// Handles on-screen keyboard button release (hides keyboard only in hold mode)
     nonisolated private func handleOnScreenKeyboardReleased(_ button: ControllerButton) {
         state.lock.lock()
         let wasKeyboardButton = state.onScreenKeyboardButton == button
+        let wasHoldMode = state.onScreenKeyboardHoldMode
         if wasKeyboardButton {
             state.onScreenKeyboardButton = nil
         }
         state.lock.unlock()
 
-        if wasKeyboardButton {
+        // Only hide on release if in hold mode
+        if wasKeyboardButton && wasHoldMode {
             DispatchQueue.main.async {
                 OnScreenKeyboardManager.shared.hide()
             }

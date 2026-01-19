@@ -10,13 +10,18 @@ struct OnScreenKeyboardView: View {
     @State private var hoveredKey: CGKeyCode?
     @State private var pressedKey: CGKeyCode?
 
+    // Key size constants - increase for larger keyboard
+    private let keyWidth: CGFloat = 44
+    private let keyHeight: CGFloat = 40
+    private let keySpacing: CGFloat = 4
+
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             // Function key row (Esc + F1-F12)
             functionKeyRow
 
             // Main keyboard
-            VStack(spacing: 3) {
+            VStack(spacing: keySpacing) {
                 numberRow
                 qwertyRow
                 asdfRow
@@ -27,10 +32,10 @@ struct OnScreenKeyboardView: View {
             // Navigation keys
             navigationKeyRow
         }
-        .padding(12)
+        .padding(16)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
+        .cornerRadius(14)
+        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
     }
 
     // MARK: - Function Keys (F1-F12)
@@ -41,25 +46,25 @@ struct OnScreenKeyboardView: View {
     ]
 
     private var functionKeyRow: some View {
-        HStack(spacing: 3) {
-            clickableKey(CGKeyCode(kVK_Escape), label: "Esc", width: 40)
+        HStack(spacing: keySpacing) {
+            clickableKey(CGKeyCode(kVK_Escape), label: "Esc", width: 56)
 
-            Spacer().frame(width: 15)
+            Spacer().frame(width: 20)
 
             ForEach(0..<4, id: \.self) { i in
-                clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 35)
+                clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 50)
             }
 
-            Spacer().frame(width: 8)
+            Spacer().frame(width: 12)
 
             ForEach(4..<8, id: \.self) { i in
-                clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 35)
+                clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 50)
             }
 
-            Spacer().frame(width: 8)
+            Spacer().frame(width: 12)
 
             ForEach(8..<12, id: \.self) { i in
-                clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 35)
+                clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 50)
             }
         }
     }
@@ -67,26 +72,26 @@ struct OnScreenKeyboardView: View {
     // MARK: - Number Row
 
     private var numberRow: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: keySpacing) {
             clickableKey(CGKeyCode(kVK_ANSI_Grave), label: "`")
 
             ForEach(0..<10, id: \.self) { i in
-                let keyCode = CGKeyCode(i == 0 ? kVK_ANSI_0 : kVK_ANSI_1 + i - 1)
+                let keyCode = CGKeyCode(i == 9 ? kVK_ANSI_0 : kVK_ANSI_1 + i)
                 let displayNum = i == 9 ? "0" : "\(i + 1)"
                 clickableKey(keyCode, label: displayNum)
             }
 
             clickableKey(CGKeyCode(kVK_ANSI_Minus), label: "-")
             clickableKey(CGKeyCode(kVK_ANSI_Equal), label: "=")
-            clickableKey(CGKeyCode(kVK_Delete), label: "⌫", width: 50)
+            clickableKey(CGKeyCode(kVK_Delete), label: "⌫", width: 70)
         }
     }
 
     // MARK: - QWERTY Row
 
     private var qwertyRow: some View {
-        HStack(spacing: 3) {
-            clickableKey(CGKeyCode(kVK_Tab), label: "Tab", width: 45)
+        HStack(spacing: keySpacing) {
+            clickableKey(CGKeyCode(kVK_Tab), label: "Tab", width: 62)
 
             let qwertyKeys = ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"]
             let qwertyCodes: [Int] = [kVK_ANSI_Q, kVK_ANSI_W, kVK_ANSI_E, kVK_ANSI_R, kVK_ANSI_T, kVK_ANSI_Y, kVK_ANSI_U, kVK_ANSI_I, kVK_ANSI_O, kVK_ANSI_P]
@@ -97,15 +102,15 @@ struct OnScreenKeyboardView: View {
 
             clickableKey(CGKeyCode(kVK_ANSI_LeftBracket), label: "[")
             clickableKey(CGKeyCode(kVK_ANSI_RightBracket), label: "]")
-            clickableKey(CGKeyCode(kVK_ANSI_Backslash), label: "\\", width: 45)
+            clickableKey(CGKeyCode(kVK_ANSI_Backslash), label: "\\", width: 62)
         }
     }
 
     // MARK: - ASDF Row
 
     private var asdfRow: some View {
-        HStack(spacing: 3) {
-            clickableKey(CGKeyCode(kVK_CapsLock), label: "Caps", width: 55)
+        HStack(spacing: keySpacing) {
+            clickableKey(CGKeyCode(kVK_CapsLock), label: "Caps", width: 74)
 
             let asdfKeys = ["A", "S", "D", "F", "G", "H", "J", "K", "L"]
             let asdfCodes: [Int] = [kVK_ANSI_A, kVK_ANSI_S, kVK_ANSI_D, kVK_ANSI_F, kVK_ANSI_G, kVK_ANSI_H, kVK_ANSI_J, kVK_ANSI_K, kVK_ANSI_L]
@@ -116,15 +121,15 @@ struct OnScreenKeyboardView: View {
 
             clickableKey(CGKeyCode(kVK_ANSI_Semicolon), label: ";")
             clickableKey(CGKeyCode(kVK_ANSI_Quote), label: "'")
-            clickableKey(CGKeyCode(kVK_Return), label: "Return", width: 60)
+            clickableKey(CGKeyCode(kVK_Return), label: "Return", width: 82)
         }
     }
 
     // MARK: - ZXCV Row
 
     private var zxcvRow: some View {
-        HStack(spacing: 3) {
-            modifierKey(label: "⇧ Shift", width: 70, modifier: \.shift)
+        HStack(spacing: keySpacing) {
+            modifierKey(label: "⇧ Shift", width: 92, modifier: \.shift)
 
             let zxcvKeys = ["Z", "X", "C", "V", "B", "N", "M"]
             let zxcvCodes: [Int] = [kVK_ANSI_Z, kVK_ANSI_X, kVK_ANSI_C, kVK_ANSI_V, kVK_ANSI_B, kVK_ANSI_N, kVK_ANSI_M]
@@ -136,30 +141,30 @@ struct OnScreenKeyboardView: View {
             clickableKey(CGKeyCode(kVK_ANSI_Comma), label: ",")
             clickableKey(CGKeyCode(kVK_ANSI_Period), label: ".")
             clickableKey(CGKeyCode(kVK_ANSI_Slash), label: "/")
-            modifierKey(label: "⇧ Shift", width: 70, modifier: \.shift)
+            modifierKey(label: "⇧ Shift", width: 92, modifier: \.shift)
         }
     }
 
     // MARK: - Bottom Row
 
     private var bottomRow: some View {
-        HStack(spacing: 3) {
-            modifierKey(label: "⌃", width: 35, modifier: \.control)
-            modifierKey(label: "⌥", width: 35, modifier: \.option)
-            modifierKey(label: "⌘", width: 45, modifier: \.command)
+        HStack(spacing: keySpacing) {
+            modifierKey(label: "⌃", width: 50, modifier: \.control)
+            modifierKey(label: "⌥", width: 50, modifier: \.option)
+            modifierKey(label: "⌘", width: 60, modifier: \.command)
 
-            clickableKey(CGKeyCode(kVK_Space), label: "Space", width: 180)
+            clickableKey(CGKeyCode(kVK_Space), label: "Space", width: 240)
 
-            modifierKey(label: "⌘", width: 45, modifier: \.command)
-            modifierKey(label: "⌥", width: 35, modifier: \.option)
+            modifierKey(label: "⌘", width: 60, modifier: \.command)
+            modifierKey(label: "⌥", width: 50, modifier: \.option)
 
             // Arrow keys cluster
-            VStack(spacing: 1) {
-                clickableKey(CGKeyCode(kVK_UpArrow), label: "↑", width: 28, height: 14)
-                HStack(spacing: 1) {
-                    clickableKey(CGKeyCode(kVK_LeftArrow), label: "←", width: 28, height: 14)
-                    clickableKey(CGKeyCode(kVK_DownArrow), label: "↓", width: 28, height: 14)
-                    clickableKey(CGKeyCode(kVK_RightArrow), label: "→", width: 28, height: 14)
+            VStack(spacing: 2) {
+                clickableKey(CGKeyCode(kVK_UpArrow), label: "↑", width: 40, height: 18)
+                HStack(spacing: 2) {
+                    clickableKey(CGKeyCode(kVK_LeftArrow), label: "←", width: 40, height: 18)
+                    clickableKey(CGKeyCode(kVK_DownArrow), label: "↓", width: 40, height: 18)
+                    clickableKey(CGKeyCode(kVK_RightArrow), label: "→", width: 40, height: 18)
                 }
             }
         }
@@ -168,26 +173,21 @@ struct OnScreenKeyboardView: View {
     // MARK: - Navigation Keys
 
     private var navigationKeyRow: some View {
-        HStack(spacing: 3) {
-            clickableKey(CGKeyCode(kVK_Home), label: "Home", width: 40)
-            clickableKey(CGKeyCode(kVK_End), label: "End", width: 40)
-            clickableKey(CGKeyCode(kVK_PageUp), label: "PgUp", width: 40)
-            clickableKey(CGKeyCode(kVK_PageDown), label: "PgDn", width: 40)
-            clickableKey(CGKeyCode(kVK_ForwardDelete), label: "Del", width: 40)
-
-            Spacer().frame(width: 15)
-
-            // Mouse click options
-            clickableKey(KeyCodeMapping.mouseLeftClick, label: "L Click", width: 50)
-            clickableKey(KeyCodeMapping.mouseRightClick, label: "R Click", width: 50)
-            clickableKey(KeyCodeMapping.mouseMiddleClick, label: "M Click", width: 50)
+        HStack(spacing: keySpacing) {
+            clickableKey(CGKeyCode(kVK_Home), label: "Home", width: 54)
+            clickableKey(CGKeyCode(kVK_End), label: "End", width: 54)
+            clickableKey(CGKeyCode(kVK_PageUp), label: "PgUp", width: 54)
+            clickableKey(CGKeyCode(kVK_PageDown), label: "PgDn", width: 54)
+            clickableKey(CGKeyCode(kVK_ForwardDelete), label: "Del", width: 54)
         }
     }
 
     // MARK: - Key Button
 
     @ViewBuilder
-    private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat = 30, height: CGFloat = 28) -> some View {
+    private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat? = nil, height: CGFloat? = nil) -> some View {
+        let actualWidth = width ?? keyWidth
+        let actualHeight = height ?? keyHeight
         let isHovered = hoveredKey == keyCode
         let isPressed = pressedKey == keyCode
 
@@ -203,12 +203,12 @@ struct OnScreenKeyboardView: View {
         } label: {
             Text(label)
                 .font(.system(size: fontSize(for: label), weight: .medium))
-                .frame(width: width, height: height)
+                .frame(width: actualWidth, height: actualHeight)
                 .background(keyBackground(isHovered: isHovered, isPressed: isPressed))
                 .foregroundColor(isPressed ? .white : .primary)
-                .cornerRadius(4)
+                .cornerRadius(5)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: 5)
                         .stroke(keyBorderColor(isHovered: isHovered, isPressed: isPressed), lineWidth: 1)
                 )
         }
@@ -230,12 +230,12 @@ struct OnScreenKeyboardView: View {
         } label: {
             Text(label)
                 .font(.system(size: fontSize(for: label), weight: .medium))
-                .frame(width: width, height: 28)
+                .frame(width: width, height: keyHeight)
                 .background(isActive ? Color.accentColor : (isHovered ? Color.accentColor.opacity(0.3) : Color(nsColor: .controlBackgroundColor)))
                 .foregroundColor(isActive ? .white : .primary)
-                .cornerRadius(4)
+                .cornerRadius(5)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: 5)
                         .stroke(isActive ? Color.accentColor : (isHovered ? Color.accentColor.opacity(0.5) : Color.gray.opacity(0.3)), lineWidth: isActive ? 2 : 1)
                 )
         }
@@ -258,9 +258,9 @@ struct OnScreenKeyboardView: View {
     // MARK: - Helpers
 
     private func fontSize(for label: String) -> CGFloat {
-        if label.count > 4 { return 8 }
-        if label.count > 2 { return 9 }
-        return 11
+        if label.count > 4 { return 11 }
+        if label.count > 2 { return 12 }
+        return 14
     }
 
     private func keyBackground(isHovered: Bool, isPressed: Bool) -> Color {

@@ -9,7 +9,7 @@ class OnScreenKeyboardManager: ObservableObject {
 
     @Published private(set) var isVisible = false
 
-    private var window: NSWindow?
+    private var panel: NSPanel?
     private var inputSimulator: InputSimulatorProtocol?
 
     private init() {}
@@ -21,8 +21,8 @@ class OnScreenKeyboardManager: ObservableObject {
 
     /// Shows the on-screen keyboard window
     func show() {
-        guard window == nil else {
-            window?.orderFront(nil)
+        guard panel == nil else {
+            panel?.orderFrontRegardless()
             isVisible = true
             return
         }
@@ -34,38 +34,41 @@ class OnScreenKeyboardManager: ObservableObject {
         let hostingView = NSHostingView(rootView: keyboardView)
         hostingView.setFrameSize(hostingView.fittingSize)
 
-        let window = NSWindow(
+        // Use NSPanel with nonactivatingPanel to avoid stealing focus
+        let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: hostingView.fittingSize),
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
-        window.contentView = hostingView
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.level = .floating
-        window.hasShadow = true
-        window.isMovableByWindowBackground = true
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.contentView = hostingView
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.level = .floating
+        panel.hasShadow = true
+        panel.isMovableByWindowBackground = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.hidesOnDeactivate = false  // Keep visible when app loses focus
+        panel.becomesKeyOnlyIfNeeded = true
 
-        // Center window on screen
+        // Center panel on screen
         if let screen = NSScreen.main {
             let screenFrame = screen.visibleFrame
-            let windowSize = window.frame.size
-            let x = screenFrame.midX - windowSize.width / 2
+            let panelSize = panel.frame.size
+            let x = screenFrame.midX - panelSize.width / 2
             let y = screenFrame.minY + 100  // Position near bottom of screen
-            window.setFrameOrigin(NSPoint(x: x, y: y))
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
 
-        window.orderFront(nil)
-        self.window = window
+        panel.orderFrontRegardless()
+        self.panel = panel
         isVisible = true
     }
 
     /// Hides the on-screen keyboard window
     func hide() {
-        window?.orderOut(nil)
+        panel?.orderOut(nil)
         isVisible = false
     }
 
