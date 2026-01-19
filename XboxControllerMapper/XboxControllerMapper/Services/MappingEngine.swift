@@ -1128,6 +1128,19 @@ class MappingEngine: ObservableObject {
 
         let phase: CGScrollPhase = wasActive ? .changed : .began
 
+        // Always send .began event when gesture starts, even with zero delta
+        // Chrome requires seeing .began to initialize its gesture recognizer
+        if phase == .began {
+            inputSimulator.scroll(
+                dx: 0,
+                dy: 0,
+                phase: .began,
+                momentumPhase: nil,
+                isContinuous: true,
+                flags: []
+            )
+        }
+
         let panMagnitude = Double(hypot(smoothedCenter.x, smoothedCenter.y))
         guard panMagnitude > Config.touchpadPanDeadzone else {
             let now = CFAbsoluteTimeGetCurrent()
@@ -1189,10 +1202,11 @@ class MappingEngine: ObservableObject {
         state.touchpadScrollResidualY = residualY
         state.lock.unlock()
         guard abs(sendDx) >= 1 || abs(sendDy) >= 1 else { return }
+        // Always use .changed here since .began was already sent at gesture start
         inputSimulator.scroll(
             dx: CGFloat(sendDx),
             dy: CGFloat(sendDy),
-            phase: phase,
+            phase: .changed,
             momentumPhase: nil,
             isContinuous: true,
             flags: []
