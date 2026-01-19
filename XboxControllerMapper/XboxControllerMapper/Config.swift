@@ -101,6 +101,8 @@ struct Config {
     /// Maximum movement during a tap for it to still be recognized as a tap
     /// DualSense touchpad has significant inherent jitter, so this needs to be fairly high
     static let touchpadTapMaxMovement: Double = 0.35
+    /// Duration for a touch to trigger long tap (uses same threshold as button long hold)
+    static let touchpadLongTapThreshold: TimeInterval = 0.5
     /// Maximum movement for secondary finger in two-finger tap (more lenient due to touchpad noise)
     /// DualSense secondary finger tracking is very noisy, needs high threshold
     static let touchpadTwoFingerTapMaxMovement: Double = 0.9

@@ -365,6 +365,22 @@ class MappingEngine: ObservableObject {
             }
         }
 
+        // Touchpad long tap handler (touch held without moving)
+        controllerService.onTouchpadLongTap = { [weak self] in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadLongTap()
+            }
+        }
+
+        // Touchpad two-finger long tap handler
+        controllerService.onTouchpadTwoFingerLongTap = { [weak self] in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadTwoFingerLongTap()
+            }
+        }
+
         // Enable/Disable toggle sync
         $isEnabled
             .sink { [weak self] enabled in
@@ -1076,6 +1092,44 @@ class MappingEngine: ObservableObject {
         // No double-tap configured, execute immediately
         inputSimulator.executeMapping(mapping)
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+    }
+
+    /// Process touchpad long tap gesture (executes long hold mapping)
+    nonisolated private func processTouchpadLongTap() {
+        let button = ControllerButton.touchpadTap
+        processLongTapGesture(button)
+    }
+
+    /// Process touchpad two-finger long tap gesture (executes long hold mapping)
+    nonisolated private func processTouchpadTwoFingerLongTap() {
+        let button = ControllerButton.touchpadTwoFingerTap
+        processLongTapGesture(button)
+    }
+
+    /// Common handler for long tap gestures
+    nonisolated private func processLongTapGesture(_ button: ControllerButton) {
+        state.lock.lock()
+        guard state.isEnabled, let profile = state.activeProfile else {
+            state.lock.unlock()
+            return
+        }
+        // Cancel any pending single tap for this button
+        state.pendingSingleTap[button]?.cancel()
+        state.pendingSingleTap.removeValue(forKey: button)
+        state.lastTapTime.removeValue(forKey: button)
+        state.lock.unlock()
+
+        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
+            return
+        }
+
+        // Execute long hold mapping if configured, otherwise execute normal mapping
+        if let longHoldMapping = mapping.longHoldMapping, !longHoldMapping.isEmpty {
+            mappingExecutor.executeLongHold(longHoldMapping, for: button)
+        } else {
+            inputSimulator.executeMapping(mapping)
+            inputLogService?.log(buttons: [button], type: .longPress, action: mapping.displayString)
+        }
     }
 
     /// Process touchpad movement for mouse control (DualSense only)

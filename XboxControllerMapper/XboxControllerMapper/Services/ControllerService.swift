@@ -116,6 +116,10 @@ private final class ControllerStorage: @unchecked Sendable {
     var onTouchpadGesture: ((TouchpadGesture) -> Void)?
     var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
     var onTouchpadTwoFingerTap: (() -> Void)?  // Two-finger tap or click (right-click)
+    var onTouchpadLongTap: (() -> Void)?  // Long tap (touch held without moving)
+    var onTouchpadTwoFingerLongTap: (() -> Void)?  // Two-finger long tap
+    var touchpadLongTapTimer: DispatchWorkItem?  // Timer for long tap detection
+    var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
 }
 
 /// Service for managing Xbox controller connection and input
@@ -322,6 +326,14 @@ class ControllerService: ObservableObject {
     var onTouchpadTwoFingerTap: (() -> Void)? {
         get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadTwoFingerTap }
         set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadTwoFingerTap = newValue }
+    }
+    var onTouchpadLongTap: (() -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadLongTap }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadLongTap = newValue }
+    }
+    var onTouchpadTwoFingerLongTap: (() -> Void)? {
+        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadTwoFingerLongTap }
+        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadTwoFingerLongTap = newValue }
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -1664,24 +1676,57 @@ class ControllerService: ObservableObject {
                 if storage.touchpadClickArmed {
                     storage.touchpadClickStartPosition = newPosition
                 }
+                // Cancel any existing long tap timer and reset state
+                storage.touchpadLongTapTimer?.cancel()
+                storage.touchpadLongTapTimer = nil
+                storage.touchpadLongTapFired = false
+
+                // Start long tap timer
+                let longTapCallback = secondaryFresh ? storage.onTouchpadTwoFingerLongTap : storage.onTouchpadLongTap
+                if longTapCallback != nil {
+                    let workItem = DispatchWorkItem { [weak self] in
+                        guard let self = self else { return }
+                        self.storage.lock.lock()
+                        // Only fire if finger hasn't moved too much
+                        let distance = self.storage.touchpadMaxDistanceFromStart
+                        let stillTouching = self.storage.isTouchpadTouching
+                        let isTwoFinger = self.storage.touchpadWasTwoFingerDuringTouch
+                        let callback = isTwoFinger ? self.storage.onTouchpadTwoFingerLongTap : self.storage.onTouchpadLongTap
+                        if stillTouching && distance < Config.touchpadTapMaxMovement {
+                            self.storage.touchpadLongTapFired = true
+                            self.storage.lock.unlock()
+                            self.controllerQueue.async { callback?() }
+                        } else {
+                            self.storage.lock.unlock()
+                        }
+                    }
+                    storage.touchpadLongTapTimer = workItem
+                    controllerQueue.asyncAfter(deadline: .now() + Config.touchpadLongTapThreshold, execute: workItem)
+                }
                 storage.lock.unlock()
             }
         } else {
             // Finger lifted - discard any pending delta (it was likely lift artifact)
+            // Cancel long tap timer
+            storage.touchpadLongTapTimer?.cancel()
+            storage.touchpadLongTapTimer = nil
+            let longTapFired = storage.touchpadLongTapFired
+
             // Check for tap: short touch duration with minimal movement
             // Use maxDistanceFromStart instead of final position (which may be corrupted by lift artifacts)
             let touchDuration = now - storage.touchpadTouchStartTime
             let touchDistance = storage.touchpadMaxDistanceFromStart
             let wasTwoFingerDuringTouch = storage.touchpadWasTwoFingerDuringTouch
 
-            // Single-finger tap: short duration, minimal movement, and NOT a two-finger gesture
+            // Single-finger tap: short duration, minimal movement, NOT a two-finger gesture, and long tap not fired
             let isSingleTap = wasTouching &&
                 !wasTwoFingerDuringTouch &&
+                !longTapFired &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement
             let tapCallback = isSingleTap ? storage.onTouchpadTap : nil
 
-            // Two-finger tap: both fingers had short duration and minimal movement
+            // Two-finger tap: both fingers had short duration and minimal movement, and long tap not fired
             // Secondary finger uses more lenient threshold due to touchpad noise
             // Also check that there wasn't significant gesture (scroll/pinch) movement
             let secondaryTouchDuration = now - storage.touchpadSecondaryTouchStartTime
@@ -1689,6 +1734,7 @@ class ControllerService: ObservableObject {
             let gestureDistance = storage.touchpadTwoFingerGestureDistance
             let pinchDistance = storage.touchpadTwoFingerPinchDistance
             let isTwoFingerTap = wasTwoFingerDuringTouch &&
+                !longTapFired &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement &&
                 secondaryTouchDuration < Config.touchpadTapMaxDuration &&
@@ -1708,11 +1754,12 @@ class ControllerService: ObservableObject {
             storage.pendingTouchpadDelta = nil
             storage.touchpadClickArmed = false
             storage.touchpadMovementBlocked = false
+            storage.touchpadLongTapFired = false
             let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
             let isTwoFinger = storage.isTouchpadTouching && isSecondaryTouching
             storage.lock.unlock()
 
-            // Fire tap callback if it was a tap
+            // Fire tap callback if it was a tap (not if long tap was fired)
             tapCallback?()
             twoFingerTapCallback?()
 
