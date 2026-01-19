@@ -1010,40 +1010,70 @@ class MappingEngine: ObservableObject {
         inputSimulator.moveMouse(dx: dx, dy: dy)
     }
 
-    /// Process touchpad tap gesture (uses user mapping, defaults to left click)
+    /// Process touchpad tap gesture (uses user mapping, supports double-tap)
     nonisolated private func processTouchpadTap() {
-        state.lock.lock()
-        guard state.isEnabled, let profile = state.activeProfile else {
-            state.lock.unlock()
-            return
-        }
-        state.lock.unlock()
-
         let button = ControllerButton.touchpadTap
-        guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
-            inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
-            return
-        }
-
-        inputSimulator.executeMapping(mapping)
-        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+        processTapGesture(button)
     }
 
-    /// Process touchpad two-finger tap gesture (uses user mapping, defaults to right click)
+    /// Process touchpad two-finger tap gesture (uses user mapping, supports double-tap)
     nonisolated private func processTouchpadTwoFingerTap() {
+        let button = ControllerButton.touchpadTwoFingerTap
+        processTapGesture(button)
+    }
+
+    /// Common handler for tap gestures with double-tap support
+    nonisolated private func processTapGesture(_ button: ControllerButton) {
         state.lock.lock()
         guard state.isEnabled, let profile = state.activeProfile else {
             state.lock.unlock()
             return
         }
+        let lastTap = state.lastTapTime[button]
         state.lock.unlock()
 
-        let button = ControllerButton.touchpadTwoFingerTap
         guard let mapping = profile.buttonMappings[button] ?? defaultMapping(for: button) else {
             inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
             return
         }
 
+        // Check for double-tap
+        if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
+            let now = Date()
+            if let lastTap = lastTap, now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
+                // Double-tap detected
+                state.lock.lock()
+                state.lastTapTime.removeValue(forKey: button)
+                state.pendingSingleTap[button]?.cancel()
+                state.pendingSingleTap.removeValue(forKey: button)
+                state.lock.unlock()
+
+                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
+                return
+            }
+
+            // Record tap time and schedule delayed single-tap execution
+            state.lock.lock()
+            state.lastTapTime[button] = now
+            state.pendingSingleTap[button]?.cancel()
+
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                self.state.lock.lock()
+                self.state.pendingSingleTap.removeValue(forKey: button)
+                self.state.lock.unlock()
+
+                self.inputSimulator.executeMapping(mapping)
+                self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+            }
+            state.pendingSingleTap[button] = workItem
+            state.lock.unlock()
+
+            inputQueue.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
+            return
+        }
+
+        // No double-tap configured, execute immediately
         inputSimulator.executeMapping(mapping)
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
     }
