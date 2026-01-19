@@ -1221,7 +1221,7 @@ class MappingEngine: ObservableObject {
         let ratio = pinchMagnitude / max(panMagnitude, 0.001)
 
         // Debug logging
-        print("[PINCH] pinch=\(String(format: "%.4f", pinchMagnitude)) pan=\(String(format: "%.4f", panMagnitude)) ratio=\(String(format: "%.2f", ratio)) (need pinch>\(Config.touchpadPinchDeadzone), ratio>\(Config.touchpadPinchVsPanRatio))")
+        NSLog("[PINCH] pinch=%.4f pan=%.4f ratio=%.2f (need pinch>%.2f, ratio>%.2f)", pinchMagnitude, panMagnitude, ratio, Config.touchpadPinchDeadzone, Config.touchpadPinchVsPanRatio)
 
         // Determine if pinch is dominant over pan
         let isPinchGesture = pinchMagnitude > Config.touchpadPinchDeadzone &&
