@@ -1419,9 +1419,13 @@ class ControllerService: ObservableObject {
 
                 // Skip first 2 frames after touch to let position settle
                 // This prevents spurious movement when finger first contacts touchpad
+                // Update touchStartPosition so the settle check uses the stable position
+                // (the initial touch position from hardware can be noisy/incorrect)
+                // NOTE: Do NOT update touchpadTouchStartTime - keep counting from original touch
                 if storage.touchpadFramesSinceTouch <= 2 {
                     storage.touchpadPosition = newPosition
                     storage.touchpadPreviousPosition = newPosition
+                    storage.touchpadTouchStartPosition = newPosition
                     storage.lock.unlock()
                     return
                 }
