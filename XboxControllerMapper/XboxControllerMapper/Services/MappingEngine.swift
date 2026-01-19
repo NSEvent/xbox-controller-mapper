@@ -1237,13 +1237,17 @@ class MappingEngine: ObservableObject {
             if shouldZoomIn {
                 state.touchpadPinchAccumulator = 0
                 state.lock.unlock()
-                // Cmd+Plus (or Cmd+Equals which is same key)
-                inputSimulator.pressKey(0x18, modifiers: .maskCommand)  // 0x18 = '=' key (plus without shift)
+                // Cmd+Plus (or Cmd+Equals which is same key) - send multiple for faster zoom
+                for _ in 0..<3 {
+                    inputSimulator.pressKey(0x18, modifiers: .maskCommand)  // 0x18 = '=' key (plus without shift)
+                }
             } else if shouldZoomOut {
                 state.touchpadPinchAccumulator = 0
                 state.lock.unlock()
-                // Cmd+Minus
-                inputSimulator.pressKey(0x1B, modifiers: .maskCommand)  // 0x1B = '-' key
+                // Cmd+Minus - send multiple for faster zoom
+                for _ in 0..<3 {
+                    inputSimulator.pressKey(0x1B, modifiers: .maskCommand)  // 0x1B = '-' key
+                }
             } else {
                 state.lock.unlock()
             }
