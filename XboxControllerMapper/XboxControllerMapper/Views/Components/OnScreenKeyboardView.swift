@@ -75,18 +75,23 @@ struct OnScreenKeyboardView: View {
 
     // MARK: - App Bar Section
 
+    // Fixed width for app bar to ensure proper layout calculation
+    // ~1.1x keyboard width, fits ~9 icons per row with 64px icons + padding
+    private let appBarWidth: CGFloat = 820
+
     private var appBarSection: some View {
-        HStack(spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 8)], spacing: 8) {
             ForEach(appBarItems) { item in
                 appBarButton(item)
             }
         }
+        .frame(width: appBarWidth)
     }
 
     private func appBarButton(_ item: AppBarItem) -> some View {
         let isHovered = hoveredAppBarItemId == item.id
         let isPressed = pressedAppBarItemId == item.id
-        let iconSize: CGFloat = 48
+        let iconSize: CGFloat = 64
 
         return Button {
             pressedAppBarItemId = item.id
