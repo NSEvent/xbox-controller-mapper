@@ -109,7 +109,7 @@ struct Config {
     static let touchpadTwoFingerTapMaxGestureDistance: Double = 0.05
     /// Minimum pinch (distance change) to trigger zoom gesture
     /// Higher = requires more deliberate pinch to trigger zoom
-    static let touchpadPinchDeadzone: Double = 0.03
+    static let touchpadPinchDeadzone: Double = 0.05
     /// Sensitivity multiplier for pinch-to-zoom (distance delta -> scroll amount)
     static let touchpadPinchSensitivityMultiplier: Double = 12000.0
     /// Ratio threshold: if pinch/pan ratio exceeds this, treat as pinch gesture
