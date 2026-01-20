@@ -19,6 +19,10 @@ enum VariableExpander {
         ("date.month.name", "Month name", "January"),
         ("date.day", "Day (01-31)", "15"),
         ("date.weekday", "Day of week", "Monday"),
+        ("date.yesterday", "Yesterday's date", "2024-01-14"),
+        ("date.tomorrow", "Tomorrow's date", "2024-01-16"),
+        ("date.week", "Week number (1-52)", "3"),
+        ("date.quarter", "Quarter (Q1-Q4)", "Q1"),
 
         // Time formats
         ("time", "24-hour time", "14:30:45"),
@@ -39,6 +43,19 @@ enum VariableExpander {
         ("selection", "Selected text", "(selected text)"),
         ("hostname", "Computer name", "My-Mac"),
         ("username", "Current user", NSUserName()),
+
+        // App context
+        ("app", "Frontmost app name", "Safari"),
+        ("app.bundle", "Frontmost app bundle ID", "com.apple.Safari"),
+
+        // File paths
+        ("home", "Home directory", "~"),
+        ("desktop", "Desktop path", "~/Desktop"),
+        ("downloads", "Downloads path", "~/Downloads"),
+
+        // Formatting
+        ("newline", "Line break", "\\n"),
+        ("tab", "Tab character", "\\t"),
 
         // Utility
         ("uuid", "Random UUID", "550e8400-e29b-41d4-..."),
@@ -128,6 +145,25 @@ enum VariableExpander {
             formatter.dateFormat = "EEEE"
             return formatter.string(from: now)
 
+        case "date.yesterday":
+            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: now) ?? now
+            formatter.dateFormat = "yyyy-MM-dd"
+            return formatter.string(from: yesterday)
+
+        case "date.tomorrow":
+            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
+            formatter.dateFormat = "yyyy-MM-dd"
+            return formatter.string(from: tomorrow)
+
+        case "date.week":
+            let weekOfYear = Calendar.current.component(.weekOfYear, from: now)
+            return String(weekOfYear)
+
+        case "date.quarter":
+            let month = Calendar.current.component(.month, from: now)
+            let quarter = (month - 1) / 3 + 1
+            return "Q\(quarter)"
+
         // Time formats
         case "time":
             formatter.dateFormat = "HH:mm:ss"
@@ -181,6 +217,30 @@ enum VariableExpander {
 
         case "username":
             return NSUserName()
+
+        // App context
+        case "app":
+            return NSWorkspace.shared.frontmostApplication?.localizedName ?? ""
+
+        case "app.bundle":
+            return NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+
+        // File paths
+        case "home":
+            return FileManager.default.homeDirectoryForCurrentUser.path
+
+        case "desktop":
+            return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop").path
+
+        case "downloads":
+            return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads").path
+
+        // Formatting
+        case "newline":
+            return "\n"
+
+        case "tab":
+            return "\t"
 
         // Utility variables
         case "uuid":
