@@ -231,54 +231,42 @@ struct ContentView: View {
     // MARK: - Chords Tab
 
     private var chordsTab: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Chord Mappings")
-                    .font(.headline)
-
-                Spacer()
-
+        Form {
+            Section {
                 Button(action: { showingChordSheet = true }) {
                     Label("Add Chord", systemImage: "plus")
                 }
-            }
-            .padding(.horizontal)
-            .padding(.top)
 
-            if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
-                List {
-                    ForEach(profile.chordMappings) { chord in
-                        ChordRow(chord: chord, onEdit: {
-                            editingChord = chord
-                        }, onDelete: {
-                            profileManager.removeChord(chord)
-                        })
+                if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
+                    List {
+                        ForEach(profile.chordMappings) { chord in
+                            ChordRow(chord: chord, onEdit: {
+                                editingChord = chord
+                            }, onDelete: {
+                                profileManager.removeChord(chord)
+                            })
+                        }
+                        .onMove { source, destination in
+                            profileManager.moveChords(from: source, to: destination)
+                        }
                     }
-                    .onMove { source, destination in
-                        profileManager.moveChords(from: source, to: destination)
-                    }
-                }
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "keyboard")
-                        .font(.system(size: 40))
+                    .listStyle(.plain)
+                    .frame(height: CGFloat(profile.chordMappings.count) * 36)
+                    .scrollContentBackground(.hidden)
+                    .scrollDisabled(true)
+                } else {
+                    Text("No chords configured")
                         .foregroundColor(.secondary)
-
-                    Text("No Chords Configured")
-                        .font(.headline)
-
-                    Text("Chords let you map multiple button presses to a single action")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-
-                    Button("Add Chord") {
-                        showingChordSheet = true
-                    }
+                        .italic()
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } header: {
+                Text("Chord Mappings")
+            } footer: {
+                Text("Chords let you map multiple button presses to a single action.")
             }
         }
+        .formStyle(.grouped)
+        .padding()
     }
 
     // MARK: - Joystick Settings Tab
