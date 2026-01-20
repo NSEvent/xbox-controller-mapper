@@ -23,6 +23,9 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var showSnippetSuggestions = false
     @State private var showCommandSuggestions = false
     @State private var showEditSuggestions = false
+    @State private var snippetSuggestionIndex = 0
+    @State private var commandSuggestionIndex = 0
+    @State private var editSuggestionIndex = 0
 
     private var textSnippets: [QuickText] {
         profileManager.onScreenKeyboardSettings.quickTexts.filter { !$0.isTerminalCommand }
@@ -207,17 +210,72 @@ struct OnScreenKeyboardSettingsView: View {
         return !filteredVariables(for: prefix).isEmpty
     }
 
+    /// Returns the count of filtered variables for the given text
+    private func suggestionCount(for text: String) -> Int {
+        guard let prefix = variablePrefix(in: text) else { return 0 }
+        return filteredVariables(for: prefix).count
+    }
+
+    /// Computed suggestion counts for each field
+    private var snippetSuggestionCount: Int {
+        suggestionCount(for: newTextSnippet)
+    }
+
+    private var commandSuggestionCount: Int {
+        suggestionCount(for: newTerminalCommand)
+    }
+
+    private var editSuggestionCount: Int {
+        suggestionCount(for: editText)
+    }
+
+    /// Select the currently highlighted suggestion for snippet field
+    private func selectSnippetSuggestion() {
+        guard let prefix = variablePrefix(in: newTextSnippet) else { return }
+        let matches = filteredVariables(for: prefix)
+        guard snippetSuggestionIndex < matches.count else { return }
+        insertVariable(matches[snippetSuggestionIndex].name, into: &newTextSnippet)
+        showSnippetSuggestions = false
+        snippetSuggestionIndex = 0
+    }
+
+    /// Select the currently highlighted suggestion for command field
+    private func selectCommandSuggestion() {
+        guard let prefix = variablePrefix(in: newTerminalCommand) else { return }
+        let matches = filteredVariables(for: prefix)
+        guard commandSuggestionIndex < matches.count else { return }
+        insertVariable(matches[commandSuggestionIndex].name, into: &newTerminalCommand)
+        showCommandSuggestions = false
+        commandSuggestionIndex = 0
+    }
+
+    /// Select the currently highlighted suggestion for edit field
+    private func selectEditSuggestion() {
+        guard let prefix = variablePrefix(in: editText) else { return }
+        let matches = filteredVariables(for: prefix)
+        guard editSuggestionIndex < matches.count else { return }
+        insertVariable(matches[editSuggestionIndex].name, into: &editText)
+        showEditSuggestions = false
+        editSuggestionIndex = 0
+    }
+
     /// Variable suggestion dropdown view
     @ViewBuilder
-    private func variableSuggestionsView(for text: Binding<String>, showSuggestions: Binding<Bool>) -> some View {
+    private func variableSuggestionsView(
+        for text: Binding<String>,
+        showSuggestions: Binding<Bool>,
+        selectedIndex: Binding<Int>
+    ) -> some View {
         if let prefix = variablePrefix(in: text.wrappedValue) {
             let matches = filteredVariables(for: prefix)
             if !matches.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(matches, id: \.name) { variable in
+                    ForEach(Array(matches.enumerated()), id: \.element.name) { index, variable in
+                        let isSelected = index == selectedIndex.wrappedValue
                         Button {
                             insertVariable(variable.name, into: &text.wrappedValue)
                             showSuggestions.wrappedValue = false
+                            selectedIndex.wrappedValue = 0
                         } label: {
                             HStack {
                                 Text("{\(variable.name)}")
@@ -228,14 +286,15 @@ struct OnScreenKeyboardSettingsView: View {
 
                                 Text(variable.description)
                                     .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .background(Color(nsColor: .controlBackgroundColor))
+                        .background(isSelected ? Color.accentColor : Color(nsColor: .controlBackgroundColor))
+                        .foregroundColor(isSelected ? .white : .primary)
                     }
                 }
                 .background(Color(nsColor: .windowBackgroundColor))
@@ -429,16 +488,28 @@ struct OnScreenKeyboardSettingsView: View {
             // Add new text snippet with autocomplete
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    TextField("Enter text snippet...", text: $newTextSnippet)
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: newTextSnippet) { _, newValue in
-                            showSnippetSuggestions = shouldShowSuggestions(for: newValue)
-                        }
-                        .onSubmit {
+                    VariableTextField(
+                        text: $newTextSnippet,
+                        placeholder: "Enter text snippet...",
+                        showingSuggestions: showSnippetSuggestions,
+                        suggestionCount: snippetSuggestionCount,
+                        selectedSuggestionIndex: $snippetSuggestionIndex,
+                        onSelectSuggestion: {
+                            selectSnippetSuggestion()
+                        },
+                        onSubmit: {
                             if !showSnippetSuggestions {
                                 addTextSnippet()
                             }
                         }
+                    )
+                    .onChange(of: newTextSnippet) { _, newValue in
+                        let shouldShow = shouldShowSuggestions(for: newValue)
+                        if shouldShow && !showSnippetSuggestions {
+                            snippetSuggestionIndex = 0
+                        }
+                        showSnippetSuggestions = shouldShow
+                    }
 
                     Button("Add") {
                         addTextSnippet()
@@ -447,7 +518,7 @@ struct OnScreenKeyboardSettingsView: View {
                 }
 
                 if showSnippetSuggestions {
-                    variableSuggestionsView(for: $newTextSnippet, showSuggestions: $showSnippetSuggestions)
+                    variableSuggestionsView(for: $newTextSnippet, showSuggestions: $showSnippetSuggestions, selectedIndex: $snippetSuggestionIndex)
                 }
             }
 
@@ -495,16 +566,28 @@ struct OnScreenKeyboardSettingsView: View {
             // Add new terminal command with autocomplete
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    TextField("Enter terminal command...", text: $newTerminalCommand)
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: newTerminalCommand) { _, newValue in
-                            showCommandSuggestions = shouldShowSuggestions(for: newValue)
-                        }
-                        .onSubmit {
+                    VariableTextField(
+                        text: $newTerminalCommand,
+                        placeholder: "Enter terminal command...",
+                        showingSuggestions: showCommandSuggestions,
+                        suggestionCount: commandSuggestionCount,
+                        selectedSuggestionIndex: $commandSuggestionIndex,
+                        onSelectSuggestion: {
+                            selectCommandSuggestion()
+                        },
+                        onSubmit: {
                             if !showCommandSuggestions {
                                 addTerminalCommand()
                             }
                         }
+                    )
+                    .onChange(of: newTerminalCommand) { _, newValue in
+                        let shouldShow = shouldShowSuggestions(for: newValue)
+                        if shouldShow && !showCommandSuggestions {
+                            commandSuggestionIndex = 0
+                        }
+                        showCommandSuggestions = shouldShow
+                    }
 
                     Button("Add") {
                         addTerminalCommand()
@@ -513,7 +596,7 @@ struct OnScreenKeyboardSettingsView: View {
                 }
 
                 if showCommandSuggestions {
-                    variableSuggestionsView(for: $newTerminalCommand, showSuggestions: $showCommandSuggestions)
+                    variableSuggestionsView(for: $newTerminalCommand, showSuggestions: $showCommandSuggestions, selectedIndex: $commandSuggestionIndex)
                 }
             }
 
@@ -618,16 +701,28 @@ struct OnScreenKeyboardSettingsView: View {
                     .frame(width: 20)
 
                 if isEditing {
-                    TextField("", text: $editText)
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: editText) { _, newValue in
-                            showEditSuggestions = shouldShowSuggestions(for: newValue)
-                        }
-                        .onSubmit {
+                    VariableTextField(
+                        text: $editText,
+                        placeholder: "",
+                        showingSuggestions: showEditSuggestions,
+                        suggestionCount: editSuggestionCount,
+                        selectedSuggestionIndex: $editSuggestionIndex,
+                        onSelectSuggestion: {
+                            selectEditSuggestion()
+                        },
+                        onSubmit: {
                             if !showEditSuggestions {
                                 saveEdit(quickText)
                             }
                         }
+                    )
+                    .onChange(of: editText) { _, newValue in
+                        let shouldShow = shouldShowSuggestions(for: newValue)
+                        if shouldShow && !showEditSuggestions {
+                            editSuggestionIndex = 0
+                        }
+                        showEditSuggestions = shouldShow
+                    }
 
                     Button("Save") {
                         saveEdit(quickText)
@@ -669,7 +764,7 @@ struct OnScreenKeyboardSettingsView: View {
 
             // Show variable suggestions when editing
             if isEditing && showEditSuggestions {
-                variableSuggestionsView(for: $editText, showSuggestions: $showEditSuggestions)
+                variableSuggestionsView(for: $editText, showSuggestions: $showEditSuggestions, selectedIndex: $editSuggestionIndex)
                     .padding(.leading, 28)
             }
         }
@@ -701,6 +796,8 @@ struct OnScreenKeyboardSettingsView: View {
 
     private func startEdit(_ quickText: QuickText, isTerminalCommand: Bool) {
         editText = quickText.text
+        editSuggestionIndex = 0
+        showEditSuggestions = false
         if isTerminalCommand {
             editingCommandId = quickText.id
             editingTextId = nil
