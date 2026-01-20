@@ -553,17 +553,21 @@ class ControllerService: ObservableObject {
     }
 
     private func updateBatteryInfo() {
-        if let ioLevel = batteryMonitor.batteryLevel {
+        // Use appropriate battery source based on controller type:
+        // - DualSense: GCController.battery works reliably
+        // - Xbox: Use BluetoothBatteryMonitor workaround (GCController often returns -1/0 on macOS)
+        let isDualSense = threadSafeIsDualSense
+
+        if !isDualSense, let ioLevel = batteryMonitor.batteryLevel {
+            // Xbox controller: prefer Bluetooth monitor (macOS workaround)
             batteryLevel = Float(ioLevel) / 100.0
             batteryState = batteryMonitor.isCharging ? .charging : .discharging
-            return
-        }
-        
-        if let battery = connectedController?.battery {
+        } else if let battery = connectedController?.battery {
+            // DualSense or Xbox fallback: use GCController battery
             batteryLevel = battery.batteryLevel
             batteryState = battery.batteryState
         }
-        
+
         if isConnected {
             DispatchQueue.main.asyncAfter(deadline: .now() + Config.batteryUpdateInterval) { [weak self] in
                 self?.updateBatteryInfo()
