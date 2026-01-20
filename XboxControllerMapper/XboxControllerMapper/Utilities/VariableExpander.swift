@@ -8,11 +8,30 @@ enum VariableExpander {
 
     /// All supported variables with their descriptions and examples
     static let availableVariables: [(name: String, description: String, example: String)] = [
-        // Time/Date
-        ("time.iso", "ISO 8601 timestamp", "2024-01-15T14:30:45Z"),
-        ("date", "Current date", "2024-01-15"),
-        ("time", "Current time", "14:30:45"),
+        // Date formats
+        ("date", "ISO date (YYYY-MM-DD)", "2024-01-15"),
+        ("date.us", "US date (MM/DD/YYYY)", "01/15/2024"),
+        ("date.eu", "European date (DD/MM/YYYY)", "15/01/2024"),
+        ("date.long", "Long date", "January 15, 2024"),
+        ("date.short", "Short date", "Jan 15, 2024"),
+        ("date.year", "Year", "2024"),
+        ("date.month", "Month (01-12)", "01"),
+        ("date.month.name", "Month name", "January"),
+        ("date.day", "Day (01-31)", "15"),
+        ("date.weekday", "Day of week", "Monday"),
+
+        // Time formats
+        ("time", "24-hour time", "14:30:45"),
+        ("time.12", "12-hour time", "2:30:45 PM"),
+        ("time.short", "Short time (no seconds)", "14:30"),
+        ("time.hour", "Hour (00-23)", "14"),
+        ("time.minute", "Minute (00-59)", "30"),
+        ("time.second", "Second (00-59)", "45"),
+
+        // Combined date/time
         ("datetime", "Date and time", "2024-01-15 14:30:45"),
+        ("datetime.long", "Long date and time", "January 15, 2024 at 2:30 PM"),
+        ("time.iso", "ISO 8601 timestamp", "2024-01-15T14:30:45Z"),
         ("unix", "Unix timestamp", "1705329045"),
 
         // System
@@ -64,28 +83,91 @@ enum VariableExpander {
 
     /// Resolves a single variable name to its value
     private static func resolveVariable(_ name: String) -> String? {
+        let now = Date()
+        let formatter = DateFormatter()
+
         switch name {
-        // Time/Date variables
-        case "time.iso":
-            return ISO8601DateFormatter().string(from: Date())
-
+        // Date formats
         case "date":
-            let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
-            return formatter.string(from: Date())
+            return formatter.string(from: now)
 
+        case "date.us":
+            formatter.dateFormat = "MM/dd/yyyy"
+            return formatter.string(from: now)
+
+        case "date.eu":
+            formatter.dateFormat = "dd/MM/yyyy"
+            return formatter.string(from: now)
+
+        case "date.long":
+            formatter.dateStyle = .long
+            return formatter.string(from: now)
+
+        case "date.short":
+            formatter.dateFormat = "MMM d, yyyy"
+            return formatter.string(from: now)
+
+        case "date.year":
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: now)
+
+        case "date.month":
+            formatter.dateFormat = "MM"
+            return formatter.string(from: now)
+
+        case "date.month.name":
+            formatter.dateFormat = "MMMM"
+            return formatter.string(from: now)
+
+        case "date.day":
+            formatter.dateFormat = "dd"
+            return formatter.string(from: now)
+
+        case "date.weekday":
+            formatter.dateFormat = "EEEE"
+            return formatter.string(from: now)
+
+        // Time formats
         case "time":
-            let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm:ss"
-            return formatter.string(from: Date())
+            return formatter.string(from: now)
 
+        case "time.12":
+            formatter.dateFormat = "h:mm:ss a"
+            return formatter.string(from: now)
+
+        case "time.short":
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: now)
+
+        case "time.hour":
+            formatter.dateFormat = "HH"
+            return formatter.string(from: now)
+
+        case "time.minute":
+            formatter.dateFormat = "mm"
+            return formatter.string(from: now)
+
+        case "time.second":
+            formatter.dateFormat = "ss"
+            return formatter.string(from: now)
+
+        // Combined date/time
         case "datetime":
-            let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            return formatter.string(from: Date())
+            return formatter.string(from: now)
+
+        case "datetime.long":
+            formatter.dateStyle = .long
+            formatter.timeStyle = .short
+            return formatter.string(from: now)
+
+        case "time.iso":
+            return ISO8601DateFormatter().string(from: now)
 
         case "unix":
-            return String(Int(Date().timeIntervalSince1970))
+            return String(Int(now.timeIntervalSince1970))
 
         // System variables
         case "clipboard":
