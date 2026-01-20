@@ -466,9 +466,7 @@ struct OnScreenKeyboardSettingsView: View {
 
             // Typing Speed
             VStack(alignment: .leading, spacing: 6) {
-                Text("Typing Speed")
-
-                Picker("Speed", selection: Binding(
+                Picker("Typing Speed", selection: Binding(
                     get: { profileManager.onScreenKeyboardSettings.typingDelay },
                     set: { profileManager.setTypingDelay($0) }
                 )) {
