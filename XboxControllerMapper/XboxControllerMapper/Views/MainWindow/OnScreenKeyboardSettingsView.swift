@@ -16,6 +16,7 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var isUsingCustomTerminal = false
     @State private var showingAppPicker = false
     @State private var appPickerSearchText = ""
+    @State private var appPickerSelectedIndex = 0
     @State private var showingTextSnippetVariableHelp = false
     @State private var showingTerminalVariableHelp = false
 
@@ -381,6 +382,34 @@ struct OnScreenKeyboardSettingsView: View {
         }
     }
 
+    private var filteredInstalledApps: [AppInfo] {
+        installedApps.filter { app in
+            appPickerSearchText.isEmpty ||
+            app.name.localizedCaseInsensitiveContains(appPickerSearchText)
+        }
+    }
+
+    private func toggleAppSelection(at index: Int) {
+        let apps = filteredInstalledApps
+        guard index >= 0 && index < apps.count else { return }
+        let app = apps[index]
+        let alreadyAdded = appBarItems.contains { $0.bundleIdentifier == app.bundleIdentifier }
+
+        if alreadyAdded {
+            // Remove the app
+            if let item = appBarItems.first(where: { $0.bundleIdentifier == app.bundleIdentifier }) {
+                profileManager.removeAppBarItem(item)
+            }
+        } else {
+            // Add the app
+            let item = AppBarItem(
+                bundleIdentifier: app.bundleIdentifier,
+                displayName: app.name
+            )
+            profileManager.addAppBarItem(item)
+        }
+    }
+
     private var appPickerSheet: some View {
         VStack(spacing: 0) {
             // Header
@@ -396,62 +425,78 @@ struct OnScreenKeyboardSettingsView: View {
 
             Divider()
 
-            // Search field
-            TextField("Search apps...", text: $appPickerSearchText)
-                .textFieldStyle(.roundedBorder)
-                .padding()
+            // Search field with keyboard navigation
+            NavigableSearchField(
+                text: $appPickerSearchText,
+                placeholder: "Search apps...",
+                itemCount: filteredInstalledApps.count,
+                selectedIndex: $appPickerSelectedIndex,
+                onSelect: {
+                    toggleAppSelection(at: appPickerSelectedIndex)
+                }
+            )
+            .padding()
 
             Divider()
 
-            // App list
-            List {
-                let filteredApps = installedApps.filter { app in
-                    appPickerSearchText.isEmpty ||
-                    app.name.localizedCaseInsensitiveContains(appPickerSearchText)
-                }
+            // App list with scroll-to-top
+            ScrollViewReader { proxy in
+                List {
+                    ForEach(Array(filteredInstalledApps.enumerated()), id: \.element.id) { index, app in
+                        let alreadyAdded = appBarItems.contains { $0.bundleIdentifier == app.bundleIdentifier }
+                        let isSelected = index == appPickerSelectedIndex
 
-                ForEach(filteredApps) { app in
-                    let alreadyAdded = appBarItems.contains { $0.bundleIdentifier == app.bundleIdentifier }
+                        Button {
+                            toggleAppSelection(at: index)
+                        } label: {
+                            HStack(spacing: 12) {
+                                if let icon = app.icon {
+                                    Image(nsImage: icon)
+                                        .resizable()
+                                        .frame(width: 32, height: 32)
+                                } else {
+                                    Image(systemName: "app.fill")
+                                        .resizable()
+                                        .frame(width: 32, height: 32)
+                                }
 
-                    Button {
-                        if !alreadyAdded {
-                            let item = AppBarItem(
-                                bundleIdentifier: app.bundleIdentifier,
-                                displayName: app.name
-                            )
-                            profileManager.addAppBarItem(item)
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            if let icon = app.icon {
-                                Image(nsImage: icon)
-                                    .resizable()
-                                    .frame(width: 32, height: 32)
-                            } else {
-                                Image(systemName: "app.fill")
-                                    .resizable()
-                                    .frame(width: 32, height: 32)
+                                Text(app.name)
+
+                                Spacer()
+
+                                if alreadyAdded {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(isSelected ? .white : .green)
+                                }
                             }
-
-                            Text(app.name)
-
-                            Spacer()
-
-                            if alreadyAdded {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.green)
-                            }
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .background(isSelected ? Color.accentColor : Color.clear)
+                            .foregroundColor(isSelected ? .white : .primary)
+                            .cornerRadius(6)
+                            .contentShape(Rectangle())
                         }
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .id(index)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(alreadyAdded)
+                }
+                .onChange(of: appPickerSearchText) { _, _ in
+                    // Scroll to top when search changes
+                    appPickerSelectedIndex = 0
+                    proxy.scrollTo(0, anchor: .top)
+                }
+                .onChange(of: appPickerSelectedIndex) { _, newIndex in
+                    // Scroll to keep selected item visible
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        proxy.scrollTo(newIndex, anchor: .center)
+                    }
                 }
             }
         }
         .frame(width: 400, height: 500)
         .onDisappear {
             appPickerSearchText = ""
+            appPickerSelectedIndex = 0
         }
     }
 

@@ -61,6 +61,7 @@ class AppMonitor: ObservableObject {
         let appDirectories = [
             "/Applications",
             "/System/Applications",
+            "/System/Library/CoreServices",  // Finder and other system utilities
             NSHomeDirectory() + "/Applications"
         ]
 
