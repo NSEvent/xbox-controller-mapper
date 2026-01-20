@@ -73,6 +73,7 @@ install: build
 	@sleep 1
 	/usr/bin/ditto "$(APP_PATH)" "/Applications/$(WRAPPER_NAME)"
 	@echo "Installed to /Applications/$(WRAPPER_NAME)"
+	open "/Applications/$(WRAPPER_NAME)"
 
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean
