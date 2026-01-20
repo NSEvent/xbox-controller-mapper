@@ -248,7 +248,7 @@ struct OnScreenKeyboardView: View {
             }
             .font(.system(size: 13, weight: .medium))
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 16)
             .frame(maxWidth: 500)
             .background(quickTextBackground(isHovered: isHovered, isPressed: isPressed, isTerminalCommand: quickText.isTerminalCommand))
             .foregroundColor(isPressed ? .white : .primary)
