@@ -16,8 +16,6 @@ struct ContentView: View {
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
     @State private var lastScale: CGFloat = 1.0 // Track last scale for gesture
-    @State private var draggingChord: ChordMapping?
-    @State private var chordDropTarget: ChordDropTarget?
 
     var body: some View {
         HSplitView {
@@ -247,42 +245,12 @@ struct ContentView: View {
                             }, onDelete: {
                                 profileManager.removeChord(chord)
                             })
-                            .onDrag {
-                                draggingChord = chord
-                                return NSItemProvider(object: chord.id.uuidString as NSString)
-                            }
-                            .onDrop(of: [UTType.text], delegate: ChordDropDelegate(
-                                chord: chord,
-                                chords: profile.chordMappings,
-                                draggingChord: $draggingChord,
-                                dropTarget: $chordDropTarget,
-                                onMove: { source, destination in
-                                    profileManager.moveChords(from: source, to: destination)
-                                }
-                            ))
-                            .overlay(alignment: .top) {
-                                if chordDropTarget?.id == chord.id && chordDropTarget?.position == .before {
-                                    ChordDropIndicator()
-                                }
-                            }
-                            .overlay(alignment: .bottom) {
-                                if chordDropTarget?.id == chord.id && chordDropTarget?.position == .after {
-                                    ChordDropIndicator()
-                                }
-                            }
+                        }
+                        .onMove { source, destination in
+                            profileManager.moveChords(from: source, to: destination)
                         }
                     }
                     .listStyle(.plain)
-                    .onDrop(of: [UTType.text], isTargeted: nil) { _ in
-                        draggingChord = nil
-                        chordDropTarget = nil
-                        return true
-                    }
-                    .onChange(of: draggingChord) { value in
-                        if value == nil {
-                            chordDropTarget = nil
-                        }
-                    }
                     .frame(height: CGFloat(profile.chordMappings.count) * 44)
                     .scrollContentBackground(.hidden)
                     .scrollDisabled(true)
@@ -533,86 +501,6 @@ struct LegendItem: View {
                 .fill(color)
                 .frame(width: 10, height: 10)
             Text(label)
-        }
-    }
-}
-
-// MARK: - Chord Reordering
-
-enum ChordDropPosition {
-    case before
-    case after
-}
-
-struct ChordDropTarget: Equatable {
-    let id: UUID
-    let position: ChordDropPosition
-}
-
-struct ChordDropIndicator: View {
-    var body: some View {
-        Rectangle()
-            .fill(Color.accentColor.opacity(0.8))
-            .frame(height: 2)
-            .padding(.horizontal, 6)
-    }
-}
-
-struct ChordDropDelegate: DropDelegate {
-    let chord: ChordMapping
-    let chords: [ChordMapping]
-    @Binding var draggingChord: ChordMapping?
-    @Binding var dropTarget: ChordDropTarget?
-    let onMove: (IndexSet, Int) -> Void
-
-    private let rowHeight: CGFloat = 44
-
-    func dropEntered(info: DropInfo) {
-        updateDropTarget(with: info)
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        updateDropTarget(with: info)
-        return DropProposal(operation: .move)
-    }
-
-    func dropExited(info: DropInfo) {
-        if dropTarget?.id == chord.id {
-            dropTarget = nil
-        }
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        defer {
-            draggingChord = nil
-            dropTarget = nil
-        }
-
-        guard let draggingChord,
-              let fromIndex = chords.firstIndex(of: draggingChord),
-              let toIndex = chords.firstIndex(of: chord) else {
-            return false
-        }
-
-        let position = dropTarget?.position ?? .before
-        var destination = toIndex
-        if position == .after {
-            destination = toIndex + 1
-        }
-
-        if fromIndex == destination || fromIndex + 1 == destination {
-            return true
-        }
-
-        onMove(IndexSet(integer: fromIndex), destination)
-        return true
-    }
-
-    private func updateDropTarget(with info: DropInfo) {
-        let position: ChordDropPosition = info.location.y < (rowHeight / 2) ? .before : .after
-        let target = ChordDropTarget(id: chord.id, position: position)
-        if dropTarget != target {
-            dropTarget = target
         }
     }
 }
