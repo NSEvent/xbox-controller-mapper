@@ -36,6 +36,12 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
         if centralManager?.isScanning == true {
             centralManager?.stopScan()
         }
+        batteryLevel = nil
+    }
+
+    /// Resets the cached battery level (call when controller disconnects)
+    func resetBatteryLevel() {
+        batteryLevel = nil
     }
     
     private func scanForControllers() {
@@ -88,6 +94,7 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         connectedPeripheral = nil
         batteryCharacteristic = nil
+        batteryLevel = nil
 
         // Retry scanning
         if central.state == .poweredOn {

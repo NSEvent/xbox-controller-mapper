@@ -436,6 +436,7 @@ class ControllerService: ObservableObject {
         rightStick = .zero
         batteryLevel = -1
         batteryState = .unknown
+        batteryMonitor.resetBatteryLevel()  // Clear stale battery reading
         stopDisplayUpdateTimer()
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
