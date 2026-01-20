@@ -16,7 +16,8 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var isUsingCustomTerminal = false
     @State private var showingAppPicker = false
     @State private var appPickerSearchText = ""
-    @State private var showingVariableHelp = false
+    @State private var showingTextSnippetVariableHelp = false
+    @State private var showingTerminalVariableHelp = false
 
     // Variable autocomplete state
     @State private var showSnippetSuggestions = false
@@ -93,7 +94,7 @@ struct OnScreenKeyboardSettingsView: View {
 
     // MARK: - Variable Hint Section
 
-    private var variableHintSection: some View {
+    private func variableHintSection(isPresented: Binding<Bool>) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "info.circle")
                 .foregroundColor(.secondary)
@@ -114,13 +115,13 @@ struct OnScreenKeyboardSettingsView: View {
                 .foregroundColor(.secondary)
 
             Button {
-                showingVariableHelp.toggle()
+                isPresented.wrappedValue.toggle()
             } label: {
                 Text("View all")
                     .font(.caption)
             }
             .buttonStyle(.link)
-            .popover(isPresented: $showingVariableHelp, arrowEdge: .bottom) {
+            .popover(isPresented: isPresented, arrowEdge: .bottom) {
                 variableHelpPopover
             }
         }
@@ -423,7 +424,7 @@ struct OnScreenKeyboardSettingsView: View {
     private var textSnippetsSection: some View {
         Section {
             // Variable hint
-            variableHintSection
+            variableHintSection(isPresented: $showingTextSnippetVariableHelp)
 
             // Add new text snippet with autocomplete
             VStack(alignment: .leading, spacing: 4) {
@@ -489,7 +490,7 @@ struct OnScreenKeyboardSettingsView: View {
     private var terminalSection: some View {
         Section {
             // Variable hint
-            variableHintSection
+            variableHintSection(isPresented: $showingTerminalVariableHelp)
 
             // Add new terminal command with autocomplete
             VStack(alignment: .leading, spacing: 4) {
