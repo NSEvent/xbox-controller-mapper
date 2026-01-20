@@ -251,7 +251,7 @@ struct ContentView: View {
                         }
                     }
                     .listStyle(.plain)
-                    .frame(height: CGFloat(profile.chordMappings.count) * 36)
+                    .frame(height: CGFloat(profile.chordMappings.count) * 44)
                     .scrollContentBackground(.hidden)
                     .scrollDisabled(true)
                 } else {
@@ -570,6 +570,7 @@ struct ChordMappingSheet: View {
     @State private var selectedButtons: Set<ControllerButton> = []
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
+    @State private var showingKeyboard = false
 
     private var isEditing: Bool { editingChord != nil }
 
@@ -655,10 +656,32 @@ struct ChordMappingSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Action:")
-                    .font(.subheadline)
+                HStack {
+                    Text("Action:")
+                        .font(.subheadline)
 
-                KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+                    Spacer()
+
+                    Button(action: { showingKeyboard.toggle() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
+                            Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                        }
+                        .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
+                }
+
+                if showingKeyboard {
+                    KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
+                } else {
+                    KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+
+                    Text("Click to type a shortcut, or show keyboard to select visually")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             HStack {
@@ -690,7 +713,7 @@ struct ChordMappingSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 600)
+        .frame(width: 850)
         .onAppear {
             if let chord = editingChord {
                 selectedButtons = chord.buttons
