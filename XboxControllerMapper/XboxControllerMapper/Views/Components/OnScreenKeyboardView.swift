@@ -18,6 +18,7 @@ struct OnScreenKeyboardView: View {
     var showExtendedFunctionKeys: Bool = false
 
     @State private var activeModifiers = ModifierFlags()
+    @State private var isCapsLockActive = false
     @State private var hoveredKey: CGKeyCode?
     @State private var pressedKey: CGKeyCode?
     @State private var hoveredQuickTextId: UUID?
@@ -385,7 +386,7 @@ struct OnScreenKeyboardView: View {
 
     private var asdfRow: some View {
         HStack(spacing: keySpacing) {
-            clickableKey(CGKeyCode(kVK_CapsLock), label: "Caps", width: 112)
+            capsLockKey(width: 112)
 
             let asdfKeys = ["A", "S", "D", "F", "G", "H", "J", "K", "L"]
             let asdfCodes: [Int] = [kVK_ANSI_A, kVK_ANSI_S, kVK_ANSI_D, kVK_ANSI_F, kVK_ANSI_G, kVK_ANSI_H, kVK_ANSI_J, kVK_ANSI_K, kVK_ANSI_L]
@@ -468,9 +469,17 @@ struct OnScreenKeyboardView: View {
         let secondary = secondaryKeys[label]
         let isShiftActive = activeModifiers.shift
 
+        // Check if this is a single letter key (A-Z)
+        let isSingleLetter = label.count == 1 && label.first?.isLetter == true
+
         Button {
             pressedKey = keyCode
-            onKeyPress(keyCode, activeModifiers)
+            // When caps lock is active and this is a letter key, add shift to get uppercase
+            var modifiersToSend = activeModifiers
+            if isCapsLockActive && isSingleLetter {
+                modifiersToSend.shift = true
+            }
+            onKeyPress(keyCode, modifiersToSend)
             // Brief visual feedback then clear
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 if pressedKey == keyCode {
@@ -489,7 +498,7 @@ struct OnScreenKeyboardView: View {
                         .font(.system(size: isShiftActive ? 12 : 16, weight: .medium))
                         .foregroundColor(isPressed ? .white : (isShiftActive ? .secondary : .primary))
                 } else {
-                    // No secondary - just show the label
+                    // No secondary - just show the label (always uppercase for letters)
                     Text(label)
                         .font(.system(size: fontSize(for: label), weight: .medium))
                         .foregroundColor(isPressed ? .white : .primary)
@@ -543,6 +552,35 @@ struct OnScreenKeyboardView: View {
         case \.shift: return CGKeyCode(kVK_Shift)
         case \.control: return CGKeyCode(kVK_Control)
         default: return 0
+        }
+    }
+
+    // MARK: - Caps Lock Key
+
+    @ViewBuilder
+    private func capsLockKey(width: CGFloat) -> some View {
+        let keyCode = CGKeyCode(kVK_CapsLock)
+        let isHovered = hoveredKey == keyCode
+
+        Button {
+            // Only toggle our internal state - don't send caps lock to the system
+            // We handle uppercase by adding shift to letter keys when caps lock is active
+            isCapsLockActive.toggle()
+        } label: {
+            Text("Caps")
+                .font(.system(size: 14, weight: .medium))
+                .frame(width: width, height: keyHeight)
+                .background(isCapsLockActive ? Color.accentColor : (isHovered ? Color.accentColor.opacity(0.3) : Color(nsColor: .controlBackgroundColor)))
+                .foregroundColor(isCapsLockActive ? .white : .primary)
+                .cornerRadius(5)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(isCapsLockActive ? Color.accentColor : (isHovered ? Color.accentColor.opacity(0.5) : Color.gray.opacity(0.3)), lineWidth: isCapsLockActive ? 2 : 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredKey = hovering ? keyCode : nil
         }
     }
 
