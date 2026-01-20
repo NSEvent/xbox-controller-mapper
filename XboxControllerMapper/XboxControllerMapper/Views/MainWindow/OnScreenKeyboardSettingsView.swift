@@ -46,6 +46,9 @@ struct OnScreenKeyboardSettingsView: View {
 
     var body: some View {
         Form {
+            // How to show keyboard info
+            howToShowKeyboardSection
+
             // Text Snippets Section
             textSnippetsSection
 
@@ -63,6 +66,27 @@ struct OnScreenKeyboardSettingsView: View {
         .onAppear {
             checkAutomationPermission()
             setupCustomTerminal()
+        }
+    }
+
+    // MARK: - How to Show Keyboard Section
+
+    private var howToShowKeyboardSection: some View {
+        Section {
+            HStack(spacing: 12) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(.blue)
+                    .font(.title2)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("To show the on-screen keyboard widget, assign a button to toggle it.")
+                        .fontWeight(.medium)
+                    Text("Go to the Buttons tab, add a command, select \"Show Keyboard\", then choose \"Keyboard\".")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
         }
     }
 
