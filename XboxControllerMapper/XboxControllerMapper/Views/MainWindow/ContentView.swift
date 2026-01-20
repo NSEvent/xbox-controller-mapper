@@ -7,8 +7,6 @@ struct ContentView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var appMonitor: AppMonitor
     @EnvironmentObject var mappingEngine: MappingEngine
-    @EnvironmentObject var inputLogService: InputLogService
-
     @State private var selectedButton: ControllerButton?
     @State private var configuringButton: ControllerButton?
     @State private var showingChordSheet = false
@@ -238,22 +236,20 @@ struct ContentView: View {
                 }
 
                 if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
-                    List {
-                        ForEach(profile.chordMappings) { chord in
-                            ChordRow(chord: chord, onEdit: {
-                                editingChord = chord
-                            }, onDelete: {
-                                profileManager.removeChord(chord)
-                            })
-                        }
-                        .onMove { source, destination in
+                    ChordListView(
+                        chords: profile.chordMappings,
+                        isDualSense: controllerService.threadSafeIsDualSense,
+                        onEdit: { chord in
+                            editingChord = chord
+                        },
+                        onDelete: { chord in
+                            profileManager.removeChord(chord)
+                        },
+                        onMove: { source, destination in
                             profileManager.moveChords(from: source, to: destination)
                         }
-                    }
-                    .listStyle(.plain)
-                    .frame(height: CGFloat(profile.chordMappings.count) * 44)
-                    .scrollContentBackground(.hidden)
-                    .scrollDisabled(true)
+                    )
+                    .equatable()
                 } else {
                     Text("No chords configured")
                         .foregroundColor(.secondary)
@@ -505,23 +501,52 @@ struct LegendItem: View {
     }
 }
 
+// MARK: - Chord List
+
+struct ChordListView: View, Equatable {
+    let chords: [ChordMapping]
+    let isDualSense: Bool
+    let onEdit: (ChordMapping) -> Void
+    let onDelete: (ChordMapping) -> Void
+    let onMove: (IndexSet, Int) -> Void
+
+    static func == (lhs: ChordListView, rhs: ChordListView) -> Bool {
+        lhs.chords == rhs.chords && lhs.isDualSense == rhs.isDualSense
+    }
+
+    var body: some View {
+        List {
+            ForEach(chords) { chord in
+                ChordRow(
+                    chord: chord,
+                    isDualSense: isDualSense,
+                    onEdit: { onEdit(chord) },
+                    onDelete: { onDelete(chord) }
+                )
+            }
+            .onMove(perform: onMove)
+        }
+        .listStyle(.plain)
+        .frame(height: CGFloat(chords.count) * 44)
+        .scrollContentBackground(.hidden)
+        .scrollDisabled(true)
+    }
+}
+
 // MARK: - Chord Row
 
 struct ChordRow: View {
-    @EnvironmentObject var controllerService: ControllerService
     let chord: ChordMapping
+    let isDualSense: Bool
     var onEdit: () -> Void
     var onDelete: () -> Void
-
-    private var isDualSense: Bool {
-        controllerService.threadSafeIsDualSense
-    }
 
     var body: some View {
         HStack {
             Image(systemName: "line.3.horizontal")
                 .foregroundColor(.secondary.opacity(0.5))
                 .font(.caption)
+                .frame(width: 20)
 
             HStack(spacing: 4) {
                 ForEach(Array(chord.buttons).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { button in
@@ -542,14 +567,15 @@ struct ChordRow: View {
                 Image(systemName: "pencil")
                     .foregroundColor(.accentColor)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
         }
+        .contentShape(Rectangle())
         .padding(.vertical, 4)
     }
 }
