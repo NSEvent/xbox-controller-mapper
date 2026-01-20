@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
     @State private var lastScale: CGFloat = 1.0 // Track last scale for gesture
+    @State private var isMagnifying = false // Track active magnification to prevent tap conflicts
 
     var body: some View {
         HSplitView {
@@ -109,9 +110,10 @@ struct ContentView: View {
                 .keyboardShortcut("0", modifiers: .command)
                 .hidden()
         )
-        .gesture(
+        .highPriorityGesture(
             MagnificationGesture()
                 .onChanged { value in
+                    isMagnifying = true
                     let delta = value / lastScale
                     lastScale = value
                     profileManager.uiScale = min(max(profileManager.uiScale * delta, 0.5), 2.0)
@@ -119,6 +121,10 @@ struct ContentView: View {
                 .onEnded { _ in
                     lastScale = 1.0
                     profileManager.setUiScale(profileManager.uiScale)
+                    // Delay resetting isMagnifying to prevent tap events that fire at gesture end
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        isMagnifying = false
+                    }
                 }
         )
     }
@@ -165,6 +171,8 @@ struct ContentView: View {
                 ControllerVisualView(
                     selectedButton: $selectedButton,
                     onButtonTap: { button in
+                        // Ignore taps during magnification gestures to prevent accidental triggers
+                        guard !isMagnifying else { return }
                         // Async dispatch to avoid layout recursion if triggered during layout pass
                         DispatchQueue.main.async {
                             selectedButton = button
@@ -173,6 +181,7 @@ struct ContentView: View {
                     }
                 )
                 .scaleEffect(profileManager.uiScale)
+                .allowsHitTesting(!isMagnifying)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()

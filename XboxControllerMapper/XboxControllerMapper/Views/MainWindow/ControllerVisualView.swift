@@ -278,40 +278,39 @@ struct ControllerVisualView: View {
 
     @ViewBuilder
     private func referenceRow(for button: ControllerButton) -> some View {
-        Button(action: { onButtonTap(button) }) {
-            HStack(spacing: 12) {
-                // Button Indicator (adapts to Xbox or DualSense styling)
-                ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isDualSense)
+        HStack(spacing: 12) {
+            // Button Indicator (adapts to Xbox or DualSense styling)
+            ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isDualSense)
 
-                // Shortcut Labels Container
-                HStack {
-                    if let mapping = mapping(for: button) {
-                        MappingLabelView(
-                            mapping: mapping,
-                            font: .system(size: 15, weight: .semibold, design: .rounded)
-                        )
-                    } else {
-                        Text("Unmapped")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary.opacity(0.5))
-                            .italic()
-                    }
-                    Spacer()
+            // Shortcut Labels Container
+            HStack {
+                if let mapping = mapping(for: button) {
+                    MappingLabelView(
+                        mapping: mapping,
+                        font: .system(size: 15, weight: .semibold, design: .rounded)
+                    )
+                } else {
+                    Text("Unmapped")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary.opacity(0.5))
+                        .italic()
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(nsColor: .controlBackgroundColor))
-                        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(selectedButton == button ? Color.accentColor : Color.gray.opacity(0.2), lineWidth: selectedButton == button ? 2 : 1)
-                )
+                Spacer()
             }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(selectedButton == button ? Color.accentColor : Color.gray.opacity(0.2), lineWidth: selectedButton == button ? 2 : 1)
+            )
         }
-        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .onTapGesture { onButtonTap(button) }
     }
 
     // MARK: - Mini Controller Helpers (Jewel/Glass Style)
