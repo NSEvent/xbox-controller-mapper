@@ -40,52 +40,21 @@ struct OnScreenKeyboardSettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Header
-                Text("On-Screen Keyboard")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+        Form {
+            // Text Snippets Section
+            textSnippetsSection
 
-                Text("Configure quick text snippets and terminal commands that appear above the on-screen keyboard.")
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            // Terminal Section
+            terminalSection
 
-                // Variable hint
-                variableHintSection
+            // App Bar Section
+            appBarSection
 
-                Divider()
-
-                // Text Snippets Section
-                textSnippetsSection
-
-                Divider()
-
-                // Typing Speed Settings (related to text snippets)
-                typingSpeedSection
-
-                Divider()
-
-                // Terminal Commands Section
-                terminalCommandsSection
-
-                Divider()
-
-                // Terminal App Settings
-                terminalAppSection
-
-                Divider()
-
-                // App Bar Section
-                appBarSection
-
-                Divider()
-
-                // Extended Function Keys Section
-                extendedFunctionKeysSection
-            }
-            .padding(24)
+            // Keyboard Layout Section
+            keyboardLayoutSection
         }
+        .formStyle(.grouped)
+        .padding()
         .onAppear {
             checkAutomationPermission()
             setupCustomTerminal()
@@ -176,7 +145,7 @@ struct OnScreenKeyboardSettingsView: View {
                             Text("{\(variable.name)}")
                                 .font(.system(.caption, design: .monospaced))
                                 .fontWeight(.medium)
-                                .frame(width: 100, alignment: .leading)
+                                .frame(width: 130, alignment: .leading)
 
                             Text(variable.description)
                                 .font(.caption)
@@ -191,11 +160,12 @@ struct OnScreenKeyboardSettingsView: View {
                         }
                     }
                 }
+                .padding(.trailing, 12)
             }
-            .frame(maxHeight: 300)
+            .frame(maxHeight: 400)
         }
         .padding()
-        .frame(width: 400)
+        .frame(width: 450)
     }
 
     // MARK: - Variable Autocomplete Helpers
@@ -278,14 +248,7 @@ struct OnScreenKeyboardSettingsView: View {
     // MARK: - App Bar Section
 
     private var appBarSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("App Bar")
-                .font(.headline)
-
-            Text("Add apps for quick switching from the on-screen keyboard.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
+        Section {
             // Add app button
             Button {
                 showingAppPicker = true
@@ -301,7 +264,6 @@ struct OnScreenKeyboardSettingsView: View {
                 Text("No apps added yet")
                     .foregroundColor(.secondary)
                     .italic()
-                    .padding(.vertical, 8)
             } else {
                 List {
                     ForEach(appBarItems) { item in
@@ -316,6 +278,10 @@ struct OnScreenKeyboardSettingsView: View {
                 .scrollContentBackground(.hidden)
                 .scrollDisabled(true)
             }
+        } header: {
+            Text("App Bar")
+        } footer: {
+            Text("Add apps for quick switching from the on-screen keyboard.")
         }
     }
 
@@ -429,13 +395,10 @@ struct OnScreenKeyboardSettingsView: View {
         }
     }
 
-    // MARK: - Extended Function Keys Section
+    // MARK: - Keyboard Layout Section
 
-    private var extendedFunctionKeysSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Extended Function Keys")
-                .font(.headline)
-
+    private var keyboardLayoutSection: some View {
+        Section("Keyboard Layout") {
             Toggle(isOn: Binding(
                 get: { profileManager.onScreenKeyboardSettings.showExtendedFunctionKeys },
                 set: { newValue in
@@ -451,44 +414,16 @@ struct OnScreenKeyboardSettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .toggleStyle(.switch)
         }
     }
 
-    // MARK: - Typing Speed Section
-
-    private var typingSpeedSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Typing Speed")
-                .font(.headline)
-
-            Text("How fast text snippets are typed character by character.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            Picker("Speed", selection: Binding(
-                get: { profileManager.onScreenKeyboardSettings.typingDelay },
-                set: { profileManager.setTypingDelay($0) }
-            )) {
-                ForEach(OnScreenKeyboardSettings.typingSpeedPresets, id: \.delay) { preset in
-                    Text(preset.name).tag(preset.delay)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 300)
-        }
-    }
 
     // MARK: - Text Snippets Section
 
     private var textSnippetsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Text Snippets")
-                .font(.headline)
-
-            Text("Click these to type the text into any app.")
-                .font(.caption)
-                .foregroundColor(.secondary)
+        Section {
+            // Variable hint
+            variableHintSection
 
             // Add new text snippet with autocomplete
             VStack(alignment: .leading, spacing: 4) {
@@ -520,7 +455,6 @@ struct OnScreenKeyboardSettingsView: View {
                 Text("No text snippets yet")
                     .foregroundColor(.secondary)
                     .italic()
-                    .padding(.vertical, 8)
             } else {
                 ForEach(textSnippets) { snippet in
                     quickTextRow(snippet, isTerminalCommand: false)
@@ -529,19 +463,35 @@ struct OnScreenKeyboardSettingsView: View {
                     moveQuickTexts(from: source, to: destination, isTerminalCommand: false)
                 }
             }
+
+            // Typing Speed
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Typing Speed")
+
+                Picker("Speed", selection: Binding(
+                    get: { profileManager.onScreenKeyboardSettings.typingDelay },
+                    set: { profileManager.setTypingDelay($0) }
+                )) {
+                    ForEach(OnScreenKeyboardSettings.typingSpeedPresets, id: \.delay) { preset in
+                        Text(preset.name).tag(preset.delay)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 300)
+            }
+        } header: {
+            Text("Text Snippets")
+        } footer: {
+            Text("Click these to type the text into any app.")
         }
     }
 
-    // MARK: - Terminal Commands Section
+    // MARK: - Terminal Section
 
-    private var terminalCommandsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Terminal Commands")
-                .font(.headline)
-
-            Text("Click these to open a new terminal window and run the command.")
-                .font(.caption)
-                .foregroundColor(.secondary)
+    private var terminalSection: some View {
+        Section {
+            // Variable hint
+            variableHintSection
 
             // Add new terminal command with autocomplete
             VStack(alignment: .leading, spacing: 4) {
@@ -573,7 +523,6 @@ struct OnScreenKeyboardSettingsView: View {
                 Text("No terminal commands yet")
                     .foregroundColor(.secondary)
                     .italic()
-                    .padding(.vertical, 8)
             } else {
                 ForEach(terminalCommands) { command in
                     quickTextRow(command, isTerminalCommand: true)
@@ -582,47 +531,37 @@ struct OnScreenKeyboardSettingsView: View {
                     moveQuickTexts(from: source, to: destination, isTerminalCommand: true)
                 }
             }
-        }
-    }
 
-    // MARK: - Terminal App Section
-
-    private var terminalAppSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Default Terminal App")
-                .font(.headline)
-
-            HStack(spacing: 12) {
-                Picker("Terminal", selection: Binding(
-                    get: {
-                        let current = profileManager.onScreenKeyboardSettings.defaultTerminalApp
-                        if OnScreenKeyboardSettings.terminalOptions.contains(current) {
-                            return current
-                        }
-                        return "Other"
-                    },
-                    set: { newValue in
-                        if newValue == "Other" {
-                            isUsingCustomTerminal = true
-                        } else {
-                            isUsingCustomTerminal = false
-                            profileManager.setDefaultTerminalApp(newValue)
-                        }
+            // Default Terminal App
+            Picker("Default App", selection: Binding(
+                get: {
+                    let current = profileManager.onScreenKeyboardSettings.defaultTerminalApp
+                    if OnScreenKeyboardSettings.terminalOptions.contains(current) {
+                        return current
                     }
-                )) {
-                    ForEach(OnScreenKeyboardSettings.terminalOptions, id: \.self) { option in
-                        Text(option).tag(option)
+                    return "Other"
+                },
+                set: { newValue in
+                    if newValue == "Other" {
+                        isUsingCustomTerminal = true
+                    } else {
+                        isUsingCustomTerminal = false
+                        profileManager.setDefaultTerminalApp(newValue)
                     }
-                    Divider()
-                    Text("Other...").tag("Other")
                 }
-                .pickerStyle(.menu)
-                .frame(width: 150)
+            )) {
+                ForEach(OnScreenKeyboardSettings.terminalOptions, id: \.self) { option in
+                    Text(option).tag(option)
+                }
+                Divider()
+                Text("Other...").tag("Other")
+            }
+            .pickerStyle(.menu)
 
-                if isUsingCustomTerminal {
+            if isUsingCustomTerminal {
+                HStack {
                     TextField("App name", text: $customTerminalApp)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 150)
                         .onSubmit {
                             if !customTerminalApp.isEmpty {
                                 profileManager.setDefaultTerminalApp(customTerminalApp)
@@ -638,47 +577,32 @@ struct OnScreenKeyboardSettingsView: View {
                 }
             }
 
-            Text("The terminal app to use when running terminal commands.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
             // Permissions status
-            GroupBox {
-                VStack(alignment: .leading, spacing: 8) {
-                    if automationPermissionGranted {
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("Automation Permission Granted")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-
-                        Text("Terminal commands are ready to use.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .foregroundColor(.orange)
-                            Text("Automation Permission Required")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-
-                        Text("Terminal commands require Automation permission. If commands don't work, grant permission in System Settings.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Button("Open Automation Settings") {
-                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
-                        }
-                        .buttonStyle(.link)
-                    }
+            if automationPermissionGranted {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Automation permission granted")
+                        .foregroundColor(.secondary)
                 }
-                .padding(4)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                        Text("Automation permission required")
+                    }
+
+                    Button("Open Automation Settings") {
+                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+                    }
+                    .buttonStyle(.link)
+                }
             }
-            .padding(.top, 8)
+        } header: {
+            Text("Terminal")
+        } footer: {
+            Text("Click these to open a new terminal window and run the command.")
         }
     }
 
