@@ -60,8 +60,11 @@ class AppMonitor: ObservableObject {
     var installedApplications: [AppInfo] {
         let appDirectories = [
             "/Applications",
+            "/Applications/Utilities",
             "/System/Applications",
-            "/System/Library/CoreServices",  // Finder and other system utilities
+            "/System/Applications/Utilities",  // Terminal, Activity Monitor, Disk Utility, etc.
+            "/System/Library/CoreServices",    // Finder and other system utilities
+            "/System/Cryptexes/App/System/Applications",  // Some system apps on newer macOS
             NSHomeDirectory() + "/Applications"
         ]
 
