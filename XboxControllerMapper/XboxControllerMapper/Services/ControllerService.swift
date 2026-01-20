@@ -346,6 +346,9 @@ class ControllerService: ObservableObject {
     init() {
         GCController.shouldMonitorBackgroundEvents = true
 
+        // Load last controller type (so UI shows correct button labels when no controller is connected)
+        storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
+
         setupNotifications()
         startDiscovery()
         checkConnectedControllers()
@@ -446,8 +449,7 @@ class ControllerService: ObservableObject {
         storage.chordWorkItem?.cancel()
         storage.leftStick = .zero
         storage.rightStick = .zero
-        // Reset DualSense state
-        storage.isDualSense = false
+        // Reset touchpad state (but keep isDualSense to remember last controller type)
         resetTouchpadStateLocked()
         storage.lastMicButtonState = false
         storage.lock.unlock()
@@ -631,6 +633,11 @@ class ControllerService: ObservableObject {
         }
 
         if let xboxGamepad = gamepad as? GCXboxGamepad {
+            storage.lock.lock()
+            storage.isDualSense = false
+            storage.lock.unlock()
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
+
             xboxGamepad.buttonShare?.pressedChangedHandler = { [weak self] _, _, pressed in
                 self?.controllerQueue.async { self?.handleButton(.share, pressed: pressed) }
             }
@@ -656,6 +663,7 @@ class ControllerService: ObservableObject {
             storage.lock.lock()
             storage.isDualSense = true
             storage.lock.unlock()
+            UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
 
             // Avoid system gesture delays on touchpad input
             dualSenseGamepad.touchpadPrimary.preferredSystemGestureState = .alwaysReceive

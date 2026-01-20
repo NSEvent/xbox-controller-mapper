@@ -162,6 +162,8 @@ struct Config {
     static let touchpadMomentumBoostMaxVelocity: Double = 5000.0
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
+    /// UserDefaults key for remembering last connected controller type
+    static let lastControllerWasDualSenseKey: String = "lastControllerWasDualSense"
     /// Env var to enable touchpad debug logging
     static let touchpadDebugEnvKey: String = "XCM_TOUCHPAD_DEBUG"
     /// Minimum interval between touchpad debug logs
