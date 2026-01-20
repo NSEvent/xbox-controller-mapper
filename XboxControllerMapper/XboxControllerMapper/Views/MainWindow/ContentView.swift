@@ -16,7 +16,6 @@ struct ContentView: View {
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
     @State private var lastScale: CGFloat = 1.0 // Track last scale for gesture
-    @State private var draggingChord: ChordMapping?
 
     var body: some View {
         HSplitView {
@@ -246,18 +245,9 @@ struct ContentView: View {
                             }, onDelete: {
                                 profileManager.removeChord(chord)
                             })
-                            .onDrag {
-                                draggingChord = chord
-                                return NSItemProvider(object: chord.id.uuidString as NSString)
-                            }
-                            .onDrop(of: [UTType.text], delegate: ChordDropDelegate(
-                                chord: chord,
-                                chords: profile.chordMappings,
-                                draggingChord: $draggingChord,
-                                onMove: { source, destination in
-                                    profileManager.moveChords(from: source, to: destination)
-                                }
-                            ))
+                        }
+                        .onMove { source, destination in
+                            profileManager.moveChords(from: source, to: destination)
                         }
                     }
                     .listStyle(.plain)
@@ -512,38 +502,6 @@ struct LegendItem: View {
                 .frame(width: 10, height: 10)
             Text(label)
         }
-    }
-}
-
-// MARK: - Chord Reordering
-
-struct ChordDropDelegate: DropDelegate {
-    let chord: ChordMapping
-    let chords: [ChordMapping]
-    @Binding var draggingChord: ChordMapping?
-    let onMove: (IndexSet, Int) -> Void
-
-    func dropEntered(info: DropInfo) {
-        guard let draggingChord,
-              draggingChord != chord,
-              let fromIndex = chords.firstIndex(of: draggingChord),
-              let toIndex = chords.firstIndex(of: chord) else {
-            return
-        }
-
-        if chords[toIndex] != draggingChord {
-            let destination = toIndex > fromIndex ? toIndex + 1 : toIndex
-            onMove(IndexSet(integer: fromIndex), destination)
-        }
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggingChord = nil
-        return true
     }
 }
 
