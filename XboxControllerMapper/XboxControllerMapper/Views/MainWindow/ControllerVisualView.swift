@@ -97,7 +97,6 @@ struct ControllerVisualView: View {
     // MARK: - Xbox Controller Overlay
 
     private var xboxOverlay: some View {
-        // Use drawingGroup for better rendering performance on complex overlays
         VStack(spacing: 15) {
             HStack(spacing: 140) {
                 miniTrigger(.leftTrigger, label: "LT", value: controllerService.displayLeftTrigger)
@@ -135,13 +134,11 @@ struct ControllerVisualView: View {
                 miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
             }
         }
-        .drawingGroup() // Optimize rendering for complex overlay
     }
 
     // MARK: - DualSense Controller Overlay
 
     private var dualSenseOverlay: some View {
-        // Use drawingGroup for better rendering performance on complex overlays
         VStack(spacing: 4) {
             // Row 1: Triggers (top)
             HStack(spacing: 150) {
@@ -189,7 +186,6 @@ struct ControllerVisualView: View {
                 miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
             }
         }
-        .drawingGroup() // Optimize rendering for complex overlay
     }
 
     // MARK: - Mini Touchpad
