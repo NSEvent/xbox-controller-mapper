@@ -166,10 +166,17 @@ class OnScreenKeyboardManager: ObservableObject {
 
     private func handleQuickText(_ quickText: QuickText) {
         NSLog("[OnScreenKeyboard] handleQuickText: '\(quickText.text)', isTerminalCommand: \(quickText.isTerminalCommand)")
+
+        // Expand variables like {date}, {time}, {clipboard}, etc.
+        let expandedText = VariableExpander.expand(quickText.text)
+        if expandedText != quickText.text {
+            NSLog("[OnScreenKeyboard] Expanded to: '\(expandedText)'")
+        }
+
         if quickText.isTerminalCommand {
-            executeTerminalCommand(quickText.text)
+            executeTerminalCommand(expandedText)
         } else {
-            typeText(quickText.text)
+            typeText(expandedText)
         }
     }
 

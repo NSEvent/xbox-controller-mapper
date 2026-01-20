@@ -17,6 +17,12 @@ struct QuickText: Identifiable, Codable, Equatable {
         self.text = text
         self.isTerminalCommand = isTerminalCommand
     }
+
+    /// Check if text contains any {variable} patterns
+    var containsVariables: Bool {
+        let pattern = #"\{[a-z._]+\}"#
+        return text.range(of: pattern, options: .regularExpression) != nil
+    }
 }
 
 /// Settings for the on-screen keyboard feature

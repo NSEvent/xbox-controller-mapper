@@ -16,6 +16,12 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var isUsingCustomTerminal = false
     @State private var showingAppPicker = false
     @State private var appPickerSearchText = ""
+    @State private var showingVariableHelp = false
+
+    // Variable autocomplete state
+    @State private var showSnippetSuggestions = false
+    @State private var showCommandSuggestions = false
+    @State private var showEditSuggestions = false
 
     private var textSnippets: [QuickText] {
         profileManager.onScreenKeyboardSettings.quickTexts.filter { !$0.isTerminalCommand }
@@ -44,6 +50,9 @@ struct OnScreenKeyboardSettingsView: View {
                 Text("Configure quick text snippets and terminal commands that appear above the on-screen keyboard.")
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // Variable hint
+                variableHintSection
 
                 Divider()
 
@@ -110,6 +119,159 @@ struct OnScreenKeyboardSettingsView: View {
         if !OnScreenKeyboardSettings.terminalOptions.contains(currentTerminal) {
             isUsingCustomTerminal = true
             customTerminalApp = currentTerminal
+        }
+    }
+
+    // MARK: - Variable Hint Section
+
+    private var variableHintSection: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "info.circle")
+                .foregroundColor(.secondary)
+                .font(.caption)
+
+            Text("Type")
+                .foregroundColor(.secondary)
+
+            Text("{")
+                .font(.system(.caption, design: .monospaced))
+                .fontWeight(.medium)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .cornerRadius(3)
+
+            Text("to insert variables like date, time, clipboard, etc.")
+                .foregroundColor(.secondary)
+
+            Button {
+                showingVariableHelp.toggle()
+            } label: {
+                Text("View all")
+                    .font(.caption)
+            }
+            .buttonStyle(.link)
+            .popover(isPresented: $showingVariableHelp, arrowEdge: .bottom) {
+                variableHelpPopover
+            }
+        }
+        .font(.caption)
+    }
+
+    private var variableHelpPopover: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Available Variables")
+                .font(.headline)
+
+            Text("Type { followed by a variable name. Suggestions will appear as you type.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(VariableExpander.availableVariables, id: \.name) { variable in
+                        HStack(spacing: 12) {
+                            Text("{\(variable.name)}")
+                                .font(.system(.caption, design: .monospaced))
+                                .fontWeight(.medium)
+                                .frame(width: 100, alignment: .leading)
+
+                            Text(variable.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            Text(variable.example)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 300)
+        }
+        .padding()
+        .frame(width: 400)
+    }
+
+    // MARK: - Variable Autocomplete Helpers
+
+    /// Finds the variable prefix being typed (text after the last unclosed `{`)
+    private func variablePrefix(in text: String) -> String? {
+        // Find the last `{` that isn't closed by `}`
+        guard let lastBrace = text.lastIndex(of: "{") else { return nil }
+
+        let afterBrace = text[text.index(after: lastBrace)...]
+
+        // If there's a `}` after the `{`, the variable is already closed
+        if afterBrace.contains("}") { return nil }
+
+        return String(afterBrace)
+    }
+
+    /// Returns filtered variables matching the given prefix
+    private func filteredVariables(for prefix: String) -> [(name: String, description: String, example: String)] {
+        if prefix.isEmpty {
+            return VariableExpander.availableVariables
+        }
+        return VariableExpander.availableVariables.filter {
+            $0.name.lowercased().hasPrefix(prefix.lowercased())
+        }
+    }
+
+    /// Inserts a variable into text, replacing any partial variable being typed
+    private func insertVariable(_ variableName: String, into text: inout String) {
+        guard let lastBrace = text.lastIndex(of: "{") else { return }
+        let beforeBrace = String(text[..<lastBrace])
+        text = beforeBrace + "{\(variableName)}"
+    }
+
+    /// Checks if suggestions should be shown for the given text
+    private func shouldShowSuggestions(for text: String) -> Bool {
+        guard let prefix = variablePrefix(in: text) else { return false }
+        return !filteredVariables(for: prefix).isEmpty
+    }
+
+    /// Variable suggestion dropdown view
+    @ViewBuilder
+    private func variableSuggestionsView(for text: Binding<String>, showSuggestions: Binding<Bool>) -> some View {
+        if let prefix = variablePrefix(in: text.wrappedValue) {
+            let matches = filteredVariables(for: prefix)
+            if !matches.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(matches, id: \.name) { variable in
+                        Button {
+                            insertVariable(variable.name, into: &text.wrappedValue)
+                            showSuggestions.wrappedValue = false
+                        } label: {
+                            HStack {
+                                Text("{\(variable.name)}")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .fontWeight(.medium)
+
+                                Spacer()
+
+                                Text(variable.description)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                    }
+                }
+                .background(Color(nsColor: .windowBackgroundColor))
+                .cornerRadius(6)
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                .frame(maxWidth: 300)
+            }
         }
     }
 
@@ -296,7 +458,7 @@ struct OnScreenKeyboardSettingsView: View {
     // MARK: - Typing Speed Section
 
     private var typingSpeedSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Typing Speed")
                 .font(.headline)
 
@@ -328,18 +490,29 @@ struct OnScreenKeyboardSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            // Add new text snippet
-            HStack {
-                TextField("Enter text snippet...", text: $newTextSnippet)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit {
+            // Add new text snippet with autocomplete
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    TextField("Enter text snippet...", text: $newTextSnippet)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: newTextSnippet) { _, newValue in
+                            showSnippetSuggestions = shouldShowSuggestions(for: newValue)
+                        }
+                        .onSubmit {
+                            if !showSnippetSuggestions {
+                                addTextSnippet()
+                            }
+                        }
+
+                    Button("Add") {
                         addTextSnippet()
                     }
-
-                Button("Add") {
-                    addTextSnippet()
+                    .disabled(newTextSnippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .disabled(newTextSnippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                if showSnippetSuggestions {
+                    variableSuggestionsView(for: $newTextSnippet, showSuggestions: $showSnippetSuggestions)
+                }
             }
 
             // List of text snippets
@@ -370,18 +543,29 @@ struct OnScreenKeyboardSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            // Add new terminal command
-            HStack {
-                TextField("Enter terminal command...", text: $newTerminalCommand)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit {
+            // Add new terminal command with autocomplete
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    TextField("Enter terminal command...", text: $newTerminalCommand)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: newTerminalCommand) { _, newValue in
+                            showCommandSuggestions = shouldShowSuggestions(for: newValue)
+                        }
+                        .onSubmit {
+                            if !showCommandSuggestions {
+                                addTerminalCommand()
+                            }
+                        }
+
+                    Button("Add") {
                         addTerminalCommand()
                     }
-
-                Button("Add") {
-                    addTerminalCommand()
+                    .disabled(newTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .disabled(newTerminalCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                if showCommandSuggestions {
+                    variableSuggestionsView(for: $newTerminalCommand, showSuggestions: $showCommandSuggestions)
+                }
             }
 
             // List of terminal commands
@@ -504,46 +688,66 @@ struct OnScreenKeyboardSettingsView: View {
     private func quickTextRow(_ quickText: QuickText, isTerminalCommand: Bool) -> some View {
         let isEditing = isTerminalCommand ? editingCommandId == quickText.id : editingTextId == quickText.id
 
-        HStack {
-            Image(systemName: "line.3.horizontal")
-                .foregroundColor(.secondary)
-                .frame(width: 20)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "line.3.horizontal")
+                    .foregroundColor(.secondary)
+                    .frame(width: 20)
 
-            if isEditing {
-                TextField("", text: $editText)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit {
+                if isEditing {
+                    TextField("", text: $editText)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: editText) { _, newValue in
+                            showEditSuggestions = shouldShowSuggestions(for: newValue)
+                        }
+                        .onSubmit {
+                            if !showEditSuggestions {
+                                saveEdit(quickText)
+                            }
+                        }
+
+                    Button("Save") {
                         saveEdit(quickText)
                     }
 
-                Button("Save") {
-                    saveEdit(quickText)
-                }
+                    Button("Cancel") {
+                        cancelEdit(isTerminalCommand: isTerminalCommand)
+                    }
+                } else {
+                    Text(quickText.text)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
-                Button("Cancel") {
-                    cancelEdit(isTerminalCommand: isTerminalCommand)
-                }
-            } else {
-                Text(quickText.text)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    if quickText.containsVariables {
+                        Image(systemName: "function")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                            .help("Contains variables that will be expanded")
+                    }
 
-                Spacer()
+                    Spacer()
 
-                Button {
-                    startEdit(quickText, isTerminalCommand: isTerminalCommand)
-                } label: {
-                    Image(systemName: "pencil")
-                }
-                .buttonStyle(.borderless)
+                    Button {
+                        startEdit(quickText, isTerminalCommand: isTerminalCommand)
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.borderless)
 
-                Button {
-                    profileManager.removeQuickText(quickText)
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
+                    Button {
+                        profileManager.removeQuickText(quickText)
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
+            }
+
+            // Show variable suggestions when editing
+            if isEditing && showEditSuggestions {
+                variableSuggestionsView(for: $editText, showSuggestions: $showEditSuggestions)
+                    .padding(.leading, 28)
             }
         }
         .padding(.vertical, 4)
