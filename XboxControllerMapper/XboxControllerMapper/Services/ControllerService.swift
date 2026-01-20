@@ -795,21 +795,27 @@ class ControllerService: ObservableObject {
     private func detectConnectionType(device: IOHIDDevice) {
         if let transport = IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String {
             let isBluetooth = (transport.lowercased() == "bluetooth")
+            #if DEBUG
             print("[LED] Detected connection type: \(transport) (isBluetooth=\(isBluetooth))")
+            #endif
             storage.lock.lock()
             storage.isBluetoothConnection = isBluetooth
             storage.lock.unlock()
             // Update published property for UI
             isBluetoothConnection = isBluetooth
         } else {
+            #if DEBUG
             print("[LED] Could not detect connection type, defaulting to USB")
+            #endif
             isBluetoothConnection = false
         }
     }
 
     /// Enables the microphone on the DualSense controller using CoreAudio
     private func enableMicrophone(device: IOHIDDevice) {
+        #if DEBUG
         print("[Mic] enableMicrophone called, searching for DualSense audio device...")
+        #endif
         // Use CoreAudio to find and unmute the DualSense microphone
         unmuteDualSenseMicrophone()
     }
@@ -832,7 +838,9 @@ class ControllerService: ObservableObject {
         )
 
         guard status == noErr else {
+            #if DEBUG
             print("[Mic] Failed to get audio devices size: \(status)")
+            #endif
             return
         }
 
@@ -849,7 +857,9 @@ class ControllerService: ObservableObject {
         )
 
         guard status == noErr else {
+            #if DEBUG
             print("[Mic] Failed to get audio devices: \(status)")
+            #endif
             return
         }
 
@@ -865,18 +875,22 @@ class ControllerService: ObservableObject {
 
                 // Check if it has input channels (is a microphone)
                 if hasInputChannels(deviceID) {
+                    #if DEBUG
                     print("[Mic] Found DualSense microphone: \(deviceName) (ID: \(deviceID))")
+                    #endif
                     unmuteMicrophone(deviceID: deviceID)
                     foundAny = true
                 }
             }
         }
 
+        #if DEBUG
         if !foundAny {
             print("[Mic] DualSense microphone not found in audio devices")
         } else {
             print("[Mic] micDeviceID is now: \(String(describing: micDeviceID))")
         }
+        #endif
     }
 
     private func getAudioDeviceName(_ deviceID: AudioDeviceID) -> String? {
@@ -933,7 +947,9 @@ class ControllerService: ObservableObject {
 
         // Check if mute property exists
         guard AudioObjectHasProperty(deviceID, &propertyAddress) else {
+            #if DEBUG
             print("[Mic] Device \(deviceID) does not have mute property, trying channel 1")
+            #endif
             // Try with channel 1
             unmuteMicrophoneChannel(deviceID: deviceID, channel: 1)
             return
@@ -947,19 +963,25 @@ class ControllerService: ObservableObject {
         var dataSize = UInt32(MemoryLayout<UInt32>.size)
 
         var status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &dataSize, &currentMuted)
+        #if DEBUG
         if status == noErr {
             print("[Mic] Current mute state for device \(deviceID): \(currentMuted == 1 ? "muted" : "unmuted")")
         }
+        #endif
 
         // Set mute to false (0)
         var muteValue: UInt32 = 0
         status = AudioObjectSetPropertyData(deviceID, &propertyAddress, 0, nil, dataSize, &muteValue)
 
         if status == noErr {
+            #if DEBUG
             print("[Mic] Successfully unmuted DualSense microphone (device \(deviceID))")
+            #endif
             isMicMuted = false
         } else {
+            #if DEBUG
             print("[Mic] Failed to unmute microphone: \(status)")
+            #endif
             // Try channel-specific unmute
             unmuteMicrophoneChannel(deviceID: deviceID, channel: 1)
         }
@@ -973,7 +995,9 @@ class ControllerService: ObservableObject {
         )
 
         guard AudioObjectHasProperty(deviceID, &propertyAddress) else {
+            #if DEBUG
             print("[Mic] Channel \(channel) does not have mute property")
+            #endif
             return
         }
 
@@ -982,11 +1006,13 @@ class ControllerService: ObservableObject {
 
         let status = AudioObjectSetPropertyData(deviceID, &propertyAddress, 0, nil, dataSize, &muteValue)
 
+        #if DEBUG
         if status == noErr {
             print("[Mic] Successfully unmuted channel \(channel)")
         } else {
             print("[Mic] Failed to unmute channel \(channel): \(status)")
         }
+        #endif
     }
 
     private func hasMuteProperty(_ deviceID: AudioDeviceID) -> Bool {
@@ -1003,7 +1029,9 @@ class ControllerService: ObservableObject {
     /// Sets the mute state of the DualSense microphone
     func setMicMuted(_ muted: Bool) {
         guard let deviceID = micDeviceID else {
+            #if DEBUG
             print("[Mic] No DualSense microphone device available")
+            #endif
             return
         }
 
@@ -1020,9 +1048,13 @@ class ControllerService: ObservableObject {
 
         if status == noErr {
             isMicMuted = muted
+            #if DEBUG
             print("[Mic] Microphone \(muted ? "muted" : "unmuted")")
+            #endif
         } else {
+            #if DEBUG
             print("[Mic] Failed to set mute state: \(status)")
+            #endif
         }
     }
 
@@ -1031,14 +1063,18 @@ class ControllerService: ObservableObject {
         stopMicLevelMonitoring()
 
         guard let deviceID = micDeviceID else {
+            #if DEBUG
             print("[Mic] No DualSense microphone device for level monitoring")
+            #endif
             return
         }
 
         // Request microphone permission first
         requestMicrophonePermission { [weak self] granted in
             guard granted else {
+                #if DEBUG
                 print("[Mic] Microphone permission denied")
+                #endif
                 return
             }
 
@@ -1054,16 +1090,24 @@ class ControllerService: ObservableObject {
     private func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
+            #if DEBUG
             print("[Mic] Microphone permission already granted")
+            #endif
             completion(true)
         case .notDetermined:
+            #if DEBUG
             print("[Mic] Requesting microphone permission...")
+            #endif
             AVCaptureDevice.requestAccess(for: .audio) { granted in
+                #if DEBUG
                 print("[Mic] Microphone permission \(granted ? "granted" : "denied")")
+                #endif
                 completion(granted)
             }
         case .denied, .restricted:
+            #if DEBUG
             print("[Mic] Microphone permission denied or restricted")
+            #endif
             completion(false)
         @unknown default:
             completion(false)
@@ -1085,7 +1129,9 @@ class ControllerService: ObservableObject {
             let inputNode = engine.inputNode
             let format = inputNode.outputFormat(forBus: 0)
 
+            #if DEBUG
             print("[Mic] Audio format: \(format)")
+            #endif
 
             // Install tap on input node to monitor audio levels
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
@@ -1114,9 +1160,13 @@ class ControllerService: ObservableObject {
             do {
                 try engine.start()
                 self.audioEngine = engine
+                #if DEBUG
                 print("[Mic] Audio level monitoring started successfully")
+                #endif
             } catch {
+                #if DEBUG
                 print("[Mic] Failed to start audio engine: \(error)")
+                #endif
             }
         }
     }
@@ -1127,7 +1177,9 @@ class ControllerService: ObservableObject {
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()
             audioEngine = nil
+            #if DEBUG
             print("[Mic] Audio level monitoring stopped")
+            #endif
         }
         micLevelTimer?.invalidate()
         micLevelTimer = nil
@@ -1177,11 +1229,13 @@ class ControllerService: ObservableObject {
             &deviceIDCopy
         )
 
+        #if DEBUG
         if status == noErr {
             print("[Mic] Set DualSense (device \(deviceID)) as default input device")
         } else {
             print("[Mic] Failed to set DualSense as input: \(status)")
         }
+        #endif
     }
 
     /// Refreshes microphone mute state from the device
@@ -1212,11 +1266,15 @@ class ControllerService: ObservableObject {
         storage.lock.unlock()
 
         guard isDualSense, let device = hidDevice else {
+            #if DEBUG
             print("[LED] No DualSense device available (isDualSense=\(isDualSense), hidDevice=\(hidDevice != nil))")
+            #endif
             return
         }
 
+        #if DEBUG
         print("[LED] Applying settings via \(isBluetooth ? "Bluetooth" : "USB")")
+        #endif
         if isBluetooth {
             sendBluetoothOutputReport(device: device, settings: settings)
         } else {
@@ -1262,9 +1320,11 @@ class ControllerService: ObservableObject {
             report.count
         )
 
+        #if DEBUG
         if result != kIOReturnSuccess {
             print("Failed to send USB LED report: \(result)")
         }
+        #endif
     }
 
     private func sendBluetoothOutputReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
@@ -1316,9 +1376,11 @@ class ControllerService: ObservableObject {
         report[75] = UInt8((crc >> 16) & 0xFF)
         report[76] = UInt8((crc >> 24) & 0xFF)
 
+        #if DEBUG
         // Debug: print first 10 bytes of report
         let headerBytes = report[0..<10].map { String(format: "%02X", $0) }.joined(separator: " ")
         print("[LED] BT Report (no ID): \(headerBytes), seq=\((bluetoothOutputSeq + 15) & 0x0F)")
+        #endif
 
         // Try Output Report first
         var result = IOHIDDeviceSetReport(
@@ -1329,11 +1391,15 @@ class ControllerService: ObservableObject {
             report.count
         )
 
+        #if DEBUG
         if result == kIOReturnSuccess {
             print("[LED] Bluetooth output report sent successfully")
         } else {
             print("[LED] Output report failed (\(String(format: "0x%08X", result))), trying feature report...")
+        }
+        #endif
 
+        if result != kIOReturnSuccess {
             // Try Feature Report as fallback (some macOS Bluetooth implementations handle these differently)
             result = IOHIDDeviceSetReport(
                 device,
@@ -1343,11 +1409,13 @@ class ControllerService: ObservableObject {
                 report.count
             )
 
+            #if DEBUG
             if result == kIOReturnSuccess {
                 print("[LED] Bluetooth feature report sent successfully")
             } else {
                 print("[LED] Failed to send Bluetooth LED report: \(String(format: "0x%08X", result))")
             }
+            #endif
         }
     }
 
@@ -1998,6 +2066,7 @@ class ControllerService: ObservableObject {
         let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
         storage.lock.unlock()
 
+        #if DEBUG
         print(String(
             format: "TP[%@] p=(%.3f,%.3f) s=(%.3f,%.3f) touch=%d/%d blocked=%d dist=%.3f fresh=%d",
             source,
@@ -2009,6 +2078,7 @@ class ControllerService: ObservableObject {
             distance,
             secondaryFresh ? 1 : 0
         ))
+        #endif
     }
 
     /// Arms/disarms touchpad click and detects two-finger clicks.

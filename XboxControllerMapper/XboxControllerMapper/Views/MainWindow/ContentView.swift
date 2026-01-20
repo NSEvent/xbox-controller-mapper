@@ -426,7 +426,9 @@ struct ProfileSidebar: View {
                     // Import failed, profile not loaded
                 }
             case .failure:
+                #if DEBUG
                 print("File import failed")
+                #endif
                 // File selection failed
             }
         }
