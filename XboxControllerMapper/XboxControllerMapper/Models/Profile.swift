@@ -1,5 +1,110 @@
 import Foundation
 
+// MARK: - Profile Icons
+
+/// Available icons for profile customization
+enum ProfileIcon: String, CaseIterable, Identifiable {
+    // Gaming
+    case gamecontroller = "gamecontroller.fill"
+    case arcade = "arcade.stick"
+    case dpad = "dpad.fill"
+
+    // General
+    case star = "star.fill"
+    case heart = "heart.fill"
+    case bolt = "bolt.fill"
+    case flame = "flame.fill"
+    case sparkles = "sparkles"
+
+    // Objects
+    case keyboard = "keyboard.fill"
+    case desktopcomputer = "desktopcomputer"
+    case laptopcomputer = "laptopcomputer"
+    case display = "display"
+    case tv = "tv.fill"
+
+    // Activities
+    case music = "music.note"
+    case film = "film.fill"
+    case photo = "photo.fill"
+    case paintbrush = "paintbrush.fill"
+    case pencil = "pencil"
+
+    // Shapes & Symbols
+    case circle = "circle.fill"
+    case square = "square.fill"
+    case triangle = "triangle.fill"
+    case diamond = "diamond.fill"
+    case hexagon = "hexagon.fill"
+
+    // Nature
+    case leaf = "leaf.fill"
+    case moon = "moon.fill"
+    case sun = "sun.max.fill"
+    case cloud = "cloud.fill"
+    case snowflake = "snowflake"
+
+    // People & Creatures
+    case person = "person.fill"
+    case figure = "figure.run"
+    case hare = "hare.fill"
+    case tortoise = "tortoise.fill"
+    case bird = "bird.fill"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .gamecontroller: return "Controller"
+        case .arcade: return "Arcade"
+        case .dpad: return "D-Pad"
+        case .star: return "Star"
+        case .heart: return "Heart"
+        case .bolt: return "Bolt"
+        case .flame: return "Flame"
+        case .sparkles: return "Sparkles"
+        case .keyboard: return "Keyboard"
+        case .desktopcomputer: return "Desktop"
+        case .laptopcomputer: return "Laptop"
+        case .display: return "Display"
+        case .tv: return "TV"
+        case .music: return "Music"
+        case .film: return "Film"
+        case .photo: return "Photo"
+        case .paintbrush: return "Paintbrush"
+        case .pencil: return "Pencil"
+        case .circle: return "Circle"
+        case .square: return "Square"
+        case .triangle: return "Triangle"
+        case .diamond: return "Diamond"
+        case .hexagon: return "Hexagon"
+        case .leaf: return "Leaf"
+        case .moon: return "Moon"
+        case .sun: return "Sun"
+        case .cloud: return "Cloud"
+        case .snowflake: return "Snowflake"
+        case .person: return "Person"
+        case .figure: return "Running"
+        case .hare: return "Hare"
+        case .tortoise: return "Tortoise"
+        case .bird: return "Bird"
+        }
+    }
+
+    /// Grouped icons for the picker UI
+    static var grouped: [(name: String, icons: [ProfileIcon])] {
+        [
+            ("Gaming", [.gamecontroller, .arcade, .dpad]),
+            ("General", [.star, .heart, .bolt, .flame, .sparkles]),
+            ("Devices", [.keyboard, .desktopcomputer, .laptopcomputer, .display, .tv]),
+            ("Activities", [.music, .film, .photo, .paintbrush, .pencil]),
+            ("Shapes", [.circle, .square, .triangle, .diamond, .hexagon]),
+            ("Nature", [.leaf, .moon, .sun, .cloud, .snowflake]),
+            ("Characters", [.person, .figure, .hare, .tortoise, .bird])
+        ]
+    }
+}
+
 /// A complete mapping profile
 struct Profile: Codable, Identifiable, Equatable {
     var id: UUID
@@ -7,6 +112,9 @@ struct Profile: Codable, Identifiable, Equatable {
     var isDefault: Bool
     var createdAt: Date
     var modifiedAt: Date
+
+    /// Custom icon for the profile (SF Symbol name)
+    var icon: String?
 
     /// Button mappings (system-wide defaults)
     var buttonMappings: [ControllerButton: KeyMapping]
@@ -24,6 +132,7 @@ struct Profile: Codable, Identifiable, Equatable {
         id: UUID = UUID(),
         name: String,
         isDefault: Bool = false,
+        icon: String? = nil,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         chordMappings: [ChordMapping] = [],
         joystickSettings: JoystickSettings = .default,
@@ -32,6 +141,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.id = id
         self.name = name
         self.isDefault = isDefault
+        self.icon = icon
         self.createdAt = Date()
         self.modifiedAt = Date()
         self.buttonMappings = buttonMappings
@@ -218,7 +328,7 @@ struct Profile: Codable, Identifiable, Equatable {
 
 extension Profile {
     enum CodingKeys: String, CodingKey {
-        case id, name, isDefault, createdAt, modifiedAt
+        case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, joystickSettings
         case dualSenseLEDSettings
     }
@@ -229,6 +339,7 @@ extension Profile {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         isDefault = try container.decode(Bool.self, forKey: .isDefault)
+        icon = try container.decodeIfPresent(String.self, forKey: .icon)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         modifiedAt = try container.decode(Date.self, forKey: .modifiedAt)
 
@@ -250,6 +361,7 @@ extension Profile {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encode(isDefault, forKey: .isDefault)
+        try container.encodeIfPresent(icon, forKey: .icon)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(modifiedAt, forKey: .modifiedAt)
 

@@ -125,6 +125,12 @@ class ProfileManager: ObservableObject {
         updateProfile(updatedProfile)
     }
 
+    func setProfileIcon(_ profile: Profile, icon: String?) {
+        var updatedProfile = profile
+        updatedProfile.icon = icon
+        updateProfile(updatedProfile)
+    }
+
     // MARK: - Button Mapping
 
     func setMapping(_ mapping: KeyMapping, for button: ControllerButton, in profile: Profile? = nil) {

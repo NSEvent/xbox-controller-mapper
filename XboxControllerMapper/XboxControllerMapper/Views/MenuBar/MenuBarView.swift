@@ -192,6 +192,12 @@ struct ProfileRow: View {
                 Text(profile.name)
                     .foregroundColor(.primary)
 
+                if let iconName = profile.icon {
+                    Image(systemName: iconName)
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                }
+
                 Spacer()
 
                 if profile.isDefault {

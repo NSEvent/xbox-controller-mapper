@@ -366,7 +366,28 @@ struct ProfileSidebar: View {
                                 renameProfileName = profile.name
                                 showingRenameProfileAlert = true
                             }
-                            
+
+                            Menu("Set Icon") {
+                                ForEach(ProfileIcon.grouped, id: \.name) { group in
+                                    Menu(group.name) {
+                                        ForEach(group.icons) { icon in
+                                            Button {
+                                                profileManager.setProfileIcon(profile, icon: icon.rawValue)
+                                            } label: {
+                                                Label(icon.displayName, systemImage: icon.rawValue)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Divider()
+
+                                Button("Remove Icon") {
+                                    profileManager.setProfileIcon(profile, icon: nil)
+                                }
+                                .disabled(profile.icon == nil)
+                            }
+
                             Button("Export...") {
                                 profileToExport = profile
                                 isExporting = true
@@ -486,7 +507,11 @@ struct ProfileListRow: View {
 
             Spacer()
 
-            if profile.isDefault {
+            if let iconName = profile.icon {
+                Image(systemName: iconName)
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
+            } else if profile.isDefault {
                 Image(systemName: "star.fill")
                     .font(.caption)
                     .foregroundColor(.yellow)
