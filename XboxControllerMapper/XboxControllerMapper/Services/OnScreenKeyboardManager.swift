@@ -220,8 +220,12 @@ class OnScreenKeyboardManager: ObservableObject {
         NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { app, error in
             if let error = error {
                 NSLog("[OnScreenKeyboard] Failed to open app: \(error.localizedDescription)")
-            } else {
-                NSLog("[OnScreenKeyboard] Successfully opened: \(app?.localizedName ?? bundleIdentifier)")
+            } else if let app = app {
+                NSLog("[OnScreenKeyboard] Successfully opened: \(app.localizedName ?? bundleIdentifier)")
+                // Ensure the app is activated and brought to front
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    app.activate(options: [.activateIgnoringOtherApps])
+                }
             }
         }
     }
