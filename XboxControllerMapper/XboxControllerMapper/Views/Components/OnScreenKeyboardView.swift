@@ -120,7 +120,7 @@ struct OnScreenKeyboardView: View {
                 appBarButton(item)
             }
         }
-        .frame(width: appBarWidth)
+        .frame(width: appBarWidth, alignment: .center)
     }
 
     private func appBarButton(_ item: AppBarItem) -> some View {
@@ -201,7 +201,7 @@ struct OnScreenKeyboardView: View {
                 websiteLinkButton(link)
             }
         }
-        .frame(width: appBarWidth)
+        .frame(width: appBarWidth, alignment: .center)
     }
 
     private func websiteLinkButton(_ link: WebsiteLink) -> some View {

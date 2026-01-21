@@ -577,7 +577,7 @@ struct OnScreenKeyboardSettingsView: View {
                     }
                 }
                 .listStyle(.plain)
-                .frame(height: CGFloat(websiteLinks.count) * 44)
+                .frame(height: CGFloat(websiteLinks.count) * 32)
                 .scrollContentBackground(.hidden)
                 .scrollDisabled(true)
             }
