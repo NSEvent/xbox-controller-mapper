@@ -177,8 +177,14 @@ struct Config {
     static let modifierReleaseCheckDelay: TimeInterval = 0.05
 
     // MARK: - Profile Management
-    /// Default profile configuration directory
+    /// New configuration directory (preferred)
     static let configDirectory: String = {
+        let homeDir = NSHomeDirectory()
+        return (homeDir as NSString).appendingPathComponent(".controllerkeys")
+    }()
+
+    /// Legacy configuration directory (for migration)
+    static let legacyConfigDirectory: String = {
         let homeDir = NSHomeDirectory()
         return (homeDir as NSString).appendingPathComponent(".xbox-controller-mapper")
     }()
@@ -188,6 +194,10 @@ struct Config {
 
     static var configFilePath: String {
         (configDirectory as NSString).appendingPathComponent(configFileName)
+    }
+
+    static var legacyConfigFilePath: String {
+        (legacyConfigDirectory as NSString).appendingPathComponent(configFileName)
     }
 
     // MARK: - Battery Monitoring

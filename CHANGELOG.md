@@ -93,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Left joystick to mouse movement with configurable sensitivity and deadzone
 - Right joystick to scroll with configurable sensitivity and deadzone
 - Modifier key (RT by default) for sensitive mouse movement mode
-- Profile system for multiple mapping configurations (saved in ~/.xbox-controller-mapper/config.json)
+- Profile system for multiple mapping configurations (saved in ~/.controllerkeys/config.json)
 - Interactive controller visualization UI for easy configuration
 - Menu bar icon for quick enable/disable and profile switching
 - Default mappings optimized for general macOS navigation

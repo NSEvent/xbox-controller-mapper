@@ -13,13 +13,19 @@ class ProfileManager: ObservableObject {
 
     private let fileManager = FileManager.default
     private let configURL: URL
+    private let legacyConfigURL: URL
     private var loadSucceeded = false  // Track if initial load succeeded to prevent clobbering
 
     init() {
-        // Create ~/.xbox-controller-mapper directory
         let home = fileManager.homeDirectoryForCurrentUser
-        let configDir = home.appendingPathComponent(".xbox-controller-mapper", isDirectory: true)
+
+        // New location: ~/.controllerkeys/
+        let configDir = home.appendingPathComponent(".controllerkeys", isDirectory: true)
         configURL = configDir.appendingPathComponent("config.json")
+
+        // Legacy location: ~/.xbox-controller-mapper/ (for migration)
+        let legacyConfigDir = home.appendingPathComponent(".xbox-controller-mapper", isDirectory: true)
+        legacyConfigURL = legacyConfigDir.appendingPathComponent("config.json")
 
         createDirectoryIfNeeded(at: configDir)
         loadConfiguration()
@@ -280,13 +286,24 @@ class ProfileManager: ObservableObject {
     }
 
     private func loadConfiguration() {
-        // Check if file exists first to differentiate between "no config" and "read error"
-        guard fileManager.fileExists(atPath: configURL.path) else {
-            return
+        // Determine which config file to load:
+        // 1. New location (~/.controllerkeys/) takes priority
+        // 2. Fall back to legacy location (~/.xbox-controller-mapper/) for migration
+        let urlToLoad: URL
+        var migratingFromLegacy = false
+
+        if fileManager.fileExists(atPath: configURL.path) {
+            urlToLoad = configURL
+        } else if fileManager.fileExists(atPath: legacyConfigURL.path) {
+            urlToLoad = legacyConfigURL
+            migratingFromLegacy = true
+            NSLog("[ProfileManager] Migrating config from legacy location: \(legacyConfigURL.path)")
+        } else {
+            return  // No config file exists yet
         }
 
         do {
-            let data = try Data(contentsOf: configURL)
+            let data = try Data(contentsOf: urlToLoad)
             
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
@@ -339,8 +356,12 @@ class ProfileManager: ObservableObject {
 
             loadSucceeded = true  // Mark that we successfully loaded the config
 
-            if didMigrate {
+            // Save to new location if migrating from legacy or if data migrations occurred
+            if migratingFromLegacy || didMigrate {
                 saveConfiguration()
+                if migratingFromLegacy {
+                    NSLog("[ProfileManager] Config migrated to new location: \(configURL.path)")
+                }
             }
         } catch {
             NSLog("[ProfileManager] Configuration load failed: \(error)")
