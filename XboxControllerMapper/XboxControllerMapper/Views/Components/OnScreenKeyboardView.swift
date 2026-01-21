@@ -111,16 +111,22 @@ struct OnScreenKeyboardView: View {
     // MARK: - App Bar Section
 
     // Fixed width for app bar to ensure proper layout calculation
-    // Matches keyboard width, fits ~9 icons per row with 64px icons + padding
+    // Matches keyboard width, fits ~11 icons per row with 64px icons + padding
     private let appBarWidth: CGFloat = 1025
+    private let itemsPerRow = 11
 
     private var appBarSection: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 8)], spacing: 8) {
-            ForEach(appBarItems) { item in
-                appBarButton(item)
+        let rows = appBarItems.chunked(into: itemsPerRow)
+        return VStack(spacing: 8) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: 8) {
+                    ForEach(row) { item in
+                        appBarButton(item)
+                    }
+                }
             }
         }
-        .frame(width: appBarWidth, alignment: .center)
+        .frame(width: appBarWidth)
     }
 
     private func appBarButton(_ item: AppBarItem) -> some View {
@@ -196,12 +202,17 @@ struct OnScreenKeyboardView: View {
     // MARK: - Website Links Section
 
     private var websiteLinksSection: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 8)], spacing: 8) {
-            ForEach(websiteLinks) { link in
-                websiteLinkButton(link)
+        let rows = websiteLinks.chunked(into: itemsPerRow)
+        return VStack(spacing: 8) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: 8) {
+                    ForEach(row) { link in
+                        websiteLinkButton(link)
+                    }
+                }
             }
         }
-        .frame(width: appBarWidth, alignment: .center)
+        .frame(width: appBarWidth)
     }
 
     private func websiteLinkButton(_ link: WebsiteLink) -> some View {
@@ -688,6 +699,16 @@ struct OnScreenKeyboardView: View {
             return .accentColor.opacity(0.5)
         } else {
             return .gray.opacity(0.3)
+        }
+    }
+}
+
+// MARK: - Array Chunking Extension
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        stride(from: 0, to: count, by: size).map {
+            Array(self[$0..<Swift.min($0 + size, count)])
         }
     }
 }
