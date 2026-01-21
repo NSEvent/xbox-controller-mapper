@@ -391,7 +391,7 @@ struct OnScreenKeyboardView: View {
     // MARK: - Media Controls Row
 
     private var mediaControlsRow: some View {
-        HStack(spacing: keySpacing * 4) {
+        HStack(spacing: keySpacing * 8) {
             // Playback controls
             HStack(spacing: 4) {
                 Text("Playback:")
