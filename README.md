@@ -51,7 +51,7 @@ Later on, I realized a PS5 Dualsense controller that has a built in touchpad to 
 - **Visual Interface**: Interactive controller-shaped UI for easy configuration
 
 - **DualSense Support**: Full PlayStation 5 DualSense controller support
-  - Touchpad as trackpad or button zones
+  - Full touchpad support with multi-touch gestures
   - Multi-touch gesture support
   - Customizable LED colors in USB connection mode
   - Dualsense built-in microphone support in USB connection mode
