@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- App name changed from Xbox Controller Mapper to ControllerKeys
 - Distribution format changed from ZIP to DMG with drag-to-Applications install
 
 ## [1.1.2] - 2026-01-21
