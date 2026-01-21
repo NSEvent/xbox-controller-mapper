@@ -68,8 +68,8 @@ Later on, I realized a PS5 Dualsense controller that has a built in touchpad to 
 #### Joystick Settings
 ![Xbox Joystick Settings](screenshots/xbox-series-xs/3-joysticks.png)
 
-#### Keyboard Shortcut Capture
-![Keyboard Shortcut Capture](screenshots/xbox-series-xs/4-keyboard.png)
+#### On Screen Keyboard Widget
+![On Screen Keyboard Widget](screenshots/xbox-series-xs/4-keyboard.png)
 
 #### On-Screen Keyboard
 ![Xbox On-Screen Keyboard](screenshots/xbox-series-xs/5-on-screen-keyboard.png)
@@ -79,6 +79,15 @@ Later on, I realized a PS5 Dualsense controller that has a built in touchpad to 
 #### Button Mappings
 ![DualSense Button Mappings](screenshots/dualsense/1-buttons.png)
 
+#### Chord Mappings
+![DualSense Chord Mappings](screenshots/dualsense/2-chords.png)
+
+#### Joystick Settings
+![DualSense Joystick Settings](screenshots/dualsense/3-joysticks.png)
+
+#### On Screen Keyboard Widget
+![DualSense On Screen Keyboard Widget](screenshots/dualsense/4-keyboard.png)
+
 #### Touchpad Settings
 ![DualSense Touchpad Settings](screenshots/dualsense/5-touchpad.png)
 
@@ -87,6 +96,9 @@ Later on, I realized a PS5 Dualsense controller that has a built in touchpad to 
 
 #### LED Customization
 ![DualSense LEDs](screenshots/dualsense/6-leds.png)
+
+#### Microphone Settings
+![DualSense Microphone Settings](screenshots/dualsense/7-microphone.png)
 
 #### On-Screen Keyboard
 ![DualSense On-Screen Keyboard](screenshots/dualsense/8-on-screen-keyboard.png)
