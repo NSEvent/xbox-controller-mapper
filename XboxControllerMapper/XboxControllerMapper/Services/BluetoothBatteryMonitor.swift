@@ -43,6 +43,18 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     func resetBatteryLevel() {
         batteryLevel = nil
     }
+
+    /// Refreshes the battery level by re-reading from the connected peripheral
+    func refreshBatteryLevel() {
+        if let peripheral = connectedPeripheral, let characteristic = batteryCharacteristic {
+            peripheral.readValue(for: characteristic)
+        } else {
+            // Not connected yet, trigger a scan
+            if centralManager?.state == .poweredOn {
+                scanForControllers()
+            }
+        }
+    }
     
     private func scanForControllers() {
         // First, check for already connected devices (common for controllers)

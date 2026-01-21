@@ -643,6 +643,9 @@ class ControllerService: ObservableObject {
             storage.lock.unlock()
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
 
+            // Trigger battery monitor refresh for Xbox controller
+            batteryMonitor.refreshBatteryLevel()
+
             xboxGamepad.buttonShare?.pressedChangedHandler = { [weak self] _, _, pressed in
                 self?.controllerQueue.async { self?.handleButton(.share, pressed: pressed) }
             }
