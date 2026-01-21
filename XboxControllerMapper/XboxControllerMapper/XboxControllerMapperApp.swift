@@ -85,7 +85,7 @@ struct XboxControllerMapperApp: App {
         }
         .windowResizability(.contentSize)
 
-        MenuBarExtra("Xbox Controller Mapper", systemImage: ServiceContainer.shared.controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller") {
+        MenuBarExtra("ControllerKeys", systemImage: ServiceContainer.shared.controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller") {
             MenuBarView()
                 .environmentObject(ServiceContainer.shared.controllerService)
                 .environmentObject(ServiceContainer.shared.profileManager)
@@ -146,7 +146,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.messageText = "Accessibility Permission Required"
         alert.informativeText = """
-            Xbox Controller Mapper needs Accessibility permission to simulate keyboard and mouse input in other apps.
+            ControllerKeys needs Accessibility permission to simulate keyboard and mouse input in other apps.
 
             1. Click "Open System Settings"
             2. Click the "+" button at the bottom of the list

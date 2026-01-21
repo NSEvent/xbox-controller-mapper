@@ -1,6 +1,6 @@
-# Contributing to Xbox Controller Mapper
+# Contributing to ControllerKeys
 
-Thank you for your interest in contributing to Xbox Controller Mapper! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to ControllerKeys! This document provides guidelines and information for contributors.
 
 ## Getting Started
 
@@ -114,4 +114,4 @@ If you have questions about contributing, feel free to open an issue with the `q
 
 ## License
 
-By contributing to Xbox Controller Mapper, you agree that your contributions will be licensed under the same license as the project (see [LICENSE](LICENSE)).
+By contributing to ControllerKeys, you agree that your contributions will be licensed under the same license as the project (see [LICENSE](LICENSE)).

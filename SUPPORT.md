@@ -1,4 +1,4 @@
-# Xbox Controller Mapper - Support
+# ControllerKeys - Support
 
 ## Getting Started
 
@@ -11,7 +11,7 @@
 ### Installation
 
 1. Download the app from [Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper)
-2. Unzip and move `Xbox Controller Mapper.app` to `/Applications`
+2. Unzip and move `ControllerKeys.app` to `/Applications`
 3. Launch the app
 4. Grant Accessibility permissions when prompted (see below)
 
@@ -21,7 +21,7 @@ The app requires Accessibility permissions to simulate keyboard and mouse input.
 
 1. macOS will prompt you to grant Accessibility access
 2. Click "Open System Settings" (or go to System Settings > Privacy & Security > Accessibility)
-3. Find "Xbox Controller Mapper" in the list
+3. Find "ControllerKeys" in the list
 4. Toggle it ON
 5. You may need to restart the app for permissions to take effect
 
@@ -32,7 +32,7 @@ The app requires Accessibility permissions to simulate keyboard and mouse input.
 1. Put your Xbox controller in pairing mode (hold the pairing button until the Xbox logo flashes rapidly)
 2. Open System Settings > Bluetooth
 3. Select your controller from the available devices
-4. Once connected, launch Xbox Controller Mapper
+4. Once connected, launch ControllerKeys
 
 ---
 
@@ -90,7 +90,7 @@ Create multiple profiles for different use cases:
 
 1. **Check Bluetooth connection**: Ensure your controller is connected in System Settings > Bluetooth
 2. **Re-pair the controller**: Forget the device in Bluetooth settings and pair again
-3. **Restart the app**: Quit and relaunch Xbox Controller Mapper
+3. **Restart the app**: Quit and relaunch ControllerKeys
 4. **Check battery**: Low battery can cause connection issues
 
 ### Button Presses Not Working
@@ -209,7 +209,7 @@ A: Generally yes. They operate at different levels — this app handles controll
 
 **Q: Can I run the app at login?**
 
-A: Yes. Add Xbox Controller Mapper to System Settings > General > Login Items.
+A: Yes. Add ControllerKeys to System Settings > General > Login Items.
 
 **Q: Why does the app need to stay running?**
 

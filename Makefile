@@ -43,7 +43,7 @@ PROCESS_NAME := $(basename $(WRAPPER_NAME))
 .PHONY: build install clean release sign-and-notarize app-path help check-permissions
 
 help:
-	@echo "Xbox Controller Mapper - Build Commands"
+	@echo "ControllerKeys - Build Commands"
 	@echo ""
 	@echo "  make build     - Build the app (Release configuration)"
 	@echo "  make install   - Build and install to /Applications"

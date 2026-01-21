@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Xbox Controller Mapper, please report it responsibly.
+If you discover a security vulnerability in ControllerKeys, please report it responsibly.
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
@@ -27,7 +27,7 @@ When reporting a vulnerability, please include:
 
 ### Accessibility Permissions
 
-Xbox Controller Mapper requires macOS Accessibility permissions to function. This permission allows the app to:
+ControllerKeys requires macOS Accessibility permissions to function. This permission allows the app to:
 
 - Simulate keyboard input
 - Simulate mouse movement and clicks

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Xbox Controller Mapper - Sign and Notarize Script
+# ControllerKeys - Sign and Notarize Script
 # Builds a universal binary, signs with Developer ID, and notarizes with Apple.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,7 +23,7 @@ BUNDLE_ID="KevinTang.XboxControllerMapper"
 RELEASE_DIR="$PROJECT_ROOT/release"
 BUILD_DIR="$PROJECT_ROOT/build"
 
-echo "=== Sign and Notarize: Xbox Controller Mapper ${MARKETING_VERSION} ==="
+echo "=== Sign and Notarize: ControllerKeys ${MARKETING_VERSION} ==="
 echo ""
 
 # Check for required environment variables for notarization

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Global configuration constants for Xbox Controller Mapper
+/// Global configuration constants for ControllerKeys
 struct Config {
 
     // MARK: - Chord Detection

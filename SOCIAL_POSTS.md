@@ -4,7 +4,7 @@
 
 **Title:**
 ```
-Show HN: Xbox Controller Mapper – System-wide controller-to-keyboard mapping for macOS
+Show HN: ControllerKeys – System-wide controller-to-keyboard mapping for macOS
 ```
 
 **Body:**
@@ -63,7 +63,7 @@ Happy to answer questions!
 
 **Tweet 1:**
 ```
-I wanted to vibe code from my couch. So I built Xbox Controller Mapper for macOS.
+I wanted to vibe code from my couch. So I built ControllerKeys for macOS.
 
 Map any controller button to keyboard shortcuts, system-wide. Here's how it works 🧵
 ```
@@ -167,7 +167,7 @@ me mass producing code from my couch while my mass produced standing desk collec
 
 **Title:**
 ```
-Xbox Controller Mapper – Map Xbox/DualSense controllers to keyboard shortcuts system-wide
+ControllerKeys – Map Xbox/DualSense controllers to keyboard shortcuts system-wide
 ```
 
 **Body:**
@@ -236,7 +236,7 @@ I mass produced an app from my couch so I could mass produce more apps from my c
 ```
 I wanted to "vibe code" – use my Mac from the couch with voice transcription. But I still needed a mouse and keyboard shortcuts.
 
-So I built Xbox Controller Mapper:
+So I built ControllerKeys:
 
 - Map controller buttons to any keyboard shortcut
 - Joystick becomes mouse (with precision mode for accurate clicks)
@@ -256,7 +256,7 @@ $10 on Gumroad, source on GitHub (it needs Accessibility permissions so I wanted
 
 **Title:**
 ```
-Xbox Controller Mapper – Native macOS app to map game controllers to keyboard/mouse input system-wide
+ControllerKeys – Native macOS app to map game controllers to keyboard/mouse input system-wide
 ```
 
 **Body:**
@@ -282,7 +282,7 @@ Built this to code from my couch with voice transcription.
 
 **Title:**
 ```
-Update: Xbox Controller Mapper now supports PS5 DualSense touchpad, on-screen keyboard widget, and more – still vibe coding from my couch
+Update: ControllerKeys now supports PS5 DualSense touchpad, on-screen keyboard widget, and more – still vibe coding from my couch
 ```
 
 **Flair:** Built with Claude
@@ -320,7 +320,7 @@ https://www.kevintang.xyz/apps/xbox-controller-mapper
 
 **Alt title options:**
 ```
-I've been vibe coding from my couch for 2 months – here's the update to Xbox Controller Mapper
+I've been vibe coding from my couch for 2 months – here's the update to ControllerKeys
 ```
 ```
 Update: The Xbox controller vibe coding app now has PS5 touchpad support and an on-screen command center
@@ -362,7 +362,7 @@ Happy to discuss the implementation if anyone's curious about GameController fra
 
 **Product Name:**
 ```
-Xbox Controller Mapper
+ControllerKeys
 ```
 
 **Tagline (60 chars max):**
@@ -381,7 +381,7 @@ Map game controllers to keyboard shortcuts on macOS
 **Description:**
 
 ```
-Xbox Controller Mapper turns your Xbox or PS5 DualSense controller into a complete input device for macOS – not just for games, but system-wide.
+ControllerKeys turns your Xbox or PS5 DualSense controller into a complete input device for macOS – not just for games, but system-wide.
 
 🎮 **Button Mapping**
 Map any button to keyboard shortcuts with full modifier support. Use chord mappings (multiple buttons → one action), long-hold for alternate actions, and double-tap detection.
@@ -414,7 +414,7 @@ The app requires Accessibility permissions to simulate input, so the source code
 ```
 Hey Product Hunt! 👋
 
-I built Xbox Controller Mapper because I wanted to "vibe code" from my couch – using voice transcription for typing and a controller for everything else.
+I built ControllerKeys because I wanted to "vibe code" from my couch – using voice transcription for typing and a controller for everything else.
 
 The existing options were either abandoned (Enjoyable hasn't been updated since 2014, Joystick Mapper is years out of date) or only work within games (Steam). Nothing worked system-wide with the features I needed.
 

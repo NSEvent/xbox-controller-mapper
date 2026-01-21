@@ -30,13 +30,13 @@
 	<key>LSUIElement</key>
 	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Xbox Controller Mapper needs Bluetooth access to connect to your Xbox controller.</string>
+	<string>ControllerKeys needs Bluetooth access to connect to your controller.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Xbox Controller Mapper needs Bluetooth access to connect to your Xbox controller.</string>
+	<string>ControllerKeys needs Bluetooth access to connect to your controller.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Xbox Controller Mapper needs microphone access to test the DualSense controller's built-in microphone and display audio input levels.</string>
+	<string>ControllerKeys needs microphone access to test the DualSense controller's built-in microphone and display audio input levels.</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Xbox Controller Mapper needs permission to control Terminal and other apps to run terminal commands from the on-screen keyboard.</string>
+	<string>ControllerKeys needs permission to control Terminal and other apps to run terminal commands from the on-screen keyboard.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2024-2025 Kevin Tang. All rights reserved.</string>
 	<key>NSPrincipalClass</key>

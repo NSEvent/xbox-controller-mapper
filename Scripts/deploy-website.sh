@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Deploy Xbox Controller Mapper website to kevintang.xyz
+# Deploy ControllerKeys website to kevintang.xyz
 # Usage: ./Scripts/deploy-website.sh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,7 +9,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DOCS_DIR="$PROJECT_ROOT/docs"
 TARGET_DIR="$HOME/projects/kevintang.xyz/apps/xbox-controller-mapper"
 
-echo "=== Deploying Xbox Controller Mapper Website ==="
+echo "=== Deploying ControllerKeys Website ==="
 echo ""
 
 # Check source exists
@@ -53,5 +53,5 @@ echo ""
 echo "Next steps:"
 echo "  1. cd $HOME/projects/kevintang.xyz"
 echo "  2. git add apps/xbox-controller-mapper"
-echo "  3. git commit -m 'Add Xbox Controller Mapper support page'"
+echo "  3. git commit -m 'Update ControllerKeys support page'"
 echo "  4. git push (or deploy however your site is hosted)"

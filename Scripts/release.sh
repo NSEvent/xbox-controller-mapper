@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Xbox Controller Mapper Release Script
+# ControllerKeys Release Script
 # This script orchestrates the full release workflow:
 # 1. Validates git state
 # 2. Builds, signs, and notarizes the app
@@ -15,7 +15,7 @@ cd "$PROJECT_ROOT"
 # Load version
 source version.env
 
-echo "=== Xbox Controller Mapper Release v${MARKETING_VERSION} (${BUILD_NUMBER}) ==="
+echo "=== ControllerKeys Release v${MARKETING_VERSION} (${BUILD_NUMBER}) ==="
 echo ""
 
 # Check for required tools
