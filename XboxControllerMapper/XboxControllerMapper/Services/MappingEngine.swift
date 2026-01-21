@@ -55,7 +55,7 @@ private struct MappingExecutor {
     }
 }
 
-/// Orchestrates Xbox controller input to keyboard/mouse output mapping
+/// Orchestrates game controller input to keyboard/mouse output mapping
 ///
 /// The MappingEngine is the central coordinator that:
 /// 1. Listens to controller input events from ControllerService

@@ -124,7 +124,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
 }
 
-/// Service for managing Xbox controller connection and input
+/// Service for managing game controller connection and input
 @MainActor
 class ControllerService: ObservableObject {
     @Published var isConnected = false
@@ -412,7 +412,7 @@ class ControllerService: ObservableObject {
     private func controllerConnected(_ controller: GCController) {
         connectedController = controller
         isConnected = true
-        controllerName = controller.vendorName ?? "Xbox Controller"
+        controllerName = controller.vendorName ?? "Game Controller"
 
         storage.lock.lock()
         resetTouchpadStateLocked()

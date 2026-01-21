@@ -1,6 +1,6 @@
 import Foundation
 
-/// Represents all mappable buttons on an Xbox controller
+/// Represents all mappable buttons on Xbox and DualSense controllers
 enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     // Face buttons
     case a
