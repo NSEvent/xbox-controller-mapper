@@ -21,7 +21,7 @@ Later on, I realized a PS5 Dualsense controller that has a built in touchpad to 
 
 ## Features
 
-- **Button Mapping**: Map any controller button to keyboard shortcuts
+- **Button Mapping**: Map any Xbox/Dualsense controller button to keyboard shortcuts
   - Modifier-only mappings (⌘, ⌥, ⇧, ⌃)
   - Key-only mappings
   - Modifier + Key combinations
@@ -34,20 +34,28 @@ Later on, I realized a PS5 Dualsense controller that has a built in touchpad to 
   - Configurable sensitivity and deadzone
   - Hold modifier (RT by default) to use sensitive mouse movement
 
-- **On-Screen Keyboard**: Type without reaching for your physical keyboard
-  - Navigate with joystick or D-pad
-  - Quick access via controller button
-  - Full keyboard layout with special keys
+- **Touchpad Control**: Use the touchpad from a Dualsense controller with taps and multitouch gestures
+  - Single finger tap → Left click
+  - Two finger tap → Right click
+  - Two finger swipe → Scrolling
+  - Two finger pinch → Zoom in/out
 
-- **DualSense Support**: Full PlayStation 5 DualSense controller support
-  - Touchpad as trackpad or button zones
-  - Multi-touch gesture support
-  - Customizable LED colors
-  - Microphone mute button mapping
+- **On Screen Keyboard, Commands, and Apps**: Use the on-screen keyboard widget to quickly select apps, commands, or keyboard keys.
+  - Use the controller without a keyboard with the on-screen keyboard
+  - Easily enter configurable text strings and commands in Terminal with a single click
+  - Use built-in variables to customize text outputted
+  - Show and hide apps in customizable app bar
 
 - **Profile System**: Create and switch between multiple mapping profiles
 
 - **Visual Interface**: Interactive controller-shaped UI for easy configuration
+
+- **DualSense Support**: Full PlayStation 5 DualSense controller support
+  - Touchpad as trackpad or button zones
+  - Multi-touch gesture support
+  - Customizable LED colors in USB connection mode
+  - Dualsense built-in microphone support in USB connection mode
+  - Microphone mute button mapping
 
 <details open>
 <summary>More Screenshots</summary>
