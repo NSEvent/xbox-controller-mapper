@@ -189,41 +189,40 @@ class OnScreenKeyboardManager: ObservableObject {
     /// Activates or hides an app by its bundle identifier
     /// If the app is already focused, it will be hidden. Otherwise, it will be activated.
     private func activateApp(bundleIdentifier: String) {
-        NSLog("[OnScreenKeyboard] activateApp: \(bundleIdentifier)")
+        NSLog("[OnScreenKeyboard] activateApp called: \(bundleIdentifier)")
+
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+            NSLog("[OnScreenKeyboard] App not found: \(bundleIdentifier)")
+            return
+        }
 
         // Find running instances of the app
         let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+        NSLog("[OnScreenKeyboard] Running instances: \(runningApps.count)")
 
         // Check if this app is currently the frontmost app
-        if let frontmost = NSWorkspace.shared.frontmostApplication,
-           frontmost.bundleIdentifier == bundleIdentifier {
-            // App is focused - hide it
-            NSLog("[OnScreenKeyboard] App is frontmost, hiding: \(bundleIdentifier)")
-            frontmost.hide()
-            return
-        }
-
-        // Check if the app is running but not focused
-        if let runningApp = runningApps.first {
-            // App is running - activate it
-            NSLog("[OnScreenKeyboard] App is running, activating: \(bundleIdentifier)")
-            runningApp.activate(options: [.activateIgnoringOtherApps])
-            return
-        }
-
-        // App is not running - launch it
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
-            let configuration = NSWorkspace.OpenConfiguration()
-            configuration.activates = true
-            NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, error in
-                if let error = error {
-                    NSLog("[OnScreenKeyboard] Failed to launch app: \(error.localizedDescription)")
-                } else {
-                    NSLog("[OnScreenKeyboard] Launched app: \(app?.localizedName ?? bundleIdentifier)")
-                }
+        if let frontmost = NSWorkspace.shared.frontmostApplication {
+            NSLog("[OnScreenKeyboard] Frontmost app: \(frontmost.bundleIdentifier ?? "unknown")")
+            if frontmost.bundleIdentifier == bundleIdentifier {
+                // App is focused - hide it
+                NSLog("[OnScreenKeyboard] App is frontmost, hiding: \(bundleIdentifier)")
+                frontmost.hide()
+                return
             }
-        } else {
-            NSLog("[OnScreenKeyboard] App not found: \(bundleIdentifier)")
+        }
+
+        // Use NSWorkspace.shared.open which is more reliable for activation
+        NSLog("[OnScreenKeyboard] Opening/activating app: \(bundleIdentifier)")
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        configuration.promptsUserIfNeeded = false
+
+        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { app, error in
+            if let error = error {
+                NSLog("[OnScreenKeyboard] Failed to open app: \(error.localizedDescription)")
+            } else {
+                NSLog("[OnScreenKeyboard] Successfully opened: \(app?.localizedName ?? bundleIdentifier)")
+            }
         }
     }
 
