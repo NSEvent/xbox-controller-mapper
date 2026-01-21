@@ -277,20 +277,6 @@ struct OnScreenKeyboardView: View {
 
     private var quickTextSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Text Snippets
-            if !textSnippets.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "text.quote")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Text")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                quickTextButtonRow(textSnippets)
-            }
-
             // Terminal Commands
             if !terminalCommands.isEmpty {
                 HStack(spacing: 4) {
@@ -303,6 +289,20 @@ struct OnScreenKeyboardView: View {
                 }
 
                 quickTextButtonRow(terminalCommands)
+            }
+
+            // Text Snippets
+            if !textSnippets.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "text.quote")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Text")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                quickTextButtonRow(textSnippets)
             }
         }
     }
