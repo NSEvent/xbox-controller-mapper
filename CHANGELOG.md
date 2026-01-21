@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-01-21
+
+### Added
+
+- Website links feature in on-screen keyboard settings
+  - Add URLs that display with favicon and title
+  - Click to open in default browser
+- Media key controls in on-screen keyboard
+  - Playback: Previous, Rewind, Play/Pause, Fast Forward, Next
+  - Volume: Mute, Down, Up
+  - Brightness: Down, Up
+- Media keys available in visual keyboard picker for button and chord mapping
+
+### Changed
+
+- Swap order of Commands and Text sections in on-screen keyboard
+- Increase app bar and website bar to 12 items per row
+- Move media controls above extended function keys in keyboard picker
+- Increase spacing between media control groups
+
+### Fixed
+
+- App activation in app bar not working for most apps
+- Apps not launching focused when opened from app bar
+
 ## [1.1.0] - 2026-01-20
 
 ### Added
