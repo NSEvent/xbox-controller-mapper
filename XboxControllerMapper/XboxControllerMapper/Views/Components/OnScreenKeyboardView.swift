@@ -114,9 +114,9 @@ struct OnScreenKeyboardView: View {
     // MARK: - App Bar Section
 
     // Fixed width for app bar to ensure proper layout calculation
-    // Matches keyboard width, fits ~11 icons per row with 64px icons + padding
+    // Matches keyboard width, fits ~12 icons per row with 64px icons + padding
     private let appBarWidth: CGFloat = 1025
-    private let itemsPerRow = 11
+    private let itemsPerRow = 12
 
     private var appBarSection: some View {
         let rows = appBarItems.chunked(into: itemsPerRow)
