@@ -35,8 +35,8 @@ Later on, I realized a PS5 Dualsense controller that has a built in touchpad to 
   - Hold modifier (RT by default) to use sensitive mouse movement
 
 - **Touchpad Control**: Use the touchpad from a Dualsense controller with taps and multitouch gestures
-  - Single finger tap → Left click
-  - Two finger tap → Right click
+  - Single-finger tap or click → Left click
+  - Two-finger tap or click → Right click
   - Two finger swipe → Scrolling
   - Two finger pinch → Zoom in/out
 
