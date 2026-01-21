@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://www.kevintang.xyz/apps/xbox-controller-mapper
+    about: Check the documentation for guides and FAQs
+  - name: Purchase
+    url: https://thekevintang.gumroad.com/l/xbox-controller-mapper
+    about: Purchase the official signed and notarized build
