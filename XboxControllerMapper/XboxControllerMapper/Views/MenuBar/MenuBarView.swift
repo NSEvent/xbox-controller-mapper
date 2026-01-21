@@ -125,23 +125,23 @@ struct MenuBarView: View {
 
     private var footerSection: some View {
         VStack(spacing: 8) {
-            HStack {
-                Button(action: openMainWindow) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "gear")
-                        Text("Settings")
-                    }
+            Button(action: openMainWindow) {
+                HStack(spacing: 4) {
+                    Image(systemName: "gear")
+                    Text("Settings")
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button(action: quitApp) {
-                    Text("Quit")
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
             }
+            .buttonStyle(.plain)
+
+            Button(action: quitApp) {
+                HStack(spacing: 4) {
+                    Image(systemName: "xmark.circle")
+                    Text("Quit ControllerKeys")
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
 
             // Version and copyright
             HStack {
