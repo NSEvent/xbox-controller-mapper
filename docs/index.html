@@ -729,6 +729,70 @@
             font-size: 0.85rem;
         }
 
+        /* Touchpad visual */
+        .touchpad-graphic {
+            display: flex;
+            justify-content: center;
+            margin: 1.5rem 0;
+        }
+
+        .touchpad-shape {
+            width: 180px;
+            height: 80px;
+            background: var(--bg-deep);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .touchpad-shape::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 1px;
+            height: 60%;
+            background: var(--border);
+            transform: translate(-50%, -50%);
+        }
+
+        .touch-point {
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 0 15px var(--glow);
+        }
+
+        .touch-point.left {
+            left: 25%;
+            top: 40%;
+        }
+
+        .touch-point.right {
+            right: 25%;
+            top: 55%;
+        }
+
+        .touchpad-label {
+            text-align: center;
+            margin-top: 0.75rem;
+        }
+
+        .touchpad-label h4 {
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .touchpad-label p {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
         /* Alert box */
         .alert {
             background: rgba(0, 255, 136, 0.05);
@@ -936,7 +1000,7 @@
 
                 <div class="card">
                     <h3><span class="card-icon">🔗</span> Chord Mappings</h3>
-                    <p style="color: var(--text-dim); margin-bottom: 1rem;">Press multiple buttons for one action</p>
+                    <p style="color: var(--text-dim); margin-bottom: 1rem;">Press multiple buttons for one action. Fully customizable — create your own combinations.</p>
 
                     <div class="chord-example">
                         <div class="chord-buttons">
@@ -1020,6 +1084,47 @@
                 </div>
 
                 <div class="card">
+                    <h3><span class="card-icon">📋</span> Quick Text & Commands</h3>
+                    <p style="color: var(--text-dim); margin-bottom: 1rem;">Insert text snippets or run terminal commands with a single button press</p>
+
+                    <ul class="feature-list">
+                        <li>Map buttons to paste predefined text</li>
+                        <li>Execute shell commands instantly</li>
+                        <li>Perfect for repetitive inputs</li>
+                        <li>Combine with chords for more options</li>
+                    </ul>
+
+                    <div class="alert" style="margin-top: 1rem;">
+                        <p><strong>Example:</strong> Map a button to insert your email address, or run <code>git status</code> in your terminal.</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3><span class="card-icon">🎛️</span> DualSense Touchpad</h3>
+                    <p style="color: var(--text-dim); margin-bottom: 1rem;">Use the touchpad as a trackpad or split it into button zones</p>
+
+                    <div class="touchpad-graphic">
+                        <div>
+                            <div class="touchpad-shape">
+                                <span class="touch-point left"></span>
+                                <span class="touch-point right"></span>
+                            </div>
+                            <div class="touchpad-label">
+                                <h4>Multi-touch Support</h4>
+                                <p>Two-finger gestures included</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <ul class="feature-list">
+                        <li>Trackpad mode for cursor control</li>
+                        <li>Split into left/right button zones</li>
+                        <li>Two-finger tap for right-click</li>
+                        <li>Adjustable sensitivity</li>
+                    </ul>
+                </div>
+
+                <div class="card">
                     <h3><span class="card-icon">🎮</span> DualSense Features</h3>
                     <p style="color: var(--text-dim); margin-bottom: 1rem;">Full support for PlayStation 5 DualSense controller</p>
 
@@ -1067,10 +1172,10 @@
                 </figure>
 
                 <figure class="screenshot-item">
-                    <img src="https://www.kevintang.xyz/apps/xbox-controller-mapper/xbox-series-xs/4-keyboard.png" alt="Keyboard Shortcut Capture" loading="lazy">
+                    <img src="https://www.kevintang.xyz/apps/xbox-controller-mapper/xbox-series-xs/4-keyboard.png" alt="On Screen Keyboard Widget" loading="lazy">
                     <figcaption>
-                        <strong>Keyboard Shortcut Capture</strong>
-                        Capture any key combination including function keys and special keys
+                        <strong>On Screen Keyboard Widget</strong>
+                        Configure quick actions and on-screen keyboard settings
                     </figcaption>
                 </figure>
 
