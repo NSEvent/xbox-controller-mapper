@@ -210,6 +210,45 @@ XboxControllerMapper/
 4. Click any button on the controller visualization to configure its mapping
 5. Use the menu bar icon for quick access to enable/disable and profile switching
 
+## Contributing
+
+Contributions are welcome! If you'd like to contribute code:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Test thoroughly with both Xbox and DualSense controllers if possible and applicable
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+Please ensure your code follows the existing style and includes appropriate comments for complex logic.
+
+## Feature Requests
+
+Have an idea for a new feature? I'd love to hear it!
+
+- **Open an issue** on GitHub with the `feature request` label
+- Describe the feature and the problem it solves
+- Include any mockups or examples if applicable
+
+Popular requests are more likely to be implemented. Feel free to upvote existing feature requests that you'd find useful.
+
+## Issues & Bug Reports
+
+Found a bug? Please help by reporting it:
+
+1. **Check existing issues** to avoid duplicates
+2. **Open a new issue** with:
+   - macOS version
+   - Controller model (Xbox Series X|S, Xbox One, DualSense, etc.)
+   - Connection method (Bluetooth or USB)
+   - Steps to reproduce the issue
+   - Expected vs actual behavior
+   - Screenshots if applicable
+
+The more detail you provide, the easier it is to diagnose and fix the issue.
+
 ## License
 
 Source Available - See [LICENSE](LICENSE) for details.

@@ -32,10 +32,16 @@ mkdir -p "$TARGET_DIR"
 # Copy files
 echo "Copying files..."
 cp "$DOCS_DIR/index.html" "$TARGET_DIR/"
+cp "$DOCS_DIR/styles.css" "$TARGET_DIR/"
 cp "$DOCS_DIR/favicon.png" "$TARGET_DIR/" 2>/dev/null || true
 cp "$DOCS_DIR/apple-touch-icon.png" "$TARGET_DIR/" 2>/dev/null || true
 cp "$DOCS_DIR/app-icon.png" "$TARGET_DIR/" 2>/dev/null || true
 cp "$DOCS_DIR/og-image.png" "$TARGET_DIR/" 2>/dev/null || true
+
+# Copy guides directory
+echo "Copying guides..."
+mkdir -p "$TARGET_DIR/guides"
+cp "$DOCS_DIR/guides/"*.html "$TARGET_DIR/guides/"
 
 echo ""
 echo "=== Deployment Complete ==="
