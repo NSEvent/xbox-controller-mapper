@@ -371,7 +371,7 @@ struct OnScreenKeyboardSettingsView: View {
                     }
                 }
                 .listStyle(.plain)
-                .frame(height: CGFloat(appBarItems.count) * 44)
+                .frame(height: CGFloat(appBarItems.count) * 32)
                 .scrollContentBackground(.hidden)
                 .scrollDisabled(true)
             }
