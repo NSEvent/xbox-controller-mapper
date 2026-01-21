@@ -651,16 +651,26 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     }
 
     private func postMediaKeyEvent(keyType: NXKeyType, keyDown: Bool) {
-        // Create NX key event using CGEvent with special system defined event type
-        // The event data format follows Apple's HID usage for system keys
-        let keyData = Int64(keyType.rawValue) << 16 | Int64(keyDown ? 0x0A00 : 0x0B00)
+        // NX media key events use NSEvent with subtype 8 (NX_SUBTYPE_AUX_CONTROL_BUTTONS)
+        // data1 format: (keyCode << 16) | (flags << 8) | repeat
+        // flags: 0x0A = key down, 0x0B = key up
+        let keyCode = Int(keyType.rawValue)
+        let flags = keyDown ? 0x0A : 0x0B
+        let data1 = (keyCode << 16) | (flags << 8)
 
-        guard let event = CGEvent(source: nil) else { return }
-        event.type = CGEventType(rawValue: 14)!  // NX_SYSDEFINED
-        event.setIntegerValueField(.eventSourceUserData, value: keyData)
+        guard let event = NSEvent.otherEvent(
+            with: .systemDefined,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            subtype: 8,  // NX_SUBTYPE_AUX_CONTROL_BUTTONS
+            data1: data1,
+            data2: -1
+        ) else { return }
 
-        // Post as system-defined event
-        event.post(tap: .cghidEventTap)
+        event.cgEvent?.post(tap: .cghidEventTap)
     }
 
     // MARK: - Mapping Execution
