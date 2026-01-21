@@ -10,11 +10,11 @@ struct KeyboardVisualView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Extended function keys (F13-F20) at the very top
-            extendedFunctionKeyRow
-
-            // Media controls row
+            // Media controls row at the very top
             mediaKeysRow
+
+            // Extended function keys (F13-F20)
+            extendedFunctionKeyRow
 
             // Function key row (Esc + F1-F12)
             functionKeyRow
