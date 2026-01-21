@@ -63,7 +63,7 @@ echo "=== Building and Notarizing ==="
 
 # Find the built artifacts
 RELEASE_DIR="$PROJECT_ROOT/release"
-APP_ZIP="$RELEASE_DIR/XboxControllerMapper-${MARKETING_VERSION}.zip"
+APP_ZIP="$RELEASE_DIR/ControllerKeys-${MARKETING_VERSION}.zip"
 
 if [[ ! -f "$APP_ZIP" ]]; then
     echo "Error: Release artifact not found at $APP_ZIP"

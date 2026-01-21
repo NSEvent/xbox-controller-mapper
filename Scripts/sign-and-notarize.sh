@@ -69,7 +69,7 @@ xcodebuild -project "$PROJECT" \
     build
 
 # Find the built app
-APP_PATH=$(find "$BUILD_DIR" -name "XboxControllerMapper.app" -type d | head -1)
+APP_PATH=$(find "$BUILD_DIR" -name "ControllerKeys.app" -type d | head -1)
 if [[ -z "$APP_PATH" ]]; then
     echo "Error: Built app not found"
     exit 1
@@ -79,7 +79,7 @@ echo "Built app: $APP_PATH"
 # Verify the app is universal
 echo ""
 echo "=== Verifying Universal Binary ==="
-ARCHS=$(lipo -archs "$APP_PATH/Contents/MacOS/XboxControllerMapper")
+ARCHS=$(lipo -archs "$APP_PATH/Contents/MacOS/ControllerKeys")
 echo "Architectures: $ARCHS"
 if [[ "$ARCHS" != *"arm64"* ]] || [[ "$ARCHS" != *"x86_64"* ]]; then
     echo "Warning: App is not universal. Found: $ARCHS"
@@ -92,7 +92,7 @@ codesign -vvv --deep --strict "$APP_PATH"
 echo "Code signature valid."
 
 # Create zip for notarization
-NOTARIZE_ZIP="$RELEASE_DIR/XboxControllerMapper-notarize.zip"
+NOTARIZE_ZIP="$RELEASE_DIR/ControllerKeys-notarize.zip"
 echo ""
 echo "=== Creating ZIP for Notarization ==="
 /usr/bin/ditto -c -k --keepParent "$APP_PATH" "$NOTARIZE_ZIP"
@@ -140,7 +140,7 @@ else
 fi
 
 # Create final distribution zip
-FINAL_ZIP="$RELEASE_DIR/XboxControllerMapper-${MARKETING_VERSION}.zip"
+FINAL_ZIP="$RELEASE_DIR/ControllerKeys-${MARKETING_VERSION}.zip"
 echo ""
 echo "=== Creating Distribution ZIP ==="
 rm -f "$NOTARIZE_ZIP"  # Remove the notarization zip
@@ -150,7 +150,7 @@ echo "Created: $FINAL_ZIP"
 # Calculate checksum
 CHECKSUM=$(shasum -a 256 "$FINAL_ZIP" | awk '{print $1}')
 echo "SHA-256: $CHECKSUM"
-echo "$CHECKSUM  XboxControllerMapper-${MARKETING_VERSION}.zip" > "$RELEASE_DIR/SHA256SUMS.txt"
+echo "$CHECKSUM  ControllerKeys-${MARKETING_VERSION}.zip" > "$RELEASE_DIR/SHA256SUMS.txt"
 
 echo ""
 echo "=== Sign and Notarize Complete ==="
