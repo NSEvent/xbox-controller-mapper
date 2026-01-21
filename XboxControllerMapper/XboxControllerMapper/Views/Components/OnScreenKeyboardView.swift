@@ -391,13 +391,12 @@ struct OnScreenKeyboardView: View {
     // MARK: - Media Controls Row
 
     private var mediaControlsRow: some View {
-        HStack(spacing: keySpacing * 2) {
+        HStack(spacing: keySpacing * 4) {
             // Playback controls
-            HStack(spacing: 2) {
+            HStack(spacing: 4) {
                 Text("Playback:")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                    .frame(width: 55, alignment: .trailing)
 
                 HStack(spacing: keySpacing) {
                     mediaKey(KeyCodeMapping.mediaPrevious, label: "Previous", symbol: "backward.end.fill")
@@ -408,30 +407,28 @@ struct OnScreenKeyboardView: View {
                 }
             }
 
-            // Volume controls
-            HStack(spacing: 2) {
+            // Volume controls (Mute, Down, Up)
+            HStack(spacing: 4) {
                 Text("Sound:")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                    .frame(width: 40, alignment: .trailing)
 
                 HStack(spacing: keySpacing) {
-                    mediaKey(KeyCodeMapping.volumeUp, label: "Up", symbol: "speaker.wave.3.fill")
-                    mediaKey(KeyCodeMapping.volumeDown, label: "Down", symbol: "speaker.wave.1.fill")
                     mediaKey(KeyCodeMapping.volumeMute, label: "Mute", symbol: "speaker.slash.fill")
+                    mediaKey(KeyCodeMapping.volumeDown, label: "Down", symbol: "speaker.wave.1.fill")
+                    mediaKey(KeyCodeMapping.volumeUp, label: "Up", symbol: "speaker.wave.3.fill")
                 }
             }
 
-            // Brightness controls
-            HStack(spacing: 2) {
+            // Brightness controls (Down, Up)
+            HStack(spacing: 4) {
                 Text("Brightness:")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
-                    .frame(width: 60, alignment: .trailing)
 
                 HStack(spacing: keySpacing) {
-                    mediaKey(KeyCodeMapping.brightnessUp, label: "Up", symbol: "sun.max.fill")
                     mediaKey(KeyCodeMapping.brightnessDown, label: "Down", symbol: "sun.min.fill")
+                    mediaKey(KeyCodeMapping.brightnessUp, label: "Up", symbol: "sun.max.fill")
                 }
             }
         }

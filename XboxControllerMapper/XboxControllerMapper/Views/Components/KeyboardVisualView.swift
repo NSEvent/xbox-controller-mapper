@@ -13,6 +13,9 @@ struct KeyboardVisualView: View {
             // Extended function keys (F13-F20) at the very top
             extendedFunctionKeyRow
 
+            // Media controls row
+            mediaKeysRow
+
             // Function key row (Esc + F1-F12)
             functionKeyRow
 
@@ -225,6 +228,40 @@ struct KeyboardVisualView: View {
         ]
     }
 
+    // MARK: - Media Keys
+
+    private var mediaKeysRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Media Controls")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 20) {
+                // Playback controls
+                HStack(spacing: 4) {
+                    MediaKeyButton(keyCode: KeyCodeMapping.mediaPrevious, symbol: "backward.end.fill", label: "Prev", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    MediaKeyButton(keyCode: KeyCodeMapping.mediaRewind, symbol: "backward.fill", label: "Rew", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    MediaKeyButton(keyCode: KeyCodeMapping.mediaPlayPause, symbol: "playpause.fill", label: "Play", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    MediaKeyButton(keyCode: KeyCodeMapping.mediaFastForward, symbol: "forward.fill", label: "FF", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    MediaKeyButton(keyCode: KeyCodeMapping.mediaNext, symbol: "forward.end.fill", label: "Next", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                }
+
+                // Volume controls (Mute, Down, Up)
+                HStack(spacing: 4) {
+                    MediaKeyButton(keyCode: KeyCodeMapping.volumeMute, symbol: "speaker.slash.fill", label: "Mute", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    MediaKeyButton(keyCode: KeyCodeMapping.volumeDown, symbol: "speaker.wave.1.fill", label: "Vol-", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    MediaKeyButton(keyCode: KeyCodeMapping.volumeUp, symbol: "speaker.wave.3.fill", label: "Vol+", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                }
+
+                // Brightness controls (Down, Up)
+                HStack(spacing: 4) {
+                    MediaKeyButton(keyCode: KeyCodeMapping.brightnessDown, symbol: "sun.min.fill", label: "Dim", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    MediaKeyButton(keyCode: KeyCodeMapping.brightnessUp, symbol: "sun.max.fill", label: "Bright", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                }
+            }
+        }
+    }
+
     // MARK: - Navigation Keys
 
     private var navigationKeyRow: some View {
@@ -365,6 +402,74 @@ struct KeyButton: View {
             return 10
         }
         return 12
+    }
+
+    private var backgroundColor: Color {
+        if isSelected {
+            return .accentColor
+        } else if isHovered {
+            return Color.accentColor.opacity(0.3)
+        } else {
+            return Color(nsColor: .controlBackgroundColor)
+        }
+    }
+
+    private var foregroundColor: Color {
+        isSelected ? .white : .primary
+    }
+
+    private var borderColor: Color {
+        if isSelected {
+            return .accentColor
+        } else if isHovered {
+            return .accentColor.opacity(0.5)
+        } else {
+            return .gray.opacity(0.3)
+        }
+    }
+}
+
+// MARK: - Media Key Button
+
+struct MediaKeyButton: View {
+    let keyCode: CGKeyCode
+    let symbol: String
+    let label: String
+    var width: CGFloat = 45
+    var height: CGFloat = 32
+
+    @Binding var selectedKeyCode: CGKeyCode?
+    @Binding var hoveredKey: CGKeyCode?
+
+    var body: some View {
+        Button(action: { selectedKeyCode = keyCode }) {
+            VStack(spacing: 1) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12))
+                Text(label)
+                    .font(.system(size: 8))
+            }
+            .frame(width: width, height: height)
+            .background(backgroundColor)
+            .foregroundColor(foregroundColor)
+            .cornerRadius(4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(borderColor, lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredKey = hovering ? keyCode : nil
+        }
+    }
+
+    private var isSelected: Bool {
+        selectedKeyCode == keyCode
+    }
+
+    private var isHovered: Bool {
+        hoveredKey == keyCode
     }
 
     private var backgroundColor: Color {
