@@ -124,31 +124,46 @@ struct MenuBarView: View {
     // MARK: - Footer
 
     private var footerSection: some View {
-        HStack {
-            Button(action: openMainWindow) {
-                HStack(spacing: 4) {
-                    Image(systemName: "gear")
-                    Text("Settings")
+        VStack(spacing: 8) {
+            HStack {
+                Button(action: openMainWindow) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "gear")
+                        Text("Settings")
+                    }
                 }
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.plain)
 
-            Spacer()
+                Spacer()
 
-            Button(action: quitApp) {
-                Text("Quit")
+                Button(action: quitApp) {
+                    Text("Quit")
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
             }
-            .buttonStyle(.plain)
+
+            // Version and copyright
+            HStack {
+                Text("v\(appVersion)")
+                Text("•")
+                Text("© 2026 Kevin Tang")
+            }
+            .font(.caption2)
             .foregroundColor(.secondary)
         }
         .padding(12)
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 
     // MARK: - Actions
 
     private func openMainWindow() {
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.title.contains("Xbox") || $0.isKeyWindow }) {
+        if let window = NSApp.windows.first(where: { $0.title.contains("ControllerKeys") || $0.isKeyWindow }) {
             window.makeKeyAndOrderFront(nil)
         } else {
             // Open new window
