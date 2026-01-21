@@ -74,7 +74,7 @@ struct XboxControllerMapperApp: App {
 
     var body: some Scene {
         // Original WindowGroup with ContentView
-        WindowGroup {
+        WindowGroup("ControllerKeys") {
             ContentView()
                 .environmentObject(ServiceContainer.shared.controllerService)
                 .environmentObject(ServiceContainer.shared.profileManager)

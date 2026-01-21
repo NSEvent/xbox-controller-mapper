@@ -147,7 +147,7 @@ struct MenuBarView: View {
             HStack {
                 Text("v\(appVersion)")
                 Text("•")
-                Text("© 2026 Kevin Tang")
+                Text("© 2026 Kevin Tang. All rights reserved.")
             }
             .font(.caption2)
             .foregroundColor(.secondary)

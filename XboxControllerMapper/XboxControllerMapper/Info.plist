@@ -11,7 +11,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>ControllerKeys</string>
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
@@ -38,7 +38,7 @@
 	<key>NSAppleEventsUsageDescription</key>
 	<string>ControllerKeys needs permission to control Terminal and other apps to run terminal commands from the on-screen keyboard.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2024-2025 Kevin Tang. All rights reserved.</string>
+	<string>© 2026 Kevin Tang. All rights reserved.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>
