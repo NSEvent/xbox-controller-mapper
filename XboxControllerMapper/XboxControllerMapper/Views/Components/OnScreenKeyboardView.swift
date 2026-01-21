@@ -79,6 +79,9 @@ struct OnScreenKeyboardView: View {
                     .padding(.horizontal, 8)
             }
 
+            // Media controls row (Playback, Volume, Brightness)
+            mediaControlsRow
+
             // Extended function key row (F13-F20) - shown above F1-F12 when enabled
             if showExtendedFunctionKeys {
                 extendedFunctionKeyRow
@@ -384,6 +387,89 @@ struct OnScreenKeyboardView: View {
     private let f13to20Codes: [Int] = [
         kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19, kVK_F20
     ]
+
+    // MARK: - Media Controls Row
+
+    private var mediaControlsRow: some View {
+        HStack(spacing: keySpacing * 2) {
+            // Playback controls
+            HStack(spacing: 2) {
+                Text("Playback:")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .frame(width: 55, alignment: .trailing)
+
+                HStack(spacing: keySpacing) {
+                    mediaKey(KeyCodeMapping.mediaPrevious, label: "Previous", symbol: "backward.end.fill")
+                    mediaKey(KeyCodeMapping.mediaRewind, label: "Rewind", symbol: "backward.fill")
+                    mediaKey(KeyCodeMapping.mediaPlayPause, label: "Play/Pause", symbol: "playpause.fill")
+                    mediaKey(KeyCodeMapping.mediaFastForward, label: "Fast", symbol: "forward.fill")
+                    mediaKey(KeyCodeMapping.mediaNext, label: "Next", symbol: "forward.end.fill")
+                }
+            }
+
+            // Volume controls
+            HStack(spacing: 2) {
+                Text("Sound:")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .frame(width: 40, alignment: .trailing)
+
+                HStack(spacing: keySpacing) {
+                    mediaKey(KeyCodeMapping.volumeUp, label: "Up", symbol: "speaker.wave.3.fill")
+                    mediaKey(KeyCodeMapping.volumeDown, label: "Down", symbol: "speaker.wave.1.fill")
+                    mediaKey(KeyCodeMapping.volumeMute, label: "Mute", symbol: "speaker.slash.fill")
+                }
+            }
+
+            // Brightness controls
+            HStack(spacing: 2) {
+                Text("Brightness:")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .frame(width: 60, alignment: .trailing)
+
+                HStack(spacing: keySpacing) {
+                    mediaKey(KeyCodeMapping.brightnessUp, label: "Up", symbol: "sun.max.fill")
+                    mediaKey(KeyCodeMapping.brightnessDown, label: "Down", symbol: "sun.min.fill")
+                }
+            }
+        }
+    }
+
+    private func mediaKey(_ keyCode: CGKeyCode, label: String, symbol: String) -> some View {
+        let isHovered = hoveredKey == keyCode
+        let isPressed = pressedKey == keyCode
+
+        return Button {
+            pressedKey = keyCode
+            onKeyPress(keyCode, activeModifiers)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                if pressedKey == keyCode {
+                    pressedKey = nil
+                }
+            }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: symbol)
+                    .font(.system(size: 14))
+                Text(label)
+                    .font(.system(size: 8))
+            }
+            .frame(width: 60, height: 36)
+            .background(keyBackground(isHovered: isHovered, isPressed: isPressed))
+            .foregroundColor(isPressed ? .white : .primary)
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(keyBorderColor(isHovered: isHovered, isPressed: isPressed), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredKey = hovering ? keyCode : nil
+        }
+    }
 
     private var extendedFunctionKeyRow: some View {
         HStack(spacing: keySpacing) {

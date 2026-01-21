@@ -116,6 +116,24 @@ enum KeyCodeMapping {
     /// Shows on-screen keyboard while button is held
     static let showOnScreenKeyboard: CGKeyCode = 0xF010
 
+    // MARK: - Media Key Markers
+
+    // Playback controls
+    static let mediaPlayPause: CGKeyCode = 0xF020
+    static let mediaNext: CGKeyCode = 0xF021
+    static let mediaPrevious: CGKeyCode = 0xF022
+    static let mediaFastForward: CGKeyCode = 0xF023
+    static let mediaRewind: CGKeyCode = 0xF024
+
+    // Volume controls
+    static let volumeUp: CGKeyCode = 0xF030
+    static let volumeDown: CGKeyCode = 0xF031
+    static let volumeMute: CGKeyCode = 0xF032
+
+    // Brightness controls
+    static let brightnessUp: CGKeyCode = 0xF040
+    static let brightnessDown: CGKeyCode = 0xF041
+
     // MARK: - Display Names
 
     /// Returns a human-readable name for a key code
@@ -232,6 +250,22 @@ enum KeyCodeMapping {
         // Special actions
         case 0xF010: return "On-Screen Keyboard"
 
+        // Media keys - Playback
+        case 0xF020: return "Play/Pause"
+        case 0xF021: return "Next Track"
+        case 0xF022: return "Previous Track"
+        case 0xF023: return "Fast Forward"
+        case 0xF024: return "Rewind"
+
+        // Media keys - Volume
+        case 0xF030: return "Volume Up"
+        case 0xF031: return "Volume Down"
+        case 0xF032: return "Mute"
+
+        // Media keys - Brightness
+        case 0xF040: return "Brightness Up"
+        case 0xF041: return "Brightness Down"
+
         default: return "Key \(keyCode)"
         }
     }
@@ -309,6 +343,22 @@ enum KeyCodeMapping {
         // Special actions
         options.append(("On-Screen Keyboard", showOnScreenKeyboard))
 
+        // Media keys - Playback
+        options.append(("Play/Pause", mediaPlayPause))
+        options.append(("Next Track", mediaNext))
+        options.append(("Previous Track", mediaPrevious))
+        options.append(("Fast Forward", mediaFastForward))
+        options.append(("Rewind", mediaRewind))
+
+        // Media keys - Volume
+        options.append(("Volume Up", volumeUp))
+        options.append(("Volume Down", volumeDown))
+        options.append(("Mute", volumeMute))
+
+        // Media keys - Brightness
+        options.append(("Brightness Up", brightnessUp))
+        options.append(("Brightness Down", brightnessDown))
+
         return options
     }
 
@@ -322,9 +372,16 @@ enum KeyCodeMapping {
         keyCode == showOnScreenKeyboard
     }
 
+    /// Checks if a key code represents a media key
+    static func isMediaKey(_ keyCode: CGKeyCode) -> Bool {
+        (keyCode >= 0xF020 && keyCode <= 0xF024) ||  // Playback
+        (keyCode >= 0xF030 && keyCode <= 0xF032) ||  // Volume
+        (keyCode >= 0xF040 && keyCode <= 0xF041)     // Brightness
+    }
+
     /// Checks if a key code is a special marker that shouldn't be sent as a key event
     static func isSpecialMarker(_ keyCode: CGKeyCode) -> Bool {
-        isMouseButton(keyCode) || isSpecialAction(keyCode)
+        isMouseButton(keyCode) || isSpecialAction(keyCode) || isMediaKey(keyCode)
     }
 
     // MARK: - Character to Key Code Mapping

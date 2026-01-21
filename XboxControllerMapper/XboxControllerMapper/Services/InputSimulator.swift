@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import AppKit
+import IOKit.hidsystem
 
 protocol InputSimulatorProtocol: Sendable {
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
@@ -81,6 +82,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         // Handle mouse button "key codes"
         if KeyCodeMapping.isMouseButton(keyCode) {
             pressMouseButton(keyCode)
+            return
+        }
+
+        // Handle media key "key codes"
+        if KeyCodeMapping.isMediaKey(keyCode) {
+            pressMediaKey(keyCode)
             return
         }
 
@@ -594,6 +601,66 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         default:
             return (down ? .leftMouseDown : .leftMouseUp, .left)
         }
+    }
+
+    // MARK: - Media Key Simulation
+
+    /// NX key type constants for media keys
+    private enum NXKeyType: UInt32 {
+        case soundUp = 0
+        case soundDown = 1
+        case brightnessUp = 2
+        case brightnessDown = 3
+        case mute = 7
+        case play = 16
+        case next = 17
+        case previous = 18
+        case fast = 19
+        case rewind = 20
+    }
+
+    private func pressMediaKey(_ keyCode: CGKeyCode) {
+        guard let nxKeyType = mediaKeyToNXType(keyCode) else {
+            #if DEBUG
+            print("❌ Unknown media key code: \(keyCode)")
+            #endif
+            return
+        }
+
+        keyboardQueue.async {
+            self.postMediaKeyEvent(keyType: nxKeyType, keyDown: true)
+            usleep(50000)  // 50ms hold
+            self.postMediaKeyEvent(keyType: nxKeyType, keyDown: false)
+        }
+    }
+
+    private func mediaKeyToNXType(_ keyCode: CGKeyCode) -> NXKeyType? {
+        switch keyCode {
+        case KeyCodeMapping.mediaPlayPause: return .play
+        case KeyCodeMapping.mediaNext: return .next
+        case KeyCodeMapping.mediaPrevious: return .previous
+        case KeyCodeMapping.mediaFastForward: return .fast
+        case KeyCodeMapping.mediaRewind: return .rewind
+        case KeyCodeMapping.volumeUp: return .soundUp
+        case KeyCodeMapping.volumeDown: return .soundDown
+        case KeyCodeMapping.volumeMute: return .mute
+        case KeyCodeMapping.brightnessUp: return .brightnessUp
+        case KeyCodeMapping.brightnessDown: return .brightnessDown
+        default: return nil
+        }
+    }
+
+    private func postMediaKeyEvent(keyType: NXKeyType, keyDown: Bool) {
+        // Create NX key event using CGEvent with special system defined event type
+        // The event data format follows Apple's HID usage for system keys
+        let keyData = Int64(keyType.rawValue) << 16 | Int64(keyDown ? 0x0A00 : 0x0B00)
+
+        guard let event = CGEvent(source: nil) else { return }
+        event.type = CGEventType(rawValue: 14)!  // NX_SYSDEFINED
+        event.setIntegerValueField(.eventSourceUserData, value: keyData)
+
+        // Post as system-defined event
+        event.post(tap: .cghidEventTap)
     }
 
     // MARK: - Mapping Execution
