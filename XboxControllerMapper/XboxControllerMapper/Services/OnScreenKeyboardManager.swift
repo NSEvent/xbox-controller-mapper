@@ -207,13 +207,14 @@ class OnScreenKeyboardManager: ObservableObject {
         if let runningApp = runningApps.first {
             // App is running - activate it
             NSLog("[OnScreenKeyboard] App is running, activating: \(bundleIdentifier)")
-            runningApp.activate()
+            runningApp.activate(options: [.activateIgnoringOtherApps])
             return
         }
 
         // App is not running - launch it
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
             let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
             NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, error in
                 if let error = error {
                     NSLog("[OnScreenKeyboard] Failed to launch app: \(error.localizedDescription)")
