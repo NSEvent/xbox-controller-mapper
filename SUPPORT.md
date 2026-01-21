@@ -10,8 +10,8 @@
 
 ### Installation
 
-1. Download the app from [Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper)
-2. Unzip and move `ControllerKeys.app` to `/Applications`
+1. Download the DMG from [Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper)
+2. Open the DMG and drag `ControllerKeys.app` to `/Applications`
 3. Launch the app
 4. Grant Accessibility permissions when prompted (see below)
 

@@ -63,10 +63,10 @@ echo "=== Building and Notarizing ==="
 
 # Find the built artifacts
 RELEASE_DIR="$PROJECT_ROOT/release"
-APP_ZIP="$RELEASE_DIR/ControllerKeys-${MARKETING_VERSION}.zip"
+APP_DMG="$RELEASE_DIR/ControllerKeys-${MARKETING_VERSION}.dmg"
 
-if [[ ! -f "$APP_ZIP" ]]; then
-    echo "Error: Release artifact not found at $APP_ZIP"
+if [[ ! -f "$APP_DMG" ]]; then
+    echo "Error: Release artifact not found at $APP_DMG"
     exit 1
 fi
 
@@ -84,7 +84,7 @@ echo ""
 echo "=== Release Complete ==="
 echo "Tag created: $TAG"
 echo ""
-echo "Next step: Upload $APP_ZIP to Gumroad"
+echo "Next step: Upload $APP_DMG to Gumroad"
 echo ""
 
 # Open release folder in Finder for easy Gumroad upload

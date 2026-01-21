@@ -139,20 +139,38 @@ else
     echo "Users may see Gatekeeper warnings on first launch."
 fi
 
-# Create final distribution zip
-FINAL_ZIP="$RELEASE_DIR/ControllerKeys-${MARKETING_VERSION}.zip"
+# Clean up notarization zip
+rm -f "$NOTARIZE_ZIP"
+
+# Create DMG for distribution
+FINAL_DMG="$RELEASE_DIR/ControllerKeys-${MARKETING_VERSION}.dmg"
+DMG_STAGING="$RELEASE_DIR/dmg-staging"
 echo ""
-echo "=== Creating Distribution ZIP ==="
-rm -f "$NOTARIZE_ZIP"  # Remove the notarization zip
-/usr/bin/ditto -c -k --keepParent "$APP_PATH" "$FINAL_ZIP"
-echo "Created: $FINAL_ZIP"
+echo "=== Creating Distribution DMG ==="
+
+# Create staging directory with app and Applications symlink
+rm -rf "$DMG_STAGING"
+mkdir -p "$DMG_STAGING"
+cp -R "$APP_PATH" "$DMG_STAGING/"
+ln -s /Applications "$DMG_STAGING/Applications"
+
+# Create DMG
+hdiutil create -volname "ControllerKeys ${MARKETING_VERSION}" \
+    -srcfolder "$DMG_STAGING" \
+    -ov -format UDZO \
+    "$FINAL_DMG"
+
+# Clean up staging directory
+rm -rf "$DMG_STAGING"
+
+echo "Created: $FINAL_DMG"
 
 # Calculate checksum
-CHECKSUM=$(shasum -a 256 "$FINAL_ZIP" | awk '{print $1}')
+CHECKSUM=$(shasum -a 256 "$FINAL_DMG" | awk '{print $1}')
 echo "SHA-256: $CHECKSUM"
-echo "$CHECKSUM  ControllerKeys-${MARKETING_VERSION}.zip" > "$RELEASE_DIR/SHA256SUMS.txt"
+echo "$CHECKSUM  ControllerKeys-${MARKETING_VERSION}.dmg" > "$RELEASE_DIR/SHA256SUMS.txt"
 
 echo ""
 echo "=== Sign and Notarize Complete ==="
-echo "Release artifact: $FINAL_ZIP"
+echo "Release artifact: $FINAL_DMG"
 echo "SHA-256: $CHECKSUM"

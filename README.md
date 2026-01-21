@@ -138,8 +138,8 @@ ControllerKeys is the only option with full DualSense touchpad support, making i
 
 **[Download ControllerKeys](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** - Get the latest signed and notarized build.
 
-1. Purchase and download from Gumroad
-2. Unzip and move the app to `/Applications`
+1. Purchase and download the DMG from Gumroad
+2. Open the DMG and drag the app to `/Applications`
 3. Launch and grant Accessibility permissions when prompted
 4. Automation permissions will be requested when using terminal commands from the on-screen keyboard
 
