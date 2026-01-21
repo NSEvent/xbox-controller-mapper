@@ -246,6 +246,30 @@ class ProfileManager: ObservableObject {
         saveConfiguration()
     }
 
+    // MARK: - Website Links
+
+    func addWebsiteLink(_ link: WebsiteLink) {
+        onScreenKeyboardSettings.websiteLinks.append(link)
+        saveConfiguration()
+    }
+
+    func removeWebsiteLink(_ link: WebsiteLink) {
+        onScreenKeyboardSettings.websiteLinks.removeAll { $0.id == link.id }
+        saveConfiguration()
+    }
+
+    func updateWebsiteLink(_ link: WebsiteLink) {
+        if let index = onScreenKeyboardSettings.websiteLinks.firstIndex(where: { $0.id == link.id }) {
+            onScreenKeyboardSettings.websiteLinks[index] = link
+            saveConfiguration()
+        }
+    }
+
+    func moveWebsiteLinks(from source: IndexSet, to destination: Int) {
+        onScreenKeyboardSettings.websiteLinks.move(fromOffsets: source, toOffset: destination)
+        saveConfiguration()
+    }
+
     // MARK: - Persistence
 
     private struct Configuration: Codable {

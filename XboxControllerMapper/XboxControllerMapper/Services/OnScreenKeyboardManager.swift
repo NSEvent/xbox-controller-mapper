@@ -15,6 +15,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private var defaultTerminalApp: String = "Terminal"
     private var typingDelay: Double = 0.03
     private var appBarItems: [AppBarItem] = []
+    private var websiteLinks: [WebsiteLink] = []
     private var showExtendedFunctionKeys: Bool = false
     private var cancellables = Set<AnyCancellable>()
 
@@ -25,13 +26,14 @@ class OnScreenKeyboardManager: ObservableObject {
         self.inputSimulator = simulator
     }
 
-    /// Updates the quick texts and app bar items to display on the keyboard
-    func setQuickTexts(_ texts: [QuickText], defaultTerminal: String, typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], showExtendedFunctionKeys: Bool = false) {
-        let changed = self.quickTexts != texts || self.defaultTerminalApp != defaultTerminal || self.appBarItems != appBarItems || self.showExtendedFunctionKeys != showExtendedFunctionKeys
+    /// Updates the quick texts, app bar items, and website links to display on the keyboard
+    func setQuickTexts(_ texts: [QuickText], defaultTerminal: String, typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false) {
+        let changed = self.quickTexts != texts || self.defaultTerminalApp != defaultTerminal || self.appBarItems != appBarItems || self.websiteLinks != websiteLinks || self.showExtendedFunctionKeys != showExtendedFunctionKeys
         self.quickTexts = texts
         self.defaultTerminalApp = defaultTerminal
         self.typingDelay = typingDelay
         self.appBarItems = appBarItems
+        self.websiteLinks = websiteLinks
         self.showExtendedFunctionKeys = showExtendedFunctionKeys
 
         // Recreate panel if content changed
@@ -71,8 +73,12 @@ class OnScreenKeyboardManager: ObservableObject {
             onAppActivate: { [weak self] bundleIdentifier in
                 self?.activateApp(bundleIdentifier: bundleIdentifier)
             },
+            onWebsiteLinkOpen: { [weak self] url in
+                self?.openWebsiteLink(url: url)
+            },
             quickTexts: quickTexts,
             appBarItems: appBarItems,
+            websiteLinks: websiteLinks,
             showExtendedFunctionKeys: showExtendedFunctionKeys
         )
 
@@ -218,6 +224,17 @@ class OnScreenKeyboardManager: ObservableObject {
         } else {
             NSLog("[OnScreenKeyboard] App not found: \(bundleIdentifier)")
         }
+    }
+
+    private func openWebsiteLink(url urlString: String) {
+        NSLog("[OnScreenKeyboard] openWebsiteLink: \(urlString)")
+
+        guard let url = URL(string: urlString) else {
+            NSLog("[OnScreenKeyboard] Invalid URL: \(urlString)")
+            return
+        }
+
+        NSWorkspace.shared.open(url)
     }
 
     /// Types a string of text (paste mode if delay is 0, otherwise character-by-character)

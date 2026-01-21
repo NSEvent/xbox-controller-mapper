@@ -47,6 +47,7 @@ final class ServiceContainer {
             defaultTerminal: settings.defaultTerminalApp,
             typingDelay: settings.typingDelay,
             appBarItems: settings.appBarItems,
+            websiteLinks: settings.websiteLinks,
             showExtendedFunctionKeys: settings.showExtendedFunctionKeys
         )
 
@@ -59,6 +60,7 @@ final class ServiceContainer {
                     defaultTerminal: settings.defaultTerminalApp,
                     typingDelay: settings.typingDelay,
                     appBarItems: settings.appBarItems,
+                    websiteLinks: settings.websiteLinks,
                     showExtendedFunctionKeys: settings.showExtendedFunctionKeys
                 )
             }

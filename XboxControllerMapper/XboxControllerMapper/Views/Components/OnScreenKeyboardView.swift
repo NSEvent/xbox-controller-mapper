@@ -10,10 +10,14 @@ struct OnScreenKeyboardView: View {
     var onQuickText: ((QuickText) -> Void)?
     /// Callback to activate an app from the app bar
     var onAppActivate: ((String) -> Void)?
+    /// Callback to open a website link
+    var onWebsiteLinkOpen: ((String) -> Void)?
     /// Quick texts to display above keyboard
     var quickTexts: [QuickText] = []
     /// App bar items for quick app switching
     var appBarItems: [AppBarItem] = []
+    /// Website links for quick access
+    var websiteLinks: [WebsiteLink] = []
     /// Whether to show extended function keys (F13-F20) above F1-F12
     var showExtendedFunctionKeys: Bool = false
 
@@ -25,6 +29,8 @@ struct OnScreenKeyboardView: View {
     @State private var pressedQuickTextId: UUID?
     @State private var hoveredAppBarItemId: UUID?
     @State private var pressedAppBarItemId: UUID?
+    @State private var hoveredWebsiteLinkId: UUID?
+    @State private var pressedWebsiteLinkId: UUID?
 
     // Key size constants - increase for larger keyboard
     private let keyWidth: CGFloat = 68    // 54 * 1.25
@@ -52,6 +58,13 @@ struct OnScreenKeyboardView: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            // Website links section (above app bar)
+            if !websiteLinks.isEmpty {
+                websiteLinksSection
+                Divider()
+                    .padding(.horizontal, 8)
+            }
+
             // App bar section (if any apps configured)
             if !appBarItems.isEmpty {
                 appBarSection
@@ -177,6 +190,72 @@ struct OnScreenKeyboardView: View {
             return Color.accentColor.opacity(0.5)
         } else {
             return .gray.opacity(0.3)
+        }
+    }
+
+    // MARK: - Website Links Section
+
+    private var websiteLinksSection: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 8)], spacing: 8) {
+            ForEach(websiteLinks) { link in
+                websiteLinkButton(link)
+            }
+        }
+        .frame(width: appBarWidth)
+    }
+
+    private func websiteLinkButton(_ link: WebsiteLink) -> some View {
+        let isHovered = hoveredWebsiteLinkId == link.id
+        let isPressed = pressedWebsiteLinkId == link.id
+        let iconSize: CGFloat = 64
+
+        return Button {
+            pressedWebsiteLinkId = link.id
+            onWebsiteLinkOpen?(link.url)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                if pressedWebsiteLinkId == link.id {
+                    pressedWebsiteLinkId = nil
+                }
+            }
+        } label: {
+            VStack(spacing: 4) {
+                websiteFavicon(for: link)
+                    .frame(width: iconSize, height: iconSize)
+
+                Text(link.displayName)
+                    .font(.system(size: 10))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: iconSize + 16)
+            }
+            .padding(8)
+            .background(appBarBackground(isHovered: isHovered, isPressed: isPressed))
+            .foregroundColor(isPressed ? .white : .primary)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(appBarBorderColor(isHovered: isHovered, isPressed: isPressed), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredWebsiteLinkId = hovering ? link.id : nil
+        }
+    }
+
+    @ViewBuilder
+    private func websiteFavicon(for link: WebsiteLink) -> some View {
+        if let data = link.faviconData,
+           let nsImage = NSImage(data: data) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .cornerRadius(8)
+        } else {
+            // Fallback globe icon
+            Image(systemName: "globe")
+                .font(.system(size: 40))
+                .foregroundColor(.secondary)
         }
     }
 

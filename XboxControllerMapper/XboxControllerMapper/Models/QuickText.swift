@@ -7,6 +7,24 @@ struct AppBarItem: Identifiable, Codable, Equatable {
     var displayName: String  // Cached for display when app not installed
 }
 
+/// A website link to show in the on-screen keyboard for quick access
+struct WebsiteLink: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var url: String
+    var displayName: String
+    var faviconData: Data?  // Cached favicon PNG data
+
+    /// Returns the URL as a proper URL object, or nil if invalid
+    var urlObject: URL? {
+        URL(string: url)
+    }
+
+    /// Returns the domain for display purposes (e.g., "google.com")
+    var domain: String? {
+        urlObject?.host?.replacingOccurrences(of: "www.", with: "")
+    }
+}
+
 /// A quick text snippet that can be typed or run as a terminal command
 struct QuickText: Identifiable, Codable, Equatable {
     var id = UUID()
@@ -33,6 +51,8 @@ struct OnScreenKeyboardSettings: Codable {
     var typingDelay: Double = 0.03  // 30ms default, roughly 33 chars/second
     /// Apps to show in the app bar for quick switching
     var appBarItems: [AppBarItem] = []
+    /// Website links for quick browser access
+    var websiteLinks: [WebsiteLink] = []
     /// Show extended function keys (F13-F20) above F1-F12
     var showExtendedFunctionKeys: Bool = false
 
@@ -65,18 +85,20 @@ struct OnScreenKeyboardSettings: Codable {
         defaultTerminalApp = try container.decodeIfPresent(String.self, forKey: .defaultTerminalApp) ?? "Terminal"
         typingDelay = try container.decodeIfPresent(Double.self, forKey: .typingDelay) ?? 0.03
         appBarItems = try container.decodeIfPresent([AppBarItem].self, forKey: .appBarItems) ?? []
+        websiteLinks = try container.decodeIfPresent([WebsiteLink].self, forKey: .websiteLinks) ?? []
         showExtendedFunctionKeys = try container.decodeIfPresent(Bool.self, forKey: .showExtendedFunctionKeys) ?? false
     }
 
-    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], showExtendedFunctionKeys: Bool = false) {
+    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false) {
         self.quickTexts = quickTexts
         self.defaultTerminalApp = defaultTerminalApp
         self.typingDelay = typingDelay
         self.appBarItems = appBarItems
+        self.websiteLinks = websiteLinks
         self.showExtendedFunctionKeys = showExtendedFunctionKeys
     }
 
     private enum CodingKeys: String, CodingKey {
-        case quickTexts, defaultTerminalApp, typingDelay, appBarItems, showExtendedFunctionKeys
+        case quickTexts, defaultTerminalApp, typingDelay, appBarItems, websiteLinks, showExtendedFunctionKeys
     }
 }

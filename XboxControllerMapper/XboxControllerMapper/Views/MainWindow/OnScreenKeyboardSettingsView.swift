@@ -20,6 +20,11 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var showingTextSnippetVariableHelp = false
     @State private var showingTerminalVariableHelp = false
 
+    // Website links state
+    @State private var newWebsiteURL = ""
+    @State private var isFetchingWebsiteMetadata = false
+    @State private var websiteURLError: String?
+
     // Variable autocomplete state
     @State private var showSnippetSuggestions = false
     @State private var showCommandSuggestions = false
@@ -40,6 +45,10 @@ struct OnScreenKeyboardSettingsView: View {
         profileManager.onScreenKeyboardSettings.appBarItems
     }
 
+    private var websiteLinks: [WebsiteLink] {
+        profileManager.onScreenKeyboardSettings.websiteLinks
+    }
+
     private var installedApps: [AppInfo] {
         AppMonitor().installedApplications
     }
@@ -57,6 +66,9 @@ struct OnScreenKeyboardSettingsView: View {
 
             // App Bar Section
             appBarSection
+
+            // Website Links Section
+            websiteLinksSection
 
             // Keyboard Layout Section
             keyboardLayoutSection
@@ -522,6 +534,197 @@ struct OnScreenKeyboardSettingsView: View {
             appPickerSearchText = ""
             appPickerSelectedIndex = 0
         }
+    }
+
+    // MARK: - Website Links Section
+
+    private var websiteLinksSection: some View {
+        Section {
+            // Add URL field
+            HStack {
+                TextField("Enter website URL...", text: $newWebsiteURL)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { addWebsiteLink() }
+
+                if isFetchingWebsiteMetadata {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .frame(width: 20)
+                } else {
+                    Button("Add") { addWebsiteLink() }
+                        .disabled(newWebsiteURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+
+            if let error = websiteURLError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+
+            // List of website links
+            if websiteLinks.isEmpty {
+                Text("No website links yet")
+                    .foregroundColor(.secondary)
+                    .italic()
+            } else {
+                List {
+                    ForEach(websiteLinks) { link in
+                        websiteLinkRow(link)
+                    }
+                    .onMove { source, destination in
+                        profileManager.moveWebsiteLinks(from: source, to: destination)
+                    }
+                }
+                .listStyle(.plain)
+                .frame(height: CGFloat(websiteLinks.count) * 44)
+                .scrollContentBackground(.hidden)
+                .scrollDisabled(true)
+            }
+        } header: {
+            Text("Website Links")
+        } footer: {
+            Text("Add websites for quick access from the on-screen keyboard.")
+        }
+    }
+
+    @ViewBuilder
+    private func websiteLinkRow(_ link: WebsiteLink) -> some View {
+        HStack {
+            Image(systemName: "line.3.horizontal")
+                .foregroundColor(.secondary)
+                .frame(width: 20)
+
+            // Favicon
+            if let data = link.faviconData,
+               let nsImage = NSImage(data: data) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .frame(width: 24, height: 24)
+                    .cornerRadius(4)
+            } else {
+                Image(systemName: "globe")
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(link.displayName)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(link.domain ?? link.url)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer()
+
+            Button {
+                profileManager.removeWebsiteLink(link)
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+
+    private func addWebsiteLink() {
+        var urlString = newWebsiteURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !urlString.isEmpty else { return }
+
+        // Add https:// if no scheme provided
+        if !urlString.hasPrefix("http://") && !urlString.hasPrefix("https://") {
+            urlString = "https://" + urlString
+        }
+
+        guard URL(string: urlString) != nil else {
+            websiteURLError = "Invalid URL"
+            return
+        }
+
+        websiteURLError = nil
+        isFetchingWebsiteMetadata = true
+
+        Task {
+            let (faviconData, title) = await fetchWebsiteMetadata(for: urlString)
+
+            let link = WebsiteLink(
+                url: urlString,
+                displayName: title,
+                faviconData: faviconData
+            )
+
+            await MainActor.run {
+                profileManager.addWebsiteLink(link)
+                newWebsiteURL = ""
+                isFetchingWebsiteMetadata = false
+            }
+        }
+    }
+
+    private func fetchWebsiteMetadata(for urlString: String) async -> (Data?, String) {
+        guard let url = URL(string: urlString),
+              let host = url.host else {
+            return (nil, urlString)
+        }
+
+        // Fetch favicon from Google's service
+        let faviconData = await fetchFavicon(host: host)
+
+        // Fetch title from page
+        let title = await fetchPageTitle(url: url) ?? host.replacingOccurrences(of: "www.", with: "")
+
+        return (faviconData, title)
+    }
+
+    private func fetchFavicon(host: String) async -> Data? {
+        // Try Google's favicon service (most reliable)
+        guard let googleURL = URL(string: "https://www.google.com/s2/favicons?domain=\(host)&sz=128") else {
+            return nil
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: googleURL)
+            if let httpResponse = response as? HTTPURLResponse,
+               httpResponse.statusCode == 200,
+               data.count > 100 {  // Ensure it's not a placeholder
+                return data
+            }
+        } catch {
+            // Fall through to return nil
+        }
+
+        return nil
+    }
+
+    private func fetchPageTitle(url: URL) async -> String? {
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            guard let html = String(data: data, encoding: .utf8) else {
+                return nil
+            }
+
+            // Simple regex to extract title
+            let pattern = "<title[^>]*>([^<]+)</title>"
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+               let titleRange = Range(match.range(at: 1), in: html) {
+                let title = String(html[titleRange])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                // Take first part before common separators
+                return title
+                    .components(separatedBy: " - ").first?
+                    .components(separatedBy: " | ").first?
+                    .components(separatedBy: " — ").first
+            }
+        } catch {
+            // Fall through to return nil
+        }
+
+        return nil
     }
 
     // MARK: - Keyboard Layout Section
