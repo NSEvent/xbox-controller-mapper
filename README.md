@@ -19,6 +19,27 @@ With the rise of whisper-driven voice transcription, just hook up any button to 
 
 Later on, I realized a PS5 Dualsense controller that has a built in touchpad to control the mouse is an excellent solution for this kind of program. As of v1.1.0, there is now full support for Dualsense controllers in addition to Xbox Series X|S controllers.
 
+## Why This App?
+
+There are other controller mapping apps for macOS, but none offered everything I needed:
+
+| Feature | Xbox Controller Mapper | Joystick Mapper | Enjoyable | Controlly |
+|---------|:---------------------:|:---------------:|:---------:|:---------:|
+| DualSense touchpad support | ✅ | ❌ | ❌ | ❌ |
+| Multi-touch gestures | ✅ | ❌ | ❌ | ❌ |
+| Chord mappings (button combos) | ✅ | ❌ | ❌ | ✅ |
+| On-screen keyboard | ✅ | ❌ | ❌ | ❌ |
+| Quick text/commands | ✅ | ❌ | ❌ | ❌ |
+| DualSense LED customization | ✅ | ❌ | ❌ | ❌ |
+| DualSense microphone support | ✅ | ❌ | ❌ | ❌ |
+| Native Apple Silicon | ✅ | ❌ | ❌ | ✅ |
+| Actively maintained (2024+) | ✅ | ❌ | ❌ | ✅ |
+| Open source | ✅ | ❌ | ✅ | ❌ |
+
+**Joystick Mapper** is a paid app that hasn't been updated in years and lacks modern controller support. **Enjoyable** is open source but abandoned since 2014 with no DualSense support. **Controlly** is a solid newer app but doesn't support DualSense touchpad gestures, on-screen keyboard, or quick commands. **Steam's controller mapping** only works within Steam games, not system-wide.
+
+Xbox Controller Mapper is the only option with full DualSense touchpad support, making it ideal for vibe coding and couch computing where precise mouse control matters.
+
 ## Features
 
 - **Button Mapping**: Map any Xbox/Dualsense controller button to keyboard shortcuts
