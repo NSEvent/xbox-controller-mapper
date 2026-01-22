@@ -228,6 +228,7 @@ class MappingEngine: ObservableObject {
         var touchpadMomentumPeakMagnitude: Double = 0
         var smoothedTouchpadPanVelocity: CGPoint = .zero
         var touchpadPinchAccumulator: Double = 0
+        var touchpadDebugLastLogTime: TimeInterval = 0
         var touchpadMagnifyGestureActive: Bool = false
 
         var rightStickWasOutsideDeadzone = false
@@ -487,6 +488,22 @@ class MappingEngine: ObservableObject {
         touchpadMomentumTimer?.cancel()
         touchpadMomentumTimer = nil
         stopTouchpadMomentum(emitEnd: true)
+    }
+
+    nonisolated private func isTouchpadDebugEnabled() -> Bool {
+        let envEnabled = ProcessInfo.processInfo.environment[Config.touchpadDebugEnvKey] == "1"
+        let defaultsEnabled = UserDefaults.standard.bool(forKey: Config.touchpadDebugLoggingKey)
+        return envEnabled || defaultsEnabled
+    }
+
+    /// Caller must hold state.lock.
+    nonisolated private func shouldLogTouchpadDebugLocked(now: TimeInterval) -> Bool {
+        guard isTouchpadDebugEnabled() else { return false }
+        if now - state.touchpadDebugLastLogTime < Config.touchpadDebugLogInterval {
+            return false
+        }
+        state.touchpadDebugLastLogTime = now
+        return true
     }
 
     nonisolated private func stopTouchpadMomentum(emitEnd: Bool) {
@@ -1597,11 +1614,16 @@ class MappingEngine: ObservableObject {
             x: smoothedVelocity.x + (velocityX - smoothedVelocity.x) * velocityAlpha,
             y: smoothedVelocity.y + (velocityY - smoothedVelocity.y) * velocityAlpha
         )
+        let rawMagnitude = Double(hypot(smoothedVelocity.x, smoothedVelocity.y))
         let momentumVelocity = CGPoint(
             x: smoothedVelocity.x * Config.touchpadMomentumVelocityScale,
             y: smoothedVelocity.y * Config.touchpadMomentumVelocityScale
         )
         let momentumMagnitude = Double(hypot(momentumVelocity.x, momentumVelocity.y))
+        var shouldLog = false
+        var debugSampleCount = 0
+        var debugCandidateMagnitude: Double = 0
+        var debugPeakMagnitude: Double = 0
         state.lock.lock()
         state.smoothedTouchpadPanVelocity = smoothedVelocity
         if momentumMagnitude <= Config.touchpadMomentumStopVelocity {
@@ -1646,7 +1668,24 @@ class MappingEngine: ObservableObject {
             state.touchpadMomentumPeakVelocity = .zero
             state.touchpadMomentumPeakMagnitude = 0
         }
+        shouldLog = shouldLogTouchpadDebugLocked(now: now)
+        debugSampleCount = state.touchpadMomentumHighVelocitySampleCount
+        debugCandidateMagnitude = Double(hypot(
+            state.touchpadMomentumCandidateVelocity.x,
+            state.touchpadMomentumCandidateVelocity.y
+        ))
+        debugPeakMagnitude = state.touchpadMomentumPeakMagnitude
         state.lock.unlock()
+        if shouldLog {
+            NSLog("[TP MOM] pan=%.4f raw=%.1f scaled=%.1f thresh=%.1f sample=%d cand=%.1f peak=%.1f",
+                  panMagnitude,
+                  rawMagnitude,
+                  momentumMagnitude,
+                  Config.touchpadMomentumStartVelocity,
+                  debugSampleCount,
+                  debugCandidateMagnitude,
+                  debugPeakMagnitude)
+        }
 
         let combinedDx = dx + residualX
         let combinedDy = dy + residualY
