@@ -121,7 +121,7 @@ struct Config {
     static let touchpadPinchSensitivityMultiplier: Double = 12000.0
     /// Ratio threshold: if pinch/pan ratio exceeds this, treat as pinch gesture
     /// Higher = pinch must be more dominant over pan to trigger zoom
-    static let touchpadPinchVsPanRatio: Double = 1.65
+    static let touchpadPinchVsPanRatio: Double = 1.8
     /// Cooldown period after a tap where movement is suppressed (prevents double-tap drift)
     static let touchpadTapCooldown: TimeInterval = 0.2
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
