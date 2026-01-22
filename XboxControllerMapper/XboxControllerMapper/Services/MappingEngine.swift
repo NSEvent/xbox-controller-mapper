@@ -90,6 +90,36 @@ class MappingEngine: ObservableObject {
     private let inputLogService: InputLogService?
     nonisolated private let mappingExecutor: MappingExecutor
 
+    // MARK: - Touchpad Debug Logging
+
+    private static let touchpadDebugLogQueue = DispatchQueue(label: "com.xboxmapper.touchpad.debuglog", qos: .utility)
+    private static let touchpadDebugLogURL = URL(fileURLWithPath: "/tmp/controllerkeys-touchpad.log")
+    private static var touchpadDebugLogFileHandle: FileHandle?
+
+    private static func appendTouchpadDebugLine(_ line: String) {
+        touchpadDebugLogQueue.async {
+            let payload = (line + "\n").data(using: .utf8) ?? Data()
+            if touchpadDebugLogFileHandle == nil {
+                if !FileManager.default.fileExists(atPath: touchpadDebugLogURL.path) {
+                    FileManager.default.createFile(atPath: touchpadDebugLogURL.path, contents: nil)
+                }
+                if let handle = try? FileHandle(forWritingTo: touchpadDebugLogURL) {
+                    handle.seekToEndOfFile()
+                    touchpadDebugLogFileHandle = handle
+                }
+            }
+            if let handle = touchpadDebugLogFileHandle {
+                do {
+                    try handle.write(contentsOf: payload)
+                } catch {
+                    // Ignore file write failures in debug logging.
+                }
+            } else {
+                try? payload.write(to: touchpadDebugLogURL)
+            }
+        }
+    }
+
     // MARK: - Thread-Safe State
     
     private let inputQueue = DispatchQueue(label: "com.xboxmapper.input", qos: .userInteractive)
@@ -1677,14 +1707,18 @@ class MappingEngine: ObservableObject {
         debugPeakMagnitude = state.touchpadMomentumPeakMagnitude
         state.lock.unlock()
         if shouldLog {
-            NSLog("[TP MOM] pan=%.4f raw=%.1f scaled=%.1f thresh=%.1f sample=%d cand=%.1f peak=%.1f",
-                  panMagnitude,
-                  rawMagnitude,
-                  momentumMagnitude,
-                  Config.touchpadMomentumStartVelocity,
-                  debugSampleCount,
-                  debugCandidateMagnitude,
-                  debugPeakMagnitude)
+            let line = String(
+                format: "[TP MOM] pan=%.4f raw=%.1f scaled=%.1f thresh=%.1f sample=%d cand=%.1f peak=%.1f",
+                panMagnitude,
+                rawMagnitude,
+                momentumMagnitude,
+                Config.touchpadMomentumStartVelocity,
+                debugSampleCount,
+                debugCandidateMagnitude,
+                debugPeakMagnitude
+            )
+            NSLog("%@", line)
+            MappingEngine.appendTouchpadDebugLine(line)
         }
 
         let combinedDx = dx + residualX
