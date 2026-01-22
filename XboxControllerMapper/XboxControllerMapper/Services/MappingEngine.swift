@@ -1597,22 +1597,26 @@ class MappingEngine: ObservableObject {
             x: smoothedVelocity.x + (velocityX - smoothedVelocity.x) * velocityAlpha,
             y: smoothedVelocity.y + (velocityY - smoothedVelocity.y) * velocityAlpha
         )
-        let velocityMagnitude = Double(hypot(smoothedVelocity.x, smoothedVelocity.y))
+        let momentumVelocity = CGPoint(
+            x: smoothedVelocity.x * Config.touchpadMomentumVelocityScale,
+            y: smoothedVelocity.y * Config.touchpadMomentumVelocityScale
+        )
+        let momentumMagnitude = Double(hypot(momentumVelocity.x, momentumVelocity.y))
         state.lock.lock()
         state.smoothedTouchpadPanVelocity = smoothedVelocity
-        if velocityMagnitude <= Config.touchpadMomentumStopVelocity {
+        if momentumMagnitude <= Config.touchpadMomentumStopVelocity {
             state.touchpadMomentumCandidateVelocity = .zero
             state.touchpadMomentumCandidateTime = 0
             state.touchpadMomentumHighVelocityStartTime = 0
             state.touchpadMomentumHighVelocitySampleCount = 0
             state.touchpadMomentumPeakVelocity = .zero
             state.touchpadMomentumPeakMagnitude = 0
-        } else if velocityMagnitude >= Config.touchpadMomentumStartVelocity {
+        } else if momentumMagnitude >= Config.touchpadMomentumStartVelocity {
             // Track high velocity samples and peak
             state.touchpadMomentumHighVelocitySampleCount += 1
-            if velocityMagnitude > state.touchpadMomentumPeakMagnitude {
-                state.touchpadMomentumPeakMagnitude = velocityMagnitude
-                state.touchpadMomentumPeakVelocity = smoothedVelocity
+            if momentumMagnitude > state.touchpadMomentumPeakMagnitude {
+                state.touchpadMomentumPeakMagnitude = momentumMagnitude
+                state.touchpadMomentumPeakVelocity = momentumVelocity
             }
 
             // Allow momentum on a single high-velocity sample (DualSense touchpad is small)

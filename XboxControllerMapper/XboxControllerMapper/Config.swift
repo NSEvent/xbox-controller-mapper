@@ -160,6 +160,8 @@ struct Config {
     static let touchpadMomentumBoostMax: Double = 2.5
     /// Velocity at which max boost is reached (pixels/second)
     static let touchpadMomentumBoostMaxVelocity: Double = 5000.0
+    /// Scale momentum velocity to compensate for small touchpad travel
+    static let touchpadMomentumVelocityScale: Double = 2.0
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// UserDefaults key for remembering last connected controller type
