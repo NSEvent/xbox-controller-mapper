@@ -1615,8 +1615,8 @@ class MappingEngine: ObservableObject {
                 state.touchpadMomentumPeakVelocity = smoothedVelocity
             }
 
-            // Require 2+ samples to filter out edge-exit spikes (single sample spikes)
-            if state.touchpadMomentumHighVelocitySampleCount >= 2 {
+            // Allow momentum on a single high-velocity sample (DualSense touchpad is small)
+            if state.touchpadMomentumHighVelocitySampleCount >= 1 {
                 // Use peak velocity for momentum calculation
                 let peakMagnitude = state.touchpadMomentumPeakMagnitude
                 let peakVelocity = state.touchpadMomentumPeakVelocity
