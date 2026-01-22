@@ -1384,31 +1384,51 @@ class MappingEngine: ObservableObject {
                     flags: []
                 )
             }
+            let hasRemainingFinger = gesture.isPrimaryTouching || gesture.isSecondaryTouching
+            if hasRemainingFinger {
+                stopTouchpadMomentum(emitEnd: true)
+            }
             let now = CFAbsoluteTimeGetCurrent()
             state.lock.lock()
-            let candidateVelocity = state.touchpadMomentumCandidateVelocity
-            let candidateTime = state.touchpadMomentumCandidateTime
-            let candidateSpeed = Double(hypot(candidateVelocity.x, candidateVelocity.y))
-            let shouldStartMomentum = candidateTime > 0 &&
-                (now - candidateTime) <= Config.touchpadMomentumReleaseWindow &&
-                candidateSpeed >= Config.touchpadMomentumStartVelocity
-            if shouldStartMomentum {
-                state.touchpadMomentumVelocity = candidateVelocity
-                state.touchpadMomentumLastGestureTime = now
-                state.touchpadMomentumLastUpdate = now
-                state.touchpadMomentumWasActive = false
-            } else {
+            if hasRemainingFinger {
                 state.touchpadMomentumVelocity = .zero
                 state.touchpadMomentumLastGestureTime = 0
                 state.touchpadMomentumLastUpdate = 0
                 state.touchpadMomentumWasActive = false
+                if state.touchpadMomentumCandidateTime > 0,
+                   (now - state.touchpadMomentumCandidateTime) > Config.touchpadMomentumReleaseWindow {
+                    state.touchpadMomentumCandidateVelocity = .zero
+                    state.touchpadMomentumCandidateTime = 0
+                }
+                state.touchpadMomentumHighVelocityStartTime = 0
+                state.touchpadMomentumHighVelocitySampleCount = 0
+                state.touchpadMomentumPeakVelocity = .zero
+                state.touchpadMomentumPeakMagnitude = 0
+            } else {
+                let candidateVelocity = state.touchpadMomentumCandidateVelocity
+                let candidateTime = state.touchpadMomentumCandidateTime
+                let candidateSpeed = Double(hypot(candidateVelocity.x, candidateVelocity.y))
+                let shouldStartMomentum = candidateTime > 0 &&
+                    (now - candidateTime) <= Config.touchpadMomentumReleaseWindow &&
+                    candidateSpeed >= Config.touchpadMomentumStartVelocity
+                if shouldStartMomentum {
+                    state.touchpadMomentumVelocity = candidateVelocity
+                    state.touchpadMomentumLastGestureTime = now
+                    state.touchpadMomentumLastUpdate = now
+                    state.touchpadMomentumWasActive = false
+                } else {
+                    state.touchpadMomentumVelocity = .zero
+                    state.touchpadMomentumLastGestureTime = 0
+                    state.touchpadMomentumLastUpdate = 0
+                    state.touchpadMomentumWasActive = false
+                }
+                state.touchpadMomentumCandidateVelocity = .zero
+                state.touchpadMomentumCandidateTime = 0
+                state.touchpadMomentumHighVelocityStartTime = 0
+                state.touchpadMomentumHighVelocitySampleCount = 0
+                state.touchpadMomentumPeakVelocity = .zero
+                state.touchpadMomentumPeakMagnitude = 0
             }
-            state.touchpadMomentumCandidateVelocity = .zero
-            state.touchpadMomentumCandidateTime = 0
-            state.touchpadMomentumHighVelocityStartTime = 0
-            state.touchpadMomentumHighVelocitySampleCount = 0
-            state.touchpadMomentumPeakVelocity = .zero
-            state.touchpadMomentumPeakMagnitude = 0
             state.smoothedTouchpadCenterDelta = .zero
             state.smoothedTouchpadDistanceDelta = 0
             state.lastTouchpadGestureSampleTime = 0
