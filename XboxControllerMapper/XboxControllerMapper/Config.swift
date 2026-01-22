@@ -132,40 +132,10 @@ struct Config {
     static let touchpadTwoFingerMinDistance: Double = 0.06
     /// How long to consider secondary touch valid without updates (also blocks mouse movement after gestures)
     static let touchpadSecondaryStaleInterval: TimeInterval = 0.08
-    /// Momentum tick frequency (Hz)
-    static let touchpadMomentumFrequency: Double = 120.0
-    /// Momentum tick interval (seconds)
-    static let touchpadMomentumTickInterval: TimeInterval = 1.0 / touchpadMomentumFrequency
-    /// Minimum time delta used for momentum calculations
-    static let touchpadMomentumMinDeltaTime: TimeInterval = 1.0 / 240.0
-    /// Max idle time before momentum is suppressed
-    static let touchpadMomentumMaxIdleInterval: TimeInterval = 1.5
-    /// Exponential decay rate for momentum velocity (per second)
-    static let touchpadMomentumDecay: Double = 0.7
-    /// Minimum velocity to start momentum after lift (pixels/second)
-    static let touchpadMomentumStartVelocity: Double = 200.0
-    /// Minimum duration velocity must exceed threshold before momentum is triggered (seconds)
-    static let touchpadMomentumSustainedDuration: TimeInterval = 0.03
-    /// Minimum velocity to keep momentum running (pixels/second)
-    static let touchpadMomentumStopVelocity: Double = 30.0
-    /// Maximum time since last fast pan sample to start momentum after lift (seconds)
-    static let touchpadMomentumReleaseWindow: TimeInterval = 0.1
-    /// Clamp momentum velocity to avoid spikes (pixels/second)
-    static let touchpadMomentumMaxVelocity: Double = 20000.0
-    /// Smoothing for gesture velocity estimation (0-1)
-    static let touchpadMomentumVelocitySmoothingAlpha: Double = 0.7
-    /// Minimum boost applied at threshold velocity
-    static let touchpadMomentumBoostMin: Double = 1.0
-    /// Maximum boost applied at high velocities
-    static let touchpadMomentumBoostMax: Double = 2.5
-    /// Velocity at which max boost is reached (pixels/second)
-    static let touchpadMomentumBoostMaxVelocity: Double = 5000.0
-    /// Scale momentum velocity to compensate for small touchpad travel
-    static let touchpadMomentumVelocityScale: Double = 3.0
-    /// UserDefaults key to enable touchpad debug logging
-    static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// UserDefaults key for remembering last connected controller type
     static let lastControllerWasDualSenseKey: String = "lastControllerWasDualSense"
+    /// UserDefaults key to enable touchpad debug logging
+    static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging
     static let touchpadDebugEnvKey: String = "XCM_TOUCHPAD_DEBUG"
     /// Minimum interval between touchpad debug logs

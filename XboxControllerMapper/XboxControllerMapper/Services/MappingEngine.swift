@@ -79,6 +79,7 @@ private struct MappingExecutor {
 /// **Performance:** Polling @ 120Hz with UI throttled to 15Hz refresh rate
 ///
 /// **Configuration:** Tunable parameters in `Config.swift`
+
 @MainActor
 class MappingEngine: ObservableObject {
     @Published var isEnabled = true
@@ -89,36 +90,6 @@ class MappingEngine: ObservableObject {
     nonisolated private let inputSimulator: InputSimulatorProtocol
     private let inputLogService: InputLogService?
     nonisolated private let mappingExecutor: MappingExecutor
-
-    // MARK: - Touchpad Debug Logging
-
-    private static let touchpadDebugLogQueue = DispatchQueue(label: "com.xboxmapper.touchpad.debuglog", qos: .utility)
-    private static let touchpadDebugLogURL = URL(fileURLWithPath: "/tmp/controllerkeys-touchpad.log")
-    private static var touchpadDebugLogFileHandle: FileHandle?
-
-    private static func appendTouchpadDebugLine(_ line: String) {
-        touchpadDebugLogQueue.async {
-            let payload = (line + "\n").data(using: .utf8) ?? Data()
-            if touchpadDebugLogFileHandle == nil {
-                if !FileManager.default.fileExists(atPath: touchpadDebugLogURL.path) {
-                    FileManager.default.createFile(atPath: touchpadDebugLogURL.path, contents: nil)
-                }
-                if let handle = try? FileHandle(forWritingTo: touchpadDebugLogURL) {
-                    handle.seekToEndOfFile()
-                    touchpadDebugLogFileHandle = handle
-                }
-            }
-            if let handle = touchpadDebugLogFileHandle {
-                do {
-                    try handle.write(contentsOf: payload)
-                } catch {
-                    // Ignore file write failures in debug logging.
-                }
-            } else {
-                try? payload.write(to: touchpadDebugLogURL)
-            }
-        }
-    }
 
     // MARK: - Thread-Safe State
     
@@ -169,19 +140,6 @@ class MappingEngine: ObservableObject {
         var scrollResidualX: Double = 0
         var scrollResidualY: Double = 0
 
-        // Momentum physics state
-        var momentumVelocity: CGPoint = .zero
-        var momentumLastUpdate: TimeInterval = 0
-        var momentumLastGestureTime: TimeInterval = 0
-        var momentumWasActive = false
-        var momentumCandidateVelocity: CGPoint = .zero
-        var momentumCandidateTime: TimeInterval = 0
-        var momentumHighVelocityStartTime: TimeInterval = 0
-        var momentumHighVelocitySampleCount: Int = 0
-        var momentumPeakVelocity: CGPoint = .zero
-        var momentumPeakMagnitude: Double = 0
-        var smoothedPanVelocity: CGPoint = .zero
-
         // Pinch/zoom state
         var pinchAccumulator: Double = 0
         var magnifyGestureActive: Bool = false
@@ -195,17 +153,6 @@ class MappingEngine: ObservableObject {
             isGestureActive = false
             scrollResidualX = 0
             scrollResidualY = 0
-            momentumVelocity = .zero
-            momentumLastUpdate = 0
-            momentumLastGestureTime = 0
-            momentumWasActive = false
-            momentumCandidateVelocity = .zero
-            momentumCandidateTime = 0
-            momentumHighVelocityStartTime = 0
-            momentumHighVelocitySampleCount = 0
-            momentumPeakVelocity = .zero
-            momentumPeakMagnitude = 0
-            smoothedPanVelocity = .zero
             pinchAccumulator = 0
             magnifyGestureActive = false
         }
@@ -246,19 +193,7 @@ class MappingEngine: ObservableObject {
         var isTouchpadGestureActive = false
         var touchpadScrollResidualX: Double = 0
         var touchpadScrollResidualY: Double = 0
-        var touchpadMomentumVelocity: CGPoint = .zero
-        var touchpadMomentumLastUpdate: TimeInterval = 0
-        var touchpadMomentumLastGestureTime: TimeInterval = 0
-        var touchpadMomentumWasActive = false
-        var touchpadMomentumCandidateVelocity: CGPoint = .zero
-        var touchpadMomentumCandidateTime: TimeInterval = 0
-        var touchpadMomentumHighVelocityStartTime: TimeInterval = 0
-        var touchpadMomentumHighVelocitySampleCount: Int = 0
-        var touchpadMomentumPeakVelocity: CGPoint = .zero
-        var touchpadMomentumPeakMagnitude: Double = 0
-        var smoothedTouchpadPanVelocity: CGPoint = .zero
         var touchpadPinchAccumulator: Double = 0
-        var touchpadDebugLastLogTime: TimeInterval = 0
         var touchpadMagnifyGestureActive: Bool = false
 
         var rightStickWasOutsideDeadzone = false
@@ -306,17 +241,6 @@ class MappingEngine: ObservableObject {
             isTouchpadGestureActive = false
             touchpadScrollResidualX = 0
             touchpadScrollResidualY = 0
-            touchpadMomentumVelocity = .zero
-            touchpadMomentumLastUpdate = 0
-            touchpadMomentumLastGestureTime = 0
-            touchpadMomentumWasActive = false
-            touchpadMomentumCandidateVelocity = .zero
-            touchpadMomentumCandidateTime = 0
-            touchpadMomentumHighVelocityStartTime = 0
-            touchpadMomentumHighVelocitySampleCount = 0
-            touchpadMomentumPeakVelocity = .zero
-            touchpadMomentumPeakMagnitude = 0
-            smoothedTouchpadPanVelocity = .zero
             touchpadPinchAccumulator = 0
             touchpadMagnifyGestureActive = false
             rightStickWasOutsideDeadzone = false
@@ -335,7 +259,6 @@ class MappingEngine: ObservableObject {
     
     // Joystick polling
     private var joystickTimer: DispatchSourceTimer?
-    private var touchpadMomentumTimer: DispatchSourceTimer?
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -351,7 +274,7 @@ class MappingEngine: ObservableObject {
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
 
         setupBindings()
-        
+
         // Initial state sync
         self.state.activeProfile = profileManager.activeProfile
         self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
@@ -409,10 +332,8 @@ class MappingEngine: ObservableObject {
             .sink { [weak self] connected in
                 if connected {
                     self?.startJoystickPolling()
-                    self?.startTouchpadMomentumTimer()
                 } else {
                     self?.stopJoystickPolling()
-                    self?.stopTouchpadMomentumTimer()
                 }
             }
             .store(in: &cancellables)
@@ -493,78 +414,10 @@ class MappingEngine: ObservableObject {
                 }
                 self.state.lock.unlock()
                 if enabled {
-                    if self.controllerService.isConnected {
-                        self.startTouchpadMomentumTimer()
-                    }
                 } else {
-                    self.stopTouchpadMomentumTimer()
                 }
             }
             .store(in: &cancellables)
-    }
-
-    private func startTouchpadMomentumTimer() {
-        guard touchpadMomentumTimer == nil else { return }
-        let timer = DispatchSource.makeTimerSource(queue: pollingQueue)
-        timer.schedule(deadline: .now(), repeating: Config.touchpadMomentumTickInterval)
-        timer.setEventHandler { [weak self] in
-            self?.processTouchpadMomentumTick()
-        }
-        timer.resume()
-        touchpadMomentumTimer = timer
-    }
-
-    private func stopTouchpadMomentumTimer() {
-        touchpadMomentumTimer?.cancel()
-        touchpadMomentumTimer = nil
-        stopTouchpadMomentum(emitEnd: true)
-    }
-
-    nonisolated private func isTouchpadDebugEnabled() -> Bool {
-        let envEnabled = ProcessInfo.processInfo.environment[Config.touchpadDebugEnvKey] == "1"
-        let defaultsEnabled = UserDefaults.standard.bool(forKey: Config.touchpadDebugLoggingKey)
-        return envEnabled || defaultsEnabled
-    }
-
-    /// Caller must hold state.lock.
-    nonisolated private func shouldLogTouchpadDebugLocked(now: TimeInterval) -> Bool {
-        guard isTouchpadDebugEnabled() else { return false }
-        if now - state.touchpadDebugLastLogTime < Config.touchpadDebugLogInterval {
-            return false
-        }
-        state.touchpadDebugLastLogTime = now
-        return true
-    }
-
-    nonisolated private func stopTouchpadMomentum(emitEnd: Bool) {
-        var wasActive = false
-        state.lock.lock()
-        wasActive = state.touchpadMomentumWasActive
-        state.touchpadMomentumVelocity = .zero
-        state.touchpadMomentumWasActive = false
-        state.touchpadMomentumLastUpdate = 0
-        state.touchpadMomentumLastGestureTime = 0
-        state.touchpadMomentumCandidateVelocity = .zero
-        state.touchpadMomentumCandidateTime = 0
-        state.touchpadMomentumHighVelocityStartTime = 0
-            state.touchpadMomentumHighVelocitySampleCount = 0
-            state.touchpadMomentumPeakVelocity = .zero
-            state.touchpadMomentumPeakMagnitude = 0
-        state.smoothedTouchpadPanVelocity = .zero
-        state.touchpadScrollResidualX = 0
-        state.touchpadScrollResidualY = 0
-        state.lock.unlock()
-
-        if emitEnd, wasActive {
-            inputSimulator.scroll(
-                dx: 0,
-                dy: 0,
-                phase: nil,
-                momentumPhase: .end,
-                isContinuous: true,
-                flags: []
-            )
-        }
     }
 
     // MARK: - Button Handling (Background Queue)
@@ -1384,7 +1237,6 @@ class MappingEngine: ObservableObject {
     /// 2. Delta smoothing for consistent feel
     /// 3. Pinch vs Pan discrimination
     /// 4. Native magnify gestures or Cmd+Plus/Minus zoom
-    /// 5. Scroll with momentum physics
     nonisolated private func processTouchpadGesture(_ gesture: TouchpadGesture) {
         // MARK: State Snapshot
         state.lock.lock()
@@ -1397,16 +1249,10 @@ class MappingEngine: ObservableObject {
         state.isTouchpadGestureActive = isActive
         var smoothedCenter = state.smoothedTouchpadCenterDelta
         var smoothedDistance = state.smoothedTouchpadDistanceDelta
-        var smoothedVelocity = state.smoothedTouchpadPanVelocity
-        let wasMomentumActive = state.touchpadMomentumWasActive
         let lastSampleTime = state.lastTouchpadGestureSampleTime
         var residualX = state.touchpadScrollResidualX
         var residualY = state.touchpadScrollResidualY
         state.lock.unlock()
-
-        if isActive, wasMomentumActive {
-            stopTouchpadMomentum(emitEnd: true)
-        }
 
         guard isActive else {
             // End magnify gesture if it was active
@@ -1431,55 +1277,10 @@ class MappingEngine: ObservableObject {
                     flags: []
                 )
             }
-            let hasRemainingFinger = gesture.isPrimaryTouching || gesture.isSecondaryTouching
-            if hasRemainingFinger {
-                stopTouchpadMomentum(emitEnd: true)
-            }
-            let now = CFAbsoluteTimeGetCurrent()
             state.lock.lock()
-            if hasRemainingFinger {
-                state.touchpadMomentumVelocity = .zero
-                state.touchpadMomentumLastGestureTime = 0
-                state.touchpadMomentumLastUpdate = 0
-                state.touchpadMomentumWasActive = false
-                if state.touchpadMomentumCandidateTime > 0,
-                   (now - state.touchpadMomentumCandidateTime) > Config.touchpadMomentumReleaseWindow {
-                    state.touchpadMomentumCandidateVelocity = .zero
-                    state.touchpadMomentumCandidateTime = 0
-                }
-                state.touchpadMomentumHighVelocityStartTime = 0
-                state.touchpadMomentumHighVelocitySampleCount = 0
-                state.touchpadMomentumPeakVelocity = .zero
-                state.touchpadMomentumPeakMagnitude = 0
-            } else {
-                let candidateVelocity = state.touchpadMomentumCandidateVelocity
-                let candidateTime = state.touchpadMomentumCandidateTime
-                let candidateSpeed = Double(hypot(candidateVelocity.x, candidateVelocity.y))
-                let shouldStartMomentum = candidateTime > 0 &&
-                    (now - candidateTime) <= Config.touchpadMomentumReleaseWindow &&
-                    candidateSpeed >= Config.touchpadMomentumStartVelocity
-                if shouldStartMomentum {
-                    state.touchpadMomentumVelocity = candidateVelocity
-                    state.touchpadMomentumLastGestureTime = now
-                    state.touchpadMomentumLastUpdate = now
-                    state.touchpadMomentumWasActive = false
-                } else {
-                    state.touchpadMomentumVelocity = .zero
-                    state.touchpadMomentumLastGestureTime = 0
-                    state.touchpadMomentumLastUpdate = 0
-                    state.touchpadMomentumWasActive = false
-                }
-                state.touchpadMomentumCandidateVelocity = .zero
-                state.touchpadMomentumCandidateTime = 0
-                state.touchpadMomentumHighVelocityStartTime = 0
-                state.touchpadMomentumHighVelocitySampleCount = 0
-                state.touchpadMomentumPeakVelocity = .zero
-                state.touchpadMomentumPeakMagnitude = 0
-            }
             state.smoothedTouchpadCenterDelta = .zero
             state.smoothedTouchpadDistanceDelta = 0
             state.lastTouchpadGestureSampleTime = 0
-            state.smoothedTouchpadPanVelocity = .zero
             state.touchpadScrollResidualX = 0
             state.touchpadScrollResidualY = 0
             state.lock.unlock()
@@ -1540,10 +1341,6 @@ class MappingEngine: ObservableObject {
         if isPinchGesture {
             // Reset pan-related state since we're doing pinch
             state.lock.lock()
-            state.smoothedTouchpadPanVelocity = .zero
-            state.touchpadMomentumVelocity = .zero
-            state.touchpadMomentumCandidateVelocity = .zero
-            state.touchpadMomentumCandidateTime = 0
             state.touchpadScrollResidualX = 0
             state.touchpadScrollResidualY = 0
 
@@ -1611,19 +1408,7 @@ class MappingEngine: ObservableObject {
         }
 
         guard panMagnitude > Config.touchpadPanDeadzone else {
-            let now = CFAbsoluteTimeGetCurrent()
             state.lock.lock()
-            state.smoothedTouchpadPanVelocity = .zero
-            state.touchpadMomentumVelocity = .zero
-            state.touchpadMomentumHighVelocityStartTime = 0
-            state.touchpadMomentumHighVelocitySampleCount = 0
-            state.touchpadMomentumPeakVelocity = .zero
-            state.touchpadMomentumPeakMagnitude = 0
-            if state.touchpadMomentumCandidateTime > 0,
-               (now - state.touchpadMomentumCandidateTime) > Config.touchpadMomentumReleaseWindow {
-                state.touchpadMomentumCandidateVelocity = .zero
-                state.touchpadMomentumCandidateTime = 0
-            }
             state.touchpadScrollResidualX = 0
             state.touchpadScrollResidualY = 0
             state.lock.unlock()
@@ -1634,92 +1419,6 @@ class MappingEngine: ObservableObject {
         var dx = Double(smoothedCenter.x) * panScale
         var dy = -Double(smoothedCenter.y) * panScale
         dy = settings.invertScrollY ? -dy : dy
-
-        let sampleInterval = lastSampleTime == 0 ? Config.touchpadMomentumMinDeltaTime : (now - lastSampleTime)
-        let dt = max(sampleInterval, Config.touchpadMomentumMinDeltaTime)
-        let velocityX = dx / dt
-        let velocityY = dy / dt
-        let velocityAlpha = Config.touchpadMomentumVelocitySmoothingAlpha
-        smoothedVelocity = CGPoint(
-            x: smoothedVelocity.x + (velocityX - smoothedVelocity.x) * velocityAlpha,
-            y: smoothedVelocity.y + (velocityY - smoothedVelocity.y) * velocityAlpha
-        )
-        let rawMagnitude = Double(hypot(smoothedVelocity.x, smoothedVelocity.y))
-        let momentumVelocity = CGPoint(
-            x: smoothedVelocity.x * Config.touchpadMomentumVelocityScale,
-            y: smoothedVelocity.y * Config.touchpadMomentumVelocityScale
-        )
-        let momentumMagnitude = Double(hypot(momentumVelocity.x, momentumVelocity.y))
-        var shouldLog = false
-        var debugSampleCount = 0
-        var debugCandidateMagnitude: Double = 0
-        var debugPeakMagnitude: Double = 0
-        state.lock.lock()
-        state.smoothedTouchpadPanVelocity = smoothedVelocity
-        if momentumMagnitude <= Config.touchpadMomentumStopVelocity {
-            state.touchpadMomentumCandidateVelocity = .zero
-            state.touchpadMomentumCandidateTime = 0
-            state.touchpadMomentumHighVelocityStartTime = 0
-            state.touchpadMomentumHighVelocitySampleCount = 0
-            state.touchpadMomentumPeakVelocity = .zero
-            state.touchpadMomentumPeakMagnitude = 0
-        } else if momentumMagnitude >= Config.touchpadMomentumStartVelocity {
-            // Track high velocity samples and peak
-            state.touchpadMomentumHighVelocitySampleCount += 1
-            if momentumMagnitude > state.touchpadMomentumPeakMagnitude {
-                state.touchpadMomentumPeakMagnitude = momentumMagnitude
-                state.touchpadMomentumPeakVelocity = momentumVelocity
-            }
-
-            // Allow momentum on a single high-velocity sample (DualSense touchpad is small)
-            if state.touchpadMomentumHighVelocitySampleCount >= 1 {
-                // Use peak velocity for momentum calculation
-                let peakMagnitude = state.touchpadMomentumPeakMagnitude
-                let peakVelocity = state.touchpadMomentumPeakVelocity
-                let clampedMagnitude = min(peakMagnitude, Config.touchpadMomentumMaxVelocity)
-                let velocityScale = peakMagnitude > 0 ? clampedMagnitude / peakMagnitude : 0
-                // Scale boost based on velocity - lower boost near threshold, higher at fast speeds
-                let boostRange = Config.touchpadMomentumBoostMax - Config.touchpadMomentumBoostMin
-                let velocityRange = Config.touchpadMomentumBoostMaxVelocity - Config.touchpadMomentumStartVelocity
-                let velocityAboveThreshold = min(peakMagnitude - Config.touchpadMomentumStartVelocity, velocityRange)
-                let boostFactor = velocityAboveThreshold / velocityRange
-                let boost = Config.touchpadMomentumBoostMin + boostRange * boostFactor
-                let clampedVelocity = CGPoint(
-                    x: peakVelocity.x * velocityScale * boost,
-                    y: peakVelocity.y * velocityScale * boost
-                )
-                state.touchpadMomentumCandidateVelocity = clampedVelocity
-                state.touchpadMomentumCandidateTime = now
-            }
-        } else {
-            // Velocity is between stop and start thresholds - reset high velocity tracking
-            state.touchpadMomentumHighVelocityStartTime = 0
-            state.touchpadMomentumHighVelocitySampleCount = 0
-            state.touchpadMomentumPeakVelocity = .zero
-            state.touchpadMomentumPeakMagnitude = 0
-        }
-        shouldLog = shouldLogTouchpadDebugLocked(now: now)
-        debugSampleCount = state.touchpadMomentumHighVelocitySampleCount
-        debugCandidateMagnitude = Double(hypot(
-            state.touchpadMomentumCandidateVelocity.x,
-            state.touchpadMomentumCandidateVelocity.y
-        ))
-        debugPeakMagnitude = state.touchpadMomentumPeakMagnitude
-        state.lock.unlock()
-        if shouldLog {
-            let line = String(
-                format: "[TP MOM] pan=%.4f raw=%.1f scaled=%.1f thresh=%.1f sample=%d cand=%.1f peak=%.1f",
-                panMagnitude,
-                rawMagnitude,
-                momentumMagnitude,
-                Config.touchpadMomentumStartVelocity,
-                debugSampleCount,
-                debugCandidateMagnitude,
-                debugPeakMagnitude
-            )
-            NSLog("%@", line)
-            MappingEngine.appendTouchpadDebugLine(line)
-        }
 
         let combinedDx = dx + residualX
         let combinedDy = dy + residualY
@@ -1741,111 +1440,6 @@ class MappingEngine: ObservableObject {
             isContinuous: true,
             flags: []
         )
-    }
-
-    nonisolated private func processTouchpadMomentumTick() {
-        state.lock.lock()
-        guard state.isEnabled else {
-            state.lock.unlock()
-            return
-        }
-        let isGestureActive = state.isTouchpadGestureActive
-        let lastGestureTime = state.touchpadMomentumLastGestureTime
-        var velocity = state.touchpadMomentumVelocity
-        var wasActive = state.touchpadMomentumWasActive
-        var residualX = state.touchpadScrollResidualX
-        var residualY = state.touchpadScrollResidualY
-        let lastUpdate = state.touchpadMomentumLastUpdate
-        state.lock.unlock()
-
-        if isGestureActive {
-            return
-        }
-
-        let now = CFAbsoluteTimeGetCurrent()
-        if lastUpdate == 0 {
-            state.lock.lock()
-            state.touchpadMomentumLastUpdate = now
-            state.lock.unlock()
-            return
-        }
-
-        let idleInterval = now - lastGestureTime
-        if idleInterval > Config.touchpadMomentumMaxIdleInterval {
-            if wasActive {
-                inputSimulator.scroll(
-                    dx: 0,
-                    dy: 0,
-                    phase: nil,
-                    momentumPhase: .end,
-                    isContinuous: true,
-                    flags: []
-                )
-            }
-            state.lock.lock()
-            state.touchpadMomentumVelocity = .zero
-            state.touchpadMomentumWasActive = false
-            state.touchpadMomentumLastUpdate = now
-            state.touchpadScrollResidualX = 0
-            state.touchpadScrollResidualY = 0
-            state.lock.unlock()
-            return
-        }
-
-        let dt = max(now - lastUpdate, Config.touchpadMomentumMinDeltaTime)
-        let decay = exp(-Config.touchpadMomentumDecay * dt)
-        velocity = CGPoint(x: velocity.x * decay, y: velocity.y * decay)
-        let speed = Double(hypot(velocity.x, velocity.y))
-        if speed < Config.touchpadMomentumStopVelocity {
-            if wasActive {
-                inputSimulator.scroll(
-                    dx: 0,
-                    dy: 0,
-                    phase: nil,
-                    momentumPhase: .end,
-                    isContinuous: true,
-                    flags: []
-                )
-            }
-            state.lock.lock()
-            state.touchpadMomentumVelocity = .zero
-            state.touchpadMomentumWasActive = false
-            state.touchpadMomentumLastUpdate = now
-            state.touchpadScrollResidualX = 0
-            state.touchpadScrollResidualY = 0
-            state.lock.unlock()
-            return
-        }
-
-        let dx = Double(velocity.x) * dt
-        let dy = Double(velocity.y) * dt
-        let combinedDx = dx + residualX
-        let combinedDy = dy + residualY
-        let sendDx = combinedDx.rounded(.towardZero)
-        let sendDy = combinedDy.rounded(.towardZero)
-        residualX = combinedDx - sendDx
-        residualY = combinedDy - sendDy
-
-        if abs(sendDx) >= 1 || abs(sendDy) >= 1 {
-            let momentumPhase: CGMomentumScrollPhase = wasActive ? .continuous : .begin
-            inputSimulator.scroll(
-                dx: CGFloat(sendDx),
-                dy: CGFloat(sendDy),
-                phase: nil,
-                momentumPhase: momentumPhase,
-                isContinuous: true,
-                flags: []
-            )
-            wasActive = true
-        }
-
-        state.lock.lock()
-        state.touchpadMomentumVelocity = velocity
-        state.touchpadMomentumWasActive = wasActive
-        state.touchpadMomentumLastUpdate = now
-        state.touchpadScrollResidualX = residualX
-        state.touchpadScrollResidualY = residualY
-        state.lock.unlock()
     }
 
     /// Performs haptic feedback for focus mode transitions on the controller
