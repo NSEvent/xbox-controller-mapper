@@ -122,42 +122,6 @@ class MappingEngine: ObservableObject {
     ///    - currentMultiplier: Joystick sensitivity multiplier (0.0-2.0)
     ///    - focusExitTime: Timestamp when focus mode was exited
 
-    // MARK: - Touchpad Gesture State
-
-    /// Groups all touchpad gesture-related state for better organization
-    private struct TouchpadGestureState {
-        // Single-finger movement smoothing
-        var smoothedDelta: CGPoint = .zero
-        var lastSampleTime: TimeInterval = 0
-
-        // Two-finger gesture smoothing
-        var smoothedCenterDelta: CGPoint = .zero
-        var smoothedDistanceDelta: Double = 0
-        var lastGestureSampleTime: TimeInterval = 0
-        var isGestureActive = false
-
-        // Scroll residuals for sub-pixel accumulation
-        var scrollResidualX: Double = 0
-        var scrollResidualY: Double = 0
-
-        // Pinch/zoom state
-        var pinchAccumulator: Double = 0
-        var magnifyGestureActive: Bool = false
-
-        mutating func reset() {
-            smoothedDelta = .zero
-            lastSampleTime = 0
-            smoothedCenterDelta = .zero
-            smoothedDistanceDelta = 0
-            lastGestureSampleTime = 0
-            isGestureActive = false
-            scrollResidualX = 0
-            scrollResidualY = 0
-            pinchAccumulator = 0
-            magnifyGestureActive = false
-        }
-    }
-
     // MARK: - Engine State
 
     private final class EngineState: @unchecked Sendable {
