@@ -143,7 +143,7 @@ struct Config {
     /// Exponential decay rate for momentum velocity (per second)
     static let touchpadMomentumDecay: Double = 0.7
     /// Minimum velocity to start momentum after lift (pixels/second)
-    static let touchpadMomentumStartVelocity: Double = 600.0
+    static let touchpadMomentumStartVelocity: Double = 800.0
     /// Minimum duration velocity must exceed threshold before momentum is triggered (seconds)
     static let touchpadMomentumSustainedDuration: TimeInterval = 0.03
     /// Minimum velocity to keep momentum running (pixels/second)
@@ -155,7 +155,7 @@ struct Config {
     /// Smoothing for gesture velocity estimation (0-1)
     static let touchpadMomentumVelocitySmoothingAlpha: Double = 0.35
     /// Minimum boost applied at threshold velocity
-    static let touchpadMomentumBoostMin: Double = 0.8
+    static let touchpadMomentumBoostMin: Double = 1.0
     /// Maximum boost applied at high velocities
     static let touchpadMomentumBoostMax: Double = 2.5
     /// Velocity at which max boost is reached (pixels/second)
