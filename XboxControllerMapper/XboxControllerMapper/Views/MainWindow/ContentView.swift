@@ -209,10 +209,11 @@ struct ContentView: View {
                                     Image(systemName: "arrow.right")
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
-                                    
-                                    Text(chord.actionDisplayString)
+
+                                    Text(chord.hint ?? chord.actionDisplayString)
                                         .font(.caption)
                                         .fontWeight(.medium)
+                                        .help(chord.hint != nil ? chord.actionDisplayString : "")
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
@@ -593,9 +594,10 @@ struct ChordRow: View {
             Image(systemName: "arrow.right")
                 .foregroundColor(.secondary)
 
-            Text(chord.actionDisplayString)
+            Text(chord.hint ?? chord.actionDisplayString)
                 .font(.body)
                 .foregroundColor(.secondary)
+                .help(chord.hint != nil ? chord.actionDisplayString : "")
 
             Spacer()
 
@@ -632,6 +634,7 @@ struct ChordMappingSheet: View {
     @State private var selectedButtons: Set<ControllerButton> = []
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
+    @State private var hint: String = ""
     @State private var showingKeyboard = false
 
     private var isEditing: Bool { editingChord != nil }
@@ -757,6 +760,17 @@ struct ChordMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+
+                // Hint field
+                HStack {
+                    Text("Hint:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    TextField("e.g. Copy, Paste, Switch App...", text: $hint)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                }
             }
 
             HStack {
@@ -767,17 +781,20 @@ struct ChordMappingSheet: View {
                 Spacer()
 
                 Button(isEditing ? "Save" : "Add") {
+                    let hintValue = hint.isEmpty ? nil : hint
                     if let existingChord = editingChord {
                         var updatedChord = existingChord
                         updatedChord.buttons = selectedButtons
                         updatedChord.keyCode = keyCode
                         updatedChord.modifiers = modifiers
+                        updatedChord.hint = hintValue
                         profileManager.updateChord(updatedChord)
                     } else {
                         let chord = ChordMapping(
                             buttons: selectedButtons,
                             keyCode: keyCode,
-                            modifiers: modifiers
+                            modifiers: modifiers,
+                            hint: hintValue
                         )
                         profileManager.addChord(chord)
                     }
@@ -794,6 +811,7 @@ struct ChordMappingSheet: View {
                 selectedButtons = chord.buttons
                 keyCode = chord.keyCode
                 modifiers = chord.modifiers
+                hint = chord.hint ?? ""
             }
         }
     }

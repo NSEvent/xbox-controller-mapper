@@ -19,11 +19,13 @@ struct ButtonMappingSheet: View {
     @State private var longHoldKeyCode: CGKeyCode?
     @State private var longHoldModifiers = ModifierFlags()
     @State private var longHoldThreshold: Double = 0.5
+    @State private var longHoldHint: String = ""
 
     @State private var enableDoubleTap = false
     @State private var doubleTapKeyCode: CGKeyCode?
     @State private var doubleTapModifiers = ModifierFlags()
     @State private var doubleTapThreshold: Double = 0.4
+    @State private var doubleTapHint: String = ""
 
     @State private var enableRepeat = false
     @State private var repeatRate: Double = 5.0  // Actions per second
@@ -33,6 +35,9 @@ struct ButtonMappingSheet: View {
     
     // Prevent auto-logic from running during initial load
     @State private var isLoading = true
+
+    // Hint
+    @State private var hint: String = ""
 
     // Keyboard visual state
     @State private var showingKeyboardForPrimary = false
@@ -193,6 +198,17 @@ struct ButtonMappingSheet: View {
                     Text("Click to type a shortcut, or show keyboard to select visually")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                }
+
+                // Hint field
+                HStack {
+                    Text("Hint:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    TextField("e.g. Copy, Paste, Switch App...", text: $hint)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
                 }
 
                 // Show hold option if any mapping is configured
@@ -383,6 +399,16 @@ struct ButtonMappingSheet: View {
                     } else {
                         KeyCaptureField(keyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
                     }
+
+                    HStack {
+                        Text("Hint:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        TextField("e.g. Copy, Paste, Switch App...", text: $longHoldHint)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+                    }
                 }
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor))
@@ -477,6 +503,16 @@ struct ButtonMappingSheet: View {
                         KeyboardVisualView(selectedKeyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
                     } else {
                         KeyCaptureField(keyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
+                    }
+
+                    HStack {
+                        Text("Hint:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        TextField("e.g. Copy, Paste, Switch App...", text: $doubleTapHint)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
                     }
                 }
                 .padding(12)
@@ -594,12 +630,14 @@ struct ButtonMappingSheet: View {
             keyCode = existingMapping.keyCode
             modifiers = existingMapping.modifiers
             isHoldModifier = existingMapping.isHoldModifier
+            hint = existingMapping.hint ?? ""
 
             if let longHold = existingMapping.longHoldMapping {
                 enableLongHold = true
                 longHoldKeyCode = longHold.keyCode
                 longHoldModifiers = longHold.modifiers
                 longHoldThreshold = longHold.threshold
+                longHoldHint = longHold.hint ?? ""
             }
 
             if let doubleTap = existingMapping.doubleTapMapping {
@@ -607,6 +645,7 @@ struct ButtonMappingSheet: View {
                 doubleTapKeyCode = doubleTap.keyCode
                 doubleTapModifiers = doubleTap.modifiers
                 doubleTapThreshold = doubleTap.threshold
+                doubleTapHint = doubleTap.hint ?? ""
             }
 
             if let repeatConfig = existingMapping.repeatMapping, repeatConfig.enabled {
@@ -620,14 +659,16 @@ struct ButtonMappingSheet: View {
         var newMapping = KeyMapping(
             keyCode: keyCode,
             modifiers: modifiers,
-            isHoldModifier: isHoldModifier
+            isHoldModifier: isHoldModifier,
+            hint: hint.isEmpty ? nil : hint
         )
 
         if enableLongHold && (longHoldKeyCode != nil || longHoldModifiers.hasAny) {
             newMapping.longHoldMapping = LongHoldMapping(
                 keyCode: longHoldKeyCode,
                 modifiers: longHoldModifiers,
-                threshold: longHoldThreshold
+                threshold: longHoldThreshold,
+                hint: longHoldHint.isEmpty ? nil : longHoldHint
             )
         }
 
@@ -635,7 +676,8 @@ struct ButtonMappingSheet: View {
             newMapping.doubleTapMapping = DoubleTapMapping(
                 keyCode: doubleTapKeyCode,
                 modifiers: doubleTapModifiers,
-                threshold: doubleTapThreshold
+                threshold: doubleTapThreshold,
+                hint: doubleTapHint.isEmpty ? nil : doubleTapHint
             )
         }
 

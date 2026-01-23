@@ -54,13 +54,17 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
     /// Whether this mapping acts as a held modifier (released when button released)
     var isHoldModifier: Bool
 
+    /// Optional user-provided description of what this mapping does
+    var hint: String?
+
     init(
         keyCode: CGKeyCode? = nil,
         modifiers: ModifierFlags = ModifierFlags(),
         longHoldMapping: LongHoldMapping? = nil,
         doubleTapMapping: DoubleTapMapping? = nil,
         repeatMapping: RepeatMapping? = nil,
-        isHoldModifier: Bool = false
+        isHoldModifier: Bool = false,
+        hint: String? = nil
     ) {
         self.keyCode = keyCode
         self.modifiers = modifiers
@@ -68,6 +72,7 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         self.doubleTapMapping = doubleTapMapping
         self.repeatMapping = repeatMapping
         self.isHoldModifier = isHoldModifier
+        self.hint = hint
     }
 
     /// Creates a simple key mapping
@@ -139,11 +144,13 @@ struct LongHoldMapping: Codable, Equatable, KeyBindingRepresentable {
     var keyCode: CGKeyCode?
     var modifiers: ModifierFlags
     var threshold: TimeInterval
+    var hint: String?
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, hint: String? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = threshold
+        self.hint = hint
     }
 
     // Note: displayString and isEmpty are provided by KeyBindingRepresentable protocol extension
@@ -155,11 +162,13 @@ struct DoubleTapMapping: Codable, Equatable, KeyBindingRepresentable {
     var modifiers: ModifierFlags
     /// Time window within which two taps must occur to count as double-tap (default 0.3s)
     var threshold: TimeInterval
+    var hint: String?
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, hint: String? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = threshold
+        self.hint = hint
     }
 
     // Note: displayString and isEmpty are provided by KeyBindingRepresentable protocol extension

@@ -14,16 +14,21 @@ struct ChordMapping: Codable, Identifiable, Equatable {
     /// Modifier flags to apply
     var modifiers: ModifierFlags
 
+    /// Optional user-provided description of what this chord does
+    var hint: String?
+
     init(
         id: UUID = UUID(),
         buttons: Set<ControllerButton>,
         keyCode: CGKeyCode? = nil,
-        modifiers: ModifierFlags = ModifierFlags()
+        modifiers: ModifierFlags = ModifierFlags(),
+        hint: String? = nil
     ) {
         self.id = id
         self.buttons = buttons
         self.keyCode = keyCode
         self.modifiers = modifiers
+        self.hint = hint
     }
 
     /// Human-readable description of the chord trigger

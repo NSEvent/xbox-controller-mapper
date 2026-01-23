@@ -22,7 +22,11 @@ struct MappingLabelView: View {
     @ViewBuilder
     private var content: some View {
         if !mapping.isEmpty {
-            labelRow(text: mapping.displayString, icon: nil, color: .primary)
+            if let hint = mapping.hint, !hint.isEmpty {
+                labelRow(text: hint, icon: nil, color: .primary, tooltip: mapping.displayString)
+            } else {
+                labelRow(text: mapping.displayString, icon: nil, color: .primary, tooltip: nil)
+            }
         } else if (mapping.longHoldMapping?.isEmpty ?? true) && (mapping.doubleTapMapping?.isEmpty ?? true) {
             Text("Unmapped")
                 .font(font)
@@ -33,16 +37,24 @@ struct MappingLabelView: View {
         }
 
         if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
-            labelRow(text: longHold.displayString, icon: "⏱", color: .orange)
+            if let hint = longHold.hint, !hint.isEmpty {
+                labelRow(text: hint, icon: "⏱", color: .orange, tooltip: longHold.displayString)
+            } else {
+                labelRow(text: longHold.displayString, icon: "⏱", color: .orange, tooltip: nil)
+            }
         }
 
         if let doubleTap = mapping.doubleTapMapping, !doubleTap.isEmpty {
-            labelRow(text: doubleTap.displayString, icon: "2×", color: .cyan)
+            if let hint = doubleTap.hint, !hint.isEmpty {
+                labelRow(text: hint, icon: "2×", color: .cyan, tooltip: doubleTap.displayString)
+            } else {
+                labelRow(text: doubleTap.displayString, icon: "2×", color: .cyan, tooltip: nil)
+            }
         }
     }
 
     @ViewBuilder
-    private func labelRow(text: String, icon: String?, color: Color) -> some View {
+    private func labelRow(text: String, icon: String?, color: Color, tooltip: String?) -> some View {
         HStack(spacing: 8) {
             if let icon = icon {
                 Text(icon)
@@ -53,7 +65,7 @@ struct MappingLabelView: View {
                     .background(color)
                     .cornerRadius(3)
             }
-            
+
             Text(text)
                 .font(font)
                 .foregroundColor(foregroundColor)
@@ -69,5 +81,6 @@ struct MappingLabelView: View {
                 .stroke(Color.primary.opacity(0.15), lineWidth: 1)
         )
         .fixedSize(horizontal: false, vertical: true)
+        .help(tooltip ?? "")
     }
 }
