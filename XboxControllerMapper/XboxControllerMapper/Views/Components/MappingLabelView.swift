@@ -1,26 +1,131 @@
 import SwiftUI
 import AppKit
 
-/// NSView-based tooltip that reliably shows on hover
+/// Tooltip position relative to the hover target
+enum TooltipPosition {
+    case right      // Vertically centered, to the right
+    case topRight   // Above and to the right
+}
+
+/// Custom NSView that shows a tooltip window on hover
+class TooltipNSView: NSView {
+    var tooltipText: String = ""
+    var position: TooltipPosition = .right
+    private var tooltipWindow: NSWindow?
+    private var trackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        showTooltip()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hideTooltip()
+    }
+
+    override func removeFromSuperview() {
+        hideTooltip()
+        super.removeFromSuperview()
+    }
+
+    private func showTooltip() {
+        guard !tooltipText.isEmpty, tooltipWindow == nil else { return }
+
+        let label = NSTextField(labelWithString: tooltipText)
+        label.font = NSFont.systemFont(ofSize: 11)
+        label.textColor = .labelColor
+        label.backgroundColor = .clear
+        label.sizeToFit()
+
+        let padding: CGFloat = 6
+        let windowSize = NSSize(
+            width: label.frame.width + padding * 2,
+            height: label.frame.height + padding * 2
+        )
+
+        let window = NSPanel(
+            contentRect: NSRect(origin: .zero, size: windowSize),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.level = .floating
+        window.hasShadow = true
+        window.ignoresMouseEvents = true
+
+        let container = NSView(frame: NSRect(origin: .zero, size: windowSize))
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        container.layer?.cornerRadius = 4
+        container.layer?.borderWidth = 0.5
+        container.layer?.borderColor = NSColor.separatorColor.cgColor
+
+        label.frame.origin = NSPoint(x: padding, y: padding)
+        container.addSubview(label)
+        window.contentView = container
+
+        // Position relative to the hover target
+        if let screenFrame = self.window?.convertToScreen(self.convert(self.bounds, to: nil)) {
+            let x = screenFrame.maxX + 4
+            let y: CGFloat
+            switch position {
+            case .topRight:
+                y = screenFrame.maxY + 2
+            case .right:
+                y = screenFrame.midY - windowSize.height / 2
+            }
+            window.setFrameOrigin(NSPoint(x: x, y: y))
+        }
+
+        window.orderFrontRegardless()
+        tooltipWindow = window
+    }
+
+    private func hideTooltip() {
+        tooltipWindow?.orderOut(nil)
+        tooltipWindow = nil
+    }
+}
+
+/// SwiftUI wrapper for the custom tooltip view
 struct TooltipView: NSViewRepresentable {
     let tooltip: String
+    var position: TooltipPosition = .right
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        view.toolTip = tooltip
+    func makeNSView(context: Context) -> TooltipNSView {
+        let view = TooltipNSView()
+        view.tooltipText = tooltip
+        view.position = position
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        nsView.toolTip = tooltip
+    func updateNSView(_ nsView: TooltipNSView, context: Context) {
+        nsView.tooltipText = tooltip
+        nsView.position = position
     }
 }
 
 extension View {
     @ViewBuilder
-    func tooltipIfPresent(_ text: String?) -> some View {
+    func tooltipIfPresent(_ text: String?, position: TooltipPosition = .right) -> some View {
         if let text = text, !text.isEmpty {
-            self.overlay(TooltipView(tooltip: text))
+            self.overlay(TooltipView(tooltip: text, position: position))
         } else {
             self
         }
