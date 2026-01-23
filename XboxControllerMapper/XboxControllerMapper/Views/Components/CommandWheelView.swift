@@ -42,7 +42,7 @@ struct CommandWheelView: View {
         let isSelected = manager.selectedIndex == index
 
         // Position icon based on item count: centered for few, outer edge for many
-        let positionFactor: CGFloat = count <= 8 ? 0.5 : (count <= 12 ? 0.65 : 0.8)
+        let positionFactor: CGFloat = count <= 8 ? 0.5 : (count <= 12 ? 0.6 : 0.8)
         let iconRadius = innerRadius + (wheelSize / 2 - innerRadius) * positionFactor
         let midAngleRad = midAngle * .pi / 180
         let iconX = cos(midAngleRad) * iconRadius
