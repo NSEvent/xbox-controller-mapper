@@ -142,6 +142,13 @@ class CommandWheelManager: ObservableObject {
             return
         }
 
+        // If the app is already frontmost, hide it instead
+        if let frontmost = NSWorkspace.shared.frontmostApplication,
+           frontmost.bundleIdentifier == bundleIdentifier {
+            frontmost.hide()
+            return
+        }
+
         let allWindows = OnScreenKeyboardManager.shared.activateAllWindows
 
         let configuration = NSWorkspace.OpenConfiguration()
