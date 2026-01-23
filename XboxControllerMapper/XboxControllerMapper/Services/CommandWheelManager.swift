@@ -144,18 +144,6 @@ class CommandWheelManager: ObservableObject {
 
         let allWindows = OnScreenKeyboardManager.shared.activateAllWindows
 
-        // If app is already running, activate it directly
-        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
-        if let runningApp = runningApps.first {
-            var options: NSApplication.ActivationOptions = [.activateIgnoringOtherApps]
-            if allWindows {
-                options.insert(.activateAllWindows)
-            }
-            runningApp.activate(options: options)
-            return
-        }
-
-        // App not running - launch it
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         configuration.promptsUserIfNeeded = false

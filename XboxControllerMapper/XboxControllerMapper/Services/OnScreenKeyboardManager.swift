@@ -302,19 +302,8 @@ class OnScreenKeyboardManager: ObservableObject {
             }
         }
 
-        // If app is already running, activate it directly
-        if let runningApp = runningApps.first {
-            NSLog("[OnScreenKeyboard] Activating running app: \(bundleIdentifier)")
-            var options: NSApplication.ActivationOptions = [.activateIgnoringOtherApps]
-            if activateAllWindows {
-                options.insert(.activateAllWindows)
-            }
-            runningApp.activate(options: options)
-            return
-        }
-
-        // App not running - launch it
-        NSLog("[OnScreenKeyboard] Launching app: \(bundleIdentifier)")
+        // Use NSWorkspace.shared.openApplication which is reliable for activation
+        NSLog("[OnScreenKeyboard] Opening/activating app: \(bundleIdentifier)")
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         configuration.promptsUserIfNeeded = false
