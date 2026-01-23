@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GTA-style command wheel for quick app switching when holding the keyboard toggle button
+  - Right stick navigates segments; releasing the button activates the selected app
+  - Wheel only appears once the stick moves past the deadzone
+  - 300ms selection tolerance for stick snap-back on release
+- On-screen keyboard remembers its position per screen within the session
 - Global keyboard shortcut to toggle the on-screen keyboard (configurable in Keyboard tab)
 - Optional hints for button and chord mappings (primary, long hold, and double tap actions)
   - When set, the hint displays instead of the raw keyboard shortcut
