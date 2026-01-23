@@ -2,7 +2,19 @@ import SwiftUI
 import AppKit
 import Combine
 
-/// Manages the floating command wheel overlay for quick app switching
+/// An item displayed in the command wheel
+struct CommandWheelItem: Identifiable {
+    let id: UUID
+    let displayName: String
+    let kind: Kind
+
+    enum Kind {
+        case app(bundleIdentifier: String)
+        case website(url: String, faviconData: Data?)
+    }
+}
+
+/// Manages the floating command wheel overlay for quick app/website switching
 @MainActor
 class CommandWheelManager: ObservableObject {
     static let shared = CommandWheelManager()
@@ -11,7 +23,7 @@ class CommandWheelManager: ObservableObject {
     @Published var selectedIndex: Int?
 
     private var panel: NSPanel?
-    private(set) var appBarItems: [AppBarItem] = []
+    private(set) var items: [CommandWheelItem] = []
 
     /// Deadzone for stick magnitude - below this, no segment is selected
     private let selectionDeadzone: CGFloat = 0.4
@@ -27,8 +39,23 @@ class CommandWheelManager: ObservableObject {
 
     /// Prepares the command wheel with app bar items (does NOT show it yet - waits for stick input)
     func prepare(apps: [AppBarItem]) {
-        guard !apps.isEmpty else { return }
-        self.appBarItems = apps
+        let wheelItems = apps.map { app in
+            CommandWheelItem(id: app.id, displayName: app.displayName, kind: .app(bundleIdentifier: app.bundleIdentifier))
+        }
+        prepareItems(wheelItems)
+    }
+
+    /// Prepares the command wheel with website links (does NOT show it yet - waits for stick input)
+    func prepare(websites: [WebsiteLink]) {
+        let wheelItems = websites.map { link in
+            CommandWheelItem(id: link.id, displayName: link.displayName, kind: .website(url: link.url, faviconData: link.faviconData))
+        }
+        prepareItems(wheelItems)
+    }
+
+    private func prepareItems(_ wheelItems: [CommandWheelItem]) {
+        guard !wheelItems.isEmpty else { return }
+        self.items = wheelItems
         self.selectedIndex = nil
         self.lastValidSelection = nil
         self.lastValidSelectionTime = 0
@@ -46,7 +73,7 @@ class CommandWheelManager: ObservableObject {
 
     /// Updates the selected segment based on stick position (called at 120Hz from MappingEngine)
     func updateSelection(stickX: CGFloat, stickY: CGFloat) {
-        guard !appBarItems.isEmpty else { return }
+        guard !items.isEmpty else { return }
 
         let magnitude = sqrt(stickX * stickX + stickY * stickY)
         guard magnitude > selectionDeadzone else {
@@ -69,14 +96,14 @@ class CommandWheelManager: ObservableObject {
             normalizedAngle += 2 * .pi
         }
 
-        let segmentSize = (2 * CGFloat.pi) / CGFloat(appBarItems.count)
-        let index = Int(normalizedAngle / segmentSize) % appBarItems.count
+        let segmentSize = (2 * CGFloat.pi) / CGFloat(items.count)
+        let index = Int(normalizedAngle / segmentSize) % items.count
         selectedIndex = index
         lastValidSelection = index
         lastValidSelectionTime = CFAbsoluteTimeGetCurrent()
     }
 
-    /// Activates the currently selected app (if any), with tolerance for recent selections
+    /// Activates the currently selected item (if any), with tolerance for recent selections
     func activateSelection() {
         let effectiveSelection: Int?
         if let current = selectedIndex {
@@ -89,9 +116,14 @@ class CommandWheelManager: ObservableObject {
             effectiveSelection = nil
         }
 
-        guard let index = effectiveSelection, index < appBarItems.count else { return }
-        let item = appBarItems[index]
-        activateApp(bundleIdentifier: item.bundleIdentifier)
+        guard let index = effectiveSelection, index < items.count else { return }
+        let item = items[index]
+        switch item.kind {
+        case .app(let bundleIdentifier):
+            activateApp(bundleIdentifier: bundleIdentifier)
+        case .website(let url, _):
+            openWebsite(url: url)
+        }
     }
 
     private func showPanel() {
@@ -166,5 +198,14 @@ class CommandWheelManager: ObservableObject {
                 }
             }
         }
+    }
+
+    private func openWebsite(url urlString: String) {
+        var urlStr = urlString
+        if !urlStr.contains("://") {
+            urlStr = "https://\(urlStr)"
+        }
+        guard let url = URL(string: urlStr) else { return }
+        NSWorkspace.shared.open(url)
     }
 }

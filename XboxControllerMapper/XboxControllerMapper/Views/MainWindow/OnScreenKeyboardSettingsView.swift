@@ -827,6 +827,22 @@ struct OnScreenKeyboardSettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
+
+            Toggle(isOn: Binding(
+                get: { profileManager.onScreenKeyboardSettings.wheelShowsWebsites },
+                set: { newValue in
+                    var settings = profileManager.onScreenKeyboardSettings
+                    settings.wheelShowsWebsites = newValue
+                    profileManager.updateOnScreenKeyboardSettings(settings)
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Show Websites in Wheel")
+                    Text("Command wheel shows website links instead of apps.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A GTA-style radial command wheel for quick app switching
+/// A GTA-style radial command wheel for quick app/website switching
 struct CommandWheelView: View {
     @ObservedObject var manager: CommandWheelManager
 
@@ -17,7 +17,7 @@ struct CommandWheelView: View {
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 5)
 
             // Segments
-            ForEach(Array(manager.appBarItems.enumerated()), id: \.element.id) { index, item in
+            ForEach(Array(manager.items.enumerated()), id: \.element.id) { index, item in
                 segmentView(index: index, item: item)
             }
 
@@ -33,8 +33,8 @@ struct CommandWheelView: View {
         .frame(width: 820, height: 820)
     }
 
-    private func segmentView(index: Int, item: AppBarItem) -> some View {
-        let count = manager.appBarItems.count
+    private func segmentView(index: Int, item: CommandWheelItem) -> some View {
+        let count = manager.items.count
         let segmentAngle = 360.0 / Double(count)
         // Start from top (270°), go clockwise
         let startAngle = 270.0 + segmentAngle * Double(index)
@@ -65,9 +65,9 @@ struct CommandWheelView: View {
             )
             .stroke(Color.white.opacity(0.2), lineWidth: 1)
 
-            // App icon and label
+            // Icon and label
             VStack(spacing: 2) {
-                appIcon(for: item.bundleIdentifier)
+                itemIcon(for: item)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: iconSize, height: iconSize)
@@ -83,12 +83,20 @@ struct CommandWheelView: View {
         }
     }
 
-    private func appIcon(for bundleIdentifier: String) -> Image {
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier),
-           let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
-            return Image(nsImage: icon)
+    private func itemIcon(for item: CommandWheelItem) -> Image {
+        switch item.kind {
+        case .app(let bundleIdentifier):
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier),
+               let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                return Image(nsImage: icon)
+            }
+            return Image(systemName: "app.fill")
+        case .website(_, let faviconData):
+            if let data = faviconData, let nsImage = NSImage(data: data) {
+                return Image(nsImage: nsImage)
+            }
+            return Image(systemName: "globe")
         }
-        return Image(systemName: "app.fill")
     }
 }
 

@@ -485,10 +485,18 @@ class MappingEngine: ObservableObject {
             if holdMode {
                 // Hold mode: always show on press
                 OnScreenKeyboardManager.shared.show()
-                // Prepare command wheel with app bar items (shows on stick movement)
-                let apps = self?.profileManager.onScreenKeyboardSettings.appBarItems ?? []
-                if !apps.isEmpty {
-                    CommandWheelManager.shared.prepare(apps: apps)
+                // Prepare command wheel (shows on stick movement)
+                let settings = self?.profileManager.onScreenKeyboardSettings
+                if settings?.wheelShowsWebsites == true {
+                    let websites = settings?.websiteLinks ?? []
+                    if !websites.isEmpty {
+                        CommandWheelManager.shared.prepare(websites: websites)
+                    }
+                } else {
+                    let apps = settings?.appBarItems ?? []
+                    if !apps.isEmpty {
+                        CommandWheelManager.shared.prepare(apps: apps)
+                    }
                 }
             } else {
                 // Toggle mode: toggle visibility on press
