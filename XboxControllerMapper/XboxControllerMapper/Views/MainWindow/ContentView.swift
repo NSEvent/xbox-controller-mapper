@@ -213,7 +213,7 @@ struct ContentView: View {
                                     Text(chord.hint ?? chord.actionDisplayString)
                                         .font(.caption)
                                         .fontWeight(.medium)
-                                        .help(chord.hint != nil ? chord.actionDisplayString : "")
+                                        .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
@@ -597,7 +597,7 @@ struct ChordRow: View {
             Text(chord.hint ?? chord.actionDisplayString)
                 .font(.body)
                 .foregroundColor(.secondary)
-                .help(chord.hint != nil ? chord.actionDisplayString : "")
+                .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
 
             Spacer()
 

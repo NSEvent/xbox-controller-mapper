@@ -1,4 +1,31 @@
 import SwiftUI
+import AppKit
+
+/// NSView-based tooltip that reliably shows on hover
+struct TooltipView: NSViewRepresentable {
+    let tooltip: String
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        view.toolTip = tooltip
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        nsView.toolTip = tooltip
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func tooltipIfPresent(_ text: String?) -> some View {
+        if let text = text, !text.isEmpty {
+            self.overlay(TooltipView(tooltip: text))
+        } else {
+            self
+        }
+    }
+}
 
 /// A view that displays a key mapping with colored icons for long hold and double tap
 struct MappingLabelView: View {
@@ -81,6 +108,6 @@ struct MappingLabelView: View {
                 .stroke(Color.primary.opacity(0.15), lineWidth: 1)
         )
         .fixedSize(horizontal: false, vertical: true)
-        .help(tooltip ?? "")
+        .tooltipIfPresent(tooltip)
     }
 }
