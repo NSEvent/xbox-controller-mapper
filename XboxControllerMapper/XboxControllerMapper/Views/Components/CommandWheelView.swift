@@ -4,9 +4,9 @@ import SwiftUI
 struct CommandWheelView: View {
     @ObservedObject var manager: CommandWheelManager
 
-    private let wheelSize: CGFloat = 400
-    private let innerRadius: CGFloat = 70
-    private let iconSize: CGFloat = 38
+    private let wheelSize: CGFloat = 800
+    private let innerRadius: CGFloat = 140
+    private let iconSize: CGFloat = 48
 
     var body: some View {
         ZStack {
@@ -30,7 +30,7 @@ struct CommandWheelView: View {
                         .stroke(Color.white.opacity(0.3), lineWidth: 1)
                 )
         }
-        .frame(width: 420, height: 420)
+        .frame(width: 820, height: 820)
     }
 
     private func segmentView(index: Int, item: AppBarItem) -> some View {
@@ -41,8 +41,8 @@ struct CommandWheelView: View {
         let midAngle = startAngle + segmentAngle / 2
         let isSelected = manager.selectedIndex == index
 
-        // Position icon along the midpoint angle, between inner and outer radius
-        let iconRadius = (wheelSize / 2 + innerRadius) / 2
+        // Position icon towards the outer edge of the segment
+        let iconRadius = innerRadius + (wheelSize / 2 - innerRadius) * 0.65
         let midAngleRad = midAngle * .pi / 180
         let iconX = cos(midAngleRad) * iconRadius
         let iconY = sin(midAngleRad) * iconRadius
@@ -71,13 +71,13 @@ struct CommandWheelView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: iconSize, height: iconSize)
-                    .cornerRadius(7)
+                    .cornerRadius(10)
 
                 Text(item.displayName)
-                    .font(.system(size: 9, weight: isSelected ? .bold : .regular))
+                    .font(.system(size: 12, weight: isSelected ? .bold : .regular))
                     .foregroundColor(.white)
                     .lineLimit(1)
-                    .frame(maxWidth: 60)
+                    .frame(maxWidth: 100)
             }
             .offset(x: iconX, y: iconY)
         }
@@ -116,6 +116,6 @@ struct SegmentShape: Shape {
 #Preview {
     let manager = CommandWheelManager.shared
     CommandWheelView(manager: manager)
-        .frame(width: 420, height: 420)
+        .frame(width: 820, height: 820)
         .background(.black)
 }
