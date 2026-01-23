@@ -42,7 +42,7 @@ struct CommandWheelView: View {
         let isSelected = manager.selectedIndex == index
 
         // Position icon towards the outer edge of the segment
-        let iconRadius = innerRadius + (wheelSize / 2 - innerRadius) * 0.65
+        let iconRadius = innerRadius + (wheelSize / 2 - innerRadius) * 0.8
         let midAngleRad = midAngle * .pi / 180
         let iconX = cos(midAngleRad) * iconRadius
         let iconY = sin(midAngleRad) * iconRadius
