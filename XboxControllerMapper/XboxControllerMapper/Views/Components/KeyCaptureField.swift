@@ -133,9 +133,19 @@ class KeyCaptureNSView: NSView {
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: eventMask) { [weak self] event in
             guard let self = self else { return event }
 
-            // Handle mouse clicks - capture immediately
+            // Handle mouse clicks - only capture if within our view's bounds
             // (activation click happens via onTapGesture before monitor starts)
             if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .otherMouseDown {
+                // Check if click is within our bounds; if outside, stop capturing and pass through
+                if let window = self.window {
+                    let locationInView = self.convert(event.locationInWindow, from: nil)
+                    if !self.bounds.contains(locationInView) {
+                        self.stopCapturing()
+                        self.onEscape?()
+                        return event
+                    }
+                }
+
                 let mouseKeyCode: CGKeyCode
                 switch event.type {
                 case .leftMouseDown:
