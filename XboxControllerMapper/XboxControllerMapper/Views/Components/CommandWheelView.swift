@@ -7,16 +7,31 @@ struct CommandWheelView: View {
     private let wheelSize: CGFloat = 800
     private let innerRadius: CGFloat = 140
     private let iconSize: CGFloat = 48
+    private let perimeterGap: CGFloat = 5
+    private let perimeterWidth: CGFloat = 45
+
+    private var perimeterInnerRadius: CGFloat { wheelSize / 2 + perimeterGap }
+    private var perimeterOuterRadius: CGFloat { perimeterInnerRadius + perimeterWidth }
+    private var totalSize: CGFloat { perimeterOuterRadius * 2 + 20 }
 
     var body: some View {
         ZStack {
-            // Background circle
+            // Background circle for main wheel
             Circle()
                 .fill(.ultraThinMaterial)
                 .frame(width: wheelSize, height: wheelSize)
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 5)
 
-            // Segments
+            // Perimeter ring background
+            SegmentShape(
+                startAngle: .degrees(0),
+                endAngle: .degrees(360),
+                innerRadius: perimeterInnerRadius,
+                outerRadius: perimeterOuterRadius
+            )
+            .fill(Color.white.opacity(0.05))
+
+            // Segments (main + perimeter)
             ForEach(Array(manager.items.enumerated()), id: \.element.id) { index, item in
                 segmentView(index: index, item: item)
             }
@@ -30,7 +45,7 @@ struct CommandWheelView: View {
                         .stroke(Color.white.opacity(0.3), lineWidth: 1)
                 )
         }
-        .frame(width: 820, height: 820)
+        .frame(width: totalSize, height: totalSize)
     }
 
     private func segmentView(index: Int, item: CommandWheelItem) -> some View {
@@ -51,23 +66,19 @@ struct CommandWheelView: View {
         let forceQuitProgress = isSelected ? manager.forceQuitProgress : 0
         let isAtFullRange = isSelected && manager.isFullRange
 
-        // Determine segment fill color
-        let segmentFill: Color = {
-            if isAtFullRange {
-                return .green.opacity(0.5)
-            } else if isSelected {
+        // Main slice: blue when selected normally, gray when full range (selection moves to perimeter)
+        let mainSliceFill: Color = {
+            if isSelected && !isAtFullRange {
                 return Color.accentColor.opacity(0.6)
             }
             return .clear
         }()
 
-        // Action label position (closer to center than icon)
-        let actionLabelRadius = innerRadius + (wheelSize / 2 - innerRadius) * 0.25
-        let actionLabelX = cos(midAngleRad) * actionLabelRadius
-        let actionLabelY = sin(midAngleRad) * actionLabelRadius
+        // Perimeter slice state
+        let perimeterFill: Color = isAtFullRange ? .green.opacity(0.6) : .clear
 
-        // Determine action text
-        let actionText: String? = {
+        // Radial text for perimeter
+        let perimeterText: String? = {
             guard isAtFullRange else { return nil }
             if case .app = item.kind {
                 return forceQuitProgress >= 1.0 ? "Force Quit" : "New Window"
@@ -75,27 +86,25 @@ struct CommandWheelView: View {
             return nil
         }()
 
+        // Text rotation: bottom of text faces center
+        let textRotation = midAngle - 270.0
+
+        // Position for perimeter text
+        let perimeterMidRadius = perimeterInnerRadius + perimeterWidth / 2
+        let perimeterTextX = cos(midAngleRad) * perimeterMidRadius
+        let perimeterTextY = sin(midAngleRad) * perimeterMidRadius
+
         return ZStack {
-            // Segment shape fill
+            // Main slice fill
             SegmentShape(
                 startAngle: .degrees(startAngle),
                 endAngle: .degrees(startAngle + segmentAngle),
                 innerRadius: innerRadius,
                 outerRadius: wheelSize / 2
             )
-            .fill(segmentFill)
+            .fill(mainSliceFill)
 
-            // Force quit red fill (grows from inner to outer)
-            if forceQuitProgress > 0 {
-                SegmentShape(
-                    startAngle: .degrees(startAngle),
-                    endAngle: .degrees(startAngle + segmentAngle),
-                    innerRadius: innerRadius,
-                    outerRadius: innerRadius + (wheelSize / 2 - innerRadius) * forceQuitProgress
-                )
-                .fill(Color.red.opacity(0.7))
-            }
-
+            // Main slice border
             SegmentShape(
                 startAngle: .degrees(startAngle),
                 endAngle: .degrees(startAngle + segmentAngle),
@@ -104,15 +113,45 @@ struct CommandWheelView: View {
             )
             .stroke(Color.white.opacity(0.2), lineWidth: 1)
 
-            // Action label (closer to center)
-            if let actionText = actionText {
-                Text(actionText)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white)
-                    .offset(x: actionLabelX, y: actionLabelY)
+            // Perimeter slice - green highlight
+            SegmentShape(
+                startAngle: .degrees(startAngle),
+                endAngle: .degrees(startAngle + segmentAngle),
+                innerRadius: perimeterInnerRadius,
+                outerRadius: perimeterOuterRadius
+            )
+            .fill(perimeterFill)
+
+            // Perimeter slice - force quit red fill (grows from inner to outer of perimeter)
+            if forceQuitProgress > 0 {
+                SegmentShape(
+                    startAngle: .degrees(startAngle),
+                    endAngle: .degrees(startAngle + segmentAngle),
+                    innerRadius: perimeterInnerRadius,
+                    outerRadius: perimeterInnerRadius + perimeterWidth * forceQuitProgress
+                )
+                .fill(Color.red.opacity(0.7))
             }
 
-            // Icon and label
+            // Perimeter slice border
+            SegmentShape(
+                startAngle: .degrees(startAngle),
+                endAngle: .degrees(startAngle + segmentAngle),
+                innerRadius: perimeterInnerRadius,
+                outerRadius: perimeterOuterRadius
+            )
+            .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+
+            // Radial text on perimeter
+            if let perimeterText = perimeterText {
+                Text(perimeterText)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .rotationEffect(.degrees(textRotation))
+                    .offset(x: perimeterTextX, y: perimeterTextY)
+            }
+
+            // Icon and label (always on main slice)
             VStack(spacing: 2) {
                 itemIcon(for: item)
                     .resizable()
@@ -171,6 +210,6 @@ struct SegmentShape: Shape {
 #Preview {
     let manager = CommandWheelManager.shared
     CommandWheelView(manager: manager)
-        .frame(width: 820, height: 820)
+        .frame(width: 920, height: 920)
         .background(.black)
 }
