@@ -142,7 +142,8 @@ OnScreenKeyboardSettings (CUSTOM decoder - see QuickText.swift)
 ├── websiteLinks: [WebsiteLink]                  decodeIfPresent ?? []
 ├── showExtendedFunctionKeys: Bool               decodeIfPresent ?? false
 ├── toggleShortcutKeyCode: UInt16?               decodeIfPresent (auto nil)
-└── toggleShortcutModifiers: ModifierFlags       decodeIfPresent ?? ModifierFlags()
+├── toggleShortcutModifiers: ModifierFlags       decodeIfPresent ?? ModifierFlags()
+└── activateAllWindows: Bool                     decodeIfPresent ?? true
 
 DualSenseLEDSettings (CUSTOM decoder - see DualSenseLEDSettings.swift)
 ├── lightBarColor: CodableColor                  decodeIfPresent ?? CodableColor(0.0, 0.4, 1.0)
