@@ -29,8 +29,8 @@ class CommandWheelManager: ObservableObject {
 
     /// Deadzone for stick magnitude - below this, no segment is selected
     private let selectionDeadzone: CGFloat = 0.4
-    /// Threshold for "full range" stick position (lenient for physical stick variance)
-    private let fullRangeThreshold: CGFloat = 0.85
+    /// Threshold for "full range" stick position
+    private let fullRangeThreshold: CGFloat = 0.92
     /// Duration to hold at full range before force quit is ready (seconds)
     private let forceQuitDuration: TimeInterval = 2.0
 
