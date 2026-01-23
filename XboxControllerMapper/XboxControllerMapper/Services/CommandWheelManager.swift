@@ -105,7 +105,7 @@ class CommandWheelManager: ObservableObject {
     private func createPanel() {
         let wheelView = CommandWheelView(manager: self)
         let hostingView = NSHostingView(rootView: wheelView)
-        let size: CGFloat = 300
+        let size: CGFloat = 420
         hostingView.setFrameSize(NSSize(width: size, height: size))
 
         let panel = NSPanel(

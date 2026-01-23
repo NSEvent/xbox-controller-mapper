@@ -4,9 +4,9 @@ import SwiftUI
 struct CommandWheelView: View {
     @ObservedObject var manager: CommandWheelManager
 
-    private let wheelSize: CGFloat = 280
-    private let innerRadius: CGFloat = 50
-    private let iconSize: CGFloat = 32
+    private let wheelSize: CGFloat = 400
+    private let innerRadius: CGFloat = 70
+    private let iconSize: CGFloat = 38
 
     var body: some View {
         ZStack {
@@ -30,7 +30,7 @@ struct CommandWheelView: View {
                         .stroke(Color.white.opacity(0.3), lineWidth: 1)
                 )
         }
-        .frame(width: 300, height: 300)
+        .frame(width: 420, height: 420)
     }
 
     private func segmentView(index: Int, item: AppBarItem) -> some View {
@@ -116,6 +116,6 @@ struct SegmentShape: Shape {
 #Preview {
     let manager = CommandWheelManager.shared
     CommandWheelView(manager: manager)
-        .frame(width: 300, height: 300)
+        .frame(width: 420, height: 420)
         .background(.black)
 }
