@@ -53,10 +53,22 @@ class OnScreenKeyboardManager: ObservableObject {
         }
     }
 
-    /// Shows the on-screen keyboard window
+    /// Shows the on-screen keyboard window on the screen where the mouse currently is
     func show() {
         if panel == nil {
             createPanel()
+        }
+        // Always reposition to the screen where the mouse is
+        if let panel = panel {
+            let mouseLocation = NSEvent.mouseLocation
+            let currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+            if let screen = currentScreen {
+                let screenFrame = screen.visibleFrame
+                let panelSize = panel.frame.size
+                let x = screenFrame.midX - panelSize.width / 2
+                let y = screenFrame.minY + 100
+                panel.setFrameOrigin(NSPoint(x: x, y: y))
+            }
         }
         panel?.orderFrontRegardless()
         isVisible = true
@@ -103,8 +115,10 @@ class OnScreenKeyboardManager: ObservableObject {
         panel.hidesOnDeactivate = false  // Keep visible when app loses focus
         panel.becomesKeyOnlyIfNeeded = true
 
-        // Center panel on screen
-        if let screen = NSScreen.main {
+        // Center panel on the screen where the mouse cursor currently is
+        let mouseLocation = NSEvent.mouseLocation
+        let currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+        if let screen = currentScreen {
             let screenFrame = screen.visibleFrame
             let panelSize = panel.frame.size
             let x = screenFrame.midX - panelSize.width / 2
