@@ -23,6 +23,8 @@ class OnScreenKeyboardManager: ObservableObject {
     private var localMonitor: Any?
     private var toggleShortcutKeyCode: UInt16?
     private var toggleShortcutModifiers: ModifierFlags = ModifierFlags()
+    /// Saved keyboard positions per screen (session-only, keyed by display ID)
+    private var savedPositions: [CGDirectDisplayID: NSPoint] = [:]
 
     private init() {}
 
@@ -119,16 +121,23 @@ class OnScreenKeyboardManager: ObservableObject {
         if panel == nil {
             createPanel()
         }
-        // Always reposition to the screen where the mouse is
+        // Position on the screen where the mouse is
         if let panel = panel {
             let mouseLocation = NSEvent.mouseLocation
             let currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
             if let screen = currentScreen {
-                let screenFrame = screen.visibleFrame
-                let panelSize = panel.frame.size
-                let x = screenFrame.midX - panelSize.width / 2
-                let y = screenFrame.minY + 100
-                panel.setFrameOrigin(NSPoint(x: x, y: y))
+                let displayID = screen.displayID
+                if let savedPosition = savedPositions[displayID] {
+                    // Restore saved position for this screen
+                    panel.setFrameOrigin(savedPosition)
+                } else {
+                    // Default: center horizontally, near bottom
+                    let screenFrame = screen.visibleFrame
+                    let panelSize = panel.frame.size
+                    let x = screenFrame.midX - panelSize.width / 2
+                    let y = screenFrame.minY + 100
+                    panel.setFrameOrigin(NSPoint(x: x, y: y))
+                }
             }
         }
         panel?.orderFrontRegardless()
@@ -208,6 +217,11 @@ class OnScreenKeyboardManager: ObservableObject {
 
     /// Hides the on-screen keyboard window
     func hide() {
+        // Save position for the screen the panel is currently on
+        if let panel = panel, let screen = panel.screen ?? NSScreen.main {
+            let displayID = screen.displayID
+            savedPositions[displayID] = panel.frame.origin
+        }
         panel?.orderOut(nil)
         isVisible = false
     }
@@ -495,5 +509,14 @@ class OnScreenKeyboardManager: ObservableObject {
                 NSLog("[OnScreenKeyboard] Failed to create AppleScript object")
             }
         }
+    }
+}
+
+// MARK: - NSScreen Display ID Helper
+
+extension NSScreen {
+    /// The CGDirectDisplayID for this screen
+    var displayID: CGDirectDisplayID {
+        (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
     }
 }
