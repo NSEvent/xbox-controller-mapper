@@ -65,6 +65,27 @@ struct PlayerLEDs: Codable, Equatable {
     var led4: Bool = false
     var led5: Bool = false
 
+    private enum CodingKeys: String, CodingKey {
+        case led1, led2, led3, led4, led5
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        led1 = try container.decodeIfPresent(Bool.self, forKey: .led1) ?? false
+        led2 = try container.decodeIfPresent(Bool.self, forKey: .led2) ?? false
+        led3 = try container.decodeIfPresent(Bool.self, forKey: .led3) ?? false
+        led4 = try container.decodeIfPresent(Bool.self, forKey: .led4) ?? false
+        led5 = try container.decodeIfPresent(Bool.self, forKey: .led5) ?? false
+    }
+
+    init(led1: Bool = false, led2: Bool = false, led3: Bool = false, led4: Bool = false, led5: Bool = false) {
+        self.led1 = led1
+        self.led2 = led2
+        self.led3 = led3
+        self.led4 = led4
+        self.led5 = led5
+    }
+
     var bitmask: UInt8 {
         var mask: UInt8 = 0
         if led1 { mask |= 0x01 }
@@ -94,6 +115,17 @@ struct CodableColor: Codable, Equatable {
     var red: Double
     var green: Double
     var blue: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case red, green, blue
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        red = try container.decodeIfPresent(Double.self, forKey: .red) ?? 0.0
+        green = try container.decodeIfPresent(Double.self, forKey: .green) ?? 0.0
+        blue = try container.decodeIfPresent(Double.self, forKey: .blue) ?? 0.0
+    }
 
     var color: Color {
         Color(red: red, green: green, blue: blue)
@@ -146,6 +178,27 @@ struct DualSenseLEDSettings: Codable, Equatable {
 
     /// Player LEDs configuration
     var playerLEDs: PlayerLEDs = .default
+
+    private enum CodingKeys: String, CodingKey {
+        case lightBarColor, lightBarBrightness, lightBarEnabled, muteButtonLED, playerLEDs
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        lightBarColor = try container.decodeIfPresent(CodableColor.self, forKey: .lightBarColor) ?? CodableColor(red: 0.0, green: 0.4, blue: 1.0)
+        lightBarBrightness = try container.decodeIfPresent(LightBarBrightness.self, forKey: .lightBarBrightness) ?? .bright
+        lightBarEnabled = try container.decodeIfPresent(Bool.self, forKey: .lightBarEnabled) ?? true
+        muteButtonLED = try container.decodeIfPresent(MuteButtonLEDMode.self, forKey: .muteButtonLED) ?? .off
+        playerLEDs = try container.decodeIfPresent(PlayerLEDs.self, forKey: .playerLEDs) ?? .default
+    }
+
+    init(lightBarColor: CodableColor = CodableColor(red: 0.0, green: 0.4, blue: 1.0), lightBarBrightness: LightBarBrightness = .bright, lightBarEnabled: Bool = true, muteButtonLED: MuteButtonLEDMode = .off, playerLEDs: PlayerLEDs = .default) {
+        self.lightBarColor = lightBarColor
+        self.lightBarBrightness = lightBarBrightness
+        self.lightBarEnabled = lightBarEnabled
+        self.muteButtonLED = muteButtonLED
+        self.playerLEDs = playerLEDs
+    }
 
     static let `default` = DualSenseLEDSettings()
 

@@ -31,6 +31,19 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         self.hint = hint
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id, buttons, keyCode, modifiers, hint
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        buttons = try container.decodeIfPresent(Set<ControllerButton>.self, forKey: .buttons) ?? []
+        keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
+        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        hint = try container.decodeIfPresent(String.self, forKey: .hint)
+    }
+
     /// Human-readable description of the chord trigger
     var buttonsDisplayString: String {
         buttons

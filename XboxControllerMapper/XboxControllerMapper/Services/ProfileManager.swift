@@ -285,10 +285,31 @@ class ProfileManager: ObservableObject {
     // MARK: - Persistence
 
     private struct Configuration: Codable {
+        var schemaVersion: Int = 1
         var profiles: [Profile]
         var activeProfileId: UUID?
         var uiScale: CGFloat?
         var onScreenKeyboardSettings: OnScreenKeyboardSettings?
+
+        private enum CodingKeys: String, CodingKey {
+            case schemaVersion, profiles, activeProfileId, uiScale, onScreenKeyboardSettings
+        }
+
+        init(profiles: [Profile], activeProfileId: UUID?, uiScale: CGFloat?, onScreenKeyboardSettings: OnScreenKeyboardSettings?) {
+            self.profiles = profiles
+            self.activeProfileId = activeProfileId
+            self.uiScale = uiScale
+            self.onScreenKeyboardSettings = onScreenKeyboardSettings
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+            profiles = try container.decodeIfPresent([Profile].self, forKey: .profiles) ?? []
+            activeProfileId = try container.decodeIfPresent(UUID.self, forKey: .activeProfileId)
+            uiScale = try container.decodeIfPresent(CGFloat.self, forKey: .uiScale)
+            onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings)
+        }
     }
 
     private func loadConfiguration() {

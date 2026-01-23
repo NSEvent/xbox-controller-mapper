@@ -75,6 +75,21 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         self.hint = hint
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, hint
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
+        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        longHoldMapping = try container.decodeIfPresent(LongHoldMapping.self, forKey: .longHoldMapping)
+        doubleTapMapping = try container.decodeIfPresent(DoubleTapMapping.self, forKey: .doubleTapMapping)
+        repeatMapping = try container.decodeIfPresent(RepeatMapping.self, forKey: .repeatMapping)
+        isHoldModifier = try container.decodeIfPresent(Bool.self, forKey: .isHoldModifier) ?? false
+        hint = try container.decodeIfPresent(String.self, forKey: .hint)
+    }
+
     /// Creates a simple key mapping
     static func key(_ keyCode: CGKeyCode) -> KeyMapping {
         KeyMapping(keyCode: keyCode)
@@ -153,7 +168,17 @@ struct LongHoldMapping: Codable, Equatable, KeyBindingRepresentable {
         self.hint = hint
     }
 
-    // Note: displayString and isEmpty are provided by KeyBindingRepresentable protocol extension
+    private enum CodingKeys: String, CodingKey {
+        case keyCode, modifiers, threshold, hint
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
+        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        threshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? 0.5
+        hint = try container.decodeIfPresent(String.self, forKey: .hint)
+    }
 }
 
 /// Wraps double tap configuration
@@ -171,7 +196,17 @@ struct DoubleTapMapping: Codable, Equatable, KeyBindingRepresentable {
         self.hint = hint
     }
 
-    // Note: displayString and isEmpty are provided by KeyBindingRepresentable protocol extension
+    private enum CodingKeys: String, CodingKey {
+        case keyCode, modifiers, threshold, hint
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
+        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        threshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? 0.3
+        hint = try container.decodeIfPresent(String.self, forKey: .hint)
+    }
 }
 
 /// Wraps repeat-while-held configuration
@@ -184,6 +219,16 @@ struct RepeatMapping: Codable, Equatable {
     init(enabled: Bool = false, interval: TimeInterval = 0.2) {
         self.enabled = enabled
         self.interval = interval
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case enabled, interval
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        interval = try container.decodeIfPresent(TimeInterval.self, forKey: .interval) ?? 0.2
     }
 
     /// Repeat rate in actions per second
@@ -199,6 +244,25 @@ struct ModifierFlags: Codable, Equatable {
     var option: Bool = false
     var shift: Bool = false
     var control: Bool = false
+
+    private enum CodingKeys: String, CodingKey {
+        case command, option, shift, control
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        command = try container.decodeIfPresent(Bool.self, forKey: .command) ?? false
+        option = try container.decodeIfPresent(Bool.self, forKey: .option) ?? false
+        shift = try container.decodeIfPresent(Bool.self, forKey: .shift) ?? false
+        control = try container.decodeIfPresent(Bool.self, forKey: .control) ?? false
+    }
+
+    init(command: Bool = false, option: Bool = false, shift: Bool = false, control: Bool = false) {
+        self.command = command
+        self.option = option
+        self.shift = shift
+        self.control = control
+    }
 
     var hasAny: Bool {
         command || option || shift || control

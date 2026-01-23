@@ -57,63 +57,64 @@ ProfileManager has a safety mechanism: if loading fails (`loadSucceeded = false`
 ### Schema Hierarchy
 
 ```
-Configuration (auto-synthesized Codable)
-├── profiles: [Profile]                          REQUIRED
-├── activeProfileId: UUID?                       optional
-├── uiScale: CGFloat?                            optional
-└── onScreenKeyboardSettings: OnScreenKeyboardSettings?  optional
+Configuration (CUSTOM decoder - see ProfileManager.swift)
+├── schemaVersion: Int                           decodeIfPresent ?? 1
+├── profiles: [Profile]                          decodeIfPresent ?? []
+├── activeProfileId: UUID?                       decodeIfPresent (auto nil)
+├── uiScale: CGFloat?                            decodeIfPresent (auto nil)
+└── onScreenKeyboardSettings: OnScreenKeyboardSettings?  decodeIfPresent (auto nil)
 
-Profile (CUSTOM decoder - see Profile.swift:336)
-├── id: UUID                                     REQUIRED - decode()
-├── name: String                                 REQUIRED - decode()
-├── isDefault: Bool                              REQUIRED - decode()
-├── icon: String?                                optional - decodeIfPresent()
-├── createdAt: Date                              REQUIRED - decode()
-├── modifiedAt: Date                             REQUIRED - decode()
-├── buttonMappings: [String: KeyMapping]         REQUIRED - decode() (string-keyed in JSON)
-├── chordMappings: [ChordMapping]                REQUIRED - decode()
-├── joystickSettings: JoystickSettings           REQUIRED - decode()
-└── dualSenseLEDSettings: DualSenseLEDSettings   optional - decodeIfPresent() ?? .default
+Profile (CUSTOM decoder - see Profile.swift)
+├── id: UUID                                     decode() (only truly required field)
+├── name: String                                 decodeIfPresent ?? "Unnamed"
+├── isDefault: Bool                              decodeIfPresent ?? false
+├── icon: String?                                decodeIfPresent (auto nil)
+├── createdAt: Date                              decodeIfPresent ?? Date()
+├── modifiedAt: Date                             decodeIfPresent ?? Date()
+├── buttonMappings: [String: KeyMapping]         decodeIfPresent ?? [:] (string-keyed in JSON)
+├── chordMappings: [ChordMapping]                decodeIfPresent ?? []
+├── joystickSettings: JoystickSettings           decodeIfPresent ?? .default
+└── dualSenseLEDSettings: DualSenseLEDSettings   decodeIfPresent ?? .default
 
-KeyMapping (auto-synthesized Codable)
-├── keyCode: CGKeyCode? (UInt16?)                optional (auto nil)
-├── modifiers: ModifierFlags                     REQUIRED (non-optional, but has default init)
-├── longHoldMapping: LongHoldMapping?            optional (auto nil)
-├── doubleTapMapping: DoubleTapMapping?          optional (auto nil)
-├── repeatMapping: RepeatMapping?                optional (auto nil)
-├── isHoldModifier: Bool                         REQUIRED (non-optional)
-└── hint: String?                                optional (auto nil) - added 2026-01-23
+KeyMapping (CUSTOM decoder - see KeyMapping.swift)
+├── keyCode: CGKeyCode? (UInt16?)                decodeIfPresent (auto nil)
+├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
+├── longHoldMapping: LongHoldMapping?            decodeIfPresent (auto nil)
+├── doubleTapMapping: DoubleTapMapping?          decodeIfPresent (auto nil)
+├── repeatMapping: RepeatMapping?                decodeIfPresent (auto nil)
+├── isHoldModifier: Bool                         decodeIfPresent ?? false
+└── hint: String?                                decodeIfPresent (auto nil)
 
-LongHoldMapping (auto-synthesized Codable)
-├── keyCode: CGKeyCode?                          optional (auto nil)
-├── modifiers: ModifierFlags                     REQUIRED (non-optional)
-├── threshold: TimeInterval                      REQUIRED (non-optional)
-└── hint: String?                                optional (auto nil) - added 2026-01-23
+LongHoldMapping (CUSTOM decoder - see KeyMapping.swift)
+├── keyCode: CGKeyCode?                          decodeIfPresent (auto nil)
+├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
+├── threshold: TimeInterval                      decodeIfPresent ?? 0.5
+└── hint: String?                                decodeIfPresent (auto nil)
 
-DoubleTapMapping (auto-synthesized Codable)
-├── keyCode: CGKeyCode?                          optional (auto nil)
-├── modifiers: ModifierFlags                     REQUIRED (non-optional)
-├── threshold: TimeInterval                      REQUIRED (non-optional)
-└── hint: String?                                optional (auto nil) - added 2026-01-23
+DoubleTapMapping (CUSTOM decoder - see KeyMapping.swift)
+├── keyCode: CGKeyCode?                          decodeIfPresent (auto nil)
+├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
+├── threshold: TimeInterval                      decodeIfPresent ?? 0.3
+└── hint: String?                                decodeIfPresent (auto nil)
 
-RepeatMapping (auto-synthesized Codable)
-├── enabled: Bool                                REQUIRED (non-optional)
-└── interval: TimeInterval                       REQUIRED (non-optional)
+RepeatMapping (CUSTOM decoder - see KeyMapping.swift)
+├── enabled: Bool                                decodeIfPresent ?? false
+└── interval: TimeInterval                       decodeIfPresent ?? 0.2
 
-ModifierFlags (auto-synthesized Codable)
-├── command: Bool                                REQUIRED (default false)
-├── option: Bool                                 REQUIRED (default false)
-├── shift: Bool                                  REQUIRED (default false)
-└── control: Bool                                REQUIRED (default false)
+ModifierFlags (CUSTOM decoder - see KeyMapping.swift)
+├── command: Bool                                decodeIfPresent ?? false
+├── option: Bool                                 decodeIfPresent ?? false
+├── shift: Bool                                  decodeIfPresent ?? false
+└── control: Bool                                decodeIfPresent ?? false
 
-ChordMapping (auto-synthesized Codable)
-├── id: UUID                                     REQUIRED (non-optional)
-├── buttons: Set<ControllerButton>               REQUIRED (non-optional)
-├── keyCode: CGKeyCode?                          optional (auto nil)
-├── modifiers: ModifierFlags                     REQUIRED (non-optional)
-└── hint: String?                                optional (auto nil) - added 2026-01-23
+ChordMapping (CUSTOM decoder - see ChordMapping.swift)
+├── id: UUID                                     decodeIfPresent ?? UUID()
+├── buttons: Set<ControllerButton>               decodeIfPresent ?? []
+├── keyCode: CGKeyCode?                          decodeIfPresent (auto nil)
+├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
+└── hint: String?                                decodeIfPresent (auto nil)
 
-JoystickSettings (CUSTOM decoder - see JoystickSettings.swift:164)
+JoystickSettings (CUSTOM decoder - see JoystickSettings.swift)
 ├── mouseSensitivity: Double                     decodeIfPresent ?? 0.5
 ├── scrollSensitivity: Double                    decodeIfPresent ?? 0.5
 ├── mouseDeadzone: Double                        decodeIfPresent ?? 0.15
@@ -133,7 +134,7 @@ JoystickSettings (CUSTOM decoder - see JoystickSettings.swift:164)
 ├── focusModeSensitivity: Double                 decodeIfPresent ?? 0.1
 └── focusModeModifier: ModifierFlags             decodeIfPresent ?? .command
 
-OnScreenKeyboardSettings (CUSTOM decoder - see QuickText.swift:86)
+OnScreenKeyboardSettings (CUSTOM decoder - see QuickText.swift)
 ├── quickTexts: [QuickText]                      decodeIfPresent ?? []
 ├── defaultTerminalApp: String                   decodeIfPresent ?? "Terminal"
 ├── typingDelay: Double                          decodeIfPresent ?? 0.03
@@ -143,170 +144,76 @@ OnScreenKeyboardSettings (CUSTOM decoder - see QuickText.swift:86)
 ├── toggleShortcutKeyCode: UInt16?               decodeIfPresent (auto nil)
 └── toggleShortcutModifiers: ModifierFlags       decodeIfPresent ?? ModifierFlags()
 
-DualSenseLEDSettings (auto-synthesized Codable)
-├── lightBarColor: CodableColor                  REQUIRED (non-optional)
-├── lightBarBrightness: LightBarBrightness       REQUIRED (non-optional, String enum)
-├── lightBarEnabled: Bool                        REQUIRED (non-optional)
-├── muteButtonLED: MuteButtonLEDMode             REQUIRED (non-optional, String enum)
-└── playerLEDs: PlayerLEDs                       REQUIRED (non-optional)
+DualSenseLEDSettings (CUSTOM decoder - see DualSenseLEDSettings.swift)
+├── lightBarColor: CodableColor                  decodeIfPresent ?? CodableColor(0.0, 0.4, 1.0)
+├── lightBarBrightness: LightBarBrightness       decodeIfPresent ?? .bright
+├── lightBarEnabled: Bool                        decodeIfPresent ?? true
+├── muteButtonLED: MuteButtonLEDMode             decodeIfPresent ?? .off
+└── playerLEDs: PlayerLEDs                       decodeIfPresent ?? .default
 
-CodableColor (auto-synthesized Codable)
-├── red: Double                                  REQUIRED
-├── green: Double                                REQUIRED
-└── blue: Double                                 REQUIRED
+CodableColor (CUSTOM decoder - see DualSenseLEDSettings.swift)
+├── red: Double                                  decodeIfPresent ?? 0.0
+├── green: Double                                decodeIfPresent ?? 0.0
+└── blue: Double                                 decodeIfPresent ?? 0.0
 
-PlayerLEDs (auto-synthesized Codable)
-├── led1: Bool                                   REQUIRED (default false)
-├── led2: Bool                                   REQUIRED (default false)
-├── led3: Bool                                   REQUIRED (default false)
-├── led4: Bool                                   REQUIRED (default false)
-└── led5: Bool                                   REQUIRED (default false)
+PlayerLEDs (CUSTOM decoder - see DualSenseLEDSettings.swift)
+├── led1: Bool                                   decodeIfPresent ?? false
+├── led2: Bool                                   decodeIfPresent ?? false
+├── led3: Bool                                   decodeIfPresent ?? false
+├── led4: Bool                                   decodeIfPresent ?? false
+└── led5: Bool                                   decodeIfPresent ?? false
 
-QuickText (auto-synthesized Codable)
-├── id: UUID                                     REQUIRED
-├── text: String                                 REQUIRED
-└── isTerminalCommand: Bool                      REQUIRED
+QuickText (CUSTOM decoder - see QuickText.swift)
+├── id: UUID                                     decodeIfPresent ?? UUID()
+├── text: String                                 decodeIfPresent ?? ""
+└── isTerminalCommand: Bool                      decodeIfPresent ?? false
 
-AppBarItem (auto-synthesized Codable)
-├── id: UUID                                     REQUIRED
-├── bundleIdentifier: String                     REQUIRED
-└── displayName: String                          REQUIRED
+AppBarItem (CUSTOM decoder - see QuickText.swift)
+├── id: UUID                                     decodeIfPresent ?? UUID()
+├── bundleIdentifier: String                     decodeIfPresent ?? ""
+└── displayName: String                          decodeIfPresent ?? ""
 
-WebsiteLink (auto-synthesized Codable)
-├── id: UUID                                     REQUIRED
-├── url: String                                  REQUIRED
-├── displayName: String                          REQUIRED
-└── faviconData: Data?                           optional (auto nil)
+WebsiteLink (CUSTOM decoder - see QuickText.swift)
+├── id: UUID                                     decodeIfPresent ?? UUID()
+├── url: String                                  decodeIfPresent ?? ""
+├── displayName: String                          decodeIfPresent ?? ""
+└── faviconData: Data?                           decodeIfPresent (auto nil)
 ```
 
 ---
 
 ### Backward Compatibility Rules
 
-#### What "REQUIRED" means for auto-synthesized Codable
-
-When a struct uses auto-synthesized `Codable` (no custom `init(from:)`):
-- **Optional properties** (`String?`, `Int?`, etc.): Missing keys in JSON → `nil`. Safe to add.
-- **Non-optional properties** (`Bool`, `String`, `Double`, etc.): Missing keys in JSON → **DECODE FAILURE**. The entire profile fails to load.
-
-#### What's locked in (cannot be removed or made non-optional without breaking old configs)
-
-Every REQUIRED non-optional field in an auto-synthesized Codable struct is **permanently locked**. If any of these keys are missing from an existing user's JSON, decoding will crash. These are:
-
-- `KeyMapping.modifiers`, `KeyMapping.isHoldModifier`
-- `LongHoldMapping.modifiers`, `LongHoldMapping.threshold`
-- `DoubleTapMapping.modifiers`, `DoubleTapMapping.threshold`
-- `RepeatMapping.enabled`, `RepeatMapping.interval`
-- `ModifierFlags.command`, `.option`, `.shift`, `.control`
-- `ChordMapping.id`, `.buttons`, `.modifiers`
-- `DualSenseLEDSettings.*` (all 5 fields)
-- `CodableColor.red`, `.green`, `.blue`
-- `PlayerLEDs.led1`-`.led5`
-- `QuickText.id`, `.text`, `.isTerminalCommand`
-- `AppBarItem.id`, `.bundleIdentifier`, `.displayName`
-- `WebsiteLink.id`, `.url`, `.displayName`
-
-#### Safe structs (have custom decoders with decodeIfPresent)
-
-These structs can have ANY new field added safely:
-- `JoystickSettings` - all fields use `decodeIfPresent` with defaults
-- `OnScreenKeyboardSettings` - all fields use `decodeIfPresent` with defaults
-- `Profile` - uses custom decoder, but some fields are still `decode()` (REQUIRED)
+**All structs now use custom decoders with `decodeIfPresent`.** This means:
+- Any missing key in JSON gracefully falls back to a default value
+- New fields can be added freely without breaking existing configs
+- Only `Profile.id` uses strict `decode()` (a profile without an ID is truly invalid)
 
 ---
 
-### How to Add New Fields Safely
+### How to Add New Fields
 
-#### To auto-synthesized structs (KeyMapping, ChordMapping, DualSenseLEDSettings, etc.)
+Since ALL structs now have custom decoders, adding any new field is straightforward:
 
-**ONLY add optional (`?`) fields.** Example:
 ```swift
-var newFeature: String?  // Safe - missing key → nil
-var newFlag: Bool?       // Safe - missing key → nil
-```
+// 1. Add to struct definition:
+var newSetting: Double = 0.5  // Non-optional with default - SAFE
+var newField: String?          // Optional - also SAFE
 
-**NEVER add non-optional fields** without converting to a custom decoder first:
-```swift
-var newFlag: Bool = false  // DANGEROUS - old configs will crash!
-```
+// 2. Add to CodingKeys enum:
+case newSetting, newField
 
-#### To custom-decoder structs (JoystickSettings, OnScreenKeyboardSettings)
-
-Add any field type, just add corresponding `decodeIfPresent` line:
-```swift
-// In struct definition:
-var newSetting: Double = 0.5
-
-// In CodingKeys enum:
-case newSetting
-
-// In init(from decoder:):
+// 3. Add to init(from decoder:):
 newSetting = try container.decodeIfPresent(Double.self, forKey: .newSetting) ?? 0.5
-```
-
-#### To Profile
-
-Profile has a custom decoder but uses `decode()` (not `decodeIfPresent`) for core fields. To add a new optional field:
-```swift
-// Add to struct:
-var newField: String?
-
-// Add to CodingKeys:
-case newField
-
-// In init(from decoder:):
 newField = try container.decodeIfPresent(String.self, forKey: .newField)
 
-// In encode(to:):
+// 4. If the struct has a custom encode(to:) (only Profile does), add there too:
+try container.encode(newSetting, forKey: .newSetting)
 try container.encodeIfPresent(newField, forKey: .newField)
 ```
 
----
-
-### Converting Auto-Synthesized to Custom Decoder (When You Need Non-Optional Fields)
-
-If you MUST add a non-optional field to a struct like `KeyMapping` or `ChordMapping`:
-
-1. Add a `CodingKeys` enum listing ALL existing fields + the new one
-2. Add `init(from decoder:)` using `decodeIfPresent` for the new field with a default
-3. Add `encode(to:)` encoding all fields
-4. This is a one-time migration cost - after that, all future fields can use `decodeIfPresent`
-
-Example for `ChordMapping`:
-```swift
-extension ChordMapping {
-    enum CodingKeys: String, CodingKey {
-        case id, buttons, keyCode, modifiers, hint, newField
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        buttons = try container.decode(Set<ControllerButton>.self, forKey: .buttons)
-        keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
-        hint = try container.decodeIfPresent(String.self, forKey: .hint)
-        newField = try container.decodeIfPresent(Bool.self, forKey: .newField) ?? false
-    }
-}
-```
-
-**IMPORTANT:** When converting, change ALL non-optional fields to use `decodeIfPresent ?? default` to future-proof the struct. The only exceptions are truly required identity fields like `id`.
-
----
-
-### Potential Future Issue: Adding Non-Optional Fields to KeyMapping
-
-`KeyMapping` currently has `isHoldModifier: Bool` as a non-optional field with auto-synthesized Codable. This means ALL existing configs already have this field saved. It's safe as-is, but if we ever need to add another non-optional field, we'll need to convert `KeyMapping` to a custom decoder (see above).
-
-The same applies to `ModifierFlags` (4 non-optional Bools), `RepeatMapping` (2 non-optional fields), `DualSenseLEDSettings` (5 non-optional fields), etc.
-
----
-
-### Summary: Decision Matrix
-
-| Want to add... | To struct with custom decoder | To auto-synthesized struct |
-|---|---|---|
-| Optional field (`Type?`) | Add + `decodeIfPresent` | Just add - auto nil |
-| Non-optional with default | Add + `decodeIfPresent ?? default` | **CONVERT TO CUSTOM DECODER FIRST** |
-| Required field (no default) | Use `decode()` (breaks old configs!) | **NEVER DO THIS** |
+**Rules:**
+- Always use `decodeIfPresent` with a sensible default
+- Never use strict `decode()` unless the field is truly required for identity (like `Profile.id`)
+- Add the new case to the `CodingKeys` enum
+- Add the new field to the memberwise `init()`

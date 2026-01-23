@@ -5,6 +5,23 @@ struct AppBarItem: Identifiable, Codable, Equatable {
     var id = UUID()
     var bundleIdentifier: String
     var displayName: String  // Cached for display when app not installed
+
+    private enum CodingKeys: String, CodingKey {
+        case id, bundleIdentifier, displayName
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        bundleIdentifier = try container.decodeIfPresent(String.self, forKey: .bundleIdentifier) ?? ""
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+    }
+
+    init(id: UUID = UUID(), bundleIdentifier: String, displayName: String) {
+        self.id = id
+        self.bundleIdentifier = bundleIdentifier
+        self.displayName = displayName
+    }
 }
 
 /// A website link to show in the on-screen keyboard for quick access
@@ -13,6 +30,25 @@ struct WebsiteLink: Identifiable, Codable, Equatable {
     var url: String
     var displayName: String
     var faviconData: Data?  // Cached favicon PNG data
+
+    private enum CodingKeys: String, CodingKey {
+        case id, url, displayName, faviconData
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        faviconData = try container.decodeIfPresent(Data.self, forKey: .faviconData)
+    }
+
+    init(id: UUID = UUID(), url: String, displayName: String, faviconData: Data? = nil) {
+        self.id = id
+        self.url = url
+        self.displayName = displayName
+        self.faviconData = faviconData
+    }
 
     /// Returns the URL as a proper URL object, or nil if invalid
     var urlObject: URL? {
@@ -30,6 +66,17 @@ struct QuickText: Identifiable, Codable, Equatable {
     var id = UUID()
     var text: String
     var isTerminalCommand: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case id, text, isTerminalCommand
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+        isTerminalCommand = try container.decodeIfPresent(Bool.self, forKey: .isTerminalCommand) ?? false
+    }
 
     init(text: String = "", isTerminalCommand: Bool = false) {
         self.text = text

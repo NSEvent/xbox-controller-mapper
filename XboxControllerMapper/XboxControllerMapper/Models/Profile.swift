@@ -337,21 +337,21 @@ extension Profile {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        isDefault = try container.decode(Bool.self, forKey: .isDefault)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Unnamed"
+        isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
-        createdAt = try container.decode(Date.self, forKey: .createdAt)
-        modifiedAt = try container.decode(Date.self, forKey: .modifiedAt)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? Date()
 
         // Decode button mappings from string-keyed dictionary
-        let stringKeyedMappings = try container.decode([String: KeyMapping].self, forKey: .buttonMappings)
+        let stringKeyedMappings = try container.decodeIfPresent([String: KeyMapping].self, forKey: .buttonMappings) ?? [:]
         buttonMappings = Dictionary(uniqueKeysWithValues: stringKeyedMappings.compactMap { key, value in
             guard let button = ControllerButton(rawValue: key) else { return nil }
             return (button, value)
         })
 
-        chordMappings = try container.decode([ChordMapping].self, forKey: .chordMappings)
-        joystickSettings = try container.decode(JoystickSettings.self, forKey: .joystickSettings)
+        chordMappings = try container.decodeIfPresent([ChordMapping].self, forKey: .chordMappings) ?? []
+        joystickSettings = try container.decodeIfPresent(JoystickSettings.self, forKey: .joystickSettings) ?? .default
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings) ?? .default
     }
 
