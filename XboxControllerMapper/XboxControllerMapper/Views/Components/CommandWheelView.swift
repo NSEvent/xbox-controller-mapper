@@ -41,8 +41,8 @@ struct CommandWheelView: View {
         let midAngle = startAngle + segmentAngle / 2
         let isSelected = manager.selectedIndex == index
 
-        // Center icon in segment for 12 or fewer items; push towards outer edge for 13+
-        let positionFactor: CGFloat = count <= 12 ? 0.5 : 0.8
+        // Position icon based on item count: centered for few, outer edge for many
+        let positionFactor: CGFloat = count <= 8 ? 0.5 : (count <= 12 ? 0.65 : 0.8)
         let iconRadius = innerRadius + (wheelSize / 2 - innerRadius) * positionFactor
         let midAngleRad = midAngle * .pi / 180
         let iconX = cos(midAngleRad) * iconRadius
