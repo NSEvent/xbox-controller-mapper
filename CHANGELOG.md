@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Repeat action while held now defaults to 5/s rate (previously 20/s)
+- D-Pad buttons in Buttons tab now display in order: left, right, up, down
+- Chord button display order: bumpers, triggers, sticks, face, special, touchpad, d-pad
+- Show Keyboard buttons are now larger and easier to click
+- Chord creation shows gray outlines when the button combination already exists
 
 ### Fixed
 

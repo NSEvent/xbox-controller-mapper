@@ -148,11 +148,15 @@ struct ButtonMappingSheet: View {
                 Spacer()
 
                 Button(action: { showingKeyboardForPrimary.toggle() }) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: showingKeyboardForPrimary ? "keyboard.chevron.compact.down" : "keyboard")
                         Text(showingKeyboardForPrimary ? "Hide Keyboard" : "Show Keyboard")
                     }
-                    .font(.caption)
+                    .font(.callout)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.accentColor.opacity(0.1))
+                    .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(.accentColor)
@@ -301,11 +305,15 @@ struct ButtonMappingSheet: View {
 
                 if enableLongHold && !longHoldDisabled {
                     Button(action: { showingKeyboardForLongHold.toggle() }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Image(systemName: showingKeyboardForLongHold ? "keyboard.chevron.compact.down" : "keyboard")
                             Text(showingKeyboardForLongHold ? "Hide" : "Show Keyboard")
                         }
-                        .font(.caption)
+                        .font(.callout)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor.opacity(0.1))
+                        .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.accentColor)
@@ -408,11 +416,15 @@ struct ButtonMappingSheet: View {
 
                 if enableDoubleTap && !primaryDisablesAdvancedFeatures {
                     Button(action: { showingKeyboardForDoubleTap.toggle() }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Image(systemName: showingKeyboardForDoubleTap ? "keyboard.chevron.compact.down" : "keyboard")
                             Text(showingKeyboardForDoubleTap ? "Hide" : "Show Keyboard")
                         }
-                        .font(.caption)
+                        .font(.callout)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor.opacity(0.1))
+                        .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.accentColor)

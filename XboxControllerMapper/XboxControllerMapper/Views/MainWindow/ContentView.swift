@@ -201,7 +201,7 @@ struct ContentView: View {
                             ForEach(profile.chordMappings) { chord in
                                 HStack(spacing: 8) {
                                     HStack(spacing: 2) {
-                                        ForEach(Array(chord.buttons).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { button in
+                                        ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
                                             ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsDualSense)
                                         }
                                     }
@@ -585,7 +585,7 @@ struct ChordRow: View {
                 .frame(width: 20)
 
             HStack(spacing: 4) {
-                ForEach(Array(chord.buttons).sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { button in
+                ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
                     ButtonIconView(button: button, isDualSense: isDualSense)
                 }
             }
@@ -635,6 +635,15 @@ struct ChordMappingSheet: View {
     @State private var showingKeyboard = false
 
     private var isEditing: Bool { editingChord != nil }
+
+    /// Whether the current button combination already exists as a chord (excluding the one being edited)
+    private var chordAlreadyExists: Bool {
+        guard selectedButtons.count >= 2,
+              let profile = profileManager.activeProfile else { return false }
+        return profile.chordMappings.contains { chord in
+            chord.buttons == selectedButtons && chord.id != editingChord?.id
+        }
+    }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -725,11 +734,15 @@ struct ChordMappingSheet: View {
                     Spacer()
 
                     Button(action: { showingKeyboard.toggle() }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Image(systemName: showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
                             Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
                         }
-                        .font(.caption)
+                        .font(.callout)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor.opacity(0.1))
+                        .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.accentColor)
@@ -816,6 +829,7 @@ struct ChordMappingSheet: View {
 
     @ViewBuilder
     private func selectionBorder(for button: ControllerButton) -> some View {
+        let borderColor: Color = chordAlreadyExists ? .gray : .accentColor
         let shape: SelectionShape = {
             switch button {
             case .micMute:
@@ -835,17 +849,17 @@ struct ChordMappingSheet: View {
         switch shape {
         case .circle:
             Circle()
-                .stroke(Color.accentColor, lineWidth: 3)
-                .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
+                .stroke(borderColor, lineWidth: 3)
+                .shadow(color: borderColor.opacity(0.8), radius: 4)
         case .square:
             RoundedRectangle(cornerRadius: 4)
-                .stroke(Color.accentColor, lineWidth: 3)
-                .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
+                .stroke(borderColor, lineWidth: 3)
+                .shadow(color: borderColor.opacity(0.8), radius: 4)
                 .aspectRatio(1, contentMode: .fit)
         case .roundedRect:
             RoundedRectangle(cornerRadius: 5)
-                .stroke(Color.accentColor, lineWidth: 3)
-                .shadow(color: Color.accentColor.opacity(0.8), radius: 4)
+                .stroke(borderColor, lineWidth: 3)
+                .shadow(color: borderColor.opacity(0.8), radius: 4)
         }
     }
 

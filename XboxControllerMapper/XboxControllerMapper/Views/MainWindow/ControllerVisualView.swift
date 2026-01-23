@@ -20,7 +20,7 @@ struct ControllerVisualView: View {
             VStack(alignment: .trailing, spacing: 16) {
                 referenceGroup(title: "Shoulder", buttons: [.leftTrigger, .leftBumper])
                 referenceGroup(title: "Movement", buttons: [.leftThumbstick])
-                referenceGroup(title: "D-Pad", buttons: [.dpadUp, .dpadLeft, .dpadRight, .dpadDown])
+                referenceGroup(title: "D-Pad", buttons: [.dpadLeft, .dpadRight, .dpadUp, .dpadDown])
             }
             .frame(width: 220)
             .padding(.trailing, 20)

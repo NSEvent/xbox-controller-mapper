@@ -252,4 +252,17 @@ enum ButtonCategory: String, CaseIterable {
         case .touchpad: return "Touchpad"
         }
     }
+
+    /// Sort order for chord display: bumpers, triggers, sticks, face, special/touchpad, dpad
+    var chordDisplayOrder: Int {
+        switch self {
+        case .bumper: return 0
+        case .trigger: return 1
+        case .thumbstick: return 2
+        case .face: return 3
+        case .special: return 4
+        case .touchpad: return 5
+        case .dpad: return 6
+        }
+    }
 }
