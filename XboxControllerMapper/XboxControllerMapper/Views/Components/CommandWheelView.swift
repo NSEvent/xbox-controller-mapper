@@ -48,8 +48,10 @@ struct CommandWheelView: View {
         let iconX = cos(midAngleRad) * iconRadius
         let iconY = sin(midAngleRad) * iconRadius
 
+        let forceQuitProgress = isSelected ? manager.forceQuitProgress : 0
+
         return ZStack {
-            // Segment shape
+            // Segment shape - normal selection highlight
             SegmentShape(
                 startAngle: .degrees(startAngle),
                 endAngle: .degrees(startAngle + segmentAngle),
@@ -57,6 +59,17 @@ struct CommandWheelView: View {
                 outerRadius: wheelSize / 2
             )
             .fill(isSelected ? Color.accentColor.opacity(0.6) : Color.clear)
+
+            // Force quit red fill (grows from inner to outer)
+            if forceQuitProgress > 0 {
+                SegmentShape(
+                    startAngle: .degrees(startAngle),
+                    endAngle: .degrees(startAngle + segmentAngle),
+                    innerRadius: innerRadius,
+                    outerRadius: innerRadius + (wheelSize / 2 - innerRadius) * forceQuitProgress
+                )
+                .fill(Color.red.opacity(0.7))
+            }
 
             SegmentShape(
                 startAngle: .degrees(startAngle),

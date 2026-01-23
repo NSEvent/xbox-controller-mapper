@@ -21,15 +21,30 @@ class CommandWheelManager: ObservableObject {
 
     @Published private(set) var isVisible = false
     @Published var selectedIndex: Int?
+    /// Progress of force quit fill (0.0 to 1.0), only for apps
+    @Published private(set) var forceQuitProgress: CGFloat = 0
 
     private var panel: NSPanel?
     private(set) var items: [CommandWheelItem] = []
 
     /// Deadzone for stick magnitude - below this, no segment is selected
     private let selectionDeadzone: CGFloat = 0.4
+    /// Threshold for "full range" stick position
+    private let fullRangeThreshold: CGFloat = 0.95
+    /// Duration to hold at full range before force quit is ready (seconds)
+    private let forceQuitDuration: TimeInterval = 2.0
+
+    /// Whether the stick is currently at full range
+    private(set) var isFullRange = false
+    /// When the stick first hit full range on the current segment
+    private var fullRangeStartTime: TimeInterval?
+    /// The segment index when full range started (reset if segment changes)
+    private var fullRangeSegment: Int?
 
     /// Last valid (non-nil) selection index for tolerance on release
     private var lastValidSelection: Int?
+    /// Whether the last valid selection was at full range
+    private var lastValidFullRange = false
     /// Timestamp of the last valid selection
     private var lastValidSelectionTime: TimeInterval = 0
     /// Tolerance window: if stick returns to center within this time, last selection is still used
@@ -59,6 +74,8 @@ class CommandWheelManager: ObservableObject {
         self.selectedIndex = nil
         self.lastValidSelection = nil
         self.lastValidSelectionTime = 0
+        self.lastValidFullRange = false
+        resetForceQuit()
     }
 
     /// Hides the command wheel
@@ -69,6 +86,15 @@ class CommandWheelManager: ObservableObject {
         selectedIndex = nil
         lastValidSelection = nil
         lastValidSelectionTime = 0
+        lastValidFullRange = false
+        resetForceQuit()
+    }
+
+    private func resetForceQuit() {
+        isFullRange = false
+        fullRangeStartTime = nil
+        fullRangeSegment = nil
+        forceQuitProgress = 0
     }
 
     /// Updates the selected segment based on stick position (called at 120Hz from MappingEngine)
@@ -79,6 +105,10 @@ class CommandWheelManager: ObservableObject {
         guard magnitude > selectionDeadzone else {
             // Stick in center - clear current selection but keep lastValidSelection for tolerance
             selectedIndex = nil
+            isFullRange = false
+            fullRangeStartTime = nil
+            fullRangeSegment = nil
+            forceQuitProgress = 0
             return
         }
 
@@ -101,28 +131,74 @@ class CommandWheelManager: ObservableObject {
         selectedIndex = index
         lastValidSelection = index
         lastValidSelectionTime = CFAbsoluteTimeGetCurrent()
+
+        // Track full range state
+        let atFullRange = magnitude >= fullRangeThreshold
+        isFullRange = atFullRange
+        lastValidFullRange = atFullRange
+
+        if atFullRange {
+            // Check if this is a new segment or first time at full range
+            if fullRangeSegment != index {
+                fullRangeStartTime = CFAbsoluteTimeGetCurrent()
+                fullRangeSegment = index
+                forceQuitProgress = 0
+            }
+            // Update force quit progress (only for apps)
+            if case .app = items[index].kind, let startTime = fullRangeStartTime {
+                let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+                forceQuitProgress = min(1.0, CGFloat(elapsed / forceQuitDuration))
+            } else {
+                forceQuitProgress = 0
+            }
+        } else {
+            // Not at full range - reset force quit tracking
+            fullRangeStartTime = nil
+            fullRangeSegment = nil
+            forceQuitProgress = 0
+        }
     }
 
     /// Activates the currently selected item (if any), with tolerance for recent selections
     func activateSelection() {
         let effectiveSelection: Int?
+        let effectiveFullRange: Bool
         if let current = selectedIndex {
             effectiveSelection = current
+            effectiveFullRange = isFullRange
         } else if let last = lastValidSelection,
                   CFAbsoluteTimeGetCurrent() - lastValidSelectionTime <= selectionTolerance {
-            // Stick snapped back to center but selection was recent enough
             effectiveSelection = last
+            effectiveFullRange = lastValidFullRange
         } else {
             effectiveSelection = nil
+            effectiveFullRange = false
         }
 
         guard let index = effectiveSelection, index < items.count else { return }
         let item = items[index]
-        switch item.kind {
-        case .app(let bundleIdentifier):
-            activateApp(bundleIdentifier: bundleIdentifier)
-        case .website(let url, _):
-            openWebsite(url: url)
+
+        // Check for force quit (apps only, progress must be complete)
+        if case .app(let bundleIdentifier) = item.kind, forceQuitProgress >= 1.0 {
+            forceQuitApp(bundleIdentifier: bundleIdentifier)
+            return
+        }
+
+        // Full range = open new window; normal = activate/open
+        if effectiveFullRange {
+            switch item.kind {
+            case .app(let bundleIdentifier):
+                openNewWindow(bundleIdentifier: bundleIdentifier)
+            case .website(let url, _):
+                openWebsite(url: url)
+            }
+        } else {
+            switch item.kind {
+            case .app(let bundleIdentifier):
+                activateApp(bundleIdentifier: bundleIdentifier)
+            case .website(let url, _):
+                openWebsite(url: url)
+            }
         }
     }
 
@@ -197,6 +273,49 @@ class CommandWheelManager: ObservableObject {
                     app.activate(options: options)
                 }
             }
+        }
+    }
+
+    private func openNewWindow(bundleIdentifier: String) {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+            return
+        }
+
+        let allWindows = OnScreenKeyboardManager.shared.activateAllWindows
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        configuration.promptsUserIfNeeded = false
+
+        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { app, _ in
+            if let app = app {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    var options: NSApplication.ActivationOptions = [.activateIgnoringOtherApps]
+                    if allWindows {
+                        options.insert(.activateAllWindows)
+                    }
+                    app.activate(options: options)
+                    // Send Cmd+N to open a new window
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        let source = CGEventSource(stateID: .hidSystemState)
+                        // Key down: N (keycode 45) with Cmd
+                        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 45, keyDown: true)
+                        keyDown?.flags = .maskCommand
+                        keyDown?.post(tap: .cghidEventTap)
+                        // Key up
+                        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 45, keyDown: false)
+                        keyUp?.flags = .maskCommand
+                        keyUp?.post(tap: .cghidEventTap)
+                    }
+                }
+            }
+        }
+    }
+
+    private func forceQuitApp(bundleIdentifier: String) {
+        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+        for app in runningApps {
+            app.forceTerminate()
         }
     }
 
