@@ -53,9 +53,7 @@ struct CommandWheelView: View {
 
         // Determine segment fill color
         let segmentFill: Color = {
-            if forceQuitProgress > 0 {
-                return .clear  // Red overlay handles this
-            } else if isAtFullRange {
+            if isAtFullRange {
                 return .green.opacity(0.5)
             } else if isSelected {
                 return Color.accentColor.opacity(0.6)
@@ -70,9 +68,10 @@ struct CommandWheelView: View {
 
         // Determine action text
         let actionText: String? = {
-            if !isAtFullRange && forceQuitProgress == 0 { return nil }
-            if forceQuitProgress > 0 { return "Force Quit" }
-            if case .app = item.kind { return "New Window" }
+            guard isAtFullRange else { return nil }
+            if case .app = item.kind {
+                return forceQuitProgress >= 1.0 ? "Force Quit" : "New Window"
+            }
             return nil
         }()
 
