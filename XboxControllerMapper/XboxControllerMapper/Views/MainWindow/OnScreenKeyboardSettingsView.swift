@@ -73,6 +73,9 @@ struct OnScreenKeyboardSettingsView: View {
             // App Switching Section
             appSwitchingSection
 
+            // Command Wheel Section
+            commandWheelSection
+
             // Keyboard Layout Section
             keyboardLayoutSection
         }
@@ -827,7 +830,13 @@ struct OnScreenKeyboardSettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
+        }
+    }
 
+    // MARK: - Command Wheel Section
+
+    private var commandWheelSection: some View {
+        Section("Command Wheel") {
             Toggle(isOn: Binding(
                 get: { profileManager.onScreenKeyboardSettings.wheelShowsWebsites },
                 set: { newValue in
