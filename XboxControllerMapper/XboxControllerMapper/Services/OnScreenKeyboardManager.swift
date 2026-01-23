@@ -19,11 +19,72 @@ class OnScreenKeyboardManager: ObservableObject {
     private var showExtendedFunctionKeys: Bool = false
     private var cancellables = Set<AnyCancellable>()
 
+    private var globalMonitor: Any?
+    private var localMonitor: Any?
+    private var toggleShortcutKeyCode: UInt16?
+    private var toggleShortcutModifiers: ModifierFlags = ModifierFlags()
+
     private init() {}
 
     /// Sets the input simulator to use for sending key presses
     func setInputSimulator(_ simulator: InputSimulatorProtocol) {
         self.inputSimulator = simulator
+    }
+
+    /// Configures the global keyboard shortcut for toggling the on-screen keyboard
+    func setToggleShortcut(keyCode: UInt16?, modifiers: ModifierFlags) {
+        self.toggleShortcutKeyCode = keyCode
+        self.toggleShortcutModifiers = modifiers
+        updateGlobalMonitor()
+    }
+
+    private func updateGlobalMonitor() {
+        // Remove existing monitors
+        if let monitor = globalMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalMonitor = nil
+        }
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
+        }
+
+        // Only set up monitors if a shortcut is configured
+        guard let shortcutKeyCode = toggleShortcutKeyCode else { return }
+        guard AXIsProcessTrusted() else { return }
+
+        let expectedMods = toggleShortcutModifiers
+
+        // Global monitor for when other apps are focused
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == shortcutKeyCode else { return }
+            let eventMods = ModifierFlags(
+                command: event.modifierFlags.contains(.command),
+                option: event.modifierFlags.contains(.option),
+                shift: event.modifierFlags.contains(.shift),
+                control: event.modifierFlags.contains(.control)
+            )
+            guard eventMods == expectedMods else { return }
+            DispatchQueue.main.async {
+                self?.toggle()
+            }
+        }
+
+        // Local monitor for when this app is focused
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == shortcutKeyCode else { return event }
+            let eventMods = ModifierFlags(
+                command: event.modifierFlags.contains(.command),
+                option: event.modifierFlags.contains(.option),
+                shift: event.modifierFlags.contains(.shift),
+                control: event.modifierFlags.contains(.control)
+            )
+            guard eventMods == expectedMods else { return event }
+            DispatchQueue.main.async {
+                self?.toggle()
+            }
+            return nil // Consume the event
+        }
     }
 
     /// Updates the quick texts, app bar items, and website links to display on the keyboard

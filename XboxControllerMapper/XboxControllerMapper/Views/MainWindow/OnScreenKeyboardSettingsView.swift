@@ -99,6 +99,30 @@ struct OnScreenKeyboardSettingsView: View {
                 }
             }
             .padding(.vertical, 4)
+
+            HStack {
+                Text("Toggle Shortcut")
+                Spacer()
+                KeyCaptureField(
+                    keyCode: Binding<CGKeyCode?>(
+                        get: { profileManager.onScreenKeyboardSettings.toggleShortcutKeyCode.map { CGKeyCode($0) } },
+                        set: { newValue in
+                            var settings = profileManager.onScreenKeyboardSettings
+                            settings.toggleShortcutKeyCode = newValue.map { UInt16($0) }
+                            profileManager.updateOnScreenKeyboardSettings(settings)
+                        }
+                    ),
+                    modifiers: Binding<ModifierFlags>(
+                        get: { profileManager.onScreenKeyboardSettings.toggleShortcutModifiers },
+                        set: { newValue in
+                            var settings = profileManager.onScreenKeyboardSettings
+                            settings.toggleShortcutModifiers = newValue
+                            profileManager.updateOnScreenKeyboardSettings(settings)
+                        }
+                    )
+                )
+                .frame(width: 200)
+            }
         }
     }
 

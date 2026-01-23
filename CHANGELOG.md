@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.3] - 2026-01-23
 
+### Added
+
+- Global keyboard shortcut to toggle the on-screen keyboard (configurable in Keyboard tab)
+
+### Changed
+
+- Repeat action while held now defaults to 10/s rate (previously 20/s)
+
 ### Fixed
 
 - On-screen keyboard now appears on the screen where the mouse cursor is, instead of always on the primary display

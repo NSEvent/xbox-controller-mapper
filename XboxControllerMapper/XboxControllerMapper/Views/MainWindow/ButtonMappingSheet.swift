@@ -26,7 +26,7 @@ struct ButtonMappingSheet: View {
     @State private var doubleTapThreshold: Double = 0.4
 
     @State private var enableRepeat = false
-    @State private var repeatRate: Double = 20.0  // Actions per second (fast default)
+    @State private var repeatRate: Double = 10.0  // Actions per second
 
     // Track if user manually overrode the hold setting
     @State private var userHasInteractedWithHold = false

@@ -55,6 +55,10 @@ struct OnScreenKeyboardSettings: Codable {
     var websiteLinks: [WebsiteLink] = []
     /// Show extended function keys (F13-F20) above F1-F12
     var showExtendedFunctionKeys: Bool = false
+    /// Global keyboard shortcut key code to toggle on-screen keyboard
+    var toggleShortcutKeyCode: UInt16?
+    /// Global keyboard shortcut modifiers to toggle on-screen keyboard
+    var toggleShortcutModifiers: ModifierFlags = ModifierFlags()
 
     /// Available terminal apps to choose from
     static let terminalOptions = [
@@ -87,18 +91,23 @@ struct OnScreenKeyboardSettings: Codable {
         appBarItems = try container.decodeIfPresent([AppBarItem].self, forKey: .appBarItems) ?? []
         websiteLinks = try container.decodeIfPresent([WebsiteLink].self, forKey: .websiteLinks) ?? []
         showExtendedFunctionKeys = try container.decodeIfPresent(Bool.self, forKey: .showExtendedFunctionKeys) ?? false
+        toggleShortcutKeyCode = try container.decodeIfPresent(UInt16.self, forKey: .toggleShortcutKeyCode)
+        toggleShortcutModifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .toggleShortcutModifiers) ?? ModifierFlags()
     }
 
-    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false) {
+    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, toggleShortcutKeyCode: UInt16? = nil, toggleShortcutModifiers: ModifierFlags = ModifierFlags()) {
         self.quickTexts = quickTexts
         self.defaultTerminalApp = defaultTerminalApp
         self.typingDelay = typingDelay
         self.appBarItems = appBarItems
         self.websiteLinks = websiteLinks
         self.showExtendedFunctionKeys = showExtendedFunctionKeys
+        self.toggleShortcutKeyCode = toggleShortcutKeyCode
+        self.toggleShortcutModifiers = toggleShortcutModifiers
     }
 
     private enum CodingKeys: String, CodingKey {
         case quickTexts, defaultTerminalApp, typingDelay, appBarItems, websiteLinks, showExtendedFunctionKeys
+        case toggleShortcutKeyCode, toggleShortcutModifiers
     }
 }

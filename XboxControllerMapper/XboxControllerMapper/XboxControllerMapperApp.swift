@@ -50,6 +50,10 @@ final class ServiceContainer {
             websiteLinks: settings.websiteLinks,
             showExtendedFunctionKeys: settings.showExtendedFunctionKeys
         )
+        OnScreenKeyboardManager.shared.setToggleShortcut(
+            keyCode: settings.toggleShortcutKeyCode,
+            modifiers: settings.toggleShortcutModifiers
+        )
 
         // Observe changes
         profileManager.$onScreenKeyboardSettings
@@ -62,6 +66,10 @@ final class ServiceContainer {
                     appBarItems: settings.appBarItems,
                     websiteLinks: settings.websiteLinks,
                     showExtendedFunctionKeys: settings.showExtendedFunctionKeys
+                )
+                OnScreenKeyboardManager.shared.setToggleShortcut(
+                    keyCode: settings.toggleShortcutKeyCode,
+                    modifiers: settings.toggleShortcutModifiers
                 )
             }
             .store(in: &cancellables)
