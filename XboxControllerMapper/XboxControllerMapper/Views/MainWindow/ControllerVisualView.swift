@@ -39,10 +39,12 @@ struct ControllerVisualView: View {
                                 referenceRow(for: .touchpadButton)
                                 referenceRow(for: .touchpadTap)
                             }
+                            .frame(width: 220)
                             VStack(alignment: .leading) {
                                 referenceRow(for: .touchpadTwoFingerButton)
                                 referenceRow(for: .touchpadTwoFingerTap)
                             }
+                            .frame(width: 220)
                         }
                     }
                 }
@@ -67,6 +69,7 @@ struct ControllerVisualView: View {
                         referenceRow(for: .view)
                         referenceRow(for: .xbox)
                     }
+                    .frame(width: 220)
                     VStack(alignment: .leading) {
                         referenceRow(for: .menu)
                         // Show mic mute for DualSense, share for Xbox
@@ -76,9 +79,10 @@ struct ControllerVisualView: View {
                             referenceRow(for: .share)
                         }
                     }
+                    .frame(width: 220)
                 }
             }
-            .frame(width: 350)
+            .frame(width: 460)
 
             // Right Column: Face buttons and Right-side inputs
             VStack(alignment: .leading, spacing: 16) {
