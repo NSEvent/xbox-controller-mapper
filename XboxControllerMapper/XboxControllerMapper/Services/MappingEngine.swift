@@ -144,6 +144,7 @@ class MappingEngine: ObservableObject {
         var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
         var onScreenKeyboardButton: ControllerButton? = nil  // Tracks which button is showing the on-screen keyboard
         var onScreenKeyboardHoldMode: Bool = false  // Whether keyboard should hide on button release
+        var commandWheelActive: Bool = false  // Whether the command wheel is intercepting right stick
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
@@ -475,12 +476,20 @@ class MappingEngine: ObservableObject {
         state.lock.lock()
         state.onScreenKeyboardButton = button
         state.onScreenKeyboardHoldMode = holdMode
+        if holdMode {
+            state.commandWheelActive = true
+        }
         state.lock.unlock()
 
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
             if holdMode {
                 // Hold mode: always show on press
                 OnScreenKeyboardManager.shared.show()
+                // Prepare command wheel with app bar items (shows on stick movement)
+                let apps = self?.profileManager.onScreenKeyboardSettings.appBarItems ?? []
+                if !apps.isEmpty {
+                    CommandWheelManager.shared.prepare(apps: apps)
+                }
             } else {
                 // Toggle mode: toggle visibility on press
                 OnScreenKeyboardManager.shared.toggle()
@@ -496,12 +505,15 @@ class MappingEngine: ObservableObject {
         let wasHoldMode = state.onScreenKeyboardHoldMode
         if wasKeyboardButton {
             state.onScreenKeyboardButton = nil
+            state.commandWheelActive = false
         }
         state.lock.unlock()
 
         // Only hide on release if in hold mode
         if wasKeyboardButton && wasHoldMode {
             DispatchQueue.main.async {
+                CommandWheelManager.shared.activateSelection()
+                CommandWheelManager.shared.hide()
                 OnScreenKeyboardManager.shared.hide()
             }
         }
@@ -891,18 +903,26 @@ class MappingEngine: ObservableObject {
         // Remove smoothing - pass raw value
         processMouseMovement(leftStick, settings: settings)
 
-        // Process right joystick (scroll)
+        // Process right joystick (scroll or command wheel)
         let rightStick = controllerService.threadSafeRightStick
-        updateScrollDoubleTapState(rawStick: rightStick, settings: settings, now: now)
-        let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
-        let rightDeadzoneSquared = settings.scrollDeadzone * settings.scrollDeadzone
-        
-        if rightMagnitudeSquared <= rightDeadzoneSquared {
-            state.smoothedRightStick = .zero
+
+        if state.commandWheelActive {
+            // Redirect right stick to command wheel selection
+            DispatchQueue.main.async {
+                CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
+            }
         } else {
-            state.smoothedRightStick = smoothStick(rightStick, previous: state.smoothedRightStick, dt: dt)
+            updateScrollDoubleTapState(rawStick: rightStick, settings: settings, now: now)
+            let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
+            let rightDeadzoneSquared = settings.scrollDeadzone * settings.scrollDeadzone
+
+            if rightMagnitudeSquared <= rightDeadzoneSquared {
+                state.smoothedRightStick = .zero
+            } else {
+                state.smoothedRightStick = smoothStick(rightStick, previous: state.smoothedRightStick, dt: dt)
+            }
+            processScrolling(state.smoothedRightStick, rawStick: rightStick, settings: settings, now: now)
         }
-        processScrolling(state.smoothedRightStick, rawStick: rightStick, settings: settings, now: now)
     }
 
     nonisolated private func smoothStick(_ raw: CGPoint, previous: CGPoint, dt: TimeInterval) -> CGPoint {

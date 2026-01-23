@@ -29,7 +29,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		0AB89B5E2F01B1D200C32D31 /* XboxControllerMapper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XboxControllerMapper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0AB89B5E2F01B1D200C32D31 /* ControllerKeys.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ControllerKeys.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0AB89B6B2F01B1D400C32D31 /* XboxControllerMapperTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XboxControllerMapperTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0AB89B752F01B1D400C32D31 /* XboxControllerMapperUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XboxControllerMapperUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0AB89BB32F01B25D00C32D31 /* GameController.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameController.framework; path = System/Library/Frameworks/GameController.framework; sourceTree = SDKROOT; };
@@ -108,7 +108,7 @@
 		0AB89B5F2F01B1D200C32D31 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0AB89B5E2F01B1D200C32D31 /* XboxControllerMapper.app */,
+				0AB89B5E2F01B1D200C32D31 /* ControllerKeys.app */,
 				0AB89B6B2F01B1D400C32D31 /* XboxControllerMapperTests.xctest */,
 				0AB89B752F01B1D400C32D31 /* XboxControllerMapperUITests.xctest */,
 			);
@@ -146,7 +146,7 @@
 			packageProductDependencies = (
 			);
 			productName = XboxControllerMapper;
-			productReference = 0AB89B5E2F01B1D200C32D31 /* XboxControllerMapper.app */;
+			productReference = 0AB89B5E2F01B1D200C32D31 /* ControllerKeys.app */;
 			productType = "com.apple.product-type.application";
 		};
 		0AB89B6A2F01B1D400C32D31 /* XboxControllerMapperTests */ = {
