@@ -106,6 +106,8 @@ struct OnScreenKeyboardSettings: Codable {
     var toggleShortcutKeyCode: UInt16?
     /// Global keyboard shortcut modifiers to toggle on-screen keyboard
     var toggleShortcutModifiers: ModifierFlags = ModifierFlags()
+    /// When activating an app, bring all its windows to front (not just one)
+    var activateAllWindows: Bool = true
 
     /// Available terminal apps to choose from
     static let terminalOptions = [
@@ -140,9 +142,10 @@ struct OnScreenKeyboardSettings: Codable {
         showExtendedFunctionKeys = try container.decodeIfPresent(Bool.self, forKey: .showExtendedFunctionKeys) ?? false
         toggleShortcutKeyCode = try container.decodeIfPresent(UInt16.self, forKey: .toggleShortcutKeyCode)
         toggleShortcutModifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .toggleShortcutModifiers) ?? ModifierFlags()
+        activateAllWindows = try container.decodeIfPresent(Bool.self, forKey: .activateAllWindows) ?? true
     }
 
-    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, toggleShortcutKeyCode: UInt16? = nil, toggleShortcutModifiers: ModifierFlags = ModifierFlags()) {
+    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, toggleShortcutKeyCode: UInt16? = nil, toggleShortcutModifiers: ModifierFlags = ModifierFlags(), activateAllWindows: Bool = true) {
         self.quickTexts = quickTexts
         self.defaultTerminalApp = defaultTerminalApp
         self.typingDelay = typingDelay
@@ -151,10 +154,11 @@ struct OnScreenKeyboardSettings: Codable {
         self.showExtendedFunctionKeys = showExtendedFunctionKeys
         self.toggleShortcutKeyCode = toggleShortcutKeyCode
         self.toggleShortcutModifiers = toggleShortcutModifiers
+        self.activateAllWindows = activateAllWindows
     }
 
     private enum CodingKeys: String, CodingKey {
         case quickTexts, defaultTerminalApp, typingDelay, appBarItems, websiteLinks, showExtendedFunctionKeys
-        case toggleShortcutKeyCode, toggleShortcutModifiers
+        case toggleShortcutKeyCode, toggleShortcutModifiers, activateAllWindows
     }
 }

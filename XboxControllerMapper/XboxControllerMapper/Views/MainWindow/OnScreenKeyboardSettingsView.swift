@@ -70,6 +70,9 @@ struct OnScreenKeyboardSettingsView: View {
             // Website Links Section
             websiteLinksSection
 
+            // App Switching Section
+            appSwitchingSection
+
             // Keyboard Layout Section
             keyboardLayoutSection
         }
@@ -803,6 +806,28 @@ struct OnScreenKeyboardSettingsView: View {
         }
 
         return nil
+    }
+
+    // MARK: - App Switching Section
+
+    private var appSwitchingSection: some View {
+        Section("App Switching") {
+            Toggle(isOn: Binding(
+                get: { profileManager.onScreenKeyboardSettings.activateAllWindows },
+                set: { newValue in
+                    var settings = profileManager.onScreenKeyboardSettings
+                    settings.activateAllWindows = newValue
+                    profileManager.updateOnScreenKeyboardSettings(settings)
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Activate All Windows")
+                    Text("When switching to an app, bring all of its windows to the front.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
     }
 
     // MARK: - Keyboard Layout Section

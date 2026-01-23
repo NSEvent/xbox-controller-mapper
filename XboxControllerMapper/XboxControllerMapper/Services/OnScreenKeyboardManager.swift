@@ -17,6 +17,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private var appBarItems: [AppBarItem] = []
     private var websiteLinks: [WebsiteLink] = []
     private var showExtendedFunctionKeys: Bool = false
+    private(set) var activateAllWindows: Bool = true
     private var cancellables = Set<AnyCancellable>()
 
     private var globalMonitor: Any?
@@ -90,8 +91,9 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     /// Updates the quick texts, app bar items, and website links to display on the keyboard
-    func setQuickTexts(_ texts: [QuickText], defaultTerminal: String, typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false) {
+    func setQuickTexts(_ texts: [QuickText], defaultTerminal: String, typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, activateAllWindows: Bool = true) {
         let changed = self.quickTexts != texts || self.defaultTerminalApp != defaultTerminal || self.appBarItems != appBarItems || self.websiteLinks != websiteLinks || self.showExtendedFunctionKeys != showExtendedFunctionKeys
+        self.activateAllWindows = activateAllWindows
         self.quickTexts = texts
         self.defaultTerminalApp = defaultTerminal
         self.typingDelay = typingDelay
@@ -300,20 +302,34 @@ class OnScreenKeyboardManager: ObservableObject {
             }
         }
 
-        // Use NSWorkspace.shared.open which is more reliable for activation
-        NSLog("[OnScreenKeyboard] Opening/activating app: \(bundleIdentifier)")
+        // If app is already running, activate it directly
+        if let runningApp = runningApps.first {
+            NSLog("[OnScreenKeyboard] Activating running app: \(bundleIdentifier)")
+            var options: NSApplication.ActivationOptions = [.activateIgnoringOtherApps]
+            if activateAllWindows {
+                options.insert(.activateAllWindows)
+            }
+            runningApp.activate(options: options)
+            return
+        }
+
+        // App not running - launch it
+        NSLog("[OnScreenKeyboard] Launching app: \(bundleIdentifier)")
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         configuration.promptsUserIfNeeded = false
 
-        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { app, error in
+        NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { [weak self] app, error in
             if let error = error {
                 NSLog("[OnScreenKeyboard] Failed to open app: \(error.localizedDescription)")
             } else if let app = app {
                 NSLog("[OnScreenKeyboard] Successfully opened: \(app.localizedName ?? bundleIdentifier)")
-                // Ensure the app is activated and brought to front
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    app.activate(options: [.activateIgnoringOtherApps])
+                    var options: NSApplication.ActivationOptions = [.activateIgnoringOtherApps]
+                    if self?.activateAllWindows == true {
+                        options.insert(.activateAllWindows)
+                    }
+                    app.activate(options: options)
                 }
             }
         }

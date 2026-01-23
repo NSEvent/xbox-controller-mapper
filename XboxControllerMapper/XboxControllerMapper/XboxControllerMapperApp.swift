@@ -48,7 +48,8 @@ final class ServiceContainer {
             typingDelay: settings.typingDelay,
             appBarItems: settings.appBarItems,
             websiteLinks: settings.websiteLinks,
-            showExtendedFunctionKeys: settings.showExtendedFunctionKeys
+            showExtendedFunctionKeys: settings.showExtendedFunctionKeys,
+            activateAllWindows: settings.activateAllWindows
         )
         OnScreenKeyboardManager.shared.setToggleShortcut(
             keyCode: settings.toggleShortcutKeyCode,
@@ -65,7 +66,8 @@ final class ServiceContainer {
                     typingDelay: settings.typingDelay,
                     appBarItems: settings.appBarItems,
                     websiteLinks: settings.websiteLinks,
-                    showExtendedFunctionKeys: settings.showExtendedFunctionKeys
+                    showExtendedFunctionKeys: settings.showExtendedFunctionKeys,
+                    activateAllWindows: settings.activateAllWindows
                 )
                 OnScreenKeyboardManager.shared.setToggleShortcut(
                     keyCode: settings.toggleShortcutKeyCode,
