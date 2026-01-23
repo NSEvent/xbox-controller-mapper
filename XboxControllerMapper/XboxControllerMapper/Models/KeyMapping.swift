@@ -169,10 +169,10 @@ struct DoubleTapMapping: Codable, Equatable, KeyBindingRepresentable {
 struct RepeatMapping: Codable, Equatable {
     /// Whether repeat is enabled
     var enabled: Bool
-    /// Interval between repeats in seconds (default 0.1s = 10 per second)
+    /// Interval between repeats in seconds (default 0.2s = 5 per second)
     var interval: TimeInterval
 
-    init(enabled: Bool = false, interval: TimeInterval = 0.1) {
+    init(enabled: Bool = false, interval: TimeInterval = 0.2) {
         self.enabled = enabled
         self.interval = interval
     }

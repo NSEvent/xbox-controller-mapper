@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Repeat action while held now defaults to 10/s rate (previously 20/s)
+- Repeat action while held now defaults to 5/s rate (previously 20/s)
 
 ### Fixed
 
