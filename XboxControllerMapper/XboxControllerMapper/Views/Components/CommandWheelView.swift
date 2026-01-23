@@ -49,16 +49,42 @@ struct CommandWheelView: View {
         let iconY = sin(midAngleRad) * iconRadius
 
         let forceQuitProgress = isSelected ? manager.forceQuitProgress : 0
+        let isAtFullRange = isSelected && manager.isFullRange
+
+        // Determine segment fill color
+        let segmentFill: Color = {
+            if forceQuitProgress > 0 {
+                return .clear  // Red overlay handles this
+            } else if isAtFullRange {
+                return .green.opacity(0.5)
+            } else if isSelected {
+                return Color.accentColor.opacity(0.6)
+            }
+            return .clear
+        }()
+
+        // Action label position (closer to center than icon)
+        let actionLabelRadius = innerRadius + (wheelSize / 2 - innerRadius) * 0.25
+        let actionLabelX = cos(midAngleRad) * actionLabelRadius
+        let actionLabelY = sin(midAngleRad) * actionLabelRadius
+
+        // Determine action text
+        let actionText: String? = {
+            if !isAtFullRange && forceQuitProgress == 0 { return nil }
+            if forceQuitProgress > 0 { return "Force Quit" }
+            if case .app = item.kind { return "New Window" }
+            return nil
+        }()
 
         return ZStack {
-            // Segment shape - normal selection highlight
+            // Segment shape fill
             SegmentShape(
                 startAngle: .degrees(startAngle),
                 endAngle: .degrees(startAngle + segmentAngle),
                 innerRadius: innerRadius,
                 outerRadius: wheelSize / 2
             )
-            .fill(isSelected ? Color.accentColor.opacity(0.6) : Color.clear)
+            .fill(segmentFill)
 
             // Force quit red fill (grows from inner to outer)
             if forceQuitProgress > 0 {
@@ -78,6 +104,14 @@ struct CommandWheelView: View {
                 outerRadius: wheelSize / 2
             )
             .stroke(Color.white.opacity(0.2), lineWidth: 1)
+
+            // Action label (closer to center)
+            if let actionText = actionText {
+                Text(actionText)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white)
+                    .offset(x: actionLabelX, y: actionLabelY)
+            }
 
             // Icon and label
             VStack(spacing: 2) {
