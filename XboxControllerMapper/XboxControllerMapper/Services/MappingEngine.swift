@@ -881,7 +881,10 @@ class MappingEngine: ObservableObject {
 
         if let chord = matchingChord {
             inputLogService?.log(buttons: Array(buttons), type: .chord, action: chord.actionDisplayString)
-            if let keyCode = chord.keyCode {
+            
+            if let macroId = chord.macroId, let macro = profile.macros.first(where: { $0.id == macroId }) {
+                inputSimulator.executeMacro(macro)
+            } else if let keyCode = chord.keyCode {
                 inputSimulator.pressKey(keyCode, modifiers: chord.modifiers.cgEventFlags)
             } else if chord.modifiers.hasAny {
                 let flags = chord.modifiers.cgEventFlags

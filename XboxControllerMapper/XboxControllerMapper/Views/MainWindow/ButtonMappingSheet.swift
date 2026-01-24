@@ -283,14 +283,19 @@ struct ButtonMappingSheet: View {
                         .labelsHidden()
                         .frame(maxWidth: .infinity)
                     } else {
-                        Text("No macros defined in this profile.")
-                            .foregroundColor(.secondary)
-                            .italic()
-                            .padding()
-                            
-                        Text("Go to the Macros tab to create a new macro.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        VStack(spacing: 8) {
+                            Text("No macros defined in this profile.")
+                                .foregroundColor(.secondary)
+                                .italic()
+                                
+                            Text("Go to the Macros tab to create a new macro.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.black.opacity(0.05))
+                        .cornerRadius(8)
                     }
                 }
             }

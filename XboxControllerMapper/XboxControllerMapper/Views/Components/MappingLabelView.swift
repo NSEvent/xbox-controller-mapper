@@ -138,6 +138,8 @@ struct MappingLabelView: View {
     var horizontal: Bool = false
     var font: Font = .system(size: 16, weight: .bold, design: .rounded)
     var foregroundColor: Color = .primary
+    
+    @EnvironmentObject var profileManager: ProfileManager
 
     var body: some View {
         if horizontal {
@@ -153,7 +155,13 @@ struct MappingLabelView: View {
 
     @ViewBuilder
     private var content: some View {
-        if !mapping.isEmpty {
+        if let macroId = mapping.macroId,
+           let profile = profileManager.activeProfile,
+           let macro = profile.macros.first(where: { $0.id == macroId }) {
+            
+            labelRow(text: macro.name, icon: "▶", color: .purple, tooltip: "Macro: \(macro.name)")
+            
+        } else if !mapping.isEmpty {
             if let hint = mapping.hint, !hint.isEmpty {
                 labelRow(text: hint, icon: nil, color: .primary, tooltip: mapping.displayString)
             } else {

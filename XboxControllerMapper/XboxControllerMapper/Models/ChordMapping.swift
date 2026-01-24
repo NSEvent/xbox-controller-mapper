@@ -13,6 +13,9 @@ struct ChordMapping: Codable, Identifiable, Equatable {
 
     /// Modifier flags to apply
     var modifiers: ModifierFlags
+    
+    /// Optional ID of a macro to execute instead of key press
+    var macroId: UUID?
 
     /// Optional user-provided description of what this chord does
     var hint: String?
@@ -22,17 +25,19 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         buttons: Set<ControllerButton>,
         keyCode: CGKeyCode? = nil,
         modifiers: ModifierFlags = ModifierFlags(),
+        macroId: UUID? = nil,
         hint: String? = nil
     ) {
         self.id = id
         self.buttons = buttons
         self.keyCode = keyCode
         self.modifiers = modifiers
+        self.macroId = macroId
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, buttons, keyCode, modifiers, hint
+        case id, buttons, keyCode, modifiers, macroId, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -41,6 +46,7 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         buttons = try container.decodeIfPresent(Set<ControllerButton>.self, forKey: .buttons) ?? []
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
 
@@ -54,6 +60,10 @@ struct ChordMapping: Codable, Identifiable, Equatable {
 
     /// Human-readable description of the mapping action
     var actionDisplayString: String {
+        if macroId != nil {
+            return "Macro" // UI should enhance this with actual name if possible
+        }
+        
         var parts: [String] = []
 
         if modifiers.command { parts.append("⌘") }

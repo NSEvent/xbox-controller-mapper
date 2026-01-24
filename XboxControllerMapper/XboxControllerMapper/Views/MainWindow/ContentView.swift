@@ -755,6 +755,15 @@ struct ChordMappingSheet: View {
     @State private var modifiers = ModifierFlags()
     @State private var hint: String = ""
     @State private var showingKeyboard = false
+    
+    // Macro support
+    @State private var mappingType: MappingType = .singleKey
+    @State private var selectedMacroId: UUID?
+
+    enum MappingType: Int {
+        case singleKey = 0
+        case macro = 1
+    }
 
     private var isEditing: Bool { editingChord != nil }
 
@@ -854,30 +863,68 @@ struct ChordMappingSheet: View {
                         .font(.subheadline)
 
                     Spacer()
-
-                    Button(action: { showingKeyboard.toggle() }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
-                            Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
-                        }
-                        .font(.callout)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.accentColor.opacity(0.1))
-                        .cornerRadius(6)
+                    
+                    Picker("", selection: $mappingType) {
+                        Text("Single Key").tag(MappingType.singleKey)
+                        Text("Macro").tag(MappingType.macro)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.accentColor)
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
+                    .padding(.trailing, 8)
+
+                    if mappingType == .singleKey {
+                        Button(action: { showingKeyboard.toggle() }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
+                                Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                            }
+                            .font(.callout)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.accentColor.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.accentColor)
+                    }
                 }
 
-                if showingKeyboard {
-                    KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
-                } else {
-                    KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+                if mappingType == .singleKey {
+                    if showingKeyboard {
+                        KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
+                    } else {
+                        KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
 
-                    Text("Click to type a shortcut, or show keyboard to select visually")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        Text("Click to type a shortcut, or show keyboard to select visually")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    // MACRO SELECTION
+                    if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
+                        Picker("Select Macro", selection: $selectedMacroId) {
+                            Text("Select a Macro...").tag(nil as UUID?)
+                            ForEach(profile.macros) { macro in
+                                Text(macro.name).tag(macro.id as UUID?)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        VStack(spacing: 8) {
+                            Text("No macros defined in this profile.")
+                                .foregroundColor(.secondary)
+                                .italic()
+                                
+                            Text("Go to the Macros tab to create a new macro.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.black.opacity(0.05))
+                        .cornerRadius(8)
+                    }
                 }
 
                 // Hint field
@@ -901,25 +948,33 @@ struct ChordMappingSheet: View {
 
                 Button(isEditing ? "Save" : "Add") {
                     let hintValue = hint.isEmpty ? nil : hint
+                    
+                    // Determine values based on type
+                    let finalKeyCode = mappingType == .singleKey ? keyCode : nil
+                    let finalModifiers = mappingType == .singleKey ? modifiers : ModifierFlags()
+                    let finalMacroId = mappingType == .macro ? selectedMacroId : nil
+                    
                     if let existingChord = editingChord {
                         var updatedChord = existingChord
                         updatedChord.buttons = selectedButtons
-                        updatedChord.keyCode = keyCode
-                        updatedChord.modifiers = modifiers
+                        updatedChord.keyCode = finalKeyCode
+                        updatedChord.modifiers = finalModifiers
+                        updatedChord.macroId = finalMacroId
                         updatedChord.hint = hintValue
                         profileManager.updateChord(updatedChord)
                     } else {
                         let chord = ChordMapping(
                             buttons: selectedButtons,
-                            keyCode: keyCode,
-                            modifiers: modifiers,
+                            keyCode: finalKeyCode,
+                            modifiers: finalModifiers,
+                            macroId: finalMacroId,
                             hint: hintValue
                         )
                         profileManager.addChord(chord)
                     }
                     dismiss()
                 }
-                .disabled(selectedButtons.count < 2 || (keyCode == nil && !modifiers.hasAny))
+                .disabled(selectedButtons.count < 2 || (mappingType == .singleKey && keyCode == nil && !modifiers.hasAny) || (mappingType == .macro && selectedMacroId == nil))
                 .buttonStyle(.borderedProminent)
             }
         }
@@ -931,6 +986,13 @@ struct ChordMappingSheet: View {
                 keyCode = chord.keyCode
                 modifiers = chord.modifiers
                 hint = chord.hint ?? ""
+                
+                if let macroId = chord.macroId {
+                    mappingType = .macro
+                    selectedMacroId = macroId
+                } else {
+                    mappingType = .singleKey
+                }
             }
         }
     }
