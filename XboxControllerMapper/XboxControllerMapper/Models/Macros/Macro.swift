@@ -51,8 +51,13 @@ enum MacroStep: Codable, Equatable {
             let duration = try container.decode(TimeInterval.self, forKey: .payload)
             self = .delay(duration)
         case .typeText:
-            let data = try container.decode(TypeTextPayload.self, forKey: .payload)
-            self = .typeText(data.text, speed: data.speed)
+            if let data = try? container.decode(TypeTextPayload.self, forKey: .payload) {
+                self = .typeText(data.text, speed: data.speed)
+            } else {
+                // Fallback for legacy string-only payload
+                let text = try container.decode(String.self, forKey: .payload)
+                self = .typeText(text, speed: 0) // Default to paste/instant
+            }
         }
     }
     

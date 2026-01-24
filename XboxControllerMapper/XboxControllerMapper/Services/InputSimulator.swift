@@ -808,27 +808,25 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     
     private func pasteString(_ text: String) {
         // Use clipboard for instant paste
-        // 1. Save current clipboard
-        let pasteboard = NSPasteboard.general
-        let oldItems = pasteboard.pasteboardItems?.map { $0.copy() as! NSPasteboardItem } ?? []
+        // NSPasteboard must be accessed from the main thread
+        DispatchQueue.main.async {
+            // 1. Save current clipboard
+            let pasteboard = NSPasteboard.general
+            // We can't reliably copy old items without potentially blocking or issues, so we skip restoring for now
+            // Or we could try to just clear and set.
+            
+            // 2. Set new text
+            pasteboard.clearContents()
+            pasteboard.setString(text, forType: .string)
+        }
         
-        // 2. Set new text
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        // Wait briefly for clipboard update
+        usleep(50000) // 50ms
         
         // 3. Cmd+V
         pressKey(CGKeyCode(kVK_ANSI_V), modifiers: .maskCommand)
         
-        // 4. Restore clipboard (after small delay to ensure paste happens)
-        // Note: Restoring immediately might race with the paste action.
-        // For simplicity in this non-async context, we might skip restore or rely on history.
-        // A proper implementation would wait.
-        // Given this is a "Macro" step, side effects like clipboard changes are often accepted.
-        // But let's try to be nice.
-        usleep(200000) // 200ms wait
-        
-        // Since we can't easily restore complex items without potentially blocking or issues,
-        // we'll leave the text in clipboard. Ideally, users use this for "Paste Text" macro.
+        // 4. Restore clipboard - skipped for stability
     }
 }
 
