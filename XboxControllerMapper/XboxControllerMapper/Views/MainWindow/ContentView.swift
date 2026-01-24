@@ -20,14 +20,17 @@ struct ContentView: View {
         HSplitView {
             // Sidebar: Profile management
             ProfileSidebar()
-                .frame(minWidth: 180, maxWidth: 220)
+                .frame(minWidth: 200, maxWidth: 260)
+                .background(Color.black.opacity(0.2)) // Subtle darkening for sidebar
 
             // Main content
             VStack(spacing: 0) {
                 // Toolbar
                 toolbar
+                    .zIndex(1) // Keep above content
 
                 Divider()
+                    .background(Color.white.opacity(0.1))
 
                 // Tab content
                 TabView(selection: $selectedTab) {
@@ -76,6 +79,14 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 650)
+        // Global Glass Background
+        .background(
+            ZStack {
+                Color.black.opacity(0.75) // Dark tint
+                GlassVisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+            }
+            .ignoresSafeArea()
+        )
         .sheet(item: $configuringButton) { button in
             ButtonMappingSheet(
                 button: button,
@@ -138,11 +149,20 @@ struct ContentView: View {
                 Circle()
                     .fill(controllerService.isConnected ? Color.green : Color.red)
                     .frame(width: 8, height: 8)
+                    .shadow(color: (controllerService.isConnected ? Color.green : Color.red).opacity(0.6), radius: 4)
 
                 Text(controllerService.isConnected ? controllerService.controllerName : "No Controller")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.caption.bold())
+                    .foregroundColor(controllerService.isConnected ? .white : .secondary)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.black.opacity(0.3))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
 
             Spacer()
 
@@ -150,15 +170,16 @@ struct ContentView: View {
 
             // Enable/disable toggle
             Toggle(isOn: $mappingEngine.isEnabled) {
-                Text(mappingEngine.isEnabled ? "Enabled" : "Disabled")
-                    .font(.caption)
+                Text(mappingEngine.isEnabled ? "MAPPING ACTIVE" : "DISABLED")
+                    .font(.caption.bold())
+                    .foregroundColor(mappingEngine.isEnabled ? .accentColor : .secondary)
             }
             .toggleStyle(.switch)
             .controlSize(.small)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .padding(.vertical, 12)
+        // Transparent toolbar to let glass show through
     }
 
     // MARK: - Controller Tab
@@ -166,6 +187,7 @@ struct ContentView: View {
     private var controllerTab: some View {
         VStack(spacing: 0) {
             InputLogView()
+                .padding(.top, 8)
             
             ZStack {
                 ControllerVisualView(
@@ -189,17 +211,18 @@ struct ContentView: View {
             // Mapped Chords Display
             if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
                 Divider()
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Chord Actions")
-                        .font(.caption)
-                        .fontWeight(.bold)
+                    .background(Color.white.opacity(0.1))
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("ACTIVE CHORDS")
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
                             ForEach(profile.chordMappings) { chord in
-                                HStack(spacing: 8) {
+                                HStack(spacing: 10) {
                                     HStack(spacing: 2) {
                                         ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
                                             ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsDualSense)
@@ -208,29 +231,24 @@ struct ContentView: View {
                                     
                                     Image(systemName: "arrow.right")
                                         .font(.caption2)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(.white.opacity(0.3))
 
                                     Text(chord.hint ?? chord.actionDisplayString)
                                         .font(.caption)
                                         .fontWeight(.medium)
+                                        .foregroundColor(.white)
                                         .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color(nsColor: .controlBackgroundColor))
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                )
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(GlassCardBackground())
                             }
                         }
                         .padding(.horizontal)
-                        .padding(.bottom, 12)
+                        .padding(.bottom, 16)
                     }
                 }
-                .padding(.top, 8)
-                .background(Color(nsColor: .windowBackgroundColor))
+                .padding(.top, 12)
             }
         }
     }
@@ -242,8 +260,10 @@ struct ContentView: View {
         Form {
             Section {
                 Button(action: { showingChordSheet = true }) {
-                    Label("Add Chord", systemImage: "plus")
+                    Label("Add New Chord", systemImage: "plus")
+                        .fontWeight(.medium)
                 }
+                .padding(.vertical, 4)
 
                 if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
                     ChordListView(
@@ -264,14 +284,18 @@ struct ContentView: View {
                     Text("No chords configured")
                         .foregroundColor(.secondary)
                         .italic()
+                        .padding()
                 }
             } header: {
                 Text("Chord Mappings")
+                    .foregroundColor(.secondary)
             } footer: {
                 Text("Chords let you map multiple button presses to a single action.")
+                    .foregroundColor(.secondary.opacity(0.7))
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .padding()
     }
 
@@ -279,28 +303,33 @@ struct ContentView: View {
 
     private var joystickSettingsTab: some View {
         JoystickSettingsView()
+            .scrollContentBackground(.hidden)
     }
 
     // MARK: - Touchpad Settings Tab
 
     private var touchpadSettingsTab: some View {
         TouchpadSettingsView()
+            .scrollContentBackground(.hidden)
     }
 
     // MARK: - LED Settings Tab
 
     private var ledSettingsTab: some View {
         LEDSettingsView()
+            .scrollContentBackground(.hidden)
     }
 
     // MARK: - Microphone Settings Tab
 
     private var microphoneSettingsTab: some View {
         MicrophoneSettingsView()
+            .scrollContentBackground(.hidden)
     }
 
     private var keyboardSettingsTab: some View {
         OnScreenKeyboardSettingsView()
+            .scrollContentBackground(.hidden)
     }
 }
 
@@ -317,13 +346,15 @@ struct ProfileSidebar: View {
     @State private var isImporting = false
     @State private var isExporting = false
     @State private var profileToExport: Profile?
+    @State private var hoveredProfileId: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Profiles")
-                    .font(.headline)
+                Text("PROFILES")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.secondary)
 
                 Spacer()
 
@@ -336,75 +367,86 @@ struct ProfileSidebar: View {
                     }
                 } label: {
                     Image(systemName: "plus")
-                        .frame(width: 20, height: 20)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.accentColor)
+                        .frame(width: 24, height: 24)
+                        .background(Color.accentColor.opacity(0.1))
+                        .clipShape(Circle())
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
             }
-            .padding(12)
-
-            Divider()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
 
             // Profile list
-            List {
-                ForEach(profileManager.profiles) { profile in
-                    ProfileListRow(profile: profile)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            profileManager.setActiveProfile(profile)
-                        }
-                        .listRowBackground(
-                            profile.id == profileManager.activeProfileId ? Color.accentColor.opacity(0.15) : Color.clear
-                        )
-                        .contextMenu {
-                            Button("Duplicate") {
-                                _ = profileManager.duplicateProfile(profile)
+            ScrollView {
+                VStack(spacing: 4) {
+                    ForEach(profileManager.profiles) { profile in
+                        ProfileListRow(profile: profile, isHovered: hoveredProfileId == profile.id)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                profileManager.setActiveProfile(profile)
                             }
-
-                            Button("Rename") {
-                                profileToRename = profile
-                                renameProfileName = profile.name
-                                showingRenameProfileAlert = true
+                            .onHover { isHovered in
+                                hoveredProfileId = isHovered ? profile.id : nil
                             }
+                            .background(
+                                GlassCardBackground(
+                                    isActive: profile.id == profileManager.activeProfileId,
+                                    isHovered: hoveredProfileId == profile.id
+                                )
+                            )
+                            .padding(.horizontal, 12)
+                            .contextMenu {
+                                Button("Duplicate") {
+                                    _ = profileManager.duplicateProfile(profile)
+                                }
 
-                            Menu("Set Icon") {
-                                ForEach(ProfileIcon.grouped, id: \.name) { group in
-                                    Menu(group.name) {
-                                        ForEach(group.icons) { icon in
-                                            Button {
-                                                profileManager.setProfileIcon(profile, icon: icon.rawValue)
-                                            } label: {
-                                                Label(icon.displayName, systemImage: icon.rawValue)
+                                Button("Rename") {
+                                    profileToRename = profile
+                                    renameProfileName = profile.name
+                                    showingRenameProfileAlert = true
+                                }
+
+                                Menu("Set Icon") {
+                                    ForEach(ProfileIcon.grouped, id: \.name) { group in
+                                        Menu(group.name) {
+                                            ForEach(group.icons) { icon in
+                                                Button {
+                                                    profileManager.setProfileIcon(profile, icon: icon.rawValue)
+                                                } label: {
+                                                    Label(icon.displayName, systemImage: icon.rawValue)
+                                                }
                                             }
                                         }
                                     }
+
+                                    Divider()
+
+                                    Button("Remove Icon") {
+                                        profileManager.setProfileIcon(profile, icon: nil)
+                                    }
+                                    .disabled(profile.icon == nil)
+                                }
+
+                                Button("Export...") {
+                                    profileToExport = profile
+                                    isExporting = true
                                 }
 
                                 Divider()
 
-                                Button("Remove Icon") {
-                                    profileManager.setProfileIcon(profile, icon: nil)
+                                Button("Delete", role: .destructive) {
+                                    profileManager.deleteProfile(profile)
                                 }
-                                .disabled(profile.icon == nil)
+                                .disabled(profileManager.profiles.count <= 1)
                             }
-
-                            Button("Export...") {
-                                profileToExport = profile
-                                isExporting = true
-                            }
-
-                            Divider()
-
-                            Button("Delete", role: .destructive) {
-                                profileManager.deleteProfile(profile)
-                            }
-                            .disabled(profileManager.profiles.count <= 1)
-                        }
+                    }
                 }
+                .padding(.vertical, 8)
             }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden) // Optional: cleaner look
         }
         .alert("New Profile", isPresented: $showingNewProfileAlert) {
             TextField("Profile name", text: $newProfileName)
@@ -494,16 +536,18 @@ struct ProfileDocument: FileDocument {
 
 struct ProfileListRow: View {
     let profile: Profile
+    let isHovered: Bool
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(profile.name)
-                    .font(.body)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white)
 
                 Text("\(profile.buttonMappings.count) mappings")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.6))
             }
 
             Spacer()
@@ -518,7 +562,8 @@ struct ProfileListRow: View {
                     .foregroundColor(.yellow)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }
 
@@ -532,8 +577,11 @@ struct LegendItem: View {
         HStack(spacing: 4) {
             Circle()
                 .fill(color)
-                .frame(width: 10, height: 10)
+                .frame(width: 8, height: 8)
+                .shadow(color: color.opacity(0.5), radius: 2)
             Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 }
@@ -560,11 +608,15 @@ struct ChordListView: View, Equatable {
                     onEdit: { onEdit(chord) },
                     onDelete: { onDelete(chord) }
                 )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .background(GlassCardBackground())
+                .padding(.bottom, 4)
             }
             .onMove(perform: onMove)
         }
         .listStyle(.plain)
-        .frame(height: CGFloat(chords.count) * 44)
+        .frame(height: CGFloat(chords.count) * 60) // Adjusted height for padded rows
         .scrollContentBackground(.hidden)
         .scrollDisabled(true)
     }
@@ -581,7 +633,7 @@ struct ChordRow: View {
     var body: some View {
         HStack {
             Image(systemName: "line.3.horizontal")
-                .foregroundColor(.secondary.opacity(0.5))
+                .foregroundColor(.white.opacity(0.3))
                 .font(.caption)
                 .frame(width: 20)
 
@@ -592,29 +644,82 @@ struct ChordRow: View {
             }
 
             Image(systemName: "arrow.right")
-                .foregroundColor(.secondary)
+                .font(.caption2)
+                .foregroundColor(.white.opacity(0.3))
 
             Text(chord.hint ?? chord.actionDisplayString)
-                .font(.body)
-                .foregroundColor(.secondary)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.9))
                 .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
 
             Spacer()
 
-            Button(action: onEdit) {
-                Image(systemName: "pencil")
-                    .foregroundColor(.accentColor)
-            }
-            .buttonStyle(.borderless)
+            HStack(spacing: 12) {
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .foregroundColor(.accentColor)
+                }
+                .buttonStyle(.borderless)
 
-            Button(action: onDelete) {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red.opacity(0.8))
+                }
+                .buttonStyle(.borderless)
             }
-            .buttonStyle(.borderless)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
-        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Glass Aesthetic Components
+
+/// A view that wraps NSVisualEffectView for SwiftUI
+struct GlassVisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let visualEffectView = NSVisualEffectView()
+        visualEffectView.material = material
+        visualEffectView.blendingMode = blendingMode
+        visualEffectView.state = .active
+        return visualEffectView
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
+/// A standardized glass tile background for cards and rows
+struct GlassCardBackground: View {
+    var isActive: Bool = false
+    var isHovered: Bool = false
+    var cornerRadius: CGFloat = 10
+
+    var body: some View {
+        ZStack {
+            if isActive {
+                Color.accentColor.opacity(0.2)
+            } else {
+                Color.black.opacity(0.4)
+            }
+            
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .stroke(borderColor, lineWidth: isActive ? 1.5 : 1)
+        }
+        .cornerRadius(cornerRadius)
+        .shadow(color: isActive ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.2), radius: isActive ? 8 : 4)
+    }
+    
+    private var borderColor: Color {
+        if isActive { return Color.accentColor.opacity(0.8) }
+        if isHovered { return Color.white.opacity(0.3) }
+        return Color.white.opacity(0.1)
     }
 }
 

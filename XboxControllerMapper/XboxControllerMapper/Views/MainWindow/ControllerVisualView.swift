@@ -292,22 +292,14 @@ struct ControllerVisualView: View {
                 } else {
                     Text("Unmapped")
                         .font(.system(size: 12))
-                        .foregroundColor(.secondary.opacity(0.5))
+                        .foregroundColor(.white.opacity(0.5))
                         .italic()
                 }
                 Spacer()
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-                    .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(selectedButton == button ? Color.accentColor : Color.gray.opacity(0.2), lineWidth: selectedButton == button ? 2 : 1)
-            )
+            .background(GlassCardBackground(isActive: selectedButton == button, isHovered: false))
         }
         .contentShape(Rectangle())
         .onTapGesture { onButtonTap(button) }
