@@ -112,7 +112,7 @@ struct MacroEditorSheet: View {
             .padding(.horizontal)
         }
         .padding(.vertical, 20)
-        .frame(width: 500, height: 600)
+        .frame(width: 600, height: 600)
         .sheet(isPresented: $showingStepEditor) {
             if let index = editingStepIndex, index < steps.count {
                 StepEditorSheet(step: $steps[index])
@@ -199,6 +199,8 @@ struct StepEditorSheet: View {
     @State private var text: String = ""
     @State private var speed: Int = 0 // 0 = Paste
     
+    @State private var showingKeyboard = false
+    
     // To track type changes
     @State private var selectedType: StepType
     
@@ -251,13 +253,43 @@ struct StepEditorSheet: View {
             Form {
                 switch selectedType {
                 case .press:
-                    Section("Key Combination") {
-                        KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+                    Section {
+                        if showingKeyboard {
+                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
+                        } else {
+                            KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+                        }
+                    } header: {
+                        HStack {
+                            Text("Key Combination")
+                            Spacer()
+                            Button(action: { showingKeyboard.toggle() }) {
+                                Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.accentColor)
+                        }
                     }
                     
                 case .hold:
-                    Section("Key Combination") {
-                        KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+                    Section {
+                        if showingKeyboard {
+                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
+                        } else {
+                            KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+                        }
+                    } header: {
+                        HStack {
+                            Text("Key Combination")
+                            Spacer()
+                            Button(action: { showingKeyboard.toggle() }) {
+                                Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.accentColor)
+                        }
                     }
                     Section("Duration") {
                         TextField("Seconds", value: $duration, format: .number)
@@ -297,7 +329,8 @@ struct StepEditorSheet: View {
             }
             .padding(.bottom)
         }
-        .frame(width: 400, height: 450)
+        .frame(width: showingKeyboard ? 850 : 400, height: showingKeyboard ? 600 : 450)
+        .animation(.easeInOut, value: showingKeyboard)
     }
     
     private func save() {
