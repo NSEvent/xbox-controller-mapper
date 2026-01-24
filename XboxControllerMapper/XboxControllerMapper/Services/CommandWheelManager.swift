@@ -52,6 +52,10 @@ class CommandWheelManager: ObservableObject {
     private var lastValidSelectionTime: TimeInterval = 0
     /// Tolerance window: if stick returns to center within this time, last selection is still used
     private let selectionTolerance: TimeInterval = 0.3
+    /// Tolerance for modifier release: don't swap back to primary immediately
+    private let alternateReleaseTolerance: TimeInterval = 0.3
+    /// When the alternate modifier was released (nil = not pending swap back)
+    private var alternateReleaseTime: TimeInterval?
 
     private init() {}
 
@@ -71,6 +75,7 @@ class CommandWheelManager: ObservableObject {
             alternateItems = websiteItems
         }
         isShowingAlternate = false
+        alternateReleaseTime = nil
         items = primaryItems.isEmpty ? alternateItems : primaryItems
         selectedIndex = nil
         lastValidSelection = nil
@@ -81,16 +86,41 @@ class CommandWheelManager: ObservableObject {
 
     /// Switches between primary and alternate items based on modifier state
     func setShowingAlternate(_ alternate: Bool) {
-        guard alternate != isShowingAlternate else { return }
-        isShowingAlternate = alternate
-        let newItems = alternate ? alternateItems : primaryItems
-        guard !newItems.isEmpty else { return }
-        items = newItems
-        selectedIndex = nil
-        lastValidSelection = nil
-        lastValidSelectionTime = 0
-        lastValidFullRange = false
-        resetForceQuit()
+        if alternate {
+            // Switching to alternate: do it immediately, cancel any pending swap-back
+            alternateReleaseTime = nil
+            guard !isShowingAlternate else { return }
+            isShowingAlternate = true
+            guard !alternateItems.isEmpty else { return }
+            items = alternateItems
+            selectedIndex = nil
+            lastValidSelection = nil
+            lastValidSelectionTime = 0
+            lastValidFullRange = false
+            resetForceQuit()
+        } else {
+            // Switching back to primary: delay to allow simultaneous release
+            guard isShowingAlternate else { return }
+            if alternateReleaseTime == nil {
+                alternateReleaseTime = CFAbsoluteTimeGetCurrent()
+            }
+        }
+    }
+
+    /// Called from updateSelection to check if pending swap-back should execute
+    private func checkAlternateRelease() {
+        guard let releaseTime = alternateReleaseTime else { return }
+        if CFAbsoluteTimeGetCurrent() - releaseTime > alternateReleaseTolerance {
+            alternateReleaseTime = nil
+            isShowingAlternate = false
+            guard !primaryItems.isEmpty else { return }
+            items = primaryItems
+            selectedIndex = nil
+            lastValidSelection = nil
+            lastValidSelectionTime = 0
+            lastValidFullRange = false
+            resetForceQuit()
+        }
     }
 
     /// Hides the command wheel
@@ -102,6 +132,7 @@ class CommandWheelManager: ObservableObject {
         lastValidSelection = nil
         lastValidSelectionTime = 0
         lastValidFullRange = false
+        alternateReleaseTime = nil
         resetForceQuit()
     }
 
@@ -115,6 +146,7 @@ class CommandWheelManager: ObservableObject {
     /// Updates the selected segment based on stick position (called at 120Hz from MappingEngine)
     func updateSelection(stickX: CGFloat, stickY: CGFloat) {
         guard !items.isEmpty else { return }
+        checkAlternateRelease()
 
         let magnitude = sqrt(stickX * stickX + stickY * stickY)
         guard magnitude > selectionDeadzone else {
