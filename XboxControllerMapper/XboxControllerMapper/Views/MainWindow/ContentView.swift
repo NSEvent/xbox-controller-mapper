@@ -233,12 +233,21 @@ struct ContentView: View {
                                 .font(.caption2)
                                 .foregroundColor(.white.opacity(0.3))
 
-                            Text(chord.hint ?? chord.actionDisplayString)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                                .lineLimit(1)
-                                .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
+                            if let macroId = chord.macroId,
+                               let macro = profile.macros.first(where: { $0.id == macroId }) {
+                                Text("Macro: \(macro.name)")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.purple)
+                                    .lineLimit(1)
+                            } else {
+                                Text(chord.hint ?? chord.actionDisplayString)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                    .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
+                            }
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -614,25 +623,17 @@ struct ChordListView: View, Equatable {
     }
 
     var body: some View {
-        List {
-            ForEach(chords) { chord in
-                ChordRow(
-                    chord: chord,
-                    isDualSense: isDualSense,
-                    onEdit: { onEdit(chord) },
-                    onDelete: { onDelete(chord) }
-                )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .background(GlassCardBackground())
-                .padding(.bottom, 4)
-            }
-            .onMove(perform: onMove)
+        ForEach(chords) { chord in
+            ChordRow(
+                chord: chord,
+                isDualSense: isDualSense,
+                onEdit: { onEdit(chord) },
+                onDelete: { onDelete(chord) }
+            )
+            .background(GlassCardBackground())
+            .padding(.bottom, 4)
         }
-        .listStyle(.plain)
-        .frame(height: CGFloat(chords.count) * 60) // Adjusted height for padded rows
-        .scrollContentBackground(.hidden)
-        .scrollDisabled(true)
+        .onMove(perform: onMove)
     }
 }
 
@@ -643,6 +644,8 @@ struct ChordRow: View {
     let isDualSense: Bool
     var onEdit: () -> Void
     var onDelete: () -> Void
+    
+    @EnvironmentObject var profileManager: ProfileManager
 
     var body: some View {
         HStack {
@@ -661,10 +664,18 @@ struct ChordRow: View {
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.3))
 
-            Text(chord.hint ?? chord.actionDisplayString)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
-                .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
+            if let macroId = chord.macroId,
+               let profile = profileManager.activeProfile,
+               let macro = profile.macros.first(where: { $0.id == macroId }) {
+                Text("Macro: \(macro.name)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.purple.opacity(0.9))
+            } else {
+                Text(chord.hint ?? chord.actionDisplayString)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.9))
+                    .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
+            }
 
             Spacer()
 
