@@ -363,7 +363,26 @@ class ProfileManager: ObservableObject {
     func removeMacro(_ macro: Macro, in profile: Profile? = nil) {
         guard var targetProfile = profile ?? activeProfile else { return }
         
+        // Remove macro from list
         targetProfile.macros.removeAll { $0.id == macro.id }
+        
+        // Unmap any buttons using this macro
+        for (button, mapping) in targetProfile.buttonMappings {
+            if mapping.macroId == macro.id {
+                targetProfile.buttonMappings.removeValue(forKey: button)
+            }
+        }
+        
+        // Unmap any chords using this macro
+        // We iterate indices to modify in place or filter/map
+        targetProfile.chordMappings = targetProfile.chordMappings.map { chord in
+            var updatedChord = chord
+            if updatedChord.macroId == macro.id {
+                updatedChord.macroId = nil
+            }
+            return updatedChord
+        }
+        
         updateProfile(targetProfile)
     }
     

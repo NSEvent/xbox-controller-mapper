@@ -41,6 +41,11 @@ struct ContentView: View {
                         .tabItem { Text("Chords") }
                         .tag(1)
 
+                    // Macros Tab
+                    macroListTab
+                        .tabItem { Text("Macros") }
+                        .tag(7)
+
                     // Joystick Settings
                     joystickSettingsTab
                         .tabItem { Text("Joysticks") }
@@ -71,11 +76,6 @@ struct ContentView: View {
                             .tabItem { Text("Microphone") }
                             .tag(6)
                     }
-
-                    // Macros Tab
-                    macroListTab
-                        .tabItem { Text("Macros") }
-                        .tag(7)
                 }
                 .tabViewStyle(.automatic)
             }
