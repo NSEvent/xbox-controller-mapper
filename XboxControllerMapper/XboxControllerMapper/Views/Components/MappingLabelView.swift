@@ -155,12 +155,15 @@ struct MappingLabelView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let macroId = mapping.macroId,
+        if let systemCommand = mapping.systemCommand {
+            labelRow(text: systemCommand.displayName, icon: "SYS", color: .green, tooltip: nil)
+
+        } else if let macroId = mapping.macroId,
            let profile = profileManager.activeProfile,
            let macro = profile.macros.first(where: { $0.id == macroId }) {
-            
+
             labelRow(text: macro.name, icon: "▶", color: .purple, tooltip: "Macro: \(macro.name)")
-            
+
         } else if !mapping.isEmpty {
             if let hint = mapping.hint, !hint.isEmpty {
                 labelRow(text: hint, icon: nil, color: .primary, tooltip: mapping.displayString)

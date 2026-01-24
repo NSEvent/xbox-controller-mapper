@@ -17,6 +17,9 @@ struct ChordMapping: Codable, Identifiable, Equatable {
     /// Optional ID of a macro to execute instead of key press
     var macroId: UUID?
 
+    /// Optional system command to execute instead of key press
+    var systemCommand: SystemCommand?
+
     /// Optional user-provided description of what this chord does
     var hint: String?
 
@@ -26,6 +29,7 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         keyCode: CGKeyCode? = nil,
         modifiers: ModifierFlags = ModifierFlags(),
         macroId: UUID? = nil,
+        systemCommand: SystemCommand? = nil,
         hint: String? = nil
     ) {
         self.id = id
@@ -33,11 +37,12 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.macroId = macroId
+        self.systemCommand = systemCommand
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, buttons, keyCode, modifiers, macroId, hint
+        case id, buttons, keyCode, modifiers, macroId, systemCommand, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -47,6 +52,7 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
 
@@ -60,6 +66,9 @@ struct ChordMapping: Codable, Identifiable, Equatable {
 
     /// Human-readable description of the mapping action
     var actionDisplayString: String {
+        if let systemCommand = systemCommand {
+            return systemCommand.displayName
+        }
         if macroId != nil {
             return "Macro" // UI should enhance this with actual name if possible
         }

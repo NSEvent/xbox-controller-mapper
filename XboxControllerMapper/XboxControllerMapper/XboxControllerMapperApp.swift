@@ -13,6 +13,7 @@ final class ServiceContainer {
     let mappingEngine: MappingEngine
     let inputMonitor: InputMonitor
     let inputLogService: InputLogService
+    let batteryNotificationManager: BatteryNotificationManager
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -34,6 +35,10 @@ final class ServiceContainer {
             appMonitor: appMonitor,
             inputLogService: inputLogService
         )
+
+        let batteryNotificationManager = BatteryNotificationManager()
+        self.batteryNotificationManager = batteryNotificationManager
+        batteryNotificationManager.startMonitoring(controllerService: controllerService)
 
         // Wire up on-screen keyboard quick texts from profile manager
         setupOnScreenKeyboardObserver(profileManager: profileManager)

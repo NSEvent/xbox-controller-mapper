@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 /// Sheet for configuring a button mapping
 struct ButtonMappingSheet: View {
@@ -48,9 +50,16 @@ struct ButtonMappingSheet: View {
     @State private var mappingType: MappingType = .singleKey
     @State private var selectedMacroId: UUID?
 
+    // System command support
+    @State private var systemCommandCategory: SystemCommandCategory = .app
+    @State private var appBundleIdentifier: String = ""
+    @State private var shellCommandText: String = ""
+    @State private var shellRunInTerminal: Bool = true
+
     enum MappingType: Int {
         case singleKey = 0
         case macro = 1
+        case systemCommand = 2
     }
 
     private var showingAnyKeyboard: Bool {
@@ -71,7 +80,7 @@ struct ButtonMappingSheet: View {
 
     /// Check if the primary action disables advanced features (mouse click or special action)
     private var primaryDisablesAdvancedFeatures: Bool {
-        primaryIsMouseClick || primaryIsOnScreenKeyboard || mappingType == .macro
+        primaryIsMouseClick || primaryIsOnScreenKeyboard || mappingType == .macro || mappingType == .systemCommand
     }
 
     var body: some View {
@@ -174,11 +183,12 @@ struct ButtonMappingSheet: View {
                 Spacer()
                 
                 Picker("", selection: $mappingType) {
-                    Text("Single Key").tag(MappingType.singleKey)
+                    Text("Key").tag(MappingType.singleKey)
                     Text("Macro").tag(MappingType.macro)
+                    Text("System").tag(MappingType.systemCommand)
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 150)
+                .frame(width: 220)
                 .padding(.trailing, 8)
 
                 if mappingType == .singleKey {
@@ -271,7 +281,7 @@ struct ButtonMappingSheet: View {
                         // Repeat section (moved inside Primary Action)
                         repeatContent
                     }
-                } else {
+                } else if mappingType == .macro {
                     // MACRO SELECTION
                     if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
                         Picker("Select Macro", selection: $selectedMacroId) {
@@ -287,7 +297,7 @@ struct ButtonMappingSheet: View {
                             Text("No macros defined in this profile.")
                                 .foregroundColor(.secondary)
                                 .italic()
-                                
+
                             Text("Go to the Macros tab to create a new macro.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -297,6 +307,9 @@ struct ButtonMappingSheet: View {
                         .background(Color.black.opacity(0.05))
                         .cornerRadius(8)
                     }
+                } else {
+                    // SYSTEM COMMAND SELECTION
+                    systemCommandContent
                 }
             }
             .onChange(of: keyCode) { _, newValue in
@@ -359,6 +372,110 @@ struct ButtonMappingSheet: View {
             return "When enabled, the modifier stays pressed while the button is held"
         } else {
             return "When enabled, the key action stays active while the button is held"
+        }
+    }
+
+    // MARK: - System Command Section
+
+    @ViewBuilder
+    private var systemCommandContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Category picker
+            Picker("Category", selection: $systemCommandCategory) {
+                ForEach(SystemCommandCategory.allCases, id: \.self) { category in
+                    Text(category.rawValue).tag(category)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            // Category-specific content
+            switch systemCommandCategory {
+            case .app:
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        TextField("Bundle Identifier (e.g. com.apple.calculator)", text: $appBundleIdentifier)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        Button("Browse...") {
+                            browseForApp()
+                        }
+                    }
+
+                    if !appBundleIdentifier.isEmpty {
+                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appBundleIdentifier) {
+                            HStack(spacing: 6) {
+                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                    .resizable()
+                                    .frame(width: 16, height: 16)
+                                Text(url.deletingPathExtension().lastPathComponent)
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                        } else {
+                            Text("App not found")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                }
+            case .shell:
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    Toggle("Run silently (no terminal window)", isOn: Binding(
+                        get: { !shellRunInTerminal },
+                        set: { shellRunInTerminal = !$0 }
+                    ))
+                        .font(.caption)
+
+                    Text(shellRunInTerminal
+                        ? "Opens a terminal window and executes the command"
+                        : "Runs silently in the background (no visible output)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            // Hint field for system commands
+            HStack {
+                Text("Hint:")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                TextField("e.g. Launch Safari, Say Hello...", text: $hint)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+            }
+        }
+    }
+
+    private func browseForApp() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+
+        if panel.runModal() == .OK, let url = panel.url {
+            if let bundle = Bundle(url: url), let bundleId = bundle.bundleIdentifier {
+                appBundleIdentifier = bundleId
+            }
+        }
+    }
+
+    /// Builds the SystemCommand from current UI state, or nil if invalid
+    private func buildSystemCommand() -> SystemCommand? {
+        switch systemCommandCategory {
+        case .app:
+            guard !appBundleIdentifier.isEmpty else { return nil }
+            return .launchApp(bundleIdentifier: appBundleIdentifier)
+        case .shell:
+            guard !shellCommandText.isEmpty else { return nil }
+            return .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
         }
     }
 
@@ -686,12 +803,19 @@ struct ButtonMappingSheet: View {
         guard let profile = profileManager.activeProfile else { return }
 
         if let existingMapping = profile.buttonMappings[button] {
+            if let systemCommand = existingMapping.systemCommand {
+                mappingType = .systemCommand
+                hint = existingMapping.hint ?? ""
+                loadSystemCommandState(systemCommand)
+                return
+            }
+
             if let macroId = existingMapping.macroId {
                 mappingType = .macro
                 selectedMacroId = macroId
                 return // Stop here for macro
             }
-            
+
             mappingType = .singleKey
             keyCode = existingMapping.keyCode
             modifiers = existingMapping.modifiers
@@ -723,8 +847,11 @@ struct ButtonMappingSheet: View {
 
     private func saveMapping() {
         var newMapping: KeyMapping
-        
-        if mappingType == .macro {
+
+        if mappingType == .systemCommand {
+            guard let command = buildSystemCommand() else { return }
+            newMapping = KeyMapping(systemCommand: command, hint: hint.isEmpty ? nil : hint)
+        } else if mappingType == .macro {
             guard let macroId = selectedMacroId else { return }
             newMapping = KeyMapping(macroId: macroId)
         } else {
@@ -765,6 +892,17 @@ struct ButtonMappingSheet: View {
 
         mapping = newMapping
         dismiss()
+    }
+
+    private func loadSystemCommandState(_ command: SystemCommand) {
+        systemCommandCategory = command.category
+        switch command {
+        case .launchApp(let bundleId):
+            appBundleIdentifier = bundleId
+        case .shellCommand(let cmd, let inTerminal):
+            shellCommandText = cmd
+            shellRunInTerminal = inTerminal
+        }
     }
 
     private func clearMapping() {

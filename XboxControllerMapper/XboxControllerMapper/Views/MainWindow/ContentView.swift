@@ -664,7 +664,12 @@ struct ChordRow: View {
                 .font(.caption2)
                 .foregroundColor(.white.opacity(0.3))
 
-            if let macroId = chord.macroId,
+            if let systemCommand = chord.systemCommand {
+                Text(chord.hint ?? systemCommand.displayName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.green.opacity(0.9))
+                    .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
+            } else if let macroId = chord.macroId,
                let profile = profileManager.activeProfile,
                let macro = profile.macros.first(where: { $0.id == macroId }) {
                 Text("Macro: \(macro.name)")
@@ -771,9 +776,16 @@ struct ChordMappingSheet: View {
     @State private var mappingType: MappingType = .singleKey
     @State private var selectedMacroId: UUID?
 
+    // System command support
+    @State private var systemCommandCategory: SystemCommandCategory = .app
+    @State private var appBundleIdentifier: String = ""
+    @State private var shellCommandText: String = ""
+    @State private var shellRunInTerminal: Bool = true
+
     enum MappingType: Int {
         case singleKey = 0
         case macro = 1
+        case systemCommand = 2
     }
 
     private var isEditing: Bool { editingChord != nil }
@@ -876,11 +888,12 @@ struct ChordMappingSheet: View {
                     Spacer()
                     
                     Picker("", selection: $mappingType) {
-                        Text("Single Key").tag(MappingType.singleKey)
+                        Text("Key").tag(MappingType.singleKey)
                         Text("Macro").tag(MappingType.macro)
+                        Text("System").tag(MappingType.systemCommand)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 150)
+                    .frame(width: 220)
                     .padding(.trailing, 8)
 
                     if mappingType == .singleKey {
@@ -910,7 +923,7 @@ struct ChordMappingSheet: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                } else {
+                } else if mappingType == .macro {
                     // MACRO SELECTION
                     if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
                         Picker("Select Macro", selection: $selectedMacroId) {
@@ -926,7 +939,7 @@ struct ChordMappingSheet: View {
                             Text("No macros defined in this profile.")
                                 .foregroundColor(.secondary)
                                 .italic()
-                                
+
                             Text("Go to the Macros tab to create a new macro.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
@@ -936,6 +949,9 @@ struct ChordMappingSheet: View {
                         .background(Color.black.opacity(0.05))
                         .cornerRadius(8)
                     }
+                } else {
+                    // SYSTEM COMMAND SELECTION
+                    chordSystemCommandContent
                 }
 
                 // Hint field
@@ -959,18 +975,20 @@ struct ChordMappingSheet: View {
 
                 Button(isEditing ? "Save" : "Add") {
                     let hintValue = hint.isEmpty ? nil : hint
-                    
+
                     // Determine values based on type
                     let finalKeyCode = mappingType == .singleKey ? keyCode : nil
                     let finalModifiers = mappingType == .singleKey ? modifiers : ModifierFlags()
                     let finalMacroId = mappingType == .macro ? selectedMacroId : nil
-                    
+                    let finalSystemCommand: SystemCommand? = mappingType == .systemCommand ? buildChordSystemCommand() : nil
+
                     if let existingChord = editingChord {
                         var updatedChord = existingChord
                         updatedChord.buttons = selectedButtons
                         updatedChord.keyCode = finalKeyCode
                         updatedChord.modifiers = finalModifiers
                         updatedChord.macroId = finalMacroId
+                        updatedChord.systemCommand = finalSystemCommand
                         updatedChord.hint = hintValue
                         profileManager.updateChord(updatedChord)
                     } else {
@@ -979,13 +997,14 @@ struct ChordMappingSheet: View {
                             keyCode: finalKeyCode,
                             modifiers: finalModifiers,
                             macroId: finalMacroId,
+                            systemCommand: finalSystemCommand,
                             hint: hintValue
                         )
                         profileManager.addChord(chord)
                     }
                     dismiss()
                 }
-                .disabled(selectedButtons.count < 2 || (mappingType == .singleKey && keyCode == nil && !modifiers.hasAny) || (mappingType == .macro && selectedMacroId == nil))
+                .disabled(selectedButtons.count < 2 || (mappingType == .singleKey && keyCode == nil && !modifiers.hasAny) || (mappingType == .macro && selectedMacroId == nil) || (mappingType == .systemCommand && buildChordSystemCommand() == nil))
                 .buttonStyle(.borderedProminent)
             }
         }
@@ -997,14 +1016,118 @@ struct ChordMappingSheet: View {
                 keyCode = chord.keyCode
                 modifiers = chord.modifiers
                 hint = chord.hint ?? ""
-                
-                if let macroId = chord.macroId {
+
+                if let systemCommand = chord.systemCommand {
+                    mappingType = .systemCommand
+                    loadChordSystemCommandState(systemCommand)
+                } else if let macroId = chord.macroId {
                     mappingType = .macro
                     selectedMacroId = macroId
                 } else {
                     mappingType = .singleKey
                 }
             }
+        }
+    }
+
+    // MARK: - System Command Helpers
+
+    @ViewBuilder
+    private var chordSystemCommandContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("Category", selection: $systemCommandCategory) {
+                ForEach(SystemCommandCategory.allCases, id: \.self) { category in
+                    Text(category.rawValue).tag(category)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            switch systemCommandCategory {
+            case .app:
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        TextField("Bundle Identifier (e.g. com.apple.calculator)", text: $appBundleIdentifier)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        Button("Browse...") {
+                            browseForApp()
+                        }
+                    }
+
+                    if !appBundleIdentifier.isEmpty {
+                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appBundleIdentifier) {
+                            HStack(spacing: 6) {
+                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                    .resizable()
+                                    .frame(width: 16, height: 16)
+                                Text(url.deletingPathExtension().lastPathComponent)
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                        } else {
+                            Text("App not found")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                }
+            case .shell:
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    Toggle("Run silently (no terminal window)", isOn: Binding(
+                        get: { !shellRunInTerminal },
+                        set: { shellRunInTerminal = !$0 }
+                    ))
+                        .font(.caption)
+
+                    Text(shellRunInTerminal
+                        ? "Opens a terminal window and executes the command"
+                        : "Runs silently in the background (no visible output)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    private func browseForApp() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+
+        if panel.runModal() == .OK, let url = panel.url {
+            if let bundle = Bundle(url: url), let bundleId = bundle.bundleIdentifier {
+                appBundleIdentifier = bundleId
+            }
+        }
+    }
+
+    private func buildChordSystemCommand() -> SystemCommand? {
+        switch systemCommandCategory {
+        case .app:
+            guard !appBundleIdentifier.isEmpty else { return nil }
+            return .launchApp(bundleIdentifier: appBundleIdentifier)
+        case .shell:
+            guard !shellCommandText.isEmpty else { return nil }
+            return .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
+        }
+    }
+
+    private func loadChordSystemCommandState(_ command: SystemCommand) {
+        systemCommandCategory = command.category
+        switch command {
+        case .launchApp(let bundleId):
+            appBundleIdentifier = bundleId
+        case .shellCommand(let cmd, let inTerminal):
+            shellCommandText = cmd
+            shellRunInTerminal = inTerminal
         }
     }
 

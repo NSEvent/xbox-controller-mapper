@@ -57,6 +57,9 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
     /// Optional ID of a macro to execute instead of key press
     var macroId: UUID?
 
+    /// Optional system command to execute instead of key press
+    var systemCommand: SystemCommand?
+
     /// Optional user-provided description of what this mapping does
     var hint: String?
 
@@ -68,6 +71,7 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         repeatMapping: RepeatMapping? = nil,
         isHoldModifier: Bool = false,
         macroId: UUID? = nil,
+        systemCommand: SystemCommand? = nil,
         hint: String? = nil
     ) {
         self.keyCode = keyCode
@@ -77,11 +81,12 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         self.repeatMapping = repeatMapping
         self.isHoldModifier = isHoldModifier
         self.macroId = macroId
+        self.systemCommand = systemCommand
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, macroId, hint
+        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, macroId, systemCommand, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -93,6 +98,7 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         repeatMapping = try container.decodeIfPresent(RepeatMapping.self, forKey: .repeatMapping)
         isHoldModifier = try container.decodeIfPresent(Bool.self, forKey: .isHoldModifier) ?? false
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
 
@@ -113,6 +119,9 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
 
     /// Human-readable description of the mapping (overrides protocol to add hold indicator)
     var displayString: String {
+        if let systemCommand = systemCommand {
+            return systemCommand.displayName
+        }
         if macroId != nil {
             return "Macro"
         }
@@ -140,7 +149,7 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
     
     /// Whether this binding has any action
     var isEmpty: Bool {
-        return keyCode == nil && !modifiers.hasAny && macroId == nil
+        return keyCode == nil && !modifiers.hasAny && macroId == nil && systemCommand == nil
     }
 
     /// Compact description including alternate mappings (for UI)

@@ -9,15 +9,23 @@ private struct MappingExecutor {
     private let inputSimulator: InputSimulatorProtocol
     private let inputQueue: DispatchQueue
     private let inputLogService: InputLogService?
+    let systemCommandExecutor: SystemCommandExecutor
 
-    init(inputSimulator: InputSimulatorProtocol, inputQueue: DispatchQueue, inputLogService: InputLogService?) {
+    init(inputSimulator: InputSimulatorProtocol, inputQueue: DispatchQueue, inputLogService: InputLogService?, profileManager: ProfileManager) {
         self.inputSimulator = inputSimulator
         self.inputQueue = inputQueue
         self.inputLogService = inputLogService
+        self.systemCommandExecutor = SystemCommandExecutor(profileManager: profileManager)
     }
 
     /// Executes a simple key mapping
     func executeMapping(_ mapping: KeyMapping, for button: ControllerButton, profile: Profile?, logType: InputEventType = .singlePress) {
+        if let systemCommand = mapping.systemCommand {
+            systemCommandExecutor.execute(systemCommand)
+            inputLogService?.log(buttons: [button], type: logType, action: systemCommand.displayName)
+            return
+        }
+
         if let macroId = mapping.macroId, let profile = profile,
            let macro = profile.macros.first(where: { $0.id == macroId }) {
             inputSimulator.executeMacro(macro)
@@ -241,7 +249,7 @@ class MappingEngine: ObservableObject {
         self.appMonitor = appMonitor
         self.inputSimulator = inputSimulator
         self.inputLogService = inputLogService
-        self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService)
+        self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService, profileManager: profileManager)
 
         // Set up on-screen keyboard manager with our input simulator
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
@@ -881,8 +889,10 @@ class MappingEngine: ObservableObject {
 
         if let chord = matchingChord {
             inputLogService?.log(buttons: Array(buttons), type: .chord, action: chord.actionDisplayString)
-            
-            if let macroId = chord.macroId, let macro = profile.macros.first(where: { $0.id == macroId }) {
+
+            if let systemCommand = chord.systemCommand {
+                mappingExecutor.systemCommandExecutor.execute(systemCommand)
+            } else if let macroId = chord.macroId, let macro = profile.macros.first(where: { $0.id == macroId }) {
                 inputSimulator.executeMacro(macro)
             } else if let keyCode = chord.keyCode {
                 inputSimulator.pressKey(keyCode, modifiers: chord.modifiers.cgEventFlags)
