@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Third-Party Controller Support**: Fallback for controllers not recognized by GameController framework
+  - IOKit HID + SDL gamecontrollerdb.txt maps raw inputs to Xbox-standard layout
+  - ~313 macOS controllers supported (8BitDo, Logitech, PowerA, Hori, etc.)
+  - 1-second fallback timer gives GameController framework priority
+  - Bundled database with manual refresh from GitHub in Settings
+  - No manual configuration needed; detected controllers use Xbox button labels
 - **Macros System**: Full macro recording and playback with multi-step sequences
   - Macro steps: Key Press, Type Text, Delay, Paste
   - Type Text supports configurable speed settings

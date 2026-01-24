@@ -218,3 +218,14 @@ try container.encodeIfPresent(newField, forKey: .newField)
 - Never use strict `decode()` unless the field is truly required for identity (like `Profile.id`)
 - Add the new case to the `CodingKeys` enum
 - Add the new field to the memberwise `init()`
+
+---
+
+## Architecture Reference
+
+See `ARCHITECTURE.md` in the project root for detailed technical documentation including:
+- Controller input pipeline (GameController vs IOKit HID vs Generic HID fallback)
+- Generic HID controller fallback system (SDL gamecontrollerdb.txt integration)
+- Service layer overview
+- Threading model
+- Project structure

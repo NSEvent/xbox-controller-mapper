@@ -2000,6 +2000,9 @@ struct SettingsSheet: View {
 
     @AppStorage("launchAtLogin") private var launchAtLogin = false
 
+    @State private var isRefreshingDatabase = false
+    @State private var databaseStatus: String?
+
     var body: some View {
         VStack(spacing: 20) {
             Text("Settings")
@@ -2007,6 +2010,34 @@ struct SettingsSheet: View {
 
             Form {
                 Toggle("Launch at Login", isOn: $launchAtLogin)
+
+                Section {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Controller Database")
+                                .font(.body)
+                            Text("Maps generic controllers to Xbox layout")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if isRefreshingDatabase {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Button("Refresh") {
+                                refreshDatabase()
+                            }
+                        }
+                    }
+                    if let status = databaseStatus {
+                        Text(status)
+                            .font(.caption)
+                            .foregroundStyle(status.contains("Error") ? .red : .secondary)
+                    }
+                } header: {
+                    Text("Third-Party Controllers")
+                }
             }
             .formStyle(.grouped)
 
@@ -2019,7 +2050,21 @@ struct SettingsSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 350, height: 200)
+        .frame(width: 350, height: 280)
+    }
+
+    private func refreshDatabase() {
+        isRefreshingDatabase = true
+        databaseStatus = nil
+        Task {
+            do {
+                let count = try await GameControllerDatabase.shared.refreshFromGitHub()
+                databaseStatus = "Updated: \(count) controller mappings loaded"
+            } catch {
+                databaseStatus = "Error: \(error.localizedDescription)"
+            }
+            isRefreshingDatabase = false
+        }
     }
 }
 

@@ -125,6 +125,17 @@ This document lists all features for verification after refactoring.
 - [ ] Green color when charging
 - [ ] Low battery notifications
 
+## Third-Party Controller Support
+
+- [ ] IOKit HID fallback for controllers not recognized by GameController framework
+- [ ] SDL gamecontrollerdb.txt parsing (~313 macOS controller mappings)
+- [ ] GUID construction from vendor/product/version/transport
+- [ ] 1-second fallback timer (GameController framework gets priority)
+- [ ] Automatic button/axis/hat translation to Xbox-standard layout
+- [ ] Bundled database with manual refresh from GitHub
+- [ ] Database refresh UI in Settings (Third-Party Controllers section)
+- [ ] Version fallback lookup (exact version, then version 0)
+
 ## UI / UX
 
 - [ ] Modern dark glass aesthetic
@@ -145,6 +156,7 @@ This document lists all features for verification after refactoring.
 - [ ] CGEvent-based input simulation
 - [ ] GameController framework for Xbox controllers
 - [ ] IOKit HID for DualSense
+- [ ] IOKit HID for generic third-party controllers (SDL database-driven)
 - [ ] CoreHaptics integration
 - [ ] Thread-safe controller state (NSLock)
 - [ ] Dedicated dispatch queues for keyboard/mouse/controller events
