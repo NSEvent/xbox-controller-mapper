@@ -59,6 +59,9 @@ struct ButtonMappingSheet: View {
     @State private var showingPrimaryAppPicker = false
     @State private var showingLongHoldAppPicker = false
     @State private var showingDoubleTapAppPicker = false
+    @State private var showingPrimaryBookmarkPicker = false
+    @State private var showingLongHoldBookmarkPicker = false
+    @State private var showingDoubleTapBookmarkPicker = false
 
     // Long hold type support
     @State private var longHoldMappingType: MappingType = .singleKey
@@ -442,9 +445,23 @@ struct ButtonMappingSheet: View {
                         }
                     }
             case .link:
-                TextField("URL (e.g. https://google.com)", text: $linkURL)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.subheadline)
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("URL (e.g. https://google.com)", text: $linkURL)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    Button {
+                        showingPrimaryBookmarkPicker = true
+                    } label: {
+                        Label("Browse Bookmarks", systemImage: "book")
+                            .font(.subheadline)
+                    }
+                    .sheet(isPresented: $showingPrimaryBookmarkPicker) {
+                        BookmarkPickerSheet { url in
+                            linkURL = url
+                        }
+                    }
+                }
             }
 
             // Hint field for system commands
@@ -468,7 +485,8 @@ struct ButtonMappingSheet: View {
         inTerminal: Binding<Bool>,
         bundleId: Binding<String>,
         linkURL: Binding<String>,
-        showingAppPicker: Binding<Bool>
+        showingAppPicker: Binding<Bool>,
+        showingBookmarkPicker: Binding<Bool>
     ) -> some View {
         switch category {
         case .shell:
@@ -496,6 +514,17 @@ struct ButtonMappingSheet: View {
             TextField("URL (e.g. https://google.com)", text: linkURL)
                 .textFieldStyle(.roundedBorder)
                 .font(.subheadline)
+            Button {
+                showingBookmarkPicker.wrappedValue = true
+            } label: {
+                Label("Browse Bookmarks", systemImage: "book")
+                    .font(.subheadline)
+            }
+            .sheet(isPresented: showingBookmarkPicker) {
+                BookmarkPickerSheet { url in
+                    linkURL.wrappedValue = url
+                }
+            }
         }
     }
 
@@ -699,7 +728,8 @@ struct ButtonMappingSheet: View {
                 inTerminal: $longHoldShellRunInTerminal,
                 bundleId: $longHoldAppBundleIdentifier,
                 linkURL: $longHoldLinkURL,
-                showingAppPicker: $showingLongHoldAppPicker
+                showingAppPicker: $showingLongHoldAppPicker,
+                showingBookmarkPicker: $showingLongHoldBookmarkPicker
             )
         }
     }
@@ -856,7 +886,8 @@ struct ButtonMappingSheet: View {
                 inTerminal: $doubleTapShellRunInTerminal,
                 bundleId: $doubleTapAppBundleIdentifier,
                 linkURL: $doubleTapLinkURL,
-                showingAppPicker: $showingDoubleTapAppPicker
+                showingAppPicker: $showingDoubleTapAppPicker,
+                showingBookmarkPicker: $showingDoubleTapBookmarkPicker
             )
         }
     }

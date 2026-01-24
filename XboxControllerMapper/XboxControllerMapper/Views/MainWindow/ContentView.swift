@@ -798,6 +798,7 @@ struct ChordMappingSheet: View {
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
     @State private var showingAppPicker = false
+    @State private var showingBookmarkPicker = false
 
     enum MappingType: Int {
         case singleKey = 0
@@ -1097,6 +1098,18 @@ struct ChordMappingSheet: View {
                     TextField("URL (e.g. https://google.com)", text: $linkURL)
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
+
+                    Button {
+                        showingBookmarkPicker = true
+                    } label: {
+                        Label("Browse Bookmarks", systemImage: "book")
+                            .font(.subheadline)
+                    }
+                    .sheet(isPresented: $showingBookmarkPicker) {
+                        BookmarkPickerSheet { url in
+                            linkURL = url
+                        }
+                    }
 
                     Text("Opens the URL in your default browser")
                         .font(.caption)

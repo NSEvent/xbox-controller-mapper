@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 /// A reusable sequence of input actions
 struct Macro: Codable, Identifiable, Equatable {
@@ -17,15 +18,21 @@ struct Macro: Codable, Identifiable, Equatable {
 enum MacroStep: Codable, Equatable {
     /// Press and release a key combination
     case press(KeyMapping)
-    
+
     /// Hold a key combination (must be paired with release or used for duration)
     case hold(KeyMapping, duration: TimeInterval)
-    
+
     /// Wait for a specified duration
     case delay(TimeInterval)
-    
+
     /// Type a string of text with specified speed (CPM). 0 = Instant Paste.
     case typeText(String, speed: Int)
+
+    /// Open an application, optionally in a new window
+    case openApp(bundleIdentifier: String, newWindow: Bool)
+
+    /// Open a URL in the default browser
+    case openLink(url: String)
     
     // Custom decoding/encoding to handle enum associated values
     private enum CodingKeys: String, CodingKey {
@@ -33,7 +40,7 @@ enum MacroStep: Codable, Equatable {
     }
     
     private enum StepType: String, Codable {
-        case press, hold, delay, typeText
+        case press, hold, delay, typeText, openApp, openLink
     }
     
     init(from decoder: Decoder) throws {
@@ -58,6 +65,12 @@ enum MacroStep: Codable, Equatable {
                 let text = try container.decode(String.self, forKey: .payload)
                 self = .typeText(text, speed: 0) // Default to paste/instant
             }
+        case .openApp:
+            let data = try container.decode(OpenAppPayload.self, forKey: .payload)
+            self = .openApp(bundleIdentifier: data.bundleIdentifier, newWindow: data.newWindow)
+        case .openLink:
+            let url = try container.decode(String.self, forKey: .payload)
+            self = .openLink(url: url)
         }
     }
     
@@ -77,6 +90,12 @@ enum MacroStep: Codable, Equatable {
         case .typeText(let text, let speed):
             try container.encode(StepType.typeText, forKey: .type)
             try container.encode(TypeTextPayload(text: text, speed: speed), forKey: .payload)
+        case .openApp(let bundleIdentifier, let newWindow):
+            try container.encode(StepType.openApp, forKey: .type)
+            try container.encode(OpenAppPayload(bundleIdentifier: bundleIdentifier, newWindow: newWindow), forKey: .payload)
+        case .openLink(let url):
+            try container.encode(StepType.openLink, forKey: .type)
+            try container.encode(url, forKey: .payload)
         }
     }
     
@@ -88,6 +107,11 @@ enum MacroStep: Codable, Equatable {
     private struct TypeTextPayload: Codable {
         let text: String
         let speed: Int
+    }
+
+    private struct OpenAppPayload: Codable {
+        let bundleIdentifier: String
+        let newWindow: Bool
     }
 }
 
@@ -103,6 +127,17 @@ extension MacroStep {
         case .typeText(let text, let speed):
             let speedText = speed == 0 ? "Paste" : "\(speed) CPM"
             return "Type: \"\(text)\" (\(speedText))"
+        case .openApp(let bundleIdentifier, let newWindow):
+            let appName: String
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+                appName = url.deletingPathExtension().lastPathComponent
+            } else {
+                appName = bundleIdentifier
+            }
+            return newWindow ? "Open: \(appName) (New Window)" : "Open: \(appName)"
+        case .openLink(let url):
+            let display = url.count > 35 ? String(url.prefix(35)) + "..." : url
+            return "Open: \(display)"
         }
     }
 }

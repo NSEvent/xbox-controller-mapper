@@ -732,15 +732,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 switch step {
                 case .press(let mapping):
                     self.pressKeyMapping(mapping)
-                    
+
                 case .hold(let mapping, let duration):
                     self.holdKeyMapping(mapping, duration: duration)
-                    
+
                 case .delay(let duration):
                     usleep(useconds_t(duration * 1_000_000))
-                    
+
                 case .typeText(let text, let speed):
                     self.typeString(text, speed: speed)
+
+                case .openApp(let bundleIdentifier, let newWindow):
+                    self.openApplication(bundleIdentifier: bundleIdentifier, newWindow: newWindow)
+
+                case .openLink(let url):
+                    self.openURL(url)
                 }
             }
         }
@@ -813,19 +819,67 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             let pasteboard = NSPasteboard.general
             // We can't reliably copy old items without potentially blocking or issues, so we skip restoring for now
             // Or we could try to just clear and set.
-            
+
             // 2. Set new text
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
         }
-        
+
         // Wait briefly for clipboard update
         usleep(50000) // 50ms
-        
+
         // 3. Cmd+V
         pressKey(CGKeyCode(kVK_ANSI_V), modifiers: .maskCommand)
-        
+
         // 4. Restore clipboard - skipped for stability
+    }
+
+    private func openApplication(bundleIdentifier: String, newWindow: Bool) {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+            NSLog("[Macro] App not found: \(bundleIdentifier)")
+            return
+        }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let config = NSWorkspace.OpenConfiguration()
+
+        DispatchQueue.main.async {
+            NSWorkspace.shared.openApplication(at: appURL, configuration: config) { _, error in
+                if let error = error {
+                    NSLog("[Macro] Failed to open app: \(error.localizedDescription)")
+                }
+                semaphore.signal()
+            }
+        }
+
+        _ = semaphore.wait(timeout: .now() + 3.0)
+
+        if newWindow {
+            // Wait for app to be ready, then send Cmd+N
+            usleep(300_000)
+            pressKey(CGKeyCode(kVK_ANSI_N), modifiers: .maskCommand)
+        }
+    }
+
+    private func openURL(_ urlString: String) {
+        var resolved = urlString
+        if !resolved.contains("://") {
+            resolved = "https://" + resolved
+        }
+        guard let url = URL(string: resolved) else {
+            NSLog("[Macro] Invalid URL: \(urlString)")
+            return
+        }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async {
+            NSWorkspace.shared.open(url)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 2.0)
+
+        // Small delay to let the browser handle the URL
+        usleep(200_000)
     }
 }
 

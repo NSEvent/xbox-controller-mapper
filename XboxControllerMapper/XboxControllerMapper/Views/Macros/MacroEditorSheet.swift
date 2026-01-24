@@ -84,6 +84,20 @@ struct MacroEditorSheet: View {
                     } label: {
                         Label("Delay", systemImage: "timer")
                     }
+
+                    Divider()
+
+                    Button {
+                        addStep(.openApp(bundleIdentifier: "", newWindow: false))
+                    } label: {
+                        Label("Open App", systemImage: "app.fill")
+                    }
+
+                    Button {
+                        addStep(.openLink(url: ""))
+                    } label: {
+                        Label("Open Link", systemImage: "link")
+                    }
                 } label: {
                     Label("Add Step", systemImage: "plus")
                         .frame(maxWidth: .infinity)
@@ -184,6 +198,12 @@ struct MacroStepRow: View {
         case .typeText:
             Image(systemName: "textformat")
                 .foregroundColor(.purple)
+        case .openApp:
+            Image(systemName: "app.fill")
+                .foregroundColor(.green)
+        case .openLink:
+            Image(systemName: "link")
+                .foregroundColor(.teal)
         }
     }
 }
@@ -198,7 +218,12 @@ struct StepEditorSheet: View {
     @State private var duration: TimeInterval = 0.5
     @State private var text: String = ""
     @State private var speed: Int = 0 // 0 = Paste
-    
+    @State private var appBundleIdentifier: String = ""
+    @State private var openNewWindow: Bool = false
+    @State private var linkURL: String = ""
+    @State private var showingAppPicker = false
+    @State private var showingBookmarkPicker = false
+
     @State private var showingKeyboard = false
     
     // To track type changes
@@ -209,6 +234,8 @@ struct StepEditorSheet: View {
         case hold = "Hold Key"
         case typeText = "Type Text"
         case delay = "Delay"
+        case openApp = "Open App"
+        case openLink = "Open Link"
         var id: String { rawValue }
     }
     
@@ -233,6 +260,13 @@ struct StepEditorSheet: View {
             _selectedType = State(initialValue: .typeText)
             _text = State(initialValue: txt)
             _speed = State(initialValue: spd)
+        case .openApp(let bundleId, let newWindow):
+            _selectedType = State(initialValue: .openApp)
+            _appBundleIdentifier = State(initialValue: bundleId)
+            _openNewWindow = State(initialValue: newWindow)
+        case .openLink(let url):
+            _selectedType = State(initialValue: .openLink)
+            _linkURL = State(initialValue: url)
         }
     }
     
@@ -242,12 +276,12 @@ struct StepEditorSheet: View {
                 .font(.headline)
                 .padding(.top, 20)
             
-            Picker("Type", selection: $selectedType) {
+            Picker("Step Type", selection: $selectedType) {
                 ForEach(StepType.allCases) { type in
                     Text(type.rawValue).tag(type)
                 }
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
             .padding(.horizontal)
             
             Form {
@@ -307,13 +341,45 @@ struct StepEditorSheet: View {
                         TextField("Enter text...", text: $text)
                             .textFieldStyle(.roundedBorder)
                     }
-                    
+
                     Section("Typing Speed") {
                         Picker("Speed", selection: $speed) {
                             Text("Instant (Paste)").tag(0)
                             Text("Fast (1200 CPM)").tag(1200)
                             Text("Natural (600 CPM)").tag(600)
                             Text("Slow (300 CPM)").tag(300)
+                        }
+                    }
+
+                case .openApp:
+                    Section("Application") {
+                        AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingAppPicker)
+                            .sheet(isPresented: $showingAppPicker) {
+                                SystemActionAppPickerSheet(
+                                    currentBundleIdentifier: appBundleIdentifier.isEmpty ? nil : appBundleIdentifier
+                                ) { app in
+                                    appBundleIdentifier = app.bundleIdentifier
+                                }
+                            }
+                    }
+                    Section {
+                        Toggle("Open in new window (Cmd+N)", isOn: $openNewWindow)
+                    }
+
+                case .openLink:
+                    Section("URL") {
+                        TextField("https://example.com", text: $linkURL)
+                            .textFieldStyle(.roundedBorder)
+
+                        Button {
+                            showingBookmarkPicker = true
+                        } label: {
+                            Label("Browse Bookmarks", systemImage: "book")
+                        }
+                        .sheet(isPresented: $showingBookmarkPicker) {
+                            BookmarkPickerSheet { url in
+                                linkURL = url
+                            }
                         }
                     }
                 }
@@ -345,6 +411,10 @@ struct StepEditorSheet: View {
             step = .delay(duration)
         case .typeText:
             step = .typeText(text, speed: speed)
+        case .openApp:
+            step = .openApp(bundleIdentifier: appBundleIdentifier, newWindow: openNewWindow)
+        case .openLink:
+            step = .openLink(url: linkURL)
         }
     }
 }
