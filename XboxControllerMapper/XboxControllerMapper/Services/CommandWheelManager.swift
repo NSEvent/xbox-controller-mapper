@@ -225,16 +225,14 @@ class CommandWheelManager: ObservableObject {
                 forceQuitProgress = 0
                 forceQuitHapticFired = false
             }
-            // Update force quit progress (only for apps)
-            if case .app = items[index].kind, let startTime = fullRangeStartTime {
+            // Update long-hold progress (force quit for apps, incognito for websites)
+            if let startTime = fullRangeStartTime {
                 let elapsed = CFAbsoluteTimeGetCurrent() - startTime
                 forceQuitProgress = min(1.0, CGFloat(elapsed / forceQuitDuration))
                 if forceQuitProgress >= 1.0 && !forceQuitHapticFired {
                     forceQuitHapticFired = true
                     onForceQuitReady?()
                 }
-            } else {
-                forceQuitProgress = 0
             }
         } else {
             // Not at full range - reset force quit tracking
@@ -263,9 +261,14 @@ class CommandWheelManager: ObservableObject {
         guard let index = effectiveSelection, index < items.count else { return }
         let item = items[index]
 
-        // Check for force quit (apps only, progress must be complete)
-        if case .app(let bundleIdentifier) = item.kind, forceQuitProgress >= 1.0 {
-            forceQuitApp(bundleIdentifier: bundleIdentifier)
+        // Check for long-hold actions (progress must be complete)
+        if forceQuitProgress >= 1.0 {
+            switch item.kind {
+            case .app(let bundleIdentifier):
+                forceQuitApp(bundleIdentifier: bundleIdentifier)
+            case .website(let url, _):
+                openWebsiteIncognito(url: url)
+            }
             return
         }
 
@@ -411,5 +414,57 @@ class CommandWheelManager: ObservableObject {
         }
         guard let url = URL(string: urlStr) else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    private func openWebsiteIncognito(url urlString: String) {
+        var urlStr = urlString
+        if !urlStr.contains("://") {
+            urlStr = "https://\(urlStr)"
+        }
+
+        // Determine the default browser
+        let defaultBrowser = LSCopyDefaultHandlerForURLScheme("https" as CFString)?.takeRetainedValue() as String? ?? ""
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+
+        switch defaultBrowser {
+        case let id where id.contains("com.google.Chrome"):
+            process.arguments = ["-na", "Google Chrome", "--args", "--incognito", urlStr]
+        case let id where id.contains("com.brave.Browser"):
+            process.arguments = ["-na", "Brave Browser", "--args", "--incognito", urlStr]
+        case let id where id.contains("com.microsoft.edgemac"):
+            process.arguments = ["-na", "Microsoft Edge", "--args", "--inprivate", urlStr]
+        case let id where id.contains("company.thebrowser.Browser"):
+            process.arguments = ["-na", "Arc", "--args", "--incognito", urlStr]
+        case let id where id.contains("com.vivaldi.Vivaldi"):
+            process.arguments = ["-na", "Vivaldi", "--args", "--incognito", urlStr]
+        case let id where id.contains("org.mozilla.firefox"):
+            process.arguments = ["-na", "Firefox", "--args", "--private-window", urlStr]
+        case let id where id.contains("com.apple.Safari"):
+            // Safari: use AppleScript to open a private window
+            let script = """
+            tell application "Safari"
+                activate
+                delay 0.3
+                tell application "System Events" to keystroke "n" using {command down, shift down}
+                delay 0.5
+                set URL of current tab of front window to "\(urlStr)"
+            end tell
+            """
+            let appleScript = Process()
+            appleScript.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            appleScript.arguments = ["-e", script]
+            try? appleScript.run()
+            return
+        default:
+            // Fallback: just open normally if browser is unknown
+            if let url = URL(string: urlStr) {
+                NSWorkspace.shared.open(url)
+            }
+            return
+        }
+
+        try? process.run()
     }
 }

@@ -80,10 +80,12 @@ struct CommandWheelView: View {
         // Radial text for perimeter
         let perimeterText: String? = {
             guard isAtFullRange else { return nil }
-            if case .app = item.kind {
+            switch item.kind {
+            case .app:
                 return forceQuitProgress >= 1.0 ? "Force Quit" : "New Window"
+            case .website:
+                return forceQuitProgress >= 1.0 ? "Incognito" : "New Window"
             }
-            return nil
         }()
 
         // Text rotation: bottom of text faces center

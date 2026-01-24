@@ -869,7 +869,7 @@ struct OnScreenKeyboardSettingsView: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Alternate Modifier")
-                    Text("Hold this key to show \(profileManager.onScreenKeyboardSettings.wheelShowsWebsites ? "apps" : "websites") instead.")
+                    Text("Hold this key to show \(profileManager.onScreenKeyboardSettings.wheelShowsWebsites ? "apps" : "websites") instead on the command wheel.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
