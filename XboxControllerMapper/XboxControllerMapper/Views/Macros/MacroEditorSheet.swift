@@ -68,9 +68,9 @@ struct MacroEditorSheet: View {
                     }
                     
                     Button {
-                        addStep(.delay(0.5))
+                        addStep(.hold(KeyMapping(), duration: 1.0))
                     } label: {
-                        Label("Delay", systemImage: "timer")
+                        Label("Hold Key", systemImage: "hand.tap")
                     }
                     
                     Button {
@@ -80,9 +80,9 @@ struct MacroEditorSheet: View {
                     }
                     
                     Button {
-                        addStep(.hold(KeyMapping(), duration: 1.0))
+                        addStep(.delay(0.5))
                     } label: {
-                        Label("Hold Key", systemImage: "hand.tap")
+                        Label("Delay", systemImage: "timer")
                     }
                 } label: {
                     Label("Add Step", systemImage: "plus")
@@ -207,8 +207,8 @@ struct StepEditorSheet: View {
     enum StepType: String, CaseIterable, Identifiable {
         case press = "Key Press"
         case hold = "Hold Key"
-        case delay = "Delay"
         case typeText = "Type Text"
+        case delay = "Delay"
         var id: String { rawValue }
     }
     
