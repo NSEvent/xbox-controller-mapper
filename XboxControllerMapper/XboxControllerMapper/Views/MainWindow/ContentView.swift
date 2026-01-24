@@ -219,34 +219,31 @@ struct ContentView: View {
                         .foregroundColor(.secondary)
                         .padding(.horizontal)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(profile.chordMappings) { chord in
-                                HStack(spacing: 10) {
-                                    HStack(spacing: 2) {
-                                        ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-                                            ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsDualSense)
-                                        }
-                                    }
-                                    
-                                    Image(systemName: "arrow.right")
-                                        .font(.caption2)
-                                        .foregroundColor(.white.opacity(0.3))
-
-                                    Text(chord.hint ?? chord.actionDisplayString)
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.white)
-                                        .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
+                    FlowLayout(data: profile.chordMappings, spacing: 10) { chord in
+                        HStack(spacing: 10) {
+                            HStack(spacing: 2) {
+                                ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
+                                    ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsDualSense)
                                 }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(GlassCardBackground())
                             }
+
+                            Image(systemName: "arrow.right")
+                                .font(.caption2)
+                                .foregroundColor(.white.opacity(0.3))
+
+                            Text(chord.hint ?? chord.actionDisplayString)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                                .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
                         }
-                        .padding(.horizontal)
-                        .padding(.bottom, 16)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(GlassCardBackground())
                     }
+                    .padding(.horizontal)
+                    .padding(.bottom, 16)
                 }
                 .padding(.top, 12)
             }
