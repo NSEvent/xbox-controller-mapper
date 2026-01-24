@@ -183,17 +183,21 @@ struct LongHoldMapping: Codable, Equatable, KeyBindingRepresentable {
     var keyCode: CGKeyCode?
     var modifiers: ModifierFlags
     var threshold: TimeInterval
+    var macroId: UUID?
+    var systemCommand: SystemCommand?
     var hint: String?
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, hint: String? = nil) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, macroId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = threshold
+        self.macroId = macroId
+        self.systemCommand = systemCommand
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, threshold, hint
+        case keyCode, modifiers, threshold, macroId, systemCommand, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -201,7 +205,33 @@ struct LongHoldMapping: Codable, Equatable, KeyBindingRepresentable {
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
         threshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? 0.5
+        macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
+    }
+
+    var displayString: String {
+        if let systemCommand = systemCommand {
+            return systemCommand.displayName
+        }
+        if macroId != nil {
+            return "Macro"
+        }
+        var parts: [String] = []
+        if modifiers.command { parts.append("⌘") }
+        if modifiers.option { parts.append("⌥") }
+        if modifiers.shift { parts.append("⇧") }
+        if modifiers.control { parts.append("⌃") }
+        if let keyCode = keyCode {
+            parts.append(KeyCodeMapping.displayName(for: keyCode))
+        } else if parts.isEmpty {
+            return "None"
+        }
+        return parts.joined(separator: " + ")
+    }
+
+    var isEmpty: Bool {
+        keyCode == nil && !modifiers.hasAny && macroId == nil && systemCommand == nil
     }
 }
 
@@ -211,17 +241,21 @@ struct DoubleTapMapping: Codable, Equatable, KeyBindingRepresentable {
     var modifiers: ModifierFlags
     /// Time window within which two taps must occur to count as double-tap (default 0.3s)
     var threshold: TimeInterval
+    var macroId: UUID?
+    var systemCommand: SystemCommand?
     var hint: String?
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, hint: String? = nil) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, macroId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = threshold
+        self.macroId = macroId
+        self.systemCommand = systemCommand
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, threshold, hint
+        case keyCode, modifiers, threshold, macroId, systemCommand, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -229,7 +263,33 @@ struct DoubleTapMapping: Codable, Equatable, KeyBindingRepresentable {
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
         threshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? 0.3
+        macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
+    }
+
+    var displayString: String {
+        if let systemCommand = systemCommand {
+            return systemCommand.displayName
+        }
+        if macroId != nil {
+            return "Macro"
+        }
+        var parts: [String] = []
+        if modifiers.command { parts.append("⌘") }
+        if modifiers.option { parts.append("⌥") }
+        if modifiers.shift { parts.append("⇧") }
+        if modifiers.control { parts.append("⌃") }
+        if let keyCode = keyCode {
+            parts.append(KeyCodeMapping.displayName(for: keyCode))
+        } else if parts.isEmpty {
+            return "None"
+        }
+        return parts.joined(separator: " + ")
+    }
+
+    var isEmpty: Bool {
+        keyCode == nil && !modifiers.hasAny && macroId == nil && systemCommand == nil
     }
 }
 

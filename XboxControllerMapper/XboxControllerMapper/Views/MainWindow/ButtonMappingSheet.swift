@@ -56,6 +56,22 @@ struct ButtonMappingSheet: View {
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
 
+    // Long hold type support
+    @State private var longHoldMappingType: MappingType = .singleKey
+    @State private var longHoldMacroId: UUID?
+    @State private var longHoldSystemCommandCategory: SystemCommandCategory = .app
+    @State private var longHoldAppBundleIdentifier: String = ""
+    @State private var longHoldShellCommandText: String = ""
+    @State private var longHoldShellRunInTerminal: Bool = true
+
+    // Double tap type support
+    @State private var doubleTapMappingType: MappingType = .singleKey
+    @State private var doubleTapMacroId: UUID?
+    @State private var doubleTapSystemCommandCategory: SystemCommandCategory = .app
+    @State private var doubleTapAppBundleIdentifier: String = ""
+    @State private var doubleTapShellCommandText: String = ""
+    @State private var doubleTapShellRunInTerminal: Bool = true
+
     enum MappingType: Int {
         case singleKey = 0
         case macro = 1
@@ -80,7 +96,7 @@ struct ButtonMappingSheet: View {
 
     /// Check if the primary action disables advanced features (mouse click or special action)
     private var primaryDisablesAdvancedFeatures: Bool {
-        primaryIsMouseClick || primaryIsOnScreenKeyboard || mappingType == .macro || mappingType == .systemCommand
+        primaryIsMouseClick || primaryIsOnScreenKeyboard
     }
 
     var body: some View {
@@ -94,11 +110,8 @@ struct ButtonMappingSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     primaryMappingSection
-                    
-                    if mappingType == .singleKey {
-                        longHoldSection
-                        doubleTapSection
-                    }
+                    longHoldSection
+                    doubleTapSection
                 }
                 .padding(20)
             }
@@ -397,26 +410,11 @@ struct ButtonMappingSheet: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.subheadline)
 
-                        Button("Browse...") {
-                            browseForApp()
-                        }
+                        Button("Browse...") { browseForApp(target: .primary) }
                     }
 
                     if !appBundleIdentifier.isEmpty {
-                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appBundleIdentifier) {
-                            HStack(spacing: 6) {
-                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                    .resizable()
-                                    .frame(width: 16, height: 16)
-                                Text(url.deletingPathExtension().lastPathComponent)
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                            }
-                        } else {
-                            Text("App not found")
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
+                        appPreviewRow(for: appBundleIdentifier)
                     }
                 }
             case .shell:
@@ -452,7 +450,11 @@ struct ButtonMappingSheet: View {
         }
     }
 
-    private func browseForApp() {
+    private enum BrowseTarget {
+        case primary, longHold, doubleTap
+    }
+
+    private func browseForApp(target: BrowseTarget = .primary) {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
@@ -462,8 +464,33 @@ struct ButtonMappingSheet: View {
 
         if panel.runModal() == .OK, let url = panel.url {
             if let bundle = Bundle(url: url), let bundleId = bundle.bundleIdentifier {
-                appBundleIdentifier = bundleId
+                switch target {
+                case .primary:
+                    appBundleIdentifier = bundleId
+                case .longHold:
+                    longHoldAppBundleIdentifier = bundleId
+                case .doubleTap:
+                    doubleTapAppBundleIdentifier = bundleId
+                }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func appPreviewRow(for bundleId: String) -> some View {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            HStack(spacing: 6) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                    .resizable()
+                    .frame(width: 16, height: 16)
+                Text(url.deletingPathExtension().lastPathComponent)
+                    .font(.caption)
+                    .foregroundColor(.green)
+            }
+        } else {
+            Text("App not found")
+                .font(.caption)
+                .foregroundColor(.red)
         }
     }
 
@@ -479,11 +506,33 @@ struct ButtonMappingSheet: View {
         }
     }
 
+    private func buildLongHoldSystemCommand() -> SystemCommand? {
+        switch longHoldSystemCommandCategory {
+        case .app:
+            guard !longHoldAppBundleIdentifier.isEmpty else { return nil }
+            return .launchApp(bundleIdentifier: longHoldAppBundleIdentifier)
+        case .shell:
+            guard !longHoldShellCommandText.isEmpty else { return nil }
+            return .shellCommand(command: longHoldShellCommandText, inTerminal: longHoldShellRunInTerminal)
+        }
+    }
+
+    private func buildDoubleTapSystemCommand() -> SystemCommand? {
+        switch doubleTapSystemCommandCategory {
+        case .app:
+            guard !doubleTapAppBundleIdentifier.isEmpty else { return nil }
+            return .launchApp(bundleIdentifier: doubleTapAppBundleIdentifier)
+        case .shell:
+            guard !doubleTapShellCommandText.isEmpty else { return nil }
+            return .shellCommand(command: doubleTapShellCommandText, inTerminal: doubleTapShellRunInTerminal)
+        }
+    }
+
     // MARK: - Long Hold Section
 
     /// Whether long hold should be disabled (mouse click, special action, or hold modifier enabled)
     private var longHoldDisabled: Bool {
-        primaryDisablesAdvancedFeatures || isHoldModifier || enableRepeat
+        primaryDisablesAdvancedFeatures || (mappingType == .singleKey && (isHoldModifier || enableRepeat))
     }
 
     private var longHoldSection: some View {
@@ -495,7 +544,7 @@ struct ButtonMappingSheet: View {
 
                 Spacer()
 
-                if enableLongHold && !longHoldDisabled {
+                if enableLongHold && !longHoldDisabled && longHoldMappingType == .singleKey {
                     Button(action: { showingKeyboardForLongHold.toggle() }) {
                         HStack(spacing: 6) {
                             Image(systemName: showingKeyboardForLongHold ? "keyboard.chevron.compact.down" : "keyboard")
@@ -523,7 +572,7 @@ struct ButtonMappingSheet: View {
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
                 .cornerRadius(8)
-            } else if isHoldModifier {
+            } else if mappingType == .singleKey && isHoldModifier {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
@@ -534,7 +583,7 @@ struct ButtonMappingSheet: View {
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
                 .cornerRadius(8)
-            } else if enableRepeat {
+            } else if mappingType == .singleKey && enableRepeat {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
@@ -559,21 +608,35 @@ struct ButtonMappingSheet: View {
                             .frame(width: 40)
                     }
 
-                    // Current selection display
-                    HStack {
-                        Text("Long Hold Action:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-
-                        Text(longHoldMappingDisplay)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                    Picker("", selection: $longHoldMappingType) {
+                        Text("Key").tag(MappingType.singleKey)
+                        Text("Macro").tag(MappingType.macro)
+                        Text("System").tag(MappingType.systemCommand)
                     }
+                    .pickerStyle(.segmented)
+                    .frame(width: 220)
 
-                    if showingKeyboardForLongHold {
-                        KeyboardVisualView(selectedKeyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                    if longHoldMappingType == .singleKey {
+                        // Current selection display
+                        HStack {
+                            Text("Long Hold Action:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Text(longHoldMappingDisplay)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+
+                        if showingKeyboardForLongHold {
+                            KeyboardVisualView(selectedKeyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                        } else {
+                            KeyCaptureField(keyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                        }
+                    } else if longHoldMappingType == .macro {
+                        longHoldMacroContent
                     } else {
-                        KeyCaptureField(keyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
+                        longHoldSystemCommandContent
                     }
 
                     HStack {
@@ -605,6 +668,57 @@ struct ButtonMappingSheet: View {
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
     }
 
+    @ViewBuilder
+    private var longHoldMacroContent: some View {
+        if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
+            Picker("Select Macro", selection: $longHoldMacroId) {
+                Text("None").tag(nil as UUID?)
+                ForEach(profile.macros) { macro in
+                    Text(macro.name).tag(macro.id as UUID?)
+                }
+            }
+        } else {
+            Text("No macros defined in this profile.")
+                .foregroundColor(.secondary)
+                .italic()
+                .font(.caption)
+        }
+    }
+
+    @ViewBuilder
+    private var longHoldSystemCommandContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Category", selection: $longHoldSystemCommandCategory) {
+                ForEach(SystemCommandCategory.allCases, id: \.self) { category in
+                    Text(category.rawValue).tag(category)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            switch longHoldSystemCommandCategory {
+            case .app:
+                HStack {
+                    TextField("Bundle Identifier", text: $longHoldAppBundleIdentifier)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                    Button("Browse...") { browseForApp(target: .longHold) }
+                }
+                if !longHoldAppBundleIdentifier.isEmpty {
+                    appPreviewRow(for: longHoldAppBundleIdentifier)
+                }
+            case .shell:
+                TextField("Command", text: $longHoldShellCommandText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                Toggle("Run silently (no terminal window)", isOn: Binding(
+                    get: { !longHoldShellRunInTerminal },
+                    set: { longHoldShellRunInTerminal = !$0 }
+                ))
+                    .font(.caption)
+            }
+        }
+    }
+
     // MARK: - Double Tap Section
 
     private var doubleTapSection: some View {
@@ -616,7 +730,7 @@ struct ButtonMappingSheet: View {
 
                 Spacer()
 
-                if enableDoubleTap && !primaryDisablesAdvancedFeatures {
+                if enableDoubleTap && !primaryDisablesAdvancedFeatures && doubleTapMappingType == .singleKey {
                     Button(action: { showingKeyboardForDoubleTap.toggle() }) {
                         HStack(spacing: 6) {
                             Image(systemName: showingKeyboardForDoubleTap ? "keyboard.chevron.compact.down" : "keyboard")
@@ -664,21 +778,35 @@ struct ButtonMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    // Current selection display
-                    HStack {
-                        Text("Double Tap Action:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-
-                        Text(doubleTapMappingDisplay)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                    Picker("", selection: $doubleTapMappingType) {
+                        Text("Key").tag(MappingType.singleKey)
+                        Text("Macro").tag(MappingType.macro)
+                        Text("System").tag(MappingType.systemCommand)
                     }
+                    .pickerStyle(.segmented)
+                    .frame(width: 220)
 
-                    if showingKeyboardForDoubleTap {
-                        KeyboardVisualView(selectedKeyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
+                    if doubleTapMappingType == .singleKey {
+                        // Current selection display
+                        HStack {
+                            Text("Double Tap Action:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Text(doubleTapMappingDisplay)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+
+                        if showingKeyboardForDoubleTap {
+                            KeyboardVisualView(selectedKeyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
+                        } else {
+                            KeyCaptureField(keyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
+                        }
+                    } else if doubleTapMappingType == .macro {
+                        doubleTapMacroContent
                     } else {
-                        KeyCaptureField(keyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
+                        doubleTapSystemCommandContent
                     }
 
                     HStack {
@@ -708,6 +836,57 @@ struct ButtonMappingSheet: View {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
         }
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
+    }
+
+    @ViewBuilder
+    private var doubleTapMacroContent: some View {
+        if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
+            Picker("Select Macro", selection: $doubleTapMacroId) {
+                Text("None").tag(nil as UUID?)
+                ForEach(profile.macros) { macro in
+                    Text(macro.name).tag(macro.id as UUID?)
+                }
+            }
+        } else {
+            Text("No macros defined in this profile.")
+                .foregroundColor(.secondary)
+                .italic()
+                .font(.caption)
+        }
+    }
+
+    @ViewBuilder
+    private var doubleTapSystemCommandContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Category", selection: $doubleTapSystemCommandCategory) {
+                ForEach(SystemCommandCategory.allCases, id: \.self) { category in
+                    Text(category.rawValue).tag(category)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            switch doubleTapSystemCommandCategory {
+            case .app:
+                HStack {
+                    TextField("Bundle Identifier", text: $doubleTapAppBundleIdentifier)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                    Button("Browse...") { browseForApp(target: .doubleTap) }
+                }
+                if !doubleTapAppBundleIdentifier.isEmpty {
+                    appPreviewRow(for: doubleTapAppBundleIdentifier)
+                }
+            case .shell:
+                TextField("Command", text: $doubleTapShellCommandText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                Toggle("Run silently (no terminal window)", isOn: Binding(
+                    get: { !doubleTapShellRunInTerminal },
+                    set: { doubleTapShellRunInTerminal = !$0 }
+                ))
+                    .font(.caption)
+            }
+        }
     }
 
     // MARK: - Repeat Content
@@ -824,18 +1003,36 @@ struct ButtonMappingSheet: View {
 
             if let longHold = existingMapping.longHoldMapping {
                 enableLongHold = true
-                longHoldKeyCode = longHold.keyCode
-                longHoldModifiers = longHold.modifiers
                 longHoldThreshold = longHold.threshold
                 longHoldHint = longHold.hint ?? ""
+                if let systemCommand = longHold.systemCommand {
+                    longHoldMappingType = .systemCommand
+                    loadLongHoldSystemCommandState(systemCommand)
+                } else if let macroId = longHold.macroId {
+                    longHoldMappingType = .macro
+                    longHoldMacroId = macroId
+                } else {
+                    longHoldMappingType = .singleKey
+                    longHoldKeyCode = longHold.keyCode
+                    longHoldModifiers = longHold.modifiers
+                }
             }
 
             if let doubleTap = existingMapping.doubleTapMapping {
                 enableDoubleTap = true
-                doubleTapKeyCode = doubleTap.keyCode
-                doubleTapModifiers = doubleTap.modifiers
                 doubleTapThreshold = doubleTap.threshold
                 doubleTapHint = doubleTap.hint ?? ""
+                if let systemCommand = doubleTap.systemCommand {
+                    doubleTapMappingType = .systemCommand
+                    loadDoubleTapSystemCommandState(systemCommand)
+                } else if let macroId = doubleTap.macroId {
+                    doubleTapMappingType = .macro
+                    doubleTapMacroId = macroId
+                } else {
+                    doubleTapMappingType = .singleKey
+                    doubleTapKeyCode = doubleTap.keyCode
+                    doubleTapModifiers = doubleTap.modifiers
+                }
             }
 
             if let repeatConfig = existingMapping.repeatMapping, repeatConfig.enabled {
@@ -862,22 +1059,48 @@ struct ButtonMappingSheet: View {
                 hint: hint.isEmpty ? nil : hint
             )
 
-            if enableLongHold && (longHoldKeyCode != nil || longHoldModifiers.hasAny) {
-                newMapping.longHoldMapping = LongHoldMapping(
-                    keyCode: longHoldKeyCode,
-                    modifiers: longHoldModifiers,
-                    threshold: longHoldThreshold,
-                    hint: longHoldHint.isEmpty ? nil : longHoldHint
-                )
+            if enableLongHold {
+                let longHoldValid: Bool
+                switch longHoldMappingType {
+                case .singleKey:
+                    longHoldValid = longHoldKeyCode != nil || longHoldModifiers.hasAny
+                case .macro:
+                    longHoldValid = longHoldMacroId != nil
+                case .systemCommand:
+                    longHoldValid = buildLongHoldSystemCommand() != nil
+                }
+                if longHoldValid {
+                    newMapping.longHoldMapping = LongHoldMapping(
+                        keyCode: longHoldMappingType == .singleKey ? longHoldKeyCode : nil,
+                        modifiers: longHoldMappingType == .singleKey ? longHoldModifiers : ModifierFlags(),
+                        threshold: longHoldThreshold,
+                        macroId: longHoldMappingType == .macro ? longHoldMacroId : nil,
+                        systemCommand: longHoldMappingType == .systemCommand ? buildLongHoldSystemCommand() : nil,
+                        hint: longHoldHint.isEmpty ? nil : longHoldHint
+                    )
+                }
             }
 
-            if enableDoubleTap && (doubleTapKeyCode != nil || doubleTapModifiers.hasAny) {
-                newMapping.doubleTapMapping = DoubleTapMapping(
-                    keyCode: doubleTapKeyCode,
-                    modifiers: doubleTapModifiers,
-                    threshold: doubleTapThreshold,
-                    hint: doubleTapHint.isEmpty ? nil : doubleTapHint
-                )
+            if enableDoubleTap {
+                let doubleTapValid: Bool
+                switch doubleTapMappingType {
+                case .singleKey:
+                    doubleTapValid = doubleTapKeyCode != nil || doubleTapModifiers.hasAny
+                case .macro:
+                    doubleTapValid = doubleTapMacroId != nil
+                case .systemCommand:
+                    doubleTapValid = buildDoubleTapSystemCommand() != nil
+                }
+                if doubleTapValid {
+                    newMapping.doubleTapMapping = DoubleTapMapping(
+                        keyCode: doubleTapMappingType == .singleKey ? doubleTapKeyCode : nil,
+                        modifiers: doubleTapMappingType == .singleKey ? doubleTapModifiers : ModifierFlags(),
+                        threshold: doubleTapThreshold,
+                        macroId: doubleTapMappingType == .macro ? doubleTapMacroId : nil,
+                        systemCommand: doubleTapMappingType == .systemCommand ? buildDoubleTapSystemCommand() : nil,
+                        hint: doubleTapHint.isEmpty ? nil : doubleTapHint
+                    )
+                }
             }
 
             if enableRepeat {
@@ -902,6 +1125,28 @@ struct ButtonMappingSheet: View {
         case .shellCommand(let cmd, let inTerminal):
             shellCommandText = cmd
             shellRunInTerminal = inTerminal
+        }
+    }
+
+    private func loadLongHoldSystemCommandState(_ command: SystemCommand) {
+        longHoldSystemCommandCategory = command.category
+        switch command {
+        case .launchApp(let bundleId):
+            longHoldAppBundleIdentifier = bundleId
+        case .shellCommand(let cmd, let inTerminal):
+            longHoldShellCommandText = cmd
+            longHoldShellRunInTerminal = inTerminal
+        }
+    }
+
+    private func loadDoubleTapSystemCommandState(_ command: SystemCommand) {
+        doubleTapSystemCommandCategory = command.category
+        switch command {
+        case .launchApp(let bundleId):
+            doubleTapAppBundleIdentifier = bundleId
+        case .shellCommand(let cmd, let inTerminal):
+            doubleTapShellCommandText = cmd
+            doubleTapShellRunInTerminal = inTerminal
         }
     }
 

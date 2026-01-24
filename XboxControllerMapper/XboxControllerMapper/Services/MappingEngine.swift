@@ -42,7 +42,18 @@ private struct MappingExecutor {
     }
 
     /// Executes a long-hold mapping
-    func executeLongHold(_ mapping: LongHoldMapping, for button: ControllerButton) {
+    func executeLongHold(_ mapping: LongHoldMapping, for button: ControllerButton, profile: Profile?) {
+        if let systemCommand = mapping.systemCommand {
+            systemCommandExecutor.execute(systemCommand)
+            inputLogService?.log(buttons: [button], type: .longPress, action: systemCommand.displayName)
+            return
+        }
+        if let macroId = mapping.macroId, let profile = profile,
+           let macro = profile.macros.first(where: { $0.id == macroId }) {
+            inputSimulator.executeMacro(macro)
+            inputLogService?.log(buttons: [button], type: .longPress, action: "Macro: \(macro.name)")
+            return
+        }
         if let keyCode = mapping.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         } else if mapping.modifiers.hasAny {
@@ -52,7 +63,18 @@ private struct MappingExecutor {
     }
 
     /// Executes a double-tap mapping
-    func executeDoubleTap(_ mapping: DoubleTapMapping, for button: ControllerButton) {
+    func executeDoubleTap(_ mapping: DoubleTapMapping, for button: ControllerButton, profile: Profile?) {
+        if let systemCommand = mapping.systemCommand {
+            systemCommandExecutor.execute(systemCommand)
+            inputLogService?.log(buttons: [button], type: .doubleTap, action: systemCommand.displayName)
+            return
+        }
+        if let macroId = mapping.macroId, let profile = profile,
+           let macro = profile.macros.first(where: { $0.id == macroId }) {
+            inputSimulator.executeMacro(macro)
+            inputLogService?.log(buttons: [button], type: .doubleTap, action: "Macro: \(macro.name)")
+            return
+        }
         if let keyCode = mapping.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         } else if mapping.modifiers.hasAny {
@@ -443,7 +465,7 @@ class MappingEngine: ObservableObject {
         let shouldTreatAsHold = mapping.isHoldModifier || (isMouseClick && !isChordPart && !hasDoubleTap)
 
         if shouldTreatAsHold {
-            handleHoldMapping(button, mapping: mapping, lastTap: lastTap)
+            handleHoldMapping(button, mapping: mapping, lastTap: lastTap, profile: profile)
             return
         }
 
@@ -459,7 +481,7 @@ class MappingEngine: ObservableObject {
     }
 
     /// Handles mapping that should be treated as continuously held
-    nonisolated private func handleHoldMapping(_ button: ControllerButton, mapping: KeyMapping, lastTap: Date?) {
+    nonisolated private func handleHoldMapping(_ button: ControllerButton, mapping: KeyMapping, lastTap: Date?, profile: Profile?) {
         // Check for double-tap
         if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
             let now = Date()
@@ -467,7 +489,7 @@ class MappingEngine: ObservableObject {
                 state.lock.lock()
                 defer { state.lock.unlock() }
                 state.lastTapTime.removeValue(forKey: button)
-                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
+                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button, profile: profile)
                 return
             }
             state.lock.lock()
@@ -620,9 +642,10 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
         state.lock.lock()
         state.longHoldTriggered.insert(button)
+        let profile = state.activeProfile
         state.lock.unlock()
-        
-        mappingExecutor.executeLongHold(mapping, for: button)
+
+        mappingExecutor.executeLongHold(mapping, for: button, profile: profile)
     }
 
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
@@ -652,7 +675,7 @@ class MappingEngine: ObservableObject {
             // Exception: still check for double-tap on repeat mappings
             if isRepeatMapping && hasDoubleTap {
                 let (pendingSingle, lastTap) = getPendingTapInfo(for: button)
-                _ = handleDoubleTapIfReady(button, mapping: mapping, pendingSingle: pendingSingle, lastTap: lastTap, doubleTapMapping: mapping.doubleTapMapping!, skipSingleTap: true)
+                _ = handleDoubleTapIfReady(button, mapping: mapping, pendingSingle: pendingSingle, lastTap: lastTap, doubleTapMapping: mapping.doubleTapMapping!, skipSingleTap: true, profile: profile)
             }
             return
         }
@@ -662,7 +685,7 @@ class MappingEngine: ObservableObject {
            holdDuration >= longHoldMapping.threshold,
            !longHoldMapping.isEmpty {
             clearTapState(for: button)
-            mappingExecutor.executeLongHold(longHoldMapping, for: button)
+            mappingExecutor.executeLongHold(longHoldMapping, for: button, profile: profile)
             return
         }
 
@@ -673,7 +696,7 @@ class MappingEngine: ObservableObject {
         if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
             // handleDoubleTapIfReady returns true if double-tap executed, false if scheduling first tap
             // Either way, we're done - don't call handleSingleTap
-            _ = handleDoubleTapIfReady(button, mapping: mapping, pendingSingle: pendingSingle, lastTap: lastTap, doubleTapMapping: doubleTapMapping)
+            _ = handleDoubleTapIfReady(button, mapping: mapping, pendingSingle: pendingSingle, lastTap: lastTap, doubleTapMapping: doubleTapMapping, profile: profile)
         } else {
             // Default to single tap (no double-tap mapping)
             handleSingleTap(button, mapping: mapping, profile: profile)
@@ -794,7 +817,8 @@ class MappingEngine: ObservableObject {
         pendingSingle: DispatchWorkItem?,
         lastTap: Date?,
         doubleTapMapping: DoubleTapMapping,
-        skipSingleTap: Bool = false
+        skipSingleTap: Bool = false,
+        profile: Profile? = nil
     ) -> Bool {
         let now = Date()
 
@@ -806,7 +830,7 @@ class MappingEngine: ObservableObject {
                 pending.cancel()
             }
             clearTapState(for: button)
-            mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
+            mappingExecutor.executeDoubleTap(doubleTapMapping, for: button, profile: profile)
             return true
         }
 
@@ -1148,7 +1172,7 @@ class MappingEngine: ObservableObject {
                 state.pendingSingleTap.removeValue(forKey: button)
                 state.lock.unlock()
 
-                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button)
+                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button, profile: profile)
                 return
             }
 
@@ -1209,7 +1233,7 @@ class MappingEngine: ObservableObject {
             return
         }
 
-        mappingExecutor.executeLongHold(longHoldMapping, for: button)
+        mappingExecutor.executeLongHold(longHoldMapping, for: button, profile: profile)
     }
 
     /// Process touchpad movement for mouse control (DualSense only)
