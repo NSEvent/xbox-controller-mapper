@@ -7,6 +7,7 @@ struct CommandWheelItem: Identifiable {
     let id: UUID
     let displayName: String
     let kind: Kind
+    let icon: NSImage?
 
     enum Kind {
         case app(bundleIdentifier: String)
@@ -30,12 +31,17 @@ class CommandWheelManager: ObservableObject {
     private var alternateItems: [CommandWheelItem] = []
     private(set) var isShowingAlternate = false
 
-    /// Deadzone for stick magnitude - below this, no segment is selected
-    private let selectionDeadzone: CGFloat = 0.4
-    /// Threshold for "full range" stick position
-    private let fullRangeThreshold: CGFloat = 0.92
+    /// Deadzone hysteresis for selection
+    private let selectionDeadzoneEnter: CGFloat = 0.42
+    private let selectionDeadzoneExit: CGFloat = 0.34
+    /// Threshold hysteresis for "full range" stick position
+    private let fullRangeEnter: CGFloat = 0.94
+    private let fullRangeExit: CGFloat = 0.88
     /// Duration to hold at full range before force quit is ready (seconds)
     private let forceQuitDuration: TimeInterval = 1.0
+    /// Haptic cooldowns (avoid jitter spam)
+    private let segmentHapticCooldown: TimeInterval = Config.wheelSegmentHapticCooldown
+    private let perimeterHapticCooldown: TimeInterval = Config.wheelPerimeterHapticCooldown
 
     /// Whether the stick is currently at full range
     private(set) var isFullRange = false
@@ -62,22 +68,41 @@ class CommandWheelManager: ObservableObject {
     var onPerimeterCrossed: (() -> Void)?
     /// Callback fired when force quit is ready (progress reaches 1.0)
     var onForceQuitReady: (() -> Void)?
+    /// Callback fired when a selection is activated (secondary action if true)
+    var onSelectionActivated: ((Bool) -> Void)?
+    /// Callback fired when switching between primary and alternate item sets
+    var onItemSetChanged: ((Bool) -> Void)?
     /// Previous segment index for detecting changes
     private var previousSegmentIndex: Int?
     /// Previous full range state for detecting inner↔outer transitions
     private var previousIsFullRange = false
     /// Whether the force quit haptic has already been fired for the current hold
     private var forceQuitHapticFired = false
+    /// Whether we're currently outside the selection deadzone
+    private var isSelectionActive = false
+    /// Last haptic times (cooldown)
+    private var lastSegmentHapticTime: TimeInterval = 0
+    private var lastPerimeterHapticTime: TimeInterval = 0
 
     private init() {}
 
     /// Prepares the command wheel with primary and alternate item sets (does NOT show it yet - waits for stick input)
     func prepare(apps: [AppBarItem], websites: [WebsiteLink], showWebsitesFirst: Bool) {
         let appItems = apps.map { app in
-            CommandWheelItem(id: app.id, displayName: app.displayName, kind: .app(bundleIdentifier: app.bundleIdentifier))
+            CommandWheelItem(
+                id: app.id,
+                displayName: app.displayName,
+                kind: .app(bundleIdentifier: app.bundleIdentifier),
+                icon: appIcon(bundleIdentifier: app.bundleIdentifier)
+            )
         }
         let websiteItems = websites.map { link in
-            CommandWheelItem(id: link.id, displayName: link.displayName, kind: .website(url: link.url, faviconData: link.faviconData))
+            CommandWheelItem(
+                id: link.id,
+                displayName: link.displayName,
+                kind: .website(url: link.url, faviconData: link.faviconData),
+                icon: websiteIcon(faviconData: link.faviconData)
+            )
         }
         if showWebsitesFirst {
             primaryItems = websiteItems
@@ -92,9 +117,12 @@ class CommandWheelManager: ObservableObject {
         selectedIndex = nil
         previousSegmentIndex = nil
         previousIsFullRange = false
+        isSelectionActive = false
         lastValidSelection = nil
         lastValidSelectionTime = 0
         lastValidFullRange = false
+        lastSegmentHapticTime = 0
+        lastPerimeterHapticTime = 0
         resetForceQuit()
     }
 
@@ -108,10 +136,16 @@ class CommandWheelManager: ObservableObject {
             guard !alternateItems.isEmpty else { return }
             items = alternateItems
             selectedIndex = nil
+            previousSegmentIndex = nil
+            previousIsFullRange = false
+            isSelectionActive = false
             lastValidSelection = nil
             lastValidSelectionTime = 0
             lastValidFullRange = false
+            lastSegmentHapticTime = 0
+            lastPerimeterHapticTime = 0
             resetForceQuit()
+            onItemSetChanged?(true)
         } else {
             // Switching back to primary: delay to allow simultaneous release
             guard isShowingAlternate else { return }
@@ -130,25 +164,44 @@ class CommandWheelManager: ObservableObject {
             guard !primaryItems.isEmpty else { return }
             items = primaryItems
             selectedIndex = nil
+            previousSegmentIndex = nil
+            previousIsFullRange = false
+            isSelectionActive = false
             lastValidSelection = nil
             lastValidSelectionTime = 0
             lastValidFullRange = false
+            lastSegmentHapticTime = 0
+            lastPerimeterHapticTime = 0
             resetForceQuit()
+            onItemSetChanged?(false)
         }
     }
 
     /// Hides the command wheel
     func hide() {
-        panel?.orderOut(nil)
-        panel = nil
+        if let panelToHide = panel {
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.12
+                panelToHide.animator().alphaValue = 0
+            }, completionHandler: { [weak self] in
+                guard let self = self else { return }
+                if self.panel === panelToHide {
+                    panelToHide.orderOut(nil)
+                    self.panel = nil
+                }
+            })
+        }
         isVisible = false
         selectedIndex = nil
         previousSegmentIndex = nil
         previousIsFullRange = false
+        isSelectionActive = false
         lastValidSelection = nil
         lastValidSelectionTime = 0
         lastValidFullRange = false
         alternateReleaseTime = nil
+        lastSegmentHapticTime = 0
+        lastPerimeterHapticTime = 0
         resetForceQuit()
     }
 
@@ -164,23 +217,17 @@ class CommandWheelManager: ObservableObject {
     func updateSelection(stickX: CGFloat, stickY: CGFloat) {
         guard !items.isEmpty else { return }
         checkAlternateRelease()
-
+        let now = CFAbsoluteTimeGetCurrent()
         let magnitude = sqrt(stickX * stickX + stickY * stickY)
-        guard magnitude > selectionDeadzone else {
-            // Stick in center - fire haptic if coming from a selection
-            if previousSegmentIndex != nil {
-                previousSegmentIndex = nil
-                onSegmentChanged?()
-            }
-            if previousIsFullRange {
-                previousIsFullRange = false
-                onPerimeterCrossed?()
-            }
+        if !isSelectionActive {
+            guard magnitude > selectionDeadzoneEnter else { return }
+            isSelectionActive = true
+        } else if magnitude < selectionDeadzoneExit {
+            isSelectionActive = false
             selectedIndex = nil
-            isFullRange = false
-            fullRangeStartTime = nil
-            fullRangeSegment = nil
-            forceQuitProgress = 0
+            previousSegmentIndex = nil
+            previousIsFullRange = false
+            resetForceQuit()
             return
         }
 
@@ -202,16 +249,22 @@ class CommandWheelManager: ObservableObject {
         let index = Int(normalizedAngle / segmentSize) % items.count
         if index != previousSegmentIndex {
             previousSegmentIndex = index
-            onSegmentChanged?()
+            if now - lastSegmentHapticTime >= segmentHapticCooldown {
+                lastSegmentHapticTime = now
+                onSegmentChanged?()
+            }
         }
         selectedIndex = index
         lastValidSelection = index
-        lastValidSelectionTime = CFAbsoluteTimeGetCurrent()
+        lastValidSelectionTime = now
 
         // Track full range state
-        let atFullRange = magnitude >= fullRangeThreshold
+        let atFullRange = magnitude >= (previousIsFullRange ? fullRangeExit : fullRangeEnter)
         if atFullRange != previousIsFullRange {
-            onPerimeterCrossed?()
+            if now - lastPerimeterHapticTime >= perimeterHapticCooldown {
+                lastPerimeterHapticTime = now
+                onPerimeterCrossed?()
+            }
         }
         previousIsFullRange = atFullRange
         isFullRange = atFullRange
@@ -220,14 +273,14 @@ class CommandWheelManager: ObservableObject {
         if atFullRange {
             // Check if this is a new segment or first time at full range
             if fullRangeSegment != index {
-                fullRangeStartTime = CFAbsoluteTimeGetCurrent()
+                fullRangeStartTime = now
                 fullRangeSegment = index
                 forceQuitProgress = 0
                 forceQuitHapticFired = false
             }
             // Update long-hold progress (force quit for apps, incognito for websites)
             if let startTime = fullRangeStartTime {
-                let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+                let elapsed = now - startTime
                 forceQuitProgress = min(1.0, CGFloat(elapsed / forceQuitDuration))
                 if forceQuitProgress >= 1.0 && !forceQuitHapticFired {
                     forceQuitHapticFired = true
@@ -259,6 +312,7 @@ class CommandWheelManager: ObservableObject {
         }
 
         guard let index = effectiveSelection, index < items.count else { return }
+        onSelectionActivated?(effectiveFullRange)
         let item = items[index]
 
         // Check for long-hold actions (progress must be complete)
@@ -294,7 +348,14 @@ class CommandWheelManager: ObservableObject {
         if panel == nil {
             createPanel()
         }
+        panel?.alphaValue = 0
         panel?.orderFrontRegardless()
+        if let panel = panel {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.12
+                panel.animator().alphaValue = 1
+            }
+        }
         isVisible = true
     }
 
@@ -331,6 +392,18 @@ class CommandWheelManager: ObservableObject {
         }
 
         self.panel = panel
+    }
+
+    private func appIcon(bundleIdentifier: String) -> NSImage? {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+            return nil
+        }
+        return NSWorkspace.shared.icon(forFile: url.path)
+    }
+
+    private func websiteIcon(faviconData: Data?) -> NSImage? {
+        guard let data = faviconData else { return nil }
+        return NSImage(data: data)
     }
 
     private func activateApp(bundleIdentifier: String) {

@@ -72,6 +72,36 @@ struct Config {
     static let wheelForceQuitHapticIntensity: Float = 0.15
     static let wheelForceQuitHapticSharpness: Float = 1.0
     static let wheelForceQuitHapticGap: TimeInterval = 0.05
+    /// Haptic feedback for command wheel activation (selection confirmed)
+    static let wheelActivateHapticIntensity: Float = 0.18
+    static let wheelActivateHapticSharpness: Float = 0.7
+    static let wheelActivateHapticDuration: TimeInterval = 0.08
+    /// Haptic feedback for command wheel secondary action (force quit / incognito)
+    static let wheelSecondaryHapticIntensity: Float = 0.3
+    static let wheelSecondaryHapticSharpness: Float = 0.9
+    static let wheelSecondaryHapticDuration: TimeInterval = 0.1
+    /// Haptic feedback for switching command wheel item sets (primary/secondary)
+    static let wheelSetEnterHapticIntensity: Float = 0.22
+    static let wheelSetEnterHapticSharpness: Float = 0.9
+    static let wheelSetEnterHapticDuration: TimeInterval = 0.06
+    static let wheelSetExitHapticIntensity: Float = 0.16
+    static let wheelSetExitHapticSharpness: Float = 0.4
+    static let wheelSetExitHapticDuration: TimeInterval = 0.07
+    /// Minimum time between command wheel haptic ticks
+    static let wheelSegmentHapticCooldown: TimeInterval = 0.06
+    static let wheelPerimeterHapticCooldown: TimeInterval = 0.08
+
+    /// Haptic feedback for on-screen keyboard visibility
+    static let keyboardShowHapticIntensity: Float = 0.2
+    static let keyboardShowHapticSharpness: Float = 0.6
+    static let keyboardShowHapticDuration: TimeInterval = 0.08
+    static let keyboardHideHapticIntensity: Float = 0.15
+    static let keyboardHideHapticSharpness: Float = 0.3
+    static let keyboardHideHapticDuration: TimeInterval = 0.08
+    /// Haptic feedback for on-screen keyboard actions (key/app/quick text)
+    static let keyboardActionHapticIntensity: Float = 0.12
+    static let keyboardActionHapticSharpness: Float = 0.8
+    static let keyboardActionHapticDuration: TimeInterval = 0.06
 
     // MARK: - Input Simulation Timing
     /// Delay between modifier key presses (milliseconds)

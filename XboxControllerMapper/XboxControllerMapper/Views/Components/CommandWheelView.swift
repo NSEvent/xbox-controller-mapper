@@ -122,21 +122,15 @@ struct ItemIconView: View {
 
     var body: some View {
         Group {
-            switch item.kind {
-            case .app(let bundleIdentifier):
-                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier),
-                   let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
-                    Image(nsImage: icon)
-                        .resizable()
-                } else {
+            if let icon = item.icon {
+                Image(nsImage: icon)
+                    .resizable()
+            } else {
+                switch item.kind {
+                case .app:
                     Image(systemName: "app.fill")
                         .resizable()
-                }
-            case .website(_, let faviconData):
-                if let data = faviconData, let nsImage = NSImage(data: data) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                } else {
+                case .website:
                     Image(systemName: "globe")
                         .resizable()
                 }

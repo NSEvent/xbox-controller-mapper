@@ -18,6 +18,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private var websiteLinks: [WebsiteLink] = []
     private var showExtendedFunctionKeys: Bool = false
     private(set) var activateAllWindows: Bool = true
+    private var hapticHandler: (() -> Void)?
     private var cancellables = Set<AnyCancellable>()
 
     private var globalMonitor: Any?
@@ -32,6 +33,11 @@ class OnScreenKeyboardManager: ObservableObject {
     /// Sets the input simulator to use for sending key presses
     func setInputSimulator(_ simulator: InputSimulatorProtocol) {
         self.inputSimulator = simulator
+    }
+
+    /// Sets a haptic callback for on-screen keyboard actions
+    func setHapticHandler(_ handler: (() -> Void)?) {
+        self.hapticHandler = handler
     }
 
     /// Configures the global keyboard shortcut for toggling the on-screen keyboard
@@ -150,15 +156,19 @@ class OnScreenKeyboardManager: ObservableObject {
         let keyboardView = OnScreenKeyboardView(
             onKeyPress: { [weak self] keyCode, modifiers in
                 self?.handleKeyPress(keyCode: keyCode, modifiers: modifiers)
+                self?.hapticHandler?()
             },
             onQuickText: { [weak self] quickText in
                 self?.handleQuickText(quickText)
+                self?.hapticHandler?()
             },
             onAppActivate: { [weak self] bundleIdentifier in
                 self?.activateApp(bundleIdentifier: bundleIdentifier)
+                self?.hapticHandler?()
             },
             onWebsiteLinkOpen: { [weak self] url in
                 self?.openWebsiteLink(url: url)
+                self?.hapticHandler?()
             },
             quickTexts: quickTexts,
             appBarItems: appBarItems,

@@ -210,6 +210,7 @@ struct OnScreenKeyboardView: View {
             .cornerRadius(12)
             .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isPressed)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -272,6 +273,7 @@ struct OnScreenKeyboardView: View {
             .cornerRadius(12)
             .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isPressed)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -370,6 +372,7 @@ struct OnScreenKeyboardView: View {
             .cornerRadius(8)
             .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.02 : 1.0))
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isPressed)
         }
         .buttonStyle(.plain)
         .onHover { hovering in

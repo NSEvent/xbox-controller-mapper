@@ -351,7 +351,11 @@ class ControllerService: ObservableObject {
     // Haptic engines for controller feedback (try multiple localities)
     private var hapticEngines: [CHHapticEngine] = []
     private let hapticQueue = DispatchQueue(label: "com.xboxmapper.haptic", qos: .userInitiated)
-    private var activeHapticPlayers: [CHHapticPatternPlayer] = []
+    private struct ActiveHapticPlayer {
+        let player: CHHapticPatternPlayer
+        let endTime: TimeInterval
+    }
+    private var activeHapticPlayers: [ActiveHapticPlayer] = []
 
     init() {
         GCController.shouldMonitorBackgroundEvents = true
@@ -2421,8 +2425,9 @@ class ControllerService: ObservableObject {
             guard let self = self else { return }
             guard !self.hapticEngines.isEmpty else { return }
 
-            // Clear previous players (they've had time to play since last call)
-            self.activeHapticPlayers.removeAll()
+            // Prune expired players to avoid truncating overlapping haptics
+            let now = CFAbsoluteTimeGetCurrent()
+            self.activeHapticPlayers.removeAll { $0.endTime <= now }
 
             do {
                 let event: CHHapticEvent
@@ -2449,22 +2454,27 @@ class ControllerService: ObservableObject {
                     )
                 }
                 let pattern = try CHHapticPattern(events: [event], parameters: [])
+                let estimatedDuration = transient ? max(duration, 0.06) : max(duration, 0.01)
+                let endTime = CFAbsoluteTimeGetCurrent() + estimatedDuration + 0.02
 
                 // Play on all available engines for maximum effect
                 // Retain players so they aren't deallocated before playback completes
                 for engine in self.hapticEngines {
                     do {
                         let player = try engine.makePlayer(with: pattern)
-                        self.activeHapticPlayers.append(player)
+                        self.activeHapticPlayers.append(ActiveHapticPlayer(player: player, endTime: endTime))
                         try player.start(atTime: CHHapticTimeImmediate)
                     } catch {
                         // Try to restart engine and retry once
                         try? engine.start()
                         if let player = try? engine.makePlayer(with: pattern) {
-                            self.activeHapticPlayers.append(player)
+                            self.activeHapticPlayers.append(ActiveHapticPlayer(player: player, endTime: endTime))
                             try? player.start(atTime: CHHapticTimeImmediate)
                         }
                     }
+                }
+                if self.activeHapticPlayers.count > 12 {
+                    self.activeHapticPlayers.removeFirst(self.activeHapticPlayers.count - 12)
                 }
             } catch {
                 // Haptic pattern error, continue silently

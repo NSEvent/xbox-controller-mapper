@@ -233,6 +233,16 @@ class MappingEngine: ObservableObject {
 
         // Set up on-screen keyboard manager with our input simulator
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
+        Task { @MainActor [weak self] in
+            OnScreenKeyboardManager.shared.setHapticHandler { [weak self] in
+                self?.controllerService.playHaptic(
+                    intensity: Config.keyboardActionHapticIntensity,
+                    sharpness: Config.keyboardActionHapticSharpness,
+                    duration: Config.keyboardActionHapticDuration,
+                    transient: true
+                )
+            }
+        }
 
         setupBindings()
 
@@ -481,6 +491,12 @@ class MappingEngine: ObservableObject {
             if holdMode {
                 // Hold mode: always show on press
                 OnScreenKeyboardManager.shared.show()
+                self?.controllerService.playHaptic(
+                    intensity: Config.keyboardShowHapticIntensity,
+                    sharpness: Config.keyboardShowHapticSharpness,
+                    duration: Config.keyboardShowHapticDuration,
+                    transient: true
+                )
                 // Prepare command wheel with both apps and websites (shows on stick movement)
                 let settings = self?.profileManager.onScreenKeyboardSettings
                 let apps = settings?.appBarItems ?? []
@@ -523,10 +539,45 @@ class MappingEngine: ObservableObject {
                             )
                         }
                     }
+                    CommandWheelManager.shared.onSelectionActivated = { [weak self] isSecondary in
+                        let intensity = isSecondary ? Config.wheelSecondaryHapticIntensity : Config.wheelActivateHapticIntensity
+                        let sharpness = isSecondary ? Config.wheelSecondaryHapticSharpness : Config.wheelActivateHapticSharpness
+                        let duration = isSecondary ? Config.wheelSecondaryHapticDuration : Config.wheelActivateHapticDuration
+                        self?.controllerService.playHaptic(
+                            intensity: intensity,
+                            sharpness: sharpness,
+                            duration: duration,
+                            transient: true
+                        )
+                    }
+                    CommandWheelManager.shared.onItemSetChanged = { [weak self] isAlternate in
+                        let intensity = isAlternate ? Config.wheelSetEnterHapticIntensity : Config.wheelSetExitHapticIntensity
+                        let sharpness = isAlternate ? Config.wheelSetEnterHapticSharpness : Config.wheelSetExitHapticSharpness
+                        let duration = isAlternate ? Config.wheelSetEnterHapticDuration : Config.wheelSetExitHapticDuration
+                        self?.controllerService.playHaptic(
+                            intensity: intensity,
+                            sharpness: sharpness,
+                            duration: duration,
+                            transient: true
+                        )
+                    }
                 }
             } else {
                 // Toggle mode: toggle visibility on press
+                let wasVisible = OnScreenKeyboardManager.shared.isVisible
                 OnScreenKeyboardManager.shared.toggle()
+                let isVisible = OnScreenKeyboardManager.shared.isVisible
+                if isVisible != wasVisible {
+                    let intensity = isVisible ? Config.keyboardShowHapticIntensity : Config.keyboardHideHapticIntensity
+                    let sharpness = isVisible ? Config.keyboardShowHapticSharpness : Config.keyboardHideHapticSharpness
+                    let duration = isVisible ? Config.keyboardShowHapticDuration : Config.keyboardHideHapticDuration
+                    self?.controllerService.playHaptic(
+                        intensity: intensity,
+                        sharpness: sharpness,
+                        duration: duration,
+                        transient: true
+                    )
+                }
             }
         }
         inputLogService?.log(buttons: [button], type: .singlePress, action: "On-Screen Keyboard")
@@ -545,10 +596,17 @@ class MappingEngine: ObservableObject {
 
         // Only hide on release if in hold mode
         if wasKeyboardButton && wasHoldMode {
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
                 CommandWheelManager.shared.activateSelection()
                 CommandWheelManager.shared.hide()
                 OnScreenKeyboardManager.shared.hide()
+                self.controllerService.playHaptic(
+                    intensity: Config.keyboardHideHapticIntensity,
+                    sharpness: Config.keyboardHideHapticSharpness,
+                    duration: Config.keyboardHideHapticDuration,
+                    transient: true
+                )
             }
         }
     }
