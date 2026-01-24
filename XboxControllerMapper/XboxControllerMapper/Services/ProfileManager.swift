@@ -9,7 +9,10 @@ class ProfileManager: ObservableObject {
     @Published var activeProfile: Profile?
     @Published var activeProfileId: UUID?
     @Published var uiScale: CGFloat = 1.0
-    @Published var onScreenKeyboardSettings = OnScreenKeyboardSettings()
+
+    var onScreenKeyboardSettings: OnScreenKeyboardSettings {
+        activeProfile?.onScreenKeyboardSettings ?? OnScreenKeyboardSettings()
+    }
 
     private let fileManager = FileManager.default
     private let configURL: URL
@@ -144,7 +147,10 @@ class ProfileManager: ObservableObject {
             newProfile.createdAt = Date()
             newProfile.modifiedAt = Date()
         } else {
-            newProfile = Profile(name: name)
+            newProfile = Profile(
+                name: name,
+                onScreenKeyboardSettings: activeProfile?.onScreenKeyboardSettings ?? OnScreenKeyboardSettings()
+            )
         }
 
         profiles.append(newProfile)
@@ -278,81 +284,95 @@ class ProfileManager: ObservableObject {
     // MARK: - On-Screen Keyboard Settings
 
     func updateOnScreenKeyboardSettings(_ settings: OnScreenKeyboardSettings) {
-        onScreenKeyboardSettings = settings
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings = settings
+        updateProfile(profile)
     }
 
     func addQuickText(_ quickText: QuickText) {
-        onScreenKeyboardSettings.quickTexts.append(quickText)
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.quickTexts.append(quickText)
+        updateProfile(profile)
     }
 
     func removeQuickText(_ quickText: QuickText) {
-        onScreenKeyboardSettings.quickTexts.removeAll { $0.id == quickText.id }
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.quickTexts.removeAll { $0.id == quickText.id }
+        updateProfile(profile)
     }
 
     func updateQuickText(_ quickText: QuickText) {
-        if let index = onScreenKeyboardSettings.quickTexts.firstIndex(where: { $0.id == quickText.id }) {
-            onScreenKeyboardSettings.quickTexts[index] = quickText
+        guard var profile = activeProfile else { return }
+        if let index = profile.onScreenKeyboardSettings.quickTexts.firstIndex(where: { $0.id == quickText.id }) {
+            profile.onScreenKeyboardSettings.quickTexts[index] = quickText
         }
-        saveConfiguration()
+        updateProfile(profile)
     }
 
     func moveQuickTexts(from source: IndexSet, to destination: Int) {
-        onScreenKeyboardSettings.quickTexts.move(fromOffsets: source, toOffset: destination)
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.quickTexts.move(fromOffsets: source, toOffset: destination)
+        updateProfile(profile)
     }
 
     func setDefaultTerminalApp(_ appName: String) {
-        onScreenKeyboardSettings.defaultTerminalApp = appName
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.defaultTerminalApp = appName
+        updateProfile(profile)
     }
 
     func setTypingDelay(_ delay: Double) {
-        onScreenKeyboardSettings.typingDelay = delay
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.typingDelay = delay
+        updateProfile(profile)
     }
 
     // MARK: - App Bar Items
 
     func addAppBarItem(_ item: AppBarItem) {
-        onScreenKeyboardSettings.appBarItems.append(item)
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.appBarItems.append(item)
+        updateProfile(profile)
     }
 
     func removeAppBarItem(_ item: AppBarItem) {
-        onScreenKeyboardSettings.appBarItems.removeAll { $0.id == item.id }
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.appBarItems.removeAll { $0.id == item.id }
+        updateProfile(profile)
     }
 
     func moveAppBarItems(from source: IndexSet, to destination: Int) {
-        onScreenKeyboardSettings.appBarItems.move(fromOffsets: source, toOffset: destination)
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.appBarItems.move(fromOffsets: source, toOffset: destination)
+        updateProfile(profile)
     }
 
     // MARK: - Website Links
 
     func addWebsiteLink(_ link: WebsiteLink) {
-        onScreenKeyboardSettings.websiteLinks.append(link)
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.websiteLinks.append(link)
+        updateProfile(profile)
     }
 
     func removeWebsiteLink(_ link: WebsiteLink) {
-        onScreenKeyboardSettings.websiteLinks.removeAll { $0.id == link.id }
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.websiteLinks.removeAll { $0.id == link.id }
+        updateProfile(profile)
     }
 
     func updateWebsiteLink(_ link: WebsiteLink) {
-        if let index = onScreenKeyboardSettings.websiteLinks.firstIndex(where: { $0.id == link.id }) {
-            onScreenKeyboardSettings.websiteLinks[index] = link
-            saveConfiguration()
+        guard var profile = activeProfile else { return }
+        if let index = profile.onScreenKeyboardSettings.websiteLinks.firstIndex(where: { $0.id == link.id }) {
+            profile.onScreenKeyboardSettings.websiteLinks[index] = link
+            updateProfile(profile)
         }
     }
 
     func moveWebsiteLinks(from source: IndexSet, to destination: Int) {
-        onScreenKeyboardSettings.websiteLinks.move(fromOffsets: source, toOffset: destination)
-        saveConfiguration()
+        guard var profile = activeProfile else { return }
+        profile.onScreenKeyboardSettings.websiteLinks.move(fromOffsets: source, toOffset: destination)
+        updateProfile(profile)
     }
     
     // MARK: - Macros
@@ -413,17 +433,18 @@ class ProfileManager: ObservableObject {
         var profiles: [Profile]
         var activeProfileId: UUID?
         var uiScale: CGFloat?
+        /// Legacy field: only decoded for migration to per-profile settings
         var onScreenKeyboardSettings: OnScreenKeyboardSettings?
 
         private enum CodingKeys: String, CodingKey {
             case schemaVersion, profiles, activeProfileId, uiScale, onScreenKeyboardSettings
         }
 
-        init(profiles: [Profile], activeProfileId: UUID?, uiScale: CGFloat?, onScreenKeyboardSettings: OnScreenKeyboardSettings?) {
+        init(profiles: [Profile], activeProfileId: UUID?, uiScale: CGFloat?) {
             self.profiles = profiles
             self.activeProfileId = activeProfileId
             self.uiScale = uiScale
-            self.onScreenKeyboardSettings = onScreenKeyboardSettings
+            self.onScreenKeyboardSettings = nil
         }
 
         init(from decoder: Decoder) throws {
@@ -501,8 +522,19 @@ class ProfileManager: ObservableObject {
                 self.uiScale = scale
             }
 
-            if let keyboardSettings = config.onScreenKeyboardSettings {
-                self.onScreenKeyboardSettings = keyboardSettings
+            // Migrate legacy global keyboard settings into profiles
+            if let legacyKeyboardSettings = config.onScreenKeyboardSettings {
+                for i in 0..<self.profiles.count {
+                    if self.profiles[i].onScreenKeyboardSettings.quickTexts.isEmpty &&
+                       self.profiles[i].onScreenKeyboardSettings.toggleShortcutKeyCode == nil {
+                        self.profiles[i].onScreenKeyboardSettings = legacyKeyboardSettings
+                    }
+                }
+                if let activeId = self.activeProfileId,
+                   let profile = self.profiles.first(where: { $0.id == activeId }) {
+                    self.activeProfile = profile
+                }
+                didMigrate = true
             }
 
             loadSucceeded = true  // Mark that we successfully loaded the config
@@ -561,8 +593,7 @@ class ProfileManager: ObservableObject {
         let config = Configuration(
             profiles: profiles,
             activeProfileId: activeProfileId,
-            uiScale: uiScale,
-            onScreenKeyboardSettings: onScreenKeyboardSettings
+            uiScale: uiScale
         )
 
         let encoder = JSONEncoder()

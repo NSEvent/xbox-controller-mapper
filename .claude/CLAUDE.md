@@ -62,7 +62,7 @@ Configuration (CUSTOM decoder - see ProfileManager.swift)
 ├── profiles: [Profile]                          decodeIfPresent ?? []
 ├── activeProfileId: UUID?                       decodeIfPresent (auto nil)
 ├── uiScale: CGFloat?                            decodeIfPresent (auto nil)
-└── onScreenKeyboardSettings: OnScreenKeyboardSettings?  decodeIfPresent (auto nil)
+└── onScreenKeyboardSettings: OnScreenKeyboardSettings?  LEGACY (decoded for migration only, not saved)
 
 Profile (CUSTOM decoder - see Profile.swift)
 ├── id: UUID                                     decode() (only truly required field)
@@ -74,7 +74,8 @@ Profile (CUSTOM decoder - see Profile.swift)
 ├── buttonMappings: [String: KeyMapping]         decodeIfPresent ?? [:] (string-keyed in JSON)
 ├── chordMappings: [ChordMapping]                decodeIfPresent ?? []
 ├── joystickSettings: JoystickSettings           decodeIfPresent ?? .default
-└── dualSenseLEDSettings: DualSenseLEDSettings   decodeIfPresent ?? .default
+├── dualSenseLEDSettings: DualSenseLEDSettings   decodeIfPresent ?? .default
+└── onScreenKeyboardSettings: OnScreenKeyboardSettings  decodeIfPresent ?? OnScreenKeyboardSettings()
 
 KeyMapping (CUSTOM decoder - see KeyMapping.swift)
 ├── keyCode: CGKeyCode? (UInt16?)                decodeIfPresent (auto nil)

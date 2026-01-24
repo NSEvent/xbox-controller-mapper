@@ -134,6 +134,9 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Defined macros for this profile
     var macros: [Macro]
 
+    /// On-screen keyboard settings (quick texts, app bar, websites, toggle shortcut, etc.)
+    var onScreenKeyboardSettings: OnScreenKeyboardSettings
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -144,7 +147,8 @@ struct Profile: Codable, Identifiable, Equatable {
         joystickSettings: JoystickSettings = .default,
         dualSenseLEDSettings: DualSenseLEDSettings = .default,
         linkedApps: [String] = [],
-        macros: [Macro] = []
+        macros: [Macro] = [],
+        onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings()
     ) {
         self.id = id
         self.name = name
@@ -158,6 +162,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.dualSenseLEDSettings = dualSenseLEDSettings
         self.linkedApps = linkedApps
         self.macros = macros
+        self.onScreenKeyboardSettings = onScreenKeyboardSettings
     }
 
     /// Validates the profile for sanity
@@ -341,6 +346,7 @@ extension Profile {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, macros
+        case onScreenKeyboardSettings
     }
 
     init(from decoder: Decoder) throws {
@@ -365,6 +371,7 @@ extension Profile {
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings) ?? .default
         linkedApps = try container.decodeIfPresent([String].self, forKey: .linkedApps) ?? []
         macros = try container.decodeIfPresent([Macro].self, forKey: .macros) ?? []
+        onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings) ?? OnScreenKeyboardSettings()
     }
 
     func encode(to encoder: Encoder) throws {
@@ -386,5 +393,6 @@ extension Profile {
         try container.encode(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
         try container.encode(linkedApps, forKey: .linkedApps)
         try container.encode(macros, forKey: .macros)
+        try container.encode(onScreenKeyboardSettings, forKey: .onScreenKeyboardSettings)
     }
 }

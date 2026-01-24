@@ -179,6 +179,14 @@ struct ContentView: View {
             }
             .toggleStyle(.switch)
             .controlSize(.small)
+
+            Button {
+                showingSettingsSheet = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -2003,10 +2011,26 @@ struct SettingsSheet: View {
     @State private var isRefreshingDatabase = false
     @State private var databaseStatus: String?
 
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Settings")
-                .font(.headline)
+        VStack(spacing: 16) {
+            // App icon and info
+            VStack(spacing: 8) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 64, height: 64)
+
+                Text("ControllerKeys")
+                    .font(.title2.bold())
+
+                Text("Version \(appVersion)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 4)
 
             Form {
                 Toggle("Launch at Login", isOn: $launchAtLogin)
@@ -2041,6 +2065,10 @@ struct SettingsSheet: View {
             }
             .formStyle(.grouped)
 
+            Text("\u{00A9} 2026 Kevin Tang. All rights reserved.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
             HStack {
                 Spacer()
                 Button("Done") {
@@ -2050,7 +2078,7 @@ struct SettingsSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 350, height: 280)
+        .frame(width: 380, height: 400)
     }
 
     private func refreshDatabase() {

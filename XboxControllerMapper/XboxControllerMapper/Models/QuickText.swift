@@ -91,7 +91,7 @@ struct QuickText: Identifiable, Codable, Equatable {
 }
 
 /// Settings for the on-screen keyboard feature
-struct OnScreenKeyboardSettings: Codable {
+struct OnScreenKeyboardSettings: Codable, Equatable {
     var quickTexts: [QuickText] = []
     var defaultTerminalApp: String = "Terminal"  // Bundle name or path
     /// Delay between each character when typing text snippets (in seconds)

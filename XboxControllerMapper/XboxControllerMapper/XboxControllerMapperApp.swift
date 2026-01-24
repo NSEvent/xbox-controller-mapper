@@ -61,10 +61,11 @@ final class ServiceContainer {
             modifiers: settings.toggleShortcutModifiers
         )
 
-        // Observe changes
-        profileManager.$onScreenKeyboardSettings
+        // Observe active profile changes (keyboard settings are per-profile)
+        profileManager.$activeProfile
             .receive(on: DispatchQueue.main)
-            .sink { settings in
+            .sink { profile in
+                let settings = profile?.onScreenKeyboardSettings ?? OnScreenKeyboardSettings()
                 OnScreenKeyboardManager.shared.setQuickTexts(
                     settings.quickTexts,
                     defaultTerminal: settings.defaultTerminalApp,
