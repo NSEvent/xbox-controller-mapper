@@ -341,6 +341,7 @@ struct ProfileSidebar: View {
     @State private var isExporting = false
     @State private var profileToExport: Profile?
     @State private var hoveredProfileId: UUID?
+    @State private var profileToLink: Profile?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -402,6 +403,10 @@ struct ProfileSidebar: View {
                                     profileToRename = profile
                                     renameProfileName = profile.name
                                     showingRenameProfileAlert = true
+                                }
+                                
+                                Button("Linked Apps...") {
+                                    profileToLink = profile
                                 }
 
                                 Menu("Set Icon") {
@@ -468,6 +473,9 @@ struct ProfileSidebar: View {
                 renameProfileName = ""
                 profileToRename = nil
             }
+        }
+        .sheet(item: $profileToLink) { profile in
+            LinkedAppsSheet(profile: profile)
         }
         .fileImporter(
             isPresented: $isImporting,

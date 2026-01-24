@@ -18,8 +18,8 @@ final class ServiceContainer {
 
     init() {
         let controllerService = ControllerService()
-        let profileManager = ProfileManager()
         let appMonitor = AppMonitor()
+        let profileManager = ProfileManager(appMonitor: appMonitor)
         let inputMonitor = InputMonitor()
         let inputLogService = InputLogService()
 

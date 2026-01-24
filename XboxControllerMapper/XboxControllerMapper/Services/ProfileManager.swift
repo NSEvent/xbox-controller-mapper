@@ -15,8 +15,10 @@ class ProfileManager: ObservableObject {
     private let configURL: URL
     private let legacyConfigURL: URL
     private var loadSucceeded = false  // Track if initial load succeeded to prevent clobbering
+    
+    private var cancellables = Set<AnyCancellable>()
 
-    init() {
+    init(appMonitor: AppMonitor? = nil) {
         let home = fileManager.homeDirectoryForCurrentUser
 
         // New location: ~/.controllerkeys/
@@ -42,6 +44,67 @@ class ProfileManager: ObservableObject {
                 setActiveProfile(firstProfile)
             }
         }
+        
+        if let appMonitor = appMonitor {
+            setupAutoSwitching(with: appMonitor)
+        }
+    }
+    
+    private func setupAutoSwitching(with appMonitor: AppMonitor) {
+        appMonitor.$frontmostBundleId
+            .removeDuplicates()
+            .dropFirst() // Skip initial value to avoid overriding manual selection on launch
+            .sink { [weak self] bundleId in
+                guard let self = self, let bundleId = bundleId else { return }
+                self.handleAppChange(bundleId)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func handleAppChange(_ bundleId: String) {
+        // Find profile linked to this app
+        if let linkedProfile = profiles.first(where: { $0.linkedApps.contains(bundleId) }) {
+            // Only switch if not already active
+            if activeProfileId != linkedProfile.id {
+                print("🔄 Auto-switching to profile: \(linkedProfile.name) for app: \(bundleId)")
+                setActiveProfile(linkedProfile)
+            }
+            return
+        }
+        
+        // No specific profile found, switch to default if we are currently in an auto-switched profile
+        // OR always switch to default?
+        // "Standard" behavior: Switch to default profile when entering an app that has no specific profile.
+        if let defaultProfile = profiles.first(where: { $0.isDefault }) {
+            if activeProfileId != defaultProfile.id {
+                print("🔄 Auto-switching to default profile for app: \(bundleId)")
+                setActiveProfile(defaultProfile)
+            }
+        }
+    }
+    
+    // MARK: - Linked Apps
+    
+    func addLinkedApp(_ bundleId: String, to profile: Profile) {
+        // Remove this app from any other profiles first (enforce 1:1 mapping)
+        for var otherProfile in profiles where otherProfile.id != profile.id {
+            if let index = otherProfile.linkedApps.firstIndex(of: bundleId) {
+                otherProfile.linkedApps.remove(at: index)
+                updateProfile(otherProfile)
+            }
+        }
+        
+        var updatedProfile = profile
+        if !updatedProfile.linkedApps.contains(bundleId) {
+            updatedProfile.linkedApps.append(bundleId)
+            updateProfile(updatedProfile)
+        }
+    }
+    
+    func removeLinkedApp(_ bundleId: String, from profile: Profile) {
+        var updatedProfile = profile
+        updatedProfile.linkedApps.removeAll { $0 == bundleId }
+        updateProfile(updatedProfile)
     }
 
     private func createDirectoryIfNeeded(at url: URL) {

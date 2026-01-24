@@ -128,6 +128,9 @@ struct Profile: Codable, Identifiable, Equatable {
     /// DualSense LED settings
     var dualSenseLEDSettings: DualSenseLEDSettings
 
+    /// App Bundle IDs that trigger this profile automatically
+    var linkedApps: [String]
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -136,7 +139,8 @@ struct Profile: Codable, Identifiable, Equatable {
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         chordMappings: [ChordMapping] = [],
         joystickSettings: JoystickSettings = .default,
-        dualSenseLEDSettings: DualSenseLEDSettings = .default
+        dualSenseLEDSettings: DualSenseLEDSettings = .default,
+        linkedApps: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -148,6 +152,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.chordMappings = chordMappings
         self.joystickSettings = joystickSettings
         self.dualSenseLEDSettings = dualSenseLEDSettings
+        self.linkedApps = linkedApps
     }
 
     /// Validates the profile for sanity
@@ -330,7 +335,7 @@ extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, joystickSettings
-        case dualSenseLEDSettings
+        case dualSenseLEDSettings, linkedApps
     }
 
     init(from decoder: Decoder) throws {
@@ -353,6 +358,7 @@ extension Profile {
         chordMappings = try container.decodeIfPresent([ChordMapping].self, forKey: .chordMappings) ?? []
         joystickSettings = try container.decodeIfPresent(JoystickSettings.self, forKey: .joystickSettings) ?? .default
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings) ?? .default
+        linkedApps = try container.decodeIfPresent([String].self, forKey: .linkedApps) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -372,5 +378,6 @@ extension Profile {
         try container.encode(chordMappings, forKey: .chordMappings)
         try container.encode(joystickSettings, forKey: .joystickSettings)
         try container.encode(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
+        try container.encode(linkedApps, forKey: .linkedApps)
     }
 }
