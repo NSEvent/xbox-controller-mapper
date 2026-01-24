@@ -35,7 +35,7 @@ class CommandWheelManager: ObservableObject {
     /// Threshold for "full range" stick position
     private let fullRangeThreshold: CGFloat = 0.92
     /// Duration to hold at full range before force quit is ready (seconds)
-    private let forceQuitDuration: TimeInterval = 2.0
+    private let forceQuitDuration: TimeInterval = 1.0
 
     /// Whether the stick is currently at full range
     private(set) var isFullRange = false
