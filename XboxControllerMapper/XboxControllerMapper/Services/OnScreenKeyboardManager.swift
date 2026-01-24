@@ -181,7 +181,7 @@ class OnScreenKeyboardManager: ObservableObject {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.level = .floating
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.isMovableByWindowBackground = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false  // Keep visible when app loses focus

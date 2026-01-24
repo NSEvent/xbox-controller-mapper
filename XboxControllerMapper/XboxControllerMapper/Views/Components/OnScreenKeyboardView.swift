@@ -32,10 +32,10 @@ struct OnScreenKeyboardView: View {
     @State private var hoveredWebsiteLinkId: UUID?
     @State private var pressedWebsiteLinkId: UUID?
 
-    // Key size constants - increase for larger keyboard
-    private let keyWidth: CGFloat = 68    // 54 * 1.25
-    private let keyHeight: CGFloat = 60   // 48 * 1.25
-    private let keySpacing: CGFloat = 6
+    // Key size constants - slightly larger for the new aesthetic
+    private let keyWidth: CGFloat = 68
+    private let keyHeight: CGFloat = 60
+    private let keySpacing: CGFloat = 8 // Increased spacing for "floating" look
 
     // Secondary characters for keys (shown above primary)
     private let secondaryKeys: [String: String] = [
@@ -57,38 +57,47 @@ struct OnScreenKeyboardView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             // Website links section (above app bar)
             if !websiteLinks.isEmpty {
                 websiteLinksSection
+                    .padding(.horizontal, 12)
                 Divider()
+                    .background(Color.white.opacity(0.1))
                     .padding(.horizontal, 8)
             }
 
             // App bar section (if any apps configured)
             if !appBarItems.isEmpty {
                 appBarSection
+                    .padding(.horizontal, 12)
                 Divider()
+                    .background(Color.white.opacity(0.1))
                     .padding(.horizontal, 8)
             }
 
             // Quick text sections (if any)
             if !quickTexts.isEmpty {
                 quickTextSection
+                    .padding(.horizontal, 12)
                 Divider()
+                    .background(Color.white.opacity(0.1))
                     .padding(.horizontal, 8)
             }
 
             // Media controls row (Playback, Volume, Brightness)
             mediaControlsRow
+                .padding(.horizontal, 12)
 
             // Extended function key row (F13-F20) - shown above F1-F12 when enabled
             if showExtendedFunctionKeys {
                 extendedFunctionKeyRow
+                    .padding(.horizontal, 12)
             }
 
             // Function key row (Esc + F1-F12)
             functionKeyRow
+                .padding(.horizontal, 12)
 
             // Main keyboard with navigation column
             HStack(alignment: .top, spacing: keySpacing * 2) {
@@ -104,6 +113,7 @@ struct OnScreenKeyboardView: View {
                 // Navigation keys column
                 navigationKeyColumn
             }
+            .padding(.horizontal, 12)
 
             // Controller Hint Footer
             HStack(spacing: 8) {
@@ -112,36 +122,45 @@ struct OnScreenKeyboardView: View {
                 // Command Wheel Hint
                 HStack(spacing: 8) {
                     ButtonIconView(button: .rightThumbstick, isPressed: false, isDualSense: false, showDirectionalArrows: true)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 32, height: 32)
 
                     Text("Command Wheel")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.black.opacity(0.3))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
 
                 Spacer()
             }
-            .padding(.top, keySpacing)
+            .padding(.top, 4)
         }
-        .padding(20)
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.3), radius: 12, y: 6)
+        .padding(24)
+        // GTA-style backdrop: Dark, blurred, slightly translucent
+        .background(
+            ZStack {
+                Color.black.opacity(0.6)
+                VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+            }
+        )
+        .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 10)
     }
 
     // MARK: - App Bar Section
 
     // Fixed width for app bar to ensure proper layout calculation
-    // Matches keyboard width, fits ~12 icons per row with 64px icons + padding
-    private let appBarWidth: CGFloat = 1025
+    private let appBarWidth: CGFloat = 1050 // Adjusted for new spacing
     private let itemsPerRow = 12
 
     private var appBarSection: some View {
@@ -161,7 +180,7 @@ struct OnScreenKeyboardView: View {
     private func appBarButton(_ item: AppBarItem) -> some View {
         let isHovered = hoveredAppBarItemId == item.id
         let isPressed = pressedAppBarItemId == item.id
-        let iconSize: CGFloat = 64
+        let iconSize: CGFloat = 56
 
         return Button {
             pressedAppBarItemId = item.id
@@ -177,21 +196,20 @@ struct OnScreenKeyboardView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: iconSize, height: iconSize)
+                    .saturation(isHovered ? 1.0 : 0.8) // Slight desaturation when idle
 
                 Text(item.displayName)
-                    .font(.system(size: 10))
+                    .font(.system(size: 10, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: iconSize + 16)
+                    .foregroundColor(isHovered ? .white : .secondary)
             }
             .padding(8)
-            .background(appBarBackground(isHovered: isHovered, isPressed: isPressed))
-            .foregroundColor(isPressed ? .white : .primary)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(appBarBorderColor(isHovered: isHovered, isPressed: isPressed), lineWidth: 1)
-            )
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed))
+            .cornerRadius(12)
+            .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -204,28 +222,7 @@ struct OnScreenKeyboardView: View {
            let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
             return Image(nsImage: icon)
         }
-        // Fallback icon for apps not installed
         return Image(systemName: "app.fill")
-    }
-
-    private func appBarBackground(isHovered: Bool, isPressed: Bool) -> Color {
-        if isPressed {
-            return .accentColor
-        } else if isHovered {
-            return Color.accentColor.opacity(0.3)
-        } else {
-            return Color(nsColor: .controlBackgroundColor)
-        }
-    }
-
-    private func appBarBorderColor(isHovered: Bool, isPressed: Bool) -> Color {
-        if isPressed {
-            return .accentColor
-        } else if isHovered {
-            return Color.accentColor.opacity(0.5)
-        } else {
-            return .gray.opacity(0.3)
-        }
     }
 
     // MARK: - Website Links Section
@@ -247,7 +244,7 @@ struct OnScreenKeyboardView: View {
     private func websiteLinkButton(_ link: WebsiteLink) -> some View {
         let isHovered = hoveredWebsiteLinkId == link.id
         let isPressed = pressedWebsiteLinkId == link.id
-        let iconSize: CGFloat = 64
+        let iconSize: CGFloat = 56
 
         return Button {
             pressedWebsiteLinkId = link.id
@@ -261,21 +258,20 @@ struct OnScreenKeyboardView: View {
             VStack(spacing: 4) {
                 websiteFavicon(for: link)
                     .frame(width: iconSize, height: iconSize)
+                    .saturation(isHovered ? 1.0 : 0.8)
 
                 Text(link.displayName)
-                    .font(.system(size: 10))
+                    .font(.system(size: 10, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: iconSize + 16)
+                    .foregroundColor(isHovered ? .white : .secondary)
             }
             .padding(8)
-            .background(appBarBackground(isHovered: isHovered, isPressed: isPressed))
-            .foregroundColor(isPressed ? .white : .primary)
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(appBarBorderColor(isHovered: isHovered, isPressed: isPressed), lineWidth: 1)
-            )
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed))
+            .cornerRadius(12)
+            .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -292,9 +288,8 @@ struct OnScreenKeyboardView: View {
                 .aspectRatio(contentMode: .fit)
                 .cornerRadius(8)
         } else {
-            // Fallback globe icon
             Image(systemName: "globe")
-                .font(.system(size: 40))
+                .font(.system(size: 36))
                 .foregroundColor(.secondary)
         }
     }
@@ -303,31 +298,29 @@ struct OnScreenKeyboardView: View {
 
     private var quickTextSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Terminal Commands
             if !terminalCommands.isEmpty {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Image(systemName: "terminal")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Commands")
-                        .font(.caption)
+                        .font(.caption.bold())
+                        .foregroundColor(.accentColor)
+                    Text("COMMANDS")
+                        .font(.caption.bold())
                         .foregroundColor(.secondary)
                 }
-
+                .padding(.leading, 12) // Match button start
                 quickTextButtonRow(terminalCommands)
             }
 
-            // Text Snippets
             if !textSnippets.isEmpty {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Image(systemName: "text.quote")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Text")
-                        .font(.caption)
+                        .font(.caption.bold())
+                        .foregroundColor(.accentColor)
+                    Text("TEXT")
+                        .font(.caption.bold())
                         .foregroundColor(.secondary)
                 }
-
+                .padding(.leading, 12) // Match button start
                 quickTextButtonRow(textSnippets)
             }
         }
@@ -335,12 +328,15 @@ struct OnScreenKeyboardView: View {
 
     private func quickTextButtonRow(_ items: [QuickText]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ForEach(items) { item in
                     quickTextButton(item)
                 }
             }
+            .padding(.vertical, 8) // Space for shadows/scaling
+            .padding(.horizontal, 12) // Prevent clipping on left/right during scale
         }
+        .padding(.horizontal, -12) // Negative padding to let scroll content touch edges if needed while inner padding prevents clipping
     }
 
     private func quickTextButton(_ quickText: QuickText) -> some View {
@@ -356,7 +352,7 @@ struct OnScreenKeyboardView: View {
                 }
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 if quickText.isTerminalCommand {
                     Image(systemName: "terminal")
                         .font(.system(size: 10))
@@ -365,17 +361,15 @@ struct OnScreenKeyboardView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            .font(.system(size: 13, weight: .medium))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 16)
-            .frame(maxWidth: 500)
-            .background(quickTextBackground(isHovered: isHovered, isPressed: isPressed, isTerminalCommand: quickText.isTerminalCommand))
-            .foregroundColor(isPressed ? .white : .primary)
-            .cornerRadius(6)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(quickTextBorderColor(isHovered: isHovered, isPressed: isPressed, isTerminalCommand: quickText.isTerminalCommand), lineWidth: 1)
-            )
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(minWidth: 80, maxWidth: 300)
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: quickText.isTerminalCommand ? .orange : nil))
+            .foregroundColor(isPressed ? .white : (isHovered ? .white : .primary))
+            .cornerRadius(8)
+            .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.02 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -383,27 +377,7 @@ struct OnScreenKeyboardView: View {
         }
     }
 
-    private func quickTextBackground(isHovered: Bool, isPressed: Bool, isTerminalCommand: Bool) -> Color {
-        if isPressed {
-            return isTerminalCommand ? Color.orange : .accentColor
-        } else if isHovered {
-            return isTerminalCommand ? Color.orange.opacity(0.3) : Color.accentColor.opacity(0.3)
-        } else {
-            return Color(nsColor: .controlBackgroundColor)
-        }
-    }
-
-    private func quickTextBorderColor(isHovered: Bool, isPressed: Bool, isTerminalCommand: Bool) -> Color {
-        if isPressed {
-            return isTerminalCommand ? .orange : .accentColor
-        } else if isHovered {
-            return isTerminalCommand ? Color.orange.opacity(0.5) : Color.accentColor.opacity(0.5)
-        } else {
-            return .gray.opacity(0.3)
-        }
-    }
-
-    // MARK: - Function Keys (F1-F12 and F13-F20)
+    // MARK: - Function Keys
 
     private let f1to12Codes: [Int] = [
         kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
@@ -417,45 +391,40 @@ struct OnScreenKeyboardView: View {
     // MARK: - Media Controls Row
 
     private var mediaControlsRow: some View {
-        HStack(spacing: keySpacing * 8) {
-            // Playback controls
-            HStack(spacing: 4) {
-                Text("Playback:")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-
-                HStack(spacing: keySpacing) {
-                    mediaKey(KeyCodeMapping.mediaPrevious, label: "Previous", symbol: "backward.end.fill")
-                    mediaKey(KeyCodeMapping.mediaRewind, label: "Rewind", symbol: "backward.fill")
-                    mediaKey(KeyCodeMapping.mediaPlayPause, label: "Play/Pause", symbol: "playpause.fill")
-                    mediaKey(KeyCodeMapping.mediaFastForward, label: "Fast", symbol: "forward.fill")
-                    mediaKey(KeyCodeMapping.mediaNext, label: "Next", symbol: "forward.end.fill")
-                }
+        HStack(spacing: keySpacing * 6) {
+            mediaControlGroup(title: "PLAYBACK", icon: "play.circle.fill") {
+                mediaKey(KeyCodeMapping.mediaPrevious, label: "", symbol: "backward.end.fill")
+                mediaKey(KeyCodeMapping.mediaPlayPause, label: "", symbol: "playpause.fill")
+                mediaKey(KeyCodeMapping.mediaNext, label: "", symbol: "forward.end.fill")
             }
 
-            // Volume controls (Mute, Down, Up)
-            HStack(spacing: 4) {
-                Text("Sound:")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-
-                HStack(spacing: keySpacing) {
-                    mediaKey(KeyCodeMapping.volumeMute, label: "Mute", symbol: "speaker.slash.fill")
-                    mediaKey(KeyCodeMapping.volumeDown, label: "Down", symbol: "speaker.wave.1.fill")
-                    mediaKey(KeyCodeMapping.volumeUp, label: "Up", symbol: "speaker.wave.3.fill")
-                }
+            mediaControlGroup(title: "SOUND", icon: "speaker.wave.2.fill") {
+                mediaKey(KeyCodeMapping.volumeMute, label: "", symbol: "speaker.slash.fill")
+                mediaKey(KeyCodeMapping.volumeDown, label: "", symbol: "speaker.wave.1.fill")
+                mediaKey(KeyCodeMapping.volumeUp, label: "", symbol: "speaker.wave.3.fill")
             }
 
-            // Brightness controls (Down, Up)
-            HStack(spacing: 4) {
-                Text("Brightness:")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+            mediaControlGroup(title: "DISPLAY", icon: "sun.max.fill") {
+                mediaKey(KeyCodeMapping.brightnessDown, label: "", symbol: "sun.min.fill")
+                mediaKey(KeyCodeMapping.brightnessUp, label: "", symbol: "sun.max.fill")
+            }
+        }
+        .padding(.vertical, 4)
+    }
 
-                HStack(spacing: keySpacing) {
-                    mediaKey(KeyCodeMapping.brightnessDown, label: "Down", symbol: "sun.min.fill")
-                    mediaKey(KeyCodeMapping.brightnessUp, label: "Up", symbol: "sun.max.fill")
-                }
+    private func mediaControlGroup<Content: View>(title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 10))
+                Text(title)
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .foregroundColor(.secondary)
+            .padding(.leading, 2)
+
+            HStack(spacing: keySpacing) {
+                content()
             }
         }
     }
@@ -473,20 +442,16 @@ struct OnScreenKeyboardView: View {
                 }
             }
         } label: {
-            VStack(spacing: 2) {
+            VStack(spacing: 0) {
                 Image(systemName: symbol)
-                    .font(.system(size: 14))
-                Text(label)
-                    .font(.system(size: 8))
+                    .font(.system(size: 16))
             }
-            .frame(width: 60, height: 36)
-            .background(keyBackground(isHovered: isHovered, isPressed: isPressed))
+            .frame(width: 50, height: 40)
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed))
             .foregroundColor(isPressed ? .white : .primary)
-            .cornerRadius(6)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(keyBorderColor(isHovered: isHovered, isPressed: isPressed), lineWidth: 1)
-            )
+            .cornerRadius(8)
+            .scaleEffect(isPressed ? 0.9 : (isHovered ? 1.1 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovered)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -496,24 +461,17 @@ struct OnScreenKeyboardView: View {
 
     private var extendedFunctionKeyRow: some View {
         HStack(spacing: keySpacing) {
-            // Empty space to align with Esc key
-            Spacer().frame(width: 85)
-
+            Spacer().frame(width: 85) // Align with Esc
             Spacer().frame(width: 30)
 
             ForEach(0..<4, id: \.self) { i in
                 clickableKey(CGKeyCode(f13to20Codes[i]), label: "F\(i + 13)", width: 75)
             }
-
             Spacer().frame(width: 19)
-
             ForEach(4..<8, id: \.self) { i in
                 clickableKey(CGKeyCode(f13to20Codes[i]), label: "F\(i + 13)", width: 75)
             }
-
             Spacer().frame(width: 19)
-
-            // Empty space for alignment (F1-F12 has 4 keys in last group, F13-F20 only has 8 total)
             ForEach(0..<4, id: \.self) { _ in
                 Color.clear.frame(width: 75, height: keyHeight)
             }
@@ -522,22 +480,18 @@ struct OnScreenKeyboardView: View {
 
     private var functionKeyRow: some View {
         HStack(spacing: keySpacing) {
-            clickableKey(CGKeyCode(kVK_Escape), label: "Esc", width: 85)
+            clickableKey(CGKeyCode(kVK_Escape), label: "Esc", width: 85, isSpecial: true)
 
             Spacer().frame(width: 30)
 
             ForEach(0..<4, id: \.self) { i in
                 clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 75)
             }
-
             Spacer().frame(width: 19)
-
             ForEach(4..<8, id: \.self) { i in
                 clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 75)
             }
-
             Spacer().frame(width: 19)
-
             ForEach(8..<12, id: \.self) { i in
                 clickableKey(CGKeyCode(f1to12Codes[i]), label: "F\(i + 1)", width: 75)
             }
@@ -558,7 +512,7 @@ struct OnScreenKeyboardView: View {
 
             clickableKey(CGKeyCode(kVK_ANSI_Minus), label: "-")
             clickableKey(CGKeyCode(kVK_ANSI_Equal), label: "=")
-            clickableKey(CGKeyCode(kVK_Delete), label: "⌫", width: 107)
+            clickableKey(CGKeyCode(kVK_Delete), label: "⌫", width: 107, isSpecial: true)
         }
     }
 
@@ -566,7 +520,7 @@ struct OnScreenKeyboardView: View {
 
     private var qwertyRow: some View {
         HStack(spacing: keySpacing) {
-            clickableKey(CGKeyCode(kVK_Tab), label: "Tab", width: 95)
+            clickableKey(CGKeyCode(kVK_Tab), label: "Tab", width: 95, isSpecial: true)
 
             let qwertyKeys = ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"]
             let qwertyCodes: [Int] = [kVK_ANSI_Q, kVK_ANSI_W, kVK_ANSI_E, kVK_ANSI_R, kVK_ANSI_T, kVK_ANSI_Y, kVK_ANSI_U, kVK_ANSI_I, kVK_ANSI_O, kVK_ANSI_P]
@@ -596,7 +550,7 @@ struct OnScreenKeyboardView: View {
 
             clickableKey(CGKeyCode(kVK_ANSI_Semicolon), label: ";")
             clickableKey(CGKeyCode(kVK_ANSI_Quote), label: "'")
-            clickableKey(CGKeyCode(kVK_Return), label: "Return", width: 125)
+            clickableKey(CGKeyCode(kVK_Return), label: "Return", width: 125, isSpecial: true)
         }
     }
 
@@ -628,18 +582,18 @@ struct OnScreenKeyboardView: View {
             modifierKey(label: "⌥", width: 78, modifier: \.option)
             modifierKey(label: "⌘", width: 93, modifier: \.command)
 
-            clickableKey(CGKeyCode(kVK_Space), label: "Space", width: 369)
+            clickableKey(CGKeyCode(kVK_Space), label: "", width: 369) // Spacebar
 
             modifierKey(label: "⌘", width: 93, modifier: \.command)
             modifierKey(label: "⌥", width: 78, modifier: \.option)
 
             // Arrow keys cluster
             VStack(spacing: 4) {
-                clickableKey(CGKeyCode(kVK_UpArrow), label: "↑", width: 60, height: 28)
+                clickableKey(CGKeyCode(kVK_UpArrow), label: "↑", width: 60, height: 28, isSpecial: true)
                 HStack(spacing: 4) {
-                    clickableKey(CGKeyCode(kVK_LeftArrow), label: "←", width: 60, height: 28)
-                    clickableKey(CGKeyCode(kVK_DownArrow), label: "↓", width: 60, height: 28)
-                    clickableKey(CGKeyCode(kVK_RightArrow), label: "→", width: 60, height: 28)
+                    clickableKey(CGKeyCode(kVK_LeftArrow), label: "←", width: 60, height: 28, isSpecial: true)
+                    clickableKey(CGKeyCode(kVK_DownArrow), label: "↓", width: 60, height: 28, isSpecial: true)
+                    clickableKey(CGKeyCode(kVK_RightArrow), label: "→", width: 60, height: 28, isSpecial: true)
                 }
             }
         }
@@ -649,18 +603,18 @@ struct OnScreenKeyboardView: View {
 
     private var navigationKeyColumn: some View {
         VStack(spacing: keySpacing) {
-            clickableKey(CGKeyCode(kVK_ForwardDelete), label: "Del")
-            clickableKey(CGKeyCode(kVK_Home), label: "Home")
-            clickableKey(CGKeyCode(kVK_End), label: "End")
-            clickableKey(CGKeyCode(kVK_PageUp), label: "PgUp")
-            clickableKey(CGKeyCode(kVK_PageDown), label: "PgDn")
+            clickableKey(CGKeyCode(kVK_ForwardDelete), label: "Del", isSpecial: true)
+            clickableKey(CGKeyCode(kVK_Home), label: "Home", isSpecial: true)
+            clickableKey(CGKeyCode(kVK_End), label: "End", isSpecial: true)
+            clickableKey(CGKeyCode(kVK_PageUp), label: "PgUp", isSpecial: true)
+            clickableKey(CGKeyCode(kVK_PageDown), label: "PgDn", isSpecial: true)
         }
     }
 
     // MARK: - Key Button
 
     @ViewBuilder
-    private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat? = nil, height: CGFloat? = nil) -> some View {
+    private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat? = nil, height: CGFloat? = nil, isSpecial: Bool = false) -> some View {
         let actualWidth = width ?? keyWidth
         let actualHeight = height ?? keyHeight
         let isHovered = hoveredKey == keyCode
@@ -673,43 +627,41 @@ struct OnScreenKeyboardView: View {
 
         Button {
             pressedKey = keyCode
-            // When caps lock is active and this is a letter key, add shift to get uppercase
             var modifiersToSend = activeModifiers
             if isCapsLockActive && isSingleLetter {
                 modifiersToSend.shift = true
             }
             onKeyPress(keyCode, modifiersToSend)
-            // Brief visual feedback then clear
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 if pressedKey == keyCode {
                     pressedKey = nil
                 }
             }
         } label: {
-            VStack(spacing: 1) {
+            VStack(spacing: 0) {
                 if let secondary = secondary {
-                    // Secondary character (smaller when shift not active, larger when active)
+                    // Secondary character
                     Text(secondary)
-                        .font(.system(size: isShiftActive ? 14 : 10, weight: .medium))
-                        .foregroundColor(isPressed ? .white : (isShiftActive ? .primary : .secondary))
-                    // Primary character (larger when shift not active, smaller when active)
+                        .font(.system(size: isShiftActive ? 16 : 12, weight: .bold))
+                        .foregroundColor(isShiftActive ? .white : .secondary)
+                        .opacity(isShiftActive ? 1.0 : 0.7)
+                    // Primary character
                     Text(label)
-                        .font(.system(size: isShiftActive ? 12 : 16, weight: .medium))
-                        .foregroundColor(isPressed ? .white : (isShiftActive ? .secondary : .primary))
+                        .font(.system(size: isShiftActive ? 12 : 16, weight: .bold))
+                        .foregroundColor(isShiftActive ? .secondary : .white)
+                        .opacity(isShiftActive ? 0.7 : 1.0)
                 } else {
-                    // No secondary - just show the label (always uppercase for letters)
                     Text(label)
-                        .font(.system(size: fontSize(for: label), weight: .medium))
-                        .foregroundColor(isPressed ? .white : .primary)
+                        .font(.system(size: fontSize(for: label), weight: .bold))
+                        .foregroundColor(isSpecial ? .accentColor : .white)
+                        .opacity(isSpecial && !isHovered ? 0.9 : 1.0)
                 }
             }
             .frame(width: actualWidth, height: actualHeight)
-            .background(keyBackground(isHovered: isHovered, isPressed: isPressed))
-            .cornerRadius(5)
-            .overlay(
-                RoundedRectangle(cornerRadius: 5)
-                    .stroke(keyBorderColor(isHovered: isHovered, isPressed: isPressed), lineWidth: 1)
-            )
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, isSpecial: isSpecial))
+            .cornerRadius(8)
+            .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -728,15 +680,13 @@ struct OnScreenKeyboardView: View {
             activeModifiers[keyPath: modifier].toggle()
         } label: {
             Text(label)
-                .font(.system(size: fontSize(for: label), weight: .medium))
+                .font(.system(size: fontSize(for: label), weight: .bold))
                 .frame(width: width, height: keyHeight)
-                .background(isActive ? Color.accentColor : (isHovered ? Color.accentColor.opacity(0.3) : Color(nsColor: .controlBackgroundColor)))
-                .foregroundColor(isActive ? .white : .primary)
-                .cornerRadius(5)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .stroke(isActive ? Color.accentColor : (isHovered ? Color.accentColor.opacity(0.5) : Color.gray.opacity(0.3)), lineWidth: isActive ? 2 : 1)
-                )
+                .background(GlassKeyBackground(isHovered: isHovered, isPressed: isActive, isSpecial: true))
+                .foregroundColor(isActive ? .white : (isHovered ? .white : .accentColor))
+                .cornerRadius(8)
+                .scaleEffect(isActive ? 0.95 : (isHovered ? 1.05 : 1.0))
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -762,20 +712,24 @@ struct OnScreenKeyboardView: View {
         let isHovered = hoveredKey == keyCode
 
         Button {
-            // Only toggle our internal state - don't send caps lock to the system
-            // We handle uppercase by adding shift to letter keys when caps lock is active
             isCapsLockActive.toggle()
         } label: {
-            Text("Caps")
-                .font(.system(size: 14, weight: .medium))
-                .frame(width: width, height: keyHeight)
-                .background(isCapsLockActive ? Color.accentColor : (isHovered ? Color.accentColor.opacity(0.3) : Color(nsColor: .controlBackgroundColor)))
-                .foregroundColor(isCapsLockActive ? .white : .primary)
-                .cornerRadius(5)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .stroke(isCapsLockActive ? Color.accentColor : (isHovered ? Color.accentColor.opacity(0.5) : Color.gray.opacity(0.3)), lineWidth: isCapsLockActive ? 2 : 1)
-                )
+            HStack(spacing: 4) {
+                Text("Caps")
+                if isCapsLockActive {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: .green, radius: 4)
+                }
+            }
+            .font(.system(size: 14, weight: .bold))
+            .frame(width: width, height: keyHeight)
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isCapsLockActive, isSpecial: true))
+            .foregroundColor(isCapsLockActive ? .white : (isHovered ? .white : .accentColor))
+            .cornerRadius(8)
+            .scaleEffect(isCapsLockActive ? 0.95 : (isHovered ? 1.05 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -786,29 +740,65 @@ struct OnScreenKeyboardView: View {
     // MARK: - Helpers
 
     private func fontSize(for label: String) -> CGFloat {
-        if label.count > 4 { return 13 }
-        if label.count > 2 { return 14 }
+        if label.count > 4 { return 12 }
+        if label.count > 2 { return 13 }
         return 16
     }
+}
 
-    private func keyBackground(isHovered: Bool, isPressed: Bool) -> Color {
-        if isPressed {
-            return .accentColor
-        } else if isHovered {
-            return Color.accentColor.opacity(0.3)
-        } else {
-            return Color(nsColor: .controlBackgroundColor)
+// MARK: - New Glass Aesthetic Components
+
+/// Custom background view for the GTA-style glass keys
+struct GlassKeyBackground: View {
+    var isHovered: Bool
+    var isPressed: Bool
+    var isSpecial: Bool = false
+    var specialColor: Color? = nil
+
+    var body: some View {
+        ZStack {
+            // Base layer: Dark, semi-transparent fill
+            if isPressed {
+                (specialColor ?? Color.accentColor)
+                    .opacity(0.8)
+                    .shadow(color: (specialColor ?? Color.accentColor).opacity(0.6), radius: 10)
+            } else {
+                Color.black.opacity(0.5)
+            }
+
+            // Highlight border (glows on hover)
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(borderColor, lineWidth: isHovered || isPressed ? 1.5 : 0.5)
+                .shadow(color: borderColor.opacity(isHovered ? 0.8 : 0.0), radius: isHovered ? 8 : 0)
         }
     }
 
-    private func keyBorderColor(isHovered: Bool, isPressed: Bool) -> Color {
+    private var borderColor: Color {
         if isPressed {
-            return .accentColor
-        } else if isHovered {
-            return .accentColor.opacity(0.5)
-        } else {
-            return .gray.opacity(0.3)
+            return .white.opacity(0.9)
         }
+        if isHovered {
+            return (specialColor ?? Color.accentColor).opacity(0.8)
+        }
+        return Color.white.opacity(0.15)
+    }
+}
+
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let visualEffectView = NSVisualEffectView()
+        visualEffectView.material = material
+        visualEffectView.blendingMode = blendingMode
+        visualEffectView.state = .active
+        return visualEffectView
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
     }
 }
 
@@ -826,5 +816,6 @@ private extension Array {
     OnScreenKeyboardView { keyCode, modifiers in
         print("Key pressed: \(keyCode), modifiers: \(modifiers)")
     }
-    .frame(width: 812)
+    .frame(width: 1100, height: 700)
+    .background(Color.gray)
 }
