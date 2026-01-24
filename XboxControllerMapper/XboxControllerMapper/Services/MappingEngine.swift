@@ -499,6 +499,27 @@ class MappingEngine: ObservableObject {
                 }
                 if !apps.isEmpty || !websites.isEmpty {
                     CommandWheelManager.shared.prepare(apps: apps, websites: websites, showWebsitesFirst: showWebsitesFirst)
+                    CommandWheelManager.shared.onSegmentChanged = { [weak self] in
+                        self?.controllerService.playHaptic(
+                            intensity: Config.wheelSegmentHapticIntensity,
+                            sharpness: Config.wheelSegmentHapticSharpness,
+                            duration: Config.wheelSegmentHapticDuration
+                        )
+                    }
+                    CommandWheelManager.shared.onPerimeterCrossed = { [weak self] in
+                        self?.controllerService.playHaptic(
+                            intensity: Config.wheelPerimeterHapticIntensity,
+                            sharpness: Config.wheelPerimeterHapticSharpness,
+                            duration: Config.wheelPerimeterHapticDuration
+                        )
+                    }
+                    CommandWheelManager.shared.onForceQuitReady = { [weak self] in
+                        self?.controllerService.playHaptic(
+                            intensity: Config.wheelForceQuitHapticIntensity,
+                            sharpness: Config.wheelForceQuitHapticSharpness,
+                            duration: Config.wheelForceQuitHapticDuration
+                        )
+                    }
                 }
             } else {
                 // Toggle mode: toggle visibility on press

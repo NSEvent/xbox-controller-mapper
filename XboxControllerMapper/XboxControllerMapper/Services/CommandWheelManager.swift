@@ -56,6 +56,18 @@ class CommandWheelManager: ObservableObject {
     private let alternateReleaseTolerance: TimeInterval = 0.3
     /// When the alternate modifier was released (nil = not pending swap back)
     private var alternateReleaseTime: TimeInterval?
+    /// Callback fired when the selected segment changes (used for haptic feedback)
+    var onSegmentChanged: (() -> Void)?
+    /// Callback fired when crossing the perimeter boundary (inner↔outer transition)
+    var onPerimeterCrossed: (() -> Void)?
+    /// Callback fired when force quit is ready (progress reaches 1.0)
+    var onForceQuitReady: (() -> Void)?
+    /// Previous segment index for detecting changes
+    private var previousSegmentIndex: Int?
+    /// Previous full range state for detecting inner↔outer transitions
+    private var previousIsFullRange = false
+    /// Whether the force quit haptic has already been fired for the current hold
+    private var forceQuitHapticFired = false
 
     private init() {}
 
@@ -78,6 +90,8 @@ class CommandWheelManager: ObservableObject {
         alternateReleaseTime = nil
         items = primaryItems.isEmpty ? alternateItems : primaryItems
         selectedIndex = nil
+        previousSegmentIndex = nil
+        previousIsFullRange = false
         lastValidSelection = nil
         lastValidSelectionTime = 0
         lastValidFullRange = false
@@ -129,6 +143,8 @@ class CommandWheelManager: ObservableObject {
         panel = nil
         isVisible = false
         selectedIndex = nil
+        previousSegmentIndex = nil
+        previousIsFullRange = false
         lastValidSelection = nil
         lastValidSelectionTime = 0
         lastValidFullRange = false
@@ -141,6 +157,7 @@ class CommandWheelManager: ObservableObject {
         fullRangeStartTime = nil
         fullRangeSegment = nil
         forceQuitProgress = 0
+        forceQuitHapticFired = false
     }
 
     /// Updates the selected segment based on stick position (called at 120Hz from MappingEngine)
@@ -150,7 +167,15 @@ class CommandWheelManager: ObservableObject {
 
         let magnitude = sqrt(stickX * stickX + stickY * stickY)
         guard magnitude > selectionDeadzone else {
-            // Stick in center - clear current selection but keep lastValidSelection for tolerance
+            // Stick in center - fire haptic if coming from a selection
+            if previousSegmentIndex != nil {
+                previousSegmentIndex = nil
+                onSegmentChanged?()
+            }
+            if previousIsFullRange {
+                previousIsFullRange = false
+                onPerimeterCrossed?()
+            }
             selectedIndex = nil
             isFullRange = false
             fullRangeStartTime = nil
@@ -175,12 +200,20 @@ class CommandWheelManager: ObservableObject {
 
         let segmentSize = (2 * CGFloat.pi) / CGFloat(items.count)
         let index = Int(normalizedAngle / segmentSize) % items.count
+        if index != previousSegmentIndex {
+            previousSegmentIndex = index
+            onSegmentChanged?()
+        }
         selectedIndex = index
         lastValidSelection = index
         lastValidSelectionTime = CFAbsoluteTimeGetCurrent()
 
         // Track full range state
         let atFullRange = magnitude >= fullRangeThreshold
+        if atFullRange != previousIsFullRange {
+            onPerimeterCrossed?()
+        }
+        previousIsFullRange = atFullRange
         isFullRange = atFullRange
         lastValidFullRange = atFullRange
 
@@ -190,11 +223,16 @@ class CommandWheelManager: ObservableObject {
                 fullRangeStartTime = CFAbsoluteTimeGetCurrent()
                 fullRangeSegment = index
                 forceQuitProgress = 0
+                forceQuitHapticFired = false
             }
             // Update force quit progress (only for apps)
             if case .app = items[index].kind, let startTime = fullRangeStartTime {
                 let elapsed = CFAbsoluteTimeGetCurrent() - startTime
                 forceQuitProgress = min(1.0, CGFloat(elapsed / forceQuitDuration))
+                if forceQuitProgress >= 1.0 && !forceQuitHapticFired {
+                    forceQuitHapticFired = true
+                    onForceQuitReady?()
+                }
             } else {
                 forceQuitProgress = 0
             }
