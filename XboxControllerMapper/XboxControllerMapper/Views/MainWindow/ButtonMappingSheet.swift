@@ -51,26 +51,29 @@ struct ButtonMappingSheet: View {
     @State private var selectedMacroId: UUID?
 
     // System command support
-    @State private var systemCommandCategory: SystemCommandCategory = .app
+    @State private var systemCommandCategory: SystemCommandCategory = .shell
     @State private var appBundleIdentifier: String = ""
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
+    @State private var linkURL: String = ""
 
     // Long hold type support
     @State private var longHoldMappingType: MappingType = .singleKey
     @State private var longHoldMacroId: UUID?
-    @State private var longHoldSystemCommandCategory: SystemCommandCategory = .app
+    @State private var longHoldSystemCommandCategory: SystemCommandCategory = .shell
     @State private var longHoldAppBundleIdentifier: String = ""
     @State private var longHoldShellCommandText: String = ""
     @State private var longHoldShellRunInTerminal: Bool = true
+    @State private var longHoldLinkURL: String = ""
 
     // Double tap type support
     @State private var doubleTapMappingType: MappingType = .singleKey
     @State private var doubleTapMacroId: UUID?
-    @State private var doubleTapSystemCommandCategory: SystemCommandCategory = .app
+    @State private var doubleTapSystemCommandCategory: SystemCommandCategory = .shell
     @State private var doubleTapAppBundleIdentifier: String = ""
     @State private var doubleTapShellCommandText: String = ""
     @State private var doubleTapShellRunInTerminal: Bool = true
+    @State private var doubleTapLinkURL: String = ""
 
     enum MappingType: Int {
         case singleKey = 0
@@ -403,20 +406,6 @@ struct ButtonMappingSheet: View {
 
             // Category-specific content
             switch systemCommandCategory {
-            case .app:
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        TextField("Bundle Identifier (e.g. com.apple.calculator)", text: $appBundleIdentifier)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-
-                        Button("Browse...") { browseForApp(target: .primary) }
-                    }
-
-                    if !appBundleIdentifier.isEmpty {
-                        appPreviewRow(for: appBundleIdentifier)
-                    }
-                }
             case .shell:
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
@@ -435,6 +424,24 @@ struct ButtonMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+            case .app:
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        TextField("Bundle Identifier (e.g. com.apple.calculator)", text: $appBundleIdentifier)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        Button("Browse...") { browseForApp(target: .primary) }
+                    }
+
+                    if !appBundleIdentifier.isEmpty {
+                        appPreviewRow(for: appBundleIdentifier)
+                    }
+                }
+            case .link:
+                TextField("URL (e.g. https://google.com)", text: $linkURL)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
             }
 
             // Hint field for system commands
@@ -497,34 +504,43 @@ struct ButtonMappingSheet: View {
     /// Builds the SystemCommand from current UI state, or nil if invalid
     private func buildSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
-        case .app:
-            guard !appBundleIdentifier.isEmpty else { return nil }
-            return .launchApp(bundleIdentifier: appBundleIdentifier)
         case .shell:
             guard !shellCommandText.isEmpty else { return nil }
             return .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
+        case .app:
+            guard !appBundleIdentifier.isEmpty else { return nil }
+            return .launchApp(bundleIdentifier: appBundleIdentifier)
+        case .link:
+            guard !linkURL.isEmpty else { return nil }
+            return .openLink(url: linkURL)
         }
     }
 
     private func buildLongHoldSystemCommand() -> SystemCommand? {
         switch longHoldSystemCommandCategory {
-        case .app:
-            guard !longHoldAppBundleIdentifier.isEmpty else { return nil }
-            return .launchApp(bundleIdentifier: longHoldAppBundleIdentifier)
         case .shell:
             guard !longHoldShellCommandText.isEmpty else { return nil }
             return .shellCommand(command: longHoldShellCommandText, inTerminal: longHoldShellRunInTerminal)
+        case .app:
+            guard !longHoldAppBundleIdentifier.isEmpty else { return nil }
+            return .launchApp(bundleIdentifier: longHoldAppBundleIdentifier)
+        case .link:
+            guard !longHoldLinkURL.isEmpty else { return nil }
+            return .openLink(url: longHoldLinkURL)
         }
     }
 
     private func buildDoubleTapSystemCommand() -> SystemCommand? {
         switch doubleTapSystemCommandCategory {
-        case .app:
-            guard !doubleTapAppBundleIdentifier.isEmpty else { return nil }
-            return .launchApp(bundleIdentifier: doubleTapAppBundleIdentifier)
         case .shell:
             guard !doubleTapShellCommandText.isEmpty else { return nil }
             return .shellCommand(command: doubleTapShellCommandText, inTerminal: doubleTapShellRunInTerminal)
+        case .app:
+            guard !doubleTapAppBundleIdentifier.isEmpty else { return nil }
+            return .launchApp(bundleIdentifier: doubleTapAppBundleIdentifier)
+        case .link:
+            guard !doubleTapLinkURL.isEmpty else { return nil }
+            return .openLink(url: doubleTapLinkURL)
         }
     }
 
@@ -696,6 +712,15 @@ struct ButtonMappingSheet: View {
             .pickerStyle(.segmented)
 
             switch longHoldSystemCommandCategory {
+            case .shell:
+                TextField("Command", text: $longHoldShellCommandText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                Toggle("Run silently (no terminal window)", isOn: Binding(
+                    get: { !longHoldShellRunInTerminal },
+                    set: { longHoldShellRunInTerminal = !$0 }
+                ))
+                    .font(.caption)
             case .app:
                 HStack {
                     TextField("Bundle Identifier", text: $longHoldAppBundleIdentifier)
@@ -706,15 +731,10 @@ struct ButtonMappingSheet: View {
                 if !longHoldAppBundleIdentifier.isEmpty {
                     appPreviewRow(for: longHoldAppBundleIdentifier)
                 }
-            case .shell:
-                TextField("Command", text: $longHoldShellCommandText)
+            case .link:
+                TextField("URL (e.g. https://google.com)", text: $longHoldLinkURL)
                     .textFieldStyle(.roundedBorder)
                     .font(.subheadline)
-                Toggle("Run silently (no terminal window)", isOn: Binding(
-                    get: { !longHoldShellRunInTerminal },
-                    set: { longHoldShellRunInTerminal = !$0 }
-                ))
-                    .font(.caption)
             }
         }
     }
@@ -866,6 +886,15 @@ struct ButtonMappingSheet: View {
             .pickerStyle(.segmented)
 
             switch doubleTapSystemCommandCategory {
+            case .shell:
+                TextField("Command", text: $doubleTapShellCommandText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+                Toggle("Run silently (no terminal window)", isOn: Binding(
+                    get: { !doubleTapShellRunInTerminal },
+                    set: { doubleTapShellRunInTerminal = !$0 }
+                ))
+                    .font(.caption)
             case .app:
                 HStack {
                     TextField("Bundle Identifier", text: $doubleTapAppBundleIdentifier)
@@ -876,15 +905,10 @@ struct ButtonMappingSheet: View {
                 if !doubleTapAppBundleIdentifier.isEmpty {
                     appPreviewRow(for: doubleTapAppBundleIdentifier)
                 }
-            case .shell:
-                TextField("Command", text: $doubleTapShellCommandText)
+            case .link:
+                TextField("URL (e.g. https://google.com)", text: $doubleTapLinkURL)
                     .textFieldStyle(.roundedBorder)
                     .font(.subheadline)
-                Toggle("Run silently (no terminal window)", isOn: Binding(
-                    get: { !doubleTapShellRunInTerminal },
-                    set: { doubleTapShellRunInTerminal = !$0 }
-                ))
-                    .font(.caption)
             }
         }
     }
@@ -1050,7 +1074,7 @@ struct ButtonMappingSheet: View {
             newMapping = KeyMapping(systemCommand: command, hint: hint.isEmpty ? nil : hint)
         } else if mappingType == .macro {
             guard let macroId = selectedMacroId else { return }
-            newMapping = KeyMapping(macroId: macroId)
+            newMapping = KeyMapping(macroId: macroId, hint: hint.isEmpty ? nil : hint)
         } else {
             newMapping = KeyMapping(
                 keyCode: keyCode,
@@ -1059,54 +1083,55 @@ struct ButtonMappingSheet: View {
                 hint: hint.isEmpty ? nil : hint
             )
 
-            if enableLongHold {
-                let longHoldValid: Bool
-                switch longHoldMappingType {
-                case .singleKey:
-                    longHoldValid = longHoldKeyCode != nil || longHoldModifiers.hasAny
-                case .macro:
-                    longHoldValid = longHoldMacroId != nil
-                case .systemCommand:
-                    longHoldValid = buildLongHoldSystemCommand() != nil
-                }
-                if longHoldValid {
-                    newMapping.longHoldMapping = LongHoldMapping(
-                        keyCode: longHoldMappingType == .singleKey ? longHoldKeyCode : nil,
-                        modifiers: longHoldMappingType == .singleKey ? longHoldModifiers : ModifierFlags(),
-                        threshold: longHoldThreshold,
-                        macroId: longHoldMappingType == .macro ? longHoldMacroId : nil,
-                        systemCommand: longHoldMappingType == .systemCommand ? buildLongHoldSystemCommand() : nil,
-                        hint: longHoldHint.isEmpty ? nil : longHoldHint
-                    )
-                }
-            }
-
-            if enableDoubleTap {
-                let doubleTapValid: Bool
-                switch doubleTapMappingType {
-                case .singleKey:
-                    doubleTapValid = doubleTapKeyCode != nil || doubleTapModifiers.hasAny
-                case .macro:
-                    doubleTapValid = doubleTapMacroId != nil
-                case .systemCommand:
-                    doubleTapValid = buildDoubleTapSystemCommand() != nil
-                }
-                if doubleTapValid {
-                    newMapping.doubleTapMapping = DoubleTapMapping(
-                        keyCode: doubleTapMappingType == .singleKey ? doubleTapKeyCode : nil,
-                        modifiers: doubleTapMappingType == .singleKey ? doubleTapModifiers : ModifierFlags(),
-                        threshold: doubleTapThreshold,
-                        macroId: doubleTapMappingType == .macro ? doubleTapMacroId : nil,
-                        systemCommand: doubleTapMappingType == .systemCommand ? buildDoubleTapSystemCommand() : nil,
-                        hint: doubleTapHint.isEmpty ? nil : doubleTapHint
-                    )
-                }
-            }
-
             if enableRepeat {
                 newMapping.repeatMapping = RepeatMapping(
                     enabled: true,
                     interval: 1.0 / repeatRate
+                )
+            }
+        }
+
+        // Long hold and double tap apply to all primary mapping types
+        if enableLongHold && !longHoldDisabled {
+            let longHoldValid: Bool
+            switch longHoldMappingType {
+            case .singleKey:
+                longHoldValid = longHoldKeyCode != nil || longHoldModifiers.hasAny
+            case .macro:
+                longHoldValid = longHoldMacroId != nil
+            case .systemCommand:
+                longHoldValid = buildLongHoldSystemCommand() != nil
+            }
+            if longHoldValid {
+                newMapping.longHoldMapping = LongHoldMapping(
+                    keyCode: longHoldMappingType == .singleKey ? longHoldKeyCode : nil,
+                    modifiers: longHoldMappingType == .singleKey ? longHoldModifiers : ModifierFlags(),
+                    threshold: longHoldThreshold,
+                    macroId: longHoldMappingType == .macro ? longHoldMacroId : nil,
+                    systemCommand: longHoldMappingType == .systemCommand ? buildLongHoldSystemCommand() : nil,
+                    hint: longHoldHint.isEmpty ? nil : longHoldHint
+                )
+            }
+        }
+
+        if enableDoubleTap && !primaryDisablesAdvancedFeatures {
+            let doubleTapValid: Bool
+            switch doubleTapMappingType {
+            case .singleKey:
+                doubleTapValid = doubleTapKeyCode != nil || doubleTapModifiers.hasAny
+            case .macro:
+                doubleTapValid = doubleTapMacroId != nil
+            case .systemCommand:
+                doubleTapValid = buildDoubleTapSystemCommand() != nil
+            }
+            if doubleTapValid {
+                newMapping.doubleTapMapping = DoubleTapMapping(
+                    keyCode: doubleTapMappingType == .singleKey ? doubleTapKeyCode : nil,
+                    modifiers: doubleTapMappingType == .singleKey ? doubleTapModifiers : ModifierFlags(),
+                    threshold: doubleTapThreshold,
+                    macroId: doubleTapMappingType == .macro ? doubleTapMacroId : nil,
+                    systemCommand: doubleTapMappingType == .systemCommand ? buildDoubleTapSystemCommand() : nil,
+                    hint: doubleTapHint.isEmpty ? nil : doubleTapHint
                 )
             }
         }
@@ -1125,6 +1150,8 @@ struct ButtonMappingSheet: View {
         case .shellCommand(let cmd, let inTerminal):
             shellCommandText = cmd
             shellRunInTerminal = inTerminal
+        case .openLink(let url):
+            linkURL = url
         }
     }
 
@@ -1136,6 +1163,8 @@ struct ButtonMappingSheet: View {
         case .shellCommand(let cmd, let inTerminal):
             longHoldShellCommandText = cmd
             longHoldShellRunInTerminal = inTerminal
+        case .openLink(let url):
+            longHoldLinkURL = url
         }
     }
 
@@ -1147,6 +1176,8 @@ struct ButtonMappingSheet: View {
         case .shellCommand(let cmd, let inTerminal):
             doubleTapShellCommandText = cmd
             doubleTapShellRunInTerminal = inTerminal
+        case .openLink(let url):
+            doubleTapLinkURL = url
         }
     }
 

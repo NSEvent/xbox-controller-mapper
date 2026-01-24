@@ -623,17 +623,23 @@ struct ChordListView: View, Equatable {
     }
 
     var body: some View {
-        ForEach(chords) { chord in
-            ChordRow(
-                chord: chord,
-                isDualSense: isDualSense,
-                onEdit: { onEdit(chord) },
-                onDelete: { onDelete(chord) }
-            )
-            .background(GlassCardBackground())
-            .padding(.bottom, 4)
+        List {
+            ForEach(chords) { chord in
+                ChordRow(
+                    chord: chord,
+                    isDualSense: isDualSense,
+                    onEdit: { onEdit(chord) },
+                    onDelete: { onDelete(chord) }
+                )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+                .background(GlassCardBackground())
+            }
+            .onMove(perform: onMove)
         }
-        .onMove(perform: onMove)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -777,10 +783,11 @@ struct ChordMappingSheet: View {
     @State private var selectedMacroId: UUID?
 
     // System command support
-    @State private var systemCommandCategory: SystemCommandCategory = .app
+    @State private var systemCommandCategory: SystemCommandCategory = .shell
     @State private var appBundleIdentifier: String = ""
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
+    @State private var linkURL: String = ""
 
     enum MappingType: Int {
         case singleKey = 0
@@ -1090,6 +1097,16 @@ struct ChordMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+            case .link:
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("URL (e.g. https://google.com)", text: $linkURL)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    Text("Opens the URL in your default browser")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }
@@ -1117,6 +1134,9 @@ struct ChordMappingSheet: View {
         case .shell:
             guard !shellCommandText.isEmpty else { return nil }
             return .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
+        case .link:
+            guard !linkURL.isEmpty else { return nil }
+            return .openLink(url: linkURL)
         }
     }
 
@@ -1128,6 +1148,8 @@ struct ChordMappingSheet: View {
         case .shellCommand(let cmd, let inTerminal):
             shellCommandText = cmd
             shellRunInTerminal = inTerminal
+        case .openLink(let url):
+            linkURL = url
         }
     }
 

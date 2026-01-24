@@ -3,8 +3,9 @@ import AppKit
 
 /// Categories for grouping system commands in the UI
 enum SystemCommandCategory: String, CaseIterable {
-    case app = "Launch App"
     case shell = "Shell Command"
+    case app = "Launch App"
+    case link = "Open Link"
 }
 
 /// Represents a system-level command that can be triggered by a button or chord mapping
@@ -14,6 +15,9 @@ enum SystemCommand: Equatable {
 
     // Shell command execution
     case shellCommand(command: String, inTerminal: Bool)
+
+    // Open URL in default browser
+    case openLink(url: String)
 
     /// Human-readable display name for the UI
     var displayName: String {
@@ -28,6 +32,11 @@ enum SystemCommand: Equatable {
                 return String(command.prefix(30)) + "..."
             }
             return command
+        case .openLink(let url):
+            if url.count > 30 {
+                return String(url.prefix(30)) + "..."
+            }
+            return url
         }
     }
 
@@ -36,6 +45,7 @@ enum SystemCommand: Equatable {
         switch self {
         case .launchApp: return .app
         case .shellCommand: return .shell
+        case .openLink: return .link
         }
     }
 }
@@ -44,11 +54,11 @@ enum SystemCommand: Equatable {
 
 extension SystemCommand: Codable {
     private enum CommandType: String, Codable {
-        case launchApp, shellCommand
+        case launchApp, shellCommand, openLink
     }
 
     private enum CodingKeys: String, CodingKey {
-        case type, bundleIdentifier, command, inTerminal
+        case type, bundleIdentifier, command, inTerminal, url
     }
 
     init(from decoder: Decoder) throws {
@@ -63,6 +73,9 @@ extension SystemCommand: Codable {
             let command = try container.decodeIfPresent(String.self, forKey: .command) ?? ""
             let inTerminal = try container.decodeIfPresent(Bool.self, forKey: .inTerminal) ?? false
             self = .shellCommand(command: command, inTerminal: inTerminal)
+        case .openLink:
+            let url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+            self = .openLink(url: url)
         }
     }
 
@@ -77,6 +90,9 @@ extension SystemCommand: Codable {
             try container.encode(CommandType.shellCommand, forKey: .type)
             try container.encode(command, forKey: .command)
             try container.encode(inTerminal, forKey: .inTerminal)
+        case .openLink(let url):
+            try container.encode(CommandType.openLink, forKey: .type)
+            try container.encode(url, forKey: .url)
         }
     }
 }

@@ -21,18 +21,24 @@ struct MacroListView: View {
                             .italic()
                             .padding()
                     } else {
-                        ForEach(profile.macros) { macro in
-                            MacroRow(macro: macro, onEdit: {
-                                editingMacro = macro
-                            }, onDelete: {
-                                profileManager.removeMacro(macro)
-                            })
-                            .background(GlassCardBackground())
-                            .padding(.bottom, 4)
+                        List {
+                            ForEach(profile.macros) { macro in
+                                MacroRow(macro: macro, onEdit: {
+                                    editingMacro = macro
+                                }, onDelete: {
+                                    profileManager.removeMacro(macro)
+                                })
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+                                .background(GlassCardBackground())
+                            }
+                            .onMove { source, dest in
+                                profileManager.moveMacros(from: source, to: dest)
+                            }
                         }
-                        .onMove { source, dest in
-                            profileManager.moveMacros(from: source, to: dest)
-                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
                     }
                 }
             } header: {

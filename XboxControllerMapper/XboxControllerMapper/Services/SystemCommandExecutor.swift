@@ -21,6 +21,9 @@ class SystemCommandExecutor: @unchecked Sendable {
             } else {
                 executeSilently(command)
             }
+
+        case .openLink(let urlString):
+            openLink(urlString)
         }
     }
 
@@ -37,6 +40,23 @@ class SystemCommandExecutor: @unchecked Sendable {
                 }
             } else {
                 NSLog("[SystemCommand] App not found for bundle identifier: \(bundleIdentifier)")
+            }
+        }
+    }
+
+    // MARK: - Open Link
+
+    private func openLink(_ urlString: String) {
+        DispatchQueue.main.async {
+            // Try to create URL, prepending https:// if no scheme is provided
+            var resolved = urlString
+            if !resolved.contains("://") {
+                resolved = "https://" + resolved
+            }
+            if let url = URL(string: resolved) {
+                NSWorkspace.shared.open(url)
+            } else {
+                NSLog("[SystemCommand] Invalid URL: \(urlString)")
             }
         }
     }
