@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct ButtonMappingSheet: View {
     let button: ControllerButton
     @Binding var mapping: KeyMapping?
+    var isDualSense: Bool = false
 
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var appMonitor: AppMonitor
@@ -141,11 +142,11 @@ struct ButtonMappingSheet: View {
 
     private var header: some View {
         HStack {
-            ButtonIconView(button: button, isPressed: false)
+            ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense)
                 .padding(.trailing, 8)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Configure \(button.displayName)")
+                Text("Configure \(button.displayName(forDualSense: isDualSense))")
                     .font(.headline)
 
                 if let currentMapping = mapping {
@@ -1006,25 +1007,22 @@ struct ButtonMappingSheet: View {
         guard let profile = profileManager.activeProfile else { return }
 
         if let existingMapping = profile.buttonMappings[button] {
-            if let systemCommand = existingMapping.systemCommand {
-                mappingType = .systemCommand
-                hint = existingMapping.hint ?? ""
-                loadSystemCommandState(systemCommand)
-                return
-            }
-
-            if let macroId = existingMapping.macroId {
-                mappingType = .macro
-                selectedMacroId = macroId
-                return // Stop here for macro
-            }
-
-            mappingType = .singleKey
-            keyCode = existingMapping.keyCode
-            modifiers = existingMapping.modifiers
-            isHoldModifier = existingMapping.isHoldModifier
             hint = existingMapping.hint ?? ""
 
+            if let systemCommand = existingMapping.systemCommand {
+                mappingType = .systemCommand
+                loadSystemCommandState(systemCommand)
+            } else if let macroId = existingMapping.macroId {
+                mappingType = .macro
+                selectedMacroId = macroId
+            } else {
+                mappingType = .singleKey
+                keyCode = existingMapping.keyCode
+                modifiers = existingMapping.modifiers
+                isHoldModifier = existingMapping.isHoldModifier
+            }
+
+            // Long hold, double tap, and repeat apply to all primary mapping types
             if let longHold = existingMapping.longHoldMapping {
                 enableLongHold = true
                 longHoldThreshold = longHold.threshold

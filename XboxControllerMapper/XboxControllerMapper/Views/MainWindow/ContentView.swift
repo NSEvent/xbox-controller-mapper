@@ -95,7 +95,8 @@ struct ContentView: View {
                 mapping: Binding(
                     get: { profileManager.activeProfile?.buttonMappings[button] },
                     set: { _ in }
-                )
+                ),
+                isDualSense: controllerService.threadSafeIsDualSense
             )
         }
         .sheet(isPresented: $showingChordSheet) {
