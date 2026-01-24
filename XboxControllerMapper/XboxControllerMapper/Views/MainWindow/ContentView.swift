@@ -797,6 +797,7 @@ struct ChordMappingSheet: View {
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
+    @State private var showingAppPicker = false
 
     enum MappingType: Int {
         case singleKey = 0
@@ -1060,34 +1061,14 @@ struct ChordMappingSheet: View {
 
             switch systemCommandCategory {
             case .app:
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        TextField("Bundle Identifier (e.g. com.apple.calculator)", text: $appBundleIdentifier)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-
-                        Button("Browse...") {
-                            browseForApp()
+                AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingAppPicker)
+                    .sheet(isPresented: $showingAppPicker) {
+                        SystemActionAppPickerSheet(
+                            currentBundleIdentifier: appBundleIdentifier.isEmpty ? nil : appBundleIdentifier
+                        ) { app in
+                            appBundleIdentifier = app.bundleIdentifier
                         }
                     }
-
-                    if !appBundleIdentifier.isEmpty {
-                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appBundleIdentifier) {
-                            HStack(spacing: 6) {
-                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                    .resizable()
-                                    .frame(width: 16, height: 16)
-                                Text(url.deletingPathExtension().lastPathComponent)
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                            }
-                        } else {
-                            Text("App not found")
-                                .font(.caption)
-                                .foregroundColor(.red)
-                        }
-                    }
-                }
             case .shell:
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
@@ -1105,6 +1086,11 @@ struct ChordMappingSheet: View {
                         : "Runs silently in the background (no visible output)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    if shellRunInTerminal {
+                        Divider()
+                        TerminalAppPickerRow()
+                    }
                 }
             case .link:
                 VStack(alignment: .leading, spacing: 8) {
@@ -1116,21 +1102,6 @@ struct ChordMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-            }
-        }
-    }
-
-    private func browseForApp() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.application]
-        panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-
-        if panel.runModal() == .OK, let url = panel.url {
-            if let bundle = Bundle(url: url), let bundleId = bundle.bundleIdentifier {
-                appBundleIdentifier = bundleId
             }
         }
     }

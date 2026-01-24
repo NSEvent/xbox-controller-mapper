@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import UniformTypeIdentifiers
 
 /// Sheet for configuring a button mapping
 struct ButtonMappingSheet: View {
@@ -57,6 +56,9 @@ struct ButtonMappingSheet: View {
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
+    @State private var showingPrimaryAppPicker = false
+    @State private var showingLongHoldAppPicker = false
+    @State private var showingDoubleTapAppPicker = false
 
     // Long hold type support
     @State private var longHoldMappingType: MappingType = .singleKey
@@ -424,21 +426,21 @@ struct ButtonMappingSheet: View {
                         : "Runs silently in the background (no visible output)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    if shellRunInTerminal {
+                        Divider()
+                        TerminalAppPickerRow()
+                    }
                 }
             case .app:
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        TextField("Bundle Identifier (e.g. com.apple.calculator)", text: $appBundleIdentifier)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-
-                        Button("Browse...") { browseForApp(target: .primary) }
+                AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingPrimaryAppPicker)
+                    .sheet(isPresented: $showingPrimaryAppPicker) {
+                        SystemActionAppPickerSheet(
+                            currentBundleIdentifier: appBundleIdentifier.isEmpty ? nil : appBundleIdentifier
+                        ) { app in
+                            appBundleIdentifier = app.bundleIdentifier
+                        }
                     }
-
-                    if !appBundleIdentifier.isEmpty {
-                        appPreviewRow(for: appBundleIdentifier)
-                    }
-                }
             case .link:
                 TextField("URL (e.g. https://google.com)", text: $linkURL)
                     .textFieldStyle(.roundedBorder)
@@ -458,50 +460,6 @@ struct ButtonMappingSheet: View {
         }
     }
 
-    private enum BrowseTarget {
-        case primary, longHold, doubleTap
-    }
-
-    private func browseForApp(target: BrowseTarget = .primary) {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.application]
-        panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-
-        if panel.runModal() == .OK, let url = panel.url {
-            if let bundle = Bundle(url: url), let bundleId = bundle.bundleIdentifier {
-                switch target {
-                case .primary:
-                    appBundleIdentifier = bundleId
-                case .longHold:
-                    longHoldAppBundleIdentifier = bundleId
-                case .doubleTap:
-                    doubleTapAppBundleIdentifier = bundleId
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func appPreviewRow(for bundleId: String) -> some View {
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-            HStack(spacing: 6) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                    .resizable()
-                    .frame(width: 16, height: 16)
-                Text(url.deletingPathExtension().lastPathComponent)
-                    .font(.caption)
-                    .foregroundColor(.green)
-            }
-        } else {
-            Text("App not found")
-                .font(.caption)
-                .foregroundColor(.red)
-        }
-    }
-
     /// Compact system command fields for long hold and double tap sections
     @ViewBuilder
     private func compactSystemCommandFields(
@@ -510,7 +468,7 @@ struct ButtonMappingSheet: View {
         inTerminal: Binding<Bool>,
         bundleId: Binding<String>,
         linkURL: Binding<String>,
-        browseTarget: BrowseTarget
+        showingAppPicker: Binding<Bool>
     ) -> some View {
         switch category {
         case .shell:
@@ -522,16 +480,18 @@ struct ButtonMappingSheet: View {
                 set: { inTerminal.wrappedValue = !$0 }
             ))
                 .font(.caption)
+            if inTerminal.wrappedValue {
+                TerminalAppPickerRow()
+            }
         case .app:
-            HStack {
-                TextField("Bundle Identifier", text: bundleId)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.subheadline)
-                Button("Browse...") { browseForApp(target: browseTarget) }
-            }
-            if !bundleId.wrappedValue.isEmpty {
-                appPreviewRow(for: bundleId.wrappedValue)
-            }
+            AppSelectionButton(bundleId: bundleId.wrappedValue, showingPicker: showingAppPicker)
+                .sheet(isPresented: showingAppPicker) {
+                    SystemActionAppPickerSheet(
+                        currentBundleIdentifier: bundleId.wrappedValue.isEmpty ? nil : bundleId.wrappedValue
+                    ) { app in
+                        bundleId.wrappedValue = app.bundleIdentifier
+                    }
+                }
         case .link:
             TextField("URL (e.g. https://google.com)", text: linkURL)
                 .textFieldStyle(.roundedBorder)
@@ -739,7 +699,7 @@ struct ButtonMappingSheet: View {
                 inTerminal: $longHoldShellRunInTerminal,
                 bundleId: $longHoldAppBundleIdentifier,
                 linkURL: $longHoldLinkURL,
-                browseTarget: .longHold
+                showingAppPicker: $showingLongHoldAppPicker
             )
         }
     }
@@ -896,7 +856,7 @@ struct ButtonMappingSheet: View {
                 inTerminal: $doubleTapShellRunInTerminal,
                 bundleId: $doubleTapAppBundleIdentifier,
                 linkURL: $doubleTapLinkURL,
-                browseTarget: .doubleTap
+                showingAppPicker: $showingDoubleTapAppPicker
             )
         }
     }
