@@ -147,6 +147,10 @@ This document lists all features for verification after refactoring.
 - [ ] IOKit HID for DualSense
 - [ ] CoreHaptics integration
 - [ ] Thread-safe controller state (NSLock)
-- [ ] 120Hz joystick polling
+- [ ] Dedicated dispatch queues for keyboard/mouse/controller events
+- [ ] 120Hz joystick polling with throttled UI updates
 - [ ] Input log for debugging
 - [ ] Legacy config path migration (~/.xbox-controller-mapper → ~/.controllerkeys)
+- [ ] Profile import/export via JSON
+- [ ] Pinch-to-zoom UI scaling (0.5x-2.0x) with keyboard shortcuts (Cmd+/Cmd-/Cmd+0)
+- [ ] Unit tests for mapping engine (modifier combos, chords, long hold, double tap)
