@@ -74,7 +74,7 @@ struct MacroEditorSheet: View {
                     }
                     
                     Button {
-                        addStep(.typeText("Hello"))
+                        addStep(.typeText("Hello", speed: 0))
                     } label: {
                         Label("Type Text", systemImage: "textformat")
                     }
@@ -197,6 +197,7 @@ struct StepEditorSheet: View {
     @State private var modifiers = ModifierFlags()
     @State private var duration: TimeInterval = 0.5
     @State private var text: String = ""
+    @State private var speed: Int = 0 // 0 = Paste
     
     // To track type changes
     @State private var selectedType: StepType
@@ -226,9 +227,10 @@ struct StepEditorSheet: View {
         case .delay(let dur):
             _selectedType = State(initialValue: .delay)
             _duration = State(initialValue: dur)
-        case .typeText(let txt):
+        case .typeText(let txt, let spd):
             _selectedType = State(initialValue: .typeText)
             _text = State(initialValue: txt)
+            _speed = State(initialValue: spd)
         }
     }
     
@@ -236,6 +238,7 @@ struct StepEditorSheet: View {
         VStack(spacing: 20) {
             Text("Edit Step")
                 .font(.headline)
+                .padding(.top, 20)
             
             Picker("Type", selection: $selectedType) {
                 ForEach(StepType.allCases) { type in
@@ -272,6 +275,15 @@ struct StepEditorSheet: View {
                         TextField("Enter text...", text: $text)
                             .textFieldStyle(.roundedBorder)
                     }
+                    
+                    Section("Typing Speed") {
+                        Picker("Speed", selection: $speed) {
+                            Text("Instant (Paste)").tag(0)
+                            Text("Fast (1200 CPM)").tag(1200)
+                            Text("Natural (600 CPM)").tag(600)
+                            Text("Slow (300 CPM)").tag(300)
+                        }
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -285,7 +297,7 @@ struct StepEditorSheet: View {
             }
             .padding(.bottom)
         }
-        .frame(width: 400, height: 400)
+        .frame(width: 400, height: 450)
     }
     
     private func save() {
@@ -299,7 +311,7 @@ struct StepEditorSheet: View {
         case .delay:
             step = .delay(duration)
         case .typeText:
-            step = .typeText(text)
+            step = .typeText(text, speed: speed)
         }
     }
 }

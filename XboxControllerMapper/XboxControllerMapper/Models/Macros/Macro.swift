@@ -24,8 +24,8 @@ enum MacroStep: Codable, Equatable {
     /// Wait for a specified duration
     case delay(TimeInterval)
     
-    /// Type a string of text
-    case typeText(String)
+    /// Type a string of text with specified speed (CPM). 0 = Instant Paste.
+    case typeText(String, speed: Int)
     
     // Custom decoding/encoding to handle enum associated values
     private enum CodingKeys: String, CodingKey {
@@ -51,8 +51,8 @@ enum MacroStep: Codable, Equatable {
             let duration = try container.decode(TimeInterval.self, forKey: .payload)
             self = .delay(duration)
         case .typeText:
-            let text = try container.decode(String.self, forKey: .payload)
-            self = .typeText(text)
+            let data = try container.decode(TypeTextPayload.self, forKey: .payload)
+            self = .typeText(data.text, speed: data.speed)
         }
     }
     
@@ -69,15 +69,20 @@ enum MacroStep: Codable, Equatable {
         case .delay(let duration):
             try container.encode(StepType.delay, forKey: .type)
             try container.encode(duration, forKey: .payload)
-        case .typeText(let text):
+        case .typeText(let text, let speed):
             try container.encode(StepType.typeText, forKey: .type)
-            try container.encode(text, forKey: .payload)
+            try container.encode(TypeTextPayload(text: text, speed: speed), forKey: .payload)
         }
     }
     
     private struct HoldPayload: Codable {
         let mapping: KeyMapping
         let duration: TimeInterval
+    }
+    
+    private struct TypeTextPayload: Codable {
+        let text: String
+        let speed: Int
     }
 }
 
@@ -90,8 +95,9 @@ extension MacroStep {
             return "Hold: \(mapping.displayString) (\(String(format: "%.2fs", duration)))"
         case .delay(let duration):
             return "Wait: \(String(format: "%.2fs", duration))"
-        case .typeText(let text):
-            return "Type: \"\(text)\""
+        case .typeText(let text, let speed):
+            let speedText = speed == 0 ? "Paste" : "\(speed) CPM"
+            return "Type: \"\(text)\" (\(speedText))"
         }
     }
 }
