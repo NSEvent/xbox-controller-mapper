@@ -68,10 +68,10 @@ struct Config {
     static let wheelPerimeterHapticIntensity: Float = 0.35
     static let wheelPerimeterHapticSharpness: Float = 0.15
 
-    /// Haptic feedback for force quit ready (double-tap confirmation)
-    static let wheelForceQuitHapticIntensity: Float = 0.4
+    /// Haptic feedback for force quit ready (light double-tap confirmation)
+    static let wheelForceQuitHapticIntensity: Float = 0.15
     static let wheelForceQuitHapticSharpness: Float = 1.0
-    static let wheelForceQuitHapticGap: TimeInterval = 0.08
+    static let wheelForceQuitHapticGap: TimeInterval = 0.05
 
     // MARK: - Input Simulation Timing
     /// Delay between modifier key presses (milliseconds)
