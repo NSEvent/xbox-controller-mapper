@@ -11,6 +11,7 @@ struct MacroEditorSheet: View {
     // For editing steps
     @State private var editingStepIndex: Int?
     @State private var showingStepEditor = false
+    @State private var isAddingNewStep = false
     
     let originalMacro: Macro?
     
@@ -39,6 +40,7 @@ struct MacroEditorSheet: View {
                     MacroStepRow(step: step, index: index)
                         .contentShape(Rectangle())
                         .onTapGesture {
+                            isAddingNewStep = false
                             editingStepIndex = index
                             showingStepEditor = true
                         }
@@ -74,7 +76,7 @@ struct MacroEditorSheet: View {
                     }
                     
                     Button {
-                        addStep(.typeText("Hello", speed: 0))
+                        addStep(.typeText("", speed: 0))
                     } label: {
                         Label("Type Text", systemImage: "textformat")
                     }
@@ -127,11 +129,18 @@ struct MacroEditorSheet: View {
         }
         .padding(.vertical, 20)
         .frame(width: 600, height: 600)
-        .sheet(isPresented: $showingStepEditor) {
+        .sheet(isPresented: $showingStepEditor, onDismiss: {
+            if isAddingNewStep, let index = editingStepIndex, index < steps.count {
+                let step = steps[index]
+                if isStepEmpty(step) {
+                    steps.remove(at: index)
+                }
+            }
+            isAddingNewStep = false
+        }) {
             if let index = editingStepIndex, index < steps.count {
                 StepEditorSheet(step: $steps[index])
             } else {
-                // Fallback for new step (not really used this way but safe)
                 Text("Error: No step selected")
             }
         }
@@ -139,8 +148,26 @@ struct MacroEditorSheet: View {
     
     private func addStep(_ step: MacroStep) {
         steps.append(step)
+        isAddingNewStep = true
         editingStepIndex = steps.count - 1
         showingStepEditor = true
+    }
+
+    private func isStepEmpty(_ step: MacroStep) -> Bool {
+        switch step {
+        case .press(let mapping):
+            return mapping.keyCode == nil
+        case .hold(let mapping, _):
+            return mapping.keyCode == nil
+        case .typeText(let text, _):
+            return text.isEmpty
+        case .delay:
+            return false
+        case .openApp(let bundleId, _):
+            return bundleId.isEmpty
+        case .openLink(let url):
+            return url.isEmpty
+        }
     }
     
     private func save() {
@@ -387,16 +414,41 @@ struct StepEditorSheet: View {
             .formStyle(.grouped)
             
             HStack {
-                Button("Done") {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button("Save") {
                     save()
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(!canSave)
+                .keyboardShortcut(.defaultAction)
             }
+            .padding(.horizontal)
             .padding(.bottom)
         }
         .frame(width: showingKeyboard ? 850 : 400, height: showingKeyboard ? 600 : 450)
         .animation(.easeInOut, value: showingKeyboard)
+    }
+
+    private var canSave: Bool {
+        switch selectedType {
+        case .press, .hold:
+            return keyCode != nil
+        case .typeText:
+            return !text.isEmpty
+        case .delay:
+            return true
+        case .openApp:
+            return !appBundleIdentifier.isEmpty
+        case .openLink:
+            return !linkURL.isEmpty
+        }
     }
     
     private func save() {

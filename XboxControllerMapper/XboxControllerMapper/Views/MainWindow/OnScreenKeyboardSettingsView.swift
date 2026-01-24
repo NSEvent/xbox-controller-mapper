@@ -24,6 +24,7 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var newWebsiteURL = ""
     @State private var isFetchingWebsiteMetadata = false
     @State private var websiteURLError: String?
+    @State private var showingWebsiteBookmarkPicker = false
 
     // Cached installed apps (loaded once on appear)
     @State private var cachedInstalledApps: [AppInfo] = []
@@ -595,6 +596,18 @@ struct OnScreenKeyboardSettingsView: View {
                 } else {
                     Button("Add") { addWebsiteLink() }
                         .disabled(newWebsiteURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+
+            Button {
+                showingWebsiteBookmarkPicker = true
+            } label: {
+                Label("Browse Bookmarks", systemImage: "book")
+            }
+            .sheet(isPresented: $showingWebsiteBookmarkPicker) {
+                BookmarkPickerSheet { url in
+                    newWebsiteURL = url
+                    addWebsiteLink()
                 }
             }
 
