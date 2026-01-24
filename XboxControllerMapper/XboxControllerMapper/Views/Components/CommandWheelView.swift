@@ -4,192 +4,219 @@ import SwiftUI
 struct CommandWheelView: View {
     @ObservedObject var manager: CommandWheelManager
 
-    private let wheelSize: CGFloat = 800
-    private let innerRadius: CGFloat = 140
-    private let iconSize: CGFloat = 48
-    private let perimeterGap: CGFloat = 5
-    private let perimeterWidth: CGFloat = 45
-
-    private var perimeterInnerRadius: CGFloat { wheelSize / 2 + perimeterGap }
-    private var perimeterOuterRadius: CGFloat { perimeterInnerRadius + perimeterWidth }
-    private var totalSize: CGFloat { perimeterOuterRadius * 2 + 20 }
+    // Layout constants
+    private let wheelSize: CGFloat = 700
+    private let innerRadius: CGFloat = 120
+    private let outerRadius: CGFloat = 350
+    private let iconSize: CGFloat = 64
+    private let selectedIconScale: CGFloat = 1.2
+    private let segmentGap: Double = 2.0 // Degrees of gap between segments
 
     var body: some View {
         ZStack {
-            // Background circle for main wheel
-            Circle()
-                .fill(.ultraThinMaterial)
-                .frame(width: wheelSize, height: wheelSize)
-                .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 5)
+            // Dark Backdrop
+            Color.black.opacity(0.4)
+                .background(.ultraThinMaterial)
+                .mask(Circle())
+                .frame(width: wheelSize + 50, height: wheelSize + 50)
+                .shadow(color: .black.opacity(0.5), radius: 30, x: 0, y: 10)
 
-            // Perimeter ring background
-            SegmentShape(
-                startAngle: .degrees(0),
-                endAngle: .degrees(360),
-                innerRadius: perimeterInnerRadius,
-                outerRadius: perimeterOuterRadius
-            )
-            .fill(Color.white.opacity(0.05))
-
-            // Segments (main + perimeter)
+            // Segments
             ForEach(Array(manager.items.enumerated()), id: \.element.id) { index, item in
-                segmentView(index: index, item: item)
+                WheelSegmentView(
+                    index: index,
+                    totalCount: manager.items.count,
+                    item: item,
+                    manager: manager,
+                    innerRadius: innerRadius,
+                    outerRadius: outerRadius,
+                    gapDegrees: segmentGap
+                )
             }
 
-            // Center indicator
-            Circle()
-                .fill(manager.selectedIndex == nil ? Color.white.opacity(0.15) : Color.clear)
-                .frame(width: innerRadius * 2, height: innerRadius * 2)
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                )
+            // Center Hub Information
+            CenterHubView(manager: manager, radius: innerRadius)
         }
-        .frame(width: totalSize, height: totalSize)
+        .frame(width: wheelSize + 100, height: wheelSize + 100)
     }
+}
 
-    private func segmentView(index: Int, item: CommandWheelItem) -> some View {
-        let count = manager.items.count
-        let segmentAngle = 360.0 / Double(count)
-        // Start from top (270°), go clockwise
-        let startAngle = 270.0 + segmentAngle * Double(index)
-        let midAngle = startAngle + segmentAngle / 2
+/// A single segment slice of the wheel
+struct WheelSegmentView: View {
+    let index: Int
+    let totalCount: Int
+    let item: CommandWheelItem
+    @ObservedObject var manager: CommandWheelManager
+    let innerRadius: CGFloat
+    let outerRadius: CGFloat
+    let gapDegrees: Double
+
+    var body: some View {
         let isSelected = manager.selectedIndex == index
+        
+        // Calculate Angles
+        let segmentDegrees = 360.0 / Double(totalCount)
+        let startAngle = Angle.degrees(270.0 + (segmentDegrees * Double(index)) + (gapDegrees / 2))
+        let endAngle = Angle.degrees(270.0 + (segmentDegrees * Double(index + 1)) - (gapDegrees / 2))
+        let midAngle = Angle.degrees(270.0 + (segmentDegrees * Double(index)) + (segmentDegrees / 2))
 
-        // Position icon based on item count: centered for few, outer edge for many
-        let positionFactor: CGFloat = count <= 8 ? 0.5 : (count <= 12 ? 0.6 : 0.8)
-        let iconRadius = innerRadius + (wheelSize / 2 - innerRadius) * positionFactor
-        let midAngleRad = midAngle * .pi / 180
-        let iconX = cos(midAngleRad) * iconRadius
-        let iconY = sin(midAngleRad) * iconRadius
+        // Selection State Colors
+        let baseFill = isSelected ? Color.accentColor.opacity(0.8) : Color.black.opacity(0.6)
 
-        let forceQuitProgress = isSelected ? manager.forceQuitProgress : 0
-        let isAtFullRange = isSelected && manager.isFullRange
-
-        // Main slice: blue when selected normally, gray when full range (selection moves to perimeter)
-        let mainSliceFill: Color = {
-            if isSelected && !isAtFullRange {
-                return Color.accentColor.opacity(0.6)
-            }
-            return .clear
-        }()
-
-        // Perimeter slice state
-        let perimeterFill: Color = isAtFullRange ? .green.opacity(0.6) : .clear
-
-        // Radial text for perimeter
-        let perimeterText: String? = {
-            guard isAtFullRange else { return nil }
-            switch item.kind {
-            case .app:
-                return forceQuitProgress >= 1.0 ? "Force Quit" : "New Window"
-            case .website:
-                return forceQuitProgress >= 1.0 ? "Incognito" : "New Window"
+        // Force Quit / Secondary Action Progress
+        let progress = isSelected ? manager.forceQuitProgress : 0
+        let progressColor: Color = {
+            if case .app = item.kind {
+                return .red // Red for Force Quit
+            } else {
+                return .green // Green for Incognito
             }
         }()
 
-        // Text rotation: bottom of text faces center
-        let textRotation = midAngle - 270.0
-
-        // Position for perimeter text
-        let perimeterMidRadius = perimeterInnerRadius + perimeterWidth / 2
-        let perimeterTextX = cos(midAngleRad) * perimeterMidRadius
-        let perimeterTextY = sin(midAngleRad) * perimeterMidRadius
-
-        return ZStack {
-            // Main slice fill
-            SegmentShape(
-                startAngle: .degrees(startAngle),
-                endAngle: .degrees(startAngle + segmentAngle),
+        ZStack {
+            // 1. Base Segment Shape
+            DonutSegment(
+                startAngle: startAngle,
+                endAngle: endAngle,
                 innerRadius: innerRadius,
-                outerRadius: wheelSize / 2
+                outerRadius: outerRadius
             )
-            .fill(mainSliceFill)
+            .fill(baseFill)
+            .shadow(color: isSelected ? Color.accentColor.opacity(0.5) : .clear, radius: 10)
+            .scaleEffect(isSelected ? 1.05 : 1.0) // Slight pop out
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
 
-            // Main slice border
-            SegmentShape(
-                startAngle: .degrees(startAngle),
-                endAngle: .degrees(startAngle + segmentAngle),
-                innerRadius: innerRadius,
-                outerRadius: wheelSize / 2
-            )
-            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-
-            // Perimeter slice - green highlight
-            SegmentShape(
-                startAngle: .degrees(startAngle),
-                endAngle: .degrees(startAngle + segmentAngle),
-                innerRadius: perimeterInnerRadius,
-                outerRadius: perimeterOuterRadius
-            )
-            .fill(perimeterFill)
-
-            // Perimeter slice - force quit red fill (grows from inner to outer of perimeter)
-            if forceQuitProgress > 0 {
-                SegmentShape(
-                    startAngle: .degrees(startAngle),
-                    endAngle: .degrees(startAngle + segmentAngle),
-                    innerRadius: perimeterInnerRadius,
-                    outerRadius: perimeterInnerRadius + perimeterWidth * forceQuitProgress
+            // 2. Progress Border (for Force Quit / Secondary)
+            if progress > 0 {
+                DonutSegment(
+                    startAngle: startAngle,
+                    endAngle: endAngle,
+                    innerRadius: outerRadius - 10, // Inner rim of the outer edge
+                    outerRadius: outerRadius
                 )
-                .fill(Color.red.opacity(0.7))
+                .trim(from: 0, to: progress)
+                .fill(progressColor)
+                .shadow(color: progressColor.opacity(0.8), radius: 5)
+                .scaleEffect(isSelected ? 1.05 : 1.0)
             }
 
-            // Perimeter slice border
-            SegmentShape(
-                startAngle: .degrees(startAngle),
-                endAngle: .degrees(startAngle + segmentAngle),
-                innerRadius: perimeterInnerRadius,
-                outerRadius: perimeterOuterRadius
-            )
-            .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
-
-            // Radial text on perimeter
-            if let perimeterText = perimeterText {
-                Text(perimeterText)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white)
-                    .rotationEffect(.degrees(textRotation))
-                    .offset(x: perimeterTextX, y: perimeterTextY)
+            // 3. Icon
+            // Calculate icon position
+            GeometryReader { geo in
+                let midRad = midAngle.radians
+                let radius = (innerRadius + outerRadius) / 2
+                let x = geo.size.width / 2 + cos(midRad) * radius
+                let y = geo.size.height / 2 + sin(midRad) * radius
+                
+                ItemIconView(item: item, isSelected: isSelected)
+                    .position(x: x, y: y)
             }
-
-            // Icon and label (always on main slice)
-            VStack(spacing: 2) {
-                itemIcon(for: item)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: iconSize, height: iconSize)
-                    .cornerRadius(10)
-
-                Text(item.displayName)
-                    .font(.system(size: 12, weight: isSelected ? .bold : .regular))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                    .frame(maxWidth: 100)
-            }
-            .offset(x: iconX, y: iconY)
-        }
-    }
-
-    private func itemIcon(for item: CommandWheelItem) -> Image {
-        switch item.kind {
-        case .app(let bundleIdentifier):
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier),
-               let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
-                return Image(nsImage: icon)
-            }
-            return Image(systemName: "app.fill")
-        case .website(_, let faviconData):
-            if let data = faviconData, let nsImage = NSImage(data: data) {
-                return Image(nsImage: nsImage)
-            }
-            return Image(systemName: "globe")
         }
     }
 }
 
-/// A donut segment shape
-struct SegmentShape: Shape {
+/// Icon display logic
+struct ItemIconView: View {
+    let item: CommandWheelItem
+    let isSelected: Bool
+
+    var body: some View {
+        Group {
+            switch item.kind {
+            case .app(let bundleIdentifier):
+                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier),
+                   let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                    Image(nsImage: icon)
+                        .resizable()
+                } else {
+                    Image(systemName: "app.fill")
+                        .resizable()
+                }
+            case .website(_, let faviconData):
+                if let data = faviconData, let nsImage = NSImage(data: data) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                } else {
+                    Image(systemName: "globe")
+                        .resizable()
+                }
+            }
+        }
+        .aspectRatio(contentMode: .fit)
+        .frame(width: isSelected ? 80 : 50, height: isSelected ? 80 : 50)
+        .opacity(isSelected ? 1.0 : 0.7)
+        .saturation(isSelected ? 1.0 : 0.0) // Grayscale for unselected
+        .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+    }
+}
+
+/// The center hub showing details of the selected item
+struct CenterHubView: View {
+    @ObservedObject var manager: CommandWheelManager
+    let radius: CGFloat
+
+    var body: some View {
+        ZStack {
+            // Hub Background
+            Circle()
+                .fill(Color(nsColor: .windowBackgroundColor))
+                .frame(width: radius * 2 - 10, height: radius * 2 - 10)
+                .shadow(color: .black.opacity(0.3), radius: 5)
+
+            if let index = manager.selectedIndex, index < manager.items.count {
+                let item = manager.items[index]
+                VStack(spacing: 4) {
+                    // Item Name
+                    Text(item.displayName)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+                        .padding(.horizontal, 10)
+
+                    // Secondary Status / Instruction
+                    if manager.isFullRange {
+                        Group {
+                            if manager.forceQuitProgress >= 1.0 {
+                                Text(forceQuitText(for: item.kind))
+                                    .foregroundColor(.red)
+                                    .fontWeight(.heavy)
+                            } else {
+                                Text(secondaryActionText(for: item.kind))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .transition(.opacity.combined(with: .scale))
+                    }
+                }
+            } else {
+                // Default / Empty State
+                Image(systemName: "gamecontroller.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(.secondary.opacity(0.3))
+            }
+        }
+    }
+
+    private func secondaryActionText(for kind: CommandWheelItem.Kind) -> String {
+        switch kind {
+        case .app: return "New Window"
+        case .website: return "New Window"
+        }
+    }
+
+    private func forceQuitText(for kind: CommandWheelItem.Kind) -> String {
+        switch kind {
+        case .app: return "FORCE QUIT"
+        case .website: return "INCOGNITO"
+        }
+    }
+}
+
+/// Custom Shape for the donut segments
+struct DonutSegment: Shape {
     let startAngle: Angle
     let endAngle: Angle
     let innerRadius: CGFloat
@@ -199,12 +226,13 @@ struct SegmentShape: Shape {
         let center = CGPoint(x: rect.midX, y: rect.midY)
         var path = Path()
 
-        // Outer arc
+        // Outer Arc
         path.addArc(center: center, radius: outerRadius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
-        // Line to inner arc
+        
+        // Inner Arc (drawn in reverse to create the hole)
         path.addArc(center: center, radius: innerRadius, startAngle: endAngle, endAngle: startAngle, clockwise: true)
+        
         path.closeSubpath()
-
         return path
     }
 }
@@ -212,6 +240,6 @@ struct SegmentShape: Shape {
 #Preview {
     let manager = CommandWheelManager.shared
     CommandWheelView(manager: manager)
-        .frame(width: 920, height: 920)
-        .background(.black)
+        .frame(width: 900, height: 900)
+        .background(Color.gray)
 }
