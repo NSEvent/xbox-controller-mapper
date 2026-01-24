@@ -767,6 +767,7 @@ struct BatteryView: View {
     }
     
     private var batteryColor: Color {
+        if state == .charging { return .green }
         if level > 0.6 { return .green }
         if level > 0.2 { return .orange }
         return .red
