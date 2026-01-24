@@ -29,9 +29,6 @@ struct ContentView: View {
                 toolbar
                     .zIndex(1) // Keep above content
 
-                Divider()
-                    .background(Color.white.opacity(0.1))
-
                 // Tab content
                 TabView(selection: $selectedTab) {
                     // Controller Visual
