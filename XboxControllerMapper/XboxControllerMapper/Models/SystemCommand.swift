@@ -11,7 +11,7 @@ enum SystemCommandCategory: String, CaseIterable {
 /// Represents a system-level command that can be triggered by a button or chord mapping
 enum SystemCommand: Equatable {
     // App launching
-    case launchApp(bundleIdentifier: String)
+    case launchApp(bundleIdentifier: String, newWindow: Bool = false)
 
     // Shell command execution
     case shellCommand(command: String, inTerminal: Bool)
@@ -22,11 +22,14 @@ enum SystemCommand: Equatable {
     /// Human-readable display name for the UI
     var displayName: String {
         switch self {
-        case .launchApp(let bundleId):
+        case .launchApp(let bundleId, let newWindow):
+            let name: String
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-                return url.deletingPathExtension().lastPathComponent
+                name = url.deletingPathExtension().lastPathComponent
+            } else {
+                name = bundleId
             }
-            return bundleId
+            return newWindow ? "\(name) (New Window)" : name
         case .shellCommand(let command, _):
             if command.count > 30 {
                 return String(command.prefix(30)) + "..."
@@ -58,7 +61,7 @@ extension SystemCommand: Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case type, bundleIdentifier, command, inTerminal, url
+        case type, bundleIdentifier, command, inTerminal, url, newWindow
     }
 
     init(from decoder: Decoder) throws {
@@ -68,7 +71,8 @@ extension SystemCommand: Codable {
         switch type {
         case .launchApp:
             let bundleId = try container.decodeIfPresent(String.self, forKey: .bundleIdentifier) ?? ""
-            self = .launchApp(bundleIdentifier: bundleId)
+            let newWindow = try container.decodeIfPresent(Bool.self, forKey: .newWindow) ?? false
+            self = .launchApp(bundleIdentifier: bundleId, newWindow: newWindow)
         case .shellCommand:
             let command = try container.decodeIfPresent(String.self, forKey: .command) ?? ""
             let inTerminal = try container.decodeIfPresent(Bool.self, forKey: .inTerminal) ?? false
@@ -83,9 +87,10 @@ extension SystemCommand: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         switch self {
-        case .launchApp(let bundleId):
+        case .launchApp(let bundleId, let newWindow):
             try container.encode(CommandType.launchApp, forKey: .type)
             try container.encode(bundleId, forKey: .bundleIdentifier)
+            try container.encode(newWindow, forKey: .newWindow)
         case .shellCommand(let command, let inTerminal):
             try container.encode(CommandType.shellCommand, forKey: .type)
             try container.encode(command, forKey: .command)

@@ -53,6 +53,7 @@ struct ButtonMappingSheet: View {
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
     @State private var appBundleIdentifier: String = ""
+    @State private var appNewWindow: Bool = false
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
@@ -68,6 +69,7 @@ struct ButtonMappingSheet: View {
     @State private var longHoldMacroId: UUID?
     @State private var longHoldSystemCommandCategory: SystemCommandCategory = .shell
     @State private var longHoldAppBundleIdentifier: String = ""
+    @State private var longHoldAppNewWindow: Bool = false
     @State private var longHoldShellCommandText: String = ""
     @State private var longHoldShellRunInTerminal: Bool = true
     @State private var longHoldLinkURL: String = ""
@@ -77,6 +79,7 @@ struct ButtonMappingSheet: View {
     @State private var doubleTapMacroId: UUID?
     @State private var doubleTapSystemCommandCategory: SystemCommandCategory = .shell
     @State private var doubleTapAppBundleIdentifier: String = ""
+    @State private var doubleTapAppNewWindow: Bool = false
     @State private var doubleTapShellCommandText: String = ""
     @State private var doubleTapShellRunInTerminal: Bool = true
     @State private var doubleTapLinkURL: String = ""
@@ -444,6 +447,8 @@ struct ButtonMappingSheet: View {
                             appBundleIdentifier = app.bundleIdentifier
                         }
                     }
+                Toggle("Open in new window (Cmd+N)", isOn: $appNewWindow)
+                    .font(.caption)
             case .link:
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("URL (e.g. https://google.com)", text: $linkURL)
@@ -484,6 +489,7 @@ struct ButtonMappingSheet: View {
         shellText: Binding<String>,
         inTerminal: Binding<Bool>,
         bundleId: Binding<String>,
+        newWindow: Binding<Bool>,
         linkURL: Binding<String>,
         showingAppPicker: Binding<Bool>,
         showingBookmarkPicker: Binding<Bool>
@@ -510,6 +516,8 @@ struct ButtonMappingSheet: View {
                         bundleId.wrappedValue = app.bundleIdentifier
                     }
                 }
+            Toggle("Open in new window (Cmd+N)", isOn: newWindow)
+                .font(.caption)
         case .link:
             TextField("URL (e.g. https://google.com)", text: linkURL)
                 .textFieldStyle(.roundedBorder)
@@ -529,14 +537,14 @@ struct ButtonMappingSheet: View {
     }
 
     /// Builds a SystemCommand from the given state values, or nil if invalid
-    private func buildCommand(category: SystemCommandCategory, shellText: String, inTerminal: Bool, bundleId: String, linkURL: String) -> SystemCommand? {
+    private func buildCommand(category: SystemCommandCategory, shellText: String, inTerminal: Bool, bundleId: String, newWindow: Bool, linkURL: String) -> SystemCommand? {
         switch category {
         case .shell:
             guard !shellText.isEmpty else { return nil }
             return .shellCommand(command: shellText, inTerminal: inTerminal)
         case .app:
             guard !bundleId.isEmpty else { return nil }
-            return .launchApp(bundleIdentifier: bundleId)
+            return .launchApp(bundleIdentifier: bundleId, newWindow: newWindow)
         case .link:
             guard !linkURL.isEmpty else { return nil }
             return .openLink(url: linkURL)
@@ -544,15 +552,15 @@ struct ButtonMappingSheet: View {
     }
 
     private func buildSystemCommand() -> SystemCommand? {
-        buildCommand(category: systemCommandCategory, shellText: shellCommandText, inTerminal: shellRunInTerminal, bundleId: appBundleIdentifier, linkURL: linkURL)
+        buildCommand(category: systemCommandCategory, shellText: shellCommandText, inTerminal: shellRunInTerminal, bundleId: appBundleIdentifier, newWindow: appNewWindow, linkURL: linkURL)
     }
 
     private func buildLongHoldSystemCommand() -> SystemCommand? {
-        buildCommand(category: longHoldSystemCommandCategory, shellText: longHoldShellCommandText, inTerminal: longHoldShellRunInTerminal, bundleId: longHoldAppBundleIdentifier, linkURL: longHoldLinkURL)
+        buildCommand(category: longHoldSystemCommandCategory, shellText: longHoldShellCommandText, inTerminal: longHoldShellRunInTerminal, bundleId: longHoldAppBundleIdentifier, newWindow: longHoldAppNewWindow, linkURL: longHoldLinkURL)
     }
 
     private func buildDoubleTapSystemCommand() -> SystemCommand? {
-        buildCommand(category: doubleTapSystemCommandCategory, shellText: doubleTapShellCommandText, inTerminal: doubleTapShellRunInTerminal, bundleId: doubleTapAppBundleIdentifier, linkURL: doubleTapLinkURL)
+        buildCommand(category: doubleTapSystemCommandCategory, shellText: doubleTapShellCommandText, inTerminal: doubleTapShellRunInTerminal, bundleId: doubleTapAppBundleIdentifier, newWindow: doubleTapAppNewWindow, linkURL: doubleTapLinkURL)
     }
 
     // MARK: - Long Hold Section
@@ -727,6 +735,7 @@ struct ButtonMappingSheet: View {
                 shellText: $longHoldShellCommandText,
                 inTerminal: $longHoldShellRunInTerminal,
                 bundleId: $longHoldAppBundleIdentifier,
+                newWindow: $longHoldAppNewWindow,
                 linkURL: $longHoldLinkURL,
                 showingAppPicker: $showingLongHoldAppPicker,
                 showingBookmarkPicker: $showingLongHoldBookmarkPicker
@@ -885,6 +894,7 @@ struct ButtonMappingSheet: View {
                 shellText: $doubleTapShellCommandText,
                 inTerminal: $doubleTapShellRunInTerminal,
                 bundleId: $doubleTapAppBundleIdentifier,
+                newWindow: $doubleTapAppNewWindow,
                 linkURL: $doubleTapLinkURL,
                 showingAppPicker: $showingDoubleTapAppPicker,
                 showingBookmarkPicker: $showingDoubleTapBookmarkPicker
@@ -1119,11 +1129,12 @@ struct ButtonMappingSheet: View {
     }
 
     /// Loads system command state into the given bindings
-    private func loadCommandState(_ command: SystemCommand, category: inout SystemCommandCategory, bundleId: inout String, shellText: inout String, inTerminal: inout Bool, linkURL: inout String) {
+    private func loadCommandState(_ command: SystemCommand, category: inout SystemCommandCategory, bundleId: inout String, newWindow: inout Bool, shellText: inout String, inTerminal: inout Bool, linkURL: inout String) {
         category = command.category
         switch command {
-        case .launchApp(let id):
+        case .launchApp(let id, let nw):
             bundleId = id
+            newWindow = nw
         case .shellCommand(let cmd, let terminal):
             shellText = cmd
             inTerminal = terminal
@@ -1133,15 +1144,15 @@ struct ButtonMappingSheet: View {
     }
 
     private func loadSystemCommandState(_ command: SystemCommand) {
-        loadCommandState(command, category: &systemCommandCategory, bundleId: &appBundleIdentifier, shellText: &shellCommandText, inTerminal: &shellRunInTerminal, linkURL: &linkURL)
+        loadCommandState(command, category: &systemCommandCategory, bundleId: &appBundleIdentifier, newWindow: &appNewWindow, shellText: &shellCommandText, inTerminal: &shellRunInTerminal, linkURL: &linkURL)
     }
 
     private func loadLongHoldSystemCommandState(_ command: SystemCommand) {
-        loadCommandState(command, category: &longHoldSystemCommandCategory, bundleId: &longHoldAppBundleIdentifier, shellText: &longHoldShellCommandText, inTerminal: &longHoldShellRunInTerminal, linkURL: &longHoldLinkURL)
+        loadCommandState(command, category: &longHoldSystemCommandCategory, bundleId: &longHoldAppBundleIdentifier, newWindow: &longHoldAppNewWindow, shellText: &longHoldShellCommandText, inTerminal: &longHoldShellRunInTerminal, linkURL: &longHoldLinkURL)
     }
 
     private func loadDoubleTapSystemCommandState(_ command: SystemCommand) {
-        loadCommandState(command, category: &doubleTapSystemCommandCategory, bundleId: &doubleTapAppBundleIdentifier, shellText: &doubleTapShellCommandText, inTerminal: &doubleTapShellRunInTerminal, linkURL: &doubleTapLinkURL)
+        loadCommandState(command, category: &doubleTapSystemCommandCategory, bundleId: &doubleTapAppBundleIdentifier, newWindow: &doubleTapAppNewWindow, shellText: &doubleTapShellCommandText, inTerminal: &doubleTapShellRunInTerminal, linkURL: &doubleTapLinkURL)
     }
 
     private func clearMapping() {

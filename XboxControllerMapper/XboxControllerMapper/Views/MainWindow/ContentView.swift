@@ -794,6 +794,7 @@ struct ChordMappingSheet: View {
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
     @State private var appBundleIdentifier: String = ""
+    @State private var appNewWindow: Bool = false
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
@@ -1070,6 +1071,8 @@ struct ChordMappingSheet: View {
                             appBundleIdentifier = app.bundleIdentifier
                         }
                     }
+                Toggle("Open in new window (Cmd+N)", isOn: $appNewWindow)
+                    .font(.caption)
             case .shell:
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
@@ -1123,7 +1126,7 @@ struct ChordMappingSheet: View {
         switch systemCommandCategory {
         case .app:
             guard !appBundleIdentifier.isEmpty else { return nil }
-            return .launchApp(bundleIdentifier: appBundleIdentifier)
+            return .launchApp(bundleIdentifier: appBundleIdentifier, newWindow: appNewWindow)
         case .shell:
             guard !shellCommandText.isEmpty else { return nil }
             return .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
@@ -1136,8 +1139,9 @@ struct ChordMappingSheet: View {
     private func loadChordSystemCommandState(_ command: SystemCommand) {
         systemCommandCategory = command.category
         switch command {
-        case .launchApp(let bundleId):
+        case .launchApp(let bundleId, let newWindow):
             appBundleIdentifier = bundleId
+            appNewWindow = newWindow
         case .shellCommand(let cmd, let inTerminal):
             shellCommandText = cmd
             shellRunInTerminal = inTerminal

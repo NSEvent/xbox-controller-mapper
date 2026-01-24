@@ -432,7 +432,7 @@ struct StepEditorSheet: View {
             .padding(.horizontal)
             .padding(.bottom)
         }
-        .frame(width: showingKeyboard ? 850 : 400, height: showingKeyboard ? 600 : 450)
+        .frame(width: showingKeyboard ? 850 : 400, height: showingKeyboard ? 750 : 450)
         .animation(.easeInOut, value: showingKeyboard)
     }
 

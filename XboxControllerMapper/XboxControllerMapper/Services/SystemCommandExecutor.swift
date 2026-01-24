@@ -12,8 +12,8 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     func execute(_ command: SystemCommand) {
         switch command {
-        case .launchApp(let bundleIdentifier):
-            launchApplication(bundleIdentifier: bundleIdentifier)
+        case .launchApp(let bundleIdentifier, let newWindow):
+            launchApplication(bundleIdentifier: bundleIdentifier, newWindow: newWindow)
 
         case .shellCommand(let command, let inTerminal):
             if inTerminal {
@@ -29,13 +29,26 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     // MARK: - App Launching
 
-    private func launchApplication(bundleIdentifier: String) {
+    private func launchApplication(bundleIdentifier: String, newWindow: Bool) {
         DispatchQueue.main.async {
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
                 let config = NSWorkspace.OpenConfiguration()
                 NSWorkspace.shared.openApplication(at: url, configuration: config) { _, error in
                     if let error = error {
                         NSLog("[SystemCommand] Failed to launch app \(bundleIdentifier): \(error.localizedDescription)")
+                        return
+                    }
+                    if newWindow {
+                        // Send Cmd+N after a short delay to open a new window
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            let src = CGEventSource(stateID: .hidSystemState)
+                            let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 0x2D, keyDown: true) // kVK_ANSI_N
+                            keyDown?.flags = .maskCommand
+                            let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 0x2D, keyDown: false)
+                            keyUp?.flags = .maskCommand
+                            keyDown?.post(tap: .cghidEventTap)
+                            keyUp?.post(tap: .cghidEventTap)
+                        }
                     }
                 }
             } else {
