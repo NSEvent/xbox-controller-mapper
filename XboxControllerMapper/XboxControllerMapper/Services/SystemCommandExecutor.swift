@@ -11,25 +11,6 @@ class SystemCommandExecutor: @unchecked Sendable {
     }
 
     func execute(_ command: SystemCommand) {
-        // Suppress profile auto-switching for commands that change frontmost app
-        let shouldSuppress: Bool
-        switch command {
-        case .launchApp:
-            shouldSuppress = true
-        case .shellCommand(_, let inTerminal):
-            shouldSuppress = inTerminal
-        }
-
-        if shouldSuppress {
-            DispatchQueue.main.async { [weak self] in
-                self?.profileManager.suppressAutoSwitch = true
-            }
-            // Re-enable after a delay to allow app focus to settle
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-                self?.profileManager.suppressAutoSwitch = false
-            }
-        }
-
         switch command {
         case .launchApp(let bundleIdentifier):
             launchApplication(bundleIdentifier: bundleIdentifier)

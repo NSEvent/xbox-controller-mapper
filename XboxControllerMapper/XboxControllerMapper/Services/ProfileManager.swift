@@ -11,9 +11,6 @@ class ProfileManager: ObservableObject {
     @Published var uiScale: CGFloat = 1.0
     @Published var onScreenKeyboardSettings = OnScreenKeyboardSettings()
 
-    /// When true, auto-switching is suppressed (e.g., during system command execution)
-    var suppressAutoSwitch = false
-
     private let fileManager = FileManager.default
     private let configURL: URL
     private let legacyConfigURL: URL
@@ -65,11 +62,6 @@ class ProfileManager: ObservableObject {
     }
     
     private func handleAppChange(_ bundleId: String) {
-        // Don't auto-switch if suppressed (e.g., system command just launched an app)
-        if suppressAutoSwitch {
-            return
-        }
-
         // Don't auto-switch if we are using the configuration app itself
         // This allows the user to manually select and edit profiles without being forced back to Default
         if bundleId == Bundle.main.bundleIdentifier {
