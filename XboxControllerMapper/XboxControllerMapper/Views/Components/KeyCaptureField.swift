@@ -165,7 +165,8 @@ class KeyCaptureNSView: NSView {
 
             let modifierOnlyKeys: Set<Int> = [
                 kVK_Command, kVK_Shift, kVK_Option, kVK_Control,
-                kVK_RightCommand, kVK_RightShift, kVK_RightOption, kVK_RightControl
+                kVK_RightCommand, kVK_RightShift, kVK_RightOption, kVK_RightControl,
+                kVK_Function
             ]
 
             if event.type == .flagsChanged {

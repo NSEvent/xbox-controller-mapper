@@ -235,6 +235,7 @@ enum KeyCodeMapping {
         case kVK_Shift: return "Shift"
         case kVK_Option: return "Option"
         case kVK_Control: return "Control"
+        case kVK_Function: return "Fn"
 
         // Navigation
         case kVK_Home: return "Home"

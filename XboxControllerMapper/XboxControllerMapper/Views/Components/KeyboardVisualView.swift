@@ -175,7 +175,16 @@ struct KeyboardVisualView: View {
 
     private var bottomRow: some View {
         HStack(spacing: 4) {
-            KeyButton(keyCode: CGKeyCode(kVK_Function), label: "Fn", width: 40, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+            Text("Fn")
+                .font(.system(size: 10, weight: .medium))
+                .frame(width: 40, height: 32)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.4))
+                .foregroundColor(.secondary.opacity(0.5))
+                .cornerRadius(4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                )
             ModifierKeyButton(label: "⌃", width: 40, isActive: $modifiers.control)
             ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option)
             ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command)
