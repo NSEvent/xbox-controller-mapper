@@ -87,9 +87,9 @@ extension MacroStep {
         case .press(let mapping):
             return "Press: \(mapping.displayString)"
         case .hold(let mapping, let duration):
-            return "Hold: \(mapping.displayString) (\(String(format: \"%.2fs\", duration)))"
+            return "Hold: \(mapping.displayString) (\(String(format: "%.2fs", duration)))"
         case .delay(let duration):
-            return "Wait: \(String(format: \"%.2fs\", duration))"
+            return "Wait: \(String(format: "%.2fs", duration))"
         case .typeText(let text):
             return "Type: \"\(text)\""
         }

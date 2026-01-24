@@ -44,6 +44,15 @@ struct ButtonMappingSheet: View {
     @State private var showingKeyboardForLongHold = false
     @State private var showingKeyboardForDoubleTap = false
 
+    // Macro support
+    @State private var mappingType: MappingType = .singleKey
+    @State private var selectedMacroId: UUID?
+
+    enum MappingType: Int {
+        case singleKey = 0
+        case macro = 1
+    }
+
     private var showingAnyKeyboard: Bool {
         showingKeyboardForPrimary || showingKeyboardForLongHold || showingKeyboardForDoubleTap
     }
@@ -62,7 +71,7 @@ struct ButtonMappingSheet: View {
 
     /// Check if the primary action disables advanced features (mouse click or special action)
     private var primaryDisablesAdvancedFeatures: Bool {
-        primaryIsMouseClick || primaryIsOnScreenKeyboard
+        primaryIsMouseClick || primaryIsOnScreenKeyboard || mappingType == .macro
     }
 
     var body: some View {
@@ -76,8 +85,11 @@ struct ButtonMappingSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     primaryMappingSection
-                    longHoldSection
-                    doubleTapSection
+                    
+                    if mappingType == .singleKey {
+                        longHoldSection
+                        doubleTapSection
+                    }
                 }
                 .padding(20)
             }
@@ -114,12 +126,21 @@ struct ButtonMappingSheet: View {
                 if let currentMapping = mapping {
                     HStack(spacing: 4) {
                         Text("Current:")
-                        MappingLabelView(
-                            mapping: currentMapping,
-                            horizontal: true,
-                            font: .caption,
-                            foregroundColor: .secondary
-                        )
+                        
+                        if let macroId = currentMapping.macroId,
+                           let profile = profileManager.activeProfile,
+                           let macro = profile.macros.first(where: { $0.id == macroId }) {
+                            Text("Macro: \(macro.name)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            MappingLabelView(
+                                mapping: currentMapping,
+                                horizontal: true,
+                                font: .caption,
+                                foregroundColor: .secondary
+                            )
+                        }
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -151,93 +172,126 @@ struct ButtonMappingSheet: View {
                     .font(.headline)
 
                 Spacer()
-
-                Button(action: { showingKeyboardForPrimary.toggle() }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: showingKeyboardForPrimary ? "keyboard.chevron.compact.down" : "keyboard")
-                        Text(showingKeyboardForPrimary ? "Hide Keyboard" : "Show Keyboard")
-                    }
-                    .font(.callout)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.accentColor.opacity(0.1))
-                    .cornerRadius(6)
+                
+                Picker("", selection: $mappingType) {
+                    Text("Single Key").tag(MappingType.singleKey)
+                    Text("Macro").tag(MappingType.macro)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(.accentColor)
+                .pickerStyle(.segmented)
+                .frame(width: 150)
+                .padding(.trailing, 8)
+
+                if mappingType == .singleKey {
+                    Button(action: { showingKeyboardForPrimary.toggle() }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: showingKeyboardForPrimary ? "keyboard.chevron.compact.down" : "keyboard")
+                            Text(showingKeyboardForPrimary ? "Hide Keyboard" : "Show Keyboard")
+                        }
+                        .font(.callout)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
+                }
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                // Current selection display
-                HStack {
-                    Text("Selected:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                if mappingType == .singleKey {
+                    // Current selection display
+                    HStack {
+                        Text("Selected:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
 
-                    Text(currentMappingDisplay)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        Text(currentMappingDisplay)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
 
-                    Spacer()
+                        Spacer()
 
-                    if keyCode != nil || modifiers.hasAny {
-                        Button("Clear") {
-                            keyCode = nil
-                            modifiers = ModifierFlags()
+                        if keyCode != nil || modifiers.hasAny {
+                            Button("Clear") {
+                                keyCode = nil
+                                modifiers = ModifierFlags()
+                            }
+                            .font(.caption)
+                            .foregroundColor(.red)
                         }
-                        .font(.caption)
-                        .foregroundColor(.red)
                     }
-                }
 
-                if showingKeyboardForPrimary {
-                    KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
-                } else {
-                    KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+                    if showingKeyboardForPrimary {
+                        KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
+                    } else {
+                        KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
 
-                    Text("Click to type a shortcut, or show keyboard to select visually")
+                        Text("Click to type a shortcut, or show keyboard to select visually")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    // Hint field
+                    HStack {
+                        Text("Hint:")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        TextField("e.g. Copy, Paste, Switch App...", text: $hint)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+                    }
+
+                    // Show hold option if any mapping is configured
+                    if keyCode != nil || modifiers.hasAny {
+                        Divider()
+
+                        Toggle("Hold action while button is held", isOn: Binding(
+                            get: { isHoldModifier },
+                            set: { newValue in
+                                isHoldModifier = newValue
+                                userHasInteractedWithHold = true
+                                // Disable repeat and long hold when enabling hold modifier (mutually exclusive)
+                                if newValue {
+                                    enableRepeat = false
+                                    enableLongHold = false
+                                    longHoldKeyCode = nil
+                                    longHoldModifiers = ModifierFlags()
+                                }
+                            }
+                        ))
                         .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                        .disabled(enableRepeat)
 
-                // Hint field
-                HStack {
-                    Text("Hint:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        Text(holdDescription)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
 
-                    TextField("e.g. Copy, Paste, Switch App...", text: $hint)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.subheadline)
-                }
-
-                // Show hold option if any mapping is configured
-                if keyCode != nil || modifiers.hasAny {
-                    Divider()
-
-                    Toggle("Hold action while button is held", isOn: Binding(
-                        get: { isHoldModifier },
-                        set: { newValue in
-                            isHoldModifier = newValue
-                            userHasInteractedWithHold = true
-                            // Disable repeat and long hold when enabling hold modifier (mutually exclusive)
-                            if newValue {
-                                enableRepeat = false
-                                enableLongHold = false
-                                longHoldKeyCode = nil
-                                longHoldModifiers = ModifierFlags()
+                        // Repeat section (moved inside Primary Action)
+                        repeatContent
+                    }
+                } else {
+                    // MACRO SELECTION
+                    if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
+                        Picker("Select Macro", selection: $selectedMacroId) {
+                            Text("Select a Macro...").tag(nil as UUID?)
+                            ForEach(profile.macros) { macro in
+                                Text(macro.name).tag(macro.id as UUID?)
                             }
                         }
-                    ))
-                    .font(.caption)
-                    .disabled(enableRepeat)
-
-                    Text(holdDescription)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    // Repeat section (moved inside Primary Action)
-                    repeatContent
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        Text("No macros defined in this profile.")
+                            .foregroundColor(.secondary)
+                            .italic()
+                            .padding()
+                            
+                        Text("Go to the Macros tab to create a new macro.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .onChange(of: keyCode) { _, newValue in
@@ -627,6 +681,13 @@ struct ButtonMappingSheet: View {
         guard let profile = profileManager.activeProfile else { return }
 
         if let existingMapping = profile.buttonMappings[button] {
+            if let macroId = existingMapping.macroId {
+                mappingType = .macro
+                selectedMacroId = macroId
+                return // Stop here for macro
+            }
+            
+            mappingType = .singleKey
             keyCode = existingMapping.keyCode
             modifiers = existingMapping.modifiers
             isHoldModifier = existingMapping.isHoldModifier
@@ -656,36 +717,43 @@ struct ButtonMappingSheet: View {
     }
 
     private func saveMapping() {
-        var newMapping = KeyMapping(
-            keyCode: keyCode,
-            modifiers: modifiers,
-            isHoldModifier: isHoldModifier,
-            hint: hint.isEmpty ? nil : hint
-        )
-
-        if enableLongHold && (longHoldKeyCode != nil || longHoldModifiers.hasAny) {
-            newMapping.longHoldMapping = LongHoldMapping(
-                keyCode: longHoldKeyCode,
-                modifiers: longHoldModifiers,
-                threshold: longHoldThreshold,
-                hint: longHoldHint.isEmpty ? nil : longHoldHint
+        var newMapping: KeyMapping
+        
+        if mappingType == .macro {
+            guard let macroId = selectedMacroId else { return }
+            newMapping = KeyMapping(macroId: macroId)
+        } else {
+            newMapping = KeyMapping(
+                keyCode: keyCode,
+                modifiers: modifiers,
+                isHoldModifier: isHoldModifier,
+                hint: hint.isEmpty ? nil : hint
             )
-        }
 
-        if enableDoubleTap && (doubleTapKeyCode != nil || doubleTapModifiers.hasAny) {
-            newMapping.doubleTapMapping = DoubleTapMapping(
-                keyCode: doubleTapKeyCode,
-                modifiers: doubleTapModifiers,
-                threshold: doubleTapThreshold,
-                hint: doubleTapHint.isEmpty ? nil : doubleTapHint
-            )
-        }
+            if enableLongHold && (longHoldKeyCode != nil || longHoldModifiers.hasAny) {
+                newMapping.longHoldMapping = LongHoldMapping(
+                    keyCode: longHoldKeyCode,
+                    modifiers: longHoldModifiers,
+                    threshold: longHoldThreshold,
+                    hint: longHoldHint.isEmpty ? nil : longHoldHint
+                )
+            }
 
-        if enableRepeat {
-            newMapping.repeatMapping = RepeatMapping(
-                enabled: true,
-                interval: 1.0 / repeatRate
-            )
+            if enableDoubleTap && (doubleTapKeyCode != nil || doubleTapModifiers.hasAny) {
+                newMapping.doubleTapMapping = DoubleTapMapping(
+                    keyCode: doubleTapKeyCode,
+                    modifiers: doubleTapModifiers,
+                    threshold: doubleTapThreshold,
+                    hint: doubleTapHint.isEmpty ? nil : doubleTapHint
+                )
+            }
+
+            if enableRepeat {
+                newMapping.repeatMapping = RepeatMapping(
+                    enabled: true,
+                    interval: 1.0 / repeatRate
+                )
+            }
         }
 
         profileManager.setMapping(newMapping, for: button)

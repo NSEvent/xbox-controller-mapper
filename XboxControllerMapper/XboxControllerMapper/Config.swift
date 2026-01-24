@@ -85,6 +85,9 @@ struct Config {
 
     /// Delay before releasing modifiers (milliseconds)
     static let preReleaseDelay: useconds_t = 20000  // 20ms
+    
+    /// Delay between keystrokes when typing text (milliseconds)
+    static let typingDelay: useconds_t = 10000  // 10ms
 
     // MARK: - Mouse Input
     /// Time threshold for distinguishing multi-clicks (seconds)

@@ -71,6 +71,11 @@ struct ContentView: View {
                             .tabItem { Text("Microphone") }
                             .tag(6)
                     }
+
+                    // Macros Tab
+                    macroListTab
+                        .tabItem { Text("Macros") }
+                        .tag(7)
                 }
                 .tabViewStyle(.automatic)
             }
@@ -323,6 +328,13 @@ struct ContentView: View {
 
     private var keyboardSettingsTab: some View {
         OnScreenKeyboardSettingsView()
+            .scrollContentBackground(.hidden)
+    }
+    
+    // MARK: - Macro List Tab
+    
+    private var macroListTab: some View {
+        MacroListView()
             .scrollContentBackground(.hidden)
     }
 }

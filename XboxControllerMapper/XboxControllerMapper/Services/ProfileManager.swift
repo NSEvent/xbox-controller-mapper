@@ -62,6 +62,12 @@ class ProfileManager: ObservableObject {
     }
     
     private func handleAppChange(_ bundleId: String) {
+        // Don't auto-switch if we are using the configuration app itself
+        // This allows the user to manually select and edit profiles without being forced back to Default
+        if bundleId == Bundle.main.bundleIdentifier {
+            return
+        }
+
         // Find profile linked to this app
         if let linkedProfile = profiles.first(where: { $0.linkedApps.contains(bundleId) }) {
             // Only switch if not already active
@@ -343,6 +349,38 @@ class ProfileManager: ObservableObject {
     func moveWebsiteLinks(from source: IndexSet, to destination: Int) {
         onScreenKeyboardSettings.websiteLinks.move(fromOffsets: source, toOffset: destination)
         saveConfiguration()
+    }
+    
+    // MARK: - Macros
+    
+    func addMacro(_ macro: Macro, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        
+        targetProfile.macros.append(macro)
+        updateProfile(targetProfile)
+    }
+    
+    func removeMacro(_ macro: Macro, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        
+        targetProfile.macros.removeAll { $0.id == macro.id }
+        updateProfile(targetProfile)
+    }
+    
+    func updateMacro(_ macro: Macro, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        
+        if let index = targetProfile.macros.firstIndex(where: { $0.id == macro.id }) {
+            targetProfile.macros[index] = macro
+        }
+        updateProfile(targetProfile)
+    }
+    
+    func moveMacros(from source: IndexSet, to destination: Int, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        
+        targetProfile.macros.move(fromOffsets: source, toOffset: destination)
+        updateProfile(targetProfile)
     }
 
     // MARK: - Persistence
