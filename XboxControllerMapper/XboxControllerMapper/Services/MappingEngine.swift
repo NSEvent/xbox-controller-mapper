@@ -503,22 +503,30 @@ class MappingEngine: ObservableObject {
                         self?.controllerService.playHaptic(
                             intensity: Config.wheelSegmentHapticIntensity,
                             sharpness: Config.wheelSegmentHapticSharpness,
-                            duration: Config.wheelSegmentHapticDuration
+                            transient: true
                         )
                     }
                     CommandWheelManager.shared.onPerimeterCrossed = { [weak self] in
                         self?.controllerService.playHaptic(
                             intensity: Config.wheelPerimeterHapticIntensity,
                             sharpness: Config.wheelPerimeterHapticSharpness,
-                            duration: Config.wheelPerimeterHapticDuration
+                            transient: true
                         )
                     }
                     CommandWheelManager.shared.onForceQuitReady = { [weak self] in
+                        // Double-tap: two quick pulses for destructive action confirmation
                         self?.controllerService.playHaptic(
                             intensity: Config.wheelForceQuitHapticIntensity,
                             sharpness: Config.wheelForceQuitHapticSharpness,
-                            duration: Config.wheelForceQuitHapticDuration
+                            transient: true
                         )
+                        DispatchQueue.main.asyncAfter(deadline: .now() + Config.wheelForceQuitHapticGap) {
+                            self?.controllerService.playHaptic(
+                                intensity: Config.wheelForceQuitHapticIntensity,
+                                sharpness: Config.wheelForceQuitHapticSharpness,
+                                transient: true
+                            )
+                        }
                     }
                 }
             } else {

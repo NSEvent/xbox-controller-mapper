@@ -63,17 +63,15 @@ struct Config {
     /// Haptic feedback for command wheel segment changes (crisp light tick)
     static let wheelSegmentHapticIntensity: Float = 0.12
     static let wheelSegmentHapticSharpness: Float = 1.0
-    static let wheelSegmentHapticDuration: TimeInterval = 0.03
 
     /// Haptic feedback for crossing the command wheel perimeter boundary (deep thud)
     static let wheelPerimeterHapticIntensity: Float = 0.35
     static let wheelPerimeterHapticSharpness: Float = 0.15
-    static let wheelPerimeterHapticDuration: TimeInterval = 0.12
 
-    /// Haptic feedback for force quit ready (heavy slam)
-    static let wheelForceQuitHapticIntensity: Float = 0.9
-    static let wheelForceQuitHapticSharpness: Float = 0.5
-    static let wheelForceQuitHapticDuration: TimeInterval = 0.3
+    /// Haptic feedback for force quit ready (double-tap confirmation)
+    static let wheelForceQuitHapticIntensity: Float = 0.4
+    static let wheelForceQuitHapticSharpness: Float = 1.0
+    static let wheelForceQuitHapticGap: TimeInterval = 0.08
 
     // MARK: - Input Simulation Timing
     /// Delay between modifier key presses (milliseconds)

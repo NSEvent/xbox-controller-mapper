@@ -345,6 +345,7 @@ class ControllerService: ObservableObject {
     // Haptic engines for controller feedback (try multiple localities)
     private var hapticEngines: [CHHapticEngine] = []
     private let hapticQueue = DispatchQueue(label: "com.xboxmapper.haptic", qos: .userInitiated)
+    private var activeHapticPlayers: [CHHapticPatternPlayer] = []
 
     init() {
         GCController.shouldMonitorBackgroundEvents = true
@@ -2303,14 +2304,29 @@ class ControllerService: ObservableObject {
     /// - Parameters:
     ///   - intensity: Haptic intensity from 0.0 to 1.0
     ///   - duration: Duration in seconds
-    nonisolated func playHaptic(intensity: Float = 0.5, sharpness: Float = 0.5, duration: TimeInterval = 0.1) {
+    nonisolated func playHaptic(intensity: Float = 0.5, sharpness: Float = 0.5, duration: TimeInterval = 0.1, transient: Bool = false) {
         hapticQueue.async { [weak self] in
-            guard let engines = self?.hapticEngines, !engines.isEmpty else { return }
+            guard let self = self else { return }
+            guard !self.hapticEngines.isEmpty else { return }
 
-            // Use continuous haptic for more noticeable feedback on game controllers
+            // Clear previous players (they've had time to play since last call)
+            self.activeHapticPlayers.removeAll()
+
             do {
-                let events = [
-                    CHHapticEvent(
+                let event: CHHapticEvent
+                if transient {
+                    // Transient: single-shot pulse, more reliable for brief feedback
+                    event = CHHapticEvent(
+                        eventType: .hapticTransient,
+                        parameters: [
+                            CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
+                            CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness)
+                        ],
+                        relativeTime: 0
+                    )
+                } else {
+                    // Continuous: sustained haptic for longer feedback
+                    event = CHHapticEvent(
                         eventType: .hapticContinuous,
                         parameters: [
                             CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
@@ -2319,18 +2335,21 @@ class ControllerService: ObservableObject {
                         relativeTime: 0,
                         duration: duration
                     )
-                ]
-                let pattern = try CHHapticPattern(events: events, parameters: [])
+                }
+                let pattern = try CHHapticPattern(events: [event], parameters: [])
 
                 // Play on all available engines for maximum effect
-                for engine in engines {
+                // Retain players so they aren't deallocated before playback completes
+                for engine in self.hapticEngines {
                     do {
                         let player = try engine.makePlayer(with: pattern)
+                        self.activeHapticPlayers.append(player)
                         try player.start(atTime: CHHapticTimeImmediate)
                     } catch {
                         // Try to restart engine and retry once
                         try? engine.start()
                         if let player = try? engine.makePlayer(with: pattern) {
+                            self.activeHapticPlayers.append(player)
                             try? player.start(atTime: CHHapticTimeImmediate)
                         }
                     }
