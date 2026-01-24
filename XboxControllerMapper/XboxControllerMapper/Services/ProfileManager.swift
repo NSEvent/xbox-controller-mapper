@@ -72,7 +72,9 @@ class ProfileManager: ObservableObject {
         if let linkedProfile = profiles.first(where: { $0.linkedApps.contains(bundleId) }) {
             // Only switch if not already active
             if activeProfileId != linkedProfile.id {
+                #if DEBUG
                 print("🔄 Auto-switching to profile: \(linkedProfile.name) for app: \(bundleId)")
+                #endif
                 setActiveProfile(linkedProfile)
             }
             return
@@ -83,7 +85,9 @@ class ProfileManager: ObservableObject {
         // "Standard" behavior: Switch to default profile when entering an app that has no specific profile.
         if let defaultProfile = profiles.first(where: { $0.isDefault }) {
             if activeProfileId != defaultProfile.id {
+                #if DEBUG
                 print("🔄 Auto-switching to default profile for app: \(bundleId)")
+                #endif
                 setActiveProfile(defaultProfile)
             }
         }

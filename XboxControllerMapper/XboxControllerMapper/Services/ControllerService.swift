@@ -582,31 +582,25 @@ class ControllerService: ObservableObject {
         }
     }
 
+    /// Helper to bind a GCControllerButtonInput to a ControllerButton
+    private func bindButton(_ element: GCControllerButtonInput?, to button: ControllerButton) {
+        element?.pressedChangedHandler = { [weak self] _, _, pressed in
+            self?.controllerQueue.async { self?.handleButton(button, pressed: pressed) }
+        }
+    }
+
     private func setupInputHandlers(for controller: GCController) {
         guard let gamepad = controller.extendedGamepad else { return }
 
-        // Use controllerQueue for all button inputs
-        
-        gamepad.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.a, pressed: pressed) }
-        }
-        gamepad.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.b, pressed: pressed) }
-        }
-        gamepad.buttonX.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.x, pressed: pressed) }
-        }
-        gamepad.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.y, pressed: pressed) }
-        }
+        // Face buttons
+        bindButton(gamepad.buttonA, to: .a)
+        bindButton(gamepad.buttonB, to: .b)
+        bindButton(gamepad.buttonX, to: .x)
+        bindButton(gamepad.buttonY, to: .y)
 
         // Bumpers
-        gamepad.leftShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.leftBumper, pressed: pressed) }
-        }
-        gamepad.rightShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.rightBumper, pressed: pressed) }
-        }
+        bindButton(gamepad.leftShoulder, to: .leftBumper)
+        bindButton(gamepad.rightShoulder, to: .rightBumper)
 
         // Triggers
         gamepad.leftTrigger.valueChangedHandler = { [weak self] _, value, pressed in
@@ -617,32 +611,15 @@ class ControllerService: ObservableObject {
         }
 
         // D-pad
-        gamepad.dpad.up.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.dpadUp, pressed: pressed) }
-        }
-        gamepad.dpad.down.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.dpadDown, pressed: pressed) }
-        }
-        gamepad.dpad.left.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.dpadLeft, pressed: pressed) }
-        }
-        gamepad.dpad.right.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.dpadRight, pressed: pressed) }
-        }
+        bindButton(gamepad.dpad.up, to: .dpadUp)
+        bindButton(gamepad.dpad.down, to: .dpadDown)
+        bindButton(gamepad.dpad.left, to: .dpadLeft)
+        bindButton(gamepad.dpad.right, to: .dpadRight)
 
         // Special buttons
-        gamepad.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.menu, pressed: pressed) }
-        }
-        gamepad.buttonOptions?.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.view, pressed: pressed) }
-        }
-        
-        if let extendedGamepad = gamepad as? GCExtendedGamepad {
-            extendedGamepad.buttonHome?.pressedChangedHandler = { [weak self] _, _, pressed in
-                self?.controllerQueue.async { self?.handleButton(.xbox, pressed: pressed) }
-            }
-        }
+        bindButton(gamepad.buttonMenu, to: .menu)
+        bindButton(gamepad.buttonOptions, to: .view)
+        bindButton((gamepad as? GCExtendedGamepad)?.buttonHome, to: .xbox)
 
         if let xboxGamepad = gamepad as? GCXboxGamepad {
             storage.lock.lock()
@@ -653,17 +630,11 @@ class ControllerService: ObservableObject {
             // Trigger battery monitor refresh for Xbox controller
             batteryMonitor.refreshBatteryLevel()
 
-            xboxGamepad.buttonShare?.pressedChangedHandler = { [weak self] _, _, pressed in
-                self?.controllerQueue.async { self?.handleButton(.share, pressed: pressed) }
-            }
+            bindButton(xboxGamepad.buttonShare, to: .share)
         }
 
-        gamepad.leftThumbstickButton?.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.leftThumbstick, pressed: pressed) }
-        }
-        gamepad.rightThumbstickButton?.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.controllerQueue.async { self?.handleButton(.rightThumbstick, pressed: pressed) }
-        }
+        bindButton(gamepad.leftThumbstickButton, to: .leftThumbstick)
+        bindButton(gamepad.rightThumbstickButton, to: .rightThumbstick)
 
         gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.updateLeftStick(x: xValue, y: yValue)

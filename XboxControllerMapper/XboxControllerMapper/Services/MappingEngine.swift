@@ -18,69 +18,27 @@ private struct MappingExecutor {
         self.systemCommandExecutor = SystemCommandExecutor(profileManager: profileManager)
     }
 
-    /// Executes a simple key mapping
-    func executeMapping(_ mapping: KeyMapping, for button: ControllerButton, profile: Profile?, logType: InputEventType = .singlePress) {
-        if let systemCommand = mapping.systemCommand {
+    /// Executes any action mapping (key press, macro, or system command)
+    func executeAction(_ action: ExecutableAction, for button: ControllerButton, profile: Profile?, logType: InputEventType = .singlePress) {
+        if let systemCommand = action.systemCommand {
             systemCommandExecutor.execute(systemCommand)
             inputLogService?.log(buttons: [button], type: logType, action: systemCommand.displayName)
             return
         }
 
-        if let macroId = mapping.macroId, let profile = profile,
+        if let macroId = action.macroId, let profile = profile,
            let macro = profile.macros.first(where: { $0.id == macroId }) {
             inputSimulator.executeMacro(macro)
             inputLogService?.log(buttons: [button], type: logType, action: "Macro: \(macro.name)")
             return
         }
 
-        if let keyCode = mapping.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-        } else if mapping.modifiers.hasAny {
-            executeTapModifier(mapping.modifiers.cgEventFlags)
+        if let keyCode = action.keyCode {
+            inputSimulator.pressKey(keyCode, modifiers: action.modifiers.cgEventFlags)
+        } else if action.modifiers.hasAny {
+            executeTapModifier(action.modifiers.cgEventFlags)
         }
-        inputLogService?.log(buttons: [button], type: logType, action: mapping.displayString)
-    }
-
-    /// Executes a long-hold mapping
-    func executeLongHold(_ mapping: LongHoldMapping, for button: ControllerButton, profile: Profile?) {
-        if let systemCommand = mapping.systemCommand {
-            systemCommandExecutor.execute(systemCommand)
-            inputLogService?.log(buttons: [button], type: .longPress, action: systemCommand.displayName)
-            return
-        }
-        if let macroId = mapping.macroId, let profile = profile,
-           let macro = profile.macros.first(where: { $0.id == macroId }) {
-            inputSimulator.executeMacro(macro)
-            inputLogService?.log(buttons: [button], type: .longPress, action: "Macro: \(macro.name)")
-            return
-        }
-        if let keyCode = mapping.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-        } else if mapping.modifiers.hasAny {
-            executeTapModifier(mapping.modifiers.cgEventFlags)
-        }
-        inputLogService?.log(buttons: [button], type: .longPress, action: mapping.displayString)
-    }
-
-    /// Executes a double-tap mapping
-    func executeDoubleTap(_ mapping: DoubleTapMapping, for button: ControllerButton, profile: Profile?) {
-        if let systemCommand = mapping.systemCommand {
-            systemCommandExecutor.execute(systemCommand)
-            inputLogService?.log(buttons: [button], type: .doubleTap, action: systemCommand.displayName)
-            return
-        }
-        if let macroId = mapping.macroId, let profile = profile,
-           let macro = profile.macros.first(where: { $0.id == macroId }) {
-            inputSimulator.executeMacro(macro)
-            inputLogService?.log(buttons: [button], type: .doubleTap, action: "Macro: \(macro.name)")
-            return
-        }
-        if let keyCode = mapping.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-        } else if mapping.modifiers.hasAny {
-            executeTapModifier(mapping.modifiers.cgEventFlags)
-        }
-        inputLogService?.log(buttons: [button], type: .doubleTap, action: mapping.displayString)
+        inputLogService?.log(buttons: [button], type: logType, action: action.displayString)
     }
 
     /// Helper: Execute a modifier-only mapping (tap modifiers briefly)
@@ -489,7 +447,7 @@ class MappingEngine: ObservableObject {
                 state.lock.lock()
                 defer { state.lock.unlock() }
                 state.lastTapTime.removeValue(forKey: button)
-                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button, profile: profile)
+                mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
                 return
             }
             state.lock.lock()
@@ -645,7 +603,7 @@ class MappingEngine: ObservableObject {
         let profile = state.activeProfile
         state.lock.unlock()
 
-        mappingExecutor.executeLongHold(mapping, for: button, profile: profile)
+        mappingExecutor.executeAction(mapping, for: button, profile: profile, logType: .longPress)
     }
 
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
@@ -685,7 +643,7 @@ class MappingEngine: ObservableObject {
            holdDuration >= longHoldMapping.threshold,
            !longHoldMapping.isEmpty {
             clearTapState(for: button)
-            mappingExecutor.executeLongHold(longHoldMapping, for: button, profile: profile)
+            mappingExecutor.executeAction(longHoldMapping, for: button, profile: profile, logType: .longPress)
             return
         }
 
@@ -830,7 +788,7 @@ class MappingEngine: ObservableObject {
                 pending.cancel()
             }
             clearTapState(for: button)
-            mappingExecutor.executeDoubleTap(doubleTapMapping, for: button, profile: profile)
+            mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
             return true
         }
 
@@ -852,7 +810,7 @@ class MappingEngine: ObservableObject {
             
             // Need to re-fetch profile to execute macro
             let profile = self.state.lock.withLock { self.state.activeProfile }
-            self.mappingExecutor.executeMapping(mapping, for: button, profile: profile)
+            self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
         }
         state.pendingSingleTap[button] = workItem
         state.lock.unlock()
@@ -869,7 +827,7 @@ class MappingEngine: ObservableObject {
             self.state.pendingReleaseActions.removeValue(forKey: button)
             self.state.lock.unlock()
 
-            self.mappingExecutor.executeMapping(mapping, for: button, profile: profile)
+            self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
         }
 
         state.lock.lock()
@@ -1172,7 +1130,7 @@ class MappingEngine: ObservableObject {
                 state.pendingSingleTap.removeValue(forKey: button)
                 state.lock.unlock()
 
-                mappingExecutor.executeDoubleTap(doubleTapMapping, for: button, profile: profile)
+                mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
                 return
             }
 
@@ -1187,7 +1145,7 @@ class MappingEngine: ObservableObject {
                 self.state.pendingSingleTap.removeValue(forKey: button)
                 self.state.lock.unlock()
 
-                self.mappingExecutor.executeMapping(mapping, for: button, profile: profile)
+                self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
             }
             state.pendingSingleTap[button] = workItem
             state.lock.unlock()
@@ -1197,7 +1155,7 @@ class MappingEngine: ObservableObject {
         }
 
         // No double-tap configured, execute immediately
-        mappingExecutor.executeMapping(mapping, for: button, profile: profile)
+        mappingExecutor.executeAction(mapping, for: button, profile: profile)
     }
 
     /// Process touchpad long tap gesture (executes long hold mapping)
@@ -1233,7 +1191,7 @@ class MappingEngine: ObservableObject {
             return
         }
 
-        mappingExecutor.executeLongHold(longHoldMapping, for: button, profile: profile)
+        mappingExecutor.executeAction(longHoldMapping, for: button, profile: profile, logType: .longPress)
     }
 
     /// Process touchpad movement for mouse control (DualSense only)

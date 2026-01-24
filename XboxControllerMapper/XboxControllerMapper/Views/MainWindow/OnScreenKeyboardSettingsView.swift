@@ -25,6 +25,9 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var isFetchingWebsiteMetadata = false
     @State private var websiteURLError: String?
 
+    // Cached installed apps (loaded once on appear)
+    @State private var cachedInstalledApps: [AppInfo] = []
+
     // Variable autocomplete state
     @State private var showSnippetSuggestions = false
     @State private var showCommandSuggestions = false
@@ -49,8 +52,14 @@ struct OnScreenKeyboardSettingsView: View {
         profileManager.onScreenKeyboardSettings.websiteLinks
     }
 
-    private var installedApps: [AppInfo] {
-        AppMonitor().installedApplications
+    private func loadInstalledApps() {
+        guard cachedInstalledApps.isEmpty else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let apps = AppMonitor().installedApplications
+            DispatchQueue.main.async {
+                cachedInstalledApps = apps
+            }
+        }
     }
 
     var body: some View {
@@ -449,7 +458,7 @@ struct OnScreenKeyboardSettingsView: View {
     }
 
     private var filteredInstalledApps: [AppInfo] {
-        installedApps.filter { app in
+        cachedInstalledApps.filter { app in
             appPickerSearchText.isEmpty ||
             app.name.localizedCaseInsensitiveContains(appPickerSearchText)
         }
@@ -560,6 +569,9 @@ struct OnScreenKeyboardSettingsView: View {
             }
         }
         .frame(width: 400, height: 500)
+        .onAppear {
+            loadInstalledApps()
+        }
         .onDisappear {
             appPickerSearchText = ""
             appPickerSelectedIndex = 0

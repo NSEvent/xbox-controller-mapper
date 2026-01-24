@@ -339,10 +339,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         
         // Listen for screen changes to invalidate cache
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.stateLock.lock()
-            self?.cachedScreenBounds = nil
-            self?.cachedPrimaryHeight = nil
-            self?.stateLock.unlock()
+            guard let self = self else { return }
+            self.stateLock.lock()
+            self.cachedScreenBounds = nil
+            self.cachedPrimaryHeight = nil
+            self.stateLock.unlock()
         }
     }
 
@@ -361,26 +362,24 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             return (bounds, height)
         }
 
-        // Recalculate on main thread safely
-        let (bounds, height) = DispatchQueue.main.sync {
-            var validFrame = CGRect.null
-            let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
-            
-            for screen in NSScreen.screens {
-                let screenRect = screen.frame
-                // Convert AppKit (bottom-left origin) to CoreGraphics (top-left origin)
-                // CG Y = PrimaryHeight - (AppKitY + AppKitHeight)
-                let cgOriginY = primaryHeight - (screenRect.origin.y + screenRect.height)
-                let cgRect = CGRect(x: screenRect.origin.x, y: cgOriginY, width: screenRect.width, height: screenRect.height)
-                
-                validFrame = validFrame.union(cgRect)
-            }
-            return (validFrame, primaryHeight)
+        // Use CoreGraphics APIs which are thread-safe (no main thread requirement)
+        let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
+        var validFrame = CGRect.null
+
+        // Get all active displays via CoreGraphics instead of NSScreen.screens
+        var displayCount: UInt32 = 0
+        CGGetActiveDisplayList(0, nil, &displayCount)
+        var displays = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
+        CGGetActiveDisplayList(displayCount, &displays, &displayCount)
+
+        for display in displays {
+            let displayBounds = CGDisplayBounds(display)
+            validFrame = validFrame.union(displayBounds)
         }
 
-        cachedScreenBounds = bounds
-        cachedPrimaryHeight = height
-        return (bounds, height)
+        cachedScreenBounds = validFrame
+        cachedPrimaryHeight = primaryHeight
+        return (validFrame, primaryHeight)
     }
 
     // MARK: - Mouse Simulation

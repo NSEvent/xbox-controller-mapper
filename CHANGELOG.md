@@ -5,41 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.3] - 2026-01-23
+## [1.2.3] - 2026-01-24
 
 ### Added
 
-- GTA-style command wheel for quick app switching when holding the keyboard toggle button
-  - Right stick navigates segments; releasing the button activates the selected app
-  - Wheel only appears once the stick moves past the deadzone
-  - 300ms selection tolerance for stick snap-back on release
-- On-screen keyboard remembers its position per screen within the session
-- "Activate All Windows" setting in Keyboard tab: switching to an app brings all its windows to front (on by default)
-- Global keyboard shortcut to toggle the on-screen keyboard (configurable in Keyboard tab)
-- Optional hints for button and chord mappings (primary, long hold, and double tap actions)
-  - When set, the hint displays instead of the raw keyboard shortcut
-  - Hover over a hint to see the actual shortcut in a tooltip
+- **Macros System**: Full macro recording and playback with multi-step sequences
+  - Macro steps: Key Press, Type Text, Delay, Paste
+  - Type Text supports configurable speed settings
+  - Macros assignable to buttons, chords, long hold, and double tap actions
+  - Dedicated Macros tab for management
+- **System Commands**: Automate actions beyond key presses
+  - Launch App: open any application by bundle identifier with browse dialog
+  - Shell Command: run terminal commands silently or in a terminal window
+  - Open Link: open URLs in default browser
+  - Assignable to buttons, chords, long hold, and double tap actions
+- **Battery Notifications**: alerts at low (20%), critical (10%), and fully charged (100%)
+- **Command Wheel**: GTA 5-inspired radial menu for quick app/website switching
+  - Right stick navigates segments; releasing activates the selected item
+  - Full-range stick actions (push all the way for force quit / new window)
+  - Haptic feedback during navigation
+  - Modifier key to toggle alternate content (apps vs websites)
+  - Incognito long-hold action for websites
+  - Three-tier icon positioning for varying item counts
+- **App-Specific Profile Auto-Switching**
+  - Link profiles to specific applications
+  - Automatic profile switching when apps gain focus
+  - Falls back to default profile for unlinked apps
+- **On-Screen Keyboard Improvements**
+  - Keyboard position remembered per screen within session
+  - Global keyboard shortcut toggle (configurable in Keyboard tab)
+  - "Activate All Windows" setting for app switching (on by default)
+- **Mapping Enhancements**
+  - Long hold and double tap now support macros and system commands (not just keys)
+  - Optional hint field for button and chord mappings (primary, long hold, double tap)
+  - Hints display instead of raw shortcuts; hover shows actual shortcut in tooltip
+  - Caps Lock key properly shows display name in key picker
+  - FN key disabled from being mapped as a regular key
 
 ### Changed
 
-- All config structs now use resilient decoders (missing or new fields won't break existing configs)
-- Added schema version to configuration for future migrations
-- Repeat action while held now defaults to 5/s rate (previously 20/s)
-- D-Pad buttons in Buttons tab now display in order: left, right, up, down
-- Chord button display order: bumpers, triggers, sticks, face, special, touchpad, d-pad
-- Center column buttons (touchpad, system) now have the same width as side column buttons
-- Show Keyboard buttons are now larger and easier to click
-- Chord creation shows gray outlines when the button combination already exists
+- Modern dark glass aesthetic for main window, on-screen keyboard, and command wheel
+- Wrapping flow layout for active chords display (replaces horizontal scroll)
+- Green battery indicator when controller is charging
+- All config structs use resilient custom decoders (missing/new fields won't break configs)
+- Schema version tracking for future migrations
+- Repeat action rate defaults to 5/s (previously 20/s)
+- Chord creation shows gray outlines when button combination already exists
+- Center column buttons match side column width in Buttons tab
+- Code refactored: unified mapping execution, extracted helpers, thread-safe screen cache
 
 ### Fixed
 
-- On-screen keyboard now appears on the screen where the mouse cursor is, instead of always on the primary display
+- On-screen keyboard appears on screen where mouse cursor is (not always primary display)
+- Key capture field no longer intercepts clicks outside its bounds
+- Long hold/double tap settings not loading when re-opening configure button page
+- DualSense button icons displaying as Xbox style in configure button page header
+- Save button properly handles empty system command/macro state
+- Chord reordering preserved correctly
+- Deadlock risk in InputSimulator removed (replaced DispatchQueue.main.sync with CoreGraphics API)
 
-## [1.2.2] - 2026-01-22
+### Removed
 
-### Changed
-
-- Removed touchpad scroll momentum for DualSense two-finger gestures
+- Touchpad scroll momentum for DualSense two-finger gestures (caused inconsistent behavior)
 
 ## [1.2.1] - 2026-01-21
 

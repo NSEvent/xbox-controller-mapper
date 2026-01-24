@@ -9,6 +9,15 @@ protocol KeyBindingRepresentable {
     var modifiers: ModifierFlags { get }
 }
 
+// MARK: - ExecutableAction Protocol
+
+/// Protocol for mapping types that can be executed (key press, macro, or system command)
+protocol ExecutableAction: KeyBindingRepresentable {
+    var macroId: UUID? { get }
+    var systemCommand: SystemCommand? { get }
+    var displayString: String { get }
+}
+
 extension KeyBindingRepresentable {
     /// Human-readable description of the key binding
     var displayString: String {
@@ -35,7 +44,7 @@ extension KeyBindingRepresentable {
 // MARK: - KeyMapping
 
 /// Represents a keyboard shortcut mapping
-struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
+struct KeyMapping: Codable, Equatable, ExecutableAction {
     /// The key code to simulate (nil for modifier-only mappings)
     var keyCode: CGKeyCode?
 
@@ -179,7 +188,7 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
 }
 
 /// Wraps long hold configuration to avoid recursive struct issues
-struct LongHoldMapping: Codable, Equatable, KeyBindingRepresentable {
+struct LongHoldMapping: Codable, Equatable, ExecutableAction {
     var keyCode: CGKeyCode?
     var modifiers: ModifierFlags
     var threshold: TimeInterval
@@ -236,7 +245,7 @@ struct LongHoldMapping: Codable, Equatable, KeyBindingRepresentable {
 }
 
 /// Wraps double tap configuration
-struct DoubleTapMapping: Codable, Equatable, KeyBindingRepresentable {
+struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
     var keyCode: CGKeyCode?
     var modifiers: ModifierFlags
     /// Time window within which two taps must occur to count as double-tap (default 0.3s)
