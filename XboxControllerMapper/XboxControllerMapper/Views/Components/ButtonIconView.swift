@@ -6,11 +6,13 @@ struct ButtonIconView: View {
     let button: ControllerButton
     let isPressed: Bool
     let isDualSense: Bool
+    let showDirectionalArrows: Bool
 
-    init(button: ControllerButton, isPressed: Bool = false, isDualSense: Bool = false) {
+    init(button: ControllerButton, isPressed: Bool = false, isDualSense: Bool = false, showDirectionalArrows: Bool = false) {
         self.button = button
         self.isPressed = isPressed
         self.isDualSense = isDualSense
+        self.showDirectionalArrows = showDirectionalArrows
     }
     
     var body: some View {
@@ -92,6 +94,8 @@ struct ButtonIconView: View {
     }
 
     private var width: CGFloat {
+        // Directional stick icons need more room
+        if showDirectionalArrows { return 36 }
         // Mic mute and single touchpad tap use same width as special buttons (circular)
         if button == .micMute || button == .touchpadTap { return 28 }
         // Two-finger tap is slightly wider to fit "2" + icon
@@ -106,6 +110,8 @@ struct ButtonIconView: View {
     }
 
     private var height: CGFloat {
+        // Directional stick icons are circular
+        if showDirectionalArrows { return 36 }
         // Touchpad press buttons are square
         if button == .touchpadButton || button == .touchpadTwoFingerButton { return width }
         return isCircle ? width : 22
@@ -172,8 +178,20 @@ struct ButtonIconView: View {
     @ViewBuilder
     private var contentView: some View {
         Group {
-            // For DualSense face buttons, use colored text symbols on dark background
-            if isDualSense && button.category == .face {
+            if showDirectionalArrows {
+                ZStack {
+                    // Directional Arrows (Background)
+                    Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
+                        .font(.system(size: fontSize + 10, weight: .bold))
+                        .foregroundColor(.white.opacity(0.8))
+                    
+                    // Stick Label (Foreground)
+                    Text(stickLabel)
+                        .font(.system(size: fontSize + 2, weight: .heavy, design: .rounded))
+                        .foregroundColor(.white)
+                        .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
+                }
+            } else if isDualSense && button.category == .face {
                 Text(button.shortLabel(forDualSense: true))
                     .font(.system(size: fontSize, weight: .bold, design: .rounded))
                     .foregroundColor(playstationSymbolColor)
@@ -205,6 +223,14 @@ struct ButtonIconView: View {
             }
         }
         .font(.system(size: fontSize, weight: .bold))
+    }
+    
+    private var stickLabel: String {
+        switch button {
+        case .rightThumbstick: return "R"
+        case .leftThumbstick: return "L"
+        default: return ""
+        }
     }
 }
 

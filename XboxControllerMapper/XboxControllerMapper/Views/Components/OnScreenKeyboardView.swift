@@ -104,6 +104,32 @@ struct OnScreenKeyboardView: View {
                 // Navigation keys column
                 navigationKeyColumn
             }
+
+            // Controller Hint Footer
+            HStack(spacing: 8) {
+                Spacer()
+
+                // Command Wheel Hint
+                HStack(spacing: 8) {
+                    ButtonIconView(button: .rightThumbstick, isPressed: false, isDualSense: false, showDirectionalArrows: true)
+                        .frame(width: 36, height: 36)
+
+                    Text("Command Wheel")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                )
+
+                Spacer()
+            }
+            .padding(.top, keySpacing)
         }
         .padding(20)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
