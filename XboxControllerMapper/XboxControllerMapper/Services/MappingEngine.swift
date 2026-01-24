@@ -17,7 +17,14 @@ private struct MappingExecutor {
     }
 
     /// Executes a simple key mapping
-    func executeMapping(_ mapping: KeyMapping, for button: ControllerButton, logType: InputEventType = .singlePress) {
+    func executeMapping(_ mapping: KeyMapping, for button: ControllerButton, profile: Profile?, logType: InputEventType = .singlePress) {
+        if let macroId = mapping.macroId, let profile = profile,
+           let macro = profile.macros.first(where: { $0.id == macroId }) {
+            inputSimulator.executeMacro(macro)
+            inputLogService?.log(buttons: [button], type: logType, action: "Macro: \(macro.name)")
+            return
+        }
+
         if let keyCode = mapping.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
         } else if mapping.modifiers.hasAny {
@@ -810,8 +817,10 @@ class MappingEngine: ObservableObject {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             self.clearTapState(for: button)
-            self.inputSimulator.executeMapping(mapping)
-            self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+            
+            // Need to re-fetch profile to execute macro
+            let profile = self.state.lock.withLock { self.state.activeProfile }
+            self.mappingExecutor.executeMapping(mapping, for: button, profile: profile)
         }
         state.pendingSingleTap[button] = workItem
         state.lock.unlock()
@@ -828,8 +837,7 @@ class MappingEngine: ObservableObject {
             self.state.pendingReleaseActions.removeValue(forKey: button)
             self.state.lock.unlock()
 
-            self.inputSimulator.executeMapping(mapping)
-            self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+            self.mappingExecutor.executeMapping(mapping, for: button, profile: profile)
         }
 
         state.lock.lock()
@@ -1142,8 +1150,7 @@ class MappingEngine: ObservableObject {
                 self.state.pendingSingleTap.removeValue(forKey: button)
                 self.state.lock.unlock()
 
-                self.inputSimulator.executeMapping(mapping)
-                self.inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+                self.mappingExecutor.executeMapping(mapping, for: button, profile: profile)
             }
             state.pendingSingleTap[button] = workItem
             state.lock.unlock()
@@ -1153,8 +1160,7 @@ class MappingEngine: ObservableObject {
         }
 
         // No double-tap configured, execute immediately
-        inputSimulator.executeMapping(mapping)
-        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+        mappingExecutor.executeMapping(mapping, for: button, profile: profile)
     }
 
     /// Process touchpad long tap gesture (executes long hold mapping)

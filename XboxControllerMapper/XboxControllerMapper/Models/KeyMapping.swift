@@ -53,6 +53,9 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
 
     /// Whether this mapping acts as a held modifier (released when button released)
     var isHoldModifier: Bool
+    
+    /// Optional ID of a macro to execute instead of key press
+    var macroId: UUID?
 
     /// Optional user-provided description of what this mapping does
     var hint: String?
@@ -64,6 +67,7 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         doubleTapMapping: DoubleTapMapping? = nil,
         repeatMapping: RepeatMapping? = nil,
         isHoldModifier: Bool = false,
+        macroId: UUID? = nil,
         hint: String? = nil
     ) {
         self.keyCode = keyCode
@@ -72,11 +76,12 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         self.doubleTapMapping = doubleTapMapping
         self.repeatMapping = repeatMapping
         self.isHoldModifier = isHoldModifier
+        self.macroId = macroId
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, hint
+        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, macroId, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -87,6 +92,7 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         doubleTapMapping = try container.decodeIfPresent(DoubleTapMapping.self, forKey: .doubleTapMapping)
         repeatMapping = try container.decodeIfPresent(RepeatMapping.self, forKey: .repeatMapping)
         isHoldModifier = try container.decodeIfPresent(Bool.self, forKey: .isHoldModifier) ?? false
+        macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
 

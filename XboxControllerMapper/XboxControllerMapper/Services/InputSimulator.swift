@@ -21,6 +21,7 @@ protocol InputSimulatorProtocol: Sendable {
     func executeMapping(_ mapping: KeyMapping)
     func startHoldMapping(_ mapping: KeyMapping)
     func stopHoldMapping(_ mapping: KeyMapping)
+    func executeMacro(_ macro: Macro)
 }
 
 extension InputSimulatorProtocol {
@@ -719,6 +720,81 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         // Then release modifiers
         if mapping.modifiers.hasAny {
             releaseModifier(mapping.modifiers.cgEventFlags)
+        }
+    }
+    
+    // MARK: - Macro Execution
+    
+    func executeMacro(_ macro: Macro) {
+        keyboardQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            for step in macro.steps {
+                switch step {
+                case .press(let mapping):
+                    self.pressKeyMapping(mapping)
+                    
+                case .hold(let mapping, let duration):
+                    self.holdKeyMapping(mapping, duration: duration)
+                    
+                case .delay(let duration):
+                    usleep(useconds_t(duration * 1_000_000))
+                    
+                case .typeText(let text):
+                    self.typeString(text)
+                }
+            }
+        }
+    }
+    
+    private func pressKeyMapping(_ mapping: KeyMapping) {
+        if let keyCode = mapping.keyCode {
+            pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+        } else if mapping.modifiers.hasAny {
+            let flags = mapping.modifiers.cgEventFlags
+            holdModifier(flags)
+            usleep(Config.keyPressDuration)
+            releaseModifier(flags)
+        }
+    }
+    
+    private func holdKeyMapping(_ mapping: KeyMapping, duration: TimeInterval) {
+        if let keyCode = mapping.keyCode {
+            keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+            usleep(useconds_t(duration * 1_000_000))
+            keyUp(keyCode)
+        } else if mapping.modifiers.hasAny {
+            let flags = mapping.modifiers.cgEventFlags
+            holdModifier(flags)
+            usleep(useconds_t(duration * 1_000_000))
+            releaseModifier(flags)
+        }
+    }
+    
+    private func typeString(_ text: String) {
+        guard let source = eventSource else { return }
+        
+        for char in text {
+            // Get key code for character (simplified, only works for ASCII/basic layout)
+            // For robust text entry, we should use CGEventKeyboardSetUnicodeString
+            // But KeyCodeMapping helper might be needed for layout independence
+            
+            // Create a unicode event
+            var chars = [UniChar(String(char).utf16.first!)]
+            
+            if let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true) {
+                event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &chars)
+                event.post(tap: .cghidEventTap)
+            }
+            
+            usleep(Config.keyPressDuration)
+            
+            if let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) {
+                event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &chars)
+                event.post(tap: .cghidEventTap)
+            }
+            
+            usleep(Config.typingDelay)
         }
     }
 }

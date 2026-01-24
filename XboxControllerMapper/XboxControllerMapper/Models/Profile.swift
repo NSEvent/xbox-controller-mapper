@@ -130,6 +130,9 @@ struct Profile: Codable, Identifiable, Equatable {
 
     /// App Bundle IDs that trigger this profile automatically
     var linkedApps: [String]
+    
+    /// Defined macros for this profile
+    var macros: [Macro]
 
     init(
         id: UUID = UUID(),
@@ -140,7 +143,8 @@ struct Profile: Codable, Identifiable, Equatable {
         chordMappings: [ChordMapping] = [],
         joystickSettings: JoystickSettings = .default,
         dualSenseLEDSettings: DualSenseLEDSettings = .default,
-        linkedApps: [String] = []
+        linkedApps: [String] = [],
+        macros: [Macro] = []
     ) {
         self.id = id
         self.name = name
@@ -153,6 +157,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.joystickSettings = joystickSettings
         self.dualSenseLEDSettings = dualSenseLEDSettings
         self.linkedApps = linkedApps
+        self.macros = macros
     }
 
     /// Validates the profile for sanity
@@ -335,7 +340,7 @@ extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, joystickSettings
-        case dualSenseLEDSettings, linkedApps
+        case dualSenseLEDSettings, linkedApps, macros
     }
 
     init(from decoder: Decoder) throws {
@@ -359,6 +364,7 @@ extension Profile {
         joystickSettings = try container.decodeIfPresent(JoystickSettings.self, forKey: .joystickSettings) ?? .default
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings) ?? .default
         linkedApps = try container.decodeIfPresent([String].self, forKey: .linkedApps) ?? []
+        macros = try container.decodeIfPresent([Macro].self, forKey: .macros) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -379,5 +385,6 @@ extension Profile {
         try container.encode(joystickSettings, forKey: .joystickSettings)
         try container.encode(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
         try container.encode(linkedApps, forKey: .linkedApps)
+        try container.encode(macros, forKey: .macros)
     }
 }
