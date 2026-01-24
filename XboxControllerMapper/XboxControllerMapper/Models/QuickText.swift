@@ -110,6 +110,8 @@ struct OnScreenKeyboardSettings: Codable {
     var activateAllWindows: Bool = true
     /// Show website links in the command wheel instead of apps
     var wheelShowsWebsites: Bool = false
+    /// Modifier key to hold for showing alternate wheel content (apps↔websites)
+    var wheelAlternateModifiers: ModifierFlags = ModifierFlags()
 
     /// Available terminal apps to choose from
     static let terminalOptions = [
@@ -146,9 +148,10 @@ struct OnScreenKeyboardSettings: Codable {
         toggleShortcutModifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .toggleShortcutModifiers) ?? ModifierFlags()
         activateAllWindows = try container.decodeIfPresent(Bool.self, forKey: .activateAllWindows) ?? true
         wheelShowsWebsites = try container.decodeIfPresent(Bool.self, forKey: .wheelShowsWebsites) ?? false
+        wheelAlternateModifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .wheelAlternateModifiers) ?? ModifierFlags()
     }
 
-    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, toggleShortcutKeyCode: UInt16? = nil, toggleShortcutModifiers: ModifierFlags = ModifierFlags(), activateAllWindows: Bool = true, wheelShowsWebsites: Bool = false) {
+    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, toggleShortcutKeyCode: UInt16? = nil, toggleShortcutModifiers: ModifierFlags = ModifierFlags(), activateAllWindows: Bool = true, wheelShowsWebsites: Bool = false, wheelAlternateModifiers: ModifierFlags = ModifierFlags()) {
         self.quickTexts = quickTexts
         self.defaultTerminalApp = defaultTerminalApp
         self.typingDelay = typingDelay
@@ -159,10 +162,12 @@ struct OnScreenKeyboardSettings: Codable {
         self.toggleShortcutModifiers = toggleShortcutModifiers
         self.activateAllWindows = activateAllWindows
         self.wheelShowsWebsites = wheelShowsWebsites
+        self.wheelAlternateModifiers = wheelAlternateModifiers
     }
 
     private enum CodingKeys: String, CodingKey {
         case quickTexts, defaultTerminalApp, typingDelay, appBarItems, websiteLinks, showExtendedFunctionKeys
         case toggleShortcutKeyCode, toggleShortcutModifiers, activateAllWindows, wheelShowsWebsites
+        case wheelAlternateModifiers
     }
 }

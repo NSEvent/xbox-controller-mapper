@@ -852,6 +852,47 @@ struct OnScreenKeyboardSettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
+
+            Picker(selection: Binding(
+                get: { wheelAlternateModifierSelection },
+                set: { newValue in
+                    var settings = profileManager.onScreenKeyboardSettings
+                    settings.wheelAlternateModifiers = modifierFlagsForSelection(newValue)
+                    profileManager.updateOnScreenKeyboardSettings(settings)
+                }
+            )) {
+                Text("None").tag("none")
+                Text("⌘ Command").tag("command")
+                Text("⌥ Option").tag("option")
+                Text("⇧ Shift").tag("shift")
+                Text("⌃ Control").tag("control")
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Alternate Modifier")
+                    Text("Hold this key to show \(profileManager.onScreenKeyboardSettings.wheelShowsWebsites ? "apps" : "websites") instead.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    private var wheelAlternateModifierSelection: String {
+        let mods = profileManager.onScreenKeyboardSettings.wheelAlternateModifiers
+        if mods.command { return "command" }
+        if mods.option { return "option" }
+        if mods.shift { return "shift" }
+        if mods.control { return "control" }
+        return "none"
+    }
+
+    private func modifierFlagsForSelection(_ selection: String) -> ModifierFlags {
+        switch selection {
+        case "command": return ModifierFlags(command: true)
+        case "option": return ModifierFlags(option: true)
+        case "shift": return ModifierFlags(shift: true)
+        case "control": return ModifierFlags(control: true)
+        default: return ModifierFlags()
         }
     }
 

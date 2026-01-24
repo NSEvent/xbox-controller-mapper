@@ -145,6 +145,7 @@ class MappingEngine: ObservableObject {
         var onScreenKeyboardButton: ControllerButton? = nil  // Tracks which button is showing the on-screen keyboard
         var onScreenKeyboardHoldMode: Bool = false  // Whether keyboard should hide on button release
         var commandWheelActive: Bool = false  // Whether the command wheel is intercepting right stick
+        var wheelAlternateModifiers: ModifierFlags = ModifierFlags()  // Modifier to hold for alternate wheel content
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
@@ -485,18 +486,19 @@ class MappingEngine: ObservableObject {
             if holdMode {
                 // Hold mode: always show on press
                 OnScreenKeyboardManager.shared.show()
-                // Prepare command wheel (shows on stick movement)
+                // Prepare command wheel with both apps and websites (shows on stick movement)
                 let settings = self?.profileManager.onScreenKeyboardSettings
-                if settings?.wheelShowsWebsites == true {
-                    let websites = settings?.websiteLinks ?? []
-                    if !websites.isEmpty {
-                        CommandWheelManager.shared.prepare(websites: websites)
-                    }
-                } else {
-                    let apps = settings?.appBarItems ?? []
-                    if !apps.isEmpty {
-                        CommandWheelManager.shared.prepare(apps: apps)
-                    }
+                let apps = settings?.appBarItems ?? []
+                let websites = settings?.websiteLinks ?? []
+                let showWebsitesFirst = settings?.wheelShowsWebsites == true
+                // Store alternate modifiers in state for 120Hz checking
+                if let self = self {
+                    self.state.lock.lock()
+                    self.state.wheelAlternateModifiers = settings?.wheelAlternateModifiers ?? ModifierFlags()
+                    self.state.lock.unlock()
+                }
+                if !apps.isEmpty || !websites.isEmpty {
+                    CommandWheelManager.shared.prepare(apps: apps, websites: websites, showWebsitesFirst: showWebsitesFirst)
                 }
             } else {
                 // Toggle mode: toggle visibility on press
@@ -915,8 +917,20 @@ class MappingEngine: ObservableObject {
         let rightStick = controllerService.threadSafeRightStick
 
         if state.commandWheelActive {
+            // Check if alternate modifier is held and swap wheel content
+            let altMods = state.wheelAlternateModifiers
+            let alternateHeld: Bool = {
+                guard altMods.command || altMods.option || altMods.shift || altMods.control else { return false }
+                let flags = CGEventSource.flagsState(.combinedSessionState)
+                if altMods.command && !flags.contains(.maskCommand) { return false }
+                if altMods.option && !flags.contains(.maskAlternate) { return false }
+                if altMods.shift && !flags.contains(.maskShift) { return false }
+                if altMods.control && !flags.contains(.maskControl) { return false }
+                return true
+            }()
             // Redirect right stick to command wheel selection
             DispatchQueue.main.async {
+                CommandWheelManager.shared.setShowingAlternate(alternateHeld)
                 CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
             }
         } else {

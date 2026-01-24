@@ -26,6 +26,9 @@ class CommandWheelManager: ObservableObject {
 
     private var panel: NSPanel?
     private(set) var items: [CommandWheelItem] = []
+    private var primaryItems: [CommandWheelItem] = []
+    private var alternateItems: [CommandWheelItem] = []
+    private(set) var isShowingAlternate = false
 
     /// Deadzone for stick magnitude - below this, no segment is selected
     private let selectionDeadzone: CGFloat = 0.4
@@ -52,29 +55,41 @@ class CommandWheelManager: ObservableObject {
 
     private init() {}
 
-    /// Prepares the command wheel with app bar items (does NOT show it yet - waits for stick input)
-    func prepare(apps: [AppBarItem]) {
-        let wheelItems = apps.map { app in
+    /// Prepares the command wheel with primary and alternate item sets (does NOT show it yet - waits for stick input)
+    func prepare(apps: [AppBarItem], websites: [WebsiteLink], showWebsitesFirst: Bool) {
+        let appItems = apps.map { app in
             CommandWheelItem(id: app.id, displayName: app.displayName, kind: .app(bundleIdentifier: app.bundleIdentifier))
         }
-        prepareItems(wheelItems)
-    }
-
-    /// Prepares the command wheel with website links (does NOT show it yet - waits for stick input)
-    func prepare(websites: [WebsiteLink]) {
-        let wheelItems = websites.map { link in
+        let websiteItems = websites.map { link in
             CommandWheelItem(id: link.id, displayName: link.displayName, kind: .website(url: link.url, faviconData: link.faviconData))
         }
-        prepareItems(wheelItems)
+        if showWebsitesFirst {
+            primaryItems = websiteItems
+            alternateItems = appItems
+        } else {
+            primaryItems = appItems
+            alternateItems = websiteItems
+        }
+        isShowingAlternate = false
+        items = primaryItems.isEmpty ? alternateItems : primaryItems
+        selectedIndex = nil
+        lastValidSelection = nil
+        lastValidSelectionTime = 0
+        lastValidFullRange = false
+        resetForceQuit()
     }
 
-    private func prepareItems(_ wheelItems: [CommandWheelItem]) {
-        guard !wheelItems.isEmpty else { return }
-        self.items = wheelItems
-        self.selectedIndex = nil
-        self.lastValidSelection = nil
-        self.lastValidSelectionTime = 0
-        self.lastValidFullRange = false
+    /// Switches between primary and alternate items based on modifier state
+    func setShowingAlternate(_ alternate: Bool) {
+        guard alternate != isShowingAlternate else { return }
+        isShowingAlternate = alternate
+        let newItems = alternate ? alternateItems : primaryItems
+        guard !newItems.isEmpty else { return }
+        items = newItems
+        selectedIndex = nil
+        lastValidSelection = nil
+        lastValidSelectionTime = 0
+        lastValidFullRange = false
         resetForceQuit()
     }
 
