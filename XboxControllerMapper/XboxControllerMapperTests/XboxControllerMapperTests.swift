@@ -151,6 +151,27 @@ class MockInputSimulator: InputSimulatorProtocol {
         defer { lock.unlock() }
         _events.append(.stopHoldMapping(mapping))
     }
+    
+    func executeMacro(_ macro: Macro) {
+        lock.lock()
+        defer { lock.unlock() }
+        // Simple mock: just record that we executed this macro
+        // In a real integration test we might want to simulate steps, 
+        // but for now we verify the engine called it.
+        // For the test case `testMacroExecution` which expects key press events,
+        // we should simulate the steps here in the mock.
+        
+        for step in macro.steps {
+            switch step {
+            case .press(let mapping):
+                if let code = mapping.keyCode {
+                    _events.append(.pressKey(code, mapping.modifiers.cgEventFlags))
+                }
+            default:
+                break
+            }
+        }
+    }
 }
 
 // MARK: - Tests

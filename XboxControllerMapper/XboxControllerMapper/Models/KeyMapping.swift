@@ -113,6 +113,10 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
 
     /// Human-readable description of the mapping (overrides protocol to add hold indicator)
     var displayString: String {
+        if macroId != nil {
+            return "Macro"
+        }
+        
         var parts: [String] = []
 
         if modifiers.command { parts.append("⌘") }
@@ -132,6 +136,11 @@ struct KeyMapping: Codable, Equatable, KeyBindingRepresentable {
         }
 
         return parts.joined(separator: " + ")
+    }
+    
+    /// Whether this binding has any action
+    var isEmpty: Bool {
+        return keyCode == nil && !modifiers.hasAny && macroId == nil
     }
 
     /// Compact description including alternate mappings (for UI)
