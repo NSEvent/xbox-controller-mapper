@@ -46,15 +46,15 @@ struct ContentView: View {
                         .tabItem { Text("Macros") }
                         .tag(7)
 
-                    // Joystick Settings
-                    joystickSettingsTab
-                        .tabItem { Text("Joysticks") }
-                        .tag(2)
-
                     // On-Screen Keyboard Settings
                     keyboardSettingsTab
                         .tabItem { Text("Keyboard") }
                         .tag(3)
+
+                    // Joystick Settings
+                    joystickSettingsTab
+                        .tabItem { Text("Joysticks") }
+                        .tag(2)
 
                     // Touchpad Settings (only shown when controller has touchpad)
                     if controllerService.threadSafeIsDualSense {

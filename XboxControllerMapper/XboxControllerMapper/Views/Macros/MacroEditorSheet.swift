@@ -324,7 +324,7 @@ struct StepEditorSheet: View {
     
     enum StepType: String, CaseIterable, Identifiable {
         case press = "Key Press"
-        case hold = "Hold Key"
+        case hold = "Key Hold"
         case typeText = "Type Text"
         case delay = "Delay"
         case openApp = "Open App"
@@ -568,7 +568,7 @@ struct NewStepEditorSheet: View {
 
     enum StepType: String, CaseIterable, Identifiable {
         case press = "Key Press"
-        case hold = "Hold Key"
+        case hold = "Key Hold"
         case typeText = "Type Text"
         case delay = "Delay"
         case openApp = "Open App"
