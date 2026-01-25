@@ -6,87 +6,81 @@ struct FlowLayout<Data: RandomAccessCollection, ItemContent: View>: View where D
     let content: (Data.Element) -> ItemContent
 
     @State private var containerWidth: CGFloat = 0
-    @State private var sizes: [Int: CGSize] = [:]
+    @State private var sizes: [Data.Element.ID: CGSize] = [:]
 
     var body: some View {
-        VStack(spacing: 0) {
-            Color.clear
-                .frame(height: 0)
-                .overlay(
-                    GeometryReader { geo in
-                        Color.clear
-                            .onAppear { containerWidth = geo.size.width }
-                            .onChange(of: geo.size.width) { _, w in containerWidth = w }
-                    }
-                )
-
-            let positions = computePositions()
-            let totalHeight = computeHeight(positions: positions)
+        GeometryReader { geo in
+            let _ = updateContainerWidth(geo.size.width)
+            let layout = computeLayout()
 
             ZStack(alignment: .topLeading) {
                 ForEach(Array(data.enumerated()), id: \.element.id) { index, item in
                     content(item)
                         .fixedSize()
                         .background(
-                            GeometryReader { geo in
+                            GeometryReader { itemGeo in
                                 Color.clear.preference(
-                                    key: FlowItemSizeKey.self,
-                                    value: [index: geo.size]
+                                    key: FlowItemSizeKey<Data.Element.ID>.self,
+                                    value: [item.id: itemGeo.size]
                                 )
                             }
                         )
-                        .alignmentGuide(.leading) { _ in
-                            -(positions[index]?.x ?? 0)
-                        }
-                        .alignmentGuide(.top) { _ in
-                            -(positions[index]?.y ?? 0)
-                        }
+                        .offset(x: layout.positions[index].x, y: layout.positions[index].y)
                 }
             }
-            .frame(height: totalHeight > 0 ? totalHeight : nil, alignment: .topLeading)
-            .onPreferenceChange(FlowItemSizeKey.self) { newSizes in
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .onPreferenceChange(FlowItemSizeKey<Data.Element.ID>.self) { newSizes in
                 if newSizes != sizes {
                     sizes = newSizes
                 }
             }
         }
+        .frame(height: computeLayout().totalHeight)
     }
 
-    private func computePositions() -> [Int: CGPoint] {
-        guard containerWidth > 0 else { return [:] }
-        var result: [Int: CGPoint] = [:]
+    private func updateContainerWidth(_ width: CGFloat) {
+        if containerWidth != width {
+            DispatchQueue.main.async {
+                containerWidth = width
+            }
+        }
+    }
+
+    private func computeLayout() -> (positions: [CGPoint], totalHeight: CGFloat) {
+        guard containerWidth > 0 else {
+            return (Array(repeating: .zero, count: data.count), 0)
+        }
+
+        var positions: [CGPoint] = []
         var x: CGFloat = 0
         var y: CGFloat = 0
         var rowHeight: CGFloat = 0
 
-        for (index, _) in data.enumerated() {
-            let size = sizes[index] ?? CGSize(width: 100, height: 30)
+        for item in data {
+            let size = sizes[item.id] ?? CGSize(width: 100, height: 30)
+
+            // Wrap to next line if this item doesn't fit
             if x + size.width > containerWidth && x > 0 {
                 y += rowHeight + spacing
                 x = 0
                 rowHeight = 0
             }
-            result[index] = CGPoint(x: x, y: y)
+
+            positions.append(CGPoint(x: x, y: y))
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
         }
-        return result
-    }
 
-    private func computeHeight(positions: [Int: CGPoint]) -> CGFloat {
-        guard !positions.isEmpty else { return 0 }
-        var maxBottom: CGFloat = 0
-        for (index, point) in positions {
-            let size = sizes[index] ?? CGSize(width: 100, height: 30)
-            maxBottom = max(maxBottom, point.y + size.height)
-        }
-        return maxBottom
+        // Total height is the bottom of the last row
+        let totalHeight = y + rowHeight
+
+        return (positions, totalHeight > 0 ? totalHeight : 30)
     }
 }
 
-private struct FlowItemSizeKey: PreferenceKey {
-    static var defaultValue: [Int: CGSize] = [:]
-    static func reduce(value: inout [Int: CGSize], nextValue: () -> [Int: CGSize]) {
+private struct FlowItemSizeKey<ID: Hashable>: PreferenceKey {
+    static var defaultValue: [ID: CGSize] { [:] }
+    static func reduce(value: inout [ID: CGSize], nextValue: () -> [ID: CGSize]) {
         value.merge(nextValue()) { _, new in new }
     }
 }
