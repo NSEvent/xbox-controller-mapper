@@ -77,6 +77,7 @@ struct LinkedAppsSheet: View {
                 Button("Done") {
                     dismiss()
                 }
+                .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
             }
         }
@@ -165,6 +166,7 @@ struct AppPickerSheet: View {
                 Button("Cancel") {
                     dismiss()
                 }
+                .keyboardShortcut(.cancelAction)
             }
         }
         .padding(20)

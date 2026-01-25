@@ -989,6 +989,7 @@ struct ChordMappingSheet: View {
                 Button("Cancel") {
                     dismiss()
                 }
+                .keyboardShortcut(.cancelAction)
 
                 Spacer()
 
@@ -1024,6 +1025,7 @@ struct ChordMappingSheet: View {
                     dismiss()
                 }
                 .disabled(selectedButtons.count < 2 || (mappingType == .singleKey && keyCode == nil && !modifiers.hasAny) || (mappingType == .macro && selectedMacroId == nil) || (mappingType == .systemCommand && buildChordSystemCommand() == nil))
+                .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
             }
         }

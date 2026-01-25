@@ -28,6 +28,7 @@ struct SystemActionAppPickerSheet: View {
                     .font(.headline)
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
             }
             .padding()
 

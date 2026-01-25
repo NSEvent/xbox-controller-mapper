@@ -26,6 +26,7 @@ struct BookmarkPickerSheet: View {
                 }
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
             }
             .padding()
 
