@@ -117,22 +117,29 @@ struct MacroEditorSheet: View {
                             draggedItem: $draggedStep
                         ))
                     }
+
+                    // Add Step button as last item in list
+                    Button {
+                        addStep(.press(KeyMapping()))
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(.accentColor)
+                            Text("Add Step")
+                                .font(.system(size: 13))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.plain)
+                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
+                    .cornerRadius(6)
                 }
                 .padding(8)
             }
             .background(Color.black.opacity(0.1))
             .cornerRadius(8)
-            .padding(.horizontal)
-            
-            HStack {
-                Button {
-                    addStep(.press(KeyMapping()))
-                } label: {
-                    Label("Add Step", systemImage: "plus")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-            }
             .padding(.horizontal)
             
             Divider()
