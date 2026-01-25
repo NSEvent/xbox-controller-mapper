@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Wrapper to give MacroStep a stable identity for drag-and-drop
 private struct IdentifiedStep: Identifiable, Equatable {
@@ -8,6 +9,35 @@ private struct IdentifiedStep: Identifiable, Equatable {
     init(_ step: MacroStep) {
         self.id = UUID()
         self.step = step
+    }
+}
+
+/// Drop delegate for reordering macro steps
+private struct MacroStepDropDelegate: DropDelegate {
+    let item: IdentifiedStep
+    @Binding var items: [IdentifiedStep]
+    @Binding var draggedItem: IdentifiedStep?
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedItem = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedItem = draggedItem,
+              draggedItem.id != item.id,
+              let fromIndex = items.firstIndex(where: { $0.id == draggedItem.id }),
+              let toIndex = items.firstIndex(where: { $0.id == item.id }) else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 }
 
@@ -25,6 +55,9 @@ struct MacroEditorSheet: View {
     // For adding new steps - step is only added on save, not on open
     @State private var pendingNewStep: MacroStep?
     @State private var showingNewStepEditor = false
+
+    // For drag and drop reordering
+    @State private var draggedStep: IdentifiedStep?
 
     let originalMacro: Macro?
 
@@ -56,24 +89,37 @@ struct MacroEditorSheet: View {
             }
             .padding(.horizontal)
 
-            List {
-                ForEach(Array(identifiedSteps.enumerated()), id: \.element.id) { index, identifiedStep in
-                    MacroStepRow(
-                        step: identifiedStep.step,
-                        index: index,
-                        onMoveUp: index > 0 ? { moveStep(from: index, to: index - 1) } : nil,
-                        onMoveDown: index < identifiedSteps.count - 1 ? { moveStep(from: index, to: index + 1) } : nil,
-                        onDuplicate: { duplicateStep(at: index) },
-                        onDelete: { deleteStep(at: index) }
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        editingStepIndex = index
-                        showingStepEditor = true
+            ScrollView {
+                LazyVStack(spacing: 4) {
+                    ForEach(Array(identifiedSteps.enumerated()), id: \.element.id) { index, identifiedStep in
+                        MacroStepRow(
+                            step: identifiedStep.step,
+                            index: index,
+                            onDuplicate: { duplicateStep(at: index) },
+                            onDelete: { deleteStep(at: index) }
+                        )
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(6)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editingStepIndex = index
+                            showingStepEditor = true
+                        }
+                        .onDrag {
+                            draggedStep = identifiedStep
+                            return NSItemProvider(object: identifiedStep.id.uuidString as NSString)
+                        }
+                        .onDrop(of: [.text], delegate: MacroStepDropDelegate(
+                            item: identifiedStep,
+                            items: $identifiedSteps,
+                            draggedItem: $draggedStep
+                        ))
                     }
                 }
+                .padding(8)
             }
-            .listStyle(.inset)
             .background(Color.black.opacity(0.1))
             .cornerRadius(8)
             .padding(.horizontal)
@@ -180,13 +226,6 @@ struct MacroEditorSheet: View {
         showingNewStepEditor = true
     }
 
-    private func moveStep(from source: Int, to destination: Int) {
-        guard source >= 0 && source < identifiedSteps.count &&
-              destination >= 0 && destination < identifiedSteps.count else { return }
-        let item = identifiedSteps.remove(at: source)
-        identifiedSteps.insert(item, at: destination)
-    }
-
     private func duplicateStep(at index: Int) {
         guard index >= 0 && index < identifiedSteps.count else { return }
         let stepCopy = IdentifiedStep(identifiedSteps[index].step)
@@ -216,13 +255,11 @@ struct MacroEditorSheet: View {
 struct MacroStepRow: View {
     let step: MacroStep
     let index: Int
-    var onMoveUp: (() -> Void)?
-    var onMoveDown: (() -> Void)?
     var onDuplicate: () -> Void
     var onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Text("\(index + 1).")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -236,30 +273,6 @@ struct MacroStepRow: View {
                 .lineLimit(1)
 
             Spacer()
-
-            // Move up button
-            Button {
-                onMoveUp?()
-            } label: {
-                Image(systemName: "chevron.up")
-                    .font(.caption)
-                    .foregroundColor(onMoveUp != nil ? .secondary : .secondary.opacity(0.3))
-            }
-            .buttonStyle(.plain)
-            .disabled(onMoveUp == nil)
-            .help("Move up")
-
-            // Move down button
-            Button {
-                onMoveDown?()
-            } label: {
-                Image(systemName: "chevron.down")
-                    .font(.caption)
-                    .foregroundColor(onMoveDown != nil ? .secondary : .secondary.opacity(0.3))
-            }
-            .buttonStyle(.plain)
-            .disabled(onMoveDown == nil)
-            .help("Move down")
 
             Button {
                 onDuplicate()
