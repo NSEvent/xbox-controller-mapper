@@ -77,7 +77,7 @@ struct LinkedAppsSheet: View {
                 Button("Done") {
                     dismiss()
                 }
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.return, modifiers: .command)
                 .buttonStyle(.borderedProminent)
             }
         }

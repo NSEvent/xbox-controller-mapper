@@ -1025,7 +1025,7 @@ struct ChordMappingSheet: View {
                     dismiss()
                 }
                 .disabled(selectedButtons.count < 2 || (mappingType == .singleKey && keyCode == nil && !modifiers.hasAny) || (mappingType == .macro && selectedMacroId == nil) || (mappingType == .systemCommand && buildChordSystemCommand() == nil))
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.return, modifiers: .command)
                 .buttonStyle(.borderedProminent)
             }
         }

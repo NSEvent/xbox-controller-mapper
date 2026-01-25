@@ -983,7 +983,7 @@ struct ButtonMappingSheet: View {
             Button("Save") {
                 saveMapping()
             }
-            .keyboardShortcut(.defaultAction)
+            .keyboardShortcut(.return, modifiers: .command)
             .buttonStyle(.borderedProminent)
         }
         .padding(16)

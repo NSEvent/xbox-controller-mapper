@@ -496,7 +496,7 @@ struct OnScreenKeyboardSettingsView: View {
                 Button("Done") {
                     showingAppPicker = false
                 }
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.return, modifiers: .command)
             }
             .padding()
 

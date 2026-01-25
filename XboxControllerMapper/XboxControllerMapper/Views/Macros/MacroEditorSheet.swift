@@ -123,7 +123,7 @@ struct MacroEditorSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(name.isEmpty || steps.isEmpty)
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.return, modifiers: .command)
             }
             .padding(.horizontal)
         }
@@ -427,7 +427,7 @@ struct StepEditorSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!canSave)
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.return, modifiers: .command)
             }
             .padding(.horizontal)
             .padding(.bottom)
