@@ -995,12 +995,18 @@ struct OnScreenKeyboardSettingsView: View {
                     .foregroundColor(.secondary)
                     .italic()
             } else {
-                ForEach(textSnippets) { snippet in
-                    quickTextRow(snippet, isTerminalCommand: false)
+                List {
+                    ForEach(textSnippets) { snippet in
+                        quickTextRow(snippet, isTerminalCommand: false)
+                    }
+                    .onMove { source, destination in
+                        moveQuickTexts(from: source, to: destination, isTerminalCommand: false)
+                    }
                 }
-                .onMove { source, destination in
-                    moveQuickTexts(from: source, to: destination, isTerminalCommand: false)
-                }
+                .listStyle(.plain)
+                .frame(height: CGFloat(textSnippets.count) * 36)
+                .scrollContentBackground(.hidden)
+                .scrollDisabled(true)
             }
 
             // Typing Speed
@@ -1073,12 +1079,18 @@ struct OnScreenKeyboardSettingsView: View {
                     .foregroundColor(.secondary)
                     .italic()
             } else {
-                ForEach(terminalCommands) { command in
-                    quickTextRow(command, isTerminalCommand: true)
+                List {
+                    ForEach(terminalCommands) { command in
+                        quickTextRow(command, isTerminalCommand: true)
+                    }
+                    .onMove { source, destination in
+                        moveQuickTexts(from: source, to: destination, isTerminalCommand: true)
+                    }
                 }
-                .onMove { source, destination in
-                    moveQuickTexts(from: source, to: destination, isTerminalCommand: true)
-                }
+                .listStyle(.plain)
+                .frame(height: CGFloat(terminalCommands.count) * 36)
+                .scrollContentBackground(.hidden)
+                .scrollDisabled(true)
             }
 
             // Default Terminal App
