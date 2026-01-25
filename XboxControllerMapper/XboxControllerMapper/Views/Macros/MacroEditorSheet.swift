@@ -125,44 +125,8 @@ struct MacroEditorSheet: View {
             .padding(.horizontal)
             
             HStack {
-                Menu {
-                    Button {
-                        addStep(.press(KeyMapping()))
-                    } label: {
-                        Label("Key Press", systemImage: "keyboard")
-                    }
-                    
-                    Button {
-                        addStep(.hold(KeyMapping(), duration: 1.0))
-                    } label: {
-                        Label("Hold Key", systemImage: "hand.tap")
-                    }
-                    
-                    Button {
-                        addStep(.typeText("", speed: 0))
-                    } label: {
-                        Label("Type Text", systemImage: "textformat")
-                    }
-                    
-                    Button {
-                        addStep(.delay(0.5))
-                    } label: {
-                        Label("Delay", systemImage: "timer")
-                    }
-
-                    Divider()
-
-                    Button {
-                        addStep(.openApp(bundleIdentifier: "", newWindow: false))
-                    } label: {
-                        Label("Open App", systemImage: "app.fill")
-                    }
-
-                    Button {
-                        addStep(.openLink(url: ""))
-                    } label: {
-                        Label("Open Link", systemImage: "link")
-                    }
+                Button {
+                    addStep(.press(KeyMapping()))
                 } label: {
                     Label("Add Step", systemImage: "plus")
                         .frame(maxWidth: .infinity)
@@ -260,6 +224,10 @@ struct MacroStepRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            Image(systemName: "line.3.horizontal")
+                .font(.caption)
+                .foregroundColor(.secondary.opacity(0.6))
+
             Text("\(index + 1).")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -519,6 +487,11 @@ struct StepEditorSheet: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!canSave)
                 .keyboardShortcut(.return, modifiers: .command)
+
+                // Hidden button for plain Return key
+                Button("") { if canSave { save(); dismiss() } }
+                    .keyboardShortcut(.defaultAction)
+                    .hidden()
             }
             .padding(.horizontal)
             .padding(.bottom)
@@ -760,6 +733,11 @@ struct NewStepEditorSheet: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!canSave)
                 .keyboardShortcut(.return, modifiers: .command)
+
+                // Hidden button for plain Return key
+                Button("") { if canSave { onSave(buildStep()); dismiss() } }
+                    .keyboardShortcut(.defaultAction)
+                    .hidden()
             }
             .padding(.horizontal)
             .padding(.bottom)
