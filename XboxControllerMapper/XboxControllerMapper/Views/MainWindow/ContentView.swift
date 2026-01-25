@@ -84,7 +84,7 @@ struct ContentView: View {
         // Global Glass Background
         .background(
             ZStack {
-                Color.black.opacity(0.75) // Dark tint
+                Color.black.opacity(0.92) // Dark tint
                 GlassVisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
             }
             .ignoresSafeArea()
