@@ -818,6 +818,45 @@ struct ChordMappingSheet: View {
         }
     }
 
+    private var canSave: Bool {
+        selectedButtons.count >= 2 &&
+        (mappingType != .singleKey || keyCode != nil || modifiers.hasAny) &&
+        (mappingType != .macro || selectedMacroId != nil) &&
+        (mappingType != .systemCommand || buildChordSystemCommand() != nil)
+    }
+
+    private func saveChord() {
+        guard canSave else { return }
+
+        let hintValue = hint.isEmpty ? nil : hint
+        let finalKeyCode = mappingType == .singleKey ? keyCode : nil
+        let finalModifiers = mappingType == .singleKey ? modifiers : ModifierFlags()
+        let finalMacroId = mappingType == .macro ? selectedMacroId : nil
+        let finalSystemCommand: SystemCommand? = mappingType == .systemCommand ? buildChordSystemCommand() : nil
+
+        if let existingChord = editingChord {
+            var updatedChord = existingChord
+            updatedChord.buttons = selectedButtons
+            updatedChord.keyCode = finalKeyCode
+            updatedChord.modifiers = finalModifiers
+            updatedChord.macroId = finalMacroId
+            updatedChord.systemCommand = finalSystemCommand
+            updatedChord.hint = hintValue
+            profileManager.updateChord(updatedChord)
+        } else {
+            let chord = ChordMapping(
+                buttons: selectedButtons,
+                keyCode: finalKeyCode,
+                modifiers: finalModifiers,
+                macroId: finalMacroId,
+                systemCommand: finalSystemCommand,
+                hint: hintValue
+            )
+            profileManager.addChord(chord)
+        }
+        dismiss()
+    }
+
     var body: some View {
         VStack(spacing: 20) {
             Text(isEditing ? "Edit Chord" : "Add Chord")
@@ -994,41 +1033,14 @@ struct ChordMappingSheet: View {
                 Spacer()
 
                 Button(isEditing ? "Save" : "Add") {
-                    let hintValue = hint.isEmpty ? nil : hint
-
-                    // Determine values based on type
-                    let finalKeyCode = mappingType == .singleKey ? keyCode : nil
-                    let finalModifiers = mappingType == .singleKey ? modifiers : ModifierFlags()
-                    let finalMacroId = mappingType == .macro ? selectedMacroId : nil
-                    let finalSystemCommand: SystemCommand? = mappingType == .systemCommand ? buildChordSystemCommand() : nil
-
-                    if let existingChord = editingChord {
-                        var updatedChord = existingChord
-                        updatedChord.buttons = selectedButtons
-                        updatedChord.keyCode = finalKeyCode
-                        updatedChord.modifiers = finalModifiers
-                        updatedChord.macroId = finalMacroId
-                        updatedChord.systemCommand = finalSystemCommand
-                        updatedChord.hint = hintValue
-                        profileManager.updateChord(updatedChord)
-                    } else {
-                        let chord = ChordMapping(
-                            buttons: selectedButtons,
-                            keyCode: finalKeyCode,
-                            modifiers: finalModifiers,
-                            macroId: finalMacroId,
-                            systemCommand: finalSystemCommand,
-                            hint: hintValue
-                        )
-                        profileManager.addChord(chord)
-                    }
-                    dismiss()
+                    saveChord()
                 }
-                .disabled(selectedButtons.count < 2 || (mappingType == .singleKey && keyCode == nil && !modifiers.hasAny) || (mappingType == .macro && selectedMacroId == nil) || (mappingType == .systemCommand && buildChordSystemCommand() == nil))
+                .disabled(!canSave)
                 .keyboardShortcut(.return, modifiers: .command)
                 .buttonStyle(.borderedProminent)
             }
         }
+        .onSubmit { saveChord() }
         .padding(20)
         .frame(width: 850)
         .onAppear {

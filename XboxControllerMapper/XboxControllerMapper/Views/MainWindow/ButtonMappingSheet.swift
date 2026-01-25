@@ -133,6 +133,7 @@ struct ButtonMappingSheet: View {
             // Footer
             footer
         }
+        .onSubmit { saveMapping() }
         .frame(width: showingAnyKeyboard ? 750 : 500, height: showingAnyKeyboard ? 700 : 550)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForPrimary)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForLongHold)

@@ -20,7 +20,11 @@ struct MacroEditorSheet: View {
         _name = State(initialValue: macro?.name ?? "")
         _steps = State(initialValue: macro?.steps ?? [])
     }
-    
+
+    private var canSave: Bool {
+        !name.isEmpty && !steps.isEmpty
+    }
+
     var body: some View {
         VStack(spacing: 20) {
             Text(originalMacro == nil ? "Add Macro" : "Edit Macro")
@@ -122,11 +126,12 @@ struct MacroEditorSheet: View {
                     save()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(name.isEmpty || steps.isEmpty)
+                .disabled(!canSave)
                 .keyboardShortcut(.return, modifiers: .command)
             }
             .padding(.horizontal)
         }
+        .onSubmit { save() }
         .padding(.vertical, 20)
         .frame(width: 600, height: 600)
         .sheet(isPresented: $showingStepEditor, onDismiss: {
@@ -171,6 +176,7 @@ struct MacroEditorSheet: View {
     }
     
     private func save() {
+        guard canSave else { return }
         if let original = originalMacro {
             var updated = original
             updated.name = name
@@ -432,6 +438,7 @@ struct StepEditorSheet: View {
             .padding(.horizontal)
             .padding(.bottom)
         }
+        .onSubmit { if canSave { save(); dismiss() } }
         .frame(width: showingKeyboard ? 850 : 400, height: showingKeyboard ? 750 : 450)
         .animation(.easeInOut, value: showingKeyboard)
     }
