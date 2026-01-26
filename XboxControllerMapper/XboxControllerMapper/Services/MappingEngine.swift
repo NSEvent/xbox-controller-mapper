@@ -227,6 +227,7 @@ class MappingEngine: ObservableObject {
         var touchpadMomentumPeakVelocity: CGPoint = .zero
         var touchpadMomentumPeakMagnitude: Double = 0
         var smoothedTouchpadPanVelocity: CGPoint = .zero
+        var touchpadPanActive = false
         var touchpadPinchAccumulator: Double = 0
         var touchpadMagnifyGestureActive: Bool = false
         var touchpadMagnifyDirection: Double = 0
@@ -288,6 +289,7 @@ class MappingEngine: ObservableObject {
             touchpadMomentumPeakVelocity = .zero
             touchpadMomentumPeakMagnitude = 0
             smoothedTouchpadPanVelocity = .zero
+            touchpadPanActive = false
             touchpadPinchAccumulator = 0
             touchpadMagnifyGestureActive = false
             touchpadMagnifyDirection = 0
@@ -1375,6 +1377,7 @@ class MappingEngine: ObservableObject {
                 state.touchpadMagnifyDirection = 0
                 state.touchpadMagnifyDirectionLockUntil = 0
             }
+            state.touchpadPanActive = false
             state.lock.unlock()
             if wasMagnifyActive {
                 postMagnifyGestureEvent(0, 2)  // end gesture (phase 2)
@@ -1485,6 +1488,7 @@ class MappingEngine: ObservableObject {
             state.touchpadMomentumCandidateTime = 0
             state.touchpadScrollResidualX = 0
             state.touchpadScrollResidualY = 0
+            state.touchpadPanActive = false
 
             if settings.touchpadUseNativeZoom {
                 // Use native macOS magnify gesture
@@ -1569,6 +1573,7 @@ class MappingEngine: ObservableObject {
             let now = CFAbsoluteTimeGetCurrent()
             state.lock.lock()
             state.smoothedTouchpadPanVelocity = .zero
+            state.touchpadPanActive = false
             state.touchpadMomentumVelocity = .zero
             state.touchpadMomentumHighVelocityStartTime = 0
             state.touchpadMomentumHighVelocitySampleCount = 0
@@ -1602,6 +1607,7 @@ class MappingEngine: ObservableObject {
         let velocityMagnitude = Double(hypot(smoothedVelocity.x, smoothedVelocity.y))
         state.lock.lock()
         state.smoothedTouchpadPanVelocity = smoothedVelocity
+        state.touchpadPanActive = true
         if velocityMagnitude <= Config.touchpadMomentumStopVelocity {
             state.touchpadMomentumCandidateVelocity = .zero
             state.touchpadMomentumCandidateTime = 0
@@ -1652,31 +1658,7 @@ class MappingEngine: ObservableObject {
             state.touchpadMomentumPeakMagnitude = 0
         }
         state.lock.unlock()
-
-        // Use smoothed velocity to reduce jerkiness from low gesture sample rate
-        dx = Double(smoothedVelocity.x) * dt
-        dy = Double(smoothedVelocity.y) * dt
-
-        let combinedDx = dx + residualX
-        let combinedDy = dy + residualY
-        let sendDx = combinedDx.rounded(.towardZero)
-        let sendDy = combinedDy.rounded(.towardZero)
-        residualX = combinedDx - sendDx
-        residualY = combinedDy - sendDy
-        state.lock.lock()
-        state.touchpadScrollResidualX = residualX
-        state.touchpadScrollResidualY = residualY
-        state.lock.unlock()
-        guard abs(sendDx) >= 1 || abs(sendDy) >= 1 else { return }
-        // Always use .changed here since .began was already sent at gesture start
-        inputSimulator.scroll(
-            dx: CGFloat(sendDx),
-            dy: CGFloat(sendDy),
-            phase: .changed,
-            momentumPhase: nil,
-            isContinuous: true,
-            flags: []
-        )
+        return
     }
 
     nonisolated private func processTouchpadMomentumTick() {
@@ -1686,6 +1668,8 @@ class MappingEngine: ObservableObject {
             return
         }
         let isGestureActive = state.isTouchpadGestureActive
+        let panActive = state.touchpadPanActive
+        let panVelocity = state.smoothedTouchpadPanVelocity
         let lastGestureTime = state.touchpadMomentumLastGestureTime
         var velocity = state.touchpadMomentumVelocity
         var wasActive = state.touchpadMomentumWasActive
@@ -1695,6 +1679,43 @@ class MappingEngine: ObservableObject {
         state.lock.unlock()
 
         if isGestureActive {
+            let now = CFAbsoluteTimeGetCurrent()
+            if lastUpdate == 0 {
+                state.lock.lock()
+                state.touchpadMomentumLastUpdate = now
+                state.lock.unlock()
+                return
+            }
+            guard panActive else {
+                state.lock.lock()
+                state.touchpadMomentumLastUpdate = now
+                state.lock.unlock()
+                return
+            }
+            let dt = max(now - lastUpdate, Config.touchpadMomentumMinDeltaTime)
+            let dx = Double(panVelocity.x) * dt
+            let dy = Double(panVelocity.y) * dt
+            let combinedDx = dx + residualX
+            let combinedDy = dy + residualY
+            let sendDx = combinedDx.rounded(.towardZero)
+            let sendDy = combinedDy.rounded(.towardZero)
+            residualX = combinedDx - sendDx
+            residualY = combinedDy - sendDy
+            if abs(sendDx) >= 1 || abs(sendDy) >= 1 {
+                inputSimulator.scroll(
+                    dx: CGFloat(sendDx),
+                    dy: CGFloat(sendDy),
+                    phase: .changed,
+                    momentumPhase: nil,
+                    isContinuous: true,
+                    flags: []
+                )
+            }
+            state.lock.lock()
+            state.touchpadMomentumLastUpdate = now
+            state.touchpadScrollResidualX = residualX
+            state.touchpadScrollResidualY = residualY
+            state.lock.unlock()
             return
         }
 
