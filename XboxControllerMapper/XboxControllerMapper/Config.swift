@@ -127,7 +127,7 @@ struct Config {
     /// Cooldown period after a tap where movement is suppressed (prevents double-tap drift)
     static let touchpadTapCooldown: TimeInterval = 0.2
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
-    static let touchpadPanSensitivityMultiplier: Double = 3600.0
+    static let touchpadPanSensitivityMultiplier: Double = 3000.0
     /// Minimum pan movement to start scrolling
     static let touchpadPanDeadzone: Double = 0.002
     /// Minimum distance between fingers to treat as two-finger gesture
