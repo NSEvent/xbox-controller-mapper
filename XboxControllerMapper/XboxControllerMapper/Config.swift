@@ -117,6 +117,8 @@ struct Config {
     /// Minimum pinch (distance change) to trigger zoom gesture
     /// Higher = requires more deliberate pinch to trigger zoom
     static let touchpadPinchDeadzone: Double = 0.05
+    /// Brief lock to prevent pinch direction flips on quick releases (prevents snap-back)
+    static let touchpadPinchDirectionLockInterval: TimeInterval = 0.1
     /// Sensitivity multiplier for pinch-to-zoom (distance delta -> scroll amount)
     static let touchpadPinchSensitivityMultiplier: Double = 12000.0
     /// Ratio threshold: if pinch/pan ratio exceeds this, treat as pinch gesture
@@ -141,9 +143,9 @@ struct Config {
     /// Max idle time before momentum is suppressed
     static let touchpadMomentumMaxIdleInterval: TimeInterval = 1.5
     /// Exponential decay rate for momentum velocity (per second)
-    static let touchpadMomentumDecay: Double = 0.7
+    static let touchpadMomentumDecay: Double = 0.9
     /// Minimum velocity to start momentum after lift (pixels/second)
-    static let touchpadMomentumStartVelocity: Double = 800.0
+    static let touchpadMomentumStartVelocity: Double = 1100.0
     /// Minimum duration velocity must exceed threshold before momentum is triggered (seconds)
     static let touchpadMomentumSustainedDuration: TimeInterval = 0.03
     /// Minimum velocity to keep momentum running (pixels/second)
@@ -155,9 +157,9 @@ struct Config {
     /// Smoothing for gesture velocity estimation (0-1)
     static let touchpadMomentumVelocitySmoothingAlpha: Double = 0.35
     /// Minimum boost applied at threshold velocity
-    static let touchpadMomentumBoostMin: Double = 0.8
+    static let touchpadMomentumBoostMin: Double = 0.5
     /// Maximum boost applied at high velocities
-    static let touchpadMomentumBoostMax: Double = 2.5
+    static let touchpadMomentumBoostMax: Double = 1.6
     /// Velocity at which max boost is reached (pixels/second)
     static let touchpadMomentumBoostMaxVelocity: Double = 5000.0
     /// UserDefaults key to enable touchpad debug logging

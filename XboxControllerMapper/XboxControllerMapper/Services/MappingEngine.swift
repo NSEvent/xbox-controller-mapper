@@ -229,6 +229,8 @@ class MappingEngine: ObservableObject {
         var smoothedTouchpadPanVelocity: CGPoint = .zero
         var touchpadPinchAccumulator: Double = 0
         var touchpadMagnifyGestureActive: Bool = false
+        var touchpadMagnifyDirection: Double = 0
+        var touchpadMagnifyDirectionLockUntil: TimeInterval = 0
 
         var rightStickWasOutsideDeadzone = false
         var rightStickPeakYAbs: Double = 0
@@ -288,6 +290,8 @@ class MappingEngine: ObservableObject {
             smoothedTouchpadPanVelocity = .zero
             touchpadPinchAccumulator = 0
             touchpadMagnifyGestureActive = false
+            touchpadMagnifyDirection = 0
+            touchpadMagnifyDirectionLockUntil = 0
             rightStickWasOutsideDeadzone = false
             rightStickPeakYAbs = 0
             rightStickLastDirection = 0
@@ -1368,6 +1372,8 @@ class MappingEngine: ObservableObject {
             if wasMagnifyActive {
                 state.touchpadMagnifyGestureActive = false
                 state.touchpadPinchAccumulator = 0
+                state.touchpadMagnifyDirection = 0
+                state.touchpadMagnifyDirectionLockUntil = 0
             }
             state.lock.unlock()
             if wasMagnifyActive {
@@ -1483,20 +1489,36 @@ class MappingEngine: ObservableObject {
             if settings.touchpadUseNativeZoom {
                 // Use native macOS magnify gesture
                 // Scale the pinch distance to a reasonable magnification value
-                let magnification = smoothedDistance * Config.touchpadPinchSensitivityMultiplier / 1000.0
+                var pinchDelta = smoothedDistance
+                if pinchDelta != 0 {
+                    let direction = pinchDelta > 0 ? 1.0 : -1.0
+                    if !state.touchpadMagnifyGestureActive || state.touchpadMagnifyDirection == 0 {
+                        state.touchpadMagnifyDirection = direction
+                        state.touchpadMagnifyDirectionLockUntil = now + Config.touchpadPinchDirectionLockInterval
+                    } else if direction != state.touchpadMagnifyDirection {
+                        if now < state.touchpadMagnifyDirectionLockUntil {
+                            pinchDelta = 0
+                        } else {
+                            state.touchpadMagnifyDirection = direction
+                            state.touchpadMagnifyDirectionLockUntil = now + Config.touchpadPinchDirectionLockInterval
+                        }
+                    }
+                }
+
+                let magnification = pinchDelta * Config.touchpadPinchSensitivityMultiplier / 1000.0
+                let shouldPostMagnify = pinchDelta != 0
+                let shouldBeginMagnify = !state.touchpadMagnifyGestureActive
 
                 // Track accumulated pinch for scroll suppression
-                state.touchpadPinchAccumulator += abs(smoothedDistance)
+                state.touchpadPinchAccumulator += abs(pinchDelta)
+                state.touchpadMagnifyGestureActive = true
+                state.lock.unlock()
 
-                if !state.touchpadMagnifyGestureActive {
-                    // Start new magnify gesture
-                    state.touchpadMagnifyGestureActive = true
-                    state.lock.unlock()
+                if shouldBeginMagnify {
                     postMagnifyGestureEvent(0, 0)  // begin gesture (phase 0)
-                    postMagnifyGestureEvent(magnification, 1)  // first magnify event (phase 1)
-                } else {
-                    state.lock.unlock()
-                    postMagnifyGestureEvent(magnification, 1)  // continue magnify (phase 1)
+                }
+                if shouldPostMagnify {
+                    postMagnifyGestureEvent(magnification, 1)  // magnify (phase 1)
                 }
             } else {
                 // Use Cmd+Plus/Minus for zoom (accumulator-based approach)
@@ -1589,6 +1611,9 @@ class MappingEngine: ObservableObject {
             state.touchpadMomentumPeakMagnitude = 0
         } else if velocityMagnitude >= Config.touchpadMomentumStartVelocity {
             // Track high velocity samples and peak
+            if state.touchpadMomentumHighVelocityStartTime == 0 {
+                state.touchpadMomentumHighVelocityStartTime = now
+            }
             state.touchpadMomentumHighVelocitySampleCount += 1
             if velocityMagnitude > state.touchpadMomentumPeakMagnitude {
                 state.touchpadMomentumPeakMagnitude = velocityMagnitude
@@ -1596,33 +1621,41 @@ class MappingEngine: ObservableObject {
             }
 
             // Require 2+ samples to filter out edge-exit spikes (single sample spikes)
-            if state.touchpadMomentumHighVelocitySampleCount >= 2 {
-                // Use peak velocity for momentum calculation
-                let peakMagnitude = state.touchpadMomentumPeakMagnitude
-                let peakVelocity = state.touchpadMomentumPeakVelocity
-                let clampedMagnitude = min(peakMagnitude, Config.touchpadMomentumMaxVelocity)
-                let velocityScale = peakMagnitude > 0 ? clampedMagnitude / peakMagnitude : 0
+            let sustainedDuration = now - state.touchpadMomentumHighVelocityStartTime
+            if state.touchpadMomentumHighVelocitySampleCount >= 2 &&
+                sustainedDuration >= Config.touchpadMomentumSustainedDuration {
+                // Use current smoothed velocity to avoid overshooting on brief spikes
+                let baseMagnitude = velocityMagnitude
+                let baseVelocity = smoothedVelocity
+                let clampedMagnitude = min(baseMagnitude, Config.touchpadMomentumMaxVelocity)
+                let velocityScale = baseMagnitude > 0 ? clampedMagnitude / baseMagnitude : 0
                 // Scale boost based on velocity - lower boost near threshold, higher at fast speeds
                 let boostRange = Config.touchpadMomentumBoostMax - Config.touchpadMomentumBoostMin
                 let velocityRange = Config.touchpadMomentumBoostMaxVelocity - Config.touchpadMomentumStartVelocity
-                let velocityAboveThreshold = min(peakMagnitude - Config.touchpadMomentumStartVelocity, velocityRange)
-                let boostFactor = velocityAboveThreshold / velocityRange
+                let velocityAboveThreshold = min(baseMagnitude - Config.touchpadMomentumStartVelocity, velocityRange)
+                let boostFactor = velocityRange > 0 ? velocityAboveThreshold / velocityRange : 0
                 let boost = Config.touchpadMomentumBoostMin + boostRange * boostFactor
                 let clampedVelocity = CGPoint(
-                    x: peakVelocity.x * velocityScale * boost,
-                    y: peakVelocity.y * velocityScale * boost
+                    x: baseVelocity.x * velocityScale * boost,
+                    y: baseVelocity.y * velocityScale * boost
                 )
                 state.touchpadMomentumCandidateVelocity = clampedVelocity
                 state.touchpadMomentumCandidateTime = now
             }
         } else {
             // Velocity is between stop and start thresholds - reset high velocity tracking
+            state.touchpadMomentumCandidateVelocity = .zero
+            state.touchpadMomentumCandidateTime = 0
             state.touchpadMomentumHighVelocityStartTime = 0
             state.touchpadMomentumHighVelocitySampleCount = 0
             state.touchpadMomentumPeakVelocity = .zero
             state.touchpadMomentumPeakMagnitude = 0
         }
         state.lock.unlock()
+
+        // Use smoothed velocity to reduce jerkiness from low gesture sample rate
+        dx = Double(smoothedVelocity.x) * dt
+        dy = Double(smoothedVelocity.y) * dt
 
         let combinedDx = dx + residualX
         let combinedDy = dy + residualY
