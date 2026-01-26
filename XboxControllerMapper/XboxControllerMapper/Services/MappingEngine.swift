@@ -1555,7 +1555,7 @@ class MappingEngine: ObservableObject {
         let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.scrollAccelerationExponent)
         let scale = acceleratedMagnitude * settings.scrollMultiplier / magnitude
-        let dx = stick.x * scale
+        let dx = -stick.x * scale
         var dy = stick.y * scale
 
         dy = settings.invertScrollY ? -dy : dy
