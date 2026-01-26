@@ -1458,7 +1458,7 @@ struct TouchpadSettingsView: View {
                         set: { updateSettings(\.touchpadSmoothing, $0) }
                     ),
                     range: 0...1,
-                    description: "Reduce jitter"
+                    description: "Reduce mouse jitter"
                 )
 
                 SliderRow(

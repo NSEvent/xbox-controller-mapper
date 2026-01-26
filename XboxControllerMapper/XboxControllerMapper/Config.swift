@@ -163,6 +163,8 @@ struct Config {
     /// Minimum pinch (distance change) to trigger zoom gesture
     /// Higher = requires more deliberate pinch to trigger zoom
     static let touchpadPinchDeadzone: Double = 0.05
+    /// Brief lock to prevent pinch direction flips on quick releases (prevents snap-back)
+    static let touchpadPinchDirectionLockInterval: TimeInterval = 0.1
     /// Sensitivity multiplier for pinch-to-zoom (distance delta -> scroll amount)
     static let touchpadPinchSensitivityMultiplier: Double = 12000.0
     /// Ratio threshold: if pinch/pan ratio exceeds this, treat as pinch gesture
@@ -171,13 +173,41 @@ struct Config {
     /// Cooldown period after a tap where movement is suppressed (prevents double-tap drift)
     static let touchpadTapCooldown: TimeInterval = 0.2
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
-    static let touchpadPanSensitivityMultiplier: Double = 4000.0
+    static let touchpadPanSensitivityMultiplier: Double = 3000.0
     /// Minimum pan movement to start scrolling
     static let touchpadPanDeadzone: Double = 0.002
     /// Minimum distance between fingers to treat as two-finger gesture
     static let touchpadTwoFingerMinDistance: Double = 0.06
     /// How long to consider secondary touch valid without updates (also blocks mouse movement after gestures)
     static let touchpadSecondaryStaleInterval: TimeInterval = 0.08
+    /// Momentum tick frequency (Hz)
+    static let touchpadMomentumFrequency: Double = 120.0
+    /// Momentum tick interval (seconds)
+    static let touchpadMomentumTickInterval: TimeInterval = 1.0 / touchpadMomentumFrequency
+    /// Minimum time delta used for momentum calculations
+    static let touchpadMomentumMinDeltaTime: TimeInterval = 1.0 / 240.0
+    /// Max idle time before momentum is suppressed
+    static let touchpadMomentumMaxIdleInterval: TimeInterval = 1.5
+    /// Exponential decay rate for momentum velocity (per second)
+    static let touchpadMomentumDecay: Double = 0.95
+    /// Minimum velocity to start momentum after lift (pixels/second)
+    static let touchpadMomentumStartVelocity: Double = 1100.0
+    /// Minimum duration velocity must exceed threshold before momentum is triggered (seconds)
+    static let touchpadMomentumSustainedDuration: TimeInterval = 0.03
+    /// Minimum velocity to keep momentum running (pixels/second)
+    static let touchpadMomentumStopVelocity: Double = 30.0
+    /// Maximum time since last fast pan sample to start momentum after lift (seconds)
+    static let touchpadMomentumReleaseWindow: TimeInterval = 0.1
+    /// Clamp momentum velocity to avoid spikes (pixels/second)
+    static let touchpadMomentumMaxVelocity: Double = 20000.0
+    /// Smoothing for gesture velocity estimation (0-1)
+    static let touchpadMomentumVelocitySmoothingAlpha: Double = 0.35
+    /// Minimum boost applied at threshold velocity
+    static let touchpadMomentumBoostMin: Double = 0.4
+    /// Maximum boost applied at high velocities
+    static let touchpadMomentumBoostMax: Double = 1.4
+    /// Velocity at which max boost is reached (pixels/second)
+    static let touchpadMomentumBoostMaxVelocity: Double = 5000.0
     /// UserDefaults key for remembering last connected controller type
     static let lastControllerWasDualSenseKey: String = "lastControllerWasDualSense"
     /// UserDefaults key to enable touchpad debug logging

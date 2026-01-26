@@ -39,7 +39,7 @@ struct JoystickSettings: Codable, Equatable {
     var touchpadPanSensitivity: Double = 0.5
 
     /// Pan to zoom ratio threshold (low = easier to zoom, high = easier to pan)
-    var touchpadZoomToPanRatio: Double = 1.8
+    var touchpadZoomToPanRatio: Double = 1.95
 
     /// Whether to use native magnify gestures (true) or Cmd+Plus/Minus (false) for zoom
     var touchpadUseNativeZoom: Bool = true
@@ -175,7 +175,7 @@ extension JoystickSettings {
         touchpadDeadzone = try container.decodeIfPresent(Double.self, forKey: .touchpadDeadzone) ?? 0.001
         touchpadSmoothing = try container.decodeIfPresent(Double.self, forKey: .touchpadSmoothing) ?? 0.4
         touchpadPanSensitivity = try container.decodeIfPresent(Double.self, forKey: .touchpadPanSensitivity) ?? 0.5
-        touchpadZoomToPanRatio = try container.decodeIfPresent(Double.self, forKey: .touchpadZoomToPanRatio) ?? 1.8
+        touchpadZoomToPanRatio = try container.decodeIfPresent(Double.self, forKey: .touchpadZoomToPanRatio) ?? 1.95
         touchpadUseNativeZoom = try container.decodeIfPresent(Bool.self, forKey: .touchpadUseNativeZoom) ?? true
         scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5
         scrollBoostMultiplier = try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0
