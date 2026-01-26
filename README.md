@@ -276,3 +276,7 @@ The more detail you provide, the easier it is to diagnose and fix the issue.
 Source Available - See [LICENSE](LICENSE) for details.
 
 The source code is open for transparency and security auditing. Official binaries are available for purchase on [Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper).
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=NSEvent/xbox-controller-mapper&type=date&legend=top-left)](https://www.star-history.com/#NSEvent/xbox-controller-mapper&type=date&legend=top-left)
