@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2026-01-27
+
+### Changed
+
+- Touchpad two-finger pan speed slightly reduced
+- Touchpad momentum tuned for shorter, lighter glide
+- Default pan-to-zoom ratio increased to 1.95
+- Touchpad smoothing description clarified to “Reduce mouse jitter”
+
+### Fixed
+
+- Short pinch-to-zoom snap-back (direction lock on quick releases)
+- Choppy two-finger scrolling from low touchpad sample rate (120Hz interpolation)
+
 ## [1.2.3] - 2026-01-24
 
 ### Added

@@ -89,6 +89,8 @@ This document lists all features for verification after refactoring.
 - [ ] Touchpad → Mouse cursor (with sensitivity/acceleration/deadzone/smoothing)
 - [ ] Touchpad → Scroll (pan sensitivity)
 - [ ] Touchpad pinch → Zoom (native or Cmd+Plus/Minus)
+- [ ] Touchpad pan interpolation for smooth low-rate input
+- [ ] Pinch snap-back prevention for short gestures
 - [ ] Mic mute button mapping
 - [ ] USB and Bluetooth HID communication
 
