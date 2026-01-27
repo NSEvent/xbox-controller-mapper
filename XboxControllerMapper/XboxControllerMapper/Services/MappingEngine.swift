@@ -1374,6 +1374,7 @@ class MappingEngine: ObservableObject {
         let lastSampleTime = state.lastTouchpadGestureSampleTime
         var residualX = state.touchpadScrollResidualX
         var residualY = state.touchpadScrollResidualY
+        var smoothedVelocity = state.smoothedTouchpadPanVelocity
         state.lock.unlock()
 
         guard isActive else {
