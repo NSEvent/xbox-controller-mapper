@@ -1680,11 +1680,12 @@ class MappingEngine: ObservableObject {
             let dy = Double(panVelocity.y) * dt
             let combinedDx = dx + residualX
             let combinedDy = dy + residualY
-            let sendDx = combinedDx.rounded(.towardZero)
-            let sendDy = combinedDy.rounded(.towardZero)
+            // Use standard rounding so values >= 0.5 round to 1, enabling smoother diagonals
+            let sendDx = combinedDx.rounded()
+            let sendDy = combinedDy.rounded()
             residualX = combinedDx - sendDx
             residualY = combinedDy - sendDy
-            if abs(sendDx) >= 1 || abs(sendDy) >= 1 {
+            if sendDx != 0 || sendDy != 0 {
                 inputSimulator.scroll(
                     dx: CGFloat(sendDx),
                     dy: CGFloat(sendDy),
@@ -1761,12 +1762,13 @@ class MappingEngine: ObservableObject {
         let dy = Double(velocity.y) * dt
         let combinedDx = dx + residualX
         let combinedDy = dy + residualY
-        let sendDx = combinedDx.rounded(.towardZero)
-        let sendDy = combinedDy.rounded(.towardZero)
+        // Use standard rounding so values >= 0.5 round to 1, enabling smoother diagonals
+        let sendDx = combinedDx.rounded()
+        let sendDy = combinedDy.rounded()
         residualX = combinedDx - sendDx
         residualY = combinedDy - sendDy
 
-        if abs(sendDx) >= 1 || abs(sendDy) >= 1 {
+        if sendDx != 0 || sendDy != 0 {
             let momentumPhase: CGMomentumScrollPhase = wasActive ? .continuous : .begin
             inputSimulator.scroll(
                 dx: CGFloat(sendDx),
