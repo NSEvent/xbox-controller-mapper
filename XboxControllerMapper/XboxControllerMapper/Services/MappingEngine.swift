@@ -1000,6 +1000,7 @@ class MappingEngine: ObservableObject {
         timer.schedule(deadline: .now(), repeating: Config.joystickPollInterval, leeway: .microseconds(100))
         timer.setEventHandler { [weak self] in
             self?.processJoysticks()
+            self?.processTouchpadMomentumTick()
         }
         timer.resume()
         joystickTimer = timer
@@ -1589,6 +1590,7 @@ class MappingEngine: ObservableObject {
         state.lock.lock()
         state.smoothedTouchpadPanVelocity = smoothedVelocity
         state.touchpadPanActive = true
+        state.touchpadMomentumLastGestureTime = now
         if velocityMagnitude <= Config.touchpadMomentumStopVelocity {
             state.touchpadMomentumCandidateVelocity = .zero
             state.touchpadMomentumCandidateTime = 0
