@@ -545,7 +545,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/XboxControllerMapper.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/XboxControllerMapper";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ControllerKeys.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ControllerKeys";
 			};
 			name = Debug;
 		};
@@ -567,7 +567,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/XboxControllerMapper.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/XboxControllerMapper";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ControllerKeys.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ControllerKeys";
 			};
 			name = Release;
 		};

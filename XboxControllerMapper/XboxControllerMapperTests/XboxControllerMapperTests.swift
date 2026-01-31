@@ -1,7 +1,7 @@
 import XCTest
 import Combine
 import CoreGraphics
-@testable import XboxControllerMapper
+@testable import ControllerKeys
 
 // MARK: - Mocks
 

@@ -17,7 +17,9 @@ DerivedData/
 *.ipa
 *.xcuserstate
 *.xcscmblueprint
-*.xcscheme
+# Ignore user schemes but keep shared schemes
+xcuserdata/**/*.xcscheme
+!xcshareddata/**/*.xcscheme
 
 # Xcode Workspace
 *.xcworkspace/*
