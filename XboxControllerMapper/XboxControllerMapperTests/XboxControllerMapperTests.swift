@@ -187,21 +187,43 @@ final class XboxControllerMapperTests: XCTestCase {
     override func setUp() async throws {
         await MainActor.run {
             controllerService = ControllerService()
+            // Reduce chord window for faster test execution (50ms should be safe)
+            controllerService.chordWindow = 0.05
             profileManager = ProfileManager()
             appMonitor = AppMonitor()
             mockInputSimulator = MockInputSimulator()
-            
+
             mappingEngine = MappingEngine(
                 controllerService: controllerService,
                 profileManager: profileManager,
                 appMonitor: appMonitor,
                 inputSimulator: mockInputSimulator
             )
-            
+
             mappingEngine.enable()
         }
     }
-    
+
+    override func tearDown() async throws {
+        // Disable engine and clean up to prevent state leakage between tests
+        await MainActor.run {
+            mappingEngine?.disable()
+        }
+        // Wait for any pending async work to complete
+        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+        await MainActor.run {
+            mockInputSimulator?.releaseAllModifiers()
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            mappingEngine = nil
+            controllerService = nil
+            profileManager = nil
+            appMonitor = nil
+            mockInputSimulator = nil
+        }
+    }
+
     private func waitForTasks(_ delay: TimeInterval = 0.4) async {
         await Task.yield()
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -213,32 +235,39 @@ final class XboxControllerMapperTests: XCTestCase {
             let lbMapping = KeyMapping.holdModifier(.command)
             let aMapping = KeyMapping(keyCode: 1)
             profileManager.setActiveProfile(Profile(name: "Test", buttonMappings: [.leftBumper: lbMapping, .a: aMapping]))
-            
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             controllerService.buttonPressed(.leftBumper)
         }
         await waitForTasks()
-        
+
         await MainActor.run {
-            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "Command modifier should be held")
             controllerService.buttonPressed(.a)
             controllerService.buttonReleased(.a)
         }
         await waitForTasks()
         
         await MainActor.run {
+            // MappingExecutor.executeAction() calls pressKey directly, not executeMapping
             XCTAssertTrue(mockInputSimulator.events.contains { event in
-                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                if case .pressKey(let code, _) = event { return code == 1 }
                 return false
-            })
+            }, "Expected pressKey with keyCode 1")
         }
     }
-    
+
     func testSimultaneousPressWithNoChordMapping() async throws {
         await MainActor.run {
             let lbMapping = KeyMapping.holdModifier(.command)
             let aMapping = KeyMapping(keyCode: 1)
             profileManager.setActiveProfile(Profile(name: "Test", buttonMappings: [.leftBumper: lbMapping, .a: aMapping]))
-            
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             controllerService.buttonPressed(.leftBumper)
             controllerService.buttonPressed(.a)
         }
@@ -251,13 +280,14 @@ final class XboxControllerMapperTests: XCTestCase {
         await waitForTasks()
         
         await MainActor.run {
+            // MappingExecutor.executeAction() calls pressKey directly
             XCTAssertTrue(mockInputSimulator.events.contains { event in
-                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                if case .pressKey(let code, _) = event { return code == 1 }
                 return false
-            })
+            }, "Expected pressKey with keyCode 1")
         }
     }
-    
+
     func testDoubleTapWithHeldModifier() async throws {
         await MainActor.run {
             let lbMapping = KeyMapping.holdModifier(.command)
@@ -265,7 +295,10 @@ final class XboxControllerMapperTests: XCTestCase {
             var aMapping = KeyMapping(keyCode: 1)
             aMapping.doubleTapMapping = doubleTap
             profileManager.setActiveProfile(Profile(name: "DT", buttonMappings: [.leftBumper: lbMapping, .a: aMapping]))
-            
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             controllerService.onButtonPressed?(.leftBumper)
         }
         await waitForTasks()
@@ -298,6 +331,10 @@ final class XboxControllerMapperTests: XCTestCase {
         await MainActor.run {
             let chordMapping = ChordMapping(buttons: [.a, .b], keyCode: 3)
             profileManager.setActiveProfile(Profile(name: "Chord", buttonMappings: [.a: .key(1), .b: .key(2)], chordMappings: [chordMapping]))
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             controllerService.onChordDetected?([.a, .b])
         }
         await waitForTasks()
@@ -315,6 +352,10 @@ final class XboxControllerMapperTests: XCTestCase {
             var aMapping = KeyMapping(keyCode: 1)
             aMapping.longHoldMapping = LongHoldMapping(keyCode: 2, threshold: 0.1)
             profileManager.setActiveProfile(Profile(name: "Hold", buttonMappings: [.a: aMapping]))
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             controllerService.buttonPressed(.a)
         }
         await waitForTasks(0.4)
@@ -341,23 +382,26 @@ final class XboxControllerMapperTests: XCTestCase {
             controllerService.isConnected = true
         }
         await waitForTasks(0.2)
-        
-        await MainActor.run {
-            controllerService.leftStick = CGPoint(x: 0.5, y: 0.5)
-        }
+
+        // Use test helper to set the internal storage value that the polling reads
+        controllerService.setLeftStickForTesting(CGPoint(x: 0.5, y: 0.5))
         await waitForTasks(0.2)
-        
+
         await MainActor.run {
             XCTAssertTrue(mockInputSimulator.events.contains { event in
                 if case .moveMouse = event { return true }
                 return false
-            })
+            }, "Mouse movement should be generated from joystick input")
         }
     }
     
     func testEngineDisablingReleasesModifiers() async throws {
         await MainActor.run {
             profileManager.setActiveProfile(Profile(name: "T", buttonMappings: [.leftBumper: .holdModifier(.command)]))
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             controllerService.onButtonPressed?(.leftBumper)
         }
         await waitForTasks()
@@ -378,7 +422,10 @@ final class XboxControllerMapperTests: XCTestCase {
             let lbMapping = KeyMapping.holdModifier(.command)
             let rbMapping = KeyMapping.holdModifier(ModifierFlags(command: true, shift: true))
             profileManager.setActiveProfile(Profile(name: "O", buttonMappings: [.leftBumper: lbMapping, .rightBumper: rbMapping]))
-            
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             controllerService.buttonPressed(.leftBumper)
         }
         await waitForTasks()
@@ -403,6 +450,10 @@ final class XboxControllerMapperTests: XCTestCase {
         await MainActor.run {
             profileManager.setActiveProfile(Profile(name: "Q", buttonMappings: [.leftBumper: .holdModifier(.command)]))
             controllerService.chordWindow = 0.2
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             controllerService.buttonPressed(.leftBumper)
         }
         await waitForTasks(0.05)
@@ -423,10 +474,10 @@ final class XboxControllerMapperTests: XCTestCase {
         await MainActor.run {
             // Setup: LB -> Hold Cmd + Opt + Ctrl (Hyper Key)
             let hyperMapping = KeyMapping.holdModifier(ModifierFlags(command: true, option: true, control: true))
-            
+
             // Setup: DpadUp -> Up Arrow
             let upMapping = KeyMapping.key(KeyCodeMapping.upArrow)
-            
+
             profileManager.setActiveProfile(Profile(
                 name: "Hyper",
                 buttonMappings: [
@@ -434,7 +485,10 @@ final class XboxControllerMapperTests: XCTestCase {
                     .dpadUp: upMapping
                 ]
             ))
-            
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             // 1. Press LB (Hyper)
             controllerService.buttonPressed(.leftBumper)
         }
@@ -456,29 +510,32 @@ final class XboxControllerMapperTests: XCTestCase {
         await waitForTasks()
         
         await MainActor.run {
-            // Verify: Up Arrow was executed
+            // Verify: Up Arrow was executed (MappingExecutor calls pressKey directly)
             XCTAssertTrue(mockInputSimulator.events.contains { event in
-                if case .executeMapping(let mapping) = event {
-                    return mapping.keyCode == KeyCodeMapping.upArrow
+                if case .pressKey(let code, _) = event {
+                    return code == KeyCodeMapping.upArrow
                 }
                 return false
             }, "Up Arrow should have been executed")
-            
+
             // Verify: Modifiers were still held at the end of the sequence
             XCTAssertTrue(mockInputSimulator.heldModifiers.contains([.maskCommand, .maskAlternate, .maskControl]), "Hyper modifiers should remain held")
         }
     }
-    
+
     func testCommandDeleteShortcut() async throws {
         await MainActor.run {
             // Setup: Menu button -> Cmd + Delete
             let mapping = KeyMapping.combo(KeyCodeMapping.delete, modifiers: .command)
-            
+
             profileManager.setActiveProfile(Profile(
                 name: "DeleteTest",
                 buttonMappings: [.menu: mapping]
             ))
-            
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             // 1. Press Menu
             controllerService.buttonPressed(.menu)
         }
@@ -491,16 +548,16 @@ final class XboxControllerMapperTests: XCTestCase {
         await waitForTasks()
         
         await MainActor.run {
-            // Verify: executeMapping was called with Cmd + Delete
+            // Verify: pressKey was called with Cmd + Delete
             XCTAssertTrue(mockInputSimulator.events.contains { event in
-                if case .executeMapping(let mapping) = event {
-                    return mapping.keyCode == KeyCodeMapping.delete && mapping.modifiers.command
+                if case .pressKey(let code, let modifiers) = event {
+                    return code == KeyCodeMapping.delete && modifiers.contains(.maskCommand)
                 }
                 return false
             }, "Cmd + Delete should have been executed")
         }
     }
-    
+
     func testHeldModifierWithDelete() async throws {
         await MainActor.run {
             // Setup: LB -> Hold Cmd, A -> Delete
@@ -511,7 +568,10 @@ final class XboxControllerMapperTests: XCTestCase {
                     .a: .key(KeyCodeMapping.delete)
                 ]
             ))
-            
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             // 1. Press LB (Cmd)
             controllerService.buttonPressed(.leftBumper)
         }
@@ -532,36 +592,38 @@ final class XboxControllerMapperTests: XCTestCase {
         await waitForTasks()
         
         await MainActor.run {
-            // Verify: Delete was executed
+            // Verify: Delete was executed (MappingExecutor calls pressKey directly)
             XCTAssertTrue(mockInputSimulator.events.contains { event in
-                if case .executeMapping(let mapping) = event {
-                    return mapping.keyCode == KeyCodeMapping.delete
+                if case .pressKey(let code, _) = event {
+                    return code == KeyCodeMapping.delete
                 }
                 return false
             }, "Delete should have been executed")
-            
+
             // Verify: Cmd was held during execution
-            // (Mock records state at startHoldMapping and executeMapping)
             XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
         }
     }
-    
+
     func testChordPreventsIndividualActions() async throws {
         await MainActor.run {
             // Setup: A -> key 1, B -> key 2, [A, B] -> key 3 (Chord)
             let aMapping = KeyMapping.key(1)
             let bMapping = KeyMapping.key(2)
             let chordMapping = ChordMapping(buttons: [.a, .b], keyCode: 3)
-            
+
             profileManager.setActiveProfile(Profile(
                 name: "ChordTest",
                 buttonMappings: [.a: aMapping, .b: bMapping],
                 chordMappings: [chordMapping]
             ))
-            
+        }
+        // Allow Combine to deliver profile change to MappingEngine
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        await MainActor.run {
             // 1. Simulate fast tap of A and B (released before chord timer)
             // This represents the race condition where release happens before the 50ms window
-            
+
             // We simulate what MappingEngine sees:
             // 1. A release (engine doesn't know about chord yet)
             controllerService.onButtonReleased?(.a, 0.02)

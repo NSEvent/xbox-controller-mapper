@@ -1749,9 +1749,7 @@ class ControllerService: ObservableObject {
         let gestureCallback = storage.onTouchpadGesture
         let now = CFAbsoluteTimeGetCurrent()
         let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
-        if secondaryFresh {
-            storage.touchpadMovementBlocked = true
-        }
+        // Secondary finger block is handled by secondaryFresh checks below.
 
         // MARK: Sentinel-based Touch Detection
         // Detect if finger is on touchpad (non-zero position indicates touch)
@@ -2128,7 +2126,6 @@ class ControllerService: ObservableObject {
                 storage.touchpadSecondaryTouchStartTime = now
                 storage.touchpadSecondaryTouchStartPosition = newPosition
                 storage.touchpadSecondaryMaxDistanceFromStart = 0
-                storage.touchpadMovementBlocked = true
                 let isPrimaryTouching = storage.isTouchpadTouching
                 // Mark that two fingers touched during this primary touch session
                 if isPrimaryTouching {
@@ -2160,7 +2157,6 @@ class ControllerService: ObservableObject {
             storage.touchpadSecondaryPreviousPosition = .zero
             storage.touchpadSecondaryFramesSinceTouch = 0
             storage.touchpadSecondaryLastUpdate = now
-            storage.touchpadMovementBlocked = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
             storage.touchpadGestureHasCenter = false
             storage.touchpadGesturePreviousCenter = .zero
             storage.touchpadGesturePreviousDistance = 0
@@ -2481,6 +2477,23 @@ class ControllerService: ObservableObject {
             }
         }
     }
+
+    // MARK: - Test Helpers
+    #if DEBUG
+    /// Sets the left stick value for testing (bypasses controller input)
+    nonisolated func setLeftStickForTesting(_ value: CGPoint) {
+        storage.lock.lock()
+        storage.leftStick = value
+        storage.lock.unlock()
+    }
+
+    /// Sets the right stick value for testing (bypasses controller input)
+    nonisolated func setRightStickForTesting(_ value: CGPoint) {
+        storage.lock.lock()
+        storage.rightStick = value
+        storage.lock.unlock()
+    }
+    #endif
 }
 
 // MARK: - Generic HID C Callbacks

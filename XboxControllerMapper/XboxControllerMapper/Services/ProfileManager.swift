@@ -19,6 +19,10 @@ class ProfileManager: ObservableObject {
     private let legacyConfigURL: URL
     private var loadSucceeded = false  // Track if initial load succeeded to prevent clobbering
     
+    // Track previous app for restoration logic
+    private var previousBundleId: String?
+    private var profileIdBeforeBackground: UUID?
+    
     private var cancellables = Set<AnyCancellable>()
 
     init(appMonitor: AppMonitor? = nil) {
@@ -48,6 +52,10 @@ class ProfileManager: ObservableObject {
             }
         }
         
+        // Initialize state for app switching
+        self.previousBundleId = Bundle.main.bundleIdentifier
+        self.profileIdBeforeBackground = activeProfileId
+        
         if let appMonitor = appMonitor {
             setupAutoSwitching(with: appMonitor)
         }
@@ -65,11 +73,32 @@ class ProfileManager: ObservableObject {
     }
     
     private func handleAppChange(_ bundleId: String) {
-        // Don't auto-switch if we are using the configuration app itself
-        // This allows the user to manually select and edit profiles without being forced back to Default
-        if bundleId == Bundle.main.bundleIdentifier {
+        let appBundleId = Bundle.main.bundleIdentifier
+
+        // Handle switching BACK to the configuration app
+        if bundleId == appBundleId {
+            // Restore the profile we were editing before we switched away
+            if let savedId = profileIdBeforeBackground,
+               let profile = profiles.first(where: { $0.id == savedId }) {
+                // Only restore if we are not already on it
+                if activeProfileId != savedId {
+                    #if DEBUG
+                    print("🔄 Restoring editing profile: \(profile.name)")
+                    #endif
+                    setActiveProfile(profile)
+                }
+            }
+            previousBundleId = bundleId
             return
         }
+        
+        // Handle switching AWAY from the configuration app
+        if previousBundleId == appBundleId {
+            // Save the current profile so we can restore it when we come back
+            profileIdBeforeBackground = activeProfileId
+        }
+        
+        previousBundleId = bundleId
 
         // Find profile linked to this app
         if let linkedProfile = profiles.first(where: { $0.linkedApps.contains(bundleId) }) {

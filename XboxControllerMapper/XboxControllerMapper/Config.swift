@@ -179,7 +179,7 @@ struct Config {
     /// Minimum distance between fingers to treat as two-finger gesture
     static let touchpadTwoFingerMinDistance: Double = 0.06
     /// How long to consider secondary touch valid without updates (also blocks mouse movement after gestures)
-    static let touchpadSecondaryStaleInterval: TimeInterval = 0.08
+    static let touchpadSecondaryStaleInterval: TimeInterval = 0.04
     /// Momentum tick frequency (Hz)
     static let touchpadMomentumFrequency: Double = 120.0
     /// Momentum tick interval (seconds)

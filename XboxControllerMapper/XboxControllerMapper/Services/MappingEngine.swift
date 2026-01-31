@@ -946,9 +946,6 @@ class MappingEngine: ObservableObject {
             state.pendingSingleTap.removeValue(forKey: button)
             state.lastTapTime.removeValue(forKey: button)
         }
-        
-        // Register active chord
-        state.activeChordButtons = buttons
         state.lock.unlock()
 
         let matchingChord = profile.chordMappings.first { chord in
@@ -956,6 +953,11 @@ class MappingEngine: ObservableObject {
         }
 
         if let chord = matchingChord {
+            // Register active chord only when there's a matching mapping
+            // (don't set for fallback case - we want individual button handling)
+            state.lock.lock()
+            state.activeChordButtons = buttons
+            state.lock.unlock()
             inputLogService?.log(buttons: Array(buttons), type: .chord, action: chord.actionDisplayString)
 
             if let systemCommand = chord.systemCommand {
