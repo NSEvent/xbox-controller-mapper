@@ -175,9 +175,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let specialFlags = specialKeyFlags(for: keyCode)
         let combinedFlags = flags.union(specialFlags)
 
-        if combinedFlags.rawValue != 0 {
-            event.flags = combinedFlags
-        }
+        // Always set flags explicitly to override any inherited state from the event source
+        // (e.g., prevents Fn/Globe key from being inherited from HID system state)
+        event.flags = combinedFlags
 
         // Post to HID tap
         event.post(tap: .cghidEventTap)
