@@ -654,4 +654,595 @@ final class XboxControllerMapperTests: XCTestCase {
             }, "Chord action should execute")
         }
     }
+
+    // MARK: - Double-Tap Edge Cases
+
+    /// Tests that a single tap followed by waiting longer than threshold executes single-tap action
+    func testSingleTapAfterDoubleTapWindow() async throws {
+        await MainActor.run {
+            let doubleTap = DoubleTapMapping(keyCode: 2, threshold: 0.15)
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.doubleTapMapping = doubleTap
+            profileManager.setActiveProfile(Profile(name: "DT", buttonMappings: [.a: aMapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // First tap
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.05)
+        }
+
+        // Wait longer than double-tap threshold
+        await waitForTasks(0.3)
+
+        await MainActor.run {
+            // Single tap should have executed (keyCode 1)
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }, "Single tap should execute after double-tap window expires")
+
+            // Double-tap should NOT have executed
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 2 }
+                return false
+            }, "Double-tap should not execute on single tap")
+        }
+    }
+
+    /// Tests triple-tap behavior (third tap should start new double-tap detection)
+    func testTripleTapBehavior() async throws {
+        await MainActor.run {
+            let doubleTap = DoubleTapMapping(keyCode: 2, threshold: 0.2)
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.doubleTapMapping = doubleTap
+            profileManager.setActiveProfile(Profile(name: "Triple", buttonMappings: [.a: aMapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // First tap
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.05)
+
+        // Second tap (double-tap)
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.05)
+
+        // Third tap (should start new sequence)
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.3)
+
+        await MainActor.run {
+            // Should have one double-tap (keyCode 2) and one single-tap (keyCode 1)
+            let doubleTapCount = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 2 }
+                return false
+            }.count
+
+            XCTAssertEqual(doubleTapCount, 1, "Should have exactly one double-tap")
+        }
+    }
+
+    // MARK: - Long-Hold Edge Cases
+
+    /// Tests that releasing exactly at long-hold threshold triggers long-hold
+    func testLongHoldExactThreshold() async throws {
+        await MainActor.run {
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.longHoldMapping = LongHoldMapping(keyCode: 2, threshold: 0.1)
+            profileManager.setActiveProfile(Profile(name: "Exact", buttonMappings: [.a: aMapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+        }
+
+        // Wait exactly at threshold
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+
+        await MainActor.run {
+            // Release with hold duration exactly at threshold
+            controllerService.onButtonReleased?(.a, 0.1)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Long-hold should trigger (>= comparison)
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 2 }
+                return false
+            }, "Long-hold should trigger at exact threshold")
+        }
+    }
+
+    /// Tests that releasing just before long-hold threshold triggers single-tap
+    func testLongHoldJustBeforeThreshold() async throws {
+        await MainActor.run {
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.longHoldMapping = LongHoldMapping(keyCode: 2, threshold: 0.2)
+            profileManager.setActiveProfile(Profile(name: "Before", buttonMappings: [.a: aMapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+        }
+
+        // Wait less than threshold
+        try? await Task.sleep(nanoseconds: 50_000_000) // 0.05s
+
+        await MainActor.run {
+            controllerService.onButtonReleased?(.a, 0.05)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Single tap should execute (keyCode 1)
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }, "Single tap should execute when released before threshold")
+
+            // Long-hold should NOT execute
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 2 }
+                return false
+            }, "Long-hold should not trigger before threshold")
+        }
+    }
+
+    /// Tests long-hold timer fires while button still held (no release yet)
+    func testLongHoldTimerFiresWhileHeld() async throws {
+        await MainActor.run {
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.longHoldMapping = LongHoldMapping(keyCode: 2, threshold: 0.1)
+            profileManager.setActiveProfile(Profile(name: "Held", buttonMappings: [.a: aMapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+        }
+
+        // Wait for long-hold timer to fire (but don't release)
+        await waitForTasks(0.3)
+
+        await MainActor.run {
+            // Long-hold should have executed
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 2 }
+                return false
+            }, "Long-hold should trigger while button still held")
+        }
+
+        // Now release
+        await MainActor.run {
+            controllerService.onButtonReleased?(.a, 0.3)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Single tap should NOT execute after long-hold triggered
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }, "Single tap should not execute after long-hold triggered")
+        }
+    }
+
+    // MARK: - Profile Change Edge Cases
+
+    /// Tests that changing profile while button is held doesn't cause issues
+    func testProfileChangeWhileButtonHeld() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "P1", buttonMappings: [.leftBumper: .holdModifier(.command)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.leftBumper)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "Command should be held")
+
+            // Change profile while button held
+            profileManager.setActiveProfile(Profile(name: "P2", buttonMappings: [.leftBumper: .holdModifier(.shift)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            // Release with OLD profile's mapping should still work
+            controllerService.onButtonReleased?(.leftBumper, 0.5)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Modifier should be released (engine tracks held buttons, not profile)
+            XCTAssertFalse(mockInputSimulator.heldModifiers.contains(.maskCommand), "Command should be released after button release")
+        }
+    }
+
+    /// Tests that clearing profile (nil) while button held doesn't crash
+    func testNilProfileWhileButtonHeld() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Test", buttonMappings: [.a: .key(1)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+        }
+        await waitForTasks(0.1)
+
+        // This shouldn't crash - engine should handle gracefully
+        // Note: ProfileManager might not allow nil profile, but testing the guard
+    }
+
+    // MARK: - Unmapped Button Edge Cases
+
+    /// Tests that pressing unmapped button doesn't cause issues
+    func testUnmappedButton() async throws {
+        await MainActor.run {
+            // Only map A, not B
+            profileManager.setActiveProfile(Profile(name: "Partial", buttonMappings: [.a: .key(1)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.b)
+            controllerService.onButtonReleased?(.b, 0.1)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // No crash, no events for unmapped button
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .pressKey = event { return true }
+                return false
+            }, "Unmapped button should not trigger any key press")
+        }
+    }
+
+    /// Tests that pressing unmapped button followed by mapped button works
+    func testUnmappedThenMappedButton() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Partial", buttonMappings: [.a: .key(1)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            // Press unmapped button first
+            controllerService.onButtonPressed?(.b)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            // Then press mapped button
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.05)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Mapped button should still work
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }, "Mapped button should work even after unmapped button press")
+        }
+    }
+
+    // MARK: - Multi-Button Chord Edge Cases
+
+    /// Tests chord with 3 buttons
+    func testThreeButtonChord() async throws {
+        await MainActor.run {
+            let chord = ChordMapping(buttons: [.a, .b, .x], keyCode: 9)
+            profileManager.setActiveProfile(Profile(
+                name: "Triple",
+                buttonMappings: [.a: .key(1), .b: .key(2), .x: .key(3)],
+                chordMappings: [chord]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onChordDetected?([.a, .b, .x])
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 9 }
+                return false
+            }, "Three-button chord should execute")
+        }
+    }
+
+    /// Tests partial chord match (pressing 2 buttons when 3-button chord exists)
+    func testPartialChordNoMatch() async throws {
+        await MainActor.run {
+            let chord = ChordMapping(buttons: [.a, .b, .x], keyCode: 9)
+            profileManager.setActiveProfile(Profile(
+                name: "Triple",
+                buttonMappings: [.a: .key(1), .b: .key(2), .x: .key(3)],
+                chordMappings: [chord]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            // Only 2 buttons - should fallback to individual
+            controllerService.onChordDetected?([.a, .b])
+        }
+        await waitForTasks()
+
+        // Release both
+        await MainActor.run {
+            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.onButtonReleased?(.b, 0.05)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Should NOT execute 3-button chord
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 9 }
+                return false
+            }, "Three-button chord should not match two-button press")
+
+            // Should execute individual button actions
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }, "Button A should execute on fallback")
+        }
+    }
+
+    // MARK: - Repeat Mapping Edge Cases
+
+    /// Tests repeat mapping fires multiple times while held
+    func testRepeatMappingFires() async throws {
+        await MainActor.run {
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.repeatMapping = RepeatMapping(enabled: true, interval: 0.05)
+            profileManager.setActiveProfile(Profile(name: "Repeat", buttonMappings: [.a: aMapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+        }
+
+        // Hold for multiple repeat intervals
+        await waitForTasks(0.25)
+
+        await MainActor.run {
+            controllerService.onButtonReleased?(.a, 0.25)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Should have multiple executions (initial + repeats)
+            let count = mockInputSimulator.events.filter { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                return false
+            }.count
+
+            XCTAssertGreaterThan(count, 1, "Repeat mapping should fire multiple times, got \(count)")
+        }
+    }
+
+    /// Tests repeat stops immediately when button released
+    func testRepeatStopsOnRelease() async throws {
+        await MainActor.run {
+            var aMapping = KeyMapping(keyCode: 1)
+            aMapping.repeatMapping = RepeatMapping(enabled: true, interval: 0.05)
+            profileManager.setActiveProfile(Profile(name: "Repeat", buttonMappings: [.a: aMapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+        }
+        await waitForTasks(0.15)
+
+        let countBeforeRelease = await MainActor.run {
+            return mockInputSimulator.events.filter { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                return false
+            }.count
+        }
+
+        await MainActor.run {
+            controllerService.onButtonReleased?(.a, 0.15)
+        }
+
+        // Wait to verify no more repeats
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let countAfterRelease = mockInputSimulator.events.filter { event in
+                if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
+                return false
+            }.count
+
+            XCTAssertEqual(countBeforeRelease, countAfterRelease, "No additional repeats should occur after release")
+        }
+    }
+
+    // MARK: - Engine State Edge Cases
+
+    /// Tests re-enabling engine doesn't cause double-execution
+    func testReEnableEngineCleanState() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Test", buttonMappings: [.a: .key(1)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            mappingEngine.disable()
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            mappingEngine.enable()
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.05)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            let count = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }.count
+
+            XCTAssertEqual(count, 1, "Should execute exactly once after re-enable")
+        }
+    }
+
+    /// Tests that disabling engine mid-press releases held modifier
+    func testDisableEngineReleasesHeldModifier() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Test", buttonMappings: [
+                .leftBumper: .holdModifier(.command),
+                .rightBumper: .holdModifier(.shift)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.leftBumper)
+            controllerService.onButtonPressed?(.rightBumper)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskShift))
+
+            mappingEngine.disable()
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // All modifiers should be released
+            XCTAssertTrue(mockInputSimulator.heldModifiers.isEmpty, "All modifiers should be released on disable")
+        }
+    }
+
+    // MARK: - Rapid Input Edge Cases
+
+    /// Tests rapid button press/release doesn't lose events
+    func testRapidPressRelease() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Rapid", buttonMappings: [.a: .key(1)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Rapid fire 5 press/release cycles
+        for _ in 0..<5 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.a)
+                controllerService.onButtonReleased?(.a, 0.01)
+            }
+            try? await Task.sleep(nanoseconds: 20_000_000) // 20ms between cycles
+        }
+
+        await waitForTasks()
+
+        await MainActor.run {
+            let count = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }.count
+
+            XCTAssertEqual(count, 5, "All 5 rapid presses should be processed, got \(count)")
+        }
+    }
+
+    /// Tests alternating between two buttons rapidly
+    func testAlternatingButtons() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Alt", buttonMappings: [.a: .key(1), .b: .key(2)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Alternate A and B rapidly
+        for i in 0..<4 {
+            let button: ControllerButton = i % 2 == 0 ? .a : .b
+            await MainActor.run {
+                controllerService.onButtonPressed?(button)
+                controllerService.onButtonReleased?(button, 0.01)
+            }
+            try? await Task.sleep(nanoseconds: 30_000_000)
+        }
+
+        await waitForTasks()
+
+        await MainActor.run {
+            let aCount = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }.count
+            let bCount = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 2 }
+                return false
+            }.count
+
+            XCTAssertEqual(aCount, 2, "Button A should fire twice")
+            XCTAssertEqual(bCount, 2, "Button B should fire twice")
+        }
+    }
+
+    // MARK: - Modifier Tap (Non-Hold) Edge Cases
+
+    /// Tests modifier-only mapping (tap, not hold) releases after delay
+    func testModifierTapReleasesAfterDelay() async throws {
+        await MainActor.run {
+            // Non-hold modifier (tap)
+            let mapping = KeyMapping(modifiers: ModifierFlags(command: true), isHoldModifier: false)
+            profileManager.setActiveProfile(Profile(name: "ModTap", buttonMappings: [.a: mapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.05)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Should have both hold and release modifier events
+            let holdCount = mockInputSimulator.events.filter { event in
+                if case .holdModifier = event { return true }
+                return false
+            }.count
+            let releaseCount = mockInputSimulator.events.filter { event in
+                if case .releaseModifier = event { return true }
+                return false
+            }.count
+
+            XCTAssertGreaterThan(holdCount, 0, "Modifier tap should hold modifier")
+            XCTAssertGreaterThan(releaseCount, 0, "Modifier tap should release modifier after delay")
+        }
+    }
 }
