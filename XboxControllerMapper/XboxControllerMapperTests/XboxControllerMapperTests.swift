@@ -1910,4 +1910,634 @@ final class XboxControllerMapperTests: XCTestCase {
             XCTAssertTrue(hasB, "Button B should execute normally")
         }
     }
+
+    // MARK: - D-Pad Mapping Tests (High Priority)
+
+    /// Tests all D-Pad directions are mapped correctly
+    func testDPadMappings() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "DPad", buttonMappings: [
+                .dpadUp: .key(KeyCodeMapping.upArrow),
+                .dpadDown: .key(KeyCodeMapping.downArrow),
+                .dpadLeft: .key(KeyCodeMapping.leftArrow),
+                .dpadRight: .key(KeyCodeMapping.rightArrow)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Test each direction
+        for (button, expectedKeyCode) in [
+            (ControllerButton.dpadUp, KeyCodeMapping.upArrow),
+            (ControllerButton.dpadDown, KeyCodeMapping.downArrow),
+            (ControllerButton.dpadLeft, KeyCodeMapping.leftArrow),
+            (ControllerButton.dpadRight, KeyCodeMapping.rightArrow)
+        ] {
+            await MainActor.run {
+                controllerService.buttonPressed(button)
+                controllerService.buttonReleased(button)
+            }
+            await waitForTasks()
+
+            await MainActor.run {
+                XCTAssertTrue(mockInputSimulator.events.contains { event in
+                    if case .pressKey(let code, _) = event { return code == expectedKeyCode }
+                    return false
+                }, "\(button) should map to arrow key \(expectedKeyCode)")
+            }
+        }
+    }
+
+    /// Tests D-Pad diagonal simulation (two directions at once)
+    func testDPadDiagonal() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "DPadDiag", buttonMappings: [
+                .dpadUp: .key(KeyCodeMapping.upArrow),
+                .dpadRight: .key(KeyCodeMapping.rightArrow)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press both up and right simultaneously
+        await MainActor.run {
+            controllerService.buttonPressed(.dpadUp)
+            controllerService.buttonPressed(.dpadRight)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            controllerService.buttonReleased(.dpadUp)
+            controllerService.buttonReleased(.dpadRight)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            let hasUp = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.upArrow }
+                return false
+            }
+            let hasRight = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.rightArrow }
+                return false
+            }
+            XCTAssertTrue(hasUp, "Up arrow should be pressed")
+            XCTAssertTrue(hasRight, "Right arrow should be pressed")
+        }
+    }
+
+    // MARK: - Trigger Button Mapping Tests (High Priority)
+
+    /// Tests left trigger as a button (digital, not analog)
+    func testLeftTriggerAsButton() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "LT", buttonMappings: [
+                .leftTrigger: .key(KeyCodeMapping.space)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.leftTrigger)
+            controllerService.buttonReleased(.leftTrigger)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.space }
+                return false
+            }, "Left trigger should press space")
+        }
+    }
+
+    /// Tests right trigger as a button
+    func testRightTriggerAsButton() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "RT", buttonMappings: [
+                .rightTrigger: .key(KeyCodeMapping.return)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.rightTrigger)
+            controllerService.buttonReleased(.rightTrigger)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.return }
+                return false
+            }, "Right trigger should press return")
+        }
+    }
+
+    /// Tests trigger as hold modifier
+    func testTriggerAsHoldModifier() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "TrigMod", buttonMappings: [
+                .leftTrigger: .holdModifier(.option),
+                .a: .key(1)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.leftTrigger)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskAlternate), "Option should be held")
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(1, _) = event { return true }
+                return false
+            }, "A should press while trigger holds modifier")
+            controllerService.buttonReleased(.leftTrigger)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertFalse(mockInputSimulator.heldModifiers.contains(.maskAlternate), "Option should be released")
+        }
+    }
+
+    // MARK: - Touchpad Gesture Tests (High Priority - DualSense)
+
+    /// Tests touchpad tap gesture callback
+    func testTouchpadTapGesture() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "TouchTap", buttonMappings: [
+                .touchpadTap: KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Simulate tap gesture callback
+        await MainActor.run {
+            controllerService.onTouchpadTap?()
+        }
+        await waitForTasks()
+
+        // Touchpad tap should trigger the mapping
+        // Note: The actual tap detection happens in ControllerService,
+        // but MappingEngine processes the callback
+    }
+
+    /// Tests touchpad two-finger tap (right click)
+    func testTouchpadTwoFingerTap() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "TouchTwoFinger", buttonMappings: [
+                .touchpadTwoFingerTap: KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Simulate two-finger tap callback
+        await MainActor.run {
+            controllerService.onTouchpadTwoFingerTap?()
+        }
+        await waitForTasks()
+
+        // Two-finger tap should work like the single tap
+    }
+
+    // MARK: - Special Button Tests (High Priority)
+
+    /// Tests Xbox/Guide button mapping
+    func testXboxButtonMapping() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Xbox", buttonMappings: [
+                .xbox: .key(KeyCodeMapping.escape)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.xbox)
+            controllerService.buttonReleased(.xbox)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.escape }
+                return false
+            }, "Xbox button should press escape")
+        }
+    }
+
+    /// Tests Menu button mapping
+    func testMenuButtonMapping() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Menu", buttonMappings: [
+                .menu: .key(KeyCodeMapping.tab)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.menu)
+            controllerService.buttonReleased(.menu)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.tab }
+                return false
+            }, "Menu button should press tab")
+        }
+    }
+
+    /// Tests View/Back button mapping
+    func testViewButtonMapping() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "View", buttonMappings: [
+                .view: .key(KeyCodeMapping.grave) // backtick/tilde key
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.view)
+            controllerService.buttonReleased(.view)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.grave }
+                return false
+            }, "View button should press grave/backtick")
+        }
+    }
+
+    // MARK: - Stick Click Tests (High Priority)
+
+    /// Tests left stick click (L3) mapping with middle mouse (treated as hold mapping)
+    func testLeftStickClick() async throws {
+        await MainActor.run {
+            // Mouse clicks are automatically treated as hold mappings
+            let mapping = KeyMapping(keyCode: KeyCodeMapping.mouseMiddleClick, isHoldModifier: true)
+            profileManager.setActiveProfile(Profile(name: "L3", buttonMappings: [
+                .leftThumbstick: mapping
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.leftThumbstick)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Mouse clicks use startHoldMapping
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .startHoldMapping(let m) = event { return m.keyCode == KeyCodeMapping.mouseMiddleClick }
+                return false
+            }, "Left stick click should start hold mapping for middle mouse")
+
+            controllerService.buttonReleased(.leftThumbstick)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .stopHoldMapping(let m) = event { return m.keyCode == KeyCodeMapping.mouseMiddleClick }
+                return false
+            }, "Left stick click should stop hold mapping on release")
+        }
+    }
+
+    /// Tests right stick click (R3) mapping
+    func testRightStickClick() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "R3", buttonMappings: [
+                .rightThumbstick: .key(KeyCodeMapping.f5)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.rightThumbstick)
+            controllerService.buttonReleased(.rightThumbstick)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.f5 }
+                return false
+            }, "Right stick click should press F5")
+        }
+    }
+
+    // MARK: - Profile Switching Tests (High Priority)
+
+    /// Tests rapid profile switching
+    func testRapidProfileSwitching() async throws {
+        let profile1 = Profile(name: "P1", buttonMappings: [.a: .key(1)])
+        let profile2 = Profile(name: "P2", buttonMappings: [.a: .key(2)])
+
+        await MainActor.run {
+            profileManager.setActiveProfile(profile1)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Switch profiles rapidly
+        for i in 0..<5 {
+            await MainActor.run {
+                profileManager.setActiveProfile(i % 2 == 0 ? profile2 : profile1)
+            }
+            try? await Task.sleep(nanoseconds: 5_000_000) // 5ms
+        }
+
+        // Settle on profile2
+        await MainActor.run {
+            profileManager.setActiveProfile(profile2)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Should use profile2's mapping (keyCode 2)
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(2, _) = event { return true }
+                return false
+            }, "Should use final profile's mapping")
+        }
+    }
+
+    /// Tests switching to profile with fewer mappings
+    func testSwitchToSmallerProfile() async throws {
+        let fullProfile = Profile(name: "Full", buttonMappings: [
+            .a: .key(1),
+            .b: .key(2),
+            .x: .key(3),
+            .y: .key(4)
+        ])
+        let minimalProfile = Profile(name: "Minimal", buttonMappings: [.a: .key(10)])
+
+        await MainActor.run {
+            profileManager.setActiveProfile(fullProfile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            profileManager.setActiveProfile(minimalProfile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // B should now be unmapped
+        await MainActor.run {
+            controllerService.buttonPressed(.b)
+            controllerService.buttonReleased(.b)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Should NOT trigger old mapping
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .pressKey(2, _) = event { return true }
+                return false
+            }, "Old mapping should not be used")
+        }
+    }
+
+    // MARK: - Function Key Tests
+
+    /// Tests function key mappings
+    func testFunctionKeyMappings() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "FnKeys", buttonMappings: [
+                .a: .key(KeyCodeMapping.f1),
+                .b: .key(KeyCodeMapping.f12)
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.f1 }
+                return false
+            }, "Should press F1")
+        }
+
+        await MainActor.run {
+            controllerService.buttonPressed(.b)
+            controllerService.buttonReleased(.b)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.f12 }
+                return false
+            }, "Should press F12")
+        }
+    }
+
+    // MARK: - Modifier Key Overlap Tests
+
+    /// Tests the same modifier on multiple buttons
+    func testSameModifierOnMultipleButtons() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "DualCmd", buttonMappings: [
+                .leftBumper: .holdModifier(.command),
+                .rightBumper: .holdModifier(.command) // Same modifier!
+            ]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press both
+        await MainActor.run {
+            controllerService.buttonPressed(.leftBumper)
+            controllerService.buttonPressed(.rightBumper)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "Command should be held")
+        }
+
+        // Release one - should still be held
+        await MainActor.run {
+            controllerService.buttonReleased(.leftBumper)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "Command should STILL be held (RB holds it)")
+        }
+
+        // Release the other - now should be released
+        await MainActor.run {
+            controllerService.buttonReleased(.rightBumper)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertFalse(mockInputSimulator.heldModifiers.contains(.maskCommand), "Command should now be released")
+        }
+    }
+
+    // MARK: - Chord Edge Case Tests
+
+    /// Tests chord where one button has no individual mapping
+    func testChordWithUnmappedButton() async throws {
+        await MainActor.run {
+            let chord = ChordMapping(buttons: [.a, .b], keyCode: 99)
+            profileManager.setActiveProfile(Profile(
+                name: "ChordUnmapped",
+                buttonMappings: [.a: .key(1)], // Only A mapped, not B
+                chordMappings: [chord]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onChordDetected?([.a, .b])
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(99, _) = event { return true }
+                return false
+            }, "Chord should work even if one button is unmapped individually")
+        }
+    }
+
+    /// Tests multiple overlapping chords (2-button vs 3-button)
+    func testOverlappingChords() async throws {
+        await MainActor.run {
+            let twoButtonChord = ChordMapping(buttons: [.a, .b], keyCode: 50)
+            let threeButtonChord = ChordMapping(buttons: [.a, .b, .x], keyCode: 51)
+            profileManager.setActiveProfile(Profile(
+                name: "Overlap",
+                buttonMappings: [:],
+                chordMappings: [twoButtonChord, threeButtonChord]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Trigger 3-button chord
+        await MainActor.run {
+            controllerService.onChordDetected?([.a, .b, .x])
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Should trigger 3-button chord, not 2-button
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(51, _) = event { return true }
+                return false
+            }, "3-button chord should be triggered")
+
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .pressKey(50, _) = event { return true }
+                return false
+            }, "2-button chord should NOT be triggered")
+        }
+    }
+
+    // MARK: - Long Hold Cancel Tests
+
+    /// Tests that releasing before threshold cancels long hold
+    func testLongHoldCancelledByQuickRelease() async throws {
+        await MainActor.run {
+            var mapping = KeyMapping(keyCode: 1)
+            mapping.longHoldMapping = LongHoldMapping(keyCode: 2, threshold: 0.5)
+            profileManager.setActiveProfile(Profile(name: "LHCancel", buttonMappings: [.a: mapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+        }
+
+        // Release quickly (before 0.5s threshold)
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+
+        await MainActor.run {
+            controllerService.onButtonReleased?(.a, 0.1)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // Single tap should execute
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(1, _) = event { return true }
+                return false
+            }, "Single tap should execute")
+
+            // Long hold should NOT execute
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .pressKey(2, _) = event { return true }
+                return false
+            }, "Long hold should NOT execute")
+        }
+    }
+
+    // MARK: - Double Tap Cancel Tests
+
+    /// Tests that slow second tap doesn't trigger double-tap
+    func testDoubleTapCancelledBySlowSecondTap() async throws {
+        await MainActor.run {
+            var mapping = KeyMapping(keyCode: 1)
+            mapping.doubleTapMapping = DoubleTapMapping(keyCode: 2, threshold: 0.2)
+            profileManager.setActiveProfile(Profile(name: "DTCancel", buttonMappings: [.a: mapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // First tap
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+
+        // Wait longer than double-tap threshold
+        await waitForTasks(0.3)
+
+        // Second tap (too late)
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.3)
+
+        await MainActor.run {
+            // Should have TWO single taps, no double tap
+            let singleTaps = mockInputSimulator.events.filter { event in
+                if case .pressKey(1, _) = event { return true }
+                return false
+            }.count
+
+            let doubleTaps = mockInputSimulator.events.filter { event in
+                if case .pressKey(2, _) = event { return true }
+                return false
+            }.count
+
+            XCTAssertEqual(singleTaps, 2, "Should have two single taps")
+            XCTAssertEqual(doubleTaps, 0, "Should have no double taps")
+        }
+    }
 }
