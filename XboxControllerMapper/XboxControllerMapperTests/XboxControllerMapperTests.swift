@@ -2540,4 +2540,543 @@ final class XboxControllerMapperTests: XCTestCase {
             XCTAssertEqual(doubleTaps, 0, "Should have no double taps")
         }
     }
+
+    // MARK: - Input Log Service Tests
+
+    /// Tests that InputLogService logs button presses correctly
+    func testInputLogServiceLogsButtonPress() async throws {
+        let logService = InputLogService()
+
+        await MainActor.run {
+            logService.log(buttons: [.a], type: .singlePress, action: "Key: A")
+        }
+
+        // Wait for batching delay (50ms) + buffer
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(logService.entries.count, 1, "Should have one entry")
+            XCTAssertEqual(logService.entries.first?.buttons, [.a])
+            XCTAssertEqual(logService.entries.first?.type, .singlePress)
+            XCTAssertEqual(logService.entries.first?.actionDescription, "Key: A")
+        }
+    }
+
+    /// Tests that InputLogService limits entries to 8
+    func testInputLogServiceLimitsEntries() async throws {
+        let logService = InputLogService()
+
+        await MainActor.run {
+            // Log 12 entries
+            for i in 0..<12 {
+                logService.log(buttons: [.a], type: .singlePress, action: "Event \(i)")
+            }
+        }
+
+        // Wait for batching
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        await MainActor.run {
+            XCTAssertLessThanOrEqual(logService.entries.count, 8, "Should limit to 8 entries")
+        }
+    }
+
+    /// Tests that InputLogService shows newest entries first
+    func testInputLogServiceNewestFirst() async throws {
+        let logService = InputLogService()
+
+        await MainActor.run {
+            logService.log(buttons: [.a], type: .singlePress, action: "First")
+            logService.log(buttons: [.b], type: .singlePress, action: "Second")
+            logService.log(buttons: [.x], type: .singlePress, action: "Third")
+        }
+
+        // Wait for batching
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(logService.entries.first?.actionDescription, "Third", "Newest should be first")
+            XCTAssertEqual(logService.entries.last?.actionDescription, "First", "Oldest should be last")
+        }
+    }
+
+    /// Tests that InputLogService logs chord events
+    func testInputLogServiceLogsChord() async throws {
+        let logService = InputLogService()
+
+        await MainActor.run {
+            logService.log(buttons: [.a, .b], type: .chord, action: "Chord: A+B")
+        }
+
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(logService.entries.count, 1)
+            XCTAssertEqual(logService.entries.first?.buttons, [.a, .b])
+            XCTAssertEqual(logService.entries.first?.type, .chord)
+        }
+    }
+
+    /// Tests that InputLogService logs double-tap events
+    func testInputLogServiceLogsDoubleTap() async throws {
+        let logService = InputLogService()
+
+        await MainActor.run {
+            logService.log(buttons: [.a], type: .doubleTap, action: "Double Tap: A")
+        }
+
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(logService.entries.first?.type, .doubleTap)
+        }
+    }
+
+    /// Tests that InputLogService logs long-press events
+    func testInputLogServiceLogsLongPress() async throws {
+        let logService = InputLogService()
+
+        await MainActor.run {
+            logService.log(buttons: [.a], type: .longPress, action: "Long Press: A")
+        }
+
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(logService.entries.first?.type, .longPress)
+        }
+    }
+
+    /// Tests that InputLogService cleans up old entries
+    func testInputLogServiceCleansUpOldEntries() async throws {
+        let logService = InputLogService()
+
+        await MainActor.run {
+            logService.log(buttons: [.a], type: .singlePress, action: "Old entry")
+        }
+
+        // Wait for batching
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(logService.entries.count, 1)
+        }
+
+        // Wait for retention period (3 seconds) + cleanup interval (0.5s) + buffer
+        try? await Task.sleep(nanoseconds: 4_000_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(logService.entries.count, 0, "Entry should be cleaned up after retention period")
+        }
+    }
+
+    // MARK: - Profile Management Tests
+
+    /// Tests that creating a profile from template copies mappings
+    func testCreateProfileFromTemplate() async throws {
+        await MainActor.run {
+            let template = Profile(
+                name: "Template",
+                buttonMappings: [.a: .key(1), .b: .key(2)],
+                chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 3)]
+            )
+            profileManager.profiles.append(template)
+
+            let newProfile = profileManager.createProfile(name: "Copy", basedOn: template)
+
+            XCTAssertEqual(newProfile.name, "Copy")
+            XCTAssertEqual(newProfile.buttonMappings.count, 2)
+            XCTAssertEqual(newProfile.chordMappings.count, 1)
+            XCTAssertNotEqual(newProfile.id, template.id, "New profile should have different ID")
+            XCTAssertFalse(newProfile.isDefault, "Copy should not be default")
+        }
+    }
+
+    /// Tests that deleting profile switches to another
+    func testDeleteProfileSwitchesActive() async throws {
+        await MainActor.run {
+            let profile1 = Profile(name: "Profile1")
+            let profile2 = Profile(name: "Profile2")
+            profileManager.profiles = [profile1, profile2]
+            profileManager.setActiveProfile(profile1)
+
+            XCTAssertEqual(profileManager.activeProfileId, profile1.id)
+
+            profileManager.deleteProfile(profile1)
+
+            // Should switch to remaining profile
+            XCTAssertEqual(profileManager.activeProfileId, profile2.id)
+            XCTAssertEqual(profileManager.profiles.count, 1)
+        }
+    }
+
+    /// Tests that last profile cannot be deleted
+    func testCannotDeleteLastProfile() async throws {
+        await MainActor.run {
+            let onlyProfile = Profile(name: "Only")
+            profileManager.profiles = [onlyProfile]
+            profileManager.setActiveProfile(onlyProfile)
+
+            profileManager.deleteProfile(onlyProfile)
+
+            // Should still have the profile
+            XCTAssertEqual(profileManager.profiles.count, 1)
+            XCTAssertEqual(profileManager.activeProfileId, onlyProfile.id)
+        }
+    }
+
+    /// Tests that duplicating a profile creates a copy
+    func testDuplicateProfile() async throws {
+        await MainActor.run {
+            let original = Profile(
+                name: "Original",
+                buttonMappings: [.a: .key(1)]
+            )
+            profileManager.profiles = [original]
+
+            let duplicate = profileManager.duplicateProfile(original)
+
+            XCTAssertEqual(duplicate.name, "Original Copy")
+            XCTAssertEqual(duplicate.buttonMappings[.a]?.keyCode, 1)
+            XCTAssertNotEqual(duplicate.id, original.id)
+            XCTAssertEqual(profileManager.profiles.count, 2)
+        }
+    }
+
+    /// Tests that renaming a profile updates correctly
+    func testRenameProfile() async throws {
+        await MainActor.run {
+            let profile = Profile(name: "OldName")
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            profileManager.renameProfile(profile, to: "NewName")
+
+            XCTAssertEqual(profileManager.profiles.first?.name, "NewName")
+            XCTAssertEqual(profileManager.activeProfile?.name, "NewName")
+        }
+    }
+
+    /// Tests that setting profile icon updates correctly
+    func testSetProfileIcon() async throws {
+        await MainActor.run {
+            let profile = Profile(name: "Test")
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            profileManager.setProfileIcon(profile, icon: "gamecontroller")
+
+            XCTAssertEqual(profileManager.profiles.first?.icon, "gamecontroller")
+        }
+    }
+
+    // MARK: - Chord Management Tests
+
+    /// Tests adding a chord to profile
+    func testAddChord() async throws {
+        await MainActor.run {
+            let profile = Profile(name: "Test")
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            let chord = ChordMapping(buttons: [.a, .b], keyCode: 1)
+            profileManager.addChord(chord)
+
+            XCTAssertEqual(profileManager.activeProfile?.chordMappings.count, 1)
+            XCTAssertEqual(profileManager.activeProfile?.chordMappings.first?.buttons, [.a, .b])
+        }
+    }
+
+    /// Tests removing a chord from profile
+    func testRemoveChord() async throws {
+        await MainActor.run {
+            let chord = ChordMapping(buttons: [.a, .b], keyCode: 1)
+            let profile = Profile(name: "Test", chordMappings: [chord])
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            XCTAssertEqual(profileManager.activeProfile?.chordMappings.count, 1)
+
+            profileManager.removeChord(chord)
+
+            XCTAssertEqual(profileManager.activeProfile?.chordMappings.count, 0)
+        }
+    }
+
+    /// Tests updating a chord in profile
+    func testUpdateChord() async throws {
+        await MainActor.run {
+            let chord = ChordMapping(buttons: [.a, .b], keyCode: 1)
+            let profile = Profile(name: "Test", chordMappings: [chord])
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            var updatedChord = chord
+            updatedChord.keyCode = 5
+
+            profileManager.updateChord(updatedChord)
+
+            XCTAssertEqual(profileManager.activeProfile?.chordMappings.first?.keyCode, 5)
+        }
+    }
+
+    // MARK: - Joystick Settings Tests
+
+    /// Tests updating joystick settings in profile
+    func testUpdateJoystickSettings() async throws {
+        await MainActor.run {
+            let profile = Profile(name: "Test")
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            var settings = JoystickSettings.default
+            settings.mouseSensitivity = 0.8
+            settings.invertMouseY = true
+
+            profileManager.updateJoystickSettings(settings)
+
+            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.mouseSensitivity, 0.8)
+            XCTAssertTrue(profileManager.activeProfile?.joystickSettings.invertMouseY ?? false)
+        }
+    }
+
+    // MARK: - Macro Management Tests
+
+    /// Tests adding a macro to profile
+    func testAddMacro() async throws {
+        await MainActor.run {
+            let profile = Profile(name: "Test")
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            let macro = Macro(name: "TestMacro", steps: [.press(KeyMapping(keyCode: 1))])
+            profileManager.addMacro(macro)
+
+            XCTAssertEqual(profileManager.activeProfile?.macros.count, 1)
+            XCTAssertEqual(profileManager.activeProfile?.macros.first?.name, "TestMacro")
+        }
+    }
+
+    /// Tests removing a macro also unmaps it from buttons
+    func testRemoveMacroUnmapsFromButtons() async throws {
+        await MainActor.run {
+            let macro = Macro(name: "TestMacro", steps: [.press(KeyMapping(keyCode: 1))])
+
+            var buttonMapping = KeyMapping()
+            buttonMapping.macroId = macro.id
+
+            let profile = Profile(
+                name: "Test",
+                buttonMappings: [.a: buttonMapping],
+                macros: [macro]
+            )
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            // Verify initial state
+            XCTAssertEqual(profileManager.activeProfile?.buttonMappings[.a]?.macroId, macro.id)
+
+            profileManager.removeMacro(macro)
+
+            // Macro should be removed
+            XCTAssertEqual(profileManager.activeProfile?.macros.count, 0)
+            // Button mapping should be removed too
+            XCTAssertNil(profileManager.activeProfile?.buttonMappings[.a])
+        }
+    }
+
+    /// Tests updating a macro
+    func testUpdateMacro() async throws {
+        await MainActor.run {
+            let macro = Macro(name: "Original", steps: [.press(KeyMapping(keyCode: 1))])
+            let profile = Profile(name: "Test", macros: [macro])
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            var updatedMacro = macro
+            updatedMacro.name = "Updated"
+            updatedMacro.steps = [.press(KeyMapping(keyCode: 2)), .delay(0.1)]
+
+            profileManager.updateMacro(updatedMacro)
+
+            XCTAssertEqual(profileManager.activeProfile?.macros.first?.name, "Updated")
+            XCTAssertEqual(profileManager.activeProfile?.macros.first?.steps.count, 2)
+        }
+    }
+
+    // MARK: - Rapid Fire Edge Cases
+
+    /// Tests rapid button press/release cycles
+    func testRapidButtonCycles() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(name: "Rapid", buttonMappings: [.a: .key(1)]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Rapid press/release cycles
+        for _ in 0..<5 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.a)
+                controllerService.onButtonReleased?(.a, 0.01)
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        await waitForTasks()
+
+        await MainActor.run {
+            let pressCount = mockInputSimulator.events.filter { event in
+                if case .pressKey(1, _) = event { return true }
+                return false
+            }.count
+
+            // Should have executed 5 times (not coalesced)
+            XCTAssertEqual(pressCount, 5, "All rapid presses should execute")
+        }
+    }
+
+    /// Tests button press while another is being held
+    func testInterruptHoldWithAnotherButton() async throws {
+        await MainActor.run {
+            profileManager.setActiveProfile(Profile(
+                name: "Interrupt",
+                buttonMappings: [
+                    .a: .holdModifier(.command),
+                    .b: .key(1)
+                ]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            // Start holding A
+            controllerService.onButtonPressed?(.a)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+
+            // Press and release B while A held
+            controllerService.onButtonPressed?(.b)
+            controllerService.onButtonReleased?(.b, 0.05)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // B should execute with command modifier context
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .pressKey(1, _) = event { return true }
+                return false
+            })
+
+            // A should still be held
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
+        }
+
+        await MainActor.run {
+            controllerService.onButtonReleased?(.a, 0.5)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertFalse(mockInputSimulator.heldModifiers.contains(.maskCommand))
+        }
+    }
+
+    // MARK: - Linked Apps Tests
+
+    /// Tests adding a linked app to profile
+    func testAddLinkedApp() async throws {
+        await MainActor.run {
+            let profile = Profile(name: "Gaming")
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            profileManager.addLinkedApp("com.example.game", to: profile)
+
+            let updatedProfile = profileManager.profiles.first { $0.id == profile.id }
+            XCTAssertTrue(updatedProfile?.linkedApps.contains("com.example.game") ?? false)
+        }
+    }
+
+    /// Tests that adding linked app to one profile removes it from another
+    func testAddLinkedAppRemovesFromOther() async throws {
+        await MainActor.run {
+            var profile1 = Profile(name: "Profile1")
+            profile1.linkedApps = ["com.example.game"]
+            let profile2 = Profile(name: "Profile2")
+
+            profileManager.profiles = [profile1, profile2]
+            profileManager.setActiveProfile(profile1)
+
+            // Move the app to profile2
+            profileManager.addLinkedApp("com.example.game", to: profile2)
+
+            let updated1 = profileManager.profiles.first { $0.id == profile1.id }
+            let updated2 = profileManager.profiles.first { $0.id == profile2.id }
+
+            XCTAssertFalse(updated1?.linkedApps.contains("com.example.game") ?? true)
+            XCTAssertTrue(updated2?.linkedApps.contains("com.example.game") ?? false)
+        }
+    }
+
+    /// Tests removing a linked app from profile
+    func testRemoveLinkedApp() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "Gaming")
+            profile.linkedApps = ["com.example.game"]
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            profileManager.removeLinkedApp("com.example.game", from: profile)
+
+            let updatedProfile = profileManager.profiles.first { $0.id == profile.id }
+            XCTAssertFalse(updatedProfile?.linkedApps.contains("com.example.game") ?? true)
+        }
+    }
+
+    // MARK: - UI Scale Tests
+
+    /// Tests setting UI scale persists
+    func testSetUiScale() async throws {
+        await MainActor.run {
+            profileManager.setUiScale(1.5)
+            XCTAssertEqual(profileManager.uiScale, 1.5)
+        }
+    }
+
+    // MARK: - Mapping Removal Tests
+
+    /// Tests removing a button mapping
+    func testRemoveMapping() async throws {
+        await MainActor.run {
+            let profile = Profile(name: "Test", buttonMappings: [.a: .key(1), .b: .key(2)])
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            profileManager.removeMapping(for: .a)
+
+            XCTAssertNil(profileManager.activeProfile?.buttonMappings[.a])
+            XCTAssertNotNil(profileManager.activeProfile?.buttonMappings[.b])
+        }
+    }
+
+    /// Tests getting a mapping
+    func testGetMapping() async throws {
+        await MainActor.run {
+            let mapping = KeyMapping(keyCode: 5, modifiers: .command)
+            let profile = Profile(name: "Test", buttonMappings: [.a: mapping])
+            profileManager.profiles = [profile]
+            profileManager.setActiveProfile(profile)
+
+            let retrieved = profileManager.getMapping(for: .a)
+
+            XCTAssertEqual(retrieved?.keyCode, 5)
+            XCTAssertTrue(retrieved?.modifiers.command ?? false)
+
+            let missing = profileManager.getMapping(for: .b)
+            XCTAssertNil(missing)
+        }
+    }
 }
