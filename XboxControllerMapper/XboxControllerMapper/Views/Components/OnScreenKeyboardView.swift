@@ -725,12 +725,12 @@ struct OnScreenKeyboardView: View {
 
     private var navigationKeyColumn: some View {
         VStack(spacing: keySpacing) {
-            // Navigation column keys use column 100+ to indicate right-side placement
+            // Navigation column keys use column 100+navIndex to match the navigation grid
             clickableKey(CGKeyCode(kVK_ForwardDelete), label: "Del", isSpecial: true, keyboardRow: numberRowIndex, column: 100)
-            clickableKey(CGKeyCode(kVK_Home), label: "Home", isSpecial: true, keyboardRow: qwertyRowIndex, column: 100)
-            clickableKey(CGKeyCode(kVK_End), label: "End", isSpecial: true, keyboardRow: asdfRowIndex, column: 100)
-            clickableKey(CGKeyCode(kVK_PageUp), label: "PgUp", isSpecial: true, keyboardRow: zxcvRowIndex, column: 100)
-            clickableKey(CGKeyCode(kVK_PageDown), label: "PgDn", isSpecial: true, keyboardRow: bottomRowIndex, column: 100)
+            clickableKey(CGKeyCode(kVK_Home), label: "Home", isSpecial: true, keyboardRow: qwertyRowIndex, column: 101)
+            clickableKey(CGKeyCode(kVK_End), label: "End", isSpecial: true, keyboardRow: asdfRowIndex, column: 102)
+            clickableKey(CGKeyCode(kVK_PageUp), label: "PgUp", isSpecial: true, keyboardRow: zxcvRowIndex, column: 103)
+            clickableKey(CGKeyCode(kVK_PageDown), label: "PgDn", isSpecial: true, keyboardRow: bottomRowIndex, column: 104)
         }
     }
 
