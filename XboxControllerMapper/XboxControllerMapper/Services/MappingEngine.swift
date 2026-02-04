@@ -450,7 +450,7 @@ class MappingEngine: ObservableObject {
             switch button {
             case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
                 // First navigation happens immediately
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     OnScreenKeyboardManager.shared.handleDPadNavigation(button)
                 }
                 // Start repeat timer for held D-pad
@@ -744,7 +744,8 @@ class MappingEngine: ObservableObject {
                 self.stopDpadNavigationRepeat(button)
                 return
             }
-            DispatchQueue.main.async {
+            // Use Task for MainActor context
+            Task { @MainActor in
                 OnScreenKeyboardManager.shared.handleDPadNavigation(button)
             }
         }

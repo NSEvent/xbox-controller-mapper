@@ -38,7 +38,7 @@ class OnScreenKeyboardManager: ObservableObject {
                 return nil
             }
 
-            let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+            let keyboardRows = getKeyboardRows()
             if row >= 0 && row < keyboardRows.count {
                 let keyRow = keyboardRows[row]
                 if column >= 0 && column < keyRow.count {
@@ -102,7 +102,7 @@ class OnScreenKeyboardManager: ObservableObject {
             return
         }
         // Find the position of this key code in the keyboard rows
-        let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+        let keyboardRows = getKeyboardRows()
         for (rowIndex, row) in keyboardRows.enumerated() {
             for (colIndex, position) in row.enumerated() {
                 if position.keyCode == keyCode {
@@ -140,6 +140,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private nonisolated(unsafe) let stateLock = NSLock()
     private nonisolated(unsafe) var _threadSafeIsVisible = false
     private nonisolated(unsafe) var _threadSafeNavigationModeActive = false
+    private nonisolated(unsafe) var _threadSafeHighlightedItem: KeyboardNavigationItem?
 
     /// Thread-safe accessor for keyboard visibility (can be called from any thread)
     nonisolated var threadSafeIsVisible: Bool {
@@ -155,12 +156,34 @@ class OnScreenKeyboardManager: ObservableObject {
         return _threadSafeNavigationModeActive
     }
 
+    /// Thread-safe accessor for highlighted item (can be called from any thread)
+    nonisolated var threadSafeHighlightedItem: KeyboardNavigationItem? {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return _threadSafeHighlightedItem
+    }
+
     /// Update thread-safe visibility state (call from main thread)
     private func updateThreadSafeState() {
         stateLock.lock()
         _threadSafeIsVisible = isVisible
         _threadSafeNavigationModeActive = navigationModeActive
+        _threadSafeHighlightedItem = highlightedItem
         stateLock.unlock()
+    }
+
+    /// Synchronously update thread-safe highlighted item and trigger main thread update
+    private func setHighlightedItemSync(_ item: KeyboardNavigationItem?) {
+        stateLock.lock()
+        _threadSafeHighlightedItem = item
+        _threadSafeNavigationModeActive = true
+        stateLock.unlock()
+
+        // Update @Published on main thread for SwiftUI
+        highlightedItem = item
+        if !navigationModeActive {
+            navigationModeActive = true
+        }
     }
 
     private var panel: NSPanel?
@@ -181,6 +204,15 @@ class OnScreenKeyboardManager: ObservableObject {
     private var toggleShortcutModifiers: ModifierFlags = ModifierFlags()
     /// Saved keyboard positions per screen (session-only, keyed by display ID)
     private var savedPositions: [CGDirectDisplayID: NSPoint] = [:]
+
+    // MARK: - Navigation Grid Cache
+    /// Cached navigation grid to avoid rebuilding on every D-pad press
+    private var cachedNavigationGrid: [[KeyboardNavigationItem]]?
+    private var cachedKeyboardStartRow: Int = 0
+    /// Cached keyboard rows from KeyboardNavigationMap
+    private var cachedKeyboardRows: [[KeyboardNavigationMap.KeyPosition]]?
+    /// Invalidate cache when content changes
+    private var navigationGridNeedsRebuild = true
 
     private init() {}
 
@@ -260,6 +292,11 @@ class OnScreenKeyboardManager: ObservableObject {
         self.appBarItems = appBarItems
         self.websiteLinks = websiteLinks
         self.showExtendedFunctionKeys = showExtendedFunctionKeys
+
+        // Invalidate navigation grid cache when content changes
+        if changed {
+            invalidateNavigationGridCache()
+        }
 
         // Recreate panel if content changed
         if changed && panel != nil {
@@ -411,19 +448,28 @@ class OnScreenKeyboardManager: ObservableObject {
 
         let previousItem = highlightedItem
 
-        // Navigate based on current item type and direction
-        switch direction {
-        case .dpadUp:
-            navigateUp()
-        case .dpadDown:
-            navigateDown()
-        case .dpadLeft:
-            navigateLeft()
-        case .dpadRight:
-            navigateRight()
-        default:
-            return
+        // Disable animations for faster highlight updates
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+
+        withTransaction(transaction) {
+            // Navigate based on current item type and direction
+            switch direction {
+            case .dpadUp:
+                navigateUp()
+            case .dpadDown:
+                navigateDown()
+            case .dpadLeft:
+                navigateLeft()
+            case .dpadRight:
+                navigateRight()
+            default:
+                return
+            }
         }
+
+        // Update thread-safe state immediately
+        updateThreadSafeState()
 
         // Play haptic feedback if item changed
         if highlightedItem != previousItem {
@@ -447,7 +493,7 @@ class OnScreenKeyboardManager: ObservableObject {
                 }
             } else {
                 // Look up the key code from the position
-                let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+                let keyboardRows = getKeyboardRows()
                 if row >= 0 && row < keyboardRows.count {
                     let keyRow = keyboardRows[row]
                     if column >= 0 && column < keyRow.count {
@@ -521,9 +567,39 @@ class OnScreenKeyboardManager: ObservableObject {
 
     // MARK: - Navigation Helpers
 
+    /// Invalidate the navigation grid cache (call when content changes)
+    private func invalidateNavigationGridCache() {
+        cachedNavigationGrid = nil
+        cachedKeyboardRows = nil
+        navigationGridNeedsRebuild = true
+    }
+
+    /// Get cached keyboard rows
+    private func getKeyboardRows() -> [[KeyboardNavigationMap.KeyPosition]] {
+        if let cached = cachedKeyboardRows, !navigationGridNeedsRebuild {
+            return cached
+        }
+        let rows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+        cachedKeyboardRows = rows
+        return rows
+    }
+
+    /// Get the navigation grid (uses cache if available)
+    private func getNavigationGrid() -> (grid: [[KeyboardNavigationItem]], keyboardStartRow: Int) {
+        if let cached = cachedNavigationGrid, !navigationGridNeedsRebuild {
+            return (cached, cachedKeyboardStartRow)
+        }
+
+        let result = buildNavigationGridInternal()
+        cachedNavigationGrid = result.grid
+        cachedKeyboardStartRow = result.keyboardStartRow
+        navigationGridNeedsRebuild = false
+        return result
+    }
+
     /// Build the navigation grid representing all rows in visual order
     /// Returns the grid and the starting row index for keyboard keys
-    private func buildNavigationGrid() -> (grid: [[KeyboardNavigationItem]], keyboardStartRow: Int) {
+    private func buildNavigationGridInternal() -> (grid: [[KeyboardNavigationItem]], keyboardStartRow: Int) {
         var grid: [[KeyboardNavigationItem]] = []
 
         // Website links rows (top)
@@ -606,7 +682,7 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func navigateUp() {
-        let (grid, keyboardStartRow) = buildNavigationGrid()
+        let (grid, keyboardStartRow) = getNavigationGrid()
         guard !grid.isEmpty else { return }
 
         if let (row, col) = findCurrentPosition(in: grid) {
@@ -644,7 +720,7 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func navigateDown() {
-        let (grid, keyboardStartRow) = buildNavigationGrid()
+        let (grid, keyboardStartRow) = getNavigationGrid()
         guard !grid.isEmpty else { return }
 
         if let (row, col) = findCurrentPosition(in: grid) {
@@ -700,7 +776,7 @@ class OnScreenKeyboardManager: ObservableObject {
             return nil
         }
 
-        let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+        let keyboardRows = getKeyboardRows()
         let currentXPosition: Double
 
         if currentKeyCol >= 100 {
@@ -749,7 +825,7 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func navigateLeft() {
-        let (grid, _) = buildNavigationGrid()
+        let (grid, _) = getNavigationGrid()
         guard !grid.isEmpty else { return }
 
         if let (row, col) = findCurrentPosition(in: grid) {
@@ -762,7 +838,7 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func navigateRight() {
-        let (grid, _) = buildNavigationGrid()
+        let (grid, _) = getNavigationGrid()
         guard !grid.isEmpty else { return }
 
         if let (row, col) = findCurrentPosition(in: grid) {
