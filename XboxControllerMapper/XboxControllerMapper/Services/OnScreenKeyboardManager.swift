@@ -9,6 +9,40 @@ class OnScreenKeyboardManager: ObservableObject {
 
     @Published private(set) var isVisible = false
 
+    // MARK: - D-Pad Navigation State
+    @Published var navigationModeActive = false
+    @Published var highlightedKeyCode: CGKeyCode?
+    private var cursorHidden = false
+    private var mouseMovementMonitor: Any?
+
+    // MARK: - Thread-Safe State Accessors
+    /// Lock for thread-safe access to state from non-main threads
+    private nonisolated(unsafe) let stateLock = NSLock()
+    private nonisolated(unsafe) var _threadSafeIsVisible = false
+    private nonisolated(unsafe) var _threadSafeNavigationModeActive = false
+
+    /// Thread-safe accessor for keyboard visibility (can be called from any thread)
+    nonisolated var threadSafeIsVisible: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return _threadSafeIsVisible
+    }
+
+    /// Thread-safe accessor for navigation mode (can be called from any thread)
+    nonisolated var threadSafeNavigationModeActive: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return _threadSafeNavigationModeActive
+    }
+
+    /// Update thread-safe visibility state (call from main thread)
+    private func updateThreadSafeState() {
+        stateLock.lock()
+        _threadSafeIsVisible = isVisible
+        _threadSafeNavigationModeActive = navigationModeActive
+        stateLock.unlock()
+    }
+
     private var panel: NSPanel?
     private var inputSimulator: InputSimulatorProtocol?
     private var quickTexts: [QuickText] = []
@@ -150,6 +184,7 @@ class OnScreenKeyboardManager: ObservableObject {
         }
         panel?.orderFrontRegardless()
         isVisible = true
+        updateThreadSafeState()
     }
 
     private func createPanel() {
@@ -229,6 +264,9 @@ class OnScreenKeyboardManager: ObservableObject {
 
     /// Hides the on-screen keyboard window
     func hide() {
+        // Exit navigation mode first
+        exitNavigationMode()
+
         // Save position for the screen the panel is currently on
         if let panel = panel, let screen = panel.screen ?? NSScreen.main {
             let displayID = screen.displayID
@@ -236,6 +274,108 @@ class OnScreenKeyboardManager: ObservableObject {
         }
         panel?.orderOut(nil)
         isVisible = false
+        updateThreadSafeState()
+    }
+
+    // MARK: - D-Pad Navigation
+
+    /// Handle D-pad navigation input
+    func handleDPadNavigation(_ direction: ControllerButton) {
+        // Enter navigation mode if not already active
+        if !navigationModeActive {
+            enterNavigationMode()
+        }
+
+        // Map controller button to navigation direction
+        let navDirection: KeyboardNavigationMap.NavigationDirection
+        switch direction {
+        case .dpadUp: navDirection = .up
+        case .dpadDown: navDirection = .down
+        case .dpadLeft: navDirection = .left
+        case .dpadRight: navDirection = .right
+        default: return
+        }
+
+        let previousKeyCode = highlightedKeyCode
+
+        // Navigate to new key
+        let newKeyCode = KeyboardNavigationMap.navigate(
+            from: highlightedKeyCode,
+            direction: navDirection,
+            includeExtendedFunctions: showExtendedFunctionKeys
+        )
+        highlightedKeyCode = newKeyCode
+
+        // Play haptic feedback if key changed
+        if newKeyCode != previousKeyCode {
+            hapticHandler?()
+        }
+    }
+
+    /// Activate the currently highlighted key
+    func activateHighlightedKey() {
+        guard navigationModeActive, let keyCode = highlightedKeyCode else { return }
+
+        // Trigger the key press via the normal handler
+        handleKeyPress(keyCode: keyCode, modifiers: ModifierFlags())
+        hapticHandler?()
+    }
+
+    /// Enter navigation mode - hide cursor and start mouse monitor
+    private func enterNavigationMode() {
+        guard !navigationModeActive else { return }
+        navigationModeActive = true
+        updateThreadSafeState()
+
+        // Set initial highlighted key if none
+        if highlightedKeyCode == nil {
+            highlightedKeyCode = KeyboardNavigationMap.defaultKey
+        }
+
+        // Hide cursor
+        if !cursorHidden {
+            NSCursor.hide()
+            cursorHidden = true
+        }
+
+        // Start monitoring mouse movement to exit navigation mode
+        startMouseMovementMonitor()
+    }
+
+    /// Exit navigation mode - show cursor and clear highlight
+    func exitNavigationMode() {
+        guard navigationModeActive else { return }
+        navigationModeActive = false
+        highlightedKeyCode = nil
+        updateThreadSafeState()
+
+        // Show cursor if it was hidden
+        if cursorHidden {
+            NSCursor.unhide()
+            cursorHidden = false
+        }
+
+        // Stop mouse movement monitor
+        stopMouseMovementMonitor()
+    }
+
+    private func startMouseMovementMonitor() {
+        // Remove existing monitor if any
+        stopMouseMovementMonitor()
+
+        // Monitor for mouse movement (both local and global)
+        mouseMovementMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.exitNavigationMode()
+            }
+        }
+    }
+
+    private func stopMouseMovementMonitor() {
+        if let monitor = mouseMovementMonitor {
+            NSEvent.removeMonitor(monitor)
+            mouseMovementMonitor = nil
+        }
     }
 
     /// Toggles the on-screen keyboard visibility

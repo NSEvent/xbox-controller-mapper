@@ -21,6 +21,9 @@ struct OnScreenKeyboardView: View {
     /// Whether to show extended function keys (F13-F20) above F1-F12
     var showExtendedFunctionKeys: Bool = false
 
+    /// Observe keyboard manager for D-pad navigation state
+    @ObservedObject private var keyboardManager = OnScreenKeyboardManager.shared
+
     @State private var activeModifiers = ModifierFlags()
     @State private var isCapsLockActive = false
     @State private var hoveredKey: CGKeyCode?
@@ -433,7 +436,9 @@ struct OnScreenKeyboardView: View {
     }
 
     private func mediaKey(_ keyCode: CGKeyCode, label: String, symbol: String) -> some View {
-        let isHovered = hoveredKey == keyCode
+        // Combine mouse hover and D-pad navigation highlight
+        let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
+        let isHovered = hoveredKey == keyCode || isNavigationHighlighted
         let isPressed = pressedKey == keyCode
 
         return Button {
@@ -620,7 +625,9 @@ struct OnScreenKeyboardView: View {
     private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat? = nil, height: CGFloat? = nil, isSpecial: Bool = false) -> some View {
         let actualWidth = width ?? keyWidth
         let actualHeight = height ?? keyHeight
-        let isHovered = hoveredKey == keyCode
+        // Combine mouse hover and D-pad navigation highlight
+        let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
+        let isHovered = hoveredKey == keyCode || isNavigationHighlighted
         let isPressed = pressedKey == keyCode
         let secondary = secondaryKeys[label]
         let isShiftActive = activeModifiers.shift
@@ -677,7 +684,10 @@ struct OnScreenKeyboardView: View {
     @ViewBuilder
     private func modifierKey(label: String, width: CGFloat, modifier: WritableKeyPath<ModifierFlags, Bool>) -> some View {
         let isActive = activeModifiers[keyPath: modifier]
-        let isHovered = hoveredKey == modifierKeyCode(for: modifier)
+        let modKeyCode = modifierKeyCode(for: modifier)
+        // Combine mouse hover and D-pad navigation highlight
+        let isNavigationHighlighted = keyboardManager.highlightedKeyCode == modKeyCode
+        let isHovered = hoveredKey == modKeyCode || isNavigationHighlighted
 
         Button {
             activeModifiers[keyPath: modifier].toggle()
@@ -712,7 +722,9 @@ struct OnScreenKeyboardView: View {
     @ViewBuilder
     private func capsLockKey(width: CGFloat) -> some View {
         let keyCode = CGKeyCode(kVK_CapsLock)
-        let isHovered = hoveredKey == keyCode
+        // Combine mouse hover and D-pad navigation highlight
+        let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
+        let isHovered = hoveredKey == keyCode || isNavigationHighlighted
 
         Button {
             isCapsLockActive.toggle()

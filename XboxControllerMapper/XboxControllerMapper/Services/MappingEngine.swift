@@ -141,6 +141,8 @@ class MappingEngine: ObservableObject {
         var onScreenKeyboardHoldMode: Bool = false  // Whether keyboard should hide on button release
         var commandWheelActive: Bool = false  // Whether the command wheel is intercepting right stick
         var wheelAlternateModifiers: ModifierFlags = ModifierFlags()  // Modifier to hold for alternate wheel content
+        var dpadNavigationTimer: DispatchSourceTimer? = nil  // Timer for D-pad repeat navigation
+        var dpadNavigationButton: ControllerButton? = nil  // Which D-pad button is being held for navigation
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
@@ -204,7 +206,11 @@ class MappingEngine: ObservableObject {
             
             repeatTimers.values.forEach { $0.cancel() }
             repeatTimers.removeAll()
-            
+
+            dpadNavigationTimer?.cancel()
+            dpadNavigationTimer = nil
+            dpadNavigationButton = nil
+
             smoothedLeftStick = .zero
             smoothedRightStick = .zero
             lastJoystickSampleTime = 0
@@ -437,6 +443,24 @@ class MappingEngine: ObservableObject {
         let lastTap = state.lastTapTime[button]
         state.lock.unlock()
 
+        // MARK: - On-Screen Keyboard D-Pad Navigation
+        // When keyboard is visible, intercept D-pad to navigate keys
+        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+        if keyboardVisible {
+            switch button {
+            case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
+                // First navigation happens immediately
+                DispatchQueue.main.async {
+                    OnScreenKeyboardManager.shared.handleDPadNavigation(button)
+                }
+                // Start repeat timer for held D-pad
+                startDpadNavigationRepeat(button)
+                return  // Don't execute normal mapping
+            default:
+                break
+            }
+        }
+
         guard let mapping = effectiveMapping(for: button, in: profile) else {
             // Log unmapped button presses so they still appear in history
             inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
@@ -446,6 +470,17 @@ class MappingEngine: ObservableObject {
         #if DEBUG
         print("🔵 handleButtonPressed: \(button.displayName)")
         #endif
+
+        // Check for left-click activation when navigation mode is active
+        if keyboardVisible, let keyCode = mapping.keyCode, keyCode == KeyCodeMapping.mouseLeftClick {
+            let navActive = OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
+            if navActive {
+                DispatchQueue.main.async {
+                    OnScreenKeyboardManager.shared.activateHighlightedKey()
+                }
+                return  // Don't execute normal mapping
+            }
+        }
 
         // Check for special actions
         let isOnScreenKeyboard = mapping.keyCode == KeyCodeMapping.showOnScreenKeyboard
@@ -682,7 +717,53 @@ class MappingEngine: ObservableObject {
             state.repeatTimers.removeValue(forKey: button)
         }
     }
-    
+
+    // MARK: - D-Pad Navigation Repeat
+
+    /// Initial delay before repeat starts (similar to keyboard repeat delay)
+    private static let dpadRepeatInitialDelay: TimeInterval = 0.4
+    /// Interval between repeats once started
+    private static let dpadRepeatInterval: TimeInterval = 0.08
+
+    nonisolated private func startDpadNavigationRepeat(_ button: ControllerButton) {
+        state.lock.lock()
+        // Cancel any existing timer
+        state.dpadNavigationTimer?.cancel()
+        state.dpadNavigationButton = button
+
+        let timer = DispatchSource.makeTimerSource(queue: inputQueue)
+        // Initial delay before repeat starts, then repeat at interval
+        timer.schedule(
+            deadline: .now() + Self.dpadRepeatInitialDelay,
+            repeating: Self.dpadRepeatInterval
+        )
+        timer.setEventHandler { [weak self] in
+            guard let self = self else { return }
+            // Check if keyboard is still visible
+            guard OnScreenKeyboardManager.shared.threadSafeIsVisible else {
+                self.stopDpadNavigationRepeat(button)
+                return
+            }
+            DispatchQueue.main.async {
+                OnScreenKeyboardManager.shared.handleDPadNavigation(button)
+            }
+        }
+        timer.resume()
+        state.dpadNavigationTimer = timer
+        state.lock.unlock()
+    }
+
+    nonisolated private func stopDpadNavigationRepeat(_ button: ControllerButton) {
+        state.lock.lock()
+        defer { state.lock.unlock() }
+        // Only stop if this is the button that started the timer
+        if state.dpadNavigationButton == button {
+            state.dpadNavigationTimer?.cancel()
+            state.dpadNavigationTimer = nil
+            state.dpadNavigationButton = nil
+        }
+    }
+
     nonisolated private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
         state.lock.lock()
         state.longHoldTriggered.insert(button)
@@ -697,6 +778,19 @@ class MappingEngine: ObservableObject {
 
         // Check if this button was showing the on-screen keyboard
         handleOnScreenKeyboardReleased(button)
+
+        // Skip all release handling for D-pad when keyboard is visible
+        // This prevents double-tap and long-hold from triggering
+        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+        if keyboardVisible {
+            switch button {
+            case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
+                stopDpadNavigationRepeat(button)
+                return  // Skip all release processing
+            default:
+                break
+            }
+        }
 
         // Cleanup: cancel long hold timer and check for held/chord buttons
         if let releaseResult = cleanupReleaseTimers(for: button) {
