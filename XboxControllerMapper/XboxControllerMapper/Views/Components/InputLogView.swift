@@ -62,11 +62,6 @@ private struct LogEntryView: View, Equatable {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(nsColor: .controlBackgroundColor))
-                        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                )
                 
                 // Bottom: Action
                 Text(entry.actionDescription)
@@ -77,8 +72,7 @@ private struct LogEntryView: View, Equatable {
                 
             }
             .padding(.horizontal, 8)
-            .drawingGroup() // Optimize rendering of the cell
-            
+
             // Separator arrow
             if !isLast {
                 Image(systemName: "chevron.left") // Newest is at left/start

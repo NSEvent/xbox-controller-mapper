@@ -318,6 +318,17 @@ struct ButtonMappingSheet: View {
                         }
                         .labelsHidden()
                         .frame(maxWidth: .infinity)
+
+                        // Hint field for macros
+                        HStack {
+                            Text("Hint:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            TextField("e.g. Open Editor, Run Script...", text: $hint)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.subheadline)
+                        }
                     } else {
                         VStack(spacing: 8) {
                             Text("No macros defined in this profile.")

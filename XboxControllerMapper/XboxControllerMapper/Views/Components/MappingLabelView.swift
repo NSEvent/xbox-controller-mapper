@@ -162,7 +162,9 @@ struct MappingLabelView: View {
            let profile = profileManager.activeProfile,
            let macro = profile.macros.first(where: { $0.id == macroId }) {
 
-            labelRow(text: macro.name, icon: "▶", color: .purple, tooltip: "Macro: \(macro.name)")
+            // Check hint first, then fall back to macro name
+            let displayText = (mapping.hint?.isEmpty == false) ? mapping.hint! : macro.name
+            labelRow(text: displayText, icon: "▶", color: .purple, tooltip: (mapping.hint?.isEmpty == false) ? macro.name : nil)
 
         } else if !mapping.isEmpty {
             if let hint = mapping.hint, !hint.isEmpty {

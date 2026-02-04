@@ -17,17 +17,12 @@ struct ButtonIconView: View {
     
     var body: some View {
         ZStack {
-            // 1. Drop Shadow (Physical Depth)
-            baseShape
-                .fill(Color.black.opacity(0.25))
-                .offset(y: isPressed ? 1 : 2.5)
-                .blur(radius: 2)
-            
-            // 2. Base Jewel Color
+            // 1. Base Jewel Color with shadow
             baseShape
                 .fill(jewelGradient)
-            
-            // 3. Darker Rim (Bezel)
+                .shadow(color: .black.opacity(0.25), radius: 2, x: 0, y: isPressed ? 1 : 2.5)
+
+            // 2. Darker Rim (Bezel)
             baseShape
                 .strokeBorder(
                     LinearGradient(
@@ -37,8 +32,8 @@ struct ButtonIconView: View {
                     ),
                     lineWidth: 1
                 )
-            
-            // 4. Glassy Dome Highlight (The "Aero" look)
+
+            // 3. Glassy Dome Highlight (The "Aero" look)
             baseShape
                 .fill(
                     LinearGradient(
@@ -53,8 +48,8 @@ struct ButtonIconView: View {
                     )
                 )
                 .padding(1.5) // Slight inset to create the "encased" look
-            
-            // 5. Crisp Specular Edge (Top light catch)
+
+            // 4. Crisp Specular Edge (Top light catch)
             baseShape
                 .strokeBorder(
                     LinearGradient(
@@ -66,11 +61,10 @@ struct ButtonIconView: View {
                 )
                 .padding(0.5)
 
-            // 6. Content (Symbol/Text) - Floating inside the jewel
+            // 5. Content (Symbol/Text) - Floating inside the jewel
             contentView
                 .shadow(color: .black.opacity(0.4), radius: 1, x: 0, y: 1)
         }
-        .drawingGroup()
         .frame(width: width, height: height)
         .scaleEffect(isPressed ? 0.92 : 1.0)
         .animation(.spring(response: 0.25, dampingFraction: 0.55), value: isPressed)

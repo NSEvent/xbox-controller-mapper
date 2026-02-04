@@ -430,9 +430,32 @@ struct StepEditorSheet: View {
                     }
                     
                 case .typeText:
-                    Section("Text to Type") {
-                        TextField("Enter text...", text: $text)
-                            .textFieldStyle(.roundedBorder)
+                    Section {
+                        TextEditor(text: $text)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minHeight: 60, maxHeight: 120)
+                            .scrollContentBackground(.hidden)
+                            .padding(4)
+                            .background(Color(nsColor: .textBackgroundColor))
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                            )
+                        if text.hasSuffix(" ") || text.hasPrefix(" ") {
+                            HStack(spacing: 4) {
+                                Image(systemName: "space")
+                                    .font(.caption2)
+                                Text(whitespaceIndicator)
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.orange)
+                        }
+                        Text("\(text.count) characters")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } header: {
+                        Text("Text to Type")
                     }
 
                     Section("Typing Speed") {
@@ -522,7 +545,20 @@ struct StepEditorSheet: View {
             return !linkURL.isEmpty
         }
     }
-    
+
+    private var whitespaceIndicator: String {
+        var parts: [String] = []
+        if text.hasPrefix(" ") {
+            let count = text.prefix(while: { $0 == " " }).count
+            parts.append("\(count) leading space\(count > 1 ? "s" : "")")
+        }
+        if text.hasSuffix(" ") {
+            let count = text.reversed().prefix(while: { $0 == " " }).count
+            parts.append("\(count) trailing space\(count > 1 ? "s" : "")")
+        }
+        return parts.joined(separator: ", ")
+    }
+
     private func save() {
         switch selectedType {
         case .press:
@@ -675,9 +711,32 @@ struct NewStepEditorSheet: View {
                     }
 
                 case .typeText:
-                    Section("Text to Type") {
-                        TextField("Enter text...", text: $text)
-                            .textFieldStyle(.roundedBorder)
+                    Section {
+                        TextEditor(text: $text)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minHeight: 60, maxHeight: 120)
+                            .scrollContentBackground(.hidden)
+                            .padding(4)
+                            .background(Color(nsColor: .textBackgroundColor))
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                            )
+                        if text.hasSuffix(" ") || text.hasPrefix(" ") {
+                            HStack(spacing: 4) {
+                                Image(systemName: "space")
+                                    .font(.caption2)
+                                Text(whitespaceIndicator)
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.orange)
+                        }
+                        Text("\(text.count) characters")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } header: {
+                        Text("Text to Type")
                     }
                     Section("Typing Speed") {
                         Picker("Speed", selection: $speed) {
@@ -767,6 +826,19 @@ struct NewStepEditorSheet: View {
         case .openLink:
             return !linkURL.isEmpty
         }
+    }
+
+    private var whitespaceIndicator: String {
+        var parts: [String] = []
+        if text.hasPrefix(" ") {
+            let count = text.prefix(while: { $0 == " " }).count
+            parts.append("\(count) leading space\(count > 1 ? "s" : "")")
+        }
+        if text.hasSuffix(" ") {
+            let count = text.reversed().prefix(while: { $0 == " " }).count
+            parts.append("\(count) trailing space\(count > 1 ? "s" : "")")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func buildStep() -> MacroStep {

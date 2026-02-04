@@ -244,11 +244,12 @@ struct ContentView: View {
 
                             if let macroId = chord.macroId,
                                let macro = profile.macros.first(where: { $0.id == macroId }) {
-                                Text("Macro: \(macro.name)")
+                                Text(chord.hint ?? macro.name)
                                     .font(.caption)
                                     .fontWeight(.medium)
                                     .foregroundColor(.purple)
                                     .lineLimit(1)
+                                    .tooltipIfPresent(chord.hint != nil ? macro.name : nil)
                             } else {
                                 Text(chord.hint ?? chord.actionDisplayString)
                                     .font(.caption)
@@ -687,9 +688,10 @@ struct ChordRow: View {
             } else if let macroId = chord.macroId,
                let profile = profileManager.activeProfile,
                let macro = profile.macros.first(where: { $0.id == macroId }) {
-                Text("Macro: \(macro.name)")
+                Text(chord.hint ?? macro.name)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.purple.opacity(0.9))
+                    .tooltipIfPresent(chord.hint != nil ? macro.name : nil)
             } else {
                 Text(chord.hint ?? chord.actionDisplayString)
                     .font(.system(size: 13, weight: .medium))
