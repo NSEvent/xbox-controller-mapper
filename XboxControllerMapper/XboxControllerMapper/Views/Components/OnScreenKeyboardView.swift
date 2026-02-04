@@ -2,6 +2,52 @@ import SwiftUI
 import AppKit
 import Carbon.HIToolbox
 
+// MARK: - Navigation Highlight Overlay System
+
+/// Preference key for reporting navigable item bounds
+struct NavigationItemBoundsKey: PreferenceKey {
+    static var defaultValue: [KeyboardNavigationItem: Anchor<CGRect>] = [:]
+
+    static func reduce(value: inout [KeyboardNavigationItem: Anchor<CGRect>], nextValue: () -> [KeyboardNavigationItem: Anchor<CGRect>]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
+/// View modifier to report an item's bounds for navigation highlight
+struct NavigationItemBoundsModifier: ViewModifier {
+    let item: KeyboardNavigationItem
+
+    func body(content: Content) -> some View {
+        content.anchorPreference(key: NavigationItemBoundsKey.self, value: .bounds) { anchor in
+            [item: anchor]
+        }
+    }
+}
+
+extension View {
+    func navigationItemBounds(_ item: KeyboardNavigationItem) -> some View {
+        modifier(NavigationItemBoundsModifier(item: item))
+    }
+}
+
+/// Floating overlay that draws the navigation highlight
+struct NavigationHighlightOverlay: View {
+    let highlightedItem: KeyboardNavigationItem?
+    let itemBounds: [KeyboardNavigationItem: Anchor<CGRect>]
+    let geometryProxy: GeometryProxy
+
+    var body: some View {
+        if let item = highlightedItem, let anchor = itemBounds[item] {
+            let rect = geometryProxy[anchor]
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.orange, lineWidth: 3)
+                .frame(width: rect.width + 6, height: rect.height + 6)
+                .position(x: rect.midX, y: rect.midY)
+                .allowsHitTesting(false)
+        }
+    }
+}
+
 /// A clickable on-screen keyboard that sends key presses to the system
 struct OnScreenKeyboardView: View {
     /// Callback to send a key press with modifiers
@@ -71,6 +117,21 @@ struct OnScreenKeyboardView: View {
     private var bottomRowIndex: Int { showExtendedFunctionKeys ? 7 : 6 }
 
     var body: some View {
+        keyboardContent
+            .overlayPreferenceValue(NavigationItemBoundsKey.self) { itemBounds in
+                GeometryReader { geometry in
+                    if keyboardManager.navigationModeActive {
+                        NavigationHighlightOverlay(
+                            highlightedItem: keyboardManager.highlightedItem,
+                            itemBounds: itemBounds,
+                            geometryProxy: geometry
+                        )
+                    }
+                }
+            }
+    }
+
+    private var keyboardContent: some View {
         VStack(spacing: 12) {
             // Website links section (above app bar)
             if !websiteLinks.isEmpty {
@@ -192,10 +253,8 @@ struct OnScreenKeyboardView: View {
     }
 
     private func appBarButton(_ item: AppBarItem) -> some View {
-        // Show D-pad highlight when in navigation mode, mouse hover otherwise
-        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedAppBarItemId == item.id
-        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredAppBarItemId == item.id
-        let isHovered = isMouseHovered || isNavigationHighlighted
+        // Only use mouse hover - navigation highlight is handled by overlay
+        let isHovered = hoveredAppBarItemId == item.id && !keyboardManager.navigationModeActive
         let isPressed = pressedAppBarItemId == item.id
         let iconSize: CGFloat = 56
 
@@ -213,6 +272,7 @@ struct OnScreenKeyboardView: View {
             VStack(spacing: 4) {
                 appIcon(for: item.bundleIdentifier)
                     .resizable()
+                    .navigationItemBounds(.appBarItem(item.id))
                     .aspectRatio(contentMode: .fit)
                     .frame(width: iconSize, height: iconSize)
                     .saturation(isHovered ? 1.0 : 0.8) // Slight desaturation when idle
@@ -265,10 +325,8 @@ struct OnScreenKeyboardView: View {
     }
 
     private func websiteLinkButton(_ link: WebsiteLink) -> some View {
-        // Show D-pad highlight when in navigation mode, mouse hover otherwise
-        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedWebsiteLinkId == link.id
-        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredWebsiteLinkId == link.id
-        let isHovered = isMouseHovered || isNavigationHighlighted
+        // Only use mouse hover - navigation highlight is handled by overlay
+        let isHovered = hoveredWebsiteLinkId == link.id && !keyboardManager.navigationModeActive
         let isPressed = pressedWebsiteLinkId == link.id
         let iconSize: CGFloat = 56
 
@@ -287,6 +345,7 @@ struct OnScreenKeyboardView: View {
                 websiteFavicon(for: link)
                     .frame(width: iconSize, height: iconSize)
                     .saturation(isHovered ? 1.0 : 0.8)
+                    .navigationItemBounds(.websiteLink(link.id))
 
                 Text(link.displayName)
                     .font(.system(size: 10, weight: .medium))
@@ -372,10 +431,8 @@ struct OnScreenKeyboardView: View {
     }
 
     private func quickTextButton(_ quickText: QuickText) -> some View {
-        // Show D-pad highlight when in navigation mode, mouse hover otherwise
-        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedQuickTextId == quickText.id
-        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredQuickTextId == quickText.id
-        let isHovered = isMouseHovered || isNavigationHighlighted
+        // Only use mouse hover - navigation highlight is handled by overlay
+        let isHovered = hoveredQuickTextId == quickText.id && !keyboardManager.navigationModeActive
         let isPressed = pressedQuickTextId == quickText.id
 
         return Button {
@@ -400,6 +457,7 @@ struct OnScreenKeyboardView: View {
             }
             .font(.system(size: 13, weight: .semibold))
             .padding(.horizontal, 14)
+            .navigationItemBounds(.quickText(quickText.id))
             .padding(.vertical, 12)
             .frame(minWidth: 80, maxWidth: 300)
             .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange))
@@ -434,20 +492,20 @@ struct OnScreenKeyboardView: View {
     private var mediaControlsRow: some View {
         HStack(spacing: keySpacing * 6) {
             mediaControlGroup(title: "PLAYBACK", icon: "play.circle.fill") {
-                mediaKey(KeyCodeMapping.mediaPrevious, label: "", symbol: "backward.end.fill")
-                mediaKey(KeyCodeMapping.mediaPlayPause, label: "", symbol: "playpause.fill")
-                mediaKey(KeyCodeMapping.mediaNext, label: "", symbol: "forward.end.fill")
+                mediaKey(KeyCodeMapping.mediaPrevious, label: "", symbol: "backward.end.fill", keyboardRow: mediaRowIndex, column: 0)
+                mediaKey(KeyCodeMapping.mediaPlayPause, label: "", symbol: "playpause.fill", keyboardRow: mediaRowIndex, column: 1)
+                mediaKey(KeyCodeMapping.mediaNext, label: "", symbol: "forward.end.fill", keyboardRow: mediaRowIndex, column: 2)
             }
 
             mediaControlGroup(title: "SOUND", icon: "speaker.wave.2.fill") {
-                mediaKey(KeyCodeMapping.volumeMute, label: "", symbol: "speaker.slash.fill")
-                mediaKey(KeyCodeMapping.volumeDown, label: "", symbol: "speaker.wave.1.fill")
-                mediaKey(KeyCodeMapping.volumeUp, label: "", symbol: "speaker.wave.3.fill")
+                mediaKey(KeyCodeMapping.volumeMute, label: "", symbol: "speaker.slash.fill", keyboardRow: mediaRowIndex, column: 3)
+                mediaKey(KeyCodeMapping.volumeDown, label: "", symbol: "speaker.wave.1.fill", keyboardRow: mediaRowIndex, column: 4)
+                mediaKey(KeyCodeMapping.volumeUp, label: "", symbol: "speaker.wave.3.fill", keyboardRow: mediaRowIndex, column: 5)
             }
 
             mediaControlGroup(title: "DISPLAY", icon: "sun.max.fill") {
-                mediaKey(KeyCodeMapping.brightnessDown, label: "", symbol: "sun.min.fill")
-                mediaKey(KeyCodeMapping.brightnessUp, label: "", symbol: "sun.max.fill")
+                mediaKey(KeyCodeMapping.brightnessDown, label: "", symbol: "sun.min.fill", keyboardRow: mediaRowIndex, column: 6)
+                mediaKey(KeyCodeMapping.brightnessUp, label: "", symbol: "sun.max.fill", keyboardRow: mediaRowIndex, column: 7)
             }
         }
         .padding(.vertical, 4)
@@ -470,11 +528,9 @@ struct OnScreenKeyboardView: View {
         }
     }
 
-    private func mediaKey(_ keyCode: CGKeyCode, label: String, symbol: String) -> some View {
-        // Show D-pad highlight when in navigation mode, mouse hover otherwise
-        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedKeyCode == keyCode
-        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredKey == keyCode
-        let isHovered = isMouseHovered || isNavigationHighlighted
+    private func mediaKey(_ keyCode: CGKeyCode, label: String, symbol: String, keyboardRow: Int, column: Int) -> some View {
+        // Only use mouse hover for visual feedback - navigation highlight is handled by overlay
+        let isHovered = hoveredKey == keyCode && !keyboardManager.navigationModeActive
         let isPressed = pressedKey == keyCode
 
         return Button {
@@ -500,10 +556,11 @@ struct OnScreenKeyboardView: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovered)
         }
         .buttonStyle(.plain)
+        .navigationItemBounds(.keyPosition(row: keyboardRow, column: column))
         .onHover { hovering in
             hoveredKey = hovering ? keyCode : nil
             if hovering {
-                keyboardManager.setMouseHoveredKey(keyCode)
+                keyboardManager.setMouseHoveredKeyPosition(row: keyboardRow, column: column)
             }
         }
     }
@@ -669,13 +726,11 @@ struct OnScreenKeyboardView: View {
     // MARK: - Key Button
 
     @ViewBuilder
-    private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat? = nil, height: CGFloat? = nil, isSpecial: Bool = false) -> some View {
+    private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat? = nil, height: CGFloat? = nil, isSpecial: Bool = false, keyboardRow: Int? = nil, column: Int? = nil) -> some View {
         let actualWidth = width ?? keyWidth
         let actualHeight = height ?? keyHeight
-        // Show D-pad highlight when in navigation mode, mouse hover otherwise
-        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedKeyCode == keyCode
-        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredKey == keyCode
-        let isHovered = isMouseHovered || isNavigationHighlighted
+        // Only use mouse hover - navigation highlight is handled by overlay
+        let isHovered = hoveredKey == keyCode && !keyboardManager.navigationModeActive
         let isPressed = pressedKey == keyCode
         let secondary = secondaryKeys[label]
         let isShiftActive = activeModifiers.shift
@@ -738,13 +793,8 @@ struct OnScreenKeyboardView: View {
     private func modifierKey(label: String, width: CGFloat, modifier: WritableKeyPath<ModifierFlags, Bool>, keyboardRow: Int? = nil, column: Int? = nil) -> some View {
         let isActive = activeModifiers[keyPath: modifier]
         let modKeyCode = modifierKeyCode(for: modifier)
-        // Show D-pad highlight when in navigation mode, mouse hover otherwise
-        // Use position-based highlighting for duplicate keys (like left/right shift)
-        let isNavigationHighlighted = keyboardManager.navigationModeActive && ((keyboardRow != nil && column != nil)
-            ? keyboardManager.isKeyboardPositionHighlighted(keyboardRow: keyboardRow!, column: column!)
-            : keyboardManager.highlightedKeyCode == modKeyCode)
-        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredKey == modKeyCode
-        let isHovered = isMouseHovered || isNavigationHighlighted
+        // Only use mouse hover - navigation highlight is handled by overlay
+        let isHovered = hoveredKey == modKeyCode && !keyboardManager.navigationModeActive
 
         Button {
             // Exit navigation mode when mouse clicks
@@ -788,10 +838,8 @@ struct OnScreenKeyboardView: View {
     @ViewBuilder
     private func capsLockKey(width: CGFloat) -> some View {
         let keyCode = CGKeyCode(kVK_CapsLock)
-        // Show D-pad highlight when in navigation mode, mouse hover otherwise
-        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedKeyCode == keyCode
-        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredKey == keyCode
-        let isHovered = isMouseHovered || isNavigationHighlighted
+        // Only use mouse hover - navigation highlight is handled by overlay
+        let isHovered = hoveredKey == keyCode && !keyboardManager.navigationModeActive
 
         Button {
             // Exit navigation mode when mouse clicks

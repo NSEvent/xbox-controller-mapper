@@ -3,7 +3,7 @@ import AppKit
 import Combine
 
 /// Represents a highlighted item in the on-screen keyboard navigation
-enum KeyboardNavigationItem: Equatable {
+enum KeyboardNavigationItem: Hashable {
     /// Keyboard key identified by row and column (not key code, to handle duplicates like left/right shift)
     case keyPosition(row: Int, column: Int)
     case appBarItem(UUID)
