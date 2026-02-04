@@ -22,6 +22,9 @@ class OnScreenKeyboardManager: ObservableObject {
     @Published var navigationModeActive = false
     @Published var highlightedItem: KeyboardNavigationItem?
 
+    /// Last item hovered by mouse - used as starting position when entering D-pad navigation
+    var lastMouseHoveredItem: KeyboardNavigationItem?
+
     /// Convenience accessor for highlighted key code (looks up from position)
     var highlightedKeyCode: CGKeyCode? {
         if case .keyPosition(let row, let column) = highlightedItem {
@@ -85,8 +88,52 @@ class OnScreenKeyboardManager: ObservableObject {
         return row == keyboardRow && col == column
     }
 
+    // MARK: - Mouse Hover Tracking
+
+    /// Set the last mouse-hovered keyboard key by position
+    func setMouseHoveredKeyPosition(row: Int, column: Int) {
+        lastMouseHoveredItem = .keyPosition(row: row, column: column)
+    }
+
+    /// Set the last mouse-hovered keyboard key by key code (finds position in navigation map)
+    func setMouseHoveredKey(_ keyCode: CGKeyCode?) {
+        guard let keyCode = keyCode else {
+            // Don't clear - keep last position for D-pad to start from
+            return
+        }
+        // Find the position of this key code in the keyboard rows
+        let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+        for (rowIndex, row) in keyboardRows.enumerated() {
+            for (colIndex, position) in row.enumerated() {
+                if position.keyCode == keyCode {
+                    lastMouseHoveredItem = .keyPosition(row: rowIndex, column: colIndex)
+                    return
+                }
+            }
+        }
+    }
+
+    /// Set the last mouse-hovered app bar item
+    func setMouseHoveredAppBarItem(_ id: UUID?) {
+        guard let id = id else { return }
+        lastMouseHoveredItem = .appBarItem(id)
+    }
+
+    /// Set the last mouse-hovered website link
+    func setMouseHoveredWebsiteLink(_ id: UUID?) {
+        guard let id = id else { return }
+        lastMouseHoveredItem = .websiteLink(id)
+    }
+
+    /// Set the last mouse-hovered quick text
+    func setMouseHoveredQuickText(_ id: UUID?) {
+        guard let id = id else { return }
+        lastMouseHoveredItem = .quickText(id)
+    }
+
     private var cursorHidden = false
     private var mouseMovementMonitor: Any?
+    private var localMouseMovementMonitor: Any?
 
     // MARK: - Thread-Safe State Accessors
     /// Lock for thread-safe access to state from non-main threads
@@ -436,9 +483,13 @@ class OnScreenKeyboardManager: ObservableObject {
         navigationModeActive = true
         updateThreadSafeState()
 
-        // Set initial highlighted item if none
+        // Set initial highlighted item - use last mouse hovered position if available
         if highlightedItem == nil {
-            highlightedItem = getDefaultItem()
+            if let lastHovered = lastMouseHoveredItem {
+                highlightedItem = lastHovered
+            } else {
+                highlightedItem = getDefaultItem()
+            }
         }
 
         // Hide cursor
@@ -561,8 +612,10 @@ class OnScreenKeyboardManager: ObservableObject {
         if let (row, col) = findCurrentPosition(in: grid) {
             if row > 0 {
                 let targetRow = grid[row - 1]
+                let currentRow = grid[row]
+
                 // Check if current item is in navigation column (column >= 100)
-                if case .keyPosition(_, let keyCol) = grid[row][col], keyCol >= 100 {
+                if case .keyPosition(_, let keyCol) = currentRow[col], keyCol >= 100 {
                     // Stay in navigation column - find nav item in target row
                     if let navItem = targetRow.first(where: {
                         if case .keyPosition(_, let c) = $0 { return c >= 100 }
@@ -572,16 +625,18 @@ class OnScreenKeyboardManager: ObservableObject {
                         return
                     }
                 }
+
                 // For keyboard rows, use xPosition-based matching
                 if row >= keyboardStartRow && row - 1 >= keyboardStartRow {
-                    if let closestItem = findClosestKeyByXPosition(in: targetRow, currentItem: grid[row][col]) {
+                    if let closestItem = findClosestKeyByXPosition(in: targetRow, currentItem: currentRow[col]) {
                         highlightedItem = closestItem
                         return
                     }
                 }
-                // Fallback: find closest column by index
-                let targetCol = min(col, targetRow.count - 1)
-                highlightedItem = targetRow[targetCol]
+
+                // For all rows, use proportional position matching
+                let closestCol = findClosestColumnByProportion(currentCol: col, currentRowCount: currentRow.count, targetRowCount: targetRow.count)
+                highlightedItem = targetRow[closestCol]
             }
         } else {
             highlightedItem = getDefaultItem()
@@ -595,8 +650,10 @@ class OnScreenKeyboardManager: ObservableObject {
         if let (row, col) = findCurrentPosition(in: grid) {
             if row < grid.count - 1 {
                 let targetRow = grid[row + 1]
+                let currentRow = grid[row]
+
                 // Check if current item is in navigation column (column >= 100)
-                if case .keyPosition(_, let keyCol) = grid[row][col], keyCol >= 100 {
+                if case .keyPosition(_, let keyCol) = currentRow[col], keyCol >= 100 {
                     // Stay in navigation column - find nav item in target row
                     if let navItem = targetRow.first(where: {
                         if case .keyPosition(_, let c) = $0 { return c >= 100 }
@@ -606,20 +663,34 @@ class OnScreenKeyboardManager: ObservableObject {
                         return
                     }
                 }
+
                 // For keyboard rows, use xPosition-based matching
                 if row >= keyboardStartRow && row + 1 >= keyboardStartRow {
-                    if let closestItem = findClosestKeyByXPosition(in: targetRow, currentItem: grid[row][col]) {
+                    if let closestItem = findClosestKeyByXPosition(in: targetRow, currentItem: currentRow[col]) {
                         highlightedItem = closestItem
                         return
                     }
                 }
-                // Fallback: find closest column by index
-                let targetCol = min(col, targetRow.count - 1)
-                highlightedItem = targetRow[targetCol]
+
+                // For all rows, use proportional position matching
+                let closestCol = findClosestColumnByProportion(currentCol: col, currentRowCount: currentRow.count, targetRowCount: targetRow.count)
+                highlightedItem = targetRow[closestCol]
             }
         } else {
             highlightedItem = getDefaultItem()
         }
+    }
+
+    /// Find the closest column in target row based on proportional position
+    private func findClosestColumnByProportion(currentCol: Int, currentRowCount: Int, targetRowCount: Int) -> Int {
+        guard currentRowCount > 0 && targetRowCount > 0 else { return 0 }
+
+        // Calculate proportional position (0.0 to 1.0)
+        let proportion = Double(currentCol) / Double(max(1, currentRowCount - 1))
+
+        // Map to target row
+        let targetCol = Int(round(proportion * Double(max(1, targetRowCount - 1))))
+        return min(targetCol, targetRowCount - 1)
     }
 
     /// Find the closest keyboard key in the target row by xPosition
@@ -705,14 +776,22 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func startMouseMovementMonitor() {
-        // Remove existing monitor if any
+        // Remove existing monitors if any
         stopMouseMovementMonitor()
 
-        // Monitor for mouse movement (both local and global)
+        // Global monitor for mouse movement outside the app
         mouseMovementMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]) { [weak self] _ in
             DispatchQueue.main.async {
                 self?.exitNavigationMode()
             }
+        }
+
+        // Local monitor for mouse movement inside the app (over the keyboard panel)
+        localMouseMovementMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]) { [weak self] event in
+            DispatchQueue.main.async {
+                self?.exitNavigationMode()
+            }
+            return event
         }
     }
 
@@ -720,6 +799,10 @@ class OnScreenKeyboardManager: ObservableObject {
         if let monitor = mouseMovementMonitor {
             NSEvent.removeMonitor(monitor)
             mouseMovementMonitor = nil
+        }
+        if let monitor = localMouseMovementMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMouseMovementMonitor = nil
         }
     }
 

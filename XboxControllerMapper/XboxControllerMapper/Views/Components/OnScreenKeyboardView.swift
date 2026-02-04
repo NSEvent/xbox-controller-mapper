@@ -192,14 +192,16 @@ struct OnScreenKeyboardView: View {
     }
 
     private func appBarButton(_ item: AppBarItem) -> some View {
-        // Combine mouse hover and D-pad navigation highlight
-        let isNavigationHighlighted = keyboardManager.highlightedAppBarItemId == item.id
-        let isMouseHovered = hoveredAppBarItemId == item.id
+        // Show D-pad highlight when in navigation mode, mouse hover otherwise
+        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedAppBarItemId == item.id
+        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredAppBarItemId == item.id
         let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedAppBarItemId == item.id
         let iconSize: CGFloat = 56
 
         return Button {
+            // Exit navigation mode when mouse clicks
+            keyboardManager.exitNavigationMode()
             pressedAppBarItemId = item.id
             onAppActivate?(item.bundleIdentifier)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -232,6 +234,9 @@ struct OnScreenKeyboardView: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             hoveredAppBarItemId = hovering ? item.id : nil
+            if hovering {
+                keyboardManager.setMouseHoveredAppBarItem(item.id)
+            }
         }
     }
 
@@ -260,14 +265,16 @@ struct OnScreenKeyboardView: View {
     }
 
     private func websiteLinkButton(_ link: WebsiteLink) -> some View {
-        // Combine mouse hover and D-pad navigation highlight
-        let isNavigationHighlighted = keyboardManager.highlightedWebsiteLinkId == link.id
-        let isMouseHovered = hoveredWebsiteLinkId == link.id
+        // Show D-pad highlight when in navigation mode, mouse hover otherwise
+        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedWebsiteLinkId == link.id
+        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredWebsiteLinkId == link.id
         let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedWebsiteLinkId == link.id
         let iconSize: CGFloat = 56
 
         return Button {
+            // Exit navigation mode when mouse clicks
+            keyboardManager.exitNavigationMode()
             pressedWebsiteLinkId = link.id
             onWebsiteLinkOpen?(link.url)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -298,6 +305,9 @@ struct OnScreenKeyboardView: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             hoveredWebsiteLinkId = hovering ? link.id : nil
+            if hovering {
+                keyboardManager.setMouseHoveredWebsiteLink(link.id)
+            }
         }
     }
 
@@ -362,13 +372,15 @@ struct OnScreenKeyboardView: View {
     }
 
     private func quickTextButton(_ quickText: QuickText) -> some View {
-        // Combine mouse hover and D-pad navigation highlight
-        let isNavigationHighlighted = keyboardManager.highlightedQuickTextId == quickText.id
-        let isMouseHovered = hoveredQuickTextId == quickText.id
+        // Show D-pad highlight when in navigation mode, mouse hover otherwise
+        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedQuickTextId == quickText.id
+        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredQuickTextId == quickText.id
         let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedQuickTextId == quickText.id
 
         return Button {
+            // Exit navigation mode when mouse clicks
+            keyboardManager.exitNavigationMode()
             pressedQuickTextId = quickText.id
             onQuickText?(quickText)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -400,6 +412,9 @@ struct OnScreenKeyboardView: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             hoveredQuickTextId = hovering ? quickText.id : nil
+            if hovering {
+                keyboardManager.setMouseHoveredQuickText(quickText.id)
+            }
         }
     }
 
@@ -456,13 +471,15 @@ struct OnScreenKeyboardView: View {
     }
 
     private func mediaKey(_ keyCode: CGKeyCode, label: String, symbol: String) -> some View {
-        // Combine mouse hover and D-pad navigation highlight
-        let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
-        let isMouseHovered = hoveredKey == keyCode
+        // Show D-pad highlight when in navigation mode, mouse hover otherwise
+        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedKeyCode == keyCode
+        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredKey == keyCode
         let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedKey == keyCode
 
         return Button {
+            // Exit navigation mode when mouse clicks
+            keyboardManager.exitNavigationMode()
             pressedKey = keyCode
             onKeyPress(keyCode, activeModifiers)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -485,6 +502,9 @@ struct OnScreenKeyboardView: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             hoveredKey = hovering ? keyCode : nil
+            if hovering {
+                keyboardManager.setMouseHoveredKey(keyCode)
+            }
         }
     }
 
@@ -652,9 +672,9 @@ struct OnScreenKeyboardView: View {
     private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat? = nil, height: CGFloat? = nil, isSpecial: Bool = false) -> some View {
         let actualWidth = width ?? keyWidth
         let actualHeight = height ?? keyHeight
-        // Combine mouse hover and D-pad navigation highlight
-        let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
-        let isMouseHovered = hoveredKey == keyCode
+        // Show D-pad highlight when in navigation mode, mouse hover otherwise
+        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedKeyCode == keyCode
+        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredKey == keyCode
         let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedKey == keyCode
         let secondary = secondaryKeys[label]
@@ -664,6 +684,8 @@ struct OnScreenKeyboardView: View {
         let isSingleLetter = label.count == 1 && label.first?.isLetter == true
 
         Button {
+            // Exit navigation mode when mouse clicks
+            keyboardManager.exitNavigationMode()
             pressedKey = keyCode
             var modifiersToSend = activeModifiers
             if isCapsLockActive && isSingleLetter {
@@ -704,6 +726,9 @@ struct OnScreenKeyboardView: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             hoveredKey = hovering ? keyCode : nil
+            if hovering {
+                keyboardManager.setMouseHoveredKey(keyCode)
+            }
         }
     }
 
@@ -713,15 +738,17 @@ struct OnScreenKeyboardView: View {
     private func modifierKey(label: String, width: CGFloat, modifier: WritableKeyPath<ModifierFlags, Bool>, keyboardRow: Int? = nil, column: Int? = nil) -> some View {
         let isActive = activeModifiers[keyPath: modifier]
         let modKeyCode = modifierKeyCode(for: modifier)
-        // Combine mouse hover and D-pad navigation highlight
+        // Show D-pad highlight when in navigation mode, mouse hover otherwise
         // Use position-based highlighting for duplicate keys (like left/right shift)
-        let isNavigationHighlighted = (keyboardRow != nil && column != nil)
+        let isNavigationHighlighted = keyboardManager.navigationModeActive && ((keyboardRow != nil && column != nil)
             ? keyboardManager.isKeyboardPositionHighlighted(keyboardRow: keyboardRow!, column: column!)
-            : keyboardManager.highlightedKeyCode == modKeyCode
-        let isMouseHovered = hoveredKey == modKeyCode
+            : keyboardManager.highlightedKeyCode == modKeyCode)
+        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredKey == modKeyCode
         let isHovered = isMouseHovered || isNavigationHighlighted
 
         Button {
+            // Exit navigation mode when mouse clicks
+            keyboardManager.exitNavigationMode()
             activeModifiers[keyPath: modifier].toggle()
         } label: {
             Text(label)
@@ -736,6 +763,13 @@ struct OnScreenKeyboardView: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             hoveredKey = hovering ? modifierKeyCode(for: modifier) : nil
+            if hovering {
+                if let row = keyboardRow, let col = column {
+                    keyboardManager.setMouseHoveredKeyPosition(row: row, column: col)
+                } else {
+                    keyboardManager.setMouseHoveredKey(modKeyCode)
+                }
+            }
         }
     }
 
@@ -754,12 +788,14 @@ struct OnScreenKeyboardView: View {
     @ViewBuilder
     private func capsLockKey(width: CGFloat) -> some View {
         let keyCode = CGKeyCode(kVK_CapsLock)
-        // Combine mouse hover and D-pad navigation highlight
-        let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
-        let isMouseHovered = hoveredKey == keyCode
+        // Show D-pad highlight when in navigation mode, mouse hover otherwise
+        let isNavigationHighlighted = keyboardManager.navigationModeActive && keyboardManager.highlightedKeyCode == keyCode
+        let isMouseHovered = !keyboardManager.navigationModeActive && hoveredKey == keyCode
         let isHovered = isMouseHovered || isNavigationHighlighted
 
         Button {
+            // Exit navigation mode when mouse clicks
+            keyboardManager.exitNavigationMode()
             isCapsLockActive.toggle()
         } label: {
             HStack(spacing: 4) {
@@ -782,6 +818,9 @@ struct OnScreenKeyboardView: View {
         .buttonStyle(.plain)
         .onHover { hovering in
             hoveredKey = hovering ? keyCode : nil
+            if hovering {
+                keyboardManager.setMouseHoveredKey(keyCode)
+            }
         }
     }
 
