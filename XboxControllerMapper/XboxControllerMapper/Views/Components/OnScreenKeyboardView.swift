@@ -59,6 +59,17 @@ struct OnScreenKeyboardView: View {
         quickTexts.filter { $0.isTerminalCommand }
     }
 
+    // MARK: - Keyboard Row Indices (for position-based navigation)
+    // These correspond to KeyboardNavigationMap.allRows() indices
+    private var mediaRowIndex: Int { 0 }
+    private var extendedFKeyRowIndex: Int { showExtendedFunctionKeys ? 1 : -1 }
+    private var functionKeyRowIndex: Int { showExtendedFunctionKeys ? 2 : 1 }
+    private var numberRowIndex: Int { showExtendedFunctionKeys ? 3 : 2 }
+    private var qwertyRowIndex: Int { showExtendedFunctionKeys ? 4 : 3 }
+    private var asdfRowIndex: Int { showExtendedFunctionKeys ? 5 : 4 }
+    private var zxcvRowIndex: Int { showExtendedFunctionKeys ? 6 : 5 }
+    private var bottomRowIndex: Int { showExtendedFunctionKeys ? 7 : 6 }
+
     var body: some View {
         VStack(spacing: 12) {
             // Website links section (above app bar)
@@ -181,7 +192,10 @@ struct OnScreenKeyboardView: View {
     }
 
     private func appBarButton(_ item: AppBarItem) -> some View {
-        let isHovered = hoveredAppBarItemId == item.id
+        // Combine mouse hover and D-pad navigation highlight
+        let isNavigationHighlighted = keyboardManager.highlightedAppBarItemId == item.id
+        let isMouseHovered = hoveredAppBarItemId == item.id
+        let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedAppBarItemId == item.id
         let iconSize: CGFloat = 56
 
@@ -209,7 +223,7 @@ struct OnScreenKeyboardView: View {
                     .foregroundColor(isHovered ? .white : .secondary)
             }
             .padding(8)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange, cornerRadius: 12))
             .cornerRadius(12)
             .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
@@ -246,7 +260,10 @@ struct OnScreenKeyboardView: View {
     }
 
     private func websiteLinkButton(_ link: WebsiteLink) -> some View {
-        let isHovered = hoveredWebsiteLinkId == link.id
+        // Combine mouse hover and D-pad navigation highlight
+        let isNavigationHighlighted = keyboardManager.highlightedWebsiteLinkId == link.id
+        let isMouseHovered = hoveredWebsiteLinkId == link.id
+        let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedWebsiteLinkId == link.id
         let iconSize: CGFloat = 56
 
@@ -272,7 +289,7 @@ struct OnScreenKeyboardView: View {
                     .foregroundColor(isHovered ? .white : .secondary)
             }
             .padding(8)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange, cornerRadius: 12))
             .cornerRadius(12)
             .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
@@ -345,7 +362,10 @@ struct OnScreenKeyboardView: View {
     }
 
     private func quickTextButton(_ quickText: QuickText) -> some View {
-        let isHovered = hoveredQuickTextId == quickText.id
+        // Combine mouse hover and D-pad navigation highlight
+        let isNavigationHighlighted = keyboardManager.highlightedQuickTextId == quickText.id
+        let isMouseHovered = hoveredQuickTextId == quickText.id
+        let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedQuickTextId == quickText.id
 
         return Button {
@@ -370,7 +390,7 @@ struct OnScreenKeyboardView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .frame(minWidth: 80, maxWidth: 300)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: quickText.isTerminalCommand ? .orange : nil))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange))
             .foregroundColor(isPressed ? .white : (isHovered ? .white : .primary))
             .cornerRadius(8)
             .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.02 : 1.0))
@@ -438,7 +458,8 @@ struct OnScreenKeyboardView: View {
     private func mediaKey(_ keyCode: CGKeyCode, label: String, symbol: String) -> some View {
         // Combine mouse hover and D-pad navigation highlight
         let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
-        let isHovered = hoveredKey == keyCode || isNavigationHighlighted
+        let isMouseHovered = hoveredKey == keyCode
+        let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedKey == keyCode
 
         return Button {
@@ -455,7 +476,7 @@ struct OnScreenKeyboardView: View {
                     .font(.system(size: 16))
             }
             .frame(width: 50, height: 40)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange))
             .foregroundColor(isPressed ? .white : .primary)
             .cornerRadius(8)
             .scaleEffect(isPressed ? 0.9 : (isHovered ? 1.1 : 1.0))
@@ -508,12 +529,18 @@ struct OnScreenKeyboardView: View {
 
     // MARK: - Number Row
 
+    // Carbon key codes for number keys (NOT sequential!)
+    private let numberKeyCodes: [Int] = [
+        kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5,
+        kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9, kVK_ANSI_0
+    ]
+
     private var numberRow: some View {
         HStack(spacing: keySpacing) {
             clickableKey(CGKeyCode(kVK_ANSI_Grave), label: "`")
 
             ForEach(0..<10, id: \.self) { i in
-                let keyCode = CGKeyCode(i == 9 ? kVK_ANSI_0 : kVK_ANSI_1 + i)
+                let keyCode = CGKeyCode(numberKeyCodes[i])
                 let displayNum = i == 9 ? "0" : "\(i + 1)"
                 clickableKey(keyCode, label: displayNum)
             }
@@ -566,7 +593,7 @@ struct OnScreenKeyboardView: View {
 
     private var zxcvRow: some View {
         HStack(spacing: keySpacing) {
-            modifierKey(label: "⇧ Shift", width: 140, modifier: \.shift)
+            modifierKey(label: "⇧ Shift", width: 140, modifier: \.shift, keyboardRow: zxcvRowIndex, column: 0)
 
             let zxcvKeys = ["Z", "X", "C", "V", "B", "N", "M"]
             let zxcvCodes: [Int] = [kVK_ANSI_Z, kVK_ANSI_X, kVK_ANSI_C, kVK_ANSI_V, kVK_ANSI_B, kVK_ANSI_N, kVK_ANSI_M]
@@ -578,7 +605,7 @@ struct OnScreenKeyboardView: View {
             clickableKey(CGKeyCode(kVK_ANSI_Comma), label: ",")
             clickableKey(CGKeyCode(kVK_ANSI_Period), label: ".")
             clickableKey(CGKeyCode(kVK_ANSI_Slash), label: "/")
-            modifierKey(label: "⇧ Shift", width: 140, modifier: \.shift)
+            modifierKey(label: "⇧ Shift", width: 140, modifier: \.shift, keyboardRow: zxcvRowIndex, column: 11)
         }
     }
 
@@ -586,14 +613,14 @@ struct OnScreenKeyboardView: View {
 
     private var bottomRow: some View {
         HStack(spacing: keySpacing) {
-            modifierKey(label: "⌃", width: 78, modifier: \.control)
-            modifierKey(label: "⌥", width: 78, modifier: \.option)
-            modifierKey(label: "⌘", width: 93, modifier: \.command)
+            modifierKey(label: "⌃", width: 78, modifier: \.control, keyboardRow: bottomRowIndex, column: 0)
+            modifierKey(label: "⌥", width: 78, modifier: \.option, keyboardRow: bottomRowIndex, column: 1)
+            modifierKey(label: "⌘", width: 93, modifier: \.command, keyboardRow: bottomRowIndex, column: 2)
 
             clickableKey(CGKeyCode(kVK_Space), label: "", width: 369) // Spacebar
 
-            modifierKey(label: "⌘", width: 93, modifier: \.command)
-            modifierKey(label: "⌥", width: 78, modifier: \.option)
+            modifierKey(label: "⌘", width: 93, modifier: \.command, keyboardRow: bottomRowIndex, column: 4)
+            modifierKey(label: "⌥", width: 78, modifier: \.option, keyboardRow: bottomRowIndex, column: 5)
 
             // Arrow keys cluster
             VStack(spacing: 4) {
@@ -627,7 +654,8 @@ struct OnScreenKeyboardView: View {
         let actualHeight = height ?? keyHeight
         // Combine mouse hover and D-pad navigation highlight
         let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
-        let isHovered = hoveredKey == keyCode || isNavigationHighlighted
+        let isMouseHovered = hoveredKey == keyCode
+        let isHovered = isMouseHovered || isNavigationHighlighted
         let isPressed = pressedKey == keyCode
         let secondary = secondaryKeys[label]
         let isShiftActive = activeModifiers.shift
@@ -668,7 +696,7 @@ struct OnScreenKeyboardView: View {
                 }
             }
             .frame(width: actualWidth, height: actualHeight)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, isSpecial: isSpecial))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, isSpecial: isSpecial, specialColor: .orange))
             .cornerRadius(8)
             .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
@@ -682,12 +710,16 @@ struct OnScreenKeyboardView: View {
     // MARK: - Modifier Key
 
     @ViewBuilder
-    private func modifierKey(label: String, width: CGFloat, modifier: WritableKeyPath<ModifierFlags, Bool>) -> some View {
+    private func modifierKey(label: String, width: CGFloat, modifier: WritableKeyPath<ModifierFlags, Bool>, keyboardRow: Int? = nil, column: Int? = nil) -> some View {
         let isActive = activeModifiers[keyPath: modifier]
         let modKeyCode = modifierKeyCode(for: modifier)
         // Combine mouse hover and D-pad navigation highlight
-        let isNavigationHighlighted = keyboardManager.highlightedKeyCode == modKeyCode
-        let isHovered = hoveredKey == modKeyCode || isNavigationHighlighted
+        // Use position-based highlighting for duplicate keys (like left/right shift)
+        let isNavigationHighlighted = (keyboardRow != nil && column != nil)
+            ? keyboardManager.isKeyboardPositionHighlighted(keyboardRow: keyboardRow!, column: column!)
+            : keyboardManager.highlightedKeyCode == modKeyCode
+        let isMouseHovered = hoveredKey == modKeyCode
+        let isHovered = isMouseHovered || isNavigationHighlighted
 
         Button {
             activeModifiers[keyPath: modifier].toggle()
@@ -695,7 +727,7 @@ struct OnScreenKeyboardView: View {
             Text(label)
                 .font(.system(size: fontSize(for: label), weight: .bold))
                 .frame(width: width, height: keyHeight)
-                .background(GlassKeyBackground(isHovered: isHovered, isPressed: isActive, isSpecial: true))
+                .background(GlassKeyBackground(isHovered: isHovered, isPressed: isActive, isSpecial: true, specialColor: .orange))
                 .foregroundColor(isActive ? .white : (isHovered ? .white : .accentColor))
                 .cornerRadius(8)
                 .scaleEffect(isActive ? 0.95 : (isHovered ? 1.05 : 1.0))
@@ -724,7 +756,8 @@ struct OnScreenKeyboardView: View {
         let keyCode = CGKeyCode(kVK_CapsLock)
         // Combine mouse hover and D-pad navigation highlight
         let isNavigationHighlighted = keyboardManager.highlightedKeyCode == keyCode
-        let isHovered = hoveredKey == keyCode || isNavigationHighlighted
+        let isMouseHovered = hoveredKey == keyCode
+        let isHovered = isMouseHovered || isNavigationHighlighted
 
         Button {
             isCapsLockActive.toggle()
@@ -740,7 +773,7 @@ struct OnScreenKeyboardView: View {
             }
             .font(.system(size: 14, weight: .bold))
             .frame(width: width, height: keyHeight)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isCapsLockActive, isSpecial: true))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isCapsLockActive, isSpecial: true, specialColor: .orange))
             .foregroundColor(isCapsLockActive ? .white : (isHovered ? .white : .accentColor))
             .cornerRadius(8)
             .scaleEffect(isCapsLockActive ? 0.95 : (isHovered ? 1.05 : 1.0))
@@ -769,6 +802,7 @@ struct GlassKeyBackground: View {
     var isPressed: Bool
     var isSpecial: Bool = false
     var specialColor: Color? = nil
+    var cornerRadius: CGFloat = 8
 
     var body: some View {
         ZStack {
@@ -782,7 +816,7 @@ struct GlassKeyBackground: View {
             }
 
             // Highlight border (glows on hover)
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: cornerRadius)
                 .stroke(borderColor, lineWidth: isHovered || isPressed ? 1.5 : 0.5)
                 .shadow(color: borderColor.opacity(isHovered ? 0.8 : 0.0), radius: isHovered ? 8 : 0)
         }

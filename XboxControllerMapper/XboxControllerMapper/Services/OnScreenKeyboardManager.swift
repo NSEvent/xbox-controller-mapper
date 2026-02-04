@@ -2,6 +2,15 @@ import SwiftUI
 import AppKit
 import Combine
 
+/// Represents a highlighted item in the on-screen keyboard navigation
+enum KeyboardNavigationItem: Equatable {
+    /// Keyboard key identified by row and column (not key code, to handle duplicates like left/right shift)
+    case keyPosition(row: Int, column: Int)
+    case appBarItem(UUID)
+    case websiteLink(UUID)
+    case quickText(UUID)
+}
+
 /// Manages the floating on-screen keyboard window
 @MainActor
 class OnScreenKeyboardManager: ObservableObject {
@@ -11,7 +20,71 @@ class OnScreenKeyboardManager: ObservableObject {
 
     // MARK: - D-Pad Navigation State
     @Published var navigationModeActive = false
-    @Published var highlightedKeyCode: CGKeyCode?
+    @Published var highlightedItem: KeyboardNavigationItem?
+
+    /// Convenience accessor for highlighted key code (looks up from position)
+    var highlightedKeyCode: CGKeyCode? {
+        if case .keyPosition(let row, let column) = highlightedItem {
+            // Check if this is a navigation column key (column >= 100)
+            if column >= 100 {
+                let navIndex = column - 100
+                let navColumn = KeyboardNavigationMap.navigationColumn
+                if navIndex >= 0 && navIndex < navColumn.count {
+                    return navColumn[navIndex].keyCode
+                }
+                return nil
+            }
+
+            let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+            if row >= 0 && row < keyboardRows.count {
+                let keyRow = keyboardRows[row]
+                if column >= 0 && column < keyRow.count {
+                    return keyRow[column].keyCode
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Get the highlighted keyboard position (row, column) if a keyboard key is highlighted
+    var highlightedKeyPosition: (row: Int, column: Int)? {
+        if case .keyPosition(let row, let column) = highlightedItem {
+            return (row, column)
+        }
+        return nil
+    }
+
+    /// Convenience accessor for highlighted app bar item ID
+    var highlightedAppBarItemId: UUID? {
+        if case .appBarItem(let id) = highlightedItem {
+            return id
+        }
+        return nil
+    }
+
+    /// Convenience accessor for highlighted website link ID
+    var highlightedWebsiteLinkId: UUID? {
+        if case .websiteLink(let id) = highlightedItem {
+            return id
+        }
+        return nil
+    }
+
+    /// Convenience accessor for highlighted quick text ID
+    var highlightedQuickTextId: UUID? {
+        if case .quickText(let id) = highlightedItem {
+            return id
+        }
+        return nil
+    }
+
+    /// Check if a specific keyboard row/column position is highlighted
+    /// Used by the view for keys with duplicate key codes (e.g., left/right shift)
+    func isKeyboardPositionHighlighted(keyboardRow: Int, column: Int) -> Bool {
+        guard case .keyPosition(let row, let col) = highlightedItem else { return false }
+        return row == keyboardRow && col == column
+    }
+
     private var cursorHidden = false
     private var mouseMovementMonitor: Any?
 
@@ -279,6 +352,9 @@ class OnScreenKeyboardManager: ObservableObject {
 
     // MARK: - D-Pad Navigation
 
+    /// Number of items per row in app bar and website sections
+    private let itemsPerRow = 12
+
     /// Handle D-pad navigation input
     func handleDPadNavigation(_ direction: ControllerButton) {
         // Enter navigation mode if not already active
@@ -286,39 +362,72 @@ class OnScreenKeyboardManager: ObservableObject {
             enterNavigationMode()
         }
 
-        // Map controller button to navigation direction
-        let navDirection: KeyboardNavigationMap.NavigationDirection
+        let previousItem = highlightedItem
+
+        // Navigate based on current item type and direction
         switch direction {
-        case .dpadUp: navDirection = .up
-        case .dpadDown: navDirection = .down
-        case .dpadLeft: navDirection = .left
-        case .dpadRight: navDirection = .right
-        default: return
+        case .dpadUp:
+            navigateUp()
+        case .dpadDown:
+            navigateDown()
+        case .dpadLeft:
+            navigateLeft()
+        case .dpadRight:
+            navigateRight()
+        default:
+            return
         }
 
-        let previousKeyCode = highlightedKeyCode
-
-        // Navigate to new key
-        let newKeyCode = KeyboardNavigationMap.navigate(
-            from: highlightedKeyCode,
-            direction: navDirection,
-            includeExtendedFunctions: showExtendedFunctionKeys
-        )
-        highlightedKeyCode = newKeyCode
-
-        // Play haptic feedback if key changed
-        if newKeyCode != previousKeyCode {
+        // Play haptic feedback if item changed
+        if highlightedItem != previousItem {
             hapticHandler?()
         }
     }
 
-    /// Activate the currently highlighted key
-    func activateHighlightedKey() {
-        guard navigationModeActive, let keyCode = highlightedKeyCode else { return }
+    /// Activate the currently highlighted item
+    func activateHighlightedItem() {
+        guard navigationModeActive, let item = highlightedItem else { return }
 
-        // Trigger the key press via the normal handler
-        handleKeyPress(keyCode: keyCode, modifiers: ModifierFlags())
+        switch item {
+        case .keyPosition(let row, let column):
+            // Check if this is a navigation column key (column >= 100)
+            if column >= 100 {
+                let navIndex = column - 100
+                let navColumn = KeyboardNavigationMap.navigationColumn
+                if navIndex >= 0 && navIndex < navColumn.count {
+                    let keyCode = navColumn[navIndex].keyCode
+                    handleKeyPress(keyCode: keyCode, modifiers: ModifierFlags())
+                }
+            } else {
+                // Look up the key code from the position
+                let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+                if row >= 0 && row < keyboardRows.count {
+                    let keyRow = keyboardRows[row]
+                    if column >= 0 && column < keyRow.count {
+                        let keyCode = keyRow[column].keyCode
+                        handleKeyPress(keyCode: keyCode, modifiers: ModifierFlags())
+                    }
+                }
+            }
+        case .appBarItem(let id):
+            if let appItem = appBarItems.first(where: { $0.id == id }) {
+                activateApp(bundleIdentifier: appItem.bundleIdentifier)
+            }
+        case .websiteLink(let id):
+            if let link = websiteLinks.first(where: { $0.id == id }) {
+                openWebsiteLink(url: link.url)
+            }
+        case .quickText(let id):
+            if let quickText = quickTexts.first(where: { $0.id == id }) {
+                handleQuickText(quickText)
+            }
+        }
         hapticHandler?()
+    }
+
+    /// Legacy method for backward compatibility
+    func activateHighlightedKey() {
+        activateHighlightedItem()
     }
 
     /// Enter navigation mode - hide cursor and start mouse monitor
@@ -327,9 +436,9 @@ class OnScreenKeyboardManager: ObservableObject {
         navigationModeActive = true
         updateThreadSafeState()
 
-        // Set initial highlighted key if none
-        if highlightedKeyCode == nil {
-            highlightedKeyCode = KeyboardNavigationMap.defaultKey
+        // Set initial highlighted item if none
+        if highlightedItem == nil {
+            highlightedItem = getDefaultItem()
         }
 
         // Hide cursor
@@ -346,7 +455,7 @@ class OnScreenKeyboardManager: ObservableObject {
     func exitNavigationMode() {
         guard navigationModeActive else { return }
         navigationModeActive = false
-        highlightedKeyCode = nil
+        highlightedItem = nil
         updateThreadSafeState()
 
         // Show cursor if it was hidden
@@ -357,6 +466,242 @@ class OnScreenKeyboardManager: ObservableObject {
 
         // Stop mouse movement monitor
         stopMouseMovementMonitor()
+    }
+
+    // MARK: - Navigation Helpers
+
+    /// Build the navigation grid representing all rows in visual order
+    /// Returns the grid and the starting row index for keyboard keys
+    private func buildNavigationGrid() -> (grid: [[KeyboardNavigationItem]], keyboardStartRow: Int) {
+        var grid: [[KeyboardNavigationItem]] = []
+
+        // Website links rows (top)
+        if !websiteLinks.isEmpty {
+            let rows = websiteLinks.chunked(into: itemsPerRow)
+            for row in rows {
+                grid.append(row.map { .websiteLink($0.id) })
+            }
+        }
+
+        // App bar rows
+        if !appBarItems.isEmpty {
+            let rows = appBarItems.chunked(into: itemsPerRow)
+            for row in rows {
+                grid.append(row.map { .appBarItem($0.id) })
+            }
+        }
+
+        // Quick text rows (terminal commands first, then text snippets)
+        let terminalCommands = quickTexts.filter { $0.isTerminalCommand }
+        let textSnippets = quickTexts.filter { !$0.isTerminalCommand }
+
+        if !terminalCommands.isEmpty {
+            grid.append(terminalCommands.map { .quickText($0.id) })
+        }
+        if !textSnippets.isEmpty {
+            grid.append(textSnippets.map { .quickText($0.id) })
+        }
+
+        // Track where keyboard rows start in the grid
+        let keyboardStartRow = grid.count
+
+        // Keyboard rows from KeyboardNavigationMap - use position-based items
+        let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+        for (rowIndex, row) in keyboardRows.enumerated() {
+            grid.append(row.enumerated().map { (colIndex, _) in
+                .keyPosition(row: rowIndex, column: colIndex)
+            })
+        }
+
+        // Add navigation column keys to the appropriate rows
+        // Navigation column has 5 keys (Del, Home, End, PgUp, PgDn) that align with:
+        // number row, qwerty row, asdf row, zxcv row, bottom row
+        // These are the last 5 rows in the keyboard section
+        let navColumn = KeyboardNavigationMap.navigationColumn
+        let keyboardRowCount = keyboardRows.count
+        for (navIndex, _) in navColumn.enumerated() {
+            // Navigation keys align with the last 5 keyboard rows
+            let targetKeyboardRow = keyboardRowCount - 5 + navIndex
+            let targetGridRow = keyboardStartRow + targetKeyboardRow
+            if targetGridRow >= 0 && targetGridRow < grid.count {
+                // Use column 100 + navIndex to indicate navigation column
+                grid[targetGridRow].append(.keyPosition(row: targetKeyboardRow, column: 100 + navIndex))
+            }
+        }
+
+        return (grid, keyboardStartRow)
+    }
+
+    /// Find current position in the navigation grid
+    private func findCurrentPosition(in grid: [[KeyboardNavigationItem]]) -> (row: Int, col: Int)? {
+        guard let current = highlightedItem else { return nil }
+        for (rowIndex, row) in grid.enumerated() {
+            for (colIndex, item) in row.enumerated() {
+                if item == current {
+                    return (rowIndex, colIndex)
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Get the default starting position (F key - between D and G)
+    private func getDefaultItem() -> KeyboardNavigationItem {
+        // F key is in the ASDF row
+        // Row indices: media=0, extended(if enabled)=1, function=1/2, number=2/3, qwerty=3/4, asdf=4/5
+        let asdfRowIndex = showExtendedFunctionKeys ? 5 : 4
+        // F is at column 4 in the ASDF row (Caps=0, A=1, S=2, D=3, F=4)
+        return .keyPosition(row: asdfRowIndex, column: 4)
+    }
+
+    private func navigateUp() {
+        let (grid, keyboardStartRow) = buildNavigationGrid()
+        guard !grid.isEmpty else { return }
+
+        if let (row, col) = findCurrentPosition(in: grid) {
+            if row > 0 {
+                let targetRow = grid[row - 1]
+                // Check if current item is in navigation column (column >= 100)
+                if case .keyPosition(_, let keyCol) = grid[row][col], keyCol >= 100 {
+                    // Stay in navigation column - find nav item in target row
+                    if let navItem = targetRow.first(where: {
+                        if case .keyPosition(_, let c) = $0 { return c >= 100 }
+                        return false
+                    }) {
+                        highlightedItem = navItem
+                        return
+                    }
+                }
+                // For keyboard rows, use xPosition-based matching
+                if row >= keyboardStartRow && row - 1 >= keyboardStartRow {
+                    if let closestItem = findClosestKeyByXPosition(in: targetRow, currentItem: grid[row][col]) {
+                        highlightedItem = closestItem
+                        return
+                    }
+                }
+                // Fallback: find closest column by index
+                let targetCol = min(col, targetRow.count - 1)
+                highlightedItem = targetRow[targetCol]
+            }
+        } else {
+            highlightedItem = getDefaultItem()
+        }
+    }
+
+    private func navigateDown() {
+        let (grid, keyboardStartRow) = buildNavigationGrid()
+        guard !grid.isEmpty else { return }
+
+        if let (row, col) = findCurrentPosition(in: grid) {
+            if row < grid.count - 1 {
+                let targetRow = grid[row + 1]
+                // Check if current item is in navigation column (column >= 100)
+                if case .keyPosition(_, let keyCol) = grid[row][col], keyCol >= 100 {
+                    // Stay in navigation column - find nav item in target row
+                    if let navItem = targetRow.first(where: {
+                        if case .keyPosition(_, let c) = $0 { return c >= 100 }
+                        return false
+                    }) {
+                        highlightedItem = navItem
+                        return
+                    }
+                }
+                // For keyboard rows, use xPosition-based matching
+                if row >= keyboardStartRow && row + 1 >= keyboardStartRow {
+                    if let closestItem = findClosestKeyByXPosition(in: targetRow, currentItem: grid[row][col]) {
+                        highlightedItem = closestItem
+                        return
+                    }
+                }
+                // Fallback: find closest column by index
+                let targetCol = min(col, targetRow.count - 1)
+                highlightedItem = targetRow[targetCol]
+            }
+        } else {
+            highlightedItem = getDefaultItem()
+        }
+    }
+
+    /// Find the closest keyboard key in the target row by xPosition
+    private func findClosestKeyByXPosition(in targetRow: [KeyboardNavigationItem], currentItem: KeyboardNavigationItem) -> KeyboardNavigationItem? {
+        // Get current item's xPosition
+        guard case .keyPosition(let currentKeyRow, let currentKeyCol) = currentItem else {
+            return nil
+        }
+
+        let keyboardRows = KeyboardNavigationMap.allRows(includeExtendedFunctions: showExtendedFunctionKeys)
+        let currentXPosition: Double
+
+        if currentKeyCol >= 100 {
+            // Navigation column - use xPosition 1.0
+            currentXPosition = 1.0
+        } else if currentKeyRow >= 0 && currentKeyRow < keyboardRows.count {
+            let row = keyboardRows[currentKeyRow]
+            if currentKeyCol >= 0 && currentKeyCol < row.count {
+                currentXPosition = row[currentKeyCol].xPosition
+            } else {
+                return nil
+            }
+        } else {
+            return nil
+        }
+
+        // Find closest item in target row by xPosition (only consider keyboard keys, not nav column)
+        var closestItem: KeyboardNavigationItem?
+        var closestDistance: Double = .infinity
+
+        for item in targetRow {
+            guard case .keyPosition(let targetKeyRow, let targetKeyCol) = item else {
+                continue
+            }
+            // Skip navigation column items
+            if targetKeyCol >= 100 {
+                continue
+            }
+            guard targetKeyRow >= 0 && targetKeyRow < keyboardRows.count else {
+                continue
+            }
+            let row = keyboardRows[targetKeyRow]
+            guard targetKeyCol >= 0 && targetKeyCol < row.count else {
+                continue
+            }
+
+            let targetXPosition = row[targetKeyCol].xPosition
+            let distance = abs(targetXPosition - currentXPosition)
+            if distance < closestDistance {
+                closestDistance = distance
+                closestItem = item
+            }
+        }
+
+        return closestItem
+    }
+
+    private func navigateLeft() {
+        let (grid, _) = buildNavigationGrid()
+        guard !grid.isEmpty else { return }
+
+        if let (row, col) = findCurrentPosition(in: grid) {
+            if col > 0 {
+                highlightedItem = grid[row][col - 1]
+            }
+        } else {
+            highlightedItem = getDefaultItem()
+        }
+    }
+
+    private func navigateRight() {
+        let (grid, _) = buildNavigationGrid()
+        guard !grid.isEmpty else { return }
+
+        if let (row, col) = findCurrentPosition(in: grid) {
+            let currentRow = grid[row]
+            if col < currentRow.count - 1 {
+                highlightedItem = currentRow[col + 1]
+            }
+        } else {
+            highlightedItem = getDefaultItem()
+        }
     }
 
     private func startMouseMovementMonitor() {
@@ -673,5 +1018,15 @@ extension NSScreen {
     /// The CGDirectDisplayID for this screen
     var displayID: CGDirectDisplayID {
         (deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) ?? 0
+    }
+}
+
+// MARK: - Array Chunking Extension
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        stride(from: 0, to: count, by: size).map {
+            Array(self[$0..<Swift.min($0 + size, count)])
+        }
     }
 }

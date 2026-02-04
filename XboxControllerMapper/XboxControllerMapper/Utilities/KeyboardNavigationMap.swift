@@ -44,16 +44,19 @@ struct KeyboardNavigationMap {
     private static let mediaRow: [KeyPosition] = {
         var keys: [KeyPosition] = []
         // Playback: Previous, Play/Pause, Next
-        keys.append(KeyPosition(row: 1, column: 0, keyCode: KeyCodeMapping.mediaPrevious, xPosition: 0.0))
-        keys.append(KeyPosition(row: 1, column: 1, keyCode: KeyCodeMapping.mediaPlayPause, xPosition: 0.1))
-        keys.append(KeyPosition(row: 1, column: 2, keyCode: KeyCodeMapping.mediaNext, xPosition: 0.2))
+        // F4 (5/14≈0.357) → Play/Pause, so spread Playback around F2-F4 area
+        keys.append(KeyPosition(row: 1, column: 0, keyCode: KeyCodeMapping.mediaPrevious, xPosition: 0.18))
+        keys.append(KeyPosition(row: 1, column: 1, keyCode: KeyCodeMapping.mediaPlayPause, xPosition: 0.357)) // Exactly F4
+        keys.append(KeyPosition(row: 1, column: 2, keyCode: KeyCodeMapping.mediaNext, xPosition: 0.41))
         // Volume: Mute, Down, Up
-        keys.append(KeyPosition(row: 1, column: 3, keyCode: KeyCodeMapping.volumeMute, xPosition: 0.4))
-        keys.append(KeyPosition(row: 1, column: 4, keyCode: KeyCodeMapping.volumeDown, xPosition: 0.5))
-        keys.append(KeyPosition(row: 1, column: 5, keyCode: KeyCodeMapping.volumeUp, xPosition: 0.6))
+        // F6 (7/14=0.5) → Vol Down, so spread Volume around F5-F7 area
+        keys.append(KeyPosition(row: 1, column: 3, keyCode: KeyCodeMapping.volumeMute, xPosition: 0.44))
+        keys.append(KeyPosition(row: 1, column: 4, keyCode: KeyCodeMapping.volumeDown, xPosition: 0.50)) // Exactly F6
+        keys.append(KeyPosition(row: 1, column: 5, keyCode: KeyCodeMapping.volumeUp, xPosition: 0.56))
         // Brightness: Down, Up
-        keys.append(KeyPosition(row: 1, column: 6, keyCode: KeyCodeMapping.brightnessDown, xPosition: 0.8))
-        keys.append(KeyPosition(row: 1, column: 7, keyCode: KeyCodeMapping.brightnessUp, xPosition: 0.9))
+        // F8 (9/14≈0.643) → Bright Down, so spread Brightness around F8-F10 area
+        keys.append(KeyPosition(row: 1, column: 6, keyCode: KeyCodeMapping.brightnessDown, xPosition: 0.643)) // Exactly F8
+        keys.append(KeyPosition(row: 1, column: 7, keyCode: KeyCodeMapping.brightnessUp, xPosition: 0.78))
         return keys
     }()
 
@@ -142,7 +145,9 @@ struct KeyboardNavigationMap {
         return keys
     }()
 
-    private static let navigationColumn: [KeyPosition] = {
+    /// Navigation column keys (Del, Home, End, PgUp, PgDn) on the right side
+    /// These align with rows: number, qwerty, asdf, zxcv, bottom
+    static let navigationColumn: [KeyPosition] = {
         var keys: [KeyPosition] = []
         let navCodes: [Int] = [
             kVK_ForwardDelete, kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown
