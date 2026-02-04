@@ -242,7 +242,14 @@ struct ContentView: View {
                                 .font(.caption2)
                                 .foregroundColor(.white.opacity(0.3))
 
-                            if let macroId = chord.macroId,
+                            if let systemCommand = chord.systemCommand {
+                                Text(chord.hint ?? systemCommand.displayName)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.green)
+                                    .lineLimit(1)
+                                    .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
+                            } else if let macroId = chord.macroId,
                                let macro = profile.macros.first(where: { $0.id == macroId }) {
                                 Text(chord.hint ?? macro.name)
                                     .font(.caption)
