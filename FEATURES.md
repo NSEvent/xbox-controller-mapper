@@ -107,6 +107,9 @@ This document lists all features for verification after refactoring.
 - [ ] Position remembered per-screen within session
 - [ ] Activate all windows option for app switching
 - [ ] Typing delay configuration
+- [ ] D-pad navigation (navigate all keys with controller D-pad)
+- [ ] Floating overlay highlight for D-pad selection
+- [ ] Special arrow key cluster navigation handling
 
 ## Command Wheel
 

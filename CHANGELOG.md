@@ -5,24 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.4] - 2026-01-27
-
-### Changed
-
-- Touchpad two-finger pan speed slightly reduced
-- Touchpad momentum tuned for shorter, lighter glide
-- Default pan-to-zoom ratio increased to 1.95
-- Touchpad smoothing description clarified to “Reduce mouse jitter”
-
-### Fixed
-
-- Short pinch-to-zoom snap-back (direction lock on quick releases)
-- Choppy two-finger scrolling from low touchpad sample rate (120Hz interpolation)
-
-## [1.2.3] - 2026-01-24
+## [1.2.2] - 2026-02-03
 
 ### Added
 
+- **D-pad Navigation for On-Screen Keyboard**
+  - Navigate the entire keyboard using D-pad when on-screen keyboard is visible
+  - Floating overlay highlight shows current selection
+  - Special handling for arrow key cluster layout
+  - Optimized responsiveness with navigation bounds on all keys
 - **Third-Party Controller Support**: Fallback for controllers not recognized by GameController framework
   - IOKit HID + SDL gamecontrollerdb.txt maps raw inputs to Xbox-standard layout
   - ~313 macOS controllers supported (8BitDo, Logitech, PowerA, Hori, etc.)
@@ -61,6 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Hints display instead of raw shortcuts; hover shows actual shortcut in tooltip
   - Caps Lock key properly shows display name in key picker
   - FN key disabled from being mapped as a regular key
+- **Comprehensive Test Suite**
+  - Tests for InputLogService and ProfileManager
+  - Edge case tests for mapping engine
+  - Chord fallback and modifier handling tests
 
 ### Changed
 
@@ -73,9 +68,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Chord creation shows gray outlines when button combination already exists
 - Center column buttons match side column width in Buttons tab
 - Code refactored: unified mapping execution, extracted helpers, thread-safe screen cache
+- Touchpad two-finger pan speed slightly reduced
+- Touchpad momentum tuned for shorter, lighter glide
+- Default pan-to-zoom ratio increased to 1.95
+- Touchpad smoothing description clarified to "Reduce mouse jitter"
 
 ### Fixed
 
+- System commands now show in green in Active Chords section
+- Macro hints, trailing whitespace visibility, and button backgrounds
+- Chord fallback bug when releasing buttons
+- Event flags now always set to prevent inherited modifiers
+- Smooth diagonal touchpad panning
+- Touchpad pan scrolling
 - On-screen keyboard appears on screen where mouse cursor is (not always primary display)
 - Key capture field no longer intercepts clicks outside its bounds
 - Long hold/double tap settings not loading when re-opening configure button page
@@ -83,6 +88,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Save button properly handles empty system command/macro state
 - Chord reordering preserved correctly
 - Deadlock risk in InputSimulator removed (replaced DispatchQueue.main.sync with CoreGraphics API)
+- Short pinch-to-zoom snap-back (direction lock on quick releases)
+- Choppy two-finger scrolling from low touchpad sample rate (120Hz interpolation)
 
 ### Removed
 
