@@ -194,6 +194,8 @@ class OnScreenKeyboardManager: ObservableObject {
     private var appBarItems: [AppBarItem] = []
     private var websiteLinks: [WebsiteLink] = []
     private var showExtendedFunctionKeys: Bool = false
+    /// Bottom row index in the keyboard grid (for arrow key special handling)
+    private var bottomRowIndex: Int { showExtendedFunctionKeys ? 7 : 6 }
     private(set) var activateAllWindows: Bool = true
     private var hapticHandler: (() -> Void)?
     private var cancellables = Set<AnyCancellable>()
@@ -682,6 +684,14 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func navigateUp() {
+        // Special case: Arrow key cluster - left/down/right arrow to up arrow
+        if case .keyPosition(let keyRow, let keyCol) = highlightedItem,
+           keyRow == bottomRowIndex && (keyCol == 7 || keyCol == 8 || keyCol == 9) {
+            // On left/down/right arrow, go to up arrow
+            highlightedItem = .keyPosition(row: bottomRowIndex, column: 6)
+            return
+        }
+
         let (grid, keyboardStartRow) = getNavigationGrid()
         guard !grid.isEmpty else { return }
 
@@ -720,6 +730,14 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func navigateDown() {
+        // Special case: Arrow key cluster - up arrow to down arrow
+        if case .keyPosition(let keyRow, let keyCol) = highlightedItem,
+           keyRow == bottomRowIndex && keyCol == 6 {
+            // On up arrow, go to down arrow
+            highlightedItem = .keyPosition(row: bottomRowIndex, column: 8)
+            return
+        }
+
         let (grid, keyboardStartRow) = getNavigationGrid()
         guard !grid.isEmpty else { return }
 
@@ -825,6 +843,20 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func navigateLeft() {
+        // Special case: Arrow key cluster
+        if case .keyPosition(let keyRow, let keyCol) = highlightedItem,
+           keyRow == bottomRowIndex {
+            if keyCol == 6 {
+                // On up arrow, go to left arrow
+                highlightedItem = .keyPosition(row: bottomRowIndex, column: 7)
+                return
+            } else if keyCol == 7 {
+                // On left arrow, go to right option key (exit cluster)
+                highlightedItem = .keyPosition(row: bottomRowIndex, column: 5)
+                return
+            }
+        }
+
         let (grid, _) = getNavigationGrid()
         guard !grid.isEmpty else { return }
 
@@ -838,6 +870,20 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private func navigateRight() {
+        // Special case: Arrow key cluster
+        if case .keyPosition(let keyRow, let keyCol) = highlightedItem,
+           keyRow == bottomRowIndex {
+            if keyCol == 5 {
+                // On right option key, go to left arrow (skip up arrow)
+                highlightedItem = .keyPosition(row: bottomRowIndex, column: 7)
+                return
+            } else if keyCol == 6 {
+                // On up arrow, go to right arrow
+                highlightedItem = .keyPosition(row: bottomRowIndex, column: 9)
+                return
+            }
+        }
+
         let (grid, _) = getNavigationGrid()
         guard !grid.isEmpty else { return }
 
