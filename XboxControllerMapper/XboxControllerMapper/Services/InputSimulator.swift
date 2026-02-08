@@ -910,6 +910,14 @@ private let kVK_F9: CGKeyCode = 0x65
 private let kVK_F10: CGKeyCode = 0x6D
 private let kVK_F11: CGKeyCode = 0x67
 private let kVK_F12: CGKeyCode = 0x6F
+private let kVK_F13: CGKeyCode = 0x69
+private let kVK_F14: CGKeyCode = 0x6B
+private let kVK_F15: CGKeyCode = 0x71
+private let kVK_F16: CGKeyCode = 0x6A
+private let kVK_F17: CGKeyCode = 0x40
+private let kVK_F18: CGKeyCode = 0x4F
+private let kVK_F19: CGKeyCode = 0x50
+private let kVK_F20: CGKeyCode = 0x5A
 
 // Navigation keys
 private let kVK_Home: CGKeyCode = 0x73
@@ -928,6 +936,7 @@ private let numPadKeys: Set<CGKeyCode> = [
 private let fnKeys: Set<CGKeyCode> = [
     kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
     kVK_F7, kVK_F8, kVK_F9, kVK_F10, kVK_F11, kVK_F12,
+    kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19, kVK_F20,
     kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown, kVK_ForwardDelete,
     kVK_LeftArrow, kVK_RightArrow, kVK_DownArrow, kVK_UpArrow
 ]
