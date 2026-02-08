@@ -891,66 +891,8 @@ private let kVK_Shift = 0x38
 private let kVK_Option = 0x3A
 private let kVK_Control = 0x3B
 
-// Arrow key codes
-private let kVK_LeftArrow: CGKeyCode = 0x7B
-private let kVK_RightArrow: CGKeyCode = 0x7C
-private let kVK_DownArrow: CGKeyCode = 0x7D
-private let kVK_UpArrow: CGKeyCode = 0x7E
-
-// Function key codes
-private let kVK_F1: CGKeyCode = 0x7A
-private let kVK_F2: CGKeyCode = 0x78
-private let kVK_F3: CGKeyCode = 0x63
-private let kVK_F4: CGKeyCode = 0x76
-private let kVK_F5: CGKeyCode = 0x60
-private let kVK_F6: CGKeyCode = 0x61
-private let kVK_F7: CGKeyCode = 0x62
-private let kVK_F8: CGKeyCode = 0x64
-private let kVK_F9: CGKeyCode = 0x65
-private let kVK_F10: CGKeyCode = 0x6D
-private let kVK_F11: CGKeyCode = 0x67
-private let kVK_F12: CGKeyCode = 0x6F
-private let kVK_F13: CGKeyCode = 0x69
-private let kVK_F14: CGKeyCode = 0x6B
-private let kVK_F15: CGKeyCode = 0x71
-private let kVK_F16: CGKeyCode = 0x6A
-private let kVK_F17: CGKeyCode = 0x40
-private let kVK_F18: CGKeyCode = 0x4F
-private let kVK_F19: CGKeyCode = 0x50
-private let kVK_F20: CGKeyCode = 0x5A
-
-// Navigation keys
-private let kVK_Home: CGKeyCode = 0x73
-private let kVK_End: CGKeyCode = 0x77
-private let kVK_PageUp: CGKeyCode = 0x74
-private let kVK_PageDown: CGKeyCode = 0x79
-private let kVK_ForwardDelete: CGKeyCode = 0x75
-
-/// Keys that require NumPad and/or Fn flags to be recognized properly by apps
-private let numPadKeys: Set<CGKeyCode> = [
-    kVK_LeftArrow, kVK_RightArrow, kVK_DownArrow, kVK_UpArrow,
-    kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown, kVK_ForwardDelete
-]
-
-/// Keys that require the Fn flag
-private let fnKeys: Set<CGKeyCode> = [
-    kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6,
-    kVK_F7, kVK_F8, kVK_F9, kVK_F10, kVK_F11, kVK_F12,
-    kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19, kVK_F20,
-    kVK_Home, kVK_End, kVK_PageUp, kVK_PageDown, kVK_ForwardDelete,
-    kVK_LeftArrow, kVK_RightArrow, kVK_DownArrow, kVK_UpArrow
-]
-
 /// Returns additional flags needed for special keys (arrow keys, function keys, etc.)
+/// Delegates to KeyCodeMapping.specialKeyFlags for centralized, testable logic.
 private func specialKeyFlags(for keyCode: CGKeyCode) -> CGEventFlags {
-    var flags: CGEventFlags = []
-
-    if numPadKeys.contains(keyCode) {
-        flags.insert(.maskNumericPad)
-    }
-    if fnKeys.contains(keyCode) {
-        flags.insert(.maskSecondaryFn)
-    }
-
-    return flags
+    KeyCodeMapping.specialKeyFlags(for: keyCode)
 }

@@ -458,4 +458,60 @@ enum KeyCodeMapping {
         default: return nil
         }
     }
+
+    // MARK: - Special Key Flags
+
+    /// Keys that require NumPad flag to be recognized properly by apps
+    private static let numPadKeys: Set<CGKeyCode> = [
+        CGKeyCode(kVK_LeftArrow), CGKeyCode(kVK_RightArrow),
+        CGKeyCode(kVK_DownArrow), CGKeyCode(kVK_UpArrow),
+        CGKeyCode(kVK_Home), CGKeyCode(kVK_End),
+        CGKeyCode(kVK_PageUp), CGKeyCode(kVK_PageDown),
+        CGKeyCode(kVK_ForwardDelete)
+    ]
+
+    /// Keys that require the Fn (SecondaryFn) flag to be recognized properly by apps
+    /// This includes F1-F20 and navigation keys. Without this flag, terminals using
+    /// CSI u / Kitty keyboard protocol will output escape sequences instead of triggering hotkeys.
+    private static let fnKeys: Set<CGKeyCode> = [
+        // F1-F12
+        CGKeyCode(kVK_F1), CGKeyCode(kVK_F2), CGKeyCode(kVK_F3), CGKeyCode(kVK_F4),
+        CGKeyCode(kVK_F5), CGKeyCode(kVK_F6), CGKeyCode(kVK_F7), CGKeyCode(kVK_F8),
+        CGKeyCode(kVK_F9), CGKeyCode(kVK_F10), CGKeyCode(kVK_F11), CGKeyCode(kVK_F12),
+        // F13-F20 (extended function keys)
+        CGKeyCode(kVK_F13), CGKeyCode(kVK_F14), CGKeyCode(kVK_F15), CGKeyCode(kVK_F16),
+        CGKeyCode(kVK_F17), CGKeyCode(kVK_F18), CGKeyCode(kVK_F19), CGKeyCode(kVK_F20),
+        // Navigation keys
+        CGKeyCode(kVK_Home), CGKeyCode(kVK_End),
+        CGKeyCode(kVK_PageUp), CGKeyCode(kVK_PageDown),
+        CGKeyCode(kVK_ForwardDelete),
+        CGKeyCode(kVK_LeftArrow), CGKeyCode(kVK_RightArrow),
+        CGKeyCode(kVK_DownArrow), CGKeyCode(kVK_UpArrow)
+    ]
+
+    /// Returns additional CGEventFlags needed for special keys (function keys, arrow keys, etc.)
+    /// These flags are required for apps like Rectangle to recognize shortcuts and for
+    /// terminals to properly interpret function keys.
+    static func specialKeyFlags(for keyCode: CGKeyCode) -> CGEventFlags {
+        var flags: CGEventFlags = []
+
+        if numPadKeys.contains(keyCode) {
+            flags.insert(.maskNumericPad)
+        }
+        if fnKeys.contains(keyCode) {
+            flags.insert(.maskSecondaryFn)
+        }
+
+        return flags
+    }
+
+    /// Checks if a key code requires the Fn flag
+    static func requiresFnFlag(_ keyCode: CGKeyCode) -> Bool {
+        fnKeys.contains(keyCode)
+    }
+
+    /// Checks if a key code requires the NumPad flag
+    static func requiresNumPadFlag(_ keyCode: CGKeyCode) -> Bool {
+        numPadKeys.contains(keyCode)
+    }
 }
