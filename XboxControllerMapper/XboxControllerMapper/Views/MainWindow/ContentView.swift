@@ -594,6 +594,12 @@ struct CommunityProfilesSheet: View {
     @State private var errorMessage: String?
     @State private var downloadedCount = 0
 
+    // Preview state
+    @State private var previewingProfileId: String?
+    @State private var previewedProfile: Profile?
+    @State private var isLoadingPreview = false
+    @State private var previewCache: [String: Profile] = [:]
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -642,23 +648,41 @@ struct CommunityProfilesSheet: View {
                 }
                 Spacer()
             } else {
-                List(availableProfiles, selection: $selectedProfiles) { profile in
-                    HStack {
-                        Image(systemName: selectedProfiles.contains(profile.id) ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(selectedProfiles.contains(profile.id) ? .accentColor : .secondary)
-                        Text(profile.displayName)
-                        Spacer()
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if selectedProfiles.contains(profile.id) {
-                            selectedProfiles.remove(profile.id)
-                        } else {
-                            selectedProfiles.insert(profile.id)
+                HStack(spacing: 0) {
+                    // Left: Profile list
+                    VStack(spacing: 0) {
+                        List(availableProfiles) { profileInfo in
+                            CommunityProfileRow(
+                                profileInfo: profileInfo,
+                                isSelected: selectedProfiles.contains(profileInfo.id),
+                                isPreviewing: previewingProfileId == profileInfo.id,
+                                onToggleSelect: {
+                                    if selectedProfiles.contains(profileInfo.id) {
+                                        selectedProfiles.remove(profileInfo.id)
+                                    } else {
+                                        selectedProfiles.insert(profileInfo.id)
+                                    }
+                                },
+                                onPreview: {
+                                    loadPreview(for: profileInfo)
+                                }
+                            )
+                            .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                         }
+                        .listStyle(.plain)
                     }
+                    .frame(width: 220)
+
+                    Divider()
+
+                    // Right: Preview panel
+                    CommunityProfilePreview(
+                        profile: previewedProfile,
+                        profileName: availableProfiles.first { $0.id == previewingProfileId }?.displayName,
+                        isLoading: isLoadingPreview
+                    )
+                    .frame(maxWidth: .infinity)
                 }
-                .listStyle(.plain)
             }
 
             Divider()
@@ -695,7 +719,7 @@ struct CommunityProfilesSheet: View {
             }
             .padding()
         }
-        .frame(width: 400, height: 450)
+        .frame(width: 700, height: 500)
         .onAppear {
             loadProfiles()
         }
@@ -721,6 +745,37 @@ struct CommunityProfilesSheet: View {
         }
     }
 
+    private func loadPreview(for profileInfo: CommunityProfileInfo) {
+        previewingProfileId = profileInfo.id
+
+        // Check cache first
+        if let cached = previewCache[profileInfo.id] {
+            previewedProfile = cached
+            return
+        }
+
+        isLoadingPreview = true
+        previewedProfile = nil
+
+        Task {
+            do {
+                let profile = try await profileManager.fetchProfileForPreview(from: profileInfo.downloadURL)
+                await MainActor.run {
+                    previewCache[profileInfo.id] = profile
+                    // Only update if still previewing the same profile
+                    if previewingProfileId == profileInfo.id {
+                        previewedProfile = profile
+                    }
+                    isLoadingPreview = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingPreview = false
+                }
+            }
+        }
+    }
+
     private func downloadSelectedProfiles() {
         isDownloading = true
         downloadedCount = 0
@@ -732,7 +787,15 @@ struct CommunityProfilesSheet: View {
 
             for profileInfo in profilesToDownload {
                 do {
-                    let profile = try await profileManager.downloadProfile(from: profileInfo.downloadURL)
+                    // Use cached profile if available, otherwise download
+                    let profile: Profile
+                    if let cached = previewCache[profileInfo.id] {
+                        profile = await MainActor.run {
+                            profileManager.importFetchedProfile(cached)
+                        }
+                    } else {
+                        profile = try await profileManager.downloadProfile(from: profileInfo.downloadURL)
+                    }
                     lastImportedProfile = profile
                     await MainActor.run {
                         downloadedCount += 1
@@ -750,6 +813,305 @@ struct CommunityProfilesSheet: View {
                     profileManager.setActiveProfile(profile)
                 }
                 dismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Community Profile Row
+
+struct CommunityProfileRow: View {
+    let profileInfo: CommunityProfileInfo
+    let isSelected: Bool
+    let isPreviewing: Bool
+    let onToggleSelect: () -> Void
+    let onPreview: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            // Checkbox
+            Button(action: onToggleSelect) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+
+            // Profile name (clickable for preview)
+            Text(profileInfo.displayName)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Preview indicator
+            if isPreviewing {
+                Image(systemName: "eye.fill")
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(isPreviewing ? Color.accentColor.opacity(0.15) : Color.clear)
+        .cornerRadius(6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onPreview()
+        }
+    }
+}
+
+// MARK: - Community Profile Preview
+
+struct CommunityProfilePreview: View {
+    let profile: Profile?
+    let profileName: String?
+    let isLoading: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if isLoading {
+                Spacer()
+                ProgressView("Loading preview...")
+                Spacer()
+            } else if let profile = profile {
+                // Header
+                HStack {
+                    Text(profileName ?? profile.name)
+                        .font(.system(size: 14, weight: .semibold))
+                    Spacer()
+                    Text("\(profile.buttonMappings.count) mappings")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if !profile.chordMappings.isEmpty {
+                        Text("• \(profile.chordMappings.count) chords")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+
+                // Mappings list
+                ScrollView {
+                    VStack(spacing: 6) {
+                        // Button mappings
+                        ForEach(ControllerButton.allCases.filter { profile.buttonMappings[$0] != nil }, id: \.self) { button in
+                            if let mapping = profile.buttonMappings[button], !mapping.isEmpty {
+                                PreviewMappingRow(button: button, mapping: mapping, profile: profile)
+                            }
+                        }
+
+                        // Chord mappings
+                        if !profile.chordMappings.isEmpty {
+                            Divider()
+                                .padding(.vertical, 12)
+
+                            HStack {
+                                Text("CHORDS")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+
+                            VStack(spacing: 8) {
+                                ForEach(profile.chordMappings) { chord in
+                                    PreviewChordRow(chord: chord, profile: profile)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            } else {
+                // Empty state - no profile selected
+                VStack(spacing: 16) {
+                    Spacer()
+
+                    Image(systemName: "gamecontroller")
+                        .font(.system(size: 40, weight: .light))
+                        .foregroundColor(.secondary.opacity(0.3))
+
+                    VStack(spacing: 4) {
+                        Text("Preview")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary.opacity(0.6))
+                        Text("Click a profile to see its mappings")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary.opacity(0.4))
+                    }
+
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .background(Color.black.opacity(0.15))
+    }
+}
+
+// MARK: - Preview Mapping Row
+
+struct PreviewMappingRow: View {
+    let button: ControllerButton
+    let mapping: KeyMapping
+    let profile: Profile
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ButtonIconView(button: button, isPressed: false, isDualSense: false)
+                .frame(width: 28, height: 28)
+
+            // Show mappings with hint + actual shortcut side by side
+            HStack(spacing: 16) {
+                // Primary mapping
+                if let systemCommand = mapping.systemCommand {
+                    PreviewMappingLabel(text: systemCommand.displayName, shortcut: nil, icon: "SYS", color: .green)
+                } else if let macroId = mapping.macroId,
+                          let macro = profile.macros.first(where: { $0.id == macroId }) {
+                    PreviewMappingLabel(
+                        text: mapping.hint ?? macro.name,
+                        shortcut: mapping.hint != nil ? "Macro: \(macro.name)" : nil,
+                        icon: "▶",
+                        color: .purple
+                    )
+                } else if !mapping.isEmpty {
+                    PreviewMappingLabel(
+                        text: mapping.hint ?? mapping.displayString,
+                        shortcut: mapping.hint != nil ? mapping.displayString : nil,
+                        icon: nil,
+                        color: .primary
+                    )
+                }
+
+                // Long hold
+                if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
+                    PreviewMappingLabel(
+                        text: longHold.hint ?? longHold.displayString,
+                        shortcut: longHold.hint != nil ? longHold.displayString : nil,
+                        icon: "⏱",
+                        color: .orange
+                    )
+                }
+
+                // Double tap
+                if let doubleTap = mapping.doubleTapMapping, !doubleTap.isEmpty {
+                    PreviewMappingLabel(
+                        text: doubleTap.hint ?? doubleTap.displayString,
+                        shortcut: doubleTap.hint != nil ? doubleTap.displayString : nil,
+                        icon: "2×",
+                        color: .cyan
+                    )
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(6)
+        .padding(.horizontal, 8)
+    }
+}
+
+struct PreviewMappingLabel: View {
+    let text: String
+    let shortcut: String?
+    let icon: String?
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let icon = icon {
+                Text(icon)
+                    .font(.system(size: 8, weight: .black))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 1)
+                    .background(color)
+                    .cornerRadius(2)
+            }
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(color == .primary ? .primary : color)
+                .lineLimit(1)
+
+            // Show actual shortcut to the right if there's a hint
+            if let shortcut = shortcut {
+                Text(shortcut)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
+// MARK: - Preview Chord Row
+
+struct PreviewChordRow: View {
+    let chord: ChordMapping
+    let profile: Profile
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Button icons with generous spacing to prevent overlap
+            HStack(spacing: 8) {
+                ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
+                    ButtonIconView(button: button, isPressed: false, isDualSense: false)
+                        .frame(width: 20, height: 20)
+                }
+            }
+
+            Image(systemName: "arrow.right")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+
+            // Action with hint + actual shortcut shown inline
+            if let systemCommand = chord.systemCommand {
+                chordActionLabel(
+                    text: chord.hint ?? systemCommand.displayName,
+                    shortcut: chord.hint != nil ? systemCommand.displayName : nil,
+                    color: .green.opacity(0.9)
+                )
+            } else if let macroId = chord.macroId,
+                      let macro = profile.macros.first(where: { $0.id == macroId }) {
+                chordActionLabel(
+                    text: chord.hint ?? macro.name,
+                    shortcut: chord.hint != nil ? "Macro: \(macro.name)" : nil,
+                    color: .purple.opacity(0.9)
+                )
+            } else {
+                chordActionLabel(
+                    text: chord.hint ?? chord.actionDisplayString,
+                    shortcut: chord.hint != nil ? chord.actionDisplayString : nil,
+                    color: .primary
+                )
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(6)
+        .padding(.horizontal, 8)
+    }
+
+    @ViewBuilder
+    private func chordActionLabel(text: String, shortcut: String?, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(color)
+
+            if let shortcut = shortcut {
+                Text(shortcut)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
             }
         }
     }

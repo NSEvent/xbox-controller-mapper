@@ -742,6 +742,46 @@ class ProfileManager: ObservableObject {
         }
     }
 
+    /// Fetches a profile for preview without importing it
+    nonisolated func fetchProfileForPreview(from urlString: String) async throws -> Profile {
+        guard let url = URL(string: urlString) else {
+            throw CommunityProfileError.invalidURL
+        }
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(from: url)
+        } catch {
+            throw CommunityProfileError.networkError(error)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw CommunityProfileError.invalidResponse
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        do {
+            return try decoder.decode(Profile.self, from: data)
+        } catch {
+            throw CommunityProfileError.decodingError(error)
+        }
+    }
+
+    /// Imports a profile that was previously fetched (e.g., from preview cache)
+    func importFetchedProfile(_ profile: Profile) -> Profile {
+        var importedProfile = profile
+        importedProfile.id = UUID()
+        importedProfile.isDefault = false
+
+        profiles.append(importedProfile)
+        saveConfiguration()
+
+        return importedProfile
+    }
+
     /// Downloads and imports a profile from a URL
     nonisolated func downloadProfile(from urlString: String) async throws -> Profile {
         guard let url = URL(string: urlString) else {
