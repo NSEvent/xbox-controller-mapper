@@ -589,6 +589,7 @@ struct CommunityProfilesSheet: View {
 
     @State private var availableProfiles: [CommunityProfileInfo] = []
     @State private var selectedProfiles: Set<String> = []
+    @State private var alreadyImportedProfiles: Set<String> = []
     @State private var isLoading = true
     @State private var isDownloading = false
     @State private var errorMessage: String?
@@ -599,6 +600,11 @@ struct CommunityProfilesSheet: View {
     @State private var previewedProfile: Profile?
     @State private var isLoadingPreview = false
     @State private var previewCache: [String: Profile] = [:]
+
+    // Count of new profiles to import (excludes already imported)
+    private var newProfilesToImportCount: Int {
+        selectedProfiles.subtracting(alreadyImportedProfiles).count
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -655,8 +661,13 @@ struct CommunityProfilesSheet: View {
                             CommunityProfileRow(
                                 profileInfo: profileInfo,
                                 isSelected: selectedProfiles.contains(profileInfo.id),
+                                isAlreadyImported: alreadyImportedProfiles.contains(profileInfo.id),
                                 isPreviewing: previewingProfileId == profileInfo.id,
                                 onToggleSelect: {
+                                    // Don't allow unchecking already-imported profiles
+                                    if alreadyImportedProfiles.contains(profileInfo.id) {
+                                        return
+                                    }
                                     if selectedProfiles.contains(profileInfo.id) {
                                         selectedProfiles.remove(profileInfo.id)
                                     } else {
@@ -690,10 +701,13 @@ struct CommunityProfilesSheet: View {
             // Footer
             HStack {
                 if !availableProfiles.isEmpty {
-                    Button(selectedProfiles.count == availableProfiles.count ? "Deselect All" : "Select All") {
-                        if selectedProfiles.count == availableProfiles.count {
-                            selectedProfiles.removeAll()
+                    let allNewSelected = selectedProfiles.subtracting(alreadyImportedProfiles).count == availableProfiles.count - alreadyImportedProfiles.count
+                    Button(allNewSelected ? "Deselect All" : "Select All") {
+                        if allNewSelected {
+                            // Deselect all except already-imported
+                            selectedProfiles = alreadyImportedProfiles
                         } else {
+                            // Select all
                             selectedProfiles = Set(availableProfiles.map { $0.id })
                         }
                     }
@@ -706,15 +720,15 @@ struct CommunityProfilesSheet: View {
                 if isDownloading {
                     ProgressView()
                         .scaleEffect(0.7)
-                    Text("Downloading \(downloadedCount)/\(selectedProfiles.count)...")
+                    Text("Downloading \(downloadedCount)/\(newProfilesToImportCount)...")
                         .foregroundColor(.secondary)
                         .font(.caption)
                 } else {
-                    Button("Import \(selectedProfiles.count) Profile\(selectedProfiles.count == 1 ? "" : "s")") {
+                    Button("Import \(newProfilesToImportCount) Profile\(newProfilesToImportCount == 1 ? "" : "s")") {
                         downloadSelectedProfiles()
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(selectedProfiles.isEmpty)
+                    .disabled(newProfilesToImportCount == 0)
                 }
             }
             .padding()
@@ -735,11 +749,12 @@ struct CommunityProfilesSheet: View {
                 await MainActor.run {
                     availableProfiles = profiles
 
-                    // Pre-select profiles that have already been imported
+                    // Mark and pre-select profiles that have already been imported
                     let existingProfileNames = Set(profileManager.profiles.map { $0.name })
                     for profile in profiles {
                         if existingProfileNames.contains(profile.displayName) {
                             selectedProfiles.insert(profile.id)
+                            alreadyImportedProfiles.insert(profile.id)
                         }
                     }
 
@@ -789,7 +804,10 @@ struct CommunityProfilesSheet: View {
         isDownloading = true
         downloadedCount = 0
 
-        let profilesToDownload = availableProfiles.filter { selectedProfiles.contains($0.id) }
+        // Only download profiles that aren't already imported
+        let profilesToDownload = availableProfiles.filter {
+            selectedProfiles.contains($0.id) && !alreadyImportedProfiles.contains($0.id)
+        }
 
         Task {
             var lastImportedProfile: Profile?
@@ -832,23 +850,37 @@ struct CommunityProfilesSheet: View {
 struct CommunityProfileRow: View {
     let profileInfo: CommunityProfileInfo
     let isSelected: Bool
+    let isAlreadyImported: Bool
     let isPreviewing: Bool
     let onToggleSelect: () -> Void
     let onPreview: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            // Checkbox
+            // Checkbox - disabled for already-imported profiles
             Button(action: onToggleSelect) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .foregroundColor(isAlreadyImported ? .secondary : (isSelected ? .accentColor : .secondary))
             }
             .buttonStyle(.plain)
+            .disabled(isAlreadyImported)
 
             // Profile name (clickable for preview)
             Text(profileInfo.displayName)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundColor(isAlreadyImported ? .secondary : .primary)
+
+            // Already imported indicator
+            if isAlreadyImported {
+                Text("Imported")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.2))
+                    .cornerRadius(4)
+            }
 
             // Preview indicator
             if isPreviewing {
