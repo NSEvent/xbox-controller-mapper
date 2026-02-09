@@ -734,6 +734,15 @@ struct CommunityProfilesSheet: View {
                 let profiles = try await profileManager.fetchCommunityProfiles()
                 await MainActor.run {
                     availableProfiles = profiles
+
+                    // Pre-select profiles that have already been imported
+                    let existingProfileNames = Set(profileManager.profiles.map { $0.name })
+                    for profile in profiles {
+                        if existingProfileNames.contains(profile.displayName) {
+                            selectedProfiles.insert(profile.id)
+                        }
+                    }
+
                     isLoading = false
                 }
             } catch {
@@ -853,7 +862,11 @@ struct CommunityProfileRow: View {
         .background(isPreviewing ? Color.accentColor.opacity(0.15) : Color.clear)
         .cornerRadius(6)
         .contentShape(Rectangle())
-        .onTapGesture {
+        .onTapGesture(count: 2) {
+            onToggleSelect()
+            onPreview()
+        }
+        .onTapGesture(count: 1) {
             onPreview()
         }
     }
@@ -1059,10 +1072,10 @@ struct PreviewChordRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Button icons with generous spacing to prevent overlap
-            HStack(spacing: 8) {
+            HStack(spacing: 16) {
                 ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
                     ButtonIconView(button: button, isPressed: false, isDualSense: false)
-                        .frame(width: 20, height: 20)
+                        .frame(width: 16, height: 16)
                 }
             }
 
