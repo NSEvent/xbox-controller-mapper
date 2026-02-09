@@ -2,6 +2,51 @@ import Foundation
 import Combine
 import SwiftUI
 
+/// Errors that can occur when importing profiles from the community repository
+enum CommunityProfileError: LocalizedError {
+    case invalidURL
+    case networkError(Error)
+    case invalidResponse
+    case decodingError(Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Invalid URL"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .invalidResponse:
+            return "Invalid response from server"
+        case .decodingError(let error):
+            return "Failed to decode profile: \(error.localizedDescription)"
+        }
+    }
+}
+
+/// Represents a profile available in the community repository
+struct CommunityProfileInfo: Identifiable, Decodable {
+    let name: String
+    let downloadURL: String
+
+    var id: String { name }
+
+    var displayName: String {
+        name.replacingOccurrences(of: ".json", with: "")
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case downloadURL = "download_url"
+        case type
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        downloadURL = try container.decode(String.self, forKey: .downloadURL)
+    }
+}
+
 /// Manages profile persistence and selection
 @MainActor
 class ProfileManager: ObservableObject {
@@ -662,6 +707,77 @@ class ProfileManager: ObservableObject {
 
         profiles.append(profile)
         saveConfiguration()
+
+        return profile
+    }
+
+    // MARK: - Community Profiles
+
+    private static let communityProfilesURL = "https://api.github.com/repos/NSEvent/xbox-controller-mapper/contents/community-profiles"
+
+    /// Fetches the list of available community profiles from GitHub
+    nonisolated func fetchCommunityProfiles() async throws -> [CommunityProfileInfo] {
+        guard let url = URL(string: Self.communityProfilesURL) else {
+            throw CommunityProfileError.invalidURL
+        }
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(from: url)
+        } catch {
+            throw CommunityProfileError.networkError(error)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw CommunityProfileError.invalidResponse
+        }
+
+        do {
+            let allItems = try JSONDecoder().decode([CommunityProfileInfo].self, from: data)
+            // Filter to only .json files
+            return allItems.filter { $0.name.hasSuffix(".json") }
+        } catch {
+            throw CommunityProfileError.decodingError(error)
+        }
+    }
+
+    /// Downloads and imports a profile from a URL
+    nonisolated func downloadProfile(from urlString: String) async throws -> Profile {
+        guard let url = URL(string: urlString) else {
+            throw CommunityProfileError.invalidURL
+        }
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(from: url)
+        } catch {
+            throw CommunityProfileError.networkError(error)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw CommunityProfileError.invalidResponse
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        var profile: Profile
+        do {
+            profile = try decoder.decode(Profile.self, from: data)
+        } catch {
+            throw CommunityProfileError.decodingError(error)
+        }
+
+        // Generate new ID to avoid conflicts
+        profile.id = UUID()
+        profile.isDefault = false
+
+        await MainActor.run {
+            profiles.append(profile)
+            saveConfiguration()
+        }
 
         return profile
     }

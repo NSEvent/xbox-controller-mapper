@@ -380,6 +380,7 @@ struct ProfileSidebar: View {
     @State private var profileToExport: Profile?
     @State private var hoveredProfileId: UUID?
     @State private var profileToLink: Profile?
+    @State private var showingCommunityProfiles = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -397,6 +398,9 @@ struct ProfileSidebar: View {
                     }
                     Button("Import Profile...") {
                         isImporting = true
+                    }
+                    Button("Import Community Profile...") {
+                        showingCommunityProfiles = true
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -544,6 +548,9 @@ struct ProfileSidebar: View {
         ) { result in
             // Export completed, success or failure handled by system
         }
+        .sheet(isPresented: $showingCommunityProfiles) {
+            CommunityProfilesSheet()
+        }
     }
 }
 
@@ -571,6 +578,180 @@ struct ProfileDocument: FileDocument {
         encoder.outputFormatting = .prettyPrinted
         let data = try encoder.encode(profile)
         return FileWrapper(regularFileWithContents: data)
+    }
+}
+
+// MARK: - Community Profiles Sheet
+
+struct CommunityProfilesSheet: View {
+    @EnvironmentObject var profileManager: ProfileManager
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var availableProfiles: [CommunityProfileInfo] = []
+    @State private var selectedProfiles: Set<String> = []
+    @State private var isLoading = true
+    @State private var isDownloading = false
+    @State private var errorMessage: String?
+    @State private var downloadedCount = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Community Profiles")
+                    .font(.headline)
+                Spacer()
+                Button("Done") {
+                    dismiss()
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
+            }
+            .padding()
+
+            Divider()
+
+            // Content
+            if isLoading {
+                Spacer()
+                ProgressView("Loading profiles...")
+                Spacer()
+            } else if let error = errorMessage {
+                Spacer()
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 32))
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("Retry") {
+                        loadProfiles()
+                    }
+                }
+                .padding()
+                Spacer()
+            } else if availableProfiles.isEmpty {
+                Spacer()
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 32))
+                        .foregroundColor(.secondary)
+                    Text("No community profiles available")
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            } else {
+                List(availableProfiles, selection: $selectedProfiles) { profile in
+                    HStack {
+                        Image(systemName: selectedProfiles.contains(profile.id) ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(selectedProfiles.contains(profile.id) ? .accentColor : .secondary)
+                        Text(profile.displayName)
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if selectedProfiles.contains(profile.id) {
+                            selectedProfiles.remove(profile.id)
+                        } else {
+                            selectedProfiles.insert(profile.id)
+                        }
+                    }
+                }
+                .listStyle(.plain)
+            }
+
+            Divider()
+
+            // Footer
+            HStack {
+                if !availableProfiles.isEmpty {
+                    Button(selectedProfiles.count == availableProfiles.count ? "Deselect All" : "Select All") {
+                        if selectedProfiles.count == availableProfiles.count {
+                            selectedProfiles.removeAll()
+                        } else {
+                            selectedProfiles = Set(availableProfiles.map { $0.id })
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
+                }
+
+                Spacer()
+
+                if isDownloading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text("Downloading \(downloadedCount)/\(selectedProfiles.count)...")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                } else {
+                    Button("Import \(selectedProfiles.count) Profile\(selectedProfiles.count == 1 ? "" : "s")") {
+                        downloadSelectedProfiles()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedProfiles.isEmpty)
+                }
+            }
+            .padding()
+        }
+        .frame(width: 400, height: 450)
+        .onAppear {
+            loadProfiles()
+        }
+    }
+
+    private func loadProfiles() {
+        isLoading = true
+        errorMessage = nil
+
+        Task {
+            do {
+                let profiles = try await profileManager.fetchCommunityProfiles()
+                await MainActor.run {
+                    availableProfiles = profiles
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isLoading = false
+                }
+            }
+        }
+    }
+
+    private func downloadSelectedProfiles() {
+        isDownloading = true
+        downloadedCount = 0
+
+        let profilesToDownload = availableProfiles.filter { selectedProfiles.contains($0.id) }
+
+        Task {
+            var lastImportedProfile: Profile?
+
+            for profileInfo in profilesToDownload {
+                do {
+                    let profile = try await profileManager.downloadProfile(from: profileInfo.downloadURL)
+                    lastImportedProfile = profile
+                    await MainActor.run {
+                        downloadedCount += 1
+                    }
+                } catch {
+                    #if DEBUG
+                    print("Failed to download profile \(profileInfo.name): \(error)")
+                    #endif
+                }
+            }
+
+            await MainActor.run {
+                isDownloading = false
+                if let profile = lastImportedProfile {
+                    profileManager.setActiveProfile(profile)
+                }
+                dismiss()
+            }
+        }
     }
 }
 

@@ -1,0 +1,392 @@
+{
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "green" : 0.6,
+      "blue" : 1,
+      "red" : 0.2
+    },
+    "lightBarBrightness" : "bright",
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led5" : false,
+      "led2" : false,
+      "led3" : true,
+      "led4" : false
+    },
+    "lightBarEnabled" : true
+  },
+  "createdAt" : "2026-02-08T21:41:41Z",
+  "linkedApps" : [
+    "net.ankiweb.launcher"
+  ],
+  "isDefault" : false,
+  "chordMappings" : [
+    {
+      "id" : "03610902-612B-4532-AB55-996EF35DD04D",
+      "keyCode" : 8,
+      "hint" : "Cloze Deletion",
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "buttons" : [
+        "rightBumper",
+        "leftBumper"
+      ]
+    },
+    {
+      "id" : "4A72EB03-AC98-483E-80DA-F4736BEE0510",
+      "keyCode" : 36,
+      "hint" : "Add Card (Keep Open)",
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "buttons" : [
+        "leftBumper",
+        "a"
+      ]
+    },
+    {
+      "id" : "F530A8D4-137C-4DEB-899A-FD8838CA81AD",
+      "keyCode" : 19,
+      "hint" : "Suspend Card",
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "buttons" : [
+        "b",
+        "leftBumper"
+      ]
+    },
+    {
+      "id" : "2E0D18EB-A8A9-4821-AC2B-92548E8EDAB6",
+      "keyCode" : 27,
+      "hint" : "Bury Card",
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "buttons" : [
+        "rightBumper",
+        "b"
+      ]
+    },
+    {
+      "id" : "401AA9C3-C79C-4FA2-9315-1FAA61ED5B76",
+      "keyCode" : 28,
+      "hint" : "Flag Card",
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "buttons" : [
+        "y",
+        "leftBumper"
+      ]
+    },
+    {
+      "id" : "8A452376-7369-44B2-84F2-9C3CB9C30FFA",
+      "keyCode" : 2,
+      "hint" : "Set Due Date",
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "buttons" : [
+        "x",
+        "leftBumper"
+      ]
+    },
+    {
+      "id" : "5AD1161F-0211-4E2B-B686-1407AEB83BE1",
+      "keyCode" : 35,
+      "hint" : "Preview",
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "buttons" : [
+        "view",
+        "menu"
+      ]
+    },
+    {
+      "id" : "8BC7139A-23CB-4FE4-AB72-9447C06A8785",
+      "keyCode" : 15,
+      "hint" : "Slow Audio Replay",
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "buttons" : [
+        "rightBumper",
+        "a"
+      ]
+    },
+    {
+      "id" : "70EAA76F-0EF5-4DE9-A97B-625B15ECC1E0",
+      "keyCode" : 51,
+      "hint" : "Delete Card",
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "buttons" : [
+        "dpadDown",
+        "leftBumper"
+      ]
+    },
+    {
+      "id" : "0BB63FD9-A86C-4077-8AE5-1D43553D9579",
+      "keyCode" : 3,
+      "hint" : "Find & Replace",
+      "modifiers" : {
+        "command" : true,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "buttons" : [
+        "y",
+        "rightBumper"
+      ]
+    }
+  ],
+  "name" : "Anki Flashcards",
+  "icon" : "brain.head.profile",
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [
+
+    ],
+    "wheelAlternateModifiers" : {
+      "control" : false,
+      "shift" : false,
+      "option" : false,
+      "command" : false
+    },
+    "websiteLinks" : [
+
+    ],
+    "quickTexts" : [
+
+    ],
+    "wheelShowsWebsites" : false,
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  },
+  "buttonMappings" : {
+    "dpadDown" : {
+      "hint" : "Good",
+      "keyCode" : 20,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "control" : false,
+        "shift" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightTrigger" : {
+      "isHoldModifier" : false,
+      "hint" : "Browse",
+      "keyCode" : 11,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      }
+    },
+    "leftBumper" : {
+      "hint" : "Edit Card",
+      "keyCode" : 14,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "control" : false,
+        "shift" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightBumper" : {
+      "isHoldModifier" : false,
+      "hint" : "Good",
+      "keyCode" : 20,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Show Answer",
+      "keyCode" : 49,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "control" : false,
+        "shift" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadLeft" : {
+      "hint" : "Undo",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "control" : false,
+        "shift" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "isHoldModifier" : false,
+      "hint" : "Decks",
+      "keyCode" : 2,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      }
+    },
+    "x" : {
+      "hint" : "Hard",
+      "keyCode" : 19,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "control" : false,
+        "shift" : false
+      },
+      "isHoldModifier" : false
+    },
+    "menu" : {
+      "hint" : "Sync",
+      "keyCode" : 1,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "control" : false,
+        "shift" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftTrigger" : {
+      "isHoldModifier" : false,
+      "hint" : "Undo",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      }
+    },
+    "b" : {
+      "isHoldModifier" : false,
+      "hint" : "Again (Fail)",
+      "keyCode" : 18,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      }
+    },
+    "a" : {
+      "isHoldModifier" : false,
+      "hint" : "Show Answer \/ Good",
+      "keyCode" : 49,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      }
+    },
+    "y" : {
+      "hint" : "Easy",
+      "keyCode" : 21,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "control" : false,
+        "shift" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadUp" : {
+      "isHoldModifier" : false,
+      "hint" : "Replay Audio",
+      "keyCode" : 15,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      }
+    }
+  },
+  "modifiedAt" : "2026-02-08T22:02:31Z",
+  "macros" : [
+
+  ],
+  "id" : "53378582-9B8A-4349-8E56-9BDF4E920820",
+  "joystickSettings" : {
+    "mouseAcceleration" : 0.5,
+    "scrollAcceleration" : 0.5,
+    "touchpadZoomToPanRatio" : 1.95,
+    "invertMouseY" : false,
+    "focusModeModifier" : {
+      "control" : false,
+      "shift" : false,
+      "option" : false,
+      "command" : true
+    },
+    "invertScrollY" : false,
+    "touchpadSensitivity" : 0.5,
+    "scrollDeadzone" : 0.15,
+    "touchpadUseNativeZoom" : true,
+    "touchpadAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2,
+    "focusModeSensitivity" : 0.2,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.15,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "mouseSensitivity" : 0.5
+  }
+}
