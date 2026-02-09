@@ -1071,11 +1071,10 @@ struct PreviewChordRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Button icons with generous spacing to prevent overlap
-            HStack(spacing: 16) {
+            // Button icons - match main chord list spacing
+            HStack(spacing: 4) {
                 ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
                     ButtonIconView(button: button, isPressed: false, isDualSense: false)
-                        .frame(width: 16, height: 16)
                 }
             }
 
