@@ -1096,8 +1096,10 @@ class MappingEngine: ObservableObject {
         let timer = DispatchSource.makeTimerSource(queue: pollingQueue)
         timer.schedule(deadline: .now(), repeating: Config.joystickPollInterval, leeway: .microseconds(100))
         timer.setEventHandler { [weak self] in
-            self?.processJoysticks()
-            self?.processTouchpadMomentumTick()
+            // Compute timestamp once per tick to avoid redundant system calls
+            let now = CFAbsoluteTimeGetCurrent()
+            self?.processJoysticks(now: now)
+            self?.processTouchpadMomentumTick(now: now)
         }
         timer.resume()
         joystickTimer = timer
@@ -1112,22 +1114,21 @@ class MappingEngine: ObservableObject {
         state.lock.unlock()
     }
 
-    nonisolated private func processJoysticks() {
+    nonisolated private func processJoysticks(now: CFAbsoluteTime) {
         state.lock.lock()
         defer { state.lock.unlock() }
-        
+
         guard state.isEnabled, let settings = state.joystickSettings else { return }
 
-        let now = CFAbsoluteTimeGetCurrent()
         let dt = state.lastJoystickSampleTime > 0 ? now - state.lastJoystickSampleTime : Config.joystickPollInterval
         state.lastJoystickSampleTime = now
 
         // Process left joystick (mouse)
         // Note: accessing controllerService.threadSafeLeftStick is safe (atomic/lock-free usually)
         let leftStick = controllerService.threadSafeLeftStick
-        
-        // Remove smoothing - pass raw value
-        processMouseMovement(leftStick, settings: settings)
+
+        // Remove smoothing - pass raw value (pass now to avoid redundant CFAbsoluteTimeGetCurrent call)
+        processMouseMovement(leftStick, settings: settings, now: now)
 
         // Process right joystick (scroll or command wheel)
         let rightStick = controllerService.threadSafeRightStick
@@ -1212,7 +1213,7 @@ class MappingEngine: ObservableObject {
         state.rightStickLastDirection = 0
     }
 
-    nonisolated private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings) {
+    nonisolated private func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime) {
         // Focus Mode Logic - check BEFORE deadzone to detect transitions even when stick is idle
         let focusFlags = settings.focusModeModifier.cgEventFlags
 
@@ -1225,7 +1226,6 @@ class MappingEngine: ObservableObject {
         // Detect focus mode transitions and trigger haptic feedback
         // Note: state.lock is already held by caller (processJoysticks)
         let wasFocusActive = state.wasFocusActive
-        let now = CFAbsoluteTimeGetCurrent()
 
         if isFocusActive != wasFocusActive {
             state.wasFocusActive = isFocusActive
@@ -1741,7 +1741,7 @@ class MappingEngine: ObservableObject {
         return
     }
 
-    nonisolated private func processTouchpadMomentumTick() {
+    nonisolated private func processTouchpadMomentumTick(now: CFAbsoluteTime) {
         state.lock.lock()
         guard state.isEnabled else {
             state.lock.unlock()
@@ -1759,7 +1759,6 @@ class MappingEngine: ObservableObject {
         state.lock.unlock()
 
         if isGestureActive {
-            let now = CFAbsoluteTimeGetCurrent()
             if lastUpdate == 0 {
                 state.lock.lock()
                 state.touchpadMomentumLastUpdate = now
@@ -1800,7 +1799,6 @@ class MappingEngine: ObservableObject {
             return
         }
 
-        let now = CFAbsoluteTimeGetCurrent()
         if lastUpdate == 0 {
             state.lock.lock()
             state.touchpadMomentumLastUpdate = now

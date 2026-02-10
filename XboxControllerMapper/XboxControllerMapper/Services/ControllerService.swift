@@ -1659,20 +1659,30 @@ class ControllerService: ObservableObject {
     nonisolated private func updateLeftStick(x: Float, y: Float) {
         storage.lock.lock()
         storage.leftStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
+        let callback = storage.onLeftStickMoved
         storage.lock.unlock()
-        
-        Task { @MainActor in
-            self.onLeftStickMoved?(CGPoint(x: CGFloat(x), y: CGFloat(y)))
+
+        // Only create Task if callback exists (avoids creating 250+ Tasks/sec for nil callbacks)
+        if let callback = callback {
+            let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
+            Task { @MainActor in
+                callback(point)
+            }
         }
     }
-    
+
     nonisolated private func updateRightStick(x: Float, y: Float) {
         storage.lock.lock()
         storage.rightStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
+        let callback = storage.onRightStickMoved
         storage.lock.unlock()
 
-        Task { @MainActor in
-            self.onRightStickMoved?(CGPoint(x: CGFloat(x), y: CGFloat(y)))
+        // Only create Task if callback exists (avoids creating 250+ Tasks/sec for nil callbacks)
+        if let callback = callback {
+            let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
+            Task { @MainActor in
+                callback(point)
+            }
         }
     }
 
