@@ -40,6 +40,9 @@ WRAPPER_NAME := $(shell $(BUILD_SETTINGS) | awk -F ' = ' '/WRAPPER_NAME/ {print 
 APP_PATH := $(TARGET_BUILD_DIR)/$(WRAPPER_NAME)
 PROCESS_NAME := $(basename $(WRAPPER_NAME))
 
+# Check if Kevin's dev cert is available (team ID 542GXYT5Z2)
+HAS_DEV_CERT := $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q "$(TEAM_ID)" && echo 1 || echo 0)
+
 .PHONY: build install clean release sign-and-notarize app-path help check-permissions
 
 help:
@@ -54,6 +57,11 @@ help:
 	@echo "Configuration:"
 	@echo "  CONFIG=$(CONFIG) SCHEME=$(SCHEME)"
 	@echo "  Version: $(MARKETING_VERSION) ($(BUILD_NUMBER))"
+	@echo ""
+	@echo "For Contributors:"
+	@echo "  If you don't have the developer certificate, the build will automatically"
+	@echo "  use ad-hoc signing. Ad-hoc signed apps work locally for development/testing"
+	@echo "  but cannot be distributed. Run: make install BUILD_FROM_SOURCE=1"
 
 check-permissions:
 ifndef BUILD_FROM_SOURCE
@@ -61,12 +69,25 @@ ifndef BUILD_FROM_SOURCE
 endif
 
 build: check-permissions
+ifeq ($(HAS_DEV_CERT),1)
+	@echo "✅ Found developer certificate for team $(TEAM_ID) - building with code signing"
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration $(CONFIG) \
 		DEVELOPMENT_TEAM=$(TEAM_ID) \
 		MARKETING_VERSION=$(MARKETING_VERSION) \
 		CURRENT_PROJECT_VERSION=$(BUILD_NUMBER) \
 		-allowProvisioningUpdates \
 		build
+else
+	@echo "⚠️  Developer certificate not found - building with ad-hoc signing (contributor mode)"
+	@echo "   Note: Ad-hoc signed apps work locally but cannot be distributed."
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration $(CONFIG) \
+		CODE_SIGN_IDENTITY="-" \
+		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGNING_ALLOWED=NO \
+		MARKETING_VERSION=$(MARKETING_VERSION) \
+		CURRENT_PROJECT_VERSION=$(BUILD_NUMBER) \
+		build
+endif
 
 install: build
 	-pkill -x "$(PROCESS_NAME)" || true
