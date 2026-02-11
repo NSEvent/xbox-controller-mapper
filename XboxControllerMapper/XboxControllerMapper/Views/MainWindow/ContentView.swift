@@ -252,7 +252,7 @@ struct ContentView: View {
             if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
                 Divider()
                     .background(Color.white.opacity(0.1))
-                
+
                 VStack(alignment: .leading, spacing: 12) {
                     Text("ACTIVE CHORDS")
                         .font(.system(size: 10, weight: .bold))

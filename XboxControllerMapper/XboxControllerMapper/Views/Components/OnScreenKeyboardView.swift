@@ -201,7 +201,7 @@ struct OnScreenKeyboardView: View {
             .padding(.horizontal, 12)
 
             // Controller Hint Footer
-            HStack(spacing: 8) {
+            HStack {
                 Spacer()
 
                 // Command Wheel Hint
