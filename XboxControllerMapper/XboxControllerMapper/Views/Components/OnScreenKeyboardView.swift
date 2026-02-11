@@ -200,30 +200,25 @@ struct OnScreenKeyboardView: View {
             }
             .padding(.horizontal, 12)
 
-            // Controller Hint Footer
-            HStack {
-                Spacer()
+            // Controller Hint Footer (centered relative to main keyboard, not nav column)
+            HStack(spacing: 8) {
+                ButtonIconView(button: .rightThumbstick, isPressed: false, isDualSense: false, showDirectionalArrows: true)
+                    .frame(width: 32, height: 32)
 
-                // Command Wheel Hint
-                HStack(spacing: 8) {
-                    ButtonIconView(button: .rightThumbstick, isPressed: false, isDualSense: false, showDirectionalArrows: true)
-                        .frame(width: 32, height: 32)
-
-                    Text("Command Wheel")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.black.opacity(0.3))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-
-                Spacer()
+                Text("Command Wheel")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.secondary)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.black.opacity(0.3))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.trailing, 50) // Offset to account for navigation column width
             .padding(.top, 4)
         }
         .padding(24)

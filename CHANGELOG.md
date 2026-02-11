@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-11
+
+### Added
+
+- **Layers Feature**: Create alternate button mapping sets activated by holding a designated button
+  - Up to 2 additional layers beyond the base layer
+  - Momentary activation - layer active while activator button is held
+  - Fallthrough behavior - unmapped buttons use base layer mappings
+  - User-named layers (e.g., "Combat Mode", "Navigation")
+  - Visual layer tabs in the UI with activator button badges
+- **DualSense Edge (Pro) Controller Support**
+  - Full support for Edge-specific controls: function buttons and paddles
+  - USB HID fallback for Edge controllers not recognized by GameController framework
+  - Edge buttons available as layer activators when Edge controller is detected
+- **Auto-Scaling UI**: Controller view and window content scale automatically when resized
+  - Scales both up and down based on window size
+  - Combines with manual zoom setting for full control
+
+### Fixed
+
+- Deadlock in button release handler that caused mappings to stop working
+- Command Wheel hint centering on on-screen keyboard
+- Mapping label alignment across different button sizes (shoulder buttons vs others)
+
+### Changed
+
+- Edge controller row order: function buttons on top, paddles on bottom
+- Layer activator labels now use consistent chip styling matching other mapping labels
+- Re-applied CPU optimization for joystick callbacks (reduces idle CPU usage)
+
 ## [1.3.0] - 2026-02-09
 
 ### Added
