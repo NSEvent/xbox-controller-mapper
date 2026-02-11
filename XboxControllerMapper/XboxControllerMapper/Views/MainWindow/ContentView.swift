@@ -20,72 +20,70 @@ struct ContentView: View {
     @State private var editingLayerId: UUID? = nil
 
     var body: some View {
-        AutoScalingContent(idealWidth: 1100, idealHeight: 750) {
-            HSplitView {
-                // Sidebar: Profile management
-                ProfileSidebar()
-                    .frame(minWidth: 200, maxWidth: 260)
-                    .background(Color.black.opacity(0.2)) // Subtle darkening for sidebar
+        HSplitView {
+            // Sidebar: Profile management
+            ProfileSidebar()
+                .frame(minWidth: 200, maxWidth: 260)
+                .background(Color.black.opacity(0.2)) // Subtle darkening for sidebar
 
-                // Main content
-                VStack(spacing: 0) {
-                    // Toolbar
-                    toolbar
-                        .zIndex(1) // Keep above content
+            // Main content
+            VStack(spacing: 0) {
+                // Toolbar
+                toolbar
+                    .zIndex(1) // Keep above content
 
-                    // Tab content
-                    TabView(selection: $selectedTab) {
-                        // Controller Visual
-                        controllerTab
-                            .tabItem { Text("Buttons") }
-                            .tag(0)
+                // Tab content
+                TabView(selection: $selectedTab) {
+                    // Controller Visual
+                    controllerTab
+                        .tabItem { Text("Buttons") }
+                        .tag(0)
 
-                        // Chords
-                        chordsTab
-                            .tabItem { Text("Chords") }
-                            .tag(1)
+                    // Chords
+                    chordsTab
+                        .tabItem { Text("Chords") }
+                        .tag(1)
 
-                        // Macros Tab
-                        macroListTab
-                            .tabItem { Text("Macros") }
-                            .tag(7)
+                    // Macros Tab
+                    macroListTab
+                        .tabItem { Text("Macros") }
+                        .tag(7)
 
-                        // On-Screen Keyboard Settings
-                        keyboardSettingsTab
-                            .tabItem { Text("Keyboard") }
-                            .tag(3)
+                    // On-Screen Keyboard Settings
+                    keyboardSettingsTab
+                        .tabItem { Text("Keyboard") }
+                        .tag(3)
 
-                        // Joystick Settings
-                        joystickSettingsTab
-                            .tabItem { Text("Joysticks") }
-                            .tag(2)
+                    // Joystick Settings
+                    joystickSettingsTab
+                        .tabItem { Text("Joysticks") }
+                        .tag(2)
 
-                        // Touchpad Settings (only shown when controller has touchpad)
-                        if controllerService.threadSafeIsDualSense {
-                            touchpadSettingsTab
-                                .tabItem { Text("Touchpad") }
-                                .tag(4)
-                        }
-
-                        // LED Settings (only shown for DualSense)
-                        if controllerService.threadSafeIsDualSense {
-                            ledSettingsTab
-                                .tabItem { Text("LEDs") }
-                                .tag(5)
-                        }
-
-                        // Microphone Settings (only shown for DualSense)
-                        if controllerService.threadSafeIsDualSense {
-                            microphoneSettingsTab
-                                .tabItem { Text("Microphone") }
-                                .tag(6)
-                        }
+                    // Touchpad Settings (only shown when controller has touchpad)
+                    if controllerService.threadSafeIsDualSense {
+                        touchpadSettingsTab
+                            .tabItem { Text("Touchpad") }
+                            .tag(4)
                     }
-                    .tabViewStyle(.automatic)
+
+                    // LED Settings (only shown for DualSense)
+                    if controllerService.threadSafeIsDualSense {
+                        ledSettingsTab
+                            .tabItem { Text("LEDs") }
+                            .tag(5)
+                    }
+
+                    // Microphone Settings (only shown for DualSense)
+                    if controllerService.threadSafeIsDualSense {
+                        microphoneSettingsTab
+                            .tabItem { Text("Microphone") }
+                            .tag(6)
+                    }
                 }
+                .tabViewStyle(.automatic)
             }
         }
-        .frame(minWidth: 600, minHeight: 450)
+        .frame(minWidth: 900, minHeight: 650)
         // Global Glass Background
         .background(
             ZStack {
@@ -218,7 +216,19 @@ struct ContentView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
 
-            ZStack {
+            GeometryReader { geometry in
+                // Base size of ControllerVisualView content
+                let baseWidth: CGFloat = 920
+                let baseHeight: CGFloat = 580
+
+                // Calculate scale to fit available space (allow both up and down scaling)
+                let scaleX = geometry.size.width / baseWidth
+                let scaleY = geometry.size.height / baseHeight
+                let autoScale = min(scaleX, scaleY)
+
+                // Combine with user's manual zoom setting
+                let finalScale = autoScale * profileManager.uiScale
+
                 ControllerVisualView(
                     selectedButton: $selectedButton,
                     selectedLayerId: selectedLayerId,
@@ -232,10 +242,10 @@ struct ContentView: View {
                         }
                     }
                 )
-                .scaleEffect(profileManager.uiScale)
+                .scaleEffect(finalScale)
+                .frame(width: geometry.size.width, height: geometry.size.height)
                 .allowsHitTesting(!isMagnifying)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
 
             // Mapped Chords Display
@@ -3012,35 +3022,6 @@ struct EditLayerSheet: View {
         .onAppear {
             layerName = layer.name
             selectedActivator = layer.activatorButton
-        }
-    }
-}
-
-// MARK: - Auto-Scaling Content Wrapper
-
-/// Wraps content and automatically scales it down when the available space
-/// is smaller than the ideal size. The content is centered within the available space.
-struct AutoScalingContent<Content: View>: View {
-    let idealWidth: CGFloat
-    let idealHeight: CGFloat
-    let content: Content
-
-    init(idealWidth: CGFloat, idealHeight: CGFloat, @ViewBuilder content: () -> Content) {
-        self.idealWidth = idealWidth
-        self.idealHeight = idealHeight
-        self.content = content()
-    }
-
-    var body: some View {
-        GeometryReader { geometry in
-            let scaleX = min(1.0, geometry.size.width / idealWidth)
-            let scaleY = min(1.0, geometry.size.height / idealHeight)
-            let scale = min(scaleX, scaleY)
-
-            content
-                .frame(width: idealWidth, height: idealHeight)
-                .scaleEffect(scale)
-                .frame(width: geometry.size.width, height: geometry.size.height)
         }
     }
 }
