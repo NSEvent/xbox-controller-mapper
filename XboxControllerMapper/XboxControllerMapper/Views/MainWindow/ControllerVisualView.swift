@@ -333,6 +333,7 @@ struct ControllerVisualView: View {
     private func referenceRow(for button: ControllerButton) -> some View {
         HStack(spacing: 12) {
             // Button Indicator (adapts to Xbox or DualSense styling)
+            // Fixed width container ensures mapping labels align across different button sizes
             ZStack(alignment: .topTrailing) {
                 ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isDualSense)
 
@@ -347,6 +348,7 @@ struct ControllerVisualView: View {
                         .help("Layer Activator: \(layer.name)")
                 }
             }
+            .frame(width: 50)  // Fixed width for consistent label alignment
 
             // Shortcut Labels Container
             HStack {
