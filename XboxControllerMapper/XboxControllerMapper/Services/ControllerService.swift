@@ -1652,16 +1652,24 @@ class ControllerService: ObservableObject {
     }
 
     nonisolated private func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
-        // Only process report 0x31 (Bluetooth input report) with sufficient length
-        guard reportID == 0x31 && length >= 12 else { return }
+        // Process report 0x31 (Bluetooth) or 0x01 (USB) input reports
+        // USB report 0x01: buttons at different offsets (no extra header byte)
+        // Bluetooth report 0x31: has extra header, buttons2 at byte 11
+        let buttons2Offset: Int
+        if reportID == 0x31 && length >= 12 {
+            buttons2Offset = 11  // Bluetooth
+        } else if reportID == 0x01 && length >= 11 {
+            buttons2Offset = 10  // USB (one byte less offset)
+        } else {
+            return
+        }
 
-        // Byte 11 contains buttons2 (PS/Touch/Mute and Edge paddles) in Bluetooth report
-        // Report structure: [0]=reportID, ... [11]=buttons2
+        // buttons2 contains PS/Touch/Mute and Edge paddles
         // Bit 0: PS button, Bit 1: Touchpad button, Bit 2: Mic mute
         // DualSense Edge additional buttons (bits 4-7):
         // Bit 4: Left function (0x10), Bit 5: Right function (0x20)
         // Bit 6: Left paddle (0x40), Bit 7: Right paddle (0x80)
-        let buttons2 = report[11]
+        let buttons2 = report[buttons2Offset]
         let psPressed = (buttons2 & 0x01) != 0
         let micPressed = (buttons2 & 0x04) != 0
 
@@ -2391,11 +2399,11 @@ class ControllerService: ObservableObject {
         storage.chordWorkItem = workItem
         let window = storage.chordWindow
         storage.lock.unlock()
-        
+
         Task { @MainActor in
             self.activeButtons = uiButtons
         }
-        
+
         controllerQueue.asyncAfter(deadline: .now() + window, execute: workItem)
     }
 

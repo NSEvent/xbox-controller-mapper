@@ -226,24 +226,6 @@ struct ButtonIconView: View {
                         .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.white.opacity(0.95))
-            } else if button == .leftPaddle {
-                // Left paddle: "L" + paddle icon
-                HStack(spacing: 2) {
-                    Text("L")
-                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
-                    Image(systemName: "l.button.roundedbottom.horizontal")
-                        .font(.system(size: fontSize - 2, weight: .medium))
-                }
-                .foregroundColor(.white.opacity(0.95))
-            } else if button == .rightPaddle {
-                // Right paddle: paddle icon + "R"
-                HStack(spacing: 2) {
-                    Image(systemName: "r.button.roundedbottom.horizontal")
-                        .font(.system(size: fontSize - 2, weight: .medium))
-                    Text("R")
-                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
-                }
-                .foregroundColor(.white.opacity(0.95))
             } else if let systemImage = button.systemImageName(forDualSense: isDualSense) {
                 Image(systemName: systemImage)
                     .foregroundColor(.white.opacity(0.95))

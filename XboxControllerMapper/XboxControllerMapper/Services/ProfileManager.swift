@@ -717,8 +717,42 @@ class ProfileManager: ObservableObject {
         }
     }
 
-    /// Creates a backup of the config file before saving
-    private func createBackup() {
+    private func saveConfiguration() {
+        // Safety check: don't save if load failed (to avoid clobbering existing config)
+        guard loadSucceeded || !fileManager.fileExists(atPath: configURL.path) else {
+            NSLog("[ProfileManager] Skipping save - config load failed earlier, refusing to clobber existing config")
+            return
+        }
+
+        // Capture state for background save
+        let config = Configuration(
+            profiles: profiles,
+            activeProfileId: activeProfileId,
+            uiScale: uiScale
+        )
+        let configURL = self.configURL
+        let fileManager = self.fileManager
+
+        // Perform file I/O on background thread to avoid blocking main thread
+        DispatchQueue.global(qos: .utility).async {
+            // Create backup before saving
+            self.createBackupAsync(configURL: configURL, fileManager: fileManager)
+
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = .prettyPrinted
+
+            do {
+                let data = try encoder.encode(config)
+                try data.write(to: configURL)
+            } catch {
+                // Configuration save failed silently
+            }
+        }
+    }
+
+    /// Creates a backup of the config file (called from background thread)
+    private nonisolated func createBackupAsync(configURL: URL, fileManager: FileManager) {
         guard fileManager.fileExists(atPath: configURL.path) else { return }
 
         let backupDir = configURL.deletingLastPathComponent().appendingPathComponent("backups", isDirectory: true)
@@ -742,34 +776,6 @@ class ProfileManager: ObservableObject {
             for backup in sortedBackups.dropFirst(5) {
                 try? fileManager.removeItem(at: backup)
             }
-        }
-    }
-
-    private func saveConfiguration() {
-        // Safety check: don't save if load failed (to avoid clobbering existing config)
-        guard loadSucceeded || !fileManager.fileExists(atPath: configURL.path) else {
-            NSLog("[ProfileManager] Skipping save - config load failed earlier, refusing to clobber existing config")
-            return
-        }
-
-        // Create backup before saving
-        createBackup()
-
-        let config = Configuration(
-            profiles: profiles,
-            activeProfileId: activeProfileId,
-            uiScale: uiScale
-        )
-
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = .prettyPrinted
-
-        do {
-            let data = try encoder.encode(config)
-            try data.write(to: configURL)
-        } catch {
-            // Configuration save failed silently
         }
     }
 
