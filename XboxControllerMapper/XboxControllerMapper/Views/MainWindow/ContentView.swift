@@ -2847,11 +2847,15 @@ struct AddLayerSheet: View {
     /// Available activator buttons (exclude already-used ones)
     private var availableButtons: [ControllerButton] {
         // Good candidates for layer activators: bumpers, triggers, share, view, menu
-        let candidates: [ControllerButton] = [
+        var candidates: [ControllerButton] = [
             .leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
             .share, .view, .menu, .xbox,
             .leftThumbstick, .rightThumbstick
         ]
+        // Add Edge-specific buttons when Edge controller is connected
+        if controllerService.threadSafeIsDualSenseEdge {
+            candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
+        }
         return candidates.filter { !usedActivators.contains($0) }
     }
 
@@ -2938,11 +2942,15 @@ struct EditLayerSheet: View {
 
     /// Available activator buttons (exclude already-used ones, but include current)
     private var availableButtons: [ControllerButton] {
-        let candidates: [ControllerButton] = [
+        var candidates: [ControllerButton] = [
             .leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
             .share, .view, .menu, .xbox,
             .leftThumbstick, .rightThumbstick
         ]
+        // Add Edge-specific buttons when Edge controller is connected
+        if controllerService.threadSafeIsDualSenseEdge {
+            candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
+        }
         return candidates.filter { !usedActivators.contains($0) }
     }
 
