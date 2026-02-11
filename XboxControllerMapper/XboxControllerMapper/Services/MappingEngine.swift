@@ -144,6 +144,10 @@ class MappingEngine: ObservableObject {
         var dpadNavigationTimer: DispatchSourceTimer? = nil  // Timer for D-pad repeat navigation
         var dpadNavigationButton: ControllerButton? = nil  // Which D-pad button is being held for navigation
 
+        // Layer State
+        var activeLayerIds: Set<UUID> = []  // Currently active layer IDs (activator buttons are held)
+        var layerActivatorMap: [ControllerButton: UUID] = [:]  // Quick lookup: activator button -> layer ID
+
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
         var smoothedRightStick: CGPoint = .zero
@@ -210,6 +214,9 @@ class MappingEngine: ObservableObject {
             dpadNavigationTimer?.cancel()
             dpadNavigationTimer = nil
             dpadNavigationButton = nil
+
+            activeLayerIds.removeAll()
+            // Note: layerActivatorMap is rebuilt when profile changes, not cleared on reset
 
             smoothedLeftStick = .zero
             smoothedRightStick = .zero
@@ -284,6 +291,17 @@ class MappingEngine: ObservableObject {
         self.state.activeProfile = profileManager.activeProfile
         self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
+        rebuildLayerActivatorMap(profile: profileManager.activeProfile)
+    }
+
+    /// Rebuilds the layer activator button -> layer ID lookup map
+    /// Must be called with state.lock held or during init
+    private func rebuildLayerActivatorMap(profile: Profile?) {
+        state.layerActivatorMap.removeAll()
+        guard let profile = profile else { return }
+        for layer in profile.layers {
+            state.layerActivatorMap[layer.activatorButton] = layer.id
+        }
     }
     
     private func setupBindings() {
@@ -294,6 +312,7 @@ class MappingEngine: ObservableObject {
                 self.state.lock.lock()
                 self.state.activeProfile = profile
                 self.state.joystickSettings = profile?.joystickSettings
+                self.rebuildLayerActivatorMap(profile: profile)
                 self.state.lock.unlock()
             }
             .store(in: &cancellables)
@@ -441,6 +460,22 @@ class MappingEngine: ObservableObject {
         }
         let bundleId = state.frontmostBundleId
         let lastTap = state.lastTapTime[button]
+
+        // MARK: - Layer Activator Check
+        // If this button is a layer activator, activate the layer and return
+        if let layerId = state.layerActivatorMap[button] {
+            state.activeLayerIds.insert(layerId)
+            state.lock.unlock()
+
+            // Log and provide feedback
+            if let layer = profile.layers.first(where: { $0.id == layerId }) {
+                #if DEBUG
+                print("🔷 Layer activated: \(layer.name)")
+                #endif
+                inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
+            }
+            return
+        }
         state.lock.unlock()
 
         // MARK: - On-Screen Keyboard D-Pad Navigation
@@ -777,6 +812,22 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         stopRepeatTimer(for: button)
 
+        // MARK: - Layer Activator Release
+        // If this button is a layer activator, deactivate the layer and return
+        state.lock.lock()
+        if let layerId = state.layerActivatorMap[button] {
+            state.activeLayerIds.remove(layerId)
+            #if DEBUG
+            if let profile = state.activeProfile,
+               let layer = profile.layers.first(where: { $0.id == layerId }) {
+                print("🔷 Layer deactivated: \(layer.name)")
+            }
+            #endif
+            state.lock.unlock()
+            return
+        }
+        state.lock.unlock()
+
         // Check if this button was showing the on-screen keyboard
         handleOnScreenKeyboardReleased(button)
 
@@ -898,11 +949,37 @@ class MappingEngine: ObservableObject {
         return (mapping, profile, bundleId, isLongHoldTriggered)
     }
 
-    /// Returns the effective mapping for a button, using default if profile mapping is empty or missing
+    /// Returns the effective mapping for a button, considering active layers.
+    /// - If button is a layer activator, returns nil (button has no output, just activates layer)
+    /// - If a layer is active, checks that layer's buttonMappings first
+    /// - Falls through to base layer buttonMappings
+    /// - Falls through to defaultMapping() for DualSense defaults
     nonisolated private func effectiveMapping(for button: ControllerButton, in profile: Profile) -> KeyMapping? {
+        // Take lock to access layer state
+        state.lock.lock()
+        let isLayerActivator = state.layerActivatorMap[button] != nil
+        let activeLayerIds = state.activeLayerIds
+        state.lock.unlock()
+
+        // Layer activator buttons have no mapping - they only activate layers
+        if isLayerActivator {
+            return nil
+        }
+
+        // Check active layers for a mapping (first layer with a mapping wins)
+        for layerId in activeLayerIds {
+            if let layer = profile.layers.first(where: { $0.id == layerId }),
+               let mapping = layer.buttonMappings[button], !mapping.isEmpty {
+                return mapping
+            }
+        }
+
+        // Fall through to base layer
         if let mapping = profile.buttonMappings[button], !mapping.isEmpty {
             return mapping
         }
+
+        // Fall through to default mapping
         return defaultMapping(for: button)
     }
 
@@ -1031,29 +1108,62 @@ class MappingEngine: ObservableObject {
             state.lock.unlock()
             return
         }
-        
-        // Cancel pending actions
+
+        // MARK: - Filter out layer activators
+        // Layer activator buttons activate their layers but don't participate in chords
+        var layerActivators: Set<ControllerButton> = []
+        for button in buttons {
+            if let layerId = state.layerActivatorMap[button] {
+                layerActivators.insert(button)
+                // Activate the layer
+                state.activeLayerIds.insert(layerId)
+                #if DEBUG
+                if let layer = profile.layers.first(where: { $0.id == layerId }) {
+                    print("🔷 Layer activated (via chord): \(layer.name)")
+                }
+                #endif
+            }
+        }
+
+        // Get the remaining non-activator buttons
+        let chordButtons = buttons.subtracting(layerActivators)
+
+        // Cancel pending actions for all buttons
         for button in buttons {
             state.pendingReleaseActions[button]?.cancel()
             state.pendingReleaseActions.removeValue(forKey: button)
-            
+
             state.pendingSingleTap[button]?.cancel()
             state.pendingSingleTap.removeValue(forKey: button)
             state.lastTapTime.removeValue(forKey: button)
         }
         state.lock.unlock()
 
+        // If all buttons were layer activators, we're done
+        if chordButtons.isEmpty {
+            return
+        }
+
+        // If only one button remains, process as individual press
+        if chordButtons.count == 1 {
+            for button in chordButtons {
+                handleButtonPressed(button)
+            }
+            return
+        }
+
+        // Try to match remaining buttons as a chord
         let matchingChord = profile.chordMappings.first { chord in
-            chord.buttons == buttons
+            chord.buttons == chordButtons
         }
 
         if let chord = matchingChord {
             // Register active chord only when there's a matching mapping
             // (don't set for fallback case - we want individual button handling)
             state.lock.lock()
-            state.activeChordButtons = buttons
+            state.activeChordButtons = chordButtons
             state.lock.unlock()
-            inputLogService?.log(buttons: Array(buttons), type: .chord, action: chord.actionDisplayString)
+            inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: chord.actionDisplayString)
 
             if let systemCommand = chord.systemCommand {
                 mappingExecutor.systemCommandExecutor.execute(systemCommand)
@@ -1069,19 +1179,8 @@ class MappingEngine: ObservableObject {
                 }
             }
         } else {
-            // Fallback: Individual handling
-            // Note: This fallback is tricky because we're inside the chord handler.
-            // But usually ControllerService only sends chord *or* individual presses.
-            // If it sends chord, it means buttons were pressed roughly together.
-            // If no chord mapping exists, we should probably just treat them as individual presses.
-            // But we might have missed the "press" event if it was swallowed?
-            // ControllerService logic usually sends individual press if chord not detected.
-            // If chord IS detected by Service but no mapping exists, we should invoke handleButtonPressed for each?
-            // But handleButtonPressed might have been called already?
-            // Let's assume ControllerService suppresses individual presses until chord timeout.
-            // So we need to trigger them now.
-            
-            let sortedButtons = buttons.sorted { $0.rawValue < $1.rawValue }
+            // Fallback: Individual handling for non-activator buttons
+            let sortedButtons = chordButtons.sorted { $0.rawValue < $1.rawValue }
             for button in sortedButtons {
                 handleButtonPressed(button)
             }

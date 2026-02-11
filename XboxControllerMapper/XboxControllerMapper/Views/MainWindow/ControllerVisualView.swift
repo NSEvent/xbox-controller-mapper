@@ -8,10 +8,37 @@ struct ControllerVisualView: View {
     @EnvironmentObject var profileManager: ProfileManager
 
     @Binding var selectedButton: ControllerButton?
+    var selectedLayerId: UUID? = nil  // nil = base layer
     var onButtonTap: (ControllerButton) -> Void
 
     private var isDualSense: Bool {
         controllerService.threadSafeIsDualSense
+    }
+
+    /// Returns the currently selected layer, if any
+    private var selectedLayer: Layer? {
+        guard let layerId = selectedLayerId,
+              let profile = profileManager.activeProfile else { return nil }
+        return profile.layers.first(where: { $0.id == layerId })
+    }
+
+    /// Checks if a button is a layer activator
+    private func isLayerActivator(_ button: ControllerButton) -> Bool {
+        guard let profile = profileManager.activeProfile else { return false }
+        return profile.layers.contains { $0.activatorButton == button }
+    }
+
+    /// Returns the layer that a button activates, if any
+    private func layerForButton(_ button: ControllerButton) -> Layer? {
+        guard let profile = profileManager.activeProfile else { return nil }
+        return profile.layers.first { $0.activatorButton == button }
+    }
+
+    /// Returns true if this button is the activator for the currently selected layer
+    /// (meaning it shouldn't be clickable when viewing that layer)
+    private func isActivatorForSelectedLayer(_ button: ControllerButton) -> Bool {
+        guard let layer = selectedLayer else { return false }
+        return layer.activatorButton == button
     }
 
     var body: some View {
@@ -280,15 +307,46 @@ struct ControllerVisualView: View {
     private func referenceRow(for button: ControllerButton) -> some View {
         HStack(spacing: 12) {
             // Button Indicator (adapts to Xbox or DualSense styling)
-            ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isDualSense)
+            ZStack(alignment: .topTrailing) {
+                ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isDualSense)
+
+                // Layer activator badge
+                if let layer = layerForButton(button) {
+                    Text("L")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 12, height: 12)
+                        .background(Circle().fill(Color.purple))
+                        .offset(x: 4, y: -4)
+                        .help("Layer Activator: \(layer.name)")
+                }
+            }
 
             // Shortcut Labels Container
             HStack {
-                if let mapping = mapping(for: button) {
-                    MappingLabelView(
-                        mapping: mapping,
-                        font: .system(size: 15, weight: .semibold, design: .rounded)
-                    )
+                if let layer = layerForButton(button) {
+                    // This button is a layer activator
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.stack.3d.up.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.purple)
+                        Text(layer.name)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.purple)
+                    }
+                } else if let mapping = mapping(for: button) {
+                    HStack(spacing: 6) {
+                        MappingLabelView(
+                            mapping: mapping,
+                            font: .system(size: 15, weight: .semibold, design: .rounded)
+                        )
+                        // Show fallthrough indicator when viewing a layer
+                        if isBaseFallthrough(for: button) {
+                            Text("(base)")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 } else {
                     Text("Unmapped")
                         .font(.system(size: 12))
@@ -300,8 +358,11 @@ struct ControllerVisualView: View {
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .background(GlassCardBackground(isActive: selectedButton == button, isHovered: false))
+            .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)  // Dim fallthrough mappings
         }
         .contentShape(Rectangle())
+        .opacity(isActivatorForSelectedLayer(button) ? 0.4 : 1.0)  // Dim layer activator when viewing its layer
+        .allowsHitTesting(!isActivatorForSelectedLayer(button))  // Disable clicks on layer activator in its own layer
         .onTapGesture { onButtonTap(button) }
     }
 
@@ -614,17 +675,49 @@ struct ControllerVisualView: View {
     }
 
     private func mapping(for button: ControllerButton) -> KeyMapping? {
-        guard let mapping = profileManager.activeProfile?.buttonMappings[button] else { return nil }
-        
+        guard let profile = profileManager.activeProfile else { return nil }
+
+        // If viewing a layer, check layer mapping first
+        if let layer = selectedLayer {
+            // Layer activator buttons show no mapping (they activate layers, not keys)
+            if layer.activatorButton == button {
+                return nil
+            }
+            // Check if this button has a layer-specific mapping
+            if let layerMapping = layer.buttonMappings[button], !layerMapping.isEmpty {
+                return layerMapping
+            }
+            // Fall through to base layer
+        }
+
+        // Check base layer
+        guard let mapping = profile.buttonMappings[button] else { return nil }
+
         // If the mapping is effectively empty (no primary, no long hold, no double tap), return nil
         // so the UI renders it as "Unmapped"
-        if mapping.isEmpty && 
-           (mapping.longHoldMapping?.isEmpty ?? true) && 
+        if mapping.isEmpty &&
+           (mapping.longHoldMapping?.isEmpty ?? true) &&
            (mapping.doubleTapMapping?.isEmpty ?? true) {
             return nil
         }
-        
+
         return mapping
+    }
+
+    /// Returns true if the mapping shown is from the base layer (fallthrough)
+    private func isBaseFallthrough(for button: ControllerButton) -> Bool {
+        guard let layer = selectedLayer,
+              let profile = profileManager.activeProfile else { return false }
+
+        // Not a fallthrough if button is the layer's activator
+        if layer.activatorButton == button { return false }
+
+        // It's a fallthrough if the layer doesn't have a mapping for this button
+        let layerMapping = layer.buttonMappings[button]
+        let hasLayerMapping = layerMapping != nil && !layerMapping!.isEmpty
+        let hasBaseMapping = profile.buttonMappings[button] != nil
+
+        return !hasLayerMapping && hasBaseMapping
     }
 }
 
@@ -799,7 +892,7 @@ struct MappingTag: View {
 
 
 #Preview {
-    ControllerVisualView(selectedButton: .constant(nil)) { _ in }
+    ControllerVisualView(selectedButton: .constant(nil), selectedLayerId: nil) { _ in }
         .environmentObject(ControllerService())
         .environmentObject(ProfileManager())
         .frame(width: 800, height: 600)

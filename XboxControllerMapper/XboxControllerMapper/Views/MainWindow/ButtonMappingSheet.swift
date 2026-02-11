@@ -6,6 +6,7 @@ struct ButtonMappingSheet: View {
     let button: ControllerButton
     @Binding var mapping: KeyMapping?
     var isDualSense: Bool = false
+    var selectedLayerId: UUID? = nil  // nil = editing base layer
 
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var appMonitor: AppMonitor
@@ -84,6 +85,11 @@ struct ButtonMappingSheet: View {
     @State private var doubleTapShellRunInTerminal: Bool = true
     @State private var doubleTapLinkURL: String = ""
 
+    // Layer activator support
+    @State private var isLayerActivator = false
+    @State private var layerName: String = ""
+    @State private var existingLayerId: UUID? = nil  // Tracks if editing existing layer
+
     enum MappingType: Int {
         case singleKey = 0
         case macro = 1
@@ -111,6 +117,29 @@ struct ButtonMappingSheet: View {
         primaryIsMouseClick || primaryIsOnScreenKeyboard
     }
 
+    /// Whether this button is already a layer activator
+    private var existingLayer: Layer? {
+        profileManager.layerForActivator(button)
+    }
+
+    /// Whether max layers have been reached (and this button isn't already an activator)
+    private var canCreateNewLayer: Bool {
+        guard let profile = profileManager.activeProfile else { return false }
+        return profile.layers.count < ProfileManager.maxLayers || existingLayer != nil
+    }
+
+    /// Whether we're editing a layer mapping (vs base layer)
+    private var isEditingLayer: Bool {
+        selectedLayerId != nil
+    }
+
+    /// The layer we're editing, if any
+    private var editingLayer: Layer? {
+        guard let layerId = selectedLayerId,
+              let profile = profileManager.activeProfile else { return nil }
+        return profile.layers.first(where: { $0.id == layerId })
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -121,9 +150,35 @@ struct ButtonMappingSheet: View {
             // Content
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    primaryMappingSection
-                    longHoldSection
-                    doubleTapSection
+                    // Layer context indicator when editing a layer
+                    if let layer = editingLayer {
+                        HStack(spacing: 8) {
+                            Image(systemName: "square.stack.3d.up.fill")
+                                .foregroundColor(.purple)
+                            Text("Editing layer: \(layer.name)")
+                                .font(.subheadline)
+                                .foregroundColor(.purple)
+                            Spacer()
+                            Text("Unmapped buttons fall through to base layer")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(10)
+                        .background(Color.purple.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+
+                    // Only show mapping sections if not a layer activator
+                    if !isLayerActivator {
+                        primaryMappingSection
+                        longHoldSection
+                        doubleTapSection
+                    }
+
+                    // Layer activator section at the bottom (only show when editing base layer, not layer mappings)
+                    if !isEditingLayer && canCreateNewLayer {
+                        layerActivatorSection
+                    }
                 }
                 .padding(20)
             }
@@ -410,6 +465,59 @@ struct ButtonMappingSheet: View {
         } else {
             return "When enabled, the key action stays active while the button is held"
         }
+    }
+
+    // MARK: - Layer Activator Section
+
+    private var layerActivatorSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: $isLayerActivator) {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.stack.3d.up.fill")
+                        .foregroundColor(.purple)
+                    Text("Use as Layer Activator")
+                        .font(.headline)
+                }
+            }
+            .toggleStyle(.switch)
+
+            if isLayerActivator {
+                VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Layer Name")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        TextField("e.g., Combat Mode, Navigation", text: $layerName)
+                            .textFieldStyle(.roundedBorder)
+                    }
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.purple.opacity(0.7))
+                        Text("When this button is held, the layer's alternate button mappings become active. Other buttons not mapped in the layer fall through to the base layer.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(12)
+                .background(Color.purple.opacity(0.1))
+                .cornerRadius(8)
+            } else if existingLayer != nil {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                    Text("This button is currently a layer activator. Disabling will delete the layer and its mappings.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(6)
+            }
+        }
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .cornerRadius(8)
     }
 
     // MARK: - System Command Section
@@ -1006,7 +1114,27 @@ struct ButtonMappingSheet: View {
     private func loadCurrentMapping() {
         guard let profile = profileManager.activeProfile else { return }
 
-        if let existingMapping = profile.buttonMappings[button] {
+        // If editing a layer, don't show layer activator option
+        // (that's only for base layer)
+        if !isEditingLayer {
+            // Check if this button is a layer activator
+            if let layer = profile.layers.first(where: { $0.activatorButton == button }) {
+                isLayerActivator = true
+                layerName = layer.name
+                existingLayerId = layer.id
+                return  // Layer activators don't have regular mappings
+            }
+        }
+
+        // Get the mapping from the appropriate source
+        let existingMapping: KeyMapping?
+        if let layer = editingLayer {
+            existingMapping = layer.buttonMappings[button]
+        } else {
+            existingMapping = profile.buttonMappings[button]
+        }
+
+        if let existingMapping = existingMapping {
             hint = existingMapping.hint ?? ""
 
             if let systemCommand = existingMapping.systemCommand {
@@ -1065,6 +1193,31 @@ struct ButtonMappingSheet: View {
     }
 
     private func saveMapping() {
+        // Handle layer activator
+        if isLayerActivator {
+            guard !layerName.isEmpty else { return }
+
+            if let existingId = existingLayerId,
+               var layer = profileManager.activeProfile?.layers.first(where: { $0.id == existingId }) {
+                // Update existing layer
+                layer.name = layerName
+                profileManager.updateLayer(layer)
+            } else {
+                // Create new layer
+                _ = profileManager.createLayer(name: layerName, activatorButton: button)
+            }
+            // Clear any existing button mapping for this button
+            profileManager.removeMapping(for: button)
+            mapping = nil
+            dismiss()
+            return
+        } else if let existingId = existingLayerId {
+            // Was a layer activator, now isn't - delete the layer
+            if let layer = profileManager.activeProfile?.layers.first(where: { $0.id == existingId }) {
+                profileManager.deleteLayer(layer)
+            }
+        }
+
         var newMapping: KeyMapping
 
         if mappingType == .systemCommand {
@@ -1134,7 +1287,12 @@ struct ButtonMappingSheet: View {
             }
         }
 
-        profileManager.setMapping(newMapping, for: button)
+        // Save to the appropriate place (layer or base)
+        if let layer = editingLayer {
+            profileManager.setLayerMapping(newMapping, for: button, in: layer)
+        } else {
+            profileManager.setMapping(newMapping, for: button)
+        }
 
         mapping = newMapping
         dismiss()
@@ -1168,7 +1326,18 @@ struct ButtonMappingSheet: View {
     }
 
     private func clearMapping() {
-        profileManager.removeMapping(for: button)
+        // If this was a layer activator, delete the layer
+        if let existingId = existingLayerId,
+           let layer = profileManager.activeProfile?.layers.first(where: { $0.id == existingId }) {
+            profileManager.deleteLayer(layer)
+        }
+
+        // Clear from the appropriate place (layer or base)
+        if let layer = editingLayer {
+            profileManager.removeLayerMapping(for: button, from: layer)
+        } else {
+            profileManager.removeMapping(for: button)
+        }
 
         mapping = nil
         dismiss()

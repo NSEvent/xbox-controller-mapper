@@ -337,6 +337,97 @@ class ProfileManager: ObservableObject {
         updateProfile(targetProfile)
     }
 
+    // MARK: - Layer Management
+
+    /// Maximum number of layers allowed per profile
+    static let maxLayers = 2
+
+    /// Creates a new layer with the given name and activator button.
+    /// Returns nil if max layers reached or activator already used.
+    func createLayer(name: String, activatorButton: ControllerButton, in profile: Profile? = nil) -> Layer? {
+        guard var targetProfile = profile ?? activeProfile else { return nil }
+
+        // Check max layers limit
+        guard targetProfile.layers.count < Self.maxLayers else { return nil }
+
+        // Check if activator button is already used by another layer
+        if targetProfile.layers.contains(where: { $0.activatorButton == activatorButton }) {
+            return nil
+        }
+
+        let layer = Layer(name: name, activatorButton: activatorButton)
+        targetProfile.layers.append(layer)
+        updateProfile(targetProfile)
+        return layer
+    }
+
+    /// Updates an existing layer in the profile
+    func updateLayer(_ layer: Layer, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        if let index = targetProfile.layers.firstIndex(where: { $0.id == layer.id }) {
+            targetProfile.layers[index] = layer
+        }
+        updateProfile(targetProfile)
+    }
+
+    /// Deletes a layer from the profile
+    func deleteLayer(_ layer: Layer, from profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.layers.removeAll { $0.id == layer.id }
+        updateProfile(targetProfile)
+    }
+
+    /// Sets a button mapping within a specific layer
+    func setLayerMapping(_ mapping: KeyMapping, for button: ControllerButton, in layer: Layer, profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        guard let layerIndex = targetProfile.layers.firstIndex(where: { $0.id == layer.id }) else { return }
+
+        targetProfile.layers[layerIndex].buttonMappings[button] = mapping
+        updateProfile(targetProfile)
+    }
+
+    /// Removes a button mapping from a specific layer
+    func removeLayerMapping(for button: ControllerButton, from layer: Layer, profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        guard let layerIndex = targetProfile.layers.firstIndex(where: { $0.id == layer.id }) else { return }
+
+        targetProfile.layers[layerIndex].buttonMappings.removeValue(forKey: button)
+        updateProfile(targetProfile)
+    }
+
+    /// Returns the layer that uses the given activator button, if any
+    func layerForActivator(_ button: ControllerButton, in profile: Profile? = nil) -> Layer? {
+        let targetProfile = profile ?? activeProfile
+        return targetProfile?.layers.first(where: { $0.activatorButton == button })
+    }
+
+    /// Renames a layer
+    func renameLayer(_ layer: Layer, to newName: String, in profile: Profile? = nil) {
+        var updatedLayer = layer
+        updatedLayer.name = newName
+        updateLayer(updatedLayer, in: profile)
+    }
+
+    /// Changes a layer's activator button.
+    /// Returns false if the new button is already used by another layer.
+    func setLayerActivator(_ layer: Layer, button: ControllerButton, in profile: Profile? = nil) -> Bool {
+        guard var targetProfile = profile ?? activeProfile else { return false }
+
+        // Check if button is already used by another layer
+        if targetProfile.layers.contains(where: { $0.id != layer.id && $0.activatorButton == button }) {
+            return false
+        }
+
+        if let index = targetProfile.layers.firstIndex(where: { $0.id == layer.id }) {
+            targetProfile.layers[index].activatorButton = button
+            updateProfile(targetProfile)
+            return true
+        }
+        return false
+    }
+
     // MARK: - Joystick Settings
 
     func updateJoystickSettings(_ settings: JoystickSettings, in profile: Profile? = nil) {

@@ -15,6 +15,9 @@ struct ContentView: View {
     @State private var selectedTab = 0
     @State private var lastScale: CGFloat = 1.0 // Track last scale for gesture
     @State private var isMagnifying = false // Track active magnification to prevent tap conflicts
+    @State private var selectedLayerId: UUID? = nil // nil = base layer
+    @State private var showingAddLayerSheet = false
+    @State private var editingLayerId: UUID? = nil
 
     var body: some View {
         HSplitView {
@@ -93,10 +96,18 @@ struct ContentView: View {
             ButtonMappingSheet(
                 button: button,
                 mapping: Binding(
-                    get: { profileManager.activeProfile?.buttonMappings[button] },
+                    get: {
+                        // Get mapping from layer if editing a layer, otherwise from base
+                        if let layerId = selectedLayerId,
+                           let layer = profileManager.activeProfile?.layers.first(where: { $0.id == layerId }) {
+                            return layer.buttonMappings[button]
+                        }
+                        return profileManager.activeProfile?.buttonMappings[button]
+                    },
                     set: { _ in }
                 ),
-                isDualSense: controllerService.threadSafeIsDualSense
+                isDualSense: controllerService.threadSafeIsDualSense,
+                selectedLayerId: selectedLayerId
             )
         }
         .sheet(isPresented: $showingChordSheet) {
@@ -199,10 +210,16 @@ struct ContentView: View {
         VStack(spacing: 0) {
             InputLogView()
                 .padding(.top, 8)
-            
+
+            // Layer Tab Bar
+            layerTabBar
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+
             ZStack {
                 ControllerVisualView(
                     selectedButton: $selectedButton,
+                    selectedLayerId: selectedLayerId,
                     onButtonTap: { button in
                         // Ignore taps during magnification gestures to prevent accidental triggers
                         guard !isMagnifying else { return }
@@ -276,8 +293,118 @@ struct ContentView: View {
                 .padding(.top, 12)
             }
         }
+        .sheet(isPresented: $showingAddLayerSheet) {
+            AddLayerSheet()
+        }
+        .sheet(item: $editingLayerId) { layerId in
+            if let profile = profileManager.activeProfile,
+               let layer = profile.layers.first(where: { $0.id == layerId }) {
+                EditLayerSheet(layer: layer)
+            }
+        }
+        .onChange(of: controllerService.activeButtons) { _, activeButtons in
+            guard let profile = profileManager.activeProfile else { return }
+
+            // Check if any layer activator is being held
+            for layer in profile.layers {
+                if activeButtons.contains(layer.activatorButton) {
+                    selectedLayerId = layer.id
+                    return
+                }
+            }
+
+            // No layer activator held - return to base layer
+            selectedLayerId = nil
+        }
     }
 
+    // MARK: - Layer Tab Bar
+
+    private var layerTabBar: some View {
+        HStack(spacing: 8) {
+            // Base Layer tab (always present)
+            Button {
+                selectedLayerId = nil
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.caption)
+                    Text("Base Layer")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(selectedLayerId == nil ? Color.accentColor.opacity(0.3) : Color.white.opacity(0.1))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(selectedLayerId == nil ? .accentColor : .secondary)
+
+            // Layer tabs
+            if let profile = profileManager.activeProfile {
+                ForEach(profile.layers) { layer in
+                    Button {
+                        selectedLayerId = layer.id
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(layer.name)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .lineLimit(1)
+                            // Activator button badge
+                            Text(layer.activatorButton.shortLabel(forDualSense: controllerService.threadSafeIsDualSense))
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.purple.opacity(0.8))
+                                .cornerRadius(4)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(selectedLayerId == layer.id ? Color.accentColor.opacity(0.3) : Color.white.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(selectedLayerId == layer.id ? .accentColor : .secondary)
+                    .contextMenu {
+                        Button("Rename...") {
+                            editingLayerId = layer.id
+                        }
+                        Button("Delete", role: .destructive) {
+                            profileManager.deleteLayer(layer)
+                            if selectedLayerId == layer.id {
+                                selectedLayerId = nil
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Add Layer button (if under max)
+            if let profile = profileManager.activeProfile, profile.layers.count < ProfileManager.maxLayers {
+                Button {
+                    showingAddLayerSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.caption)
+                        Text("Add Layer")
+                            .font(.caption)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.05))
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+            }
+
+            Spacer()
+        }
+    }
 
     // MARK: - Chords Tab
 
@@ -2690,6 +2817,189 @@ struct SettingsSheet: View {
                 databaseStatus = "Error: \(error.localizedDescription)"
             }
             isRefreshingDatabase = false
+        }
+    }
+}
+
+// MARK: - UUID Identifiable Extension
+
+extension UUID: @retroactive Identifiable {
+    public var id: UUID { self }
+}
+
+// MARK: - Add Layer Sheet
+
+struct AddLayerSheet: View {
+    @EnvironmentObject var profileManager: ProfileManager
+    @EnvironmentObject var controllerService: ControllerService
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var layerName: String = ""
+    @State private var selectedActivator: ControllerButton = .leftBumper
+
+    /// Buttons that are already used as layer activators
+    private var usedActivators: Set<ControllerButton> {
+        Set(profileManager.activeProfile?.layers.map { $0.activatorButton } ?? [])
+    }
+
+    /// Available activator buttons (exclude already-used ones)
+    private var availableButtons: [ControllerButton] {
+        // Good candidates for layer activators: bumpers, triggers, share, view, menu
+        let candidates: [ControllerButton] = [
+            .leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
+            .share, .view, .menu, .xbox,
+            .leftThumbstick, .rightThumbstick
+        ]
+        return candidates.filter { !usedActivators.contains($0) }
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Add Layer")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Layer Name")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    TextField("e.g., Combat Mode", text: $layerName)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Activator Button")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("Hold this button to activate the layer's mappings")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Picker("Activator", selection: $selectedActivator) {
+                        ForEach(availableButtons, id: \.self) { button in
+                            Text(button.displayName(forDualSense: controllerService.threadSafeIsDualSense))
+                                .tag(button)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+            .padding(.horizontal)
+
+            HStack {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button("Add Layer") {
+                    guard !layerName.isEmpty else { return }
+                    _ = profileManager.createLayer(name: layerName, activatorButton: selectedActivator)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(layerName.isEmpty)
+            }
+            .padding(.horizontal)
+        }
+        .padding()
+        .frame(width: 350)
+        .onAppear {
+            // Select first available activator
+            if let first = availableButtons.first {
+                selectedActivator = first
+            }
+        }
+    }
+}
+
+// MARK: - Edit Layer Sheet
+
+struct EditLayerSheet: View {
+    let layer: Layer
+
+    @EnvironmentObject var profileManager: ProfileManager
+    @EnvironmentObject var controllerService: ControllerService
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var layerName: String = ""
+    @State private var selectedActivator: ControllerButton = .leftBumper
+
+    /// Buttons that are already used as layer activators (excluding current layer)
+    private var usedActivators: Set<ControllerButton> {
+        Set(profileManager.activeProfile?.layers
+            .filter { $0.id != layer.id }
+            .map { $0.activatorButton } ?? [])
+    }
+
+    /// Available activator buttons (exclude already-used ones, but include current)
+    private var availableButtons: [ControllerButton] {
+        let candidates: [ControllerButton] = [
+            .leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
+            .share, .view, .menu, .xbox,
+            .leftThumbstick, .rightThumbstick
+        ]
+        return candidates.filter { !usedActivators.contains($0) }
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Edit Layer")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Layer Name")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    TextField("Layer name", text: $layerName)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Activator Button")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    Picker("Activator", selection: $selectedActivator) {
+                        ForEach(availableButtons, id: \.self) { button in
+                            Text(button.displayName(forDualSense: controllerService.threadSafeIsDualSense))
+                                .tag(button)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+            .padding(.horizontal)
+
+            HStack {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button("Save") {
+                    guard !layerName.isEmpty else { return }
+                    var updatedLayer = layer
+                    updatedLayer.name = layerName
+                    updatedLayer.activatorButton = selectedActivator
+                    profileManager.updateLayer(updatedLayer)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(layerName.isEmpty)
+            }
+            .padding(.horizontal)
+        }
+        .padding()
+        .frame(width: 350)
+        .onAppear {
+            layerName = layer.name
+            selectedActivator = layer.activatorButton
         }
     }
 }

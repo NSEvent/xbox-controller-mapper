@@ -130,12 +130,15 @@ struct Profile: Codable, Identifiable, Equatable {
 
     /// App Bundle IDs that trigger this profile automatically
     var linkedApps: [String]
-    
+
     /// Defined macros for this profile
     var macros: [Macro]
 
     /// On-screen keyboard settings (quick texts, app bar, websites, toggle shortcut, etc.)
     var onScreenKeyboardSettings: OnScreenKeyboardSettings
+
+    /// Mapping layers (max 2) - activated by holding a button
+    var layers: [Layer]
 
     init(
         id: UUID = UUID(),
@@ -148,7 +151,8 @@ struct Profile: Codable, Identifiable, Equatable {
         dualSenseLEDSettings: DualSenseLEDSettings = .default,
         linkedApps: [String] = [],
         macros: [Macro] = [],
-        onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings()
+        onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings(),
+        layers: [Layer] = []
     ) {
         self.id = id
         self.name = name
@@ -163,6 +167,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.linkedApps = linkedApps
         self.macros = macros
         self.onScreenKeyboardSettings = onScreenKeyboardSettings
+        self.layers = layers
     }
 
     /// Validates the profile for sanity
@@ -346,7 +351,7 @@ extension Profile {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, macros
-        case onScreenKeyboardSettings
+        case onScreenKeyboardSettings, layers
     }
 
     init(from decoder: Decoder) throws {
@@ -372,6 +377,7 @@ extension Profile {
         linkedApps = try container.decodeIfPresent([String].self, forKey: .linkedApps) ?? []
         macros = try container.decodeIfPresent([Macro].self, forKey: .macros) ?? []
         onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings) ?? OnScreenKeyboardSettings()
+        layers = try container.decodeIfPresent([Layer].self, forKey: .layers) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -394,5 +400,6 @@ extension Profile {
         try container.encode(linkedApps, forKey: .linkedApps)
         try container.encode(macros, forKey: .macros)
         try container.encode(onScreenKeyboardSettings, forKey: .onScreenKeyboardSettings)
+        try container.encode(layers, forKey: .layers)
     }
 }
