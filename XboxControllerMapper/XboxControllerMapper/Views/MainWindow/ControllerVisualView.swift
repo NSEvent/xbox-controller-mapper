@@ -352,14 +352,28 @@ struct ControllerVisualView: View {
             HStack {
                 if let layer = layerForButton(button) {
                     // This button is a layer activator
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.stack.3d.up.fill")
-                            .font(.system(size: 11))
-                            .foregroundColor(.purple)
+                    HStack(spacing: 6) {
+                        Text("L")
+                            .font(.system(size: 9, weight: .black))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.purple)
+                            .cornerRadius(3)
                         Text(layer.name)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.purple)
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                    )
                 } else if let mapping = mapping(for: button) {
                     MappingLabelView(
                         mapping: mapping,
