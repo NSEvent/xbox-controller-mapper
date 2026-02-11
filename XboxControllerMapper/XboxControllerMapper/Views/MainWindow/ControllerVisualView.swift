@@ -122,13 +122,13 @@ struct ControllerVisualView: View {
                             .padding(.horizontal, 4)
                         HStack(spacing: 20) {
                             VStack(alignment: .trailing) {
-                                referenceRow(for: .leftPaddle)
                                 referenceRow(for: .leftFunction)
+                                referenceRow(for: .leftPaddle)
                             }
                             .frame(width: 220)
                             VStack(alignment: .leading) {
-                                referenceRow(for: .rightPaddle)
                                 referenceRow(for: .rightFunction)
+                                referenceRow(for: .rightPaddle)
                             }
                             .frame(width: 220)
                         }
