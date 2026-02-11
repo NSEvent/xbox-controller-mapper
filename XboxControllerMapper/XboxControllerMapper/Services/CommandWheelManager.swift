@@ -457,15 +457,17 @@ class CommandWheelManager: ObservableObject {
                     }
                     app.activate(options: options)
                     // Send Cmd+N to open a new window
+                    // Use .privateState to avoid polluting the HID system state that we check
+                    // for alternate modifier detection in the command wheel
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        let source = CGEventSource(stateID: .hidSystemState)
+                        let source = CGEventSource(stateID: .privateState)
                         // Key down: N (keycode 45) with Cmd
                         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 45, keyDown: true)
                         keyDown?.flags = .maskCommand
                         keyDown?.post(tap: .cghidEventTap)
-                        // Key up
+                        // Key up (clear modifiers)
                         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 45, keyDown: false)
-                        keyUp?.flags = .maskCommand
+                        keyUp?.flags = []
                         keyUp?.post(tap: .cghidEventTap)
                     }
                 }
