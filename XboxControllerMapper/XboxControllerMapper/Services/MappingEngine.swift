@@ -502,10 +502,6 @@ class MappingEngine: ObservableObject {
             return
         }
 
-        #if DEBUG
-        print("🔵 handleButtonPressed: \(button.displayName)")
-        #endif
-
         // Check for left-click activation when navigation mode is active
         if keyboardVisible, let keyCode = mapping.keyCode, keyCode == KeyCodeMapping.mouseLeftClick {
             let navActive = OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
@@ -934,15 +930,20 @@ class MappingEngine: ObservableObject {
     /// Get the context needed for release handling (mapping, profile, bundleId, etc.)
     nonisolated private func getReleaseContext(for button: ControllerButton) -> (KeyMapping, Profile, String?, Bool)? {
         state.lock.lock()
-        defer { state.lock.unlock() }
 
-        guard state.isEnabled, let profile = state.activeProfile else { return nil }
+        guard state.isEnabled, let profile = state.activeProfile else {
+            state.lock.unlock()
+            return nil
+        }
 
         let bundleId = state.frontmostBundleId
         var isLongHoldTriggered = state.longHoldTriggered.contains(button)
         if isLongHoldTriggered {
             state.longHoldTriggered.remove(button)
         }
+
+        // Release lock before calling effectiveMapping (it takes its own lock)
+        state.lock.unlock()
 
         guard let mapping = effectiveMapping(for: button, in: profile) else { return nil }
 

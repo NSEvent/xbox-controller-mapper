@@ -3080,6 +3080,186 @@ final class XboxControllerMapperTests: XCTestCase {
             XCTAssertNil(missing)
         }
     }
+
+    // MARK: - Layer Tests
+
+    /// Test that consecutive button presses work correctly (no layers configured)
+    func testConsecutiveButtonPressesWithoutLayers() async throws {
+        await MainActor.run {
+            // Set up profile with mappings for Y and A buttons, no layers
+            let yMapping = KeyMapping(keyCode: 16)  // Y key
+            let aMapping = KeyMapping(keyCode: 0)   // A key
+            let profile = Profile(name: "Test", buttonMappings: [.y: yMapping, .a: aMapping])
+            profileManager.setActiveProfile(profile)
+        }
+        // Allow Combine to deliver profile change
+        try? await Task.sleep(nanoseconds: 20_000_000)  // 20ms
+
+        // Press and release Y button
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.2)
+
+        // Verify Y mapping executed
+        var foundYPress = false
+        await MainActor.run {
+            foundYPress = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 16 }
+                return false
+            }
+        }
+        XCTAssertTrue(foundYPress, "Y button mapping should have executed")
+
+        // Now press and release A button
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.2)
+
+        // Verify A mapping also executed
+        var foundAPress = false
+        await MainActor.run {
+            foundAPress = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 0 }
+                return false
+            }
+        }
+        XCTAssertTrue(foundAPress, "A button mapping should have executed after Y button")
+    }
+
+    /// Test that layer activator buttons activate layers
+    func testLayerActivatorActivatesLayer() async throws {
+        await MainActor.run {
+            // Create a layer with LB as activator
+            let layer = Layer(name: "Test Layer", activatorButton: .leftBumper, buttonMappings: [:])
+            let profile = Profile(name: "Test", buttonMappings: [:], layers: [layer])
+            profileManager.setActiveProfile(profile)
+        }
+        // Allow Combine to deliver profile change
+        try? await Task.sleep(nanoseconds: 20_000_000)  // 20ms
+
+        // Press LB (layer activator)
+        await MainActor.run {
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks(0.2)
+
+        // LB should NOT produce any key press (it's just activating the layer)
+        var foundKeyPress = false
+        await MainActor.run {
+            foundKeyPress = mockInputSimulator.events.contains { event in
+                if case .pressKey(_, _) = event { return true }
+                return false
+            }
+        }
+        XCTAssertFalse(foundKeyPress, "Layer activator should not produce key press")
+    }
+
+    /// Test that regular buttons still work when layers are configured
+    func testRegularButtonsWorkWithLayersConfigured() async throws {
+        await MainActor.run {
+            // Create a layer with LB as activator
+            let layer = Layer(name: "Test Layer", activatorButton: .leftBumper, buttonMappings: [:])
+            let yMapping = KeyMapping(keyCode: 16)  // Y key
+            let profile = Profile(name: "Test", buttonMappings: [.y: yMapping], layers: [layer])
+            profileManager.setActiveProfile(profile)
+        }
+        // Allow Combine to deliver profile change
+        try? await Task.sleep(nanoseconds: 20_000_000)  // 20ms
+
+        // Press Y button (not a layer activator)
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.2)
+
+        // Verify Y mapping executed
+        var foundYPress = false
+        await MainActor.run {
+            foundYPress = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 16 }
+                return false
+            }
+        }
+        XCTAssertTrue(foundYPress, "Y button should work even when layers are configured")
+    }
+
+    /// Test consecutive button presses with layers configured
+    func testConsecutiveButtonPressesWithLayers() async throws {
+        await MainActor.run {
+            // Create a layer with LB as activator
+            let layer = Layer(name: "Test Layer", activatorButton: .leftBumper, buttonMappings: [:])
+            let yMapping = KeyMapping(keyCode: 16)  // Y key
+            let aMapping = KeyMapping(keyCode: 0)   // A key
+            let profile = Profile(name: "Test", buttonMappings: [.y: yMapping, .a: aMapping], layers: [layer])
+            profileManager.setActiveProfile(profile)
+        }
+        // Allow Combine to deliver profile change
+        try? await Task.sleep(nanoseconds: 20_000_000)  // 20ms
+
+        // Press LB (layer activator) first
+        await MainActor.run {
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks(0.1)
+        await MainActor.run {
+            controllerService.buttonReleased(.leftBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Press Y button
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.2)
+
+        // Verify Y mapping executed
+        var foundYPress = false
+        await MainActor.run {
+            foundYPress = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 16 }
+                return false
+            }
+        }
+        XCTAssertTrue(foundYPress, "Y button mapping should work after layer activator was pressed")
+
+        // Press A button
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.2)
+
+        // Verify A mapping also executed
+        var foundAPress = false
+        await MainActor.run {
+            foundAPress = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 0 }
+                return false
+            }
+        }
+        XCTAssertTrue(foundAPress, "A button mapping should work after Y button")
+    }
 }
 
 // MARK: - KeyCodeMapping Tests
