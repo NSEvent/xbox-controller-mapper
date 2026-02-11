@@ -39,6 +39,12 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case touchpadTwoFingerTap     // Two-finger tap on touchpad (DualSense only)
     case micMute                  // Mic mute button (DualSense only)
 
+    // DualSense Edge-specific (Pro controller)
+    case leftPaddle               // Back paddle, left side (Edge only)
+    case rightPaddle              // Back paddle, right side (Edge only)
+    case leftFunction             // Front function button, left (Edge only)
+    case rightFunction            // Front function button, right (Edge only)
+
     var id: String { rawValue }
 
     /// Human-readable display name
@@ -67,6 +73,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .touchpadTap: return "Touchpad Tap"
         case .touchpadTwoFingerTap: return "Touchpad 2-Finger Tap"
         case .micMute: return "Mic Mute"
+        case .leftPaddle: return "Left Paddle"
+        case .rightPaddle: return "Right Paddle"
+        case .leftFunction: return "Left Fn"
+        case .rightFunction: return "Right Fn"
         }
     }
 
@@ -118,6 +128,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .touchpadTap: return "1T"
         case .touchpadTwoFingerTap: return "2"
         case .micMute: return "🎤"
+        case .leftPaddle: return "LP"
+        case .rightPaddle: return "RP"
+        case .leftFunction: return "LFn"
+        case .rightFunction: return "RFn"
         }
     }
 
@@ -164,6 +178,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .touchpadTap: return "hand.tap"
             case .touchpadTwoFingerTap: return "hand.tap"
             case .micMute: return "mic.slash"
+            case .leftPaddle: return "l.button.roundedbottom.horizontal"
+            case .rightPaddle: return "r.button.roundedbottom.horizontal"
+            case .leftFunction: return "button.horizontal.top.press"
+            case .rightFunction: return "button.horizontal.top.press"
             // Face buttons use text symbols for DualSense, not SF Symbols
             case .a, .b, .x, .y: return nil
             default: return nil
@@ -208,6 +226,8 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return .thumbstick
         case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute:
             return .touchpad  // DualSense-specific buttons
+        case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
+            return .paddle  // DualSense Edge-specific buttons
         }
     }
 
@@ -215,6 +235,18 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     var isDualSenseOnly: Bool {
         switch self {
         case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute:
+            return true
+        case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
+            return true  // Edge-only, but still DualSense family
+        default:
+            return false
+        }
+    }
+
+    /// Whether this button is only available on DualSense Edge controllers
+    var isDualSenseEdgeOnly: Bool {
+        switch self {
+        case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
             return true
         default:
             return false
@@ -240,6 +272,7 @@ enum ButtonCategory: String, CaseIterable {
     case special
     case thumbstick
     case touchpad
+    case paddle  // DualSense Edge back paddles and function buttons
 
     var displayName: String {
         switch self {
@@ -250,10 +283,11 @@ enum ButtonCategory: String, CaseIterable {
         case .special: return "Special"
         case .thumbstick: return "Thumbsticks"
         case .touchpad: return "Touchpad"
+        case .paddle: return "Paddles"
         }
     }
 
-    /// Sort order for chord display: bumpers, triggers, sticks, face, special/touchpad, dpad
+    /// Sort order for chord display: bumpers, triggers, sticks, face, special/touchpad/paddle, dpad
     var chordDisplayOrder: Int {
         switch self {
         case .bumper: return 0
@@ -262,7 +296,8 @@ enum ButtonCategory: String, CaseIterable {
         case .face: return 3
         case .special: return 4
         case .touchpad: return 5
-        case .dpad: return 6
+        case .paddle: return 6
+        case .dpad: return 7
         }
     }
 }

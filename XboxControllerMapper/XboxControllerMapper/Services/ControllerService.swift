@@ -70,6 +70,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadSecondaryLastUpdate: TimeInterval = 0
     var touchpadSecondaryLastTouchTime: TimeInterval = 0
     var isDualSense: Bool = false
+    var isDualSenseEdge: Bool = false
     var isBluetoothConnection: Bool = false
     var currentLEDSettings: DualSenseLEDSettings?
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
@@ -103,6 +104,12 @@ private final class ControllerStorage: @unchecked Sendable {
     var buttonPressTimestamps: [ControllerButton: Date] = [:]
     var lastMicButtonState: Bool = false
     var lastPSButtonState: Bool = false
+
+    // DualSense Edge button state (paddles and function buttons)
+    var lastLeftPaddleState: Bool = false
+    var lastRightPaddleState: Bool = false
+    var lastLeftFunctionState: Bool = false
+    var lastRightFunctionState: Bool = false
 
     // Chord Detection State
     var pendingButtons: Set<ControllerButton> = []
@@ -237,6 +244,12 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isDualSense
+    }
+
+    nonisolated var threadSafeIsDualSenseEdge: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isDualSenseEdge
     }
 
     nonisolated var threadSafeIsBluetoothConnection: Bool {
@@ -861,12 +874,17 @@ class ControllerService: ObservableObject {
         hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         guard let manager = hidManager else { return }
 
-        // Match DualSense controller
-        let matchingDict: [String: Any] = [
+        // Match DualSense and DualSense Edge controllers
+        let dualSenseDict: [String: Any] = [
             kIOHIDVendorIDKey as String: 0x054C,  // Sony
             kIOHIDProductIDKey as String: 0x0CE6, // DualSense
         ]
-        IOHIDManagerSetDeviceMatching(manager, matchingDict as CFDictionary)
+        let dualSenseEdgeDict: [String: Any] = [
+            kIOHIDVendorIDKey as String: 0x054C,  // Sony
+            kIOHIDProductIDKey as String: 0x0DF2, // DualSense Edge
+        ]
+        let matchingDicts = [dualSenseDict, dualSenseEdgeDict] as CFArray
+        IOHIDManagerSetDeviceMatchingMultiple(manager, matchingDicts)
 
         // Schedule with run loop first
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
@@ -883,6 +901,7 @@ class ControllerService: ObservableObject {
     private func setupHIDDeviceCallback(_ device: IOHIDDevice) {
         hidDevice = device
         detectConnectionType(device: device)
+        detectDualSenseEdge(device: device)
         guard let buffer = hidReportBuffer else { return }
 
         let context = Unmanaged.passUnretained(self).toOpaque()
@@ -939,6 +958,19 @@ class ControllerService: ObservableObject {
             print("[LED] Could not detect connection type, defaulting to USB")
             #endif
             isBluetoothConnection = false
+        }
+    }
+
+    /// Detects if the connected device is a DualSense Edge (Pro) controller
+    private func detectDualSenseEdge(device: IOHIDDevice) {
+        if let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int {
+            let isEdge = (productID == 0x0DF2)
+            #if DEBUG
+            print("[HID] Detected product ID: 0x\(String(productID, radix: 16)) (isEdge=\(isEdge))")
+            #endif
+            storage.lock.lock()
+            storage.isDualSenseEdge = isEdge
+            storage.lock.unlock()
         }
     }
 
@@ -1623,22 +1655,51 @@ class ControllerService: ObservableObject {
         // Only process report 0x31 (Bluetooth input report) with sufficient length
         guard reportID == 0x31 && length >= 12 else { return }
 
-        // Byte 11 contains buttons2 (PS/Touch/Mute) in Bluetooth report
+        // Byte 11 contains buttons2 (PS/Touch/Mute and Edge paddles) in Bluetooth report
         // Report structure: [0]=reportID, ... [11]=buttons2
         // Bit 0: PS button, Bit 1: Touchpad button, Bit 2: Mic mute
+        // DualSense Edge additional buttons (bits 4-7):
+        // Bit 4: Left function (0x10), Bit 5: Right function (0x20)
+        // Bit 6: Left paddle (0x40), Bit 7: Right paddle (0x80)
         let buttons2 = report[11]
         let psPressed = (buttons2 & 0x01) != 0
         let micPressed = (buttons2 & 0x04) != 0
+
+        // DualSense Edge buttons
+        let leftFnPressed = (buttons2 & 0x10) != 0
+        let rightFnPressed = (buttons2 & 0x20) != 0
+        let leftPaddlePressed = (buttons2 & 0x40) != 0
+        let rightPaddlePressed = (buttons2 & 0x80) != 0
 
         // Detect state changes (thread-safe)
         storage.lock.lock()
         let psChanged = psPressed != storage.lastPSButtonState
         let micChanged = micPressed != storage.lastMicButtonState
+        let isEdge = storage.isDualSenseEdge
+
+        // Edge button state changes
+        let leftFnChanged = leftFnPressed != storage.lastLeftFunctionState
+        let rightFnChanged = rightFnPressed != storage.lastRightFunctionState
+        let leftPaddleChanged = leftPaddlePressed != storage.lastLeftPaddleState
+        let rightPaddleChanged = rightPaddlePressed != storage.lastRightPaddleState
+
         if psChanged {
             storage.lastPSButtonState = psPressed
         }
         if micChanged {
             storage.lastMicButtonState = micPressed
+        }
+        if leftFnChanged {
+            storage.lastLeftFunctionState = leftFnPressed
+        }
+        if rightFnChanged {
+            storage.lastRightFunctionState = rightFnPressed
+        }
+        if leftPaddleChanged {
+            storage.lastLeftPaddleState = leftPaddlePressed
+        }
+        if rightPaddleChanged {
+            storage.lastRightPaddleState = rightPaddlePressed
         }
         storage.lock.unlock()
 
@@ -1650,6 +1711,30 @@ class ControllerService: ObservableObject {
         if micChanged {
             controllerQueue.async { [weak self] in
                 self?.handleButton(.micMute, pressed: micPressed)
+            }
+        }
+
+        // Only process Edge buttons if this is actually an Edge controller
+        if isEdge {
+            if leftFnChanged {
+                controllerQueue.async { [weak self] in
+                    self?.handleButton(.leftFunction, pressed: leftFnPressed)
+                }
+            }
+            if rightFnChanged {
+                controllerQueue.async { [weak self] in
+                    self?.handleButton(.rightFunction, pressed: rightFnPressed)
+                }
+            }
+            if leftPaddleChanged {
+                controllerQueue.async { [weak self] in
+                    self?.handleButton(.leftPaddle, pressed: leftPaddlePressed)
+                }
+            }
+            if rightPaddleChanged {
+                controllerQueue.async { [weak self] in
+                    self?.handleButton(.rightPaddle, pressed: rightPaddlePressed)
+                }
             }
         }
     }

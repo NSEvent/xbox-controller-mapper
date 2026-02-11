@@ -1957,6 +1957,7 @@ struct ChordMappingSheet: View {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 42
         case .touchpad: return 48
+        case .paddle: return 36
         }
     }
 
@@ -1965,6 +1966,7 @@ struct ChordMappingSheet: View {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 22
         case .touchpad: return 24
+        case .paddle: return 24
         }
     }
 }

@@ -15,6 +15,10 @@ struct ControllerVisualView: View {
         controllerService.threadSafeIsDualSense
     }
 
+    private var isDualSenseEdge: Bool {
+        controllerService.threadSafeIsDualSenseEdge
+    }
+
     /// Returns the currently selected layer, if any
     private var selectedLayer: Layer? {
         guard let layerId = selectedLayerId,
@@ -107,6 +111,28 @@ struct ControllerVisualView: View {
                         }
                     }
                     .frame(width: 220)
+                }
+
+                // Edge-specific buttons (paddles and function buttons)
+                if isDualSenseEdge {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("EDGE CONTROLS")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 4)
+                        HStack(spacing: 20) {
+                            VStack(alignment: .trailing) {
+                                referenceRow(for: .leftPaddle)
+                                referenceRow(for: .leftFunction)
+                            }
+                            .frame(width: 220)
+                            VStack(alignment: .leading) {
+                                referenceRow(for: .rightPaddle)
+                                referenceRow(for: .rightFunction)
+                            }
+                            .frame(width: 220)
+                        }
+                    }
                 }
             }
             .frame(width: 460)

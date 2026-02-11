@@ -100,6 +100,7 @@ struct ButtonIconView: View {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 42
         case .touchpad: return 48  // Wider for touchpad click
+        case .paddle: return 36  // Edge paddles and function buttons
         }
     }
 
@@ -204,6 +205,42 @@ struct ButtonIconView: View {
                     Image(systemName: "hand.tap")
                         .font(.system(size: fontSize - 2, weight: .medium))
                     Text("2")
+                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.white.opacity(0.95))
+            } else if button == .leftFunction {
+                // Left function button: "L" + Fn icon
+                HStack(spacing: 2) {
+                    Text("L")
+                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
+                    Image(systemName: "button.horizontal.top.press")
+                        .font(.system(size: fontSize - 2, weight: .medium))
+                }
+                .foregroundColor(.white.opacity(0.95))
+            } else if button == .rightFunction {
+                // Right function button: Fn icon + "R"
+                HStack(spacing: 2) {
+                    Image(systemName: "button.horizontal.top.press")
+                        .font(.system(size: fontSize - 2, weight: .medium))
+                    Text("R")
+                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.white.opacity(0.95))
+            } else if button == .leftPaddle {
+                // Left paddle: "L" + paddle icon
+                HStack(spacing: 2) {
+                    Text("L")
+                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
+                    Image(systemName: "l.button.roundedbottom.horizontal")
+                        .font(.system(size: fontSize - 2, weight: .medium))
+                }
+                .foregroundColor(.white.opacity(0.95))
+            } else if button == .rightPaddle {
+                // Right paddle: paddle icon + "R"
+                HStack(spacing: 2) {
+                    Image(systemName: "r.button.roundedbottom.horizontal")
+                        .font(.system(size: fontSize - 2, weight: .medium))
+                    Text("R")
                         .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.white.opacity(0.95))
