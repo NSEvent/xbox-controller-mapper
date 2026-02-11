@@ -335,18 +335,10 @@ struct ControllerVisualView: View {
                             .foregroundColor(.purple)
                     }
                 } else if let mapping = mapping(for: button) {
-                    HStack(spacing: 6) {
-                        MappingLabelView(
-                            mapping: mapping,
-                            font: .system(size: 15, weight: .semibold, design: .rounded)
-                        )
-                        // Show fallthrough indicator when viewing a layer
-                        if isBaseFallthrough(for: button) {
-                            Text("(base)")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
-                    }
+                    MappingLabelView(
+                        mapping: mapping,
+                        font: .system(size: 15, weight: .semibold, design: .rounded)
+                    )
                 } else {
                     Text("Unmapped")
                         .font(.system(size: 12))
