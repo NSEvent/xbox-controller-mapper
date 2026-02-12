@@ -59,14 +59,14 @@ struct ContentView: View {
                         .tabItem { Text("Joysticks") }
                         .tag(2)
 
-                    // Touchpad Settings (only shown when controller has touchpad)
-                    if controllerService.threadSafeIsDualSense {
+                    // Touchpad Settings (only shown when controller has touchpad - DualSense/DualShock)
+                    if controllerService.threadSafeIsPlayStation {
                         touchpadSettingsTab
                             .tabItem { Text("Touchpad") }
                             .tag(4)
                     }
 
-                    // LED Settings (only shown for DualSense)
+                    // LED Settings (only shown for DualSense - DualShock LED control not supported)
                     if controllerService.threadSafeIsDualSense {
                         ledSettingsTab
                             .tabItem { Text("LEDs") }
@@ -106,7 +106,7 @@ struct ContentView: View {
                     },
                     set: { _ in }
                 ),
-                isDualSense: controllerService.threadSafeIsDualSense,
+                isDualSense: controllerService.threadSafeIsPlayStation,
                 selectedLayerId: selectedLayerId
             )
         }
@@ -263,7 +263,7 @@ struct ContentView: View {
                         HStack(spacing: 10) {
                             HStack(spacing: 2) {
                                 ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-                                    ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsDualSense)
+                                    ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation)
                                 }
                             }
 
@@ -366,7 +366,7 @@ struct ContentView: View {
                                 .lineLimit(1)
                             // Activator button badge (or "No Activator" if unassigned)
                             if let activator = layer.activatorButton {
-                                Text(activator.shortLabel(forDualSense: controllerService.threadSafeIsDualSense))
+                                Text(activator.shortLabel(forDualSense: controllerService.threadSafeIsPlayStation))
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 5)
@@ -438,7 +438,7 @@ struct ContentView: View {
                 if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
                     ChordListView(
                         chords: profile.chordMappings,
-                        isDualSense: controllerService.threadSafeIsDualSense,
+                        isDualSense: controllerService.threadSafeIsPlayStation,
                         onEdit: { chord in
                             editingChord = chord
                         },
@@ -1522,6 +1522,15 @@ struct ChordMappingSheet: View {
         controllerService.threadSafeIsDualSense
     }
 
+    private var isDualShock: Bool {
+        controllerService.threadSafeIsDualShock
+    }
+
+    /// True for any PlayStation controller (DualSense or DualShock) - used for PS-style labels and touchpad
+    private var isPlayStation: Bool {
+        controllerService.threadSafeIsPlayStation
+    }
+
     private var isDualSenseEdge: Bool {
         controllerService.threadSafeIsDualSenseEdge
     }
@@ -1656,8 +1665,8 @@ struct ChordMappingSheet: View {
                             } else {
                                 toggleButton(.share)
                             }
-                            // Touchpad button only for DualSense
-                            if isDualSense {
+                            // Touchpad button for PlayStation controllers (DualSense/DualShock)
+                            if isPlayStation {
                                 toggleButton(.touchpadButton)
                             }
                         }
@@ -1948,7 +1957,7 @@ struct ChordMappingSheet: View {
                 selectedButtons.insert(button)
             }
         }) {
-            ButtonIconView(button: button, isPressed: selectedButtons.contains(button), isDualSense: isDualSense)
+            ButtonIconView(button: button, isPressed: selectedButtons.contains(button), isDualSense: isPlayStation)
                 .scaleEffect(scale)
                 .frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)
                 .opacity(selectedButtons.contains(button) ? 1.0 : 0.7)
@@ -2934,7 +2943,7 @@ struct AddLayerSheet: View {
                     Picker("Activator", selection: $selectedActivator) {
                         Text("None (assign later)").tag(nil as ControllerButton?)
                         ForEach(availableButtons, id: \.self) { button in
-                            Text(button.displayName(forDualSense: controllerService.threadSafeIsDualSense))
+                            Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation))
                                 .tag(button as ControllerButton?)
                         }
                     }
@@ -3027,7 +3036,7 @@ struct EditLayerSheet: View {
                     Picker("Activator", selection: $selectedActivator) {
                         Text("None (assign later)").tag(nil as ControllerButton?)
                         ForEach(availableButtons, id: \.self) { button in
-                            Text(button.displayName(forDualSense: controllerService.threadSafeIsDualSense))
+                            Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation))
                                 .tag(button as ControllerButton?)
                         }
                     }

@@ -15,6 +15,15 @@ struct ControllerVisualView: View {
         controllerService.threadSafeIsDualSense
     }
 
+    private var isDualShock: Bool {
+        controllerService.threadSafeIsDualShock
+    }
+
+    /// True for any PlayStation controller (DualSense or DualShock) - used for PS-style labels and touchpad UI
+    private var isPlayStation: Bool {
+        controllerService.threadSafeIsPlayStation
+    }
+
     private var isDualSenseEdge: Bool {
         controllerService.threadSafeIsDualSenseEdge
     }
@@ -65,8 +74,8 @@ struct ControllerVisualView: View {
 
             // Center Column: Controller Graphic and System Buttons
             VStack(spacing: 20) {
-                // Touchpad section (DualSense only) - above controller
-                if isDualSense {
+                // Touchpad section (PlayStation controllers with touchpad) - above controller
+                if isPlayStation {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("TOUCHPAD")
                             .font(.system(size: 10, weight: .bold))
@@ -94,8 +103,8 @@ struct ControllerVisualView: View {
 
                     // Compact Controller Overlay (Just icons, no labels)
                     // Uses throttled display values (15Hz) instead of raw values (60Hz) to avoid UI blocking
-                    if isDualSense {
-                        dualSenseOverlay
+                    if isPlayStation {
+                        dualSenseOverlay  // DualSense/DualShock share same overlay layout
                     } else {
                         xboxOverlay
                     }
@@ -299,10 +308,10 @@ struct ControllerVisualView: View {
 
     @ViewBuilder
     private var controllerBodyView: some View {
-        if isDualSense {
-            DualSenseBodyShape()
+        if isPlayStation {
+            DualSenseBodyShape()  // DualSense/DualShock share similar body shape
                 .fill(LinearGradient(
-                    colors: [Color(white: 0.95), Color(white: 0.88)], // DualSense white/light grey
+                    colors: [Color(white: 0.95), Color(white: 0.88)], // PlayStation white/light grey
                     startPoint: .top,
                     endPoint: .bottom
                 ))
@@ -339,10 +348,10 @@ struct ControllerVisualView: View {
     @ViewBuilder
     private func referenceRow(for button: ControllerButton) -> some View {
         HStack(spacing: 12) {
-            // Button Indicator (adapts to Xbox or DualSense styling)
+            // Button Indicator (adapts to Xbox or PlayStation styling)
             // Fixed width container ensures mapping labels align across different button sizes
             ZStack(alignment: .topTrailing) {
-                ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isDualSense)
+                ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isPlayStation)
 
                 // Layer activator badge
                 if let layer = layerForButton(button) {
@@ -575,7 +584,7 @@ struct ControllerVisualView: View {
 
             // Add Xbox or PlayStation logo for the center button
             if button == .xbox {
-                Image(systemName: isDualSense ? "playstation.logo" : "xbox.logo")
+                Image(systemName: isPlayStation ? "playstation.logo" : "xbox.logo")
                     .font(.system(size: size * 0.45, weight: .medium))
                     .foregroundColor(isPressed(button) ? .white : Color(white: 0.3))
             }
@@ -637,7 +646,7 @@ struct ControllerVisualView: View {
 
     private func miniFaceButtons() -> some View {
         ZStack {
-            if isDualSense {
+            if isPlayStation {
                 // PlayStation style: dark background with colored symbols
                 miniPSFaceButton(.y, symbolColor: ButtonColors.psTriangle).offset(y: -12)
                 miniPSFaceButton(.a, symbolColor: ButtonColors.psCross).offset(y: 12)

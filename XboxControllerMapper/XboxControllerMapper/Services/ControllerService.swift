@@ -71,6 +71,7 @@ private final class ControllerStorage: @unchecked Sendable {
     var touchpadSecondaryLastTouchTime: TimeInterval = 0
     var isDualSense: Bool = false
     var isDualSenseEdge: Bool = false
+    var isDualShock: Bool = false  // PS4 DualShock 4 controller
     var isBluetoothConnection: Bool = false
     var currentLEDSettings: DualSenseLEDSettings?
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
@@ -250,6 +251,19 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isDualSenseEdge
+    }
+
+    nonisolated var threadSafeIsDualShock: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isDualShock
+    }
+
+    /// Returns true if connected controller is any PlayStation controller (DualSense, DualShock)
+    nonisolated var threadSafeIsPlayStation: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isDualSense || storage.isDualShock
     }
 
     nonisolated var threadSafeIsBluetoothConnection: Bool {
@@ -782,6 +796,7 @@ class ControllerService: ObservableObject {
         if let xboxGamepad = gamepad as? GCXboxGamepad {
             storage.lock.lock()
             storage.isDualSense = false
+            storage.isDualShock = false
             storage.lock.unlock()
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
 
@@ -806,6 +821,7 @@ class ControllerService: ObservableObject {
         if let dualSenseGamepad = gamepad as? GCDualSenseGamepad {
             storage.lock.lock()
             storage.isDualSense = true
+            storage.isDualShock = false  // Ensure we're not flagged as DualShock
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
 
@@ -858,6 +874,62 @@ class ControllerService: ObservableObject {
 
             // Set up HID monitoring for mic button (not exposed by GameController framework)
             setupMicButtonMonitoring()
+        }
+
+        // DualShock 4-specific: Touchpad support (same API as DualSense)
+        // Note: DualShock 4 doesn't have mic button or LED control via GameController framework
+        else if let dualShockGamepad = gamepad as? GCDualShockGamepad {
+            storage.lock.lock()
+            storage.isDualShock = true
+            storage.isDualSense = false  // Ensure we're not flagged as DualSense
+            storage.lock.unlock()
+            UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)  // Use same key for PS controllers
+
+            // Avoid system gesture delays on touchpad input
+            dualShockGamepad.touchpadPrimary.preferredSystemGestureState = .alwaysReceive
+            dualShockGamepad.touchpadSecondary.preferredSystemGestureState = .alwaysReceive
+            dualShockGamepad.touchpadButton.preferredSystemGestureState = .alwaysReceive
+
+            // Touchpad button (click)
+            // Two-finger + click triggers touchpadTwoFingerButton, single finger triggers touchpadButton
+            dualShockGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
+                guard let self = self else { return }
+                let isTwoFingerClick = self.armTouchpadClick(pressed: pressed)
+
+                if pressed {
+                    // On button press: check if this will be a two-finger click
+                    self.storage.lock.lock()
+                    let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
+                    self.storage.lock.unlock()
+
+                    if willBeTwoFingerClick {
+                        // Two-finger button press
+                        self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
+                    } else {
+                        // Normal single-finger button press
+                        self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
+                    }
+                } else {
+                    // On button release
+                    if isTwoFingerClick {
+                        // Two-finger button release
+                        self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: false) }
+                    } else {
+                        // Normal single-finger button release
+                        self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
+                    }
+                }
+            }
+
+            // Touchpad primary finger position (for mouse control)
+            dualShockGamepad.touchpadPrimary.valueChangedHandler = { [weak self] _, xValue, yValue in
+                self?.updateTouchpad(x: xValue, y: yValue)
+            }
+
+            // Touchpad secondary finger position (for gestures)
+            dualShockGamepad.touchpadSecondary.valueChangedHandler = { [weak self] _, xValue, yValue in
+                self?.updateTouchpadSecondary(x: xValue, y: yValue)
+            }
         }
     }
 
