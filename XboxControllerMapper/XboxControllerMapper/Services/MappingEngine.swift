@@ -29,7 +29,9 @@ private struct MappingExecutor {
         if let macroId = action.macroId, let profile = profile,
            let macro = profile.macros.first(where: { $0.id == macroId }) {
             inputSimulator.executeMacro(macro)
-            inputLogService?.log(buttons: [button], type: logType, action: "Macro: \(macro.name)")
+            // Use hint if available, otherwise macro name
+            let macroFeedback = (action.hint?.isEmpty == false) ? action.hint! : macro.name
+            inputLogService?.log(buttons: [button], type: logType, action: macroFeedback)
             return
         }
 
@@ -576,7 +578,7 @@ class MappingEngine: ObservableObject {
         }
 
         inputSimulator.startHoldMapping(mapping)
-        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString)
+        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString, isHeld: true)
     }
 
     /// Handles on-screen keyboard button press
@@ -853,6 +855,7 @@ class MappingEngine: ObservableObject {
         if let releaseResult = cleanupReleaseTimers(for: button) {
             if case .heldMapping(let heldMapping) = releaseResult {
                 inputSimulator.stopHoldMapping(heldMapping)
+                inputLogService?.dismissHeldFeedback()
             }
             return
         }

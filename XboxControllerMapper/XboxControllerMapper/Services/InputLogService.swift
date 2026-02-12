@@ -12,7 +12,7 @@ class InputLogService: ObservableObject {
     private var isUpdateScheduled = false
     private let lock = NSLock()
     
-    func log(buttons: [ControllerButton], type: InputEventType, action: String) {
+    func log(buttons: [ControllerButton], type: InputEventType, action: String, isHeld: Bool = false) {
         let entry = InputLogEntry(buttons: buttons, type: type, actionDescription: action)
 
         lock.lock()
@@ -33,8 +33,15 @@ class InputLogService: ObservableObject {
         // Show cursor feedback for the action (skip unmapped actions)
         if !action.contains("(unmapped)") {
             Task { @MainActor in
-                ActionFeedbackIndicator.shared.show(action: action, type: type)
+                ActionFeedbackIndicator.shared.show(action: action, type: type, isHeld: isHeld)
             }
+        }
+    }
+
+    /// Dismiss held action feedback (call when button is released)
+    func dismissHeldFeedback() {
+        Task { @MainActor in
+            ActionFeedbackIndicator.shared.dismissHeld()
         }
     }
     

@@ -11,16 +11,24 @@ class ActionFeedbackIndicator {
     private var hideTimer: Timer?
     private var trackingTimer: Timer?
     private var isVisible = false
+    private var isHeldAction = false  // True if action should stay until dismissed
+    private var showTime: Date?  // When the indicator was shown
 
-    /// How long the feedback stays visible
+    /// How long the feedback stays visible (for non-held actions)
     private let displayDuration: TimeInterval = 1.2
+    /// Minimum display time even for quick taps on held actions
+    private let minimumDisplayDuration: TimeInterval = 0.8
     /// Offset above the cursor
     private let cursorOffset: CGFloat = 30
 
     private init() {}
 
     /// Show action feedback above the cursor
-    func show(action: String, type: InputEventType) {
+    /// - Parameters:
+    ///   - action: The action text to display
+    ///   - type: The type of input event
+    ///   - isHeld: If true, the indicator stays until dismissHeld() is called
+    func show(action: String, type: InputEventType, isHeld: Bool = false) {
         // Cancel any pending hide
         hideTimer?.invalidate()
 
@@ -29,13 +37,16 @@ class ActionFeedbackIndicator {
         }
 
         // Update the content
-        hostingView?.rootView = ActionFeedbackView(action: action, type: type)
+        hostingView?.rootView = ActionFeedbackView(action: action, type: type, isHeld: isHeld)
 
         // Size to fit content
         if let hostingView = hostingView {
             let size = hostingView.fittingSize
             panel?.setContentSize(size)
         }
+
+        self.isHeldAction = isHeld
+        self.showTime = Date()
 
         if !isVisible {
             isVisible = true
@@ -52,12 +63,37 @@ class ActionFeedbackIndicator {
 
         updatePosition()
 
-        // Schedule hide
-        hideTimer = Timer.scheduledTimer(withTimeInterval: displayDuration, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                self?.hide()
+        // Only schedule auto-hide for non-held actions
+        if !isHeld {
+            hideTimer = Timer.scheduledTimer(withTimeInterval: displayDuration, repeats: false) { [weak self] _ in
+                Task { @MainActor in
+                    self?.hide()
+                }
             }
         }
+    }
+
+    /// Dismiss a held action indicator (call when button is released)
+    func dismissHeld() {
+        guard isHeldAction else { return }
+        isHeldAction = false
+
+        // Ensure minimum display time for quick taps
+        if let showTime = showTime {
+            let elapsed = Date().timeIntervalSince(showTime)
+            if elapsed < minimumDisplayDuration {
+                // Schedule hide after remaining time
+                let remaining = minimumDisplayDuration - elapsed
+                hideTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) { [weak self] _ in
+                    Task { @MainActor in
+                        self?.hide()
+                    }
+                }
+                return
+            }
+        }
+
+        hide()
     }
 
     private func hide() {
@@ -132,6 +168,7 @@ class ActionFeedbackIndicator {
 private struct ActionFeedbackView: View {
     let action: String
     let type: InputEventType
+    var isHeld: Bool = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -150,6 +187,13 @@ private struct ActionFeedbackView: View {
             Text(action)
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundColor(.primary)
+
+            // Held indicator
+            if isHeld {
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -159,7 +203,7 @@ private struct ActionFeedbackView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                .stroke(isHeld ? Color.accentColor.opacity(0.4) : Color.primary.opacity(0.15), lineWidth: isHeld ? 2 : 1)
         )
         .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
     }
