@@ -423,22 +423,23 @@ struct ContentView: View {
 
             Spacer()
 
-            // Action feedback toggle
+            // Action feedback toggle (styled like layer tabs)
             Toggle(isOn: $actionFeedbackEnabled) {
                 HStack(spacing: 4) {
                     Image(systemName: "bubble.left.fill")
                         .font(.system(size: 10))
-                    Text("Hints")
+                    Text("Cursor Hints")
                         .font(.caption)
+                        .fontWeight(.medium)
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(actionFeedbackEnabled ? Color.accentColor : Color.white.opacity(0.1))
+                .cornerRadius(6)
             }
             .toggleStyle(.button)
             .buttonStyle(.plain)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(actionFeedbackEnabled ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.05))
-            .cornerRadius(6)
-            .foregroundColor(actionFeedbackEnabled ? .accentColor : .secondary)
+            .foregroundColor(actionFeedbackEnabled ? .white : .secondary)
             .onChange(of: actionFeedbackEnabled) { _, newValue in
                 ActionFeedbackIndicator.isEnabled = newValue
             }
@@ -2046,6 +2047,7 @@ struct ChordMappingSheet: View {
 
 struct JoystickSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
+    @State private var focusCursorHighlightEnabled: Bool = FocusModeIndicator.isEnabled
 
     var settings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -2145,6 +2147,11 @@ struct JoystickSettingsView: View {
                         .toggleStyle(.button)
                     }
                 }
+
+                Toggle("Highlight Focused Cursor", isOn: $focusCursorHighlightEnabled)
+                    .onChange(of: focusCursorHighlightEnabled) { _, newValue in
+                        FocusModeIndicator.isEnabled = newValue
+                    }
             }
 
             Section("Right Joystick (Scroll)") {

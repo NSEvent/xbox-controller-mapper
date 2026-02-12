@@ -1183,7 +1183,16 @@ class MappingEngine: ObservableObject {
             state.lock.lock()
             state.activeChordButtons = chordButtons
             state.lock.unlock()
-            let chordFeedback = (chord.hint?.isEmpty == false) ? chord.hint! : chord.actionDisplayString
+
+            // Compute feedback: prefer hint, then macro name if applicable, then default display
+            let chordFeedback: String
+            if let hint = chord.hint, !hint.isEmpty {
+                chordFeedback = hint
+            } else if let macroId = chord.macroId, let macro = profile.macros.first(where: { $0.id == macroId }) {
+                chordFeedback = macro.name
+            } else {
+                chordFeedback = chord.actionDisplayString
+            }
             inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: chordFeedback)
 
             if let systemCommand = chord.systemCommand {

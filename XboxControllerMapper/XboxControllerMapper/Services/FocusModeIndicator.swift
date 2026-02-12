@@ -6,6 +6,17 @@ import AppKit
 class FocusModeIndicator {
     static let shared = FocusModeIndicator()
 
+    /// Whether focus cursor highlight is enabled (stored in UserDefaults, defaults to true)
+    static var isEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "focusCursorHighlightEnabled") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "focusCursorHighlightEnabled")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "focusCursorHighlightEnabled") }
+    }
+
     private var panel: NSPanel?
     private var trackingTimer: Timer?
     private var isVisible = false
@@ -17,7 +28,7 @@ class FocusModeIndicator {
     private init() {}
 
     func show() {
-        guard !isVisible else { return }
+        guard Self.isEnabled, !isVisible else { return }
         isVisible = true
 
         if panel == nil {
