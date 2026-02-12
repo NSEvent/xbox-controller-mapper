@@ -208,24 +208,11 @@ struct ButtonIconView: View {
                         .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.white.opacity(0.95))
-            } else if button == .leftFunction {
-                // Left function button: "L" + Fn icon
-                HStack(spacing: 2) {
-                    Text("L")
-                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
-                    Image(systemName: "button.horizontal.top.press")
-                        .font(.system(size: fontSize - 2, weight: .medium))
-                }
-                .foregroundColor(.white.opacity(0.95))
-            } else if button == .rightFunction {
-                // Right function button: Fn icon + "R"
-                HStack(spacing: 2) {
-                    Image(systemName: "button.horizontal.top.press")
-                        .font(.system(size: fontSize - 2, weight: .medium))
-                    Text("R")
-                        .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
-                }
-                .foregroundColor(.white.opacity(0.95))
+            } else if button == .leftFunction || button == .rightFunction {
+                // Function buttons: show "LFn" or "RFn" text (similar to L1/R1)
+                Text(button.shortLabel(forDualSense: isDualSense))
+                    .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.95))
             } else if let systemImage = button.systemImageName(forDualSense: isDualSense) {
                 Image(systemName: systemImage)
                     .foregroundColor(.white.opacity(0.95))
