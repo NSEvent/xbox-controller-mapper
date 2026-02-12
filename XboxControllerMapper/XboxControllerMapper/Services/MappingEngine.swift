@@ -312,6 +312,9 @@ class MappingEngine: ObservableObject {
                 self.state.lock.lock()
                 self.state.activeProfile = profile
                 self.state.joystickSettings = profile?.joystickSettings
+                // Clear active layers when profile changes - prevents stale layer state
+                // if user was holding a layer activator during profile switch
+                self.state.activeLayerIds.removeAll()
                 self.rebuildLayerActivatorMap(profile: profile)
                 self.state.lock.unlock()
             }

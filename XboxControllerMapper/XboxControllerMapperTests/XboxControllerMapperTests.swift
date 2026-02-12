@@ -3541,6 +3541,63 @@ final class XboxControllerMapperTests: XCTestCase {
         }
         XCTAssertFalse(foundAnyKeyPress, "Layer activator should not produce any key press, even if base layer has a mapping for it")
     }
+
+    /// Test that layer state is cleared when profile switches while layer activator is held
+    func testLayerStateClearedOnProfileSwitch() async throws {
+        // Profile A: LB activates layer, Y -> key 0 in layer
+        // Profile B: No layers, Y -> key 16 in base
+        let layerAYMapping = KeyMapping(keyCode: 0)
+        let layerA = Layer(name: "Layer A", activatorButton: .leftBumper, buttonMappings: [.y: layerAYMapping])
+        let profileA = Profile(name: "Profile A", buttonMappings: [:], layers: [layerA])
+
+        let baseBYMapping = KeyMapping(keyCode: 16)
+        let profileB = Profile(name: "Profile B", buttonMappings: [.y: baseBYMapping], layers: [])
+
+        await MainActor.run {
+            profileManager.setActiveProfile(profileA)
+        }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        // Hold LB to activate layer in Profile A
+        await MainActor.run {
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Switch to Profile B while LB is still held
+        await MainActor.run {
+            profileManager.setActiveProfile(profileB)
+        }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        // Clear events
+        await MainActor.run {
+            mockInputSimulator.clearEvents()
+        }
+
+        // Press Y - should use Profile B's base mapping (key 16), not stale layer mapping
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.1)
+
+        var foundProfileBMapping = false
+        var foundStaleLayerMapping = false
+        await MainActor.run {
+            for event in mockInputSimulator.events {
+                if case .pressKey(let code, _) = event {
+                    if code == 16 { foundProfileBMapping = true }
+                    if code == 0 { foundStaleLayerMapping = true }
+                }
+            }
+        }
+        XCTAssertTrue(foundProfileBMapping, "Profile B's base mapping should be used after profile switch")
+        XCTAssertFalse(foundStaleLayerMapping, "Stale layer mapping from Profile A should NOT be used")
+    }
 }
 
 // MARK: - KeyCodeMapping Tests
