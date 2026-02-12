@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var selectedLayerId: UUID? = nil // nil = base layer
     @State private var showingAddLayerSheet = false
     @State private var editingLayerId: UUID? = nil
+    @State private var actionFeedbackEnabled: Bool = ActionFeedbackIndicator.isEnabled
 
     var body: some View {
         HSplitView {
@@ -421,6 +422,26 @@ struct ContentView: View {
             }
 
             Spacer()
+
+            // Action feedback toggle
+            Toggle(isOn: $actionFeedbackEnabled) {
+                HStack(spacing: 4) {
+                    Image(systemName: "bubble.left.fill")
+                        .font(.system(size: 10))
+                    Text("Hints")
+                        .font(.caption)
+                }
+            }
+            .toggleStyle(.button)
+            .buttonStyle(.plain)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(actionFeedbackEnabled ? Color.accentColor.opacity(0.2) : Color.white.opacity(0.05))
+            .cornerRadius(6)
+            .foregroundColor(actionFeedbackEnabled ? .accentColor : .secondary)
+            .onChange(of: actionFeedbackEnabled) { _, newValue in
+                ActionFeedbackIndicator.isEnabled = newValue
+            }
         }
     }
 

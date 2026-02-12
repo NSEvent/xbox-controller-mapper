@@ -6,6 +6,18 @@ import AppKit
 class ActionFeedbackIndicator {
     static let shared = ActionFeedbackIndicator()
 
+    /// Whether action feedback is enabled (stored in UserDefaults, defaults to true)
+    static var isEnabled: Bool {
+        get {
+            // Default to true if key hasn't been set
+            if UserDefaults.standard.object(forKey: "actionFeedbackEnabled") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "actionFeedbackEnabled")
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "actionFeedbackEnabled") }
+    }
+
     private var panel: NSPanel?
     private var hostingView: NSHostingView<ActionFeedbackView>?
     private var hideTimer: Timer?
@@ -29,6 +41,9 @@ class ActionFeedbackIndicator {
     ///   - type: The type of input event
     ///   - isHeld: If true, the indicator stays until dismissHeld() is called
     func show(action: String, type: InputEventType, isHeld: Bool = false) {
+        // Check if action feedback is enabled
+        guard Self.isEnabled else { return }
+
         // Cancel any pending hide
         hideTimer?.invalidate()
 

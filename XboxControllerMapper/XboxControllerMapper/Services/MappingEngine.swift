@@ -26,12 +26,18 @@ private struct MappingExecutor {
             return
         }
 
-        if let macroId = action.macroId, let profile = profile,
-           let macro = profile.macros.first(where: { $0.id == macroId }) {
-            inputSimulator.executeMacro(macro)
-            // Use hint if available, otherwise macro name
-            let macroFeedback = (action.hint?.isEmpty == false) ? action.hint! : macro.name
-            inputLogService?.log(buttons: [button], type: logType, action: macroFeedback)
+        // Handle macro actions
+        if let macroId = action.macroId {
+            if let profile = profile, let macro = profile.macros.first(where: { $0.id == macroId }) {
+                inputSimulator.executeMacro(macro)
+                // Use hint if available, otherwise macro name
+                let macroFeedback = (action.hint?.isEmpty == false) ? action.hint! : macro.name
+                inputLogService?.log(buttons: [button], type: logType, action: macroFeedback)
+            } else {
+                // Macro not found - still show hint if available
+                let fallbackFeedback = (action.hint?.isEmpty == false) ? action.hint! : "Macro"
+                inputLogService?.log(buttons: [button], type: logType, action: fallbackFeedback)
+            }
             return
         }
 
