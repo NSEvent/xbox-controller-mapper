@@ -14,7 +14,7 @@ class InputLogService: ObservableObject {
     
     func log(buttons: [ControllerButton], type: InputEventType, action: String) {
         let entry = InputLogEntry(buttons: buttons, type: type, actionDescription: action)
-        
+
         lock.lock()
         pendingEntries.append(entry)
         let shouldSchedule = !isUpdateScheduled
@@ -22,11 +22,18 @@ class InputLogService: ObservableObject {
             isUpdateScheduled = true
         }
         lock.unlock()
-        
+
         if shouldSchedule {
             // Batch updates every 50ms to prevent UI stutter on spam
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 self?.flushPendingEntries()
+            }
+        }
+
+        // Show cursor feedback for the action (skip unmapped actions)
+        if !action.contains("(unmapped)") {
+            Task { @MainActor in
+                ActionFeedbackIndicator.shared.show(action: action, type: type)
             }
         }
     }
