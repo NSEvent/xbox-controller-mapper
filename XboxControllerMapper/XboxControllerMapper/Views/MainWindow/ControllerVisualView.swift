@@ -119,10 +119,11 @@ struct ControllerVisualView: View {
                     .frame(width: 220)
                     VStack(alignment: .leading) {
                         referenceRow(for: .menu)
-                        // Show mic mute for DualSense, share for Xbox
+                        // Show mic mute for DualSense, share for Xbox only
+                        // DualShock 4's physical Share button maps to .view (buttonOptions), not .share
                         if isDualSense {
                             referenceRow(for: .micMute)
-                        } else {
+                        } else if !isDualShock {
                             referenceRow(for: .share)
                         }
                     }
