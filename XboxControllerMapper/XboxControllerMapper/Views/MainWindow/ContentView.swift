@@ -347,11 +347,11 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(selectedLayerId == nil ? Color.accentColor.opacity(0.3) : Color.white.opacity(0.1))
+                .background(selectedLayerId == nil ? Color.accentColor : Color.white.opacity(0.1))
                 .cornerRadius(6)
             }
             .buttonStyle(.plain)
-            .foregroundColor(selectedLayerId == nil ? .accentColor : .secondary)
+            .foregroundColor(selectedLayerId == nil ? .white : .secondary)
 
             // Layer tabs
             if let profile = profileManager.activeProfile {
@@ -375,11 +375,11 @@ struct ContentView: View {
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(selectedLayerId == layer.id ? Color.accentColor.opacity(0.3) : Color.white.opacity(0.1))
+                        .background(selectedLayerId == layer.id ? Color.accentColor : Color.white.opacity(0.1))
                         .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
-                    .foregroundColor(selectedLayerId == layer.id ? .accentColor : .secondary)
+                    .foregroundColor(selectedLayerId == layer.id ? .white : .secondary)
                     .contextMenu {
                         Button("Rename...") {
                             editingLayerId = layer.id
