@@ -272,9 +272,9 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         allCases.filter { !$0.isPlayStationOnly }
     }
 
-    /// Buttons available for DualShock 4 controllers (has touchpad, no mic mute or paddles)
+    /// Buttons available for DualShock 4 controllers (has touchpad and Share button, no mic mute or paddles)
     static var dualShockButtons: [ControllerButton] {
-        allCases.filter { !$0.isDualSenseOnly && $0 != .share }
+        allCases.filter { !$0.isDualSenseOnly }
     }
 
     /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)

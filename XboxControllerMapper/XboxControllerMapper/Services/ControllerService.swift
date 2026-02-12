@@ -389,6 +389,7 @@ class ControllerService: ObservableObject {
 
         // Load last controller type (so UI shows correct button labels when no controller is connected)
         storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
+        storage.isDualShock = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey)
 
         setupNotifications()
         startDiscovery()
@@ -799,6 +800,7 @@ class ControllerService: ObservableObject {
             storage.isDualShock = false
             storage.lock.unlock()
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
 
             // Trigger battery monitor refresh for Xbox controller
             batteryMonitor.refreshBatteryLevel()
@@ -824,6 +826,7 @@ class ControllerService: ObservableObject {
             storage.isDualShock = false  // Ensure we're not flagged as DualShock
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
 
             // Avoid system gesture delays on touchpad input
             dualSenseGamepad.touchpadPrimary.preferredSystemGestureState = .alwaysReceive
@@ -883,7 +886,8 @@ class ControllerService: ObservableObject {
             storage.isDualShock = true
             storage.isDualSense = false  // Ensure we're not flagged as DualSense
             storage.lock.unlock()
-            UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)  // Use same key for PS controllers
+            UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualShockKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
 
             // Avoid system gesture delays on touchpad input
             dualShockGamepad.touchpadPrimary.preferredSystemGestureState = .alwaysReceive

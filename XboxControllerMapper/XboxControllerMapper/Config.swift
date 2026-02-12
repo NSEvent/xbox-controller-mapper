@@ -208,8 +208,10 @@ struct Config {
     static let touchpadMomentumBoostMax: Double = 1.4
     /// Velocity at which max boost is reached (pixels/second)
     static let touchpadMomentumBoostMaxVelocity: Double = 5000.0
-    /// UserDefaults key for remembering last connected controller type
+    /// UserDefaults key for remembering last connected controller type (DualSense/PS5)
     static let lastControllerWasDualSenseKey: String = "lastControllerWasDualSense"
+    /// UserDefaults key for remembering last connected controller type (DualShock/PS4)
+    static let lastControllerWasDualShockKey: String = "lastControllerWasDualShock"
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging
