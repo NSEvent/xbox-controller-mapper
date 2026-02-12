@@ -40,25 +40,15 @@ extension View {
     }
 }
 
-/// Floating overlay that draws the navigation highlight for keyboard keys only
-/// (Quick text, app bar, and website items handle their own highlight via GlassKeyBackground)
+/// Floating overlay for navigation highlight (legacy - all items now self-highlight via GlassKeyBackground)
 struct NavigationHighlightOverlay: View {
     let highlightedItem: KeyboardNavigationItem?
     let itemBounds: [KeyboardNavigationItem: Anchor<CGRect>]
     let geometryProxy: GeometryProxy
 
     var body: some View {
-        // Only draw overlay for keyboard keys - other items handle their own highlight
-        if let item = highlightedItem,
-           case .keyPosition = item,
-           let anchor = itemBounds[item] {
-            let rect = geometryProxy[anchor]
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.orange, lineWidth: 3)
-                .frame(width: rect.width + 6, height: rect.height + 6)
-                .position(x: rect.midX, y: rect.midY)
-                .allowsHitTesting(false)
-        }
+        // All items now handle their own highlight via GlassKeyBackground.isNavHighlighted
+        EmptyView()
     }
 }
 
@@ -541,9 +531,10 @@ struct OnScreenKeyboardView: View {
     }
 
     private func mediaKey(_ keyCode: CGKeyCode, label: String, symbol: String, keyboardRow: Int, column: Int) -> some View {
-        // Only use mouse hover for visual feedback - navigation highlight is handled by overlay
+        let isNavHighlighted = keyboardManager.highlightedItem == .keyPosition(row: keyboardRow, column: column)
         let isHovered = hoveredKey == keyCode && !keyboardManager.navigationModeActive
         let isPressed = pressedKey == keyCode
+        let isHighlighted = isHovered || isNavHighlighted
 
         return Button {
             // Exit navigation mode when mouse clicks
@@ -561,11 +552,11 @@ struct OnScreenKeyboardView: View {
                     .font(.system(size: 16))
             }
             .frame(width: 50, height: 40)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange, isNavHighlighted: isNavHighlighted))
             .foregroundColor(isPressed ? .white : .primary)
             .cornerRadius(8)
-            .scaleEffect(isPressed ? 0.9 : (isHovered ? 1.1 : 1.0))
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovered)
+            .scaleEffect(isPressed ? 0.9 : (isHighlighted ? 1.1 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHighlighted)
         }
         .buttonStyle(.plain)
         .navigationItemBounds(.keyPosition(row: keyboardRow, column: column))
@@ -742,9 +733,13 @@ struct OnScreenKeyboardView: View {
     private func clickableKey(_ keyCode: CGKeyCode, label: String, width: CGFloat? = nil, height: CGFloat? = nil, isSpecial: Bool = false, keyboardRow: Int? = nil, column: Int? = nil) -> some View {
         let actualWidth = width ?? keyWidth
         let actualHeight = height ?? keyHeight
-        // Only use mouse hover - navigation highlight is handled by overlay
+        let isNavHighlighted: Bool = {
+            guard let row = keyboardRow, let col = column else { return false }
+            return keyboardManager.highlightedItem == .keyPosition(row: row, column: col)
+        }()
         let isHovered = hoveredKey == keyCode && !keyboardManager.navigationModeActive
         let isPressed = pressedKey == keyCode
+        let isHighlighted = isHovered || isNavHighlighted
         let secondary = secondaryKeys[label]
         let isShiftActive = activeModifiers.shift
 
@@ -782,14 +777,14 @@ struct OnScreenKeyboardView: View {
                     Text(label)
                         .font(.system(size: fontSize(for: label), weight: .bold))
                         .foregroundColor(isSpecial ? .accentColor : .white)
-                        .opacity(isSpecial && !isHovered ? 0.9 : 1.0)
+                        .opacity(isSpecial && !isHighlighted ? 0.9 : 1.0)
                 }
             }
             .frame(width: actualWidth, height: actualHeight)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, isSpecial: isSpecial, specialColor: .orange))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, isSpecial: isSpecial, specialColor: .orange, isNavHighlighted: isNavHighlighted))
             .cornerRadius(8)
-            .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .scaleEffect(isPressed ? 0.95 : (isHighlighted ? 1.05 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHighlighted)
         }
         .buttonStyle(.plain)
         .ifLet(keyboardRow, column) { $0.navigationItemBounds(.keyPosition(row: $1, column: $2)) }
@@ -811,8 +806,12 @@ struct OnScreenKeyboardView: View {
     private func modifierKey(label: String, width: CGFloat, modifier: WritableKeyPath<ModifierFlags, Bool>, keyboardRow: Int? = nil, column: Int? = nil) -> some View {
         let isActive = activeModifiers[keyPath: modifier]
         let modKeyCode = modifierKeyCode(for: modifier)
-        // Only use mouse hover - navigation highlight is handled by overlay
+        let isNavHighlighted: Bool = {
+            guard let row = keyboardRow, let col = column else { return false }
+            return keyboardManager.highlightedItem == .keyPosition(row: row, column: col)
+        }()
         let isHovered = hoveredKey == modKeyCode && !keyboardManager.navigationModeActive
+        let isHighlighted = isHovered || isNavHighlighted
 
         Button {
             // Exit navigation mode when mouse clicks
@@ -822,11 +821,11 @@ struct OnScreenKeyboardView: View {
             Text(label)
                 .font(.system(size: fontSize(for: label), weight: .bold))
                 .frame(width: width, height: keyHeight)
-                .background(GlassKeyBackground(isHovered: isHovered, isPressed: isActive, isSpecial: true, specialColor: .orange))
-                .foregroundColor(isActive ? .white : (isHovered ? .white : .accentColor))
+                .background(GlassKeyBackground(isHovered: isHovered, isPressed: isActive, isSpecial: true, specialColor: .orange, isNavHighlighted: isNavHighlighted))
+                .foregroundColor(isActive ? .white : (isHighlighted ? .white : .accentColor))
                 .cornerRadius(8)
-                .scaleEffect(isActive ? 0.95 : (isHovered ? 1.05 : 1.0))
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+                .scaleEffect(isActive ? 0.95 : (isHighlighted ? 1.05 : 1.0))
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHighlighted)
         }
         .buttonStyle(.plain)
         .ifLet(keyboardRow, column) { $0.navigationItemBounds(.keyPosition(row: $1, column: $2)) }
@@ -857,8 +856,9 @@ struct OnScreenKeyboardView: View {
     @ViewBuilder
     private func capsLockKey(width: CGFloat, keyboardRow: Int, column: Int) -> some View {
         let keyCode = CGKeyCode(kVK_CapsLock)
-        // Only use mouse hover - navigation highlight is handled by overlay
+        let isNavHighlighted = keyboardManager.highlightedItem == .keyPosition(row: keyboardRow, column: column)
         let isHovered = hoveredKey == keyCode && !keyboardManager.navigationModeActive
+        let isHighlighted = isHovered || isNavHighlighted
 
         Button {
             // Exit navigation mode when mouse clicks
@@ -876,11 +876,11 @@ struct OnScreenKeyboardView: View {
             }
             .font(.system(size: 14, weight: .bold))
             .frame(width: width, height: keyHeight)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isCapsLockActive, isSpecial: true, specialColor: .orange))
-            .foregroundColor(isCapsLockActive ? .white : (isHovered ? .white : .accentColor))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isCapsLockActive, isSpecial: true, specialColor: .orange, isNavHighlighted: isNavHighlighted))
+            .foregroundColor(isCapsLockActive ? .white : (isHighlighted ? .white : .accentColor))
             .cornerRadius(8)
-            .scaleEffect(isCapsLockActive ? 0.95 : (isHovered ? 1.05 : 1.0))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .scaleEffect(isCapsLockActive ? 0.95 : (isHighlighted ? 1.05 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHighlighted)
         }
         .buttonStyle(.plain)
         .navigationItemBounds(.keyPosition(row: keyboardRow, column: column))
