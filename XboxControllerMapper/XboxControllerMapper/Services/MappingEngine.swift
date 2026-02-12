@@ -38,7 +38,7 @@ private struct MappingExecutor {
         } else if action.modifiers.hasAny {
             executeTapModifier(action.modifiers.cgEventFlags)
         }
-        inputLogService?.log(buttons: [button], type: logType, action: action.displayString)
+        inputLogService?.log(buttons: [button], type: logType, action: action.feedbackString)
     }
 
     /// Helper: Execute a modifier-only mapping (tap modifiers briefly)
@@ -576,7 +576,7 @@ class MappingEngine: ObservableObject {
         }
 
         inputSimulator.startHoldMapping(mapping)
-        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString)
     }
 
     /// Handles on-screen keyboard button press
@@ -731,7 +731,7 @@ class MappingEngine: ObservableObject {
         stopRepeatTimer(for: button)
 
         inputSimulator.executeMapping(mapping)
-        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.displayString)
+        inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString)
 
         let timer = DispatchSource.makeTimerSource(queue: inputQueue)
         timer.schedule(deadline: .now() + interval, repeating: interval)
@@ -1174,7 +1174,8 @@ class MappingEngine: ObservableObject {
             state.lock.lock()
             state.activeChordButtons = chordButtons
             state.lock.unlock()
-            inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: chord.actionDisplayString)
+            let chordFeedback = (chord.hint?.isEmpty == false) ? chord.hint! : chord.actionDisplayString
+            inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: chordFeedback)
 
             if let systemCommand = chord.systemCommand {
                 mappingExecutor.systemCommandExecutor.execute(systemCommand)

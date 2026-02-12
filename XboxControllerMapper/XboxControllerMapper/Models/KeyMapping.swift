@@ -15,7 +15,18 @@ protocol KeyBindingRepresentable {
 protocol ExecutableAction: KeyBindingRepresentable {
     var macroId: UUID? { get }
     var systemCommand: SystemCommand? { get }
+    var hint: String? { get }
     var displayString: String { get }
+}
+
+extension ExecutableAction {
+    /// Returns hint if available, otherwise displayString
+    var feedbackString: String {
+        if let hint = hint, !hint.isEmpty {
+            return hint
+        }
+        return displayString
+    }
 }
 
 extension KeyBindingRepresentable {
