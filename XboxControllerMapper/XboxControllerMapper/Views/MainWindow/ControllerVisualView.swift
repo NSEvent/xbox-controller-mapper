@@ -45,6 +45,13 @@ struct ControllerVisualView: View {
         return layer.activatorButton == button
     }
 
+    /// Returns true if this button is ANY layer activator and we're viewing a secondary layer
+    /// All layer activators should be dimmed when editing any layer, since they can't be remapped
+    private func isLayerActivatorInLayerContext(_ button: ControllerButton) -> Bool {
+        guard selectedLayerId != nil else { return false }  // Only in layer context
+        return isLayerActivator(button)
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
             // Left Column: Shoulder and Left-side inputs
@@ -395,8 +402,8 @@ struct ControllerVisualView: View {
             .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)  // Dim fallthrough mappings
         }
         .contentShape(Rectangle())
-        .opacity(isActivatorForSelectedLayer(button) ? 0.4 : 1.0)  // Dim layer activator when viewing its layer
-        .allowsHitTesting(!isActivatorForSelectedLayer(button))  // Disable clicks on layer activator in its own layer
+        .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
+        .allowsHitTesting(!isLayerActivatorInLayerContext(button))  // Disable clicks on layer activators when in layer context
         .onTapGesture { onButtonTap(button) }
     }
 
@@ -712,13 +719,15 @@ struct ControllerVisualView: View {
         guard let profile = profileManager.activeProfile else { return nil }
 
         // If viewing a layer, check layer mapping first
-        if let layer = selectedLayer {
-            // Layer activator buttons show no mapping (they activate layers, not keys)
-            if layer.activatorButton == button {
+        if selectedLayerId != nil {
+            // Any layer activator button shows no mapping when viewing any layer
+            // (layer activators can't be remapped, they only switch layers)
+            if isLayerActivator(button) {
                 return nil
             }
             // Check if this button has a layer-specific mapping
-            if let layerMapping = layer.buttonMappings[button], !layerMapping.isEmpty {
+            if let layer = selectedLayer,
+               let layerMapping = layer.buttonMappings[button], !layerMapping.isEmpty {
                 return layerMapping
             }
             // Fall through to base layer

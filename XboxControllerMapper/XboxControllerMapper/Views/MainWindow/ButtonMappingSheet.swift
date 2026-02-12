@@ -140,6 +140,12 @@ struct ButtonMappingSheet: View {
         selectedLayerId != nil
     }
 
+    /// Whether this button is a layer activator (in the base layer)
+    /// Layer activators cannot be mapped to actions in any layer
+    private var isBaseLayerActivator: Bool {
+        profileManager.layerForActivator(button) != nil
+    }
+
     /// The layer we're editing, if any
     private var editingLayer: Layer? {
         guard let layerId = selectedLayerId,
@@ -175,16 +181,37 @@ struct ButtonMappingSheet: View {
                         .cornerRadius(8)
                     }
 
-                    // Only show mapping sections if not a layer activator
-                    if !isLayerActivator {
-                        primaryMappingSection
-                        longHoldSection
-                        doubleTapSection
-                    }
+                    // Show warning if this button is a layer activator and we're editing a layer
+                    if isEditingLayer && isBaseLayerActivator {
+                        if let activatorLayer = profileManager.layerForActivator(button) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "square.stack.3d.up.fill")
+                                        .foregroundColor(.purple)
+                                    Text("Layer Activator")
+                                        .font(.headline)
+                                }
+                                Text("This button activates the \"\(activatorLayer.name)\" layer. Layer activators cannot have additional mappings - they are reserved for switching between layers.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.purple.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                    } else {
+                        // Only show mapping sections if not a layer activator
+                        if !isLayerActivator {
+                            primaryMappingSection
+                            longHoldSection
+                            doubleTapSection
+                        }
 
-                    // Layer activator section at the bottom (only show when editing base layer, not layer mappings)
-                    if !isEditingLayer && canCreateNewLayer {
-                        layerActivatorSection
+                        // Layer activator section at the bottom (only show when editing base layer, not layer mappings)
+                        if !isEditingLayer && canCreateNewLayer {
+                            layerActivatorSection
+                        }
                     }
                 }
                 .padding(20)
@@ -1137,23 +1164,32 @@ struct ButtonMappingSheet: View {
 
     private var footer: some View {
         HStack {
-            Button("Clear Mapping") {
-                clearMapping()
-            }
-            .foregroundColor(.red)
+            // Don't show Clear/Save when editing a layer activator in a layer context
+            if isEditingLayer && isBaseLayerActivator {
+                Spacer()
+                Button("Close") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+            } else {
+                Button("Clear Mapping") {
+                    clearMapping()
+                }
+                .foregroundColor(.red)
 
-            Spacer()
+                Spacer()
 
-            Button("Cancel") {
-                dismiss()
-            }
-            .keyboardShortcut(.cancelAction)
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
 
-            Button("Save") {
-                saveMapping()
+                Button("Save") {
+                    saveMapping()
+                }
+                .keyboardShortcut(.return, modifiers: .command)
+                .buttonStyle(.borderedProminent)
             }
-            .keyboardShortcut(.return, modifiers: .command)
-            .buttonStyle(.borderedProminent)
         }
         .padding(16)
     }

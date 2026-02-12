@@ -3598,6 +3598,192 @@ final class XboxControllerMapperTests: XCTestCase {
         XCTAssertTrue(foundProfileBMapping, "Profile B's base mapping should be used after profile switch")
         XCTAssertFalse(foundStaleLayerMapping, "Stale layer mapping from Profile A should NOT be used")
     }
+
+    /// Test that pressing a second layer activator while holding the first switches to the new layer
+    func testLayerSwitchingMostRecentWins() async throws {
+        await MainActor.run {
+            // Layer 1 (LB): Y -> key 0
+            // Layer 2 (RB): Y -> key 1
+            let layer1YMapping = KeyMapping(keyCode: 0)
+            let layer2YMapping = KeyMapping(keyCode: 1)
+            let layer1 = Layer(name: "Layer 1", activatorButton: .leftBumper, buttonMappings: [.y: layer1YMapping])
+            let layer2 = Layer(name: "Layer 2", activatorButton: .rightBumper, buttonMappings: [.y: layer2YMapping])
+            let profile = Profile(name: "Test", buttonMappings: [:], layers: [layer1, layer2])
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        // Hold LB (Layer 1)
+        await MainActor.run {
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Now also press RB (Layer 2) - should switch to Layer 2
+        await MainActor.run {
+            controllerService.buttonPressed(.rightBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Clear events
+        await MainActor.run {
+            mockInputSimulator.clearEvents()
+        }
+
+        // Press Y - should use Layer 2's mapping (key 1), not Layer 1's (key 0)
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.1)
+
+        var foundLayer2Mapping = false
+        var foundLayer1Mapping = false
+        await MainActor.run {
+            for event in mockInputSimulator.events {
+                if case .pressKey(let code, _) = event {
+                    if code == 1 { foundLayer2Mapping = true }
+                    if code == 0 { foundLayer1Mapping = true }
+                }
+            }
+        }
+        XCTAssertTrue(foundLayer2Mapping, "Layer 2 mapping should be used (most recently pressed activator)")
+        XCTAssertFalse(foundLayer1Mapping, "Layer 1 mapping should NOT be used")
+    }
+
+    /// Test that releasing the most recent layer activator reverts to the previous held layer
+    func testLayerSwitchingReleaseRevertsToHeldLayer() async throws {
+        await MainActor.run {
+            // Base: Y -> key 16
+            // Layer 1 (LB): Y -> key 0
+            // Layer 2 (RB): Y -> key 1
+            let baseYMapping = KeyMapping(keyCode: 16)
+            let layer1YMapping = KeyMapping(keyCode: 0)
+            let layer2YMapping = KeyMapping(keyCode: 1)
+            let layer1 = Layer(name: "Layer 1", activatorButton: .leftBumper, buttonMappings: [.y: layer1YMapping])
+            let layer2 = Layer(name: "Layer 2", activatorButton: .rightBumper, buttonMappings: [.y: layer2YMapping])
+            let profile = Profile(name: "Test", buttonMappings: [.y: baseYMapping], layers: [layer1, layer2])
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        // Hold LB (Layer 1), then press RB (Layer 2)
+        await MainActor.run {
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks(0.1)
+        await MainActor.run {
+            controllerService.buttonPressed(.rightBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Now release RB - should revert to Layer 1 (LB still held)
+        await MainActor.run {
+            controllerService.buttonReleased(.rightBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Clear events
+        await MainActor.run {
+            mockInputSimulator.clearEvents()
+        }
+
+        // Press Y - should use Layer 1's mapping (key 0)
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.1)
+
+        var foundLayer1Mapping = false
+        var foundLayer2Mapping = false
+        var foundBaseMapping = false
+        await MainActor.run {
+            for event in mockInputSimulator.events {
+                if case .pressKey(let code, _) = event {
+                    if code == 0 { foundLayer1Mapping = true }
+                    if code == 1 { foundLayer2Mapping = true }
+                    if code == 16 { foundBaseMapping = true }
+                }
+            }
+        }
+        XCTAssertTrue(foundLayer1Mapping, "Layer 1 mapping should be used after releasing Layer 2")
+        XCTAssertFalse(foundLayer2Mapping, "Layer 2 mapping should NOT be used after releasing it")
+        XCTAssertFalse(foundBaseMapping, "Base mapping should NOT be used while Layer 1 activator is held")
+    }
+
+    /// Test that layer activators in Layer A cannot trigger when Layer A is active
+    /// (i.e., layer activator for Layer B should still work to switch to Layer B)
+    func testLayerActivatorsSwitchFromAnyLayer() async throws {
+        await MainActor.run {
+            // Layer 1 (LB): Y -> key 0
+            // Layer 2 (RB): Y -> key 1
+            let layer1YMapping = KeyMapping(keyCode: 0)
+            let layer2YMapping = KeyMapping(keyCode: 1)
+            let layer1 = Layer(name: "Layer 1", activatorButton: .leftBumper, buttonMappings: [.y: layer1YMapping])
+            let layer2 = Layer(name: "Layer 2", activatorButton: .rightBumper, buttonMappings: [.y: layer2YMapping])
+            let profile = Profile(name: "Test", buttonMappings: [:], layers: [layer1, layer2])
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        // Hold LB (enter Layer 1)
+        await MainActor.run {
+            controllerService.buttonPressed(.leftBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Clear events
+        await MainActor.run {
+            mockInputSimulator.clearEvents()
+        }
+
+        // Press RB while in Layer 1 - should switch to Layer 2, not produce any key output
+        await MainActor.run {
+            controllerService.buttonPressed(.rightBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Verify no key was pressed for RB (it's a layer activator)
+        var foundAnyKeyPress = false
+        await MainActor.run {
+            foundAnyKeyPress = mockInputSimulator.events.contains { event in
+                if case .pressKey(_, _) = event { return true }
+                return false
+            }
+        }
+        XCTAssertFalse(foundAnyKeyPress, "Layer activator RB should not produce key press, just switch layers")
+
+        // Clear events
+        await MainActor.run {
+            mockInputSimulator.clearEvents()
+        }
+
+        // Press Y - should use Layer 2's mapping now
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+        }
+        await waitForTasks(0.2)
+        await MainActor.run {
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.1)
+
+        var foundLayer2Mapping = false
+        await MainActor.run {
+            foundLayer2Mapping = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 1 }
+                return false
+            }
+        }
+        XCTAssertTrue(foundLayer2Mapping, "Layer 2 mapping should be used after switching from Layer 1")
+    }
 }
 
 // MARK: - KeyCodeMapping Tests

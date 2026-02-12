@@ -145,7 +145,8 @@ class MappingEngine: ObservableObject {
         var dpadNavigationButton: ControllerButton? = nil  // Which D-pad button is being held for navigation
 
         // Layer State
-        var activeLayerIds: Set<UUID> = []  // Currently active layer IDs (activator buttons are held)
+        // Ordered list of active layer IDs - last element is most recently activated (takes priority)
+        var activeLayerIds: [UUID] = []
         var layerActivatorMap: [ControllerButton: UUID] = [:]  // Quick lookup: activator button -> layer ID
 
         // Joystick State
@@ -470,7 +471,9 @@ class MappingEngine: ObservableObject {
         // MARK: - Layer Activator Check
         // If this button is a layer activator, activate the layer and return
         if let layerId = state.layerActivatorMap[button] {
-            state.activeLayerIds.insert(layerId)
+            // Remove if already present, then append (most recent = last in array)
+            state.activeLayerIds.removeAll { $0 == layerId }
+            state.activeLayerIds.append(layerId)
             state.lock.unlock()
 
             // Log and provide feedback
@@ -818,7 +821,7 @@ class MappingEngine: ObservableObject {
         // If this button is a layer activator, deactivate the layer and return
         state.lock.lock()
         if let layerId = state.layerActivatorMap[button] {
-            state.activeLayerIds.remove(layerId)
+            state.activeLayerIds.removeAll { $0 == layerId }
             #if DEBUG
             if let profile = state.activeProfile,
                let layer = profile.layers.first(where: { $0.id == layerId }) {
@@ -973,12 +976,12 @@ class MappingEngine: ObservableObject {
             return nil
         }
 
-        // Check active layers for a mapping (first layer with a mapping wins)
-        for layerId in activeLayerIds {
-            if let layer = profile.layers.first(where: { $0.id == layerId }),
-               let mapping = layer.buttonMappings[button], !mapping.isEmpty {
-                return mapping
-            }
+        // Check the most recently activated layer (last in array) for a mapping
+        // Only the most recent layer is active - pressing another layer activator switches layers
+        if let activeLayerId = activeLayerIds.last,
+           let layer = profile.layers.first(where: { $0.id == activeLayerId }),
+           let mapping = layer.buttonMappings[button], !mapping.isEmpty {
+            return mapping
         }
 
         // Fall through to base layer
@@ -1122,8 +1125,9 @@ class MappingEngine: ObservableObject {
         for button in buttons {
             if let layerId = state.layerActivatorMap[button] {
                 layerActivators.insert(button)
-                // Activate the layer
-                state.activeLayerIds.insert(layerId)
+                // Activate the layer (remove if exists, then append for correct ordering)
+                state.activeLayerIds.removeAll { $0 == layerId }
+                state.activeLayerIds.append(layerId)
                 #if DEBUG
                 if let layer = profile.layers.first(where: { $0.id == layerId }) {
                     print("🔷 Layer activated (via chord): \(layer.name)")
