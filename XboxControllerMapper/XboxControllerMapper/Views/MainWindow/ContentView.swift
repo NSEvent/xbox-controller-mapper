@@ -1516,6 +1516,10 @@ struct ChordMappingSheet: View {
         controllerService.threadSafeIsDualSense
     }
 
+    private var isDualSenseEdge: Bool {
+        controllerService.threadSafeIsDualSenseEdge
+    }
+
     @State private var selectedButtons: Set<ControllerButton> = []
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
@@ -1667,6 +1671,34 @@ struct ChordMappingSheet: View {
                             
                             toggleButton(.rightThumbstick)
                         }
+                    }
+
+                    // Edge Controls (function buttons and paddles)
+                    if isDualSenseEdge {
+                        VStack(spacing: 8) {
+                            Text("EDGE CONTROLS")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.secondary)
+
+                            // Function buttons row (above touchpad area)
+                            HStack(spacing: 40) {
+                                toggleButton(.leftFunction)
+                                Text("Fn")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                toggleButton(.rightFunction)
+                            }
+
+                            // Paddles row (back of controller)
+                            HStack(spacing: 40) {
+                                toggleButton(.leftPaddle)
+                                Text("Paddles")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                toggleButton(.rightPaddle)
+                            }
+                        }
+                        .padding(.top, 10)
                     }
                 }
                 .padding(.vertical, 20)
