@@ -1342,6 +1342,15 @@ class MappingEngine: ObservableObject {
             // Haptic feedback runs async internally, won't block input
             performFocusModeHaptic(entering: isFocusActive)
 
+            // Show/hide focus mode cursor indicator
+            Task { @MainActor in
+                if isFocusActive {
+                    FocusModeIndicator.shared.show()
+                } else {
+                    FocusModeIndicator.shared.hide()
+                }
+            }
+
             // When exiting focus mode, record the time so we can pause movement briefly
             if !isFocusActive {
                 state.focusExitTime = now
