@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// Displays a subtle ring around the cursor when focus mode is active
+/// Displays a subtle jewel-style ring around the cursor when focus mode is active
 @MainActor
 class FocusModeIndicator {
     static let shared = FocusModeIndicator()
@@ -10,10 +10,9 @@ class FocusModeIndicator {
     private var trackingTimer: Timer?
     private var isVisible = false
 
-    // Ring appearance settings
-    private let ringSize: CGFloat = 28
-    private let ringStrokeWidth: CGFloat = 2
-    private let ringColor = NSColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 0.6)  // Soft blue
+    // Ring appearance settings - matches the app's "jewel" aesthetic
+    private let ringSize: CGFloat = 32
+    private let ringStrokeWidth: CGFloat = 3
 
     private init() {}
 
@@ -70,11 +69,10 @@ class FocusModeIndicator {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.hidesOnDeactivate = false
 
-        // Create the ring view
-        let ringView = FocusRingView(frame: NSRect(x: 0, y: 0, width: ringSize, height: ringSize))
-        ringView.ringColor = ringColor
-        ringView.strokeWidth = ringStrokeWidth
-        panel.contentView = ringView
+        // Create the jewel ring view using SwiftUI for the gradient effects
+        let hostingView = NSHostingView(rootView: FocusRingSwiftUIView(size: ringSize, strokeWidth: ringStrokeWidth))
+        hostingView.frame = NSRect(x: 0, y: 0, width: ringSize, height: ringSize)
+        panel.contentView = hostingView
 
         self.panel = panel
     }
@@ -108,19 +106,58 @@ class FocusModeIndicator {
     }
 }
 
-/// Custom view that draws the focus ring
-private class FocusRingView: NSView {
-    var ringColor: NSColor = .systemBlue
-    var strokeWidth: CGFloat = 2
+/// SwiftUI view that draws the jewel-style focus ring matching the app's aesthetic
+private struct FocusRingSwiftUIView: View {
+    let size: CGFloat
+    let strokeWidth: CGFloat
 
-    override func draw(_ dirtyRect: NSRect) {
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
+    // Use a purple/accent color that matches the focus mode theme
+    private let baseColor = Color(red: 0.6, green: 0.4, blue: 0.9)  // Purple focus color
 
-        let inset = strokeWidth / 2
-        let rect = bounds.insetBy(dx: inset, dy: inset)
+    var body: some View {
+        ZStack {
+            // 1. Base gradient ring with shadow
+            Circle()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [baseColor, baseColor.opacity(0.7)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: strokeWidth
+                )
+                .shadow(color: baseColor.opacity(0.5), radius: 4, x: 0, y: 0)
 
-        context.setStrokeColor(ringColor.cgColor)
-        context.setLineWidth(strokeWidth)
-        context.strokeEllipse(in: rect)
+            // 2. Inner glow
+            Circle()
+                .strokeBorder(
+                    RadialGradient(
+                        colors: [baseColor.opacity(0.3), .clear],
+                        center: .center,
+                        startRadius: size/2 - strokeWidth - 2,
+                        endRadius: size/2 - strokeWidth + 4
+                    ),
+                    lineWidth: strokeWidth + 4
+                )
+
+            // 3. Glassy highlight on top edge
+            Circle()
+                .trim(from: 0.6, to: 0.9)  // Top arc only
+                .stroke(
+                    LinearGradient(
+                        colors: [.white.opacity(0.6), .white.opacity(0.0)],
+                        startPoint: .top,
+                        endPoint: .center
+                    ),
+                    lineWidth: 1.5
+                )
+                .padding(strokeWidth / 2)
+
+            // 4. Subtle outer glow
+            Circle()
+                .stroke(baseColor.opacity(0.2), lineWidth: 1)
+                .padding(-2)
+        }
+        .frame(width: size, height: size)
     }
 }

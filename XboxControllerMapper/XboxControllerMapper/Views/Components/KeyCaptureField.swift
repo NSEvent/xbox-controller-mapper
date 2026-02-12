@@ -146,16 +146,17 @@ class KeyCaptureNSView: NSView {
                     }
                 }
 
+                // Use buttonNumber for reliable mouse button detection
+                // buttonNumber: 0 = left, 1 = right, 2 = middle
+                // This correctly handles trackpad two-finger click as right-click
                 let mouseKeyCode: CGKeyCode
-                switch event.type {
-                case .leftMouseDown:
+                switch event.buttonNumber {
+                case 0:
                     mouseKeyCode = KeyCodeMapping.mouseLeftClick
-                case .rightMouseDown:
+                case 1:
                     mouseKeyCode = KeyCodeMapping.mouseRightClick
-                case .otherMouseDown:
-                    mouseKeyCode = KeyCodeMapping.mouseMiddleClick
                 default:
-                    return event
+                    mouseKeyCode = KeyCodeMapping.mouseMiddleClick
                 }
 
                 self.onKeyCapture?(mouseKeyCode, self.currentModifiers)
