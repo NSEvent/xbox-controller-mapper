@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Accidental horizontal panning when scrolling vertically with right stick (now requires deliberate horizontal input)
 - Deadlock in button release handler that caused mappings to stop working
 - Command Wheel hint centering on on-screen keyboard
 - Mapping label alignment across different button sizes (shoulder buttons vs others)

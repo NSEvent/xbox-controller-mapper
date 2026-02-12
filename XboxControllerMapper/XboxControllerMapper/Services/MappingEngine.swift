@@ -2013,7 +2013,19 @@ class MappingEngine: ObservableObject {
         let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.scrollAccelerationExponent)
         let scale = acceleratedMagnitude * settings.scrollMultiplier / magnitude
-        let dx = -stick.x * scale
+
+        // Suppress horizontal scroll when vertical is dominant to prevent accidental panning
+        // Only apply horizontal scroll if |x| >= |y| * threshold ratio
+        let absX = abs(stick.x)
+        let absY = abs(stick.y)
+        let effectiveX: CGFloat
+        if absY > absX && absX < absY * Config.scrollHorizontalThresholdRatio {
+            effectiveX = 0  // Suppress horizontal when scrolling mostly vertical
+        } else {
+            effectiveX = stick.x
+        }
+
+        let dx = -effectiveX * scale
         var dy = stick.y * scale
 
         dy = settings.invertScrollY ? -dy : dy

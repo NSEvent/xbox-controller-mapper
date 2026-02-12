@@ -33,6 +33,11 @@ struct Config {
     /// Direction ratio for scroll tap detection
     static let scrollTapDirectionRatio: Double = 0.8
 
+    /// Horizontal scroll threshold ratio - prevents accidental panning when scrolling vertically
+    /// When |y| > |x| (vertical dominant), horizontal scroll is suppressed unless |x| >= |y| * ratio
+    /// Higher values = harder to accidentally pan (0.5 means horizontal must be 50% of vertical)
+    static let scrollHorizontalThresholdRatio: Double = 0.7
+
     // MARK: - UI Display Updates
     /// Display refresh rate for UI updates (Hz, much slower than input processing)
     static let displayRefreshFrequency: Double = 15.0
