@@ -300,7 +300,10 @@ class MappingEngine: ObservableObject {
         state.layerActivatorMap.removeAll()
         guard let profile = profile else { return }
         for layer in profile.layers {
-            state.layerActivatorMap[layer.activatorButton] = layer.id
+            // Only include layers that have an activator button assigned
+            if let activatorButton = layer.activatorButton {
+                state.layerActivatorMap[activatorButton] = layer.id
+            }
         }
     }
     

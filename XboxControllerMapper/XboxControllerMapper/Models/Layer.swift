@@ -9,8 +9,8 @@ struct Layer: Codable, Identifiable, Equatable {
     /// User-defined name for the layer (e.g., "Combat Mode", "Navigation")
     var name: String
 
-    /// The button that activates this layer when held
-    var activatorButton: ControllerButton
+    /// The button that activates this layer when held (nil = layer exists but has no activator assigned)
+    var activatorButton: ControllerButton?
 
     /// Layer-specific button mappings (overrides base layer when active)
     var buttonMappings: [ControllerButton: KeyMapping]
@@ -18,7 +18,7 @@ struct Layer: Codable, Identifiable, Equatable {
     init(
         id: UUID = UUID(),
         name: String,
-        activatorButton: ControllerButton,
+        activatorButton: ControllerButton? = nil,
         buttonMappings: [ControllerButton: KeyMapping] = [:]
     ) {
         self.id = id
@@ -39,7 +39,7 @@ struct Layer: Codable, Identifiable, Equatable {
         // id is required for identity
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Layer"
-        activatorButton = try container.decodeIfPresent(ControllerButton.self, forKey: .activatorButton) ?? .leftBumper
+        activatorButton = try container.decodeIfPresent(ControllerButton.self, forKey: .activatorButton)
 
         // Decode button mappings from string-keyed dictionary (same pattern as Profile)
         let stringKeyedMappings = try container.decodeIfPresent([String: KeyMapping].self, forKey: .buttonMappings) ?? [:]
@@ -54,7 +54,7 @@ struct Layer: Codable, Identifiable, Equatable {
 
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encode(activatorButton, forKey: .activatorButton)
+        try container.encodeIfPresent(activatorButton, forKey: .activatorButton)
 
         // Encode button mappings as string-keyed dictionary
         let stringKeyedMappings = Dictionary(uniqueKeysWithValues: buttonMappings.map { ($0.key.rawValue, $0.value) })

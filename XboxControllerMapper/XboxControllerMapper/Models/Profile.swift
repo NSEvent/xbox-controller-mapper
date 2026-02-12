@@ -137,7 +137,7 @@ struct Profile: Codable, Identifiable, Equatable {
     /// On-screen keyboard settings (quick texts, app bar, websites, toggle shortcut, etc.)
     var onScreenKeyboardSettings: OnScreenKeyboardSettings
 
-    /// Mapping layers (max 2) - activated by holding a button
+    /// Mapping layers (max 12) - activated by holding a button
     var layers: [Layer]
 
     init(

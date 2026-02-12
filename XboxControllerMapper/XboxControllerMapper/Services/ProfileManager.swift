@@ -340,18 +340,19 @@ class ProfileManager: ObservableObject {
     // MARK: - Layer Management
 
     /// Maximum number of layers allowed per profile
-    static let maxLayers = 2
+    static let maxLayers = 12
 
-    /// Creates a new layer with the given name and activator button.
+    /// Creates a new layer with the given name and optional activator button.
     /// Returns nil if max layers reached or activator already used.
-    func createLayer(name: String, activatorButton: ControllerButton, in profile: Profile? = nil) -> Layer? {
+    func createLayer(name: String, activatorButton: ControllerButton? = nil, in profile: Profile? = nil) -> Layer? {
         guard var targetProfile = profile ?? activeProfile else { return nil }
 
         // Check max layers limit
         guard targetProfile.layers.count < Self.maxLayers else { return nil }
 
         // Check if activator button is already used by another layer
-        if targetProfile.layers.contains(where: { $0.activatorButton == activatorButton }) {
+        if let button = activatorButton,
+           targetProfile.layers.contains(where: { $0.activatorButton == button }) {
             return nil
         }
 
@@ -410,13 +411,14 @@ class ProfileManager: ObservableObject {
         updateLayer(updatedLayer, in: profile)
     }
 
-    /// Changes a layer's activator button.
+    /// Changes a layer's activator button, or removes it if nil.
     /// Returns false if the new button is already used by another layer.
-    func setLayerActivator(_ layer: Layer, button: ControllerButton, in profile: Profile? = nil) -> Bool {
+    func setLayerActivator(_ layer: Layer, button: ControllerButton?, in profile: Profile? = nil) -> Bool {
         guard var targetProfile = profile ?? activeProfile else { return false }
 
-        // Check if button is already used by another layer
-        if targetProfile.layers.contains(where: { $0.id != layer.id && $0.activatorButton == button }) {
+        // Check if button is already used by another layer (only if setting a button)
+        if let button = button,
+           targetProfile.layers.contains(where: { $0.id != layer.id && $0.activatorButton == button }) {
             return false
         }
 
@@ -426,6 +428,12 @@ class ProfileManager: ObservableObject {
             return true
         }
         return false
+    }
+
+    /// Returns layers that don't have an activator button assigned
+    func unassignedLayers(in profile: Profile? = nil) -> [Layer] {
+        let targetProfile = profile ?? activeProfile
+        return targetProfile?.layers.filter { $0.activatorButton == nil } ?? []
     }
 
     // MARK: - Joystick Settings

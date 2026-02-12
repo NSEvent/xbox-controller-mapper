@@ -88,7 +88,9 @@ struct ButtonMappingSheet: View {
     // Layer activator support
     @State private var isLayerActivator = false
     @State private var layerName: String = ""
-    @State private var existingLayerId: UUID? = nil  // Tracks if editing existing layer
+    @State private var existingLayerId: UUID? = nil  // Tracks if editing existing layer (already has this button as activator)
+    @State private var selectedExistingLayerId: UUID? = nil  // For assigning this button to an existing unassigned layer
+    @State private var createNewLayer = true  // true = create new, false = use existing unassigned layer
 
     enum MappingType: Int {
         case singleKey = 0
@@ -126,6 +128,11 @@ struct ButtonMappingSheet: View {
     private var canCreateNewLayer: Bool {
         guard let profile = profileManager.activeProfile else { return false }
         return profile.layers.count < ProfileManager.maxLayers || existingLayer != nil
+    }
+
+    /// Layers that don't have an activator button assigned
+    private var unassignedLayers: [Layer] {
+        profileManager.unassignedLayers()
     }
 
     /// Whether we're editing a layer mapping (vs base layer)
@@ -195,6 +202,10 @@ struct ButtonMappingSheet: View {
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForDoubleTap)
         .onAppear {
             loadCurrentMapping()
+            // Initialize selectedExistingLayerId if there are unassigned layers
+            if let firstUnassigned = unassignedLayers.first {
+                selectedExistingLayerId = firstUnassigned.id
+            }
             // Allow state updates to settle before enabling auto-logic
             DispatchQueue.main.async {
                 isLoading = false
@@ -483,12 +494,50 @@ struct ButtonMappingSheet: View {
 
             if isLayerActivator {
                 VStack(alignment: .leading, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Layer Name")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        TextField("e.g., Combat Mode, Navigation", text: $layerName)
-                            .textFieldStyle(.roundedBorder)
+                    // If this button already activates a layer, just show name editor
+                    if existingLayerId != nil {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Layer Name")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            TextField("e.g., Combat Mode, Navigation", text: $layerName)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                    } else {
+                        // Show option to create new or select existing unassigned layer
+                        if !unassignedLayers.isEmpty {
+                            Picker("", selection: $createNewLayer) {
+                                Text("Create New Layer").tag(true)
+                                Text("Use Existing Layer").tag(false)
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                        }
+
+                        if createNewLayer || unassignedLayers.isEmpty {
+                            // Create new layer
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Layer Name")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                TextField("e.g., Combat Mode, Navigation", text: $layerName)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                        } else {
+                            // Select existing unassigned layer
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Select Layer")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Picker("Layer", selection: $selectedExistingLayerId) {
+                                    ForEach(unassignedLayers) { layer in
+                                        Text(layer.name).tag(layer.id as UUID?)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .labelsHidden()
+                            }
+                        }
                     }
 
                     HStack(spacing: 8) {
@@ -504,14 +553,14 @@ struct ButtonMappingSheet: View {
                 .cornerRadius(8)
             } else if existingLayer != nil {
                 HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundColor(.orange)
-                    Text("This button is currently a layer activator. Disabling will delete the layer and its mappings.")
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.blue.opacity(0.7))
+                    Text("This button currently activates a layer. Disabling will unassign the button but keep the layer.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 .padding(8)
-                .background(Color.orange.opacity(0.1))
+                .background(Color.blue.opacity(0.1))
                 .cornerRadius(6)
             }
         }
@@ -1195,15 +1244,18 @@ struct ButtonMappingSheet: View {
     private func saveMapping() {
         // Handle layer activator
         if isLayerActivator {
-            guard !layerName.isEmpty else { return }
-
             if let existingId = existingLayerId,
                var layer = profileManager.activeProfile?.layers.first(where: { $0.id == existingId }) {
-                // Update existing layer
+                // Update existing layer that this button already activates
                 layer.name = layerName
                 profileManager.updateLayer(layer)
+            } else if !createNewLayer, let selectedId = selectedExistingLayerId,
+                      let layer = profileManager.activeProfile?.layers.first(where: { $0.id == selectedId }) {
+                // Assign this button to an existing unassigned layer
+                _ = profileManager.setLayerActivator(layer, button: button)
             } else {
                 // Create new layer
+                guard !layerName.isEmpty else { return }
                 _ = profileManager.createLayer(name: layerName, activatorButton: button)
             }
             // Clear any existing button mapping for this button
@@ -1212,9 +1264,9 @@ struct ButtonMappingSheet: View {
             dismiss()
             return
         } else if let existingId = existingLayerId {
-            // Was a layer activator, now isn't - delete the layer
+            // Was a layer activator, now isn't - just remove the activator button (keep the layer)
             if let layer = profileManager.activeProfile?.layers.first(where: { $0.id == existingId }) {
-                profileManager.deleteLayer(layer)
+                _ = profileManager.setLayerActivator(layer, button: nil)
             }
         }
 

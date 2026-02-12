@@ -319,7 +319,7 @@ struct ContentView: View {
 
             // Check if any layer activator is being held
             for layer in profile.layers {
-                if activeButtons.contains(layer.activatorButton) {
+                if let activator = layer.activatorButton, activeButtons.contains(activator) {
                     selectedLayerId = layer.id
                     return
                 }
@@ -364,14 +364,20 @@ struct ContentView: View {
                                 .font(.caption)
                                 .fontWeight(.medium)
                                 .lineLimit(1)
-                            // Activator button badge
-                            Text(layer.activatorButton.shortLabel(forDualSense: controllerService.threadSafeIsDualSense))
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Color.purple.opacity(0.8))
-                                .cornerRadius(4)
+                            // Activator button badge (or "No Activator" if unassigned)
+                            if let activator = layer.activatorButton {
+                                Text(activator.shortLabel(forDualSense: controllerService.threadSafeIsDualSense))
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color.purple.opacity(0.8))
+                                    .cornerRadius(4)
+                            } else {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.orange)
+                            }
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -2881,11 +2887,11 @@ struct AddLayerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var layerName: String = ""
-    @State private var selectedActivator: ControllerButton = .leftBumper
+    @State private var selectedActivator: ControllerButton? = .leftBumper
 
     /// Buttons that are already used as layer activators
     private var usedActivators: Set<ControllerButton> {
-        Set(profileManager.activeProfile?.layers.map { $0.activatorButton } ?? [])
+        Set(profileManager.activeProfile?.layers.compactMap { $0.activatorButton } ?? [])
     }
 
     /// Available activator buttons (exclude already-used ones)
@@ -2918,7 +2924,7 @@ struct AddLayerSheet: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Activator Button")
+                    Text("Activator Button (Optional)")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     Text("Hold this button to activate the layer's mappings")
@@ -2926,9 +2932,10 @@ struct AddLayerSheet: View {
                         .foregroundColor(.secondary)
 
                     Picker("Activator", selection: $selectedActivator) {
+                        Text("None (assign later)").tag(nil as ControllerButton?)
                         ForEach(availableButtons, id: \.self) { button in
                             Text(button.displayName(forDualSense: controllerService.threadSafeIsDualSense))
-                                .tag(button)
+                                .tag(button as ControllerButton?)
                         }
                     }
                     .pickerStyle(.menu)
@@ -2975,13 +2982,13 @@ struct EditLayerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var layerName: String = ""
-    @State private var selectedActivator: ControllerButton = .leftBumper
+    @State private var selectedActivator: ControllerButton? = .leftBumper
 
     /// Buttons that are already used as layer activators (excluding current layer)
     private var usedActivators: Set<ControllerButton> {
         Set(profileManager.activeProfile?.layers
             .filter { $0.id != layer.id }
-            .map { $0.activatorButton } ?? [])
+            .compactMap { $0.activatorButton } ?? [])
     }
 
     /// Available activator buttons (exclude already-used ones, but include current)
@@ -3018,9 +3025,10 @@ struct EditLayerSheet: View {
                         .foregroundColor(.secondary)
 
                     Picker("Activator", selection: $selectedActivator) {
+                        Text("None (assign later)").tag(nil as ControllerButton?)
                         ForEach(availableButtons, id: \.self) { button in
                             Text(button.displayName(forDualSense: controllerService.threadSafeIsDualSense))
-                                .tag(button)
+                                .tag(button as ControllerButton?)
                         }
                     }
                     .pickerStyle(.menu)
