@@ -305,6 +305,60 @@ class ProfileManager: ObservableObject {
         return targetProfile?.buttonMappings[button]
     }
 
+    /// Swaps all mappings between two buttons (base layer only, does not affect chords)
+    func swapMappings(button1: ControllerButton, button2: ControllerButton, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        guard button1 != button2 else { return }
+
+        // Get current mappings (may be nil)
+        let mapping1 = targetProfile.buttonMappings[button1]
+        let mapping2 = targetProfile.buttonMappings[button2]
+
+        // Swap the mappings
+        if let m2 = mapping2 {
+            targetProfile.buttonMappings[button1] = m2
+        } else {
+            targetProfile.buttonMappings.removeValue(forKey: button1)
+        }
+
+        if let m1 = mapping1 {
+            targetProfile.buttonMappings[button2] = m1
+        } else {
+            targetProfile.buttonMappings.removeValue(forKey: button2)
+        }
+
+        updateProfile(targetProfile)
+    }
+
+    /// Swaps all mappings between two buttons within a specific layer
+    func swapLayerMappings(button1: ControllerButton, button2: ControllerButton, in layerId: UUID, profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        guard button1 != button2 else { return }
+        guard let layerIndex = targetProfile.layers.firstIndex(where: { $0.id == layerId }) else { return }
+
+        var layer = targetProfile.layers[layerIndex]
+
+        // Get current layer mappings (may be nil)
+        let mapping1 = layer.buttonMappings[button1]
+        let mapping2 = layer.buttonMappings[button2]
+
+        // Swap the mappings
+        if let m2 = mapping2 {
+            layer.buttonMappings[button1] = m2
+        } else {
+            layer.buttonMappings.removeValue(forKey: button1)
+        }
+
+        if let m1 = mapping1 {
+            layer.buttonMappings[button2] = m1
+        } else {
+            layer.buttonMappings.removeValue(forKey: button2)
+        }
+
+        targetProfile.layers[layerIndex] = layer
+        updateProfile(targetProfile)
+    }
+
     // MARK: - Chord Mapping
 
     func addChord(_ chord: ChordMapping, in profile: Profile? = nil) {

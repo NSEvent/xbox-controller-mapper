@@ -19,6 +19,8 @@ struct ContentView: View {
     @State private var showingAddLayerSheet = false
     @State private var editingLayerId: UUID? = nil
     @State private var actionFeedbackEnabled: Bool = ActionFeedbackIndicator.isEnabled
+    @State private var isSwapMode: Bool = false
+    @State private var swapFirstButton: ControllerButton? = nil
 
     var body: some View {
         HSplitView {
@@ -233,13 +235,19 @@ struct ContentView: View {
                 ControllerVisualView(
                     selectedButton: $selectedButton,
                     selectedLayerId: selectedLayerId,
+                    swapFirstButton: swapFirstButton,
+                    isSwapMode: isSwapMode,
                     onButtonTap: { button in
                         // Ignore taps during magnification gestures to prevent accidental triggers
                         guard !isMagnifying else { return }
                         // Async dispatch to avoid layout recursion if triggered during layout pass
                         DispatchQueue.main.async {
-                            selectedButton = button
-                            configuringButton = button
+                            if isSwapMode {
+                                handleSwapButtonTap(button)
+                            } else {
+                                selectedButton = button
+                                configuringButton = button
+                            }
                         }
                     }
                 )
@@ -423,6 +431,29 @@ struct ContentView: View {
 
             Spacer()
 
+            // Swap mode toggle
+            Toggle(isOn: $isSwapMode) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 10))
+                    Text(swapFirstButton != nil ? "Select 2nd" : "Swap")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(isSwapMode ? Color.orange : Color.white.opacity(0.1))
+                .cornerRadius(6)
+            }
+            .toggleStyle(.button)
+            .buttonStyle(.plain)
+            .foregroundColor(isSwapMode ? .white : .secondary)
+            .onChange(of: isSwapMode) { _, newValue in
+                if !newValue {
+                    swapFirstButton = nil
+                }
+            }
+
             // Action feedback toggle (styled like layer tabs)
             Toggle(isOn: $actionFeedbackEnabled) {
                 HStack(spacing: 4) {
@@ -525,10 +556,29 @@ struct ContentView: View {
     }
     
     // MARK: - Macro List Tab
-    
+
     private var macroListTab: some View {
         MacroListView()
             .scrollContentBackground(.hidden)
+    }
+
+    // MARK: - Swap Mode
+
+    private func handleSwapButtonTap(_ button: ControllerButton) {
+        if let firstButton = swapFirstButton {
+            // Second button selected - perform the swap
+            if let layerId = selectedLayerId {
+                profileManager.swapLayerMappings(button1: firstButton, button2: button, in: layerId)
+            } else {
+                profileManager.swapMappings(button1: firstButton, button2: button)
+            }
+            // Exit swap mode
+            swapFirstButton = nil
+            isSwapMode = false
+        } else {
+            // First button selected
+            swapFirstButton = button
+        }
     }
 }
 

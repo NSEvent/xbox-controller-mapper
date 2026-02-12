@@ -9,6 +9,8 @@ struct ControllerVisualView: View {
 
     @Binding var selectedButton: ControllerButton?
     var selectedLayerId: UUID? = nil  // nil = base layer
+    var swapFirstButton: ControllerButton? = nil  // First button selected in swap mode
+    var isSwapMode: Bool = false
     var onButtonTap: (ControllerButton) -> Void
 
     private var isDualSense: Bool {
@@ -399,6 +401,12 @@ struct ControllerVisualView: View {
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .background(GlassCardBackground(isActive: selectedButton == button, isHovered: false))
+            .overlay(
+                // Swap mode selection indicator
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.orange, lineWidth: 3)
+                    .opacity(swapFirstButton == button ? 1 : 0)
+            )
             .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)  // Dim fallthrough mappings
         }
         .contentShape(Rectangle())
