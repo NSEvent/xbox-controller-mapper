@@ -1698,7 +1698,7 @@ struct ChordMappingSheet: View {
                                 toggleButton(.rightPaddle)
                             }
                         }
-                        .padding(.top, 10)
+                        .padding(.top, 20)
                     }
                 }
                 .padding(.vertical, 20)
