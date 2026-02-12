@@ -40,14 +40,18 @@ extension View {
     }
 }
 
-/// Floating overlay that draws the navigation highlight
+/// Floating overlay that draws the navigation highlight for keyboard keys only
+/// (Quick text, app bar, and website items handle their own highlight via GlassKeyBackground)
 struct NavigationHighlightOverlay: View {
     let highlightedItem: KeyboardNavigationItem?
     let itemBounds: [KeyboardNavigationItem: Anchor<CGRect>]
     let geometryProxy: GeometryProxy
 
     var body: some View {
-        if let item = highlightedItem, let anchor = itemBounds[item] {
+        // Only draw overlay for keyboard keys - other items handle their own highlight
+        if let item = highlightedItem,
+           case .keyPosition = item,
+           let anchor = itemBounds[item] {
             let rect = geometryProxy[anchor]
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.orange, lineWidth: 3)
@@ -258,9 +262,10 @@ struct OnScreenKeyboardView: View {
     }
 
     private func appBarButton(_ item: AppBarItem) -> some View {
-        // Only use mouse hover - navigation highlight is handled by overlay
+        let isNavHighlighted = keyboardManager.highlightedItem == .appBarItem(item.id)
         let isHovered = hoveredAppBarItemId == item.id && !keyboardManager.navigationModeActive
         let isPressed = pressedAppBarItemId == item.id
+        let isHighlighted = isHovered || isNavHighlighted
         let iconSize: CGFloat = 56
 
         return Button {
@@ -277,23 +282,23 @@ struct OnScreenKeyboardView: View {
             VStack(spacing: 4) {
                 appIcon(for: item.bundleIdentifier)
                     .resizable()
-                    .navigationItemBounds(.appBarItem(item.id))
                     .aspectRatio(contentMode: .fit)
                     .frame(width: iconSize, height: iconSize)
-                    .saturation(isHovered ? 1.0 : 0.8) // Slight desaturation when idle
+                    .saturation(isHighlighted ? 1.0 : 0.8)
 
                 Text(item.displayName)
                     .font(.system(size: 10, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: iconSize + 16)
-                    .foregroundColor(isHovered ? .white : .secondary)
+                    .foregroundColor(isHighlighted ? .white : .secondary)
             }
             .padding(8)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange, cornerRadius: 12))
+            .navigationItemBounds(.appBarItem(item.id))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange, cornerRadius: 12, isNavHighlighted: isNavHighlighted))
             .cornerRadius(12)
-            .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .scaleEffect(isPressed ? 0.95 : (isHighlighted ? 1.05 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHighlighted)
             .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isPressed)
         }
         .buttonStyle(.plain)
@@ -330,9 +335,10 @@ struct OnScreenKeyboardView: View {
     }
 
     private func websiteLinkButton(_ link: WebsiteLink) -> some View {
-        // Only use mouse hover - navigation highlight is handled by overlay
+        let isNavHighlighted = keyboardManager.highlightedItem == .websiteLink(link.id)
         let isHovered = hoveredWebsiteLinkId == link.id && !keyboardManager.navigationModeActive
         let isPressed = pressedWebsiteLinkId == link.id
+        let isHighlighted = isHovered || isNavHighlighted
         let iconSize: CGFloat = 56
 
         return Button {
@@ -349,21 +355,21 @@ struct OnScreenKeyboardView: View {
             VStack(spacing: 4) {
                 websiteFavicon(for: link)
                     .frame(width: iconSize, height: iconSize)
-                    .saturation(isHovered ? 1.0 : 0.8)
-                    .navigationItemBounds(.websiteLink(link.id))
+                    .saturation(isHighlighted ? 1.0 : 0.8)
 
                 Text(link.displayName)
                     .font(.system(size: 10, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: iconSize + 16)
-                    .foregroundColor(isHovered ? .white : .secondary)
+                    .foregroundColor(isHighlighted ? .white : .secondary)
             }
             .padding(8)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange, cornerRadius: 12))
+            .navigationItemBounds(.websiteLink(link.id))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange, cornerRadius: 12, isNavHighlighted: isNavHighlighted))
             .cornerRadius(12)
-            .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.05 : 1.0))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .scaleEffect(isPressed ? 0.95 : (isHighlighted ? 1.05 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHighlighted)
             .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isPressed)
         }
         .buttonStyle(.plain)
@@ -436,9 +442,10 @@ struct OnScreenKeyboardView: View {
     }
 
     private func quickTextButton(_ quickText: QuickText) -> some View {
-        // Only use mouse hover - navigation highlight is handled by overlay
+        let isNavHighlighted = keyboardManager.highlightedItem == .quickText(quickText.id)
         let isHovered = hoveredQuickTextId == quickText.id && !keyboardManager.navigationModeActive
         let isPressed = pressedQuickTextId == quickText.id
+        let isHighlighted = isHovered || isNavHighlighted
 
         return Button {
             // Exit navigation mode when mouse clicks
@@ -462,14 +469,14 @@ struct OnScreenKeyboardView: View {
             }
             .font(.system(size: 13, weight: .semibold))
             .padding(.horizontal, 14)
-            .navigationItemBounds(.quickText(quickText.id))
             .padding(.vertical, 12)
             .frame(minWidth: 80, maxWidth: 300)
-            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange))
-            .foregroundColor(isPressed ? .white : (isHovered ? .white : .primary))
+            .navigationItemBounds(.quickText(quickText.id))
+            .background(GlassKeyBackground(isHovered: isHovered, isPressed: isPressed, specialColor: .orange, isNavHighlighted: isNavHighlighted))
+            .foregroundColor(isPressed ? .white : (isHighlighted ? .white : .primary))
             .cornerRadius(8)
-            .scaleEffect(isPressed ? 0.95 : (isHovered ? 1.02 : 1.0))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .scaleEffect(isPressed ? 0.95 : (isHighlighted ? 1.02 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHighlighted)
             .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isPressed)
         }
         .buttonStyle(.plain)
@@ -903,6 +910,7 @@ struct GlassKeyBackground: View {
     var isSpecial: Bool = false
     var specialColor: Color? = nil
     var cornerRadius: CGFloat = 8
+    var isNavHighlighted: Bool = false
 
     var body: some View {
         ZStack {
@@ -915,16 +923,29 @@ struct GlassKeyBackground: View {
                 Color.black.opacity(0.5)
             }
 
-            // Highlight border (glows on hover)
+            // Highlight border (glows on hover or nav highlight)
             RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(borderColor, lineWidth: isHovered || isPressed ? 1.5 : 0.5)
-                .shadow(color: borderColor.opacity(isHovered ? 0.8 : 0.0), radius: isHovered ? 8 : 0)
+                .stroke(borderColor, lineWidth: borderWidth)
+                .shadow(color: borderColor.opacity(isHovered || isNavHighlighted ? 0.8 : 0.0), radius: isHovered || isNavHighlighted ? 8 : 0)
         }
+    }
+
+    private var borderWidth: CGFloat {
+        if isNavHighlighted {
+            return 3.0  // Thicker border for navigation highlight
+        }
+        if isHovered || isPressed {
+            return 1.5
+        }
+        return 0.5
     }
 
     private var borderColor: Color {
         if isPressed {
             return .white.opacity(0.9)
+        }
+        if isNavHighlighted {
+            return (specialColor ?? Color.orange).opacity(0.9)
         }
         if isHovered {
             return (specialColor ?? Color.accentColor).opacity(0.8)
