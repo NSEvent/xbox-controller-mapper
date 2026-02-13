@@ -81,6 +81,12 @@ struct JoystickSettings: Codable, Equatable {
     /// Mode for right stick (default: scroll)
     var rightStickMode: StickMode = .scroll
 
+    /// Whether WASD/Arrow keys should repeat while stick is held (false = hold key down, true = tap repeatedly)
+    var stickKeyRepeat: Bool = false
+
+    /// Interval between key repeats when stickKeyRepeat is enabled (seconds)
+    var stickKeyRepeatInterval: Double = 0.1
+
     static let `default` = JoystickSettings()
 
     /// Validates settings ranges
@@ -186,6 +192,8 @@ extension JoystickSettings {
         case focusModeModifier
         case leftStickMode
         case rightStickMode
+        case stickKeyRepeat
+        case stickKeyRepeatInterval
     }
 
     init(from decoder: Decoder) throws {
@@ -210,6 +218,8 @@ extension JoystickSettings {
         focusModeModifier = try container.decodeIfPresent(ModifierFlags.self, forKey: .focusModeModifier) ?? .command
         leftStickMode = try container.decodeIfPresent(StickMode.self, forKey: .leftStickMode) ?? .mouse
         rightStickMode = try container.decodeIfPresent(StickMode.self, forKey: .rightStickMode) ?? .scroll
+        stickKeyRepeat = try container.decodeIfPresent(Bool.self, forKey: .stickKeyRepeat) ?? false
+        stickKeyRepeatInterval = try container.decodeIfPresent(Double.self, forKey: .stickKeyRepeatInterval) ?? 0.1
     }
 
     func encode(to encoder: Encoder) throws {
@@ -234,5 +244,7 @@ extension JoystickSettings {
         try container.encode(focusModeModifier, forKey: .focusModeModifier)
         try container.encode(leftStickMode, forKey: .leftStickMode)
         try container.encode(rightStickMode, forKey: .rightStickMode)
+        try container.encode(stickKeyRepeat, forKey: .stickKeyRepeat)
+        try container.encode(stickKeyRepeatInterval, forKey: .stickKeyRepeatInterval)
     }
 }

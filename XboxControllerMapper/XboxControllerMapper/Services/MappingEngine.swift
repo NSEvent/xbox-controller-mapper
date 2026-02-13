@@ -162,6 +162,7 @@ class MappingEngine: ObservableObject {
         var smoothedRightStick: CGPoint = .zero
         var leftStickHeldKeys: Set<CGKeyCode> = []
         var rightStickHeldKeys: Set<CGKeyCode> = []
+        var lastStickKeyRepeatTime: TimeInterval = 0
         var lastJoystickSampleTime: TimeInterval = 0
         var smoothedTouchpadDelta: CGPoint = .zero
         var lastTouchpadSampleTime: TimeInterval = 0
@@ -1290,7 +1291,10 @@ class MappingEngine: ObservableObject {
                 deadzone: settings.mouseDeadzone,
                 mode: settings.leftStickMode,
                 heldKeys: &state.leftStickHeldKeys,
-                invertY: settings.invertMouseY
+                invertY: settings.invertMouseY,
+                repeatEnabled: settings.stickKeyRepeat,
+                repeatInterval: settings.stickKeyRepeatInterval,
+                now: now
             )
         }
 
@@ -1338,7 +1342,10 @@ class MappingEngine: ObservableObject {
                     deadzone: settings.scrollDeadzone,
                     mode: settings.rightStickMode,
                     heldKeys: &state.rightStickHeldKeys,
-                    invertY: settings.invertScrollY
+                    invertY: settings.invertScrollY,
+                    repeatEnabled: settings.stickKeyRepeat,
+                    repeatInterval: settings.stickKeyRepeatInterval,
+                    now: now
                 )
             }
         }
@@ -2118,13 +2125,17 @@ class MappingEngine: ObservableObject {
     }
 
     /// Processes stick input as direction keys (WASD or Arrow keys)
-    /// Keys are held while stick is deflected and released when returning to center
+    /// In hold mode: keys are held while stick is deflected and released when returning to center
+    /// In repeat mode: keys are tapped repeatedly at the configured interval
     nonisolated private func processDirectionKeys(
         stick: CGPoint,
         deadzone: Double,
         mode: StickMode,
         heldKeys: inout Set<CGKeyCode>,
-        invertY: Bool
+        invertY: Bool,
+        repeatEnabled: Bool,
+        repeatInterval: Double,
+        now: TimeInterval
     ) {
         // Key codes for WASD and Arrow keys
         let upKey: CGKeyCode = mode == .wasdKeys ? 13 : 126      // W or Up
@@ -2132,7 +2143,7 @@ class MappingEngine: ObservableObject {
         let leftKey: CGKeyCode = mode == .wasdKeys ? 0 : 123     // A or Left
         let rightKey: CGKeyCode = mode == .wasdKeys ? 2 : 124    // D or Right
 
-        // Calculate which keys should be held based on stick direction
+        // Calculate which keys should be active based on stick direction
         var targetKeys: Set<CGKeyCode> = []
 
         let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
@@ -2160,22 +2171,46 @@ class MappingEngine: ObservableObject {
             }
         }
 
-        // Release keys that should no longer be held
-        for key in heldKeys {
-            if !targetKeys.contains(key) {
+        if repeatEnabled {
+            // Repeat mode: tap keys at interval
+            // Release all held keys first (we don't hold in repeat mode)
+            for key in heldKeys {
                 inputSimulator.keyUp(key)
             }
-        }
 
-        // Press keys that should now be held
-        for key in targetKeys {
-            if !heldKeys.contains(key) {
-                inputSimulator.keyDown(key, modifiers: [])
+            // Check if it's time to send another tap
+            let timeSinceLastRepeat = now - state.lastStickKeyRepeatTime
+            if !targetKeys.isEmpty && timeSinceLastRepeat >= repeatInterval {
+                // Tap all target keys
+                for key in targetKeys {
+                    inputSimulator.keyDown(key, modifiers: [])
+                    inputSimulator.keyUp(key)
+                }
+                state.lastStickKeyRepeatTime = now
             }
-        }
 
-        // Update held keys state
-        heldKeys = targetKeys
+            // In repeat mode, we don't track held keys the same way
+            // Clear held keys when stick returns to center
+            heldKeys = targetKeys.isEmpty ? [] : heldKeys
+        } else {
+            // Hold mode: keys stay down while stick is deflected
+            // Release keys that should no longer be held
+            for key in heldKeys {
+                if !targetKeys.contains(key) {
+                    inputSimulator.keyUp(key)
+                }
+            }
+
+            // Press keys that should now be held
+            for key in targetKeys {
+                if !heldKeys.contains(key) {
+                    inputSimulator.keyDown(key, modifiers: [])
+                }
+            }
+
+            // Update held keys state
+            heldKeys = targetKeys
+        }
     }
 
     /// Releases all direction keys for both sticks (called on disable)
