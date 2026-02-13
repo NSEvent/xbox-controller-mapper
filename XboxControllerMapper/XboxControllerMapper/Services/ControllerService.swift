@@ -166,7 +166,7 @@ class ControllerService: ObservableObject {
     private var partyLEDDirection: Int = 1
 
     private var keepAliveTimer: Timer?
-    private let keepAliveInterval: TimeInterval = 30.0  // Send signal every 30 seconds
+    private let keepAliveInterval: TimeInterval = 300.0  // Send signal every 5 minutes (controller sleeps after 10 min idle)
 
     private let partyLEDPatterns: [PlayerLEDs] = [
         PlayerLEDs(led1: false, led2: false, led3: true, led4: false, led5: false),
