@@ -784,31 +784,34 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             pasteString(text)
             return
         }
-        
-        guard let source = eventSource else { return }
-        
+
+        // Use nil source to avoid inheriting HID system modifier state
+        // This ensures typed characters aren't affected by held controller buttons
+
         // Calculate delay in microseconds
         // CPM (Chars Per Minute) -> Chars Per Second = CPM / 60
         // Seconds Per Char = 60 / CPM
         // Microseconds = (60 / CPM) * 1_000_000
         let charDelayUs = useconds_t((60.0 / Double(speed)) * 1_000_000)
-        
+
         for char in text {
-            // Create a unicode event
+            // Create a unicode event with nil source (no inherited modifier state)
             var chars = [UniChar(String(char).utf16.first!)]
-            
-            if let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true) {
+
+            if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
                 event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &chars)
+                event.flags = []  // Explicitly clear any flags
                 event.post(tap: .cghidEventTap)
             }
-            
+
             usleep(Config.keyPressDuration)
-            
-            if let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) {
+
+            if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) {
                 event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &chars)
+                event.flags = []
                 event.post(tap: .cghidEventTap)
             }
-            
+
             usleep(charDelayUs)
         }
     }

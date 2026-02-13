@@ -1050,7 +1050,8 @@ class OnScreenKeyboardManager: ObservableObject {
 
         // Type characters on a background queue to avoid blocking
         DispatchQueue.global(qos: .userInitiated).async {
-            let source = CGEventSource(stateID: .hidSystemState)
+            // Use nil source to avoid inheriting HID system modifier state
+            // This ensures typed characters aren't affected by held controller buttons
 
             for (index, char) in characters.enumerated() {
                 // Skip unsupported characters
@@ -1065,19 +1066,15 @@ class OnScreenKeyboardManager: ObservableObject {
                     flags.insert(.maskShift)
                 }
 
-                // Create and send key down event
-                if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
-                    if !flags.isEmpty {
-                        keyDown.flags = flags
-                    }
+                // Create and send key down event (nil source = no inherited modifiers)
+                if let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true) {
+                    keyDown.flags = flags  // Always set flags explicitly (clears inherited state)
                     keyDown.post(tap: .cghidEventTap)
                 }
 
                 // Create and send key up event
-                if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
-                    if !flags.isEmpty {
-                        keyUp.flags = flags
-                    }
+                if let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false) {
+                    keyUp.flags = flags
                     keyUp.post(tap: .cghidEventTap)
                 }
 
