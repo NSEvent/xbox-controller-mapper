@@ -1671,11 +1671,17 @@ class ControllerService: ObservableObject {
     private func startKeepAlive() {
         stopKeepAlive()  // Cancel any existing timer
 
+        // Send immediately when enabled
+        sendKeepAliveSignal()
+
         keepAliveTimer = Timer.scheduledTimer(withTimeInterval: keepAliveInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.sendKeepAliveSignal()
             }
         }
+        RunLoop.main.add(keepAliveTimer!, forMode: .common)
+
+        NSLog("[KeepAlive] Started - will send signal every %.0f seconds", keepAliveInterval)
     }
 
     private func stopKeepAlive() {
@@ -1684,43 +1690,19 @@ class ControllerService: ObservableObject {
     }
 
     private func sendKeepAliveSignal() {
-        guard keepAliveEnabled, let device = hidDevice, isBluetoothConnection else { return }
+        guard keepAliveEnabled, isBluetoothConnection else { return }
 
-        // Send a minimal output report to reset the controller's idle timer
-        // This uses the same mechanism as LED updates but with minimal data
-        var report = [UInt8](repeating: 0, count: DualSenseHIDConstants.bluetoothReportSize - 1)
+        // Re-apply current LED settings to count as real activity
+        // Empty reports with no valid flags are ignored by the controller
+        storage.lock.lock()
+        let currentSettings = storage.currentLEDSettings
+        storage.lock.unlock()
 
-        // Bluetooth header
-        report[0] = (bluetoothOutputSeq << 4) | 0x00
-        report[1] = 0x10  // DS_OUTPUT_TAG
-
-        // Increment sequence number
-        bluetoothOutputSeq = (bluetoothOutputSeq + 1) & 0x0F
-
-        // Minimal valid flags - just enough to be accepted
-        let dataOffset = 2
-        report[dataOffset + 0] = 0x00  // No motor/haptic updates
-        report[dataOffset + 1] = 0x00  // No LED updates
-
-        // Calculate CRC32
-        let crcData = Data([0xA2, DualSenseHIDConstants.bluetoothOutputReportID] + report[0..<73])
-        let crc = crc32(crcData)
-        report[73] = UInt8(crc & 0xFF)
-        report[74] = UInt8((crc >> 8) & 0xFF)
-        report[75] = UInt8((crc >> 16) & 0xFF)
-        report[76] = UInt8((crc >> 24) & 0xFF)
-
-        // Send output report
-        _ = IOHIDDeviceSetReport(
-            device,
-            kIOHIDReportTypeOutput,
-            CFIndex(DualSenseHIDConstants.bluetoothOutputReportID),
-            report,
-            report.count
-        )
+        guard let settings = currentSettings else { return }
+        applyLEDSettings(settings)
 
         #if DEBUG
-        print("[KeepAlive] Sent keep-alive signal")
+        print("[KeepAlive] Sent keep-alive signal (re-applied LED settings)")
         #endif
     }
 
