@@ -147,6 +147,9 @@ class ControllerService: ObservableObject {
     /// Party mode state
     @Published var partyModeEnabled = false
 
+    /// Keep-alive mode - sends periodic signal to prevent controller sleep
+    @Published var keepAliveEnabled = false
+
     /// Whether the current connection is Bluetooth (for UI display)
     @Published var isBluetoothConnection = false
 
@@ -161,6 +164,9 @@ class ControllerService: ObservableObject {
     private var partyHue: Double = 0.0
     private var partyLEDIndex: Int = 0
     private var partyLEDDirection: Int = 1
+
+    private var keepAliveTimer: Timer?
+    private let keepAliveInterval: TimeInterval = 30.0  // Send signal every 30 seconds
 
     private let partyLEDPatterns: [PlayerLEDs] = [
         PlayerLEDs(led1: false, led2: false, led3: true, led4: false, led5: false),
@@ -1649,6 +1655,73 @@ class ControllerService: ObservableObject {
         partySettings.playerLEDs = partyLEDPatterns[max(0, min(partyLEDIndex, partyLEDPatterns.count - 1))]
 
         applyLEDSettings(partySettings)
+    }
+
+    // MARK: - Keep Alive
+
+    func setKeepAlive(_ enabled: Bool) {
+        keepAliveEnabled = enabled
+        if enabled {
+            startKeepAlive()
+        } else {
+            stopKeepAlive()
+        }
+    }
+
+    private func startKeepAlive() {
+        stopKeepAlive()  // Cancel any existing timer
+
+        keepAliveTimer = Timer.scheduledTimer(withTimeInterval: keepAliveInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.sendKeepAliveSignal()
+            }
+        }
+    }
+
+    private func stopKeepAlive() {
+        keepAliveTimer?.invalidate()
+        keepAliveTimer = nil
+    }
+
+    private func sendKeepAliveSignal() {
+        guard keepAliveEnabled, let device = hidDevice, isBluetoothConnection else { return }
+
+        // Send a minimal output report to reset the controller's idle timer
+        // This uses the same mechanism as LED updates but with minimal data
+        var report = [UInt8](repeating: 0, count: DualSenseHIDConstants.bluetoothReportSize - 1)
+
+        // Bluetooth header
+        report[0] = (bluetoothOutputSeq << 4) | 0x00
+        report[1] = 0x10  // DS_OUTPUT_TAG
+
+        // Increment sequence number
+        bluetoothOutputSeq = (bluetoothOutputSeq + 1) & 0x0F
+
+        // Minimal valid flags - just enough to be accepted
+        let dataOffset = 2
+        report[dataOffset + 0] = 0x00  // No motor/haptic updates
+        report[dataOffset + 1] = 0x00  // No LED updates
+
+        // Calculate CRC32
+        let crcData = Data([0xA2, DualSenseHIDConstants.bluetoothOutputReportID] + report[0..<73])
+        let crc = crc32(crcData)
+        report[73] = UInt8(crc & 0xFF)
+        report[74] = UInt8((crc >> 8) & 0xFF)
+        report[75] = UInt8((crc >> 16) & 0xFF)
+        report[76] = UInt8((crc >> 24) & 0xFF)
+
+        // Send output report
+        _ = IOHIDDeviceSetReport(
+            device,
+            kIOHIDReportTypeOutput,
+            CFIndex(DualSenseHIDConstants.bluetoothOutputReportID),
+            report,
+            report.count
+        )
+
+        #if DEBUG
+        print("[KeepAlive] Sent keep-alive signal")
+        #endif
     }
 
     nonisolated private func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
