@@ -2322,30 +2322,6 @@ struct JoystickSettingsView: View {
                     set: { updateSettings(\.invertScrollY, $0) }
                 ))
             }
-
-            // Show WASD/Arrow key settings when either stick uses direction keys
-            if settings.leftStickMode == .wasdKeys || settings.leftStickMode == .arrowKeys ||
-               settings.rightStickMode == .wasdKeys || settings.rightStickMode == .arrowKeys {
-                Section("Direction Keys") {
-                    Toggle("Repeat Keys", isOn: Binding(
-                        get: { settings.stickKeyRepeat },
-                        set: { updateSettings(\.stickKeyRepeat, $0) }
-                    ))
-                    .help("Hold: key stays down while stick is held. Repeat: key taps repeatedly.")
-
-                    if settings.stickKeyRepeat {
-                        SliderRow(
-                            label: "Repeat Interval",
-                            value: Binding(
-                                get: { settings.stickKeyRepeatInterval },
-                                set: { updateSettings(\.stickKeyRepeatInterval, $0) }
-                            ),
-                            range: 0.03...0.5,
-                            description: String(format: "%.0f ms between key taps", settings.stickKeyRepeatInterval * 1000)
-                        )
-                    }
-                }
-            }
         }
         .formStyle(.grouped)
         .padding()
