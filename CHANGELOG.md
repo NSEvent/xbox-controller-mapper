@@ -5,10 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - 2026-02-11
+## [1.4.0] - 2026-02-12
 
 ### Added
 
+- **Cursor Hints**: Visual feedback showing executed actions above the cursor
+  - Shows action name, keyboard shortcut, or macro name when buttons are pressed
+  - Type badges for double-tap (2×), long-press (⏱), and chord (⌘) actions
+  - Held actions stay visible until button released with minimum display time
+  - Toggle button in the Buttons tab to enable/disable
+- **Focus Mode Cursor Highlight**: Purple ring around cursor when focus mode is active
+  - Toggle setting in Joysticks > Focus Mode > "Highlight Focused Cursor"
+- **Button Mapping Swap**: Quickly swap all mappings between two buttons
+  - Click "Swap" button, select first button, select second button
+  - Swaps primary action, double-tap, long-hold, repeat settings, and hints
+  - Works within layers; does not affect chords
 - **Layers Feature**: Create alternate button mapping sets activated by holding a designated button
   - Up to 2 additional layers beyond the base layer
   - Momentary activation - layer active while activator button is held
@@ -25,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Macro feedback now shows macro name instead of generic "Macro" text in cursor hints
+- Chord macro feedback also displays actual macro name
 - Accidental horizontal panning when scrolling vertically with right stick (now requires deliberate horizontal input)
 - Deadlock in button release handler that caused mappings to stop working
 - Command Wheel hint centering on on-screen keyboard
