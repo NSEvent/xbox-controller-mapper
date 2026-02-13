@@ -128,7 +128,9 @@ class ActionFeedbackIndicator {
     private func createPanel() {
         let initialView = ActionFeedbackView(action: "", type: .singlePress)
         let hostingView = NSHostingView(rootView: initialView)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 200, height: 30)
+        // Use fittingSize to get intrinsic content size (no fixed width constraint)
+        let fittingSize = hostingView.fittingSize
+        hostingView.frame = NSRect(origin: .zero, size: fittingSize)
 
         let panel = NSPanel(
             contentRect: hostingView.frame,
@@ -180,7 +182,8 @@ class ActionFeedbackIndicator {
 }
 
 /// SwiftUI view that displays the action in a chip style matching the app's aesthetic
-private struct ActionFeedbackView: View {
+/// Internal visibility for testing
+struct ActionFeedbackView: View {
     let action: String
     let type: InputEventType
     var isHeld: Bool = false
@@ -221,6 +224,7 @@ private struct ActionFeedbackView: View {
                 .stroke(isHeld ? Color.accentColor.opacity(0.4) : Color.primary.opacity(0.15), lineWidth: isHeld ? 2 : 1)
         )
         .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .fixedSize()  // Prevent truncation - always size to fit content
     }
 
     private var typeBadge: (icon: String, color: Color)? {
