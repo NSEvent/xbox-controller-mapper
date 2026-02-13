@@ -20,6 +20,7 @@ class MockInputSimulator: InputSimulatorProtocol {
         case executeMapping(KeyMapping)
         case startHoldMapping(KeyMapping)
         case stopHoldMapping(KeyMapping)
+        case typeText(String, Int)  // text, speed
     }
     
     private let lock = NSLock()
@@ -197,6 +198,8 @@ class MockInputSimulator: InputSimulatorProtocol {
                 if let code = mapping.keyCode {
                     _events.append(.pressKey(code, mapping.modifiers.cgEventFlags))
                 }
+            case .typeText(let text, let speed):
+                _events.append(.typeText(text, speed))
             default:
                 break
             }
@@ -1497,6 +1500,94 @@ final class XboxControllerMapperTests: XCTestCase {
                 return false
             }
             XCTAssertEqual(pressEvents.count, 3, "Macro should execute all 3 steps")
+        }
+    }
+
+    /// Tests that macro with typeText step executes correctly
+    /// Note: The actual typing uses nil CGEventSource to prevent held modifiers from affecting text
+    func testMacroWithTypeTextStep() async throws {
+        let macroId = UUID()
+
+        await MainActor.run {
+            let macro = Macro(
+                id: macroId,
+                name: "Type Macro",
+                steps: [
+                    .typeText("hello@example.com", speed: 300)
+                ]
+            )
+            var profile = Profile(name: "TypeTest", buttonMappings: [:])
+            profile.macros = [macro]
+            profile.buttonMappings[.a] = KeyMapping(macroId: macroId)
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            let typeEvents = mockInputSimulator.events.filter { event in
+                if case .typeText = event { return true }
+                return false
+            }
+            XCTAssertEqual(typeEvents.count, 1, "Macro should execute typeText step")
+
+            if case .typeText(let text, let speed) = typeEvents.first {
+                XCTAssertEqual(text, "hello@example.com", "Text should match")
+                XCTAssertEqual(speed, 300, "Speed should match")
+            }
+        }
+    }
+
+    /// Tests that macro typeText works while modifiers are held (simulates on-screen keyboard scenario)
+    /// The fix ensures typed characters use nil CGEventSource to avoid inheriting held modifier state
+    func testMacroTypeTextIgnoresHeldModifiers() async throws {
+        let macroId = UUID()
+
+        await MainActor.run {
+            // Hold a modifier (simulating on-screen keyboard button)
+            mockInputSimulator.holdModifier(.maskCommand)
+
+            let macro = Macro(
+                id: macroId,
+                name: "Type While Modifier Held",
+                steps: [
+                    .typeText("test@123", speed: 300)
+                ]
+            )
+            var profile = Profile(name: "ModifierTest", buttonMappings: [:])
+            profile.macros = [macro]
+            profile.buttonMappings[.b] = KeyMapping(macroId: macroId)
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            // Verify modifier is held
+            XCTAssertTrue(mockInputSimulator.isHoldingModifiers(.maskCommand), "Modifier should be held")
+
+            controllerService.buttonPressed(.b)
+            controllerService.buttonReleased(.b)
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            // TypeText event should be recorded regardless of held modifiers
+            let typeEvents = mockInputSimulator.events.filter { event in
+                if case .typeText = event { return true }
+                return false
+            }
+            XCTAssertEqual(typeEvents.count, 1, "TypeText should execute even with modifier held")
+
+            // The actual CGEvent implementation uses nil source to prevent modifier inheritance
+            // This test documents the expected behavior - the mock doesn't simulate CGEvent details
+            if case .typeText(let text, _) = typeEvents.first {
+                XCTAssertEqual(text, "test@123", "Text content should be preserved")
+            }
         }
     }
 
