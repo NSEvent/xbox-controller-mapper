@@ -233,6 +233,17 @@ struct ActionFeedbackView: View {
 
     var body: some View {
         HStack(spacing: 6) {
+            // Hold badge (shown first for held actions)
+            if isHeld {
+                Text("▼")
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.purple)
+                    .cornerRadius(3)
+            }
+
             // Type indicator badge
             if let badge = typeBadge {
                 Text(badge.icon)
@@ -248,13 +259,6 @@ struct ActionFeedbackView: View {
             Text(action)
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundColor(.primary)
-
-            // Held indicator
-            if isHeld {
-                Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.secondary)
-            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
