@@ -1,5 +1,24 @@
 import Foundation
 
+/// Mode for each analog stick
+enum StickMode: String, Codable, CaseIterable {
+    case none = "none"
+    case mouse = "mouse"
+    case scroll = "scroll"
+    case wasdKeys = "wasdKeys"
+    case arrowKeys = "arrowKeys"
+
+    var displayName: String {
+        switch self {
+        case .none: return "None"
+        case .mouse: return "Mouse"
+        case .scroll: return "Scroll"
+        case .wasdKeys: return "WASD"
+        case .arrowKeys: return "Arrows"
+        }
+    }
+}
+
 /// Settings for joystick behavior
 struct JoystickSettings: Codable, Equatable {
     /// Mouse movement sensitivity (0.0 - 1.0, where 0.5 is default)
@@ -55,6 +74,12 @@ struct JoystickSettings: Codable, Equatable {
 
     /// Modifier that triggers focus mode (slower mouse speed)
     var focusModeModifier: ModifierFlags = .command
+
+    /// Mode for left stick (default: mouse)
+    var leftStickMode: StickMode = .mouse
+
+    /// Mode for right stick (default: scroll)
+    var rightStickMode: StickMode = .scroll
 
     static let `default` = JoystickSettings()
 
@@ -159,6 +184,8 @@ extension JoystickSettings {
         case scrollBoostMultiplier
         case focusModeSensitivity
         case focusModeModifier
+        case leftStickMode
+        case rightStickMode
     }
 
     init(from decoder: Decoder) throws {
@@ -181,6 +208,8 @@ extension JoystickSettings {
         scrollBoostMultiplier = try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0
         focusModeSensitivity = try container.decodeIfPresent(Double.self, forKey: .focusModeSensitivity) ?? 0.2
         focusModeModifier = try container.decodeIfPresent(ModifierFlags.self, forKey: .focusModeModifier) ?? .command
+        leftStickMode = try container.decodeIfPresent(StickMode.self, forKey: .leftStickMode) ?? .mouse
+        rightStickMode = try container.decodeIfPresent(StickMode.self, forKey: .rightStickMode) ?? .scroll
     }
 
     func encode(to encoder: Encoder) throws {
@@ -203,5 +232,7 @@ extension JoystickSettings {
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
         try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)
         try container.encode(focusModeModifier, forKey: .focusModeModifier)
+        try container.encode(leftStickMode, forKey: .leftStickMode)
+        try container.encode(rightStickMode, forKey: .rightStickMode)
     }
 }

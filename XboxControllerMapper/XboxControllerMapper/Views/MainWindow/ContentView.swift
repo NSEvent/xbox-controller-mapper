@@ -2105,26 +2105,60 @@ struct JoystickSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Left Joystick (Mouse)") {
-                SliderRow(
-                    label: "Sensitivity",
-                    value: Binding(
-                        get: { settings.mouseSensitivity },
-                        set: { updateSettings(\.mouseSensitivity, $0) }
-                    ),
-                    range: 0...1,
-                    description: "How fast the cursor moves"
-                )
+            Section("Left Joystick") {
+                Picker("Mode", selection: Binding(
+                    get: { settings.leftStickMode },
+                    set: { updateSettings(\.leftStickMode, $0) }
+                )) {
+                    ForEach(StickMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
 
-                SliderRow(
-                    label: "Acceleration",
-                    value: Binding(
-                        get: { settings.mouseAcceleration },
-                        set: { updateSettings(\.mouseAcceleration, $0) }
-                    ),
-                    range: 0...1,
-                    description: "0 = linear, 1 = max curve"
-                )
+                if settings.leftStickMode == .mouse {
+                    SliderRow(
+                        label: "Sensitivity",
+                        value: Binding(
+                            get: { settings.mouseSensitivity },
+                            set: { updateSettings(\.mouseSensitivity, $0) }
+                        ),
+                        range: 0...1,
+                        description: "How fast the cursor moves"
+                    )
+
+                    SliderRow(
+                        label: "Acceleration",
+                        value: Binding(
+                            get: { settings.mouseAcceleration },
+                            set: { updateSettings(\.mouseAcceleration, $0) }
+                        ),
+                        range: 0...1,
+                        description: "0 = linear, 1 = max curve"
+                    )
+                }
+
+                if settings.leftStickMode == .scroll {
+                    SliderRow(
+                        label: "Sensitivity",
+                        value: Binding(
+                            get: { settings.scrollSensitivity },
+                            set: { updateSettings(\.scrollSensitivity, $0) }
+                        ),
+                        range: 0...1,
+                        description: "How fast scrolling occurs"
+                    )
+
+                    SliderRow(
+                        label: "Acceleration",
+                        value: Binding(
+                            get: { settings.scrollAcceleration },
+                            set: { updateSettings(\.scrollAcceleration, $0) }
+                        ),
+                        range: 0...1,
+                        description: "0 = linear, 1 = max curve"
+                    )
+                }
 
                 SliderRow(
                     label: "Deadzone",
@@ -2133,7 +2167,9 @@ struct JoystickSettingsView: View {
                         set: { updateSettings(\.mouseDeadzone, $0) }
                     ),
                     range: 0...0.5,
-                    description: "Ignore small movements"
+                    description: settings.leftStickMode == .wasdKeys || settings.leftStickMode == .arrowKeys
+                        ? "Activation threshold for keys"
+                        : "Ignore small movements"
                 )
 
                 Toggle("Invert Y Axis", isOn: Binding(
@@ -2204,26 +2240,70 @@ struct JoystickSettingsView: View {
                     }
             }
 
-            Section("Right Joystick (Scroll)") {
-                SliderRow(
-                    label: "Sensitivity",
-                    value: Binding(
-                        get: { settings.scrollSensitivity },
-                        set: { updateSettings(\.scrollSensitivity, $0) }
-                    ),
-                    range: 0...1,
-                    description: "How fast scrolling occurs"
-                )
+            Section("Right Joystick") {
+                Picker("Mode", selection: Binding(
+                    get: { settings.rightStickMode },
+                    set: { updateSettings(\.rightStickMode, $0) }
+                )) {
+                    ForEach(StickMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
 
-                SliderRow(
-                    label: "Acceleration",
-                    value: Binding(
-                        get: { settings.scrollAcceleration },
-                        set: { updateSettings(\.scrollAcceleration, $0) }
-                    ),
-                    range: 0...1,
-                    description: "0 = linear, 1 = max curve"
-                )
+                if settings.rightStickMode == .mouse {
+                    SliderRow(
+                        label: "Sensitivity",
+                        value: Binding(
+                            get: { settings.mouseSensitivity },
+                            set: { updateSettings(\.mouseSensitivity, $0) }
+                        ),
+                        range: 0...1,
+                        description: "How fast the cursor moves"
+                    )
+
+                    SliderRow(
+                        label: "Acceleration",
+                        value: Binding(
+                            get: { settings.mouseAcceleration },
+                            set: { updateSettings(\.mouseAcceleration, $0) }
+                        ),
+                        range: 0...1,
+                        description: "0 = linear, 1 = max curve"
+                    )
+                }
+
+                if settings.rightStickMode == .scroll {
+                    SliderRow(
+                        label: "Sensitivity",
+                        value: Binding(
+                            get: { settings.scrollSensitivity },
+                            set: { updateSettings(\.scrollSensitivity, $0) }
+                        ),
+                        range: 0...1,
+                        description: "How fast scrolling occurs"
+                    )
+
+                    SliderRow(
+                        label: "Acceleration",
+                        value: Binding(
+                            get: { settings.scrollAcceleration },
+                            set: { updateSettings(\.scrollAcceleration, $0) }
+                        ),
+                        range: 0...1,
+                        description: "0 = linear, 1 = max curve"
+                    )
+
+                    SliderRow(
+                        label: "Double-Tap Boost",
+                        value: Binding(
+                            get: { settings.scrollBoostMultiplier },
+                            set: { updateSettings(\.scrollBoostMultiplier, $0) }
+                        ),
+                        range: 1...4,
+                        description: "Speed multiplier after double-tap up/down"
+                    )
+                }
 
                 SliderRow(
                     label: "Deadzone",
@@ -2232,17 +2312,9 @@ struct JoystickSettingsView: View {
                         set: { updateSettings(\.scrollDeadzone, $0) }
                     ),
                     range: 0...0.5,
-                    description: "Ignore small movements"
-                )
-
-                SliderRow(
-                    label: "Double-Tap Boost",
-                    value: Binding(
-                        get: { settings.scrollBoostMultiplier },
-                        set: { updateSettings(\.scrollBoostMultiplier, $0) }
-                    ),
-                    range: 1...4,
-                    description: "Speed multiplier after double-tap up/down"
+                    description: settings.rightStickMode == .wasdKeys || settings.rightStickMode == .arrowKeys
+                        ? "Activation threshold for keys"
+                        : "Ignore small movements"
                 )
 
                 Toggle("Invert Y Axis", isOn: Binding(

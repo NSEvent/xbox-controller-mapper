@@ -10,6 +10,8 @@ class MockInputSimulator: InputSimulatorProtocol {
     
     enum Event: Equatable {
         case pressKey(CGKeyCode, CGEventFlags)
+        case keyDown(CGKeyCode)
+        case keyUp(CGKeyCode)
         case holdModifier(CGEventFlags)
         case releaseModifier(CGEventFlags)
         case releaseAllModifiers
@@ -49,7 +51,28 @@ class MockInputSimulator: InputSimulatorProtocol {
         defer { lock.unlock() }
         _events.append(.pressKey(keyCode, modifiers))
     }
-    
+
+    private var _heldDirectionKeys: Set<CGKeyCode> = []
+    var heldDirectionKeys: Set<CGKeyCode> {
+        lock.lock()
+        defer { lock.unlock() }
+        return _heldDirectionKeys
+    }
+
+    func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags) {
+        lock.lock()
+        defer { lock.unlock() }
+        _heldDirectionKeys.insert(keyCode)
+        _events.append(.keyDown(keyCode))
+    }
+
+    func keyUp(_ keyCode: CGKeyCode) {
+        lock.lock()
+        defer { lock.unlock() }
+        _heldDirectionKeys.remove(keyCode)
+        _events.append(.keyUp(keyCode))
+    }
+
     func holdModifier(_ modifier: CGEventFlags) {
         lock.lock()
         defer { lock.unlock() }
@@ -3999,6 +4022,169 @@ final class XboxControllerMapperTests: XCTestCase {
             XCTAssertEqual(newMappingA?.hint, "Triggers Macro 2", "Button A should have B's hint")
             XCTAssertEqual(newMappingB?.macroId, macroId1, "Button B should have A's macro")
             XCTAssertEqual(newMappingB?.hint, "Triggers Macro 1", "Button B should have A's hint")
+        }
+    }
+
+    // MARK: - Stick to WASD/Arrow Keys Mode Tests
+
+    /// Tests left stick WASD mode - pushing up triggers W key
+    func testLeftStickWASDModeUpDirection() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "WASD", buttonMappings: [:])
+            profile.joystickSettings.leftStickMode = .wasdKeys
+            profile.joystickSettings.mouseDeadzone = 0.15
+            profileManager.setActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms for profile to propagate
+
+        // Push stick up (positive Y)
+        controllerService.setLeftStickForTesting(CGPoint(x: 0.0, y: 0.8))
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            // W key = keyCode 13
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .keyDown(let code) = event { return code == 13 }
+                return false
+            }, "W key should be pressed when stick pushed up")
+            XCTAssertTrue(mockInputSimulator.heldDirectionKeys.contains(13), "W key should be held")
+        }
+    }
+
+    /// Tests left stick WASD mode - diagonal direction (up-right) triggers W+D
+    func testLeftStickWASDModeDiagonal() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "WASD", buttonMappings: [:])
+            profile.joystickSettings.leftStickMode = .wasdKeys
+            profile.joystickSettings.mouseDeadzone = 0.15
+            profileManager.setActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Push stick up-right (positive X and Y)
+        controllerService.setLeftStickForTesting(CGPoint(x: 0.7, y: 0.7))
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            // W = 13, D = 2
+            XCTAssertTrue(mockInputSimulator.heldDirectionKeys.contains(13), "W key should be held")
+            XCTAssertTrue(mockInputSimulator.heldDirectionKeys.contains(2), "D key should be held")
+        }
+    }
+
+    /// Tests left stick WASD mode - keys released when returning to center
+    func testLeftStickWASDModeReleaseOnCenter() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "WASD", buttonMappings: [:])
+            profile.joystickSettings.leftStickMode = .wasdKeys
+            profile.joystickSettings.mouseDeadzone = 0.15
+            profileManager.setActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Push stick up
+        controllerService.setLeftStickForTesting(CGPoint(x: 0.0, y: 0.8))
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldDirectionKeys.contains(13), "W key should be held")
+        }
+
+        // Return to center
+        controllerService.setLeftStickForTesting(CGPoint(x: 0.0, y: 0.0))
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldDirectionKeys.isEmpty, "All keys should be released when stick returns to center")
+            XCTAssertTrue(mockInputSimulator.events.contains { event in
+                if case .keyUp(let code) = event { return code == 13 }
+                return false
+            }, "W key should have keyUp event")
+        }
+    }
+
+    /// Tests left stick WASD mode - deadzone respected
+    func testLeftStickWASDModeDeadzoneRespected() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "WASD", buttonMappings: [:])
+            profile.joystickSettings.leftStickMode = .wasdKeys
+            profile.joystickSettings.mouseDeadzone = 0.3 // Higher deadzone
+            profileManager.setActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Push stick just inside deadzone
+        controllerService.setLeftStickForTesting(CGPoint(x: 0.0, y: 0.2))
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldDirectionKeys.isEmpty, "No keys should be held inside deadzone")
+            XCTAssertFalse(mockInputSimulator.events.contains { event in
+                if case .keyDown = event { return true }
+                return false
+            }, "No keyDown events inside deadzone")
+        }
+    }
+
+    /// Tests right stick arrow keys mode setting persistence
+    func testRightStickArrowKeysMode() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "Arrows", buttonMappings: [:])
+            profile.joystickSettings.rightStickMode = .arrowKeys
+            profile.joystickSettings.scrollDeadzone = 0.15
+            profileManager.setActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.rightStickMode, .arrowKeys)
+        }
+    }
+
+    /// Tests that disabling engine releases held direction keys
+    func testEngineDisableReleasesDirectionKeys() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "WASD", buttonMappings: [:])
+            profile.joystickSettings.leftStickMode = .wasdKeys
+            profile.joystickSettings.mouseDeadzone = 0.15
+            profileManager.setActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Push stick up
+        controllerService.setLeftStickForTesting(CGPoint(x: 0.0, y: 0.8))
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertFalse(mockInputSimulator.heldDirectionKeys.isEmpty, "Keys should be held before disable")
+            mappingEngine.disable()
+        }
+        await waitForTasks()
+
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldDirectionKeys.isEmpty, "All direction keys should be released on disable")
+        }
+    }
+
+    /// Tests stick mode setting persistence
+    func testStickModeSettingPersistence() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "ModeTest", buttonMappings: [:])
+            profile.joystickSettings.leftStickMode = .wasdKeys
+            profile.joystickSettings.rightStickMode = .arrowKeys
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.leftStickMode, .wasdKeys)
+            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.rightStickMode, .arrowKeys)
         }
     }
 }

@@ -160,6 +160,8 @@ class MappingEngine: ObservableObject {
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
         var smoothedRightStick: CGPoint = .zero
+        var leftStickHeldKeys: Set<CGKeyCode> = []
+        var rightStickHeldKeys: Set<CGKeyCode> = []
         var lastJoystickSampleTime: TimeInterval = 0
         var smoothedTouchpadDelta: CGPoint = .zero
         var lastTouchpadSampleTime: TimeInterval = 0
@@ -229,6 +231,8 @@ class MappingEngine: ObservableObject {
 
             smoothedLeftStick = .zero
             smoothedRightStick = .zero
+            leftStickHeldKeys.removeAll()
+            rightStickHeldKeys.removeAll()
             lastJoystickSampleTime = 0
             smoothedTouchpadDelta = .zero
             lastTouchpadSampleTime = 0
@@ -447,13 +451,22 @@ class MappingEngine: ObservableObject {
                 self.state.lock.lock()
                 self.state.isEnabled = enabled
                 if !enabled {
+                    // Capture direction keys before reset clears them
+                    let leftKeys = self.state.leftStickHeldKeys
+                    let rightKeys = self.state.rightStickHeldKeys
                     // Cleanup if disabled
                     self.state.reset()
+                    self.state.lock.unlock()
+                    // Release modifiers and direction keys after unlock
                     self.inputSimulator.releaseAllModifiers()
-                }
-                self.state.lock.unlock()
-                if enabled {
+                    for key in leftKeys {
+                        self.inputSimulator.keyUp(key)
+                    }
+                    for key in rightKeys {
+                        self.inputSimulator.keyUp(key)
+                    }
                 } else {
+                    self.state.lock.unlock()
                 }
             }
             .store(in: &cancellables)
@@ -1252,12 +1265,34 @@ class MappingEngine: ObservableObject {
         let dt = state.lastJoystickSampleTime > 0 ? now - state.lastJoystickSampleTime : Config.joystickPollInterval
         state.lastJoystickSampleTime = now
 
-        // Process left joystick (mouse)
+        // Process left joystick based on mode
         // Note: accessing controllerService.threadSafeLeftStick is safe (atomic/lock-free usually)
         let leftStick = controllerService.threadSafeLeftStick
 
-        // Remove smoothing - pass raw value (pass now to avoid redundant CFAbsoluteTimeGetCurrent call)
-        processMouseMovement(leftStick, settings: settings, now: now)
+        switch settings.leftStickMode {
+        case .none:
+            break  // Stick disabled
+        case .mouse:
+            // Remove smoothing - pass raw value (pass now to avoid redundant CFAbsoluteTimeGetCurrent call)
+            processMouseMovement(leftStick, settings: settings, now: now)
+        case .scroll:
+            let leftMagnitudeSquared = leftStick.x * leftStick.x + leftStick.y * leftStick.y
+            let leftDeadzoneSquared = settings.mouseDeadzone * settings.mouseDeadzone
+            if leftMagnitudeSquared <= leftDeadzoneSquared {
+                state.smoothedLeftStick = .zero
+            } else {
+                state.smoothedLeftStick = smoothStick(leftStick, previous: state.smoothedLeftStick, dt: dt)
+            }
+            processScrolling(state.smoothedLeftStick, rawStick: leftStick, settings: settings, now: now)
+        case .wasdKeys, .arrowKeys:
+            processDirectionKeys(
+                stick: leftStick,
+                deadzone: settings.mouseDeadzone,
+                mode: settings.leftStickMode,
+                heldKeys: &state.leftStickHeldKeys,
+                invertY: settings.invertMouseY
+            )
+        }
 
         // Process right joystick (scroll or command wheel)
         let rightStick = controllerService.threadSafeRightStick
@@ -1280,16 +1315,32 @@ class MappingEngine: ObservableObject {
                 CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
             }
         } else {
-            updateScrollDoubleTapState(rawStick: rightStick, settings: settings, now: now)
-            let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
-            let rightDeadzoneSquared = settings.scrollDeadzone * settings.scrollDeadzone
+            // Process right joystick based on mode
+            switch settings.rightStickMode {
+            case .none:
+                break  // Stick disabled
+            case .mouse:
+                processMouseMovement(rightStick, settings: settings, now: now)
+            case .scroll:
+                updateScrollDoubleTapState(rawStick: rightStick, settings: settings, now: now)
+                let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
+                let rightDeadzoneSquared = settings.scrollDeadzone * settings.scrollDeadzone
 
-            if rightMagnitudeSquared <= rightDeadzoneSquared {
-                state.smoothedRightStick = .zero
-            } else {
-                state.smoothedRightStick = smoothStick(rightStick, previous: state.smoothedRightStick, dt: dt)
+                if rightMagnitudeSquared <= rightDeadzoneSquared {
+                    state.smoothedRightStick = .zero
+                } else {
+                    state.smoothedRightStick = smoothStick(rightStick, previous: state.smoothedRightStick, dt: dt)
+                }
+                processScrolling(state.smoothedRightStick, rawStick: rightStick, settings: settings, now: now)
+            case .wasdKeys, .arrowKeys:
+                processDirectionKeys(
+                    stick: rightStick,
+                    deadzone: settings.scrollDeadzone,
+                    mode: settings.rightStickMode,
+                    heldKeys: &state.rightStickHeldKeys,
+                    invertY: settings.invertScrollY
+                )
             }
-            processScrolling(state.smoothedRightStick, rawStick: rightStick, settings: settings, now: now)
         }
     }
 
@@ -2066,6 +2117,84 @@ class MappingEngine: ObservableObject {
         inputSimulator.scroll(dx: dx, dy: dy)
     }
 
+    /// Processes stick input as direction keys (WASD or Arrow keys)
+    /// Keys are held while stick is deflected and released when returning to center
+    nonisolated private func processDirectionKeys(
+        stick: CGPoint,
+        deadzone: Double,
+        mode: StickMode,
+        heldKeys: inout Set<CGKeyCode>,
+        invertY: Bool
+    ) {
+        // Key codes for WASD and Arrow keys
+        let upKey: CGKeyCode = mode == .wasdKeys ? 13 : 126      // W or Up
+        let downKey: CGKeyCode = mode == .wasdKeys ? 1 : 125     // S or Down
+        let leftKey: CGKeyCode = mode == .wasdKeys ? 0 : 123     // A or Left
+        let rightKey: CGKeyCode = mode == .wasdKeys ? 2 : 124    // D or Right
+
+        // Calculate which keys should be held based on stick direction
+        var targetKeys: Set<CGKeyCode> = []
+
+        let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
+        let deadzoneSquared = deadzone * deadzone
+
+        if magnitudeSquared > deadzoneSquared {
+            // Apply deadzone and normalize
+            let stickX = Double(stick.x)
+            let stickY = Double(stick.y) * (invertY ? -1.0 : 1.0)
+
+            // Use diagonal threshold to determine key presses
+            // 8-direction support: diagonals hold two keys
+            let threshold = 0.4  // ~sin(23.5°), allows smooth 8-way movement
+
+            if stickY > threshold {
+                targetKeys.insert(upKey)
+            } else if stickY < -threshold {
+                targetKeys.insert(downKey)
+            }
+
+            if stickX > threshold {
+                targetKeys.insert(rightKey)
+            } else if stickX < -threshold {
+                targetKeys.insert(leftKey)
+            }
+        }
+
+        // Release keys that should no longer be held
+        for key in heldKeys {
+            if !targetKeys.contains(key) {
+                inputSimulator.keyUp(key)
+            }
+        }
+
+        // Press keys that should now be held
+        for key in targetKeys {
+            if !heldKeys.contains(key) {
+                inputSimulator.keyDown(key, modifiers: [])
+            }
+        }
+
+        // Update held keys state
+        heldKeys = targetKeys
+    }
+
+    /// Releases all direction keys for both sticks (called on disable)
+    nonisolated private func releaseAllDirectionKeys() {
+        state.lock.lock()
+        let leftKeys = state.leftStickHeldKeys
+        let rightKeys = state.rightStickHeldKeys
+        state.leftStickHeldKeys.removeAll()
+        state.rightStickHeldKeys.removeAll()
+        state.lock.unlock()
+
+        for key in leftKeys {
+            inputSimulator.keyUp(key)
+        }
+        for key in rightKeys {
+            inputSimulator.keyUp(key)
+        }
+    }
+
     // MARK: - Control
 
     func enable() {
@@ -2074,6 +2203,7 @@ class MappingEngine: ObservableObject {
 
     func disable() {
         isEnabled = false
+        releaseAllDirectionKeys()
     }
 
     func toggle() {

@@ -5,6 +5,8 @@ import IOKit.hidsystem
 
 protocol InputSimulatorProtocol: Sendable {
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
+    func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
+    func keyUp(_ keyCode: CGKeyCode)
     func holdModifier(_ modifier: CGEventFlags)
     func releaseModifier(_ modifier: CGEventFlags)
     func releaseAllModifiers()
