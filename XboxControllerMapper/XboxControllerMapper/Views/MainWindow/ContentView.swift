@@ -1217,13 +1217,15 @@ struct CommunityProfilePreview: View {
 // MARK: - Preview Mapping Row
 
 struct PreviewMappingRow: View {
+    @EnvironmentObject var controllerService: ControllerService
+
     let button: ControllerButton
     let mapping: KeyMapping
     let profile: Profile
 
     var body: some View {
         HStack(spacing: 12) {
-            ButtonIconView(button: button, isPressed: false, isDualSense: false)
+            ButtonIconView(button: button, isPressed: false, isDualSense: controllerService.threadSafeIsDualSense)
                 .frame(width: 28, height: 28)
 
             // Show mappings with hint + actual shortcut side by side
@@ -1315,6 +1317,8 @@ struct PreviewMappingLabel: View {
 // MARK: - Preview Chord Row
 
 struct PreviewChordRow: View {
+    @EnvironmentObject var controllerService: ControllerService
+
     let chord: ChordMapping
     let profile: Profile
 
@@ -1323,7 +1327,7 @@ struct PreviewChordRow: View {
             // Button icons - match main chord list spacing
             HStack(spacing: 4) {
                 ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-                    ButtonIconView(button: button, isPressed: false, isDualSense: false)
+                    ButtonIconView(button: button, isPressed: false, isDualSense: controllerService.threadSafeIsDualSense)
                 }
             }
 
