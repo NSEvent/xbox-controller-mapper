@@ -874,7 +874,7 @@ class MappingEngine: ObservableObject {
         if let releaseResult = cleanupReleaseTimers(for: button) {
             if case .heldMapping(let heldMapping) = releaseResult {
                 inputSimulator.stopHoldMapping(heldMapping)
-                inputLogService?.dismissHeldFeedback()
+                inputLogService?.dismissHeldFeedback(action: heldMapping.feedbackString)
             }
             return
         }

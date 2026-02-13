@@ -4500,4 +4500,38 @@ final class ActionFeedbackViewTests: XCTestCase {
         XCTAssertGreaterThan(size.width, 200,
             "View with long text should exceed old 200px fixed width")
     }
+
+    // MARK: - Multiple Held Modifier Tests
+
+    /// Tests that combined modifier text displays wider than single modifier
+    @MainActor
+    func testActionFeedbackViewCombinedModifiers() {
+        let singleModifier = ActionFeedbackView(action: "⌘", type: .singlePress, isHeld: true)
+        let singleHosting = NSHostingView(rootView: singleModifier)
+        let singleSize = singleHosting.fittingSize
+
+        let combinedModifiers = ActionFeedbackView(action: "⌘ + ⇧", type: .singlePress, isHeld: true)
+        let combinedHosting = NSHostingView(rootView: combinedModifiers)
+        let combinedSize = combinedHosting.fittingSize
+
+        // Combined modifiers text should be wider
+        XCTAssertGreaterThan(combinedSize.width, singleSize.width,
+            "Combined modifier view should be wider than single modifier")
+    }
+
+    /// Tests that three combined modifiers display even wider
+    @MainActor
+    func testActionFeedbackViewThreeModifiers() {
+        let twoModifiers = ActionFeedbackView(action: "⌘ + ⇧", type: .singlePress, isHeld: true)
+        let twoHosting = NSHostingView(rootView: twoModifiers)
+        let twoSize = twoHosting.fittingSize
+
+        let threeModifiers = ActionFeedbackView(action: "⌃ + ⌘ + ⇧", type: .singlePress, isHeld: true)
+        let threeHosting = NSHostingView(rootView: threeModifiers)
+        let threeSize = threeHosting.fittingSize
+
+        // Three modifiers should be wider than two
+        XCTAssertGreaterThan(threeSize.width, twoSize.width,
+            "Three modifier view should be wider than two modifier view")
+    }
 }

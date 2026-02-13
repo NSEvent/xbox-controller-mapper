@@ -23,8 +23,10 @@ class ActionFeedbackIndicator {
     private var hideTimer: Timer?
     private var trackingTimer: Timer?
     private var isVisible = false
-    private var isHeldAction = false  // True if action should stay until dismissed
     private var showTime: Date?  // When the indicator was shown
+
+    /// Currently held actions (maps action string to input type for display)
+    private var heldActions: [String: InputEventType] = [:]
 
     /// How long the feedback stays visible (for non-held actions)
     private let displayDuration: TimeInterval = 1.2
@@ -51,8 +53,26 @@ class ActionFeedbackIndicator {
             createPanel()
         }
 
+        // Track held actions
+        if isHeld {
+            heldActions[action] = type
+        }
+
+        // Determine what to display
+        let displayAction: String
+        let displayIsHeld: Bool
+
+        if !heldActions.isEmpty {
+            // Combine all held actions (sorted for consistent ordering)
+            displayAction = heldActions.keys.sorted().joined(separator: " + ")
+            displayIsHeld = true
+        } else {
+            displayAction = action
+            displayIsHeld = isHeld
+        }
+
         // Update the content
-        hostingView?.rootView = ActionFeedbackView(action: action, type: type, isHeld: isHeld)
+        hostingView?.rootView = ActionFeedbackView(action: displayAction, type: type, isHeld: displayIsHeld)
 
         // Size to fit content
         if let hostingView = hostingView {
@@ -60,7 +80,6 @@ class ActionFeedbackIndicator {
             panel?.setContentSize(size)
         }
 
-        self.isHeldAction = isHeld
         self.showTime = Date()
 
         if !isVisible {
@@ -78,8 +97,8 @@ class ActionFeedbackIndicator {
 
         updatePosition()
 
-        // Only schedule auto-hide for non-held actions
-        if !isHeld {
+        // Only schedule auto-hide for non-held actions when no held actions are active
+        if !isHeld && heldActions.isEmpty {
             hideTimer = Timer.scheduledTimer(withTimeInterval: displayDuration, repeats: false) { [weak self] _ in
                 Task { @MainActor in
                     self?.hide()
@@ -88,10 +107,33 @@ class ActionFeedbackIndicator {
         }
     }
 
-    /// Dismiss a held action indicator (call when button is released)
-    func dismissHeld() {
-        guard isHeldAction else { return }
-        isHeldAction = false
+    /// Dismiss a specific held action (call when button is released)
+    /// - Parameter action: The action string to dismiss. If nil, dismisses all held actions.
+    func dismissHeld(action: String? = nil) {
+        if let action = action {
+            // Remove specific held action
+            heldActions.removeValue(forKey: action)
+
+            // If there are still other held actions, update the display
+            if !heldActions.isEmpty {
+                let displayAction = heldActions.keys.sorted().joined(separator: " + ")
+                let type = heldActions.values.first ?? .singlePress
+                hostingView?.rootView = ActionFeedbackView(action: displayAction, type: type, isHeld: true)
+
+                // Resize panel to fit new content
+                if let hostingView = hostingView {
+                    let size = hostingView.fittingSize
+                    panel?.setContentSize(size)
+                }
+                return
+            }
+        } else {
+            // Clear all held actions
+            heldActions.removeAll()
+        }
+
+        // No more held actions - hide the indicator
+        guard isVisible else { return }
 
         // Ensure minimum display time for quick taps
         if let showTime = showTime {
@@ -114,6 +156,7 @@ class ActionFeedbackIndicator {
     private func hide() {
         guard isVisible else { return }
         isVisible = false
+        heldActions.removeAll()
         stopTracking()
 
         // Fade out

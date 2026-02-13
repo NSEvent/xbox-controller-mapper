@@ -44,6 +44,18 @@ See `AGENTS.md` for complete policy.
 
 ---
 
+## 🛠️ Developer Build Instructions
+
+When building for development (Kevin working on the project), **always use**:
+
+```bash
+make install BUILD_FROM_SOURCE=1
+```
+
+This ensures the app is built from source and installed to /Applications.
+
+---
+
 ## Configuration Schema Reference
 
 ### Overview

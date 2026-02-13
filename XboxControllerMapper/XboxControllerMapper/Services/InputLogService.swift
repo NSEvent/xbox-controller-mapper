@@ -39,9 +39,10 @@ class InputLogService: ObservableObject {
     }
 
     /// Dismiss held action feedback (call when button is released)
-    func dismissHeldFeedback() {
+    /// - Parameter action: The specific action string to dismiss. If nil, dismisses all held actions.
+    func dismissHeldFeedback(action: String? = nil) {
         Task { @MainActor in
-            ActionFeedbackIndicator.shared.dismissHeld()
+            ActionFeedbackIndicator.shared.dismissHeld(action: action)
         }
     }
     

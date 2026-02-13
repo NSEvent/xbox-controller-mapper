@@ -137,7 +137,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         KeyMapping(keyCode: keyCode, modifiers: modifiers)
     }
 
-    /// Human-readable description of the mapping (overrides protocol to add hold indicator)
+    /// Human-readable description of the mapping
     var displayString: String {
         if let systemCommand = systemCommand {
             return systemCommand.displayName
@@ -157,11 +157,6 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
         } else if parts.isEmpty {
             return "None"
-        }
-
-        // Special handling for hold modifier mappings
-        if isHoldModifier && keyCode == nil {
-            return parts.joined() + " (hold)"
         }
 
         return parts.joined(separator: " + ")
