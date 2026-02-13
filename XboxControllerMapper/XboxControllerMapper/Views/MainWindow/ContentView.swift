@@ -1243,8 +1243,8 @@ struct PreviewMappingRow: View {
                     PreviewMappingLabel(
                         text: mapping.hint ?? mapping.displayString,
                         shortcut: mapping.hint != nil ? mapping.displayString : nil,
-                        icon: nil,
-                        color: .primary
+                        icon: mapping.isHoldModifier ? "▼" : nil,
+                        color: mapping.isHoldModifier ? .purple : .primary
                     )
                 }
 
