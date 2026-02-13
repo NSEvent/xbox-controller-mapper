@@ -167,10 +167,13 @@ struct MappingLabelView: View {
             labelRow(text: displayText, icon: "▶", color: .purple, tooltip: (mapping.hint?.isEmpty == false) ? macro.name : nil)
 
         } else if !mapping.isEmpty {
+            // Show purple ▼ badge for hold-type mappings
+            let holdIcon: String? = mapping.isHoldModifier ? "▼" : nil
+            let holdColor: Color = mapping.isHoldModifier ? .purple : .primary
             if let hint = mapping.hint, !hint.isEmpty {
-                labelRow(text: hint, icon: nil, color: .primary, tooltip: mapping.displayString)
+                labelRow(text: hint, icon: holdIcon, color: holdColor, tooltip: mapping.displayString)
             } else {
-                labelRow(text: mapping.displayString, icon: nil, color: .primary, tooltip: nil)
+                labelRow(text: mapping.displayString, icon: holdIcon, color: holdColor, tooltip: nil)
             }
         } else if (mapping.longHoldMapping?.isEmpty ?? true) && (mapping.doubleTapMapping?.isEmpty ?? true) {
             Text("Unmapped")
