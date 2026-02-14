@@ -50,6 +50,16 @@ struct WebsiteLink: Identifiable, Codable, Equatable {
         self.faviconData = faviconData
     }
 
+    // Custom encoder: exclude faviconData from being saved to config
+    // (it's cached in memory only, not persisted to disk)
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(url, forKey: .url)
+        try container.encode(displayName, forKey: .displayName)
+        // faviconData intentionally omitted - cached in memory, not saved to config
+    }
+
     /// Returns the URL as a proper URL object, or nil if invalid
     var urlObject: URL? {
         URL(string: url)
