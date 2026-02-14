@@ -23,6 +23,8 @@ private enum DualSenseHIDConstants {
     // Common byte offsets (0-indexed within common data section)
     static let validFlag0Offset = 0
     static let validFlag1Offset = 1
+    static let rightMotorOffset = 2
+    static let leftMotorOffset = 3
     static let muteButtonLEDOffset = 8
     static let powerSaveControlOffset = 9
     static let validFlag2Offset = 38
@@ -147,9 +149,6 @@ class ControllerService: ObservableObject {
     /// Party mode state
     @Published var partyModeEnabled = false
 
-    /// Keep-alive mode - sends periodic signal to prevent controller sleep
-    @Published var keepAliveEnabled = false
-
     /// Whether the current connection is Bluetooth (for UI display)
     @Published var isBluetoothConnection = false
 
@@ -164,9 +163,6 @@ class ControllerService: ObservableObject {
     private var partyHue: Double = 0.0
     private var partyLEDIndex: Int = 0
     private var partyLEDDirection: Int = 1
-
-    private var keepAliveTimer: Timer?
-    private let keepAliveInterval: TimeInterval = 299.0  // Send signal every 4:59 (controller sleeps after 10 min idle)
 
     private let partyLEDPatterns: [PlayerLEDs] = [
         PlayerLEDs(led1: false, led2: false, led3: true, led4: false, led5: false),
@@ -1655,55 +1651,6 @@ class ControllerService: ObservableObject {
         partySettings.playerLEDs = partyLEDPatterns[max(0, min(partyLEDIndex, partyLEDPatterns.count - 1))]
 
         applyLEDSettings(partySettings)
-    }
-
-    // MARK: - Keep Alive
-
-    func setKeepAlive(_ enabled: Bool) {
-        keepAliveEnabled = enabled
-        if enabled {
-            startKeepAlive()
-        } else {
-            stopKeepAlive()
-        }
-    }
-
-    private func startKeepAlive() {
-        stopKeepAlive()  // Cancel any existing timer
-
-        // Send immediately when enabled
-        sendKeepAliveSignal()
-
-        keepAliveTimer = Timer.scheduledTimer(withTimeInterval: keepAliveInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.sendKeepAliveSignal()
-            }
-        }
-        RunLoop.main.add(keepAliveTimer!, forMode: .common)
-
-        NSLog("[KeepAlive] Started - will send signal every %.0f seconds", keepAliveInterval)
-    }
-
-    private func stopKeepAlive() {
-        keepAliveTimer?.invalidate()
-        keepAliveTimer = nil
-    }
-
-    private func sendKeepAliveSignal() {
-        guard keepAliveEnabled, isBluetoothConnection else { return }
-
-        // Re-apply current LED settings to count as real activity
-        // Empty reports with no valid flags are ignored by the controller
-        storage.lock.lock()
-        let currentSettings = storage.currentLEDSettings
-        storage.lock.unlock()
-
-        guard let settings = currentSettings else { return }
-        applyLEDSettings(settings)
-
-        #if DEBUG
-        print("[KeepAlive] Sent keep-alive signal (re-applied LED settings)")
-        #endif
     }
 
     nonisolated private func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {

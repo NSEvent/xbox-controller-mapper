@@ -313,27 +313,6 @@ struct ContentView: View {
                 }
                 .padding(.top, 12)
             }
-
-            // Bottom bar with Keep Alive toggle
-            if controllerService.isBluetoothConnection {
-                HStack {
-                    Spacer()
-
-                    Toggle(isOn: Binding(
-                        get: { controllerService.keepAliveEnabled },
-                        set: { controllerService.setKeepAlive($0) }
-                    )) {
-                        Text("Keep Alive")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .help("Sends periodic signal to prevent controller from sleeping")
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            }
         }
         .sheet(isPresented: $showingAddLayerSheet) {
             AddLayerSheet()
