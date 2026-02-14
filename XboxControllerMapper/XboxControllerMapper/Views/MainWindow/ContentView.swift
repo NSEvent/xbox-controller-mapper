@@ -1679,8 +1679,9 @@ struct ChordMappingSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text(isEditing ? "Edit Chord" : "Add Chord")
+        ScrollView {
+            VStack(spacing: 20) {
+                Text(isEditing ? "Edit Chord" : "Add Chord")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -1889,9 +1890,10 @@ struct ChordMappingSheet: View {
                 .buttonStyle(.borderedProminent)
             }
         }
-        .onSubmit { saveChord() }
         .padding(20)
-        .frame(width: 850)
+    }
+    .onSubmit { saveChord() }
+    .frame(width: 850)
         .onAppear {
             if let chord = editingChord {
                 selectedButtons = chord.buttons
