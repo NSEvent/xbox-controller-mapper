@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-02-14
+
+### Added
+
+- **Stick Mode Settings**: Configure left/right stick behavior independently
+  - WASD keys mode for left stick (gaming-style movement)
+  - Arrow keys mode for right stick (navigation)
+  - Disable option to turn off stick input entirely
+- **Held Modifier Feedback**: Purple "hold" badge in cursor hints when modifier buttons are held
+  - Shows combined hint when multiple modifiers are held simultaneously
+  - Badge also appears in Buttons tab mapping labels
+
+### Fixed
+
+- Typed text in macros being affected by held controller modifiers (e.g., Shift held while typing)
+- Cursor hint text truncation now shows ellipsis instead of clipping
+- Community profile preview showing Xbox button icons for DualSense controllers
+- ChordMappingSheet now scrollable when content exceeds window height (DualSense Edge + keyboard)
+
+### Changed
+
+- Favicon data no longer persisted to config file (fetched on demand, reduces file size)
+
+### Removed
+
+- Keep Alive feature removed (was causing issues and determined unnecessary)
+
 ## [1.4.0] - 2026-02-12
 
 ### Added
