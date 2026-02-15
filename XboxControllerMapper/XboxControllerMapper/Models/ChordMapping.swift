@@ -116,7 +116,29 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         existingChords: [ChordMapping],
         editingChordId: UUID? = nil
     ) -> Set<ControllerButton> {
-        var conflicted = Set<ControllerButton>()
+        Set(conflictedButtonsWithChords(
+            selectedButtons: selectedButtons,
+            existingChords: existingChords,
+            editingChordId: editingChordId
+        ).keys)
+    }
+
+    /// Returns a mapping of conflicted buttons to the chord that would be duplicated.
+    ///
+    /// A button is "conflicted" if adding it to the current selection would exactly match
+    /// an existing chord's button combination.
+    ///
+    /// - Parameters:
+    ///   - selectedButtons: The currently selected buttons in the chord editor
+    ///   - existingChords: All chord mappings in the current profile
+    ///   - editingChordId: If editing an existing chord, its ID (to exclude from conflict check)
+    /// - Returns: Dictionary mapping each conflicted button to the chord it would duplicate
+    static func conflictedButtonsWithChords(
+        selectedButtons: Set<ControllerButton>,
+        existingChords: [ChordMapping],
+        editingChordId: UUID? = nil
+    ) -> [ControllerButton: ChordMapping] {
+        var conflicts: [ControllerButton: ChordMapping] = [:]
 
         for chord in existingChords {
             // Skip the chord being edited
@@ -128,12 +150,12 @@ struct ChordMapping: Codable, Identifiable, Equatable {
                 let remaining = chord.buttons.subtracting(selectedButtons)
                 // Only conflict if exactly one button remains
                 // (adding that one button would create an exact duplicate)
-                if remaining.count == 1 {
-                    conflicted.formUnion(remaining)
+                if remaining.count == 1, let button = remaining.first {
+                    conflicts[button] = chord
                 }
             }
         }
 
-        return conflicted
+        return conflicts
     }
 }

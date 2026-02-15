@@ -4796,4 +4796,42 @@ final class ChordConflictTests: XCTestCase {
 
         XCTAssertEqual(conflicts, [.rightBumper, .a])
     }
+
+    // MARK: - Conflict With Chord Info Tests
+
+    func testConflictedButtonsWithChordsReturnsCorrectChord() {
+        // Existing chord: Left + Down
+        // User selects: Left
+        // Expected: Down maps to the Left + Down chord
+        let selected: Set<ControllerButton> = [.dpadLeft]
+        let chord = ChordMapping(buttons: [.dpadLeft, .dpadDown], keyCode: 0)
+        let existing = [chord]
+
+        let conflicts = ChordMapping.conflictedButtonsWithChords(
+            selectedButtons: selected,
+            existingChords: existing
+        )
+
+        XCTAssertEqual(conflicts.count, 1)
+        XCTAssertEqual(conflicts[.dpadDown]?.buttons, chord.buttons)
+    }
+
+    func testConflictedButtonsWithChordsMultipleConflicts() {
+        // Existing chords: LB + RB, LB + A
+        // User selects: LB
+        // Expected: RB maps to LB+RB chord, A maps to LB+A chord
+        let selected: Set<ControllerButton> = [.leftBumper]
+        let chord1 = ChordMapping(buttons: [.leftBumper, .rightBumper], keyCode: 0)
+        let chord2 = ChordMapping(buttons: [.leftBumper, .a], keyCode: 1)
+        let existing = [chord1, chord2]
+
+        let conflicts = ChordMapping.conflictedButtonsWithChords(
+            selectedButtons: selected,
+            existingChords: existing
+        )
+
+        XCTAssertEqual(conflicts.count, 2)
+        XCTAssertEqual(conflicts[.rightBumper]?.buttons, chord1.buttons)
+        XCTAssertEqual(conflicts[.a]?.buttons, chord2.buttons)
+    }
 }
