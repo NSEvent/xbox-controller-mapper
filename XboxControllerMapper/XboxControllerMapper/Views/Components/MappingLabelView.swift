@@ -218,7 +218,7 @@ struct MappingLabelView: View {
                 .font(font)
                 .foregroundColor(foregroundColor)
                 .lineLimit(1)
-                .minimumScaleFactor(0.25)
+                .minimumScaleFactor(0.5)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
