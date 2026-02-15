@@ -802,7 +802,7 @@ class ProfileManager: ObservableObject {
 
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = .prettyPrinted
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
             do {
                 let data = try encoder.encode(config)

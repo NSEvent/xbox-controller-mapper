@@ -56,6 +56,18 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
 
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        // Sort buttons by rawValue for deterministic JSON output
+        try container.encode(buttons.sorted { $0.rawValue < $1.rawValue }, forKey: .buttons)
+        try container.encodeIfPresent(keyCode, forKey: .keyCode)
+        try container.encode(modifiers, forKey: .modifiers)
+        try container.encodeIfPresent(macroId, forKey: .macroId)
+        try container.encodeIfPresent(systemCommand, forKey: .systemCommand)
+        try container.encodeIfPresent(hint, forKey: .hint)
+    }
+
     /// Human-readable description of the chord trigger
     var buttonsDisplayString: String {
         buttons
