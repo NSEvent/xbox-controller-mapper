@@ -1648,6 +1648,16 @@ struct ChordMappingSheet: View {
         }
     }
 
+    /// Buttons that would create a duplicate chord if selected
+    private var conflictedButtons: Set<ControllerButton> {
+        guard let profile = profileManager.activeProfile else { return [] }
+        return ChordMapping.conflictedButtons(
+            selectedButtons: selectedButtons,
+            existingChords: profile.chordMappings,
+            editingChordId: editingChord?.id
+        )
+    }
+
     private var canSave: Bool {
         selectedButtons.count >= 2 &&
         (mappingType != .singleKey || keyCode != nil || modifiers.hasAny) &&
@@ -2027,26 +2037,33 @@ struct ChordMappingSheet: View {
     @ViewBuilder
     private func toggleButton(_ button: ControllerButton) -> some View {
         let scale: CGFloat = 1.3
+        let isConflicted = conflictedButtons.contains(button)
+        let isSelected = selectedButtons.contains(button)
 
         Button(action: {
-            if selectedButtons.contains(button) {
+            if isSelected {
                 selectedButtons.remove(button)
-            } else {
+            } else if !isConflicted {
                 selectedButtons.insert(button)
             }
         }) {
-            ButtonIconView(button: button, isPressed: selectedButtons.contains(button), isDualSense: isDualSense)
+            ButtonIconView(button: button, isPressed: isSelected, isDualSense: isDualSense)
                 .scaleEffect(scale)
                 .frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)
-                .opacity(selectedButtons.contains(button) ? 1.0 : 0.7)
+                .opacity(isConflicted ? 0.3 : (isSelected ? 1.0 : 0.7))
                 .overlay {
-                    if selectedButtons.contains(button) {
+                    if isSelected {
                         selectionBorder(for: button)
+                            .scaleEffect(scale)
+                    } else if isConflicted {
+                        // Show X overlay for conflicted buttons
+                        conflictOverlay(for: button)
                             .scaleEffect(scale)
                     }
                 }
         }
         .buttonStyle(.plain)
+        .disabled(isConflicted)
     }
     
     private enum SelectionShape {
@@ -2087,6 +2104,27 @@ struct ChordMappingSheet: View {
                 .stroke(borderColor, lineWidth: 3)
                 .shadow(color: borderColor.opacity(0.8), radius: 4)
         }
+    }
+
+    /// Visual overlay for buttons that would create a duplicate chord
+    @ViewBuilder
+    private func conflictOverlay(for button: ControllerButton) -> some View {
+        let size: CGFloat = {
+            switch button.category {
+            case .face, .special, .thumbstick, .dpad: return 28
+            case .bumper, .trigger: return min(42, 22)
+            case .touchpad: return 24
+            case .paddle: return 24
+            }
+        }()
+
+        // Diagonal line to indicate "not available"
+        Path { path in
+            path.move(to: CGPoint(x: 0, y: 0))
+            path.addLine(to: CGPoint(x: size, y: size))
+        }
+        .stroke(Color.red.opacity(0.6), lineWidth: 2)
+        .frame(width: size, height: size)
     }
 
     private func buttonWidth(for button: ControllerButton) -> CGFloat {

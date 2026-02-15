@@ -84,7 +84,7 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         if macroId != nil {
             return "Macro" // UI should enhance this with actual name if possible
         }
-        
+
         var parts: [String] = []
 
         if modifiers.command { parts.append("⌘") }
@@ -97,5 +97,43 @@ struct ChordMapping: Codable, Identifiable, Equatable {
         }
 
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
+    }
+
+    // MARK: - Chord Conflict Detection
+
+    /// Returns the set of buttons that would create a duplicate chord if selected.
+    ///
+    /// A button is "conflicted" if adding it to the current selection would exactly match
+    /// an existing chord's button combination.
+    ///
+    /// - Parameters:
+    ///   - selectedButtons: The currently selected buttons in the chord editor
+    ///   - existingChords: All chord mappings in the current profile
+    ///   - editingChordId: If editing an existing chord, its ID (to exclude from conflict check)
+    /// - Returns: Set of buttons that should be grayed out / disabled
+    static func conflictedButtons(
+        selectedButtons: Set<ControllerButton>,
+        existingChords: [ChordMapping],
+        editingChordId: UUID? = nil
+    ) -> Set<ControllerButton> {
+        var conflicted = Set<ControllerButton>()
+
+        for chord in existingChords {
+            // Skip the chord being edited
+            if chord.id == editingChordId { continue }
+
+            // If selected buttons are a subset of this chord's buttons,
+            // the remaining buttons would complete the conflict
+            if selectedButtons.isSubset(of: chord.buttons) {
+                let remaining = chord.buttons.subtracting(selectedButtons)
+                // Only conflict if exactly one button remains
+                // (adding that one button would create an exact duplicate)
+                if remaining.count == 1 {
+                    conflicted.formUnion(remaining)
+                }
+            }
+        }
+
+        return conflicted
     }
 }
