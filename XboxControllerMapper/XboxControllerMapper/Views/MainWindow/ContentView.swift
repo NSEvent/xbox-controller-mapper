@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var actionFeedbackEnabled: Bool = ActionFeedbackIndicator.isEnabled
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
+    @State private var hoveredChordId: UUID? = nil
 
     var body: some View {
         HSplitView {
@@ -306,7 +307,15 @@ struct ContentView: View {
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(GlassCardBackground())
+                        .background(GlassCardBackground(isHovered: hoveredChordId == chord.id))
+                        .cornerRadius(10)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            editingChord = chord
+                        }
+                        .onHover { isHovered in
+                            hoveredChordId = isHovered ? chord.id : nil
+                        }
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 16)
