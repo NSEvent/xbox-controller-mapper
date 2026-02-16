@@ -1,5 +1,6 @@
 import SwiftUI
 import GameController
+import AppKit
 
 /// Interactive visual representation of a controller with a professional Reference Page layout
 /// Automatically adapts to show Xbox or DualSense layouts based on connected controller
@@ -414,7 +415,6 @@ struct ControllerVisualView: View {
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
         .allowsHitTesting(!isLayerActivatorInLayerContext(button))  // Disable clicks on layer activators when in layer context
         .onTapGesture { onButtonTap(button) }
-        .hoverable()
     }
 
     // MARK: - Mini Controller Helpers (Jewel/Glass Style)
@@ -790,9 +790,15 @@ struct HoverableGlassContainer<Content: View>: View {
 
     var body: some View {
         content
+            .contentShape(Rectangle())
             .background(GlassCardBackground(isActive: isActive, isHovered: isHovered))
             .onHover { hovering in
                 isHovered = hovering
+                if hovering {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
             }
     }
 }

@@ -1526,9 +1526,7 @@ struct ChordRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .contentShape(Rectangle())
-        .onTapGesture { onEdit() }
-        .hoverable()
+        .hoverableRow(onTap: onEdit)
     }
 }
 
@@ -1563,17 +1561,19 @@ struct GlassCardBackground: View {
         ZStack {
             if isActive {
                 Color.accentColor.opacity(0.2)
+            } else if isHovered {
+                Color.accentColor.opacity(0.08)
             } else {
                 Color.black.opacity(0.4)
             }
-            
+
             RoundedRectangle(cornerRadius: cornerRadius)
                 .stroke(borderColor, lineWidth: isActive ? 1.5 : 1)
         }
         .cornerRadius(cornerRadius)
         .shadow(color: isActive ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.2), radius: isActive ? 8 : 4)
     }
-    
+
     private var borderColor: Color {
         if isActive { return Color.accentColor.opacity(0.8) }
         if isHovered { return Color.white.opacity(0.3) }
