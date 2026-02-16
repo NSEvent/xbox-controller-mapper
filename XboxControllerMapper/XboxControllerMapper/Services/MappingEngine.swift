@@ -1687,7 +1687,7 @@ class MappingEngine: ObservableObject {
                     phase: .ended,
                     momentumPhase: nil,
                     isContinuous: true,
-                    flags: []
+                    flags: inputSimulator.getHeldModifiers()
                 )
             }
             state.lock.lock()
@@ -1732,7 +1732,7 @@ class MappingEngine: ObservableObject {
                 phase: .began,
                 momentumPhase: nil,
                 isContinuous: true,
-                flags: []
+                flags: inputSimulator.getHeldModifiers()
             )
         }
 
@@ -1977,7 +1977,7 @@ class MappingEngine: ObservableObject {
                     phase: .changed,
                     momentumPhase: nil,
                     isContinuous: true,
-                    flags: []
+                    flags: inputSimulator.getHeldModifiers()
                 )
             }
             state.lock.lock()
@@ -2004,7 +2004,7 @@ class MappingEngine: ObservableObject {
                     phase: nil,
                     momentumPhase: .end,
                     isContinuous: true,
-                    flags: []
+                    flags: inputSimulator.getHeldModifiers()
                 )
             }
             state.lock.lock()
@@ -2029,7 +2029,7 @@ class MappingEngine: ObservableObject {
                     phase: nil,
                     momentumPhase: .end,
                     isContinuous: true,
-                    flags: []
+                    flags: inputSimulator.getHeldModifiers()
                 )
             }
             state.lock.lock()
@@ -2060,7 +2060,7 @@ class MappingEngine: ObservableObject {
                 phase: nil,
                 momentumPhase: momentumPhase,
                 isContinuous: true,
-                flags: []
+                flags: inputSimulator.getHeldModifiers()
             )
             wasActive = true
         }
@@ -2114,7 +2114,14 @@ class MappingEngine: ObservableObject {
             dy *= settings.scrollBoostMultiplier
         }
 
-        inputSimulator.scroll(dx: dx, dy: dy)
+        inputSimulator.scroll(
+            dx: dx,
+            dy: dy,
+            phase: nil,
+            momentumPhase: nil,
+            isContinuous: false,
+            flags: inputSimulator.getHeldModifiers()
+        )
     }
 
     /// Processes stick input as direction keys (WASD or Arrow keys)

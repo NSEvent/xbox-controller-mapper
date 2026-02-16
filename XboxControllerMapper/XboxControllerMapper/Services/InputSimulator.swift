@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 import AppKit
 import IOKit.hidsystem
+import ApplicationServices.HIServices
 
 protocol InputSimulatorProtocol: Sendable {
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
@@ -11,6 +12,7 @@ protocol InputSimulatorProtocol: Sendable {
     func releaseModifier(_ modifier: CGEventFlags)
     func releaseAllModifiers()
     func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool
+    func getHeldModifiers() -> CGEventFlags
     func moveMouse(dx: CGFloat, dy: CGFloat)
     func scroll(
         dx: CGFloat,
@@ -53,6 +55,68 @@ private class ModifierKeyState {
 
 /// Service for simulating keyboard and mouse input via CGEvent
 class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
+    /// Static tracked cursor position for use by other services (e.g., ActionFeedbackIndicator)
+    /// when Accessibility Zoom is active. Access via getTrackedCursorPosition().
+    private static var sharedTrackedPosition: CGPoint?
+    private static var sharedLastMoveTime: Date = .distantPast
+    private static var sharedLock = NSLock()
+
+    /// Accumulated movement delta since last consumption (for hint positioning during zoom)
+    private static var accumulatedDelta: CGPoint = .zero
+
+    /// Returns the tracked cursor position if available and Accessibility Zoom is active,
+    /// otherwise returns nil (caller should fall back to NSEvent.mouseLocation)
+    static func getTrackedCursorPosition() -> CGPoint? {
+        guard UAZoomEnabled() else { return nil }
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return sharedTrackedPosition
+    }
+
+    /// Returns true if cursor was moved very recently by the controller
+    /// (movement within last 50ms). Used by ActionFeedbackIndicator to briefly
+    /// pause position updates right after movement when Accessibility Zoom is active.
+    /// The short 50ms window skips the immediate unreliable reading but allows
+    /// frequent updates to follow the cursor during long drags.
+    static func isCursorBeingMoved() -> Bool {
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return Date().timeIntervalSince(sharedLastMoveTime) < 0.05
+    }
+
+    /// Consumes and returns the accumulated movement delta since last call.
+    /// Used by ActionFeedbackIndicator to apply relative movement during zoom.
+    /// Delta is in screen points (positive X = right, positive Y = down in CG coords).
+    static func consumeMovementDelta() -> CGPoint {
+        sharedLock.lock()
+        let delta = accumulatedDelta
+        accumulatedDelta = .zero
+        sharedLock.unlock()
+        return delta
+    }
+
+    /// Resets the accumulated movement delta without consuming it.
+    /// Called when resyncing hint position to absolute coordinates.
+    static func resetMovementDelta() {
+        sharedLock.lock()
+        accumulatedDelta = .zero
+        sharedLock.unlock()
+    }
+
+    /// Returns the current Accessibility Zoom level (1.0 = no zoom, 2.0 = 2x zoom, etc.)
+    static func getZoomLevel() -> CGFloat {
+        CGFloat(UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0)
+    }
+
+    /// Updates the shared tracked position (called from moveMouse)
+    private static func updateSharedTrackedPosition(_ point: CGPoint?, delta: CGPoint = .zero) {
+        sharedLock.lock()
+        sharedTrackedPosition = point
+        sharedLastMoveTime = Date()
+        accumulatedDelta.x += delta.x
+        accumulatedDelta.y += delta.y
+        sharedLock.unlock()
+    }
     private let eventSource: CGEventSource?
 
     /// Currently held modifier flags (for hold-type mappings)
@@ -296,6 +360,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         return !modifier.isEmpty && heldModifiers.contains(modifier)
     }
 
+    /// Returns the currently held modifier flags
+    func getHeldModifiers() -> CGEventFlags {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return heldModifiers
+    }
+
     /// Releases all held modifiers
     func releaseAllModifiers() {
         stateLock.lock()
@@ -324,6 +395,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Tracks sub-pixel movement residuals to prevent quantization stickiness
     private var residualMovement: CGPoint = .zero
+
+    /// Tracked cursor position for Accessibility Zoom compatibility
+    /// When zoom is active, reading cursor position from the system can return transformed
+    /// coordinates that cause "reset" behavior. We track position internally instead.
+    private var trackedCursorPosition: CGPoint?
+    /// Last time we synced the tracked position with the system (for drift correction)
+    private var lastCursorSyncTime: Date = .distantPast
+    /// Last time moveMouse was called (to detect inactivity and clear tracked position)
+    private var lastMouseMoveTime: Date = .distantPast
 
     /// Cached union of all screen frames
     private var cachedScreenBounds: CGRect?
@@ -412,19 +492,61 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             self.stateLock.lock()
             let heldButtons = self.heldMouseButtons
             let (bounds, primaryDisplayHeight) = self.ensureScreenCache()
+
+            // Use tracked position if available, otherwise sync from system
+            // This prevents Accessibility Zoom coordinate transformations from causing
+            // cursor "reset" behavior when reading position each frame
+            let now = Date()
+            let zoomActive = UAZoomEnabled()
+            let currentCGPoint: CGPoint
+
+            // If there's been no movement for 2+ seconds, clear tracked position
+            // This ensures we re-sync if user moved cursor with physical trackpad
+            if now.timeIntervalSince(self.lastMouseMoveTime) > 2.0 {
+                self.trackedCursorPosition = nil
+            }
+            self.lastMouseMoveTime = now
+
+            if let tracked = self.trackedCursorPosition {
+                // When zoom is active, always use tracked position (never sync during movement)
+                // When zoom is inactive, sync every 0.5s for drift correction
+                if zoomActive || now.timeIntervalSince(self.lastCursorSyncTime) < 0.5 {
+                    currentCGPoint = tracked
+                } else {
+                    // Zoom inactive and timeout expired - sync from system
+                    if let locationEvent = CGEvent(source: nil) {
+                        currentCGPoint = locationEvent.location
+                    } else {
+                        let nsLocation = NSEvent.mouseLocation
+                        currentCGPoint = CGPoint(
+                            x: nsLocation.x,
+                            y: primaryDisplayHeight - nsLocation.y
+                        )
+                    }
+                    self.lastCursorSyncTime = now
+                }
+            } else {
+                // No tracked position - sync from system (first movement or after inactivity)
+                if let locationEvent = CGEvent(source: nil) {
+                    currentCGPoint = locationEvent.location
+                } else {
+                    let nsLocation = NSEvent.mouseLocation
+                    currentCGPoint = CGPoint(
+                        x: nsLocation.x,
+                        y: primaryDisplayHeight - nsLocation.y
+                    )
+                }
+                self.lastCursorSyncTime = now
+            }
             self.stateLock.unlock()
 
-            let currentLocation = NSEvent.mouseLocation
-            
-            // Use cached primary display height for coordinate conversion
-            // Convert from bottom-left origin to top-left origin
-            let newX = currentLocation.x + moveX
-            let newY = primaryDisplayHeight - currentLocation.y + moveY
-            
+            let newX = currentCGPoint.x + moveX
+            let newY = currentCGPoint.y + moveY
+
             // Determine event type based on held buttons (drag if button held)
             let eventType: CGEventType
             let mouseButton: CGMouseButton
-            
+
             if heldButtons.contains(.left) {
                 eventType = .leftMouseDragged
                 mouseButton = .left
@@ -439,13 +561,32 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseButton = .left // Default for move events
             }
 
-            // Clamp to valid screen bounds to avoid off-screen warps (which cause stickiness)
+            // Clamp to valid screen bounds
             let clampedX = max(bounds.minX, min(bounds.maxX - 1, newX))
             let clampedY = max(bounds.minY, min(bounds.maxY - 1, newY))
             let newPoint = CGPoint(x: clampedX, y: clampedY)
 
-            // Warp the cursor first to bypass "sticky edges" when crossing screens
+            // Set suppression interval to 0 to prevent 250ms freeze after warp
+            if let warpSource = CGEventSource(stateID: .combinedSessionState) {
+                warpSource.localEventsSuppressionInterval = 0.0
+            }
             _ = CGWarpMouseCursorPosition(newPoint)
+
+            // Update tracked position to avoid reading back transformed coordinates
+            self.stateLock.lock()
+            self.trackedCursorPosition = newPoint
+            self.stateLock.unlock()
+
+            // Update shared position for other services (e.g., ActionFeedbackIndicator)
+            // Pass the movement delta for relative positioning during zoom
+            Self.updateSharedTrackedPosition(newPoint, delta: CGPoint(x: moveX, y: moveY))
+
+            // If Accessibility Zoom is enabled, tell it to focus on the new cursor position
+            // This helps the zoom viewport follow the cursor movement
+            if UAZoomEnabled() {
+                var focusRect = CGRect(x: newPoint.x - 1, y: newPoint.y - 1, width: 2, height: 2)
+                UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
+            }
 
             if let event = CGEvent(
                 mouseEventSource: source,
@@ -453,10 +594,28 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseCursorPosition: newPoint,
                 mouseButton: mouseButton
             ) {
+                // Set delta fields for Accessibility Zoom viewport panning
+                event.setIntegerValueField(.mouseEventDeltaX, value: Int64(moveX))
+                event.setIntegerValueField(.mouseEventDeltaY, value: Int64(moveY))
                 event.post(tap: .cghidEventTap)
             }
         }
     }
+
+    /// Accumulated scroll delta for Accessibility Zoom (Control+scroll -> keyboard shortcut conversion)
+    private var accessibilityZoomAccumulator: CGFloat = 0
+    /// Threshold for triggering a zoom step (in scroll pixels)
+    private let accessibilityZoomThreshold: CGFloat = 10.0
+    /// Last time we sent a zoom keyboard shortcut (for rate limiting)
+    private var lastAccessibilityZoomTime: Date = .distantPast
+    /// Minimum interval between zoom keyboard shortcuts
+    private let accessibilityZoomMinInterval: TimeInterval = 0.05
+    /// Counter for Control+scroll zoom attempts
+    private var zoomAttemptCount: Int = 0
+    /// Whether we've ever seen zoom level above 1.0 (proves shortcuts are working)
+    private var hasEverSeenZoomActive: Bool = false
+    /// Whether we've already shown the keyboard shortcuts warning
+    private var hasShownZoomKeyboardShortcutWarning: Bool = false
 
     /// Scrolls by a delta
     func scroll(
@@ -467,13 +626,20 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         isContinuous: Bool,
         flags: CGEventFlags
     ) {
+        // Check if Control is held - if so, convert to Accessibility Zoom keyboard shortcuts
+        // macOS Accessibility Zoom doesn't respond to synthetic Control+scroll events,
+        // but does respond to Option+Command+Plus/Minus keyboard shortcuts
+        if flags.contains(.maskControl) && dy != 0 {
+            handleAccessibilityZoom(dy: dy)
+            return
+        }
+
         mouseQueue.async { [weak self] in
             guard let self = self else { return }
             guard self.checkAccessibility() else { return }
-            guard let source = self.eventSource else { return }
 
             if let event = CGEvent(
-                scrollWheelEvent2Source: source,
+                scrollWheelEvent2Source: self.eventSource,
                 units: .pixel,
                 wheelCount: 2,
                 wheel1: Int32(dy),
@@ -482,18 +648,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             ) {
                 if isContinuous {
                     event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
-                    // Set instant mouser to 0 to indicate trackpad (not mouse)
                     event.setIntegerValueField(.scrollWheelEventInstantMouser, value: 0)
-                    // Set point delta fields for native trackpad emulation
-                    // Chrome and other browsers require these fields to recognize trackpad gestures
                     event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(dy))
                     event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(dx))
-                    // Set fixed-point delta fields (16.16 fixed-point format)
-                    // Native trackpads set these for precise sub-pixel scrolling
                     event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: Double(dy))
                     event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: Double(dx))
-                    // Set scroll count to indicate this is a gesture event
-                    event.setIntegerValueField(.scrollWheelEventScrollCount, value: 1)
                 }
                 if let phase {
                     event.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
@@ -501,11 +660,186 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 if let momentumPhase {
                     event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: Int64(momentumPhase.rawValue))
                 }
-                if flags.rawValue != 0 {
-                    event.flags = flags
+                // Set modifier flags on the scroll event (excluding Control which was handled above)
+                let scrollFlags = flags.subtracting(.maskControl)
+                if scrollFlags.rawValue != 0 {
+                    event.flags = event.flags.union(scrollFlags)
                 }
                 event.post(tap: .cghidEventTap)
             }
+        }
+    }
+
+    /// Handles Accessibility Zoom by converting Control+scroll to Option+Command+Plus/Minus
+    private func handleAccessibilityZoom(dy: CGFloat) {
+        // Accumulate scroll delta
+        accessibilityZoomAccumulator += dy
+
+        // Check if we've accumulated enough for a zoom step
+        guard abs(accessibilityZoomAccumulator) >= accessibilityZoomThreshold else { return }
+
+        // Rate limit keyboard shortcut sending
+        let now = Date()
+        guard now.timeIntervalSince(lastAccessibilityZoomTime) >= accessibilityZoomMinInterval else { return }
+
+        // Determine zoom direction: positive dy = scroll up = zoom in
+        let zoomIn = accessibilityZoomAccumulator > 0
+
+        // Reset accumulator
+        accessibilityZoomAccumulator = 0
+        lastAccessibilityZoomTime = now
+
+        // Check if zoom is working before sending shortcut
+        // If we've ever seen zoom active (level > 1.0 or UAZoomEnabled), shortcuts work
+        if !hasEverSeenZoomActive {
+            if UAZoomEnabled() || getCurrentZoomLevel() > 1.001 {
+                hasEverSeenZoomActive = true
+            } else if !hasShownZoomKeyboardShortcutWarning {
+                zoomAttemptCount += 1
+                // After 5 attempts with no zoom activity, show warning and stop sending shortcuts
+                if zoomAttemptCount >= 5 {
+                    hasShownZoomKeyboardShortcutWarning = true
+                    showZoomKeyboardShortcutWarning()
+                    return // Don't send shortcuts that won't work
+                }
+            } else {
+                // Warning was already shown and zoom still not working - don't send shortcuts
+                return
+            }
+        }
+
+        // Send zoom keyboard shortcut on keyboard queue
+        // Option+Command+= (zoom in) or Option+Command+- (zoom out)
+        keyboardQueue.async { [weak self] in
+            guard let self = self else { return }
+
+            // kVK_ANSI_Equal = 0x18 = 24, kVK_ANSI_Minus = 0x1B = 27
+            let keyCode: CGKeyCode = zoomIn ? 24 : 27
+            let modifiers: CGEventFlags = [.maskAlternate, .maskCommand]
+
+            // Press the key with modifiers
+            if let downEvent = CGEvent(keyboardEventSource: self.eventSource, virtualKey: keyCode, keyDown: true) {
+                downEvent.flags = modifiers
+                downEvent.post(tap: .cghidEventTap)
+            }
+
+            usleep(10000) // 10ms hold
+
+            if let upEvent = CGEvent(keyboardEventSource: self.eventSource, virtualKey: keyCode, keyDown: false) {
+                upEvent.flags = modifiers
+                upEvent.post(tap: .cghidEventTap)
+            }
+        }
+    }
+
+    /// Gets the current Accessibility Zoom level from user defaults
+    private func getCurrentZoomLevel() -> Double {
+        UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0
+    }
+
+    /// Resets zoom detection state so shortcuts will be tried again
+    /// Called when user opens Settings to enable keyboard shortcuts
+    private func resetZoomDetectionState() {
+        zoomAttemptCount = 0
+        hasShownZoomKeyboardShortcutWarning = false
+        // Don't reset hasEverSeenZoomActive - if it was working before, it should still work
+    }
+
+    /// Shows a warning that keyboard shortcuts need to be enabled for Accessibility Zoom
+    private func showZoomKeyboardShortcutWarning() {
+        DispatchQueue.main.async {
+            // Create a non-modal floating panel instead of blocking alert
+            let panel = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: 450, height: 200),
+                styleMask: [.titled, .closable, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.title = "ControllerKeys"
+            panel.level = .floating
+            panel.isFloatingPanel = true
+            panel.becomesKeyOnlyIfNeeded = true
+            panel.hidesOnDeactivate = false
+
+            let contentView = NSView(frame: panel.contentRect(forFrameRect: panel.frame))
+
+            // App icon
+            if let appIcon = NSApp.applicationIconImage {
+                let iconView = NSImageView(frame: NSRect(x: 20, y: 110, width: 64, height: 64))
+                iconView.image = appIcon
+                contentView.addSubview(iconView)
+            }
+
+            // Title
+            let titleField = NSTextField(labelWithString: "Enable Keyboard Shortcuts for Zoom")
+            titleField.frame = NSRect(x: 94, y: 150, width: 340, height: 24)
+            titleField.font = NSFont.boldSystemFont(ofSize: 14)
+            titleField.isEditable = false
+            titleField.isBordered = false
+            titleField.backgroundColor = .clear
+            contentView.addSubview(titleField)
+
+            // Message
+            let textField = NSTextField(wrappingLabelWithString:
+                "To use Control+Scroll for Accessibility Zoom with your controller, enable \"Use keyboard shortcuts to zoom\" in System Settings.\n\nSystem Settings → Accessibility → Zoom"
+            )
+            textField.frame = NSRect(x: 94, y: 55, width: 340, height: 90)
+            textField.isEditable = false
+            textField.isBordered = false
+            textField.backgroundColor = .clear
+            textField.font = NSFont.systemFont(ofSize: 12)
+            contentView.addSubview(textField)
+
+            // Buttons - properly spaced
+            let dismissButton = NSButton(title: "Dismiss", target: nil, action: nil)
+            dismissButton.frame = NSRect(x: 220, y: 15, width: 100, height: 32)
+            dismissButton.bezelStyle = .rounded
+            dismissButton.keyEquivalent = "\u{1b}" // Escape
+            contentView.addSubview(dismissButton)
+
+            let openButton = NSButton(title: "Open Settings", target: nil, action: nil)
+            openButton.frame = NSRect(x: 330, y: 15, width: 110, height: 32)
+            openButton.bezelStyle = .rounded
+            openButton.keyEquivalent = "\r"
+            contentView.addSubview(openButton)
+
+            panel.contentView = contentView
+            panel.center()
+
+            // Use a simple approach - just make the panel orderable and let user interact
+            panel.orderFrontRegardless()
+
+            // Store reference to prevent deallocation and set up click handlers
+            objc_setAssociatedObject(panel, "keepAlive", panel, .OBJC_ASSOCIATION_RETAIN)
+
+            // Use block-based approach for button actions
+            class ButtonHandler: NSObject {
+                let panel: NSPanel
+                let onOpenSettings: () -> Void
+                init(panel: NSPanel, onOpenSettings: @escaping () -> Void) {
+                    self.panel = panel
+                    self.onOpenSettings = onOpenSettings
+                }
+                @objc func openSettings() {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension?Zoom") {
+                        NSWorkspace.shared.open(url)
+                    }
+                    onOpenSettings()
+                    panel.close()
+                }
+                @objc func dismiss() {
+                    panel.close()
+                }
+            }
+            let handler = ButtonHandler(panel: panel) { [weak self] in
+                // Reset state so zoom shortcuts will be tried again after user enables setting
+                self?.resetZoomDetectionState()
+            }
+            objc_setAssociatedObject(panel, "handler", handler, .OBJC_ASSOCIATION_RETAIN)
+            openButton.target = handler
+            openButton.action = #selector(ButtonHandler.openSettings)
+            dismissButton.target = handler
+            dismissButton.action = #selector(ButtonHandler.dismiss)
         }
     }
 
@@ -523,14 +857,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
+        let (downType, button) = mouseEventType(for: keyCode, down: true)
+
+        stateLock.lock()
+        defer { stateLock.unlock() }
+
+        // Always use NSEvent.mouseLocation for click position - it gives the actual cursor location
         let location = NSEvent.mouseLocation
         let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
         let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
-
-        let (downType, button) = mouseEventType(for: keyCode, down: true)
-        
-        stateLock.lock()
-        defer { stateLock.unlock() }
 
         // Track hold state
         heldMouseButtons.insert(button)
@@ -565,14 +900,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
-        let location = NSEvent.mouseLocation
-        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
-        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
-
         let (upType, button) = mouseEventType(for: keyCode, down: false)
 
         stateLock.lock()
         defer { stateLock.unlock() }
+
+        // Always use NSEvent.mouseLocation for click position - it gives the actual cursor location
+        let location = NSEvent.mouseLocation
+        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
 
         // Update hold state
         heldMouseButtons.remove(button)

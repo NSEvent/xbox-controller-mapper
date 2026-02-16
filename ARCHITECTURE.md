@@ -137,6 +137,33 @@ Axes: `leftx`, `lefty`, `rightx`, `righty` (sticks), `lefttrigger`, `righttrigge
 
 ---
 
+## Known Workarounds
+
+### Accessibility Zoom (Control+Scroll)
+
+**Problem:** macOS Accessibility Zoom ("Use scroll gesture with modifier keys to zoom") doesn't respond to synthetic `CGEvent` scroll events with Control modifier. This is because Accessibility Zoom specifically requires real trackpad gesture events containing undocumented IOKit HID touch data structures.
+
+**Research findings:**
+- Real trackpad gestures contain proprietary touch data appended to CGEvent structures
+- These touch data structures are undocumented by Apple
+- Even Hammerspoon developers couldn't figure out how to synthesize them (see [issue #1434](https://github.com/Hammerspoon/hammerspoon/issues/1434))
+- The only known workaround using private APIs (`tl_CGEventCreateFromGesture`) would require reverse-engineering undocumented IOKit structures
+
+**Our solution:** Convert Control+scroll to Accessibility Zoom keyboard shortcuts:
+- Scroll up → **Option+Command+=** (zoom in)
+- Scroll down → **Option+Command+-** (zoom out)
+
+**Implementation** (`InputSimulator.swift`):
+- Accumulates scroll delta with 10px threshold to prevent flooding
+- Rate limited to max 20 zoom actions/second (50ms interval)
+- Requires user to enable "Use keyboard shortcuts to zoom" in System Settings → Accessibility → Zoom
+
+**Why not private APIs?**
+- The gesture synthesis requires undocumented touch data structures, not just a simple private function call
+- Keyboard shortcuts provide the same functionality reliably
+
+---
+
 ## Service Layer Overview
 
 | Service | File | Responsibility |
