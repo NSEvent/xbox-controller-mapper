@@ -21,8 +21,6 @@ struct ContentView: View {
     @State private var actionFeedbackEnabled: Bool = ActionFeedbackIndicator.isEnabled
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
-    @State private var hoveredChordId: UUID? = nil
-
     var body: some View {
         HSplitView {
             // Sidebar: Profile management
@@ -202,6 +200,7 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
+            .hoverable()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -307,14 +306,9 @@ struct ContentView: View {
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(GlassCardBackground(isHovered: hoveredChordId == chord.id))
                         .cornerRadius(10)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
+                        .hoverableGlassRow {
                             editingChord = chord
-                        }
-                        .onHover { isHovered in
-                            hoveredChordId = isHovered ? chord.id : nil
                         }
                     }
                     .padding(.horizontal)
@@ -370,6 +364,7 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .foregroundColor(selectedLayerId == nil ? .white : .secondary)
+            .hoverable()
 
             // Layer tabs
             if let profile = profileManager.activeProfile {
@@ -404,6 +399,7 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(selectedLayerId == layer.id ? .white : .secondary)
+                    .hoverable()
                     .contextMenu {
                         Button("Rename...") {
                             editingLayerId = layer.id
@@ -436,6 +432,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(.secondary)
+                .hoverable()
             }
 
             Spacer()
@@ -604,7 +601,6 @@ struct ProfileSidebar: View {
     @State private var isImporting = false
     @State private var isExporting = false
     @State private var profileToExport: Profile?
-    @State private var hoveredProfileId: UUID?
     @State private var profileToLink: Profile?
     @State private var showingCommunityProfiles = false
 
@@ -646,21 +642,11 @@ struct ProfileSidebar: View {
             ScrollView {
                 VStack(spacing: 4) {
                     ForEach(profileManager.profiles) { profile in
-                        ProfileListRow(profile: profile, isHovered: hoveredProfileId == profile.id)
+                        ProfileListRow(profile: profile)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
+                            .hoverableGlassRow(isActive: profile.id == profileManager.activeProfileId) {
                                 profileManager.setActiveProfile(profile)
                             }
-                            .onHover { isHovered in
-                                hoveredProfileId = isHovered ? profile.id : nil
-                            }
-                            .background(
-                                GlassCardBackground(
-                                    isActive: profile.id == profileManager.activeProfileId,
-                                    isHovered: hoveredProfileId == profile.id
-                                )
-                            )
                             .padding(.horizontal, 12)
                             .contextMenu {
                                 Button("Duplicate") {
@@ -1393,7 +1379,6 @@ struct PreviewChordRow: View {
 
 struct ProfileListRow: View {
     let profile: Profile
-    let isHovered: Bool
 
     var body: some View {
         HStack {
@@ -1542,6 +1527,7 @@ struct ChordRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
+        .hoverable()
     }
 }
 

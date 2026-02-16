@@ -456,6 +456,8 @@ struct OnScreenKeyboardSettingsView: View {
             }
             .buttonStyle(.borderless)
         }
+        .contentShape(Rectangle())
+        .hoverable()
     }
 
     private var filteredInstalledApps: [AppInfo] {
@@ -685,6 +687,8 @@ struct OnScreenKeyboardSettingsView: View {
             }
             .buttonStyle(.borderless)
         }
+        .contentShape(Rectangle())
+        .hoverable()
     }
 
     private func addWebsiteLink() {
@@ -1251,6 +1255,7 @@ struct OnScreenKeyboardSettingsView: View {
         .padding(.horizontal, 8)
         .background(Color(nsColor: .controlBackgroundColor))
         .cornerRadius(6)
+        .hoverable()
     }
 
     // MARK: - Actions

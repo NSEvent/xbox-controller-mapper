@@ -413,6 +413,7 @@ struct ControllerVisualView: View {
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
         .allowsHitTesting(!isLayerActivatorInLayerContext(button))  // Disable clicks on layer activators when in layer context
         .onTapGesture { onButtonTap(button) }
+        .hoverable()
     }
 
     // MARK: - Mini Controller Helpers (Jewel/Glass Style)
@@ -769,6 +770,29 @@ struct ControllerVisualView: View {
         let hasBaseMapping = profile.buttonMappings[button] != nil
 
         return !hasLayerMapping && hasBaseMapping
+    }
+}
+
+// MARK: - Hoverable Glass Container
+
+/// A container that applies GlassCardBackground with hover tracking
+struct HoverableGlassContainer<Content: View>: View {
+    let isActive: Bool
+    let content: Content
+
+    @State private var isHovered = false
+
+    init(isActive: Bool, @ViewBuilder content: () -> Content) {
+        self.isActive = isActive
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .background(GlassCardBackground(isActive: isActive, isHovered: isHovered))
+            .onHover { hovering in
+                isHovered = hovering
+            }
     }
 }
 
