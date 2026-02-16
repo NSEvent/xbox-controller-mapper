@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 /// Wrapper to give MacroStep a stable identity for drag-and-drop
@@ -118,23 +119,10 @@ struct MacroEditorSheet: View {
                         ))
                     }
 
-                    // Add Step button as last item in list
-                    Button {
+                    // Add Step row as last item in list
+                    AddStepRow {
                         addStep(.press(KeyMapping()))
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(.accentColor)
-                            Text("Add Step")
-                                .font(.system(size: 13))
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 8)
                     }
-                    .buttonStyle(.plain)
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
-                    .cornerRadius(6)
                 }
                 .padding(8)
             }
@@ -220,6 +208,37 @@ struct MacroEditorSheet: View {
             profileManager.addMacro(newMacro)
         }
         dismiss()
+    }
+}
+
+struct AddStepRow: View {
+    let onTap: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 16))
+                .foregroundColor(.accentColor)
+            Text("Add Step")
+                .font(.system(size: 13))
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, 8)
+        .background(isHovered ? Color.accentColor.opacity(0.15) : Color(nsColor: .controlBackgroundColor).opacity(0.3))
+        .cornerRadius(6)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .onTapGesture {
+            onTap()
+        }
     }
 }
 
