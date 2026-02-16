@@ -625,16 +625,20 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         // Check if zoom is working before sending shortcut
         // If we've ever seen zoom active (level > 1.0 or UAZoomEnabled), shortcuts work
-        if !hasShownZoomKeyboardShortcutWarning && !hasEverSeenZoomActive {
+        if !hasEverSeenZoomActive {
             if UAZoomEnabled() || getCurrentZoomLevel() > 1.001 {
                 hasEverSeenZoomActive = true
-            } else {
+            } else if !hasShownZoomKeyboardShortcutWarning {
                 zoomAttemptCount += 1
-                // After 5 attempts with no zoom activity, show warning
+                // After 5 attempts with no zoom activity, show warning and stop sending shortcuts
                 if zoomAttemptCount >= 5 {
                     hasShownZoomKeyboardShortcutWarning = true
                     showZoomKeyboardShortcutWarning()
+                    return // Don't send shortcuts that won't work
                 }
+            } else {
+                // Warning was already shown and zoom still not working - don't send shortcuts
+                return
             }
         }
 
@@ -670,20 +674,90 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Shows a warning that keyboard shortcuts need to be enabled for Accessibility Zoom
     private func showZoomKeyboardShortcutWarning() {
         DispatchQueue.main.async {
-            let alert = NSAlert()
-            alert.messageText = "Enable Keyboard Shortcuts for Zoom"
-            alert.informativeText = "To use Control+Scroll for Accessibility Zoom with your controller, you need to enable \"Use keyboard shortcuts to zoom\" in System Settings.\n\nGo to: System Settings → Accessibility → Zoom → Enable \"Use keyboard shortcuts to zoom\""
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "Open Settings")
-            alert.addButton(withTitle: "Dismiss")
+            // Create a non-modal floating panel instead of blocking alert
+            let panel = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: 450, height: 200),
+                styleMask: [.titled, .closable, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.title = "ControllerKeys"
+            panel.level = .floating
+            panel.isFloatingPanel = true
+            panel.becomesKeyOnlyIfNeeded = true
+            panel.hidesOnDeactivate = false
 
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                // Open Accessibility Zoom settings
-                if let url = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension?Zoom") {
-                    NSWorkspace.shared.open(url)
+            let contentView = NSView(frame: panel.contentRect(forFrameRect: panel.frame))
+
+            // App icon
+            if let appIcon = NSApp.applicationIconImage {
+                let iconView = NSImageView(frame: NSRect(x: 20, y: 110, width: 64, height: 64))
+                iconView.image = appIcon
+                contentView.addSubview(iconView)
+            }
+
+            // Title
+            let titleField = NSTextField(labelWithString: "Enable Keyboard Shortcuts for Zoom")
+            titleField.frame = NSRect(x: 94, y: 150, width: 340, height: 24)
+            titleField.font = NSFont.boldSystemFont(ofSize: 14)
+            titleField.isEditable = false
+            titleField.isBordered = false
+            titleField.backgroundColor = .clear
+            contentView.addSubview(titleField)
+
+            // Message
+            let textField = NSTextField(wrappingLabelWithString:
+                "To use Control+Scroll for Accessibility Zoom with your controller, enable \"Use keyboard shortcuts to zoom\" in System Settings.\n\nSystem Settings → Accessibility → Zoom"
+            )
+            textField.frame = NSRect(x: 94, y: 55, width: 340, height: 90)
+            textField.isEditable = false
+            textField.isBordered = false
+            textField.backgroundColor = .clear
+            textField.font = NSFont.systemFont(ofSize: 12)
+            contentView.addSubview(textField)
+
+            // Buttons - properly spaced
+            let dismissButton = NSButton(title: "Dismiss", target: nil, action: nil)
+            dismissButton.frame = NSRect(x: 220, y: 15, width: 100, height: 32)
+            dismissButton.bezelStyle = .rounded
+            dismissButton.keyEquivalent = "\u{1b}" // Escape
+            contentView.addSubview(dismissButton)
+
+            let openButton = NSButton(title: "Open Settings", target: nil, action: nil)
+            openButton.frame = NSRect(x: 330, y: 15, width: 110, height: 32)
+            openButton.bezelStyle = .rounded
+            openButton.keyEquivalent = "\r"
+            contentView.addSubview(openButton)
+
+            panel.contentView = contentView
+            panel.center()
+
+            // Use a simple approach - just make the panel orderable and let user interact
+            panel.orderFrontRegardless()
+
+            // Store reference to prevent deallocation and set up click handlers
+            objc_setAssociatedObject(panel, "keepAlive", panel, .OBJC_ASSOCIATION_RETAIN)
+
+            // Use block-based approach for button actions
+            class ButtonHandler: NSObject {
+                let panel: NSPanel
+                init(panel: NSPanel) { self.panel = panel }
+                @objc func openSettings() {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension?Zoom") {
+                        NSWorkspace.shared.open(url)
+                    }
+                    panel.close()
+                }
+                @objc func dismiss() {
+                    panel.close()
                 }
             }
+            let handler = ButtonHandler(panel: panel)
+            objc_setAssociatedObject(panel, "handler", handler, .OBJC_ASSOCIATION_RETAIN)
+            openButton.target = handler
+            openButton.action = #selector(ButtonHandler.openSettings)
+            dismissButton.target = handler
+            dismissButton.action = #selector(ButtonHandler.dismiss)
         }
     }
 
