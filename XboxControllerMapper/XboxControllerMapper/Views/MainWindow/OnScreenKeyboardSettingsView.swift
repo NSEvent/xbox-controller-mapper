@@ -1484,11 +1484,25 @@ struct EditAppBarItemSheet: View {
     let onSave: (AppBarItem) -> Void
 
     @State private var displayName: String
+    @State private var selectedBundleId: String
+    @State private var searchText = ""
+    @State private var selectedIndex = 0
+    @State private var installedApps: [AppInfo] = []
 
     init(item: AppBarItem, onSave: @escaping (AppBarItem) -> Void) {
         self.item = item
         self.onSave = onSave
         self._displayName = State(initialValue: item.displayName)
+        self._selectedBundleId = State(initialValue: item.bundleIdentifier)
+    }
+
+    private var filteredApps: [AppInfo] {
+        if searchText.isEmpty {
+            return installedApps
+        }
+        return installedApps.filter { app in
+            app.name.localizedCaseInsensitiveContains(searchText)
+        }
     }
 
     var body: some View {
@@ -1508,43 +1522,114 @@ struct EditAppBarItemSheet: View {
 
             Divider()
 
-            // Content
-            Form {
-                // App info (read-only)
-                HStack {
-                    if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
-                       let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
-                        Image(nsImage: icon)
-                            .resizable()
-                            .frame(width: 48, height: 48)
-                    } else {
-                        Image(systemName: "app.fill")
-                            .resizable()
-                            .frame(width: 48, height: 48)
-                            .foregroundColor(.secondary)
-                    }
-
-                    VStack(alignment: .leading) {
-                        Text(item.bundleIdentifier)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(.bottom, 8)
-
-                // Editable display name
+            // Display name field
+            HStack {
+                Text("Display Name:")
                 TextField("Display Name", text: $displayName)
                     .textFieldStyle(.roundedBorder)
             }
-            .formStyle(.grouped)
+            .padding(.horizontal)
+            .padding(.top)
+
+            Divider()
+                .padding(.top)
+
+            // Search field
+            NavigableSearchField(
+                text: $searchText,
+                placeholder: "Search apps...",
+                itemCount: filteredApps.count,
+                selectedIndex: $selectedIndex,
+                onSelect: {
+                    selectApp(at: selectedIndex)
+                }
+            )
             .padding()
+
+            Divider()
+
+            // App list
+            ScrollViewReader { proxy in
+                List {
+                    ForEach(Array(filteredApps.enumerated()), id: \.element.id) { index, app in
+                        let isSelected = index == selectedIndex
+                        let isCurrentApp = app.bundleIdentifier == selectedBundleId
+
+                        Button {
+                            selectApp(at: index)
+                        } label: {
+                            HStack(spacing: 12) {
+                                if let icon = app.icon {
+                                    Image(nsImage: icon)
+                                        .resizable()
+                                        .frame(width: 32, height: 32)
+                                } else {
+                                    Image(systemName: "app.fill")
+                                        .resizable()
+                                        .frame(width: 32, height: 32)
+                                }
+
+                                Text(app.name)
+
+                                Spacer()
+
+                                if isCurrentApp {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(isSelected ? .white : .accentColor)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .background(isSelected ? Color.accentColor : Color.clear)
+                            .foregroundColor(isSelected ? .white : .primary)
+                            .cornerRadius(6)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .id(index)
+                    }
+                }
+                .listStyle(.plain)
+                .onChange(of: searchText) { _, _ in
+                    selectedIndex = 0
+                    proxy.scrollTo(0, anchor: .top)
+                }
+                .onChange(of: selectedIndex) { _, newIndex in
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        proxy.scrollTo(newIndex, anchor: .center)
+                    }
+                }
+            }
         }
-        .frame(width: 400, height: 250)
+        .frame(width: 450, height: 500)
+        .onAppear {
+            loadInstalledApps()
+        }
+    }
+
+    private func loadInstalledApps() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let apps = AppMonitor().installedApplications
+            DispatchQueue.main.async {
+                installedApps = apps
+            }
+        }
+    }
+
+    private func selectApp(at index: Int) {
+        guard index >= 0 && index < filteredApps.count else { return }
+        let app = filteredApps[index]
+        selectedBundleId = app.bundleIdentifier
+        // Update display name if it was the original app name
+        if displayName == item.displayName {
+            displayName = app.name
+        }
     }
 
     private func save() {
         var updatedItem = item
         updatedItem.displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        updatedItem.bundleIdentifier = selectedBundleId
         onSave(updatedItem)
         dismiss()
     }
