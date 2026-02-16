@@ -1077,8 +1077,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 case .delay(let duration):
                     usleep(useconds_t(duration * 1_000_000))
 
-                case .typeText(let text, let speed):
+                case .typeText(let text, let speed, let pressEnter):
                     self.typeString(text, speed: speed)
+                    if pressEnter {
+                        self.pressKey(36, modifiers: []) // 36 = Return key
+                    }
 
                 case .openApp(let bundleIdentifier, let newWindow):
                     self.openApplication(bundleIdentifier: bundleIdentifier, newWindow: newWindow)

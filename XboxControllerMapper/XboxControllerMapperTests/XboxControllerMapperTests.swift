@@ -22,7 +22,7 @@ class MockInputSimulator: InputSimulatorProtocol {
         case executeMapping(KeyMapping)
         case startHoldMapping(KeyMapping)
         case stopHoldMapping(KeyMapping)
-        case typeText(String, Int)  // text, speed
+        case typeText(String, Int, Bool)  // text, speed, pressEnter
     }
     
     private let lock = NSLock()
@@ -206,8 +206,8 @@ class MockInputSimulator: InputSimulatorProtocol {
                 if let code = mapping.keyCode {
                     _events.append(.pressKey(code, mapping.modifiers.cgEventFlags))
                 }
-            case .typeText(let text, let speed):
-                _events.append(.typeText(text, speed))
+            case .typeText(let text, let speed, let pressEnter):
+                _events.append(.typeText(text, speed, pressEnter))
             default:
                 break
             }
@@ -1544,7 +1544,7 @@ final class XboxControllerMapperTests: XCTestCase {
             }
             XCTAssertEqual(typeEvents.count, 1, "Macro should execute typeText step")
 
-            if case .typeText(let text, let speed) = typeEvents.first {
+            if case .typeText(let text, let speed, _) = typeEvents.first {
                 XCTAssertEqual(text, "hello@example.com", "Text should match")
                 XCTAssertEqual(speed, 300, "Speed should match")
             }
@@ -1593,7 +1593,7 @@ final class XboxControllerMapperTests: XCTestCase {
 
             // The actual CGEvent implementation uses nil source to prevent modifier inheritance
             // This test documents the expected behavior - the mock doesn't simulate CGEvent details
-            if case .typeText(let text, _) = typeEvents.first {
+            if case .typeText(let text, _, _) = typeEvents.first {
                 XCTAssertEqual(text, "test@123", "Text content should be preserved")
             }
         }

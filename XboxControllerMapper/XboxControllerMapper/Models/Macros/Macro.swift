@@ -25,8 +25,8 @@ enum MacroStep: Codable, Equatable {
     /// Wait for a specified duration
     case delay(TimeInterval)
 
-    /// Type a string of text with specified speed (CPM). 0 = Instant Paste.
-    case typeText(String, speed: Int)
+    /// Type a string of text with specified speed (CPM). 0 = Instant Paste. pressEnter sends Return key after.
+    case typeText(String, speed: Int, pressEnter: Bool = false)
 
     /// Open an application, optionally in a new window
     case openApp(bundleIdentifier: String, newWindow: Bool)
@@ -59,11 +59,11 @@ enum MacroStep: Codable, Equatable {
             self = .delay(duration)
         case .typeText:
             if let data = try? container.decode(TypeTextPayload.self, forKey: .payload) {
-                self = .typeText(data.text, speed: data.speed)
+                self = .typeText(data.text, speed: data.speed, pressEnter: data.pressEnter)
             } else {
                 // Fallback for legacy string-only payload
                 let text = try container.decode(String.self, forKey: .payload)
-                self = .typeText(text, speed: 0) // Default to paste/instant
+                self = .typeText(text, speed: 0, pressEnter: false) // Default to paste/instant
             }
         case .openApp:
             let data = try container.decode(OpenAppPayload.self, forKey: .payload)
@@ -87,9 +87,9 @@ enum MacroStep: Codable, Equatable {
         case .delay(let duration):
             try container.encode(StepType.delay, forKey: .type)
             try container.encode(duration, forKey: .payload)
-        case .typeText(let text, let speed):
+        case .typeText(let text, let speed, let pressEnter):
             try container.encode(StepType.typeText, forKey: .type)
-            try container.encode(TypeTextPayload(text: text, speed: speed), forKey: .payload)
+            try container.encode(TypeTextPayload(text: text, speed: speed, pressEnter: pressEnter), forKey: .payload)
         case .openApp(let bundleIdentifier, let newWindow):
             try container.encode(StepType.openApp, forKey: .type)
             try container.encode(OpenAppPayload(bundleIdentifier: bundleIdentifier, newWindow: newWindow), forKey: .payload)
@@ -107,6 +107,20 @@ enum MacroStep: Codable, Equatable {
     private struct TypeTextPayload: Codable {
         let text: String
         let speed: Int
+        let pressEnter: Bool
+
+        init(text: String, speed: Int, pressEnter: Bool) {
+            self.text = text
+            self.speed = speed
+            self.pressEnter = pressEnter
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            text = try container.decode(String.self, forKey: .text)
+            speed = try container.decode(Int.self, forKey: .speed)
+            pressEnter = try container.decodeIfPresent(Bool.self, forKey: .pressEnter) ?? false
+        }
     }
 
     private struct OpenAppPayload: Codable {
@@ -124,9 +138,10 @@ extension MacroStep {
             return "Hold: \(mapping.displayString) (\(String(format: "%.2fs", duration)))"
         case .delay(let duration):
             return "Wait: \(String(format: "%.2fs", duration))"
-        case .typeText(let text, let speed):
+        case .typeText(let text, let speed, let pressEnter):
             let speedText = speed == 0 ? "Paste" : "\(speed) CPM"
-            return "Type: \"\(text)\" (\(speedText))"
+            let enterText = pressEnter ? " + ⏎" : ""
+            return "Type: \"\(text)\" (\(speedText))\(enterText)"
         case .openApp(let bundleIdentifier, let newWindow):
             let appName: String
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {

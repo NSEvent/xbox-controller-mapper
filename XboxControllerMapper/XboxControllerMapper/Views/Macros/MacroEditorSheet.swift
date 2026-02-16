@@ -229,6 +229,8 @@ struct MacroStepRow: View {
     var onDuplicate: () -> Void
     var onDelete: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "line.3.horizontal")
@@ -271,9 +273,19 @@ struct MacroStepRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundColor(.secondary.opacity(0.5))
+                .foregroundColor(isHovered ? .accentColor : .secondary.opacity(0.5))
         }
         .padding(.vertical, 4)
+        .background(isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
+        .cornerRadius(4)
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
     }
     
     @ViewBuilder
@@ -311,6 +323,7 @@ struct StepEditorSheet: View {
     @State private var duration: TimeInterval = 0.5
     @State private var text: String = ""
     @State private var speed: Int = 0 // 0 = Paste
+    @State private var pressEnter: Bool = false
     @State private var appBundleIdentifier: String = ""
     @State private var openNewWindow: Bool = false
     @State private var linkURL: String = ""
@@ -349,10 +362,11 @@ struct StepEditorSheet: View {
         case .delay(let dur):
             _selectedType = State(initialValue: .delay)
             _duration = State(initialValue: dur)
-        case .typeText(let txt, let spd):
+        case .typeText(let txt, let spd, let enter):
             _selectedType = State(initialValue: .typeText)
             _text = State(initialValue: txt)
             _speed = State(initialValue: spd)
+            _pressEnter = State(initialValue: enter)
         case .openApp(let bundleId, let newWindow):
             _selectedType = State(initialValue: .openApp)
             _appBundleIdentifier = State(initialValue: bundleId)
@@ -362,7 +376,7 @@ struct StepEditorSheet: View {
             _linkURL = State(initialValue: url)
         }
     }
-    
+
     var body: some View {
         VStack(spacing: 20) {
             Text("Edit Step")
@@ -467,6 +481,10 @@ struct StepEditorSheet: View {
                         }
                     }
 
+                    Section {
+                        Toggle("Press Enter after typing", isOn: $pressEnter)
+                    }
+
                 case .openApp:
                     Section("Application") {
                         AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingAppPicker)
@@ -501,7 +519,7 @@ struct StepEditorSheet: View {
                 }
             }
             .formStyle(.grouped)
-            
+
             HStack {
                 Button("Cancel") {
                     dismiss()
@@ -570,7 +588,7 @@ struct StepEditorSheet: View {
         case .delay:
             step = .delay(duration)
         case .typeText:
-            step = .typeText(text, speed: speed)
+            step = .typeText(text, speed: speed, pressEnter: pressEnter)
         case .openApp:
             step = .openApp(bundleIdentifier: appBundleIdentifier, newWindow: openNewWindow)
         case .openLink:
@@ -593,6 +611,7 @@ struct NewStepEditorSheet: View {
     @State private var duration: TimeInterval = 0.5
     @State private var text: String = ""
     @State private var speed: Int = 0
+    @State private var pressEnter: Bool = false
     @State private var appBundleIdentifier: String = ""
     @State private var openNewWindow: Bool = false
     @State private var linkURL: String = ""
@@ -630,10 +649,11 @@ struct NewStepEditorSheet: View {
         case .delay(let dur):
             _selectedType = State(initialValue: .delay)
             _duration = State(initialValue: dur)
-        case .typeText(let txt, let spd):
+        case .typeText(let txt, let spd, let enter):
             _selectedType = State(initialValue: .typeText)
             _text = State(initialValue: txt)
             _speed = State(initialValue: spd)
+            _pressEnter = State(initialValue: enter)
         case .openApp(let bundleId, let newWindow):
             _selectedType = State(initialValue: .openApp)
             _appBundleIdentifier = State(initialValue: bundleId)
@@ -747,6 +767,10 @@ struct NewStepEditorSheet: View {
                         }
                     }
 
+                    Section {
+                        Toggle("Press Enter after typing", isOn: $pressEnter)
+                    }
+
                 case .openApp:
                     Section("Application") {
                         AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingAppPicker)
@@ -850,7 +874,7 @@ struct NewStepEditorSheet: View {
         case .delay:
             return .delay(duration)
         case .typeText:
-            return .typeText(text, speed: speed)
+            return .typeText(text, speed: speed, pressEnter: pressEnter)
         case .openApp:
             return .openApp(bundleIdentifier: appBundleIdentifier, newWindow: openNewWindow)
         case .openLink:
