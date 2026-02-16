@@ -25,6 +25,11 @@ class FocusModeIndicator {
     private let ringSize: CGFloat = 32
     private let ringStrokeWidth: CGFloat = 3
 
+    /// Base position for delta-based tracking during Accessibility Zoom
+    private var basePosition: NSPoint?
+    /// Whether we're currently using delta-based positioning (zoom active + moving)
+    private var usingDeltaPositioning: Bool = false
+
     private init() {}
 
     func show() {
@@ -34,6 +39,11 @@ class FocusModeIndicator {
         if panel == nil {
             createPanel()
         }
+
+        // Reset delta-based positioning state
+        basePosition = nil
+        usingDeltaPositioning = false
+        InputSimulator.resetMovementDelta()
 
         panel?.alphaValue = 0
         panel?.orderFrontRegardless()
@@ -52,6 +62,10 @@ class FocusModeIndicator {
     func hide() {
         guard isVisible else { return }
         isVisible = false
+
+        // Reset delta-based positioning state
+        basePosition = nil
+        usingDeltaPositioning = false
 
         stopTracking()
 
@@ -106,14 +120,48 @@ class FocusModeIndicator {
     private func updatePosition() {
         guard let panel = panel else { return }
 
-        let mouseLocation = NSEvent.mouseLocation
         let offset = ringSize / 2
+        let isZoomActive = UAZoomEnabled()
+        let isMoving = InputSimulator.isCursorBeingMoved()
 
-        // Center the ring on the cursor
-        let x = mouseLocation.x - offset
-        let y = mouseLocation.y - offset
+        // Strategy for Accessibility Zoom:
+        // - When movement starts: capture base position from NSEvent.mouseLocation
+        // - During movement: apply deltas to base position (avoids unreliable absolute coords)
+        // - When movement stops: resync to NSEvent.mouseLocation
 
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        if isZoomActive && isMoving {
+            // Cursor is being moved with zoom active - use delta-based positioning
+            let delta = InputSimulator.consumeMovementDelta()
+
+            if !usingDeltaPositioning {
+                // Just started moving - establish base position
+                let mouseLocation = NSEvent.mouseLocation
+                basePosition = NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset)
+                usingDeltaPositioning = true
+            }
+
+            if var base = basePosition {
+                // Apply delta scaled inversely by zoom level
+                // Delta Y is in CG coords where +Y is down, but NS coords have +Y up, so we subtract
+                let zoomLevel = max(1.0, InputSimulator.getZoomLevel())
+                base.x += delta.x / zoomLevel
+                base.y -= delta.y / zoomLevel
+                basePosition = base
+                panel.setFrameOrigin(base)
+            }
+        } else {
+            // Not moving or zoom not active - use absolute positioning
+            if usingDeltaPositioning {
+                // Just stopped moving - resync
+                usingDeltaPositioning = false
+                InputSimulator.resetMovementDelta()
+            }
+
+            let mouseLocation = NSEvent.mouseLocation
+            let position = NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset)
+            basePosition = position
+            panel.setFrameOrigin(position)
+        }
     }
 }
 
