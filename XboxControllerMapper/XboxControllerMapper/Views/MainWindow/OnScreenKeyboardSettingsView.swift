@@ -27,12 +27,10 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var showingWebsiteBookmarkPicker = false
 
     // App bar editing state
-    @State private var editingAppBarItemId: UUID?
-    @State private var editingAppBarName = ""
+    @State private var editingAppBarItem: AppBarItem?
 
     // Website link editing state
-    @State private var editingWebsiteLinkId: UUID?
-    @State private var editingWebsiteName = ""
+    @State private var editingWebsiteLink: WebsiteLink?
 
     // Cached installed apps (loaded once on appear)
     @State private var cachedInstalledApps: [AppInfo] = []
@@ -403,6 +401,11 @@ struct OnScreenKeyboardSettingsView: View {
             .sheet(isPresented: $showingAppPicker) {
                 appPickerSheet
             }
+            .sheet(item: $editingAppBarItem) { item in
+                EditAppBarItemSheet(item: item) { updatedItem in
+                    profileManager.updateAppBarItem(updatedItem)
+                }
+            }
 
             // List of app bar items
             if appBarItems.isEmpty {
@@ -434,22 +437,8 @@ struct OnScreenKeyboardSettingsView: View {
     private func appBarListRow(_ item: AppBarItem) -> some View {
         AppBarItemRowView(
             item: item,
-            isEditing: editingAppBarItemId == item.id,
-            editName: $editingAppBarName,
-            onStartEdit: {
-                editingAppBarItemId = item.id
-                editingAppBarName = item.displayName
-            },
-            onSave: {
-                var updatedItem = item
-                updatedItem.displayName = editingAppBarName
-                profileManager.updateAppBarItem(updatedItem)
-                editingAppBarItemId = nil
-                editingAppBarName = ""
-            },
-            onCancel: {
-                editingAppBarItemId = nil
-                editingAppBarName = ""
+            onEdit: {
+                editingAppBarItem = item
             },
             onDelete: {
                 profileManager.removeAppBarItem(item)
@@ -610,6 +599,11 @@ struct OnScreenKeyboardSettingsView: View {
                     addWebsiteLink()
                 }
             }
+            .sheet(item: $editingWebsiteLink) { link in
+                EditWebsiteLinkSheet(link: link) { updatedLink in
+                    profileManager.updateWebsiteLink(updatedLink)
+                }
+            }
 
             if let error = websiteURLError {
                 Text(error)
@@ -647,22 +641,8 @@ struct OnScreenKeyboardSettingsView: View {
     private func websiteLinkRow(_ link: WebsiteLink) -> some View {
         WebsiteLinkRowView(
             link: link,
-            isEditing: editingWebsiteLinkId == link.id,
-            editName: $editingWebsiteName,
-            onStartEdit: {
-                editingWebsiteLinkId = link.id
-                editingWebsiteName = link.displayName
-            },
-            onSave: {
-                var updatedLink = link
-                updatedLink.displayName = editingWebsiteName
-                profileManager.updateWebsiteLink(updatedLink)
-                editingWebsiteLinkId = nil
-                editingWebsiteName = ""
-            },
-            onCancel: {
-                editingWebsiteLinkId = nil
-                editingWebsiteName = ""
+            onEdit: {
+                editingWebsiteLink = link
             },
             onDelete: {
                 profileManager.removeWebsiteLink(link)
@@ -1365,11 +1345,7 @@ struct QuickTextRowView<SuggestionsView: View>: View {
 
 struct AppBarItemRowView: View {
     let item: AppBarItem
-    let isEditing: Bool
-    @Binding var editName: String
-    let onStartEdit: () -> Void
-    let onSave: () -> Void
-    let onCancel: () -> Void
+    let onEdit: () -> Void
     let onDelete: () -> Void
 
     @State private var isHovered = false
@@ -1393,31 +1369,22 @@ struct AppBarItemRowView: View {
                     .foregroundColor(.secondary)
             }
 
-            if isEditing {
-                TextField("Display name", text: $editName)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { onSave() }
+            Text(item.displayName)
+                .lineLimit(1)
+                .truncationMode(.tail)
 
-                Button("Save", action: onSave)
-                Button("Cancel", action: onCancel)
-            } else {
-                Text(item.displayName)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+            Spacer()
 
-                Spacer()
-
-                Button(action: onStartEdit) {
-                    Image(systemName: "pencil")
-                }
-                .buttonStyle(.borderless)
-
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.borderless)
+            Button(action: onEdit) {
+                Image(systemName: "pencil")
             }
+            .buttonStyle(.borderless)
+
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.borderless)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -1426,11 +1393,7 @@ struct AppBarItemRowView: View {
                 .fill(isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
         )
         .contentShape(Rectangle())
-        .onTapGesture {
-            if !isEditing {
-                onStartEdit()
-            }
-        }
+        .onTapGesture { onEdit() }
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -1446,11 +1409,7 @@ struct AppBarItemRowView: View {
 
 struct WebsiteLinkRowView: View {
     let link: WebsiteLink
-    let isEditing: Bool
-    @Binding var editName: String
-    let onStartEdit: () -> Void
-    let onSave: () -> Void
-    let onCancel: () -> Void
+    let onEdit: () -> Void
     let onDelete: () -> Void
 
     @State private var isHovered = false
@@ -1474,45 +1433,29 @@ struct WebsiteLinkRowView: View {
                     .foregroundColor(.secondary)
             }
 
-            if isEditing {
-                VStack(alignment: .leading, spacing: 2) {
-                    TextField("Display name", text: $editName)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { onSave() }
-                    Text(link.domain ?? link.url)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-
-                Button("Save", action: onSave)
-                Button("Cancel", action: onCancel)
-            } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(link.displayName)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Text(link.domain ?? link.url)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-
-                Spacer()
-
-                Button(action: onStartEdit) {
-                    Image(systemName: "pencil")
-                }
-                .buttonStyle(.borderless)
-
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.borderless)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(link.displayName)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(link.domain ?? link.url)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
+
+            Spacer()
+
+            Button(action: onEdit) {
+                Image(systemName: "pencil")
+            }
+            .buttonStyle(.borderless)
+
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.borderless)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -1521,11 +1464,7 @@ struct WebsiteLinkRowView: View {
                 .fill(isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
         )
         .contentShape(Rectangle())
-        .onTapGesture {
-            if !isEditing {
-                onStartEdit()
-            }
-        }
+        .onTapGesture { onEdit() }
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -1534,6 +1473,165 @@ struct WebsiteLinkRowView: View {
                 NSCursor.pop()
             }
         }
+    }
+}
+
+// MARK: - Edit App Bar Item Sheet
+
+struct EditAppBarItemSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let item: AppBarItem
+    let onSave: (AppBarItem) -> Void
+
+    @State private var displayName: String
+
+    init(item: AppBarItem, onSave: @escaping (AppBarItem) -> Void) {
+        self.item = item
+        self.onSave = onSave
+        self._displayName = State(initialValue: item.displayName)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Edit App")
+                    .font(.headline)
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.escape, modifiers: [])
+                Button("Save") { save() }
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding()
+
+            Divider()
+
+            // Content
+            Form {
+                // App info (read-only)
+                HStack {
+                    if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
+                       let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .frame(width: 48, height: 48)
+                    } else {
+                        Image(systemName: "app.fill")
+                            .resizable()
+                            .frame(width: 48, height: 48)
+                            .foregroundColor(.secondary)
+                    }
+
+                    VStack(alignment: .leading) {
+                        Text(item.bundleIdentifier)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.bottom, 8)
+
+                // Editable display name
+                TextField("Display Name", text: $displayName)
+                    .textFieldStyle(.roundedBorder)
+            }
+            .formStyle(.grouped)
+            .padding()
+        }
+        .frame(width: 400, height: 250)
+    }
+
+    private func save() {
+        var updatedItem = item
+        updatedItem.displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        onSave(updatedItem)
+        dismiss()
+    }
+}
+
+// MARK: - Edit Website Link Sheet
+
+struct EditWebsiteLinkSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let link: WebsiteLink
+    let onSave: (WebsiteLink) -> Void
+
+    @State private var displayName: String
+    @State private var url: String
+
+    init(link: WebsiteLink, onSave: @escaping (WebsiteLink) -> Void) {
+        self.link = link
+        self.onSave = onSave
+        self._displayName = State(initialValue: link.displayName)
+        self._url = State(initialValue: link.url)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Edit Website Link")
+                    .font(.headline)
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.escape, modifiers: [])
+                Button("Save") { save() }
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                              url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding()
+
+            Divider()
+
+            // Content
+            Form {
+                // Favicon preview
+                HStack {
+                    if let data = link.faviconData,
+                       let nsImage = NSImage(data: data) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .frame(width: 32, height: 32)
+                            .cornerRadius(4)
+                    } else {
+                        Image(systemName: "globe")
+                            .resizable()
+                            .frame(width: 32, height: 32)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text("Favicon will be updated if URL changes")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.bottom, 8)
+
+                // Editable fields
+                TextField("Display Name", text: $displayName)
+                    .textFieldStyle(.roundedBorder)
+
+                TextField("URL", text: $url)
+                    .textFieldStyle(.roundedBorder)
+            }
+            .formStyle(.grouped)
+            .padding()
+        }
+        .frame(width: 450, height: 280)
+    }
+
+    private func save() {
+        var updatedLink = link
+        updatedLink.displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newURL = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if newURL != link.url {
+            updatedLink.url = newURL
+            // Clear favicon if URL changed - it will be re-fetched
+            updatedLink.faviconData = nil
+        }
+        onSave(updatedLink)
+        dismiss()
     }
 }
 
