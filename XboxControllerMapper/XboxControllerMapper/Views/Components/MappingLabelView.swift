@@ -187,6 +187,10 @@ struct MappingLabelView: View {
         if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
             if let hint = longHold.hint, !hint.isEmpty {
                 labelRow(text: hint, icon: "⏱", color: .orange, tooltip: longHold.displayString)
+            } else if let macroId = longHold.macroId,
+                      let profile = profileManager.activeProfile,
+                      let macro = profile.macros.first(where: { $0.id == macroId }) {
+                labelRow(text: macro.name, icon: "⏱", color: .orange, tooltip: nil)
             } else {
                 labelRow(text: longHold.displayString, icon: "⏱", color: .orange, tooltip: nil)
             }
@@ -195,6 +199,10 @@ struct MappingLabelView: View {
         if let doubleTap = mapping.doubleTapMapping, !doubleTap.isEmpty {
             if let hint = doubleTap.hint, !hint.isEmpty {
                 labelRow(text: hint, icon: "2×", color: .cyan, tooltip: doubleTap.displayString)
+            } else if let macroId = doubleTap.macroId,
+                      let profile = profileManager.activeProfile,
+                      let macro = profile.macros.first(where: { $0.id == macroId }) {
+                labelRow(text: macro.name, icon: "2×", color: .cyan, tooltip: nil)
             } else {
                 labelRow(text: doubleTap.displayString, icon: "2×", color: .cyan, tooltip: nil)
             }
