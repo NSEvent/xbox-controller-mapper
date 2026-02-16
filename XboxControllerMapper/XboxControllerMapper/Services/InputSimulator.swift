@@ -340,6 +340,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var trackedCursorPosition: CGPoint?
     /// Last time we synced the tracked position with the system (for drift correction)
     private var lastCursorSyncTime: Date = .distantPast
+    /// Last time moveMouse was called (to detect inactivity and clear tracked position)
+    private var lastMouseMoveTime: Date = .distantPast
 
     /// Cached union of all screen frames
     private var cachedScreenBounds: CGRect?
@@ -433,13 +435,36 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // This prevents Accessibility Zoom coordinate transformations from causing
             // cursor "reset" behavior when reading position each frame
             let now = Date()
+            let zoomActive = UAZoomEnabled()
             let currentCGPoint: CGPoint
-            if let tracked = self.trackedCursorPosition,
-               now.timeIntervalSince(self.lastCursorSyncTime) < 0.5 {
-                // Use tracked position (avoids zoom coordinate issues)
-                currentCGPoint = tracked
+
+            // If there's been no movement for 2+ seconds, clear tracked position
+            // This ensures we re-sync if user moved cursor with physical trackpad
+            if now.timeIntervalSince(self.lastMouseMoveTime) > 2.0 {
+                self.trackedCursorPosition = nil
+            }
+            self.lastMouseMoveTime = now
+
+            if let tracked = self.trackedCursorPosition {
+                // When zoom is active, always use tracked position (never sync during movement)
+                // When zoom is inactive, sync every 0.5s for drift correction
+                if zoomActive || now.timeIntervalSince(self.lastCursorSyncTime) < 0.5 {
+                    currentCGPoint = tracked
+                } else {
+                    // Zoom inactive and timeout expired - sync from system
+                    if let locationEvent = CGEvent(source: nil) {
+                        currentCGPoint = locationEvent.location
+                    } else {
+                        let nsLocation = NSEvent.mouseLocation
+                        currentCGPoint = CGPoint(
+                            x: nsLocation.x,
+                            y: primaryDisplayHeight - nsLocation.y
+                        )
+                    }
+                    self.lastCursorSyncTime = now
+                }
             } else {
-                // Sync from system (initial or periodic drift correction)
+                // No tracked position - sync from system (first movement or after inactivity)
                 if let locationEvent = CGEvent(source: nil) {
                     currentCGPoint = locationEvent.location
                 } else {
