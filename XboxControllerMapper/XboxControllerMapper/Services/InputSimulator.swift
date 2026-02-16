@@ -59,7 +59,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// when Accessibility Zoom is active. Access via getTrackedCursorPosition().
     private static var sharedTrackedPosition: CGPoint?
     private static var sharedLastMoveTime: Date = .distantPast
-    private static let sharedLock = NSLock()
+    private static var sharedLock = NSLock()
+
+    /// Accumulated movement delta since last consumption (for hint positioning during zoom)
+    private static var accumulatedDelta: CGPoint = .zero
 
     /// Returns the tracked cursor position if available and Accessibility Zoom is active,
     /// otherwise returns nil (caller should fall back to NSEvent.mouseLocation)
@@ -70,20 +73,48 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         return sharedTrackedPosition
     }
 
-    /// Returns true if cursor is currently being moved by the controller
-    /// (movement within last 100ms). Used by ActionFeedbackIndicator to pause
-    /// position updates during active movement when Accessibility Zoom is active.
+    /// Returns true if cursor was moved very recently by the controller
+    /// (movement within last 50ms). Used by ActionFeedbackIndicator to briefly
+    /// pause position updates right after movement when Accessibility Zoom is active.
+    /// The short 50ms window skips the immediate unreliable reading but allows
+    /// frequent updates to follow the cursor during long drags.
     static func isCursorBeingMoved() -> Bool {
         sharedLock.lock()
         defer { sharedLock.unlock() }
-        return Date().timeIntervalSince(sharedLastMoveTime) < 0.1
+        return Date().timeIntervalSince(sharedLastMoveTime) < 0.05
+    }
+
+    /// Consumes and returns the accumulated movement delta since last call.
+    /// Used by ActionFeedbackIndicator to apply relative movement during zoom.
+    /// Delta is in screen points (positive X = right, positive Y = down in CG coords).
+    static func consumeMovementDelta() -> CGPoint {
+        sharedLock.lock()
+        let delta = accumulatedDelta
+        accumulatedDelta = .zero
+        sharedLock.unlock()
+        return delta
+    }
+
+    /// Resets the accumulated movement delta without consuming it.
+    /// Called when resyncing hint position to absolute coordinates.
+    static func resetMovementDelta() {
+        sharedLock.lock()
+        accumulatedDelta = .zero
+        sharedLock.unlock()
+    }
+
+    /// Returns the current Accessibility Zoom level (1.0 = no zoom, 2.0 = 2x zoom, etc.)
+    static func getZoomLevel() -> CGFloat {
+        CGFloat(UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0)
     }
 
     /// Updates the shared tracked position (called from moveMouse)
-    private static func updateSharedTrackedPosition(_ point: CGPoint?) {
+    private static func updateSharedTrackedPosition(_ point: CGPoint?, delta: CGPoint = .zero) {
         sharedLock.lock()
         sharedTrackedPosition = point
         sharedLastMoveTime = Date()
+        accumulatedDelta.x += delta.x
+        accumulatedDelta.y += delta.y
         sharedLock.unlock()
     }
     private let eventSource: CGEventSource?
@@ -547,7 +578,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             self.stateLock.unlock()
 
             // Update shared position for other services (e.g., ActionFeedbackIndicator)
-            Self.updateSharedTrackedPosition(newPoint)
+            // Pass the movement delta for relative positioning during zoom
+            Self.updateSharedTrackedPosition(newPoint, delta: CGPoint(x: moveX, y: moveY))
 
             // If Accessibility Zoom is enabled, tell it to focus on the new cursor position
             // This helps the zoom viewport follow the cursor movement
