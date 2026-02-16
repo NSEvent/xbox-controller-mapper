@@ -185,13 +185,7 @@ struct ContentView: View {
             Spacer()
 
             // Enable/disable toggle
-            Toggle(isOn: $mappingEngine.isEnabled) {
-                Text(mappingEngine.isEnabled ? "MAPPING ACTIVE" : "DISABLED")
-                    .font(.caption.bold())
-                    .foregroundColor(mappingEngine.isEnabled ? .accentColor : .secondary)
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
+            MappingActiveToggle(isEnabled: $mappingEngine.isEnabled)
 
             Button {
                 showingSettingsSheet = true
@@ -200,7 +194,7 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
-            .hoverable()
+            .hoverableIconButton()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -364,7 +358,7 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .foregroundColor(selectedLayerId == nil ? .white : .secondary)
-            .hoverable()
+            .hoverableButton()
 
             // Layer tabs
             if let profile = profileManager.activeProfile {
@@ -399,7 +393,7 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(selectedLayerId == layer.id ? .white : .secondary)
-                    .hoverable()
+                    .hoverableButton()
                     .contextMenu {
                         Button("Rename...") {
                             editingLayerId = layer.id
@@ -432,7 +426,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(.secondary)
-                .hoverable()
+                .hoverableButton()
             }
 
             Spacer()
@@ -454,6 +448,7 @@ struct ContentView: View {
             .toggleStyle(.button)
             .buttonStyle(.plain)
             .foregroundColor(isSwapMode ? .white : .secondary)
+            .hoverableButton()
             .onChange(of: isSwapMode) { _, newValue in
                 if !newValue {
                     swapFirstButton = nil
@@ -477,6 +472,7 @@ struct ContentView: View {
             .toggleStyle(.button)
             .buttonStyle(.plain)
             .foregroundColor(actionFeedbackEnabled ? .white : .secondary)
+            .hoverableButton()
             .onChange(of: actionFeedbackEnabled) { _, newValue in
                 ActionFeedbackIndicator.isEnabled = newValue
             }
@@ -634,6 +630,7 @@ struct ProfileSidebar: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+                .hoverableIconButton()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
@@ -1372,6 +1369,44 @@ struct PreviewChordRow: View {
                 Text(shortcut)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+// MARK: - Mapping Active Toggle
+
+struct MappingActiveToggle: View {
+    @Binding var isEnabled: Bool
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(isEnabled ? "MAPPING ACTIVE" : "DISABLED")
+                .font(.caption.bold())
+                .foregroundColor(isEnabled ? .accentColor : .secondary)
+
+            Toggle("", isOn: $isEnabled)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .labelsHidden()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isHovered ? Color.accentColor.opacity(0.1) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isEnabled.toggle()
+        }
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
             }
         }
     }

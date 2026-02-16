@@ -77,6 +77,53 @@ struct HoverableModifier: ViewModifier {
     }
 }
 
+// MARK: - Hoverable Button Modifier (Cursor + Highlight Overlay)
+
+/// A modifier for buttons that need hover highlight overlay + cursor change
+struct HoverableButtonModifier: ViewModifier {
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isHovered ? Color.white.opacity(0.1) : Color.clear)
+            )
+            .onHover { hovering in
+                isHovered = hovering
+                if hovering {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+    }
+}
+
+// MARK: - Hoverable Icon Button Modifier
+
+/// A modifier for icon buttons (like settings gear) with background highlight
+struct HoverableIconButtonModifier: ViewModifier {
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                Circle()
+                    .fill(isHovered ? Color.accentColor.opacity(0.15) : Color.clear)
+                    .padding(-4)
+            )
+            .onHover { hovering in
+                isHovered = hovering
+                if hovering {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+    }
+}
+
 // MARK: - View Extensions
 
 extension View {
@@ -97,5 +144,15 @@ extension View {
     /// Adds pointing hand cursor on hover (for buttons/interactive elements)
     func hoverable() -> some View {
         modifier(HoverableModifier())
+    }
+
+    /// Adds hover highlight overlay and pointing hand cursor (for toolbar buttons with existing backgrounds)
+    func hoverableButton() -> some View {
+        modifier(HoverableButtonModifier())
+    }
+
+    /// Adds circular hover highlight and pointing hand cursor (for icon buttons)
+    func hoverableIconButton() -> some View {
+        modifier(HoverableIconButtonModifier())
     }
 }
