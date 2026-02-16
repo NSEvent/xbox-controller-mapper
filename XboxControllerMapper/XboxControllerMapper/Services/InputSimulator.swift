@@ -544,10 +544,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var lastAccessibilityZoomTime: Date = .distantPast
     /// Minimum interval between zoom keyboard shortcuts
     private let accessibilityZoomMinInterval: TimeInterval = 0.05
-    /// Counter for zoom attempts that didn't change the zoom level
-    private var failedZoomAttempts: Int = 0
-    /// Last recorded zoom level (to detect if zoom actually changed)
-    private var lastRecordedZoomLevel: Double = 0
+    /// Counter for Control+scroll zoom attempts
+    private var zoomAttemptCount: Int = 0
+    /// Whether we've ever seen zoom level above 1.0 (proves shortcuts are working)
+    private var hasEverSeenZoomActive: Bool = false
     /// Whether we've already shown the keyboard shortcuts warning
     private var hasShownZoomKeyboardShortcutWarning: Bool = false
 
@@ -623,8 +623,20 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         accessibilityZoomAccumulator = 0
         lastAccessibilityZoomTime = now
 
-        // Read current zoom level before sending shortcut
-        let zoomLevelBefore = getCurrentZoomLevel()
+        // Check if zoom is working before sending shortcut
+        // If we've ever seen zoom active (level > 1.0 or UAZoomEnabled), shortcuts work
+        if !hasShownZoomKeyboardShortcutWarning && !hasEverSeenZoomActive {
+            if UAZoomEnabled() || getCurrentZoomLevel() > 1.001 {
+                hasEverSeenZoomActive = true
+            } else {
+                zoomAttemptCount += 1
+                // After 5 attempts with no zoom activity, show warning
+                if zoomAttemptCount >= 5 {
+                    hasShownZoomKeyboardShortcutWarning = true
+                    showZoomKeyboardShortcutWarning()
+                }
+            }
+        }
 
         // Send zoom keyboard shortcut on keyboard queue
         // Option+Command+= (zoom in) or Option+Command+- (zoom out)
@@ -647,39 +659,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 upEvent.flags = modifiers
                 upEvent.post(tap: .cghidEventTap)
             }
-
-            // Check if zoom level changed after a short delay
-            usleep(50000) // 50ms for system to update
-            self.checkZoomLevelChanged(previousLevel: zoomLevelBefore)
         }
     }
 
     /// Gets the current Accessibility Zoom level from user defaults
     private func getCurrentZoomLevel() -> Double {
         UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0
-    }
-
-    /// Checks if zoom level changed and shows warning if keyboard shortcuts aren't enabled
-    private func checkZoomLevelChanged(previousLevel: Double) {
-        guard !hasShownZoomKeyboardShortcutWarning else { return }
-
-        let currentLevel = getCurrentZoomLevel()
-
-        // If zoom level changed, reset failed attempts counter
-        if abs(currentLevel - previousLevel) > 0.001 || abs(currentLevel - lastRecordedZoomLevel) > 0.001 {
-            failedZoomAttempts = 0
-            lastRecordedZoomLevel = currentLevel
-            return
-        }
-
-        // Zoom level didn't change - increment failed attempts
-        failedZoomAttempts += 1
-
-        // After 2 failed attempts, show warning
-        if failedZoomAttempts >= 2 {
-            hasShownZoomKeyboardShortcutWarning = true
-            showZoomKeyboardShortcutWarning()
-        }
     }
 
     /// Shows a warning that keyboard shortcuts need to be enabled for Accessibility Zoom
