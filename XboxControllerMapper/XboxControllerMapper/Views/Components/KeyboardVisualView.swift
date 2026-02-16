@@ -96,12 +96,18 @@ struct KeyboardVisualView: View {
 
     // MARK: - Number Row
 
+    // Number key codes are NOT sequential in macOS (5 and 6 are swapped), so use explicit array
+    private let numberKeyCodes: [Int] = [
+        kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5,
+        kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9, kVK_ANSI_0
+    ]
+
     private var numberRow: some View {
         HStack(spacing: 4) {
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Grave), label: "`", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
 
             ForEach(0..<10, id: \.self) { i in
-                let keyCode = CGKeyCode(i == 0 ? kVK_ANSI_0 : kVK_ANSI_1 + i - 1)
+                let keyCode = CGKeyCode(numberKeyCodes[i])
                 // Display order: 1,2,3,4,5,6,7,8,9,0
                 let displayNum = i == 9 ? "0" : "\(i + 1)"
                 KeyButton(keyCode: keyCode, label: displayNum, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
