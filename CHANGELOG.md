@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-02-16
+
+### Added
+
+- **Accessibility Zoom Support**: Controller input now works correctly when macOS Accessibility Zoom is active
+  - Cursor movement, clicks, and scroll positions are properly scaled to zoomed coordinates
+  - Focus mode ring and action hints position correctly within the zoomed viewport
+  - Automatic detection with warning dialog if Zoom keyboard shortcuts aren't enabled
+- **Chord Duplicate Prevention**: Visual feedback when creating chords that would conflict
+  - Gray out buttons that would create duplicate chord combinations
+  - Show conflicting chord name on grayed out buttons
+- **Clickable Active Chords**: Click any active chord to open its edit sheet directly
+
+### Fixed
+
+- Focus mode ring positioning during Accessibility Zoom
+- Action hint positioning during Accessibility Zoom with touchpad
+- Action hint flashing when Accessibility Zoom is active
+- Click position offset when Accessibility Zoom is active
+- Cursor position reset when Accessibility Zoom is active
+- Zoom warning dialog blocking input and repeated sounds
+- Held modifier flags not forwarded to scroll events
+- Long words overflowing in button mapping labels
+- Non-deterministic JSON ordering in config.json
+
 ## [1.4.1] - 2026-02-14
 
 ### Added
