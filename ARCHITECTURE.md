@@ -141,13 +141,13 @@ Axes: `leftx`, `lefty`, `rightx`, `righty` (sticks), `lefttrigger`, `righttrigge
 
 ### Accessibility Zoom (Control+Scroll)
 
-**Problem:** macOS Accessibility Zoom ("Use scroll gesture with modifier keys to zoom") doesn't respond to synthetic `CGEvent` scroll events with Control modifier. This is because Accessibility Zoom specifically requires real trackpad gesture events containing undocumented IOKit HID touch data structures.
+**Problem:** macOS Accessibility Zoom ("Use scroll gesture with modifier keys to zoom") doesn't respond to synthetic `CGEvent` scroll events with Control modifier. Accessibility Zoom requires real trackpad gesture events with specific touch data structures.
 
 **Research findings:**
 - Real trackpad gestures contain proprietary touch data appended to CGEvent structures
 - These touch data structures are undocumented by Apple
-- Even Hammerspoon developers couldn't figure out how to synthesize them (see [issue #1434](https://github.com/Hammerspoon/hammerspoon/issues/1434))
-- The only known workaround using private APIs (`tl_CGEventCreateFromGesture`) would require reverse-engineering undocumented IOKit structures
+- Hammerspoon explored synthesizing these gestures ([issue #1434](https://github.com/Hammerspoon/hammerspoon/issues/1434), [PR #2512](https://github.com/Hammerspoon/hammerspoon/pull/2512))
+- Gesture synthesis is complex and has limitations—not impossible, but difficult to get working reliably
 
 **Our solution:** Convert Control+scroll to Accessibility Zoom keyboard shortcuts:
 - Scroll up → **Option+Command+=** (zoom in)
@@ -158,8 +158,8 @@ Axes: `leftx`, `lefty`, `rightx`, `righty` (sticks), `lefttrigger`, `righttrigge
 - Rate limited to max 20 zoom actions/second (50ms interval)
 - Requires user to enable "Use keyboard shortcuts to zoom" in System Settings → Accessibility → Zoom
 
-**Why not private APIs?**
-- The gesture synthesis requires undocumented touch data structures, not just a simple private function call
+**Why keyboard shortcuts instead of gesture synthesis?**
+- Gesture synthesis is complex and has known limitations
 - Keyboard shortcuts provide the same functionality reliably
 
 ---
