@@ -466,6 +466,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         }
     }
 
+    /// Accumulated scroll delta for Accessibility Zoom (Control+scroll -> keyboard shortcut conversion)
+    private var accessibilityZoomAccumulator: CGFloat = 0
+    /// Threshold for triggering a zoom step (in scroll pixels)
+    private let accessibilityZoomThreshold: CGFloat = 10.0
+    /// Last time we sent a zoom keyboard shortcut (for rate limiting)
+    private var lastAccessibilityZoomTime: Date = .distantPast
+    /// Minimum interval between zoom keyboard shortcuts
+    private let accessibilityZoomMinInterval: TimeInterval = 0.05
+
     /// Scrolls by a delta
     func scroll(
         dx: CGFloat,
@@ -475,13 +484,20 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         isContinuous: Bool,
         flags: CGEventFlags
     ) {
+        // Check if Control is held - if so, convert to Accessibility Zoom keyboard shortcuts
+        // macOS Accessibility Zoom doesn't respond to synthetic Control+scroll events,
+        // but does respond to Option+Command+Plus/Minus keyboard shortcuts
+        if flags.contains(.maskControl) && dy != 0 {
+            handleAccessibilityZoom(dy: dy)
+            return
+        }
+
         mouseQueue.async { [weak self] in
             guard let self = self else { return }
             guard self.checkAccessibility() else { return }
-            guard let source = self.eventSource else { return }
 
             if let event = CGEvent(
-                scrollWheelEvent2Source: source,
+                scrollWheelEvent2Source: self.eventSource,
                 units: .pixel,
                 wheelCount: 2,
                 wheel1: Int32(dy),
@@ -490,18 +506,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             ) {
                 if isContinuous {
                     event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
-                    // Set instant mouser to 0 to indicate trackpad (not mouse)
                     event.setIntegerValueField(.scrollWheelEventInstantMouser, value: 0)
-                    // Set point delta fields for native trackpad emulation
-                    // Chrome and other browsers require these fields to recognize trackpad gestures
                     event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(dy))
                     event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(dx))
-                    // Set fixed-point delta fields (16.16 fixed-point format)
-                    // Native trackpads set these for precise sub-pixel scrolling
                     event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: Double(dy))
                     event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: Double(dx))
-                    // Set scroll count to indicate this is a gesture event
-                    event.setIntegerValueField(.scrollWheelEventScrollCount, value: 1)
                 }
                 if let phase {
                     event.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
@@ -509,10 +518,55 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 if let momentumPhase {
                     event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: Int64(momentumPhase.rawValue))
                 }
-                if flags.rawValue != 0 {
-                    event.flags = flags
+                // Set modifier flags on the scroll event (excluding Control which was handled above)
+                let scrollFlags = flags.subtracting(.maskControl)
+                if scrollFlags.rawValue != 0 {
+                    event.flags = event.flags.union(scrollFlags)
                 }
                 event.post(tap: .cghidEventTap)
+            }
+        }
+    }
+
+    /// Handles Accessibility Zoom by converting Control+scroll to Option+Command+Plus/Minus
+    private func handleAccessibilityZoom(dy: CGFloat) {
+        // Accumulate scroll delta
+        accessibilityZoomAccumulator += dy
+
+        // Check if we've accumulated enough for a zoom step
+        guard abs(accessibilityZoomAccumulator) >= accessibilityZoomThreshold else { return }
+
+        // Rate limit keyboard shortcut sending
+        let now = Date()
+        guard now.timeIntervalSince(lastAccessibilityZoomTime) >= accessibilityZoomMinInterval else { return }
+
+        // Determine zoom direction: positive dy = scroll up = zoom in
+        let zoomIn = accessibilityZoomAccumulator > 0
+
+        // Reset accumulator
+        accessibilityZoomAccumulator = 0
+        lastAccessibilityZoomTime = now
+
+        // Send zoom keyboard shortcut on keyboard queue
+        // Option+Command+= (zoom in) or Option+Command+- (zoom out)
+        keyboardQueue.async { [weak self] in
+            guard let self = self else { return }
+
+            // kVK_ANSI_Equal = 0x18 = 24, kVK_ANSI_Minus = 0x1B = 27
+            let keyCode: CGKeyCode = zoomIn ? 24 : 27
+            let modifiers: CGEventFlags = [.maskAlternate, .maskCommand]
+
+            // Press the key with modifiers
+            if let downEvent = CGEvent(keyboardEventSource: self.eventSource, virtualKey: keyCode, keyDown: true) {
+                downEvent.flags = modifiers
+                downEvent.post(tap: .cghidEventTap)
+            }
+
+            usleep(10000) // 10ms hold
+
+            if let upEvent = CGEvent(keyboardEventSource: self.eventSource, virtualKey: keyCode, keyDown: false) {
+                upEvent.flags = modifiers
+                upEvent.post(tap: .cghidEventTap)
             }
         }
     }
