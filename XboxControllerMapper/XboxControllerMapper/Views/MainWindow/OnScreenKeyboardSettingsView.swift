@@ -1173,87 +1173,30 @@ struct OnScreenKeyboardSettingsView: View {
 
     @ViewBuilder
     private func quickTextRow(_ quickText: QuickText, isTerminalCommand: Bool) -> some View {
-        let isEditing = isTerminalCommand ? editingCommandId == quickText.id : editingTextId == quickText.id
-
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "line.3.horizontal")
-                    .foregroundColor(.secondary)
-                    .frame(width: 20)
-
-                if isEditing {
-                    VariableTextField(
-                        text: $editText,
-                        placeholder: "",
-                        showingSuggestions: showEditSuggestions,
-                        suggestionCount: editSuggestionCount,
-                        selectedSuggestionIndex: $editSuggestionIndex,
-                        onSelectSuggestion: {
-                            selectEditSuggestion()
-                        },
-                        onSubmit: {
-                            if !showEditSuggestions {
-                                saveEdit(quickText)
-                            }
-                        }
-                    )
-                    .onChange(of: editText) { _, newValue in
-                        let shouldShow = shouldShowSuggestions(for: newValue)
-                        if shouldShow && !showEditSuggestions {
-                            editSuggestionIndex = 0
-                        }
-                        showEditSuggestions = shouldShow
-                    }
-
-                    Button("Save") {
-                        saveEdit(quickText)
-                    }
-
-                    Button("Cancel") {
-                        cancelEdit(isTerminalCommand: isTerminalCommand)
-                    }
-                } else {
-                    Text(quickText.text)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-
-                    if quickText.containsVariables {
-                        Image(systemName: "function")
-                            .font(.caption2)
-                            .foregroundColor(.blue)
-                            .help("Contains variables that will be expanded")
-                    }
-
-                    Spacer()
-
-                    Button {
-                        startEdit(quickText, isTerminalCommand: isTerminalCommand)
-                    } label: {
-                        Image(systemName: "pencil")
-                    }
-                    .buttonStyle(.borderless)
-
-                    Button {
-                        profileManager.removeQuickText(quickText)
-                    } label: {
-                        Image(systemName: "trash")
-                            .foregroundColor(.red)
-                    }
-                    .buttonStyle(.borderless)
+        QuickTextRowView(
+            quickText: quickText,
+            isTerminalCommand: isTerminalCommand,
+            isEditing: isTerminalCommand ? editingCommandId == quickText.id : editingTextId == quickText.id,
+            editText: $editText,
+            showEditSuggestions: showEditSuggestions,
+            editSuggestionCount: editSuggestionCount,
+            editSuggestionIndex: $editSuggestionIndex,
+            onSelectSuggestion: selectEditSuggestion,
+            onSave: { saveEdit(quickText) },
+            onCancel: { cancelEdit(isTerminalCommand: isTerminalCommand) },
+            onStartEdit: { startEdit(quickText, isTerminalCommand: isTerminalCommand) },
+            onDelete: { profileManager.removeQuickText(quickText) },
+            onEditTextChange: { newValue in
+                let shouldShow = shouldShowSuggestions(for: newValue)
+                if shouldShow && !showEditSuggestions {
+                    editSuggestionIndex = 0
                 }
-            }
-
-            // Show variable suggestions when editing
-            if isEditing && showEditSuggestions {
+                showEditSuggestions = shouldShow
+            },
+            variableSuggestionsView: {
                 variableSuggestionsView(for: $editText, showSuggestions: $showEditSuggestions, selectedIndex: $editSuggestionIndex)
-                    .padding(.leading, 28)
             }
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 8)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(6)
-        .hoverableRow()
+        )
     }
 
     // MARK: - Actions
@@ -1332,6 +1275,103 @@ struct OnScreenKeyboardSettingsView: View {
         var settings = profileManager.onScreenKeyboardSettings
         settings.quickTexts = newQuickTexts
         profileManager.updateOnScreenKeyboardSettings(settings)
+    }
+}
+
+// MARK: - Quick Text Row View
+
+struct QuickTextRowView<SuggestionsView: View>: View {
+    let quickText: QuickText
+    let isTerminalCommand: Bool
+    let isEditing: Bool
+    @Binding var editText: String
+    let showEditSuggestions: Bool
+    let editSuggestionCount: Int
+    @Binding var editSuggestionIndex: Int
+    let onSelectSuggestion: () -> Void
+    let onSave: () -> Void
+    let onCancel: () -> Void
+    let onStartEdit: () -> Void
+    let onDelete: () -> Void
+    let onEditTextChange: (String) -> Void
+    @ViewBuilder let variableSuggestionsView: () -> SuggestionsView
+
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "line.3.horizontal")
+                    .foregroundColor(.secondary)
+                    .frame(width: 20)
+
+                if isEditing {
+                    VariableTextField(
+                        text: $editText,
+                        placeholder: "",
+                        showingSuggestions: showEditSuggestions,
+                        suggestionCount: editSuggestionCount,
+                        selectedSuggestionIndex: $editSuggestionIndex,
+                        onSelectSuggestion: onSelectSuggestion,
+                        onSubmit: {
+                            if !showEditSuggestions {
+                                onSave()
+                            }
+                        }
+                    )
+                    .onChange(of: editText) { _, newValue in
+                        onEditTextChange(newValue)
+                    }
+
+                    Button("Save", action: onSave)
+                    Button("Cancel", action: onCancel)
+                } else {
+                    Text(quickText.text)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    if quickText.containsVariables {
+                        Image(systemName: "function")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                            .help("Contains variables that will be expanded")
+                    }
+
+                    Spacer()
+
+                    Button(action: onStartEdit) {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.borderless)
+
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+
+            if isEditing && showEditSuggestions {
+                variableSuggestionsView()
+                    .padding(.leading, 28)
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isHovered ? Color.accentColor.opacity(0.08) : Color(nsColor: .controlBackgroundColor))
+        )
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
     }
 }
 
