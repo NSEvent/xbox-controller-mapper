@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 import AppKit
 import IOKit.hidsystem
+import ApplicationServices.HIServices
 
 protocol InputSimulatorProtocol: Sendable {
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
@@ -333,6 +334,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Tracks sub-pixel movement residuals to prevent quantization stickiness
     private var residualMovement: CGPoint = .zero
 
+    /// Tracked cursor position for Accessibility Zoom compatibility
+    /// When zoom is active, reading cursor position from the system can return transformed
+    /// coordinates that cause "reset" behavior. We track position internally instead.
+    private var trackedCursorPosition: CGPoint?
+    /// Last time we synced the tracked position with the system (for drift correction)
+    private var lastCursorSyncTime: Date = .distantPast
+
     /// Cached union of all screen frames
     private var cachedScreenBounds: CGRect?
     /// Cached primary display height
@@ -420,19 +428,38 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             self.stateLock.lock()
             let heldButtons = self.heldMouseButtons
             let (bounds, primaryDisplayHeight) = self.ensureScreenCache()
+
+            // Use tracked position if available, otherwise sync from system
+            // This prevents Accessibility Zoom coordinate transformations from causing
+            // cursor "reset" behavior when reading position each frame
+            let now = Date()
+            let currentCGPoint: CGPoint
+            if let tracked = self.trackedCursorPosition,
+               now.timeIntervalSince(self.lastCursorSyncTime) < 0.5 {
+                // Use tracked position (avoids zoom coordinate issues)
+                currentCGPoint = tracked
+            } else {
+                // Sync from system (initial or periodic drift correction)
+                if let locationEvent = CGEvent(source: nil) {
+                    currentCGPoint = locationEvent.location
+                } else {
+                    let nsLocation = NSEvent.mouseLocation
+                    currentCGPoint = CGPoint(
+                        x: nsLocation.x,
+                        y: primaryDisplayHeight - nsLocation.y
+                    )
+                }
+                self.lastCursorSyncTime = now
+            }
             self.stateLock.unlock()
 
-            let currentLocation = NSEvent.mouseLocation
-            
-            // Use cached primary display height for coordinate conversion
-            // Convert from bottom-left origin to top-left origin
-            let newX = currentLocation.x + moveX
-            let newY = primaryDisplayHeight - currentLocation.y + moveY
-            
+            let newX = currentCGPoint.x + moveX
+            let newY = currentCGPoint.y + moveY
+
             // Determine event type based on held buttons (drag if button held)
             let eventType: CGEventType
             let mouseButton: CGMouseButton
-            
+
             if heldButtons.contains(.left) {
                 eventType = .leftMouseDragged
                 mouseButton = .left
@@ -447,13 +474,28 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseButton = .left // Default for move events
             }
 
-            // Clamp to valid screen bounds to avoid off-screen warps (which cause stickiness)
+            // Clamp to valid screen bounds
             let clampedX = max(bounds.minX, min(bounds.maxX - 1, newX))
             let clampedY = max(bounds.minY, min(bounds.maxY - 1, newY))
             let newPoint = CGPoint(x: clampedX, y: clampedY)
 
-            // Warp the cursor first to bypass "sticky edges" when crossing screens
+            // Set suppression interval to 0 to prevent 250ms freeze after warp
+            if let warpSource = CGEventSource(stateID: .combinedSessionState) {
+                warpSource.localEventsSuppressionInterval = 0.0
+            }
             _ = CGWarpMouseCursorPosition(newPoint)
+
+            // Update tracked position to avoid reading back transformed coordinates
+            self.stateLock.lock()
+            self.trackedCursorPosition = newPoint
+            self.stateLock.unlock()
+
+            // If Accessibility Zoom is enabled, tell it to focus on the new cursor position
+            // This helps the zoom viewport follow the cursor movement
+            if UAZoomEnabled() {
+                var focusRect = CGRect(x: newPoint.x - 1, y: newPoint.y - 1, width: 2, height: 2)
+                UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
+            }
 
             if let event = CGEvent(
                 mouseEventSource: source,
@@ -461,6 +503,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseCursorPosition: newPoint,
                 mouseButton: mouseButton
             ) {
+                // Set delta fields for Accessibility Zoom viewport panning
+                event.setIntegerValueField(.mouseEventDeltaX, value: Int64(moveX))
+                event.setIntegerValueField(.mouseEventDeltaY, value: Int64(moveY))
                 event.post(tap: .cghidEventTap)
             }
         }
