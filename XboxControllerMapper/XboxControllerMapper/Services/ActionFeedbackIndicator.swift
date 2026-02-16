@@ -213,6 +213,15 @@ class ActionFeedbackIndicator {
     private func updatePosition() {
         guard let panel = panel else { return }
 
+        // When Accessibility Zoom is active and cursor is being moved by controller,
+        // skip position updates. NSEvent.mouseLocation returns inconsistent coordinates
+        // during active movement (sometimes physical, sometimes visual position),
+        // causing the hint to flash. By pausing updates during movement, the hint
+        // stays at the last known good position and updates when movement stops.
+        if UAZoomEnabled() && InputSimulator.isCursorBeingMoved() {
+            return
+        }
+
         let mouseLocation = NSEvent.mouseLocation
         let panelSize = panel.frame.size
 

@@ -55,6 +55,37 @@ private class ModifierKeyState {
 
 /// Service for simulating keyboard and mouse input via CGEvent
 class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
+    /// Static tracked cursor position for use by other services (e.g., ActionFeedbackIndicator)
+    /// when Accessibility Zoom is active. Access via getTrackedCursorPosition().
+    private static var sharedTrackedPosition: CGPoint?
+    private static var sharedLastMoveTime: Date = .distantPast
+    private static let sharedLock = NSLock()
+
+    /// Returns the tracked cursor position if available and Accessibility Zoom is active,
+    /// otherwise returns nil (caller should fall back to NSEvent.mouseLocation)
+    static func getTrackedCursorPosition() -> CGPoint? {
+        guard UAZoomEnabled() else { return nil }
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return sharedTrackedPosition
+    }
+
+    /// Returns true if cursor is currently being moved by the controller
+    /// (movement within last 100ms). Used by ActionFeedbackIndicator to pause
+    /// position updates during active movement when Accessibility Zoom is active.
+    static func isCursorBeingMoved() -> Bool {
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return Date().timeIntervalSince(sharedLastMoveTime) < 0.1
+    }
+
+    /// Updates the shared tracked position (called from moveMouse)
+    private static func updateSharedTrackedPosition(_ point: CGPoint?) {
+        sharedLock.lock()
+        sharedTrackedPosition = point
+        sharedLastMoveTime = Date()
+        sharedLock.unlock()
+    }
     private let eventSource: CGEventSource?
 
     /// Currently held modifier flags (for hold-type mappings)
@@ -515,6 +546,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             self.trackedCursorPosition = newPoint
             self.stateLock.unlock()
 
+            // Update shared position for other services (e.g., ActionFeedbackIndicator)
+            Self.updateSharedTrackedPosition(newPoint)
+
             // If Accessibility Zoom is enabled, tell it to focus on the new cursor position
             // This helps the zoom viewport follow the cursor movement
             if UAZoomEnabled() {
@@ -796,16 +830,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        // Use tracked cursor position if available (for Accessibility Zoom compatibility)
-        // Otherwise fall back to NSEvent.mouseLocation
-        let cgLocation: CGPoint
-        if let tracked = trackedCursorPosition, UAZoomEnabled() {
-            cgLocation = tracked
-        } else {
-            let location = NSEvent.mouseLocation
-            let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
-            cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
-        }
+        // Always use NSEvent.mouseLocation for click position - it gives the actual cursor location
+        let location = NSEvent.mouseLocation
+        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
 
         // Track hold state
         heldMouseButtons.insert(button)
@@ -845,16 +873,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        // Use tracked cursor position if available (for Accessibility Zoom compatibility)
-        // Otherwise fall back to NSEvent.mouseLocation
-        let cgLocation: CGPoint
-        if let tracked = trackedCursorPosition, UAZoomEnabled() {
-            cgLocation = tracked
-        } else {
-            let location = NSEvent.mouseLocation
-            let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
-            cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
-        }
+        // Always use NSEvent.mouseLocation for click position - it gives the actual cursor location
+        let location = NSEvent.mouseLocation
+        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
 
         // Update hold state
         heldMouseButtons.remove(button)
