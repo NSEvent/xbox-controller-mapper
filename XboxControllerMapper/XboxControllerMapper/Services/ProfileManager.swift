@@ -574,6 +574,14 @@ class ProfileManager: ObservableObject {
         updateProfile(profile)
     }
 
+    func updateAppBarItem(_ item: AppBarItem) {
+        guard var profile = activeProfile else { return }
+        if let index = profile.onScreenKeyboardSettings.appBarItems.firstIndex(where: { $0.id == item.id }) {
+            profile.onScreenKeyboardSettings.appBarItems[index] = item
+            updateProfile(profile)
+        }
+    }
+
     // MARK: - Website Links
 
     func addWebsiteLink(_ link: WebsiteLink) {

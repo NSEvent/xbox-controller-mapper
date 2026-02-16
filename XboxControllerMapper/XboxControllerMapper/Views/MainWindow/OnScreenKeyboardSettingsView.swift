@@ -26,6 +26,14 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var websiteURLError: String?
     @State private var showingWebsiteBookmarkPicker = false
 
+    // App bar editing state
+    @State private var editingAppBarItemId: UUID?
+    @State private var editingAppBarName = ""
+
+    // Website link editing state
+    @State private var editingWebsiteLinkId: UUID?
+    @State private var editingWebsiteName = ""
+
     // Cached installed apps (loaded once on appear)
     @State private var cachedInstalledApps: [AppInfo] = []
 
@@ -424,39 +432,29 @@ struct OnScreenKeyboardSettingsView: View {
 
     @ViewBuilder
     private func appBarListRow(_ item: AppBarItem) -> some View {
-        HStack {
-            Image(systemName: "line.3.horizontal")
-                .foregroundColor(.secondary)
-                .frame(width: 20)
-
-            // App icon
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
-               let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
-                Image(nsImage: icon)
-                    .resizable()
-                    .frame(width: 24, height: 24)
-            } else {
-                Image(systemName: "app.fill")
-                    .resizable()
-                    .frame(width: 24, height: 24)
-                    .foregroundColor(.secondary)
-            }
-
-            Text(item.displayName)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Spacer()
-
-            Button {
+        AppBarItemRowView(
+            item: item,
+            isEditing: editingAppBarItemId == item.id,
+            editName: $editingAppBarName,
+            onStartEdit: {
+                editingAppBarItemId = item.id
+                editingAppBarName = item.displayName
+            },
+            onSave: {
+                var updatedItem = item
+                updatedItem.displayName = editingAppBarName
+                profileManager.updateAppBarItem(updatedItem)
+                editingAppBarItemId = nil
+                editingAppBarName = ""
+            },
+            onCancel: {
+                editingAppBarItemId = nil
+                editingAppBarName = ""
+            },
+            onDelete: {
                 profileManager.removeAppBarItem(item)
-            } label: {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
             }
-            .buttonStyle(.borderless)
-        }
-        .hoverableRow()
+        )
     }
 
     private var filteredInstalledApps: [AppInfo] {
@@ -647,46 +645,29 @@ struct OnScreenKeyboardSettingsView: View {
 
     @ViewBuilder
     private func websiteLinkRow(_ link: WebsiteLink) -> some View {
-        HStack {
-            Image(systemName: "line.3.horizontal")
-                .foregroundColor(.secondary)
-                .frame(width: 20)
-
-            // Favicon
-            if let data = link.faviconData,
-               let nsImage = NSImage(data: data) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .frame(width: 24, height: 24)
-                    .cornerRadius(4)
-            } else {
-                Image(systemName: "globe")
-                    .frame(width: 24, height: 24)
-                    .foregroundColor(.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(link.displayName)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Text(link.domain ?? link.url)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-
-            Spacer()
-
-            Button {
+        WebsiteLinkRowView(
+            link: link,
+            isEditing: editingWebsiteLinkId == link.id,
+            editName: $editingWebsiteName,
+            onStartEdit: {
+                editingWebsiteLinkId = link.id
+                editingWebsiteName = link.displayName
+            },
+            onSave: {
+                var updatedLink = link
+                updatedLink.displayName = editingWebsiteName
+                profileManager.updateWebsiteLink(updatedLink)
+                editingWebsiteLinkId = nil
+                editingWebsiteName = ""
+            },
+            onCancel: {
+                editingWebsiteLinkId = nil
+                editingWebsiteName = ""
+            },
+            onDelete: {
                 profileManager.removeWebsiteLink(link)
-            } label: {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
             }
-            .buttonStyle(.borderless)
-        }
-        .hoverableRow()
+        )
     }
 
     private func addWebsiteLink() {
@@ -1364,6 +1345,187 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                 .fill(isHovered ? Color.accentColor.opacity(0.08) : Color(nsColor: .controlBackgroundColor))
         )
         .contentShape(Rectangle())
+        .onTapGesture {
+            if !isEditing {
+                onStartEdit()
+            }
+        }
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+    }
+}
+
+// MARK: - App Bar Item Row View
+
+struct AppBarItemRowView: View {
+    let item: AppBarItem
+    let isEditing: Bool
+    @Binding var editName: String
+    let onStartEdit: () -> Void
+    let onSave: () -> Void
+    let onCancel: () -> Void
+    let onDelete: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack {
+            Image(systemName: "line.3.horizontal")
+                .foregroundColor(.secondary)
+                .frame(width: 20)
+
+            // App icon
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
+               let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 24, height: 24)
+            } else {
+                Image(systemName: "app.fill")
+                    .resizable()
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(.secondary)
+            }
+
+            if isEditing {
+                TextField("Display name", text: $editName)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { onSave() }
+
+                Button("Save", action: onSave)
+                Button("Cancel", action: onCancel)
+            } else {
+                Text(item.displayName)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Spacer()
+
+                Button(action: onStartEdit) {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.borderless)
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !isEditing {
+                onStartEdit()
+            }
+        }
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+    }
+}
+
+// MARK: - Website Link Row View
+
+struct WebsiteLinkRowView: View {
+    let link: WebsiteLink
+    let isEditing: Bool
+    @Binding var editName: String
+    let onStartEdit: () -> Void
+    let onSave: () -> Void
+    let onCancel: () -> Void
+    let onDelete: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack {
+            Image(systemName: "line.3.horizontal")
+                .foregroundColor(.secondary)
+                .frame(width: 20)
+
+            // Favicon
+            if let data = link.faviconData,
+               let nsImage = NSImage(data: data) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .frame(width: 24, height: 24)
+                    .cornerRadius(4)
+            } else {
+                Image(systemName: "globe")
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(.secondary)
+            }
+
+            if isEditing {
+                VStack(alignment: .leading, spacing: 2) {
+                    TextField("Display name", text: $editName)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { onSave() }
+                    Text(link.domain ?? link.url)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Button("Save", action: onSave)
+                Button("Cancel", action: onCancel)
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(link.displayName)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text(link.domain ?? link.url)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Spacer()
+
+                Button(action: onStartEdit) {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.borderless)
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !isEditing {
+                onStartEdit()
+            }
+        }
         .onHover { hovering in
             isHovered = hovering
             if hovering {
