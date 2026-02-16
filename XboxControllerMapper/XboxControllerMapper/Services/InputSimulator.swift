@@ -791,14 +791,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
-        let location = NSEvent.mouseLocation
-        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
-        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
-
         let (downType, button) = mouseEventType(for: keyCode, down: true)
-        
+
         stateLock.lock()
         defer { stateLock.unlock() }
+
+        // Use tracked cursor position if available (for Accessibility Zoom compatibility)
+        // Otherwise fall back to NSEvent.mouseLocation
+        let cgLocation: CGPoint
+        if let tracked = trackedCursorPosition, UAZoomEnabled() {
+            cgLocation = tracked
+        } else {
+            let location = NSEvent.mouseLocation
+            let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+            cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
+        }
 
         // Track hold state
         heldMouseButtons.insert(button)
@@ -833,14 +840,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
-        let location = NSEvent.mouseLocation
-        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
-        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
-
         let (upType, button) = mouseEventType(for: keyCode, down: false)
 
         stateLock.lock()
         defer { stateLock.unlock() }
+
+        // Use tracked cursor position if available (for Accessibility Zoom compatibility)
+        // Otherwise fall back to NSEvent.mouseLocation
+        let cgLocation: CGPoint
+        if let tracked = trackedCursorPosition, UAZoomEnabled() {
+            cgLocation = tracked
+        } else {
+            let location = NSEvent.mouseLocation
+            let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+            cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
+        }
 
         // Update hold state
         heldMouseButtons.remove(button)
