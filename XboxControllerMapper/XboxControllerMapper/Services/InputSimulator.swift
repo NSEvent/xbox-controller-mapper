@@ -671,6 +671,14 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0
     }
 
+    /// Resets zoom detection state so shortcuts will be tried again
+    /// Called when user opens Settings to enable keyboard shortcuts
+    private func resetZoomDetectionState() {
+        zoomAttemptCount = 0
+        hasShownZoomKeyboardShortcutWarning = false
+        // Don't reset hasEverSeenZoomActive - if it was working before, it should still work
+    }
+
     /// Shows a warning that keyboard shortcuts need to be enabled for Accessibility Zoom
     private func showZoomKeyboardShortcutWarning() {
         DispatchQueue.main.async {
@@ -741,18 +749,26 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // Use block-based approach for button actions
             class ButtonHandler: NSObject {
                 let panel: NSPanel
-                init(panel: NSPanel) { self.panel = panel }
+                let onOpenSettings: () -> Void
+                init(panel: NSPanel, onOpenSettings: @escaping () -> Void) {
+                    self.panel = panel
+                    self.onOpenSettings = onOpenSettings
+                }
                 @objc func openSettings() {
                     if let url = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension?Zoom") {
                         NSWorkspace.shared.open(url)
                     }
+                    onOpenSettings()
                     panel.close()
                 }
                 @objc func dismiss() {
                     panel.close()
                 }
             }
-            let handler = ButtonHandler(panel: panel)
+            let handler = ButtonHandler(panel: panel) { [weak self] in
+                // Reset state so zoom shortcuts will be tried again after user enables setting
+                self?.resetZoomDetectionState()
+            }
             objc_setAssociatedObject(panel, "handler", handler, .OBJC_ASSOCIATION_RETAIN)
             openButton.target = handler
             openButton.action = #selector(ButtonHandler.openSettings)
