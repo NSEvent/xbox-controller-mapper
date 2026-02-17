@@ -108,6 +108,17 @@ struct Config {
     static let keyboardActionHapticSharpness: Float = 0.8
     static let keyboardActionHapticDuration: TimeInterval = 0.06
 
+    /// Haptic feedback for webhook/HTTP request success (crisp confirmation)
+    static let webhookSuccessHapticIntensity: Float = 0.25
+    static let webhookSuccessHapticSharpness: Float = 0.9
+    static let webhookSuccessHapticDuration: TimeInterval = 0.08
+
+    /// Haptic feedback for webhook/HTTP request failure (double pulse, more intense)
+    static let webhookFailureHapticIntensity: Float = 0.5
+    static let webhookFailureHapticSharpness: Float = 0.3
+    static let webhookFailureHapticDuration: TimeInterval = 0.15
+    static let webhookFailureHapticGap: TimeInterval = 0.1  // Gap between double pulses
+
     // MARK: - Input Simulation Timing
     /// Delay between modifier key presses (milliseconds)
     static let modifierPressDelay: useconds_t = 20000  // 20ms

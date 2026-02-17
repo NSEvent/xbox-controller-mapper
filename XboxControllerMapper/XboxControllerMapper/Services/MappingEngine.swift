@@ -298,6 +298,45 @@ class MappingEngine: ObservableObject {
             }
         }
 
+        // Set up webhook feedback handler for haptics and visual feedback
+        mappingExecutor.systemCommandExecutor.webhookFeedbackHandler = { [weak self] success, message in
+            guard let self = self else { return }
+
+            // Play haptic feedback
+            if success {
+                self.controllerService.playHaptic(
+                    intensity: Config.webhookSuccessHapticIntensity,
+                    sharpness: Config.webhookSuccessHapticSharpness,
+                    duration: Config.webhookSuccessHapticDuration,
+                    transient: true
+                )
+            } else {
+                // Double-pulse for failure
+                self.controllerService.playHaptic(
+                    intensity: Config.webhookFailureHapticIntensity,
+                    sharpness: Config.webhookFailureHapticSharpness,
+                    duration: Config.webhookFailureHapticDuration,
+                    transient: false
+                )
+                DispatchQueue.main.asyncAfter(deadline: .now() + Config.webhookFailureHapticGap + Config.webhookFailureHapticDuration) {
+                    self.controllerService.playHaptic(
+                        intensity: Config.webhookFailureHapticIntensity,
+                        sharpness: Config.webhookFailureHapticSharpness,
+                        duration: Config.webhookFailureHapticDuration,
+                        transient: false
+                    )
+                }
+            }
+
+            // Show visual feedback overlay
+            Task { @MainActor in
+                ActionFeedbackIndicator.shared.show(
+                    action: message,
+                    type: success ? .webhookSuccess : .webhookFailure
+                )
+            }
+        }
+
         setupBindings()
 
         // Initial state sync

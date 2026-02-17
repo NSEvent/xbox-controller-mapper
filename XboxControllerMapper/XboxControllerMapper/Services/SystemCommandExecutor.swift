@@ -7,6 +7,10 @@ class SystemCommandExecutor: @unchecked Sendable {
     private let urlSession: URLSession
     private let executionQueue = DispatchQueue(label: "com.controllerkeys.systemcommand", qos: .userInteractive)
 
+    /// Callback for webhook feedback (success: Bool, displayMessage: String)
+    /// Called on completion of HTTP requests to provide user feedback
+    var webhookFeedbackHandler: ((Bool, String) -> Void)?
+
     init(profileManager: ProfileManager, urlSession: URLSession = .shared) {
         self.profileManager = profileManager
         self.urlSession = urlSession
@@ -196,7 +200,7 @@ class SystemCommandExecutor: @unchecked Sendable {
             return
         }
 
-        executionQueue.async { [url = validURL, urlSession = self.urlSession] in
+        executionQueue.async { [url = validURL, urlSession = self.urlSession, feedbackHandler = self.webhookFeedbackHandler] in
             var request = URLRequest(url: url)
             request.httpMethod = method.rawValue
             request.timeoutInterval = 10
@@ -221,6 +225,7 @@ class SystemCommandExecutor: @unchecked Sendable {
             let task = urlSession.dataTask(with: request) { data, response, error in
                 if let error = error {
                     NSLog("[SystemCommand] HTTP request failed: %@", error.localizedDescription)
+                    feedbackHandler?(false, "Webhook Error")
                     return
                 }
 
@@ -228,8 +233,10 @@ class SystemCommandExecutor: @unchecked Sendable {
                     let statusCode = httpResponse.statusCode
                     if statusCode >= 200 && statusCode < 300 {
                         NSLog("[SystemCommand] HTTP %@ %@ → %d OK", method.rawValue, urlString, statusCode)
+                        feedbackHandler?(true, "Webhook \(statusCode)")
                     } else {
                         NSLog("[SystemCommand] HTTP %@ %@ → %d", method.rawValue, urlString, statusCode)
+                        feedbackHandler?(false, "Webhook \(statusCode)")
                     }
                 }
             }
