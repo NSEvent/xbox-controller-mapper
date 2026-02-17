@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - Unreleased
+
+### Added
+
+- **Favicon Caching**: Website link favicons now persist across app restarts
+  - Cached in `~/.controllerkeys/favicons/`
+  - Missing favicons automatically refetched in background
+- **Press Enter Option**: Type Text macro step can optionally press Enter after typing
+- **Edit Sheets**: App bar items and website links can be edited after creation
+  - App search in edit sheet for quick app selection
+- **Hover Highlighting**: Visual feedback across all interactive elements
+  - Toolbar buttons, mapping toggle, settings rows
+  - Consistent cursor behavior with reusable modifiers
+
+### Fixed
+
+- DualSense Edge layout (paddles, function buttons) persists when controller disconnects
+- Drag-to-reorder in all settings lists (chords, macros, text snippets, apps, websites)
+- Inconsistent row heights in active chords display
+- App bar and website list not updating immediately after changes
+- App bar list height cutting off last item
+- Hover modifiers blocking clicks and not showing highlight
+- Number key 5 mapped to wrong key code on visual keyboard
+- Macro labels showing generic "Macro" for long hold and double tap actions
+
 ## [1.4.2] - 2026-02-16
 
 ### Added
