@@ -44,19 +44,19 @@ struct OnScreenKeyboardSettingsView: View {
     @State private var editSuggestionIndex = 0
 
     private var textSnippets: [QuickText] {
-        profileManager.onScreenKeyboardSettings.quickTexts.filter { !$0.isTerminalCommand }
+        (profileManager.activeProfile?.onScreenKeyboardSettings.quickTexts ?? []).filter { !$0.isTerminalCommand }
     }
 
     private var terminalCommands: [QuickText] {
-        profileManager.onScreenKeyboardSettings.quickTexts.filter { $0.isTerminalCommand }
+        (profileManager.activeProfile?.onScreenKeyboardSettings.quickTexts ?? []).filter { $0.isTerminalCommand }
     }
 
     private var appBarItems: [AppBarItem] {
-        profileManager.onScreenKeyboardSettings.appBarItems
+        profileManager.activeProfile?.onScreenKeyboardSettings.appBarItems ?? []
     }
 
     private var websiteLinks: [WebsiteLink] {
-        profileManager.onScreenKeyboardSettings.websiteLinks
+        profileManager.activeProfile?.onScreenKeyboardSettings.websiteLinks ?? []
     }
 
     private func loadInstalledApps() {
