@@ -88,6 +88,7 @@ struct HoverableButtonModifier: ViewModifier {
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(isHovered ? Color.white.opacity(0.1) : Color.clear)
+                    .allowsHitTesting(false)
             )
             .onHover { hovering in
                 isHovered = hovering
@@ -108,11 +109,12 @@ struct HoverableIconButtonModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .padding(6)
             .background(
                 Circle()
                     .fill(isHovered ? Color.accentColor.opacity(0.15) : Color.clear)
-                    .padding(-4)
             )
+            .contentShape(Circle())
             .onHover { hovering in
                 isHovered = hovering
                 if hovering {
