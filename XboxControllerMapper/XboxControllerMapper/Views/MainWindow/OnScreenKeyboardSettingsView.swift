@@ -705,95 +705,21 @@ struct OnScreenKeyboardSettingsView: View {
             return (nil, urlString)
         }
 
-        // Fetch page HTML first (we need it for both title and favicon)
-        var html: String?
+        // Fetch favicon using cache (handles fetching and caching)
+        let faviconData = await FaviconCache.shared.fetchFavicon(for: urlString)
+
+        // Fetch page HTML for title extraction
+        var title = host.replacingOccurrences(of: "www.", with: "")
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
-            html = String(data: data, encoding: .utf8)
+            if let html = String(data: data, encoding: .utf8) {
+                title = extractTitle(from: html) ?? title
+            }
         } catch {
-            // Continue without HTML
+            // Use host as fallback title
         }
-
-        // Try to get favicon from HTML link tags first (more accurate for subpages)
-        var faviconData = await fetchFaviconFromHTML(html: html, baseURL: url)
-
-        // Fall back to Google's service if HTML parsing didn't work
-        if faviconData == nil {
-            faviconData = await fetchFaviconFromGoogle(host: host)
-        }
-
-        // Extract title from HTML
-        let title = extractTitle(from: html) ?? host.replacingOccurrences(of: "www.", with: "")
 
         return (faviconData, title)
-    }
-
-    private func fetchFaviconFromHTML(html: String?, baseURL: URL) async -> Data? {
-        guard let html = html else { return nil }
-
-        // Look for favicon in link tags (apple-touch-icon or icon)
-        // Patterns to match: <link rel="icon" href="..."> or <link rel="apple-touch-icon" href="...">
-        let patterns = [
-            "<link[^>]*rel=[\"']apple-touch-icon[\"'][^>]*href=[\"']([^\"']+)[\"']",
-            "<link[^>]*href=[\"']([^\"']+)[\"'][^>]*rel=[\"']apple-touch-icon[\"']",
-            "<link[^>]*rel=[\"']icon[\"'][^>]*href=[\"']([^\"']+)[\"']",
-            "<link[^>]*href=[\"']([^\"']+)[\"'][^>]*rel=[\"']icon[\"']",
-            "<link[^>]*rel=[\"']shortcut icon[\"'][^>]*href=[\"']([^\"']+)[\"']"
-        ]
-
-        for pattern in patterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-               let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
-               let urlRange = Range(match.range(at: 1), in: html) {
-                let faviconURLString = String(html[urlRange])
-
-                // Resolve relative URLs
-                var faviconURL: URL?
-                if faviconURLString.hasPrefix("http") {
-                    faviconURL = URL(string: faviconURLString)
-                } else if faviconURLString.hasPrefix("//") {
-                    faviconURL = URL(string: "https:" + faviconURLString)
-                } else if faviconURLString.hasPrefix("/") {
-                    faviconURL = URL(string: faviconURLString, relativeTo: URL(string: "https://\(baseURL.host ?? "")"))
-                } else {
-                    faviconURL = URL(string: faviconURLString, relativeTo: baseURL)
-                }
-
-                if let url = faviconURL {
-                    do {
-                        let (data, response) = try await URLSession.shared.data(from: url)
-                        if let httpResponse = response as? HTTPURLResponse,
-                           httpResponse.statusCode == 200,
-                           data.count > 100 {
-                            return data
-                        }
-                    } catch {
-                        continue // Try next pattern
-                    }
-                }
-            }
-        }
-
-        return nil
-    }
-
-    private func fetchFaviconFromGoogle(host: String) async -> Data? {
-        guard let googleURL = URL(string: "https://www.google.com/s2/favicons?domain=\(host)&sz=128") else {
-            return nil
-        }
-
-        do {
-            let (data, response) = try await URLSession.shared.data(from: googleURL)
-            if let httpResponse = response as? HTTPURLResponse,
-               httpResponse.statusCode == 200,
-               data.count > 100 {  // Ensure it's not a placeholder
-                return data
-            }
-        } catch {
-            // Fall through to return nil
-        }
-
-        return nil
     }
 
     private func extractTitle(from html: String?) -> String? {

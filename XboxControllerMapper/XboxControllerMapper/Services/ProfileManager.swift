@@ -83,6 +83,7 @@ class ProfileManager: ObservableObject {
 
         createDirectoryIfNeeded(at: configDir)
         loadConfiguration()
+        loadCachedFavicons()
 
         // Create default profile if none exist
         if profiles.isEmpty {
@@ -609,7 +610,64 @@ class ProfileManager: ObservableObject {
         profile.onScreenKeyboardSettings.websiteLinks.move(fromOffsets: source, toOffset: destination)
         updateProfile(profile)
     }
-    
+
+    // MARK: - Favicon Cache
+
+    /// Load cached favicons for all website links in all profiles
+    private func loadCachedFavicons() {
+        for i in 0..<profiles.count {
+            for j in 0..<profiles[i].onScreenKeyboardSettings.websiteLinks.count {
+                let link = profiles[i].onScreenKeyboardSettings.websiteLinks[j]
+                if link.faviconData == nil {
+                    if let cached = FaviconCache.shared.loadCachedFavicon(for: link.url) {
+                        profiles[i].onScreenKeyboardSettings.websiteLinks[j].faviconData = cached
+                    }
+                }
+            }
+        }
+
+        // Update activeProfile reference
+        if let activeId = activeProfileId,
+           let profile = profiles.first(where: { $0.id == activeId }) {
+            activeProfile = profile
+        }
+
+        // Trigger async refetch for any still-missing favicons
+        refetchMissingFavicons()
+    }
+
+    /// Refetch favicons that are missing from cache
+    private func refetchMissingFavicons() {
+        Task {
+            var anyUpdated = false
+
+            for i in 0..<profiles.count {
+                for j in 0..<profiles[i].onScreenKeyboardSettings.websiteLinks.count {
+                    let link = profiles[i].onScreenKeyboardSettings.websiteLinks[j]
+                    if link.faviconData == nil {
+                        if let data = await FaviconCache.shared.fetchFavicon(for: link.url) {
+                            await MainActor.run {
+                                profiles[i].onScreenKeyboardSettings.websiteLinks[j].faviconData = data
+                                anyUpdated = true
+                            }
+                        }
+                    }
+                }
+            }
+
+            if anyUpdated {
+                await MainActor.run {
+                    // Update activeProfile reference
+                    if let activeId = activeProfileId,
+                       let profile = profiles.first(where: { $0.id == activeId }) {
+                        activeProfile = profile
+                    }
+                    objectWillChange.send()
+                }
+            }
+        }
+    }
+
     // MARK: - Macros
     
     func addMacro(_ macro: Macro, in profile: Profile? = nil) {
