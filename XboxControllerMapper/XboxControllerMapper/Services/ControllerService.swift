@@ -372,7 +372,7 @@ class ControllerService: ObservableObject {
     }
     private var activeHapticPlayers: [ActiveHapticPlayer] = []
 
-    init() {
+    init(enableHardwareMonitoring: Bool = true) {
         GCController.shouldMonitorBackgroundEvents = true
 
         // Load last controller type (so UI shows correct button labels when no controller is connected)
@@ -380,8 +380,11 @@ class ControllerService: ObservableObject {
         storage.isDualSenseEdge = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey)
 
         setupNotifications()
-        startDiscovery()
-        checkConnectedControllers()
+
+        if enableHardwareMonitoring {
+            startDiscovery()
+            checkConnectedControllers()
+        }
         
         guideMonitor.onGuideButtonAction = { [weak self] isPressed in
             guard let self = self else { return }
@@ -389,16 +392,18 @@ class ControllerService: ObservableObject {
                 self.handleButton(.xbox, pressed: isPressed)
             }
         }
-        
-        batteryMonitor.startMonitoring()
-        batteryMonitor.$batteryLevel
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] level in
-                self?.updateBatteryInfo()
-            }
-            .store(in: &cancellables)
 
-        setupGenericHIDMonitoring()
+        if enableHardwareMonitoring {
+            batteryMonitor.startMonitoring()
+            batteryMonitor.$batteryLevel
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.updateBatteryInfo()
+                }
+                .store(in: &cancellables)
+
+            setupGenericHIDMonitoring()
+        }
     }
 
     func cleanup() {

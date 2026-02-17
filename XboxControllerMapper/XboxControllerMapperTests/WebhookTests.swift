@@ -117,6 +117,7 @@ final class WebhookTests: XCTestCase {
     private var executor: SystemCommandExecutor!
     private var mockSession: URLSession!
     private var profileManager: ProfileManager!
+    private var testConfigDirectory: URL!
 
     // MARK: - Setup / Teardown
 
@@ -131,7 +132,9 @@ final class WebhookTests: XCTestCase {
         mockSession = URLSession(configuration: config)
 
         // Create profile manager and executor with mock session
-        profileManager = ProfileManager()
+        testConfigDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("controllerkeys-tests-\(UUID().uuidString)", isDirectory: true)
+        profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
         executor = SystemCommandExecutor(profileManager: profileManager, urlSession: mockSession)
     }
 

@@ -82,10 +82,13 @@ final class OBSWebSocketTests: XCTestCase {
     private var executor: SystemCommandExecutor!
     private var profileManager: ProfileManager!
     private var mockOBSClient: MockOBSWebSocketClient!
+    private var testConfigDirectory: URL!
 
     override func setUp() async throws {
         try await super.setUp()
-        profileManager = ProfileManager()
+        testConfigDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("controllerkeys-tests-\(UUID().uuidString)", isDirectory: true)
+        profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
         mockOBSClient = MockOBSWebSocketClient()
         let injectedClient = mockOBSClient!
         executor = SystemCommandExecutor(

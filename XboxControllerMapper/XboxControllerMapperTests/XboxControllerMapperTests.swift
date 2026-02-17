@@ -224,13 +224,17 @@ final class XboxControllerMapperTests: XCTestCase {
     var appMonitor: AppMonitor!
     var mockInputSimulator: MockInputSimulator!
     var mappingEngine: MappingEngine!
+    private var testConfigDirectory: URL!
     
     override func setUp() async throws {
+        testConfigDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("controllerkeys-tests-\(UUID().uuidString)", isDirectory: true)
+
         await MainActor.run {
-            controllerService = ControllerService()
+            controllerService = ControllerService(enableHardwareMonitoring: false)
             // Reduce chord window for faster test execution (50ms should be safe)
             controllerService.chordWindow = 0.05
-            profileManager = ProfileManager()
+            profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
             appMonitor = AppMonitor()
             mockInputSimulator = MockInputSimulator()
 

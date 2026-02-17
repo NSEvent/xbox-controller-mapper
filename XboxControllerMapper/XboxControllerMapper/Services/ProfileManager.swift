@@ -70,18 +70,26 @@ class ProfileManager: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
 
-    init(appMonitor: AppMonitor? = nil) {
+    init(appMonitor: AppMonitor? = nil, configDirectoryOverride: URL? = nil) {
         let home = fileManager.homeDirectoryForCurrentUser
 
-        // New location: ~/.controllerkeys/
-        let configDir = home.appendingPathComponent(".controllerkeys", isDirectory: true)
-        configURL = configDir.appendingPathComponent("config.json")
+        // Allow tests to use an isolated temp config directory.
+        if let configDirectoryOverride {
+            let configDir = configDirectoryOverride
+            configURL = configDir.appendingPathComponent("config.json")
+            // Keep legacy path scoped to the same override to avoid reading user config in tests.
+            legacyConfigURL = configURL
+            createDirectoryIfNeeded(at: configDir)
+        } else {
+            // New location: ~/.controllerkeys/
+            let configDir = home.appendingPathComponent(".controllerkeys", isDirectory: true)
+            configURL = configDir.appendingPathComponent("config.json")
 
-        // Legacy location: ~/.xbox-controller-mapper/ (for migration)
-        let legacyConfigDir = home.appendingPathComponent(".xbox-controller-mapper", isDirectory: true)
-        legacyConfigURL = legacyConfigDir.appendingPathComponent("config.json")
-
-        createDirectoryIfNeeded(at: configDir)
+            // Legacy location: ~/.xbox-controller-mapper/ (for migration)
+            let legacyConfigDir = home.appendingPathComponent(".xbox-controller-mapper", isDirectory: true)
+            legacyConfigURL = legacyConfigDir.appendingPathComponent("config.json")
+            createDirectoryIfNeeded(at: configDir)
+        }
         loadConfiguration()
         loadCachedFavicons()
 
