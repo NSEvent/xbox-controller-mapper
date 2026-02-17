@@ -1657,6 +1657,12 @@ struct ChordMappingSheet: View {
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
+    @State private var webhookURL: String = ""
+    @State private var webhookMethod: HTTPMethod = .POST
+    @State private var webhookBody: String = ""
+    @State private var webhookHeaders: [String: String] = [:]
+    @State private var newWebhookHeaderKey: String = ""
+    @State private var newWebhookHeaderValue: String = ""
     @State private var showingAppPicker = false
     @State private var showingBookmarkPicker = false
 
@@ -2031,6 +2037,71 @@ struct ChordMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+            case .webhook:
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    Picker("Method", selection: $webhookMethod) {
+                        ForEach(HTTPMethod.allCases) { method in
+                            Text(method.rawValue).tag(method)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if [.POST, .PUT, .PATCH].contains(webhookMethod) {
+                        TextField("Body (JSON)", text: $webhookBody, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+                            .lineLimit(3...6)
+                    }
+
+                    DisclosureGroup("Headers") {
+                        ForEach(Array(webhookHeaders.keys.sorted()), id: \.self) { key in
+                            HStack {
+                                Text(key)
+                                    .font(.caption)
+                                Spacer()
+                                Text(webhookHeaders[key] ?? "")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Button {
+                                    webhookHeaders.removeValue(forKey: key)
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        HStack {
+                            TextField("Header", text: $newWebhookHeaderKey)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+                            TextField("Value", text: $newWebhookHeaderValue)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+                            Button {
+                                if !newWebhookHeaderKey.isEmpty {
+                                    webhookHeaders[newWebhookHeaderKey] = newWebhookHeaderValue
+                                    newWebhookHeaderKey = ""
+                                    newWebhookHeaderValue = ""
+                                }
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(newWebhookHeaderKey.isEmpty)
+                        }
+                    }
+
+                    Text("Fires an HTTP request when triggered. Use for webhooks, APIs, home automation, etc.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }
@@ -2046,6 +2117,11 @@ struct ChordMappingSheet: View {
         case .link:
             guard !linkURL.isEmpty else { return nil }
             return .openLink(url: linkURL)
+        case .webhook:
+            guard !webhookURL.isEmpty else { return nil }
+            let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
+            let body = webhookBody.isEmpty ? nil : webhookBody
+            return .httpRequest(url: webhookURL, method: webhookMethod, headers: headers, body: body)
         }
     }
 
@@ -2060,6 +2136,11 @@ struct ChordMappingSheet: View {
             shellRunInTerminal = inTerminal
         case .openLink(let url):
             linkURL = url
+        case .httpRequest(let url, let method, let headers, let body):
+            webhookURL = url
+            webhookMethod = method
+            webhookHeaders = headers ?? [:]
+            webhookBody = body ?? ""
         }
     }
 

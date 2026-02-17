@@ -58,6 +58,12 @@ struct ButtonMappingSheet: View {
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
+    @State private var webhookURL: String = ""
+    @State private var webhookMethod: HTTPMethod = .POST
+    @State private var webhookBody: String = ""
+    @State private var webhookHeaders: [String: String] = [:]
+    @State private var newWebhookHeaderKey: String = ""
+    @State private var newWebhookHeaderValue: String = ""
     @State private var showingPrimaryAppPicker = false
     @State private var showingLongHoldAppPicker = false
     @State private var showingDoubleTapAppPicker = false
@@ -663,6 +669,71 @@ struct ButtonMappingSheet: View {
                         }
                     }
                 }
+            case .webhook:
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    Picker("Method", selection: $webhookMethod) {
+                        ForEach(HTTPMethod.allCases) { method in
+                            Text(method.rawValue).tag(method)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    if [.POST, .PUT, .PATCH].contains(webhookMethod) {
+                        TextField("Body (JSON)", text: $webhookBody, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+                            .lineLimit(3...6)
+                    }
+
+                    DisclosureGroup("Headers") {
+                        ForEach(Array(webhookHeaders.keys.sorted()), id: \.self) { key in
+                            HStack {
+                                Text(key)
+                                    .font(.caption)
+                                Spacer()
+                                Text(webhookHeaders[key] ?? "")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Button {
+                                    webhookHeaders.removeValue(forKey: key)
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        HStack {
+                            TextField("Header", text: $newWebhookHeaderKey)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+                            TextField("Value", text: $newWebhookHeaderValue)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.caption)
+                            Button {
+                                if !newWebhookHeaderKey.isEmpty {
+                                    webhookHeaders[newWebhookHeaderKey] = newWebhookHeaderValue
+                                    newWebhookHeaderKey = ""
+                                    newWebhookHeaderValue = ""
+                                }
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(newWebhookHeaderKey.isEmpty)
+                        }
+                    }
+
+                    Text("Fires an HTTP request when triggered. Use for webhooks, APIs, home automation, etc.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             // Hint field for system commands
@@ -729,6 +800,10 @@ struct ButtonMappingSheet: View {
                     linkURL.wrappedValue = url
                 }
             }
+        case .webhook:
+            Text("Webhook not supported for long hold / double tap. Use primary mapping.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -744,11 +819,20 @@ struct ButtonMappingSheet: View {
         case .link:
             guard !linkURL.isEmpty else { return nil }
             return .openLink(url: linkURL)
+        case .webhook:
+            // Webhook is handled separately in buildSystemCommand
+            return nil
         }
     }
 
     private func buildSystemCommand() -> SystemCommand? {
-        buildCommand(category: systemCommandCategory, shellText: shellCommandText, inTerminal: shellRunInTerminal, bundleId: appBundleIdentifier, newWindow: appNewWindow, linkURL: linkURL)
+        if systemCommandCategory == .webhook {
+            guard !webhookURL.isEmpty else { return nil }
+            let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
+            let body = webhookBody.isEmpty ? nil : webhookBody
+            return .httpRequest(url: webhookURL, method: webhookMethod, headers: headers, body: body)
+        }
+        return buildCommand(category: systemCommandCategory, shellText: shellCommandText, inTerminal: shellRunInTerminal, bundleId: appBundleIdentifier, newWindow: appNewWindow, linkURL: linkURL)
     }
 
     private func buildLongHoldSystemCommand() -> SystemCommand? {
@@ -1398,11 +1482,22 @@ struct ButtonMappingSheet: View {
             inTerminal = terminal
         case .openLink(let url):
             linkURL = url
+        case .httpRequest:
+            // Webhook is handled separately in loadSystemCommandState
+            break
         }
     }
 
     private func loadSystemCommandState(_ command: SystemCommand) {
-        loadCommandState(command, category: &systemCommandCategory, bundleId: &appBundleIdentifier, newWindow: &appNewWindow, shellText: &shellCommandText, inTerminal: &shellRunInTerminal, linkURL: &linkURL)
+        if case .httpRequest(let url, let method, let headers, let body) = command {
+            systemCommandCategory = .webhook
+            webhookURL = url
+            webhookMethod = method
+            webhookHeaders = headers ?? [:]
+            webhookBody = body ?? ""
+        } else {
+            loadCommandState(command, category: &systemCommandCategory, bundleId: &appBundleIdentifier, newWindow: &appNewWindow, shellText: &shellCommandText, inTerminal: &shellRunInTerminal, linkURL: &linkURL)
+        }
     }
 
     private func loadLongHoldSystemCommandState(_ command: SystemCommand) {

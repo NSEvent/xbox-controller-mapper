@@ -1,0 +1,15 @@
+{
+    "_comment": "Copy this file to webhook_config.json and fill in your credentials",
+    "_docs": {
+        "discord": "Create a webhook in Discord channel settings: Server Settings > Integrations > Webhooks",
+        "slack": "Create an incoming webhook at https://api.slack.com/apps > Incoming Webhooks",
+        "ifttt": "Get your key at https://ifttt.com/maker_webhooks > Documentation",
+        "webhook_site": "Get a free token at https://webhook.site (the UUID in the URL)"
+    },
+
+    "discord_webhook_url": null,
+    "slack_webhook_url": null,
+    "ifttt_event_name": null,
+    "ifttt_key": null,
+    "webhook_site_token": null
+}
