@@ -32,26 +32,52 @@ private final class MockOBSWebSocketTransport: OBSWebSocketTransportProtocol {
     }
 }
 
-private final class MockOBSWebSocketClient: OBSWebSocketClientProtocol {
-    struct Call: Equatable {
+private final class MockOBSWebSocketClient: OBSWebSocketClientProtocol, @unchecked Sendable {
+    struct Call: Equatable, Sendable {
         let requestType: String
         let requestDataJSON: String?
         let timeout: TimeInterval
     }
 
-    var result: Result<OBSRequestExecutionResult, Error> = .success(.init(code: 100, comment: "OK"))
-    private(set) var calls: [Call] = []
+    private let lock = NSLock()
+    private var storedResult: Result<OBSRequestExecutionResult, Error> = .success(.init(code: 100, comment: "OK"))
+    private var storedCalls: [Call] = []
+
+    var result: Result<OBSRequestExecutionResult, Error> {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedResult
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            storedResult = newValue
+        }
+    }
+
+    var calls: [Call] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedCalls
+    }
 
     func executeRequest(
         requestType: String,
         requestDataJSON: String?,
         timeout: TimeInterval
     ) async throws -> OBSRequestExecutionResult {
-        calls.append(.init(requestType: requestType, requestDataJSON: requestDataJSON, timeout: timeout))
-        return try result.get()
+        let currentResult: Result<OBSRequestExecutionResult, Error>
+        lock.lock()
+        storedCalls.append(.init(requestType: requestType, requestDataJSON: requestDataJSON, timeout: timeout))
+        currentResult = storedResult
+        lock.unlock()
+
+        return try currentResult.get()
     }
 }
 
+@MainActor
 final class OBSWebSocketTests: XCTestCase {
     private var executor: SystemCommandExecutor!
     private var profileManager: ProfileManager!
@@ -59,15 +85,13 @@ final class OBSWebSocketTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        await MainActor.run {
-            profileManager = ProfileManager()
-            mockOBSClient = MockOBSWebSocketClient()
-            let injectedClient = mockOBSClient!
-            executor = SystemCommandExecutor(
-                profileManager: profileManager,
-                obsClientFactory: { _, _ in injectedClient }
-            )
-        }
+        profileManager = ProfileManager()
+        mockOBSClient = MockOBSWebSocketClient()
+        let injectedClient = mockOBSClient!
+        executor = SystemCommandExecutor(
+            profileManager: profileManager,
+            obsClientFactory: { _, _ in injectedClient }
+        )
     }
 
     override func tearDown() async throws {

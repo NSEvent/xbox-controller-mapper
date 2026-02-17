@@ -109,6 +109,7 @@ final class MockURLProtocol: URLProtocol {
 // MARK: - Webhook Tests
 
 /// Tests for HTTP request/webhook functionality
+@MainActor
 final class WebhookTests: XCTestCase {
 
     // MARK: - Properties
@@ -129,11 +130,9 @@ final class WebhookTests: XCTestCase {
         config.protocolClasses = [MockURLProtocol.self]
         mockSession = URLSession(configuration: config)
 
-        // Create profile manager and executor with mock session (on main actor)
-        await MainActor.run {
-            profileManager = ProfileManager()
-            executor = SystemCommandExecutor(profileManager: profileManager, urlSession: mockSession)
-        }
+        // Create profile manager and executor with mock session
+        profileManager = ProfileManager()
+        executor = SystemCommandExecutor(profileManager: profileManager, urlSession: mockSession)
     }
 
     override func tearDown() async throws {
