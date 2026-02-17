@@ -213,8 +213,8 @@ class SystemCommandExecutor: @unchecked Sendable {
                 }
             }
 
-            // Set body if provided
-            if let body = body, !body.isEmpty {
+            // Set body if provided (only for methods that support a body)
+            if [.POST, .PUT, .PATCH].contains(method), let body = body, !body.isEmpty {
                 request.httpBody = body.data(using: .utf8)
             }
 

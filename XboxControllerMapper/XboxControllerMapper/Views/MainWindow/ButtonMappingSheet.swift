@@ -1004,7 +1004,7 @@ struct ButtonMappingSheet: View {
     private var longHoldSystemCommandContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             Picker("Category", selection: $longHoldSystemCommandCategory) {
-                ForEach(SystemCommandCategory.allCases, id: \.self) { category in
+                ForEach(SystemCommandCategory.allCases.filter { $0 != .webhook }, id: \.self) { category in
                     Text(category.rawValue).tag(category)
                 }
             }
@@ -1163,7 +1163,7 @@ struct ButtonMappingSheet: View {
     private var doubleTapSystemCommandContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             Picker("Category", selection: $doubleTapSystemCommandCategory) {
-                ForEach(SystemCommandCategory.allCases, id: \.self) { category in
+                ForEach(SystemCommandCategory.allCases.filter { $0 != .webhook }, id: \.self) { category in
                     Text(category.rawValue).tag(category)
                 }
             }
