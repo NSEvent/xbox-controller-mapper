@@ -4,14 +4,13 @@ import AppKit
 // MARK: - Hoverable Row Modifier
 
 /// A modifier for list rows that need background highlight + cursor change on hover
+/// NOTE: This modifier only adds hover highlighting and cursor. Tap gestures should be
+/// applied to specific content areas to avoid blocking drag-to-reorder on List rows.
 struct HoverableRowModifier: ViewModifier {
-    let onTap: (() -> Void)?
     @State private var isHovered = false
 
-    @ViewBuilder
     func body(content: Content) -> some View {
-        let base = content
-            .contentShape(Rectangle())
+        content
             .background(isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
             .cornerRadius(6)
             .onHover { hovering in
@@ -22,12 +21,6 @@ struct HoverableRowModifier: ViewModifier {
                     NSCursor.pop()
                 }
             }
-
-        if let onTap = onTap {
-            base.onTapGesture { onTap() }
-        } else {
-            base
-        }
     }
 }
 
@@ -129,10 +122,11 @@ struct HoverableIconButtonModifier: ViewModifier {
 // MARK: - View Extensions
 
 extension View {
-    /// Adds hover highlighting and pointing hand cursor to a row
-    /// - Parameter onTap: Optional tap handler
-    func hoverableRow(onTap: (() -> Void)? = nil) -> some View {
-        modifier(HoverableRowModifier(onTap: onTap))
+    /// Adds hover highlighting and pointing hand cursor to a row.
+    /// NOTE: Does NOT add tap gesture - apply tap gestures to specific content areas
+    /// to avoid blocking drag-to-reorder on List rows.
+    func hoverableRow() -> some View {
+        modifier(HoverableRowModifier())
     }
 
     /// Adds GlassCardBackground styling with hover effects and pointing hand cursor

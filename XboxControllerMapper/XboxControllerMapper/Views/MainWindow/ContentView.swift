@@ -1509,41 +1509,47 @@ struct ChordRow: View {
 
     var body: some View {
         HStack {
+            // Drag handle - not tappable, allows List drag to work
             Image(systemName: "line.3.horizontal")
                 .foregroundColor(.white.opacity(0.3))
                 .font(.caption)
                 .frame(width: 20)
 
-            HStack(spacing: 4) {
-                ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-                    ButtonIconView(button: button, isDualSense: isDualSense)
+            // Tappable content area
+            HStack {
+                HStack(spacing: 4) {
+                    ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
+                        ButtonIconView(button: button, isDualSense: isDualSense)
+                    }
                 }
+
+                Image(systemName: "arrow.right")
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.3))
+
+                if let systemCommand = chord.systemCommand {
+                    Text(chord.hint ?? systemCommand.displayName)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.green.opacity(0.9))
+                        .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
+                } else if let macroId = chord.macroId,
+                   let profile = profileManager.activeProfile,
+                   let macro = profile.macros.first(where: { $0.id == macroId }) {
+                    Text(chord.hint ?? macro.name)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.purple.opacity(0.9))
+                        .tooltipIfPresent(chord.hint != nil ? macro.name : nil)
+                } else {
+                    Text(chord.hint ?? chord.actionDisplayString)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+                        .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
+                }
+
+                Spacer()
             }
-
-            Image(systemName: "arrow.right")
-                .font(.caption2)
-                .foregroundColor(.white.opacity(0.3))
-
-            if let systemCommand = chord.systemCommand {
-                Text(chord.hint ?? systemCommand.displayName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.green.opacity(0.9))
-                    .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
-            } else if let macroId = chord.macroId,
-               let profile = profileManager.activeProfile,
-               let macro = profile.macros.first(where: { $0.id == macroId }) {
-                Text(chord.hint ?? macro.name)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.purple.opacity(0.9))
-                    .tooltipIfPresent(chord.hint != nil ? macro.name : nil)
-            } else {
-                Text(chord.hint ?? chord.actionDisplayString)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
-                    .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
-            }
-
-            Spacer()
+            .contentShape(Rectangle())
+            .onTapGesture { onEdit() }
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
@@ -1561,7 +1567,7 @@ struct ChordRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .hoverableRow(onTap: onEdit)
+        .hoverableRow()
     }
 }
 

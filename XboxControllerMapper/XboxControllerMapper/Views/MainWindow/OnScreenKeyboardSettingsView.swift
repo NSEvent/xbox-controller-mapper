@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 /// Settings view for the on-screen keyboard feature
 struct OnScreenKeyboardSettingsView: View {
@@ -31,6 +32,10 @@ struct OnScreenKeyboardSettingsView: View {
 
     // Website link editing state
     @State private var editingWebsiteLink: WebsiteLink?
+
+    // Drag-to-reorder state
+    @State private var draggedAppBarItem: AppBarItem?
+    @State private var draggedWebsiteLink: WebsiteLink?
 
     // Cached installed apps (loaded once on appear)
     @State private var cachedInstalledApps: [AppInfo] = []
@@ -413,18 +418,23 @@ struct OnScreenKeyboardSettingsView: View {
                     .foregroundColor(.secondary)
                     .italic()
             } else {
-                List {
+                VStack(spacing: 4) {
                     ForEach(appBarItems) { item in
                         appBarListRow(item)
-                    }
-                    .onMove { source, destination in
-                        profileManager.moveAppBarItems(from: source, to: destination)
+                            .onDrag {
+                                draggedAppBarItem = item
+                                return NSItemProvider(object: item.id.uuidString as NSString)
+                            }
+                            .onDrop(of: [.text], delegate: AppBarItemDropDelegate(
+                                item: item,
+                                items: appBarItems,
+                                draggedItem: $draggedAppBarItem,
+                                moveItems: { from, to in
+                                    profileManager.moveAppBarItems(from: from, to: to)
+                                }
+                            ))
                     }
                 }
-                .listStyle(.plain)
-                .frame(height: CGFloat(appBarItems.count) * 36 + 8)
-                .scrollContentBackground(.hidden)
-                .scrollDisabled(true)
             }
         } header: {
             Text("App Bar")
@@ -617,18 +627,23 @@ struct OnScreenKeyboardSettingsView: View {
                     .foregroundColor(.secondary)
                     .italic()
             } else {
-                List {
+                VStack(spacing: 4) {
                     ForEach(websiteLinks) { link in
                         websiteLinkRow(link)
-                    }
-                    .onMove { source, destination in
-                        profileManager.moveWebsiteLinks(from: source, to: destination)
+                            .onDrag {
+                                draggedWebsiteLink = link
+                                return NSItemProvider(object: link.id.uuidString as NSString)
+                            }
+                            .onDrop(of: [.text], delegate: WebsiteLinkDropDelegate(
+                                item: link,
+                                items: websiteLinks,
+                                draggedItem: $draggedWebsiteLink,
+                                moveItems: { from, to in
+                                    profileManager.moveWebsiteLinks(from: from, to: to)
+                                }
+                            ))
                     }
                 }
-                .listStyle(.plain)
-                .frame(height: CGFloat(websiteLinks.count) * 40)
-                .scrollContentBackground(.hidden)
-                .scrollDisabled(true)
             }
         } header: {
             Text("Website Links")
@@ -1262,6 +1277,7 @@ struct QuickTextRowView<SuggestionsView: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                // Drag handle - not tappable, allows List drag to work
                 Image(systemName: "line.3.horizontal")
                     .foregroundColor(.secondary)
                     .frame(width: 20)
@@ -1287,18 +1303,23 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                     Button("Save", action: onSave)
                     Button("Cancel", action: onCancel)
                 } else {
-                    Text(quickText.text)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    // Tappable content area
+                    HStack {
+                        Text(quickText.text)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
 
-                    if quickText.containsVariables {
-                        Image(systemName: "function")
-                            .font(.caption2)
-                            .foregroundColor(.blue)
-                            .help("Contains variables that will be expanded")
+                        if quickText.containsVariables {
+                            Image(systemName: "function")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                                .help("Contains variables that will be expanded")
+                        }
+
+                        Spacer()
                     }
-
-                    Spacer()
+                    .contentShape(Rectangle())
+                    .onTapGesture { onStartEdit() }
 
                     Button(action: onStartEdit) {
                         Image(systemName: "pencil")
@@ -1324,12 +1345,6 @@ struct QuickTextRowView<SuggestionsView: View>: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovered ? Color.accentColor.opacity(0.08) : Color(nsColor: .controlBackgroundColor))
         )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if !isEditing {
-                onStartEdit()
-            }
-        }
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -1352,28 +1367,34 @@ struct AppBarItemRowView: View {
 
     var body: some View {
         HStack {
+            // Drag handle - not tappable, allows drag to work
             Image(systemName: "line.3.horizontal")
                 .foregroundColor(.secondary)
                 .frame(width: 20)
 
-            // App icon
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
-               let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
-                Image(nsImage: icon)
-                    .resizable()
-                    .frame(width: 24, height: 24)
-            } else {
-                Image(systemName: "app.fill")
-                    .resizable()
-                    .frame(width: 24, height: 24)
-                    .foregroundColor(.secondary)
+            // Tappable content area
+            HStack {
+                // App icon
+                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: item.bundleIdentifier),
+                   let icon = NSWorkspace.shared.icon(forFile: url.path) as NSImage? {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                } else {
+                    Image(systemName: "app.fill")
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .foregroundColor(.secondary)
+                }
+
+                Text(item.displayName)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Spacer()
             }
-
-            Text(item.displayName)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Spacer()
+            .contentShape(Rectangle())
+            .onTapGesture { onEdit() }
 
             Button(action: onEdit) {
                 Image(systemName: "pencil")
@@ -1392,8 +1413,6 @@ struct AppBarItemRowView: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
         )
-        .contentShape(Rectangle())
-        .onTapGesture { onEdit() }
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -1416,35 +1435,41 @@ struct WebsiteLinkRowView: View {
 
     var body: some View {
         HStack {
+            // Drag handle - not tappable, allows drag to work
             Image(systemName: "line.3.horizontal")
                 .foregroundColor(.secondary)
                 .frame(width: 20)
 
-            // Favicon
-            if let data = link.faviconData,
-               let nsImage = NSImage(data: data) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .frame(width: 24, height: 24)
-                    .cornerRadius(4)
-            } else {
-                Image(systemName: "globe")
-                    .frame(width: 24, height: 24)
-                    .foregroundColor(.secondary)
-            }
+            // Tappable content area
+            HStack {
+                // Favicon
+                if let data = link.faviconData,
+                   let nsImage = NSImage(data: data) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .cornerRadius(4)
+                } else {
+                    Image(systemName: "globe")
+                        .frame(width: 24, height: 24)
+                        .foregroundColor(.secondary)
+                }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(link.displayName)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Text(link.domain ?? link.url)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(link.displayName)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Text(link.domain ?? link.url)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
 
-            Spacer()
+                Spacer()
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { onEdit() }
 
             Button(action: onEdit) {
                 Image(systemName: "pencil")
@@ -1463,8 +1488,6 @@ struct WebsiteLinkRowView: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovered ? Color.accentColor.opacity(0.08) : Color.clear)
         )
-        .contentShape(Rectangle())
-        .onTapGesture { onEdit() }
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -1717,6 +1740,66 @@ struct EditWebsiteLinkSheet: View {
         }
         onSave(updatedLink)
         dismiss()
+    }
+}
+
+// MARK: - Drop Delegates for Reordering
+
+struct AppBarItemDropDelegate: DropDelegate {
+    let item: AppBarItem
+    let items: [AppBarItem]
+    @Binding var draggedItem: AppBarItem?
+    let moveItems: (IndexSet, Int) -> Void
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedItem = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedItem = draggedItem,
+              draggedItem.id != item.id,
+              let fromIndex = items.firstIndex(where: { $0.id == draggedItem.id }),
+              let toIndex = items.firstIndex(where: { $0.id == item.id }) else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            moveItems(IndexSet(integer: fromIndex), toIndex > fromIndex ? toIndex + 1 : toIndex)
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+}
+
+struct WebsiteLinkDropDelegate: DropDelegate {
+    let item: WebsiteLink
+    let items: [WebsiteLink]
+    @Binding var draggedItem: WebsiteLink?
+    let moveItems: (IndexSet, Int) -> Void
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedItem = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedItem = draggedItem,
+              draggedItem.id != item.id,
+              let fromIndex = items.firstIndex(where: { $0.id == draggedItem.id }),
+              let toIndex = items.firstIndex(where: { $0.id == item.id }) else {
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            moveItems(IndexSet(integer: fromIndex), toIndex > fromIndex ? toIndex + 1 : toIndex)
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 }
 

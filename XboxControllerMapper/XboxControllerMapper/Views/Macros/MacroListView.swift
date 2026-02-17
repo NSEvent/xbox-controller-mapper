@@ -65,33 +65,44 @@ struct MacroRow: View {
     let macro: Macro
     var onEdit: () -> Void
     var onDelete: () -> Void
-    
+
     var body: some View {
         HStack {
-            Image(systemName: "checklist")
+            // Drag handle - not tappable, allows List drag to work
+            Image(systemName: "line.3.horizontal")
                 .foregroundColor(.white.opacity(0.3))
                 .font(.caption)
                 .frame(width: 20)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(macro.name)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
-                
-                Text("\(macro.steps.count) steps")
+
+            // Tappable content area
+            HStack {
+                Image(systemName: "checklist")
+                    .foregroundColor(.white.opacity(0.3))
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
+                    .frame(width: 20)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(macro.name)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.9))
+
+                    Text("\(macro.steps.count) steps")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.5))
+                }
+
+                Spacer()
             }
-            
-            Spacer()
-            
+            .contentShape(Rectangle())
+            .onTapGesture { onEdit() }
+
             HStack(spacing: 12) {
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                
+
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
@@ -101,6 +112,6 @@ struct MacroRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .hoverableRow(onTap: onEdit)
+        .hoverableRow()
     }
 }
