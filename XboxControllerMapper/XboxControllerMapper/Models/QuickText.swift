@@ -95,7 +95,7 @@ struct QuickText: Identifiable, Codable, Equatable {
 
     /// Check if text contains any {variable} patterns
     var containsVariables: Bool {
-        let pattern = #"\{[a-z._]+\}"#
+        let pattern = #"\{[a-z0-9._]+\}"#
         return text.range(of: pattern, options: .regularExpression) != nil
     }
 }
