@@ -3,17 +3,27 @@ import AppKit
 
 /// Executes system commands triggered by button or chord mappings
 class SystemCommandExecutor: @unchecked Sendable {
+    typealias OBSClientFactory = (URL, String?) -> OBSWebSocketClientProtocol
+
     private let profileManager: ProfileManager
     private let urlSession: URLSession
+    private let obsClientFactory: OBSClientFactory
     private let executionQueue = DispatchQueue(label: "com.controllerkeys.systemcommand", qos: .userInteractive)
 
     /// Callback for webhook feedback (success: Bool, displayMessage: String)
     /// Called on completion of HTTP requests to provide user feedback
     var webhookFeedbackHandler: ((Bool, String) -> Void)?
 
-    init(profileManager: ProfileManager, urlSession: URLSession = .shared) {
+    init(
+        profileManager: ProfileManager,
+        urlSession: URLSession = .shared,
+        obsClientFactory: @escaping OBSClientFactory = { url, password in
+            OBSWebSocketClient(url: url, password: password)
+        }
+    ) {
         self.profileManager = profileManager
         self.urlSession = urlSession
+        self.obsClientFactory = obsClientFactory
     }
 
     func execute(_ command: SystemCommand) {
@@ -33,6 +43,9 @@ class SystemCommandExecutor: @unchecked Sendable {
 
         case .httpRequest(let url, let method, let headers, let body):
             executeHTTPRequest(url: url, method: method, headers: headers, body: body)
+
+        case .obsWebSocket(let url, let password, let requestType, let requestData):
+            executeOBSWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
         }
     }
 
@@ -241,6 +254,48 @@ class SystemCommandExecutor: @unchecked Sendable {
                 }
             }
             task.resume()
+        }
+    }
+
+    // MARK: - OBS WebSocket
+
+    private func executeOBSWebSocket(url urlString: String, password: String?, requestType: String, requestData: String?) {
+        guard let validURL = URL(string: urlString) else {
+            NSLog("[SystemCommand] Invalid OBS WebSocket URL: %@", urlString)
+            return
+        }
+
+        guard let scheme = validURL.scheme?.lowercased(), ["ws", "wss"].contains(scheme) else {
+            NSLog("[SystemCommand] Blocked non-WebSocket OBS URL scheme: %@", urlString)
+            return
+        }
+
+        let trimmedRequestType = requestType.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedRequestType.isEmpty else {
+            NSLog("[SystemCommand] OBS requestType is required")
+            return
+        }
+
+        let normalizedPassword = password?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalPassword = (normalizedPassword?.isEmpty == false) ? normalizedPassword : nil
+        let finalRequestData = requestData?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        executionQueue.async { [url = validURL, clientFactory = self.obsClientFactory, feedbackHandler = self.webhookFeedbackHandler] in
+            Task {
+                do {
+                    let client = clientFactory(url, finalPassword)
+                    let result = try await client.executeRequest(
+                        requestType: trimmedRequestType,
+                        requestDataJSON: finalRequestData,
+                        timeout: 5
+                    )
+                    NSLog("[SystemCommand] OBS %@ %@ → %d", trimmedRequestType, urlString, result.code)
+                    feedbackHandler?(true, "OBS \(result.code)")
+                } catch {
+                    NSLog("[SystemCommand] OBS request failed: %@", error.localizedDescription)
+                    feedbackHandler?(false, "OBS Error")
+                }
+            }
         }
     }
 }

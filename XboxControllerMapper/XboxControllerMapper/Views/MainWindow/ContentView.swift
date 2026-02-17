@@ -1663,6 +1663,10 @@ struct ChordMappingSheet: View {
     @State private var webhookHeaders: [String: String] = [:]
     @State private var newWebhookHeaderKey: String = ""
     @State private var newWebhookHeaderValue: String = ""
+    @State private var obsWebSocketURL: String = "ws://127.0.0.1:4455"
+    @State private var obsWebSocketPassword: String = ""
+    @State private var obsRequestType: String = ""
+    @State private var obsRequestData: String = ""
     @State private var showingAppPicker = false
     @State private var showingBookmarkPicker = false
 
@@ -2102,6 +2106,29 @@ struct ChordMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+            case .obs:
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("WebSocket URL (e.g. ws://127.0.0.1:4455)", text: $obsWebSocketURL)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    SecureField("Password (optional)", text: $obsWebSocketPassword)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    TextField("Request Type (e.g. StartRecord)", text: $obsRequestType)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+
+                    TextField("Request Data (JSON object, optional)", text: $obsRequestData, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.subheadline)
+                        .lineLimit(3...6)
+
+                    Text("Sends any OBS WebSocket v5 request type with optional requestData JSON.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }
@@ -2122,6 +2149,17 @@ struct ChordMappingSheet: View {
             let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
             let body = webhookBody.isEmpty ? nil : webhookBody
             return .httpRequest(url: webhookURL, method: webhookMethod, headers: headers, body: body)
+        case .obs:
+            guard !obsWebSocketURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            guard !obsRequestType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            let password = obsWebSocketPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+            let requestData = obsRequestData.trimmingCharacters(in: .whitespacesAndNewlines)
+            return .obsWebSocket(
+                url: obsWebSocketURL,
+                password: password.isEmpty ? nil : password,
+                requestType: obsRequestType,
+                requestData: requestData.isEmpty ? nil : requestData
+            )
         }
     }
 
@@ -2141,6 +2179,11 @@ struct ChordMappingSheet: View {
             webhookMethod = method
             webhookHeaders = headers ?? [:]
             webhookBody = body ?? ""
+        case .obsWebSocket(let url, let password, let requestType, let requestData):
+            obsWebSocketURL = url
+            obsWebSocketPassword = password ?? ""
+            obsRequestType = requestType
+            obsRequestData = requestData ?? ""
         }
     }
 

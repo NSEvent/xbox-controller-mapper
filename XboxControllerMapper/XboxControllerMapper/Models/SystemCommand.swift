@@ -18,6 +18,7 @@ enum SystemCommandCategory: String, CaseIterable, Identifiable {
     case app = "Launch App"
     case link = "Open Link"
     case webhook = "Webhook"
+    case obs = "OBS WebSocket"
 
     var id: String { rawValue }
 }
@@ -35,6 +36,9 @@ enum SystemCommand: Equatable {
 
     // HTTP request / webhook
     case httpRequest(url: String, method: HTTPMethod = .POST, headers: [String: String]? = nil, body: String? = nil)
+
+    // OBS WebSocket request (generic requestType + optional requestData JSON)
+    case obsWebSocket(url: String, password: String? = nil, requestType: String, requestData: String? = nil)
 
     /// Human-readable display name for the UI
     var displayName: String {
@@ -63,6 +67,12 @@ enum SystemCommand: Equatable {
                 return String(display.prefix(30)) + "..."
             }
             return display
+        case .obsWebSocket(_, _, let requestType, _):
+            let display = "OBS \(requestType)"
+            if display.count > 30 {
+                return String(display.prefix(30)) + "..."
+            }
+            return display
         }
     }
 
@@ -73,6 +83,7 @@ enum SystemCommand: Equatable {
         case .shellCommand: return .shell
         case .openLink: return .link
         case .httpRequest: return .webhook
+        case .obsWebSocket: return .obs
         }
     }
 }
@@ -81,12 +92,12 @@ enum SystemCommand: Equatable {
 
 extension SystemCommand: Codable {
     private enum CommandType: String, Codable {
-        case launchApp, shellCommand, openLink, httpRequest
+        case launchApp, shellCommand, openLink, httpRequest, obsWebSocket
     }
 
     private enum CodingKeys: String, CodingKey {
         case type, bundleIdentifier, command, inTerminal, url, newWindow
-        case method, headers, body
+        case method, headers, body, password, requestType, requestData
     }
 
     init(from decoder: Decoder) throws {
@@ -111,6 +122,12 @@ extension SystemCommand: Codable {
             let headers = try container.decodeIfPresent([String: String].self, forKey: .headers)
             let body = try container.decodeIfPresent(String.self, forKey: .body)
             self = .httpRequest(url: url, method: method, headers: headers, body: body)
+        case .obsWebSocket:
+            let url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+            let password = try container.decodeIfPresent(String.self, forKey: .password)
+            let requestType = try container.decodeIfPresent(String.self, forKey: .requestType) ?? ""
+            let requestData = try container.decodeIfPresent(String.self, forKey: .requestData)
+            self = .obsWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
         }
     }
 
@@ -135,6 +152,12 @@ extension SystemCommand: Codable {
             try container.encode(method, forKey: .method)
             try container.encodeIfPresent(headers, forKey: .headers)
             try container.encodeIfPresent(body, forKey: .body)
+        case .obsWebSocket(let url, let password, let requestType, let requestData):
+            try container.encode(CommandType.obsWebSocket, forKey: .type)
+            try container.encode(url, forKey: .url)
+            try container.encodeIfPresent(password, forKey: .password)
+            try container.encode(requestType, forKey: .requestType)
+            try container.encodeIfPresent(requestData, forKey: .requestData)
         }
     }
 }

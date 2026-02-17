@@ -49,6 +49,11 @@ Building from source is **ONLY** permitted if the user **explicitly states** one
 
 If none of these exact conditions are met, **do not build**.
 
+### Owner / Maintainer Note
+
+Repository owner Kevin Tang may explicitly state he is contributing code changes.
+When he does, running build-backed checks (including `xcodebuild test`) is authorized for development and debugging.
+
 ---
 
 ## Why This Policy Exists
