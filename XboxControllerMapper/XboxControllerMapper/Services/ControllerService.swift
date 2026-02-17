@@ -377,6 +377,7 @@ class ControllerService: ObservableObject {
 
         // Load last controller type (so UI shows correct button labels when no controller is connected)
         storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
+        storage.isDualSenseEdge = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey)
 
         setupNotifications()
         startDiscovery()
@@ -784,8 +785,10 @@ class ControllerService: ObservableObject {
         if let xboxGamepad = gamepad as? GCXboxGamepad {
             storage.lock.lock()
             storage.isDualSense = false
+            storage.isDualSenseEdge = false
             storage.lock.unlock()
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
 
             // Trigger battery monitor refresh for Xbox controller
             batteryMonitor.refreshBatteryLevel()
@@ -973,6 +976,7 @@ class ControllerService: ObservableObject {
             storage.lock.lock()
             storage.isDualSenseEdge = isEdge
             storage.lock.unlock()
+            UserDefaults.standard.set(isEdge, forKey: Config.lastControllerWasDualSenseEdgeKey)
         }
     }
 

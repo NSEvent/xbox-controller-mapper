@@ -298,7 +298,7 @@ struct ContentView: View {
                                     .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
                             }
                         }
-                        .frame(minHeight: 44)  // Consistent height regardless of button types
+                        .frame(minHeight: 28)  // Consistent height regardless of button types
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .cornerRadius(10)
