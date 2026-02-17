@@ -71,7 +71,8 @@ enum VariableExpander {
         var result = text
 
         // Use regex to find all {variable} patterns
-        let pattern = #"\{([a-z._]+)\}"#
+        // Include digits so variables like {time.12} are recognized.
+        let pattern = #"\{([a-z0-9._]+)\}"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             return text
         }
