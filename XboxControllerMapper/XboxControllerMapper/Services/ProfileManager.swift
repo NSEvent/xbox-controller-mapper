@@ -128,55 +128,38 @@ class ProfileManager: ObservableObject {
     
     private func handleAppChange(_ bundleId: String) {
         let appBundleId = Bundle.main.bundleIdentifier
+        let state = ProfileAutoSwitchState(
+            previousBundleId: previousBundleId,
+            profileIdBeforeBackground: profileIdBeforeBackground,
+            activeProfileId: activeProfileId
+        )
+        let result = ProfileAutoSwitchResolver.resolve(
+            bundleId: bundleId,
+            appBundleId: appBundleId,
+            profiles: profiles,
+            state: state
+        )
 
-        // Handle switching BACK to the configuration app
-        if bundleId == appBundleId {
-            // Restore the profile we were editing before we switched away
-            if let savedId = profileIdBeforeBackground,
-               let profile = profiles.first(where: { $0.id == savedId }) {
-                // Only restore if we are not already on it
-                if activeProfileId != savedId {
-                    #if DEBUG
-                    print("🔄 Restoring editing profile: \(profile.name)")
-                    #endif
-                    setActiveProfile(profile)
-                }
-            }
-            previousBundleId = bundleId
+        previousBundleId = result.previousBundleId
+        profileIdBeforeBackground = result.profileIdBeforeBackground
+
+        guard let action = result.action,
+              let profile = profiles.first(where: { $0.id == action.profileId }) else {
             return
         }
-        
-        // Handle switching AWAY from the configuration app
-        if previousBundleId == appBundleId {
-            // Save the current profile so we can restore it when we come back
-            profileIdBeforeBackground = activeProfileId
-        }
-        
-        previousBundleId = bundleId
 
-        // Find profile linked to this app
-        if let linkedProfile = profiles.first(where: { $0.linkedApps.contains(bundleId) }) {
-            // Only switch if not already active
-            if activeProfileId != linkedProfile.id {
-                #if DEBUG
-                print("🔄 Auto-switching to profile: \(linkedProfile.name) for app: \(bundleId)")
-                #endif
-                setActiveProfile(linkedProfile)
-            }
-            return
+        #if DEBUG
+        switch action.reason {
+        case .restoreEditingProfile:
+            print("🔄 Restoring editing profile: \(profile.name)")
+        case .linkedApp(let bundleId):
+            print("🔄 Auto-switching to profile: \(profile.name) for app: \(bundleId)")
+        case .defaultProfile(let bundleId):
+            print("🔄 Auto-switching to default profile for app: \(bundleId)")
         }
-        
-        // No specific profile found, switch to default if we are currently in an auto-switched profile
-        // OR always switch to default?
-        // "Standard" behavior: Switch to default profile when entering an app that has no specific profile.
-        if let defaultProfile = profiles.first(where: { $0.isDefault }) {
-            if activeProfileId != defaultProfile.id {
-                #if DEBUG
-                print("🔄 Auto-switching to default profile for app: \(bundleId)")
-                #endif
-                setActiveProfile(defaultProfile)
-            }
-        }
+        #endif
+
+        setActiveProfile(profile)
     }
     
     private func createDirectoryIfNeeded(at url: URL) {
