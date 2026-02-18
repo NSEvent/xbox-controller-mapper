@@ -2,62 +2,6 @@ import Foundation
 import Combine
 import CoreGraphics
 
-// MARK: - Mapping Execution Helper
-
-/// Handles execution of different mapping types (simple, hold, long-hold, double-tap)
-private struct MappingExecutor {
-    private let inputSimulator: InputSimulatorProtocol
-    private let inputQueue: DispatchQueue
-    private let inputLogService: InputLogService?
-    let systemCommandExecutor: SystemCommandExecutor
-
-    init(inputSimulator: InputSimulatorProtocol, inputQueue: DispatchQueue, inputLogService: InputLogService?, profileManager: ProfileManager) {
-        self.inputSimulator = inputSimulator
-        self.inputQueue = inputQueue
-        self.inputLogService = inputLogService
-        self.systemCommandExecutor = SystemCommandExecutor(profileManager: profileManager)
-    }
-
-    /// Executes any action mapping (key press, macro, or system command)
-    func executeAction(_ action: ExecutableAction, for button: ControllerButton, profile: Profile?, logType: InputEventType = .singlePress) {
-        if let systemCommand = action.systemCommand {
-            systemCommandExecutor.execute(systemCommand)
-            inputLogService?.log(buttons: [button], type: logType, action: systemCommand.displayName)
-            return
-        }
-
-        // Handle macro actions
-        if let macroId = action.macroId {
-            if let profile = profile, let macro = profile.macros.first(where: { $0.id == macroId }) {
-                inputSimulator.executeMacro(macro)
-                // Use hint if available, otherwise macro name
-                let macroFeedback = (action.hint?.isEmpty == false) ? action.hint! : macro.name
-                inputLogService?.log(buttons: [button], type: logType, action: macroFeedback)
-            } else {
-                // Macro not found - still show hint if available
-                let fallbackFeedback = (action.hint?.isEmpty == false) ? action.hint! : "Macro"
-                inputLogService?.log(buttons: [button], type: logType, action: fallbackFeedback)
-            }
-            return
-        }
-
-        if let keyCode = action.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: action.modifiers.cgEventFlags)
-        } else if action.modifiers.hasAny {
-            executeTapModifier(action.modifiers.cgEventFlags)
-        }
-        inputLogService?.log(buttons: [button], type: logType, action: action.feedbackString)
-    }
-
-    /// Helper: Execute a modifier-only mapping (tap modifiers briefly)
-    private func executeTapModifier(_ flags: CGEventFlags) {
-        inputSimulator.holdModifier(flags)
-        inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [inputSimulator] in
-            inputSimulator.releaseModifier(flags)
-        }
-    }
-}
-
 /// Orchestrates game controller input to keyboard/mouse output mapping
 ///
 /// The MappingEngine is the central coordinator that:
