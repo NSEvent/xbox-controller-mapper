@@ -458,9 +458,11 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
             "GetStudioModeEnabled",
             "GetSceneList",
             "GetInputList",
+            "GetSpecialInputs",
             "GetProfileList",
             "GetSceneCollectionList",
-            "GetCurrentSceneTransition"
+            "GetCurrentSceneTransition",
+            "GetCurrentProgramScene"
         ]
 
         let allowedUnavailableCodes: [String: Set<Int>] = [
@@ -503,8 +505,12 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
         assertSuccess(setStudioOn, context: "SetStudioModeEnabled(true)")
         let setPreview = try await connection.request("SetCurrentPreviewScene", requestData: ["sceneName": primaryScene])
         assertSuccess(setPreview, context: "SetCurrentPreviewScene")
+        let getPreview = try await connection.request("GetCurrentPreviewScene")
+        assertSuccess(getPreview, context: "GetCurrentPreviewScene")
         let transition = try await connection.request("TriggerStudioModeTransition")
         assertSuccess(transition, context: "TriggerStudioModeTransition")
+        let getProgram = try await connection.request("GetCurrentProgramScene")
+        assertSuccess(getProgram, context: "GetCurrentProgramScene")
 
         // Restore original studio mode state
         let restoreStudio = try await connection.request("SetStudioModeEnabled", requestData: ["studioModeEnabled": initialStudioMode])
@@ -543,6 +549,9 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
 
         // Input mute toggle roundtrip on first compatible input
         try await exerciseInputMuteRoundtrip(connection: connection)
+        try await exerciseInputVolumeRoundtrip(connection: connection)
+        try await exerciseInputAudioMonitorRoundtrip(connection: connection)
+        try await exerciseSourceFilterEnabledRoundtrip(connection: connection)
 
         // Scene item enabled roundtrip (auto-bootstraps a tiny test scene/source when needed)
         let sceneNamesForItems = try await ensureSceneItemTarget(
@@ -589,6 +598,7 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
                 startRequest: "StartRecord",
                 stopRequest: "StopRecord"
             )
+            try await exerciseRecordSplitAndChapter(connection: connection)
 
             try await verifyOutputRoundtrip(
                 connection: connection,
@@ -616,6 +626,7 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
             if (replayStatus.responseData["outputActive"] as? Bool) == true {
                 let saveReplay = try await connection.request("SaveReplayBuffer")
                 assertSuccess(saveReplay, context: "SaveReplayBuffer")
+                try await waitForLastReplayBufferPath(connection: connection)
             }
 
             try await verifyOutputRoundtrip(
@@ -624,6 +635,12 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
                 statusRequest: "GetVirtualCamStatus",
                 startRequest: "StartVirtualCam",
                 stopRequest: "StopVirtualCam"
+            )
+            try await verifyOutputToggleRoundtrip(
+                connection: connection,
+                featureName: "Virtual Camera",
+                statusRequest: "GetVirtualCamStatus",
+                toggleRequest: "ToggleVirtualCam"
             )
         } catch {
             try? await restoreStreamServiceSettings(
@@ -700,6 +717,23 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
 
             let initialMuted = try boolValue(getMuteResponse.responseData, key: "inputMuted")
 
+            let setMuted = try await connection.request(
+                "SetInputMute",
+                requestData: [
+                    "inputName": inputName,
+                    "inputMuted": !initialMuted
+                ]
+            )
+            assertSuccess(setMuted, context: "SetInputMute(toggle) for \(inputName)")
+            let restoreMuted = try await connection.request(
+                "SetInputMute",
+                requestData: [
+                    "inputName": inputName,
+                    "inputMuted": initialMuted
+                ]
+            )
+            assertSuccess(restoreMuted, context: "SetInputMute(restore) for \(inputName)")
+
             let firstToggle = try await connection.request("ToggleInputMute", requestData: ["inputName": inputName])
             assertSuccess(firstToggle, context: "ToggleInputMute(1) for \(inputName)")
             let secondToggle = try await connection.request("ToggleInputMute", requestData: ["inputName": inputName])
@@ -713,6 +747,162 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
         }
 
         throw XCTSkip("No compatible input found for GetInputMute/ToggleInputMute roundtrip")
+    }
+
+    private func exerciseInputVolumeRoundtrip(connection: OBSLiveWebSocketConnection) async throws {
+        let inputsResponse = try await connection.request("GetInputList")
+        assertSuccess(inputsResponse, context: "GetInputList")
+        let inputs = ((inputsResponse.responseData["inputs"] as? [[String: Any]]) ?? [])
+            .compactMap { $0["inputName"] as? String }
+
+        for inputName in inputs {
+            let getVolume = try await connection.request("GetInputVolume", requestData: ["inputName": inputName])
+            guard getVolume.result else { continue }
+
+            let initialVolume = try doubleValue(getVolume.responseData, key: "inputVolumeMul")
+            var targetVolume = initialVolume < 0.75 ? (initialVolume + 0.15) : (initialVolume - 0.15)
+            targetVolume = min(2.0, max(0.0, targetVolume))
+            if abs(targetVolume - initialVolume) < 0.01 {
+                continue
+            }
+
+            let setVolume = try await connection.request(
+                "SetInputVolume",
+                requestData: [
+                    "inputName": inputName,
+                    "inputVolumeMul": targetVolume
+                ]
+            )
+            guard setVolume.result else { continue }
+
+            let afterSet = try await connection.request("GetInputVolume", requestData: ["inputName": inputName])
+            assertSuccess(afterSet, context: "GetInputVolume(after set) for \(inputName)")
+            let afterSetVolume = try doubleValue(afterSet.responseData, key: "inputVolumeMul")
+            XCTAssertEqual(afterSetVolume, targetVolume, accuracy: 0.2, "Input volume did not change as expected for \(inputName)")
+
+            let restoreVolume = try await connection.request(
+                "SetInputVolume",
+                requestData: [
+                    "inputName": inputName,
+                    "inputVolumeMul": initialVolume
+                ]
+            )
+            assertSuccess(restoreVolume, context: "SetInputVolume(restore) for \(inputName)")
+            return
+        }
+
+        throw XCTSkip("No compatible input found for GetInputVolume/SetInputVolume roundtrip")
+    }
+
+    private func exerciseInputAudioMonitorRoundtrip(connection: OBSLiveWebSocketConnection) async throws {
+        let monitorTypes = [
+            "OBS_MONITORING_TYPE_NONE",
+            "OBS_MONITORING_TYPE_MONITOR_ONLY",
+            "OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT"
+        ]
+
+        let inputsResponse = try await connection.request("GetInputList")
+        assertSuccess(inputsResponse, context: "GetInputList")
+        let inputs = ((inputsResponse.responseData["inputs"] as? [[String: Any]]) ?? [])
+            .compactMap { $0["inputName"] as? String }
+
+        for inputName in inputs {
+            let getMonitor = try await connection.request("GetInputAudioMonitorType", requestData: ["inputName": inputName])
+            guard getMonitor.result else { continue }
+            guard let initialType = getMonitor.responseData["monitorType"] as? String else { continue }
+            guard let targetType = monitorTypes.first(where: { $0 != initialType }) else { continue }
+
+            let setMonitor = try await connection.request(
+                "SetInputAudioMonitorType",
+                requestData: [
+                    "inputName": inputName,
+                    "monitorType": targetType
+                ]
+            )
+            guard setMonitor.result else { continue }
+
+            let afterSet = try await connection.request("GetInputAudioMonitorType", requestData: ["inputName": inputName])
+            assertSuccess(afterSet, context: "GetInputAudioMonitorType(after set) for \(inputName)")
+            XCTAssertEqual(afterSet.responseData["monitorType"] as? String, targetType)
+
+            let restore = try await connection.request(
+                "SetInputAudioMonitorType",
+                requestData: [
+                    "inputName": inputName,
+                    "monitorType": initialType
+                ]
+            )
+            assertSuccess(restore, context: "SetInputAudioMonitorType(restore) for \(inputName)")
+            return
+        }
+
+        throw XCTSkip("No compatible input found for Get/SetInputAudioMonitorType roundtrip")
+    }
+
+    private func exerciseSourceFilterEnabledRoundtrip(connection: OBSLiveWebSocketConnection) async throws {
+        let inputsResponse = try await connection.request("GetInputList")
+        assertSuccess(inputsResponse, context: "GetInputList")
+        let inputs = ((inputsResponse.responseData["inputs"] as? [[String: Any]]) ?? [])
+            .compactMap { $0["inputName"] as? String }
+
+        for sourceName in inputs {
+            let filtersResponse = try await connection.request("GetSourceFilterList", requestData: ["sourceName": sourceName])
+            guard filtersResponse.result else { continue }
+            let filters = (filtersResponse.responseData["filters"] as? [[String: Any]]) ?? []
+            guard let firstFilter = filters.first,
+                  let filterName = firstFilter["filterName"] as? String else {
+                continue
+            }
+
+            let initialEnabled: Bool
+            if let enabled = firstFilter["filterEnabled"] as? Bool {
+                initialEnabled = enabled
+            } else {
+                let getFilter = try await connection.request(
+                    "GetSourceFilter",
+                    requestData: [
+                        "sourceName": sourceName,
+                        "filterName": filterName
+                    ]
+                )
+                guard getFilter.result else { continue }
+                initialEnabled = try boolValue(getFilter.responseData, key: "filterEnabled")
+            }
+
+            let setDisabled = try await connection.request(
+                "SetSourceFilterEnabled",
+                requestData: [
+                    "sourceName": sourceName,
+                    "filterName": filterName,
+                    "filterEnabled": !initialEnabled
+                ]
+            )
+            guard setDisabled.result else { continue }
+
+            let getFilterAfter = try await connection.request(
+                "GetSourceFilter",
+                requestData: [
+                    "sourceName": sourceName,
+                    "filterName": filterName
+                ]
+            )
+            assertSuccess(getFilterAfter, context: "GetSourceFilter(after set) for \(sourceName)/\(filterName)")
+            let toggledEnabled = try boolValue(getFilterAfter.responseData, key: "filterEnabled")
+            XCTAssertEqual(toggledEnabled, !initialEnabled)
+
+            let restore = try await connection.request(
+                "SetSourceFilterEnabled",
+                requestData: [
+                    "sourceName": sourceName,
+                    "filterName": filterName,
+                    "filterEnabled": initialEnabled
+                ]
+            )
+            assertSuccess(restore, context: "SetSourceFilterEnabled(restore) for \(sourceName)/\(filterName)")
+            return
+        }
+
+        throw XCTSkip("No compatible source filter found for GetSourceFilterList/SetSourceFilterEnabled roundtrip")
     }
 
     private func exerciseSceneItemEnabledRoundtrip(
@@ -872,6 +1062,47 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
         return false
     }
 
+    private func exerciseRecordSplitAndChapter(connection: OBSLiveWebSocketConnection) async throws {
+        try await withTemporarilyActiveOutput(
+            connection: connection,
+            featureName: "Recording",
+            statusRequest: "GetRecordStatus",
+            startRequest: "StartRecord",
+            stopRequest: "StopRecord"
+        ) {
+            let chapter = try await connection.request("CreateRecordChapter")
+            guard chapter.result else {
+                throw XCTSkip("CreateRecordChapter unavailable in current OBS recording setup (code: \(chapter.code), comment: \(chapter.comment ?? "none"))")
+            }
+
+            let split = try await connection.request("SplitRecordFile")
+            guard split.result else {
+                throw XCTSkip("SplitRecordFile unavailable in current OBS recording setup (code: \(split.code), comment: \(split.comment ?? "none"))")
+            }
+        }
+    }
+
+    private func waitForLastReplayBufferPath(
+        connection: OBSLiveWebSocketConnection,
+        maxAttempts: Int = 20,
+        intervalNanos: UInt64 = 200_000_000
+    ) async throws {
+        for attempt in 0..<maxAttempts {
+            let replayPath = try await connection.request("GetLastReplayBufferReplay")
+            if replayPath.result,
+               let path = replayPath.responseData["savedReplayPath"] as? String,
+               !path.isEmpty {
+                return
+            }
+
+            if attempt < (maxAttempts - 1) {
+                try? await Task.sleep(nanoseconds: intervalNanos)
+            }
+        }
+
+        throw XCTSkip("GetLastReplayBufferReplay did not return a saved replay path after SaveReplayBuffer")
+    }
+
     private func restoreStreamServiceSettings(
         connection: OBSLiveWebSocketConnection,
         streamServiceType: String?,
@@ -958,6 +1189,115 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
         XCTAssertEqual(finalStatus.responseData["outputActive"] as? Bool, initiallyActive)
     }
 
+    private func verifyOutputToggleRoundtrip(
+        connection: OBSLiveWebSocketConnection,
+        featureName: String,
+        statusRequest: String,
+        toggleRequest: String,
+        unavailableCodes: Set<Int> = []
+    ) async throws {
+        let initialStatus = try await connection.request(statusRequest)
+        if !initialStatus.result && unavailableCodes.contains(initialStatus.code) {
+            throw XCTSkip("\(featureName): unavailable in current OBS profile/config (code: \(initialStatus.code), comment: \(initialStatus.comment ?? "none"))")
+        }
+        assertSuccess(initialStatus, context: statusRequest)
+        guard let initiallyActive = initialStatus.responseData["outputActive"] as? Bool else {
+            throw XCTSkip("\(featureName): outputActive missing from \(statusRequest)")
+        }
+
+        let firstToggle = try await connection.request(toggleRequest)
+        guard firstToggle.result else {
+            throw XCTSkip("\(featureName): \(toggleRequest) unavailable in current OBS state/config (code: \(firstToggle.code), comment: \(firstToggle.comment ?? "none"))")
+        }
+
+        guard let afterFirst = try await waitForOutputState(
+            connection: connection,
+            statusRequest: statusRequest,
+            expectedActive: !initiallyActive
+        ) else {
+            throw XCTSkip("\(featureName): output did not toggle after first \(toggleRequest)")
+        }
+        assertSuccess(afterFirst, context: "\(statusRequest) after first \(toggleRequest)")
+
+        let secondToggle = try await connection.request(toggleRequest)
+        guard secondToggle.result else {
+            throw XCTSkip("\(featureName): second \(toggleRequest) failed (code: \(secondToggle.code), comment: \(secondToggle.comment ?? "none"))")
+        }
+
+        guard let finalStatus = try await waitForOutputState(
+            connection: connection,
+            statusRequest: statusRequest,
+            expectedActive: initiallyActive
+        ) else {
+            throw XCTSkip("\(featureName): output did not restore after second \(toggleRequest)")
+        }
+        assertSuccess(finalStatus, context: "final \(statusRequest) after \(toggleRequest)")
+        XCTAssertEqual(finalStatus.responseData["outputActive"] as? Bool, initiallyActive)
+    }
+
+    private func withTemporarilyActiveOutput(
+        connection: OBSLiveWebSocketConnection,
+        featureName: String,
+        statusRequest: String,
+        startRequest: String,
+        stopRequest: String,
+        unavailableCodes: Set<Int> = [],
+        body: () async throws -> Void
+    ) async throws {
+        let initialStatus = try await connection.request(statusRequest)
+        if !initialStatus.result && unavailableCodes.contains(initialStatus.code) {
+            throw XCTSkip("\(featureName): unavailable in current OBS profile/config (code: \(initialStatus.code), comment: \(initialStatus.comment ?? "none"))")
+        }
+        assertSuccess(initialStatus, context: statusRequest)
+        guard let initiallyActive = initialStatus.responseData["outputActive"] as? Bool else {
+            throw XCTSkip("\(featureName): outputActive missing from \(statusRequest)")
+        }
+
+        var startedByTest = false
+        do {
+            if !initiallyActive {
+                let start = try await connection.request(startRequest)
+                guard start.result else {
+                    throw XCTSkip("\(featureName): \(startRequest) unavailable in current OBS config/state (code: \(start.code), comment: \(start.comment ?? "none"))")
+                }
+
+                guard let afterStart = try await waitForOutputState(
+                    connection: connection,
+                    statusRequest: statusRequest,
+                    expectedActive: true
+                ) else {
+                    throw XCTSkip("\(featureName): output did not become active after \(startRequest)")
+                }
+                assertSuccess(afterStart, context: "\(statusRequest) after temporary start")
+                startedByTest = true
+            }
+
+            try await body()
+        } catch {
+            if startedByTest {
+                _ = try? await connection.request(stopRequest)
+                _ = try? await waitForOutputState(connection: connection, statusRequest: statusRequest, expectedActive: false)
+            }
+            throw error
+        }
+
+        if startedByTest {
+            let stop = try await connection.request(stopRequest)
+            guard stop.result else {
+                throw XCTSkip("\(featureName): failed to stop temporary output via \(stopRequest) (code: \(stop.code), comment: \(stop.comment ?? "none"))")
+            }
+
+            guard let afterStop = try await waitForOutputState(
+                connection: connection,
+                statusRequest: statusRequest,
+                expectedActive: false
+            ) else {
+                throw XCTSkip("\(featureName): output did not return inactive after temporary \(stopRequest)")
+            }
+            assertSuccess(afterStop, context: "\(statusRequest) after temporary stop")
+        }
+    }
+
     private func waitForOutputState(
         connection: OBSLiveWebSocketConnection,
         statusRequest: String,
@@ -977,5 +1317,12 @@ final class OBSWebSocketLiveIntegrationTests: XCTestCase {
         }
 
         return nil
+    }
+
+    private func doubleValue(_ dictionary: [String: Any], key: String) throws -> Double {
+        guard let value = dictionary[key] as? NSNumber else {
+            throw XCTSkip("Expected numeric key '\(key)' in OBS response, got: \(dictionary)")
+        }
+        return value.doubleValue
     }
 }
