@@ -60,6 +60,7 @@ class ProfileManager: ObservableObject {
     }
 
     private let fileManager = FileManager.default
+    private let configurationSaveService: ProfileConfigurationSaveService
     private let configURL: URL
     private let legacyConfigURL: URL
     private var loadSucceeded = false  // Track if initial load succeeded to prevent clobbering
@@ -75,6 +76,7 @@ class ProfileManager: ObservableObject {
             fileManager: fileManager,
             configDirectoryOverride: configDirectoryOverride
         )
+        configurationSaveService = ProfileConfigurationSaveService(fileManager: fileManager)
         configURL = configPaths.configURL
         legacyConfigURL = configPaths.legacyConfigURL
         createDirectoryIfNeeded(at: configPaths.configDirectory)
@@ -337,7 +339,7 @@ class ProfileManager: ObservableObject {
 
     private func saveConfiguration() {
         // Safety check: don't save if load failed (to avoid clobbering existing config)
-        guard loadSucceeded || !fileManager.fileExists(atPath: configURL.path) else {
+        guard configurationSaveService.shouldSave(loadSucceeded: loadSucceeded, configURL: configURL) else {
             NSLog("[ProfileManager] Skipping save - config load failed earlier, refusing to clobber existing config")
             return
         }
@@ -348,21 +350,7 @@ class ProfileManager: ObservableObject {
             activeProfileId: activeProfileId,
             uiScale: uiScale
         )
-        let configURL = self.configURL
-        let backupService = ConfigBackupService(fileManager: self.fileManager)
-
-        // Perform file I/O on background thread to avoid blocking main thread
-        DispatchQueue.global(qos: .utility).async {
-            // Create backup before saving
-            backupService.createBackupIfNeeded(for: configURL)
-
-            do {
-                let data = try ProfileConfigurationCodec.encode(config)
-                try data.write(to: configURL)
-            } catch {
-                // Configuration save failed silently
-            }
-        }
+        configurationSaveService.save(config, to: configURL)
     }
 
     // MARK: - Import/Export
