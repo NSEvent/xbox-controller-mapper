@@ -62,6 +62,7 @@ Feature requests are welcome! Please:
    - Test with both Xbox and DualSense controllers if possible
    - Test both Bluetooth and USB connections
    - Verify existing functionality still works
+   - For live OBS websocket tests, see `docs/OBS_LIVE_TESTS.md`
 
 4. **Commit your changes:**
    ```bash
