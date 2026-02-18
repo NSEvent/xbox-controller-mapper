@@ -13,6 +13,7 @@ final class ServiceContainer {
     let mappingEngine: MappingEngine
     let inputMonitor: InputMonitor
     let inputLogService: InputLogService
+    let usageStatsService: UsageStatsService
     let batteryNotificationManager: BatteryNotificationManager
 
     private var cancellables = Set<AnyCancellable>()
@@ -23,17 +24,20 @@ final class ServiceContainer {
         let profileManager = ProfileManager(appMonitor: appMonitor)
         let inputMonitor = InputMonitor()
         let inputLogService = InputLogService()
+        let usageStatsService = UsageStatsService()
 
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
         self.inputMonitor = inputMonitor
         self.inputLogService = inputLogService
+        self.usageStatsService = usageStatsService
         self.mappingEngine = MappingEngine(
             controllerService: controllerService,
             profileManager: profileManager,
             appMonitor: appMonitor,
-            inputLogService: inputLogService
+            inputLogService: inputLogService,
+            usageStatsService: usageStatsService
         )
 
         let batteryNotificationManager = BatteryNotificationManager()
@@ -98,6 +102,7 @@ struct XboxControllerMapperApp: App {
                 .environmentObject(ServiceContainer.shared.mappingEngine)
                 .environmentObject(ServiceContainer.shared.inputMonitor)
                 .environmentObject(ServiceContainer.shared.inputLogService)
+                .environmentObject(ServiceContainer.shared.usageStatsService)
         }
         .windowResizability(.contentSize)
 
@@ -124,6 +129,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Request Accessibility permissions if not granted
         requestAccessibilityPermissions()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        ServiceContainer.shared.usageStatsService.endSession()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

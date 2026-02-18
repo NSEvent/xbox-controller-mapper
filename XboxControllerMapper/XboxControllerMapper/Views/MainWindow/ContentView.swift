@@ -7,6 +7,7 @@ struct ContentView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var appMonitor: AppMonitor
     @EnvironmentObject var mappingEngine: MappingEngine
+    @EnvironmentObject var usageStatsService: UsageStatsService
     @State private var selectedButton: ControllerButton?
     @State private var configuringButton: ControllerButton?
     @State private var showingChordSheet = false
@@ -81,6 +82,11 @@ struct ContentView: View {
                             .tabItem { Text("Microphone") }
                             .tag(6)
                     }
+
+                    // Stats
+                    StatsView()
+                        .tabItem { Text("Stats") }
+                        .tag(8)
                 }
                 .tabViewStyle(.automatic)
             }

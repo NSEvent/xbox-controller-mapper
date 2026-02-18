@@ -59,6 +59,7 @@ private struct KeyOrModifierActionHandler {
 /// Executes action mappings via a strategy chain (system command, macro, key/modifier).
 struct MappingExecutor {
     private let inputLogService: InputLogService?
+    private let usageStatsService: UsageStatsService?
     let systemCommandExecutor: SystemCommandExecutor
     private let systemCommandHandler: SystemCommandActionHandler
     private let macroHandler: MacroActionHandler
@@ -68,9 +69,11 @@ struct MappingExecutor {
         inputSimulator: InputSimulatorProtocol,
         inputQueue: DispatchQueue,
         inputLogService: InputLogService?,
-        profileManager: ProfileManager
+        profileManager: ProfileManager,
+        usageStatsService: UsageStatsService? = nil
     ) {
         self.inputLogService = inputLogService
+        self.usageStatsService = usageStatsService
         self.systemCommandExecutor = SystemCommandExecutor(profileManager: profileManager)
         let tapModifierExecutor = TapModifierExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue)
         self.systemCommandHandler = SystemCommandActionHandler(systemCommandExecutor: self.systemCommandExecutor)
@@ -97,6 +100,13 @@ struct MappingExecutor {
     ) {
         let feedback = executeAction(action, profile: profile)
         inputLogService?.log(buttons: buttons, type: logType, action: feedback)
+
+        // Record usage stats
+        if buttons.count > 1 {
+            usageStatsService?.recordChord(buttons: buttons, type: logType)
+        } else if let button = buttons.first {
+            usageStatsService?.record(button: button, type: logType)
+        }
     }
 
     /// Executes any action mapping and returns feedback text without logging.

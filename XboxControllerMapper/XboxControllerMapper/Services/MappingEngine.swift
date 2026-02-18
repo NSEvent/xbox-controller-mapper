@@ -50,13 +50,13 @@ class MappingEngine: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor, inputSimulator: InputSimulatorProtocol = InputSimulator(), inputLogService: InputLogService? = nil) {
+    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor, inputSimulator: InputSimulatorProtocol = InputSimulator(), inputLogService: InputLogService? = nil, usageStatsService: UsageStatsService? = nil) {
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
         self.inputSimulator = inputSimulator
         self.inputLogService = inputLogService
-        self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService, profileManager: profileManager)
+        self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService, profileManager: profileManager, usageStatsService: usageStatsService)
 
         // Set up on-screen keyboard manager with our input simulator
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
