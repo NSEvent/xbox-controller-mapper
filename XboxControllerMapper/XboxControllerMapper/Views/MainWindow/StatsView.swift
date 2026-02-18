@@ -11,26 +11,29 @@ struct StatsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Personality Card
+                // 1. Identity — the hero element, what makes people scroll
                 personalitySection
 
-                // Key Metrics
-                metricsGrid
-
-                // Output Actions
-                outputActionsGrid
-
-                // Distance
-                if stats.joystickMousePixels > 0 || stats.touchpadMousePixels > 0 || stats.scrollPixels > 0 {
-                    distanceSection
-                }
-
-                // Top Buttons
+                // 2. Most personal insight — visual, scannable, "what do I actually use?"
                 if !stats.topButtons.isEmpty {
                     topButtonsSection
                 }
 
-                // Action Breakdown
+                // 3. Headline numbers — compact summary after the visual bar chart
+                metricsGrid
+
+                // 4. What you did — direct physical output
+                inputActionsSection
+
+                // 5. What you automated — things the controller triggered for you
+                automationActionsSection
+
+                // 6. Fun novelty metric — visual break before denser data
+                if stats.joystickMousePixels > 0 || stats.touchpadMousePixels > 0 || stats.scrollPixels > 0 {
+                    distanceSection
+                }
+
+                // 7. Most technical breakdown — granular, for power users
                 if !stats.actionTypeCounts.isEmpty {
                     actionBreakdownSection
                 }
@@ -93,24 +96,43 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - Output Actions Grid
+    // MARK: - Input Actions (physical output)
 
-    private var outputActionsGrid: some View {
+    private var inputActionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("OUTPUT ACTIONS")
+            Text("INPUT → OUTPUT")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.secondary)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
                 outputCard(title: "Key Presses", value: formatNumber(stats.keyPresses), icon: "keyboard", color: .blue)
                 outputCard(title: "Mouse Clicks", value: formatNumber(stats.mouseClicks), icon: "computermouse", color: .green)
                 outputCard(title: "Macros Run", value: formatNumber(stats.macrosExecuted), icon: "repeat", color: .purple)
                 outputCard(title: "Steps Automated", value: formatNumber(stats.macroStepsAutomated), icon: "bolt", color: .orange)
-                outputCard(title: "Webhooks", value: formatNumber(stats.webhooksFired), icon: "network", color: .cyan)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    // MARK: - Automation Actions (things triggered for you)
+
+    private var automationActionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("AUTOMATION")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
                 outputCard(title: "Apps Launched", value: formatNumber(stats.appsLaunched), icon: "app.badge", color: .pink)
+                outputCard(title: "Links Opened", value: formatNumber(stats.linksOpened), icon: "link", color: .teal)
                 outputCard(title: "Text Snippets", value: formatNumber(stats.textSnippetsRun), icon: "text.quote", color: .yellow)
                 outputCard(title: "Terminal Cmds", value: formatNumber(stats.terminalCommandsRun), icon: "terminal", color: .gray)
-                outputCard(title: "Links Opened", value: formatNumber(stats.linksOpened), icon: "link", color: .teal)
+                outputCard(title: "Webhooks", value: formatNumber(stats.webhooksFired), icon: "network", color: .cyan)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
