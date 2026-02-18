@@ -3,11 +3,6 @@ import CoreGraphics
 
 // MARK: - Mapping Action Strategy
 
-private protocol MappingActionHandler {
-    func canHandle(_ action: any ExecutableAction) -> Bool
-    func execute(_ action: any ExecutableAction, profile: Profile?) -> String
-}
-
 private struct TapModifierExecutor {
     let inputSimulator: InputSimulatorProtocol
     let inputQueue: DispatchQueue
@@ -20,31 +15,21 @@ private struct TapModifierExecutor {
     }
 }
 
-private struct SystemCommandActionHandler: MappingActionHandler {
+private struct SystemCommandActionHandler {
     let systemCommandExecutor: SystemCommandExecutor
 
-    func canHandle(_ action: any ExecutableAction) -> Bool {
-        action.systemCommand != nil
-    }
-
-    func execute(_ action: any ExecutableAction, profile: Profile?) -> String {
-        guard let command = action.systemCommand else { return action.feedbackString }
+    func executeIfPossible(_ action: any ExecutableAction) -> String? {
+        guard let command = action.systemCommand else { return nil }
         systemCommandExecutor.execute(command)
         return command.displayName
     }
 }
 
-private struct MacroActionHandler: MappingActionHandler {
+private struct MacroActionHandler {
     let inputSimulator: InputSimulatorProtocol
 
-    func canHandle(_ action: any ExecutableAction) -> Bool {
-        action.macroId != nil
-    }
-
-    func execute(_ action: any ExecutableAction, profile: Profile?) -> String {
-        guard let macroId = action.macroId else {
-            return action.feedbackString
-        }
+    func executeIfPossible(_ action: any ExecutableAction, profile: Profile?) -> String? {
+        guard let macroId = action.macroId else { return nil }
 
         if let profile, let macro = profile.macros.first(where: { $0.id == macroId }) {
             inputSimulator.executeMacro(macro)
@@ -55,15 +40,11 @@ private struct MacroActionHandler: MappingActionHandler {
     }
 }
 
-private struct KeyOrModifierActionHandler: MappingActionHandler {
+private struct KeyOrModifierActionHandler {
     let inputSimulator: InputSimulatorProtocol
     let tapModifierExecutor: TapModifierExecutor
 
-    func canHandle(_ action: any ExecutableAction) -> Bool {
-        true
-    }
-
-    func execute(_ action: any ExecutableAction, profile: Profile?) -> String {
+    func execute(_ action: any ExecutableAction) -> String {
         if let keyCode = action.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: action.modifiers.cgEventFlags)
         } else if action.modifiers.hasAny {
@@ -79,7 +60,9 @@ private struct KeyOrModifierActionHandler: MappingActionHandler {
 struct MappingExecutor {
     private let inputLogService: InputLogService?
     let systemCommandExecutor: SystemCommandExecutor
-    private let actionHandlers: [any MappingActionHandler]
+    private let systemCommandHandler: SystemCommandActionHandler
+    private let macroHandler: MacroActionHandler
+    private let keyOrModifierHandler: KeyOrModifierActionHandler
 
     init(
         inputSimulator: InputSimulatorProtocol,
@@ -89,13 +72,10 @@ struct MappingExecutor {
     ) {
         self.inputLogService = inputLogService
         self.systemCommandExecutor = SystemCommandExecutor(profileManager: profileManager)
-
         let tapModifierExecutor = TapModifierExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue)
-        self.actionHandlers = [
-            SystemCommandActionHandler(systemCommandExecutor: self.systemCommandExecutor),
-            MacroActionHandler(inputSimulator: inputSimulator),
-            KeyOrModifierActionHandler(inputSimulator: inputSimulator, tapModifierExecutor: tapModifierExecutor)
-        ]
+        self.systemCommandHandler = SystemCommandActionHandler(systemCommandExecutor: self.systemCommandExecutor)
+        self.macroHandler = MacroActionHandler(inputSimulator: inputSimulator)
+        self.keyOrModifierHandler = KeyOrModifierActionHandler(inputSimulator: inputSimulator, tapModifierExecutor: tapModifierExecutor)
     }
 
     /// Executes any action mapping (key press, macro, or system command).
@@ -124,10 +104,12 @@ struct MappingExecutor {
         _ action: any ExecutableAction,
         profile: Profile?
     ) -> String {
-        for handler in actionHandlers where handler.canHandle(action) {
-            return handler.execute(action, profile: profile)
+        if let feedback = systemCommandHandler.executeIfPossible(action) {
+            return feedback
         }
-
-        return action.feedbackString
+        if let feedback = macroHandler.executeIfPossible(action, profile: profile) {
+            return feedback
+        }
+        return keyOrModifierHandler.execute(action)
     }
 }
