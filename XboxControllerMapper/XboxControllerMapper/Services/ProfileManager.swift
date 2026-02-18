@@ -71,40 +71,17 @@ class ProfileManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 
     init(appMonitor: AppMonitor? = nil, configDirectoryOverride: URL? = nil) {
-        let home = fileManager.homeDirectoryForCurrentUser
+        let configPaths = ProfileConfigPathResolver.resolve(
+            fileManager: fileManager,
+            configDirectoryOverride: configDirectoryOverride
+        )
+        configURL = configPaths.configURL
+        legacyConfigURL = configPaths.legacyConfigURL
+        createDirectoryIfNeeded(at: configPaths.configDirectory)
 
-        // Allow tests to use an isolated temp config directory.
-        if let configDirectoryOverride {
-            let configDir = configDirectoryOverride
-            configURL = configDir.appendingPathComponent("config.json")
-            // Keep legacy path scoped to the same override to avoid reading user config in tests.
-            legacyConfigURL = configURL
-            createDirectoryIfNeeded(at: configDir)
-        } else {
-            // New location: ~/.controllerkeys/
-            let configDir = home.appendingPathComponent(".controllerkeys", isDirectory: true)
-            configURL = configDir.appendingPathComponent("config.json")
-
-            // Legacy location: ~/.xbox-controller-mapper/ (for migration)
-            let legacyConfigDir = home.appendingPathComponent(".xbox-controller-mapper", isDirectory: true)
-            legacyConfigURL = legacyConfigDir.appendingPathComponent("config.json")
-            createDirectoryIfNeeded(at: configDir)
-        }
         loadConfiguration()
         loadCachedFavicons()
-
-        // Create default profile if none exist
-        if profiles.isEmpty {
-            let defaultProfile = Profile.createDefault()
-            profiles.append(defaultProfile)
-            setActiveProfile(defaultProfile)
-        } else if activeProfile == nil {
-             if let defaultProfile = profiles.first(where: { $0.isDefault }) {
-                setActiveProfile(defaultProfile)
-            } else if let firstProfile = profiles.first {
-                setActiveProfile(firstProfile)
-            }
-        }
+        ensureActiveProfileSelection()
         
         // Initialize state for app switching
         self.previousBundleId = Bundle.main.bundleIdentifier
@@ -167,6 +144,23 @@ class ProfileManager: ObservableObject {
             try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
         } catch {
             // Directory creation failed, but we'll handle it gracefully
+        }
+    }
+
+    private func ensureActiveProfileSelection() {
+        if profiles.isEmpty {
+            let defaultProfile = Profile.createDefault()
+            profiles.append(defaultProfile)
+            setActiveProfile(defaultProfile)
+            return
+        }
+
+        guard activeProfile == nil else { return }
+
+        if let defaultProfile = profiles.first(where: { $0.isDefault }) {
+            setActiveProfile(defaultProfile)
+        } else if let firstProfile = profiles.first {
+            setActiveProfile(firstProfile)
         }
     }
     
