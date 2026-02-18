@@ -4,10 +4,20 @@ import AppKit
 /// Executes system commands triggered by button or chord mappings
 class SystemCommandExecutor: @unchecked Sendable {
     typealias OBSClientFactory = (URL, String?) -> OBSWebSocketClientProtocol
+    typealias AppURLResolver = (String) -> URL?
+    typealias AppOpener = (URL, NSWorkspace.OpenConfiguration, @escaping (NSRunningApplication?, Error?) -> Void) -> Void
+    typealias URLOpener = (URL) -> Void
+    typealias AppleScriptRunner = (String) -> NSDictionary?
+    typealias NewWindowShortcutSender = () -> Void
 
     private let profileManager: ProfileManager
     private let urlSession: URLSession
     private let obsClientFactory: OBSClientFactory
+    private let appURLResolver: AppURLResolver
+    private let appOpener: AppOpener
+    private let urlOpener: URLOpener
+    private let appleScriptRunner: AppleScriptRunner
+    private let newWindowShortcutSender: NewWindowShortcutSender
     private let executionQueue = DispatchQueue(label: "com.controllerkeys.systemcommand", qos: .userInteractive)
 
     /// Callback for webhook feedback (success: Bool, displayMessage: String)
@@ -19,11 +29,39 @@ class SystemCommandExecutor: @unchecked Sendable {
         urlSession: URLSession = .shared,
         obsClientFactory: @escaping OBSClientFactory = { url, password in
             OBSWebSocketClient(url: url, password: password)
+        },
+        appURLResolver: @escaping AppURLResolver = { bundleIdentifier in
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
+        },
+        appOpener: @escaping AppOpener = { url, config, completion in
+            NSWorkspace.shared.openApplication(at: url, configuration: config, completionHandler: completion)
+        },
+        urlOpener: @escaping URLOpener = { url in
+            NSWorkspace.shared.open(url)
+        },
+        appleScriptRunner: @escaping AppleScriptRunner = { script in
+            var error: NSDictionary?
+            NSAppleScript(source: script)?.executeAndReturnError(&error)
+            return error
+        },
+        newWindowShortcutSender: @escaping NewWindowShortcutSender = {
+            let src = CGEventSource(stateID: .hidSystemState)
+            let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 0x2D, keyDown: true) // kVK_ANSI_N
+            keyDown?.flags = .maskCommand
+            let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 0x2D, keyDown: false)
+            keyUp?.flags = .maskCommand
+            keyDown?.post(tap: .cghidEventTap)
+            keyUp?.post(tap: .cghidEventTap)
         }
     ) {
         self.profileManager = profileManager
         self.urlSession = urlSession
         self.obsClientFactory = obsClientFactory
+        self.appURLResolver = appURLResolver
+        self.appOpener = appOpener
+        self.urlOpener = urlOpener
+        self.appleScriptRunner = appleScriptRunner
+        self.newWindowShortcutSender = newWindowShortcutSender
     }
 
     func execute(_ command: SystemCommand) {
@@ -53,9 +91,9 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     private func launchApplication(bundleIdentifier: String, newWindow: Bool) {
         DispatchQueue.main.async {
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+            if let url = self.appURLResolver(bundleIdentifier) {
                 let config = NSWorkspace.OpenConfiguration()
-                NSWorkspace.shared.openApplication(at: url, configuration: config) { _, error in
+                self.appOpener(url, config) { _, error in
                     if let error = error {
                         NSLog("[SystemCommand] Failed to launch app \(bundleIdentifier): \(error.localizedDescription)")
                         return
@@ -63,13 +101,7 @@ class SystemCommandExecutor: @unchecked Sendable {
                     if newWindow {
                         // Send Cmd+N after a short delay to open a new window
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            let src = CGEventSource(stateID: .hidSystemState)
-                            let keyDown = CGEvent(keyboardEventSource: src, virtualKey: 0x2D, keyDown: true) // kVK_ANSI_N
-                            keyDown?.flags = .maskCommand
-                            let keyUp = CGEvent(keyboardEventSource: src, virtualKey: 0x2D, keyDown: false)
-                            keyUp?.flags = .maskCommand
-                            keyDown?.post(tap: .cghidEventTap)
-                            keyUp?.post(tap: .cghidEventTap)
+                            self.newWindowShortcutSender()
                         }
                     }
                 }
@@ -89,7 +121,7 @@ class SystemCommandExecutor: @unchecked Sendable {
                 resolved = "https://" + resolved
             }
             if let url = URL(string: resolved) {
-                NSWorkspace.shared.open(url)
+                self.urlOpener(url)
             } else {
                 NSLog("[SystemCommand] Invalid URL: \(urlString)")
             }
@@ -183,12 +215,8 @@ class SystemCommandExecutor: @unchecked Sendable {
                 """
             }
 
-            var error: NSDictionary?
-            if let scriptObject = NSAppleScript(source: script) {
-                scriptObject.executeAndReturnError(&error)
-                if let error = error {
-                    NSLog("[SystemCommand] AppleScript error: \(error)")
-                }
+            if let error = self.appleScriptRunner(script) {
+                NSLog("[SystemCommand] AppleScript error: \(error)")
             }
         }
     }
