@@ -266,20 +266,18 @@ class ProfileManager: ObservableObject {
 
     // MARK: - Persistence
     private func loadConfiguration() {
-        // Determine which config file to load:
-        // 1. New location (~/.controllerkeys/) takes priority
-        // 2. Fall back to legacy location (~/.xbox-controller-mapper/) for migration
-        let urlToLoad: URL
-        var migratingFromLegacy = false
+        guard let loadSource = ProfileConfigLoadSourceResolver.resolve(
+            fileManager: fileManager,
+            configURL: configURL,
+            legacyConfigURL: legacyConfigURL
+        ) else {
+            return
+        }
 
-        if fileManager.fileExists(atPath: configURL.path) {
-            urlToLoad = configURL
-        } else if fileManager.fileExists(atPath: legacyConfigURL.path) {
-            urlToLoad = legacyConfigURL
-            migratingFromLegacy = true
+        let urlToLoad = loadSource.url
+        let migratingFromLegacy = loadSource.migratingFromLegacy
+        if migratingFromLegacy {
             NSLog("[ProfileManager] Migrating config from legacy location: \(legacyConfigURL.path)")
-        } else {
-            return  // No config file exists yet
         }
 
         do {
