@@ -11,6 +11,22 @@ struct UsageStats: Codable {
     var lastSessionDate: Date?
     var firstSessionDate: Date?
 
+    // Output action counters
+    var keyPresses: Int = 0
+    var mouseClicks: Int = 0
+    var macrosExecuted: Int = 0
+    var macroStepsAutomated: Int = 0
+    var webhooksFired: Int = 0
+    var appsLaunched: Int = 0
+    var textSnippetsRun: Int = 0
+    var terminalCommandsRun: Int = 0
+    var linksOpened: Int = 0
+
+    // Distance accumulators (pixels)
+    var joystickMousePixels: Double = 0
+    var touchpadMousePixels: Double = 0
+    var scrollPixels: Double = 0
+
     // MARK: - Computed Properties
 
     var totalPresses: Int {
@@ -57,6 +73,29 @@ struct UsageStats: Codable {
         return Double(complex) / Double(total)
     }
 
+    /// Total mouse distance in pixels (joystick + touchpad)
+    var totalMousePixels: Double {
+        joystickMousePixels + touchpadMousePixels
+    }
+
+    /// Format pixel distance as human-readable string with real-world units
+    static func formatDistance(_ pixels: Double) -> String {
+        // Assume ~110 PPI (typical for a mix of displays)
+        let inches = pixels / 110.0
+        let feet = inches / 12.0
+
+        if feet >= 5280 {
+            return String(format: "%.1f mi", feet / 5280.0)
+        } else if feet >= 100 {
+            return String(format: "%.0f ft", feet)
+        } else if feet >= 1 {
+            return String(format: "%.1f ft", feet)
+        } else if inches >= 1 {
+            return String(format: "%.0f in", inches)
+        }
+        return String(format: "%.0f px", pixels)
+    }
+
     /// Determine the user's controller personality
     var personality: ControllerPersonality {
         let total = totalPresses
@@ -98,6 +137,9 @@ struct UsageStats: Codable {
     enum CodingKeys: String, CodingKey {
         case buttonCounts, actionTypeCounts, totalSessions, totalSessionSeconds
         case currentStreakDays, longestStreakDays, lastSessionDate, firstSessionDate
+        case keyPresses, mouseClicks, macrosExecuted, macroStepsAutomated
+        case webhooksFired, appsLaunched, textSnippetsRun, terminalCommandsRun, linksOpened
+        case joystickMousePixels, touchpadMousePixels, scrollPixels
     }
 
     init() {}
@@ -112,5 +154,17 @@ struct UsageStats: Codable {
         longestStreakDays = try container.decodeIfPresent(Int.self, forKey: .longestStreakDays) ?? 0
         lastSessionDate = try container.decodeIfPresent(Date.self, forKey: .lastSessionDate)
         firstSessionDate = try container.decodeIfPresent(Date.self, forKey: .firstSessionDate)
+        keyPresses = try container.decodeIfPresent(Int.self, forKey: .keyPresses) ?? 0
+        mouseClicks = try container.decodeIfPresent(Int.self, forKey: .mouseClicks) ?? 0
+        macrosExecuted = try container.decodeIfPresent(Int.self, forKey: .macrosExecuted) ?? 0
+        macroStepsAutomated = try container.decodeIfPresent(Int.self, forKey: .macroStepsAutomated) ?? 0
+        webhooksFired = try container.decodeIfPresent(Int.self, forKey: .webhooksFired) ?? 0
+        appsLaunched = try container.decodeIfPresent(Int.self, forKey: .appsLaunched) ?? 0
+        textSnippetsRun = try container.decodeIfPresent(Int.self, forKey: .textSnippetsRun) ?? 0
+        terminalCommandsRun = try container.decodeIfPresent(Int.self, forKey: .terminalCommandsRun) ?? 0
+        linksOpened = try container.decodeIfPresent(Int.self, forKey: .linksOpened) ?? 0
+        joystickMousePixels = try container.decodeIfPresent(Double.self, forKey: .joystickMousePixels) ?? 0
+        touchpadMousePixels = try container.decodeIfPresent(Double.self, forKey: .touchpadMousePixels) ?? 0
+        scrollPixels = try container.decodeIfPresent(Double.self, forKey: .scrollPixels) ?? 0
     }
 }

@@ -188,6 +188,7 @@ class OnScreenKeyboardManager: ObservableObject {
 
     private var panel: NSPanel?
     private var inputSimulator: InputSimulatorProtocol?
+    private var usageStatsService: UsageStatsService?
     private var quickTexts: [QuickText] = []
     private var defaultTerminalApp: String = "Terminal"
     private var typingDelay: Double = 0.03
@@ -221,6 +222,11 @@ class OnScreenKeyboardManager: ObservableObject {
     /// Sets the input simulator to use for sending key presses
     func setInputSimulator(_ simulator: InputSimulatorProtocol) {
         self.inputSimulator = simulator
+    }
+
+    /// Sets the usage stats service for recording actions
+    func setUsageStatsService(_ service: UsageStatsService) {
+        self.usageStatsService = service
     }
 
     /// Sets a haptic callback for on-screen keyboard actions
@@ -972,8 +978,10 @@ class OnScreenKeyboardManager: ObservableObject {
 
         if quickText.isTerminalCommand {
             executeTerminalCommand(expandedText)
+            usageStatsService?.recordTerminalCommand()
         } else {
             typeText(expandedText)
+            usageStatsService?.recordTextSnippet()
         }
     }
 
@@ -1033,6 +1041,7 @@ class OnScreenKeyboardManager: ObservableObject {
         }
 
         NSWorkspace.shared.open(url)
+        usageStatsService?.recordLinkOpened()
     }
 
     /// Types a string of text (paste mode if delay is 0, otherwise character-by-character)

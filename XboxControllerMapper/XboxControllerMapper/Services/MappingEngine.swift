@@ -36,6 +36,7 @@ class MappingEngine: ObservableObject {
     private let appMonitor: AppMonitor
     nonisolated private let inputSimulator: InputSimulatorProtocol
     private let inputLogService: InputLogService?
+    nonisolated private let usageStatsService: UsageStatsService?
     nonisolated private let mappingExecutor: MappingExecutor
 
     // MARK: - Thread-Safe State
@@ -56,10 +57,17 @@ class MappingEngine: ObservableObject {
         self.appMonitor = appMonitor
         self.inputSimulator = inputSimulator
         self.inputLogService = inputLogService
+        self.usageStatsService = usageStatsService
         self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService, profileManager: profileManager, usageStatsService: usageStatsService)
 
         // Set up on-screen keyboard manager with our input simulator
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
+        Task { @MainActor in
+            if let service = usageStatsService {
+                OnScreenKeyboardManager.shared.setUsageStatsService(service)
+                CommandWheelManager.shared.setUsageStatsService(service)
+            }
+        }
         Task { @MainActor [weak self] in
             OnScreenKeyboardManager.shared.setHapticHandler { [weak self] in
                 self?.controllerService.playHaptic(
@@ -1252,6 +1260,7 @@ class MappingEngine: ObservableObject {
         dy = settings.invertMouseY ? dy : -dy
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
+        usageStatsService?.recordJoystickMouseDistance(dx: Double(dx), dy: Double(dy))
     }
 
     /// Process touchpad tap gesture (uses user mapping, supports double-tap)
@@ -1425,6 +1434,7 @@ class MappingEngine: ObservableObject {
         }
 
         inputSimulator.moveMouse(dx: CGFloat(dx), dy: CGFloat(dy))
+        usageStatsService?.recordTouchpadMouseDistance(dx: dx, dy: dy)
     }
 
     // MARK: - Two-Finger Touchpad Gestures
@@ -1768,6 +1778,7 @@ class MappingEngine: ObservableObject {
                     isContinuous: true,
                     flags: inputSimulator.getHeldModifiers()
                 )
+                usageStatsService?.recordScrollDistance(dx: sendDx, dy: sendDy)
             }
             state.lock.lock()
             state.touchpadMomentumLastUpdate = now
@@ -1911,6 +1922,7 @@ class MappingEngine: ObservableObject {
             isContinuous: false,
             flags: inputSimulator.getHeldModifiers()
         )
+        usageStatsService?.recordScrollDistance(dx: Double(dx), dy: Double(dy))
     }
 
     /// Processes stick input as direction keys (WASD or Arrow keys)

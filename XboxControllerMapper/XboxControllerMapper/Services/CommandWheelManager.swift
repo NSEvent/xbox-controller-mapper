@@ -26,6 +26,7 @@ class CommandWheelManager: ObservableObject {
     @Published private(set) var forceQuitProgress: CGFloat = 0
 
     private var panel: NSPanel?
+    private var usageStatsService: UsageStatsService?
     private(set) var items: [CommandWheelItem] = []
     private var primaryItems: [CommandWheelItem] = []
     private var alternateItems: [CommandWheelItem] = []
@@ -85,6 +86,11 @@ class CommandWheelManager: ObservableObject {
     private var lastPerimeterHapticTime: TimeInterval = 0
 
     private init() {}
+
+    /// Sets the usage stats service for recording actions
+    func setUsageStatsService(_ service: UsageStatsService) {
+        self.usageStatsService = service
+    }
 
     /// Prepares the command wheel with primary and alternate item sets (does NOT show it yet - waits for stick input)
     func prepare(apps: [AppBarItem], websites: [WebsiteLink], showWebsitesFirst: Bool) {
@@ -489,6 +495,7 @@ class CommandWheelManager: ObservableObject {
         }
         guard let url = URL(string: urlStr) else { return }
         NSWorkspace.shared.open(url)
+        usageStatsService?.recordLinkOpened()
     }
 
     private func openWebsiteIncognito(url urlString: String) {
@@ -541,5 +548,6 @@ class CommandWheelManager: ObservableObject {
         }
 
         try? process.run()
+        usageStatsService?.recordLinkOpened()
     }
 }

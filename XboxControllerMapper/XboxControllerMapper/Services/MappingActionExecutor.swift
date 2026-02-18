@@ -101,12 +101,15 @@ struct MappingExecutor {
         let feedback = executeAction(action, profile: profile)
         inputLogService?.log(buttons: buttons, type: logType, action: feedback)
 
-        // Record usage stats
+        // Record button/action type stats
         if buttons.count > 1 {
             usageStatsService?.recordChord(buttons: buttons, type: logType)
         } else if let button = buttons.first {
             usageStatsService?.record(button: button, type: logType)
         }
+
+        // Record output action category
+        recordOutputAction(action, profile: profile)
     }
 
     /// Executes any action mapping and returns feedback text without logging.
@@ -121,5 +124,48 @@ struct MappingExecutor {
             return feedback
         }
         return keyOrModifierHandler.execute(action)
+    }
+
+    /// Record what type of output action was performed.
+    private func recordOutputAction(_ action: any ExecutableAction, profile: Profile?) {
+        guard let service = usageStatsService else { return }
+
+        // System command
+        if let command = action.systemCommand {
+            switch command {
+            case .httpRequest:
+                service.recordWebhook()
+            case .launchApp:
+                service.recordAppLaunch()
+            case .obsWebSocket:
+                service.recordWebhook()
+            case .openLink:
+                service.recordLinkOpened()
+            case .shellCommand(_, let inTerminal):
+                if inTerminal {
+                    service.recordTerminalCommand()
+                }
+            }
+            return
+        }
+
+        // Macro
+        if let macroId = action.macroId {
+            if let profile, let macro = profile.macros.first(where: { $0.id == macroId }) {
+                service.recordMacro(stepCount: macro.steps.count)
+            } else {
+                service.recordMacro(stepCount: 1)
+            }
+            return
+        }
+
+        // Key press or mouse click
+        if let keyCode = action.keyCode {
+            if KeyCodeMapping.isMouseButton(keyCode) {
+                service.recordMouseClick()
+            } else {
+                service.recordKeyPress()
+            }
+        }
     }
 }

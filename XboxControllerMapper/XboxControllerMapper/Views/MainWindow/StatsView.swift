@@ -17,6 +17,14 @@ struct StatsView: View {
                 // Key Metrics
                 metricsGrid
 
+                // Output Actions
+                outputActionsGrid
+
+                // Distance
+                if stats.joystickMousePixels > 0 || stats.touchpadMousePixels > 0 || stats.scrollPixels > 0 {
+                    distanceSection
+                }
+
                 // Top Buttons
                 if !stats.topButtons.isEmpty {
                     topButtonsSection
@@ -77,17 +85,129 @@ struct StatsView: View {
     // MARK: - Metrics Grid
 
     private var metricsGrid: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: 16) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 16) {
             metricCard(title: "Total Presses", value: formatNumber(stats.totalPresses), icon: "hand.tap")
             metricCard(title: "Sessions", value: "\(stats.totalSessions)", icon: "play.circle")
             metricCard(title: "Streak", value: "\(stats.currentStreakDays)d", icon: "flame")
             metricCard(title: "Best Streak", value: "\(stats.longestStreakDays)d", icon: "trophy")
         }
+    }
+
+    // MARK: - Output Actions Grid
+
+    private var outputActionsGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("OUTPUT ACTIONS")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
+                outputCard(title: "Key Presses", value: formatNumber(stats.keyPresses), icon: "keyboard", color: .blue)
+                outputCard(title: "Mouse Clicks", value: formatNumber(stats.mouseClicks), icon: "computermouse", color: .green)
+                outputCard(title: "Macros Run", value: formatNumber(stats.macrosExecuted), icon: "repeat", color: .purple)
+                outputCard(title: "Steps Automated", value: formatNumber(stats.macroStepsAutomated), icon: "bolt", color: .orange)
+                outputCard(title: "Webhooks", value: formatNumber(stats.webhooksFired), icon: "network", color: .cyan)
+                outputCard(title: "Apps Launched", value: formatNumber(stats.appsLaunched), icon: "app.badge", color: .pink)
+                outputCard(title: "Text Snippets", value: formatNumber(stats.textSnippetsRun), icon: "text.quote", color: .yellow)
+                outputCard(title: "Terminal Cmds", value: formatNumber(stats.terminalCommandsRun), icon: "terminal", color: .gray)
+                outputCard(title: "Links Opened", value: formatNumber(stats.linksOpened), icon: "link", color: .teal)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    private func outputCard(title: String, value: String, icon: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+
+            Text(title)
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(color.opacity(0.08))
+        )
+    }
+
+    // MARK: - Distance Section
+
+    private var distanceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("DISTANCE TRAVELED")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
+                if stats.joystickMousePixels > 0 {
+                    distanceCard(
+                        title: "Joystick Mouse",
+                        pixels: stats.joystickMousePixels,
+                        icon: "l.joystick",
+                        color: .orange
+                    )
+                }
+                if stats.touchpadMousePixels > 0 {
+                    distanceCard(
+                        title: "Touchpad Mouse",
+                        pixels: stats.touchpadMousePixels,
+                        icon: "hand.point.up",
+                        color: .mint
+                    )
+                }
+                if stats.scrollPixels > 0 {
+                    distanceCard(
+                        title: "Scroll Distance",
+                        pixels: stats.scrollPixels,
+                        icon: "arrow.up.and.down",
+                        color: .indigo
+                    )
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    private func distanceCard(title: String, pixels: Double, icon: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(color)
+
+            Text(UsageStats.formatDistance(pixels))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+
+            Text(title)
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(color.opacity(0.08))
+        )
     }
 
     private func metricCard(title: String, value: String, icon: String) -> some View {
