@@ -323,19 +323,16 @@ class ProfileManager: ObservableObject {
     }
 
     private func applyLoadedProfiles(_ loadedProfiles: [Profile], activeProfileId: UUID?) {
-        let validProfiles = loadedProfiles.filter { $0.isValid() }
-        guard !validProfiles.isEmpty else { return }
-
-        self.profiles = validProfiles.sorted { $0.createdAt < $1.createdAt }
-
-        if let activeProfileId,
-           let profile = profiles.first(where: { $0.id == activeProfileId }) {
-            self.activeProfile = profile
-            self.activeProfileId = activeProfileId
-        } else {
-            self.activeProfile = nil
-            self.activeProfileId = nil
+        guard let result = ProfileLoadedDataApplicator.apply(
+            loadedProfiles: loadedProfiles,
+            activeProfileId: activeProfileId
+        ) else {
+            return
         }
+
+        self.profiles = result.profiles
+        self.activeProfile = result.activeProfile
+        self.activeProfileId = result.activeProfileId
     }
 
     private func saveConfiguration() {
