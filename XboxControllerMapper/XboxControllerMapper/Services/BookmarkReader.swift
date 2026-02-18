@@ -32,8 +32,11 @@ enum BrowserType: String {
 class BookmarkReader {
 
     /// Detects the default browser
-    static func detectDefaultBrowser() -> BrowserType {
-        guard let bundleId = LSCopyDefaultHandlerForURLScheme("https" as CFString)?.takeRetainedValue() as String? else {
+    static func detectDefaultBrowser(bundleIdentifierOverride: String? = nil) -> BrowserType {
+        let bundleId = bundleIdentifierOverride
+            ?? (LSCopyDefaultHandlerForURLScheme("https" as CFString)?.takeRetainedValue() as String?)
+
+        guard let bundleId else {
             return .unknown
         }
 
@@ -55,12 +58,12 @@ class BookmarkReader {
     }
 
     /// Reads bookmarks for the given browser type
-    static func readBookmarks(for browser: BrowserType) -> [BookmarkItem] {
+    static func readBookmarks(for browser: BrowserType, homeDirectoryOverride: URL? = nil) -> [BookmarkItem] {
         switch browser {
         case .safari:
-            return readSafariBookmarks()
+            return readSafariBookmarks(homeDirectoryOverride: homeDirectoryOverride)
         case .chrome, .brave, .edge, .arc, .vivaldi:
-            if let path = chromiumBookmarksPath(for: browser) {
+            if let path = chromiumBookmarksPath(for: browser, homeDirectoryOverride: homeDirectoryOverride) {
                 return readChromiumBookmarks(path: path)
             }
             return []
@@ -70,16 +73,19 @@ class BookmarkReader {
     }
 
     /// Reads bookmarks from the default browser
-    static func readDefaultBrowserBookmarks() -> (browser: BrowserType, bookmarks: [BookmarkItem]) {
-        let browser = detectDefaultBrowser()
-        let bookmarks = readBookmarks(for: browser)
+    static func readDefaultBrowserBookmarks(
+        bundleIdentifierOverride: String? = nil,
+        homeDirectoryOverride: URL? = nil
+    ) -> (browser: BrowserType, bookmarks: [BookmarkItem]) {
+        let browser = detectDefaultBrowser(bundleIdentifierOverride: bundleIdentifierOverride)
+        let bookmarks = readBookmarks(for: browser, homeDirectoryOverride: homeDirectoryOverride)
         return (browser, bookmarks)
     }
 
     // MARK: - Safari
 
-    private static func readSafariBookmarks() -> [BookmarkItem] {
-        let home = FileManager.default.homeDirectoryForCurrentUser
+    private static func readSafariBookmarks(homeDirectoryOverride: URL? = nil) -> [BookmarkItem] {
+        let home = homeDirectoryOverride ?? FileManager.default.homeDirectoryForCurrentUser
         let plistURL = home.appendingPathComponent("Library/Safari/Bookmarks.plist")
 
         guard let dict = NSDictionary(contentsOf: plistURL) else {
@@ -130,8 +136,8 @@ class BookmarkReader {
 
     // MARK: - Chromium
 
-    private static func chromiumBookmarksPath(for browser: BrowserType) -> String? {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
+    private static func chromiumBookmarksPath(for browser: BrowserType, homeDirectoryOverride: URL? = nil) -> String? {
+        let home = (homeDirectoryOverride ?? FileManager.default.homeDirectoryForCurrentUser).path
 
         switch browser {
         case .chrome:

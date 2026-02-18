@@ -62,8 +62,12 @@ class GameControllerDatabase {
         (Config.configDirectory as NSString).appendingPathComponent("gamecontrollerdb.txt")
     }
 
-    init() {
-        loadDatabase()
+    init(databaseContentOverride: String? = nil) {
+        if let databaseContentOverride {
+            parseDatabase(databaseContentOverride)
+        } else {
+            loadDatabase()
+        }
     }
 
     // MARK: - GUID Construction
