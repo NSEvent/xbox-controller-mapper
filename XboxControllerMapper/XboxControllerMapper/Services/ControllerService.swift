@@ -139,6 +139,10 @@ private final class ControllerStorage: @unchecked Sendable {
 /// Service for managing game controller connection and input
 @MainActor
 class ControllerService: ObservableObject {
+    private static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     @Published var isConnected = false
     @Published var connectedController: GCController?
     @Published var controllerName: String = ""
@@ -373,27 +377,17 @@ class ControllerService: ObservableObject {
     private var activeHapticPlayers: [ActiveHapticPlayer] = []
 
     init(enableHardwareMonitoring: Bool = true) {
-        GCController.shouldMonitorBackgroundEvents = true
+        let shouldEnableHardwareMonitoring = enableHardwareMonitoring && !Self.isRunningTests
 
         // Load last controller type (so UI shows correct button labels when no controller is connected)
         storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
         storage.isDualSenseEdge = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey)
 
-        setupNotifications()
-
-        if enableHardwareMonitoring {
+        if shouldEnableHardwareMonitoring {
+            GCController.shouldMonitorBackgroundEvents = true
+            setupNotifications()
             startDiscovery()
             checkConnectedControllers()
-        }
-        
-        guideMonitor.onGuideButtonAction = { [weak self] isPressed in
-            guard let self = self else { return }
-            self.controllerQueue.async {
-                self.handleButton(.xbox, pressed: isPressed)
-            }
-        }
-
-        if enableHardwareMonitoring {
             batteryMonitor.startMonitoring()
             batteryMonitor.$batteryLevel
                 .receive(on: DispatchQueue.main)
@@ -403,6 +397,13 @@ class ControllerService: ObservableObject {
                 .store(in: &cancellables)
 
             setupGenericHIDMonitoring()
+        }
+
+        guideMonitor.onGuideButtonAction = { [weak self] isPressed in
+            guard let self = self else { return }
+            self.controllerQueue.async {
+                self.handleButton(.xbox, pressed: isPressed)
+            }
         }
     }
 
