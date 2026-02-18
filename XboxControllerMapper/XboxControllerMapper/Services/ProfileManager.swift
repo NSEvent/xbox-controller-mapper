@@ -179,30 +179,6 @@ class ProfileManager: ObservableObject {
         }
     }
     
-    // MARK: - Linked Apps
-    
-    func addLinkedApp(_ bundleId: String, to profile: Profile) {
-        // Remove this app from any other profiles first (enforce 1:1 mapping)
-        for var otherProfile in profiles where otherProfile.id != profile.id {
-            if let index = otherProfile.linkedApps.firstIndex(of: bundleId) {
-                otherProfile.linkedApps.remove(at: index)
-                updateProfile(otherProfile)
-            }
-        }
-        
-        var updatedProfile = profile
-        if !updatedProfile.linkedApps.contains(bundleId) {
-            updatedProfile.linkedApps.append(bundleId)
-            updateProfile(updatedProfile)
-        }
-    }
-    
-    func removeLinkedApp(_ bundleId: String, from profile: Profile) {
-        var updatedProfile = profile
-        updatedProfile.linkedApps.removeAll { $0 == bundleId }
-        updateProfile(updatedProfile)
-    }
-
     private func createDirectoryIfNeeded(at url: URL) {
         do {
             try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
@@ -388,57 +364,6 @@ class ProfileManager: ObservableObject {
                 objectWillChange.send()
             }
         }
-    }
-
-    // MARK: - Macros
-    
-    func addMacro(_ macro: Macro, in profile: Profile? = nil) {
-        guard var targetProfile = profile ?? activeProfile else { return }
-        
-        targetProfile.macros.append(macro)
-        updateProfile(targetProfile)
-    }
-    
-    func removeMacro(_ macro: Macro, in profile: Profile? = nil) {
-        guard var targetProfile = profile ?? activeProfile else { return }
-        
-        // Remove macro from list
-        targetProfile.macros.removeAll { $0.id == macro.id }
-        
-        // Unmap any buttons using this macro
-        for (button, mapping) in targetProfile.buttonMappings {
-            if mapping.macroId == macro.id {
-                targetProfile.buttonMappings.removeValue(forKey: button)
-            }
-        }
-        
-        // Unmap any chords using this macro
-        // We iterate indices to modify in place or filter/map
-        targetProfile.chordMappings = targetProfile.chordMappings.map { chord in
-            var updatedChord = chord
-            if updatedChord.macroId == macro.id {
-                updatedChord.macroId = nil
-            }
-            return updatedChord
-        }
-        
-        updateProfile(targetProfile)
-    }
-    
-    func updateMacro(_ macro: Macro, in profile: Profile? = nil) {
-        guard var targetProfile = profile ?? activeProfile else { return }
-        
-        if let index = targetProfile.macros.firstIndex(where: { $0.id == macro.id }) {
-            targetProfile.macros[index] = macro
-        }
-        updateProfile(targetProfile)
-    }
-    
-    func moveMacros(from source: IndexSet, to destination: Int, in profile: Profile? = nil) {
-        guard var targetProfile = profile ?? activeProfile else { return }
-        
-        targetProfile.macros.move(fromOffsets: source, toOffset: destination)
-        updateProfile(targetProfile)
     }
 
     // MARK: - Persistence
