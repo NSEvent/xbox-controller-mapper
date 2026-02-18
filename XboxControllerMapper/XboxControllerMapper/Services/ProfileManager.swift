@@ -450,30 +450,12 @@ class ProfileManager: ObservableObject {
     // MARK: - Import/Export
 
     func exportProfile(_ profile: Profile, to url: URL) throws {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = .prettyPrinted
-
-        let data = try encoder.encode(profile)
-        try data.write(to: url)
+        try ProfileTransferService.export(profile, to: url)
     }
 
     func importProfile(from url: URL) throws -> Profile {
-        let data = try Data(contentsOf: url)
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        var profile = try decoder.decode(Profile.self, from: data)
-
-        // Generate new ID to avoid conflicts
-        profile.id = UUID()
-        profile.isDefault = false
-
-        profiles.append(profile)
-        saveConfiguration()
-
-        return profile
+        let profile = try ProfileTransferService.importProfile(from: url)
+        return persistImportedProfile(profile)
     }
 
     // MARK: - Community Profiles
@@ -490,29 +472,21 @@ class ProfileManager: ObservableObject {
 
     /// Imports a profile that was previously fetched (e.g., from preview cache)
     func importFetchedProfile(_ profile: Profile) -> Profile {
-        var importedProfile = profile
-        importedProfile.id = UUID()
-        importedProfile.isDefault = false
-
-        profiles.append(importedProfile)
-        saveConfiguration()
-
-        return importedProfile
+        persistImportedProfile(ProfileTransferService.prepareForImport(profile))
     }
 
     /// Downloads and imports a profile from a URL
     nonisolated func downloadProfile(from urlString: String) async throws -> Profile {
-        var profile = try await CommunityProfileClient.fetchProfile(from: urlString)
-
-        // Generate new ID to avoid conflicts
-        profile.id = UUID()
-        profile.isDefault = false
-
-        await MainActor.run {
-            profiles.append(profile)
-            saveConfiguration()
+        let downloadedProfile = try await CommunityProfileClient.fetchProfile(from: urlString)
+        return await MainActor.run {
+            let importedProfile = ProfileTransferService.prepareForImport(downloadedProfile)
+            return persistImportedProfile(importedProfile)
         }
+    }
 
+    private func persistImportedProfile(_ profile: Profile) -> Profile {
+        profiles.append(profile)
+        saveConfiguration()
         return profile
     }
 }
