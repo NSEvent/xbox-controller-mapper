@@ -5,7 +5,7 @@ import CoreGraphics
 
 private protocol MappingActionHandler {
     func canHandle(_ action: any ExecutableAction) -> Bool
-    func execute(_ action: any ExecutableAction, button: ControllerButton, profile: Profile?) -> String
+    func execute(_ action: any ExecutableAction, profile: Profile?) -> String
 }
 
 private struct TapModifierExecutor {
@@ -27,7 +27,7 @@ private struct SystemCommandActionHandler: MappingActionHandler {
         action.systemCommand != nil
     }
 
-    func execute(_ action: any ExecutableAction, button: ControllerButton, profile: Profile?) -> String {
+    func execute(_ action: any ExecutableAction, profile: Profile?) -> String {
         guard let command = action.systemCommand else { return action.feedbackString }
         systemCommandExecutor.execute(command)
         return command.displayName
@@ -41,7 +41,7 @@ private struct MacroActionHandler: MappingActionHandler {
         action.macroId != nil
     }
 
-    func execute(_ action: any ExecutableAction, button: ControllerButton, profile: Profile?) -> String {
+    func execute(_ action: any ExecutableAction, profile: Profile?) -> String {
         guard let macroId = action.macroId else {
             return action.feedbackString
         }
@@ -63,7 +63,7 @@ private struct KeyOrModifierActionHandler: MappingActionHandler {
         true
     }
 
-    func execute(_ action: any ExecutableAction, button: ControllerButton, profile: Profile?) -> String {
+    func execute(_ action: any ExecutableAction, profile: Profile?) -> String {
         if let keyCode = action.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: action.modifiers.cgEventFlags)
         } else if action.modifiers.hasAny {
@@ -105,12 +105,29 @@ struct MappingExecutor {
         profile: Profile?,
         logType: InputEventType = .singlePress
     ) {
+        executeAction(action, for: [button], profile: profile, logType: logType)
+    }
+
+    /// Executes any action mapping (key press, macro, or system command) for one or more buttons.
+    func executeAction(
+        _ action: any ExecutableAction,
+        for buttons: [ControllerButton],
+        profile: Profile?,
+        logType: InputEventType = .singlePress
+    ) {
+        let feedback = executeAction(action, profile: profile)
+        inputLogService?.log(buttons: buttons, type: logType, action: feedback)
+    }
+
+    /// Executes any action mapping and returns feedback text without logging.
+    func executeAction(
+        _ action: any ExecutableAction,
+        profile: Profile?
+    ) -> String {
         for handler in actionHandlers where handler.canHandle(action) {
-            let feedback = handler.execute(action, button: button, profile: profile)
-            inputLogService?.log(buttons: [button], type: logType, action: feedback)
-            return
+            return handler.execute(action, profile: profile)
         }
 
-        inputLogService?.log(buttons: [button], type: logType, action: action.feedbackString)
+        return action.feedbackString
     }
 }

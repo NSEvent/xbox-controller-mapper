@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 
 /// Represents a chord (multiple buttons pressed simultaneously) mapping
-struct ChordMapping: Codable, Identifiable, Equatable {
+struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
     var id: UUID
 
     /// The buttons that must all be pressed to trigger this chord
@@ -98,6 +98,9 @@ struct ChordMapping: Codable, Identifiable, Equatable {
 
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
     }
+
+    /// ExecutableAction protocol conformance
+    var displayString: String { actionDisplayString }
 
     // MARK: - Chord Conflict Detection
 

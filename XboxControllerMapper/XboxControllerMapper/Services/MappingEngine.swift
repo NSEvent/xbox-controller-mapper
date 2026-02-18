@@ -1180,30 +1180,7 @@ class MappingEngine: ObservableObject {
             state.activeChordButtons = chordButtons
             state.lock.unlock()
 
-            // Compute feedback: prefer hint, then macro name if applicable, then default display
-            let chordFeedback: String
-            if let hint = chord.hint, !hint.isEmpty {
-                chordFeedback = hint
-            } else if let macroId = chord.macroId, let macro = profile.macros.first(where: { $0.id == macroId }) {
-                chordFeedback = macro.name
-            } else {
-                chordFeedback = chord.actionDisplayString
-            }
-            inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: chordFeedback)
-
-            if let systemCommand = chord.systemCommand {
-                mappingExecutor.systemCommandExecutor.execute(systemCommand)
-            } else if let macroId = chord.macroId, let macro = profile.macros.first(where: { $0.id == macroId }) {
-                inputSimulator.executeMacro(macro)
-            } else if let keyCode = chord.keyCode {
-                inputSimulator.pressKey(keyCode, modifiers: chord.modifiers.cgEventFlags)
-            } else if chord.modifiers.hasAny {
-                let flags = chord.modifiers.cgEventFlags
-                inputSimulator.holdModifier(flags)
-                inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [weak self] in
-                    self?.inputSimulator.releaseModifier(flags)
-                }
-            }
+            mappingExecutor.executeAction(chord, for: Array(chordButtons), profile: profile, logType: .chord)
         } else {
             // Fallback: Individual handling for non-activator buttons
             let sortedButtons = chordButtons.sorted { $0.rawValue < $1.rawValue }
