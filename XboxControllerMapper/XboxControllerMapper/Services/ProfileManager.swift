@@ -288,36 +288,6 @@ class ProfileManager: ObservableObject {
     }
 
     // MARK: - Persistence
-
-    private struct Configuration: Codable {
-        var schemaVersion: Int = 1
-        var profiles: [Profile]
-        var activeProfileId: UUID?
-        var uiScale: CGFloat?
-        /// Legacy field: only decoded for migration to per-profile settings
-        var onScreenKeyboardSettings: OnScreenKeyboardSettings?
-
-        private enum CodingKeys: String, CodingKey {
-            case schemaVersion, profiles, activeProfileId, uiScale, onScreenKeyboardSettings
-        }
-
-        init(profiles: [Profile], activeProfileId: UUID?, uiScale: CGFloat?) {
-            self.profiles = profiles
-            self.activeProfileId = activeProfileId
-            self.uiScale = uiScale
-            self.onScreenKeyboardSettings = nil
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-            profiles = try container.decodeIfPresent([Profile].self, forKey: .profiles) ?? []
-            activeProfileId = try container.decodeIfPresent(UUID.self, forKey: .activeProfileId)
-            uiScale = try container.decodeIfPresent(CGFloat.self, forKey: .uiScale)
-            onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings)
-        }
-    }
-
     private func loadConfiguration() {
         // Determine which config file to load:
         // 1. New location (~/.controllerkeys/) takes priority
@@ -338,10 +308,7 @@ class ProfileManager: ObservableObject {
         do {
             let data = try Data(contentsOf: urlToLoad)
             
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-
-            let config = try decoder.decode(Configuration.self, from: data)
+            let config = try ProfileConfigurationCodec.decode(from: data)
             var didMigrate = false
 
             let migratedProfiles = config.profiles.map { profile in
@@ -421,7 +388,7 @@ class ProfileManager: ObservableObject {
         }
 
         // Capture state for background save
-        let config = Configuration(
+        let config = ProfileConfiguration(
             profiles: profiles,
             activeProfileId: activeProfileId,
             uiScale: uiScale
@@ -434,12 +401,8 @@ class ProfileManager: ObservableObject {
             // Create backup before saving
             backupService.createBackupIfNeeded(for: configURL)
 
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-
             do {
-                let data = try encoder.encode(config)
+                let data = try ProfileConfigurationCodec.encode(config)
                 try data.write(to: configURL)
             } catch {
                 // Configuration save failed silently
