@@ -131,7 +131,7 @@ struct StatsView: View {
                 outputCard(title: "Apps Launched", value: formatNumber(stats.appsLaunched), icon: "app.badge", color: .pink)
                 outputCard(title: "Links Opened", value: formatNumber(stats.linksOpened), icon: "link", color: .teal)
                 outputCard(title: "Snippets Pasted", value: formatNumber(stats.textSnippetsRun), icon: "text.quote", color: .yellow)
-                outputCard(title: "Terminal Cmds Run", value: formatNumber(stats.terminalCommandsRun), icon: "terminal", color: .gray)
+                outputCard(title: "Terminals Popped", value: formatNumber(stats.terminalCommandsRun), icon: "terminal", color: .gray)
                 outputCard(title: "Webhooks Run", value: formatNumber(stats.webhooksFired), icon: "network", color: .cyan)
             }
         }
