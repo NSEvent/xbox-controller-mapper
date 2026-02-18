@@ -427,12 +427,12 @@ class ProfileManager: ObservableObject {
             uiScale: uiScale
         )
         let configURL = self.configURL
-        let fileManager = self.fileManager
+        let backupService = ConfigBackupService(fileManager: self.fileManager)
 
         // Perform file I/O on background thread to avoid blocking main thread
         DispatchQueue.global(qos: .utility).async {
             // Create backup before saving
-            self.createBackupAsync(configURL: configURL, fileManager: fileManager)
+            backupService.createBackupIfNeeded(for: configURL)
 
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
@@ -443,34 +443,6 @@ class ProfileManager: ObservableObject {
                 try data.write(to: configURL)
             } catch {
                 // Configuration save failed silently
-            }
-        }
-    }
-
-    /// Creates a backup of the config file (called from background thread)
-    private nonisolated func createBackupAsync(configURL: URL, fileManager: FileManager) {
-        guard fileManager.fileExists(atPath: configURL.path) else { return }
-
-        let backupDir = configURL.deletingLastPathComponent().appendingPathComponent("backups", isDirectory: true)
-        try? fileManager.createDirectory(at: backupDir, withIntermediateDirectories: true)
-
-        // Keep last 5 backups with timestamps
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let timestamp = dateFormatter.string(from: Date())
-        let backupURL = backupDir.appendingPathComponent("config_\(timestamp).json")
-
-        try? fileManager.copyItem(at: configURL, to: backupURL)
-
-        // Clean up old backups (keep only last 5)
-        if let backups = try? fileManager.contentsOfDirectory(at: backupDir, includingPropertiesForKeys: [.creationDateKey]) {
-            let sortedBackups = backups
-                .filter { $0.pathExtension == "json" }
-                .sorted { (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast >
-                          (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast }
-
-            for backup in sortedBackups.dropFirst(5) {
-                try? fileManager.removeItem(at: backup)
             }
         }
     }
