@@ -311,40 +311,9 @@ class ProfileManager: ObservableObject {
             let config = try ProfileConfigurationCodec.decode(from: data)
             var didMigrate = false
 
-            let migratedProfiles = config.profiles.map { profile in
-                var updated = profile
-                if updated.joystickSettings.touchpadSensitivity == 0.8 &&
-                    updated.joystickSettings.touchpadAcceleration == 0.9 &&
-                    updated.joystickSettings.touchpadDeadzone == 0.0 &&
-                    updated.joystickSettings.touchpadSmoothing == 0.4 {
-                    updated.joystickSettings.touchpadSensitivity = 0.5
-                    updated.joystickSettings.touchpadAcceleration = 0.5
-                    didMigrate = true
-                } else if updated.joystickSettings.touchpadSensitivity == 0.5 &&
-                            updated.joystickSettings.touchpadAcceleration == 0.5 &&
-                            updated.joystickSettings.touchpadDeadzone == 0.01 &&
-                            updated.joystickSettings.touchpadSmoothing == 0.4 {
-                    updated.joystickSettings.touchpadDeadzone = 0.0
-                    didMigrate = true
-                }
-                return updated
-            }
-            
-            // Validation: Filter out invalid profiles
-            let validProfiles = migratedProfiles.filter { $0.isValid() }
-
-            if !validProfiles.isEmpty {
-                self.profiles = validProfiles.sorted { $0.createdAt < $1.createdAt }
-
-                if let activeId = config.activeProfileId,
-                   let profile = profiles.first(where: { $0.id == activeId }) {
-                    self.activeProfile = profile
-                    self.activeProfileId = activeId
-                } else {
-                    self.activeProfile = nil
-                    self.activeProfileId = nil
-                }
-            }
+            let (migratedProfiles, migratedTouchpadSettings) = migrateTouchpadSettingsIfNeeded(in: config.profiles)
+            didMigrate = didMigrate || migratedTouchpadSettings
+            applyLoadedProfiles(migratedProfiles, activeProfileId: config.activeProfileId)
 
             if let scale = config.uiScale {
                 self.uiScale = scale
@@ -352,17 +321,7 @@ class ProfileManager: ObservableObject {
 
             // Migrate legacy global keyboard settings into profiles
             if let legacyKeyboardSettings = config.onScreenKeyboardSettings {
-                for i in 0..<self.profiles.count {
-                    if self.profiles[i].onScreenKeyboardSettings.quickTexts.isEmpty &&
-                       self.profiles[i].onScreenKeyboardSettings.toggleShortcutKeyCode == nil {
-                        self.profiles[i].onScreenKeyboardSettings = legacyKeyboardSettings
-                    }
-                }
-                if let activeId = self.activeProfileId,
-                   let profile = self.profiles.first(where: { $0.id == activeId }) {
-                    self.activeProfile = profile
-                }
-                didMigrate = true
+                didMigrate = didMigrate || migrateLegacyKeyboardSettings(legacyKeyboardSettings)
             }
 
             loadSucceeded = true  // Mark that we successfully loaded the config
@@ -378,6 +337,62 @@ class ProfileManager: ObservableObject {
             NSLog("[ProfileManager] Configuration load failed: \(error)")
             // DO NOT set loadSucceeded = true, so we won't overwrite corrupted/incompatible config
         }
+    }
+
+    private func migrateTouchpadSettingsIfNeeded(in profiles: [Profile]) -> ([Profile], Bool) {
+        var didMigrate = false
+        let migratedProfiles = profiles.map { profile in
+            var updated = profile
+            if updated.joystickSettings.touchpadSensitivity == 0.8 &&
+                updated.joystickSettings.touchpadAcceleration == 0.9 &&
+                updated.joystickSettings.touchpadDeadzone == 0.0 &&
+                updated.joystickSettings.touchpadSmoothing == 0.4 {
+                updated.joystickSettings.touchpadSensitivity = 0.5
+                updated.joystickSettings.touchpadAcceleration = 0.5
+                didMigrate = true
+            } else if updated.joystickSettings.touchpadSensitivity == 0.5 &&
+                        updated.joystickSettings.touchpadAcceleration == 0.5 &&
+                        updated.joystickSettings.touchpadDeadzone == 0.01 &&
+                        updated.joystickSettings.touchpadSmoothing == 0.4 {
+                updated.joystickSettings.touchpadDeadzone = 0.0
+                didMigrate = true
+            }
+            return updated
+        }
+        return (migratedProfiles, didMigrate)
+    }
+
+    private func applyLoadedProfiles(_ loadedProfiles: [Profile], activeProfileId: UUID?) {
+        let validProfiles = loadedProfiles.filter { $0.isValid() }
+        guard !validProfiles.isEmpty else { return }
+
+        self.profiles = validProfiles.sorted { $0.createdAt < $1.createdAt }
+
+        if let activeProfileId,
+           let profile = profiles.first(where: { $0.id == activeProfileId }) {
+            self.activeProfile = profile
+            self.activeProfileId = activeProfileId
+        } else {
+            self.activeProfile = nil
+            self.activeProfileId = nil
+        }
+    }
+
+    private func migrateLegacyKeyboardSettings(_ legacyKeyboardSettings: OnScreenKeyboardSettings) -> Bool {
+        for i in 0..<self.profiles.count {
+            if self.profiles[i].onScreenKeyboardSettings.quickTexts.isEmpty &&
+               self.profiles[i].onScreenKeyboardSettings.toggleShortcutKeyCode == nil {
+                self.profiles[i].onScreenKeyboardSettings = legacyKeyboardSettings
+            }
+        }
+
+        if let activeId = self.activeProfileId,
+           let profile = self.profiles.first(where: { $0.id == activeId }) {
+            self.activeProfile = profile
+        }
+
+        // Preserve existing behavior: treat presence of legacy field as migration work.
+        return true
     }
 
     private func saveConfiguration() {
