@@ -23,7 +23,7 @@ struct WrappedCardView: View {
 
             Text(personality.tagline)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.white.opacity(0.9))
                 .padding(.top, 2)
 
             Spacer()
@@ -55,18 +55,20 @@ struct WrappedCardView: View {
 
             // Top 3 Buttons
             if stats.topButtons.count >= 3 {
-                VStack(spacing: 6) {
+                VStack(spacing: 8) {
                     Text("TOP BUTTONS")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.white.opacity(0.7))
                         .tracking(1.5)
 
                     ForEach(Array(stats.topButtons.prefix(3).enumerated()), id: \.offset) { index, item in
-                        HStack {
+                        HStack(spacing: 10) {
                             Text("\(index + 1).")
                                 .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(.white.opacity(0.6))
                                 .frame(width: 22)
+
+                            ButtonIconView(button: item.button, isDualSense: isDualSense)
 
                             Text(item.button.displayName(forDualSense: isDualSense))
                                 .font(.system(size: 14, weight: .semibold))
@@ -76,9 +78,15 @@ struct WrappedCardView: View {
 
                             Text(formatNumber(item.count))
                                 .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.white.opacity(0.85))
                         }
-                        .padding(.horizontal, 32)
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.black.opacity(0.2))
+                        )
+                        .padding(.horizontal, 20)
                     }
                 }
             }
@@ -88,7 +96,7 @@ struct WrappedCardView: View {
             // Branding
             Text("ControllerKeys")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.white.opacity(0.6))
                 .padding(.bottom, 24)
         }
         .frame(width: 400, height: 560)
@@ -110,13 +118,13 @@ struct WrappedCardView: View {
 
             Text(label)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.white.opacity(0.75))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.15))
+                .fill(Color.black.opacity(0.25))
         )
     }
 
