@@ -7,6 +7,7 @@ struct StatsView: View {
     @State private var showingWrappedSheet = false
 
     private var stats: UsageStats { usageStatsService.stats }
+    private var isDualSense: Bool { controllerService.threadSafeIsDualSense }
 
     var body: some View {
         ScrollView {
@@ -71,7 +72,6 @@ struct StatsView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(personality.gradientColors.first ?? .blue)
-            .disabled(stats.totalPresses < 10)
         }
         .frame(maxWidth: .infinity)
         .padding(24)
@@ -100,7 +100,7 @@ struct StatsView: View {
 
     private var inputActionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("INPUT → OUTPUT")
+            Text("INPUT \u{2192} OUTPUT")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.secondary)
 
@@ -130,9 +130,9 @@ struct StatsView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
                 outputCard(title: "Apps Launched", value: formatNumber(stats.appsLaunched), icon: "app.badge", color: .pink)
                 outputCard(title: "Links Opened", value: formatNumber(stats.linksOpened), icon: "link", color: .teal)
-                outputCard(title: "Text Snippets", value: formatNumber(stats.textSnippetsRun), icon: "text.quote", color: .yellow)
-                outputCard(title: "Terminal Cmds", value: formatNumber(stats.terminalCommandsRun), icon: "terminal", color: .gray)
-                outputCard(title: "Webhooks", value: formatNumber(stats.webhooksFired), icon: "network", color: .cyan)
+                outputCard(title: "Snippets Pasted", value: formatNumber(stats.textSnippetsRun), icon: "text.quote", color: .yellow)
+                outputCard(title: "Terminal Cmds Run", value: formatNumber(stats.terminalCommandsRun), icon: "terminal", color: .gray)
+                outputCard(title: "Webhooks Run", value: formatNumber(stats.webhooksFired), icon: "network", color: .cyan)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -267,10 +267,12 @@ struct StatsView: View {
 
             ForEach(top, id: \.button) { item in
                 HStack(spacing: 12) {
-                    Text(item.button.displayName(forDualSense: controllerService.threadSafeIsDualSense))
+                    ButtonIconView(button: item.button, isDualSense: isDualSense)
+
+                    Text(item.button.displayName(forDualSense: isDualSense))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white)
-                        .frame(width: 100, alignment: .leading)
+                        .frame(width: 90, alignment: .leading)
 
                     GeometryReader { geo in
                         let fraction = CGFloat(item.count) / CGFloat(maxCount)
@@ -291,7 +293,7 @@ struct StatsView: View {
                         .foregroundColor(.secondary)
                         .frame(width: 60, alignment: .trailing)
                 }
-                .frame(height: 24)
+                .frame(height: 28)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -306,7 +308,7 @@ struct StatsView: View {
 
     private var actionBreakdownSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("ACTION TYPES")
+            Text("INPUT TYPES")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.secondary)
 
@@ -315,7 +317,7 @@ struct StatsView: View {
 
             ForEach(sorted, id: \.key) { key, count in
                 HStack {
-                    Text(key)
+                    Text(actionTypeDisplayName(key))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white)
 
@@ -343,6 +345,18 @@ struct StatsView: View {
     }
 
     // MARK: - Helpers
+
+    private func actionTypeDisplayName(_ rawValue: String) -> String {
+        switch rawValue {
+        case "Press": return "Single Press"
+        case "Double Tap": return "Double Tap"
+        case "Long Press": return "Long Hold"
+        case "Chord": return "Chord"
+        case "Webhook \u{2713}": return "Webhook Success"
+        case "Webhook \u{2717}": return "Webhook Failure"
+        default: return rawValue
+        }
+    }
 
     private func formatNumber(_ n: Int) -> String {
         if n >= 1_000_000 {
