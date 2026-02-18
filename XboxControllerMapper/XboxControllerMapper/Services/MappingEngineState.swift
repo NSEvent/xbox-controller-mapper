@@ -94,6 +94,11 @@ extension MappingEngine {
             repeatTimers.values.forEach { $0.cancel() }
             repeatTimers.removeAll()
 
+            onScreenKeyboardButton = nil
+            onScreenKeyboardHoldMode = false
+            commandWheelActive = false
+            wheelAlternateModifiers = ModifierFlags()
+
             dpadNavigationTimer?.cancel()
             dpadNavigationTimer = nil
             dpadNavigationButton = nil
