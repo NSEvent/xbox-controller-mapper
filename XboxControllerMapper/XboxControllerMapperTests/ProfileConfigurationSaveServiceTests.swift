@@ -79,6 +79,31 @@ final class ProfileConfigurationSaveServiceTests: XCTestCase {
         XCTAssertFalse(backups.isEmpty)
     }
 
+    func testSaveLogsFailureWhenWriteFails() {
+        guard let configURL = tempDirectory else {
+            XCTFail("tempDirectory should be set in setUp")
+            return
+        }
+        var logMessages: [String] = []
+        let service = ProfileConfigurationSaveService(
+            fileManager: fileManager,
+            scheduleWrite: { work in work() },
+            logSaveFailure: { logMessages.append($0) }
+        )
+
+        let profile = Profile(id: UUID(), name: "Saved")
+        let config = ProfileConfiguration(
+            profiles: [profile],
+            activeProfileId: profile.id,
+            uiScale: 1.0
+        )
+
+        service.save(config, to: configURL)
+
+        XCTAssertEqual(logMessages.count, 1)
+        XCTAssertTrue(logMessages[0].contains("[ProfileManager] Configuration save failed"))
+    }
+
     private func makeSynchronousService() -> ProfileConfigurationSaveService {
         ProfileConfigurationSaveService(
             fileManager: fileManager,
