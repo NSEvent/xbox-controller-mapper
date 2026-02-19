@@ -156,7 +156,8 @@ struct MappingLabelView: View {
     @ViewBuilder
     private var content: some View {
         if let systemCommand = mapping.systemCommand {
-            labelRow(text: systemCommand.displayName, icon: "SYS", color: .green, tooltip: nil)
+            let displayText = (mapping.hint?.isEmpty == false) ? mapping.hint! : systemCommand.displayName
+            labelRow(text: displayText, icon: "SYS", color: .green, tooltip: (mapping.hint?.isEmpty == false) ? systemCommand.displayName : nil)
 
         } else if let macroId = mapping.macroId,
            let profile = profileManager.activeProfile,

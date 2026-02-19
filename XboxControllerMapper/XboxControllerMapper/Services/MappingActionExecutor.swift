@@ -19,9 +19,9 @@ private struct SystemCommandActionHandler {
     let systemCommandExecutor: SystemCommandExecutor
 
     func executeIfPossible(_ action: any ExecutableAction) -> String? {
-        guard let command = action.systemCommand else { return nil }
-        systemCommandExecutor.execute(command)
-        return command.displayName
+        guard action.systemCommand != nil else { return nil }
+        systemCommandExecutor.execute(action.systemCommand!)
+        return action.feedbackString
     }
 }
 

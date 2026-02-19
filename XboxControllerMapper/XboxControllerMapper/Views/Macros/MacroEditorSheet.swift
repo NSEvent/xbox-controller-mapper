@@ -69,7 +69,7 @@ struct MacroEditorSheet: View {
     }
 
     private var canSave: Bool {
-        !name.isEmpty && !identifiedSteps.isEmpty
+        !identifiedSteps.isEmpty
     }
 
     private var steps: [MacroStep] {
@@ -200,13 +200,14 @@ struct MacroEditorSheet: View {
 
     private func save() {
         guard canSave else { return }
+        let macroName = name.isEmpty ? "Macro \(Date().formatted(date: .abbreviated, time: .shortened))" : name
         if let original = originalMacro {
             var updated = original
-            updated.name = name
+            updated.name = macroName
             updated.steps = steps
             profileManager.updateMacro(updated)
         } else {
-            let newMacro = Macro(name: name, steps: steps)
+            let newMacro = Macro(name: macroName, steps: steps)
             profileManager.addMacro(newMacro)
         }
         dismiss()

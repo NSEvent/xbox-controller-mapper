@@ -1231,7 +1231,12 @@ struct PreviewMappingRow: View {
             HStack(spacing: 16) {
                 // Primary mapping
                 if let systemCommand = mapping.systemCommand {
-                    PreviewMappingLabel(text: systemCommand.displayName, shortcut: nil, icon: "SYS", color: .green)
+                    PreviewMappingLabel(
+                        text: mapping.hint ?? systemCommand.displayName,
+                        shortcut: mapping.hint != nil ? systemCommand.displayName : nil,
+                        icon: "SYS",
+                        color: .green
+                    )
                 } else if let macroId = mapping.macroId,
                           let macro = profile.macros.first(where: { $0.id == macroId }) {
                     PreviewMappingLabel(
