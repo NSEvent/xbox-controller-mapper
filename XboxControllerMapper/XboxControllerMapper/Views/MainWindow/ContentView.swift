@@ -653,57 +653,34 @@ struct ProfileSidebar: View {
                             }
                             .padding(.horizontal, 12)
                             .contextMenu {
-                                Button("Duplicate") {
-                                    _ = profileManager.duplicateProfile(profile)
-                                }
-
-                                Button("Rename") {
-                                    profileToRename = profile
-                                    renameProfileName = profile.name
-                                    showingRenameProfileAlert = true
-                                }
-
-                                Button("Set as Default Profile") {
-                                    profileManager.setDefaultProfile(profile)
-                                }
-                                .disabled(profile.isDefault)
-                                
-                                Button("Linked Apps...") {
-                                    profileToLink = profile
-                                }
-
-                                Menu("Set Icon") {
-                                    ForEach(ProfileIcon.grouped, id: \.name) { group in
-                                        Menu(group.name) {
-                                            ForEach(group.icons) { icon in
-                                                Button {
-                                                    profileManager.setProfileIcon(profile, icon: icon.rawValue)
-                                                } label: {
-                                                    Label(icon.displayName, systemImage: icon.rawValue)
-                                                }
-                                            }
-                                        }
+                                ProfileContextMenu(
+                                    profile: profile,
+                                    profileCount: profileManager.profiles.count,
+                                    onDuplicate: {
+                                        _ = profileManager.duplicateProfile(profile)
+                                    },
+                                    onRename: {
+                                        profileToRename = profile
+                                        renameProfileName = profile.name
+                                        showingRenameProfileAlert = true
+                                    },
+                                    onSetDefault: {
+                                        profileManager.setDefaultProfile(profile)
+                                    },
+                                    onLinkApps: {
+                                        profileToLink = profile
+                                    },
+                                    onSetIcon: { iconName in
+                                        profileManager.setProfileIcon(profile, icon: iconName)
+                                    },
+                                    onExport: {
+                                        profileToExport = profile
+                                        isExporting = true
+                                    },
+                                    onDelete: {
+                                        profileManager.deleteProfile(profile)
                                     }
-
-                                    Divider()
-
-                                    Button("Remove Icon") {
-                                        profileManager.setProfileIcon(profile, icon: nil)
-                                    }
-                                    .disabled(profile.icon == nil)
-                                }
-
-                                Button("Export...") {
-                                    profileToExport = profile
-                                    isExporting = true
-                                }
-
-                                Divider()
-
-                                Button("Delete", role: .destructive) {
-                                    profileManager.deleteProfile(profile)
-                                }
-                                .disabled(profileManager.profiles.count <= 1)
+                                )
                             }
                     }
                 }
@@ -1458,6 +1435,57 @@ struct ProfileListRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+    }
+}
+
+struct ProfileContextMenu: View {
+    let profile: Profile
+    let profileCount: Int
+    let onDuplicate: () -> Void
+    let onRename: () -> Void
+    let onSetDefault: () -> Void
+    let onLinkApps: () -> Void
+    let onSetIcon: (String?) -> Void
+    let onExport: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        Button("Duplicate", action: onDuplicate)
+
+        Button("Rename", action: onRename)
+
+        Button("Set as Default Profile", action: onSetDefault)
+            .disabled(profile.isDefault)
+
+        Button("Linked Apps...", action: onLinkApps)
+
+        Menu("Set Icon") {
+            ForEach(ProfileIcon.grouped, id: \.name) { group in
+                Menu(group.name) {
+                    ForEach(group.icons) { icon in
+                        Button {
+                            onSetIcon(icon.rawValue)
+                        } label: {
+                            Label(icon.displayName, systemImage: icon.rawValue)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            Button("Remove Icon") {
+                onSetIcon(nil)
+            }
+            .disabled(profile.icon == nil)
+        }
+
+        Button("Export...", action: onExport)
+
+        Divider()
+
+        Button("Delete", role: .destructive, action: onDelete)
+            .disabled(profileCount <= 1)
     }
 }
 
