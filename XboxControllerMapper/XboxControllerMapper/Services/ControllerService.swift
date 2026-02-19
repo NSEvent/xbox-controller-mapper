@@ -839,52 +839,11 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
 
-            // Avoid system gesture delays on touchpad input
-            dualSenseGamepad.touchpadPrimary.preferredSystemGestureState = .alwaysReceive
-            dualSenseGamepad.touchpadSecondary.preferredSystemGestureState = .alwaysReceive
-            dualSenseGamepad.touchpadButton.preferredSystemGestureState = .alwaysReceive
-
-            // Touchpad button (click)
-            // Two-finger + click triggers touchpadTwoFingerButton, single finger triggers touchpadButton
-            dualSenseGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
-                guard let self = self else { return }
-                let isTwoFingerClick = self.armTouchpadClick(pressed: pressed)
-
-                if pressed {
-                    // On button press: check if this will be a two-finger click
-                    self.storage.lock.lock()
-                    let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
-                    self.storage.lock.unlock()
-
-                    if willBeTwoFingerClick {
-                        // Two-finger button press
-                        self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
-                    } else {
-                        // Normal single-finger button press
-                        self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
-                    }
-                } else {
-                    // On button release
-                    if isTwoFingerClick {
-                        // Two-finger button release
-                        self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: false) }
-                    } else {
-                        // Normal single-finger button release
-                        self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
-                    }
-                }
-            }
-
-            // Touchpad primary finger position (for mouse control)
-            // The touchpad provides X/Y from -1 to 1, we track position and calculate delta
-            dualSenseGamepad.touchpadPrimary.valueChangedHandler = { [weak self] _, xValue, yValue in
-                self?.updateTouchpad(x: xValue, y: yValue)
-            }
-
-            // Touchpad secondary finger position (for gestures)
-            dualSenseGamepad.touchpadSecondary.valueChangedHandler = { [weak self] _, xValue, yValue in
-                self?.updateTouchpadSecondary(x: xValue, y: yValue)
-            }
+            setupTouchpadHandlers(
+                primary: dualSenseGamepad.touchpadPrimary,
+                secondary: dualSenseGamepad.touchpadSecondary,
+                button: dualSenseGamepad.touchpadButton
+            )
 
             // Set up HID monitoring for mic button (not exposed by GameController framework)
             setupMicButtonMonitoring()
@@ -902,51 +861,60 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
 
-            // Avoid system gesture delays on touchpad input
-            dualShockGamepad.touchpadPrimary.preferredSystemGestureState = .alwaysReceive
-            dualShockGamepad.touchpadSecondary.preferredSystemGestureState = .alwaysReceive
-            dualShockGamepad.touchpadButton.preferredSystemGestureState = .alwaysReceive
+            setupTouchpadHandlers(
+                primary: dualShockGamepad.touchpadPrimary,
+                secondary: dualShockGamepad.touchpadSecondary,
+                button: dualShockGamepad.touchpadButton
+            )
+        }
+    }
 
-            // Touchpad button (click)
-            // Two-finger + click triggers touchpadTwoFingerButton, single finger triggers touchpadButton
-            dualShockGamepad.touchpadButton.pressedChangedHandler = { [weak self] _, _, pressed in
-                guard let self = self else { return }
-                let isTwoFingerClick = self.armTouchpadClick(pressed: pressed)
+    // MARK: - Shared Touchpad Setup (DualSense / DualShock)
 
-                if pressed {
-                    // On button press: check if this will be a two-finger click
-                    self.storage.lock.lock()
-                    let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
-                    self.storage.lock.unlock()
+    /// Configures touchpad handlers shared by DualSense and DualShock controllers.
+    private func setupTouchpadHandlers(
+        primary: GCControllerDirectionPad,
+        secondary: GCControllerDirectionPad,
+        button: GCControllerButtonInput
+    ) {
+        // Avoid system gesture delays on touchpad input
+        primary.preferredSystemGestureState = .alwaysReceive
+        secondary.preferredSystemGestureState = .alwaysReceive
+        button.preferredSystemGestureState = .alwaysReceive
 
-                    if willBeTwoFingerClick {
-                        // Two-finger button press
-                        self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
-                    } else {
-                        // Normal single-finger button press
-                        self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
-                    }
+        // Touchpad button (click)
+        // Two-finger + click triggers touchpadTwoFingerButton, single finger triggers touchpadButton
+        button.pressedChangedHandler = { [weak self] _, _, pressed in
+            guard let self = self else { return }
+            let isTwoFingerClick = self.armTouchpadClick(pressed: pressed)
+
+            if pressed {
+                self.storage.lock.lock()
+                let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
+                self.storage.lock.unlock()
+
+                if willBeTwoFingerClick {
+                    self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
                 } else {
-                    // On button release
-                    if isTwoFingerClick {
-                        // Two-finger button release
-                        self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: false) }
-                    } else {
-                        // Normal single-finger button release
-                        self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
-                    }
+                    self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
+                }
+            } else {
+                if isTwoFingerClick {
+                    self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: false) }
+                } else {
+                    self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
                 }
             }
+        }
 
-            // Touchpad primary finger position (for mouse control)
-            dualShockGamepad.touchpadPrimary.valueChangedHandler = { [weak self] _, xValue, yValue in
-                self?.updateTouchpad(x: xValue, y: yValue)
-            }
+        // Touchpad primary finger position (for mouse control)
+        primary.valueChangedHandler = { [weak self] _, xValue, yValue in
+            self?.updateTouchpad(x: xValue, y: yValue)
+        }
 
-            // Touchpad secondary finger position (for gestures)
-            dualShockGamepad.touchpadSecondary.valueChangedHandler = { [weak self] _, xValue, yValue in
-                self?.updateTouchpadSecondary(x: xValue, y: yValue)
-            }
+        // Touchpad secondary finger position (for gestures)
+        secondary.valueChangedHandler = { [weak self] _, xValue, yValue in
+            self?.updateTouchpadSecondary(x: xValue, y: yValue)
         }
     }
 
