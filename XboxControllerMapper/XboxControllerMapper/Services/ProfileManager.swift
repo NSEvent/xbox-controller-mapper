@@ -287,13 +287,11 @@ class ProfileManager: ObservableObject {
 
         do {
             let result = try ProfileConfigurationLoadCoordinator.load(from: urlToLoad)
-            self.profiles = result.profiles
-            self.activeProfile = result.activeProfile
-            self.activeProfileId = result.activeProfileId
-
-            if let scale = result.uiScale {
-                self.uiScale = scale
-            }
+            let applyState = ProfileConfigurationApplyService.resolveState(
+                currentUiScale: uiScale,
+                result: result
+            )
+            applyLoadedState(applyState)
 
             loadSucceeded = true  // Mark that we successfully loaded the config
 
@@ -313,6 +311,13 @@ class ProfileManager: ObservableObject {
             NSLog("[ProfileManager] Configuration load failed: \(error)")
             // DO NOT set loadSucceeded = true, so we won't overwrite corrupted/incompatible config
         }
+    }
+
+    private func applyLoadedState(_ state: ProfileConfigurationApplyState) {
+        self.profiles = state.profiles
+        self.activeProfile = state.activeProfile
+        self.activeProfileId = state.activeProfileId
+        self.uiScale = state.uiScale
     }
 
     private func saveConfiguration() {
