@@ -9,7 +9,7 @@ struct TypingBufferView: View {
     var body: some View {
         HStack(spacing: 0) {
             Text(text)
-                .font(.system(size: 16, weight: .medium, design: .monospaced))
+                .font(.system(size: 36, weight: .medium, design: .monospaced))
                 .foregroundColor(.white)
                 .lineLimit(1)
                 .truncationMode(.head)
@@ -17,7 +17,7 @@ struct TypingBufferView: View {
             // Blinking cursor — fixed width so it doesn't shift the text horizontally
             Rectangle()
                 .fill(Color.white)
-                .frame(width: 1.5, height: 18)
+                .frame(width: 2.5, height: 38)
                 .opacity(cursorVisible ? 1.0 : 0.0)
                 .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: cursorVisible)
                 .padding(.leading, 2)
