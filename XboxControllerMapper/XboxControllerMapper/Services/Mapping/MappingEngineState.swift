@@ -23,6 +23,8 @@ extension MappingEngine {
         var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
         var onScreenKeyboardButton: ControllerButton? = nil
         var onScreenKeyboardHoldMode: Bool = false
+        var laserPointerButton: ControllerButton? = nil
+        var laserPointerHoldMode: Bool = false
         var commandWheelActive: Bool = false
         var wheelAlternateModifiers: ModifierFlags = ModifierFlags()
         var dpadNavigationTimer: DispatchSourceTimer? = nil
@@ -96,6 +98,8 @@ extension MappingEngine {
 
             onScreenKeyboardButton = nil
             onScreenKeyboardHoldMode = false
+            laserPointerButton = nil
+            laserPointerHoldMode = false
             commandWheelActive = false
             wheelAlternateModifiers = ModifierFlags()
 

@@ -12,6 +12,7 @@ enum ButtonPressOrchestrationPolicy {
         case interceptDpadNavigation
         case interceptKeyboardActivation
         case interceptOnScreenKeyboard(holdMode: Bool)
+        case interceptLaserPointer(holdMode: Bool)
         case unmapped
         case mapping(MappingContext)
     }
@@ -46,6 +47,10 @@ enum ButtonPressOrchestrationPolicy {
 
         if mapping.keyCode == KeyCodeMapping.showOnScreenKeyboard {
             return .interceptOnScreenKeyboard(holdMode: mapping.isHoldModifier)
+        }
+
+        if mapping.keyCode == KeyCodeMapping.showLaserPointer {
+            return .interceptLaserPointer(holdMode: mapping.isHoldModifier)
         }
 
         return .mapping(

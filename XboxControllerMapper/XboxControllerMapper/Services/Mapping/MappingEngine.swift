@@ -378,6 +378,10 @@ class MappingEngine: ObservableObject {
                 handleOnScreenKeyboardPressed(button, holdMode: holdMode)
                 return
 
+            case .interceptLaserPointer(let holdMode):
+                handleLaserPointerPressed(button, holdMode: holdMode)
+                return
+
             case .unmapped:
                 // Log unmapped button presses so they still appear in history
                 inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
@@ -564,6 +568,41 @@ class MappingEngine: ObservableObject {
         }
     }
 
+    /// Handles laser pointer button press
+    nonisolated private func handleLaserPointerPressed(_ button: ControllerButton, holdMode: Bool) {
+        state.lock.withLock {
+            state.laserPointerButton = button
+            state.laserPointerHoldMode = holdMode
+        }
+
+        DispatchQueue.main.async {
+            if holdMode {
+                LaserPointerOverlay.shared.show()
+            } else {
+                LaserPointerOverlay.shared.toggle()
+            }
+        }
+        inputLogService?.log(buttons: [button], type: .singlePress, action: "Laser Pointer")
+    }
+
+    /// Handles laser pointer button release (hides laser only in hold mode)
+    nonisolated private func handleLaserPointerReleased(_ button: ControllerButton) {
+        let (wasLaserButton, wasHoldMode) = state.lock.withLock {
+            let wasLaserButton = state.laserPointerButton == button
+            let wasHoldMode = state.laserPointerHoldMode
+            if wasLaserButton {
+                state.laserPointerButton = nil
+            }
+            return (wasLaserButton, wasHoldMode)
+        }
+
+        if wasLaserButton && wasHoldMode {
+            DispatchQueue.main.async {
+                LaserPointerOverlay.shared.hide()
+            }
+        }
+    }
+
     /// Sets up a timer for long-hold detection
     nonisolated private func setupLongHoldTimer(for button: ControllerButton, mapping: LongHoldMapping) {
         let workItem = DispatchWorkItem { [weak self] in
@@ -704,6 +743,9 @@ class MappingEngine: ObservableObject {
 
         // Check if this button was showing the on-screen keyboard
         handleOnScreenKeyboardReleased(button)
+
+        // Check if this button was showing the laser pointer
+        handleLaserPointerReleased(button)
 
         // Skip all release handling for D-pad when keyboard is visible
         // This prevents double-tap and long-hold from triggering

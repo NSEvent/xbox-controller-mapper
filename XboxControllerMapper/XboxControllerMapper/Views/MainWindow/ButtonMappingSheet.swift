@@ -458,8 +458,9 @@ struct ButtonMappingSheet: View {
 
                 if let code = newValue, KeyCodeMapping.isMouseButton(code) || KeyCodeMapping.isSpecialAction(code) {
                     // Mouse clicks and special actions: auto-enable hold and disable long hold/double tap/repeat
+                    // Exception: laser pointer defaults to toggle mode (isHoldModifier = false)
                     if !userHasInteractedWithHold {
-                        isHoldModifier = true
+                        isHoldModifier = code != KeyCodeMapping.showLaserPointer
                     }
                     // Clear long hold, double tap, and repeat
                     enableLongHold = false
@@ -926,7 +927,7 @@ struct ButtonMappingSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
-                    Text("Long hold is not available for \(primaryIsMouseClick ? "mouse clicks" : "on-screen keyboard").")
+                    Text("Long hold is not available for \(primaryIsMouseClick ? "mouse clicks" : "special actions").")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1103,7 +1104,7 @@ struct ButtonMappingSheet: View {
                         .foregroundColor(.secondary)
                     Text(primaryIsMouseClick
                          ? "Double tap is not available when the primary action is a mouse click. Press the button twice quickly to double-click, or three times for triple-click."
-                         : "Double tap is not available when the primary action is the on-screen keyboard.")
+                         : "Double tap is not available for special actions.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1256,7 +1257,7 @@ struct ButtonMappingSheet: View {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle")
                     .foregroundColor(.secondary)
-                Text("Repeat is not available for \(primaryIsMouseClick ? "mouse clicks" : "on-screen keyboard").")
+                Text("Repeat is not available for \(primaryIsMouseClick ? "mouse clicks" : "special actions").")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
