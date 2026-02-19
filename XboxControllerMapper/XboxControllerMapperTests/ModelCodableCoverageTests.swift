@@ -184,6 +184,78 @@ final class ModelCodableCoverageTests: XCTestCase {
             muteButtonLED: .off,
             playerLEDs: .default
         )
-        XCTAssertFalse(invalid.isValid())
+        XCTAssertEqual(invalid.lightBarColor.red, 1.0, accuracy: 0.0001)
+        XCTAssertTrue(invalid.isValid())
+    }
+
+    func testRepeatAndTapThresholdDecoding_SanitizesInvalidValues() throws {
+        let repeatMapping = try JSONDecoder().decode(
+            RepeatMapping.self,
+            from: Data(#"{"enabled":true,"interval":0}"#.utf8)
+        )
+        XCTAssertEqual(repeatMapping.interval, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(repeatMapping.ratePerSecond, 5.0, accuracy: 0.0001)
+
+        let longHold = try JSONDecoder().decode(
+            LongHoldMapping.self,
+            from: Data(#"{"threshold":-1.0}"#.utf8)
+        )
+        XCTAssertEqual(longHold.threshold, 0.5, accuracy: 0.0001)
+
+        let doubleTap = try JSONDecoder().decode(
+            DoubleTapMapping.self,
+            from: Data(#"{"threshold":-0.2}"#.utf8)
+        )
+        XCTAssertEqual(doubleTap.threshold, 0.3, accuracy: 0.0001)
+    }
+
+    func testJoystickSettingsDecoding_ClampsOutOfRangeValues() throws {
+        let json = """
+        {
+            "mouseSensitivity": -500.0,
+            "scrollSensitivity": 2.0,
+            "mouseDeadzone": -1.0,
+            "scrollDeadzone": 2.0,
+            "mouseAcceleration": 2.0,
+            "touchpadSensitivity": -3.0,
+            "touchpadAcceleration": 9.0,
+            "touchpadDeadzone": 1.0,
+            "touchpadSmoothing": -1.0,
+            "touchpadPanSensitivity": 3.0,
+            "touchpadZoomToPanRatio": -1.0,
+            "scrollAcceleration": 2.0,
+            "scrollBoostMultiplier": 20.0,
+            "focusModeSensitivity": -2.0
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(JoystickSettings.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.mouseSensitivity, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.scrollSensitivity, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.mouseDeadzone, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.scrollDeadzone, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.mouseAcceleration, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.touchpadSensitivity, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.touchpadAcceleration, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.touchpadDeadzone, 0.01, accuracy: 0.0001)
+        XCTAssertEqual(decoded.touchpadSmoothing, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.touchpadPanSensitivity, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.touchpadZoomToPanRatio, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(decoded.scrollAcceleration, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.scrollBoostMultiplier, 4.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.focusModeSensitivity, 0.0, accuracy: 0.0001)
+        XCTAssertTrue(decoded.isValid())
+    }
+
+    func testCodableColorDecoding_ClampsOutOfRangeValues() throws {
+        let decoded = try JSONDecoder().decode(
+            CodableColor.self,
+            from: Data(#"{"red":999.0,"green":0.4,"blue":-9.0}"#.utf8)
+        )
+
+        XCTAssertEqual(decoded.red, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.green, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(decoded.blue, 0.0, accuracy: 0.0001)
     }
 }

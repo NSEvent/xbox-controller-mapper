@@ -21,6 +21,11 @@ enum StickMode: String, Codable, CaseIterable {
 
 /// Settings for joystick behavior
 struct JoystickSettings: Codable, Equatable {
+    private static func clamp(_ value: Double, to range: ClosedRange<Double>, fallback: Double) -> Double {
+        guard value.isFinite else { return fallback }
+        return min(range.upperBound, max(range.lowerBound, value))
+    }
+
     /// Mouse movement sensitivity (0.0 - 1.0, where 0.5 is default)
     var mouseSensitivity: Double = 0.5
 
@@ -48,7 +53,7 @@ struct JoystickSettings: Codable, Equatable {
     /// Touchpad acceleration curve (0.0 = linear, 1.0 = max acceleration)
     var touchpadAcceleration: Double = 0.5
 
-    /// Deadzone for touchpad movement (0.0 - 0.005)
+    /// Deadzone for touchpad movement (0.0 - 0.01)
     var touchpadDeadzone: Double = 0.001
 
     /// Smoothing amount for touchpad movement (0.0 - 1.0)
@@ -93,7 +98,7 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(mouseAcceleration) &&
                range.contains(touchpadSensitivity) &&
                range.contains(touchpadAcceleration) &&
-               (0.0...0.005).contains(touchpadDeadzone) &&
+               (0.0...0.01).contains(touchpadDeadzone) &&
                range.contains(touchpadSmoothing) &&
                range.contains(touchpadPanSensitivity) &&
                (0.5...5.0).contains(touchpadZoomToPanRatio) &&
@@ -190,23 +195,79 @@ extension JoystickSettings {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        mouseSensitivity = try container.decodeIfPresent(Double.self, forKey: .mouseSensitivity) ?? 0.5
-        scrollSensitivity = try container.decodeIfPresent(Double.self, forKey: .scrollSensitivity) ?? 0.5
-        mouseDeadzone = try container.decodeIfPresent(Double.self, forKey: .mouseDeadzone) ?? 0.15
-        scrollDeadzone = try container.decodeIfPresent(Double.self, forKey: .scrollDeadzone) ?? 0.15
+        mouseSensitivity = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .mouseSensitivity) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
+        scrollSensitivity = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .scrollSensitivity) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
+        mouseDeadzone = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .mouseDeadzone) ?? 0.15,
+            to: 0.0...1.0,
+            fallback: 0.15
+        )
+        scrollDeadzone = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .scrollDeadzone) ?? 0.15,
+            to: 0.0...1.0,
+            fallback: 0.15
+        )
         invertMouseY = try container.decodeIfPresent(Bool.self, forKey: .invertMouseY) ?? false
         invertScrollY = try container.decodeIfPresent(Bool.self, forKey: .invertScrollY) ?? false
-        mouseAcceleration = try container.decodeIfPresent(Double.self, forKey: .mouseAcceleration) ?? 0.5
-        touchpadSensitivity = try container.decodeIfPresent(Double.self, forKey: .touchpadSensitivity) ?? 0.5
-        touchpadAcceleration = try container.decodeIfPresent(Double.self, forKey: .touchpadAcceleration) ?? 0.5
-        touchpadDeadzone = try container.decodeIfPresent(Double.self, forKey: .touchpadDeadzone) ?? 0.001
-        touchpadSmoothing = try container.decodeIfPresent(Double.self, forKey: .touchpadSmoothing) ?? 0.4
-        touchpadPanSensitivity = try container.decodeIfPresent(Double.self, forKey: .touchpadPanSensitivity) ?? 0.5
-        touchpadZoomToPanRatio = try container.decodeIfPresent(Double.self, forKey: .touchpadZoomToPanRatio) ?? 1.95
+        mouseAcceleration = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .mouseAcceleration) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
+        touchpadSensitivity = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .touchpadSensitivity) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
+        touchpadAcceleration = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .touchpadAcceleration) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
+        touchpadDeadzone = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .touchpadDeadzone) ?? 0.001,
+            to: 0.0...0.01,
+            fallback: 0.001
+        )
+        touchpadSmoothing = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .touchpadSmoothing) ?? 0.4,
+            to: 0.0...1.0,
+            fallback: 0.4
+        )
+        touchpadPanSensitivity = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .touchpadPanSensitivity) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
+        touchpadZoomToPanRatio = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .touchpadZoomToPanRatio) ?? 1.95,
+            to: 0.5...5.0,
+            fallback: 1.95
+        )
         touchpadUseNativeZoom = try container.decodeIfPresent(Bool.self, forKey: .touchpadUseNativeZoom) ?? true
-        scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5
-        scrollBoostMultiplier = try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0
-        focusModeSensitivity = try container.decodeIfPresent(Double.self, forKey: .focusModeSensitivity) ?? 0.2
+        scrollAcceleration = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
+        scrollBoostMultiplier = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .scrollBoostMultiplier) ?? 2.0,
+            to: 1.0...4.0,
+            fallback: 2.0
+        )
+        focusModeSensitivity = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .focusModeSensitivity) ?? 0.2,
+            to: 0.0...1.0,
+            fallback: 0.2
+        )
         focusModeModifier = try container.decodeIfPresent(ModifierFlags.self, forKey: .focusModeModifier) ?? .command
         leftStickMode = try container.decodeIfPresent(StickMode.self, forKey: .leftStickMode) ?? .mouse
         rightStickMode = try container.decodeIfPresent(StickMode.self, forKey: .rightStickMode) ?? .scroll

@@ -195,6 +195,8 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
 
 /// Wraps long hold configuration to avoid recursive struct issues
 struct LongHoldMapping: Codable, Equatable, ExecutableAction {
+    private static let defaultThreshold: TimeInterval = 0.5
+
     var keyCode: CGKeyCode?
     var modifiers: ModifierFlags
     var threshold: TimeInterval
@@ -202,10 +204,15 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
     var systemCommand: SystemCommand?
     var hint: String?
 
+    private static func sanitizedThreshold(_ threshold: TimeInterval) -> TimeInterval {
+        guard threshold.isFinite, threshold > 0 else { return defaultThreshold }
+        return threshold
+    }
+
     init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, macroId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
-        self.threshold = threshold
+        self.threshold = Self.sanitizedThreshold(threshold)
         self.macroId = macroId
         self.systemCommand = systemCommand
         self.hint = hint
@@ -219,7 +226,8 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
-        threshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? 0.5
+        let decodedThreshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? Self.defaultThreshold
+        threshold = Self.sanitizedThreshold(decodedThreshold)
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
@@ -252,6 +260,8 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
 
 /// Wraps double tap configuration
 struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
+    private static let defaultThreshold: TimeInterval = 0.3
+
     var keyCode: CGKeyCode?
     var modifiers: ModifierFlags
     /// Time window within which two taps must occur to count as double-tap (default 0.3s)
@@ -260,10 +270,15 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
     var systemCommand: SystemCommand?
     var hint: String?
 
+    private static func sanitizedThreshold(_ threshold: TimeInterval) -> TimeInterval {
+        guard threshold.isFinite, threshold > 0 else { return defaultThreshold }
+        return threshold
+    }
+
     init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, macroId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
-        self.threshold = threshold
+        self.threshold = Self.sanitizedThreshold(threshold)
         self.macroId = macroId
         self.systemCommand = systemCommand
         self.hint = hint
@@ -277,7 +292,8 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
-        threshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? 0.3
+        let decodedThreshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? Self.defaultThreshold
+        threshold = Self.sanitizedThreshold(decodedThreshold)
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
@@ -310,14 +326,21 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
 
 /// Wraps repeat-while-held configuration
 struct RepeatMapping: Codable, Equatable {
+    private static let defaultInterval: TimeInterval = 0.2
+
     /// Whether repeat is enabled
     var enabled: Bool
     /// Interval between repeats in seconds (default 0.2s = 5 per second)
     var interval: TimeInterval
 
+    private static func sanitizedInterval(_ interval: TimeInterval) -> TimeInterval {
+        guard interval.isFinite, interval > 0 else { return defaultInterval }
+        return interval
+    }
+
     init(enabled: Bool = false, interval: TimeInterval = 0.2) {
         self.enabled = enabled
-        self.interval = interval
+        self.interval = Self.sanitizedInterval(interval)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -327,13 +350,16 @@ struct RepeatMapping: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
-        interval = try container.decodeIfPresent(TimeInterval.self, forKey: .interval) ?? 0.2
+        let decodedInterval = try container.decodeIfPresent(TimeInterval.self, forKey: .interval) ?? Self.defaultInterval
+        interval = Self.sanitizedInterval(decodedInterval)
     }
 
     /// Repeat rate in actions per second
     var ratePerSecond: Double {
-        get { 1.0 / interval }
-        set { interval = 1.0 / newValue }
+        get { 1.0 / Self.sanitizedInterval(interval) }
+        set {
+            interval = newValue.isFinite && newValue > 0 ? (1.0 / newValue) : Self.defaultInterval
+        }
     }
 }
 

@@ -116,15 +116,20 @@ struct CodableColor: Codable, Equatable {
     var green: Double
     var blue: Double
 
+    private static func clampUnit(_ value: Double) -> Double {
+        guard value.isFinite else { return 0.0 }
+        return min(1.0, max(0.0, value))
+    }
+
     private enum CodingKeys: String, CodingKey {
         case red, green, blue
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        red = try container.decodeIfPresent(Double.self, forKey: .red) ?? 0.0
-        green = try container.decodeIfPresent(Double.self, forKey: .green) ?? 0.0
-        blue = try container.decodeIfPresent(Double.self, forKey: .blue) ?? 0.0
+        red = Self.clampUnit(try container.decodeIfPresent(Double.self, forKey: .red) ?? 0.0)
+        green = Self.clampUnit(try container.decodeIfPresent(Double.self, forKey: .green) ?? 0.0)
+        blue = Self.clampUnit(try container.decodeIfPresent(Double.self, forKey: .blue) ?? 0.0)
     }
 
     var color: Color {
@@ -136,9 +141,9 @@ struct CodableColor: Codable, Equatable {
     }
 
     init(red: Double, green: Double, blue: Double) {
-        self.red = red
-        self.green = green
-        self.blue = blue
+        self.red = Self.clampUnit(red)
+        self.green = Self.clampUnit(green)
+        self.blue = Self.clampUnit(blue)
     }
 
     init(color: Color) {
