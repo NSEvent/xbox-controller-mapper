@@ -86,4 +86,9 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         XCTAssertEqual(secondCount, 1)
         XCTAssertNil(controllerService.onTouchpadTap)
     }
+
+    func testChordWindowRoundTripsThroughThreadSafeStorage() {
+        controllerService.chordWindow = 0.23
+        XCTAssertEqual(controllerService.chordWindow, 0.23, accuracy: 0.000_1)
+    }
 }
