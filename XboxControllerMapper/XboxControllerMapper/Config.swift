@@ -138,6 +138,8 @@ struct Config {
     // MARK: - Mouse Input
     /// Time threshold for distinguishing multi-clicks (seconds)
     static let multiClickThreshold: TimeInterval = 0.5
+    /// Max age for tracked controller cursor position to be used for click placement under Accessibility Zoom
+    static let zoomTrackedClickMaxAge: TimeInterval = 2.0
 
     // MARK: - DualSense Touchpad
     /// Sensitivity multiplier for touchpad mouse movement

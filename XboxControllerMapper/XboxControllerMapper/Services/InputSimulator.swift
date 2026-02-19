@@ -865,10 +865,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        // Always use NSEvent.mouseLocation for click position - it gives the actual cursor location
-        let location = NSEvent.mouseLocation
-        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
-        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
+        let cgLocation = resolveClickLocationLocked(now: Date())
 
         // Track hold state
         heldMouseButtons.insert(button)
@@ -908,10 +905,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        // Always use NSEvent.mouseLocation for click position - it gives the actual cursor location
-        let location = NSEvent.mouseLocation
-        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
-        let cgLocation = CGPoint(x: location.x, y: primaryDisplayHeight - location.y)
+        let cgLocation = resolveClickLocationLocked(now: Date())
 
         // Update hold state
         heldMouseButtons.remove(button)
@@ -942,6 +936,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         default:
             return (down ? .leftMouseDown : .leftMouseUp, .left)
         }
+    }
+
+    /// Resolves click location while `stateLock` is held.
+    private func resolveClickLocationLocked(now: Date) -> CGPoint {
+        let fallbackLocation = NSEvent.mouseLocation
+        let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
+        return MouseClickLocationPolicy.resolve(
+            zoomActive: UAZoomEnabled(),
+            trackedCursorPosition: trackedCursorPosition,
+            lastControllerMoveTime: lastMouseMoveTime,
+            fallbackMouseLocation: fallbackLocation,
+            primaryDisplayHeight: primaryDisplayHeight,
+            now: now,
+            trackedCursorMaxAge: Config.zoomTrackedClickMaxAge
+        )
     }
 
     // MARK: - Media Key Simulation
