@@ -181,6 +181,51 @@ final class MappingEngineCharacterizationTests: XCTestCase {
         XCTAssertEqual(tapCount, 0, "Regular tap action should not fire after long-hold trigger")
     }
 
+    func testCharacterization_MouseClickHoldMappingWithDoubleTapFiresAlternateAction() async throws {
+        await MainActor.run {
+            let mapping = KeyMapping(
+                keyCode: KeyCodeMapping.mouseLeftClick,
+                doubleTapMapping: DoubleTapMapping(
+                    keyCode: KeyCodeMapping.mouseRightClick,
+                    threshold: 0.2
+                ),
+                isHoldModifier: true
+            )
+            let profile = Profile(name: "MouseClickDoubleTapCharacterization", buttonMappings: [.a: mapping])
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.04)
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.35)
+
+        let events = mockInputSimulator.events
+        let rightClickCount = events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == KeyCodeMapping.mouseRightClick }
+            return false
+        }.count
+        let leftClickCount = events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == KeyCodeMapping.mouseLeftClick }
+            return false
+        }.count
+        let holdStartCount = events.filter {
+            if case .startHoldMapping(let mapping) = $0 { return mapping.keyCode == KeyCodeMapping.mouseLeftClick }
+            return false
+        }.count
+
+        XCTAssertEqual(rightClickCount, 1, "Double-tap path should emit mapped right-click once")
+        XCTAssertEqual(leftClickCount, 0, "Hold mouse click mapping should not emit discrete left-click key presses")
+        XCTAssertGreaterThan(holdStartCount, 0, "Hold mouse click mapping should still start hold path on first press")
+    }
+
     func testCharacterization_HoldModifierWrapsButtonActionOrdering() async throws {
         await MainActor.run {
             let profile = Profile(

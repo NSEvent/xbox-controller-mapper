@@ -2219,9 +2219,19 @@ final class XboxControllerMapperTests: XCTestCase {
         }
         await waitForTasks()
 
-        // Touchpad tap should trigger the mapping
-        // Note: The actual tap detection happens in ControllerService,
-        // but MappingEngine processes the callback
+        await MainActor.run {
+            let leftClickPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let keyCode, _) = event { return keyCode == KeyCodeMapping.mouseLeftClick }
+                return false
+            }.count
+            let holdEvents = mockInputSimulator.events.contains { event in
+                if case .startHoldMapping = event { return true }
+                return false
+            }
+
+            XCTAssertEqual(leftClickPresses, 1, "Touchpad tap should emit one left click")
+            XCTAssertFalse(holdEvents, "Touchpad tap should be a discrete click, not hold mapping")
+        }
     }
 
     /// Tests touchpad two-finger tap (right click)
@@ -2239,7 +2249,19 @@ final class XboxControllerMapperTests: XCTestCase {
         }
         await waitForTasks()
 
-        // Two-finger tap should work like the single tap
+        await MainActor.run {
+            let rightClickPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let keyCode, _) = event { return keyCode == KeyCodeMapping.mouseRightClick }
+                return false
+            }.count
+            let holdEvents = mockInputSimulator.events.contains { event in
+                if case .startHoldMapping = event { return true }
+                return false
+            }
+
+            XCTAssertEqual(rightClickPresses, 1, "Two-finger tap should emit one right click")
+            XCTAssertFalse(holdEvents, "Two-finger tap should be a discrete click, not hold mapping")
+        }
     }
 
     // MARK: - Special Button Tests (High Priority)

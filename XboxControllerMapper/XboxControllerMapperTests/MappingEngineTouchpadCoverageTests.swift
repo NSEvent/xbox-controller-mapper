@@ -224,6 +224,41 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         }
     }
 
+    func testTouchpadTwoFingerLongTapCancelsPendingTapAndExecutesLongHold() async throws {
+        await MainActor.run {
+            let mapping = KeyMapping(
+                keyCode: KeyCodeMapping.mouseRightClick,
+                longHoldMapping: LongHoldMapping(keyCode: KeyCodeMapping.escape, threshold: 0.2),
+                doubleTapMapping: DoubleTapMapping(keyCode: KeyCodeMapping.return, threshold: 0.2)
+            )
+            profileManager.setActiveProfile(Profile(name: "TouchTwoFingerLongTap", buttonMappings: [.touchpadTwoFingerTap: mapping]))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onTouchpadTwoFingerTap?()
+        }
+        await waitForTasks(0.05)
+        await MainActor.run {
+            controllerService.onTouchpadTwoFingerLongTap?()
+        }
+        await waitForTasks(0.30)
+
+        await MainActor.run {
+            let escapePresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let keyCode, _) = event { return keyCode == KeyCodeMapping.escape }
+                return false
+            }.count
+            let rightClickPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let keyCode, _) = event { return keyCode == KeyCodeMapping.mouseRightClick }
+                return false
+            }.count
+
+            XCTAssertEqual(escapePresses, 1, "Two-finger long tap should execute long-hold mapping")
+            XCTAssertEqual(rightClickPresses, 0, "Pending two-finger single tap should be cancelled by long tap")
+        }
+    }
+
     func testTouchpadPinchZoomInUsesCmdEqualWhenNativeZoomDisabled() async throws {
         await MainActor.run {
             var profile = Profile(name: "TouchPinchIn", buttonMappings: [:])
