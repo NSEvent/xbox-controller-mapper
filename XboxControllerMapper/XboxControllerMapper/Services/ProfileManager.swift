@@ -150,19 +150,21 @@ class ProfileManager: ObservableObject {
     }
 
     private func ensureActiveProfileSelection() {
-        if profiles.isEmpty {
+        let action = ProfileBootstrapSelectionPolicy.resolve(
+            profiles: profiles,
+            hasActiveProfile: activeProfile != nil
+        )
+
+        switch action {
+        case .createAndActivateDefault:
             let defaultProfile = Profile.createDefault()
             profiles.append(defaultProfile)
             setActiveProfile(defaultProfile)
-            return
-        }
-
-        guard activeProfile == nil else { return }
-
-        if let defaultProfile = profiles.first(where: { $0.isDefault }) {
-            setActiveProfile(defaultProfile)
-        } else if let firstProfile = profiles.first {
-            setActiveProfile(firstProfile)
+        case .activateProfile(let profileId):
+            guard let profile = profiles.first(where: { $0.id == profileId }) else { return }
+            setActiveProfile(profile)
+        case .none:
+            break
         }
     }
     
