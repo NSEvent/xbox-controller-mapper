@@ -159,6 +159,17 @@ enum MacroStep: Codable, Equatable {
     private struct ShellCommandPayload: Codable {
         let command: String
         let inTerminal: Bool
+
+        init(command: String, inTerminal: Bool) {
+            self.command = command
+            self.inTerminal = inTerminal
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            command = try container.decodeIfPresent(String.self, forKey: .command) ?? ""
+            inTerminal = try container.decodeIfPresent(Bool.self, forKey: .inTerminal) ?? false
+        }
     }
 
     private struct WebhookPayload: Codable {
@@ -166,6 +177,21 @@ enum MacroStep: Codable, Equatable {
         let method: HTTPMethod
         let headers: [String: String]?
         let body: String?
+
+        init(url: String, method: HTTPMethod, headers: [String: String]?, body: String?) {
+            self.url = url
+            self.method = method
+            self.headers = headers
+            self.body = body
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+            method = try container.decodeIfPresent(HTTPMethod.self, forKey: .method) ?? .POST
+            headers = try container.decodeIfPresent([String: String].self, forKey: .headers)
+            body = try container.decodeIfPresent(String.self, forKey: .body)
+        }
     }
 
     private struct OBSWebSocketPayload: Codable {
@@ -173,6 +199,21 @@ enum MacroStep: Codable, Equatable {
         let password: String?
         let requestType: String
         let requestData: String?
+
+        init(url: String, password: String?, requestType: String, requestData: String?) {
+            self.url = url
+            self.password = password
+            self.requestType = requestType
+            self.requestData = requestData
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+            password = try container.decodeIfPresent(String.self, forKey: .password)
+            requestType = try container.decodeIfPresent(String.self, forKey: .requestType) ?? ""
+            requestData = try container.decodeIfPresent(String.self, forKey: .requestData)
+        }
     }
 }
 

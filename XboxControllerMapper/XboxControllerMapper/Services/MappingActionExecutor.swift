@@ -81,9 +81,8 @@ struct MappingExecutor {
         self.keyOrModifierHandler = KeyOrModifierActionHandler(inputSimulator: inputSimulator, tapModifierExecutor: tapModifierExecutor)
 
         // Wire up system command handler for macro steps
-        var sim = inputSimulator
         let executor = self.systemCommandExecutor
-        sim.systemCommandHandler = { command in
+        (inputSimulator as? InputSimulator)?.systemCommandHandler = { command in
             executor.execute(command)
         }
     }

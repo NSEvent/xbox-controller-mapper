@@ -129,17 +129,17 @@ struct MacroEditorSheet: View {
             .background(Color.black.opacity(0.1))
             .cornerRadius(8)
             .padding(.horizontal)
-            
+
             Divider()
-            
+
             HStack {
                 Button("Cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
-                
+
                 Spacer()
-                
+
                 Button("Save") {
                     save()
                 }
@@ -155,10 +155,10 @@ struct MacroEditorSheet: View {
         // Sheet for editing existing steps
         .sheet(isPresented: $showingStepEditor) {
             if let index = editingStepIndex, index < identifiedSteps.count {
-                StepEditorSheet(step: Binding(
-                    get: { identifiedSteps[index].step },
-                    set: { identifiedSteps[index].step = $0 }
-                ))
+                MacroStepEditorSheet(
+                    initialStep: identifiedSteps[index].step,
+                    onSave: { identifiedSteps[index].step = $0 }
+                )
             } else {
                 Text("Error: No step selected")
             }
@@ -166,7 +166,9 @@ struct MacroEditorSheet: View {
         // Sheet for adding new steps - only adds on save
         .sheet(isPresented: $showingNewStepEditor) {
             if let step = pendingNewStep {
-                NewStepEditorSheet(
+                MacroStepEditorSheet(
+                    title: "Add Step",
+                    actionLabel: "Add",
                     initialStep: step,
                     onSave: { savedStep in
                         identifiedSteps.append(IdentifiedStep(savedStep))
@@ -306,7 +308,7 @@ struct MacroStepRow: View {
             }
         }
     }
-    
+
     @ViewBuilder
     var icon: some View {
         switch step {
@@ -341,10 +343,15 @@ struct MacroStepRow: View {
     }
 }
 
-struct StepEditorSheet: View {
-    @Binding var step: MacroStep
+/// Unified sheet for adding or editing a macro step
+struct MacroStepEditorSheet: View {
+    let title: String
+    let actionLabel: String
+    let onSave: (MacroStep) -> Void
+    var onCancel: (() -> Void)?
+
     @Environment(\.dismiss) private var dismiss
-    
+
     // Temporary state for editing
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
@@ -359,7 +366,7 @@ struct StepEditorSheet: View {
     @State private var showingBookmarkPicker = false
 
     @State private var showingKeyboard = false
-    
+
     // System command state
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
@@ -390,448 +397,9 @@ struct StepEditorSheet: View {
         var id: String { rawValue }
     }
 
-    init(step: Binding<MacroStep>) {
-        _step = step
-
-        // Initialize state based on current step
-        switch step.wrappedValue {
-        case .press(let mapping):
-            _selectedType = State(initialValue: .press)
-            _keyCode = State(initialValue: mapping.keyCode)
-            _modifiers = State(initialValue: mapping.modifiers)
-        case .hold(let mapping, let dur):
-            _selectedType = State(initialValue: .hold)
-            _keyCode = State(initialValue: mapping.keyCode)
-            _modifiers = State(initialValue: mapping.modifiers)
-            _duration = State(initialValue: dur)
-        case .delay(let dur):
-            _selectedType = State(initialValue: .delay)
-            _duration = State(initialValue: dur)
-        case .typeText(let txt, let spd, let enter):
-            _selectedType = State(initialValue: .typeText)
-            _text = State(initialValue: txt)
-            _speed = State(initialValue: spd)
-            _pressEnter = State(initialValue: enter)
-        case .openApp(let bundleId, let newWindow):
-            _selectedType = State(initialValue: .openApp)
-            _appBundleIdentifier = State(initialValue: bundleId)
-            _openNewWindow = State(initialValue: newWindow)
-        case .openLink(let url):
-            _selectedType = State(initialValue: .openLink)
-            _linkURL = State(initialValue: url)
-        case .shellCommand(let cmd, let inTerminal):
-            _selectedType = State(initialValue: .shellCommand)
-            _shellCommandText = State(initialValue: cmd)
-            _shellRunInTerminal = State(initialValue: inTerminal)
-        case .webhook(let url, let method, let headers, let body):
-            _selectedType = State(initialValue: .webhook)
-            _webhookURL = State(initialValue: url)
-            _webhookMethod = State(initialValue: method)
-            _webhookHeaders = State(initialValue: headers ?? [:])
-            _webhookBody = State(initialValue: body ?? "")
-        case .obsWebSocket(let url, let password, let requestType, let requestData):
-            _selectedType = State(initialValue: .obsWebSocket)
-            _obsWebSocketURL = State(initialValue: url)
-            _obsWebSocketPassword = State(initialValue: password ?? "")
-            _obsRequestType = State(initialValue: requestType)
-            _obsRequestData = State(initialValue: requestData ?? "")
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("Edit Step")
-                .font(.headline)
-                .padding(.top, 20)
-            
-            Picker("Step Type", selection: $selectedType) {
-                ForEach(StepType.allCases) { type in
-                    Text(type.rawValue).tag(type)
-                }
-            }
-            .pickerStyle(.menu)
-            .padding(.horizontal)
-            
-            Form {
-                switch selectedType {
-                case .press:
-                    Section {
-                        if showingKeyboard {
-                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
-                        } else {
-                            KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
-                        }
-                    } header: {
-                        HStack {
-                            Text("Key Combination")
-                            Spacer()
-                            Button(action: { showingKeyboard.toggle() }) {
-                                Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundColor(.accentColor)
-                        }
-                    }
-                    
-                case .hold:
-                    Section {
-                        if showingKeyboard {
-                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
-                        } else {
-                            KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
-                        }
-                    } header: {
-                        HStack {
-                            Text("Key Combination")
-                            Spacer()
-                            Button(action: { showingKeyboard.toggle() }) {
-                                Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundColor(.accentColor)
-                        }
-                    }
-                    Section("Duration") {
-                        TextField("Seconds", value: $duration, format: .number)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    
-                case .delay:
-                    Section("Duration") {
-                        TextField("Seconds", value: $duration, format: .number)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    
-                case .typeText:
-                    Section {
-                        TextEditor(text: $text)
-                            .font(.system(.body, design: .monospaced))
-                            .frame(minHeight: 60, maxHeight: 120)
-                            .scrollContentBackground(.hidden)
-                            .padding(4)
-                            .background(Color(nsColor: .textBackgroundColor))
-                            .cornerRadius(6)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-                            )
-                        if text.hasSuffix(" ") || text.hasPrefix(" ") {
-                            HStack(spacing: 4) {
-                                Image(systemName: "space")
-                                    .font(.caption2)
-                                Text(whitespaceIndicator)
-                                    .font(.caption)
-                            }
-                            .foregroundColor(.orange)
-                        }
-                        Text("\(text.count) characters")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } header: {
-                        Text("Text to Type")
-                    }
-
-                    Section("Typing Speed") {
-                        Picker("Speed", selection: $speed) {
-                            Text("Instant (Paste)").tag(0)
-                            Text("Fast (1200 CPM)").tag(1200)
-                            Text("Natural (600 CPM)").tag(600)
-                            Text("Slow (300 CPM)").tag(300)
-                        }
-                    }
-
-                    Section {
-                        Toggle("Press Enter after typing", isOn: $pressEnter)
-                    }
-
-                case .openApp:
-                    Section("Application") {
-                        AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingAppPicker)
-                            .sheet(isPresented: $showingAppPicker) {
-                                SystemActionAppPickerSheet(
-                                    currentBundleIdentifier: appBundleIdentifier.isEmpty ? nil : appBundleIdentifier
-                                ) { app in
-                                    appBundleIdentifier = app.bundleIdentifier
-                                }
-                            }
-                    }
-                    Section {
-                        Toggle("Open in new window (Cmd+N)", isOn: $openNewWindow)
-                    }
-
-                case .openLink:
-                    Section("URL") {
-                        TextField("https://example.com", text: $linkURL)
-                            .textFieldStyle(.roundedBorder)
-
-                        Button {
-                            showingBookmarkPicker = true
-                        } label: {
-                            Label("Browse Bookmarks", systemImage: "book")
-                        }
-                        .sheet(isPresented: $showingBookmarkPicker) {
-                            BookmarkPickerSheet { url in
-                                linkURL = url
-                            }
-                        }
-                    }
-
-                case .shellCommand:
-                    Section("Command") {
-                        TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-
-                        Toggle("Run silently (no terminal window)", isOn: Binding(
-                            get: { !shellRunInTerminal },
-                            set: { shellRunInTerminal = !$0 }
-                        ))
-                            .font(.caption)
-
-                        Text(shellRunInTerminal
-                            ? "Opens a terminal window and executes the command"
-                            : "Runs silently in the background (no visible output)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        if shellRunInTerminal {
-                            Divider()
-                            TerminalAppPickerRow()
-                        }
-                    }
-
-                case .webhook:
-                    Section("Request") {
-                        TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-
-                        Picker("Method", selection: $webhookMethod) {
-                            ForEach(HTTPMethod.allCases) { method in
-                                Text(method.rawValue).tag(method)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
-                        if [.POST, .PUT, .PATCH].contains(webhookMethod) {
-                            TextField("Body (JSON)", text: $webhookBody, axis: .vertical)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.subheadline)
-                                .lineLimit(3...6)
-                        }
-                    }
-
-                    Section("Headers") {
-                        ForEach(Array(webhookHeaders.keys.sorted()), id: \.self) { key in
-                            HStack {
-                                Text(key).font(.caption)
-                                Spacer()
-                                Text(webhookHeaders[key] ?? "").font(.caption).foregroundColor(.secondary)
-                                Button { webhookHeaders.removeValue(forKey: key) } label: {
-                                    Image(systemName: "minus.circle.fill").foregroundColor(.red)
-                                }.buttonStyle(.plain)
-                            }
-                        }
-                        HStack {
-                            TextField("Header", text: $newWebhookHeaderKey)
-                                .textFieldStyle(.roundedBorder).font(.caption)
-                            TextField("Value", text: $newWebhookHeaderValue)
-                                .textFieldStyle(.roundedBorder).font(.caption)
-                            Button {
-                                if !newWebhookHeaderKey.isEmpty {
-                                    webhookHeaders[newWebhookHeaderKey] = newWebhookHeaderValue
-                                    newWebhookHeaderKey = ""
-                                    newWebhookHeaderValue = ""
-                                }
-                            } label: {
-                                Image(systemName: "plus.circle.fill").foregroundColor(.green)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(newWebhookHeaderKey.isEmpty)
-                        }
-                    }
-
-                case .obsWebSocket:
-                    Section("OBS WebSocket") {
-                        TextField("WebSocket URL (e.g. ws://127.0.0.1:4455)", text: $obsWebSocketURL)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-
-                        SecureField("Password (optional)", text: $obsWebSocketPassword)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-
-                        TextField("Request Type (e.g. StartRecord)", text: $obsRequestType)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-
-                        TextField("Request Data (JSON object, optional)", text: $obsRequestData, axis: .vertical)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-                            .lineLimit(3...6)
-
-                        Text("Sends any OBS WebSocket v5 request type with optional requestData JSON.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            .formStyle(.grouped)
-
-            HStack {
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-
-                Spacer()
-
-                Button("Save") {
-                    save()
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!canSave)
-                .keyboardShortcut(.return, modifiers: .command)
-
-                // Hidden button for plain Return key
-                Button("") { if canSave { save(); dismiss() } }
-                    .keyboardShortcut(.defaultAction)
-                    .hidden()
-            }
-            .padding(.horizontal)
-            .padding(.bottom)
-        }
-        .onSubmit { if canSave { save(); dismiss() } }
-        .frame(width: showingKeyboard ? 850 : 400, height: showingKeyboard ? 750 : 450)
-        .animation(.easeInOut, value: showingKeyboard)
-    }
-
-    private var canSave: Bool {
-        switch selectedType {
-        case .press, .hold:
-            return keyCode != nil
-        case .typeText:
-            return !text.isEmpty
-        case .delay:
-            return true
-        case .openApp:
-            return !appBundleIdentifier.isEmpty
-        case .openLink:
-            return !linkURL.isEmpty
-        case .shellCommand:
-            return !shellCommandText.isEmpty
-        case .webhook:
-            return !webhookURL.isEmpty
-        case .obsWebSocket:
-            return !obsRequestType.isEmpty
-        }
-    }
-
-    private var whitespaceIndicator: String {
-        var parts: [String] = []
-        if text.hasPrefix(" ") {
-            let count = text.prefix(while: { $0 == " " }).count
-            parts.append("\(count) leading space\(count > 1 ? "s" : "")")
-        }
-        if text.hasSuffix(" ") {
-            let count = text.reversed().prefix(while: { $0 == " " }).count
-            parts.append("\(count) trailing space\(count > 1 ? "s" : "")")
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    private func save() {
-        switch selectedType {
-        case .press:
-            let mapping = KeyMapping(keyCode: keyCode, modifiers: modifiers)
-            step = .press(mapping)
-        case .hold:
-            let mapping = KeyMapping(keyCode: keyCode, modifiers: modifiers)
-            step = .hold(mapping, duration: duration)
-        case .delay:
-            step = .delay(duration)
-        case .typeText:
-            step = .typeText(text, speed: speed, pressEnter: pressEnter)
-        case .openApp:
-            step = .openApp(bundleIdentifier: appBundleIdentifier, newWindow: openNewWindow)
-        case .openLink:
-            step = .openLink(url: linkURL)
-        case .shellCommand:
-            step = .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
-        case .webhook:
-            step = .webhook(
-                url: webhookURL,
-                method: webhookMethod,
-                headers: webhookHeaders.isEmpty ? nil : webhookHeaders,
-                body: webhookBody.isEmpty ? nil : webhookBody
-            )
-        case .obsWebSocket:
-            step = .obsWebSocket(
-                url: obsWebSocketURL,
-                password: obsWebSocketPassword.isEmpty ? nil : obsWebSocketPassword,
-                requestType: obsRequestType,
-                requestData: obsRequestData.isEmpty ? nil : obsRequestData
-            )
-        }
-    }
-}
-
-/// Sheet for adding a new step - only adds to list when Save is clicked
-struct NewStepEditorSheet: View {
-    let initialStep: MacroStep
-    let onSave: (MacroStep) -> Void
-    let onCancel: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    // Temporary state for editing
-    @State private var keyCode: CGKeyCode?
-    @State private var modifiers = ModifierFlags()
-    @State private var duration: TimeInterval = 0.5
-    @State private var text: String = ""
-    @State private var speed: Int = 0
-    @State private var pressEnter: Bool = false
-    @State private var appBundleIdentifier: String = ""
-    @State private var openNewWindow: Bool = false
-    @State private var linkURL: String = ""
-    @State private var showingAppPicker = false
-    @State private var showingBookmarkPicker = false
-    @State private var showingKeyboard = false
-
-    // System command state
-    @State private var shellCommandText: String = ""
-    @State private var shellRunInTerminal: Bool = true
-    @State private var webhookURL: String = ""
-    @State private var webhookMethod: HTTPMethod = .POST
-    @State private var webhookBody: String = ""
-    @State private var webhookHeaders: [String: String] = [:]
-    @State private var newWebhookHeaderKey: String = ""
-    @State private var newWebhookHeaderValue: String = ""
-    @State private var obsWebSocketURL: String = "ws://127.0.0.1:4455"
-    @State private var obsWebSocketPassword: String = ""
-    @State private var obsRequestType: String = ""
-    @State private var obsRequestData: String = ""
-
-    @State private var selectedType: StepType
-
-    enum StepType: String, CaseIterable, Identifiable {
-        case press = "Key Press"
-        case hold = "Key Hold"
-        case typeText = "Type Text"
-        case delay = "Delay"
-        case openApp = "Open App"
-        case openLink = "Open Link"
-        case shellCommand = "Shell Command"
-        case webhook = "Webhook"
-        case obsWebSocket = "OBS WebSocket"
-        var id: String { rawValue }
-    }
-
-    init(initialStep: MacroStep, onSave: @escaping (MacroStep) -> Void, onCancel: @escaping () -> Void) {
-        self.initialStep = initialStep
+    init(title: String = "Edit Step", actionLabel: String = "Save", initialStep: MacroStep, onSave: @escaping (MacroStep) -> Void, onCancel: (() -> Void)? = nil) {
+        self.title = title
+        self.actionLabel = actionLabel
         self.onSave = onSave
         self.onCancel = onCancel
 
@@ -881,7 +449,7 @@ struct NewStepEditorSheet: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Add Step")
+            Text(title)
                 .font(.headline)
                 .padding(.top, 20)
 
@@ -973,6 +541,7 @@ struct NewStepEditorSheet: View {
                     } header: {
                         Text("Text to Type")
                     }
+
                     Section("Typing Speed") {
                         Picker("Speed", selection: $speed) {
                             Text("Instant (Paste)").tag(0)
@@ -1005,6 +574,7 @@ struct NewStepEditorSheet: View {
                     Section("URL") {
                         TextField("https://example.com", text: $linkURL)
                             .textFieldStyle(.roundedBorder)
+
                         Button {
                             showingBookmarkPicker = true
                         } label: {
@@ -1121,14 +691,14 @@ struct NewStepEditorSheet: View {
 
             HStack {
                 Button("Cancel") {
-                    onCancel()
+                    onCancel?()
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
 
                 Spacer()
 
-                Button("Add") {
+                Button(actionLabel) {
                     if canSave {
                         onSave(buildStep())
                         dismiss()
