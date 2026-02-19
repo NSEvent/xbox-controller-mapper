@@ -617,11 +617,6 @@ class MappingEngine: ObservableObject {
     private static let dpadRepeatInterval: TimeInterval = 0.08
 
     nonisolated private func startDpadNavigationRepeat(_ button: ControllerButton) {
-        state.lock.lock()
-        // Cancel any existing timer
-        state.dpadNavigationTimer?.cancel()
-        state.dpadNavigationButton = button
-
         let timer = DispatchSource.makeTimerSource(queue: inputQueue)
         // Initial delay before repeat starts, then repeat at interval
         timer.schedule(
@@ -640,9 +635,13 @@ class MappingEngine: ObservableObject {
                 OnScreenKeyboardManager.shared.handleDPadNavigation(button)
             }
         }
+        state.lock.withLock {
+            // Cancel any existing timer
+            state.dpadNavigationTimer?.cancel()
+            state.dpadNavigationButton = button
+            state.dpadNavigationTimer = timer
+        }
         timer.resume()
-        state.dpadNavigationTimer = timer
-        state.lock.unlock()
     }
 
     nonisolated private func stopDpadNavigationRepeat(_ button: ControllerButton) {
@@ -868,30 +867,32 @@ class MappingEngine: ObservableObject {
             return true
         }
 
-        // First tap in potential double-tap sequence
-        state.lock.lock()
-        state.lastTapTime[button] = now
+        let workItem = state.lock.withLock { () -> DispatchWorkItem? in
+            // First tap in potential double-tap sequence
+            state.lastTapTime[button] = now
 
-        if skipSingleTap {
-            // For repeat mappings: just record tap time, don't schedule single-tap
-            // (the repeat action already fired on press)
-            state.lock.unlock()
-            return false
+            if skipSingleTap {
+                // For repeat mappings: just record tap time, don't schedule single-tap
+                // (the repeat action already fired on press)
+                return nil
+            }
+
+            // Schedule single tap fallback
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self else { return }
+                self.clearTapState(for: button)
+
+                // Need to re-fetch profile to execute macro
+                let profile = self.state.lock.withLock { self.state.activeProfile }
+                self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
+            }
+            state.pendingSingleTap[button] = workItem
+            return workItem
         }
 
-        // Schedule single tap fallback
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            self.clearTapState(for: button)
-            
-            // Need to re-fetch profile to execute macro
-            let profile = self.state.lock.withLock { self.state.activeProfile }
-            self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
+        if let workItem {
+            inputQueue.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
         }
-        state.pendingSingleTap[button] = workItem
-        state.lock.unlock()
-
-        inputQueue.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
         return false
     }
 
