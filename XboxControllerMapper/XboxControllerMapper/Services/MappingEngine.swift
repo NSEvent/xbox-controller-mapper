@@ -300,23 +300,58 @@ class MappingEngine: ObservableObject {
         }
     }
 
-    nonisolated private func handleButtonPressed(_ button: ControllerButton) {
+    private enum ButtonPressStartState {
+        case blocked
+        case layerActivated(profile: Profile, layerId: UUID)
+        case ready(profile: Profile, lastTap: Date?)
+    }
+
+    nonisolated private func beginButtonPress(_ button: ControllerButton) -> ButtonPressStartState {
         state.lock.lock()
         guard state.isEnabled, let profile = state.activeProfile else {
             state.lock.unlock()
-            return
+            return .blocked
         }
         let lastTap = state.lastTapTime[button]
 
-        // MARK: - Layer Activator Check
-        // If this button is a layer activator, activate the layer and return
         if let layerId = state.layerActivatorMap[button] {
             // Remove if already present, then append (most recent = last in array)
             state.activeLayerIds.removeAll { $0 == layerId }
             state.activeLayerIds.append(layerId)
             state.lock.unlock()
+            return .layerActivated(profile: profile, layerId: layerId)
+        }
 
-            // Log and provide feedback
+        state.lock.unlock()
+        return .ready(profile: profile, lastTap: lastTap)
+    }
+
+    nonisolated private func resolveButtonPressOutcome(
+        _ button: ControllerButton,
+        profile: Profile,
+        lastTap: Date?
+    ) -> ButtonPressOrchestrationPolicy.Outcome {
+        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+        let mapping = effectiveMapping(for: button, in: profile)
+        let navigationModeActive = keyboardVisible ? OnScreenKeyboardManager.shared.threadSafeNavigationModeActive : false
+        let isChordPart = mapping != nil ? isButtonUsedInChords(button, profile: profile) : false
+
+        return ButtonPressOrchestrationPolicy.resolve(
+            button: button,
+            mapping: mapping,
+            keyboardVisible: keyboardVisible,
+            navigationModeActive: navigationModeActive,
+            isChordPart: isChordPart,
+            lastTap: lastTap
+        )
+    }
+
+    nonisolated private func handleButtonPressed(_ button: ControllerButton) {
+        switch beginButtonPress(button) {
+        case .blocked:
+            return
+
+        case .layerActivated(let profile, let layerId):
             if let layer = profile.layers.first(where: { $0.id == layerId }) {
                 #if DEBUG
                 print("🔷 Layer activated: \(layer.name)")
@@ -324,70 +359,49 @@ class MappingEngine: ObservableObject {
                 inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
             }
             return
-        }
-        state.lock.unlock()
 
-        // MARK: - On-Screen Keyboard D-Pad Navigation
-        // When keyboard is visible, intercept D-pad to navigate keys
-        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
-        if keyboardVisible {
-            switch button {
-            case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
+        case .ready(let profile, let lastTap):
+            switch resolveButtonPressOutcome(button, profile: profile, lastTap: lastTap) {
+            case .interceptDpadNavigation:
                 // First navigation happens immediately
                 Task { @MainActor in
                     OnScreenKeyboardManager.shared.handleDPadNavigation(button)
                 }
                 // Start repeat timer for held D-pad
                 startDpadNavigationRepeat(button)
-                return  // Don't execute normal mapping
-            default:
-                break
-            }
-        }
+                return
 
-        guard let mapping = effectiveMapping(for: button, in: profile) else {
-            // Log unmapped button presses so they still appear in history
-            inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
-            return
-        }
-
-        // Check for left-click activation when navigation mode is active
-        if keyboardVisible, let keyCode = mapping.keyCode, keyCode == KeyCodeMapping.mouseLeftClick {
-            let navActive = OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
-            if navActive {
+            case .interceptKeyboardActivation:
                 DispatchQueue.main.async {
                     OnScreenKeyboardManager.shared.activateHighlightedKey()
                 }
-                return  // Don't execute normal mapping
+                return
+
+            case .interceptOnScreenKeyboard(let holdMode):
+                handleOnScreenKeyboardPressed(button, holdMode: holdMode)
+                return
+
+            case .unmapped:
+                // Log unmapped button presses so they still appear in history
+                inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
+                return
+
+            case .mapping(let context):
+                if context.shouldTreatAsHold {
+                    handleHoldMapping(button, mapping: context.mapping, lastTap: context.lastTap, profile: profile)
+                    return
+                }
+
+                // Set up long-hold timer if applicable
+                if let longHold = context.mapping.longHoldMapping, !longHold.isEmpty {
+                    setupLongHoldTimer(for: button, mapping: longHold)
+                }
+
+                // Set up repeat if applicable
+                if let repeatConfig = context.mapping.repeatMapping, repeatConfig.enabled {
+                    startRepeatTimer(for: button, mapping: context.mapping, interval: repeatConfig.interval)
+                }
             }
-        }
-
-        // Check for special actions
-        let isOnScreenKeyboard = mapping.keyCode == KeyCodeMapping.showOnScreenKeyboard
-        if isOnScreenKeyboard {
-            handleOnScreenKeyboardPressed(button, holdMode: mapping.isHoldModifier)
-            return
-        }
-
-        let isChordPart = isButtonUsedInChords(button, profile: profile)
-        let shouldTreatAsHold = ButtonInteractionFlowPolicy.shouldUseHoldPath(
-            mapping: mapping,
-            isChordPart: isChordPart
-        )
-
-        if shouldTreatAsHold {
-            handleHoldMapping(button, mapping: mapping, lastTap: lastTap, profile: profile)
-            return
-        }
-
-        // Set up long-hold timer if applicable
-        if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
-            setupLongHoldTimer(for: button, mapping: longHold)
-        }
-
-        // Set up repeat if applicable
-        if let repeatConfig = mapping.repeatMapping, repeatConfig.enabled {
-            startRepeatTimer(for: button, mapping: mapping, interval: repeatConfig.interval)
         }
     }
 
