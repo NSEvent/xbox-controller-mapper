@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-02-18
 
 ### Added
 
@@ -14,12 +14,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - PlayStation-style button labels and icons throughout the UI
   - PS button works via HID monitoring (report IDs `0x01` USB, `0x11` Bluetooth)
   - DualShock 4's Share button correctly maps to Options/View
+- **Controller Wrapped**: Usage stats with shareable personality-typed cards
+  - Track every button press, macro, webhook, app launch, and more
+  - Streak tracking and personality typing based on usage patterns
+  - Copy shareable card to clipboard for social media
+  - Detailed breakdown: input types, output actions, mouse/scroll distance, automation stats
+- **HTTP Webhook Support**: Send HTTP requests from controller buttons and chords
+  - Supports GET, POST, PUT, DELETE, and PATCH methods
+  - Configurable headers and request body
+  - Visual feedback above cursor showing response status (e.g., "Webhook 200")
+  - Haptic feedback on success (crisp pulse) or failure (double pulse)
+- **OBS WebSocket Commands**: Control OBS Studio directly from controller buttons
+- **System Command Macro Steps**: Macros can now include shell commands, webhooks, and OBS WebSocket requests as steps
 
 ### Changed
 
 - Extracted shared touchpad handler to eliminate code duplication between DualSense and DualShock
 - Renamed HID monitoring from DualSense-specific to general PlayStation monitoring
 - Button display throughout the app (stats, wrapped card, input log, chord sheets) now uses `isPlayStation` for correct labels on both PS4 and PS5 controllers
+- Major ProfileManager refactor: extracted 15+ single-responsibility services for better testability
+- Comprehensive test suite expansion across mapping engine, profile manager, command wheel, on-screen keyboard, and system commands
+
+### Fixed
+
+- Zoom-aware mouse click coordinates not resolving correctly
+- System command hints not displaying when user sets a custom hint
+- Macros without a name blocking save (now auto-generates timestamped name)
+- Macro system command handler wiring broken by protocol extraction
+- Keyboard and command wheel transient state not clearing on reset
+- Webhook request body incorrectly sent for GET/DELETE methods
+- Usage stats publishing not throttled on input hot path
 
 ## [1.4.3] - 2026-02-16
 
