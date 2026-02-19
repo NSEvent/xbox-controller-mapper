@@ -278,8 +278,11 @@ class ProfileManager: ObservableObject {
 
         let urlToLoad = loadSource.url
         let migratingFromLegacy = loadSource.migratingFromLegacy
-        if migratingFromLegacy {
-            NSLog("[ProfileManager] Migrating config from legacy location: \(legacyConfigURL.path)")
+        if let preLoadLog = ProfileConfigurationPostLoadPolicy.preLoadLogMessage(
+            migratingFromLegacy: migratingFromLegacy,
+            legacyConfigURL: legacyConfigURL
+        ) {
+            NSLog("%@", preLoadLog)
         }
 
         do {
@@ -294,11 +297,16 @@ class ProfileManager: ObservableObject {
 
             loadSucceeded = true  // Mark that we successfully loaded the config
 
-            // Save to new location if migrating from legacy or if data migrations occurred
-            if migratingFromLegacy || result.didMigrate {
+            let decision = ProfileConfigurationPostLoadPolicy.persistenceDecision(
+                migratingFromLegacy: migratingFromLegacy,
+                didMigrate: result.didMigrate,
+                configURL: configURL
+            )
+
+            if decision.shouldPersist {
                 saveConfiguration()
-                if migratingFromLegacy {
-                    NSLog("[ProfileManager] Config migrated to new location: \(configURL.path)")
+                if let postPersistLog = decision.postPersistLogMessage {
+                    NSLog("%@", postPersistLog)
                 }
             }
         } catch {
