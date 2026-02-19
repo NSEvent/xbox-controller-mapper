@@ -369,11 +369,11 @@ class MappingEngine: ObservableObject {
             return
         }
 
-        // Determine if this should be treated as a held mapping
-        let isMouseClick = mapping.keyCode.map { KeyCodeMapping.isMouseButton($0) } ?? false
         let isChordPart = isButtonUsedInChords(button, profile: profile)
-        let hasDoubleTap = mapping.doubleTapMapping != nil && !mapping.doubleTapMapping!.isEmpty
-        let shouldTreatAsHold = mapping.isHoldModifier || (isMouseClick && !isChordPart && !hasDoubleTap)
+        let shouldTreatAsHold = ButtonInteractionFlowPolicy.shouldUseHoldPath(
+            mapping: mapping,
+            isChordPart: isChordPart
+        )
 
         if shouldTreatAsHold {
             handleHoldMapping(button, mapping: mapping, lastTap: lastTap, profile: profile)
@@ -701,40 +701,32 @@ class MappingEngine: ObservableObject {
         // Get button mapping and verify constraints
         guard let (mapping, profile, isLongHoldTriggered) = getReleaseContext(for: button) else { return }
 
-        // Check if this is a repeat mapping - we still want to detect double-taps for these
-        let isRepeatMapping = mapping.repeatMapping?.enabled ?? false
-        let hasDoubleTap = mapping.doubleTapMapping != nil && !mapping.doubleTapMapping!.isEmpty
-
-        // Skip special cases (hold modifiers, already triggered long holds)
-        // But allow repeat mappings through if they have double-tap configured
-        if shouldSkipRelease(mapping: mapping, isLongHoldTriggered: isLongHoldTriggered) {
-            // Exception: still check for double-tap on repeat mappings
-            if isRepeatMapping && hasDoubleTap {
-                let (pendingSingle, lastTap) = getPendingTapInfo(for: button)
-                _ = handleDoubleTapIfReady(button, mapping: mapping, pendingSingle: pendingSingle, lastTap: lastTap, doubleTapMapping: mapping.doubleTapMapping!, skipSingleTap: true, profile: profile)
-            }
+        switch ButtonInteractionFlowPolicy.releaseDecision(
+            mapping: mapping,
+            holdDuration: holdDuration,
+            isLongHoldTriggered: isLongHoldTriggered
+        ) {
+        case .skip:
             return
-        }
 
-        // Try to handle as long hold fallback
-        if let longHoldMapping = mapping.longHoldMapping,
-           holdDuration >= longHoldMapping.threshold,
-           !longHoldMapping.isEmpty {
+        case .executeLongHold(let longHoldMapping):
             clearTapState(for: button)
             mappingExecutor.executeAction(longHoldMapping, for: button, profile: profile, logType: .longPress)
             return
-        }
 
-        // Get pending tap info for double-tap detection
-        let (pendingSingle, lastTap) = getPendingTapInfo(for: button)
+        case .evaluateDoubleTap(let doubleTapMapping, let skipSingleTapFallback):
+            let (pendingSingle, lastTap) = getPendingTapInfo(for: button)
+            _ = handleDoubleTapIfReady(
+                button,
+                mapping: mapping,
+                pendingSingle: pendingSingle,
+                lastTap: lastTap,
+                doubleTapMapping: doubleTapMapping,
+                skipSingleTap: skipSingleTapFallback,
+                profile: profile
+            )
 
-        // Try to handle as double tap
-        if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
-            // handleDoubleTapIfReady returns true if double-tap executed, false if scheduling first tap
-            // Either way, we're done - don't call handleSingleTap
-            _ = handleDoubleTapIfReady(button, mapping: mapping, pendingSingle: pendingSingle, lastTap: lastTap, doubleTapMapping: doubleTapMapping, profile: profile)
-        } else {
-            // Default to single tap (no double-tap mapping)
+        case .executeSingleTap:
             handleSingleTap(button, mapping: mapping, profile: profile)
         }
     }
@@ -812,11 +804,6 @@ class MappingEngine: ObservableObject {
             activeLayerIds: activeLayerIds,
             layerActivatorMap: layerActivatorMap
         )
-    }
-
-    /// Check if button release should be skipped (hold modifier, repeat, already triggered long hold)
-    nonisolated private func shouldSkipRelease(mapping: KeyMapping, isLongHoldTriggered: Bool) -> Bool {
-        mapping.isHoldModifier || (mapping.repeatMapping?.enabled ?? false) || isLongHoldTriggered
     }
 
     /// Get pending tap state for double-tap detection
