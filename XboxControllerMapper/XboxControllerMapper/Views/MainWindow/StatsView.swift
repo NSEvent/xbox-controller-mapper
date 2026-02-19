@@ -4,7 +4,10 @@ import SwiftUI
 struct StatsView: View {
     @EnvironmentObject var usageStatsService: UsageStatsService
     @EnvironmentObject var controllerService: ControllerService
+    @EnvironmentObject var profileManager: ProfileManager
     @State private var showingWrappedSheet = false
+    @State private var showingRecommendationsSheet = false
+    @State private var analysisResult: BindingAnalysisResult?
 
     private var stats: UsageStats { usageStatsService.stats }
     private var isDualSense: Bool { controllerService.threadSafeIsPlayStation }
@@ -14,6 +17,11 @@ struct StatsView: View {
             VStack(spacing: 20) {
                 // 1. Identity — the hero element, what makes people scroll
                 personalitySection
+
+                // 1.5. Binding optimization — actionable insight
+                if stats.actionDetailCounts.values.reduce(0, +) >= BindingAnalysisEngine.minimumActions {
+                    optimizationSection
+                }
 
                 // 2. Most personal insight — visual, scannable, "what do I actually use?"
                 if !stats.topButtons.isEmpty {
@@ -43,6 +51,11 @@ struct StatsView: View {
         }
         .sheet(isPresented: $showingWrappedSheet) {
             WrappedCardSheet()
+        }
+        .sheet(isPresented: $showingRecommendationsSheet) {
+            if let result = analysisResult {
+                RecommendationsSheet(analysisResult: result)
+            }
         }
     }
 
@@ -83,6 +96,73 @@ struct StatsView: View {
                         .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
         )
+    }
+
+    // MARK: - Binding Optimization
+
+    private var optimizationSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("BINDING OPTIMIZATION")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 16) {
+                if let result = analysisResult {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(Int(result.efficiencyScore * 100))% efficient")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+
+                        if !result.recommendations.isEmpty {
+                            Text("\(result.recommendations.count) suggestion\(result.recommendations.count == 1 ? "" : "s")")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Bindings are well-optimized")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } else {
+                    Text("Analyze your button usage to find optimization opportunities")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                if let result = analysisResult, !result.recommendations.isEmpty {
+                    Button("View Recommendations") {
+                        showingRecommendationsSheet = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .font(.system(size: 12, weight: .medium))
+                } else {
+                    Button("Analyze") {
+                        runAnalysis()
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.system(size: 12, weight: .medium))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    private func runAnalysis() {
+        guard let profile = profileManager.activeProfile else { return }
+        analysisResult = BindingAnalysisEngine.analyze(
+            actionDetailCounts: stats.actionDetailCounts,
+            profile: profile
+        )
+        if let result = analysisResult, !result.recommendations.isEmpty {
+            showingRecommendationsSheet = true
+        }
     }
 
     // MARK: - Metrics Grid

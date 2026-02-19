@@ -63,6 +63,7 @@ class UsageStatsService: ObservableObject {
         mutateStats { stats in
             stats.buttonCounts[button.rawValue, default: 0] += 1
             stats.actionTypeCounts[type.rawValue, default: 0] += 1
+            stats.actionDetailCounts["\(button.rawValue):\(type.rawValue)", default: 0] += 1
         }
     }
 
@@ -73,6 +74,8 @@ class UsageStatsService: ObservableObject {
                 stats.buttonCounts[button.rawValue, default: 0] += 1
             }
             stats.actionTypeCounts[type.rawValue, default: 0] += 1
+            let chordKey = buttons.map(\.rawValue).sorted().joined(separator: "+")
+            stats.actionDetailCounts["\(chordKey):\(type.rawValue)", default: 0] += 1
         }
     }
 

@@ -4,6 +4,7 @@ import Foundation
 struct UsageStats: Codable {
     var buttonCounts: [String: Int] = [:]  // ControllerButton.rawValue -> count
     var actionTypeCounts: [String: Int] = [:]  // InputEventType.rawValue -> count
+    var actionDetailCounts: [String: Int] = [:]  // "button:type" or "btn1+btn2:type" -> count
     var totalSessions: Int = 0
     var totalSessionSeconds: Double = 0
     var currentStreakDays: Int = 0
@@ -135,7 +136,7 @@ struct UsageStats: Codable {
     // MARK: - Custom Codable
 
     enum CodingKeys: String, CodingKey {
-        case buttonCounts, actionTypeCounts, totalSessions, totalSessionSeconds
+        case buttonCounts, actionTypeCounts, actionDetailCounts, totalSessions, totalSessionSeconds
         case currentStreakDays, longestStreakDays, lastSessionDate, firstSessionDate
         case keyPresses, mouseClicks, macrosExecuted, macroStepsAutomated
         case webhooksFired, appsLaunched, textSnippetsRun, terminalCommandsRun, linksOpened
@@ -148,6 +149,7 @@ struct UsageStats: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         buttonCounts = try container.decodeIfPresent([String: Int].self, forKey: .buttonCounts) ?? [:]
         actionTypeCounts = try container.decodeIfPresent([String: Int].self, forKey: .actionTypeCounts) ?? [:]
+        actionDetailCounts = try container.decodeIfPresent([String: Int].self, forKey: .actionDetailCounts) ?? [:]
         totalSessions = try container.decodeIfPresent(Int.self, forKey: .totalSessions) ?? 0
         totalSessionSeconds = try container.decodeIfPresent(Double.self, forKey: .totalSessionSeconds) ?? 0
         currentStreakDays = try container.decodeIfPresent(Int.self, forKey: .currentStreakDays) ?? 0
