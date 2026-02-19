@@ -23,10 +23,6 @@ final class ControllerButtonCoverageTests: XCTestCase {
 
     func testDualSenseOnlyAndEdgeOnlyClassification() {
         let expectedDualSenseOnly: Set<ControllerButton> = [
-            .touchpadButton,
-            .touchpadTwoFingerButton,
-            .touchpadTap,
-            .touchpadTwoFingerTap,
             .micMute,
             .leftPaddle,
             .rightPaddle,
@@ -43,10 +39,24 @@ final class ControllerButtonCoverageTests: XCTestCase {
 
         let dualSenseOnly = Set(ControllerButton.allCases.filter { $0.isDualSenseOnly })
         let edgeOnly = Set(ControllerButton.allCases.filter { $0.isDualSenseEdgeOnly })
+        let playStationOnly = Set(ControllerButton.allCases.filter { $0.isPlayStationOnly })
+        let expectedPlayStationOnly: Set<ControllerButton> = [
+            .touchpadButton,
+            .touchpadTwoFingerButton,
+            .touchpadTap,
+            .touchpadTwoFingerTap,
+            .micMute,
+            .leftPaddle,
+            .rightPaddle,
+            .leftFunction,
+            .rightFunction
+        ]
 
         XCTAssertEqual(dualSenseOnly, expectedDualSenseOnly)
         XCTAssertEqual(edgeOnly, expectedEdgeOnly)
+        XCTAssertEqual(playStationOnly, expectedPlayStationOnly)
         XCTAssertTrue(edgeOnly.isSubset(of: dualSenseOnly))
+        XCTAssertTrue(dualSenseOnly.isSubset(of: playStationOnly))
     }
 
     func testXboxAndDualSenseButtonLists() {
