@@ -233,10 +233,11 @@ struct ButtonMappingSheet: View {
             footer
         }
         .onSubmit { saveMapping() }
-        .frame(width: showingAnyKeyboard ? 750 : 500, height: showingAnyKeyboard ? 700 : 550)
+        .frame(width: showingAnyKeyboard ? 750 : (mappingType == .systemCommand ? 580 : 500), height: showingAnyKeyboard ? 700 : 550)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForPrimary)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForLongHold)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForDoubleTap)
+        .animation(.easeInOut(duration: 0.2), value: mappingType)
         .onAppear {
             loadCurrentMapping()
             // Initialize selectedExistingLayerId if there are unassigned layers
@@ -612,7 +613,7 @@ struct ButtonMappingSheet: View {
     private var systemCommandContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Category picker
-            Picker("Category", selection: $systemCommandCategory) {
+            Picker("", selection: $systemCommandCategory) {
                 ForEach(SystemCommandCategory.allCases, id: \.self) { category in
                     Text(category.rawValue).tag(category)
                 }
@@ -1048,7 +1049,7 @@ struct ButtonMappingSheet: View {
     @ViewBuilder
     private var longHoldSystemCommandContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker("Category", selection: $longHoldSystemCommandCategory) {
+            Picker("", selection: $longHoldSystemCommandCategory) {
                 ForEach(SystemCommandCategory.allCases.filter { ![.webhook, .obs].contains($0) }, id: \.self) { category in
                     Text(category.rawValue).tag(category)
                 }
@@ -1207,7 +1208,7 @@ struct ButtonMappingSheet: View {
     @ViewBuilder
     private var doubleTapSystemCommandContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker("Category", selection: $doubleTapSystemCommandCategory) {
+            Picker("", selection: $doubleTapSystemCommandCategory) {
                 ForEach(SystemCommandCategory.allCases.filter { ![.webhook, .obs].contains($0) }, id: \.self) { category in
                     Text(category.rawValue).tag(category)
                 }
