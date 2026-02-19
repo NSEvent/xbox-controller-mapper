@@ -270,8 +270,9 @@ final class XboxControllerMapperTests: XCTestCase {
             controllerService?.onTouchpadLongTap = nil
             controllerService?.onTouchpadTwoFingerLongTap = nil
             controllerService?.cleanup() // Clean up HID resources before deallocation
-            // Reset DualSense flag to prevent LED code from running
+            // Reset PlayStation controller flags to prevent LED code from running
             UserDefaults.standard.removeObject(forKey: Config.lastControllerWasDualSenseKey)
+            UserDefaults.standard.removeObject(forKey: Config.lastControllerWasDualShockKey)
             mappingEngine = nil
             controllerService = nil
             profileManager = nil

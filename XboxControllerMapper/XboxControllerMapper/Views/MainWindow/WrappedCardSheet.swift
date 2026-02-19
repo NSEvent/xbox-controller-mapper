@@ -16,7 +16,7 @@ struct WrappedCardSheet: View {
 
             WrappedCardView(
                 stats: usageStatsService.stats,
-                isDualSense: controllerService.threadSafeIsDualSense
+                isDualSense: controllerService.threadSafeIsPlayStation
             )
             .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
 
@@ -49,7 +49,7 @@ struct WrappedCardSheet: View {
     private func copyCardToClipboard() {
         let card = WrappedCardView(
             stats: usageStatsService.stats,
-            isDualSense: controllerService.threadSafeIsDualSense
+            isDualSense: controllerService.threadSafeIsPlayStation
         )
 
         let renderer = ImageRenderer(content: card)

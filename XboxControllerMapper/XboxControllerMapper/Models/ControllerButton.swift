@@ -231,13 +231,27 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Whether this button is only available on DualSense controllers
+    /// Whether this button is only available on PlayStation controllers (DualSense or DualShock)
+    var isPlayStationOnly: Bool {
+        switch self {
+        case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap:
+            return true  // Available on both DualSense and DualShock
+        case .micMute:
+            return true  // DualSense only
+        case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
+            return true  // Edge-only, but still PlayStation family
+        default:
+            return false
+        }
+    }
+
+    /// Whether this button is only available on DualSense controllers (not DualShock)
     var isDualSenseOnly: Bool {
         switch self {
-        case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute:
-            return true
+        case .micMute:
+            return true  // DualShock 4 doesn't have mic mute
         case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
-            return true  // Edge-only, but still DualSense family
+            return true  // Edge-only
         default:
             return false
         }
@@ -255,12 +269,18 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
 
     /// Buttons available for Xbox controllers
     static var xboxButtons: [ControllerButton] {
-        allCases.filter { !$0.isDualSenseOnly }
+        allCases.filter { !$0.isPlayStationOnly }
+    }
+
+    /// Buttons available for DualShock 4 controllers (has touchpad, no mic mute or paddles)
+    /// Note: DualShock 4's physical Share button maps to .view (buttonOptions), not .share
+    static var dualShockButtons: [ControllerButton] {
+        allCases.filter { !$0.isDualSenseOnly && $0 != .share }
     }
 
     /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)
     static var dualSenseButtons: [ControllerButton] {
-        allCases.filter { $0 != .share }
+        allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly }
     }
 }
 

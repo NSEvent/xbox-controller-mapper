@@ -7,7 +7,7 @@ struct StatsView: View {
     @State private var showingWrappedSheet = false
 
     private var stats: UsageStats { usageStatsService.stats }
-    private var isDualSense: Bool { controllerService.threadSafeIsDualSense }
+    private var isDualSense: Bool { controllerService.threadSafeIsPlayStation }
 
     var body: some View {
         ScrollView {
