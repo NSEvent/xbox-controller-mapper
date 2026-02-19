@@ -43,8 +43,15 @@ enum ProfileAutoSwitchResolver {
             profileIdBeforeBackground = state.activeProfileId
         }
 
-        if let linkedProfile = profiles.first(where: { $0.linkedApps.contains(bundleId) }),
-           state.activeProfileId != linkedProfile.id {
+        if let linkedProfile = profiles.first(where: { $0.linkedApps.contains(bundleId) }) {
+            if state.activeProfileId == linkedProfile.id {
+                return ProfileAutoSwitchResult(
+                    action: nil,
+                    previousBundleId: bundleId,
+                    profileIdBeforeBackground: profileIdBeforeBackground
+                )
+            }
+
             return ProfileAutoSwitchResult(
                 action: ProfileAutoSwitchAction(
                     profileId: linkedProfile.id,

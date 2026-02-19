@@ -142,6 +142,27 @@ final class ProfileAutoSwitchResolverTests: XCTestCase {
         XCTAssertEqual(result.previousBundleId, "com.example.notes")
     }
 
+    func testResolveKeepsLinkedProfileWhenAlreadyActiveForLinkedApp() {
+        let defaultProfile = makeProfile(name: "Default", isDefault: true)
+        let linkedProfile = makeProfile(name: "Game", linkedApps: ["com.example.game"])
+        let state = ProfileAutoSwitchState(
+            previousBundleId: configBundleId,
+            profileIdBeforeBackground: nil,
+            activeProfileId: linkedProfile.id
+        )
+
+        let result = ProfileAutoSwitchResolver.resolve(
+            bundleId: "com.example.game",
+            appBundleId: configBundleId,
+            profiles: [defaultProfile, linkedProfile],
+            state: state
+        )
+
+        XCTAssertNil(result.action)
+        XCTAssertEqual(result.previousBundleId, "com.example.game")
+        XCTAssertEqual(result.profileIdBeforeBackground, linkedProfile.id)
+    }
+
     private func makeProfile(name: String, isDefault: Bool = false, linkedApps: [String] = []) -> Profile {
         Profile(
             id: UUID(),
