@@ -306,7 +306,6 @@ class MappingEngine: ObservableObject {
             state.lock.unlock()
             return
         }
-        let bundleId = state.frontmostBundleId
         let lastTap = state.lastTapTime[button]
 
         // MARK: - Layer Activator Check
@@ -700,7 +699,7 @@ class MappingEngine: ObservableObject {
         }
 
         // Get button mapping and verify constraints
-        guard let (mapping, profile, bundleId, isLongHoldTriggered) = getReleaseContext(for: button) else { return }
+        guard let (mapping, profile, isLongHoldTriggered) = getReleaseContext(for: button) else { return }
 
         // Check if this is a repeat mapping - we still want to detect double-taps for these
         let isRepeatMapping = mapping.repeatMapping?.enabled ?? false
@@ -779,7 +778,7 @@ class MappingEngine: ObservableObject {
     }
 
     /// Get the context needed for release handling (mapping, profile, bundleId, etc.)
-    nonisolated private func getReleaseContext(for button: ControllerButton) -> (KeyMapping, Profile, String?, Bool)? {
+    nonisolated private func getReleaseContext(for button: ControllerButton) -> (KeyMapping, Profile, Bool)? {
         state.lock.lock()
 
         guard state.isEnabled, let profile = state.activeProfile else {
@@ -787,7 +786,6 @@ class MappingEngine: ObservableObject {
             return nil
         }
 
-        let bundleId = state.frontmostBundleId
         var isLongHoldTriggered = state.longHoldTriggered.contains(button)
         if isLongHoldTriggered {
             state.longHoldTriggered.remove(button)
@@ -798,7 +796,7 @@ class MappingEngine: ObservableObject {
 
         guard let mapping = effectiveMapping(for: button, in: profile) else { return nil }
 
-        return (mapping, profile, bundleId, isLongHoldTriggered)
+        return (mapping, profile, isLongHoldTriggered)
     }
 
     /// Returns the effective mapping for a button, considering active layers.
@@ -1243,7 +1241,6 @@ class MappingEngine: ObservableObject {
             state.lock.unlock()
             return
         }
-        let lastTap = state.lastTapTime[button]
         state.lock.unlock()
 
         guard let mapping = effectiveMapping(for: button, in: profile) else {
@@ -1251,42 +1248,19 @@ class MappingEngine: ObservableObject {
             return
         }
 
-        // Check for double-tap
         if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
-            let now = Date()
-            if let lastTap = lastTap, now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
-                // Double-tap detected
-                state.lock.lock()
-                state.lastTapTime.removeValue(forKey: button)
-                state.pendingSingleTap[button]?.cancel()
-                state.pendingSingleTap.removeValue(forKey: button)
-                state.lock.unlock()
-
-                mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
-                return
-            }
-
-            // Record tap time and schedule delayed single-tap execution
-            state.lock.lock()
-            state.lastTapTime[button] = now
-            state.pendingSingleTap[button]?.cancel()
-
-            let workItem = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                self.state.lock.lock()
-                self.state.pendingSingleTap.removeValue(forKey: button)
-                self.state.lock.unlock()
-
-                self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
-            }
-            state.pendingSingleTap[button] = workItem
-            state.lock.unlock()
-
-            inputQueue.asyncAfter(deadline: .now() + doubleTapMapping.threshold, execute: workItem)
+            let (pendingSingle, lastTap) = getPendingTapInfo(for: button)
+            _ = handleDoubleTapIfReady(
+                button,
+                mapping: mapping,
+                pendingSingle: pendingSingle,
+                lastTap: lastTap,
+                doubleTapMapping: doubleTapMapping,
+                profile: profile
+            )
             return
         }
 
-        // No double-tap configured, execute immediately
         mappingExecutor.executeAction(mapping, for: button, profile: profile)
     }
 
