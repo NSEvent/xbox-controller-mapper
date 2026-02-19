@@ -51,3 +51,4 @@ Notes:
 - ControllerService performs early chord detection and publishes button callbacks.
 - MappingEngine polls joystick state for mouse/scroll, using ProfileManager settings and AppMonitor overrides.
 - InputSimulator posts CGEvent input events once Accessibility permissions are granted.
+- Detailed pathway diagrams: see `main-input-flows.md`.
