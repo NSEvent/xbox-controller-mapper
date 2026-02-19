@@ -307,23 +307,21 @@ class MappingEngine: ObservableObject {
     }
 
     nonisolated private func beginButtonPress(_ button: ControllerButton) -> ButtonPressStartState {
-        state.lock.lock()
-        guard state.isEnabled, let profile = state.activeProfile else {
-            state.lock.unlock()
-            return .blocked
-        }
-        let lastTap = state.lastTapTime[button]
+        state.lock.withLock {
+            guard state.isEnabled, let profile = state.activeProfile else {
+                return .blocked
+            }
 
-        if let layerId = state.layerActivatorMap[button] {
-            // Remove if already present, then append (most recent = last in array)
-            state.activeLayerIds.removeAll { $0 == layerId }
-            state.activeLayerIds.append(layerId)
-            state.lock.unlock()
-            return .layerActivated(profile: profile, layerId: layerId)
-        }
+            let lastTap = state.lastTapTime[button]
+            if let layerId = state.layerActivatorMap[button] {
+                // Remove if already present, then append (most recent = last in array)
+                state.activeLayerIds.removeAll { $0 == layerId }
+                state.activeLayerIds.append(layerId)
+                return .layerActivated(profile: profile, layerId: layerId)
+            }
 
-        state.lock.unlock()
-        return .ready(profile: profile, lastTap: lastTap)
+            return .ready(profile: profile, lastTap: lastTap)
+        }
     }
 
     nonisolated private func resolveButtonPressOutcome(
@@ -411,21 +409,19 @@ class MappingEngine: ObservableObject {
         if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
             let now = Date()
             if let lastTap = lastTap, now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
-                state.lock.lock()
-                defer { state.lock.unlock() }
-                state.lastTapTime.removeValue(forKey: button)
+                state.lock.withLock {
+                    state.lastTapTime.removeValue(forKey: button)
+                }
                 mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
                 return
             }
-            state.lock.lock()
-            defer { state.lock.unlock() }
-            state.lastTapTime[button] = now
+            state.lock.withLock {
+                state.lastTapTime[button] = now
+            }
         }
 
         // Start holding the mapping
-        do {
-            state.lock.lock()
-            defer { state.lock.unlock() }
+        state.lock.withLock {
             state.heldButtons[button] = mapping
         }
 
@@ -436,13 +432,13 @@ class MappingEngine: ObservableObject {
     /// Handles on-screen keyboard button press
     /// - holdMode: If true, shows keyboard while held. If false, toggles keyboard on/off.
     nonisolated private func handleOnScreenKeyboardPressed(_ button: ControllerButton, holdMode: Bool) {
-        state.lock.lock()
-        state.onScreenKeyboardButton = button
-        state.onScreenKeyboardHoldMode = holdMode
-        if holdMode {
-            state.commandWheelActive = true
+        state.lock.withLock {
+            state.onScreenKeyboardButton = button
+            state.onScreenKeyboardHoldMode = holdMode
+            if holdMode {
+                state.commandWheelActive = true
+            }
         }
-        state.lock.unlock()
 
         DispatchQueue.main.async { [weak self] in
             if holdMode {
@@ -461,9 +457,9 @@ class MappingEngine: ObservableObject {
                 let showWebsitesFirst = settings?.wheelShowsWebsites == true
                 // Store alternate modifiers in state for 120Hz checking
                 if let self = self {
-                    self.state.lock.lock()
-                    self.state.wheelAlternateModifiers = settings?.wheelAlternateModifiers ?? ModifierFlags()
-                    self.state.lock.unlock()
+                    self.state.lock.withLock {
+                        self.state.wheelAlternateModifiers = settings?.wheelAlternateModifiers ?? ModifierFlags()
+                    }
                 }
                 if !apps.isEmpty || !websites.isEmpty {
                     CommandWheelManager.shared.prepare(apps: apps, websites: websites, showWebsitesFirst: showWebsitesFirst)
@@ -542,14 +538,15 @@ class MappingEngine: ObservableObject {
 
     /// Handles on-screen keyboard button release (hides keyboard only in hold mode)
     nonisolated private func handleOnScreenKeyboardReleased(_ button: ControllerButton) {
-        state.lock.lock()
-        let wasKeyboardButton = state.onScreenKeyboardButton == button
-        let wasHoldMode = state.onScreenKeyboardHoldMode
-        if wasKeyboardButton {
-            state.onScreenKeyboardButton = nil
-            state.commandWheelActive = false
+        let (wasKeyboardButton, wasHoldMode) = state.lock.withLock {
+            let wasKeyboardButton = state.onScreenKeyboardButton == button
+            let wasHoldMode = state.onScreenKeyboardHoldMode
+            if wasKeyboardButton {
+                state.onScreenKeyboardButton = nil
+                state.commandWheelActive = false
+            }
+            return (wasKeyboardButton, wasHoldMode)
         }
-        state.lock.unlock()
 
         // Only hide on release if in hold mode
         if wasKeyboardButton && wasHoldMode {
@@ -660,10 +657,10 @@ class MappingEngine: ObservableObject {
     }
 
     nonisolated private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
-        state.lock.lock()
-        state.longHoldTriggered.insert(button)
-        let profile = state.activeProfile
-        state.lock.unlock()
+        let profile = state.lock.withLock {
+            state.longHoldTriggered.insert(button)
+            return state.activeProfile
+        }
 
         mappingExecutor.executeAction(mapping, for: button, profile: profile, logType: .longPress)
     }
@@ -673,19 +670,29 @@ class MappingEngine: ObservableObject {
 
         // MARK: - Layer Activator Release
         // If this button is a layer activator, deactivate the layer and return
-        state.lock.lock()
-        if let layerId = state.layerActivatorMap[button] {
+        let layerDeactivation = state.lock.withLock { () -> (didDeactivate: Bool, layerName: String?) in
+            guard let layerId = state.layerActivatorMap[button] else {
+                return (false, nil)
+            }
             state.activeLayerIds.removeAll { $0 == layerId }
             #if DEBUG
-            if let profile = state.activeProfile,
-               let layer = profile.layers.first(where: { $0.id == layerId }) {
-                print("🔷 Layer deactivated: \(layer.name)")
+            let layerName = state.activeProfile?
+                .layers
+                .first(where: { $0.id == layerId })?
+                .name
+            return (true, layerName)
+            #else
+            return (true, nil)
+            #endif
+        }
+        if layerDeactivation.didDeactivate {
+            #if DEBUG
+            if let layerName = layerDeactivation.layerName {
+                print("🔷 Layer deactivated: \(layerName)")
             }
             #endif
-            state.lock.unlock()
             return
         }
-        state.lock.unlock()
 
         // Check if this button was showing the on-screen keyboard
         handleOnScreenKeyboardReleased(button)
@@ -785,20 +792,20 @@ class MappingEngine: ObservableObject {
 
     /// Get the context needed for release handling (mapping, profile, bundleId, etc.)
     nonisolated private func getReleaseContext(for button: ControllerButton) -> (KeyMapping, Profile, Bool)? {
-        state.lock.lock()
+        guard let (profile, isLongHoldTriggered) = state.lock.withLock({ () -> (Profile, Bool)? in
+            guard state.isEnabled, let profile = state.activeProfile else {
+                return nil
+            }
 
-        guard state.isEnabled, let profile = state.activeProfile else {
-            state.lock.unlock()
+            let isLongHoldTriggered = state.longHoldTriggered.contains(button)
+            if isLongHoldTriggered {
+                state.longHoldTriggered.remove(button)
+            }
+
+            return (profile, isLongHoldTriggered)
+        }) else {
             return nil
         }
-
-        var isLongHoldTriggered = state.longHoldTriggered.contains(button)
-        if isLongHoldTriggered {
-            state.longHoldTriggered.remove(button)
-        }
-
-        // Release lock before calling effectiveMapping (it takes its own lock)
-        state.lock.unlock()
 
         guard let mapping = effectiveMapping(for: button, in: profile) else { return nil }
 
@@ -807,10 +814,9 @@ class MappingEngine: ObservableObject {
 
     /// Returns the effective mapping for a button, considering active layers.
     nonisolated private func effectiveMapping(for button: ControllerButton, in profile: Profile) -> KeyMapping? {
-        state.lock.lock()
-        let layerActivatorMap = state.layerActivatorMap
-        let activeLayerIds = state.activeLayerIds
-        state.lock.unlock()
+        let (layerActivatorMap, activeLayerIds) = state.lock.withLock {
+            (state.layerActivatorMap, state.activeLayerIds)
+        }
 
         return ButtonMappingResolutionPolicy.resolve(
             button: button,
@@ -830,11 +836,11 @@ class MappingEngine: ObservableObject {
 
     /// Clear pending tap state (used when double-tap window expires or long-hold triggers)
     nonisolated private func clearTapState(for button: ControllerButton) {
-        state.lock.lock()
-        state.pendingSingleTap[button]?.cancel()
-        state.pendingSingleTap.removeValue(forKey: button)
-        state.lastTapTime.removeValue(forKey: button)
-        state.lock.unlock()
+        state.lock.withLock {
+            state.pendingSingleTap[button]?.cancel()
+            state.pendingSingleTap.removeValue(forKey: button)
+            state.lastTapTime.removeValue(forKey: button)
+        }
     }
 
     /// Handle double-tap detection - returns true if double-tap was executed
@@ -893,16 +899,16 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleSingleTap(_ button: ControllerButton, mapping: KeyMapping, profile: Profile) {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
-            self.state.lock.lock()
-            self.state.pendingReleaseActions.removeValue(forKey: button)
-            self.state.lock.unlock()
+            self.state.lock.withLock {
+                self.state.pendingReleaseActions.removeValue(forKey: button)
+            }
 
             self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
         }
 
-        state.lock.lock()
-        state.pendingReleaseActions[button] = workItem
-        state.lock.unlock()
+        state.lock.withLock {
+            state.pendingReleaseActions[button] = workItem
+        }
 
         let isChordPart = isButtonUsedInChords(button, profile: profile)
         let delay = isChordPart ? Config.chordReleaseProcessingDelay : 0.0
@@ -915,42 +921,45 @@ class MappingEngine: ObservableObject {
     }
 
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
-        state.lock.lock()
-        guard state.isEnabled, let profile = state.activeProfile else {
-            state.lock.unlock()
+        guard let (profile, chordButtons) = state.lock.withLock({ () -> (Profile, Set<ControllerButton>)? in
+            guard state.isEnabled, let profile = state.activeProfile else {
+                return nil
+            }
+
+            // MARK: - Filter out layer activators
+            // Layer activator buttons activate their layers but don't participate in chords
+            var layerActivators: Set<ControllerButton> = []
+            for button in buttons {
+                if let layerId = state.layerActivatorMap[button] {
+                    layerActivators.insert(button)
+                    // Activate the layer (remove if exists, then append for correct ordering)
+                    state.activeLayerIds.removeAll { $0 == layerId }
+                    state.activeLayerIds.append(layerId)
+                    #if DEBUG
+                    if let layer = profile.layers.first(where: { $0.id == layerId }) {
+                        print("🔷 Layer activated (via chord): \(layer.name)")
+                    }
+                    #endif
+                }
+            }
+
+            // Get the remaining non-activator buttons
+            let chordButtons = buttons.subtracting(layerActivators)
+
+            // Cancel pending actions for all buttons
+            for button in buttons {
+                state.pendingReleaseActions[button]?.cancel()
+                state.pendingReleaseActions.removeValue(forKey: button)
+
+                state.pendingSingleTap[button]?.cancel()
+                state.pendingSingleTap.removeValue(forKey: button)
+                state.lastTapTime.removeValue(forKey: button)
+            }
+
+            return (profile, chordButtons)
+        }) else {
             return
         }
-
-        // MARK: - Filter out layer activators
-        // Layer activator buttons activate their layers but don't participate in chords
-        var layerActivators: Set<ControllerButton> = []
-        for button in buttons {
-            if let layerId = state.layerActivatorMap[button] {
-                layerActivators.insert(button)
-                // Activate the layer (remove if exists, then append for correct ordering)
-                state.activeLayerIds.removeAll { $0 == layerId }
-                state.activeLayerIds.append(layerId)
-                #if DEBUG
-                if let layer = profile.layers.first(where: { $0.id == layerId }) {
-                    print("🔷 Layer activated (via chord): \(layer.name)")
-                }
-                #endif
-            }
-        }
-
-        // Get the remaining non-activator buttons
-        let chordButtons = buttons.subtracting(layerActivators)
-
-        // Cancel pending actions for all buttons
-        for button in buttons {
-            state.pendingReleaseActions[button]?.cancel()
-            state.pendingReleaseActions.removeValue(forKey: button)
-
-            state.pendingSingleTap[button]?.cancel()
-            state.pendingSingleTap.removeValue(forKey: button)
-            state.lastTapTime.removeValue(forKey: button)
-        }
-        state.lock.unlock()
 
         // If all buttons were layer activators, we're done
         if chordButtons.isEmpty {
@@ -973,9 +982,9 @@ class MappingEngine: ObservableObject {
         if let chord = matchingChord {
             // Register active chord only when there's a matching mapping
             // (don't set for fallback case - we want individual button handling)
-            state.lock.lock()
-            state.activeChordButtons = chordButtons
-            state.lock.unlock()
+            state.lock.withLock {
+                state.activeChordButtons = chordButtons
+            }
 
             mappingExecutor.executeAction(chord, for: Array(chordButtons), profile: profile, logType: .chord)
         } else {
