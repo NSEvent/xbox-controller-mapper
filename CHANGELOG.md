@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **PS4 DualShock 4 Controller Support**: Full support for DualShock 4 (v1 and v2) controllers
+  - Touchpad mouse control and gestures (same as DualSense)
+  - PlayStation-style button labels and icons throughout the UI
+  - PS button works via HID monitoring (report IDs `0x01` USB, `0x11` Bluetooth)
+  - DualShock 4's Share button correctly maps to Options/View
+
+### Changed
+
+- Extracted shared touchpad handler to eliminate code duplication between DualSense and DualShock
+- Renamed HID monitoring from DualSense-specific to general PlayStation monitoring
+- Button display throughout the app (stats, wrapped card, input log, chord sheets) now uses `isPlayStation` for correct labels on both PS4 and PS5 controllers
+
 ## [1.4.3] - 2026-02-16
 
 ### Added
