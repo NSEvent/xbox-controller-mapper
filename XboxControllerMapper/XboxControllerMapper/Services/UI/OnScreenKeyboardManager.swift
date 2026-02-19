@@ -17,6 +17,7 @@ class OnScreenKeyboardManager: ObservableObject {
     static let shared = OnScreenKeyboardManager()
 
     @Published private(set) var isVisible = false
+    @Published private(set) var typingBuffer: String = ""
 
     // MARK: - D-Pad Navigation State
     @Published var navigationModeActive = false
@@ -188,6 +189,9 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private var panel: NSPanel?
+    private var bufferPanel: NSPanel?
+    private var bufferHostingView: NSHostingView<TypingBufferView>?
+    private var panelMovedObserver: NSObjectProtocol?
     private var inputSimulator: InputSimulatorProtocol?
     private var usageStatsService: UsageStatsService?
     private var quickTexts: [QuickText] = []
@@ -320,6 +324,7 @@ class OnScreenKeyboardManager: ObservableObject {
                     panel?.setFrameOrigin(frame.origin)
                 }
                 panel?.orderFrontRegardless()
+                positionBufferPanel()
             }
         }
     }
@@ -411,6 +416,18 @@ class OnScreenKeyboardManager: ObservableObject {
 
         panel.orderFrontRegardless()
         self.panel = panel
+
+        // Observe keyboard panel movement to reposition buffer panel
+        if let observer = panelMovedObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        panelMovedObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            self?.positionBufferPanel()
+        }
     }
 
     private func recreatePanel() {
@@ -425,6 +442,7 @@ class OnScreenKeyboardManager: ObservableObject {
                 panel?.setFrameOrigin(frame.origin)
             }
             panel?.orderFrontRegardless()
+            positionBufferPanel()
         }
     }
 
@@ -432,6 +450,10 @@ class OnScreenKeyboardManager: ObservableObject {
     func hide() {
         // Exit navigation mode first
         exitNavigationMode()
+
+        // Clear typing buffer
+        typingBuffer = ""
+        bufferPanel?.orderOut(nil)
 
         // Save position for the screen the panel is currently on
         if let panel = panel, let screen = panel.screen ?? NSScreen.main {
@@ -952,7 +974,110 @@ class OnScreenKeyboardManager: ObservableObject {
         }
     }
 
+    // MARK: - Typing Buffer
+
+    /// Called from MappingExecutor when a controller-mapped key is pressed while the keyboard is visible.
+    /// Thread-safe: can be called from any thread; dispatches buffer update to the main actor.
+    nonisolated func notifyControllerKeyPress(keyCode: CGKeyCode, modifiers: CGEventFlags) {
+        guard threadSafeIsVisible else { return }
+        let mods = ModifierFlags(
+            command: modifiers.contains(.maskCommand),
+            option: modifiers.contains(.maskAlternate),
+            shift: modifiers.contains(.maskShift),
+            control: modifiers.contains(.maskControl)
+        )
+        DispatchQueue.main.async {
+            self.updateTypingBuffer(keyCode: keyCode, modifiers: mods)
+        }
+    }
+
+    /// Updates the typing buffer based on key presses from the on-screen keyboard.
+    /// Merges passed modifiers with controller-held modifiers so that holding a
+    /// controller button mapped to shift produces uppercase in the buffer.
+    private func updateTypingBuffer(keyCode: CGKeyCode, modifiers: ModifierFlags) {
+        // Merge on-screen keyboard modifiers with controller-held modifiers
+        let heldFlags = inputSimulator?.getHeldModifiers() ?? []
+        let shiftActive = modifiers.shift || heldFlags.contains(.maskShift)
+
+        if keyCode == KeyCodeMapping.delete || keyCode == KeyCodeMapping.forwardDelete {
+            // Backspace or forward delete - remove last character
+            // (buffer cursor is always at end, so both behave as backspace)
+            if !typingBuffer.isEmpty {
+                typingBuffer.removeLast()
+            }
+        } else if let char = KeyCodeMapping.typedCharacter(for: keyCode, shift: shiftActive) {
+            typingBuffer.append(char)
+        }
+        // Everything else (modifiers, arrows, F-keys, etc.) is ignored
+
+        updateBufferPanel()
+    }
+
+    private func createBufferPanel() {
+        let view = TypingBufferView(text: "")
+        let hostingView = NSHostingView(rootView: view)
+        let fittingSize = hostingView.fittingSize
+        hostingView.frame = NSRect(origin: .zero, size: fittingSize)
+
+        let panel = NSPanel(
+            contentRect: hostingView.frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.level = .floating
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.hidesOnDeactivate = false
+
+        panel.contentView = hostingView
+
+        self.bufferPanel = panel
+        self.bufferHostingView = hostingView
+    }
+
+    private func updateBufferPanel() {
+        if typingBuffer.isEmpty {
+            bufferPanel?.orderOut(nil)
+            return
+        }
+
+        if bufferPanel == nil {
+            createBufferPanel()
+        }
+
+        // Update content
+        bufferHostingView?.rootView = TypingBufferView(text: typingBuffer)
+
+        // Resize to fit new content
+        if let hostingView = bufferHostingView {
+            let size = hostingView.fittingSize
+            bufferPanel?.setContentSize(size)
+        }
+
+        positionBufferPanel()
+        bufferPanel?.orderFrontRegardless()
+    }
+
+    private func positionBufferPanel() {
+        guard let keyboardPanel = panel, let bufferPanel = bufferPanel else { return }
+
+        let kbFrame = keyboardPanel.frame
+        let bufferSize = bufferPanel.frame.size
+        let gap: CGFloat = 8
+
+        let x = kbFrame.midX - bufferSize.width / 2
+        let y = kbFrame.maxY + gap
+        bufferPanel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
     private func handleKeyPress(keyCode: CGKeyCode, modifiers: ModifierFlags) {
+        updateTypingBuffer(keyCode: keyCode, modifiers: modifiers)
+
         guard let simulator = inputSimulator else {
             NSLog("[OnScreenKeyboard] No input simulator configured")
             return
@@ -1230,6 +1355,15 @@ class OnScreenKeyboardManager: ObservableObject {
             }
         }
     }
+
+    // MARK: - Test Support
+
+    #if DEBUG
+    /// Exposes handleKeyPress for unit tests (mirrors on-screen keyboard key press path)
+    func testHandleKeyPress(keyCode: CGKeyCode, modifiers: ModifierFlags) {
+        handleKeyPress(keyCode: keyCode, modifiers: modifiers)
+    }
+    #endif
 }
 
 // MARK: - NSScreen Display ID Helper

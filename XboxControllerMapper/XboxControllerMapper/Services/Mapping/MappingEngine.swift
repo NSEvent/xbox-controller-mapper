@@ -581,6 +581,11 @@ class MappingEngine: ObservableObject {
         stopRepeatTimer(for: button)
 
         inputSimulator.executeMapping(mapping)
+        if let keyCode = mapping.keyCode {
+            OnScreenKeyboardManager.shared.notifyControllerKeyPress(
+                keyCode: keyCode, modifiers: mapping.modifiers.cgEventFlags
+            )
+        }
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString)
 
         let timer = DispatchSource.makeTimerSource(queue: inputQueue)
@@ -591,6 +596,11 @@ class MappingEngine: ObservableObject {
             // ControllerService is MainActor. Accessing activeButtons is tricky.
             // Better to rely on state.heldButtons or just stop timer on release.)
             self.inputSimulator.executeMapping(mapping)
+            if let keyCode = mapping.keyCode {
+                OnScreenKeyboardManager.shared.notifyControllerKeyPress(
+                    keyCode: keyCode, modifiers: mapping.modifiers.cgEventFlags
+                )
+            }
         }
         timer.resume()
 

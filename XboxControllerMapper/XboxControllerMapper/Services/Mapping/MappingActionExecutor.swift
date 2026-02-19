@@ -47,6 +47,10 @@ private struct KeyOrModifierActionHandler {
     func execute(_ action: any ExecutableAction) -> String {
         if let keyCode = action.keyCode {
             inputSimulator.pressKey(keyCode, modifiers: action.modifiers.cgEventFlags)
+            // Update typing buffer if on-screen keyboard is visible
+            OnScreenKeyboardManager.shared.notifyControllerKeyPress(
+                keyCode: keyCode, modifiers: action.modifiers.cgEventFlags
+            )
         } else if action.modifiers.hasAny {
             tapModifierExecutor.execute(action.modifiers.cgEventFlags)
         }

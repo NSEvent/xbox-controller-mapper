@@ -459,6 +459,55 @@ enum KeyCodeMapping {
         }
     }
 
+    // MARK: - Key Code to Character Mapping
+
+    /// Returns the character that would be typed for a given key code and shift state.
+    /// Returns nil for non-typable keys (modifiers, function keys, arrows, media, mouse, etc.)
+    static func typedCharacter(for keyCode: CGKeyCode, shift: Bool) -> String? {
+        let code = Int(keyCode)
+
+        if let letter = letterMap[code] {
+            return shift ? letter.uppercased() : letter
+        }
+        if let num = numberMap[code] {
+            return shift ? num.shifted : num.normal
+        }
+        if let sym = symbolMap[code] {
+            return shift ? sym.shifted : sym.normal
+        }
+        if code == kVK_Space { return " " }
+
+        // Everything else (Return, Tab, Escape, Delete, arrows, F-keys, modifiers, media, mouse) → nil
+        return nil
+    }
+
+    // Static lookup tables for typedCharacter (avoid allocation on every call)
+
+    private static let letterMap: [Int: String] = [
+        kVK_ANSI_A: "a", kVK_ANSI_B: "b", kVK_ANSI_C: "c", kVK_ANSI_D: "d",
+        kVK_ANSI_E: "e", kVK_ANSI_F: "f", kVK_ANSI_G: "g", kVK_ANSI_H: "h",
+        kVK_ANSI_I: "i", kVK_ANSI_J: "j", kVK_ANSI_K: "k", kVK_ANSI_L: "l",
+        kVK_ANSI_M: "m", kVK_ANSI_N: "n", kVK_ANSI_O: "o", kVK_ANSI_P: "p",
+        kVK_ANSI_Q: "q", kVK_ANSI_R: "r", kVK_ANSI_S: "s", kVK_ANSI_T: "t",
+        kVK_ANSI_U: "u", kVK_ANSI_V: "v", kVK_ANSI_W: "w", kVK_ANSI_X: "x",
+        kVK_ANSI_Y: "y", kVK_ANSI_Z: "z"
+    ]
+
+    private static let numberMap: [Int: (normal: String, shifted: String)] = [
+        kVK_ANSI_1: ("1", "!"), kVK_ANSI_2: ("2", "@"), kVK_ANSI_3: ("3", "#"),
+        kVK_ANSI_4: ("4", "$"), kVK_ANSI_5: ("5", "%"), kVK_ANSI_6: ("6", "^"),
+        kVK_ANSI_7: ("7", "&"), kVK_ANSI_8: ("8", "*"), kVK_ANSI_9: ("9", "("),
+        kVK_ANSI_0: ("0", ")")
+    ]
+
+    private static let symbolMap: [Int: (normal: String, shifted: String)] = [
+        kVK_ANSI_Grave: ("`", "~"), kVK_ANSI_Minus: ("-", "_"), kVK_ANSI_Equal: ("=", "+"),
+        kVK_ANSI_LeftBracket: ("[", "{"), kVK_ANSI_RightBracket: ("]", "}"),
+        kVK_ANSI_Backslash: ("\\", "|"), kVK_ANSI_Semicolon: (";", ":"),
+        kVK_ANSI_Quote: ("'", "\""), kVK_ANSI_Comma: (",", "<"),
+        kVK_ANSI_Period: (".", ">"), kVK_ANSI_Slash: ("/", "?")
+    ]
+
     // MARK: - Special Key Flags
 
     /// Keys that require NumPad flag to be recognized properly by apps
