@@ -145,14 +145,14 @@ class MappingEngine: ObservableObject {
         profileManager.$activeProfile
             .sink { [weak self] profile in
                 guard let self = self else { return }
-                self.state.lock.lock()
-                self.state.activeProfile = profile
-                self.state.joystickSettings = profile?.joystickSettings
-                // Clear active layers when profile changes - prevents stale layer state
-                // if user was holding a layer activator during profile switch
-                self.state.activeLayerIds.removeAll()
-                self.rebuildLayerActivatorMap(profile: profile)
-                self.state.lock.unlock()
+                self.state.lock.withLock {
+                    self.state.activeProfile = profile
+                    self.state.joystickSettings = profile?.joystickSettings
+                    // Clear active layers when profile changes - prevents stale layer state
+                    // if user was holding a layer activator during profile switch
+                    self.state.activeLayerIds.removeAll()
+                    self.rebuildLayerActivatorMap(profile: profile)
+                }
             }
             .store(in: &cancellables)
             
@@ -160,9 +160,9 @@ class MappingEngine: ObservableObject {
         appMonitor.$frontmostBundleId
             .sink { [weak self] bundleId in
                 guard let self = self else { return }
-                self.state.lock.lock()
-                self.state.frontmostBundleId = bundleId
-                self.state.lock.unlock()
+                self.state.lock.withLock {
+                    self.state.frontmostBundleId = bundleId
+                }
             }
             .store(in: &cancellables)
 
@@ -268,25 +268,24 @@ class MappingEngine: ObservableObject {
         $isEnabled
             .sink { [weak self] enabled in
                 guard let self = self else { return }
-                self.state.lock.lock()
-                self.state.isEnabled = enabled
-                if !enabled {
+                let keysToRelease: (left: Set<CGKeyCode>, right: Set<CGKeyCode>)? = self.state.lock.withLock {
+                    self.state.isEnabled = enabled
+                    guard !enabled else { return nil }
                     // Capture direction keys before reset clears them
                     let leftKeys = self.state.leftStickHeldKeys
                     let rightKeys = self.state.rightStickHeldKeys
-                    // Cleanup if disabled
                     self.state.reset()
-                    self.state.lock.unlock()
-                    // Release modifiers and direction keys after unlock
+                    return (leftKeys, rightKeys)
+                }
+                // Release modifiers and direction keys after lock is released
+                if let keysToRelease {
                     self.inputSimulator.releaseAllModifiers()
-                    for key in leftKeys {
+                    for key in keysToRelease.left {
                         self.inputSimulator.keyUp(key)
                     }
-                    for key in rightKeys {
+                    for key in keysToRelease.right {
                         self.inputSimulator.keyUp(key)
                     }
-                } else {
-                    self.state.lock.unlock()
                 }
             }
             .store(in: &cancellables)
@@ -1017,10 +1016,10 @@ class MappingEngine: ObservableObject {
     private func stopJoystickPolling() {
         joystickTimer?.cancel()
         joystickTimer = nil
-        
-        state.lock.lock()
-        state.reset()
-        state.lock.unlock()
+
+        state.lock.withLock {
+            state.reset()
+        }
     }
 
     nonisolated private func processJoysticks(now: CFAbsoluteTime) {
@@ -1247,12 +1246,10 @@ class MappingEngine: ObservableObject {
 
     /// Common handler for tap gestures with double-tap support
     nonisolated private func processTapGesture(_ button: ControllerButton) {
-        state.lock.lock()
-        guard state.isEnabled, let profile = state.activeProfile else {
-            state.lock.unlock()
-            return
-        }
-        state.lock.unlock()
+        guard let profile = state.lock.withLock({
+            guard state.isEnabled else { return nil as Profile? }
+            return state.activeProfile
+        }) else { return }
 
         guard let mapping = effectiveMapping(for: button, in: profile) else {
             inputLogService?.log(buttons: [button], type: .singlePress, action: "(unmapped)")
@@ -1289,16 +1286,14 @@ class MappingEngine: ObservableObject {
 
     /// Common handler for long tap gestures
     nonisolated private func processLongTapGesture(_ button: ControllerButton) {
-        state.lock.lock()
-        guard state.isEnabled, let profile = state.activeProfile else {
-            state.lock.unlock()
-            return
-        }
-        // Cancel any pending single tap for this button
-        state.pendingSingleTap[button]?.cancel()
-        state.pendingSingleTap.removeValue(forKey: button)
-        state.lastTapTime.removeValue(forKey: button)
-        state.lock.unlock()
+        guard let profile = state.lock.withLock({
+            guard state.isEnabled else { return nil as Profile? }
+            // Cancel any pending single tap for this button
+            state.pendingSingleTap[button]?.cancel()
+            state.pendingSingleTap.removeValue(forKey: button)
+            state.lastTapTime.removeValue(forKey: button)
+            return state.activeProfile
+        }) else { return }
 
         // Long tap only executes if there's an explicit long hold mapping configured
         // (no default fallback like regular taps have)
@@ -1314,31 +1309,26 @@ class MappingEngine: ObservableObject {
     /// Process touchpad movement for mouse control (DualSense only)
     /// Unlike joystick which is position-based (continuous velocity), touchpad is delta-based (like a laptop trackpad)
     nonisolated private func processTouchpadMovement(_ delta: CGPoint) {
-        state.lock.lock()
-        guard state.isEnabled, let settings = state.joystickSettings else {
-            state.lock.unlock()
-            return
-        }
-        let isGestureActive = state.isTouchpadGestureActive
-        state.lock.unlock()
+        guard let (settings, isGestureActive) = state.lock.withLock({
+            guard state.isEnabled, let settings = state.joystickSettings else { return nil as (JoystickSettings, Bool)? }
+            return (settings, state.isTouchpadGestureActive)
+        }) else { return }
 
         let movementBlocked = controllerService.threadSafeIsTouchpadMovementBlocked
         if isGestureActive || movementBlocked {
-            state.lock.lock()
-            state.smoothedTouchpadDelta = .zero
-            state.lastTouchpadSampleTime = 0
-            state.lock.unlock()
+            state.lock.withLock {
+                state.smoothedTouchpadDelta = .zero
+                state.lastTouchpadSampleTime = 0
+            }
             return
         }
 
         let now = CFAbsoluteTimeGetCurrent()
-        var smoothedDelta: CGPoint = .zero
-        var lastSampleTime: TimeInterval = 0
 
-        state.lock.lock()
-        smoothedDelta = state.smoothedTouchpadDelta
-        lastSampleTime = state.lastTouchpadSampleTime
-        state.lock.unlock()
+        let (smoothedDeltaSnapshot, lastSampleTime) = state.lock.withLock {
+            (state.smoothedTouchpadDelta, state.lastTouchpadSampleTime)
+        }
+        var smoothedDelta = smoothedDeltaSnapshot
 
         let resetSmoothing = lastSampleTime == 0 || (now - lastSampleTime) > Config.touchpadSmoothingResetInterval
         if resetSmoothing || settings.touchpadSmoothing <= 0 {
@@ -1351,10 +1341,10 @@ class MappingEngine: ObservableObject {
             )
         }
 
-        state.lock.lock()
-        state.smoothedTouchpadDelta = smoothedDelta
-        state.lastTouchpadSampleTime = now
-        state.lock.unlock()
+        state.lock.withLock {
+            state.smoothedTouchpadDelta = smoothedDelta
+            state.lastTouchpadSampleTime = now
+        }
 
         let magnitude = Double(hypot(smoothedDelta.x, smoothedDelta.y))
         guard magnitude > settings.touchpadDeadzone else { return }
@@ -1393,34 +1383,33 @@ class MappingEngine: ObservableObject {
     /// 4. Native magnify gestures or Cmd+Plus/Minus zoom
     nonisolated private func processTouchpadGesture(_ gesture: TouchpadGesture) {
         // MARK: State Snapshot
-        state.lock.lock()
-        guard state.isEnabled, let settings = state.joystickSettings else {
-            state.lock.unlock()
-            return
-        }
-        let wasActive = state.isTouchpadGestureActive
         let isActive = gesture.isPrimaryTouching && gesture.isSecondaryTouching
-        state.isTouchpadGestureActive = isActive
-        var smoothedCenter = state.smoothedTouchpadCenterDelta
-        var smoothedDistance = state.smoothedTouchpadDistanceDelta
-        let lastSampleTime = state.lastTouchpadGestureSampleTime
-        var residualX = state.touchpadScrollResidualX
-        var residualY = state.touchpadScrollResidualY
-        var smoothedVelocity = state.smoothedTouchpadPanVelocity
-        state.lock.unlock()
+        guard let snapshot = state.lock.withLock({ () -> (settings: JoystickSettings, wasActive: Bool, smoothedCenter: CGPoint, smoothedDistance: Double, lastSampleTime: TimeInterval, smoothedVelocity: CGPoint)? in
+            guard state.isEnabled, let settings = state.joystickSettings else { return nil }
+            let wasActive = state.isTouchpadGestureActive
+            state.isTouchpadGestureActive = isActive
+            return (settings, wasActive, state.smoothedTouchpadCenterDelta, state.smoothedTouchpadDistanceDelta, state.lastTouchpadGestureSampleTime, state.smoothedTouchpadPanVelocity)
+        }) else { return }
+        let settings = snapshot.settings
+        let wasActive = snapshot.wasActive
+        var smoothedCenter = snapshot.smoothedCenter
+        var smoothedDistance = snapshot.smoothedDistance
+        let lastSampleTime = snapshot.lastSampleTime
+        var smoothedVelocity = snapshot.smoothedVelocity
 
         guard isActive else {
             // End magnify gesture if it was active
-            state.lock.lock()
-            let wasMagnifyActive = state.touchpadMagnifyGestureActive
-            if wasMagnifyActive {
-                state.touchpadMagnifyGestureActive = false
-                state.touchpadPinchAccumulator = 0
-                state.touchpadMagnifyDirection = 0
-                state.touchpadMagnifyDirectionLockUntil = 0
+            let wasMagnifyActive = state.lock.withLock {
+                let wasMagnify = state.touchpadMagnifyGestureActive
+                if wasMagnify {
+                    state.touchpadMagnifyGestureActive = false
+                    state.touchpadPinchAccumulator = 0
+                    state.touchpadMagnifyDirection = 0
+                    state.touchpadMagnifyDirectionLockUntil = 0
+                }
+                state.touchpadPanActive = false
+                return wasMagnify
             }
-            state.touchpadPanActive = false
-            state.lock.unlock()
             if wasMagnifyActive {
                 postMagnifyGestureEvent(0, 2)  // end gesture (phase 2)
             }
@@ -1435,13 +1424,13 @@ class MappingEngine: ObservableObject {
                     flags: inputSimulator.getHeldModifiers()
                 )
             }
-            state.lock.lock()
-            state.smoothedTouchpadCenterDelta = .zero
-            state.smoothedTouchpadDistanceDelta = 0
-            state.lastTouchpadGestureSampleTime = 0
-            state.touchpadScrollResidualX = 0
-            state.touchpadScrollResidualY = 0
-            state.lock.unlock()
+            state.lock.withLock {
+                state.smoothedTouchpadCenterDelta = .zero
+                state.smoothedTouchpadDistanceDelta = 0
+                state.lastTouchpadGestureSampleTime = 0
+                state.touchpadScrollResidualX = 0
+                state.touchpadScrollResidualY = 0
+            }
             return
         }
 
@@ -1460,11 +1449,11 @@ class MappingEngine: ObservableObject {
             smoothedDistance += (gesture.distanceDelta - smoothedDistance) * alpha
         }
 
-        state.lock.lock()
-        state.smoothedTouchpadCenterDelta = smoothedCenter
-        state.smoothedTouchpadDistanceDelta = smoothedDistance
-        state.lastTouchpadGestureSampleTime = now
-        state.lock.unlock()
+        state.lock.withLock {
+            state.smoothedTouchpadCenterDelta = smoothedCenter
+            state.smoothedTouchpadDistanceDelta = smoothedDistance
+            state.lastTouchpadGestureSampleTime = now
+        }
 
         let phase: CGScrollPhase = wasActive ? .changed : .began
 
@@ -1497,77 +1486,69 @@ class MappingEngine: ObservableObject {
              ratio > settings.touchpadZoomToPanRatio)
 
         if isPinchGesture {
-            // Reset pan-related state since we're doing pinch
-            state.lock.lock()
-            state.touchpadScrollResidualX = 0
-            state.touchpadScrollResidualY = 0
-            state.touchpadPanActive = false
+            // Capture all pinch decisions under a single lock acquisition
+            let pinchResult: (shouldBeginMagnify: Bool, shouldPostMagnify: Bool, magnification: Double, zoomSteps: Int, zoomDirection: Int) = state.lock.withLock {
+                // Reset pan-related state since we're doing pinch
+                state.touchpadScrollResidualX = 0
+                state.touchpadScrollResidualY = 0
+                state.touchpadPanActive = false
 
-            if settings.touchpadUseNativeZoom {
-                // Use native macOS magnify gesture
-                // Scale the pinch distance to a reasonable magnification value
-                var pinchDelta = smoothedDistance
-                if pinchDelta != 0 {
-                    let direction = pinchDelta > 0 ? 1.0 : -1.0
-                    if !state.touchpadMagnifyGestureActive || state.touchpadMagnifyDirection == 0 {
-                        state.touchpadMagnifyDirection = direction
-                        state.touchpadMagnifyDirectionLockUntil = now + Config.touchpadPinchDirectionLockInterval
-                    } else if direction != state.touchpadMagnifyDirection {
-                        if now < state.touchpadMagnifyDirectionLockUntil {
-                            pinchDelta = 0
-                        } else {
+                if settings.touchpadUseNativeZoom {
+                    // Use native macOS magnify gesture
+                    var pinchDelta = smoothedDistance
+                    if pinchDelta != 0 {
+                        let direction = pinchDelta > 0 ? 1.0 : -1.0
+                        if !state.touchpadMagnifyGestureActive || state.touchpadMagnifyDirection == 0 {
                             state.touchpadMagnifyDirection = direction
                             state.touchpadMagnifyDirectionLockUntil = now + Config.touchpadPinchDirectionLockInterval
+                        } else if direction != state.touchpadMagnifyDirection {
+                            if now < state.touchpadMagnifyDirectionLockUntil {
+                                pinchDelta = 0
+                            } else {
+                                state.touchpadMagnifyDirection = direction
+                                state.touchpadMagnifyDirectionLockUntil = now + Config.touchpadPinchDirectionLockInterval
+                            }
                         }
                     }
-                }
 
-                let magnification = pinchDelta * Config.touchpadPinchSensitivityMultiplier / 1000.0
-                let shouldPostMagnify = pinchDelta != 0
-                let shouldBeginMagnify = !state.touchpadMagnifyGestureActive
+                    let magnification = pinchDelta * Config.touchpadPinchSensitivityMultiplier / 1000.0
+                    let shouldPostMagnify = pinchDelta != 0
+                    let shouldBeginMagnify = !state.touchpadMagnifyGestureActive
 
-                // Track accumulated pinch for scroll suppression
-                state.touchpadPinchAccumulator += abs(pinchDelta)
-                state.touchpadMagnifyGestureActive = true
-                state.lock.unlock()
-
-                if shouldBeginMagnify {
-                    postMagnifyGestureEvent(0, 0)  // begin gesture (phase 0)
-                }
-                if shouldPostMagnify {
-                    postMagnifyGestureEvent(magnification, 1)  // magnify (phase 1)
-                }
-            } else {
-                // Use Cmd+Plus/Minus for zoom (accumulator-based approach)
-                // Pinch out (distance increases, positive) = zoom in = Cmd+Plus
-                // Pinch in (distance decreases, negative) = zoom out = Cmd+Minus
-
-                // Accumulate pinch delta to trigger discrete zoom steps
-                state.touchpadPinchAccumulator += smoothedDistance
-                let threshold = 0.08  // Accumulate enough pinch before triggering zoom
-                let shouldZoomIn = state.touchpadPinchAccumulator > threshold
-                let shouldZoomOut = state.touchpadPinchAccumulator < -threshold
-
-                if shouldZoomIn {
-                    // Calculate zoom steps based on accumulated magnitude (1-3 keypresses)
-                    let steps = min(3, max(1, Int(state.touchpadPinchAccumulator / threshold)))
-                    state.touchpadPinchAccumulator = 0
-                    state.lock.unlock()
-                    // Cmd+Plus (or Cmd+Equals which is same key)
-                    for _ in 0..<steps {
-                        inputSimulator.pressKey(KeyCodeMapping.equal, modifiers: [.maskCommand])
-                    }
-                } else if shouldZoomOut {
-                    // Calculate zoom steps based on accumulated magnitude (1-3 keypresses)
-                    let steps = min(3, max(1, Int(abs(state.touchpadPinchAccumulator) / threshold)))
-                    state.touchpadPinchAccumulator = 0
-                    state.lock.unlock()
-                    // Cmd+Minus
-                    for _ in 0..<steps {
-                        inputSimulator.pressKey(KeyCodeMapping.minus, modifiers: [.maskCommand])
-                    }
+                    state.touchpadPinchAccumulator += abs(pinchDelta)
+                    state.touchpadMagnifyGestureActive = true
+                    return (shouldBeginMagnify, shouldPostMagnify, magnification, 0, 0)
                 } else {
-                    state.lock.unlock()
+                    // Cmd+Plus/Minus zoom (accumulator-based)
+                    state.touchpadPinchAccumulator += smoothedDistance
+                    let threshold = 0.08
+                    if state.touchpadPinchAccumulator > threshold {
+                        let steps = min(3, max(1, Int(state.touchpadPinchAccumulator / threshold)))
+                        state.touchpadPinchAccumulator = 0
+                        return (false, false, 0, steps, 1)  // zoom in
+                    } else if state.touchpadPinchAccumulator < -threshold {
+                        let steps = min(3, max(1, Int(abs(state.touchpadPinchAccumulator) / threshold)))
+                        state.touchpadPinchAccumulator = 0
+                        return (false, false, 0, steps, -1)  // zoom out
+                    }
+                    return (false, false, 0, 0, 0)  // no zoom action
+                }
+            }
+
+            // Act on decisions outside the lock
+            if pinchResult.shouldBeginMagnify {
+                postMagnifyGestureEvent(0, 0)  // begin gesture (phase 0)
+            }
+            if pinchResult.shouldPostMagnify {
+                postMagnifyGestureEvent(pinchResult.magnification, 1)  // magnify (phase 1)
+            }
+            if pinchResult.zoomDirection > 0 {
+                for _ in 0..<pinchResult.zoomSteps {
+                    inputSimulator.pressKey(KeyCodeMapping.equal, modifiers: [.maskCommand])
+                }
+            } else if pinchResult.zoomDirection < 0 {
+                for _ in 0..<pinchResult.zoomSteps {
+                    inputSimulator.pressKey(KeyCodeMapping.minus, modifiers: [.maskCommand])
                 }
             }
             return
@@ -1575,31 +1556,29 @@ class MappingEngine: ObservableObject {
 
         // If we've accumulated significant pinch, suppress scrolling
         // Only suppress when accumulator is large enough to indicate intentional pinch
-        state.lock.lock()
-        let pinchAccumMagnitude = abs(state.touchpadPinchAccumulator)
-        state.lock.unlock()
+        let pinchAccumMagnitude = state.lock.withLock { abs(state.touchpadPinchAccumulator) }
         if pinchAccumMagnitude > 0.05 {
             return
         }
 
         guard panMagnitude > Config.touchpadPanDeadzone else {
             let now = CFAbsoluteTimeGetCurrent()
-            state.lock.lock()
-            state.smoothedTouchpadPanVelocity = .zero
-            state.touchpadPanActive = false
-            state.touchpadMomentumVelocity = .zero
-            state.touchpadMomentumHighVelocityStartTime = 0
-            state.touchpadMomentumHighVelocitySampleCount = 0
-            state.touchpadMomentumPeakVelocity = .zero
-            state.touchpadMomentumPeakMagnitude = 0
-            if state.touchpadMomentumCandidateTime > 0,
-               (now - state.touchpadMomentumCandidateTime) > Config.touchpadMomentumReleaseWindow {
-                state.touchpadMomentumCandidateVelocity = .zero
-                state.touchpadMomentumCandidateTime = 0
+            state.lock.withLock {
+                state.smoothedTouchpadPanVelocity = .zero
+                state.touchpadPanActive = false
+                state.touchpadMomentumVelocity = .zero
+                state.touchpadMomentumHighVelocityStartTime = 0
+                state.touchpadMomentumHighVelocitySampleCount = 0
+                state.touchpadMomentumPeakVelocity = .zero
+                state.touchpadMomentumPeakMagnitude = 0
+                if state.touchpadMomentumCandidateTime > 0,
+                   (now - state.touchpadMomentumCandidateTime) > Config.touchpadMomentumReleaseWindow {
+                    state.touchpadMomentumCandidateVelocity = .zero
+                    state.touchpadMomentumCandidateTime = 0
+                }
+                state.touchpadScrollResidualX = 0
+                state.touchpadScrollResidualY = 0
             }
-            state.touchpadScrollResidualX = 0
-            state.touchpadScrollResidualY = 0
-            state.lock.unlock()
             return
         }
 
@@ -1618,91 +1597,82 @@ class MappingEngine: ObservableObject {
             y: smoothedVelocity.y + (velocityY - smoothedVelocity.y) * velocityAlpha
         )
         let velocityMagnitude = Double(hypot(smoothedVelocity.x, smoothedVelocity.y))
-        state.lock.lock()
-        state.smoothedTouchpadPanVelocity = smoothedVelocity
-        state.touchpadPanActive = true
-        state.touchpadMomentumLastGestureTime = now
-        if velocityMagnitude <= Config.touchpadMomentumStopVelocity {
-            state.touchpadMomentumCandidateVelocity = .zero
-            state.touchpadMomentumCandidateTime = 0
-            state.touchpadMomentumHighVelocityStartTime = 0
-            state.touchpadMomentumHighVelocitySampleCount = 0
-            state.touchpadMomentumPeakVelocity = .zero
-            state.touchpadMomentumPeakMagnitude = 0
-        } else if velocityMagnitude >= Config.touchpadMomentumStartVelocity {
-            // Track high velocity samples and peak
-            if state.touchpadMomentumHighVelocityStartTime == 0 {
-                state.touchpadMomentumHighVelocityStartTime = now
-            }
-            state.touchpadMomentumHighVelocitySampleCount += 1
-            if velocityMagnitude > state.touchpadMomentumPeakMagnitude {
-                state.touchpadMomentumPeakMagnitude = velocityMagnitude
-                state.touchpadMomentumPeakVelocity = smoothedVelocity
-            }
+        state.lock.withLock {
+            state.smoothedTouchpadPanVelocity = smoothedVelocity
+            state.touchpadPanActive = true
+            state.touchpadMomentumLastGestureTime = now
+            if velocityMagnitude <= Config.touchpadMomentumStopVelocity {
+                state.touchpadMomentumCandidateVelocity = .zero
+                state.touchpadMomentumCandidateTime = 0
+                state.touchpadMomentumHighVelocityStartTime = 0
+                state.touchpadMomentumHighVelocitySampleCount = 0
+                state.touchpadMomentumPeakVelocity = .zero
+                state.touchpadMomentumPeakMagnitude = 0
+            } else if velocityMagnitude >= Config.touchpadMomentumStartVelocity {
+                // Track high velocity samples and peak
+                if state.touchpadMomentumHighVelocityStartTime == 0 {
+                    state.touchpadMomentumHighVelocityStartTime = now
+                }
+                state.touchpadMomentumHighVelocitySampleCount += 1
+                if velocityMagnitude > state.touchpadMomentumPeakMagnitude {
+                    state.touchpadMomentumPeakMagnitude = velocityMagnitude
+                    state.touchpadMomentumPeakVelocity = smoothedVelocity
+                }
 
-            // Require 2+ samples to filter out edge-exit spikes (single sample spikes)
-            let sustainedDuration = now - state.touchpadMomentumHighVelocityStartTime
-            if state.touchpadMomentumHighVelocitySampleCount >= 2 &&
-                sustainedDuration >= Config.touchpadMomentumSustainedDuration {
-                // Use current smoothed velocity to avoid overshooting on brief spikes
-                let baseMagnitude = velocityMagnitude
-                let baseVelocity = smoothedVelocity
-                let clampedMagnitude = min(baseMagnitude, Config.touchpadMomentumMaxVelocity)
-                let velocityScale = baseMagnitude > 0 ? clampedMagnitude / baseMagnitude : 0
-                // Scale boost based on velocity - lower boost near threshold, higher at fast speeds
-                let boostRange = Config.touchpadMomentumBoostMax - Config.touchpadMomentumBoostMin
-                let velocityRange = Config.touchpadMomentumBoostMaxVelocity - Config.touchpadMomentumStartVelocity
-                let velocityAboveThreshold = min(baseMagnitude - Config.touchpadMomentumStartVelocity, velocityRange)
-                let boostFactor = velocityRange > 0 ? velocityAboveThreshold / velocityRange : 0
-                let boost = Config.touchpadMomentumBoostMin + boostRange * boostFactor
-                let clampedVelocity = CGPoint(
-                    x: baseVelocity.x * velocityScale * boost,
-                    y: baseVelocity.y * velocityScale * boost
-                )
-                state.touchpadMomentumCandidateVelocity = clampedVelocity
-                state.touchpadMomentumCandidateTime = now
+                // Require 2+ samples to filter out edge-exit spikes (single sample spikes)
+                let sustainedDuration = now - state.touchpadMomentumHighVelocityStartTime
+                if state.touchpadMomentumHighVelocitySampleCount >= 2 &&
+                    sustainedDuration >= Config.touchpadMomentumSustainedDuration {
+                    let baseMagnitude = velocityMagnitude
+                    let baseVelocity = smoothedVelocity
+                    let clampedMagnitude = min(baseMagnitude, Config.touchpadMomentumMaxVelocity)
+                    let velocityScale = baseMagnitude > 0 ? clampedMagnitude / baseMagnitude : 0
+                    let boostRange = Config.touchpadMomentumBoostMax - Config.touchpadMomentumBoostMin
+                    let velocityRange = Config.touchpadMomentumBoostMaxVelocity - Config.touchpadMomentumStartVelocity
+                    let velocityAboveThreshold = min(baseMagnitude - Config.touchpadMomentumStartVelocity, velocityRange)
+                    let boostFactor = velocityRange > 0 ? velocityAboveThreshold / velocityRange : 0
+                    let boost = Config.touchpadMomentumBoostMin + boostRange * boostFactor
+                    let clampedVelocity = CGPoint(
+                        x: baseVelocity.x * velocityScale * boost,
+                        y: baseVelocity.y * velocityScale * boost
+                    )
+                    state.touchpadMomentumCandidateVelocity = clampedVelocity
+                    state.touchpadMomentumCandidateTime = now
+                }
+            } else {
+                // Velocity is between stop and start thresholds - reset high velocity tracking
+                state.touchpadMomentumCandidateVelocity = .zero
+                state.touchpadMomentumCandidateTime = 0
+                state.touchpadMomentumHighVelocityStartTime = 0
+                state.touchpadMomentumHighVelocitySampleCount = 0
+                state.touchpadMomentumPeakVelocity = .zero
+                state.touchpadMomentumPeakMagnitude = 0
             }
-        } else {
-            // Velocity is between stop and start thresholds - reset high velocity tracking
-            state.touchpadMomentumCandidateVelocity = .zero
-            state.touchpadMomentumCandidateTime = 0
-            state.touchpadMomentumHighVelocityStartTime = 0
-            state.touchpadMomentumHighVelocitySampleCount = 0
-            state.touchpadMomentumPeakVelocity = .zero
-            state.touchpadMomentumPeakMagnitude = 0
         }
-        state.lock.unlock()
-        return
     }
 
     nonisolated private func processTouchpadMomentumTick(now: CFAbsoluteTime) {
-        state.lock.lock()
-        guard state.isEnabled else {
-            state.lock.unlock()
-            return
-        }
-        let isGestureActive = state.isTouchpadGestureActive
-        let panActive = state.touchpadPanActive
-        let panVelocity = state.smoothedTouchpadPanVelocity
-        let lastGestureTime = state.touchpadMomentumLastGestureTime
-        var velocity = state.touchpadMomentumVelocity
-        var wasActive = state.touchpadMomentumWasActive
-        var residualX = state.touchpadScrollResidualX
-        var residualY = state.touchpadScrollResidualY
-        let lastUpdate = state.touchpadMomentumLastUpdate
-        state.lock.unlock()
+        guard let snapshot = state.lock.withLock({ () -> (isGestureActive: Bool, panActive: Bool, panVelocity: CGPoint, lastGestureTime: TimeInterval, velocity: CGPoint, wasActive: Bool, residualX: Double, residualY: Double, lastUpdate: TimeInterval)? in
+            guard state.isEnabled else { return nil }
+            return (state.isTouchpadGestureActive, state.touchpadPanActive, state.smoothedTouchpadPanVelocity, state.touchpadMomentumLastGestureTime, state.touchpadMomentumVelocity, state.touchpadMomentumWasActive, state.touchpadScrollResidualX, state.touchpadScrollResidualY, state.touchpadMomentumLastUpdate)
+        }) else { return }
+        let isGestureActive = snapshot.isGestureActive
+        let panActive = snapshot.panActive
+        let panVelocity = snapshot.panVelocity
+        let lastGestureTime = snapshot.lastGestureTime
+        var velocity = snapshot.velocity
+        var wasActive = snapshot.wasActive
+        var residualX = snapshot.residualX
+        var residualY = snapshot.residualY
+        let lastUpdate = snapshot.lastUpdate
 
         if isGestureActive {
             if lastUpdate == 0 {
-                state.lock.lock()
-                state.touchpadMomentumLastUpdate = now
-                state.lock.unlock()
+                state.lock.withLock { state.touchpadMomentumLastUpdate = now }
                 return
             }
             guard panActive else {
-                state.lock.lock()
-                state.touchpadMomentumLastUpdate = now
-                state.lock.unlock()
+                state.lock.withLock { state.touchpadMomentumLastUpdate = now }
                 return
             }
             let dt = max(now - lastUpdate, Config.touchpadMomentumMinDeltaTime)
@@ -1726,18 +1696,16 @@ class MappingEngine: ObservableObject {
                 )
                 usageStatsService?.recordScrollDistance(dx: sendDx, dy: sendDy)
             }
-            state.lock.lock()
-            state.touchpadMomentumLastUpdate = now
-            state.touchpadScrollResidualX = residualX
-            state.touchpadScrollResidualY = residualY
-            state.lock.unlock()
+            state.lock.withLock {
+                state.touchpadMomentumLastUpdate = now
+                state.touchpadScrollResidualX = residualX
+                state.touchpadScrollResidualY = residualY
+            }
             return
         }
 
         if lastUpdate == 0 {
-            state.lock.lock()
-            state.touchpadMomentumLastUpdate = now
-            state.lock.unlock()
+            state.lock.withLock { state.touchpadMomentumLastUpdate = now }
             return
         }
 
@@ -1753,13 +1721,13 @@ class MappingEngine: ObservableObject {
                     flags: inputSimulator.getHeldModifiers()
                 )
             }
-            state.lock.lock()
-            state.touchpadMomentumVelocity = .zero
-            state.touchpadMomentumWasActive = false
-            state.touchpadMomentumLastUpdate = now
-            state.touchpadScrollResidualX = 0
-            state.touchpadScrollResidualY = 0
-            state.lock.unlock()
+            state.lock.withLock {
+                state.touchpadMomentumVelocity = .zero
+                state.touchpadMomentumWasActive = false
+                state.touchpadMomentumLastUpdate = now
+                state.touchpadScrollResidualX = 0
+                state.touchpadScrollResidualY = 0
+            }
             return
         }
 
@@ -1778,13 +1746,13 @@ class MappingEngine: ObservableObject {
                     flags: inputSimulator.getHeldModifiers()
                 )
             }
-            state.lock.lock()
-            state.touchpadMomentumVelocity = .zero
-            state.touchpadMomentumWasActive = false
-            state.touchpadMomentumLastUpdate = now
-            state.touchpadScrollResidualX = 0
-            state.touchpadScrollResidualY = 0
-            state.lock.unlock()
+            state.lock.withLock {
+                state.touchpadMomentumVelocity = .zero
+                state.touchpadMomentumWasActive = false
+                state.touchpadMomentumLastUpdate = now
+                state.touchpadScrollResidualX = 0
+                state.touchpadScrollResidualY = 0
+            }
             return
         }
 
@@ -1811,13 +1779,13 @@ class MappingEngine: ObservableObject {
             wasActive = true
         }
 
-        state.lock.lock()
-        state.touchpadMomentumVelocity = velocity
-        state.touchpadMomentumWasActive = wasActive
-        state.touchpadMomentumLastUpdate = now
-        state.touchpadScrollResidualX = residualX
-        state.touchpadScrollResidualY = residualY
-        state.lock.unlock()
+        state.lock.withLock {
+            state.touchpadMomentumVelocity = velocity
+            state.touchpadMomentumWasActive = wasActive
+            state.touchpadMomentumLastUpdate = now
+            state.touchpadScrollResidualX = residualX
+            state.touchpadScrollResidualY = residualY
+        }
     }
     /// Performs haptic feedback for focus mode transitions on the controller
     nonisolated private func performFocusModeHaptic(entering: Bool) {
@@ -1934,12 +1902,13 @@ class MappingEngine: ObservableObject {
 
     /// Releases all direction keys for both sticks (called on disable)
     nonisolated private func releaseAllDirectionKeys() {
-        state.lock.lock()
-        let leftKeys = state.leftStickHeldKeys
-        let rightKeys = state.rightStickHeldKeys
-        state.leftStickHeldKeys.removeAll()
-        state.rightStickHeldKeys.removeAll()
-        state.lock.unlock()
+        let (leftKeys, rightKeys) = state.lock.withLock {
+            let left = state.leftStickHeldKeys
+            let right = state.rightStickHeldKeys
+            state.leftStickHeldKeys.removeAll()
+            state.rightStickHeldKeys.removeAll()
+            return (left, right)
+        }
 
         for key in leftKeys {
             inputSimulator.keyUp(key)
