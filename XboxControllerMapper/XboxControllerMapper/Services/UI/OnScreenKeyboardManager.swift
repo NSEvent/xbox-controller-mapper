@@ -21,6 +21,7 @@ class OnScreenKeyboardManager: ObservableObject {
     // MARK: - D-Pad Navigation State
     @Published var navigationModeActive = false
     @Published var highlightedItem: KeyboardNavigationItem?
+    @Published var controllerPressedItem: KeyboardNavigationItem?
 
     /// Last item hovered by mouse - used as starting position when entering D-pad navigation
     var lastMouseHoveredItem: KeyboardNavigationItem?
@@ -488,6 +489,14 @@ class OnScreenKeyboardManager: ObservableObject {
     /// Activate the currently highlighted item
     func activateHighlightedItem() {
         guard navigationModeActive, let item = highlightedItem else { return }
+
+        // Visual press feedback (matches mouse click behavior)
+        controllerPressedItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            if self?.controllerPressedItem == item {
+                self?.controllerPressedItem = nil
+            }
+        }
 
         switch item {
         case .keyPosition(let row, let column):

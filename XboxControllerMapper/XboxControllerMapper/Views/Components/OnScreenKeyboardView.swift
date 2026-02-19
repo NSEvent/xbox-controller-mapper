@@ -254,7 +254,7 @@ struct OnScreenKeyboardView: View {
     private func appBarButton(_ item: AppBarItem) -> some View {
         let isNavHighlighted = keyboardManager.highlightedItem == .appBarItem(item.id)
         let isHovered = hoveredAppBarItemId == item.id && !keyboardManager.navigationModeActive
-        let isPressed = pressedAppBarItemId == item.id
+        let isPressed = pressedAppBarItemId == item.id || keyboardManager.controllerPressedItem == .appBarItem(item.id)
         let isHighlighted = isHovered || isNavHighlighted
         let iconSize: CGFloat = 56
 
@@ -327,7 +327,7 @@ struct OnScreenKeyboardView: View {
     private func websiteLinkButton(_ link: WebsiteLink) -> some View {
         let isNavHighlighted = keyboardManager.highlightedItem == .websiteLink(link.id)
         let isHovered = hoveredWebsiteLinkId == link.id && !keyboardManager.navigationModeActive
-        let isPressed = pressedWebsiteLinkId == link.id
+        let isPressed = pressedWebsiteLinkId == link.id || keyboardManager.controllerPressedItem == .websiteLink(link.id)
         let isHighlighted = isHovered || isNavHighlighted
         let iconSize: CGFloat = 56
 
@@ -434,7 +434,7 @@ struct OnScreenKeyboardView: View {
     private func quickTextButton(_ quickText: QuickText) -> some View {
         let isNavHighlighted = keyboardManager.highlightedItem == .quickText(quickText.id)
         let isHovered = hoveredQuickTextId == quickText.id && !keyboardManager.navigationModeActive
-        let isPressed = pressedQuickTextId == quickText.id
+        let isPressed = pressedQuickTextId == quickText.id || keyboardManager.controllerPressedItem == .quickText(quickText.id)
         let isHighlighted = isHovered || isNavHighlighted
 
         return Button {
@@ -533,7 +533,7 @@ struct OnScreenKeyboardView: View {
     private func mediaKey(_ keyCode: CGKeyCode, label: String, symbol: String, keyboardRow: Int, column: Int) -> some View {
         let isNavHighlighted = keyboardManager.highlightedItem == .keyPosition(row: keyboardRow, column: column)
         let isHovered = hoveredKey == keyCode && !keyboardManager.navigationModeActive
-        let isPressed = pressedKey == keyCode
+        let isPressed = pressedKey == keyCode || keyboardManager.controllerPressedItem == .keyPosition(row: keyboardRow, column: column)
         let isHighlighted = isHovered || isNavHighlighted
 
         return Button {
@@ -737,8 +737,12 @@ struct OnScreenKeyboardView: View {
             guard let row = keyboardRow, let col = column else { return false }
             return keyboardManager.highlightedItem == .keyPosition(row: row, column: col)
         }()
+        let isControllerPressed: Bool = {
+            guard let row = keyboardRow, let col = column else { return false }
+            return keyboardManager.controllerPressedItem == .keyPosition(row: row, column: col)
+        }()
         let isHovered = hoveredKey == keyCode && !keyboardManager.navigationModeActive
-        let isPressed = pressedKey == keyCode
+        let isPressed = pressedKey == keyCode || isControllerPressed
         let isHighlighted = isHovered || isNavHighlighted
         let secondary = secondaryKeys[label]
         let isShiftActive = activeModifiers.shift
