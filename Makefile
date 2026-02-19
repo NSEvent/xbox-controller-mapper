@@ -27,6 +27,7 @@ SCHEME ?= XboxControllerMapper
 CONFIG ?= Release
 TEAM_ID ?= 542GXYT5Z2
 PROJECT := XboxControllerMapper/XboxControllerMapper.xcodeproj
+TEST_DERIVED_DATA := /tmp/xcm-derived-data-$(shell date +%s)-$(shell echo $$PPID)
 
 # Load version from version.env
 include version.env
@@ -43,7 +44,7 @@ PROCESS_NAME := $(basename $(WRAPPER_NAME))
 # Check if Kevin's dev cert is available (team ID 542GXYT5Z2)
 HAS_DEV_CERT := $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q "$(TEAM_ID)" && echo 1 || echo 0)
 
-.PHONY: build install clean release sign-and-notarize app-path help check-permissions
+.PHONY: build install clean release sign-and-notarize app-path help check-permissions test-regressions test-full refactor-gate
 
 help:
 	@echo "ControllerKeys - Build Commands"
@@ -53,6 +54,9 @@ help:
 	@echo "  make clean     - Clean build artifacts"
 	@echo "  make release   - Full release workflow (sign, notarize, create GitHub release)"
 	@echo "  make app-path  - Show the built app path"
+	@echo "  make test-regressions - Run focused regression suite"
+	@echo "  make test-full - Run full test suite"
+	@echo "  make refactor-gate - Run regression suite + full suite"
 	@echo ""
 	@echo "Configuration:"
 	@echo "  CONFIG=$(CONFIG) SCHEME=$(SCHEME)"
@@ -108,3 +112,16 @@ sign-and-notarize:
 
 app-path:
 	@echo "$(APP_PATH)"
+
+test-regressions:
+	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(TEST_DERIVED_DATA)-regressions -destination 'platform=macOS' \
+		-only-testing:XboxControllerMapperTests/ProfileAutoSwitchResolverTests \
+		-only-testing:XboxControllerMapperTests/MouseClickLocationPolicyTests \
+		-only-testing:XboxControllerMapperTests/XboxControllerMapperTests/testTouchpadTapGesture \
+		-only-testing:XboxControllerMapperTests/XboxControllerMapperTests/testTouchpadTwoFingerTap \
+		-only-testing:XboxControllerMapperTests/XboxControllerMapperTests/testJoystickMouseMovement
+
+test-full:
+	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(TEST_DERIVED_DATA)-full -destination 'platform=macOS'
+
+refactor-gate: test-regressions test-full
