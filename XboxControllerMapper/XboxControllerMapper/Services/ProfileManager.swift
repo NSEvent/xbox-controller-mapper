@@ -283,36 +283,19 @@ class ProfileManager: ObservableObject {
         }
 
         do {
-            let data = try Data(contentsOf: urlToLoad)
-            
-            let config = try ProfileConfigurationCodec.decode(from: data)
-            var didMigrate = false
+            let result = try ProfileConfigurationLoadCoordinator.load(from: urlToLoad)
+            self.profiles = result.profiles
+            self.activeProfile = result.activeProfile
+            self.activeProfileId = result.activeProfileId
 
-            let (migratedProfiles, migratedTouchpadSettings) = ProfileConfigurationMigrationService
-                .migrateTouchpadSettingsIfNeeded(in: config.profiles)
-            didMigrate = didMigrate || migratedTouchpadSettings
-            applyLoadedProfiles(migratedProfiles, activeProfileId: config.activeProfileId)
-
-            if let scale = config.uiScale {
+            if let scale = result.uiScale {
                 self.uiScale = scale
-            }
-
-            // Migrate legacy global keyboard settings into profiles
-            if let legacyKeyboardSettings = config.onScreenKeyboardSettings {
-                let migration = ProfileConfigurationMigrationService.migrateLegacyKeyboardSettings(
-                    legacyKeyboardSettings,
-                    in: self.profiles,
-                    activeProfileId: self.activeProfileId
-                )
-                self.profiles = migration.profiles
-                self.activeProfile = migration.activeProfile
-                didMigrate = didMigrate || migration.didMigrate
             }
 
             loadSucceeded = true  // Mark that we successfully loaded the config
 
             // Save to new location if migrating from legacy or if data migrations occurred
-            if migratingFromLegacy || didMigrate {
+            if migratingFromLegacy || result.didMigrate {
                 saveConfiguration()
                 if migratingFromLegacy {
                     NSLog("[ProfileManager] Config migrated to new location: \(configURL.path)")
@@ -322,19 +305,6 @@ class ProfileManager: ObservableObject {
             NSLog("[ProfileManager] Configuration load failed: \(error)")
             // DO NOT set loadSucceeded = true, so we won't overwrite corrupted/incompatible config
         }
-    }
-
-    private func applyLoadedProfiles(_ loadedProfiles: [Profile], activeProfileId: UUID?) {
-        guard let result = ProfileLoadedDataApplicator.apply(
-            loadedProfiles: loadedProfiles,
-            activeProfileId: activeProfileId
-        ) else {
-            return
-        }
-
-        self.profiles = result.profiles
-        self.activeProfile = result.activeProfile
-        self.activeProfileId = result.activeProfileId
     }
 
     private func saveConfiguration() {
