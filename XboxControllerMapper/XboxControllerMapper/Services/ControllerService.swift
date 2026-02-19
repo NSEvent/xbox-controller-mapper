@@ -845,8 +845,8 @@ class ControllerService: ObservableObject {
                 button: dualSenseGamepad.touchpadButton
             )
 
-            // Set up HID monitoring for mic button (not exposed by GameController framework)
-            setupMicButtonMonitoring()
+            // Set up HID monitoring for PS button, mic, and Edge paddles
+            setupPlayStationHIDMonitoring()
         }
 
         // DualShock 4-specific: Touchpad support (same API as DualSense)
@@ -866,6 +866,9 @@ class ControllerService: ObservableObject {
                 secondary: dualShockGamepad.touchpadSecondary,
                 button: dualShockGamepad.touchpadButton
             )
+
+            // Set up HID monitoring for PS button
+            setupPlayStationHIDMonitoring()
         }
     }
 
@@ -918,9 +921,9 @@ class ControllerService: ObservableObject {
         }
     }
 
-    // MARK: - DualSense Mic Button Monitoring (via IOKit HID)
+    // MARK: - PlayStation HID Monitoring (PS button, mic, Edge paddles)
 
-    private func setupMicButtonMonitoring() {
+    private func setupPlayStationHIDMonitoring() {
         // Clean up any existing HID manager
         cleanupHIDMonitoring()
 
@@ -931,7 +934,7 @@ class ControllerService: ObservableObject {
         hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         guard let manager = hidManager else { return }
 
-        // Match DualSense and DualSense Edge controllers
+        // Match all PlayStation controllers
         let dualSenseDict: [String: Any] = [
             kIOHIDVendorIDKey as String: 0x054C,  // Sony
             kIOHIDProductIDKey as String: 0x0CE6, // DualSense
@@ -940,7 +943,15 @@ class ControllerService: ObservableObject {
             kIOHIDVendorIDKey as String: 0x054C,  // Sony
             kIOHIDProductIDKey as String: 0x0DF2, // DualSense Edge
         ]
-        let matchingDicts = [dualSenseDict, dualSenseEdgeDict] as CFArray
+        let dualShock4V1Dict: [String: Any] = [
+            kIOHIDVendorIDKey as String: 0x054C,  // Sony
+            kIOHIDProductIDKey as String: 0x05C4, // DualShock 4 v1
+        ]
+        let dualShock4V2Dict: [String: Any] = [
+            kIOHIDVendorIDKey as String: 0x054C,  // Sony
+            kIOHIDProductIDKey as String: 0x09CC, // DualShock 4 v2
+        ]
+        let matchingDicts = [dualSenseDict, dualSenseEdgeDict, dualShock4V1Dict, dualShock4V2Dict] as CFArray
         IOHIDManagerSetDeviceMatchingMultiple(manager, matchingDicts)
 
         // Schedule with run loop first
@@ -958,7 +969,15 @@ class ControllerService: ObservableObject {
     private func setupHIDDeviceCallback(_ device: IOHIDDevice) {
         hidDevice = device
         detectConnectionType(device: device)
-        detectDualSenseEdge(device: device)
+
+        // DualSense-specific detection
+        let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int
+        let isDualSenseDevice = (productID == 0x0CE6 || productID == 0x0DF2)
+
+        if isDualSenseDevice {
+            detectDualSenseEdge(device: device)
+        }
+
         guard let buffer = hidReportBuffer else { return }
 
         let context = Unmanaged.passUnretained(self).toOpaque()
@@ -970,12 +989,14 @@ class ControllerService: ObservableObject {
 
         IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
 
-        // Enable microphone when connected via USB
-        storage.lock.lock()
-        let isBluetooth = storage.isBluetoothConnection
-        storage.lock.unlock()
-        if !isBluetooth {
-            enableMicrophone(device: device)
+        // Enable microphone when connected via USB (DualSense only)
+        if isDualSenseDevice {
+            storage.lock.lock()
+            let isBluetooth = storage.isBluetoothConnection
+            storage.lock.unlock()
+            if !isBluetooth {
+                enableMicrophone(device: device)
+            }
         }
     }
 
@@ -1710,32 +1731,55 @@ class ControllerService: ObservableObject {
     }
 
     nonisolated private func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
-        // Process report 0x31 (Bluetooth) or 0x01 (USB) input reports
-        // USB report 0x01: buttons at different offsets (no extra header byte)
-        // Bluetooth report 0x31: has extra header, buttons2 at byte 11
-        let buttons2Offset: Int
-        if reportID == 0x31 && length >= 12 {
-            buttons2Offset = 11  // Bluetooth
-        } else if reportID == 0x01 && length >= 11 {
-            buttons2Offset = 10  // USB (one byte less offset)
+        // Determine button byte offset based on controller type and report ID
+        //
+        // DualSense USB  (0x01): buttons3 at byte 10
+        // DualSense BT   (0x31): buttons3 at byte 11 (extra header byte)
+        // DualShock 4 USB (0x01): buttons3 at byte 7
+        // DualShock 4 BT  (0x11): buttons3 at byte 9 (2 extra header bytes)
+        //
+        // All share the same bit layout for buttons3:
+        //   Bit 0: PS button, Bit 1: Touchpad button, Bit 2: Mic mute (DualSense only)
+
+        storage.lock.lock()
+        let isDualShockController = storage.isDualShock
+        storage.lock.unlock()
+
+        let buttons3Offset: Int
+        if isDualShockController {
+            // DualShock 4 reports
+            if reportID == 0x11 && length >= 10 {
+                buttons3Offset = 9   // Bluetooth extended report
+            } else if reportID == 0x01 && length >= 8 {
+                buttons3Offset = 7   // USB report
+            } else {
+                return
+            }
         } else {
-            return
+            // DualSense reports
+            if reportID == 0x31 && length >= 12 {
+                buttons3Offset = 11  // Bluetooth
+            } else if reportID == 0x01 && length >= 11 {
+                buttons3Offset = 10  // USB
+            } else {
+                return
+            }
         }
 
-        // buttons2 contains PS/Touch/Mute and Edge paddles
+        // buttons3 contains PS/Touch/Mute and Edge paddles
         // Bit 0: PS button, Bit 1: Touchpad button, Bit 2: Mic mute
         // DualSense Edge additional buttons (bits 4-7):
         // Bit 4: Left function (0x10), Bit 5: Right function (0x20)
         // Bit 6: Left paddle (0x40), Bit 7: Right paddle (0x80)
-        let buttons2 = report[buttons2Offset]
-        let psPressed = (buttons2 & 0x01) != 0
-        let micPressed = (buttons2 & 0x04) != 0
+        let buttons3 = report[buttons3Offset]
+        let psPressed = (buttons3 & 0x01) != 0
+        let micPressed = isDualShockController ? false : (buttons3 & 0x04) != 0
 
-        // DualSense Edge buttons
-        let leftFnPressed = (buttons2 & 0x10) != 0
-        let rightFnPressed = (buttons2 & 0x20) != 0
-        let leftPaddlePressed = (buttons2 & 0x40) != 0
-        let rightPaddlePressed = (buttons2 & 0x80) != 0
+        // DualSense Edge buttons (not applicable to DualShock)
+        let leftFnPressed = (buttons3 & 0x10) != 0
+        let rightFnPressed = (buttons3 & 0x20) != 0
+        let leftPaddlePressed = (buttons3 & 0x40) != 0
+        let rightPaddlePressed = (buttons3 & 0x80) != 0
 
         // Detect state changes (thread-safe)
         storage.lock.lock()
