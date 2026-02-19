@@ -387,6 +387,11 @@ class ProfileManager: ObservableObject {
         persistImportedProfile(ProfileTransferService.prepareForImport(profile))
     }
 
+    /// Imports a profile built from a Stream Deck profile
+    func importStreamDeckProfile(_ profile: Profile) -> Profile {
+        persistImportedProfile(ProfileTransferService.prepareForImport(profile))
+    }
+
     /// Downloads and imports a profile from a URL
     nonisolated func downloadProfile(from urlString: String) async throws -> Profile {
         let downloadedProfile = try await CommunityProfileClient.fetchProfile(from: urlString)

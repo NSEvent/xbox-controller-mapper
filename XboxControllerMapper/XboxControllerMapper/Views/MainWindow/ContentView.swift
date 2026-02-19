@@ -602,6 +602,9 @@ struct ProfileSidebar: View {
     @State private var renameProfileName = ""
     @State private var profileToRename: Profile?
     @State private var isImporting = false
+    @State private var isImportingStreamDeck = false
+    @State private var showingStreamDeckImport = false
+    @State private var streamDeckFileURL: URL?
     @State private var isExporting = false
     @State private var profileToExport: Profile?
     @State private var profileToLink: Profile?
@@ -623,6 +626,9 @@ struct ProfileSidebar: View {
                     }
                     Button("Import Profile...") {
                         isImporting = true
+                    }
+                    Button("Import Stream Deck Profile...") {
+                        isImportingStreamDeck = true
                     }
                     Button("Import Community Profile...") {
                         showingCommunityProfiles = true
@@ -745,6 +751,29 @@ struct ProfileSidebar: View {
             defaultFilename: profileToExport?.name ?? "Profile"
         ) { result in
             // Export completed, success or failure handled by system
+        }
+        .fileImporter(
+            isPresented: $isImportingStreamDeck,
+            allowedContentTypes: [.data],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                // No extension filter — the parser handles invalid files
+                // and shows a descriptive error in the import sheet
+                streamDeckFileURL = url
+                showingStreamDeckImport = true
+            case .failure:
+                #if DEBUG
+                print("Stream Deck file import failed")
+                #endif
+            }
+        }
+        .sheet(isPresented: $showingStreamDeckImport) {
+            if let url = streamDeckFileURL {
+                StreamDeckImportSheet(fileURL: url)
+            }
         }
         .sheet(isPresented: $showingCommunityProfiles) {
             CommunityProfilesSheet()
