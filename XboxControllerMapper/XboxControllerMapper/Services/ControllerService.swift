@@ -195,6 +195,23 @@ class ControllerService: ObservableObject {
     private enum TouchpadIdleSentinelConfig {
         static let activationThreshold: CGFloat = 0.02
     }
+
+    private nonisolated func withStorageLock<T>(_ operation: (ControllerStorage) -> T) -> T {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return operation(storage)
+    }
+
+    private nonisolated func readStorage<T>(_ keyPath: KeyPath<ControllerStorage, T>) -> T {
+        withStorageLock { $0[keyPath: keyPath] }
+    }
+
+    private nonisolated func writeStorage<T>(
+        _ keyPath: ReferenceWritableKeyPath<ControllerStorage, T>,
+        _ value: T
+    ) {
+        withStorageLock { $0[keyPath: keyPath] = value }
+    }
     
     nonisolated var threadSafeLeftStick: CGPoint {
         storage.lock.lock()
@@ -298,16 +315,8 @@ class ControllerService: ObservableObject {
 
     /// Chord detection window (accessible for testing and configuration)
     var chordWindow: TimeInterval {
-        get {
-            storage.lock.lock()
-            defer { storage.lock.unlock() }
-            return storage.chordWindow
-        }
-        set {
-            storage.lock.lock()
-            storage.chordWindow = newValue
-            storage.lock.unlock()
-        }
+        get { readStorage(\.chordWindow) }
+        set { writeStorage(\.chordWindow, newValue) }
     }
 
     // MARK: - Throttled UI Display Values (updated at ~15Hz to avoid UI blocking)
@@ -329,48 +338,48 @@ class ControllerService: ObservableObject {
 
     // Callback proxies (Thread-safe storage backing)
     var onButtonPressed: ((ControllerButton) -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onButtonPressed }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onButtonPressed = newValue }
+        get { readStorage(\.onButtonPressed) }
+        set { writeStorage(\.onButtonPressed, newValue) }
     }
     var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onButtonReleased }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onButtonReleased = newValue }
+        get { readStorage(\.onButtonReleased) }
+        set { writeStorage(\.onButtonReleased, newValue) }
     }
     var onChordDetected: ((Set<ControllerButton>) -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onChordDetected }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onChordDetected = newValue }
+        get { readStorage(\.onChordDetected) }
+        set { writeStorage(\.onChordDetected, newValue) }
     }
     var onLeftStickMoved: ((CGPoint) -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onLeftStickMoved }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onLeftStickMoved = newValue }
+        get { readStorage(\.onLeftStickMoved) }
+        set { writeStorage(\.onLeftStickMoved, newValue) }
     }
     var onRightStickMoved: ((CGPoint) -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onRightStickMoved }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onRightStickMoved = newValue }
+        get { readStorage(\.onRightStickMoved) }
+        set { writeStorage(\.onRightStickMoved, newValue) }
     }
     var onTouchpadMoved: ((CGPoint) -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadMoved }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadMoved = newValue }
+        get { readStorage(\.onTouchpadMoved) }
+        set { writeStorage(\.onTouchpadMoved, newValue) }
     }
     var onTouchpadGesture: ((TouchpadGesture) -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadGesture }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadGesture = newValue }
+        get { readStorage(\.onTouchpadGesture) }
+        set { writeStorage(\.onTouchpadGesture, newValue) }
     }
     var onTouchpadTap: (() -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadTap }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadTap = newValue }
+        get { readStorage(\.onTouchpadTap) }
+        set { writeStorage(\.onTouchpadTap, newValue) }
     }
     var onTouchpadTwoFingerTap: (() -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadTwoFingerTap }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadTwoFingerTap = newValue }
+        get { readStorage(\.onTouchpadTwoFingerTap) }
+        set { writeStorage(\.onTouchpadTwoFingerTap, newValue) }
     }
     var onTouchpadLongTap: (() -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadLongTap }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadLongTap = newValue }
+        get { readStorage(\.onTouchpadLongTap) }
+        set { writeStorage(\.onTouchpadLongTap, newValue) }
     }
     var onTouchpadTwoFingerLongTap: (() -> Void)? {
-        get { storage.lock.lock(); defer { storage.lock.unlock() }; return storage.onTouchpadTwoFingerLongTap }
-        set { storage.lock.lock(); defer { storage.lock.unlock() }; storage.onTouchpadTwoFingerLongTap = newValue }
+        get { readStorage(\.onTouchpadTwoFingerLongTap) }
+        set { writeStorage(\.onTouchpadTwoFingerLongTap, newValue) }
     }
 
     private var cancellables = Set<AnyCancellable>()
