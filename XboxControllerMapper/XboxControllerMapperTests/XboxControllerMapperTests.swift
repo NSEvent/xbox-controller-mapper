@@ -9,7 +9,8 @@ import AppKit
 // MARK: - Mocks
 
 class MockInputSimulator: InputSimulatorProtocol {
-    
+    var systemCommandHandler: (@Sendable (SystemCommand) -> Void)?
+
     enum Event: Equatable {
         case pressKey(CGKeyCode, CGEventFlags)
         case keyDown(CGKeyCode)

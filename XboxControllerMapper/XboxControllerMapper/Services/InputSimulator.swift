@@ -5,6 +5,7 @@ import IOKit.hidsystem
 import ApplicationServices.HIServices
 
 protocol InputSimulatorProtocol: Sendable {
+    var systemCommandHandler: (@Sendable (SystemCommand) -> Void)? { get set }
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
     func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
     func keyUp(_ keyCode: CGKeyCode)
@@ -118,6 +119,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         sharedLock.unlock()
     }
     private let eventSource: CGEventSource?
+
+    /// Handler for executing system commands from macro steps
+    var systemCommandHandler: (@Sendable (SystemCommand) -> Void)?
 
     /// Currently held modifier flags (for hold-type mappings)
     private var heldModifiers: CGEventFlags = []
@@ -1088,6 +1092,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
                 case .openLink(let url):
                     self.openURL(url)
+
+                case .shellCommand(let command, let inTerminal):
+                    let systemCommand = SystemCommand.shellCommand(command: command, inTerminal: inTerminal)
+                    self.systemCommandHandler?(systemCommand)
+
+                case .webhook(let url, let method, let headers, let body):
+                    let systemCommand = SystemCommand.httpRequest(url: url, method: method, headers: headers, body: body)
+                    self.systemCommandHandler?(systemCommand)
+
+                case .obsWebSocket(let url, let password, let requestType, let requestData):
+                    let systemCommand = SystemCommand.obsWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
+                    self.systemCommandHandler?(systemCommand)
                 }
             }
         }

@@ -328,6 +328,15 @@ struct MacroStepRow: View {
         case .openLink:
             Image(systemName: "link")
                 .foregroundColor(.teal)
+        case .shellCommand:
+            Image(systemName: "terminal")
+                .foregroundColor(.indigo)
+        case .webhook:
+            Image(systemName: "arrow.up.right.circle")
+                .foregroundColor(.pink)
+        case .obsWebSocket:
+            Image(systemName: "video.fill")
+                .foregroundColor(.red)
         }
     }
 }
@@ -351,9 +360,23 @@ struct StepEditorSheet: View {
 
     @State private var showingKeyboard = false
     
+    // System command state
+    @State private var shellCommandText: String = ""
+    @State private var shellRunInTerminal: Bool = true
+    @State private var webhookURL: String = ""
+    @State private var webhookMethod: HTTPMethod = .POST
+    @State private var webhookBody: String = ""
+    @State private var webhookHeaders: [String: String] = [:]
+    @State private var newWebhookHeaderKey: String = ""
+    @State private var newWebhookHeaderValue: String = ""
+    @State private var obsWebSocketURL: String = "ws://127.0.0.1:4455"
+    @State private var obsWebSocketPassword: String = ""
+    @State private var obsRequestType: String = ""
+    @State private var obsRequestData: String = ""
+
     // To track type changes
     @State private var selectedType: StepType
-    
+
     enum StepType: String, CaseIterable, Identifiable {
         case press = "Key Press"
         case hold = "Key Hold"
@@ -361,12 +384,15 @@ struct StepEditorSheet: View {
         case delay = "Delay"
         case openApp = "Open App"
         case openLink = "Open Link"
+        case shellCommand = "Shell Command"
+        case webhook = "Webhook"
+        case obsWebSocket = "OBS WebSocket"
         var id: String { rawValue }
     }
-    
+
     init(step: Binding<MacroStep>) {
         _step = step
-        
+
         // Initialize state based on current step
         switch step.wrappedValue {
         case .press(let mapping):
@@ -393,6 +419,22 @@ struct StepEditorSheet: View {
         case .openLink(let url):
             _selectedType = State(initialValue: .openLink)
             _linkURL = State(initialValue: url)
+        case .shellCommand(let cmd, let inTerminal):
+            _selectedType = State(initialValue: .shellCommand)
+            _shellCommandText = State(initialValue: cmd)
+            _shellRunInTerminal = State(initialValue: inTerminal)
+        case .webhook(let url, let method, let headers, let body):
+            _selectedType = State(initialValue: .webhook)
+            _webhookURL = State(initialValue: url)
+            _webhookMethod = State(initialValue: method)
+            _webhookHeaders = State(initialValue: headers ?? [:])
+            _webhookBody = State(initialValue: body ?? "")
+        case .obsWebSocket(let url, let password, let requestType, let requestData):
+            _selectedType = State(initialValue: .obsWebSocket)
+            _obsWebSocketURL = State(initialValue: url)
+            _obsWebSocketPassword = State(initialValue: password ?? "")
+            _obsRequestType = State(initialValue: requestType)
+            _obsRequestData = State(initialValue: requestData ?? "")
         }
     }
 
@@ -535,6 +577,105 @@ struct StepEditorSheet: View {
                             }
                         }
                     }
+
+                case .shellCommand:
+                    Section("Command") {
+                        TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        Toggle("Run silently (no terminal window)", isOn: Binding(
+                            get: { !shellRunInTerminal },
+                            set: { shellRunInTerminal = !$0 }
+                        ))
+                            .font(.caption)
+
+                        Text(shellRunInTerminal
+                            ? "Opens a terminal window and executes the command"
+                            : "Runs silently in the background (no visible output)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if shellRunInTerminal {
+                            Divider()
+                            TerminalAppPickerRow()
+                        }
+                    }
+
+                case .webhook:
+                    Section("Request") {
+                        TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        Picker("Method", selection: $webhookMethod) {
+                            ForEach(HTTPMethod.allCases) { method in
+                                Text(method.rawValue).tag(method)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        if [.POST, .PUT, .PATCH].contains(webhookMethod) {
+                            TextField("Body (JSON)", text: $webhookBody, axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.subheadline)
+                                .lineLimit(3...6)
+                        }
+                    }
+
+                    Section("Headers") {
+                        ForEach(Array(webhookHeaders.keys.sorted()), id: \.self) { key in
+                            HStack {
+                                Text(key).font(.caption)
+                                Spacer()
+                                Text(webhookHeaders[key] ?? "").font(.caption).foregroundColor(.secondary)
+                                Button { webhookHeaders.removeValue(forKey: key) } label: {
+                                    Image(systemName: "minus.circle.fill").foregroundColor(.red)
+                                }.buttonStyle(.plain)
+                            }
+                        }
+                        HStack {
+                            TextField("Header", text: $newWebhookHeaderKey)
+                                .textFieldStyle(.roundedBorder).font(.caption)
+                            TextField("Value", text: $newWebhookHeaderValue)
+                                .textFieldStyle(.roundedBorder).font(.caption)
+                            Button {
+                                if !newWebhookHeaderKey.isEmpty {
+                                    webhookHeaders[newWebhookHeaderKey] = newWebhookHeaderValue
+                                    newWebhookHeaderKey = ""
+                                    newWebhookHeaderValue = ""
+                                }
+                            } label: {
+                                Image(systemName: "plus.circle.fill").foregroundColor(.green)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(newWebhookHeaderKey.isEmpty)
+                        }
+                    }
+
+                case .obsWebSocket:
+                    Section("OBS WebSocket") {
+                        TextField("WebSocket URL (e.g. ws://127.0.0.1:4455)", text: $obsWebSocketURL)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        SecureField("Password (optional)", text: $obsWebSocketPassword)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        TextField("Request Type (e.g. StartRecord)", text: $obsRequestType)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        TextField("Request Data (JSON object, optional)", text: $obsRequestData, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+                            .lineLimit(3...6)
+
+                        Text("Sends any OBS WebSocket v5 request type with optional requestData JSON.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -580,6 +721,12 @@ struct StepEditorSheet: View {
             return !appBundleIdentifier.isEmpty
         case .openLink:
             return !linkURL.isEmpty
+        case .shellCommand:
+            return !shellCommandText.isEmpty
+        case .webhook:
+            return !webhookURL.isEmpty
+        case .obsWebSocket:
+            return !obsRequestType.isEmpty
         }
     }
 
@@ -612,6 +759,22 @@ struct StepEditorSheet: View {
             step = .openApp(bundleIdentifier: appBundleIdentifier, newWindow: openNewWindow)
         case .openLink:
             step = .openLink(url: linkURL)
+        case .shellCommand:
+            step = .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
+        case .webhook:
+            step = .webhook(
+                url: webhookURL,
+                method: webhookMethod,
+                headers: webhookHeaders.isEmpty ? nil : webhookHeaders,
+                body: webhookBody.isEmpty ? nil : webhookBody
+            )
+        case .obsWebSocket:
+            step = .obsWebSocket(
+                url: obsWebSocketURL,
+                password: obsWebSocketPassword.isEmpty ? nil : obsWebSocketPassword,
+                requestType: obsRequestType,
+                requestData: obsRequestData.isEmpty ? nil : obsRequestData
+            )
         }
     }
 }
@@ -638,6 +801,20 @@ struct NewStepEditorSheet: View {
     @State private var showingBookmarkPicker = false
     @State private var showingKeyboard = false
 
+    // System command state
+    @State private var shellCommandText: String = ""
+    @State private var shellRunInTerminal: Bool = true
+    @State private var webhookURL: String = ""
+    @State private var webhookMethod: HTTPMethod = .POST
+    @State private var webhookBody: String = ""
+    @State private var webhookHeaders: [String: String] = [:]
+    @State private var newWebhookHeaderKey: String = ""
+    @State private var newWebhookHeaderValue: String = ""
+    @State private var obsWebSocketURL: String = "ws://127.0.0.1:4455"
+    @State private var obsWebSocketPassword: String = ""
+    @State private var obsRequestType: String = ""
+    @State private var obsRequestData: String = ""
+
     @State private var selectedType: StepType
 
     enum StepType: String, CaseIterable, Identifiable {
@@ -647,6 +824,9 @@ struct NewStepEditorSheet: View {
         case delay = "Delay"
         case openApp = "Open App"
         case openLink = "Open Link"
+        case shellCommand = "Shell Command"
+        case webhook = "Webhook"
+        case obsWebSocket = "OBS WebSocket"
         var id: String { rawValue }
     }
 
@@ -680,6 +860,22 @@ struct NewStepEditorSheet: View {
         case .openLink(let url):
             _selectedType = State(initialValue: .openLink)
             _linkURL = State(initialValue: url)
+        case .shellCommand(let cmd, let inTerminal):
+            _selectedType = State(initialValue: .shellCommand)
+            _shellCommandText = State(initialValue: cmd)
+            _shellRunInTerminal = State(initialValue: inTerminal)
+        case .webhook(let url, let method, let headers, let body):
+            _selectedType = State(initialValue: .webhook)
+            _webhookURL = State(initialValue: url)
+            _webhookMethod = State(initialValue: method)
+            _webhookHeaders = State(initialValue: headers ?? [:])
+            _webhookBody = State(initialValue: body ?? "")
+        case .obsWebSocket(let url, let password, let requestType, let requestData):
+            _selectedType = State(initialValue: .obsWebSocket)
+            _obsWebSocketURL = State(initialValue: url)
+            _obsWebSocketPassword = State(initialValue: password ?? "")
+            _obsRequestType = State(initialValue: requestType)
+            _obsRequestData = State(initialValue: requestData ?? "")
         }
     }
 
@@ -820,6 +1016,105 @@ struct NewStepEditorSheet: View {
                             }
                         }
                     }
+
+                case .shellCommand:
+                    Section("Command") {
+                        TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        Toggle("Run silently (no terminal window)", isOn: Binding(
+                            get: { !shellRunInTerminal },
+                            set: { shellRunInTerminal = !$0 }
+                        ))
+                            .font(.caption)
+
+                        Text(shellRunInTerminal
+                            ? "Opens a terminal window and executes the command"
+                            : "Runs silently in the background (no visible output)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if shellRunInTerminal {
+                            Divider()
+                            TerminalAppPickerRow()
+                        }
+                    }
+
+                case .webhook:
+                    Section("Request") {
+                        TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        Picker("Method", selection: $webhookMethod) {
+                            ForEach(HTTPMethod.allCases) { method in
+                                Text(method.rawValue).tag(method)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        if [.POST, .PUT, .PATCH].contains(webhookMethod) {
+                            TextField("Body (JSON)", text: $webhookBody, axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.subheadline)
+                                .lineLimit(3...6)
+                        }
+                    }
+
+                    Section("Headers") {
+                        ForEach(Array(webhookHeaders.keys.sorted()), id: \.self) { key in
+                            HStack {
+                                Text(key).font(.caption)
+                                Spacer()
+                                Text(webhookHeaders[key] ?? "").font(.caption).foregroundColor(.secondary)
+                                Button { webhookHeaders.removeValue(forKey: key) } label: {
+                                    Image(systemName: "minus.circle.fill").foregroundColor(.red)
+                                }.buttonStyle(.plain)
+                            }
+                        }
+                        HStack {
+                            TextField("Header", text: $newWebhookHeaderKey)
+                                .textFieldStyle(.roundedBorder).font(.caption)
+                            TextField("Value", text: $newWebhookHeaderValue)
+                                .textFieldStyle(.roundedBorder).font(.caption)
+                            Button {
+                                if !newWebhookHeaderKey.isEmpty {
+                                    webhookHeaders[newWebhookHeaderKey] = newWebhookHeaderValue
+                                    newWebhookHeaderKey = ""
+                                    newWebhookHeaderValue = ""
+                                }
+                            } label: {
+                                Image(systemName: "plus.circle.fill").foregroundColor(.green)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(newWebhookHeaderKey.isEmpty)
+                        }
+                    }
+
+                case .obsWebSocket:
+                    Section("OBS WebSocket") {
+                        TextField("WebSocket URL (e.g. ws://127.0.0.1:4455)", text: $obsWebSocketURL)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        SecureField("Password (optional)", text: $obsWebSocketPassword)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        TextField("Request Type (e.g. StartRecord)", text: $obsRequestType)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+
+                        TextField("Request Data (JSON object, optional)", text: $obsRequestData, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.subheadline)
+                            .lineLimit(3...6)
+
+                        Text("Sends any OBS WebSocket v5 request type with optional requestData JSON.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .formStyle(.grouped)
@@ -868,6 +1163,12 @@ struct NewStepEditorSheet: View {
             return !appBundleIdentifier.isEmpty
         case .openLink:
             return !linkURL.isEmpty
+        case .shellCommand:
+            return !shellCommandText.isEmpty
+        case .webhook:
+            return !webhookURL.isEmpty
+        case .obsWebSocket:
+            return !obsRequestType.isEmpty
         }
     }
 
@@ -898,6 +1199,22 @@ struct NewStepEditorSheet: View {
             return .openApp(bundleIdentifier: appBundleIdentifier, newWindow: openNewWindow)
         case .openLink:
             return .openLink(url: linkURL)
+        case .shellCommand:
+            return .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
+        case .webhook:
+            return .webhook(
+                url: webhookURL,
+                method: webhookMethod,
+                headers: webhookHeaders.isEmpty ? nil : webhookHeaders,
+                body: webhookBody.isEmpty ? nil : webhookBody
+            )
+        case .obsWebSocket:
+            return .obsWebSocket(
+                url: obsWebSocketURL,
+                password: obsWebSocketPassword.isEmpty ? nil : obsWebSocketPassword,
+                requestType: obsRequestType,
+                requestData: obsRequestData.isEmpty ? nil : obsRequestData
+            )
         }
     }
 }

@@ -33,14 +33,24 @@ enum MacroStep: Codable, Equatable {
 
     /// Open a URL in the default browser
     case openLink(url: String)
-    
+
+    /// Run a shell command
+    case shellCommand(command: String, inTerminal: Bool)
+
+    /// Fire an HTTP webhook request
+    case webhook(url: String, method: HTTPMethod, headers: [String: String]?, body: String?)
+
+    /// Send an OBS WebSocket request
+    case obsWebSocket(url: String, password: String?, requestType: String, requestData: String?)
+
     // Custom decoding/encoding to handle enum associated values
     private enum CodingKeys: String, CodingKey {
         case type, payload
     }
-    
+
     private enum StepType: String, Codable {
         case press, hold, delay, typeText, openApp, openLink
+        case shellCommand, webhook, obsWebSocket
     }
     
     init(from decoder: Decoder) throws {
@@ -71,6 +81,15 @@ enum MacroStep: Codable, Equatable {
         case .openLink:
             let url = try container.decode(String.self, forKey: .payload)
             self = .openLink(url: url)
+        case .shellCommand:
+            let data = try container.decode(ShellCommandPayload.self, forKey: .payload)
+            self = .shellCommand(command: data.command, inTerminal: data.inTerminal)
+        case .webhook:
+            let data = try container.decode(WebhookPayload.self, forKey: .payload)
+            self = .webhook(url: data.url, method: data.method, headers: data.headers, body: data.body)
+        case .obsWebSocket:
+            let data = try container.decode(OBSWebSocketPayload.self, forKey: .payload)
+            self = .obsWebSocket(url: data.url, password: data.password, requestType: data.requestType, requestData: data.requestData)
         }
     }
     
@@ -96,6 +115,15 @@ enum MacroStep: Codable, Equatable {
         case .openLink(let url):
             try container.encode(StepType.openLink, forKey: .type)
             try container.encode(url, forKey: .payload)
+        case .shellCommand(let command, let inTerminal):
+            try container.encode(StepType.shellCommand, forKey: .type)
+            try container.encode(ShellCommandPayload(command: command, inTerminal: inTerminal), forKey: .payload)
+        case .webhook(let url, let method, let headers, let body):
+            try container.encode(StepType.webhook, forKey: .type)
+            try container.encode(WebhookPayload(url: url, method: method, headers: headers, body: body), forKey: .payload)
+        case .obsWebSocket(let url, let password, let requestType, let requestData):
+            try container.encode(StepType.obsWebSocket, forKey: .type)
+            try container.encode(OBSWebSocketPayload(url: url, password: password, requestType: requestType, requestData: requestData), forKey: .payload)
         }
     }
     
@@ -127,6 +155,25 @@ enum MacroStep: Codable, Equatable {
         let bundleIdentifier: String
         let newWindow: Bool
     }
+
+    private struct ShellCommandPayload: Codable {
+        let command: String
+        let inTerminal: Bool
+    }
+
+    private struct WebhookPayload: Codable {
+        let url: String
+        let method: HTTPMethod
+        let headers: [String: String]?
+        let body: String?
+    }
+
+    private struct OBSWebSocketPayload: Codable {
+        let url: String
+        let password: String?
+        let requestType: String
+        let requestData: String?
+    }
 }
 
 extension MacroStep {
@@ -153,6 +200,14 @@ extension MacroStep {
         case .openLink(let url):
             let display = url.count > 35 ? String(url.prefix(35)) + "..." : url
             return "Open: \(display)"
+        case .shellCommand(let command, _):
+            let display = command.count > 35 ? String(command.prefix(35)) + "..." : command
+            return "Shell: \(display)"
+        case .webhook(let url, let method, _, _):
+            let display = "\(method.rawValue) \(url)"
+            return display.count > 35 ? String(display.prefix(35)) + "..." : display
+        case .obsWebSocket(_, _, let requestType, _):
+            return "OBS: \(requestType)"
         }
     }
 }
