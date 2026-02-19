@@ -238,6 +238,27 @@ class ProfileManager: ObservableObject {
         saveConfiguration()
     }
 
+    func setDefaultProfile(_ profile: Profile) {
+        var didChange = false
+
+        for index in profiles.indices {
+            let shouldBeDefault = profiles[index].id == profile.id
+            if profiles[index].isDefault != shouldBeDefault {
+                profiles[index].isDefault = shouldBeDefault
+                didChange = true
+            }
+        }
+
+        guard didChange else { return }
+
+        if let activeId = activeProfileId,
+           let updatedActive = profiles.first(where: { $0.id == activeId }) {
+            activeProfile = updatedActive
+        }
+
+        saveConfiguration()
+    }
+
     func renameProfile(_ profile: Profile, to newName: String) {
         var updatedProfile = profile
         updatedProfile.name = newName

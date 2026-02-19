@@ -662,6 +662,11 @@ struct ProfileSidebar: View {
                                     renameProfileName = profile.name
                                     showingRenameProfileAlert = true
                                 }
+
+                                Button("Set as Default Profile") {
+                                    profileManager.setDefaultProfile(profile)
+                                }
+                                .disabled(profile.isDefault)
                                 
                                 Button("Linked Apps...") {
                                     profileToLink = profile

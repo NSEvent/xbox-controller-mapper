@@ -109,6 +109,22 @@ final class ProfileManagerAdvancedCoverageTests: XCTestCase {
         XCTAssertNil(overflow)
     }
 
+    func testSetDefaultProfileMarksOnlySelectedProfileAsDefault() {
+        let first = Profile(name: "First", isDefault: true)
+        let second = Profile(name: "Second", isDefault: false)
+        profileManager.profiles = [first, second]
+        profileManager.setActiveProfile(second)
+
+        profileManager.setDefaultProfile(second)
+
+        let updatedFirst = profileManager.profiles.first(where: { $0.id == first.id })
+        let updatedSecond = profileManager.profiles.first(where: { $0.id == second.id })
+        XCTAssertEqual(updatedFirst?.isDefault, false)
+        XCTAssertEqual(updatedSecond?.isDefault, true)
+        XCTAssertEqual(profileManager.activeProfileId, second.id)
+        XCTAssertEqual(profileManager.activeProfile?.isDefault, true)
+    }
+
     func testUpdateDualSenseAndOnScreenKeyboardQuickTextCRUD() {
         let dualSense = DualSenseLEDSettings(
             lightBarColor: CodableColor(red: 1.0, green: 0.0, blue: 0.0),
