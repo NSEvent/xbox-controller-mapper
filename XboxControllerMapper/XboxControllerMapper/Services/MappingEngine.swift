@@ -802,57 +802,18 @@ class MappingEngine: ObservableObject {
     }
 
     /// Returns the effective mapping for a button, considering active layers.
-    /// - If button is a layer activator, returns nil (button has no output, just activates layer)
-    /// - If a layer is active, checks that layer's buttonMappings first
-    /// - Falls through to base layer buttonMappings
-    /// - Falls through to defaultMapping() for DualSense defaults
     nonisolated private func effectiveMapping(for button: ControllerButton, in profile: Profile) -> KeyMapping? {
-        // Take lock to access layer state
         state.lock.lock()
-        let isLayerActivator = state.layerActivatorMap[button] != nil
+        let layerActivatorMap = state.layerActivatorMap
         let activeLayerIds = state.activeLayerIds
         state.lock.unlock()
 
-        // Layer activator buttons have no mapping - they only activate layers
-        if isLayerActivator {
-            return nil
-        }
-
-        // Check the most recently activated layer (last in array) for a mapping
-        // Only the most recent layer is active - pressing another layer activator switches layers
-        if let activeLayerId = activeLayerIds.last,
-           let layer = profile.layers.first(where: { $0.id == activeLayerId }),
-           let mapping = layer.buttonMappings[button], !mapping.isEmpty {
-            return mapping
-        }
-
-        // Fall through to base layer
-        if let mapping = profile.buttonMappings[button], !mapping.isEmpty {
-            return mapping
-        }
-
-        // Fall through to default mapping
-        return defaultMapping(for: button)
-    }
-
-    /// Returns a default mapping for buttons that should have fallback behavior
-    nonisolated private func defaultMapping(for button: ControllerButton) -> KeyMapping? {
-        switch button {
-        case .touchpadButton:
-            // DualSense touchpad click defaults to left mouse click
-            return KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
-        case .touchpadTwoFingerButton:
-            // DualSense touchpad two-finger click defaults to right mouse click
-            return KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true)
-        case .touchpadTap:
-            // DualSense touchpad single tap defaults to left mouse click
-            return KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
-        case .touchpadTwoFingerTap:
-            // DualSense touchpad two-finger tap defaults to right mouse click
-            return KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true)
-        default:
-            return nil
-        }
+        return ButtonMappingResolutionPolicy.resolve(
+            button: button,
+            profile: profile,
+            activeLayerIds: activeLayerIds,
+            layerActivatorMap: layerActivatorMap
+        )
     }
 
     /// Check if button release should be skipped (hold modifier, repeat, already triggered long hold)
