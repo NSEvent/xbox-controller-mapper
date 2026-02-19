@@ -36,6 +36,8 @@ class GenericHIDController {
     private var cachedLeftY: Float = 0
     private var cachedRightX: Float = 0
     private var cachedRightY: Float = 0
+    private var callbackContext: UnsafeMutableRawPointer?
+    private var isStarted = false
 
     // MARK: - Callbacks
 
@@ -50,6 +52,22 @@ class GenericHIDController {
     private static let triggerPressThreshold: Float = 0.12
     private static let axisChangeThreshold: Double = 0.01
 
+    /// Holds a weak controller reference so callback dispatch remains safe
+    /// even if HID callbacks race controller teardown.
+    private final class CallbackContext {
+        weak var controller: GenericHIDController?
+
+        init(controller: GenericHIDController) {
+            self.controller = controller
+        }
+    }
+
+    private static let inputValueCallback: IOHIDValueCallback = { context, _, _, value in
+        guard let context else { return }
+        let holder = Unmanaged<CallbackContext>.fromOpaque(context).takeUnretainedValue()
+        holder.controller?.handleInputValue(value)
+    }
+
     // MARK: - Initialization
 
     init?(device: IOHIDDevice, mapping: SDLControllerMapping) {
@@ -61,6 +79,10 @@ class GenericHIDController {
 
         previousButtonStates = Array(repeating: false, count: buttonElements.count)
         previousAxisValues = Array(repeating: 0.0, count: axisElements.count)
+    }
+
+    deinit {
+        stop()
     }
 
     // MARK: - Element Enumeration
@@ -121,20 +143,30 @@ class GenericHIDController {
     // MARK: - Lifecycle
 
     func start() {
-        let context = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        IOHIDDeviceRegisterInputValueCallback(device, { ctx, _, _, value in
-            guard let ctx = ctx else { return }
-            let controller = Unmanaged<GenericHIDController>.fromOpaque(ctx).takeUnretainedValue()
-            controller.handleInputValue(value)
-        }, context)
+        guard !isStarted else { return }
+
+        let retainedContext = Unmanaged.passRetained(CallbackContext(controller: self)).toOpaque()
+        callbackContext = retainedContext
+        IOHIDDeviceRegisterInputValueCallback(device, Self.inputValueCallback, retainedContext)
         IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        isStarted = true
     }
 
     func stop() {
+        guard isStarted || callbackContext != nil else { return }
+
         IOHIDDeviceRegisterInputValueCallback(device, nil, nil)
-        IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
-        IOHIDDeviceClose(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        if isStarted {
+            IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+            IOHIDDeviceClose(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        }
+
+        if let callbackContext {
+            Unmanaged<CallbackContext>.fromOpaque(callbackContext).release()
+            self.callbackContext = nil
+        }
+        isStarted = false
     }
 
     // MARK: - Input Value Dispatch
