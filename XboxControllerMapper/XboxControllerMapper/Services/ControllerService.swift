@@ -678,32 +678,7 @@ class ControllerService: ObservableObject {
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
             
-            let tsLeft = self.threadSafeLeftStick
-            let tsRight = self.threadSafeRightStick
-            let tsLeftTrig = self.threadSafeLeftTrigger
-            let tsRightTrig = self.threadSafeRightTrigger
-            
-            self.leftStick = tsLeft
-            self.rightStick = tsRight
-            self.leftTriggerValue = tsLeftTrig
-            self.rightTriggerValue = tsRightTrig
-            
-            if abs(self.displayLeftStick.x - tsLeft.x) > Config.displayUpdateDeadzone ||
-               abs(self.displayLeftStick.y - tsLeft.y) > Config.displayUpdateDeadzone {
-                self.displayLeftStick = tsLeft
-            }
-            if abs(self.displayRightStick.x - tsRight.x) > Config.displayUpdateDeadzone ||
-               abs(self.displayRightStick.y - tsRight.y) > Config.displayUpdateDeadzone {
-                self.displayRightStick = tsRight
-            }
-            if abs(self.displayLeftTrigger - tsLeftTrig) > Float(Config.displayUpdateDeadzone) {
-                self.displayLeftTrigger = tsLeftTrig
-            }
-            if abs(self.displayRightTrigger - tsRightTrig) > Float(Config.displayUpdateDeadzone) {
-                self.displayRightTrigger = tsRightTrig
-            }
-
-            // Touchpad display updates
+            // Touchpad samples are not exposed via dedicated thread-safe accessors.
             self.storage.lock.lock()
             let touchPos = self.storage.touchpadPosition
             let touchSecPos = self.storage.touchpadSecondaryPosition
@@ -711,21 +686,54 @@ class ControllerService: ObservableObject {
             let isSecTouching = self.storage.isTouchpadSecondaryTouching
             self.storage.lock.unlock()
 
-            if self.displayTouchpadPosition != touchPos {
-                self.displayTouchpadPosition = touchPos
-            }
-            if self.displayTouchpadSecondaryPosition != touchSecPos {
-                self.displayTouchpadSecondaryPosition = touchSecPos
-            }
-            if self.displayIsTouchpadTouching != isTouching {
-                self.displayIsTouchpadTouching = isTouching
-            }
-            if self.displayIsTouchpadSecondaryTouching != isSecTouching {
-                self.displayIsTouchpadSecondaryTouching = isSecTouching
-            }
+            let currentState = ControllerDisplayState(
+                leftStick: self.leftStick,
+                rightStick: self.rightStick,
+                leftTriggerValue: self.leftTriggerValue,
+                rightTriggerValue: self.rightTriggerValue,
+                displayLeftStick: self.displayLeftStick,
+                displayRightStick: self.displayRightStick,
+                displayLeftTrigger: self.displayLeftTrigger,
+                displayRightTrigger: self.displayRightTrigger,
+                displayTouchpadPosition: self.displayTouchpadPosition,
+                displayTouchpadSecondaryPosition: self.displayTouchpadSecondaryPosition,
+                displayIsTouchpadTouching: self.displayIsTouchpadTouching,
+                displayIsTouchpadSecondaryTouching: self.displayIsTouchpadSecondaryTouching
+            )
+            let sample = ControllerDisplaySample(
+                leftStick: self.threadSafeLeftStick,
+                rightStick: self.threadSafeRightStick,
+                leftTrigger: self.threadSafeLeftTrigger,
+                rightTrigger: self.threadSafeRightTrigger,
+                touchpadPosition: touchPos,
+                touchpadSecondaryPosition: touchSecPos,
+                isTouchpadTouching: isTouching,
+                isTouchpadSecondaryTouching: isSecTouching
+            )
+            let updatedState = ControllerDisplayUpdatePolicy.resolve(
+                current: currentState,
+                sample: sample,
+                deadzone: Config.displayUpdateDeadzone
+            )
+            self.applyDisplayState(updatedState)
         }
         timer.resume()
         displayUpdateTimer = timer
+    }
+
+    private func applyDisplayState(_ state: ControllerDisplayState) {
+        leftStick = state.leftStick
+        rightStick = state.rightStick
+        leftTriggerValue = state.leftTriggerValue
+        rightTriggerValue = state.rightTriggerValue
+        displayLeftStick = state.displayLeftStick
+        displayRightStick = state.displayRightStick
+        displayLeftTrigger = state.displayLeftTrigger
+        displayRightTrigger = state.displayRightTrigger
+        displayTouchpadPosition = state.displayTouchpadPosition
+        displayTouchpadSecondaryPosition = state.displayTouchpadSecondaryPosition
+        displayIsTouchpadTouching = state.displayIsTouchpadTouching
+        displayIsTouchpadSecondaryTouching = state.displayIsTouchpadSecondaryTouching
     }
 
     private func stopDisplayUpdateTimer() {
