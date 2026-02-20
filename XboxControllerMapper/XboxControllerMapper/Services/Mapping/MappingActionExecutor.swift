@@ -40,6 +40,30 @@ private struct MacroActionHandler {
     }
 }
 
+private struct ScriptActionHandler {
+    let scriptEngine: ScriptEngine?
+
+    func executeIfPossible(_ action: any ExecutableAction, profile: Profile?,
+                           button: ControllerButton, pressType: String) -> String? {
+        guard let scriptId = action.scriptId, let scriptEngine else { return nil }
+
+        guard let profile, let script = profile.scripts.first(where: { $0.id == scriptId }) else {
+            return (action.hint?.isEmpty == false) ? action.hint! : "Script"
+        }
+
+        let trigger = ScriptTrigger(button: button, pressType: pressType)
+        let result = scriptEngine.execute(script: script, trigger: trigger)
+
+        switch result {
+        case .success(let hintOverride):
+            return hintOverride ?? (action.hint?.isEmpty == false ? action.hint! : script.name)
+        case .error(let message):
+            NSLog("[ScriptActionHandler] Error: %@", message)
+            return "Script Error"
+        }
+    }
+}
+
 private struct KeyOrModifierActionHandler {
     let inputSimulator: InputSimulatorProtocol
     let tapModifierExecutor: TapModifierExecutor
@@ -60,13 +84,14 @@ private struct KeyOrModifierActionHandler {
 
 // MARK: - Mapping Executor
 
-/// Executes action mappings via a strategy chain (system command, macro, key/modifier).
+/// Executes action mappings via a strategy chain (system command, macro, script, key/modifier).
 struct MappingExecutor {
     private let inputLogService: InputLogService?
     private let usageStatsService: UsageStatsService?
     let systemCommandExecutor: SystemCommandExecutor
     private let systemCommandHandler: SystemCommandActionHandler
     private let macroHandler: MacroActionHandler
+    private let scriptHandler: ScriptActionHandler
     private let keyOrModifierHandler: KeyOrModifierActionHandler
 
     init(
@@ -74,7 +99,8 @@ struct MappingExecutor {
         inputQueue: DispatchQueue,
         inputLogService: InputLogService?,
         profileManager: ProfileManager,
-        usageStatsService: UsageStatsService? = nil
+        usageStatsService: UsageStatsService? = nil,
+        scriptEngine: ScriptEngine? = nil
     ) {
         self.inputLogService = inputLogService
         self.usageStatsService = usageStatsService
@@ -82,6 +108,7 @@ struct MappingExecutor {
         let tapModifierExecutor = TapModifierExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue)
         self.systemCommandHandler = SystemCommandActionHandler(systemCommandExecutor: self.systemCommandExecutor)
         self.macroHandler = MacroActionHandler(inputSimulator: inputSimulator)
+        self.scriptHandler = ScriptActionHandler(scriptEngine: scriptEngine)
         self.keyOrModifierHandler = KeyOrModifierActionHandler(inputSimulator: inputSimulator, tapModifierExecutor: tapModifierExecutor)
 
         // Wire up system command handler for macro steps
@@ -91,7 +118,7 @@ struct MappingExecutor {
         }
     }
 
-    /// Executes any action mapping (key press, macro, or system command).
+    /// Executes any action mapping (key press, macro, script, or system command).
     func executeAction(
         _ action: any ExecutableAction,
         for button: ControllerButton,
@@ -101,14 +128,21 @@ struct MappingExecutor {
         executeAction(action, for: [button], profile: profile, logType: logType)
     }
 
-    /// Executes any action mapping (key press, macro, or system command) for one or more buttons.
+    /// Executes any action mapping (key press, macro, script, or system command) for one or more buttons.
     func executeAction(
         _ action: any ExecutableAction,
         for buttons: [ControllerButton],
         profile: Profile?,
         logType: InputEventType = .singlePress
     ) {
-        let feedback = executeAction(action, profile: profile)
+        let button = buttons.first ?? .a
+        let pressType: String
+        switch logType {
+        case .longPress: pressType = "longHold"
+        case .doubleTap: pressType = "doubleTap"
+        default: pressType = "press"
+        }
+        let feedback = executeAction(action, profile: profile, button: button, pressType: pressType)
         inputLogService?.log(buttons: buttons, type: logType, action: feedback)
 
         // Record button/action type stats
@@ -125,12 +159,17 @@ struct MappingExecutor {
     /// Executes any action mapping and returns feedback text without logging.
     func executeAction(
         _ action: any ExecutableAction,
-        profile: Profile?
+        profile: Profile?,
+        button: ControllerButton = .a,
+        pressType: String = "press"
     ) -> String {
         if let feedback = systemCommandHandler.executeIfPossible(action) {
             return feedback
         }
         if let feedback = macroHandler.executeIfPossible(action, profile: profile) {
+            return feedback
+        }
+        if let feedback = scriptHandler.executeIfPossible(action, profile: profile, button: button, pressType: pressType) {
             return feedback
         }
         return keyOrModifierHandler.execute(action)
@@ -166,6 +205,12 @@ struct MappingExecutor {
             } else {
                 service.recordMacro(stepCount: 1)
             }
+            return
+        }
+
+        // Script (count as a macro with 1 step for stats purposes)
+        if action.scriptId != nil {
+            service.recordMacro(stepCount: 1)
             return
         }
 

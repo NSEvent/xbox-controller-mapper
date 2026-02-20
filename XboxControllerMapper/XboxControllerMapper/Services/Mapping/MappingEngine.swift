@@ -39,6 +39,7 @@ class MappingEngine: ObservableObject {
     private let inputLogService: InputLogService?
     nonisolated private let usageStatsService: UsageStatsService?
     nonisolated private let mappingExecutor: MappingExecutor
+    nonisolated private let scriptEngine: ScriptEngine
 
     // MARK: - Thread-Safe State
     
@@ -59,7 +60,17 @@ class MappingEngine: ObservableObject {
         self.inputSimulator = inputSimulator
         self.inputLogService = inputLogService
         self.usageStatsService = usageStatsService
-        self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService, profileManager: profileManager, usageStatsService: usageStatsService)
+
+        // Create script engine for JavaScript scripting support
+        let engine = ScriptEngine(
+            inputSimulator: inputSimulator,
+            inputQueue: inputQueue,
+            controllerService: controllerService,
+            inputLogService: inputLogService
+        )
+        self.scriptEngine = engine
+
+        self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService, profileManager: profileManager, usageStatsService: usageStatsService, scriptEngine: engine)
 
         // Set up on-screen keyboard manager with our input simulator
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
@@ -154,6 +165,8 @@ class MappingEngine: ObservableObject {
                     self.state.activeLayerIds.removeAll()
                     self.rebuildLayerActivatorMap(profile: profile)
                 }
+                // Clear script state on profile switch
+                self.scriptEngine.clearState()
             }
             .store(in: &cancellables)
             

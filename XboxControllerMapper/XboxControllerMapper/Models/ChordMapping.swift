@@ -17,6 +17,9 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
     /// Optional ID of a macro to execute instead of key press
     var macroId: UUID?
 
+    /// Optional ID of a script to execute instead of key press
+    var scriptId: UUID?
+
     /// Optional system command to execute instead of key press
     var systemCommand: SystemCommand?
 
@@ -29,6 +32,7 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
         keyCode: CGKeyCode? = nil,
         modifiers: ModifierFlags = ModifierFlags(),
         macroId: UUID? = nil,
+        scriptId: UUID? = nil,
         systemCommand: SystemCommand? = nil,
         hint: String? = nil
     ) {
@@ -37,12 +41,13 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.macroId = macroId
+        self.scriptId = scriptId
         self.systemCommand = systemCommand
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, buttons, keyCode, modifiers, macroId, systemCommand, hint
+        case id, buttons, keyCode, modifiers, macroId, scriptId, systemCommand, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -52,6 +57,7 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
@@ -64,6 +70,7 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
         try container.encodeIfPresent(keyCode, forKey: .keyCode)
         try container.encode(modifiers, forKey: .modifiers)
         try container.encodeIfPresent(macroId, forKey: .macroId)
+        try container.encodeIfPresent(scriptId, forKey: .scriptId)
         try container.encodeIfPresent(systemCommand, forKey: .systemCommand)
         try container.encodeIfPresent(hint, forKey: .hint)
     }
@@ -82,7 +89,10 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
             return systemCommand.displayName
         }
         if macroId != nil {
-            return "Macro" // UI should enhance this with actual name if possible
+            return "Macro"
+        }
+        if scriptId != nil {
+            return "Script"
         }
 
         var parts: [String] = []

@@ -276,6 +276,12 @@ struct Config {
         (legacyConfigDirectory as NSString).appendingPathComponent(configFileName)
     }
 
+    // MARK: - Scripting
+    /// Maximum execution time for a single script invocation (milliseconds)
+    static let scriptExecutionTimeoutMs: Int = 100
+    /// Maximum execution time for shell() commands within scripts (seconds)
+    static let shellCommandTimeoutSeconds: Int = 5
+
     // MARK: - Battery Monitoring
     /// Interval between battery info updates (seconds)
     static let batteryUpdateInterval: TimeInterval = 10.0
