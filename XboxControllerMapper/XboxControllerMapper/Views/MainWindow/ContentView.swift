@@ -7,6 +7,7 @@ struct ContentView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var appMonitor: AppMonitor
     @EnvironmentObject var mappingEngine: MappingEngine
+    @EnvironmentObject var inputLogService: InputLogService
     @EnvironmentObject var usageStatsService: UsageStatsService
     @State private var selectedButton: ControllerButton?
     @State private var configuringButton: ControllerButton?
@@ -20,6 +21,7 @@ struct ContentView: View {
     @State private var showingAddLayerSheet = false
     @State private var editingLayerId: UUID? = nil
     @State private var actionFeedbackEnabled: Bool = ActionFeedbackIndicator.isEnabled
+    @State private var streamOverlayEnabled: Bool = StreamOverlayManager.isEnabled
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
     var body: some View {
@@ -482,6 +484,35 @@ struct ContentView: View {
             .hoverableButton()
             .onChange(of: actionFeedbackEnabled) { _, newValue in
                 ActionFeedbackIndicator.isEnabled = newValue
+            }
+
+            // Stream overlay toggle
+            Toggle(isOn: $streamOverlayEnabled) {
+                HStack(spacing: 4) {
+                    Image(systemName: "play.rectangle.on.rectangle")
+                        .font(.system(size: 10))
+                    Text("Stream")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(streamOverlayEnabled ? Color.purple : Color.white.opacity(0.1))
+                .cornerRadius(6)
+            }
+            .toggleStyle(.button)
+            .buttonStyle(.plain)
+            .foregroundColor(streamOverlayEnabled ? .white : .secondary)
+            .hoverableButton()
+            .onChange(of: streamOverlayEnabled) { _, newValue in
+                if newValue {
+                    StreamOverlayManager.shared.show(
+                        controllerService: controllerService,
+                        inputLogService: inputLogService
+                    )
+                } else {
+                    StreamOverlayManager.shared.hide()
+                }
             }
         }
     }

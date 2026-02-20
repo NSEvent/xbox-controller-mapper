@@ -5,6 +5,9 @@ struct MenuBarView: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var mappingEngine: MappingEngine
+    @EnvironmentObject var inputLogService: InputLogService
+
+    @State private var streamOverlayEnabled: Bool = StreamOverlayManager.isEnabled
 
     var body: some View {
         VStack(spacing: 0) {
@@ -96,6 +99,24 @@ struct MenuBarView: View {
                 }
             }
             .toggleStyle(.switch)
+
+            Toggle(isOn: $streamOverlayEnabled) {
+                HStack {
+                    Image(systemName: "play.rectangle.on.rectangle")
+                    Text("Stream Overlay")
+                }
+            }
+            .toggleStyle(.switch)
+            .onChange(of: streamOverlayEnabled) { _, newValue in
+                if newValue {
+                    StreamOverlayManager.shared.show(
+                        controllerService: controllerService,
+                        inputLogService: inputLogService
+                    )
+                } else {
+                    StreamOverlayManager.shared.hide()
+                }
+            }
         }
         .padding(12)
     }
@@ -219,14 +240,17 @@ struct ProfileRow: View {
     let controllerService = ControllerService()
     let profileManager = ProfileManager()
     let appMonitor = AppMonitor()
+    let inputLogService = InputLogService()
     let mappingEngine = MappingEngine(
         controllerService: controllerService,
         profileManager: profileManager,
-        appMonitor: appMonitor
+        appMonitor: appMonitor,
+        inputLogService: inputLogService
     )
 
     return MenuBarView()
         .environmentObject(controllerService)
         .environmentObject(profileManager)
         .environmentObject(mappingEngine)
+        .environmentObject(inputLogService)
 }

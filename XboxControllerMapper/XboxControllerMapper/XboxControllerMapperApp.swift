@@ -46,6 +46,14 @@ final class ServiceContainer {
 
         // Wire up on-screen keyboard quick texts from profile manager
         setupOnScreenKeyboardObserver(profileManager: profileManager)
+
+        // Auto-show stream overlay if it was previously enabled
+        if StreamOverlayManager.isEnabled {
+            StreamOverlayManager.shared.show(
+                controllerService: controllerService,
+                inputLogService: inputLogService
+            )
+        }
     }
 
     private func setupOnScreenKeyboardObserver(profileManager: ProfileManager) {
@@ -112,6 +120,7 @@ struct XboxControllerMapperApp: App {
                 .environmentObject(ServiceContainer.shared.profileManager)
                 .environmentObject(ServiceContainer.shared.mappingEngine)
                 .environmentObject(ServiceContainer.shared.inputMonitor)
+                .environmentObject(ServiceContainer.shared.inputLogService)
         }
         .menuBarExtraStyle(.window)
     }
