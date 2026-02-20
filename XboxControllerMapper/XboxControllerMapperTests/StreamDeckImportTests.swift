@@ -419,6 +419,425 @@ final class StreamDeckImportTests: XCTestCase {
         XCTAssertTrue(profile.macros.isEmpty)
     }
 
+    // MARK: - Parser: V2 Format Tests
+
+    func testParseV2_ControllersWrapper() throws {
+        let json: [String: Any] = [
+            "Name": "V2 Profile",
+            "Controllers": [
+                [
+                    "Type": "Keypad",
+                    "Actions": [
+                        "0,0": [
+                            "UUID": "com.elgato.streamdeck.system.hotkey",
+                            "Name": "Hotkey",
+                            "Settings": ["NativeCode": 1, "KeyCmd": true, "KeyShift": false, "KeyOption": false, "KeyCtrl": false],
+                            "States": [["Title": "Save"]]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let manifest = try StreamDeckProfileParser.parseManifestData(data)
+
+        XCTAssertEqual(manifest.name, "V2 Profile")
+        XCTAssertEqual(manifest.actions.count, 1)
+        XCTAssertEqual(manifest.actions[0].title, "Save")
+    }
+
+    func testParseV2_HotkeysArrayFormat() throws {
+        let json = makeManifest(actions: [
+            "0,0": [
+                "UUID": "com.elgato.streamdeck.system.hotkey",
+                "Name": "Hotkey",
+                "Settings": [
+                    "Coalesce": true,
+                    "Hotkeys": [
+                        [
+                            "KeyCmd": true,
+                            "KeyCtrl": false,
+                            "KeyOption": false,
+                            "KeyShift": false,
+                            "NativeCode": 45
+                        ],
+                        [
+                            "KeyCmd": false,
+                            "KeyCtrl": false,
+                            "KeyOption": false,
+                            "KeyShift": false,
+                            "NativeCode": -1
+                        ]
+                    ]
+                ] as [String: Any],
+                "States": [["Title": "Generate"]]
+            ]
+        ])
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let manifest = try StreamDeckProfileParser.parseManifestData(data)
+
+        XCTAssertEqual(manifest.actions.count, 1)
+        if case .hotkey(let keyCode, let modifiers) = manifest.actions[0].settings {
+            XCTAssertEqual(keyCode, 45) // CGKeyCode for "N"
+            XCTAssertTrue(modifiers.command)
+            XCTAssertFalse(modifiers.shift)
+        } else {
+            XCTFail("Expected hotkey action")
+        }
+    }
+
+    func testParseHotkey_FiltersSentinelNegativeOne() throws {
+        let json = makeManifest(actions: [
+            "0,0": [
+                "UUID": "com.elgato.streamdeck.system.hotkey",
+                "Name": "Empty",
+                "Settings": [
+                    "Hotkeys": [
+                        [
+                            "KeyCmd": false,
+                            "KeyCtrl": false,
+                            "KeyOption": false,
+                            "KeyShift": false,
+                            "NativeCode": -1
+                        ]
+                    ]
+                ] as [String: Any],
+                "States": [["Title": ""]]
+            ]
+        ])
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let manifest = try StreamDeckProfileParser.parseManifestData(data)
+
+        XCTAssertEqual(manifest.actions.count, 0, "NativeCode -1 sentinel should be filtered out")
+    }
+
+    func testParseText_PastedTextField() throws {
+        let json = makeManifest(actions: [
+            "0,0": [
+                "UUID": "com.elgato.streamdeck.system.text",
+                "Name": "Paste Text",
+                "Settings": ["pastedText": "Hello, World!"],
+                "States": [["Title": "Greeting"]]
+            ]
+        ])
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let manifest = try StreamDeckProfileParser.parseManifestData(data)
+
+        XCTAssertEqual(manifest.actions.count, 1)
+        if case .text(let text) = manifest.actions[0].settings {
+            XCTAssertEqual(text, "Hello, World!")
+        } else {
+            XCTFail("Expected text action")
+        }
+    }
+
+    func testParseMultiAction_V2ActionsArrayFormat() throws {
+        let json = makeManifest(actions: [
+            "0,0": [
+                "UUID": "com.elgato.streamdeck.multiactions",
+                "Name": "Multi",
+                "Actions": [
+                    [
+                        "Actions": [
+                            [
+                                "UUID": "com.elgato.streamdeck.system.hotkey",
+                                "Name": "Copy",
+                                "Settings": ["NativeCode": 8, "KeyCmd": true, "KeyShift": false, "KeyOption": false, "KeyCtrl": false],
+                                "States": [["Title": ""]]
+                            ],
+                            [
+                                "UUID": "com.elgato.streamdeck.system.website",
+                                "Name": "Link",
+                                "Settings": ["path": "https://example.com"],
+                                "States": [["Title": ""]]
+                            ]
+                        ]
+                    ]
+                ],
+                "Settings": [:] as [String: Any],
+                "States": [["Title": "Multi"]]
+            ]
+        ])
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let manifest = try StreamDeckProfileParser.parseManifestData(data)
+
+        XCTAssertEqual(manifest.actions.count, 1)
+        if case .multiAction(let subs) = manifest.actions[0].settings {
+            XCTAssertEqual(subs.count, 2)
+            if case .hotkey(let kc, _) = subs[0].settings {
+                XCTAssertEqual(kc, 8)
+            } else {
+                XCTFail("Expected hotkey sub-action")
+            }
+            if case .website(let url) = subs[1].settings {
+                XCTAssertEqual(url, "https://example.com")
+            } else {
+                XCTFail("Expected website sub-action")
+            }
+        } else {
+            XCTFail("Expected multiAction")
+        }
+    }
+
+    func testParseHotkeySwitch_UsesFirstState() throws {
+        let json = makeManifest(actions: [
+            "0,0": [
+                "UUID": "com.elgato.streamdeck.system.hotkeyswitch",
+                "Name": "Toggle",
+                "Settings": [
+                    "HotKeys": [
+                        ["NativeCode": 11, "KeyCmd": true, "KeyShift": false, "KeyOption": false, "KeyCtrl": false],
+                        ["NativeCode": 45, "KeyCmd": true, "KeyShift": false, "KeyOption": false, "KeyCtrl": false]
+                    ]
+                ] as [String: Any],
+                "States": [["Title": "Mute"], ["Title": "Unmute"]]
+            ]
+        ])
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let manifest = try StreamDeckProfileParser.parseManifestData(data)
+
+        XCTAssertEqual(manifest.actions.count, 1)
+        if case .hotkey(let keyCode, let modifiers) = manifest.actions[0].settings {
+            XCTAssertEqual(keyCode, 11) // First state's key code
+            XCTAssertTrue(modifiers.command)
+        } else {
+            XCTFail("Expected hotkey action from first state")
+        }
+    }
+
+    // MARK: - Parser: Real-World Profile
+
+    /// Test based on a real JetBrains IDE Stream Deck profile found in AngelCruzL's dotfiles on GitHub.
+    /// Uses V2 Controllers format with Hotkeys array entries and mixed action types.
+    func testParseRealWorldProfile_JetBrainsIDE() throws {
+        let json: [String: Any] = [
+            "Name": "",
+            "Controllers": [
+                [
+                    "Type": "Keypad",
+                    "Actions": [
+                        // Generate (Cmd+N) — keyCode 45
+                        "0,1": [
+                            "UUID": "com.elgato.streamdeck.system.hotkey",
+                            "Name": "Hotkey",
+                            "Settings": [
+                                "Coalesce": true,
+                                "Hotkeys": [
+                                    [
+                                        "KeyCmd": true,
+                                        "KeyCtrl": false,
+                                        "KeyModifiers": 8,
+                                        "KeyOption": false,
+                                        "KeyShift": false,
+                                        "NativeCode": 45,
+                                        "QTKeyCode": 78,
+                                        "VKeyCode": 45
+                                    ],
+                                    [
+                                        "KeyCmd": false,
+                                        "KeyCtrl": false,
+                                        "KeyModifiers": 0,
+                                        "KeyOption": false,
+                                        "KeyShift": false,
+                                        "NativeCode": -1,
+                                        "QTKeyCode": 33554431,
+                                        "VKeyCode": -1
+                                    ]
+                                ]
+                            ] as [String: Any],
+                            "State": 0,
+                            "States": [["Title": "Generate"]],
+                        ],
+                        // New (Ctrl+Option+N) — keyCode 45
+                        "0,2": [
+                            "UUID": "com.elgato.streamdeck.system.hotkey",
+                            "Name": "Hotkey",
+                            "Settings": [
+                                "Coalesce": true,
+                                "Hotkeys": [
+                                    [
+                                        "KeyCmd": false,
+                                        "KeyCtrl": true,
+                                        "KeyModifiers": 6,
+                                        "KeyOption": true,
+                                        "KeyShift": false,
+                                        "NativeCode": 45,
+                                        "QTKeyCode": 78,
+                                        "VKeyCode": 45
+                                    ],
+                                    [
+                                        "KeyCmd": false,
+                                        "KeyCtrl": false,
+                                        "KeyModifiers": 0,
+                                        "KeyOption": false,
+                                        "KeyShift": false,
+                                        "NativeCode": -1,
+                                        "QTKeyCode": 33554431,
+                                        "VKeyCode": -1
+                                    ]
+                                ]
+                            ] as [String: Any],
+                            "State": 0,
+                            "States": [["Title": "New"]],
+                        ],
+                        // Rename (Shift+F6) — keyCode 97
+                        "1,0": [
+                            "UUID": "com.elgato.streamdeck.system.hotkey",
+                            "Name": "Hotkey",
+                            "Settings": [
+                                "Coalesce": true,
+                                "Hotkeys": [
+                                    [
+                                        "KeyCmd": false,
+                                        "KeyCtrl": false,
+                                        "KeyModifiers": 1,
+                                        "KeyOption": false,
+                                        "KeyShift": true,
+                                        "NativeCode": 97,
+                                        "QTKeyCode": 16777271,
+                                        "VKeyCode": 117
+                                    ],
+                                    [
+                                        "KeyCmd": false,
+                                        "KeyCtrl": false,
+                                        "KeyModifiers": 0,
+                                        "KeyOption": false,
+                                        "KeyShift": false,
+                                        "NativeCode": -1,
+                                        "QTKeyCode": 33554431,
+                                        "VKeyCode": -1
+                                    ]
+                                ]
+                            ] as [String: Any],
+                            "State": 0,
+                            "States": [["Title": "Rename"]],
+                        ],
+                        // Terminal (Option+F12) — keyCode 111
+                        "1,1": [
+                            "UUID": "com.elgato.streamdeck.system.hotkey",
+                            "Name": "Hotkey",
+                            "Settings": [
+                                "Coalesce": true,
+                                "Hotkeys": [
+                                    [
+                                        "KeyCmd": false,
+                                        "KeyCtrl": false,
+                                        "KeyModifiers": 4,
+                                        "KeyOption": true,
+                                        "KeyShift": false,
+                                        "NativeCode": 111,
+                                        "QTKeyCode": 16777277,
+                                        "VKeyCode": 123
+                                    ],
+                                    [
+                                        "KeyCmd": false,
+                                        "KeyCtrl": false,
+                                        "KeyModifiers": 0,
+                                        "KeyOption": false,
+                                        "KeyShift": false,
+                                        "NativeCode": -1,
+                                        "QTKeyCode": 33554431,
+                                        "VKeyCode": -1
+                                    ]
+                                ]
+                            ] as [String: Any],
+                            "State": 0,
+                            "States": [["Title": "Terminal"]],
+                        ],
+                        // Empty sentinel slot — should be filtered out
+                        "0,0": [
+                            "UUID": "com.elgato.streamdeck.system.hotkey",
+                            "Name": "Hotkey",
+                            "Settings": [
+                                "Coalesce": true,
+                                "Hotkeys": [
+                                    [
+                                        "KeyCmd": false,
+                                        "KeyCtrl": false,
+                                        "KeyModifiers": 0,
+                                        "KeyOption": false,
+                                        "KeyShift": false,
+                                        "NativeCode": -1,
+                                        "QTKeyCode": 33554431,
+                                        "VKeyCode": -1
+                                    ]
+                                ]
+                            ] as [String: Any],
+                            "State": 0,
+                            "States": [["Title": ""]],
+                        ],
+                        // Timer plugin — unsupported
+                        "1,4": [
+                            "UUID": "com.elgato.streamdeck.system.timer",
+                            "Name": "Timer",
+                            "Settings": [:] as [String: Any],
+                            "States": [["Title": ""]],
+                        ]
+                    ] as [String: Any]
+                ]
+            ]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let manifest = try StreamDeckProfileParser.parseManifestData(data)
+
+        // Sentinel at 0,0 should be filtered; timer is unsupported but still parsed
+        // Expected: 4 hotkeys + 1 unsupported timer = 5 actions
+        XCTAssertEqual(manifest.actions.count, 5)
+
+        // Actions should be sorted by grid position (row, column)
+        // 0,1 (Generate), 0,2 (New), 1,0 (Rename), 1,1 (Terminal), 1,4 (Timer)
+        XCTAssertEqual(manifest.actions[0].title, "Generate")
+        XCTAssertEqual(manifest.actions[1].title, "New")
+        XCTAssertEqual(manifest.actions[2].title, "Rename")
+        XCTAssertEqual(manifest.actions[3].title, "Terminal")
+
+        // Verify Generate: Cmd+N (keyCode 45)
+        if case .hotkey(let keyCode, let modifiers) = manifest.actions[0].settings {
+            XCTAssertEqual(keyCode, 45)
+            XCTAssertTrue(modifiers.command)
+            XCTAssertFalse(modifiers.shift)
+            XCTAssertFalse(modifiers.option)
+            XCTAssertFalse(modifiers.control)
+        } else {
+            XCTFail("Generate should be a hotkey")
+        }
+
+        // Verify New: Ctrl+Option+N (keyCode 45)
+        if case .hotkey(let keyCode, let modifiers) = manifest.actions[1].settings {
+            XCTAssertEqual(keyCode, 45)
+            XCTAssertFalse(modifiers.command)
+            XCTAssertTrue(modifiers.option)
+            XCTAssertTrue(modifiers.control)
+        } else {
+            XCTFail("New should be a hotkey")
+        }
+
+        // Verify Rename: Shift+F6 (keyCode 97)
+        if case .hotkey(let keyCode, let modifiers) = manifest.actions[2].settings {
+            XCTAssertEqual(keyCode, 97)
+            XCTAssertTrue(modifiers.shift)
+            XCTAssertFalse(modifiers.command)
+        } else {
+            XCTFail("Rename should be a hotkey")
+        }
+
+        // Verify Terminal: Option+F12 (keyCode 111)
+        if case .hotkey(let keyCode, let modifiers) = manifest.actions[3].settings {
+            XCTAssertEqual(keyCode, 111)
+            XCTAssertTrue(modifiers.option)
+            XCTAssertFalse(modifiers.command)
+        } else {
+            XCTFail("Terminal should be a hotkey")
+        }
+
+        // Verify Timer is unsupported
+        if case .unsupported(let uuid) = manifest.actions[4].settings {
+            XCTAssertEqual(uuid, "com.elgato.streamdeck.system.timer")
+        } else {
+            XCTFail("Timer should be unsupported")
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeManifest(name: String = "Test Profile", actions: [String: Any]) -> [String: Any] {
