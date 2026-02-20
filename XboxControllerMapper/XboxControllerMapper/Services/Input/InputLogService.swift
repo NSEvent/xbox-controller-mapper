@@ -3,10 +3,13 @@ import Combine
 
 class InputLogService: ObservableObject {
     @Published var entries: [InputLogEntry] = []
-    
+
+    /// Currently held action strings (e.g. modifier keys being held down)
+    @Published var heldActions: [String] = []
+
     private var timer: Timer?
     private let retentionDuration: TimeInterval = 3.0 // Items disappear after 3 seconds
-    
+
     // Batching mechanism to handle high-frequency inputs
     private var pendingEntries: [InputLogEntry] = []
     private var isUpdateScheduled = false
@@ -34,6 +37,9 @@ class InputLogService: ObservableObject {
         if !action.contains("(unmapped)") {
             Task { @MainActor in
                 ActionFeedbackIndicator.shared.show(action: action, type: type, isHeld: isHeld)
+                if isHeld && !self.heldActions.contains(action) {
+                    self.heldActions.append(action)
+                }
             }
         }
     }
@@ -43,6 +49,11 @@ class InputLogService: ObservableObject {
     func dismissHeldFeedback(action: String? = nil) {
         Task { @MainActor in
             ActionFeedbackIndicator.shared.dismissHeld(action: action)
+            if let action = action {
+                self.heldActions.removeAll { $0 == action }
+            } else {
+                self.heldActions.removeAll()
+            }
         }
     }
     

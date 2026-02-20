@@ -31,14 +31,14 @@ struct StreamOverlayView: View {
             }
             .frame(width: 200, height: 140)
 
-            // Last action line
-            Text(lastActionText)
+            // Last action line — shows held actions while held, otherwise last single action
+            Text(displayActionText)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundColor(.white.opacity(0.9))
                 .lineLimit(1)
                 .frame(height: 16)
-                .opacity(lastActionOpacity)
-                .animation(.easeInOut(duration: 0.2), value: lastActionOpacity)
+                .opacity(displayActionOpacity)
+                .animation(.easeInOut(duration: 0.2), value: displayActionOpacity)
         }
         .padding(10)
         .background(overlayBackground)
@@ -356,6 +356,23 @@ struct StreamOverlayView: View {
             }
         }
         .frame(width: 24, height: 24)
+    }
+
+    // MARK: - Display Logic
+
+    /// Shows held actions when modifiers are held, otherwise shows last single action
+    private var displayActionText: String {
+        if !inputLogService.heldActions.isEmpty {
+            return inputLogService.heldActions.joined(separator: " + ")
+        }
+        return lastActionText
+    }
+
+    private var displayActionOpacity: Double {
+        if !inputLogService.heldActions.isEmpty {
+            return 1.0
+        }
+        return lastActionOpacity
     }
 
     // MARK: - Helpers
