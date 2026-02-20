@@ -6,6 +6,7 @@ extension MappingEngine {
     final class EngineState: @unchecked Sendable {
         let lock = NSLock()
         var isEnabled = true
+        var isLocked = false
 
         // Mirrors of MainActor data
         var activeProfile: Profile?
@@ -83,6 +84,11 @@ extension MappingEngine {
         var lastRightStickTapDirection: Int = 0
         var scrollBoostDirection: Int = 0
 
+        // Swipe typing state
+        var swipeTypingActive: Bool = false
+        var swipeTypingCursorX: Double = 0.5
+        var swipeTypingCursorY: Double = 0.5
+
         // Focus mode state
         var wasFocusActive = false
         var currentMultiplier: Double = 0
@@ -157,6 +163,9 @@ extension MappingEngine {
             lastRightStickTapTime = 0
             lastRightStickTapDirection = 0
             scrollBoostDirection = 0
+            swipeTypingActive = false
+            swipeTypingCursorX = 0.5
+            swipeTypingCursorY = 0.5
             wasFocusActive = false
             currentMultiplier = 0
             focusExitTime = 0

@@ -30,6 +30,7 @@ import CoreGraphics
 @MainActor
 class MappingEngine: ObservableObject {
     @Published var isEnabled = true
+    @Published var isLocked = false
 
     private let controllerService: ControllerService
     private let profileManager: ProfileManager
@@ -313,15 +314,20 @@ class MappingEngine: ObservableObject {
 
     /// Advance sequence tracking for a button press. If a sequence completes, execute it.
     /// Individual button actions are never blocked or deferred.
-    nonisolated private func advanceSequenceTracking(_ button: ControllerButton, profile: Profile) {
+    nonisolated private func advanceSequenceTracking(_ button: ControllerButton, profile: Profile, chordWindow: TimeInterval = 0) {
         let now = Date()
 
         let completedSequence: SequenceMapping? = state.lock.withLock {
             // Update existing active sequences — check per-step timeout
+            // The chord window delays when this method runs relative to the physical press.
+            // While the delay is mostly consistent across steps (so sinceLastStep ≈ physical gap),
+            // scheduling jitter from DispatchQueue.asyncAfter can push it over the configured timeout.
+            // Adding the chord window as tolerance absorbs this jitter.
             var survivingSequences: [EngineState.SequenceProgress] = []
             for var seq in state.activeSequences {
                 let sinceLastStep = now.timeIntervalSince(seq.lastStepTime)
-                if sinceLastStep <= seq.stepTimeout && seq.matchedCount < seq.steps.count && button == seq.steps[seq.matchedCount] {
+                let effectiveTimeout = seq.stepTimeout + chordWindow
+                if sinceLastStep <= effectiveTimeout && seq.matchedCount < seq.steps.count && button == seq.steps[seq.matchedCount] {
                     seq.matchedCount += 1
                     seq.lastStepTime = now
                     survivingSequences.append(seq)
@@ -359,6 +365,38 @@ class MappingEngine: ObservableObject {
 
         // Fire sequence action outside lock (individual button action already fired)
         if let sequence = completedSequence {
+            // Special virtual key codes (laser pointer, on-screen keyboard, controller lock) are intercepted
+            // in the normal button press flow but need explicit handling here since sequences
+            // bypass ButtonPressOrchestrationPolicy.
+            if let keyCode = sequence.keyCode {
+                // Controller lock check comes first — works even when locked
+                if keyCode == KeyCodeMapping.controllerLock {
+                    _ = performLockToggle()
+                    inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "Controller Lock")
+                    return
+                }
+
+                // Block all other sequence actions when locked
+                if state.lock.withLock({ state.isLocked }) { return }
+
+                if keyCode == KeyCodeMapping.showLaserPointer {
+                    DispatchQueue.main.async {
+                        LaserPointerOverlay.shared.toggle()
+                    }
+                    inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "Laser Pointer")
+                    return
+                }
+                if keyCode == KeyCodeMapping.showOnScreenKeyboard {
+                    DispatchQueue.main.async {
+                        OnScreenKeyboardManager.shared.toggle()
+                    }
+                    inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "On-Screen Keyboard")
+                    return
+                }
+            } else {
+                // No keyCode — still block if locked
+                if state.lock.withLock({ state.isLocked }) { return }
+            }
             mappingExecutor.executeAction(sequence, for: sequence.steps, profile: profile, logType: .sequence)
         }
     }
@@ -424,11 +462,25 @@ class MappingEngine: ObservableObject {
         case .ready(let profile, let lastTap):
             // Advance sequence tracking (passive, zero-latency — never blocks normal handling)
             if !profile.sequenceMappings.isEmpty {
-                advanceSequenceTracking(button, profile: profile)
+                // Pass chord window so sequence timeout can absorb scheduling jitter
+                // introduced by the chord detection delay
+                let chordWindow = controllerService.threadSafeChordWindow
+                advanceSequenceTracking(button, profile: profile, chordWindow: chordWindow)
+            }
+
+            // Resolve outcome, then check lock
+            let outcome = resolveButtonPressOutcome(button, profile: profile, lastTap: lastTap)
+
+            // When locked, only allow the lock toggle through
+            if state.lock.withLock({ state.isLocked }) {
+                if case .interceptControllerLock = outcome {
+                    _ = performLockToggle()
+                }
+                return
             }
 
             // Always process normal button action immediately
-            switch resolveButtonPressOutcome(button, profile: profile, lastTap: lastTap) {
+            switch outcome {
             case .interceptDpadNavigation:
                 // First navigation happens immediately
                 Task { @MainActor in
@@ -450,6 +502,34 @@ class MappingEngine: ObservableObject {
 
             case .interceptLaserPointer(let holdMode):
                 handleLaserPointerPressed(button, holdMode: holdMode)
+                return
+
+            case .interceptControllerLock:
+                _ = performLockToggle()
+                return
+
+            case .interceptSwipePredictionNavigation:
+                DispatchQueue.main.async {
+                    if button == .dpadRight {
+                        SwipeTypingEngine.shared.selectNextPrediction()
+                    } else {
+                        SwipeTypingEngine.shared.selectPreviousPrediction()
+                    }
+                }
+                return
+
+            case .interceptSwipePredictionConfirm:
+                DispatchQueue.main.async {
+                    if let word = SwipeTypingEngine.shared.confirmSelection() {
+                        OnScreenKeyboardManager.shared.typeSwipedWord(word)
+                    }
+                }
+                return
+
+            case .interceptSwipePredictionCancel:
+                DispatchQueue.main.async {
+                    SwipeTypingEngine.shared.cancelPredictions()
+                }
                 return
 
             case .unmapped:
@@ -671,6 +751,99 @@ class MappingEngine: ObservableObject {
                 LaserPointerOverlay.shared.hide()
             }
         }
+    }
+
+    /// Toggles the controller lock state. When locking, clears all held state and timers.
+    /// Returns true if now locked, false if now unlocked.
+    nonisolated private func performLockToggle() -> Bool {
+        let keysToRelease: (left: Set<CGKeyCode>, right: Set<CGKeyCode>)?
+        let nowLocked: Bool
+
+        state.lock.lock()
+        let wasLocked = state.isLocked
+        state.isLocked = !wasLocked
+        nowLocked = !wasLocked
+
+        if nowLocked {
+            // Capture direction keys before clearing
+            let leftKeys = state.leftStickHeldKeys
+            let rightKeys = state.rightStickHeldKeys
+
+            // Clear held buttons
+            state.heldButtons.removeAll()
+            state.activeChordButtons.removeAll()
+
+            // Cancel all timers
+            state.pendingSingleTap.values.forEach { $0.cancel() }
+            state.pendingSingleTap.removeAll()
+            state.pendingReleaseActions.values.forEach { $0.cancel() }
+            state.pendingReleaseActions.removeAll()
+            state.longHoldTimers.values.forEach { $0.cancel() }
+            state.longHoldTimers.removeAll()
+            state.longHoldTriggered.removeAll()
+            state.repeatTimers.values.forEach { $0.cancel() }
+            state.repeatTimers.removeAll()
+            state.dpadNavigationTimer?.cancel()
+            state.dpadNavigationTimer = nil
+            state.dpadNavigationButton = nil
+
+            // Clear active sequences
+            state.activeSequences.removeAll()
+
+            // Clear joystick smoothing and held keys
+            state.smoothedLeftStick = .zero
+            state.smoothedRightStick = .zero
+            state.leftStickHeldKeys.removeAll()
+            state.rightStickHeldKeys.removeAll()
+
+            // Clear touchpad state
+            state.smoothedTouchpadDelta = .zero
+            state.lastTouchpadSampleTime = 0
+            state.touchpadMomentumVelocity = .zero
+            state.touchpadMomentumWasActive = false
+
+            // Clear on-screen keyboard and laser pointer state
+            state.onScreenKeyboardButton = nil
+            state.onScreenKeyboardHoldMode = false
+            state.laserPointerButton = nil
+            state.laserPointerHoldMode = false
+            state.commandWheelActive = false
+
+            keysToRelease = (leftKeys, rightKeys)
+        } else {
+            keysToRelease = nil
+        }
+        state.lock.unlock()
+
+        if nowLocked {
+            // Release modifiers and direction keys outside the lock
+            inputSimulator.releaseAllModifiers()
+            if let keysToRelease {
+                for key in keysToRelease.left {
+                    inputSimulator.keyUp(key)
+                }
+                for key in keysToRelease.right {
+                    inputSimulator.keyUp(key)
+                }
+            }
+
+            // Hide overlays
+            DispatchQueue.main.async {
+                LaserPointerOverlay.shared.hide()
+                OnScreenKeyboardManager.shared.hide()
+            }
+        }
+
+        // Update published state and show feedback
+        DispatchQueue.main.async { [weak self] in
+            self?.isLocked = nowLocked
+            ActionFeedbackIndicator.shared.show(
+                action: nowLocked ? "Controller Locked" : "Controller Unlocked",
+                type: .singlePress
+            )
+        }
+
+        return nowLocked
     }
 
     /// Sets up a timer for long-hold detection
@@ -913,7 +1086,7 @@ class MappingEngine: ObservableObject {
     /// Get the context needed for release handling (mapping, profile, bundleId, etc.)
     nonisolated private func getReleaseContext(for button: ControllerButton) -> (KeyMapping, Profile, Bool)? {
         guard let (profile, isLongHoldTriggered) = state.lock.withLock({ () -> (Profile, Bool)? in
-            guard state.isEnabled, let profile = state.activeProfile else {
+            guard state.isEnabled, !state.isLocked, let profile = state.activeProfile else {
                 return nil
             }
 
@@ -1108,8 +1281,38 @@ class MappingEngine: ObservableObject {
                 state.activeChordButtons = chordButtons
             }
 
+            // Special virtual key codes bypass normal execution (same as sequence handling)
+            if let keyCode = chord.keyCode {
+                // Controller lock check comes first — works even when locked
+                if keyCode == KeyCodeMapping.controllerLock {
+                    _ = performLockToggle()
+                    inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "Controller Lock")
+                    return
+                }
+
+                // Block all other chord actions when locked
+                if state.lock.withLock({ state.isLocked }) { return }
+
+                if keyCode == KeyCodeMapping.showLaserPointer {
+                    DispatchQueue.main.async { LaserPointerOverlay.shared.toggle() }
+                    inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "Laser Pointer")
+                    return
+                }
+                if keyCode == KeyCodeMapping.showOnScreenKeyboard {
+                    DispatchQueue.main.async { OnScreenKeyboardManager.shared.toggle() }
+                    inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "On-Screen Keyboard")
+                    return
+                }
+            } else {
+                // No keyCode — still block if locked
+                if state.lock.withLock({ state.isLocked }) { return }
+            }
+
             mappingExecutor.executeAction(chord, for: Array(chordButtons), profile: profile, logType: .chord)
         } else {
+            // Block fallback individual handling when locked
+            if state.lock.withLock({ state.isLocked }) { return }
+
             // Fallback: Individual handling for non-activator buttons
             let sortedButtons = chordButtons.sorted { $0.rawValue < $1.rawValue }
             for button in sortedButtons {
@@ -1148,7 +1351,7 @@ class MappingEngine: ObservableObject {
         state.lock.lock()
         defer { state.lock.unlock() }
 
-        guard state.isEnabled, let settings = state.joystickSettings else { return }
+        guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return }
 
         let dt = state.lastJoystickSampleTime > 0 ? now - state.lastJoystickSampleTime : Config.joystickPollInterval
         state.lastJoystickSampleTime = now
@@ -1156,6 +1359,58 @@ class MappingEngine: ObservableObject {
         // Process left joystick based on mode
         // Note: accessing controllerService.threadSafeLeftStick is safe (atomic/lock-free usually)
         let leftStick = controllerService.threadSafeLeftStick
+
+        // Swipe typing: left trigger + left stick while keyboard visible
+        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+        let leftTrigger = controllerService.threadSafeLeftTrigger
+        if keyboardVisible {
+            let wasSwipeActive = state.swipeTypingActive
+            if !wasSwipeActive && leftTrigger > Config.swipeTriggerThreshold {
+                state.swipeTypingActive = true
+                SwipeTypingEngine.shared.beginSwipe()
+            } else if wasSwipeActive && leftTrigger < Config.swipeTriggerReleaseThreshold {
+                state.swipeTypingActive = false
+                SwipeTypingEngine.shared.endSwipe()
+            }
+
+            if state.swipeTypingActive {
+                SwipeTypingEngine.shared.updateCursorFromJoystick(
+                    x: Double(leftStick.x),
+                    y: Double(-leftStick.y),  // Invert Y: stick up = cursor up (lower Y)
+                    sensitivity: settings.touchpadSensitivity
+                )
+                // Skip normal left stick processing while swiping
+                // Fall through to right stick processing below
+            }
+        } else if state.swipeTypingActive {
+            // Keyboard was hidden while swiping — cancel
+            state.swipeTypingActive = false
+            DispatchQueue.main.async {
+                SwipeTypingEngine.shared.cancelPredictions()
+            }
+        }
+
+        guard !state.swipeTypingActive else {
+            // Skip left stick processing, still process right stick below
+            let rightStick = controllerService.threadSafeRightStick
+            if state.commandWheelActive {
+                let altMods = state.wheelAlternateModifiers
+                let alternateHeld: Bool = {
+                    guard altMods.command || altMods.option || altMods.shift || altMods.control else { return false }
+                    let flags = CGEventSource.flagsState(.combinedSessionState)
+                    if altMods.command && !flags.contains(.maskCommand) { return false }
+                    if altMods.option && !flags.contains(.maskAlternate) { return false }
+                    if altMods.shift && !flags.contains(.maskShift) { return false }
+                    if altMods.control && !flags.contains(.maskControl) { return false }
+                    return true
+                }()
+                DispatchQueue.main.async {
+                    CommandWheelManager.shared.setShowingAlternate(alternateHeld)
+                    CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
+                }
+            }
+            return
+        }
 
         switch settings.leftStickMode {
         case .none:
@@ -1369,7 +1624,7 @@ class MappingEngine: ObservableObject {
     /// Common handler for tap gestures with double-tap support
     nonisolated private func processTapGesture(_ button: ControllerButton) {
         guard let profile = state.lock.withLock({
-            guard state.isEnabled else { return nil as Profile? }
+            guard state.isEnabled, !state.isLocked else { return nil as Profile? }
             return state.activeProfile
         }) else { return }
 
@@ -1409,7 +1664,7 @@ class MappingEngine: ObservableObject {
     /// Common handler for long tap gestures
     nonisolated private func processLongTapGesture(_ button: ControllerButton) {
         guard let profile = state.lock.withLock({
-            guard state.isEnabled else { return nil as Profile? }
+            guard state.isEnabled, !state.isLocked else { return nil as Profile? }
             // Cancel any pending single tap for this button
             state.pendingSingleTap[button]?.cancel()
             state.pendingSingleTap.removeValue(forKey: button)
@@ -1432,9 +1687,19 @@ class MappingEngine: ObservableObject {
     /// Unlike joystick which is position-based (continuous velocity), touchpad is delta-based (like a laptop trackpad)
     nonisolated private func processTouchpadMovement(_ delta: CGPoint) {
         guard let (settings, isGestureActive) = state.lock.withLock({
-            guard state.isEnabled, let settings = state.joystickSettings else { return nil as (JoystickSettings, Bool)? }
+            guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil as (JoystickSettings, Bool)? }
             return (settings, state.isTouchpadGestureActive)
         }) else { return }
+
+        // Route to swipe typing engine if actively swiping
+        if state.lock.withLock({ state.swipeTypingActive }) {
+            SwipeTypingEngine.shared.updateCursorFromTouchpadDelta(
+                dx: Double(delta.x),
+                dy: Double(-delta.y),  // Invert Y: touchpad up = cursor up
+                sensitivity: settings.touchpadSensitivity
+            )
+            return
+        }
 
         let movementBlocked = controllerService.threadSafeIsTouchpadMovementBlocked
         if isGestureActive || movementBlocked {
@@ -1507,7 +1772,7 @@ class MappingEngine: ObservableObject {
         // MARK: State Snapshot
         let isActive = gesture.isPrimaryTouching && gesture.isSecondaryTouching
         guard let snapshot = state.lock.withLock({ () -> (settings: JoystickSettings, wasActive: Bool, smoothedCenter: CGPoint, smoothedDistance: Double, lastSampleTime: TimeInterval, smoothedVelocity: CGPoint)? in
-            guard state.isEnabled, let settings = state.joystickSettings else { return nil }
+            guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil }
             let wasActive = state.isTouchpadGestureActive
             state.isTouchpadGestureActive = isActive
             return (settings, wasActive, state.smoothedTouchpadCenterDelta, state.smoothedTouchpadDistanceDelta, state.lastTouchpadGestureSampleTime, state.smoothedTouchpadPanVelocity)
@@ -1775,7 +2040,7 @@ class MappingEngine: ObservableObject {
 
     nonisolated private func processTouchpadMomentumTick(now: CFAbsoluteTime) {
         guard let snapshot = state.lock.withLock({ () -> (isGestureActive: Bool, panActive: Bool, panVelocity: CGPoint, lastGestureTime: TimeInterval, velocity: CGPoint, wasActive: Bool, residualX: Double, residualY: Double, lastUpdate: TimeInterval)? in
-            guard state.isEnabled else { return nil }
+            guard state.isEnabled, !state.isLocked else { return nil }
             return (state.isTouchpadGestureActive, state.touchpadPanActive, state.smoothedTouchpadPanVelocity, state.touchpadMomentumLastGestureTime, state.touchpadMomentumVelocity, state.touchpadMomentumWasActive, state.touchpadScrollResidualX, state.touchpadScrollResidualY, state.touchpadMomentumLastUpdate)
         }) else { return }
         let isGestureActive = snapshot.isGestureActive

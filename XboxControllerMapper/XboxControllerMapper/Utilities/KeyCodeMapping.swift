@@ -119,6 +119,9 @@ enum KeyCodeMapping {
     /// Shows a laser pointer dot on the cursor
     static let showLaserPointer: CGKeyCode = 0xF011
 
+    /// Locks/unlocks all controller input
+    static let controllerLock: CGKeyCode = 0xF012
+
     // MARK: - Media Key Markers
 
     // Playback controls
@@ -255,6 +258,7 @@ enum KeyCodeMapping {
         // Special actions
         case 0xF010: return "On-Screen Keyboard"
         case 0xF011: return "Laser Pointer"
+        case 0xF012: return "Controller Lock"
 
         // Media keys - Playback
         case 0xF020: return "Play/Pause"
@@ -349,6 +353,7 @@ enum KeyCodeMapping {
         // Special actions
         options.append(("On-Screen Keyboard", showOnScreenKeyboard))
         options.append(("Laser Pointer", showLaserPointer))
+        options.append(("Controller Lock", controllerLock))
 
         // Media keys - Playback
         options.append(("Play/Pause", mediaPlayPause))
@@ -376,7 +381,7 @@ enum KeyCodeMapping {
 
     /// Checks if a key code represents a special action (on-screen keyboard, etc.)
     static func isSpecialAction(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == showOnScreenKeyboard || keyCode == showLaserPointer
+        keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock
     }
 
     /// Checks if a key code represents a media key

@@ -13,6 +13,10 @@ enum ButtonPressOrchestrationPolicy {
         case interceptKeyboardActivation
         case interceptOnScreenKeyboard(holdMode: Bool)
         case interceptLaserPointer(holdMode: Bool)
+        case interceptControllerLock
+        case interceptSwipePredictionNavigation
+        case interceptSwipePredictionConfirm
+        case interceptSwipePredictionCancel
         case unmapped
         case mapping(MappingContext)
     }
@@ -25,6 +29,20 @@ enum ButtonPressOrchestrationPolicy {
         isChordPart: Bool,
         lastTap: Date?
     ) -> Outcome {
+        // Swipe prediction navigation takes priority when showing predictions
+        if keyboardVisible && SwipeTypingEngine.shared.threadSafeState == .showingPredictions {
+            switch button {
+            case .dpadLeft, .dpadRight:
+                return .interceptSwipePredictionNavigation
+            case .a:
+                return .interceptSwipePredictionConfirm
+            case .b:
+                return .interceptSwipePredictionCancel
+            default:
+                break
+            }
+        }
+
         if keyboardVisible {
             switch button {
             case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
@@ -51,6 +69,10 @@ enum ButtonPressOrchestrationPolicy {
 
         if mapping.keyCode == KeyCodeMapping.showLaserPointer {
             return .interceptLaserPointer(holdMode: mapping.isHoldModifier)
+        }
+
+        if mapping.keyCode == KeyCodeMapping.controllerLock {
+            return .interceptControllerLock
         }
 
         return .mapping(

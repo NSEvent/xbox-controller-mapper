@@ -4868,3 +4868,1025 @@ final class ChordConflictTests: XCTestCase {
         XCTAssertEqual(conflicts[.a]?.buttons, chord2.buttons)
     }
 }
+
+// MARK: - Sequence Detection Tests
+
+final class SequenceDetectionTests: XCTestCase {
+    var controllerService: ControllerService!
+    var profileManager: ProfileManager!
+    var appMonitor: AppMonitor!
+    var mockInputSimulator: MockInputSimulator!
+    var mappingEngine: MappingEngine!
+    private var testConfigDirectory: URL!
+
+    override func setUp() async throws {
+        testConfigDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("controllerkeys-seq-tests-\(UUID().uuidString)", isDirectory: true)
+
+        await MainActor.run {
+            controllerService = ControllerService(enableHardwareMonitoring: false)
+            controllerService.chordWindow = 0.05
+            profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+            appMonitor = AppMonitor()
+            mockInputSimulator = MockInputSimulator()
+
+            mappingEngine = MappingEngine(
+                controllerService: controllerService,
+                profileManager: profileManager,
+                appMonitor: appMonitor,
+                inputSimulator: mockInputSimulator
+            )
+
+            mappingEngine.enable()
+        }
+    }
+
+    override func tearDown() async throws {
+        await MainActor.run {
+            mappingEngine?.disable()
+        }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        await MainActor.run {
+            mockInputSimulator?.releaseAllModifiers()
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.cleanup()
+            mappingEngine = nil
+            controllerService = nil
+            profileManager = nil
+            appMonitor = nil
+            mockInputSimulator = nil
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+
+    private func waitForTasks(_ delay: TimeInterval = 0.4) async {
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        await Task.yield()
+    }
+
+    /// Tests that a simple 3-step sequence (A → B → X) fires via direct callbacks
+    func testSequenceDetection_ThreeDistinctButtons() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.a, .b, .x],
+                keyCode: 99  // F16
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "SeqTest",
+                buttonMappings: [:],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press A → B → X with release between each
+        for button: ControllerButton in [.a, .b, .x] {
+            await MainActor.run {
+                controllerService.onButtonPressed?(button)
+                controllerService.onButtonReleased?(button, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            let sequenceActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(sequenceActions.count, 1, "Sequence A→B→X should fire exactly once")
+        }
+    }
+
+    /// Tests that pressing the SAME button 3 times fires a sequence (L3 × 3)
+    func testSequenceDetection_SameButtonThreeTimes_DirectCallback() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.leftThumbstick, .leftThumbstick, .leftThumbstick],
+                keyCode: 99
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "L3x3",
+                buttonMappings: [:],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press L3 three times via direct callback
+        for _ in 0..<3 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.leftThumbstick)
+                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            let sequenceActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(sequenceActions.count, 1, "Sequence L3×3 should fire exactly once via direct callback")
+        }
+    }
+
+    /// Tests that pressing the SAME button 3 times fires through the full buttonPressed path (chord window)
+    func testSequenceDetection_SameButtonThreeTimes_ViaButtonPressed() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.leftThumbstick, .leftThumbstick, .leftThumbstick],
+                keyCode: 99
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "L3x3",
+                buttonMappings: [:],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press L3 three times through the full chord window path
+        for _ in 0..<3 {
+            await MainActor.run {
+                controllerService.buttonPressed(.leftThumbstick)
+            }
+            await waitForTasks(0.1)  // Wait for chord window (0.05) + processing
+            await MainActor.run {
+                controllerService.buttonReleased(.leftThumbstick)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let sequenceActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(sequenceActions.count, 1, "Sequence L3×3 should fire through buttonPressed path")
+        }
+    }
+
+    /// Tests that L3 × 3 works even when L3 has a regular mapping
+    func testSequenceDetection_SameButtonThreeTimes_WithRegularMapping() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.leftThumbstick, .leftThumbstick, .leftThumbstick],
+                keyCode: 99
+            )
+            let l3Mapping = KeyMapping(keyCode: 50)  // Regular key mapping for L3
+            profileManager.setActiveProfile(Profile(
+                name: "L3x3+mapping",
+                buttonMappings: [.leftThumbstick: l3Mapping],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press L3 three times via direct callback
+        for _ in 0..<3 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.leftThumbstick)
+                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            // Individual key presses should fire (3 times)
+            let individualActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 50 }
+                return false
+            }
+            XCTAssertEqual(individualActions.count, 3, "Individual L3 mapping should fire 3 times")
+
+            // Sequence should also fire (1 time)
+            let sequenceActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(sequenceActions.count, 1, "Sequence L3×3 should also fire once")
+        }
+    }
+
+    /// Tests that a 2-button repeated sequence (A × 2) fires correctly
+    func testSequenceDetection_SameButtonTwice() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.a, .a],
+                keyCode: 99
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "Ax2",
+                buttonMappings: [:],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        for _ in 0..<2 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.a)
+                controllerService.onButtonReleased?(.a, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            let sequenceActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(sequenceActions.count, 1, "Sequence A×2 should fire exactly once")
+        }
+    }
+
+    /// Tests L3 × 3 with realistic chord window and hold times — exposes the timing bug
+    /// The chord window (150ms default) delays when advanceSequenceTracking runs,
+    /// so the step timeout check measures chord-window-inflated time, not physical press time.
+    func testSequenceDetection_SameButtonThreeTimes_RealisticChordWindow() async throws {
+        await MainActor.run {
+            // Use production-like chord window
+            controllerService.chordWindow = 0.15
+
+            let seq = SequenceMapping(
+                steps: [.leftThumbstick, .leftThumbstick, .leftThumbstick],
+                stepTimeout: 0.4,  // Default
+                keyCode: 99
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "L3x3Realistic",
+                buttonMappings: [:],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Simulate realistic thumbstick clicks: press for 120ms, 200ms gap between clicks
+        for i in 0..<3 {
+            await MainActor.run {
+                controllerService.buttonPressed(.leftThumbstick)
+            }
+            // Hold for 120ms (realistic stick click hold time)
+            await waitForTasks(0.12)
+            await MainActor.run {
+                controllerService.buttonReleased(.leftThumbstick)
+            }
+            if i < 2 {
+                // Wait 200ms between presses (realistic for rapid thumbstick clicking)
+                await waitForTasks(0.2)
+            }
+        }
+        // Wait for chord window + processing
+        await waitForTasks(0.4)
+
+        await MainActor.run {
+            let sequenceActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(sequenceActions.count, 1,
+                "Sequence L3×3 should fire with realistic timing (120ms holds, 200ms gaps)")
+        }
+    }
+
+    /// Tests that sequence times out when presses are too slow
+    func testSequenceDetection_Timeout() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.a, .a, .a],
+                stepTimeout: 0.1,  // Very short timeout
+                keyCode: 99
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "Timeout",
+                buttonMappings: [:],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // First press
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        // Wait longer than the step timeout
+        await waitForTasks(0.2)
+
+        // Second and third press
+        for _ in 0..<2 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.a)
+                controllerService.onButtonReleased?(.a, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            let sequenceActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(sequenceActions.count, 0, "Sequence should NOT fire when step timeout elapses")
+        }
+    }
+
+    // MARK: - Special Virtual Key Code Tests
+
+    /// Tests that a sequence mapped to the laser pointer virtual key code toggles the laser pointer
+    func testSequenceDetection_LaserPointerVirtualKeyCode() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.leftThumbstick, .leftThumbstick, .leftThumbstick],
+                keyCode: KeyCodeMapping.showLaserPointer
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "LaserSeq",
+                buttonMappings: [:],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Verify laser is not showing initially
+        await MainActor.run {
+            XCTAssertFalse(LaserPointerOverlay.shared.isShowing, "Laser should not be showing initially")
+        }
+
+        // Press L3 three times via direct callback
+        for _ in 0..<3 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.leftThumbstick)
+                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.15)
+
+        // Laser pointer should now be showing
+        await MainActor.run {
+            XCTAssertTrue(LaserPointerOverlay.shared.isShowing,
+                "Sequence with laser pointer key code should toggle laser ON")
+        }
+
+        // The virtual key code should NOT have been sent as an actual key press
+        await MainActor.run {
+            let laserKeyPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.showLaserPointer }
+                return false
+            }
+            XCTAssertEqual(laserKeyPresses.count, 0,
+                "Laser pointer virtual key code should NOT be sent as an actual key press")
+        }
+
+        // Clean up: hide the laser
+        await MainActor.run {
+            LaserPointerOverlay.shared.hide()
+        }
+    }
+
+    /// Tests that a sequence mapped to the on-screen keyboard virtual key code toggles the keyboard
+    func testSequenceDetection_OnScreenKeyboardVirtualKeyCode() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.a, .b],
+                keyCode: KeyCodeMapping.showOnScreenKeyboard
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "KbdSeq",
+                buttonMappings: [:],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Verify keyboard is not visible initially
+        await MainActor.run {
+            XCTAssertFalse(OnScreenKeyboardManager.shared.isVisible, "Keyboard should not be visible initially")
+        }
+
+        // Press A then B
+        for button: ControllerButton in [.a, .b] {
+            await MainActor.run {
+                controllerService.onButtonPressed?(button)
+                controllerService.onButtonReleased?(button, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.15)
+
+        // On-screen keyboard should now be visible
+        await MainActor.run {
+            XCTAssertTrue(OnScreenKeyboardManager.shared.isVisible,
+                "Sequence with on-screen keyboard key code should toggle keyboard ON")
+        }
+
+        // The virtual key code should NOT have been sent as an actual key press
+        await MainActor.run {
+            let kbdKeyPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.showOnScreenKeyboard }
+                return false
+            }
+            XCTAssertEqual(kbdKeyPresses.count, 0,
+                "On-screen keyboard virtual key code should NOT be sent as an actual key press")
+        }
+
+        // Clean up: hide the keyboard
+        await MainActor.run {
+            OnScreenKeyboardManager.shared.hide()
+        }
+    }
+
+    /// Tests that a chord mapped to the laser pointer virtual key code toggles the laser pointer
+    func testChordDetection_LaserPointerVirtualKeyCode() async throws {
+        await MainActor.run {
+            let chord = ChordMapping(
+                buttons: [.leftBumper, .rightBumper],
+                keyCode: KeyCodeMapping.showLaserPointer
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "LaserChord",
+                buttonMappings: [:],
+                chordMappings: [chord]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Verify laser is not showing initially
+        await MainActor.run {
+            XCTAssertFalse(LaserPointerOverlay.shared.isShowing, "Laser should not be showing initially")
+        }
+
+        // Simulate chord via onChordDetected callback
+        await MainActor.run {
+            controllerService.onChordDetected?([.leftBumper, .rightBumper])
+        }
+        await waitForTasks(0.15)
+
+        // Laser pointer should now be showing
+        await MainActor.run {
+            XCTAssertTrue(LaserPointerOverlay.shared.isShowing,
+                "Chord with laser pointer key code should toggle laser ON")
+        }
+
+        // The virtual key code should NOT have been sent as an actual key press
+        await MainActor.run {
+            let laserKeyPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == KeyCodeMapping.showLaserPointer }
+                return false
+            }
+            XCTAssertEqual(laserKeyPresses.count, 0,
+                "Laser pointer virtual key code should NOT be sent as an actual key press via chord")
+        }
+
+        // Clean up
+        await MainActor.run {
+            LaserPointerOverlay.shared.hide()
+        }
+    }
+}
+
+// MARK: - Controller Lock Tests
+
+final class ControllerLockTests: XCTestCase {
+    var controllerService: ControllerService!
+    var profileManager: ProfileManager!
+    var appMonitor: AppMonitor!
+    var mockInputSimulator: MockInputSimulator!
+    var mappingEngine: MappingEngine!
+    private var testConfigDirectory: URL!
+
+    override func setUp() async throws {
+        testConfigDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("controllerkeys-lock-tests-\(UUID().uuidString)", isDirectory: true)
+
+        await MainActor.run {
+            controllerService = ControllerService(enableHardwareMonitoring: false)
+            controllerService.chordWindow = 0.05
+            profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+            appMonitor = AppMonitor()
+            mockInputSimulator = MockInputSimulator()
+
+            mappingEngine = MappingEngine(
+                controllerService: controllerService,
+                profileManager: profileManager,
+                appMonitor: appMonitor,
+                inputSimulator: mockInputSimulator
+            )
+
+            mappingEngine.enable()
+        }
+    }
+
+    override func tearDown() async throws {
+        await MainActor.run {
+            mappingEngine?.disable()
+        }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        await MainActor.run {
+            mockInputSimulator?.releaseAllModifiers()
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.cleanup()
+            mappingEngine = nil
+            controllerService = nil
+            profileManager = nil
+            appMonitor = nil
+            mockInputSimulator = nil
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+
+    private func waitForTasks(_ delay: TimeInterval = 0.4) async {
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+        await Task.yield()
+    }
+
+    // MARK: 1. Lock via single button — blocks subsequent presses
+
+    func testLockViaSingleButton_BlocksSubsequentPresses() async throws {
+        await MainActor.run {
+            let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
+            let aMapping = KeyMapping(keyCode: 0) // 'A' key
+            profileManager.setActiveProfile(Profile(
+                name: "LockTest",
+                buttonMappings: [.x: lockMapping, .a: aMapping]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press X to lock
+        await MainActor.run {
+            controllerService.onButtonPressed?(.x)
+            controllerService.onButtonReleased?(.x, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        // Verify locked
+        await MainActor.run {
+            XCTAssertTrue(mappingEngine.isLocked, "Engine should be locked after pressing lock button")
+        }
+
+        // Clear events from lock action
+        await MainActor.run { mockInputSimulator.clearEvents() }
+
+        // Press A — should be blocked
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            let keyPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 0 }
+                if case .executeMapping = event { return true }
+                return false
+            }
+            XCTAssertEqual(keyPresses.count, 0, "Button presses should be blocked while locked")
+        }
+    }
+
+    // MARK: 2. Unlock via single button — resumes normal mapping
+
+    func testUnlockViaSingleButton_ResumesMapping() async throws {
+        await MainActor.run {
+            let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
+            let aMapping = KeyMapping(keyCode: 0)
+            profileManager.setActiveProfile(Profile(
+                name: "UnlockTest",
+                buttonMappings: [.x: lockMapping, .a: aMapping]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Lock
+        await MainActor.run {
+            controllerService.onButtonPressed?(.x)
+            controllerService.onButtonReleased?(.x, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        // Unlock
+        await MainActor.run {
+            controllerService.onButtonPressed?(.x)
+            controllerService.onButtonReleased?(.x, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            XCTAssertFalse(mappingEngine.isLocked, "Engine should be unlocked after toggling lock button again")
+        }
+
+        await MainActor.run { mockInputSimulator.clearEvents() }
+
+        // Press A — should work now
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let hasKeyAction = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 0 }
+                if case .executeMapping = event { return true }
+                return false
+            }
+            XCTAssertTrue(hasKeyAction, "Button presses should work after unlocking")
+        }
+    }
+
+    // MARK: 3. Lock via sequence (L3×3) — blocks actions
+
+    func testLockViaSequence_BlocksActions() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.leftThumbstick, .leftThumbstick, .leftThumbstick],
+                keyCode: KeyCodeMapping.controllerLock
+            )
+            let aMapping = KeyMapping(keyCode: 0)
+            profileManager.setActiveProfile(Profile(
+                name: "SeqLock",
+                buttonMappings: [.a: aMapping],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press L3 three times to trigger sequence lock
+        for _ in 0..<3 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.leftThumbstick)
+                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertTrue(mappingEngine.isLocked, "Engine should be locked after sequence")
+        }
+
+        await MainActor.run { mockInputSimulator.clearEvents() }
+
+        // Press A — should be blocked
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            let keyPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 0 }
+                if case .executeMapping = event { return true }
+                return false
+            }
+            XCTAssertEqual(keyPresses.count, 0, "Actions should be blocked after sequence lock")
+        }
+    }
+
+    // MARK: 4. Unlock via sequence — resumes actions
+
+    func testUnlockViaSequence_ResumesActions() async throws {
+        await MainActor.run {
+            let seq = SequenceMapping(
+                steps: [.leftThumbstick, .leftThumbstick, .leftThumbstick],
+                keyCode: KeyCodeMapping.controllerLock
+            )
+            let aMapping = KeyMapping(keyCode: 0)
+            profileManager.setActiveProfile(Profile(
+                name: "SeqUnlock",
+                buttonMappings: [.a: aMapping],
+                sequenceMappings: [seq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Lock via sequence
+        for _ in 0..<3 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.leftThumbstick)
+                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.2)
+
+        // Unlock via sequence
+        for _ in 0..<3 {
+            await MainActor.run {
+                controllerService.onButtonPressed?(.leftThumbstick)
+                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertFalse(mappingEngine.isLocked, "Engine should be unlocked after second sequence")
+        }
+
+        await MainActor.run { mockInputSimulator.clearEvents() }
+
+        // Press A — should work
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let hasKeyAction = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 0 }
+                if case .executeMapping = event { return true }
+                return false
+            }
+            XCTAssertTrue(hasKeyAction, "Actions should resume after sequence unlock")
+        }
+    }
+
+    // MARK: 5. Lock via chord (LB+RB) — blocks actions
+
+    func testLockViaChord_BlocksActions() async throws {
+        await MainActor.run {
+            let chord = ChordMapping(
+                buttons: [.leftBumper, .rightBumper],
+                keyCode: KeyCodeMapping.controllerLock
+            )
+            let aMapping = KeyMapping(keyCode: 0)
+            profileManager.setActiveProfile(Profile(
+                name: "ChordLock",
+                buttonMappings: [.a: aMapping],
+                chordMappings: [chord]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press chord LB+RB
+        await MainActor.run {
+            controllerService.onChordDetected?([.leftBumper, .rightBumper])
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertTrue(mappingEngine.isLocked, "Engine should be locked after chord")
+        }
+
+        await MainActor.run { mockInputSimulator.clearEvents() }
+
+        // Press A — should be blocked
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            let keyPresses = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 0 }
+                if case .executeMapping = event { return true }
+                return false
+            }
+            XCTAssertEqual(keyPresses.count, 0, "Actions should be blocked after chord lock")
+        }
+    }
+
+    // MARK: 6. Unlock via chord — resumes actions
+
+    func testUnlockViaChord_ResumesActions() async throws {
+        await MainActor.run {
+            let chord = ChordMapping(
+                buttons: [.leftBumper, .rightBumper],
+                keyCode: KeyCodeMapping.controllerLock
+            )
+            let aMapping = KeyMapping(keyCode: 0)
+            profileManager.setActiveProfile(Profile(
+                name: "ChordUnlock",
+                buttonMappings: [.a: aMapping],
+                chordMappings: [chord]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Lock
+        await MainActor.run {
+            controllerService.onChordDetected?([.leftBumper, .rightBumper])
+        }
+        await waitForTasks(0.2)
+
+        // Release chord buttons
+        await MainActor.run {
+            controllerService.onButtonReleased?(.leftBumper, 0.1)
+            controllerService.onButtonReleased?(.rightBumper, 0.1)
+        }
+        await waitForTasks(0.1)
+
+        // Unlock
+        await MainActor.run {
+            controllerService.onChordDetected?([.leftBumper, .rightBumper])
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertFalse(mappingEngine.isLocked, "Engine should be unlocked after second chord")
+        }
+
+        await MainActor.run { mockInputSimulator.clearEvents() }
+
+        // Press A — should work
+        await MainActor.run {
+            controllerService.onButtonPressed?(.a)
+            controllerService.onButtonReleased?(.a, 0.03)
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let hasKeyAction = mockInputSimulator.events.contains { event in
+                if case .pressKey(let code, _) = event { return code == 0 }
+                if case .executeMapping = event { return true }
+                return false
+            }
+            XCTAssertTrue(hasKeyAction, "Actions should resume after chord unlock")
+        }
+    }
+
+    // MARK: 7. Lock releases held modifiers
+
+    func testLockReleasesHeldModifiers() async throws {
+        await MainActor.run {
+            let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
+            let holdMapping = KeyMapping.holdModifier(.command)
+            profileManager.setActiveProfile(Profile(
+                name: "LockModifiers",
+                buttonMappings: [.x: lockMapping, .leftBumper: holdMapping]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Hold LB (command modifier)
+        await MainActor.run {
+            controllerService.onButtonPressed?(.leftBumper)
+        }
+        await waitForTasks(0.1)
+
+        // Verify modifier is held
+        await MainActor.run {
+            XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand),
+                "Command modifier should be held")
+        }
+
+        // Lock — should release modifiers
+        await MainActor.run {
+            controllerService.onButtonPressed?(.x)
+            controllerService.onButtonReleased?(.x, 0.03)
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            XCTAssertTrue(mappingEngine.isLocked, "Engine should be locked")
+            let hasReleaseAll = mockInputSimulator.events.contains { event in
+                if case .releaseAllModifiers = event { return true }
+                return false
+            }
+            XCTAssertTrue(hasReleaseAll, "Lock should release all held modifiers")
+        }
+    }
+
+    // MARK: 8. Lock persists across isEnabled toggle
+
+    func testLockPersistsAcrossEnableToggle() async throws {
+        await MainActor.run {
+            let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
+            profileManager.setActiveProfile(Profile(
+                name: "LockPersist",
+                buttonMappings: [.x: lockMapping]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Lock
+        await MainActor.run {
+            controllerService.onButtonPressed?(.x)
+            controllerService.onButtonReleased?(.x, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            XCTAssertTrue(mappingEngine.isLocked, "Engine should be locked")
+        }
+
+        // Disable and re-enable
+        await MainActor.run {
+            mappingEngine.isEnabled = false
+        }
+        await waitForTasks(0.1)
+        await MainActor.run {
+            mappingEngine.isEnabled = true
+        }
+        await waitForTasks(0.1)
+
+        // Lock should still be active
+        await MainActor.run {
+            XCTAssertTrue(mappingEngine.isLocked, "Lock should persist across enable/disable toggle")
+        }
+    }
+
+    // MARK: 9. Non-lock sequence blocked while locked
+
+    func testNonLockSequenceBlockedWhileLocked() async throws {
+        await MainActor.run {
+            let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
+            let otherSeq = SequenceMapping(
+                steps: [.a, .b],
+                keyCode: 99  // F16
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "SeqBlocked",
+                buttonMappings: [.x: lockMapping],
+                sequenceMappings: [otherSeq]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Lock
+        await MainActor.run {
+            controllerService.onButtonPressed?(.x)
+            controllerService.onButtonReleased?(.x, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run { mockInputSimulator.clearEvents() }
+
+        // Try sequence A → B while locked
+        for button: ControllerButton in [.a, .b] {
+            await MainActor.run {
+                controllerService.onButtonPressed?(button)
+                controllerService.onButtonReleased?(button, 0.03)
+            }
+            await waitForTasks(0.05)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run {
+            let sequenceActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(sequenceActions.count, 0, "Non-lock sequences should be blocked while locked")
+        }
+    }
+
+    // MARK: 10. Non-lock chord blocked while locked
+
+    func testNonLockChordBlockedWhileLocked() async throws {
+        await MainActor.run {
+            let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
+            let otherChord = ChordMapping(
+                buttons: [.a, .b],
+                keyCode: 99
+            )
+            profileManager.setActiveProfile(Profile(
+                name: "ChordBlocked",
+                buttonMappings: [.x: lockMapping],
+                chordMappings: [otherChord]
+            ))
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Lock
+        await MainActor.run {
+            controllerService.onButtonPressed?(.x)
+            controllerService.onButtonReleased?(.x, 0.03)
+        }
+        await waitForTasks(0.1)
+
+        await MainActor.run { mockInputSimulator.clearEvents() }
+
+        // Try chord A+B while locked
+        await MainActor.run {
+            controllerService.onChordDetected?([.a, .b])
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let chordActions = mockInputSimulator.events.filter { event in
+                if case .pressKey(let code, _) = event { return code == 99 }
+                return false
+            }
+            XCTAssertEqual(chordActions.count, 0, "Non-lock chords should be blocked while locked")
+        }
+    }
+}
