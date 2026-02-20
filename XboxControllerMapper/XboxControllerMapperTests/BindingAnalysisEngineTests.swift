@@ -208,34 +208,36 @@ final class BindingAnalysisEngineTests: XCTestCase {
         let rec1 = BindingRecommendation(
             type: .swap(button1: .a, button2: .b),
             priority: 10.0,
-            description: "Swap A and B",
-            beforeDescription: "", afterDescription: ""
+            actionDescription1: "action1"
         )
         let rec2 = BindingRecommendation(
             type: .swap(button1: .a, button2: .x),
             priority: 5.0,
-            description: "Swap A and X",
-            beforeDescription: "", afterDescription: ""
+            actionDescription1: "action2"
         )
 
         let filtered = BindingAnalysisEngine.filterConflicting([rec1, rec2])
         XCTAssertEqual(filtered.count, 1)
         // Higher priority wins
-        XCTAssertEqual(filtered[0].description, "Swap A and B")
+        XCTAssertEqual(filtered[0].priority, 10.0)
+        if case .swap(let b1, let b2) = filtered[0].type {
+            XCTAssertEqual(b1, .a)
+            XCTAssertEqual(b2, .b)
+        } else {
+            XCTFail("Expected swap recommendation")
+        }
     }
 
     func testFilterConflictingKeepsNonOverlapping() {
         let rec1 = BindingRecommendation(
             type: .swap(button1: .a, button2: .b),
             priority: 10.0,
-            description: "Swap A and B",
-            beforeDescription: "", afterDescription: ""
+            actionDescription1: "action1"
         )
         let rec2 = BindingRecommendation(
             type: .swap(button1: .x, button2: .y),
             priority: 5.0,
-            description: "Swap X and Y",
-            beforeDescription: "", afterDescription: ""
+            actionDescription1: "action2"
         )
 
         let filtered = BindingAnalysisEngine.filterConflicting([rec1, rec2])

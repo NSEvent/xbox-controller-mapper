@@ -52,27 +52,23 @@ struct BindingRecommendation: Identifiable, Equatable {
     let type: RecommendationType
     /// Higher priority = more impactful (waste difference)
     let priority: Double
-    /// Human-readable explanation
-    let description: String
-    /// What the binding looks like now
-    let beforeDescription: String
-    /// What it would look like after applying
-    let afterDescription: String
+    /// Controller-agnostic action description for the first button (e.g. "Copy Selection", "⌘ + A")
+    let actionDescription1: String
+    /// Controller-agnostic action description for the second button (only used for swaps)
+    let actionDescription2: String
 
     init(
         id: UUID = UUID(),
         type: RecommendationType,
         priority: Double,
-        description: String,
-        beforeDescription: String,
-        afterDescription: String
+        actionDescription1: String,
+        actionDescription2: String = ""
     ) {
         self.id = id
         self.type = type
         self.priority = priority
-        self.description = description
-        self.beforeDescription = beforeDescription
-        self.afterDescription = afterDescription
+        self.actionDescription1 = actionDescription1
+        self.actionDescription2 = actionDescription2
     }
 }
 

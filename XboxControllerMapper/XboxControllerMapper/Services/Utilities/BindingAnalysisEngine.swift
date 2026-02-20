@@ -250,9 +250,8 @@ struct BindingAnalysisEngine {
                 recommendations.append(BindingRecommendation(
                     type: .swap(button1: button1, button2: button2),
                     priority: priority,
-                    description: "Swap \(button1.displayName) and \(button2.displayName) — your most-used action is on a harder-to-reach button",
-                    beforeDescription: "\(button1.displayName): \(frequent.actionDescription), \(button2.displayName): \(infrequent.actionDescription)",
-                    afterDescription: "\(button1.displayName): \(infrequent.actionDescription), \(button2.displayName): \(frequent.actionDescription)"
+                    actionDescription1: frequent.actionDescription,
+                    actionDescription2: infrequent.actionDescription
                 ))
             }
         }
@@ -313,9 +312,7 @@ struct BindingAnalysisEngine {
                         modifiers: modifiers
                     ),
                     priority: priority,
-                    description: "Promote \(sourceButton.displayName) \(typeLabel) to \(partner.shortLabel)+\(sourceButton.shortLabel) chord — faster to execute",
-                    beforeDescription: "\(sourceButton.displayName) \(typeLabel): \(entry.actionDescription)",
-                    afterDescription: "\(partner.shortLabel)+\(sourceButton.shortLabel) chord: \(entry.actionDescription)"
+                    actionDescription1: entry.actionDescription
                 ))
                 break // Only suggest one chord option per entry
             }
@@ -345,9 +342,7 @@ struct BindingAnalysisEngine {
             recommendations.append(BindingRecommendation(
                 type: .demoteToLongHold(button: button, keyCode: mapping.keyCode, modifiers: mapping.modifiers),
                 priority: priority,
-                description: "Move \(button.displayName) to long hold — rarely used, frees the single-press slot",
-                beforeDescription: "\(button.displayName) press: \(entry.actionDescription)",
-                afterDescription: "\(button.displayName) long hold: \(entry.actionDescription)"
+                actionDescription1: entry.actionDescription
             ))
         }
 

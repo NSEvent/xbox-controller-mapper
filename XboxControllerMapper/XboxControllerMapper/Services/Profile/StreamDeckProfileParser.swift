@@ -87,7 +87,16 @@ enum StreamDeckProfileParser {
         }
 
         let name = json["Name"] as? String ?? "Stream Deck Profile"
-        let actionsDict = json["Actions"] as? [String: Any] ?? [:]
+
+        // V2 format wraps Actions inside Controllers array
+        let actionsDict: [String: Any]
+        if let controllers = json["Controllers"] as? [[String: Any]],
+           let first = controllers.first,
+           let actions = first["Actions"] as? [String: Any] {
+            actionsDict = actions
+        } else {
+            actionsDict = json["Actions"] as? [String: Any] ?? [:]
+        }
 
         var actions: [StreamDeckAction] = []
         for (position, value) in actionsDict {
@@ -176,7 +185,13 @@ enum StreamDeckProfileParser {
 
         switch uuid {
         case "com.elgato.streamdeck.system.hotkey":
-            if let hotkey = parseHotkey(settings: settings) {
+            // Real profiles store hotkeys in a Hotkeys array inside Settings
+            if let hotkeysArray = settings["Hotkeys"] as? [[String: Any]],
+               let first = hotkeysArray.first,
+               let hotkey = parseHotkey(settings: first) {
+                actionSettings = hotkey
+            } else if let hotkey = parseHotkey(settings: settings) {
+                // Fallback: direct NativeCode/KeyCmd in Settings (legacy/simplified format)
                 actionSettings = hotkey
             } else {
                 return nil // Sentinel entry, skip entirely
@@ -208,18 +223,37 @@ enum StreamDeckProfileParser {
                 actionSettings = .unsupported(pluginUUID: uuid)
             }
 
-        case "com.elgato.streamdeck.multiactions.routine":
-            let routine = settings["Routine"] as? [[String: Any]] ?? []
+        case "com.elgato.streamdeck.multiactions", "com.elgato.streamdeck.multiactions.routine":
+            // Real profiles: sub-actions in top-level Actions array (first state)
+            // Legacy/test format: sub-actions in Settings.Routine
             var subActions: [StreamDeckAction] = []
-            for (index, subDict) in routine.enumerated() {
-                if let sub = parseAction(position: "\(position).\(index)", dict: subDict) {
-                    subActions.append(sub)
+
+            if let actionsStates = dict["Actions"] as? [[String: Any]],
+               let firstState = actionsStates.first,
+               let subDicts = firstState["Actions"] as? [[String: Any]] {
+                // V2 format: Actions[0].Actions[]
+                for (index, subDict) in subDicts.enumerated() {
+                    if let sub = parseAction(position: "\(position).\(index)", dict: subDict) {
+                        subActions.append(sub)
+                    }
+                }
+            } else if let routine = settings["Routine"] as? [[String: Any]] {
+                // Legacy format: Settings.Routine[]
+                for (index, subDict) in routine.enumerated() {
+                    if let sub = parseAction(position: "\(position).\(index)", dict: subDict) {
+                        subActions.append(sub)
+                    }
                 }
             }
+
             actionSettings = .multiAction(subActions)
 
         case "com.elgato.streamdeck.system.text":
-            let text = settings["text"] as? String ?? settings["textToSend"] as? String ?? ""
+            // Real profiles use "pastedText"; also check "text" and "textToSend" for compatibility
+            let text = settings["pastedText"] as? String
+                ?? settings["text"] as? String
+                ?? settings["textToSend"] as? String
+                ?? ""
             if !text.isEmpty {
                 actionSettings = .text(text)
             } else {
@@ -247,17 +281,23 @@ enum StreamDeckProfileParser {
         let keyOption = settings["KeyOption"] as? Bool ?? false
         let keyCtrl = settings["KeyCtrl"] as? Bool ?? false
 
-        // Filter sentinel entries (NativeCode 146 with no modifiers)
-        if let code = nativeCode, code == 146 && !keyCmd && !keyShift && !keyOption && !keyCtrl {
+        // Filter sentinel entries: NativeCode -1 (real profiles) or 146 (legacy) with no modifiers
+        if let code = nativeCode, (code == -1 || code == 146) && !keyCmd && !keyShift && !keyOption && !keyCtrl {
             return nil
         }
 
-        // Must have either a key code or at least one modifier
-        guard nativeCode != nil || keyCmd || keyShift || keyOption || keyCtrl else {
+        // Must have either a valid key code or at least one modifier
+        guard (nativeCode != nil && nativeCode != -1) || keyCmd || keyShift || keyOption || keyCtrl else {
             return nil
         }
 
-        let keyCode: CGKeyCode? = nativeCode.map { CGKeyCode($0) }
+        let keyCode: CGKeyCode?
+        if let code = nativeCode, code >= 0 {
+            keyCode = CGKeyCode(code)
+        } else {
+            keyCode = nil
+        }
+
         let modifiers = ModifierFlags(
             command: keyCmd,
             option: keyOption,

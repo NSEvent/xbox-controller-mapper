@@ -20,9 +20,8 @@ struct RecommendationsSheet: View {
             Divider()
             footer
         }
-        .frame(width: 600, height: 480)
+        .frame(width: 620, height: 480)
         .onAppear {
-            // Pre-select all recommendations
             selectedIds = Set(analysisResult.recommendations.map(\.id))
         }
     }
@@ -84,43 +83,28 @@ struct RecommendationsSheet: View {
         }
     }
 
+    // MARK: - Recommendation Row
+
     private func recommendationRow(_ rec: BindingRecommendation) -> some View {
         let isSelected = selectedIds.contains(rec.id)
 
-        return HStack(spacing: 12) {
+        return HStack(spacing: 10) {
             // Checkbox
             Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 18))
                 .foregroundColor(isSelected ? .accentColor : .secondary)
-                .onTapGesture {
-                    toggleSelection(rec.id)
-                }
+                .onTapGesture { toggleSelection(rec.id) }
 
             // Type icon
             typeIcon(for: rec.type)
 
-            // Description
-            VStack(alignment: .leading, spacing: 4) {
-                Text(rec.description)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.primary)
-                    .lineLimit(2)
+            // Recommendation content
+            VStack(alignment: .leading, spacing: 6) {
+                // Title line
+                titleView(for: rec)
 
-                HStack(spacing: 6) {
-                    Text(rec.beforeDescription)
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 8))
-                        .foregroundColor(.secondary)
-
-                    Text(rec.afterDescription)
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
+                // Before → After with button icons
+                beforeAfterView(for: rec)
             }
 
             Spacer()
@@ -140,8 +124,140 @@ struct RecommendationsSheet: View {
                 .stroke(isSelected ? Color.accentColor.opacity(0.3) : Color.clear, lineWidth: 1)
         )
         .contentShape(Rectangle())
-        .onTapGesture {
-            toggleSelection(rec.id)
+        .onTapGesture { toggleSelection(rec.id) }
+    }
+
+    @ViewBuilder
+    private func titleView(for rec: BindingRecommendation) -> some View {
+        switch rec.type {
+        case .swap(let b1, let b2):
+            Text("Swap \(buttonName(b1)) and \(buttonName(b2)) — most-used action is on a harder button")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.primary)
+                .lineLimit(2)
+
+        case .promoteToChord(let fromButton, let fromType, let toChordButtons, _, _):
+            let typeLabel = fromType == .longHold ? "long hold" : "double tap"
+            let chordLabel = chordButtonNames(toChordButtons)
+            Text("Promote \(buttonName(fromButton)) \(typeLabel) to \(chordLabel) chord — faster to execute")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.primary)
+                .lineLimit(2)
+
+        case .demoteToLongHold(let button, _, _):
+            Text("Move \(buttonName(button)) to long hold — rarely used, frees the single-press slot")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.primary)
+                .lineLimit(2)
+        }
+    }
+
+    @ViewBuilder
+    private func beforeAfterView(for rec: BindingRecommendation) -> some View {
+        switch rec.type {
+        case .swap(let b1, let b2):
+            HStack(spacing: 6) {
+                // Before
+                buttonIcon(b1)
+                Text(rec.actionDescription1)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                Text("/")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary.opacity(0.5))
+                buttonIcon(b2)
+                Text(rec.actionDescription2)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 8))
+                    .foregroundColor(.secondary)
+
+                // After (swapped)
+                buttonIcon(b1)
+                Text(rec.actionDescription2)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                Text("/")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary.opacity(0.5))
+                buttonIcon(b2)
+                Text(rec.actionDescription1)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+        case .promoteToChord(let fromButton, let fromType, let toChordButtons, _, _):
+            HStack(spacing: 6) {
+                buttonIcon(fromButton)
+                let typeLabel = fromType == .longHold ? "hold" : "2x"
+                Text("\(typeLabel): \(rec.actionDescription1)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 8))
+                    .foregroundColor(.secondary)
+
+                chordButtonIcons(toChordButtons)
+                Text(rec.actionDescription1)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+        case .demoteToLongHold(let button, _, _):
+            HStack(spacing: 6) {
+                buttonIcon(button)
+                Text("press: \(rec.actionDescription1)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 8))
+                    .foregroundColor(.secondary)
+
+                buttonIcon(button)
+                Text("long hold: \(rec.actionDescription1)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    // MARK: - Button Display Helpers
+
+    private func buttonName(_ button: ControllerButton) -> String {
+        button.displayName(forDualSense: isDualSense)
+    }
+
+    private func chordButtonNames(_ buttons: Set<ControllerButton>) -> String {
+        buttons.sorted { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }
+            .map { $0.shortLabel(forDualSense: isDualSense) }
+            .joined(separator: "+")
+    }
+
+    private func buttonIcon(_ button: ControllerButton) -> some View {
+        ButtonIconView(button: button, isDualSense: isDualSense)
+            .scaleEffect(0.7)
+            .frame(width: 22, height: 22)
+    }
+
+    @ViewBuilder
+    private func chordButtonIcons(_ buttons: Set<ControllerButton>) -> some View {
+        let sorted = buttons.sorted { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }
+        HStack(spacing: 2) {
+            ForEach(sorted, id: \.self) { button in
+                buttonIcon(button)
+            }
         }
     }
 
@@ -219,7 +335,6 @@ struct RecommendationsSheet: View {
         profileManager.applyRecommendations(selected)
         applied = true
 
-        // Auto-dismiss after brief delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             dismiss()
         }
