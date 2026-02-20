@@ -85,6 +85,7 @@ Profile (CUSTOM decoder - see Profile.swift)
 ├── modifiedAt: Date                             decodeIfPresent ?? Date()
 ├── buttonMappings: [String: KeyMapping]         decodeIfPresent ?? [:] (string-keyed in JSON)
 ├── chordMappings: [ChordMapping]                decodeIfPresent ?? []
+├── sequenceMappings: [SequenceMapping]          decodeIfPresent ?? []
 ├── joystickSettings: JoystickSettings           decodeIfPresent ?? .default
 ├── dualSenseLEDSettings: DualSenseLEDSettings   decodeIfPresent ?? .default
 └── onScreenKeyboardSettings: OnScreenKeyboardSettings  decodeIfPresent ?? OnScreenKeyboardSettings()
@@ -125,6 +126,18 @@ ChordMapping (CUSTOM decoder - see ChordMapping.swift)
 ├── buttons: Set<ControllerButton>               decodeIfPresent ?? []
 ├── keyCode: CGKeyCode?                          decodeIfPresent (auto nil)
 ├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
+├── macroId: UUID?                               decodeIfPresent (auto nil)
+├── systemCommand: SystemCommand?                decodeIfPresent (auto nil)
+└── hint: String?                                decodeIfPresent (auto nil)
+
+SequenceMapping (CUSTOM decoder - see SequenceMapping.swift)
+├── id: UUID                                     decodeIfPresent ?? UUID()
+├── steps: [ControllerButton]                    decodeIfPresent ?? []
+├── stepTimeout: TimeInterval                    decodeIfPresent ?? 0.4
+├── keyCode: CGKeyCode?                          decodeIfPresent (auto nil)
+├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
+├── macroId: UUID?                               decodeIfPresent (auto nil)
+├── systemCommand: SystemCommand?                decodeIfPresent (auto nil)
 └── hint: String?                                decodeIfPresent (auto nil)
 
 JoystickSettings (CUSTOM decoder - see JoystickSettings.swift)

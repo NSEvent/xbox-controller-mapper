@@ -110,6 +110,38 @@ extension ProfileManager {
         updateProfile(targetProfile)
     }
 
+    // MARK: - Sequence Mapping
+
+    func addSequence(_ sequence: SequenceMapping, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.sequenceMappings.append(sequence)
+        updateProfile(targetProfile)
+    }
+
+    func removeSequence(_ sequence: SequenceMapping, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.sequenceMappings.removeAll { $0.id == sequence.id }
+        updateProfile(targetProfile)
+    }
+
+    func updateSequence(_ sequence: SequenceMapping, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        if let index = targetProfile.sequenceMappings.firstIndex(where: { $0.id == sequence.id }) {
+            targetProfile.sequenceMappings[index] = sequence
+        }
+        updateProfile(targetProfile)
+    }
+
+    func moveSequences(from source: IndexSet, to destination: Int, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.sequenceMappings.move(fromOffsets: source, toOffset: destination)
+        updateProfile(targetProfile)
+    }
+
     // MARK: - Layer Management
 
     /// Maximum number of layers allowed per profile

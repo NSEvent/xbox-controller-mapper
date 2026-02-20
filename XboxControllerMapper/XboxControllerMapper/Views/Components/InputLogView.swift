@@ -92,6 +92,7 @@ private struct LogEntryView: View, Equatable {
         case .doubleTap: return .orange
         case .longPress: return .purple
         case .chord: return .blue
+        case .sequence: return .cyan
         case .webhookSuccess: return .green
         case .webhookFailure: return .red
         }

@@ -21,6 +21,16 @@ extension MappingEngine {
         var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
         var longHoldTriggered: Set<ControllerButton> = []
         var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
+        // Sequence detection state (passive tracking, zero-latency)
+        struct SequenceProgress {
+            let sequenceId: UUID
+            let steps: [ControllerButton]
+            let stepTimeout: TimeInterval
+            var matchedCount: Int
+            var lastStepTime: Date
+        }
+        var activeSequences: [SequenceProgress] = []
+
         var onScreenKeyboardButton: ControllerButton? = nil
         var onScreenKeyboardHoldMode: Bool = false
         var laserPointerButton: ControllerButton? = nil
@@ -95,6 +105,8 @@ extension MappingEngine {
 
             repeatTimers.values.forEach { $0.cancel() }
             repeatTimers.removeAll()
+
+            activeSequences.removeAll()
 
             onScreenKeyboardButton = nil
             onScreenKeyboardHoldMode = false

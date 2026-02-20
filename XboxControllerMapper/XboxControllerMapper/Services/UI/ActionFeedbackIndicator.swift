@@ -336,6 +336,8 @@ struct ActionFeedbackView: View {
             return ("⏱", .orange)
         case .chord:
             return ("⌘", .blue)
+        case .sequence:
+            return ("⇢", .cyan)
         case .webhookSuccess:
             return ("✓", .green)
         case .webhookFailure:

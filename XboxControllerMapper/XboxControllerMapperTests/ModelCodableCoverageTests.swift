@@ -258,4 +258,108 @@ final class ModelCodableCoverageTests: XCTestCase {
         XCTAssertEqual(decoded.green, 0.4, accuracy: 0.0001)
         XCTAssertEqual(decoded.blue, 0.0, accuracy: 0.0001)
     }
+
+    // MARK: - SequenceMapping
+
+    func testSequenceMappingDecoding_Defaults() throws {
+        let data = Data("{}".utf8)
+        let decoded = try JSONDecoder().decode(SequenceMapping.self, from: data)
+
+        XCTAssertEqual(decoded.steps, [])
+        XCTAssertEqual(decoded.stepTimeout, Config.defaultSequenceStepTimeout, accuracy: 0.0001)
+        XCTAssertNil(decoded.keyCode)
+        XCTAssertEqual(decoded.modifiers, ModifierFlags())
+        XCTAssertNil(decoded.macroId)
+        XCTAssertNil(decoded.systemCommand)
+        XCTAssertNil(decoded.hint)
+        XCTAssertFalse(decoded.isValid)
+    }
+
+    func testSequenceMappingDecoding_FullPayload() throws {
+        let json = """
+        {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "steps": ["dpadDown", "dpadDown", "a"],
+            "stepTimeout": 0.5,
+            "keyCode": 12,
+            "modifiers": {"command": true, "option": false, "shift": false, "control": false},
+            "hint": "Combo"
+        }
+        """
+        let decoded = try JSONDecoder().decode(SequenceMapping.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.id, UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+        XCTAssertEqual(decoded.steps, [.dpadDown, .dpadDown, .a])
+        XCTAssertEqual(decoded.stepTimeout, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(decoded.keyCode, 12)
+        XCTAssertTrue(decoded.modifiers.command)
+        XCTAssertFalse(decoded.modifiers.shift)
+        XCTAssertEqual(decoded.hint, "Combo")
+        XCTAssertTrue(decoded.isValid)
+    }
+
+    func testSequenceMappingRoundTrip() throws {
+        let original = SequenceMapping(
+            steps: [.dpadUp, .dpadDown, .a, .b],
+            stepTimeout: 0.6,
+            keyCode: 49,
+            modifiers: ModifierFlags(command: false, option: true, shift: false, control: false),
+            hint: "Test Sequence"
+        )
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(SequenceMapping.self, from: data)
+
+        XCTAssertEqual(original, decoded)
+    }
+
+    func testProfileDecoding_WithSequences() throws {
+        let json = """
+        {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "name": "Test",
+            "sequenceMappings": [
+                {
+                    "id": "00000000-0000-0000-0000-000000000003",
+                    "steps": ["a", "b"],
+                    "keyCode": 0
+                }
+            ]
+        }
+        """
+        let decoded = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.sequenceMappings.count, 1)
+        XCTAssertEqual(decoded.sequenceMappings[0].steps, [.a, .b])
+        XCTAssertEqual(decoded.sequenceMappings[0].keyCode, 0)
+    }
+
+    func testProfileDecoding_WithoutSequences() throws {
+        let json = """
+        {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "name": "NoSeq"
+        }
+        """
+        let decoded = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.sequenceMappings, [])
+    }
+
+    func testSequenceMappingDisplayStrings() {
+        let seq = SequenceMapping(
+            steps: [.dpadDown, .dpadDown, .a],
+            keyCode: 12,
+            modifiers: ModifierFlags(command: true, option: false, shift: false, control: false),
+            hint: "Combo"
+        )
+
+        XCTAssertFalse(seq.stepsDisplayString.isEmpty)
+        XCTAssertTrue(seq.stepsDisplayString.contains("\u{2192}"))
+        XCTAssertEqual(seq.feedbackString, "Combo")
+        XCTAssertTrue(seq.isValid)
+
+        let seqNoHint = SequenceMapping(steps: [.a, .b], keyCode: 12)
+        XCTAssertEqual(seqNoHint.feedbackString, seqNoHint.displayString)
+    }
 }

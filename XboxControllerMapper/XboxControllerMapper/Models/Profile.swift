@@ -122,6 +122,9 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Chord mappings
     var chordMappings: [ChordMapping]
 
+    /// Sequence mappings (ordered button sequences)
+    var sequenceMappings: [SequenceMapping]
+
     /// Joystick settings
     var joystickSettings: JoystickSettings
 
@@ -147,6 +150,7 @@ struct Profile: Codable, Identifiable, Equatable {
         icon: String? = nil,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         chordMappings: [ChordMapping] = [],
+        sequenceMappings: [SequenceMapping] = [],
         joystickSettings: JoystickSettings = .default,
         dualSenseLEDSettings: DualSenseLEDSettings = .default,
         linkedApps: [String] = [],
@@ -162,6 +166,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.modifiedAt = Date()
         self.buttonMappings = buttonMappings
         self.chordMappings = chordMappings
+        self.sequenceMappings = sequenceMappings
         self.joystickSettings = joystickSettings
         self.dualSenseLEDSettings = dualSenseLEDSettings
         self.linkedApps = linkedApps
@@ -349,7 +354,7 @@ struct Profile: Codable, Identifiable, Equatable {
 extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isDefault, icon, createdAt, modifiedAt
-        case buttonMappings, chordMappings, joystickSettings
+        case buttonMappings, chordMappings, sequenceMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, macros
         case onScreenKeyboardSettings, layers
     }
@@ -372,6 +377,7 @@ extension Profile {
         })
 
         chordMappings = try container.decodeIfPresent([ChordMapping].self, forKey: .chordMappings) ?? []
+        sequenceMappings = try container.decodeIfPresent([SequenceMapping].self, forKey: .sequenceMappings) ?? []
         joystickSettings = try container.decodeIfPresent(JoystickSettings.self, forKey: .joystickSettings) ?? .default
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings) ?? .default
         linkedApps = try container.decodeIfPresent([String].self, forKey: .linkedApps) ?? []
@@ -395,6 +401,7 @@ extension Profile {
         try container.encode(stringKeyedMappings, forKey: .buttonMappings)
 
         try container.encode(chordMappings, forKey: .chordMappings)
+        try container.encode(sequenceMappings, forKey: .sequenceMappings)
         try container.encode(joystickSettings, forKey: .joystickSettings)
         try container.encode(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
         try container.encode(linkedApps, forKey: .linkedApps)

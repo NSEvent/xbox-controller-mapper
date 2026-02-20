@@ -7,6 +7,12 @@ struct Config {
     /// Time window for detecting simultaneous button presses as a chord (seconds)
     static let chordDetectionWindow: TimeInterval = 0.15
 
+    // MARK: - Sequence Detection
+    /// Default max time between consecutive button presses in a sequence (seconds)
+    static let defaultSequenceStepTimeout: TimeInterval = 0.4
+    /// Maximum steps allowed in a sequence
+    static let maxSequenceSteps: Int = 8
+
     // MARK: - Long Hold Detection
     /// Default time threshold for distinguishing long hold from regular press (seconds)
     static let defaultLongHoldThreshold: TimeInterval = 0.5

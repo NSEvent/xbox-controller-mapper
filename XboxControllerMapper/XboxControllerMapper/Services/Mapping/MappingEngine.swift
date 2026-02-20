@@ -299,6 +299,70 @@ class MappingEngine: ObservableObject {
         }
     }
 
+    nonisolated private func isButtonUsedInSequences(_ button: ControllerButton, profile: Profile) -> Bool {
+        return profile.sequenceMappings.contains { seq in
+            seq.steps.contains(button)
+        }
+    }
+
+    // MARK: - Sequence Detection (Zero-Latency)
+    //
+    // Sequences are tracked passively — individual button actions ALWAYS fire immediately
+    // with zero added latency. When a full sequence pattern is detected, the sequence
+    // action fires as an additional action on top.
+
+    /// Advance sequence tracking for a button press. If a sequence completes, execute it.
+    /// Individual button actions are never blocked or deferred.
+    nonisolated private func advanceSequenceTracking(_ button: ControllerButton, profile: Profile) {
+        let now = Date()
+
+        let completedSequence: SequenceMapping? = state.lock.withLock {
+            // Update existing active sequences — check per-step timeout
+            var survivingSequences: [EngineState.SequenceProgress] = []
+            for var seq in state.activeSequences {
+                let sinceLastStep = now.timeIntervalSince(seq.lastStepTime)
+                if sinceLastStep <= seq.stepTimeout && seq.matchedCount < seq.steps.count && button == seq.steps[seq.matchedCount] {
+                    seq.matchedCount += 1
+                    seq.lastStepTime = now
+                    survivingSequences.append(seq)
+                }
+            }
+
+            // Check for new sequence starts
+            let trackedIds = Set(survivingSequences.map { $0.sequenceId })
+            for seq in profile.sequenceMappings where seq.isValid {
+                if !trackedIds.contains(seq.id) && seq.steps[0] == button {
+                    survivingSequences.append(EngineState.SequenceProgress(
+                        sequenceId: seq.id,
+                        steps: seq.steps,
+                        stepTimeout: seq.stepTimeout,
+                        matchedCount: 1,
+                        lastStepTime: now
+                    ))
+                }
+            }
+
+            // Check if any sequence fully matched
+            if let completedIdx = survivingSequences.firstIndex(where: { $0.matchedCount == $0.steps.count }) {
+                let completed = survivingSequences[completedIdx]
+                let sequence = profile.sequenceMappings.first { $0.id == completed.sequenceId }
+
+                // Clear completed sequence, keep others active
+                survivingSequences.remove(at: completedIdx)
+                state.activeSequences = survivingSequences
+                return sequence
+            }
+
+            state.activeSequences = survivingSequences
+            return nil
+        }
+
+        // Fire sequence action outside lock (individual button action already fired)
+        if let sequence = completedSequence {
+            mappingExecutor.executeAction(sequence, for: sequence.steps, profile: profile, logType: .sequence)
+        }
+    }
+
     private enum ButtonPressStartState {
         case blocked
         case layerActivated(profile: Profile, layerId: UUID)
@@ -358,6 +422,12 @@ class MappingEngine: ObservableObject {
             return
 
         case .ready(let profile, let lastTap):
+            // Advance sequence tracking (passive, zero-latency — never blocks normal handling)
+            if !profile.sequenceMappings.isEmpty {
+                advanceSequenceTracking(button, profile: profile)
+            }
+
+            // Always process normal button action immediately
             switch resolveButtonPressOutcome(button, profile: profile, lastTap: lastTap) {
             case .interceptDpadNavigation:
                 // First navigation happens immediately
