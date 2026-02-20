@@ -2091,6 +2091,7 @@ struct SequenceMappingSheet: View {
                             }
                         }
                         .padding(8)
+                        .frame(height: 40)
                         .background(Color.black.opacity(0.2))
                         .cornerRadius(8)
                     }
