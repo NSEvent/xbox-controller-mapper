@@ -137,6 +137,9 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Defined macros for this profile
     var macros: [Macro]
 
+    /// Defined JavaScript scripts for this profile
+    var scripts: [Script]
+
     /// On-screen keyboard settings (quick texts, app bar, websites, toggle shortcut, etc.)
     var onScreenKeyboardSettings: OnScreenKeyboardSettings
 
@@ -155,6 +158,7 @@ struct Profile: Codable, Identifiable, Equatable {
         dualSenseLEDSettings: DualSenseLEDSettings = .default,
         linkedApps: [String] = [],
         macros: [Macro] = [],
+        scripts: [Script] = [],
         onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings(),
         layers: [Layer] = []
     ) {
@@ -171,6 +175,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.dualSenseLEDSettings = dualSenseLEDSettings
         self.linkedApps = linkedApps
         self.macros = macros
+        self.scripts = scripts
         self.onScreenKeyboardSettings = onScreenKeyboardSettings
         self.layers = layers
     }
@@ -355,7 +360,7 @@ extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, sequenceMappings, joystickSettings
-        case dualSenseLEDSettings, linkedApps, macros
+        case dualSenseLEDSettings, linkedApps, macros, scripts
         case onScreenKeyboardSettings, layers
     }
 
@@ -382,6 +387,7 @@ extension Profile {
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings) ?? .default
         linkedApps = try container.decodeIfPresent([String].self, forKey: .linkedApps) ?? []
         macros = try container.decodeIfPresent([Macro].self, forKey: .macros) ?? []
+        scripts = try container.decodeIfPresent([Script].self, forKey: .scripts) ?? []
         onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings) ?? OnScreenKeyboardSettings()
         layers = try container.decodeIfPresent([Layer].self, forKey: .layers) ?? []
     }
@@ -406,6 +412,7 @@ extension Profile {
         try container.encode(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
         try container.encode(linkedApps, forKey: .linkedApps)
         try container.encode(macros, forKey: .macros)
+        try container.encode(scripts, forKey: .scripts)
         try container.encode(onScreenKeyboardSettings, forKey: .onScreenKeyboardSettings)
         try container.encode(layers, forKey: .layers)
     }

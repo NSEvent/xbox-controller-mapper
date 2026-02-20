@@ -14,6 +14,7 @@ protocol KeyBindingRepresentable {
 /// Protocol for mapping types that can be executed (key press, macro, or system command)
 protocol ExecutableAction: KeyBindingRepresentable {
     var macroId: UUID? { get }
+    var scriptId: UUID? { get }
     var systemCommand: SystemCommand? { get }
     var hint: String? { get }
     var displayString: String { get }
@@ -77,6 +78,9 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     /// Optional ID of a macro to execute instead of key press
     var macroId: UUID?
 
+    /// Optional ID of a script to execute instead of key press
+    var scriptId: UUID?
+
     /// Optional system command to execute instead of key press
     var systemCommand: SystemCommand?
 
@@ -91,6 +95,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         repeatMapping: RepeatMapping? = nil,
         isHoldModifier: Bool = false,
         macroId: UUID? = nil,
+        scriptId: UUID? = nil,
         systemCommand: SystemCommand? = nil,
         hint: String? = nil
     ) {
@@ -101,12 +106,13 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         self.repeatMapping = repeatMapping
         self.isHoldModifier = isHoldModifier
         self.macroId = macroId
+        self.scriptId = scriptId
         self.systemCommand = systemCommand
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, macroId, systemCommand, hint
+        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, macroId, scriptId, systemCommand, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -118,6 +124,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         repeatMapping = try container.decodeIfPresent(RepeatMapping.self, forKey: .repeatMapping)
         isHoldModifier = try container.decodeIfPresent(Bool.self, forKey: .isHoldModifier) ?? false
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
@@ -145,7 +152,10 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         if macroId != nil {
             return "Macro"
         }
-        
+        if scriptId != nil {
+            return "Script"
+        }
+
         var parts: [String] = []
 
         if modifiers.command { parts.append("⌘") }
@@ -161,10 +171,10 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
 
         return parts.joined(separator: " + ")
     }
-    
+
     /// Whether this binding has any action
     var isEmpty: Bool {
-        return keyCode == nil && !modifiers.hasAny && macroId == nil && systemCommand == nil
+        return keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil && systemCommand == nil
     }
 
     /// Compact description including alternate mappings (for UI)
@@ -201,6 +211,7 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
     var modifiers: ModifierFlags
     var threshold: TimeInterval
     var macroId: UUID?
+    var scriptId: UUID?
     var systemCommand: SystemCommand?
     var hint: String?
 
@@ -209,17 +220,18 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         return threshold
     }
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, macroId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = Self.sanitizedThreshold(threshold)
         self.macroId = macroId
+        self.scriptId = scriptId
         self.systemCommand = systemCommand
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, threshold, macroId, systemCommand, hint
+        case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -229,6 +241,7 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         let decodedThreshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? Self.defaultThreshold
         threshold = Self.sanitizedThreshold(decodedThreshold)
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
@@ -239,6 +252,9 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         }
         if macroId != nil {
             return "Macro"
+        }
+        if scriptId != nil {
+            return "Script"
         }
         var parts: [String] = []
         if modifiers.command { parts.append("⌘") }
@@ -254,7 +270,7 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
     }
 
     var isEmpty: Bool {
-        keyCode == nil && !modifiers.hasAny && macroId == nil && systemCommand == nil
+        keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil && systemCommand == nil
     }
 }
 
@@ -267,6 +283,7 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
     /// Time window within which two taps must occur to count as double-tap (default 0.3s)
     var threshold: TimeInterval
     var macroId: UUID?
+    var scriptId: UUID?
     var systemCommand: SystemCommand?
     var hint: String?
 
@@ -275,17 +292,18 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         return threshold
     }
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, macroId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = Self.sanitizedThreshold(threshold)
         self.macroId = macroId
+        self.scriptId = scriptId
         self.systemCommand = systemCommand
         self.hint = hint
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, threshold, macroId, systemCommand, hint
+        case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, hint
     }
 
     init(from decoder: Decoder) throws {
@@ -295,6 +313,7 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         let decodedThreshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? Self.defaultThreshold
         threshold = Self.sanitizedThreshold(decodedThreshold)
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
+        scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
     }
@@ -305,6 +324,9 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         }
         if macroId != nil {
             return "Macro"
+        }
+        if scriptId != nil {
+            return "Script"
         }
         var parts: [String] = []
         if modifiers.command { parts.append("⌘") }
@@ -320,7 +342,7 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
     }
 
     var isEmpty: Bool {
-        keyCode == nil && !modifiers.hasAny && macroId == nil && systemCommand == nil
+        keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil && systemCommand == nil
     }
 }
 

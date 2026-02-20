@@ -61,6 +61,11 @@ struct ContentView: View {
                         .tabItem { Text("Macros") }
                         .tag(7)
 
+                    // Scripts Tab
+                    scriptListTab
+                        .tabItem { Text("Scripts") }
+                        .tag(10)
+
                     // On-Screen Keyboard Settings
                     keyboardSettingsTab
                         .tabItem { Text("Keyboard") }
@@ -723,6 +728,13 @@ struct ContentView: View {
 
     private var macroListTab: some View {
         MacroListView()
+            .scrollContentBackground(.hidden)
+    }
+
+    // MARK: - Script List Tab
+
+    private var scriptListTab: some View {
+        ScriptListView()
             .scrollContentBackground(.hidden)
     }
 
@@ -1945,9 +1957,10 @@ struct SequenceMappingSheet: View {
     @State private var hint: String = ""
     @State private var showingKeyboard = false
 
-    // Macro support
+    // Macro/Script support
     @State private var mappingType: MappingType = .singleKey
     @State private var selectedMacroId: UUID?
+    @State private var selectedScriptId: UUID?
 
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
@@ -1973,6 +1986,7 @@ struct SequenceMappingSheet: View {
         case singleKey = 0
         case macro = 1
         case systemCommand = 2
+        case script = 3
     }
 
     private var isEditing: Bool { editingSequence != nil }
@@ -1991,6 +2005,7 @@ struct SequenceMappingSheet: View {
         !sequenceAlreadyExists &&
         (mappingType != .singleKey || keyCode != nil || modifiers.hasAny) &&
         (mappingType != .macro || selectedMacroId != nil) &&
+        (mappingType != .script || selectedScriptId != nil) &&
         (mappingType != .systemCommand || buildSystemCommand() != nil)
     }
 
@@ -2001,6 +2016,7 @@ struct SequenceMappingSheet: View {
         let finalKeyCode = mappingType == .singleKey ? keyCode : nil
         let finalModifiers = mappingType == .singleKey ? modifiers : ModifierFlags()
         let finalMacroId = mappingType == .macro ? selectedMacroId : nil
+        let finalScriptId = mappingType == .script ? selectedScriptId : nil
         let finalSystemCommand: SystemCommand? = mappingType == .systemCommand ? buildSystemCommand() : nil
 
         if let existingSequence = editingSequence {
@@ -2010,6 +2026,7 @@ struct SequenceMappingSheet: View {
             updated.keyCode = finalKeyCode
             updated.modifiers = finalModifiers
             updated.macroId = finalMacroId
+            updated.scriptId = finalScriptId
             updated.systemCommand = finalSystemCommand
             updated.hint = hintValue
             profileManager.updateSequence(updated)
@@ -2020,6 +2037,7 @@ struct SequenceMappingSheet: View {
                 keyCode: finalKeyCode,
                 modifiers: finalModifiers,
                 macroId: finalMacroId,
+                scriptId: finalScriptId,
                 systemCommand: finalSystemCommand,
                 hint: hintValue
             )
@@ -2124,10 +2142,11 @@ struct SequenceMappingSheet: View {
                         Picker("", selection: $mappingType) {
                             Text("Key").tag(MappingType.singleKey)
                             Text("Macro").tag(MappingType.macro)
+                            Text("Script").tag(MappingType.script)
                             Text("System").tag(MappingType.systemCommand)
                         }
                         .pickerStyle(.segmented)
-                        .frame(width: 220)
+                        .frame(width: 280)
                         .padding(.trailing, 8)
 
                         if mappingType == .singleKey {
@@ -2174,6 +2193,31 @@ struct SequenceMappingSheet: View {
                                     .italic()
 
                                 Text("Go to the Macros tab to create a new macro.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.black.opacity(0.05))
+                            .cornerRadius(8)
+                        }
+                    } else if mappingType == .script {
+                        if let profile = profileManager.activeProfile, !profile.scripts.isEmpty {
+                            Picker("Select Script", selection: $selectedScriptId) {
+                                Text("Select a Script...").tag(nil as UUID?)
+                                ForEach(profile.scripts) { script in
+                                    Text(script.name).tag(script.id as UUID?)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(maxWidth: .infinity)
+                        } else {
+                            VStack(spacing: 8) {
+                                Text("No scripts defined in this profile.")
+                                    .foregroundColor(.secondary)
+                                    .italic()
+
+                                Text("Go to the Scripts tab to create a new script.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -2232,6 +2276,9 @@ struct SequenceMappingSheet: View {
                 } else if let macroId = sequence.macroId {
                     mappingType = .macro
                     selectedMacroId = macroId
+                } else if let scriptId = sequence.scriptId {
+                    mappingType = .script
+                    selectedScriptId = scriptId
                 } else {
                     mappingType = .singleKey
                 }
@@ -2602,9 +2649,10 @@ struct ChordMappingSheet: View {
     @State private var hint: String = ""
     @State private var showingKeyboard = false
     
-    // Macro support
+    // Macro/Script support
     @State private var mappingType: MappingType = .singleKey
     @State private var selectedMacroId: UUID?
+    @State private var selectedScriptId: UUID?
 
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
@@ -2630,6 +2678,7 @@ struct ChordMappingSheet: View {
         case singleKey = 0
         case macro = 1
         case systemCommand = 2
+        case script = 3
     }
 
     private var isEditing: Bool { editingChord != nil }
@@ -2657,6 +2706,7 @@ struct ChordMappingSheet: View {
         selectedButtons.count >= 2 &&
         (mappingType != .singleKey || keyCode != nil || modifiers.hasAny) &&
         (mappingType != .macro || selectedMacroId != nil) &&
+        (mappingType != .script || selectedScriptId != nil) &&
         (mappingType != .systemCommand || buildChordSystemCommand() != nil)
     }
 
@@ -2667,6 +2717,7 @@ struct ChordMappingSheet: View {
         let finalKeyCode = mappingType == .singleKey ? keyCode : nil
         let finalModifiers = mappingType == .singleKey ? modifiers : ModifierFlags()
         let finalMacroId = mappingType == .macro ? selectedMacroId : nil
+        let finalScriptId = mappingType == .script ? selectedScriptId : nil
         let finalSystemCommand: SystemCommand? = mappingType == .systemCommand ? buildChordSystemCommand() : nil
 
         if let existingChord = editingChord {
@@ -2675,6 +2726,7 @@ struct ChordMappingSheet: View {
             updatedChord.keyCode = finalKeyCode
             updatedChord.modifiers = finalModifiers
             updatedChord.macroId = finalMacroId
+            updatedChord.scriptId = finalScriptId
             updatedChord.systemCommand = finalSystemCommand
             updatedChord.hint = hintValue
             profileManager.updateChord(updatedChord)
@@ -2684,6 +2736,7 @@ struct ChordMappingSheet: View {
                 keyCode: finalKeyCode,
                 modifiers: finalModifiers,
                 macroId: finalMacroId,
+                scriptId: finalScriptId,
                 systemCommand: finalSystemCommand,
                 hint: hintValue
             )
@@ -2813,10 +2866,11 @@ struct ChordMappingSheet: View {
                     Picker("", selection: $mappingType) {
                         Text("Key").tag(MappingType.singleKey)
                         Text("Macro").tag(MappingType.macro)
+                        Text("Script").tag(MappingType.script)
                         Text("System").tag(MappingType.systemCommand)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 220)
+                    .frame(width: 280)
                     .padding(.trailing, 8)
 
                     if mappingType == .singleKey {
@@ -2864,6 +2918,32 @@ struct ChordMappingSheet: View {
                                 .italic()
 
                             Text("Go to the Macros tab to create a new macro.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.black.opacity(0.05))
+                        .cornerRadius(8)
+                    }
+                } else if mappingType == .script {
+                    // SCRIPT SELECTION
+                    if let profile = profileManager.activeProfile, !profile.scripts.isEmpty {
+                        Picker("Select Script", selection: $selectedScriptId) {
+                            Text("Select a Script...").tag(nil as UUID?)
+                            ForEach(profile.scripts) { script in
+                                Text(script.name).tag(script.id as UUID?)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        VStack(spacing: 8) {
+                            Text("No scripts defined in this profile.")
+                                .foregroundColor(.secondary)
+                                .italic()
+
+                            Text("Go to the Scripts tab to create a new script.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -2922,6 +3002,9 @@ struct ChordMappingSheet: View {
                 } else if let macroId = chord.macroId {
                     mappingType = .macro
                     selectedMacroId = macroId
+                } else if let scriptId = chord.scriptId {
+                    mappingType = .script
+                    selectedScriptId = scriptId
                 } else {
                     mappingType = .singleKey
                 }

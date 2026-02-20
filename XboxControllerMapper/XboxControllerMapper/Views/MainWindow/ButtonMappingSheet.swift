@@ -47,9 +47,10 @@ struct ButtonMappingSheet: View {
     @State private var showingKeyboardForLongHold = false
     @State private var showingKeyboardForDoubleTap = false
 
-    // Macro support
+    // Macro/Script support
     @State private var mappingType: MappingType = .singleKey
     @State private var selectedMacroId: UUID?
+    @State private var selectedScriptId: UUID?
 
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
@@ -106,6 +107,7 @@ struct ButtonMappingSheet: View {
         case singleKey = 0
         case macro = 1
         case systemCommand = 2
+        case script = 3
     }
 
     private var showingAnyKeyboard: Bool {
@@ -233,7 +235,7 @@ struct ButtonMappingSheet: View {
             footer
         }
         .onSubmit { saveMapping() }
-        .frame(width: showingAnyKeyboard ? 750 : (mappingType == .systemCommand ? 580 : 500), height: showingAnyKeyboard ? 700 : 550)
+        .frame(width: showingAnyKeyboard ? 750 : (mappingType == .systemCommand ? 580 : 520), height: showingAnyKeyboard ? 700 : 550)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForPrimary)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForLongHold)
         .animation(.easeInOut(duration: 0.2), value: showingKeyboardForDoubleTap)
@@ -270,6 +272,12 @@ struct ButtonMappingSheet: View {
                            let profile = profileManager.activeProfile,
                            let macro = profile.macros.first(where: { $0.id == macroId }) {
                             Text("Macro: \(macro.name)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else if let scriptId = currentMapping.scriptId,
+                                  let profile = profileManager.activeProfile,
+                                  let script = profile.scripts.first(where: { $0.id == scriptId }) {
+                            Text("Script: \(script.name)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         } else {
@@ -315,10 +323,11 @@ struct ButtonMappingSheet: View {
                 Picker("", selection: $mappingType) {
                     Text("Key").tag(MappingType.singleKey)
                     Text("Macro").tag(MappingType.macro)
+                    Text("Script").tag(MappingType.script)
                     Text("System").tag(MappingType.systemCommand)
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 220)
+                .frame(width: 280)
                 .padding(.trailing, 8)
 
                 if mappingType == .singleKey {
@@ -440,6 +449,43 @@ struct ButtonMappingSheet: View {
                                 .italic()
 
                             Text("Go to the Macros tab to create a new macro.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.black.opacity(0.05))
+                        .cornerRadius(8)
+                    }
+                } else if mappingType == .script {
+                    // SCRIPT SELECTION
+                    if let profile = profileManager.activeProfile, !profile.scripts.isEmpty {
+                        Picker("Select Script", selection: $selectedScriptId) {
+                            Text("Select a Script...").tag(nil as UUID?)
+                            ForEach(profile.scripts) { script in
+                                Text(script.name).tag(script.id as UUID?)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+
+                        // Hint field for scripts
+                        HStack {
+                            Text("Hint:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            TextField("e.g. Smart Spacebar, Toggle Mode...", text: $hint)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.subheadline)
+                        }
+                    } else {
+                        VStack(spacing: 8) {
+                            Text("No scripts defined in this profile.")
+                                .foregroundColor(.secondary)
+                                .italic()
+
+                            Text("Go to the Scripts tab to create a new script.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -1359,6 +1405,9 @@ struct ButtonMappingSheet: View {
             } else if let macroId = existingMapping.macroId {
                 mappingType = .macro
                 selectedMacroId = macroId
+            } else if let scriptId = existingMapping.scriptId {
+                mappingType = .script
+                selectedScriptId = scriptId
             } else {
                 mappingType = .singleKey
                 keyCode = existingMapping.keyCode
@@ -1445,6 +1494,9 @@ struct ButtonMappingSheet: View {
         } else if mappingType == .macro {
             guard let macroId = selectedMacroId else { return }
             newMapping = KeyMapping(macroId: macroId, hint: hint.isEmpty ? nil : hint)
+        } else if mappingType == .script {
+            guard let scriptId = selectedScriptId else { return }
+            newMapping = KeyMapping(scriptId: scriptId, hint: hint.isEmpty ? nil : hint)
         } else {
             newMapping = KeyMapping(
                 keyCode: keyCode,
