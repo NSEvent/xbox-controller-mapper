@@ -344,6 +344,45 @@ class ScriptEngine {
         }
         context.setObject(shell, forKeyedSubscript: "shell" as NSString)
 
+        // shellAsync("command", callback?) - runs in background, doesn't block controller input
+        let shellAsync: @convention(block) (String, JSValue?) -> Void = { [weak self] command, callback in
+            guard let self else { return }
+            if self.isTestMode {
+                self.testLogs.append("[shellAsync] \"\(command)\"")
+                return
+            }
+            DispatchQueue.global().async { [weak self] in
+                let process = Process()
+                let pipe = Pipe()
+                process.executableURL = URL(fileURLWithPath: "/bin/sh")
+                process.arguments = ["-c", command]
+                process.standardOutput = pipe
+                process.standardError = FileHandle.nullDevice
+
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let output = String(data: data.prefix(10240), encoding: .utf8) ?? ""
+                    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if let callback = callback, !callback.isUndefined, !callback.isNull {
+                        self?.inputQueue.async {
+                            callback.call(withArguments: [trimmed])
+                        }
+                    }
+                } catch {
+                    if let callback = callback, !callback.isUndefined, !callback.isNull {
+                        self?.inputQueue.async {
+                            callback.call(withArguments: [""])
+                        }
+                    }
+                }
+            }
+        }
+        context.setObject(shellAsync, forKeyedSubscript: "shellAsync" as NSString)
+
         // openURL("https://...")
         let openURL: @convention(block) (String) -> Void = { [weak self] urlString in
             if self?.isTestMode == true {

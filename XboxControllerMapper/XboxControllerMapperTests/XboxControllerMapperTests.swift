@@ -66,6 +66,9 @@ class MockInputSimulator: InputSimulatorProtocol {
         lock.lock()
         defer { lock.unlock() }
         _heldDirectionKeys.insert(keyCode)
+        if KeyCodeMapping.isMouseButton(keyCode) && keyCode == KeyCodeMapping.mouseLeftClick {
+            _heldMouseButton = true
+        }
         _events.append(.keyDown(keyCode))
     }
 
@@ -73,6 +76,9 @@ class MockInputSimulator: InputSimulatorProtocol {
         lock.lock()
         defer { lock.unlock() }
         _heldDirectionKeys.remove(keyCode)
+        if KeyCodeMapping.isMouseButton(keyCode) && keyCode == KeyCodeMapping.mouseLeftClick {
+            _heldMouseButton = false
+        }
         _events.append(.keyUp(keyCode))
     }
 
@@ -126,10 +132,12 @@ class MockInputSimulator: InputSimulatorProtocol {
         return _heldModifiers
     }
 
+    private var _heldMouseButton: Bool = false
+
     var isLeftMouseButtonHeld: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return false
+        return _heldMouseButton
     }
 
     func moveMouse(dx: CGFloat, dy: CGFloat) {
@@ -172,35 +180,27 @@ class MockInputSimulator: InputSimulatorProtocol {
     
     func startHoldMapping(_ mapping: KeyMapping) {
         lock.lock()
-        // We need to call internal methods or duplicate logic to avoid deadlock if we called self.holdModifier
-        // But holdModifier logic is simple.
-        // Let's just implement it inline or call a private helper if needed.
-        // But here we can just append event and update state.
-        // Wait, holdModifier updates modifierCounts. We should replicate that.
-        // Simplest is to unlock, call holdModifier, lock, append event.
-        // But holdModifier appends event too.
-        // The original code:
-        /*
-        if mapping.modifiers.hasAny {
-            holdModifier(mapping.modifiers.cgEventFlags)
-        }
-        events.append(.startHoldMapping(mapping))
-        */
         lock.unlock()
-        
+
         if mapping.modifiers.hasAny {
             holdModifier(mapping.modifiers.cgEventFlags)
         }
-        
+        if let keyCode = mapping.keyCode {
+            keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+        }
+
         lock.lock()
         defer { lock.unlock() }
         _events.append(.startHoldMapping(mapping))
     }
-    
+
     func stopHoldMapping(_ mapping: KeyMapping) {
         lock.lock()
         lock.unlock()
-        
+
+        if let keyCode = mapping.keyCode {
+            keyUp(keyCode)
+        }
         if mapping.modifiers.hasAny {
             releaseModifier(mapping.modifiers.cgEventFlags)
         }

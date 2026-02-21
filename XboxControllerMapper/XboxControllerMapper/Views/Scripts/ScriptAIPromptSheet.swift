@@ -160,7 +160,8 @@ struct ScriptAIPromptSheet: View {
         - The script runs in JavaScriptCore (no DOM, no fetch, no Node.js APIs)
         - Use delay() between sequential actions that interact with the UI (e.g., opening an app then typing)
         - delay() max is 5 seconds
-        - shell() has a 5-second timeout and returns stdout as a string
+        - shell() has a 5-second timeout and returns stdout as a string (blocks controller input)
+        - shellAsync() runs in the background so controller input is not blocked — use for interactive commands like screencapture
         - paste() is preferred over type() for long text (it uses the clipboard)
         - Return ONLY the JavaScript code, no markdown fences
 
@@ -184,7 +185,8 @@ struct ScriptAIPromptSheet: View {
         ### System
         - clipboard.get() — Read clipboard text
         - clipboard.set("text") — Set clipboard text
-        - shell("command") — Run shell command, returns stdout (5s timeout)
+        - shell("command") — Run shell command, returns stdout (5s timeout, blocks input)
+        - shellAsync("command", callback?) — Run in background, controller stays active. Optional callback receives stdout.
         - openURL("https://...") — Open URL in default browser
         - openApp("com.apple.Safari") — Launch app by bundle ID
         - expand("template") — Expand variables in template string (see Variables below)

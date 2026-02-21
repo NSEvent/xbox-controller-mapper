@@ -610,6 +610,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 // Set delta fields for Accessibility Zoom viewport panning
                 event.setIntegerValueField(.mouseEventDeltaX, value: Int64(moveX))
                 event.setIntegerValueField(.mouseEventDeltaY, value: Int64(moveY))
+                // Set pressure on drag events so system tools recognize the drag
+                if eventType != .mouseMoved {
+                    event.setDoubleValueField(.mouseEventPressure, value: 1.0)
+                }
                 event.post(tap: .cghidEventTap)
             }
         }
@@ -662,6 +666,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
             event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
+            // Set pressure on drag events so system tools recognize the drag
+            if eventType != .mouseMoved {
+                event.setDoubleValueField(.mouseEventPressure, value: 1.0)
+            }
             event.post(tap: .cghidEventTap)
         }
     }
@@ -927,10 +935,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     // MARK: - Mouse Button Simulation
 
     private func pressMouseButton(_ keyCode: CGKeyCode) {
+        // Both down and up dispatch to the serial mouseQueue, maintaining order
         mouseButtonDown(keyCode)
-        // Helper to ensure precise click timing if needed, or just sequence them
-        // For simulated clicks, immediate up is usually fine, but physically
-        // distinct events are safer.
         mouseButtonUp(keyCode)
     }
 
@@ -940,37 +946,46 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         let (downType, button) = mouseEventType(for: keyCode, down: true)
 
-        stateLock.lock()
-        defer { stateLock.unlock() }
+        // Dispatch on mouseQueue so mouse button events and drag events from
+        // moveMouse are properly ordered on the same serial queue. Without this,
+        // mouseDown (from input queue) and leftMouseDragged (from mouseQueue)
+        // can arrive out of order, causing system tools like screencapture to
+        // miss the drag sequence entirely.
+        mouseQueue.async { [weak self] in
+            guard let self = self else { return }
 
-        let cgLocation = resolveClickLocationLocked(now: Date())
+            self.stateLock.lock()
 
-        // Track hold state
-        heldMouseButtons.insert(button)
+            let cgLocation = self.resolveClickLocationLocked(now: Date())
 
-        // Calculate click count for double/triple click support
-        let now = Date()
-        let clickCount: Int64
-        if let lastTime = lastClickTime[button],
-           now.timeIntervalSince(lastTime) < Config.multiClickThreshold {
-            // Within threshold - increment click count
-            clickCount = (clickCounts[button] ?? 0) + 1
-        } else {
-            // Outside threshold - reset to single click
-            clickCount = 1
-        }
-        clickCounts[button] = clickCount
-        lastClickTime[button] = now
+            // Track hold state
+            self.heldMouseButtons.insert(button)
 
-        if let event = CGEvent(
-            mouseEventSource: source,
-            mouseType: downType,
-            mouseCursorPosition: cgLocation,
-            mouseButton: button
-        ) {
-            // Set click count for double/triple click recognition
-            event.setIntegerValueField(.mouseEventClickState, value: clickCount)
-            event.post(tap: .cghidEventTap)
+            // Calculate click count for double/triple click support
+            let now = Date()
+            let clickCount: Int64
+            if let lastTime = self.lastClickTime[button],
+               now.timeIntervalSince(lastTime) < Config.multiClickThreshold {
+                clickCount = (self.clickCounts[button] ?? 0) + 1
+            } else {
+                clickCount = 1
+            }
+            self.clickCounts[button] = clickCount
+            self.lastClickTime[button] = now
+
+            self.stateLock.unlock()
+
+            if let event = CGEvent(
+                mouseEventSource: source,
+                mouseType: downType,
+                mouseCursorPosition: cgLocation,
+                mouseButton: button
+            ) {
+                event.setIntegerValueField(.mouseEventClickState, value: clickCount)
+                // Set pressure so system tools (screencapture, etc.) recognize the click
+                event.setDoubleValueField(.mouseEventPressure, value: 1.0)
+                event.post(tap: .cghidEventTap)
+            }
         }
     }
 
@@ -980,26 +995,31 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         let (upType, button) = mouseEventType(for: keyCode, down: false)
 
-        stateLock.lock()
-        defer { stateLock.unlock() }
+        mouseQueue.async { [weak self] in
+            guard let self = self else { return }
 
-        let cgLocation = resolveClickLocationLocked(now: Date())
+            self.stateLock.lock()
 
-        // Update hold state
-        heldMouseButtons.remove(button)
+            let cgLocation = self.resolveClickLocationLocked(now: Date())
 
-        // Use the same click count as the down event
-        let clickCount = clickCounts[button] ?? 1
+            // Update hold state
+            self.heldMouseButtons.remove(button)
 
-        if let event = CGEvent(
-            mouseEventSource: source,
-            mouseType: upType,
-            mouseCursorPosition: cgLocation,
-            mouseButton: button
-        ) {
-            // Set click count to match down event for proper double/triple click
-            event.setIntegerValueField(.mouseEventClickState, value: clickCount)
-            event.post(tap: .cghidEventTap)
+            // Use the same click count as the down event
+            let clickCount = self.clickCounts[button] ?? 1
+
+            self.stateLock.unlock()
+
+            if let event = CGEvent(
+                mouseEventSource: source,
+                mouseType: upType,
+                mouseCursorPosition: cgLocation,
+                mouseButton: button
+            ) {
+                event.setIntegerValueField(.mouseEventClickState, value: clickCount)
+                event.setDoubleValueField(.mouseEventPressure, value: 0.0)
+                event.post(tap: .cghidEventTap)
+            }
         }
     }
 

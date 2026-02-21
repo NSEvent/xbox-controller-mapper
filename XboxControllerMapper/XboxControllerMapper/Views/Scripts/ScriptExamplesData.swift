@@ -63,13 +63,15 @@ enum ScriptExamplesData {
 
         ScriptExample(
             name: "Screenshot to Clipboard",
-            description: "Takes a screenshot of a selected region and copies it to the clipboard.",
+            description: "Takes a screenshot of a selected region and copies it to the clipboard. Uses shellAsync so controller input isn't blocked during selection.",
             source: """
-                shell("screencapture -ic");
-                notify("Screenshot copied!");
+                shellAsync("screencapture -ic", function() {
+                    notify("Screenshot copied!");
+                    haptic();
+                });
                 """,
             icon: "camera.viewfinder",
-            tags: ["shell()", "notify()"]
+            tags: ["shellAsync()", "notify()"]
         ),
 
         ScriptExample(

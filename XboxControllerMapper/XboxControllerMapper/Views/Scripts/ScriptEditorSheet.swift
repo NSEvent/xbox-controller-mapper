@@ -264,6 +264,7 @@ struct ScriptAPIReferenceSheet: View {
                         ("clipboard.get()", "Read clipboard text"),
                         ("clipboard.set(\"text\")", "Set clipboard text"),
                         ("shell(\"command\")", "Run shell command, returns stdout (5s timeout)"),
+                        ("shellAsync(\"cmd\", callback?)", "Run in background, controller stays active. Callback receives stdout."),
                         ("openURL(\"https://...\")", "Open URL in default browser"),
                         ("openApp(\"com.apple.Safari\")", "Launch app by bundle ID"),
                         ("expand(\"{date} {time}\")", "Expand variables: {date}, {time}, {app}, etc."),
