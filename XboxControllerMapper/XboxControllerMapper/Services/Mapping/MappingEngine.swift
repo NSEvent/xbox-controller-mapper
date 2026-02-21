@@ -528,6 +528,12 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptSwipePredictionNavigation:
+                controllerService.playHaptic(
+                    intensity: Config.keyboardActionHapticIntensity,
+                    sharpness: Config.keyboardActionHapticSharpness,
+                    duration: Config.keyboardActionHapticDuration,
+                    transient: true
+                )
                 DispatchQueue.main.async {
                     if button == .dpadRight {
                         SwipeTypingEngine.shared.selectNextPrediction()
