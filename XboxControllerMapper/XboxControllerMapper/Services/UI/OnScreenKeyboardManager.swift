@@ -1351,14 +1351,16 @@ class OnScreenKeyboardManager: ObservableObject {
     private func executeTerminalCommand(_ command: String) {
         NSLog("[OnScreenKeyboard] executeTerminalCommand: '\(command)', terminal: \(defaultTerminalApp)")
 
-        // Escape for AppleScript string - need to escape backslashes and quotes
-        let escapedCommand = command
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
+        guard let sanitizedTerminalApp = AppleScriptEscaping.sanitizeAppName(defaultTerminalApp) else {
+            NSLog("[OnScreenKeyboard] Terminal app name rejected: %@", defaultTerminalApp)
+            return
+        }
+
+        let escapedCommand = AppleScriptEscaping.escapeForString(command)
 
         var script: String
 
-        switch defaultTerminalApp {
+        switch sanitizedTerminalApp {
         case "iTerm":
             script = """
             tell application "iTerm"
@@ -1389,13 +1391,12 @@ class OnScreenKeyboardManager: ObservableObject {
             """
 
         case "Alacritty", "Kitty", "Hyper":
-            // For terminals without good AppleScript support, use a workaround
             script = """
-            tell application "\(defaultTerminalApp)"
+            tell application "\(sanitizedTerminalApp)"
                 activate
                 delay 0.5
                 tell application "System Events"
-                    tell process "\(defaultTerminalApp)"
+                    tell process "\(sanitizedTerminalApp)"
                         keystroke "n" using command down
                         delay 0.3
                         keystroke "\(escapedCommand)"

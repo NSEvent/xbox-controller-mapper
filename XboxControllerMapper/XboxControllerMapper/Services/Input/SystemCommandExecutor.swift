@@ -237,11 +237,13 @@ class SystemCommandExecutor: @unchecked Sendable {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
-            let terminalApp = self.profileManager.onScreenKeyboardSettings.defaultTerminalApp
+            let rawTerminalApp = self.profileManager.onScreenKeyboardSettings.defaultTerminalApp
+            guard let terminalApp = AppleScriptEscaping.sanitizeAppName(rawTerminalApp) else {
+                NSLog("[SystemCommand] Terminal app name rejected: %@", rawTerminalApp)
+                return
+            }
 
-            let escapedCommand = command
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
+            let escapedCommand = AppleScriptEscaping.escapeForString(command)
 
             let script: String
             switch terminalApp {
