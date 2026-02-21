@@ -189,28 +189,6 @@ class SwipeTypingEngine: ObservableObject {
         let samples = _samples
         stateLock.unlock()
 
-        // Debug: log sample stats to file
-        let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
-        var msg: String
-        if samples.isEmpty {
-            msg = "[SwipeTyping] endSwipe: 0 samples collected!\n"
-        } else {
-            let xs = samples.map { $0.x }
-            let ys = samples.map { $0.y }
-            msg = String(format: "[SwipeTyping] endSwipe: %d samples, x=[%.3f..%.3f], y=[%.3f..%.3f]\n",
-                         samples.count, xs.min() ?? 0, xs.max() ?? 0, ys.min() ?? 0, ys.max() ?? 0)
-            for (i, s) in samples.prefix(5).enumerated() {
-                msg += String(format: "  sample[%d]: x=%.4f y=%.4f dt=%.4f\n", i, s.x, s.y, s.dt)
-            }
-        }
-        if let handle = try? FileHandle(forWritingTo: logURL) {
-            handle.seekToEndOfFile()
-            handle.write(msg.data(using: .utf8)!)
-            handle.closeFile()
-        } else {
-            try? msg.write(to: logURL, atomically: true, encoding: .utf8)
-        }
-
         DispatchQueue.main.async { [self] in
             self.state = .predicting
         }
@@ -219,23 +197,8 @@ class SwipeTypingEngine: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             let results: [SwipeTypingPrediction]
             if let m = self.model {
-                let loaded = m.isLoaded
-                let logURL2 = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
-                let msg2 = "[SwipeTyping] model exists, isLoaded=\(loaded)\n"
-                if let handle = try? FileHandle(forWritingTo: logURL2) {
-                    handle.seekToEndOfFile()
-                    handle.write(msg2.data(using: .utf8)!)
-                    handle.closeFile()
-                }
                 results = m.predict(samples: samples)
             } else {
-                let logURL2 = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
-                let msg2 = "[SwipeTyping] model is nil!\n"
-                if let handle = try? FileHandle(forWritingTo: logURL2) {
-                    handle.seekToEndOfFile()
-                    handle.write(msg2.data(using: .utf8)!)
-                    handle.closeFile()
-                }
                 results = []
             }
 

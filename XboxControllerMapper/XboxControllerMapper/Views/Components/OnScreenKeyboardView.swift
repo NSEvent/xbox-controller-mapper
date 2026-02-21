@@ -196,7 +196,7 @@ struct OnScreenKeyboardView: View {
             }
             .overlay(
                 Group {
-                    if swipeEngine.state == .swiping || swipeEngine.state == .showingPredictions {
+                    if swipeEngine.state == .active || swipeEngine.state == .swiping || swipeEngine.state == .predicting || swipeEngine.state == .showingPredictions {
                         SwipeTrailView(
                             swipePath: swipeEngine.swipePath,
                             cursorPosition: swipeEngine.cursorPosition

@@ -93,6 +93,7 @@ extension MappingEngine {
         var swipeTypingCursorX: Double = 0.5
         var swipeTypingCursorY: Double = 0.5
         var wasTouchpadTouching: Bool = false
+        var swipeClickReleaseFrames: Int = 0  // debounce: consecutive frames with click released
 
         // Focus mode state
         var wasFocusActive = false
@@ -176,6 +177,7 @@ extension MappingEngine {
             swipeTypingCursorX = 0.5
             swipeTypingCursorY = 0.5
             wasTouchpadTouching = false
+            swipeClickReleaseFrames = 0
             wasFocusActive = false
             currentMultiplier = 0
             focusExitTime = 0

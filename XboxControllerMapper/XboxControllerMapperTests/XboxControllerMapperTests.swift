@@ -126,12 +126,24 @@ class MockInputSimulator: InputSimulatorProtocol {
         return _heldModifiers
     }
 
+    var isLeftMouseButtonHeld: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return false
+    }
+
     func moveMouse(dx: CGFloat, dy: CGFloat) {
         lock.lock()
         defer { lock.unlock() }
         _events.append(.moveMouse(dx, dy))
     }
-    
+
+    func moveMouseNative(dx: Int, dy: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        _events.append(.moveMouse(CGFloat(dx), CGFloat(dy)))
+    }
+
     func scroll(
         dx: CGFloat,
         dy: CGFloat,
