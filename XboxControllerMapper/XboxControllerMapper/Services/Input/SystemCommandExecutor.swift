@@ -185,9 +185,14 @@ class SystemCommandExecutor: @unchecked Sendable {
         }
 
         // Validate: reject commands containing dangerous injection patterns
-        let lowercased = trimmed.lowercased()
+        // Normalize whitespace (tabs, etc.) to spaces so patterns can't be bypassed
+        // by using alternate whitespace characters that shells treat equivalently.
+        let normalized = trimmed.lowercased()
+            .replacingOccurrences(of: "\t", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
         for pattern in Self.dangerousShellPatterns {
-            if lowercased.contains(pattern) {
+            if normalized.contains(pattern) {
                 NSLog("[SystemCommand] Shell command rejected — dangerous pattern detected: %@", command)
                 return
             }

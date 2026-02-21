@@ -106,8 +106,14 @@ class ScriptEngine {
         // Set up per-script state namespace (installs state object via JS evaluation)
         installStateObject(for: script.id)
 
-        // Clear any previous exception
-        context.exception = nil
+        // Track exceptions captured by the exceptionHandler (which consumes them,
+        // so context.exception is always nil when a custom handler is installed).
+        var capturedExceptionMessage: String?
+        context.exceptionHandler = { [weak self] _, exception in
+            let msg = exception?.toString() ?? "Unknown error"
+            capturedExceptionMessage = msg
+            self?.logMessage("[JS Exception] \(msg)")
+        }
 
         // Set timeout flag - timer fires on global queue so it can set the flag
         // while the script blocks inputQueue. Uses AtomicBool for thread-safe access
@@ -126,9 +132,8 @@ class ScriptEngine {
         timer.cancel()
         let didTimeout = timedOut.value
 
-        // Check for errors
-        if let exception = context.exception {
-            let errorMessage = exception.toString() ?? "Unknown error"
+        // Check for errors (captured by the exceptionHandler above)
+        if let errorMessage = capturedExceptionMessage {
             logMessage("[Script Error] \(script.name): \(errorMessage)")
             return .error(errorMessage)
         }
@@ -149,13 +154,8 @@ class ScriptEngine {
         installSystemAPI()
         installFeedbackAPI()
         installLoggingAPI()
-
-        // Set up error handler
-        context.exceptionHandler = { [weak self] _, exception in
-            if let msg = exception?.toString() {
-                self?.logMessage("[JS Exception] \(msg)")
-            }
-        }
+        // Note: exceptionHandler is set per-execution in runScript() so we can
+        // capture exceptions and return them as ScriptResult.error values.
     }
 
     // MARK: - Input Simulation API
