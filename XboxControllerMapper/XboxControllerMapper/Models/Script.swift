@@ -40,14 +40,22 @@ struct Script: Codable, Identifiable, Equatable {
     }
 }
 
+/// The type of button press that triggered a script
+enum PressType: String, Codable, Sendable {
+    case press
+    case release
+    case longHold
+    case doubleTap
+}
+
 /// Context passed to a script when it's triggered by controller input
 struct ScriptTrigger {
     let button: ControllerButton
-    let pressType: String        // "press", "release", "longHold", "doubleTap"
+    let pressType: PressType
     let holdDuration: TimeInterval?
     let timestamp: Date
 
-    init(button: ControllerButton, pressType: String = "press", holdDuration: TimeInterval? = nil, timestamp: Date = Date()) {
+    init(button: ControllerButton, pressType: PressType = .press, holdDuration: TimeInterval? = nil, timestamp: Date = Date()) {
         self.button = button
         self.pressType = pressType
         self.holdDuration = holdDuration

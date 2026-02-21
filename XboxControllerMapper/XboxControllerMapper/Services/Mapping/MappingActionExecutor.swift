@@ -44,7 +44,7 @@ private struct ScriptActionHandler {
     let scriptEngine: ScriptEngine?
 
     func executeIfPossible(_ action: any ExecutableAction, profile: Profile?,
-                           button: ControllerButton, pressType: String) -> String? {
+                           button: ControllerButton, pressType: PressType) -> String? {
         guard let scriptId = action.scriptId, let scriptEngine else { return nil }
 
         guard let profile, let script = profile.scripts.first(where: { $0.id == scriptId }) else {
@@ -136,11 +136,11 @@ struct MappingExecutor {
         logType: InputEventType = .singlePress
     ) {
         let button = buttons.first ?? .a
-        let pressType: String
+        let pressType: PressType
         switch logType {
-        case .longPress: pressType = "longHold"
-        case .doubleTap: pressType = "doubleTap"
-        default: pressType = "press"
+        case .longPress: pressType = .longHold
+        case .doubleTap: pressType = .doubleTap
+        default: pressType = .press
         }
         let feedback = executeAction(action, profile: profile, button: button, pressType: pressType)
         inputLogService?.log(buttons: buttons, type: logType, action: feedback)
@@ -161,7 +161,7 @@ struct MappingExecutor {
         _ action: any ExecutableAction,
         profile: Profile?,
         button: ControllerButton = .a,
-        pressType: String = "press"
+        pressType: PressType = .press
     ) -> String {
         if let feedback = systemCommandHandler.executeIfPossible(action) {
             return feedback
