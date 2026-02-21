@@ -54,6 +54,8 @@ extension MappingEngine {
         var lastJoystickSampleTime: TimeInterval = 0
         var smoothedTouchpadDelta: CGPoint = .zero
         var lastTouchpadSampleTime: TimeInterval = 0
+        var touchpadResidualX: Double = 0
+        var touchpadResidualY: Double = 0
         var smoothedTouchpadCenterDelta: CGPoint = .zero
         var smoothedTouchpadDistanceDelta: Double = 0
         var lastTouchpadGestureSampleTime: TimeInterval = 0
@@ -138,6 +140,8 @@ extension MappingEngine {
             lastJoystickSampleTime = 0
             smoothedTouchpadDelta = .zero
             lastTouchpadSampleTime = 0
+            touchpadResidualX = 0
+            touchpadResidualY = 0
             smoothedTouchpadCenterDelta = .zero
             smoothedTouchpadDistanceDelta = 0
             lastTouchpadGestureSampleTime = 0

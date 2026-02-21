@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ScriptEditorSheet: View {
     let script: Script?
+    var prefilledExample: ScriptExample?
 
     @EnvironmentObject var profileManager: ProfileManager
     @Environment(\.dismiss) private var dismiss
@@ -10,6 +11,8 @@ struct ScriptEditorSheet: View {
     @State private var source: String = ""
     @State private var scriptDescription: String = ""
     @State private var showingAPIReference = false
+    @State private var showingExamplesGallery = false
+    @State private var showingAIPrompt = false
     @State private var testOutput: String?
     @State private var showingTestResult = false
 
@@ -93,6 +96,14 @@ struct ScriptEditorSheet: View {
                     Label("API Reference", systemImage: "book")
                 }
 
+                Button(action: { showingExamplesGallery = true }) {
+                    Label("Examples", systemImage: "square.grid.2x2")
+                }
+
+                Button(action: { showingAIPrompt = true }) {
+                    Label("AI", systemImage: "sparkles")
+                }
+
                 Button(action: runTest) {
                     Label("Test", systemImage: "play.fill")
                 }
@@ -116,10 +127,24 @@ struct ScriptEditorSheet: View {
                 name = script.name
                 source = script.source
                 scriptDescription = script.description ?? ""
+            } else if let example = prefilledExample {
+                name = example.name
+                source = example.source
+                scriptDescription = example.description
             }
         }
         .sheet(isPresented: $showingAPIReference) {
             ScriptAPIReferenceSheet()
+        }
+        .sheet(isPresented: $showingExamplesGallery) {
+            ScriptExamplesGalleryView { example in
+                name = example.name
+                source = example.source
+                scriptDescription = example.description
+            }
+        }
+        .sheet(isPresented: $showingAIPrompt) {
+            ScriptAIPromptSheet()
         }
     }
 
@@ -307,6 +332,7 @@ private class MockInputSimulator: InputSimulatorProtocol {
     func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool { false }
     func getHeldModifiers() -> CGEventFlags { [] }
     func moveMouse(dx: CGFloat, dy: CGFloat) {}
+    func moveMouseNative(dx: Int, dy: Int) {}
     func scroll(dx: CGFloat, dy: CGFloat, phase: CGScrollPhase?, momentumPhase: CGMomentumScrollPhase?, isContinuous: Bool, flags: CGEventFlags) {}
     func executeMapping(_ mapping: KeyMapping) {}
     func startHoldMapping(_ mapping: KeyMapping) {}

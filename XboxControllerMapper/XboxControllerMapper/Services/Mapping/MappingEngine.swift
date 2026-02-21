@@ -820,6 +820,8 @@ class MappingEngine: ObservableObject {
             // Clear touchpad state
             state.smoothedTouchpadDelta = .zero
             state.lastTouchpadSampleTime = 0
+            state.touchpadResidualX = 0
+            state.touchpadResidualY = 0
             state.touchpadMomentumVelocity = .zero
             state.touchpadMomentumWasActive = false
 
@@ -1818,22 +1820,15 @@ class MappingEngine: ObservableObject {
         let magnitude = Double(hypot(smoothedDelta.x, smoothedDelta.y))
         guard magnitude > settings.touchpadDeadzone else { return }
 
-        let normalized = min(magnitude / Config.touchpadAccelerationMaxDelta, 1.0)
-        let curve = pow(normalized, settings.touchpadAccelerationExponent)
-        let accelScale = 1.0 + settings.effectiveTouchpadAcceleration * Config.touchpadAccelerationMaxBoost * curve
+        // Simple linear scaling: convert touchpad normalized deltas to pixel movement.
+        // Uses touchpadNativeScale as the base (tuned to match Mac trackpad feel at default),
+        // adjusted by user's touchpad sensitivity slider.
+        // No custom acceleration — the linear scale with smoothing gives natural trackpad feel.
+        let sensitivity = Config.touchpadNativeScale * settings.touchpadSensitivityMultiplier
 
-        // The touchpad coordinates are normalized (-1 to 1), so delta is small
-        // Scale up to get reasonable mouse movement
-        // Use mouse sensitivity settings for consistency with left stick
-        let sensitivity = settings.mouseMultiplier
-            * Config.touchpadSensitivityMultiplier
-            * settings.touchpadSensitivityMultiplier
+        let dx = Double(smoothedDelta.x) * sensitivity
+        var dy = -Double(smoothedDelta.y) * sensitivity
 
-        let dx = Double(smoothedDelta.x) * accelScale * sensitivity
-        // Invert Y by default (touchpad up = mouse up, but Y axis is inverted in coordinate system)
-        var dy = -Double(smoothedDelta.y) * accelScale * sensitivity
-
-        // Respect mouse Y inversion setting
         if settings.invertMouseY {
             dy = -dy
         }

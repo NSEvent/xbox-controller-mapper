@@ -14,6 +14,7 @@ protocol InputSimulatorProtocol: Sendable {
     func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool
     func getHeldModifiers() -> CGEventFlags
     func moveMouse(dx: CGFloat, dy: CGFloat)
+    func moveMouseNative(dx: Int, dy: Int)
     func scroll(
         dx: CGFloat,
         dy: CGFloat,
@@ -602,6 +603,57 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 event.setIntegerValueField(.mouseEventDeltaY, value: Int64(moveY))
                 event.post(tap: .cghidEventTap)
             }
+        }
+    }
+
+    /// Moves the mouse cursor by posting a CGEvent with delta fields at the HID event tap.
+    /// This lets macOS apply its native pointer acceleration, matching real trackpad feel.
+    func moveMouseNative(dx: Int, dy: Int) {
+        mouseQueue.async { [weak self] in
+            guard let self = self else { return }
+            guard self.checkAccessibility() else { return }
+            guard dx != 0 || dy != 0 else { return }
+
+            self.stateLock.lock()
+            let heldButtons = self.heldMouseButtons
+            self.stateLock.unlock()
+
+            let eventType: CGEventType
+            let mouseButton: CGMouseButton
+            if heldButtons.contains(.left) {
+                eventType = .leftMouseDragged
+                mouseButton = .left
+            } else if heldButtons.contains(.right) {
+                eventType = .rightMouseDragged
+                mouseButton = .right
+            } else if heldButtons.contains(.center) {
+                eventType = .otherMouseDragged
+                mouseButton = .center
+            } else {
+                eventType = .mouseMoved
+                mouseButton = .left
+            }
+
+            // Get current cursor position for the event location
+            let cursorPos: CGPoint
+            if let locEvent = CGEvent(source: nil) {
+                cursorPos = locEvent.location
+            } else {
+                let ns = NSEvent.mouseLocation
+                let screenH = NSScreen.main?.frame.height ?? 1080
+                cursorPos = CGPoint(x: ns.x, y: screenH - ns.y)
+            }
+
+            guard let event = CGEvent(
+                mouseEventSource: self.eventSource,
+                mouseType: eventType,
+                mouseCursorPosition: cursorPos,
+                mouseButton: mouseButton
+            ) else { return }
+
+            event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
+            event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
+            event.post(tap: .cghidEventTap)
         }
     }
 

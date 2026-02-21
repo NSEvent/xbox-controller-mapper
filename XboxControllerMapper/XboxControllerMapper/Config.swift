@@ -148,9 +148,12 @@ struct Config {
     static let zoomTrackedClickMaxAge: TimeInterval = 2.0
 
     // MARK: - DualSense Touchpad
-    /// Sensitivity multiplier for touchpad mouse movement
-    /// The touchpad reports normalized values (-1 to 1), so we scale up for usable mouse movement
-    /// Higher values = faster/more sensitive touchpad
+    /// Base scale for converting touchpad normalized deltas to mouse counts.
+    /// DualSense touchpad is ~41mm wide, normalized to -1..1 (2.0 range).
+    /// This converts to mouse counts that macOS native acceleration can work with.
+    /// Value tuned so that default sensitivity feels like a regular Mac trackpad.
+    static let touchpadNativeScale: Double = 650.0
+    /// Legacy sensitivity multiplier (kept for non-native code paths)
     static let touchpadSensitivityMultiplier: Double = 15.0
     /// Touchpad delta magnitude used to normalize acceleration curve
     static let touchpadAccelerationMaxDelta: Double = 0.12
