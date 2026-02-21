@@ -26,37 +26,47 @@ class SwipeTypingEngine: ObservableObject {
     @Published var selectedPredictionIndex: Int = 0
     @Published var cursorPosition: CGPoint = CGPoint(x: 0.5, y: 0.5)
 
-    // MARK: - Thread-Safe State
+    // MARK: - Thread-Safe Locked Storage
 
-    private nonisolated(unsafe) let stateLock = NSLock()
-    private nonisolated(unsafe) var tsState: SwipeTypingState = .idle
-    private nonisolated(unsafe) var tsCursorPosition: CGPoint = CGPoint(x: 0.5, y: 0.5)
-    private nonisolated(unsafe) var tsSwipePath: [CGPoint] = []
-    private nonisolated(unsafe) var _samples: [SwipeSample] = []
-    private nonisolated(unsafe) var _lastSampleTime: CFAbsoluteTime = 0
-    private nonisolated(unsafe) var _swipeStartTime: CFAbsoluteTime = 0
-    private nonisolated(unsafe) var _smoothedDx: Double = 0
-    private nonisolated(unsafe) var _smoothedDy: Double = 0
+    /// All mutable state shared between the polling thread and the main actor is held
+    /// inside this lock-protected storage. Every access goes through `withStorage`,
+    /// eliminating the possibility of forgetting to acquire the lock.
+    private final class LockedStorage: @unchecked Sendable {
+        private let lock = NSLock()
 
-    /// Minimum interval between samples (~60Hz)
-    private nonisolated(unsafe) let sampleInterval: CFAbsoluteTime = 1.0 / 60.0
+        var state: SwipeTypingState = .idle
+        var cursorPosition: CGPoint = CGPoint(x: 0.5, y: 0.5)
+        var swipePath: [CGPoint] = []
+        var samples: [SwipeSample] = []
+        var lastSampleTime: CFAbsoluteTime = 0
+        var swipeStartTime: CFAbsoluteTime = 0
+        var smoothedDx: Double = 0
+        var smoothedDy: Double = 0
+
+        /// Minimum interval between samples (~60Hz)
+        let sampleInterval: CFAbsoluteTime = 1.0 / 60.0
+
+        func withLock<T>(_ body: (LockedStorage) -> T) -> T {
+            lock.lock()
+            defer { lock.unlock() }
+            return body(self)
+        }
+    }
+
+    private nonisolated let storage = LockedStorage()
 
     nonisolated var threadSafeState: SwipeTypingState {
-        stateLock.lock()
-        defer { stateLock.unlock() }
-        return tsState
+        storage.withLock { $0.state }
     }
 
     nonisolated var threadSafeCursorPosition: CGPoint {
-        stateLock.lock()
-        defer { stateLock.unlock() }
-        return tsCursorPosition
+        storage.withLock { $0.cursorPosition }
     }
 
     // MARK: - Model
 
-    private nonisolated(unsafe) var model: SwipeTypingModel?
-    private nonisolated(unsafe) var modelLoaded = false
+    private var model: SwipeTypingModel?
+    private var modelLoaded = false
 
     private func ensureModelLoaded() {
         guard !modelLoaded else { return }
@@ -66,19 +76,24 @@ class SwipeTypingEngine: ObservableObject {
         m.loadModel()
     }
 
+    /// Thread-safe snapshot of the model reference for use from background queues.
+    /// Must be called from `@MainActor` (compile-time enforced) so the read is safe.
+    private func modelSnapshot() -> SwipeTypingModel? {
+        return model
+    }
+
     private init() {}
 
     // MARK: - Mode Lifecycle
 
     /// Enter swipe mode — cursor becomes visible, waiting for touchpad touch.
     nonisolated func activateMode() {
-        stateLock.lock()
-        guard tsState == .idle else {
-            stateLock.unlock()
-            return
+        let didActivate = storage.withLock { s -> Bool in
+            guard s.state == .idle else { return false }
+            s.state = .active
+            return true
         }
-        tsState = .active
-        stateLock.unlock()
+        guard didActivate else { return }
 
         DispatchQueue.main.async { [self] in
             self.ensureModelLoaded()
@@ -91,11 +106,11 @@ class SwipeTypingEngine: ObservableObject {
 
     /// Exit swipe mode entirely — cancel any in-progress swipe or predictions.
     nonisolated func deactivateMode() {
-        stateLock.lock()
-        tsState = .idle
-        tsSwipePath = []
-        _samples = []
-        stateLock.unlock()
+        storage.withLock { s in
+            s.state = .idle
+            s.swipePath = []
+            s.samples = []
+        }
 
         DispatchQueue.main.async { [self] in
             self.state = .idle
@@ -108,9 +123,9 @@ class SwipeTypingEngine: ObservableObject {
     /// Set the cursor position (e.g. from the system mouse position mapped to normalized coords).
     /// Called from the controller polling thread before beginSwipe().
     nonisolated func setCursorPosition(_ pos: CGPoint) {
-        stateLock.lock()
-        tsCursorPosition = pos
-        stateLock.unlock()
+        storage.withLock { s in
+            s.cursorPosition = pos
+        }
 
         DispatchQueue.main.async { [self] in
             self.cursorPosition = pos
@@ -123,19 +138,18 @@ class SwipeTypingEngine: ObservableObject {
     /// Can be called from `.active` or `.showingPredictions` (to start next word).
     nonisolated func beginSwipe() {
         let now = CFAbsoluteTimeGetCurrent()
-        stateLock.lock()
-        guard tsState == .active || tsState == .showingPredictions else {
-            stateLock.unlock()
-            return
+        let didBegin = storage.withLock { s -> Bool in
+            guard s.state == .active || s.state == .showingPredictions else { return false }
+            s.state = .swiping
+            s.swipePath = [s.cursorPosition]
+            s.samples = [SwipeSample(x: Double(s.cursorPosition.x), y: Double(s.cursorPosition.y), dt: 0)]
+            s.lastSampleTime = now
+            s.swipeStartTime = now
+            s.smoothedDx = 0
+            s.smoothedDy = 0
+            return true
         }
-        tsState = .swiping
-        tsSwipePath = [tsCursorPosition]
-        _samples = [SwipeSample(x: Double(tsCursorPosition.x), y: Double(tsCursorPosition.y), dt: 0)]
-        _lastSampleTime = now
-        _swipeStartTime = now
-        _smoothedDx = 0
-        _smoothedDy = 0
-        stateLock.unlock()
+        guard didBegin else { return }
 
         DispatchQueue.main.async { [self] in
             self.ensureModelLoaded()
@@ -151,71 +165,68 @@ class SwipeTypingEngine: ObservableObject {
     nonisolated func addSample(x: Double, y: Double) {
         let now = CFAbsoluteTimeGetCurrent()
 
-        stateLock.lock()
-        guard tsState == .swiping else {
-            stateLock.unlock()
-            return
+        let pathSnapshot: [CGPoint]? = storage.withLock { s -> [CGPoint]? in
+            guard s.state == .swiping else { return nil }
+
+            let elapsed = now - s.lastSampleTime
+            guard elapsed >= s.sampleInterval else { return nil }
+
+            let dt = now - s.lastSampleTime
+            s.lastSampleTime = now
+
+            let point = CGPoint(x: x, y: y)
+            s.swipePath.append(point)
+            s.samples.append(SwipeSample(x: x, y: y, dt: dt))
+
+            return s.swipePath
         }
 
-        let elapsed = now - _lastSampleTime
-        guard elapsed >= sampleInterval else {
-            stateLock.unlock()
-            return
-        }
-
-        let dt = now - _lastSampleTime
-        _lastSampleTime = now
-
-        let point = CGPoint(x: x, y: y)
-        tsSwipePath.append(point)
-        _samples.append(SwipeSample(x: x, y: y, dt: dt))
-
-        let pathSnapshot = tsSwipePath
-        stateLock.unlock()
-
-        DispatchQueue.main.async { [self] in
-            self.swipePath = pathSnapshot
+        if let pathSnapshot {
+            DispatchQueue.main.async { [self] in
+                self.swipePath = pathSnapshot
+            }
         }
     }
 
     /// End the current swipe and trigger inference.
     nonisolated func endSwipe() {
-        stateLock.lock()
-        guard tsState == .swiping else {
-            stateLock.unlock()
-            return
+        let samples: [SwipeSample]? = storage.withLock { s -> [SwipeSample]? in
+            guard s.state == .swiping else { return nil }
+            s.state = .predicting
+            return s.samples
         }
-        tsState = .predicting
-        let samples = _samples
-        stateLock.unlock()
+        guard let samples else { return }
 
         DispatchQueue.main.async { [self] in
             self.state = .predicting
-        }
 
-        // Run inference on background queue
-        DispatchQueue.global(qos: .userInitiated).async { [self] in
-            let results: [SwipeTypingPrediction]
-            if let m = self.model {
-                results = m.predict(samples: samples)
-            } else {
-                results = []
-            }
+            // Capture model reference on MainActor (safe) before dispatching to background
+            let modelRef = self.modelSnapshot()
 
-            DispatchQueue.main.async { [self] in
-                self.predictions = results
-                self.selectedPredictionIndex = 0
-                if results.isEmpty {
-                    // No predictions — return to active mode (cursor visible)
-                    self.state = .active
-                    self.stateLock.lock()
-                    self.tsState = .active
-                    self.stateLock.unlock()
+            // Run inference on background queue
+            DispatchQueue.global(qos: .userInitiated).async { [self] in
+                let results: [SwipeTypingPrediction]
+                if let m = modelRef {
+                    results = m.predict(samples: samples)
                 } else {
-                    self.state = .showingPredictions
-                    self.stateLock.lock()
-                    self.tsState = .showingPredictions
-                    self.stateLock.unlock()
+                    results = []
+                }
+
+                DispatchQueue.main.async { [self] in
+                    self.predictions = results
+                    self.selectedPredictionIndex = 0
+                    if results.isEmpty {
+                        // No predictions — return to active mode (cursor visible)
+                        self.state = .active
+                        self.storage.withLock { s in
+                            s.state = .active
+                        }
+                    } else {
+                        self.state = .showingPredictions
+                        self.storage.withLock { s in
+                            s.state = .showingPredictions
+                        }
+                    }
                 }
             }
         }
@@ -253,11 +264,11 @@ class SwipeTypingEngine: ObservableObject {
         predictions = []
         selectedPredictionIndex = 0
 
-        stateLock.lock()
-        tsState = .active
-        tsSwipePath = []
-        _samples = []
-        stateLock.unlock()
+        storage.withLock { s in
+            s.state = .active
+            s.swipePath = []
+            s.samples = []
+        }
     }
 
     // MARK: - Cursor Control
@@ -266,31 +277,31 @@ class SwipeTypingEngine: ObservableObject {
     /// Called from the controller polling thread.
     nonisolated func updateCursorFromJoystick(x: Double, y: Double, sensitivity: Double) {
         let scale = sensitivity * 0.02  // per-frame displacement at max deflection
-        stateLock.lock()
-        guard tsState == .swiping else {
-            stateLock.unlock()
-            return
-        }
-        var pos = tsCursorPosition
-        pos.x += CGFloat(x * scale)
-        pos.y += CGFloat(y * scale)
-        // No clamping — allow swiping freely beyond the keyboard letter area
-        tsCursorPosition = pos
 
-        let now = CFAbsoluteTimeGetCurrent()
-        let elapsed = now - _lastSampleTime
-        if elapsed >= sampleInterval {
-            let dt = now - _lastSampleTime
-            _lastSampleTime = now
-            tsSwipePath.append(pos)
-            _samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
-        }
-        let pathSnapshot = tsSwipePath
-        stateLock.unlock()
+        let result: (pos: CGPoint, pathSnapshot: [CGPoint])? = storage.withLock { s -> (CGPoint, [CGPoint])? in
+            guard s.state == .swiping else { return nil }
+            var pos = s.cursorPosition
+            pos.x += CGFloat(x * scale)
+            pos.y += CGFloat(y * scale)
+            // No clamping — allow swiping freely beyond the keyboard letter area
+            s.cursorPosition = pos
 
-        DispatchQueue.main.async { [self] in
-            self.cursorPosition = pos
-            self.swipePath = pathSnapshot
+            let now = CFAbsoluteTimeGetCurrent()
+            let elapsed = now - s.lastSampleTime
+            if elapsed >= s.sampleInterval {
+                let dt = now - s.lastSampleTime
+                s.lastSampleTime = now
+                s.swipePath.append(pos)
+                s.samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
+            }
+            return (pos, s.swipePath)
+        }
+
+        if let result {
+            DispatchQueue.main.async { [self] in
+                self.cursorPosition = result.pos
+                self.swipePath = result.pathSnapshot
+            }
         }
     }
 
@@ -302,36 +313,36 @@ class SwipeTypingEngine: ObservableObject {
 
         // EMA smoothing (alpha=0.4 — responsive but smooth)
         let alpha = 0.4
-        let smoothDx = _smoothedDx + (dx - _smoothedDx) * alpha
-        let smoothDy = _smoothedDy + (dy - _smoothedDy) * alpha
-        _smoothedDx = smoothDx
-        _smoothedDy = smoothDy
 
-        stateLock.lock()
-        guard tsState == .swiping else {
-            stateLock.unlock()
-            return
+        let result: (pos: CGPoint, pathSnapshot: [CGPoint])? = storage.withLock { s -> (CGPoint, [CGPoint])? in
+            let smoothDx = s.smoothedDx + (dx - s.smoothedDx) * alpha
+            let smoothDy = s.smoothedDy + (dy - s.smoothedDy) * alpha
+            s.smoothedDx = smoothDx
+            s.smoothedDy = smoothDy
+
+            guard s.state == .swiping else { return nil }
+            var pos = s.cursorPosition
+            pos.x += CGFloat(smoothDx * scaleX)
+            pos.y += CGFloat(smoothDy * scaleY)
+            // No clamping — allow swiping freely beyond the keyboard letter area
+            s.cursorPosition = pos
+
+            let now = CFAbsoluteTimeGetCurrent()
+            let elapsed = now - s.lastSampleTime
+            if elapsed >= s.sampleInterval {
+                let dt = now - s.lastSampleTime
+                s.lastSampleTime = now
+                s.swipePath.append(pos)
+                s.samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
+            }
+            return (pos, s.swipePath)
         }
-        var pos = tsCursorPosition
-        pos.x += CGFloat(smoothDx * scaleX)
-        pos.y += CGFloat(smoothDy * scaleY)
-        // No clamping — allow swiping freely beyond the keyboard letter area
-        tsCursorPosition = pos
 
-        let now = CFAbsoluteTimeGetCurrent()
-        let elapsed = now - _lastSampleTime
-        if elapsed >= sampleInterval {
-            let dt = now - _lastSampleTime
-            _lastSampleTime = now
-            tsSwipePath.append(pos)
-            _samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
-        }
-        let pathSnapshot = tsSwipePath
-        stateLock.unlock()
-
-        DispatchQueue.main.async { [self] in
-            self.cursorPosition = pos
-            self.swipePath = pathSnapshot
+        if let result {
+            DispatchQueue.main.async { [self] in
+                self.cursorPosition = result.pos
+                self.swipePath = result.pathSnapshot
+            }
         }
     }
 }
