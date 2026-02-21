@@ -135,6 +135,9 @@ class MappingEngine: ObservableObject {
         // Initial state sync
         self.state.activeProfile = profileManager.activeProfile
         self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
+        let oskSettings = profileManager.activeProfile?.onScreenKeyboardSettings
+        self.state.swipeTypingEnabled = oskSettings?.swipeTypingEnabled ?? false
+        self.state.swipeTypingSensitivity = oskSettings?.swipeTypingSensitivity ?? 0.5
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
     }
@@ -160,6 +163,9 @@ class MappingEngine: ObservableObject {
                 self.state.lock.withLock {
                     self.state.activeProfile = profile
                     self.state.joystickSettings = profile?.joystickSettings
+                    let osk = profile?.onScreenKeyboardSettings
+                    self.state.swipeTypingEnabled = osk?.swipeTypingEnabled ?? false
+                    self.state.swipeTypingSensitivity = osk?.swipeTypingSensitivity ?? 0.5
                     // Clear active layers when profile changes - prevents stale layer state
                     // if user was holding a layer activator during profile switch
                     self.state.activeLayerIds.removeAll()
@@ -540,9 +546,11 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptSwipePredictionCancel:
-                DispatchQueue.main.async {
-                    SwipeTypingEngine.shared.cancelPredictions()
+                state.lock.withLock {
+                    state.swipeTypingActive = false
+                    state.wasTouchpadTouching = false
                 }
+                SwipeTypingEngine.shared.deactivateMode()
                 return
 
             case .unmapped:
@@ -1361,6 +1369,15 @@ class MappingEngine: ObservableObject {
     }
 
     nonisolated private func processJoysticks(now: CFAbsoluteTime) {
+        // Debug: write a heartbeat once to verify this function runs
+        struct Once { nonisolated(unsafe) static var logged = false }
+        if !Once.logged {
+            Once.logged = true
+            let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
+            let msg = "[processJoysticks] HEARTBEAT — function is running\n"
+            try? msg.write(to: logURL, atomically: true, encoding: .utf8)
+        }
+
         state.lock.lock()
         defer { state.lock.unlock() }
 
@@ -1373,34 +1390,86 @@ class MappingEngine: ObservableObject {
         // Note: accessing controllerService.threadSafeLeftStick is safe (atomic/lock-free usually)
         let leftStick = controllerService.threadSafeLeftStick
 
-        // Swipe typing: left trigger + left stick while keyboard visible
+        // Swipe typing: left trigger toggles swipe mode, touchpad touch drives word boundaries
         let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
         let leftTrigger = controllerService.threadSafeLeftTrigger
-        if keyboardVisible {
+        // Debug: periodic log (every ~1s) to see gate values
+        struct SwipeDebug { nonisolated(unsafe) static var lastLogTime: CFAbsoluteTime = 0 }
+        if now - SwipeDebug.lastLogTime > 1.0 {
+            SwipeDebug.lastLogTime = now
+            let isTouching = controllerService.threadSafeIsTouchpadTouching
+            let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
+            let msg = "[Poll] LT=\(String(format: "%.2f", leftTrigger)) kbVis=\(keyboardVisible) swpEn=\(state.swipeTypingEnabled) active=\(state.swipeTypingActive) touch=\(isTouching) wasTch=\(state.wasTouchpadTouching)\n"
+            if let handle = try? FileHandle(forWritingTo: logURL) {
+                handle.seekToEndOfFile()
+                handle.write(msg.data(using: .utf8)!)
+                handle.closeFile()
+            }
+        }
+        if keyboardVisible && state.swipeTypingEnabled {
             let wasSwipeActive = state.swipeTypingActive
             if !wasSwipeActive && leftTrigger > Config.swipeTriggerThreshold {
+                // Enter swipe mode (cursor visible, waiting for touchpad touch)
                 state.swipeTypingActive = true
-                SwipeTypingEngine.shared.beginSwipe()
+                state.wasTouchpadTouching = controllerService.threadSafeIsTouchpadTouching
+                SwipeTypingEngine.shared.activateMode()
+                // Debug log
+                let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
+                let msg = "[MappingEngine] activateMode, trigger=\(leftTrigger), wasTouching=\(state.wasTouchpadTouching)\n"
+                if let handle = try? FileHandle(forWritingTo: logURL) {
+                    handle.seekToEndOfFile()
+                    handle.write(msg.data(using: .utf8)!)
+                    handle.closeFile()
+                } else {
+                    try? msg.write(to: logURL, atomically: true, encoding: .utf8)
+                }
             } else if wasSwipeActive && leftTrigger < Config.swipeTriggerReleaseThreshold {
+                // Exit swipe mode entirely
                 state.swipeTypingActive = false
-                SwipeTypingEngine.shared.endSwipe()
+                state.wasTouchpadTouching = false
+                SwipeTypingEngine.shared.deactivateMode()
             }
 
+            // Touchpad touch transitions drive word begin/end while mode is active
             if state.swipeTypingActive {
+                let isTouching = controllerService.threadSafeIsTouchpadTouching
+                let wasTouching = state.wasTouchpadTouching
+                if isTouching && !wasTouching {
+                    // Finger down → begin a new word swipe
+                    let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
+                    let msg = "[MappingEngine] beginSwipe — finger down, engineState=\(SwipeTypingEngine.shared.threadSafeState)\n"
+                    if let handle = try? FileHandle(forWritingTo: logURL) {
+                        handle.seekToEndOfFile()
+                        handle.write(msg.data(using: .utf8)!)
+                        handle.closeFile()
+                    }
+                    SwipeTypingEngine.shared.beginSwipe()
+                } else if !isTouching && wasTouching {
+                    // Finger up → end word, run inference
+                    let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
+                    let msg = "[MappingEngine] endSwipe — finger up, engineState=\(SwipeTypingEngine.shared.threadSafeState)\n"
+                    if let handle = try? FileHandle(forWritingTo: logURL) {
+                        handle.seekToEndOfFile()
+                        handle.write(msg.data(using: .utf8)!)
+                        handle.closeFile()
+                    }
+                    SwipeTypingEngine.shared.endSwipe()
+                }
+                state.wasTouchpadTouching = isTouching
+
                 SwipeTypingEngine.shared.updateCursorFromJoystick(
                     x: Double(leftStick.x),
                     y: Double(-leftStick.y),  // Invert Y: stick up = cursor up (lower Y)
-                    sensitivity: settings.touchpadSensitivity
+                    sensitivity: state.swipeTypingSensitivity
                 )
-                // Skip normal left stick processing while swiping
+                // Skip normal left stick processing while in swipe mode
                 // Fall through to right stick processing below
             }
         } else if state.swipeTypingActive {
-            // Keyboard was hidden while swiping — cancel
+            // Keyboard was hidden while in swipe mode — cancel
             state.swipeTypingActive = false
-            DispatchQueue.main.async {
-                SwipeTypingEngine.shared.cancelPredictions()
-            }
+            state.wasTouchpadTouching = false
+            SwipeTypingEngine.shared.deactivateMode()
         }
 
         guard !state.swipeTypingActive else {
@@ -1709,7 +1778,7 @@ class MappingEngine: ObservableObject {
             SwipeTypingEngine.shared.updateCursorFromTouchpadDelta(
                 dx: Double(delta.x),
                 dy: Double(-delta.y),  // Invert Y: touchpad up = cursor up
-                sensitivity: settings.touchpadSensitivity
+                sensitivity: state.lock.withLock({ state.swipeTypingSensitivity })
             )
             return
         }

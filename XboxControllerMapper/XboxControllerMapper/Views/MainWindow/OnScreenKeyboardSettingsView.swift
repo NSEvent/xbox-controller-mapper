@@ -99,6 +99,9 @@ struct OnScreenKeyboardSettingsView: View {
 
             // Keyboard Layout Section
             keyboardLayoutSection
+
+            // Swipe Typing Section
+            swipeTypingSection
         }
         .formStyle(.grouped)
         .padding()
@@ -848,6 +851,68 @@ struct OnScreenKeyboardSettingsView: View {
         }
     }
 
+    // MARK: - Swipe Typing Section
+
+    private var swipeTypingSection: some View {
+        Section("Swipe Typing") {
+            Toggle(isOn: Binding(
+                get: { profileManager.onScreenKeyboardSettings.swipeTypingEnabled },
+                set: { newValue in
+                    var settings = profileManager.onScreenKeyboardSettings
+                    settings.swipeTypingEnabled = newValue
+                    profileManager.updateOnScreenKeyboardSettings(settings)
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Enable Swipe Typing")
+                    Text("Hold left trigger and move the left stick to swipe across letter keys.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if profileManager.onScreenKeyboardSettings.swipeTypingEnabled {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Sensitivity")
+                        Spacer()
+                        Text(String(format: "%.1f", profileManager.onScreenKeyboardSettings.swipeTypingSensitivity))
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { profileManager.onScreenKeyboardSettings.swipeTypingSensitivity },
+                            set: { newValue in
+                                var settings = profileManager.onScreenKeyboardSettings
+                                settings.swipeTypingSensitivity = newValue
+                                profileManager.updateOnScreenKeyboardSettings(settings)
+                            }
+                        ),
+                        in: 0.1...1.0,
+                        step: 0.1
+                    )
+                }
+
+                Stepper(value: Binding(
+                    get: { profileManager.onScreenKeyboardSettings.swipeTypingPredictionCount },
+                    set: { newValue in
+                        var settings = profileManager.onScreenKeyboardSettings
+                        settings.swipeTypingPredictionCount = newValue
+                        profileManager.updateOnScreenKeyboardSettings(settings)
+                    }
+                ), in: 1...10) {
+                    HStack {
+                        Text("Predictions")
+                        Spacer()
+                        Text("\(profileManager.onScreenKeyboardSettings.swipeTypingPredictionCount)")
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+                }
+            }
+        }
+    }
 
     // MARK: - Text Snippets Section
 

@@ -29,17 +29,25 @@ enum ButtonPressOrchestrationPolicy {
         isChordPart: Bool,
         lastTap: Date?
     ) -> Outcome {
-        // Swipe prediction navigation takes priority when showing predictions
-        if keyboardVisible && SwipeTypingEngine.shared.threadSafeState == .showingPredictions {
-            switch button {
-            case .dpadLeft, .dpadRight:
-                return .interceptSwipePredictionNavigation
-            case .a:
-                return .interceptSwipePredictionConfirm
-            case .b:
-                return .interceptSwipePredictionCancel
-            default:
-                break
+        // Swipe typing interceptions based on current swipe state
+        if keyboardVisible {
+            let swipeState = SwipeTypingEngine.shared.threadSafeState
+            if swipeState == .showingPredictions {
+                switch button {
+                case .dpadLeft, .dpadRight:
+                    return .interceptSwipePredictionNavigation
+                case .a:
+                    return .interceptSwipePredictionConfirm
+                case .b:
+                    return .interceptSwipePredictionCancel
+                default:
+                    break
+                }
+            } else if swipeState == .active || swipeState == .swiping {
+                // B cancels swipe mode during active/swiping
+                if button == .b {
+                    return .interceptSwipePredictionCancel
+                }
             }
         }
 

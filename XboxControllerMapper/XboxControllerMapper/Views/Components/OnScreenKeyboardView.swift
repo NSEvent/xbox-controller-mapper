@@ -73,6 +73,8 @@ struct OnScreenKeyboardView: View {
 
     /// Observe keyboard manager for D-pad navigation state
     @ObservedObject private var keyboardManager = OnScreenKeyboardManager.shared
+    /// Observe swipe typing engine for swipe trail and predictions
+    @ObservedObject private var swipeEngine = SwipeTypingEngine.shared
 
     @State private var activeModifiers = ModifierFlags()
     @State private var isCapsLockActive = false
@@ -164,6 +166,17 @@ struct OnScreenKeyboardView: View {
                     .padding(.horizontal, 8)
             }
 
+            // Swipe prediction bar (shown after swipe completes)
+            if swipeEngine.state == .showingPredictions {
+                SwipePredictionBarView(
+                    predictions: swipeEngine.predictions,
+                    selectedIndex: swipeEngine.selectedPredictionIndex,
+                    onSelect: { index in
+                        swipeEngine.selectedPredictionIndex = index
+                    }
+                )
+            }
+
             // Media controls row (Playback, Volume, Brightness)
             mediaControlsRow
                 .padding(.horizontal, 12)
@@ -192,6 +205,16 @@ struct OnScreenKeyboardView: View {
                 // Navigation keys column
                 navigationKeyColumn
             }
+            .overlay(
+                Group {
+                    if swipeEngine.state == .active || swipeEngine.state == .swiping || swipeEngine.state == .showingPredictions {
+                        SwipeTrailView(
+                            swipePath: swipeEngine.swipePath,
+                            cursorPosition: swipeEngine.cursorPosition
+                        )
+                    }
+                }
+            )
             .padding(.horizontal, 12)
 
             // Controller Hint Footer (centered relative to main keyboard, not nav column)

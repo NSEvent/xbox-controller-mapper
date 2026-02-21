@@ -1,0 +1,5 @@
+torch>=2.1.0
+coremltools>=7.0
+datasets>=2.14.0
+numpy>=1.24.0
+onnx>=1.14.0

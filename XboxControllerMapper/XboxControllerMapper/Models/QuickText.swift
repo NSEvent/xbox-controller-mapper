@@ -122,6 +122,12 @@ struct OnScreenKeyboardSettings: Codable, Equatable {
     var wheelShowsWebsites: Bool = false
     /// Modifier key to hold for showing alternate wheel content (apps↔websites)
     var wheelAlternateModifiers: ModifierFlags = ModifierFlags()
+    /// Enable swipe typing mode (left trigger + left stick to swipe across keyboard)
+    var swipeTypingEnabled: Bool = false
+    /// Sensitivity for swipe cursor movement (0.1-1.0)
+    var swipeTypingSensitivity: Double = 0.5
+    /// Number of word predictions to show after a swipe
+    var swipeTypingPredictionCount: Int = 5
 
     /// Available terminal apps to choose from
     static let terminalOptions = [
@@ -159,9 +165,12 @@ struct OnScreenKeyboardSettings: Codable, Equatable {
         activateAllWindows = try container.decodeIfPresent(Bool.self, forKey: .activateAllWindows) ?? true
         wheelShowsWebsites = try container.decodeIfPresent(Bool.self, forKey: .wheelShowsWebsites) ?? false
         wheelAlternateModifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .wheelAlternateModifiers) ?? ModifierFlags()
+        swipeTypingEnabled = try container.decodeIfPresent(Bool.self, forKey: .swipeTypingEnabled) ?? false
+        swipeTypingSensitivity = try container.decodeIfPresent(Double.self, forKey: .swipeTypingSensitivity) ?? 0.5
+        swipeTypingPredictionCount = try container.decodeIfPresent(Int.self, forKey: .swipeTypingPredictionCount) ?? 5
     }
 
-    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, toggleShortcutKeyCode: UInt16? = nil, toggleShortcutModifiers: ModifierFlags = ModifierFlags(), activateAllWindows: Bool = true, wheelShowsWebsites: Bool = false, wheelAlternateModifiers: ModifierFlags = ModifierFlags()) {
+    init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, toggleShortcutKeyCode: UInt16? = nil, toggleShortcutModifiers: ModifierFlags = ModifierFlags(), activateAllWindows: Bool = true, wheelShowsWebsites: Bool = false, wheelAlternateModifiers: ModifierFlags = ModifierFlags(), swipeTypingEnabled: Bool = false, swipeTypingSensitivity: Double = 0.5, swipeTypingPredictionCount: Int = 5) {
         self.quickTexts = quickTexts
         self.defaultTerminalApp = defaultTerminalApp
         self.typingDelay = typingDelay
@@ -173,11 +182,14 @@ struct OnScreenKeyboardSettings: Codable, Equatable {
         self.activateAllWindows = activateAllWindows
         self.wheelShowsWebsites = wheelShowsWebsites
         self.wheelAlternateModifiers = wheelAlternateModifiers
+        self.swipeTypingEnabled = swipeTypingEnabled
+        self.swipeTypingSensitivity = swipeTypingSensitivity
+        self.swipeTypingPredictionCount = swipeTypingPredictionCount
     }
 
     private enum CodingKeys: String, CodingKey {
         case quickTexts, defaultTerminalApp, typingDelay, appBarItems, websiteLinks, showExtendedFunctionKeys
         case toggleShortcutKeyCode, toggleShortcutModifiers, activateAllWindows, wheelShowsWebsites
-        case wheelAlternateModifiers
+        case wheelAlternateModifiers, swipeTypingEnabled, swipeTypingSensitivity, swipeTypingPredictionCount
     }
 }

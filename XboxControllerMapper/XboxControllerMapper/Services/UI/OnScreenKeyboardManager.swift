@@ -1356,6 +1356,15 @@ class OnScreenKeyboardManager: ObservableObject {
         }
     }
 
+    // MARK: - Swipe Typing
+
+    /// Types a swiped word: appends to the typing buffer and types the text
+    func typeSwipedWord(_ text: String) {
+        typingBuffer.append(text)
+        updateBufferPanel()
+        typeText(text)
+    }
+
     // MARK: - Test Support
 
     #if DEBUG

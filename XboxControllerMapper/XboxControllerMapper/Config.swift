@@ -282,6 +282,18 @@ struct Config {
     /// Maximum execution time for shell() commands within scripts (seconds)
     static let shellCommandTimeoutSeconds: Int = 5
 
+    // MARK: - Swipe Typing
+    /// Left trigger threshold to begin a swipe gesture
+    static let swipeTriggerThreshold: Float = 0.5
+    /// Left trigger threshold to end a swipe gesture (hysteresis)
+    static let swipeTriggerReleaseThreshold: Float = 0.4
+    /// Minimum samples required before running inference
+    static let swipeMinimumSamples: Int = 5
+    /// Maximum samples collected per swipe gesture
+    static let swipeMaximumSamples: Int = 256
+    /// Maximum sample rate for swipe path collection (Hz)
+    static let swipeSampleRateLimit: Double = 60.0
+
     // MARK: - Battery Monitoring
     /// Interval between battery info updates (seconds)
     static let batteryUpdateInterval: TimeInterval = 10.0

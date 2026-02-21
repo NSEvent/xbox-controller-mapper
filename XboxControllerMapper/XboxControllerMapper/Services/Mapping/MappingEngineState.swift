@@ -85,9 +85,12 @@ extension MappingEngine {
         var scrollBoostDirection: Int = 0
 
         // Swipe typing state
+        var swipeTypingEnabled: Bool = false
+        var swipeTypingSensitivity: Double = 0.5
         var swipeTypingActive: Bool = false
         var swipeTypingCursorX: Double = 0.5
         var swipeTypingCursorY: Double = 0.5
+        var wasTouchpadTouching: Bool = false
 
         // Focus mode state
         var wasFocusActive = false
@@ -163,9 +166,12 @@ extension MappingEngine {
             lastRightStickTapTime = 0
             lastRightStickTapDirection = 0
             scrollBoostDirection = 0
+            swipeTypingEnabled = false
+            swipeTypingSensitivity = 0.5
             swipeTypingActive = false
             swipeTypingCursorX = 0.5
             swipeTypingCursorY = 0.5
+            wasTouchpadTouching = false
             wasFocusActive = false
             currentMultiplier = 0
             focusExitTime = 0

@@ -301,6 +301,12 @@ class ControllerService: ObservableObject {
         return storage.currentLEDSettings
     }
 
+    nonisolated var threadSafeChordWindow: TimeInterval {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.chordWindow
+    }
+
     /// Left joystick position (-1 to 1) - UI/Legacy use only
     @Published var leftStick: CGPoint = .zero
 
