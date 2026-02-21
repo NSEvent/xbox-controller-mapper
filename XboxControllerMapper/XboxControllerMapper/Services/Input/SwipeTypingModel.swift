@@ -103,12 +103,13 @@ class SwipeTypingModel {
                 let resampled = Self.resamplePath(locationPath, toCount: RESAMPLE_COUNT)
                 let shape = Self.normalizePath(resampled)
                 let chars = Array(word)
+                guard let firstChar = chars.first, let lastChar = chars.last else { continue }
                 builtTemplates[word] = WordTemplate(
                     locationPoints: resampled,
                     shapePoints: shape,
                     frequency: freq,
-                    firstChar: chars.first!,
-                    lastChar: chars.last!
+                    firstChar: firstChar,
+                    lastChar: lastChar
                 )
             }
 
@@ -142,8 +143,7 @@ class SwipeTypingModel {
         let gestureShape = Self.normalizePath(gestureLocation)
 
         // 4. Endpoint pruning: top-3 nearest keys at start and end
-        let startPoint = gestureLocation.first!
-        let endPoint = gestureLocation.last!
+        guard let startPoint = gestureLocation.first, let endPoint = gestureLocation.last else { return [] }
         let startKeys = Set(SwipeKeyboardLayout.nearestKeys(to: startPoint, count: 3)
             .map { Character($0.character.lowercased()) })
         let endKeys = Set(SwipeKeyboardLayout.nearestKeys(to: endPoint, count: 3)
@@ -236,10 +236,10 @@ class SwipeTypingModel {
             let dx = Double(points[i].x - points[i-1].x)
             let dy = Double(points[i].y - points[i-1].y)
             let segLen = (dx * dx + dy * dy).squareRoot()
-            cumLengths.append(cumLengths.last! + segLen)
+            cumLengths.append((cumLengths.last ?? 0.0) + segLen)
         }
 
-        let totalLen = cumLengths.last!
+        let totalLen = cumLengths.last ?? 0.0
         guard totalLen > 1e-9 else {
             // Degenerate: all points coincide
             return [CGPoint](repeating: points[0], count: N)

@@ -282,10 +282,14 @@ enum VariableExpander {
             return nil
         }
 
+        // CFTypeRef from AXUIElementCopyAttributeValue is always an AXUIElement here
+        // swiftlint:disable:next force_cast
+        let focusedAXElement = focused as! AXUIElement
+
         // Try to get selected text
         var selectedText: CFTypeRef?
         let textResult = AXUIElementCopyAttributeValue(
-            focused as! AXUIElement,
+            focusedAXElement,
             kAXSelectedTextAttribute as CFString,
             &selectedText
         )

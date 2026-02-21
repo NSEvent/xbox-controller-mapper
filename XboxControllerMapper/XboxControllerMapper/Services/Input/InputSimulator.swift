@@ -1288,7 +1288,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         for char in text {
             // Create a unicode event with nil source (no inherited modifier state)
-            var chars = [UniChar(String(char).utf16.first!)]
+            guard let firstUTF16 = String(char).utf16.first else { continue }
+            var chars = [UniChar(firstUTF16)]
 
             if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
                 event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &chars)
