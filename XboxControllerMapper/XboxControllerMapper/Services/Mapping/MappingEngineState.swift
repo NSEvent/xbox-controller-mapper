@@ -166,8 +166,8 @@ extension MappingEngine {
             lastRightStickTapTime = 0
             lastRightStickTapDirection = 0
             scrollBoostDirection = 0
-            swipeTypingEnabled = false
-            swipeTypingSensitivity = 0.5
+            // Note: swipeTypingEnabled and swipeTypingSensitivity are config-derived,
+            // not transient state — they are set by the profile binding, not reset here.
             swipeTypingActive = false
             swipeTypingCursorX = 0.5
             swipeTypingCursorY = 0.5

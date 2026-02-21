@@ -80,7 +80,9 @@ class SwipeTypingModel {
     }
 
     /// Runs prediction using path shape matching against the dictionary.
-    /// Compares the actual swipe trajectory against ideal paths for candidate words.
+    /// 1. Extracts the nearest-key sequence from the swipe path
+    /// 2. Pre-filters dictionary by key sequence matching
+    /// 3. Scores candidates using DTW alignment + coverage + length match
     func predict(samples: [SwipeSample], beamWidth: Int = 8, topN: Int = 5) -> [SwipeTypingPrediction] {
         lock.lock()
         let dict = dictionary
@@ -88,60 +90,57 @@ class SwipeTypingModel {
 
         guard samples.count >= 5, !dict.isEmpty else { return [] }
 
-        // 1. Collect keys visited along the path (for pre-filtering)
+        let samplePoints = samples.map { CGPoint(x: $0.x, y: $0.y) }
+
+        // 1. Extract nearest-key sequence from the swipe path.
+        //    For each sample, find the nearest key. Collapse consecutive duplicates.
+        //    This gives us the sequence of keys the cursor passed through.
+        var keySequence: [Character] = []
+        for point in samplePoints {
+            if let nearest = SwipeKeyboardLayout.nearestKey(to: point) {
+                let ch = Character(nearest.character.lowercased())
+                if keySequence.last != ch {
+                    keySequence.append(ch)
+                }
+            }
+        }
+
+        // Also collect top-2 nearest for a broader visited set
         var visitedKeys = Set<Character>()
-        var nearestAtStart = Set<Character>()
-        var nearestAtEnd = Set<Character>()
-        for (i, sample) in samples.enumerated() {
-            let point = CGPoint(x: sample.x, y: sample.y)
-            // Add top-3 nearest keys at each point for broader coverage
-            let nearest3 = SwipeKeyboardLayout.nearestKeys(to: point, count: 3)
-            for key in nearest3 {
+        for point in samplePoints {
+            for key in SwipeKeyboardLayout.nearestKeys(to: point, count: 2) {
                 visitedKeys.insert(Character(key.character.lowercased()))
             }
-            // Track first/last segment keys (first/last 25% of samples)
-            if i < max(1, samples.count / 4) {
-                for key in nearest3 { nearestAtStart.insert(Character(key.character.lowercased())) }
-            }
-            if i >= samples.count - max(1, samples.count / 4) {
-                for key in nearest3 { nearestAtEnd.insert(Character(key.character.lowercased())) }
-            }
         }
 
-        // Estimate word length from key transitions (not arc length)
-        let wordLenEstimate = estimateWordLength(samples: samples)
+        // Estimate word length from key transitions (more reliable than displacement)
+        // keySequence length is typically 2-3x the word length (includes intermediate keys)
+        let estWordLen = max(2, min((keySequence.count + 1) / 2, 15))
 
-        // Debug log
-        let debugURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
-        let debugMsg = "[PathMatch] visited=\(String(visitedKeys.sorted())), start=\(String(nearestAtStart.sorted())), end=\(String(nearestAtEnd.sorted())), estLen=\(wordLenEstimate)\n"
-        if let h = try? FileHandle(forWritingTo: debugURL) {
-            h.seekToEndOfFile()
-            h.write(debugMsg.data(using: .utf8)!)
-            h.closeFile()
-        } else {
-            try? debugMsg.write(to: debugURL, atomically: true, encoding: .utf8)
-        }
-
-        // 2. Pre-filter dictionary (generous length bounds — path similarity handles ranking)
-        let minLen = 2
-        let maxLen = min(wordLenEstimate + 5, 15)
+        // 2. Pre-filter: word characters must appear as a subsequence of the key sequence
+        //    (allowing gaps for intermediate keys the cursor passed through)
         var candidates: [(word: String, similarity: Double)] = []
 
         for word in dict {
-            // Length filter
-            guard word.count >= minLen && word.count <= maxLen else { continue }
-            let chars = Array(word)
-            // First character must be near start of path
-            guard nearestAtStart.contains(chars[0]) else { continue }
-            // Last character must be near end of path
-            guard nearestAtEnd.contains(chars[chars.count - 1]) else { continue }
-            // All unique characters must be in visited set
-            let wordChars = Set(chars)
-            guard wordChars.isSubset(of: visitedKeys) else { continue }
+            guard word.count >= 2 && word.count <= 12 else { continue }
 
-            // 3. Score by path shape similarity
-            let sim = pathSimilarity(word: word, samples: samples)
-            candidates.append((word, sim))
+            // Quick check: most unique characters in the word must be in visited keys
+            // (allow 1 missed character for nearby keys not in the top-2)
+            let wordChars = Array(word)
+            let uniqueWordChars = Set(wordChars)
+            let missedCount = uniqueWordChars.filter { !visitedKeys.contains($0) }.count
+            guard missedCount <= 1 else { continue }
+
+            // Check subsequence match: word chars must appear in order in keySequence
+            let subseqScore = subsequenceMatchScore(word: wordChars, keySequence: keySequence)
+            guard subseqScore > 0 else { continue }
+
+            // Score by DTW alignment quality
+            let dtwScore = pathSimilarity(word: word, samplePoints: samplePoints, estWordLen: estWordLen)
+
+            // Combined score: subsequence quality + DTW alignment
+            let combined = 0.4 * subseqScore + 0.6 * dtwScore
+            candidates.append((word, combined))
         }
 
         // Sort by similarity (higher is better)
@@ -151,46 +150,131 @@ class SwipeTypingModel {
             SwipeTypingPrediction(word: $0.word, confidence: $0.similarity)
         }
 
-        // Debug log top results
-        let resultMsg = "[PathMatch] top5: \(predictions.map { "\($0.word)(\(String(format: "%.3f", $0.confidence)))" }.joined(separator: ", "))\n"
+        // Debug log
+        let debugURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
+        let keySeqStr = String(keySequence)
+        let visited = String(visitedKeys.sorted())
+        let top5 = predictions.map { "\($0.word)(\(String(format: "%.3f", $0.confidence)))" }.joined(separator: ", ")
+        let msg = "[PathMatch] keySeq=\(keySeqStr), visited=\(visited), estLen=\(estWordLen), candidates=\(candidates.count), top5: \(top5)\n"
         if let h = try? FileHandle(forWritingTo: debugURL) {
             h.seekToEndOfFile()
-            h.write(resultMsg.data(using: .utf8)!)
+            h.write(msg.data(using: .utf8)!)
             h.closeFile()
+        } else {
+            try? msg.write(to: debugURL, atomically: true, encoding: .utf8)
         }
 
         return Array(predictions)
     }
 
-    // MARK: - Path Matching Helpers
+    // MARK: - Subsequence Matching
 
-    /// Estimate the intended word length from nearest-key transitions in the path.
-    private func estimateWordLength(samples: [SwipeSample]) -> Int {
-        // Count distinct nearest-key transitions (collapsed)
-        var transitions = 1
-        var lastKey: Character?
-        for sample in samples {
-            let point = CGPoint(x: sample.x, y: sample.y)
-            guard let nearest = SwipeKeyboardLayout.nearestKey(to: point) else { continue }
-            let ch = Character(nearest.character.lowercased())
-            if let last = lastKey, ch != last {
-                transitions += 1
+    /// Collapse consecutive duplicate characters in a word.
+    /// "hello" → "helo", "Mississippi" → "misisipi"
+    /// This matches the key sequence which also has duplicates collapsed.
+    private func collapseRepeats(_ chars: [Character]) -> [Character] {
+        var result: [Character] = []
+        for ch in chars {
+            if result.last != ch {
+                result.append(ch)
             }
-            lastKey = ch
         }
-        // The number of key transitions is typically 2-3x the word length
-        // (because the cursor passes through intermediate keys)
-        let estimated = max(2, transitions / 2)
-        return min(estimated, 12)
+        return result
     }
 
-    // MARK: - Path Similarity
+    /// Score how well the word's characters match as a subsequence of the key sequence.
+    /// Returns 0 if not a subsequence, 0-1 based on match quality.
+    /// Higher scores for tighter matches (fewer gaps between matched characters).
+    /// Consecutive duplicate letters in the word are collapsed (e.g., "hello" → "helo")
+    /// since the key sequence also collapses consecutive duplicates.
+    private func subsequenceMatchScore(word: [Character], keySequence: [Character]) -> Double {
+        guard !word.isEmpty, !keySequence.isEmpty else { return 0 }
+
+        // Collapse consecutive duplicates in the word to match key sequence format
+        let collapsed = collapseRepeats(word)
+
+        // Greedy subsequence match: find each collapsed word character in order in keySequence.
+        // Allow up to 1 skipped character (for keys the cursor barely missed).
+        var keyIdx = 0
+        var matchPositions: [Int] = []
+        var skipped = 0
+
+        for ch in collapsed {
+            var found = false
+            let savedKeyIdx = keyIdx
+            while keyIdx < keySequence.count {
+                if keySequence[keyIdx] == ch {
+                    matchPositions.append(keyIdx)
+                    keyIdx += 1
+                    found = true
+                    break
+                }
+                keyIdx += 1
+            }
+            if !found {
+                skipped += 1
+                keyIdx = savedKeyIdx  // Reset so future characters can still match
+                if skipped > 1 { return 0 }  // Too many misses
+            }
+        }
+
+        // Need at least 2 matched positions
+        guard matchPositions.count >= 2 else { return 0 }
+
+        // Match fraction: what fraction of the collapsed word was matched
+        let matchFraction = Double(matchPositions.count) / Double(collapsed.count)
+
+        // Coverage: what fraction of the key sequence does the match span?
+        // In swipe typing, the target word should span MOST of the swipe path.
+        // Words that only match a small fragment of the path should score lower.
+        let totalSpan = matchPositions.last! - matchPositions.first! + 1
+        let coverage = Double(totalSpan) / Double(keySequence.count)
+
+        // Penalize skipped characters
+        let skipPenalty = skipped == 0 ? 1.0 : 0.6
+
+        // Combined: reward full matches that span the whole key sequence.
+        // Don't penalize gaps between matched characters (intermediate keys are expected).
+        return matchFraction * (0.3 + 0.7 * coverage) * skipPenalty
+    }
+
+    // MARK: - Path Geometry Helpers
+
+    /// Total displacement of a swipe path — sum of distances between consecutive points.
+    private func pathTotalDisplacement(_ points: [CGPoint]) -> Double {
+        guard points.count >= 2 else { return 0 }
+        var total = 0.0
+        for i in 1..<points.count {
+            let dx = Double(points[i].x - points[i-1].x)
+            let dy = Double(points[i].y - points[i-1].y)
+            total += (dx * dx + dy * dy).squareRoot()
+        }
+        return total
+    }
+
+    /// Bounding box diagonal of the swipe path — measures the spatial extent.
+    private func pathExtent(_ points: [CGPoint]) -> Double {
+        guard points.count >= 2 else { return 0 }
+        var minX = Double.greatestFiniteMagnitude, maxX = -Double.greatestFiniteMagnitude
+        var minY = Double.greatestFiniteMagnitude, maxY = -Double.greatestFiniteMagnitude
+        for p in points {
+            minX = min(minX, Double(p.x)); maxX = max(maxX, Double(p.x))
+            minY = min(minY, Double(p.y)); maxY = max(maxY, Double(p.y))
+        }
+        let dx = maxX - minX
+        let dy = maxY - minY
+        return (dx * dx + dy * dy).squareRoot()
+    }
+
+    // MARK: - Path Similarity (DTW Alignment)
 
     /// Score how well a word's expected key positions match the actual swipe path.
-    /// Uses DTW-like alignment: for each letter in the word, find the closest
-    /// point on the swipe path (in temporal order) to that letter's key center.
+    /// Uses optimal subsequence alignment: finds the best temporal mapping of each
+    /// letter to a point on the path, allowing the path to pass through intermediate keys.
+    /// Also incorporates a path coverage penalty so that longer words that use more of
+    /// the swipe path are preferred over short words that only match a fragment.
     /// Returns 0-1 where 1 is perfect match.
-    private func pathSimilarity(word: String, samples: [SwipeSample]) -> Double {
+    private func pathSimilarity(word: String, samplePoints: [CGPoint], estWordLen: Int) -> Double {
         let wordChars = Array(word.uppercased())
         var keyCenters: [CGPoint] = []
         for ch in wordChars {
@@ -198,43 +282,103 @@ class SwipeTypingModel {
                 keyCenters.append(key.center)
             }
         }
-        guard keyCenters.count >= 2, samples.count >= 2 else { return 0 }
+        guard keyCenters.count >= 2, samplePoints.count >= 2 else { return 0 }
 
-        // For each letter, find the point on the path that minimizes total distance
-        // while maintaining temporal order (each letter maps to a later point than previous)
-        var totalDist = 0.0
-        var searchStart = 0
-        let segmentSize = max(1, samples.count / keyCenters.count)
+        let n = keyCenters.count   // word length
+        let m = samplePoints.count // path length
 
-        for (i, center) in keyCenters.enumerated() {
-            // Search window: from searchStart to a reasonable end
-            let searchEnd = min(samples.count, searchStart + segmentSize * 2 + 1)
-            var bestDist = Double.greatestFiniteMagnitude
-            var bestIdx = searchStart
+        // DP: find the minimum-cost monotone alignment of n keys to m path points.
+        // dp[i][j] = min total distance to align keys[0..i-1] to path[0..j-1]
+        // where key i is aligned to path point j.
+        // Transition: dp[i][j] = dist(key_i, point_j) + min(dp[i-1][k] for k < j)
+        //
+        // Optimization: track running min to avoid O(n*m^2).
+        var prevRow = [Double](repeating: Double.greatestFiniteMagnitude, count: m)
 
-            for j in searchStart..<searchEnd {
-                let dx = samples[j].x - Double(center.x)
-                let dy = samples[j].y - Double(center.y)
-                let dist = (dx * dx + dy * dy).squareRoot()
-                if dist < bestDist {
-                    bestDist = dist
-                    bestIdx = j
+        // Track which path point each key aligns to (for coverage computation)
+        var prevArgmin = [Int](repeating: 0, count: m)
+
+        // First key: can align to any path point (allows cursor to start anywhere)
+        for j in 0..<m {
+            let dx = Double(keyCenters[0].x) - Double(samplePoints[j].x)
+            let dy = Double(keyCenters[0].y) - Double(samplePoints[j].y)
+            prevRow[j] = (dx * dx + dy * dy).squareRoot()
+            prevArgmin[j] = j
+        }
+
+        // Track alignment endpoints for coverage
+        var prevBestPredecessor = [Int](repeating: 0, count: m) // which j from prev row was used
+
+        // Subsequent keys
+        for i in 1..<n {
+            var currRow = [Double](repeating: Double.greatestFiniteMagnitude, count: m)
+            var runningMin = Double.greatestFiniteMagnitude
+            var runningMinIdx = 0
+            var currBestPredecessor = [Int](repeating: 0, count: m)
+
+            for j in 0..<m {
+                // Update running min from previous row (all points before j)
+                if j > 0 && prevRow[j - 1] < runningMin {
+                    runningMin = prevRow[j - 1]
+                    runningMinIdx = j - 1
                 }
-            }
+                guard runningMin < Double.greatestFiniteMagnitude else { continue }
 
-            totalDist += bestDist
-            // Advance search start for next letter (must be after this match)
-            searchStart = bestIdx + 1
-            if searchStart >= samples.count && i < keyCenters.count - 1 {
-                // Ran out of path — penalize heavily
-                totalDist += Double(keyCenters.count - i - 1) * 0.5
-                break
+                let dx = Double(keyCenters[i].x) - Double(samplePoints[j].x)
+                let dy = Double(keyCenters[i].y) - Double(samplePoints[j].y)
+                let dist = (dx * dx + dy * dy).squareRoot()
+                currRow[j] = runningMin + dist
+                currBestPredecessor[j] = runningMinIdx
+            }
+            prevRow = currRow
+            prevBestPredecessor = currBestPredecessor
+        }
+
+        // Find best endpoint
+        var bestJ = 0
+        var bestDist = Double.greatestFiniteMagnitude
+        for j in 0..<m {
+            if prevRow[j] < bestDist {
+                bestDist = prevRow[j]
+                bestJ = j
             }
         }
 
-        let avgDist = totalDist / Double(keyCenters.count)
-        // Convert to 0-1 similarity (dist of 0 → 1.0, dist of 0.3 → ~0.22)
-        return exp(-avgDist * 5.0)
+        let totalDist = bestDist
+        let avgDist = totalDist / Double(n)
+
+        // Alignment similarity: how close each key is to its aligned path point
+        let alignSim = exp(-avgDist * 5.0)
+
+        // Coverage: what fraction of the swipe path is spanned by the alignment?
+        // Trace back to find start point of the first key
+        // For simplicity, use the extent of the word's ideal path vs the swipe extent
+        var wordExtent = 0.0
+        for i in 1..<keyCenters.count {
+            let dx = Double(keyCenters[i].x - keyCenters[i-1].x)
+            let dy = Double(keyCenters[i].y - keyCenters[i-1].y)
+            wordExtent += (dx * dx + dy * dy).squareRoot()
+        }
+
+        let swipeExtent = pathTotalDisplacement(samplePoints)
+        // Coverage ratio: how much of the swipe does this word's path explain?
+        let coverageRatio = swipeExtent > 0.01 ? min(wordExtent / swipeExtent, 1.0) : 0.5
+
+        // Length penalty: prefer words whose length is close to estimated word length
+        let lenDiff = abs(n - estWordLen)
+        let lenPenalty: Double
+        if lenDiff == 0 {
+            lenPenalty = 1.0
+        } else if lenDiff == 1 {
+            lenPenalty = 0.9
+        } else if lenDiff == 2 {
+            lenPenalty = 0.7
+        } else {
+            lenPenalty = max(0.3, 1.0 - Double(lenDiff) * 0.15)
+        }
+
+        // Combined score: alignment quality * coverage * length match
+        return alignSim * (0.5 + 0.5 * coverageRatio) * lenPenalty
     }
 
     // MARK: - Feature Building
