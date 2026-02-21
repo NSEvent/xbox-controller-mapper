@@ -146,6 +146,10 @@ class SystemCommandExecutor: @unchecked Sendable {
     private static let dangerousShellPatterns: [String] = [
         "`",           // backtick command substitution
         "$(",          // $() command substitution
+        "${",          // shell variable expansion
+        "<<",          // heredoc
+        "/dev/tcp/",   // bash network pseudodevice
+        "/dev/udp/",   // bash network pseudodevice
         "| sh",        // pipe to shell
         "| bash",      // pipe to bash
         "| zsh",       // pipe to zsh
@@ -164,6 +168,14 @@ class SystemCommandExecutor: @unchecked Sendable {
         "|python",     // pipe to python (no space)
         "| ruby",      // pipe to ruby interpreter
         "|ruby",       // pipe to ruby (no space)
+        "| node",      // pipe to node interpreter
+        "|node",       // pipe to node (no space)
+        "| lua",       // pipe to lua interpreter
+        "|lua",        // pipe to lua (no space)
+        "| swift",     // pipe to swift interpreter
+        "|swift",      // pipe to swift (no space)
+        "| osascript", // pipe to AppleScript interpreter
+        "|osascript",  // pipe to osascript (no space)
         "; curl ",     // chained curl (data exfiltration)
         "; wget ",     // chained wget
         "&& curl ",    // conditional curl
@@ -176,26 +188,34 @@ class SystemCommandExecutor: @unchecked Sendable {
         "&& /usr/bin/wget ", // conditional absolute wget path
     ]
 
-    private func executeSilently(_ command: String) {
-        // Validate: reject empty commands
+    /// Validates a shell command against the dangerous pattern blocklist.
+    /// Returns nil if the command is safe, or an error message if rejected.
+    /// Shared by SystemCommandExecutor and ScriptEngine.
+    static func validateShellCommand(_ command: String) -> String? {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            NSLog("[SystemCommand] Shell command rejected: empty command")
-            return
+            return "empty command"
         }
 
-        // Validate: reject commands containing dangerous injection patterns
         // Normalize whitespace (tabs, etc.) to spaces so patterns can't be bypassed
         // by using alternate whitespace characters that shells treat equivalently.
         let normalized = trimmed.lowercased()
             .replacingOccurrences(of: "\t", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
             .replacingOccurrences(of: "\n", with: " ")
-        for pattern in Self.dangerousShellPatterns {
+        for pattern in dangerousShellPatterns {
             if normalized.contains(pattern) {
-                NSLog("[SystemCommand] Shell command rejected — dangerous pattern detected: %@", command)
-                return
+                return "dangerous pattern detected"
             }
+        }
+
+        return nil
+    }
+
+    private func executeSilently(_ command: String) {
+        if let rejection = Self.validateShellCommand(command) {
+            NSLog("[SystemCommand] Shell command rejected — %@: %@", rejection, command)
+            return
         }
 
         NSLog("[SystemCommand] Executing shell command: %@", command)

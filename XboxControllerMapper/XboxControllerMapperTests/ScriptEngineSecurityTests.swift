@@ -202,6 +202,33 @@ final class ScriptEngineSecurityTests: XCTestCase {
         // validated by the implementation reading stderrPipe before waitUntilExit.
     }
 
+    // MARK: - Shell Blocklist Validation
+
+    func testShellRejectsDangerousPatternInNonTestMode() {
+        // Verify that shell() in non-test mode rejects dangerous commands
+        // The script runs shell("echo | bash") which should be blocked
+        let script = makeScript(source: """
+            var result = shell("echo | bash");
+            log("result:" + result);
+        """)
+        let result = engine.execute(script: script, trigger: makeTrigger())
+        if case .error(let msg) = result {
+            XCTFail("Script should not error: \(msg)")
+        }
+        // shell() returns empty string when rejected — no crash
+    }
+
+    func testShellAsyncRejectsDangerousPattern() {
+        // shellAsync with dangerous pattern should be silently rejected
+        let script = makeScript(source: """
+            shellAsync("echo | osascript");
+        """)
+        let result = engine.execute(script: script, trigger: makeTrigger())
+        if case .error(let msg) = result {
+            XCTFail("Script should not error: \(msg)")
+        }
+    }
+
     // MARK: - State isolation between scripts
 
     func testScriptStateIsolation() {

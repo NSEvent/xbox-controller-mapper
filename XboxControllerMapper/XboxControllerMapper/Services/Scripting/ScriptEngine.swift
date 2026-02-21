@@ -339,6 +339,12 @@ class ScriptEngine {
                 return "(test mode - shell not executed)"
             }
 
+            // Validate against dangerous pattern blocklist
+            if let rejection = SystemCommandExecutor.validateShellCommand(command) {
+                self.logMessage("[Script Shell] Rejected (\(rejection)): \(command)")
+                return ""
+            }
+
             // Log all shell command executions for auditability
             self.logMessage("[Script Shell] Executing: \(command)")
 
@@ -408,6 +414,13 @@ class ScriptEngine {
                 self.testLogs.append("[shellAsync] \"\(command)\"")
                 return
             }
+
+            // Validate against dangerous pattern blocklist
+            if let rejection = SystemCommandExecutor.validateShellCommand(command) {
+                self.logMessage("[Script ShellAsync] Rejected (\(rejection)): \(command)")
+                return
+            }
+
             DispatchQueue.global().async { [weak self] in
                 let process = Process()
                 let pipe = Pipe()
