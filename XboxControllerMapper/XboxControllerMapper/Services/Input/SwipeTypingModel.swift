@@ -76,6 +76,24 @@ class SwipeTypingModel {
                 maxFreq = max(maxFreq, freq)
             }
 
+            // Add user's shell aliases and functions from their zsh/bash config
+            let existingWords = Set(wordFreqs.map { $0.0 })
+            let shellWords = Self.parseShellAliasesAndFunctions()
+            let shellFreq = 7000  // Same boost as app names / directory names
+            var shellAdded = 0
+            for name in shellWords {
+                let lower = name.lowercased()
+                guard lower.count >= 2, lower.count <= 12, lower.allSatisfy({ $0.isLetter }) else { continue }
+                if !existingWords.contains(lower) {
+                    wordFreqs.append((lower, shellFreq))
+                    shellAdded += 1
+                }
+                maxFreq = max(maxFreq, shellFreq)
+            }
+            if shellAdded > 0 {
+                NSLog("[SwipeTypingModel] Added %d shell aliases/functions to dictionary", shellAdded)
+            }
+
             // Precompute templates
             var builtTemplates: [String: WordTemplate] = [:]
             builtTemplates.reserveCapacity(wordFreqs.count)
@@ -323,5 +341,122 @@ class SwipeTypingModel {
             result.append(SwipeSample(x: sx / count, y: sy / count, dt: samples[i].dt))
         }
         return result
+    }
+
+    // MARK: - Shell Config Parsing
+
+    /// Parse user's shell config files to extract alias and function names.
+    /// Auto-detects zsh vs bash from $SHELL, reads appropriate config files.
+    private static func parseShellAliasesAndFunctions() -> Set<String> {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+
+        // Detect shell from $SHELL environment variable
+        let shellPath = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        let shellName = (shellPath as NSString).lastPathComponent
+
+        // Choose config files based on shell
+        let configFiles: [String]
+        switch shellName {
+        case "bash":
+            configFiles = [
+                "\(home)/.bashrc",
+                "\(home)/.bash_aliases",
+                "\(home)/.bash_profile",
+            ]
+        default: // zsh and anything else
+            configFiles = [
+                "\(home)/.zshrc",
+                "\(home)/.zsh_aliases",
+            ]
+        }
+
+        var names = Set<String>()
+
+        for path in configFiles {
+            guard let content = try? String(contentsOfFile: path, encoding: .utf8) else { continue }
+            let cleaned = stripShellComments(content)
+            names.formUnion(parseAliasNames(from: cleaned))
+            names.formUnion(parseFunctionNames(from: cleaned))
+        }
+
+        return names
+    }
+
+    /// Strip comments (lines starting with # or inline # outside quotes).
+    private static func stripShellComments(_ text: String) -> String {
+        text.components(separatedBy: .newlines).map { line in
+            var result: [Character] = []
+            var inSingle = false
+            var inDouble = false
+            for ch in line {
+                if ch == "'" && !inDouble { inSingle.toggle(); result.append(ch) }
+                else if ch == "\"" && !inSingle { inDouble.toggle(); result.append(ch) }
+                else if ch == "#" && !inSingle && !inDouble { break }
+                else { result.append(ch) }
+            }
+            return String(result)
+        }.joined(separator: "\n")
+    }
+
+    /// Parse `alias name=value` definitions from shell config text.
+    private static func parseAliasNames(from text: String) -> Set<String> {
+        // Matches: alias [-flags] name='value' [name2='value2' ...]
+        let aliasLineRegex = try! NSRegularExpression(pattern: #"^\s*alias(?:\s+-\w+)*\s+(.+)"#, options: .anchorsMatchLines)
+        var names = Set<String>()
+
+        let nsText = text as NSString
+        let matches = aliasLineRegex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+        for match in matches {
+            let rest = nsText.substring(with: match.range(at: 1))
+            // Extract name=value pairs; name is everything before the first =
+            // Handle multiple aliases per line: alias a='x' b='y'
+            var remaining = rest.trimmingCharacters(in: .whitespaces)
+            while !remaining.isEmpty {
+                guard let eqIdx = remaining.firstIndex(of: "=") else { break }
+                let name = remaining[remaining.startIndex..<eqIdx].trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty {
+                    names.insert(name)
+                }
+                // Skip past the value (quoted or unquoted)
+                var i = remaining.index(after: eqIdx)
+                if i < remaining.endIndex {
+                    let quoteChar = remaining[i]
+                    if quoteChar == "'" || quoteChar == "\"" {
+                        // Find matching close quote
+                        i = remaining.index(after: i)
+                        while i < remaining.endIndex && remaining[i] != quoteChar {
+                            i = remaining.index(after: i)
+                        }
+                        if i < remaining.endIndex { i = remaining.index(after: i) }
+                    } else {
+                        // Unquoted value: skip to next whitespace
+                        while i < remaining.endIndex && !remaining[i].isWhitespace {
+                            i = remaining.index(after: i)
+                        }
+                    }
+                }
+                remaining = String(remaining[i...]).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return names
+    }
+
+    /// Parse function definitions: `name() {`, `function name {`, `function name() {`
+    private static func parseFunctionNames(from text: String) -> Set<String> {
+        let patterns = [
+            #"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\)\s*\{"#,           // name() {
+            #"^\s*function\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(\s*\))?\s*\{"#, // function name { or function name() {
+        ]
+        var names = Set<String>()
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .anchorsMatchLines) else { continue }
+            let nsText = text as NSString
+            let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+            for match in matches {
+                let name = nsText.substring(with: match.range(at: 1))
+                names.insert(name)
+            }
+        }
+        return names
     }
 }
