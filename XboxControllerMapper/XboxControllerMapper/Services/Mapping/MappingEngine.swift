@@ -1413,7 +1413,7 @@ class MappingEngine: ObservableObject {
             if !wasSwipeActive && leftTrigger > Config.swipeTriggerThreshold {
                 // Enter swipe mode (cursor visible, waiting for touchpad touch)
                 state.swipeTypingActive = true
-                state.wasTouchpadTouching = controllerService.threadSafeIsTouchpadTouching
+                state.wasTouchpadTouching = inputSimulator.isLeftMouseButtonHeld
                 SwipeTypingEngine.shared.activateMode()
                 // Debug log
                 let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
@@ -1426,30 +1426,46 @@ class MappingEngine: ObservableObject {
                     try? msg.write(to: logURL, atomically: true, encoding: .utf8)
                 }
             } else if wasSwipeActive && leftTrigger < Config.swipeTriggerReleaseThreshold {
-                // Exit swipe mode entirely
                 state.swipeTypingActive = false
                 state.wasTouchpadTouching = false
                 SwipeTypingEngine.shared.deactivateMode()
             }
 
-            // Touchpad touch transitions drive word begin/end while mode is active
+            // Left click held drives word begin/end while mode is active (input-agnostic)
             if state.swipeTypingActive {
-                let isTouching = controllerService.threadSafeIsTouchpadTouching
-                let wasTouching = state.wasTouchpadTouching
-                if isTouching && !wasTouching {
-                    // Finger down → begin a new word swipe
+                let isClicking = inputSimulator.isLeftMouseButtonHeld
+                let wasClicking = state.wasTouchpadTouching  // reused flag for click state
+                if isClicking && !wasClicking {
+                    // Left click down → begin a new word swipe
+                    // Set swipe cursor to current mouse position on the keyboard
+                    // letterArea is in Cocoa screen coords (y-up from screen bottom)
+                    let letterArea = OnScreenKeyboardManager.shared.threadSafeLetterAreaScreenRect
+                    if letterArea.width > 0 && letterArea.height > 0,
+                       let mouseEvent = CGEvent(source: nil) {
+                        // CGEvent.location is Quartz coords (y-down from top of primary display)
+                        let quartz = mouseEvent.location
+                        // Convert Quartz → Cocoa: cocoaY = primaryScreenHeight - quartzY
+                        let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
+                        let cocoaX = quartz.x
+                        let cocoaY = screenHeight - quartz.y
+                        let normalized = CGPoint(
+                            x: (cocoaX - letterArea.origin.x) / letterArea.width,
+                            y: 1.0 - (cocoaY - letterArea.origin.y) / letterArea.height
+                        )
+                        SwipeTypingEngine.shared.setCursorPosition(normalized)
+                    }
                     let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
-                    let msg = "[MappingEngine] beginSwipe — finger down, engineState=\(SwipeTypingEngine.shared.threadSafeState)\n"
+                    let msg = "[MappingEngine] beginSwipe — left click held, engineState=\(SwipeTypingEngine.shared.threadSafeState)\n"
                     if let handle = try? FileHandle(forWritingTo: logURL) {
                         handle.seekToEndOfFile()
                         handle.write(msg.data(using: .utf8)!)
                         handle.closeFile()
                     }
                     SwipeTypingEngine.shared.beginSwipe()
-                } else if !isTouching && wasTouching {
-                    // Finger up → end word, run inference
+                } else if !isClicking && wasClicking {
+                    // Left click released → end word, run inference
                     let logURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
-                    let msg = "[MappingEngine] endSwipe — finger up, engineState=\(SwipeTypingEngine.shared.threadSafeState)\n"
+                    let msg = "[MappingEngine] endSwipe — left click released, engineState=\(SwipeTypingEngine.shared.threadSafeState)\n"
                     if let handle = try? FileHandle(forWritingTo: logURL) {
                         handle.seekToEndOfFile()
                         handle.write(msg.data(using: .utf8)!)
@@ -1457,7 +1473,7 @@ class MappingEngine: ObservableObject {
                     }
                     SwipeTypingEngine.shared.endSwipe()
                 }
-                state.wasTouchpadTouching = isTouching
+                state.wasTouchpadTouching = isClicking
 
                 SwipeTypingEngine.shared.updateCursorFromJoystick(
                     x: Double(leftStick.x),
@@ -1775,8 +1791,8 @@ class MappingEngine: ObservableObject {
             return (settings, state.isTouchpadGestureActive)
         }) else { return }
 
-        // Route to swipe typing engine if actively swiping
-        if state.lock.withLock({ state.swipeTypingActive }) {
+        // Route to swipe typing engine only while actively swiping (left click held)
+        if state.lock.withLock({ state.swipeTypingActive }) && SwipeTypingEngine.shared.threadSafeState == .swiping {
             SwipeTypingEngine.shared.updateCursorFromTouchpadDelta(
                 dx: Double(delta.x),
                 dy: Double(-delta.y),  // Invert Y: touchpad up = cursor up

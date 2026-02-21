@@ -143,6 +143,10 @@ class OnScreenKeyboardManager: ObservableObject {
     private nonisolated(unsafe) var _threadSafeIsVisible = false
     private nonisolated(unsafe) var _threadSafeNavigationModeActive = false
     private nonisolated(unsafe) var _threadSafeHighlightedItem: KeyboardNavigationItem?
+    /// Keyboard overlay frame in SwiftUI window coords (y-down from window top)
+    private nonisolated(unsafe) var _overlayFrameInWindow: CGRect = .zero
+    /// Panel frame in Cocoa screen coords (y-up from screen bottom)
+    private nonisolated(unsafe) var _panelFrame: CGRect = .zero
 
     /// Thread-safe accessor for keyboard visibility (can be called from any thread)
     nonisolated var threadSafeIsVisible: Bool {
@@ -163,6 +167,75 @@ class OnScreenKeyboardManager: ObservableObject {
         stateLock.lock()
         defer { stateLock.unlock() }
         return _threadSafeHighlightedItem
+    }
+
+    /// Thread-safe letter area rect in Cocoa screen coordinates (y-up from screen bottom).
+    /// Returns .zero if not yet computed.
+    nonisolated var threadSafeLetterAreaScreenRect: CGRect {
+        stateLock.lock()
+        let overlayFrame = _overlayFrameInWindow
+        let panelFrame = _panelFrame
+        stateLock.unlock()
+
+        guard overlayFrame.width > 0, panelFrame.width > 0 else { return .zero }
+
+        let letterArea = Self.computeLetterAreaInOverlay(overlaySize: overlayFrame.size)
+
+        // Letter area in SwiftUI window coords (y-down from window top)
+        let letterInWindowX = overlayFrame.origin.x + letterArea.origin.x
+        let letterInWindowY = overlayFrame.origin.y + letterArea.origin.y
+
+        // Convert to Cocoa screen coords (y-up from screen bottom)
+        return CGRect(
+            x: panelFrame.origin.x + letterInWindowX,
+            y: panelFrame.origin.y + panelFrame.height - letterInWindowY - letterArea.height,
+            width: letterArea.width,
+            height: letterArea.height
+        )
+    }
+
+    /// Called from SwiftUI when the keyboard overlay HStack frame changes
+    func updateKeyboardOverlayFrame(_ frameInWindow: CGRect) {
+        stateLock.lock()
+        _overlayFrameInWindow = frameInWindow
+        _panelFrame = panel?.frame ?? .zero
+        stateLock.unlock()
+    }
+
+    /// Compute the letter area rect within the keyboard overlay (same logic as SwipeTrailView)
+    nonisolated private static func computeLetterAreaInOverlay(overlaySize size: CGSize) -> CGRect {
+        let keyWidth: CGFloat = 68
+        let keyHeight: CGFloat = 60
+        let keySpacing: CGFloat = 8
+        let keyStep: CGFloat = keyWidth + keySpacing  // 76
+        let tabWidth: CGFloat = 95
+
+        let rowStep = keyHeight + keySpacing
+        let totalVStackHeight = 5 * keyHeight + 4 * keySpacing
+
+        let letterTopPixel = rowStep
+        let letterHeightPixel = 3 * keyHeight + 2 * keySpacing
+
+        let qwertyLeading = tabWidth + keySpacing
+        let minCenterX = qwertyLeading + keyWidth / 2.0
+        let maxCenterX = qwertyLeading + 9 * keyStep + keyWidth / 2.0
+        let letterLeftPixel = minCenterX - keyWidth / 2.0
+        let letterRightPixel = maxCenterX + keyWidth / 2.0
+        let letterWidthPixel = letterRightPixel - letterLeftPixel
+
+        let mainKeyboardWidth = tabWidth + 10 * keyStep + keyStep + keyStep + tabWidth + keySpacing
+        let navColumnWidth = keyWidth + keySpacing * 2
+        let totalEstWidth = mainKeyboardWidth + navColumnWidth
+
+        let scaleX = size.width / totalEstWidth
+        let scaleY = size.height / totalVStackHeight
+
+        return CGRect(
+            x: letterLeftPixel * scaleX,
+            y: letterTopPixel * scaleY,
+            width: letterWidthPixel * scaleX,
+            height: letterHeightPixel * scaleY
+        )
     }
 
     /// Update thread-safe visibility state (call from main thread)
@@ -427,6 +500,11 @@ class OnScreenKeyboardManager: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             self?.positionBufferPanel()
+            // Update cached panel frame for letter area screen rect calculation
+            guard let self = self else { return }
+            self.stateLock.lock()
+            self._panelFrame = self.panel?.frame ?? .zero
+            self.stateLock.unlock()
         }
     }
 

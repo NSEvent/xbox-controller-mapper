@@ -207,12 +207,23 @@ struct OnScreenKeyboardView: View {
             }
             .overlay(
                 Group {
-                    if swipeEngine.state == .active || swipeEngine.state == .swiping || swipeEngine.state == .showingPredictions {
+                    if swipeEngine.state == .swiping || swipeEngine.state == .showingPredictions {
                         SwipeTrailView(
                             swipePath: swipeEngine.swipePath,
                             cursorPosition: swipeEngine.cursorPosition
                         )
                     }
+                }
+            )
+            .background(
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear {
+                            keyboardManager.updateKeyboardOverlayFrame(geo.frame(in: .global))
+                        }
+                        .onChange(of: geo.size) { _ in
+                            keyboardManager.updateKeyboardOverlayFrame(geo.frame(in: .global))
+                        }
                 }
             )
             .padding(.horizontal, 12)

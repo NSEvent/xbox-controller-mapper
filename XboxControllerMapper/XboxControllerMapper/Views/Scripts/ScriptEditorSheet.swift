@@ -333,6 +333,7 @@ private class MockInputSimulator: InputSimulatorProtocol {
     func getHeldModifiers() -> CGEventFlags { [] }
     func moveMouse(dx: CGFloat, dy: CGFloat) {}
     func moveMouseNative(dx: Int, dy: Int) {}
+    var isLeftMouseButtonHeld: Bool { false }
     func scroll(dx: CGFloat, dy: CGFloat, phase: CGScrollPhase?, momentumPhase: CGMomentumScrollPhase?, isContinuous: Bool, flags: CGEventFlags) {}
     func executeMapping(_ mapping: KeyMapping) {}
     func startHoldMapping(_ mapping: KeyMapping) {}

@@ -35,6 +35,8 @@ class SwipeTypingEngine: ObservableObject {
     private nonisolated(unsafe) var _samples: [SwipeSample] = []
     private nonisolated(unsafe) var _lastSampleTime: CFAbsoluteTime = 0
     private nonisolated(unsafe) var _swipeStartTime: CFAbsoluteTime = 0
+    private nonisolated(unsafe) var _smoothedDx: Double = 0
+    private nonisolated(unsafe) var _smoothedDy: Double = 0
 
     /// Minimum interval between samples (~60Hz)
     private nonisolated(unsafe) let sampleInterval: CFAbsoluteTime = 1.0 / 60.0
@@ -103,6 +105,18 @@ class SwipeTypingEngine: ObservableObject {
         }
     }
 
+    /// Set the cursor position (e.g. from the system mouse position mapped to normalized coords).
+    /// Called from the controller polling thread before beginSwipe().
+    nonisolated func setCursorPosition(_ pos: CGPoint) {
+        stateLock.lock()
+        tsCursorPosition = pos
+        stateLock.unlock()
+
+        DispatchQueue.main.async { [self] in
+            self.cursorPosition = pos
+        }
+    }
+
     // MARK: - Swipe Lifecycle
 
     /// Begin a new swipe gesture. Resets path and samples, sets state to swiping.
@@ -119,6 +133,8 @@ class SwipeTypingEngine: ObservableObject {
         _samples = [SwipeSample(x: Double(tsCursorPosition.x), y: Double(tsCursorPosition.y), dt: 0)]
         _lastSampleTime = now
         _swipeStartTime = now
+        _smoothedDx = 0
+        _smoothedDy = 0
         stateLock.unlock()
 
         DispatchQueue.main.async { [self] in
@@ -320,18 +336,26 @@ class SwipeTypingEngine: ObservableObject {
     }
 
     /// Update cursor position from touchpad delta values.
-    /// Called from the controller polling thread.
+    /// Called from the controller polling thread. Applies EMA smoothing for fluid motion.
     nonisolated func updateCursorFromTouchpadDelta(dx: Double, dy: Double, sensitivity: Double) {
         let scaleX = sensitivity * 2.0
         let scaleY = sensitivity * 3.0  // Slight Y boost: keyboard rows are close together, touchpad is wide but short
+
+        // EMA smoothing (alpha=0.4 — responsive but smooth)
+        let alpha = 0.4
+        let smoothDx = _smoothedDx + (dx - _smoothedDx) * alpha
+        let smoothDy = _smoothedDy + (dy - _smoothedDy) * alpha
+        _smoothedDx = smoothDx
+        _smoothedDy = smoothDy
+
         stateLock.lock()
         guard tsState == .active || tsState == .swiping || tsState == .showingPredictions else {
             stateLock.unlock()
             return
         }
         var pos = tsCursorPosition
-        pos.x += CGFloat(dx * scaleX)
-        pos.y += CGFloat(dy * scaleY)
+        pos.x += CGFloat(smoothDx * scaleX)
+        pos.y += CGFloat(smoothDy * scaleY)
         // No clamping — allow swiping freely beyond the keyboard letter area
         tsCursorPosition = pos
 

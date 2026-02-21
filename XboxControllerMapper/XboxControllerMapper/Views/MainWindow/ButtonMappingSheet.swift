@@ -1523,6 +1523,8 @@ struct ButtonMappingSheet: View {
                 longHoldValid = longHoldMacroId != nil
             case .systemCommand:
                 longHoldValid = buildLongHoldSystemCommand() != nil
+            case .script:
+                longHoldValid = false
             }
             if longHoldValid {
                 newMapping.longHoldMapping = LongHoldMapping(
@@ -1545,6 +1547,8 @@ struct ButtonMappingSheet: View {
                 doubleTapValid = doubleTapMacroId != nil
             case .systemCommand:
                 doubleTapValid = buildDoubleTapSystemCommand() != nil
+            case .script:
+                doubleTapValid = false
             }
             if doubleTapValid {
                 newMapping.doubleTapMapping = DoubleTapMapping(

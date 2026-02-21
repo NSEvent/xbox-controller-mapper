@@ -15,6 +15,7 @@ protocol InputSimulatorProtocol: Sendable {
     func getHeldModifiers() -> CGEventFlags
     func moveMouse(dx: CGFloat, dy: CGFloat)
     func moveMouseNative(dx: Int, dy: Int)
+    var isLeftMouseButtonHeld: Bool { get }
     func scroll(
         dx: CGFloat,
         dy: CGFloat,
@@ -392,6 +393,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Tracks currently held mouse buttons to determine if moving should be a drag
     private var heldMouseButtons: Set<CGMouseButton> = []
+
+    /// Thread-safe check if left mouse button is currently held
+    var isLeftMouseButtonHeld: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return heldMouseButtons.contains(.left)
+    }
 
     /// Tracks click timing for double/triple click detection
     private var lastClickTime: [CGMouseButton: Date] = [:]

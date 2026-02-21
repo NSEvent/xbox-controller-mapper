@@ -255,6 +255,12 @@ class ControllerService: ObservableObject {
         return storage.isTouchpadTouching
     }
 
+    nonisolated var threadSafeIsTouchpadButtonPressed: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.touchpadClickArmed
+    }
+
     nonisolated var threadSafeIsTouchpadMovementBlocked: Bool {
         let now = CFAbsoluteTimeGetCurrent()
         storage.lock.lock()
