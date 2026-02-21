@@ -78,6 +78,7 @@ wc	10000
 wget	10000
 which	10000
 xargs	10000
+xcodebuild	10000
 zip	10000
 zsh	10000
 was	9815
@@ -49997,4 +49998,3 @@ carbonometer	0
 carbonometry	0
 carbonous	0
 carbonuria	0
-carbonylene	0

@@ -111,7 +111,7 @@ def get_computing_words():
         "ping", "dig", "nmap", "rsync", "tmux", "screen",
         "docker", "python", "ruby", "node", "swift", "cargo",
         "rustc", "clang", "gcc", "java", "perl", "bash", "zsh",
-        "fish", "vim", "nano", "emacs",
+        "fish", "vim", "nano", "emacs", "xcodebuild",
     ]:
         if w.isalpha() and 2 <= len(w) <= 12:
             words[w] = FREQ_HIGH
@@ -235,8 +235,8 @@ def get_installed_app_names():
             capture_output=True, text=True, timeout=5,
         )
         for name in result.stdout.splitlines():
-            # Strip .app suffix
-            app = name.replace(".app", "").strip()
+            # Use only the basename, strip .app suffix
+            app = os.path.basename(name).replace(".app", "").strip()
             # Only single-word, alpha-only names
             w = app.lower()
             if w.isalpha() and 2 <= len(w) <= 12:
