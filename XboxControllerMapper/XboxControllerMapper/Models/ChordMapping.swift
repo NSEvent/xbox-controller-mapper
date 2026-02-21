@@ -112,6 +112,21 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
     /// ExecutableAction protocol conformance
     var displayString: String { actionDisplayString }
 
+    // MARK: - Action Conflict Resolution
+
+    /// Returns a copy with all action fields cleared except the specified type.
+    func clearingConflicts(keeping actionType: ActionType) -> ChordMapping {
+        var copy = self
+        if actionType != .keyPress {
+            copy.keyCode = nil
+            copy.modifiers = ModifierFlags()
+        }
+        if actionType != .macro { copy.macroId = nil }
+        if actionType != .script { copy.scriptId = nil }
+        if actionType != .systemCommand { copy.systemCommand = nil }
+        return copy
+    }
+
     // MARK: - Chord Conflict Detection
 
     /// Returns the set of buttons that would create a duplicate chord if selected.

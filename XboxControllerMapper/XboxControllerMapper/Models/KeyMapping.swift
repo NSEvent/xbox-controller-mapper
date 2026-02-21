@@ -30,6 +30,87 @@ extension ExecutableAction {
     }
 }
 
+// MARK: - Action Type Classification
+
+/// Identifies which kind of action a mapping performs.
+enum ActionType: String, Equatable, CaseIterable {
+    /// A keyboard key press (with optional modifiers)
+    case keyPress
+    /// A recorded macro sequence
+    case macro
+    /// A JavaScript script
+    case script
+    /// A system command (shell, launch app, open link, webhook, OBS)
+    case systemCommand
+    /// No action configured
+    case none
+}
+
+// MARK: - Action Conflict Validation
+
+extension ExecutableAction {
+
+    /// The number of distinct action types currently set on this mapping.
+    ///
+    /// A well-formed mapping should have exactly 0 or 1 active actions.
+    /// Values greater than 1 indicate conflicting fields.
+    var activeActionCount: Int {
+        var count = 0
+        if keyCode != nil || modifiers.hasAny { count += 1 }
+        if macroId != nil { count += 1 }
+        if scriptId != nil { count += 1 }
+        if systemCommand != nil { count += 1 }
+        return count
+    }
+
+    /// Whether this mapping has more than one action type set simultaneously.
+    ///
+    /// When `true`, the execution layer will silently pick one action based on
+    /// priority (systemCommand > macro > script > keyPress) and ignore the rest.
+    /// This property lets callers detect that ambiguous state.
+    var hasConflictingActions: Bool {
+        activeActionCount > 1
+    }
+
+    /// The action type that the execution layer would actually run.
+    ///
+    /// Priority matches `MappingActionExecutor.executeAction`:
+    ///   1. systemCommand
+    ///   2. macroId
+    ///   3. scriptId
+    ///   4. keyCode / modifiers (key press)
+    ///
+    /// Returns `.none` when no action is configured.
+    var effectiveActionType: ActionType {
+        if systemCommand != nil { return .systemCommand }
+        if macroId != nil { return .macro }
+        if scriptId != nil { return .script }
+        if keyCode != nil || modifiers.hasAny { return .keyPress }
+        return .none
+    }
+
+    /// Returns all action types that are currently set on this mapping.
+    var activeActionTypes: Set<ActionType> {
+        var types = Set<ActionType>()
+        if keyCode != nil || modifiers.hasAny { types.insert(.keyPress) }
+        if macroId != nil { types.insert(.macro) }
+        if scriptId != nil { types.insert(.script) }
+        if systemCommand != nil { types.insert(.systemCommand) }
+        return types
+    }
+
+    /// Logs a warning via `NSLog` if multiple action types are set simultaneously.
+    ///
+    /// Call this at load-time or before execution to surface data-model issues.
+    func validateActions(context: String = "") {
+        guard hasConflictingActions else { return }
+        let types = activeActionTypes.map(\.rawValue).sorted().joined(separator: ", ")
+        let prefix = context.isEmpty ? "" : "[\(context)] "
+        NSLog("[ActionConflict] %@Mapping has %d conflicting actions: %@. Effective action: %@",
+              prefix, activeActionCount, types, effectiveActionType.rawValue)
+    }
+}
+
 extension KeyBindingRepresentable {
     /// Human-readable description of the key binding
     var displayString: String {
@@ -201,6 +282,31 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     }
 
     // Note: isEmpty is provided by KeyBindingRepresentable protocol extension
+
+    // MARK: - Conflict Resolution
+
+    /// Returns a copy of this mapping with all action fields cleared except the specified type.
+    ///
+    /// Use this when assigning a new action to ensure only one action type is set.
+    /// For `.keyPress`, the existing `keyCode` and `modifiers` are preserved; all others are nil'd.
+    /// For `.none`, all action fields are cleared.
+    func clearingConflicts(keeping actionType: ActionType) -> KeyMapping {
+        var copy = self
+        if actionType != .keyPress {
+            copy.keyCode = nil
+            copy.modifiers = ModifierFlags()
+        }
+        if actionType != .macro {
+            copy.macroId = nil
+        }
+        if actionType != .script {
+            copy.scriptId = nil
+        }
+        if actionType != .systemCommand {
+            copy.systemCommand = nil
+        }
+        return copy
+    }
 }
 
 /// Wraps long hold configuration to avoid recursive struct issues
@@ -271,6 +377,19 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
 
     var isEmpty: Bool {
         keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil && systemCommand == nil
+    }
+
+    /// Returns a copy with all action fields cleared except the specified type.
+    func clearingConflicts(keeping actionType: ActionType) -> LongHoldMapping {
+        var copy = self
+        if actionType != .keyPress {
+            copy.keyCode = nil
+            copy.modifiers = ModifierFlags()
+        }
+        if actionType != .macro { copy.macroId = nil }
+        if actionType != .script { copy.scriptId = nil }
+        if actionType != .systemCommand { copy.systemCommand = nil }
+        return copy
     }
 }
 
@@ -343,6 +462,19 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
 
     var isEmpty: Bool {
         keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil && systemCommand == nil
+    }
+
+    /// Returns a copy with all action fields cleared except the specified type.
+    func clearingConflicts(keeping actionType: ActionType) -> DoubleTapMapping {
+        var copy = self
+        if actionType != .keyPress {
+            copy.keyCode = nil
+            copy.modifiers = ModifierFlags()
+        }
+        if actionType != .macro { copy.macroId = nil }
+        if actionType != .script { copy.scriptId = nil }
+        if actionType != .systemCommand { copy.systemCommand = nil }
+        return copy
     }
 }
 

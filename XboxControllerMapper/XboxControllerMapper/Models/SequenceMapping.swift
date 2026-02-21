@@ -117,4 +117,19 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
 
     /// Whether this sequence has enough steps to be valid
     var isValid: Bool { steps.count >= 2 }
+
+    // MARK: - Action Conflict Resolution
+
+    /// Returns a copy with all action fields cleared except the specified type.
+    func clearingConflicts(keeping actionType: ActionType) -> SequenceMapping {
+        var copy = self
+        if actionType != .keyPress {
+            copy.keyCode = nil
+            copy.modifiers = ModifierFlags()
+        }
+        if actionType != .macro { copy.macroId = nil }
+        if actionType != .script { copy.scriptId = nil }
+        if actionType != .systemCommand { copy.systemCommand = nil }
+        return copy
+    }
 }
