@@ -788,6 +788,10 @@ struct OnScreenKeyboardView: View {
         let isSingleLetter = label.count == 1 && label.first?.isLetter == true
 
         Button {
+            // Suppress key presses if a swipe gesture occurred (swiping/predicting/showingPredictions)
+            // Allow clicks through in .idle and .active (no drag happened)
+            let swipeState = swipeEngine.state
+            guard swipeState == .idle || swipeState == .active else { return }
             // Exit navigation mode when mouse clicks
             keyboardManager.exitNavigationMode()
             pressedKey = keyCode
