@@ -417,3 +417,24 @@ extension Profile {
         try container.encode(layers, forKey: .layers)
     }
 }
+
+// MARK: - Custom Equatable (excludes timestamps)
+
+extension Profile {
+    static func == (lhs: Profile, rhs: Profile) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.name == rhs.name &&
+        lhs.isDefault == rhs.isDefault &&
+        lhs.icon == rhs.icon &&
+        lhs.buttonMappings == rhs.buttonMappings &&
+        lhs.chordMappings == rhs.chordMappings &&
+        lhs.sequenceMappings == rhs.sequenceMappings &&
+        lhs.joystickSettings == rhs.joystickSettings &&
+        lhs.dualSenseLEDSettings == rhs.dualSenseLEDSettings &&
+        lhs.linkedApps == rhs.linkedApps &&
+        lhs.macros == rhs.macros &&
+        lhs.scripts == rhs.scripts &&
+        lhs.onScreenKeyboardSettings == rhs.onScreenKeyboardSettings &&
+        lhs.layers == rhs.layers
+    }
+}
