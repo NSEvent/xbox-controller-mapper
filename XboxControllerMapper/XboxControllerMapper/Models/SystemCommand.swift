@@ -124,7 +124,15 @@ extension SystemCommand: Codable {
             self = .httpRequest(url: url, method: method, headers: headers, body: body)
         case .obsWebSocket:
             let url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
-            let password = try container.decodeIfPresent(String.self, forKey: .password)
+            let storedPassword = try container.decodeIfPresent(String.self, forKey: .password)
+            // Resolve password: if it's a Keychain reference (UUID), fetch from Keychain.
+            // If plaintext (legacy), use as-is — it will migrate to Keychain on next save.
+            let password: String?
+            if let stored = storedPassword, KeychainService.isKeychainReference(stored) {
+                password = KeychainService.retrievePassword(key: stored)
+            } else {
+                password = storedPassword
+            }
             let requestType = try container.decodeIfPresent(String.self, forKey: .requestType) ?? ""
             let requestData = try container.decodeIfPresent(String.self, forKey: .requestData)
             self = .obsWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
@@ -155,7 +163,16 @@ extension SystemCommand: Codable {
         case .obsWebSocket(let url, let password, let requestType, let requestData):
             try container.encode(CommandType.obsWebSocket, forKey: .type)
             try container.encode(url, forKey: .url)
-            try container.encodeIfPresent(password, forKey: .password)
+            // Store password in Keychain, write UUID reference to JSON
+            if let password = password, !password.isEmpty {
+                let key = UUID().uuidString
+                if KeychainService.storePassword(password, key: key) != nil {
+                    try container.encode(key, forKey: .password)
+                } else {
+                    // Keychain store failed — omit password from JSON to avoid plaintext leak
+                    NSLog("[SystemCommand] Failed to store OBS password in Keychain")
+                }
+            }
             try container.encode(requestType, forKey: .requestType)
             try container.encodeIfPresent(requestData, forKey: .requestData)
         }

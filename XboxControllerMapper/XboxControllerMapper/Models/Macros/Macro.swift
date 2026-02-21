@@ -200,6 +200,10 @@ enum MacroStep: Codable, Equatable {
         let requestType: String
         let requestData: String?
 
+        private enum PayloadCodingKeys: String, CodingKey {
+            case url, password, requestType, requestData
+        }
+
         init(url: String, password: String?, requestType: String, requestData: String?) {
             self.url = url
             self.password = password
@@ -208,11 +212,33 @@ enum MacroStep: Codable, Equatable {
         }
 
         init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: PayloadCodingKeys.self)
             url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
-            password = try container.decodeIfPresent(String.self, forKey: .password)
+            // Resolve password: Keychain reference (UUID) → fetch, plaintext (legacy) → use as-is
+            let storedPassword = try container.decodeIfPresent(String.self, forKey: .password)
+            if let stored = storedPassword, KeychainService.isKeychainReference(stored) {
+                password = KeychainService.retrievePassword(key: stored)
+            } else {
+                password = storedPassword
+            }
             requestType = try container.decodeIfPresent(String.self, forKey: .requestType) ?? ""
             requestData = try container.decodeIfPresent(String.self, forKey: .requestData)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: PayloadCodingKeys.self)
+            try container.encode(url, forKey: .url)
+            // Store password in Keychain, write UUID reference to JSON
+            if let password = password, !password.isEmpty {
+                let key = UUID().uuidString
+                if KeychainService.storePassword(password, key: key) != nil {
+                    try container.encode(key, forKey: .password)
+                } else {
+                    NSLog("[Macro] Failed to store OBS password in Keychain")
+                }
+            }
+            try container.encode(requestType, forKey: .requestType)
+            try container.encodeIfPresent(requestData, forKey: .requestData)
         }
     }
 }
