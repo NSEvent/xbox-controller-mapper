@@ -4,12 +4,15 @@ Run this once to create the vocabulary file.
 """
 
 import os
+import ssl
 import sys
 
 
 def generate_from_nltk():
     """Generate vocabulary from NLTK's word lists."""
     try:
+        # Workaround for macOS SSL certificate issues
+        ssl._create_default_https_context = ssl._create_unverified_context
         import nltk
         nltk.download("words", quiet=True)
         nltk.download("brown", quiet=True)
@@ -35,7 +38,7 @@ def generate_from_nltk():
             scored.append((w, freq.get(w, 0)))
 
         scored.sort(key=lambda x: (-x[1], x[0]))
-        vocab = [w for w, _ in scored[:50000]]
+        vocab = [(w, f) for w, f in scored[:50000]]
 
         return vocab
     except ImportError:
@@ -77,7 +80,7 @@ def generate_builtin():
         words = set(common.split())
 
     # Sort by word length (shorter = more common generally), then alphabetically
-    vocab = sorted(words, key=lambda w: (len(w), w))
+    vocab = [(w, 0) for w in sorted(words, key=lambda w: (len(w), w))]
     return vocab[:50000]
 
 
@@ -91,8 +94,8 @@ def main():
 
     output_path = os.path.join(os.path.dirname(__file__), "vocab.txt")
     with open(output_path, "w") as f:
-        for word in vocab:
-            f.write(word + "\n")
+        for word, freq in vocab:
+            f.write(f"{word}\t{freq}\n")
 
     print(f"Wrote {len(vocab)} words to {output_path}")
 
