@@ -377,7 +377,10 @@ extension Profile {
         // Decode button mappings from string-keyed dictionary
         let stringKeyedMappings = try container.decodeIfPresent([String: KeyMapping].self, forKey: .buttonMappings) ?? [:]
         buttonMappings = Dictionary(uniqueKeysWithValues: stringKeyedMappings.compactMap { key, value in
-            guard let button = ControllerButton(rawValue: key) else { return nil }
+            guard let button = ControllerButton(rawValue: key) else {
+                NSLog("[Profile] Ignoring unknown button mapping key: %@", key)
+                return nil
+            }
             return (button, value)
         })
 

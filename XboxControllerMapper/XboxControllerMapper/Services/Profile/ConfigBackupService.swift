@@ -13,22 +13,37 @@ struct ConfigBackupService {
         let backupDir = configURL
             .deletingLastPathComponent()
             .appendingPathComponent("backups", isDirectory: true)
-        try? fileManager.createDirectory(at: backupDir, withIntermediateDirectories: true)
+
+        do {
+            try fileManager.createDirectory(at: backupDir, withIntermediateDirectories: true)
+        } catch {
+            NSLog("[ConfigBackup] Failed to create backup directory: %@", error.localizedDescription)
+            return
+        }
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let timestamp = dateFormatter.string(from: Date())
         let backupURL = backupDir.appendingPathComponent("config_\(timestamp).json")
 
-        try? fileManager.copyItem(at: configURL, to: backupURL)
+        do {
+            try fileManager.copyItem(at: configURL, to: backupURL)
+        } catch {
+            NSLog("[ConfigBackup] Failed to copy config to backup: %@", error.localizedDescription)
+        }
+
         cleanupOldBackups(in: backupDir, maxBackups: maxBackups)
     }
 
     private func cleanupOldBackups(in backupDir: URL, maxBackups: Int) {
-        guard let backups = try? fileManager.contentsOfDirectory(
-            at: backupDir,
-            includingPropertiesForKeys: [.creationDateKey]
-        ) else {
+        let backups: [URL]
+        do {
+            backups = try fileManager.contentsOfDirectory(
+                at: backupDir,
+                includingPropertiesForKeys: [.creationDateKey]
+            )
+        } catch {
+            NSLog("[ConfigBackup] Failed to list backup directory: %@", error.localizedDescription)
             return
         }
 
@@ -40,7 +55,11 @@ struct ConfigBackupService {
             }
 
         for backup in sortedBackups.dropFirst(maxBackups) {
-            try? fileManager.removeItem(at: backup)
+            do {
+                try fileManager.removeItem(at: backup)
+            } catch {
+                NSLog("[ConfigBackup] Failed to delete old backup %@: %@", backup.lastPathComponent, error.localizedDescription)
+            }
         }
     }
 }
