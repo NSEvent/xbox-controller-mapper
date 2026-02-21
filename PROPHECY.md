@@ -570,7 +570,9 @@ These features represent the paradigm shift from "map buttons to keys" to "map b
 
 **Critical design principle**: Intent is an *option*, not a replacement. Users can still map buttons to explicit key codes — that remains the default. Intent is a new action type that sits alongside keyPress, macro, script, and systemCommand. The user chooses which method they want per mapping. Power users who know their shortcuts keep using key codes. Users who don't want to memorize shortcuts use intents. Both work on the same button, same UI, same profile.
 
-**What to build**: A new `intent` action type on all `ExecutableAction` types, and a resolver service that translates intent strings to the correct keyboard shortcut in the frontmost app via Accessibility APIs.
+**Prior research**: See `backlog/intent-mappings.md` for detailed findings from testing 10 apps. Key discoveries: ~33 menu actions are virtually universal (AppKit-injected), naming is highly consistent (fuzzy matching barely needs to be fuzzy), and menu items can be invoked directly via `AXUIElementPerformAction(kAXPressAction)` — no need to extract key codes. This is superior because it works even for menu items with no keyboard shortcut.
+
+**What to build**: A new `intent` action type on all `ExecutableAction` types, and a resolver service that finds and directly invokes menu items in the frontmost app via Accessibility APIs.
 
 **New files**:
 - `Services/Mapping/IntentMappingResolver.swift`
@@ -628,8 +630,13 @@ if intent != nil { types.insert(.intent) }
 ```swift
 /// Protocol for menu bar access — enables mock testing without AX permissions
 protocol MenuBarProvider {
-    /// Returns menu items for the given app as (title, keyEquivalent, modifierMask) tuples
-    func menuItems(for pid: pid_t) -> [(title: String, keyEquivalent: String, modifiers: UInt)]
+    /// Find a menu item matching the intent string.
+    /// Returns an opaque handle that can be invoked, or nil if not found.
+    func findMenuItem(for pid: pid_t, matching intent: String) -> AXUIElement?
+    /// Check if a menu item is currently enabled
+    func isEnabled(_ menuItem: AXUIElement) -> Bool
+    /// Invoke a menu item directly via AX press action
+    func performAction(_ menuItem: AXUIElement) -> Bool
 }
 
 /// Production implementation using Accessibility APIs
@@ -646,38 +653,62 @@ class IntentMappingResolver: ObservableObject {
         self.menuBarProvider = menuBarProvider
     }
 
-    /// Resolve an intent string to a keyboard shortcut for the given app
-    /// Returns nil if the intent cannot be resolved (no matching menu item)
-    func resolve(intent: String, bundleId: String, pid: pid_t) -> (keyCode: CGKeyCode, modifiers: ModifierFlags)?
+    /// Resolve and execute an intent in the frontmost app.
+    /// Returns true if the intent was found and invoked, false otherwise.
+    /// This directly invokes the menu item via AXPress — no key code extraction needed.
+    /// Works even for menu items that have no keyboard shortcut.
+    @discardableResult
+    func execute(intent: String, bundleId: String, pid: pid_t) -> Bool
 
-    /// Pre-built common intents for the UI picker
-    static let commonIntents: [String] = [
-        "Save", "Save As", "Open", "Close", "Close Window", "Close Tab",
-        "New", "New Window", "New Tab",
+    /// Resolve an intent to see if it exists (for UI preview / "Test" button).
+    /// Returns the menu item's keyboard shortcut if one exists, nil if no shortcut
+    /// (but the intent may still be executable via direct invocation).
+    func resolveShortcut(intent: String, bundleId: String, pid: pid_t) -> (keyCode: CGKeyCode, modifiers: ModifierFlags)?
+
+    /// V1 recommended intents — researched against 10 apps (see backlog/intent-mappings.md)
+    /// Tier 1: Universal (~33 actions, 9-10/10 apps)
+    static let tier1Intents: [String] = [
+        // Edit
         "Undo", "Redo", "Cut", "Copy", "Paste", "Select All",
-        "Find", "Find and Replace", "Find Next",
-        "Print", "Preferences", "Settings",
-        "Minimize", "Zoom", "Full Screen",
-        "Quit",
+        // App Menu
+        "Settings", "Hide App", "Quit",
+        // Window
+        "Minimize", "Zoom", "Full Screen", "Bring All to Front",
     ]
 
-    /// Cache of resolved intents per bundle ID
-    private var cache: [String: [String: (CGKeyCode, ModifierFlags)]] = [:]
+    /// Tier 2: Most Apps (~28 actions, 6-8/10 apps)
+    static let tier2Intents: [String] = [
+        // Find
+        "Find", "Find Next", "Find Previous",
+        // File
+        "Save", "Close Window", "New", "Print", "Open",
+        // Window/Tabs
+        "Next Tab", "Previous Tab",
+        // View
+        "Zoom In", "Zoom Out",
+    ]
+
+    /// All recommended intents (Tier 1 + Tier 2), for the UI autocomplete picker
+    static var commonIntents: [String] { tier1Intents + tier2Intents }
+
+    /// Cache of found AXUIElements per (bundleId, intent) — avoids repeated menu walks
+    private var cache: [String: [String: AXUIElement]] = [:]
 
     /// Invalidate cache for a specific app (called on app switch)
     func invalidateCache(for bundleId: String)
 }
 ```
 
-**Implementation approach**:
+**Implementation approach** (from `backlog/intent-mappings.md` research):
 1. Get the frontmost app's `AXUIElement` via `AXUIElementCreateApplication(pid)`
-2. Get `AXMenuBar` attribute
-3. Walk menu items recursively looking for a title that fuzzy-matches the intent string
-4. When found, extract `AXMenuItemCmdChar` and `AXMenuItemCmdModifiers` from the menu item
-5. Convert to `CGKeyCode` and `ModifierFlags`
-6. Cache the result per bundle ID (invalidate on app switch)
-7. Fuzzy matching: case-insensitive substring match, with common synonyms ("Preferences" = "Settings")
-8. If no match found, return nil — the executor logs a warning and does nothing (no crash, no fallback to wrong action)
+2. Get `kAXMenuBarAttribute` → walk `kAXChildrenAttribute` for menu bar items
+3. Walk submenu children recursively to find target menu item by title
+4. **Normalize for matching**: lowercase, strip "...", strip leading/trailing whitespace. Exact match first, substring match second.
+5. **Handle known synonyms**: "Settings" ↔ "Preferences", "Close" ↔ "Close Window"
+6. Check `kAXEnabledAttribute` — if menu item is disabled, log and skip (don't invoke a greyed-out action)
+7. **Invoke directly**: `AXUIElementPerformAction(element, kAXPressAction as CFString)` — this is more reliable than extracting key codes because it works even for menu items with no keyboard shortcut
+8. Cache the found `AXUIElement` per (bundleId, intent) — invalidate on app switch
+9. If no match found, return false — the executor logs a warning and does nothing
 
 **UI integration** (in `ButtonMappingSheet` and similar):
 - The action type picker (where user currently chooses Key Press / Macro / Script / System Command) gets a new option: "Intent"
@@ -700,10 +731,15 @@ class IntentMappingResolver: ObservableObject {
 - `testIntentOnChordMapping` — ChordMapping with intent field encodes/decodes correctly
 - `testIntentOnSequenceMapping` — SequenceMapping with intent field encodes/decodes correctly
 - `testExistingProfilesWithoutIntentLoadFine` — a JSON profile with no `intent` field loads without error (backward compatibility)
+- `testExecuteReturnsTrueOnMatch` — `execute()` returns true when mock provider finds the menu item
+- `testExecuteReturnsFalseOnNoMatch` — `execute()` returns false when no match
+- `testDisabledMenuItemSkipped` — menu item found but `isEnabled` returns false → not invoked, returns false
+- `testEllipsisStrippedDuringMatch` — "Find..." in menu bar matches intent "Find"
+- `testTier1IntentsAreAllNonEmpty` — every string in `tier1Intents` is non-empty
 
-**Note on testing**: The `MockMenuBarProvider` returns hardcoded menu structures (e.g., `[("Save", "s", maskCommand), ("Find...", "f", maskCommand)]`). Tests verify resolution logic without needing real AX access or running apps.
+**Note on testing**: The `MockMenuBarProvider` returns hardcoded menu structures and tracks invocations. Tests verify resolution logic, normalization, enabled-check, and direct invocation without needing real AX access or running apps. The mock records whether `performAction` was called and with what element, so tests can assert that the correct menu item was invoked.
 
-**Integration point**: `MappingActionExecutor` adds a new case in its execution priority chain. When it encounters `intent != nil`, it calls `IntentMappingResolver.resolve()` with the intent string, current `AppMonitor.frontmostBundleId`, and the app's PID. If resolved, it executes the resulting shortcut via `InputSimulator.pressKey()`. If not resolved, it logs and skips. All existing key code / macro / script / system command mappings continue to work exactly as before — zero behavioral change for existing users.
+**Integration point**: `MappingActionExecutor` adds a new case in its execution priority chain. When it encounters `intent != nil`, it calls `IntentMappingResolver.execute()` with the intent string, current `AppMonitor.frontmostBundleId`, and the app's PID. The resolver directly invokes the menu item via `AXUIElementPerformAction(kAXPressAction)` — no `InputSimulator` needed for intents. If the menu item isn't found or is disabled, it logs and skips. All existing key code / macro / script / system command mappings continue to work exactly as before — zero behavioral change for existing users.
 
 ---
 

@@ -406,6 +406,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var lastClickTime: [CGMouseButton: Date] = [:]
     private var clickCounts: [CGMouseButton: Int64] = [:]
 
+    /// Monotonically increasing mouse event number shared across mouseDown/mouseDragged/mouseUp.
+    /// Real hardware assigns the same event number to a mouseDown and its matching mouseUp, with
+    /// all intervening mouseDragged events also sharing that number. System tools like screencapture
+    /// use this field to correlate a down-drag-up sequence into a single continuous gesture.
+    private var mouseEventNumber: Int64 = 0
+
     /// Tracks sub-pixel movement residuals to prevent quantization stickiness
     private var residualMovement: CGPoint = .zero
 
@@ -504,6 +510,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // Single lock acquisition for all state
             self.stateLock.lock()
             let heldButtons = self.heldMouseButtons
+            let eventNumber = self.mouseEventNumber
             let (bounds, primaryDisplayHeight) = self.ensureScreenCache()
 
             // Use tracked position if available, otherwise sync from system
@@ -579,11 +586,19 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             let clampedY = max(bounds.minY, min(bounds.maxY - 1, newY))
             let newPoint = CGPoint(x: clampedX, y: clampedY)
 
-            // Set suppression interval to 0 to prevent 250ms freeze after warp
-            if let warpSource = CGEventSource(stateID: .combinedSessionState) {
-                warpSource.localEventsSuppressionInterval = 0.0
+            let isDrag = eventType != .mouseMoved
+
+            // During drags, do NOT call CGWarpMouseCursorPosition. The warp resets
+            // macOS internal mouse-button-down state, which breaks drag correlation
+            // for system tools like screencapture. The CGEvent with mouseCursorPosition
+            // already moves the cursor to the correct location.
+            if !isDrag {
+                // Set suppression interval to 0 to prevent 250ms freeze after warp
+                if let warpSource = CGEventSource(stateID: .combinedSessionState) {
+                    warpSource.localEventsSuppressionInterval = 0.0
+                }
+                _ = CGWarpMouseCursorPosition(newPoint)
             }
-            _ = CGWarpMouseCursorPosition(newPoint)
 
             // Update tracked position to avoid reading back transformed coordinates
             self.stateLock.lock()
@@ -610,8 +625,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 // Set delta fields for Accessibility Zoom viewport panning
                 event.setIntegerValueField(.mouseEventDeltaX, value: Int64(moveX))
                 event.setIntegerValueField(.mouseEventDeltaY, value: Int64(moveY))
-                // Set pressure on drag events so system tools recognize the drag
-                if eventType != .mouseMoved {
+                // For drag events, set the same event number as the originating mouseDown
+                // and pressure so system tools (screencapture, etc.) recognize the drag
+                // as part of a continuous down-drag-up gesture.
+                if isDrag {
+                    event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
                     event.setDoubleValueField(.mouseEventPressure, value: 1.0)
                 }
                 event.post(tap: .cghidEventTap)
@@ -629,6 +647,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             self.stateLock.lock()
             let heldButtons = self.heldMouseButtons
+            let eventNumber = self.mouseEventNumber
             self.stateLock.unlock()
 
             let eventType: CGEventType
@@ -666,8 +685,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
             event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
-            // Set pressure on drag events so system tools recognize the drag
+            // For drag events, set the same event number as the originating mouseDown
+            // and pressure so system tools (screencapture, etc.) recognize the drag.
             if eventType != .mouseMoved {
+                event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
                 event.setDoubleValueField(.mouseEventPressure, value: 1.0)
             }
             event.post(tap: .cghidEventTap)
@@ -961,6 +982,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // Track hold state
             self.heldMouseButtons.insert(button)
 
+            // Assign a new event number for this down-drag-up sequence.
+            // All subsequent mouseDragged and mouseUp events will reuse this number,
+            // which is how macOS correlates them into a single gesture (required by
+            // system tools like screencapture).
+            self.mouseEventNumber += 1
+            let eventNumber = self.mouseEventNumber
+
             // Calculate click count for double/triple click support
             let now = Date()
             let clickCount: Int64
@@ -982,6 +1010,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseButton: button
             ) {
                 event.setIntegerValueField(.mouseEventClickState, value: clickCount)
+                event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
                 // Set pressure so system tools (screencapture, etc.) recognize the click
                 event.setDoubleValueField(.mouseEventPressure, value: 1.0)
                 event.post(tap: .cghidEventTap)
@@ -1005,8 +1034,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // Update hold state
             self.heldMouseButtons.remove(button)
 
-            // Use the same click count as the down event
+            // Use the same click count and event number as the down event
             let clickCount = self.clickCounts[button] ?? 1
+            let eventNumber = self.mouseEventNumber
 
             self.stateLock.unlock()
 
@@ -1017,6 +1047,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseButton: button
             ) {
                 event.setIntegerValueField(.mouseEventClickState, value: clickCount)
+                event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
                 event.setDoubleValueField(.mouseEventPressure, value: 0.0)
                 event.post(tap: .cghidEventTap)
             }

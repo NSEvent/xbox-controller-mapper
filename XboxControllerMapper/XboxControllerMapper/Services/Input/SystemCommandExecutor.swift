@@ -155,10 +155,25 @@ class SystemCommandExecutor: @unchecked Sendable {
         "| /bin/sh",   // pipe to absolute shell path
         "| /bin/bash", // pipe to absolute bash path
         "| /bin/zsh",  // pipe to absolute zsh path
+        "| /usr/bin/sh",   // pipe to /usr/bin shell path
+        "| /usr/bin/bash", // pipe to /usr/bin bash path
+        "| /usr/bin/zsh",  // pipe to /usr/bin zsh path
+        "| perl",      // pipe to perl interpreter
+        "|perl",       // pipe to perl (no space)
+        "| python",    // pipe to python interpreter
+        "|python",     // pipe to python (no space)
+        "| ruby",      // pipe to ruby interpreter
+        "|ruby",       // pipe to ruby (no space)
         "; curl ",     // chained curl (data exfiltration)
         "; wget ",     // chained wget
         "&& curl ",    // conditional curl
         "&& wget ",    // conditional wget
+        "|| curl ",    // fallback curl
+        "|| wget ",    // fallback wget
+        "; /usr/bin/curl ",  // chained absolute curl path
+        "; /usr/bin/wget ",  // chained absolute wget path
+        "&& /usr/bin/curl ", // conditional absolute curl path
+        "&& /usr/bin/wget ", // conditional absolute wget path
     ]
 
     private func executeSilently(_ command: String) {
@@ -192,10 +207,11 @@ class SystemCommandExecutor: @unchecked Sendable {
 
             do {
                 try process.run()
-                process.waitUntilExit()
 
-                // Log stderr output if any
+                // Read stderr pipe BEFORE waitUntilExit to avoid deadlock when
+                // stderr output exceeds the pipe buffer size (~64KB).
                 let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
                 if !stderrData.isEmpty, let stderrString = String(data: stderrData, encoding: .utf8) {
                     NSLog("[SystemCommand] Shell stderr: %@", stderrString.trimmingCharacters(in: .whitespacesAndNewlines))
                 }

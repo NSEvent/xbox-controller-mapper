@@ -46,6 +46,12 @@ class SwipeTypingEngine: ObservableObject {
         /// Minimum interval between samples (~60Hz)
         let sampleInterval: CFAbsoluteTime = 1.0 / 60.0
 
+        /// Execute `body` while holding the lock. The closure receives `self` for
+        /// convenient property access.
+        ///
+        /// **WARNING:** Do NOT store or leak the `LockedStorage` reference outside the
+        /// closure. Accessing it after `withLock` returns will bypass the lock and cause
+        /// data races. Use the reference only for immediate reads/writes within the closure.
         func withLock<T>(_ body: (LockedStorage) -> T) -> T {
             lock.lock()
             defer { lock.unlock() }

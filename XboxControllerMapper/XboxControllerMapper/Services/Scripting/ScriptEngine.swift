@@ -61,16 +61,9 @@ class ScriptEngine {
         self.controllerService = controllerService
         self.inputLogService = inputLogService
 
-        guard let jsContext = JSContext() else {
-            NSLog("[ScriptEngine] CRITICAL: Failed to create JSContext - scripts will not execute")
-            self.context = JSContext() ?? {
-                // Last resort: create a minimal context. JSContext() failing is extremely rare
-                // (only under severe memory pressure). Log and proceed with a fresh attempt.
-                fatalError("JSContext allocation failed twice - system is out of memory")
-            }()
-            return
-        }
-        self.context = jsContext
+        // JSContext() virtually never fails (only under extreme memory pressure).
+        // Force-unwrap is appropriate here — there's no meaningful recovery path.
+        self.context = JSContext()!
         installAPI()
     }
 
@@ -360,22 +353,34 @@ class ScriptEngine {
             do {
                 try process.run()
 
-                // Timeout for shell commands
-                let group = DispatchGroup()
-                group.enter()
+                // Read pipe data concurrently on background threads to avoid deadlock.
+                // If the process writes >64KB to a pipe, readDataToEndOfFile() will block
+                // until the pipe buffer is drained. Reading before waitUntilExit() prevents
+                // a deadlock where the process blocks writing and we block waiting for exit.
+                var stdoutData = Data()
+                var stderrData = Data()
+                let readGroup = DispatchGroup()
+
+                readGroup.enter()
                 DispatchQueue.global().async {
-                    process.waitUntilExit()
-                    group.leave()
+                    stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                    readGroup.leave()
                 }
-                let result = group.wait(timeout: .now() + .seconds(Int(Config.shellCommandTimeoutSeconds)))
-                if result == .timedOut {
+                readGroup.enter()
+                DispatchQueue.global().async {
+                    stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                    readGroup.leave()
+                }
+
+                // Timeout: wait for reads + process exit
+                let timeoutResult = readGroup.wait(timeout: .now() + .seconds(Int(Config.shellCommandTimeoutSeconds)))
+                if timeoutResult == .timedOut {
                     process.terminate()
                     self.logMessage("[Script Shell] Timed out: \(command)")
                     return "(shell command timed out)"
                 }
 
-                let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-                let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
 
                 // Combine stdout and stderr (stdout first, stderr appended)
                 var combinedData = stdoutData
@@ -413,9 +418,12 @@ class ScriptEngine {
 
                 do {
                     try process.run()
+
+                    // Read pipe data BEFORE waitUntilExit to avoid deadlock when
+                    // process output exceeds the pipe buffer size (~64KB).
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
                     process.waitUntilExit()
 
-                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
                     let output = String(data: data.prefix(10240), encoding: .utf8) ?? ""
                     let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
 
