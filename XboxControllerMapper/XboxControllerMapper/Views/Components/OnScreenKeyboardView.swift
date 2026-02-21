@@ -166,17 +166,6 @@ struct OnScreenKeyboardView: View {
                     .padding(.horizontal, 8)
             }
 
-            // Swipe prediction bar (shown after swipe completes)
-            if swipeEngine.state == .showingPredictions {
-                SwipePredictionBarView(
-                    predictions: swipeEngine.predictions,
-                    selectedIndex: swipeEngine.selectedPredictionIndex,
-                    onSelect: { index in
-                        swipeEngine.selectedPredictionIndex = index
-                    }
-                )
-            }
-
             // Media controls row (Playback, Volume, Brightness)
             mediaControlsRow
                 .padding(.horizontal, 12)
@@ -228,25 +217,39 @@ struct OnScreenKeyboardView: View {
             )
             .padding(.horizontal, 12)
 
-            // Controller Hint Footer (centered relative to main keyboard, not nav column)
-            HStack(spacing: 8) {
-                ButtonIconView(button: .rightThumbstick, isPressed: false, isDualSense: false, showDirectionalArrows: true)
-                    .frame(width: 32, height: 32)
+            // Footer: Swipe predictions (when available) or Command Wheel hint
+            // Fixed height so swapping content doesn't shift the keyboard.
+            Group {
+                if swipeEngine.state == .showingPredictions {
+                    SwipePredictionBarView(
+                        predictions: swipeEngine.predictions,
+                        selectedIndex: swipeEngine.selectedPredictionIndex,
+                        onSelect: { index in
+                            swipeEngine.selectedPredictionIndex = index
+                        }
+                    )
+                } else {
+                    HStack(spacing: 8) {
+                        ButtonIconView(button: .rightThumbstick, isPressed: false, isDualSense: false, showDirectionalArrows: true)
+                            .frame(width: 32, height: 32)
 
-                Text("Command Wheel")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.secondary)
+                        Text("Command Wheel")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.black.opacity(0.3))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.trailing, 50) // Offset to account for navigation column width
+                }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.black.opacity(0.3))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.trailing, 50) // Offset to account for navigation column width
+            .frame(height: 44)
             .padding(.top, 4)
         }
         .padding(24)
