@@ -113,6 +113,9 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     // MARK: - Open Link
 
+    /// Allowed URL schemes for openLink. Only http and https are permitted.
+    private static let allowedLinkSchemes: Set<String> = ["http", "https"]
+
     private func openLink(_ urlString: String) {
         DispatchQueue.main.async {
             // Try to create URL, prepending https:// if no scheme is provided
@@ -120,27 +123,89 @@ class SystemCommandExecutor: @unchecked Sendable {
             if !resolved.contains("://") {
                 resolved = "https://" + resolved
             }
-            if let url = URL(string: resolved) {
-                self.urlOpener(url)
-            } else {
-                NSLog("[SystemCommand] Invalid URL: \(urlString)")
+            guard let url = URL(string: resolved) else {
+                NSLog("[SystemCommand] Invalid URL: %@", urlString)
+                return
             }
+
+            // Security: Only allow http/https schemes
+            guard let scheme = url.scheme?.lowercased(), Self.allowedLinkSchemes.contains(scheme) else {
+                NSLog("[SystemCommand] Blocked non-HTTP URL scheme in openLink: %@", urlString)
+                return
+            }
+
+            self.urlOpener(url)
         }
     }
 
     // MARK: - Shell Command (Silent)
 
+    /// Patterns that indicate potentially dangerous shell command injection.
+    /// These are blocked to prevent config-based attacks where a malicious config
+    /// could exfiltrate data or download/execute arbitrary code.
+    private static let dangerousShellPatterns: [String] = [
+        "`",           // backtick command substitution
+        "$(",          // $() command substitution
+        "| sh",        // pipe to shell
+        "| bash",      // pipe to bash
+        "| zsh",       // pipe to zsh
+        "|sh",         // pipe to shell (no space)
+        "|bash",       // pipe to bash (no space)
+        "|zsh",        // pipe to zsh (no space)
+        "| /bin/sh",   // pipe to absolute shell path
+        "| /bin/bash", // pipe to absolute bash path
+        "| /bin/zsh",  // pipe to absolute zsh path
+        "; curl ",     // chained curl (data exfiltration)
+        "; wget ",     // chained wget
+        "&& curl ",    // conditional curl
+        "&& wget ",    // conditional wget
+    ]
+
     private func executeSilently(_ command: String) {
+        // Validate: reject empty commands
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            NSLog("[SystemCommand] Shell command rejected: empty command")
+            return
+        }
+
+        // Validate: reject commands containing dangerous injection patterns
+        let lowercased = trimmed.lowercased()
+        for pattern in Self.dangerousShellPatterns {
+            if lowercased.contains(pattern) {
+                NSLog("[SystemCommand] Shell command rejected — dangerous pattern detected: %@", command)
+                return
+            }
+        }
+
+        NSLog("[SystemCommand] Executing shell command: %@", command)
+
         executionQueue.async {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/sh")
             process.arguments = ["-c", command]
             process.standardOutput = FileHandle.nullDevice
-            process.standardError = FileHandle.nullDevice
+
+            // Capture stderr for logging instead of silencing it
+            let stderrPipe = Pipe()
+            process.standardError = stderrPipe
+
             do {
                 try process.run()
+                process.waitUntilExit()
+
+                // Log stderr output if any
+                let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                if !stderrData.isEmpty, let stderrString = String(data: stderrData, encoding: .utf8) {
+                    NSLog("[SystemCommand] Shell stderr: %@", stderrString.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+
+                let status = process.terminationStatus
+                if status != 0 {
+                    NSLog("[SystemCommand] Shell command exited with status %d: %@", status, command)
+                }
             } catch {
-                NSLog("[SystemCommand] Shell command failed: \(error.localizedDescription)")
+                NSLog("[SystemCommand] Shell command failed to launch: %@", error.localizedDescription)
             }
         }
     }
