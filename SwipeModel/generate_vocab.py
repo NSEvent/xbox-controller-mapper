@@ -84,6 +84,168 @@ def generate_builtin():
     return vocab[:50000]
 
 
+def get_computing_words():
+    """Computing-environment words with boosted frequencies.
+
+    These cover common macOS app names, shell commands, directory names,
+    programming terms, and other words a user is likely to type in a
+    computing context.  Frequencies are set high enough to beat obscure
+    dictionary words but below the most common English words.
+    """
+    # (word, frequency) — only lowercase alpha, 2-12 chars
+    FREQ_HIGH = 10000   # very common computing terms
+    FREQ_MED = 7000     # common tools / dirs / concepts
+    FREQ_LOW = 4000     # less common but still relevant
+
+    words = {}
+
+    # ── Shell / CLI commands ──
+    for w in [
+        "ls", "cd", "cp", "mv", "rm", "cat", "grep", "find", "sudo",
+        "ssh", "scp", "git", "make", "pip", "npm", "brew", "curl",
+        "wget", "tar", "zip", "unzip", "chmod", "chown", "kill",
+        "echo", "exit", "pwd", "mkdir", "rmdir", "touch", "diff",
+        "sed", "awk", "top", "ps", "df", "du", "man", "which",
+        "alias", "export", "source", "eval", "exec", "xargs",
+        "sort", "head", "tail", "less", "more", "wc", "tee",
+        "ping", "dig", "nmap", "rsync", "tmux", "screen",
+        "docker", "python", "ruby", "node", "swift", "cargo",
+        "rustc", "clang", "gcc", "java", "perl", "bash", "zsh",
+        "fish", "vim", "nano", "emacs",
+    ]:
+        if w.isalpha() and 2 <= len(w) <= 12:
+            words[w] = FREQ_HIGH
+
+    # ── macOS app names (single lowercase words) ──
+    for w in [
+        "finder", "safari", "chrome", "firefox", "slack", "discord",
+        "spotify", "music", "photos", "pages", "numbers", "keynote",
+        "xcode", "terminal", "preview", "calendar", "messages",
+        "notes", "reminders", "maps", "mail", "weather", "clock",
+        "news", "stocks", "podcasts", "books", "facetime",
+        "settings", "figma", "sketch", "notion", "obsidian",
+        "linear", "zoom", "teams", "cursor", "warp", "iterm",
+        "sublime", "vscode", "steam", "blender", "unity",
+        "docker", "postman", "insomnia", "raycast", "alfred",
+    ]:
+        if w.isalpha() and 2 <= len(w) <= 12:
+            words.setdefault(w, FREQ_MED)
+
+    # ── Common directories / paths ──
+    for w in [
+        "home", "desktop", "documents", "downloads", "pictures",
+        "videos", "library", "applications", "usr", "bin", "etc",
+        "var", "tmp", "opt", "src", "lib", "config", "cache",
+        "local", "share", "logs", "data", "backup", "public",
+        "private", "dev", "build", "dist", "node", "vendor",
+        "assets", "static", "templates", "scripts", "tests",
+        "docs", "tools", "packages", "modules",
+    ]:
+        if w.isalpha() and 2 <= len(w) <= 12:
+            words.setdefault(w, FREQ_MED)
+
+    # ── Programming / tech terms ──
+    for w in [
+        "api", "url", "http", "https", "html", "css", "json",
+        "yaml", "xml", "sql", "tcp", "udp", "dns", "ssh",
+        "ftp", "cli", "gui", "ide", "sdk", "jwt", "oauth",
+        "async", "await", "fetch", "push", "pull", "merge",
+        "commit", "branch", "deploy", "debug", "build", "test",
+        "lint", "format", "compile", "runtime", "server", "client",
+        "proxy", "cache", "queue", "stack", "heap", "thread",
+        "mutex", "token", "hash", "crypt", "auth", "admin",
+        "root", "user", "host", "port", "route", "query",
+        "param", "args", "flag", "env", "stdin", "stdout",
+        "stderr", "pipe", "fork", "exec", "daemon", "cron",
+        "log", "trace", "error", "warn", "info", "fatal",
+        "null", "void", "bool", "int", "float", "string",
+        "array", "dict", "list", "map", "set", "enum", "struct",
+        "class", "func", "init", "self", "super", "import",
+        "export", "return", "yield", "break", "switch", "case",
+        "default", "throw", "catch", "try", "defer", "guard",
+        "static", "const", "let", "var", "type", "protocol",
+        "interface", "abstract", "virtual", "override", "public",
+        "private", "internal", "module", "package", "crate",
+        "lambda", "closure", "callback", "promise", "stream",
+        "buffer", "socket", "request", "response", "header",
+        "cookie", "session", "webhook", "endpoint", "schema",
+        "migration", "container", "cluster", "pod", "volume",
+        "image", "network", "firewall", "gateway", "load",
+        "balancer", "replica", "shard", "index", "table",
+        "column", "row", "key", "value", "node", "edge",
+        "graph", "tree", "queue", "deque", "vector", "tuple",
+        "regex", "glob", "path", "file", "folder", "link",
+        "symlink", "mount", "swap", "kernel", "shell", "reboot",
+        "update", "upgrade", "install", "remove", "purge",
+        "config", "setup", "init", "reset", "status", "version",
+        "release", "tag", "issue", "review", "approve", "block",
+        "merge", "rebase", "stash", "clone", "fetch", "remote",
+        "origin", "upstream", "master", "main", "develop",
+        "feature", "hotfix", "patch", "minor", "major",
+        "frontend", "backend", "devops", "cloud", "saas",
+        "micro", "macro", "plugin", "addon", "widget",
+        "modal", "popup", "toast", "badge", "icon", "avatar",
+        "theme", "layout", "grid", "flex", "margin", "padding",
+        "border", "shadow", "opacity", "gradient", "font",
+        "color", "style", "hover", "focus", "active", "toggle",
+        "scroll", "drag", "drop", "resize", "animate",
+        "render", "mount", "unmount", "props", "state",
+        "redux", "store", "action", "reducer", "dispatch",
+        "context", "provider", "consumer", "hook", "effect",
+        "memo", "ref", "portal", "slot", "emit", "bind",
+        "model", "view", "scope", "inject", "resolve",
+        "singleton", "factory", "observer", "adapter", "proxy",
+        "iterator", "generator", "decorator", "middleware",
+        "handler", "listener", "emitter", "parser", "lexer",
+        "compiler", "linker", "loader", "bundler", "minify",
+        "uglify", "polyfill", "shim", "vendor", "chunk",
+        "lazy", "eager", "batch", "bulk", "atomic", "idempotent",
+        "webhook", "payload", "serialize", "encode", "decode",
+        "encrypt", "decrypt", "sign", "verify", "validate",
+        "sanitize", "escape", "throttle", "debounce", "retry",
+        "timeout", "interval", "poll", "watch", "notify",
+        "subscribe", "publish", "broadcast", "multicast",
+        "localhost", "loopback", "subnet", "domain", "record",
+        "alias", "cname", "proxy", "tunnel", "bridge",
+        "swipe", "cursor", "mouse", "keyboard", "controller",
+        "gamepad", "joystick", "button", "trigger", "bumper",
+        "haptic", "vibrate", "rumble", "profile", "mapping",
+        "binding", "shortcut", "hotkey", "macro", "script",
+        "automate", "workflow", "pipeline", "task", "job",
+        "process", "service", "worker", "agent", "bot",
+        "prompt", "chat", "message", "reply", "send",
+        "receive", "inbox", "outbox", "draft", "archive",
+        "trash", "spam", "filter", "label", "tag",
+        "search", "index", "rank", "score", "match",
+        "suggest", "complete", "predict", "infer",
+    ]:
+        if w.isalpha() and 2 <= len(w) <= 12:
+            words.setdefault(w, FREQ_LOW)
+
+    return words
+
+
+def get_installed_app_names():
+    """Scan /Applications for single-word app names on the current machine."""
+    import subprocess
+    words = {}
+    try:
+        result = subprocess.run(
+            ["ls", "/Applications"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for name in result.stdout.splitlines():
+            # Strip .app suffix
+            app = name.replace(".app", "").strip()
+            # Only single-word, alpha-only names
+            w = app.lower()
+            if w.isalpha() and 2 <= len(w) <= 12:
+                words[w] = 7000
+    except Exception:
+        pass
+    return words
+
+
 def main():
     print("Generating vocabulary...")
 
@@ -91,6 +253,28 @@ def main():
     if vocab is None:
         print("NLTK not available, using system dictionary...")
         vocab = generate_builtin()
+
+    # Merge computing words — boost existing or add new entries
+    vocab_dict = {w: f for w, f in vocab}
+    computing = get_computing_words()
+    installed = get_installed_app_names()
+
+    for source_name, source in [("computing", computing), ("installed apps", installed)]:
+        added = 0
+        boosted = 0
+        for w, freq in source.items():
+            old = vocab_dict.get(w, 0)
+            if freq > old:
+                vocab_dict[w] = freq
+                if old > 0:
+                    boosted += 1
+                else:
+                    added += 1
+        print(f"  {source_name}: {added} added, {boosted} boosted")
+
+    # Re-sort and cap at 50000
+    scored = sorted(vocab_dict.items(), key=lambda x: (-x[1], x[0]))
+    vocab = scored[:50000]
 
     output_path = os.path.join(os.path.dirname(__file__), "vocab.txt")
     with open(output_path, "w") as f:
