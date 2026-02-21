@@ -178,7 +178,7 @@ struct ScriptEditorSheet: View {
         )
 
         let testScript = Script(name: name, source: source)
-        let trigger = ScriptTrigger(button: .a, pressType: "press")
+        let trigger = ScriptTrigger(button: .a, pressType: .press)
         let (result, logs) = engine.executeTest(script: testScript, trigger: trigger)
 
         var output = logs.joined(separator: "\n")

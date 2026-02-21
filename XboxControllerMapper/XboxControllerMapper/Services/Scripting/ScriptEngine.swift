@@ -68,7 +68,7 @@ class ScriptEngine {
         // Set up trigger context
         var triggerObj: [String: Any] = [
             "button": trigger.button.rawValue,
-            "pressType": trigger.pressType,
+            "pressType": trigger.pressType.rawValue,
         ]
         if let holdDuration = trigger.holdDuration {
             triggerObj["holdDuration"] = holdDuration
