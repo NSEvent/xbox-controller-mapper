@@ -323,7 +323,7 @@ class SwipeTypingEngine: ObservableObject {
     /// Update cursor position from touchpad delta values.
     /// Called from the controller polling thread.
     nonisolated func updateCursorFromTouchpadDelta(dx: Double, dy: Double, sensitivity: Double) {
-        let scale = sensitivity * 1.2  // Touchpad deltas are small, need large scale to traverse full key area
+        let scale = sensitivity * 2.0  // Touchpad deltas are small, need large scale to traverse full key area
         stateLock.lock()
         guard tsState == .active || tsState == .swiping || tsState == .showingPredictions else {
             stateLock.unlock()
