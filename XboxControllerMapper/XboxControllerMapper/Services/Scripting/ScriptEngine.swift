@@ -3,6 +3,31 @@ import JavaScriptCore
 import CoreGraphics
 import AppKit
 
+/// Thread-safe atomic boolean for timeout tracking between the timer (global queue) and
+/// script execution (inputQueue). Replaces the previous UnsafeMutablePointer<Bool> which
+/// had no synchronization and could leak on exceptions.
+private final class AtomicBool {
+    private var _value: Bool
+    private let lock = NSLock()
+
+    init(_ value: Bool) {
+        _value = value
+    }
+
+    var value: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return _value
+        }
+        set {
+            lock.lock()
+            _value = newValue
+            lock.unlock()
+        }
+    }
+}
+
 /// JavaScript scripting engine that executes user-defined scripts triggered by controller input.
 /// Uses JavaScriptCore (built into macOS) for lightweight, sandboxed script execution.
 class ScriptEngine {
@@ -35,7 +60,17 @@ class ScriptEngine {
         self.inputQueue = inputQueue
         self.controllerService = controllerService
         self.inputLogService = inputLogService
-        self.context = JSContext()!
+
+        guard let jsContext = JSContext() else {
+            NSLog("[ScriptEngine] CRITICAL: Failed to create JSContext - scripts will not execute")
+            self.context = JSContext() ?? {
+                // Last resort: create a minimal context. JSContext() failing is extremely rare
+                // (only under severe memory pressure). Log and proceed with a fresh attempt.
+                fatalError("JSContext allocation failed twice - system is out of memory")
+            }()
+            return
+        }
+        self.context = jsContext
         installAPI()
     }
 
@@ -82,13 +117,13 @@ class ScriptEngine {
         context.exception = nil
 
         // Set timeout flag - timer fires on global queue so it can set the flag
-        // while the script blocks inputQueue
-        let timedOut = UnsafeMutablePointer<Bool>.allocate(capacity: 1)
-        timedOut.initialize(to: false)
+        // while the script blocks inputQueue. Uses AtomicBool for thread-safe access
+        // without manual pointer management (no leak risk on exceptions).
+        let timedOut = AtomicBool(false)
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
         timer.schedule(deadline: .now() + .milliseconds(Int(Config.scriptExecutionTimeoutMs)))
         timer.setEventHandler {
-            timedOut.pointee = true
+            timedOut.value = true
         }
         timer.resume()
 
@@ -96,9 +131,7 @@ class ScriptEngine {
         context.evaluateScript(script.source)
 
         timer.cancel()
-        let didTimeout = timedOut.pointee
-        timedOut.deinitialize(count: 1)
-        timedOut.deallocate()
+        let didTimeout = timedOut.value
 
         // Check for errors
         if let exception = context.exception {
@@ -305,24 +338,29 @@ class ScriptEngine {
         }
         context.setObject(clipSet, forKeyedSubscript: "_clipboardSet" as NSString)
 
-        // shell("command") - synchronous, returns stdout
+        // shell("command") - synchronous, returns stdout+stderr
         let shell: @convention(block) (String) -> String = { [weak self] command in
             guard let self else { return "" }
             if self.isTestMode {
                 self.testLogs.append("[shell] \"\(command)\"")
                 return "(test mode - shell not executed)"
             }
+
+            // Log all shell command executions for auditability
+            self.logMessage("[Script Shell] Executing: \(command)")
+
             let process = Process()
-            let pipe = Pipe()
+            let stdoutPipe = Pipe()
+            let stderrPipe = Pipe()
             process.executableURL = URL(fileURLWithPath: "/bin/sh")
             process.arguments = ["-c", command]
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
 
             do {
                 try process.run()
 
-                // 5-second timeout for shell commands
+                // Timeout for shell commands
                 let group = DispatchGroup()
                 group.enter()
                 DispatchQueue.global().async {
@@ -332,13 +370,27 @@ class ScriptEngine {
                 let result = group.wait(timeout: .now() + .seconds(Int(Config.shellCommandTimeoutSeconds)))
                 if result == .timedOut {
                     process.terminate()
+                    self.logMessage("[Script Shell] Timed out: \(command)")
                     return "(shell command timed out)"
                 }
 
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                let output = String(data: data.prefix(10240), encoding: .utf8) ?? "" // 10KB limit
+                let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+
+                // Combine stdout and stderr (stdout first, stderr appended)
+                var combinedData = stdoutData
+                if !stderrData.isEmpty {
+                    combinedData.append(stderrData)
+                }
+
+                let output = String(data: combinedData.prefix(10240), encoding: .utf8) ?? "" // 10KB limit
+                let exitCode = process.terminationStatus
+                if exitCode != 0 {
+                    self.logMessage("[Script Shell] Exit code \(exitCode): \(command)")
+                }
                 return output.trimmingCharacters(in: .whitespacesAndNewlines)
             } catch {
+                self.logMessage("[Script Shell] Failed to launch: \(command) - \(error.localizedDescription)")
                 return ""
             }
         }
