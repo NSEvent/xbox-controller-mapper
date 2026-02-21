@@ -295,8 +295,7 @@ class SwipeTypingEngine: ObservableObject {
         var pos = tsCursorPosition
         pos.x += CGFloat(x * scale)
         pos.y += CGFloat(y * scale)
-        pos.x = min(max(pos.x, 0), 1)
-        pos.y = min(max(pos.y, 0), 1)
+        // No clamping — allow swiping freely beyond the keyboard letter area
         tsCursorPosition = pos
 
         if tsState == .swiping {
@@ -332,8 +331,7 @@ class SwipeTypingEngine: ObservableObject {
         var pos = tsCursorPosition
         pos.x += CGFloat(dx * scale)
         pos.y += CGFloat(dy * scale)
-        pos.x = min(max(pos.x, 0), 1)
-        pos.y = min(max(pos.y, 0), 1)
+        // No clamping — allow swiping freely beyond the keyboard letter area
         tsCursorPosition = pos
 
         if tsState == .swiping {
