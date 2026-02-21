@@ -348,6 +348,7 @@ struct StatsView: View {
             ForEach(top, id: \.button) { item in
                 HStack(spacing: 12) {
                     ButtonIconView(button: item.button, isDualSense: isDualSense)
+                        .frame(width: ButtonIconView.maxIconWidth)
 
                     Text(item.button.displayName(forDualSense: isDualSense))
                         .font(.system(size: 13, weight: .medium))

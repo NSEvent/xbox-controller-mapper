@@ -71,7 +71,15 @@ struct ButtonIconView: View {
     }
     
     // MARK: - Shapes & Metrics
-    
+
+    /// Maximum icon width across all button types (excluding directional arrows mode).
+    /// Used by stats view to create a fixed-width column so bars align.
+    static var maxIconWidth: CGFloat {
+        ControllerButton.allCases
+            .map { ButtonIconView(button: $0).width }
+            .max() ?? 48
+    }
+
     private var baseShape: GroupShape {
         GroupShape(isCircle: isCircle, cornerRadius: 5) // Slightly rounder corners for 360 vibe
     }
@@ -87,7 +95,7 @@ struct ButtonIconView: View {
         }
     }
 
-    private var width: CGFloat {
+    var width: CGFloat {
         // Directional stick icons need more room
         if showDirectionalArrows { return 36 }
         // Mic mute and single touchpad tap use same width as special buttons (circular)
