@@ -144,6 +144,13 @@ class MockInputSimulator: InputSimulatorProtocol {
         _events.append(.moveMouse(CGFloat(dx), CGFloat(dy)))
     }
 
+    private(set) var lastWarpPoint: CGPoint?
+    func warpMouseTo(point: CGPoint) {
+        lock.lock()
+        defer { lock.unlock() }
+        lastWarpPoint = point
+    }
+
     func scroll(
         dx: CGFloat,
         dy: CGFloat,

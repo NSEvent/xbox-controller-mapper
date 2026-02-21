@@ -1441,8 +1441,22 @@ class MappingEngine: ObservableObject {
                     state.swipeClickReleaseFrames += 1
                     if state.swipeClickReleaseFrames >= 3 {
                         // Confirmed release → end word, run inference
+                        // Read swipe cursor position BEFORE endSwipe for cursor warp
+                        let swipeCursorPos = SwipeTypingEngine.shared.threadSafeCursorPosition
                         SwipeTypingEngine.shared.endSwipe()
                         state.swipeClickReleaseFrames = 0
+                        // Warp real macOS cursor to where the swipe cursor ended
+                        // so the user can continue from that position
+                        let letterArea = OnScreenKeyboardManager.shared.threadSafeLetterAreaScreenRect
+                        if letterArea.width > 0 && letterArea.height > 0 {
+                            let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
+                            // Reverse normalized → Cocoa: cocoaX = norm.x * width + origin.x
+                            let cocoaX = swipeCursorPos.x * letterArea.width + letterArea.origin.x
+                            let cocoaY = (1.0 - swipeCursorPos.y) * letterArea.height + letterArea.origin.y
+                            // Cocoa → Quartz: quartzY = screenHeight - cocoaY
+                            let quartzY = screenHeight - cocoaY
+                            inputSimulator.warpMouseTo(point: CGPoint(x: cocoaX, y: quartzY))
+                        }
                     } else {
                         // Not yet confirmed — keep wasClicking true to avoid ending prematurely
                         // Skip updating wasTouchpadTouching below
@@ -1455,13 +1469,15 @@ class MappingEngine: ObservableObject {
                     state.wasTouchpadTouching = isClicking
                 }
 
-                SwipeTypingEngine.shared.updateCursorFromJoystick(
-                    x: Double(leftStick.x),
-                    y: Double(-leftStick.y),  // Invert Y: stick up = cursor up (lower Y)
-                    sensitivity: state.swipeTypingSensitivity
-                )
-                // Skip normal left stick processing while in swipe mode
-                // Fall through to right stick processing below
+                // Only route joystick to swipe cursor during active swiping (click held).
+                // In .active/.showingPredictions, joystick moves the real macOS cursor.
+                if SwipeTypingEngine.shared.threadSafeState == .swiping {
+                    SwipeTypingEngine.shared.updateCursorFromJoystick(
+                        x: Double(leftStick.x),
+                        y: Double(-leftStick.y),  // Invert Y: stick up = cursor up (lower Y)
+                        sensitivity: state.swipeTypingSensitivity
+                    )
+                }
             }
         } else if state.swipeTypingActive {
             // Keyboard was hidden while in swipe mode — cancel
@@ -1470,7 +1486,10 @@ class MappingEngine: ObservableObject {
             SwipeTypingEngine.shared.deactivateMode()
         }
 
-        guard !state.swipeTypingActive else {
+        // Only block normal left stick processing while actively swiping (click held).
+        // In .active or .showingPredictions, the joystick moves the real macOS cursor.
+        let swipeBlocksLeftStick = state.swipeTypingActive && SwipeTypingEngine.shared.threadSafeState == .swiping
+        guard !swipeBlocksLeftStick else {
             // Skip left stick processing, still process right stick below
             let rightStick = controllerService.threadSafeRightStick
             if state.commandWheelActive {

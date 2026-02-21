@@ -15,6 +15,7 @@ protocol InputSimulatorProtocol: Sendable {
     func getHeldModifiers() -> CGEventFlags
     func moveMouse(dx: CGFloat, dy: CGFloat)
     func moveMouseNative(dx: Int, dy: Int)
+    func warpMouseTo(point: CGPoint)
     var isLeftMouseButtonHeld: Bool { get }
     func scroll(
         dx: CGFloat,
@@ -662,6 +663,23 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
             event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
             event.post(tap: .cghidEventTap)
+        }
+    }
+
+    /// Warps the mouse cursor to an absolute position (Quartz coordinates) and resets tracking.
+    /// Used after swipe typing ends to move the real cursor to where the swipe cursor was.
+    func warpMouseTo(point: CGPoint) {
+        mouseQueue.async { [weak self] in
+            guard let self = self else { return }
+            if let source = CGEventSource(stateID: .combinedSessionState) {
+                source.localEventsSuppressionInterval = 0.0
+            }
+            _ = CGWarpMouseCursorPosition(point)
+            self.stateLock.lock()
+            self.trackedCursorPosition = point
+            self.lastMouseMoveTime = Date()
+            self.lastCursorSyncTime = Date()
+            self.stateLock.unlock()
         }
     }
 

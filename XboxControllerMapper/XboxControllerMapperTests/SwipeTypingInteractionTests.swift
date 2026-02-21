@@ -429,3 +429,156 @@ final class SwipeClickDebounceTests: XCTestCase {
         XCTAssertEqual(state.swipeClickReleaseFrames, 0)
     }
 }
+
+// MARK: - Swipe Cursor Routing Tests
+//
+// Spec: The joystick should control the real macOS cursor except when the user is
+// actively swiping (click held down). Only during .swiping state should input be
+// routed to the swipe cursor. After a swipe gesture ends, the real macOS cursor
+// should warp to where the swipe cursor was last located.
+
+final class SwipeCursorRoutingTests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        SwipeTypingEngine.shared.deactivateMode()
+    }
+
+    override func tearDown() {
+        SwipeTypingEngine.shared.deactivateMode()
+        super.tearDown()
+    }
+
+    // MARK: - updateCursorFromJoystick only works during .swiping
+
+    func testJoystickUpdate_InIdleState_HasNoEffect() {
+        let initialPos = SwipeTypingEngine.shared.threadSafeCursorPosition
+        SwipeTypingEngine.shared.updateCursorFromJoystick(x: 1.0, y: 1.0, sensitivity: 1.0)
+        let afterPos = SwipeTypingEngine.shared.threadSafeCursorPosition
+        XCTAssertEqual(initialPos.x, afterPos.x, accuracy: 0.001)
+        XCTAssertEqual(initialPos.y, afterPos.y, accuracy: 0.001)
+    }
+
+    func testJoystickUpdate_InActiveState_HasNoEffect() {
+        // In .active state, joystick should move the REAL cursor, not the swipe cursor.
+        // The engine should reject joystick updates when not .swiping.
+        SwipeTypingEngine.shared.activateMode()
+        XCTAssertEqual(SwipeTypingEngine.shared.threadSafeState, .active)
+
+        SwipeTypingEngine.shared.setCursorPosition(CGPoint(x: 0.5, y: 0.5))
+        SwipeTypingEngine.shared.updateCursorFromJoystick(x: 1.0, y: 1.0, sensitivity: 1.0)
+
+        let pos = SwipeTypingEngine.shared.threadSafeCursorPosition
+        XCTAssertEqual(pos.x, 0.5, accuracy: 0.001, "Joystick should NOT move swipe cursor in .active state")
+        XCTAssertEqual(pos.y, 0.5, accuracy: 0.001, "Joystick should NOT move swipe cursor in .active state")
+    }
+
+    func testJoystickUpdate_InSwipingState_MovesCursor() {
+        // In .swiping state, joystick should move the swipe cursor
+        SwipeTypingEngine.shared.activateMode()
+        SwipeTypingEngine.shared.setCursorPosition(CGPoint(x: 0.5, y: 0.5))
+        SwipeTypingEngine.shared.beginSwipe()
+        XCTAssertEqual(SwipeTypingEngine.shared.threadSafeState, .swiping)
+
+        SwipeTypingEngine.shared.updateCursorFromJoystick(x: 1.0, y: 0.0, sensitivity: 1.0)
+
+        let pos = SwipeTypingEngine.shared.threadSafeCursorPosition
+        XCTAssertGreaterThan(pos.x, 0.5, "Joystick should move swipe cursor right in .swiping state")
+    }
+
+    // MARK: - updateCursorFromTouchpadDelta only works during .swiping
+
+    func testTouchpadUpdate_InActiveState_HasNoEffect() {
+        SwipeTypingEngine.shared.activateMode()
+        SwipeTypingEngine.shared.setCursorPosition(CGPoint(x: 0.5, y: 0.5))
+
+        SwipeTypingEngine.shared.updateCursorFromTouchpadDelta(dx: 0.1, dy: 0.1, sensitivity: 1.0)
+
+        let pos = SwipeTypingEngine.shared.threadSafeCursorPosition
+        XCTAssertEqual(pos.x, 0.5, accuracy: 0.001, "Touchpad should NOT move swipe cursor in .active state")
+        XCTAssertEqual(pos.y, 0.5, accuracy: 0.001, "Touchpad should NOT move swipe cursor in .active state")
+    }
+
+    func testTouchpadUpdate_InSwipingState_MovesCursor() {
+        SwipeTypingEngine.shared.activateMode()
+        SwipeTypingEngine.shared.setCursorPosition(CGPoint(x: 0.5, y: 0.5))
+        SwipeTypingEngine.shared.beginSwipe()
+
+        SwipeTypingEngine.shared.updateCursorFromTouchpadDelta(dx: 0.1, dy: 0.0, sensitivity: 1.0)
+
+        let pos = SwipeTypingEngine.shared.threadSafeCursorPosition
+        XCTAssertGreaterThan(pos.x, 0.5, "Touchpad should move swipe cursor in .swiping state")
+    }
+
+    // MARK: - Cursor position preserved after endSwipe (for warp-back)
+
+    func testCursorPosition_PreservedAfterEndSwipe() {
+        // After endSwipe, threadSafeCursorPosition should still reflect the last
+        // swipe position. MappingEngine reads this to warp the real cursor.
+        SwipeTypingEngine.shared.activateMode()
+        SwipeTypingEngine.shared.setCursorPosition(CGPoint(x: 0.3, y: 0.7))
+        SwipeTypingEngine.shared.beginSwipe()
+
+        // Move cursor during swipe via joystick updates
+        Thread.sleep(forTimeInterval: 0.02)
+        SwipeTypingEngine.shared.updateCursorFromJoystick(x: 1.0, y: 0.0, sensitivity: 5.0)
+
+        let posBeforeEnd = SwipeTypingEngine.shared.threadSafeCursorPosition
+        XCTAssertGreaterThan(posBeforeEnd.x, 0.3, "Cursor should have moved during swipe")
+
+        // End swipe — state transitions to .predicting
+        SwipeTypingEngine.shared.endSwipe()
+        XCTAssertEqual(SwipeTypingEngine.shared.threadSafeState, .predicting)
+
+        // Cursor position should still be at the swipe end position
+        let posAfterEnd = SwipeTypingEngine.shared.threadSafeCursorPosition
+        XCTAssertEqual(posAfterEnd.x, posBeforeEnd.x, accuracy: 0.001,
+                       "Cursor position must be preserved after endSwipe for warp-back")
+        XCTAssertEqual(posAfterEnd.y, posBeforeEnd.y, accuracy: 0.001,
+                       "Cursor position must be preserved after endSwipe for warp-back")
+    }
+
+    // MARK: - Coordinate conversion round-trip (normalized ↔ screen)
+
+    func testNormalizedToScreenRoundTrip() {
+        // Verify the coordinate conversion math used for warp-back is correct.
+        // Forward: screen → normalized (done at beginSwipe)
+        // Reverse: normalized → screen (done at endSwipe for warp)
+        let letterArea = CGRect(x: 100, y: 200, width: 800, height: 300)
+        let screenHeight: CGFloat = 1080
+
+        // Simulate a Quartz cursor position (y-down from top)
+        let originalQuartzX: CGFloat = 500
+        let originalQuartzY: CGFloat = 600
+
+        // Forward: Quartz → Cocoa → normalized
+        let cocoaX = originalQuartzX
+        let cocoaY = screenHeight - originalQuartzY  // 480
+        let normalizedX = (cocoaX - letterArea.origin.x) / letterArea.width
+        let normalizedY = 1.0 - (cocoaY - letterArea.origin.y) / letterArea.height
+
+        // Reverse: normalized → Cocoa → Quartz
+        let recoveredCocoaX = normalizedX * letterArea.width + letterArea.origin.x
+        let recoveredCocoaY = (1.0 - normalizedY) * letterArea.height + letterArea.origin.y
+        let recoveredQuartzY = screenHeight - recoveredCocoaY
+
+        XCTAssertEqual(recoveredCocoaX, originalQuartzX, accuracy: 0.001)
+        XCTAssertEqual(recoveredQuartzY, originalQuartzY, accuracy: 0.001)
+    }
+
+    func testNormalizedToScreenRoundTrip_EdgeCases() {
+        let letterArea = CGRect(x: 50, y: 100, width: 600, height: 200)
+        let screenHeight: CGFloat = 900
+
+        // Top-left of letter area
+        let topLeftQuartzY = screenHeight - (letterArea.origin.y + letterArea.height)  // 900 - 300 = 600
+
+        let cocoaY_tl = screenHeight - topLeftQuartzY  // 300
+        let normY_tl = 1.0 - (cocoaY_tl - letterArea.origin.y) / letterArea.height  // 1.0 - 200/200 = 0.0
+
+        let recoveredCocoaY_tl = (1.0 - normY_tl) * letterArea.height + letterArea.origin.y
+        let recoveredQuartzY_tl = screenHeight - recoveredCocoaY_tl
+
+        XCTAssertEqual(recoveredQuartzY_tl, topLeftQuartzY, accuracy: 0.001)
+    }
+}

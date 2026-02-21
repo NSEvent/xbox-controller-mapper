@@ -267,7 +267,7 @@ class SwipeTypingEngine: ObservableObject {
     nonisolated func updateCursorFromJoystick(x: Double, y: Double, sensitivity: Double) {
         let scale = sensitivity * 0.02  // per-frame displacement at max deflection
         stateLock.lock()
-        guard tsState == .active || tsState == .swiping || tsState == .showingPredictions else {
+        guard tsState == .swiping else {
             stateLock.unlock()
             return
         }
@@ -277,24 +277,20 @@ class SwipeTypingEngine: ObservableObject {
         // No clamping — allow swiping freely beyond the keyboard letter area
         tsCursorPosition = pos
 
-        if tsState == .swiping {
-            let now = CFAbsoluteTimeGetCurrent()
-            let elapsed = now - _lastSampleTime
-            if elapsed >= sampleInterval {
-                let dt = now - _lastSampleTime
-                _lastSampleTime = now
-                tsSwipePath.append(pos)
-                _samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
-            }
+        let now = CFAbsoluteTimeGetCurrent()
+        let elapsed = now - _lastSampleTime
+        if elapsed >= sampleInterval {
+            let dt = now - _lastSampleTime
+            _lastSampleTime = now
+            tsSwipePath.append(pos)
+            _samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
         }
-        let pathSnapshot = tsState == .swiping ? tsSwipePath : nil
+        let pathSnapshot = tsSwipePath
         stateLock.unlock()
 
         DispatchQueue.main.async { [self] in
             self.cursorPosition = pos
-            if let path = pathSnapshot {
-                self.swipePath = path
-            }
+            self.swipePath = pathSnapshot
         }
     }
 
@@ -312,7 +308,7 @@ class SwipeTypingEngine: ObservableObject {
         _smoothedDy = smoothDy
 
         stateLock.lock()
-        guard tsState == .active || tsState == .swiping || tsState == .showingPredictions else {
+        guard tsState == .swiping else {
             stateLock.unlock()
             return
         }
@@ -322,24 +318,20 @@ class SwipeTypingEngine: ObservableObject {
         // No clamping — allow swiping freely beyond the keyboard letter area
         tsCursorPosition = pos
 
-        if tsState == .swiping {
-            let now = CFAbsoluteTimeGetCurrent()
-            let elapsed = now - _lastSampleTime
-            if elapsed >= sampleInterval {
-                let dt = now - _lastSampleTime
-                _lastSampleTime = now
-                tsSwipePath.append(pos)
-                _samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
-            }
+        let now = CFAbsoluteTimeGetCurrent()
+        let elapsed = now - _lastSampleTime
+        if elapsed >= sampleInterval {
+            let dt = now - _lastSampleTime
+            _lastSampleTime = now
+            tsSwipePath.append(pos)
+            _samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
         }
-        let pathSnapshot = tsState == .swiping ? tsSwipePath : nil
+        let pathSnapshot = tsSwipePath
         stateLock.unlock()
 
         DispatchQueue.main.async { [self] in
             self.cursorPosition = pos
-            if let path = pathSnapshot {
-                self.swipePath = path
-            }
+            self.swipePath = pathSnapshot
         }
     }
 }
