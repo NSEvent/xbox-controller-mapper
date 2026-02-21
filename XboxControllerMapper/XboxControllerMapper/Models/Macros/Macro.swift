@@ -228,13 +228,15 @@ enum MacroStep: Codable, Equatable {
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: PayloadCodingKeys.self)
             try container.encode(url, forKey: .url)
-            // Store password in Keychain, write UUID reference to JSON
+            // Store password in Keychain, write stable key reference to JSON
             if let password = password, !password.isEmpty {
-                let key = UUID().uuidString
+                let key = KeychainService.stableKey(for: "obs-websocket:\(url)")
                 if KeychainService.storePassword(password, key: key) != nil {
                     try container.encode(key, forKey: .password)
                 } else {
-                    NSLog("[Macro] Failed to store OBS password in Keychain")
+                    // Keychain store failed — fall back to plaintext to avoid silent data loss
+                    NSLog("[Macro] Keychain store failed, falling back to plaintext for OBS password")
+                    try container.encode(password, forKey: .password)
                 }
             }
             try container.encode(requestType, forKey: .requestType)

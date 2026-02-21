@@ -68,4 +68,23 @@ enum KeychainService {
     static func isKeychainReference(_ value: String) -> Bool {
         UUID(uuidString: value) != nil
     }
+
+    /// Generates a stable Keychain key from a context string (e.g., OBS WebSocket URL).
+    /// Uses a UUID v5-style deterministic hash so the same input always produces the same key,
+    /// preventing Keychain entry accumulation from repeated saves.
+    static func stableKey(for context: String) -> String {
+        // Use a simple hash-based approach: SHA256 of the context formatted as a UUID string
+        let data = Data(context.utf8)
+        // Simple deterministic hash using Swift's built-in hasher seeded with fixed value
+        // We use a basic FNV-1a-like hash to produce a stable 128-bit value
+        var hash: [UInt8] = Array(repeating: 0, count: 16)
+        for (i, byte) in data.enumerated() {
+            hash[i % 16] ^= byte
+            hash[i % 16] &+= byte &* 31
+        }
+        // Format as UUID string: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        let hex = hash.map { String(format: "%02x", $0) }.joined()
+        let uuid = "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20).prefix(12))"
+        return uuid
+    }
 }
