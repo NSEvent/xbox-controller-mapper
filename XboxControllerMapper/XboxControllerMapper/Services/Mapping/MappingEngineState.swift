@@ -100,6 +100,15 @@ extension MappingEngine {
         var currentMultiplier: Double = 0
         var focusExitTime: TimeInterval = 0
 
+        /// Thread-safe reset: acquires the lock, resets all transient state, and releases the lock.
+        /// Use this when you are NOT already holding the lock.
+        func lockedReset() {
+            lock.lock()
+            defer { lock.unlock() }
+            reset()
+        }
+
+        /// Resets all transient state. Caller MUST already hold `lock`.
         func reset() {
             heldButtons.removeAll()
             activeChordButtons.removeAll()
