@@ -538,6 +538,12 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptSwipePredictionConfirm:
+                controllerService.playHaptic(
+                    intensity: Config.keyboardActionHapticIntensity,
+                    sharpness: Config.keyboardActionHapticSharpness,
+                    duration: Config.keyboardActionHapticDuration,
+                    transient: true
+                )
                 DispatchQueue.main.async {
                     if let word = SwipeTypingEngine.shared.confirmSelection() {
                         OnScreenKeyboardManager.shared.typeSwipedWord(word)
