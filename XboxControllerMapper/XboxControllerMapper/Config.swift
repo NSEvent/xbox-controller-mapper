@@ -334,9 +334,6 @@ struct Config {
     /// Maximum duration for a gesture before it's discarded as too slow (seconds)
     static let gestureMaxDuration: TimeInterval = 1.0
     // MARK: - Gyro Aiming (Focus Mode)
-    /// Minimum rotation rate to register as intentional aiming input (rad/s).
-    /// Filters out hand tremor at rest (~0.1-0.2 rad/s).
-    static let gyroAimingDeadzone: Double = 0.3
     /// Horizontal (roll) axis boost factor to compensate for lower angular velocity
     /// compared to pitch for the same physical effort.
     static let gyroAimingRollBoost: Double = 2.2

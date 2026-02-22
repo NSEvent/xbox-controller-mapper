@@ -38,17 +38,33 @@ struct GesturesTab: View {
                 ))
 
                 if profileManager.activeProfile?.joystickSettings.gyroAimingEnabled == true {
-                    HStack {
-                        Text("Sensitivity")
-                        Slider(value: Binding(
+                    SliderRow(
+                        label: "Sensitivity",
+                        value: Binding(
                             get: { profileManager.activeProfile?.joystickSettings.gyroAimingSensitivity ?? 0.3 },
                             set: { newValue in
                                 guard var settings = profileManager.activeProfile?.joystickSettings else { return }
                                 settings.gyroAimingSensitivity = newValue
                                 profileManager.updateJoystickSettings(settings)
                             }
-                        ), in: 0.0...1.0)
-                    }
+                        ),
+                        range: 0...1.0,
+                        description: "Cursor speed from gyro tilt"
+                    )
+
+                    SliderRow(
+                        label: "Deadzone",
+                        value: Binding(
+                            get: { profileManager.activeProfile?.joystickSettings.gyroAimingDeadzone ?? 0.3 },
+                            set: { newValue in
+                                guard var settings = profileManager.activeProfile?.joystickSettings else { return }
+                                settings.gyroAimingDeadzone = newValue
+                                profileManager.updateJoystickSettings(settings)
+                            }
+                        ),
+                        range: 0...1.0,
+                        description: "Filter hand tremor (rad/s threshold)"
+                    )
                 }
             } header: {
                 Text("Gyro Aiming")

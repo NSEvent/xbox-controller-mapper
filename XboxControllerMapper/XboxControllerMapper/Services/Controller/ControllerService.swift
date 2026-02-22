@@ -117,9 +117,10 @@ final class ControllerStorage: @unchecked Sendable {
     var rollGesture = AxisGestureState()   // steer left/right (rotation rate Z)
     var onMotionGesture: ((MotionGestureType) -> Void)?
 
-    // Raw gyroscope rotation rates for gyro aiming (updated every motion callback)
-    var motionPitchRate: Double = 0  // rotation rate X (rad/s)
-    var motionRollRate: Double = 0   // rotation rate Z (rad/s)
+    // Gyro aiming: accumulated rotation rates between polls (averaged on consume)
+    var motionPitchAccum: Double = 0
+    var motionRollAccum: Double = 0
+    var motionSampleCount: Int = 0
 }
 
 /// Service for managing game controller connection and input
@@ -286,16 +287,18 @@ class ControllerService: ObservableObject {
         return storage.isDualSense || storage.isDualShock
     }
 
-    nonisolated var threadSafeMotionPitchRate: Double {
+    /// Returns the average gyro rotation rates accumulated since the last call, then resets the accumulator.
+    nonisolated func consumeAverageMotionRates() -> (pitch: Double, roll: Double) {
         storage.lock.lock()
         defer { storage.lock.unlock() }
-        return storage.motionPitchRate
-    }
-
-    nonisolated var threadSafeMotionRollRate: Double {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.motionRollRate
+        let count = storage.motionSampleCount
+        guard count > 0 else { return (0, 0) }
+        let pitch = storage.motionPitchAccum / Double(count)
+        let roll = storage.motionRollAccum / Double(count)
+        storage.motionPitchAccum = 0
+        storage.motionRollAccum = 0
+        storage.motionSampleCount = 0
+        return (pitch, roll)
     }
 
     nonisolated var threadSafeIsBluetoothConnection: Bool {

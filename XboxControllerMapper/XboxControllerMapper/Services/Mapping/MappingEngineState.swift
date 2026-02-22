@@ -102,6 +102,10 @@ extension MappingEngine {
         var currentMultiplier: Double = 0
         var focusExitTime: TimeInterval = 0
 
+        // Gyro aiming EMA state
+        var smoothedGyroDx: Double = 0
+        var smoothedGyroDy: Double = 0
+
         /// Thread-safe reset: acquires the lock, resets all transient state, and releases the lock.
         /// Use this when you are NOT already holding the lock.
         func lockedReset() {
@@ -194,6 +198,8 @@ extension MappingEngine {
             wasFocusActive = false
             currentMultiplier = 0
             focusExitTime = 0
+            smoothedGyroDx = 0
+            smoothedGyroDy = 0
         }
     }
 }

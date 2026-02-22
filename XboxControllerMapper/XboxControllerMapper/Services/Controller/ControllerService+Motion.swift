@@ -15,10 +15,11 @@ extension ControllerService {
             let pitch = motion.rotationRate.x
             let roll = motion.rotationRate.z
 
-            // Store raw rates for gyro aiming (read by MappingEngine each poll tick)
+            // Accumulate rates for gyro aiming (averaged by MappingEngine each poll tick)
             self.storage.lock.lock()
-            self.storage.motionPitchRate = pitch
-            self.storage.motionRollRate = roll
+            self.storage.motionPitchAccum += pitch
+            self.storage.motionRollAccum += roll
+            self.storage.motionSampleCount += 1
             self.storage.lock.unlock()
 
             // X axis = pitch (tilt back/forward), Z axis = roll (steer left/right)
@@ -143,5 +144,8 @@ extension ControllerService {
     func resetMotionStateLocked() {
         storage.pitchGesture = ControllerStorage.AxisGestureState()
         storage.rollGesture = ControllerStorage.AxisGestureState()
+        storage.motionPitchAccum = 0
+        storage.motionRollAccum = 0
+        storage.motionSampleCount = 0
     }
 }

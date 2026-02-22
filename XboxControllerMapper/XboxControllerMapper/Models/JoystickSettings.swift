@@ -92,11 +92,14 @@ struct JoystickSettings: Codable, Equatable {
     /// Sensitivity for gyroscope aiming (0.0 - 1.0)
     var gyroAimingSensitivity: Double = 0.3
 
+    /// Deadzone for gyroscope aiming (0.0 - 1.0, rad/s threshold)
+    var gyroAimingDeadzone: Double = 0.3
+
     static let `default` = JoystickSettings()
 
-    /// Converts 0-1 gyro aiming sensitivity to pixel-scale multiplier
+    /// Converts 0-1 gyro aiming sensitivity to pixel-scale multiplier (cubic curve)
     var gyroAimingMultiplier: Double {
-        return 1.0 + gyroAimingSensitivity * 20.0
+        return 1.0 + pow(gyroAimingSensitivity, 3.0) * 20.0
     }
 
     /// Validates settings ranges
@@ -115,7 +118,9 @@ struct JoystickSettings: Codable, Equatable {
                (0.5...5.0).contains(touchpadZoomToPanRatio) &&
                range.contains(scrollAcceleration) &&
                (1.0...4.0).contains(scrollBoostMultiplier) &&
-               range.contains(focusModeSensitivity)
+               range.contains(focusModeSensitivity) &&
+               range.contains(gyroAimingSensitivity) &&
+               range.contains(gyroAimingDeadzone)
     }
 
     /// Converts 0-1 sensitivity to actual multiplier for mouse
@@ -204,6 +209,7 @@ extension JoystickSettings {
         case rightStickMode
         case gyroAimingEnabled
         case gyroAimingSensitivity
+        case gyroAimingDeadzone
     }
 
     init(from decoder: Decoder) throws {
@@ -290,6 +296,11 @@ extension JoystickSettings {
             to: 0.0...1.0,
             fallback: 0.3
         )
+        gyroAimingDeadzone = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .gyroAimingDeadzone) ?? 0.3,
+            to: 0.0...1.0,
+            fallback: 0.3
+        )
     }
 
     func encode(to encoder: Encoder) throws {
@@ -316,5 +327,6 @@ extension JoystickSettings {
         try container.encode(rightStickMode, forKey: .rightStickMode)
         try container.encode(gyroAimingEnabled, forKey: .gyroAimingEnabled)
         try container.encode(gyroAimingSensitivity, forKey: .gyroAimingSensitivity)
+        try container.encode(gyroAimingDeadzone, forKey: .gyroAimingDeadzone)
     }
 }

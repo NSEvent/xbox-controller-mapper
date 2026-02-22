@@ -300,12 +300,11 @@ extension MappingEngine {
         }
 
         if settings.gyroAimingEnabled && isFocusActive && controllerService.threadSafeIsDualSense {
-            let pitchRate = controllerService.threadSafeMotionPitchRate
-            let rollRate = controllerService.threadSafeMotionRollRate
+            let (pitchRate, rollRate) = controllerService.consumeAverageMotionRates()
 
             let absPitch = abs(pitchRate)
             let absRoll = abs(rollRate)
-            let gyroDeadzone = Config.gyroAimingDeadzone
+            let gyroDeadzone = settings.gyroAimingDeadzone
             let mult = settings.gyroAimingMultiplier
 
             var gyroDx: Double = 0
@@ -320,9 +319,17 @@ extension MappingEngine {
                 gyroDy = -adjusted * mult
             }
 
-            if gyroDx != 0 || gyroDy != 0 {
-                inputSimulator.moveMouse(dx: CGFloat(gyroDx), dy: CGFloat(gyroDy))
+            let alpha = 0.4
+            state.smoothedGyroDx += alpha * (gyroDx - state.smoothedGyroDx)
+            state.smoothedGyroDy += alpha * (gyroDy - state.smoothedGyroDy)
+
+            if abs(state.smoothedGyroDx) > 0.01 || abs(state.smoothedGyroDy) > 0.01 {
+                inputSimulator.moveMouse(dx: CGFloat(state.smoothedGyroDx), dy: CGFloat(state.smoothedGyroDy))
             }
+        } else {
+            // Decay smoothed gyro values toward zero when inactive
+            state.smoothedGyroDx *= 0.8
+            state.smoothedGyroDy *= 0.8
         }
 
         let deadzone = settings.mouseDeadzone
