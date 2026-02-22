@@ -256,6 +256,111 @@ final class MouseClickDragTests: XCTestCase {
         await waitForTasks(0.1)
         XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld)
     }
+    // MARK: - Quick Click (Release Within Chord Window)
+
+    func testQuickMouseClick_NotStuck() async throws {
+        // Regression test: pressing and releasing a mouse-click button within the
+        // chord window must produce a matched startHoldMapping + stopHoldMapping pair.
+        // Previously (a166aff), releases fired before presses in processChordOrSinglePress,
+        // which left the mouse button permanently held down.
+        await MainActor.run {
+            let mapping = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick)
+            let profile = Profile(name: "QuickClick", buttonMappings: [.x: mapping])
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // Press and release immediately (both within the chord window)
+        await MainActor.run {
+            controllerService.buttonPressed(.x)
+            controllerService.buttonReleased(.x)
+        }
+
+        // Wait for chord window + processing
+        await waitForTasks(0.2)
+
+        let events = mockInputSimulator.events
+        let holdStarts = events.filter {
+            if case .startHoldMapping(let m) = $0 { return m.keyCode == KeyCodeMapping.mouseLeftClick }
+            return false
+        }
+        let holdStops = events.filter {
+            if case .stopHoldMapping(let m) = $0 { return m.keyCode == KeyCodeMapping.mouseLeftClick }
+            return false
+        }
+
+        XCTAssertEqual(holdStarts.count, 1, "Quick click should produce exactly one startHoldMapping")
+        XCTAssertEqual(holdStops.count, 1, "Quick click should produce exactly one stopHoldMapping")
+        XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld, "Mouse must not be stuck held after quick click")
+
+        // Verify ordering: start before stop
+        let startIdx = events.firstIndex { if case .startHoldMapping = $0 { return true }; return false }
+        let stopIdx = events.firstIndex { if case .stopHoldMapping = $0 { return true }; return false }
+        if let s = startIdx, let e = stopIdx {
+            XCTAssertLessThan(s, e, "startHoldMapping must come before stopHoldMapping")
+        }
+    }
+
+    func testQuickMouseRightClick_NotStuck() async throws {
+        // Same regression test but for right click
+        await MainActor.run {
+            let mapping = KeyMapping(keyCode: KeyCodeMapping.mouseRightClick)
+            let profile = Profile(name: "QuickRightClick", buttonMappings: [.y: mapping])
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.y)
+            controllerService.buttonReleased(.y)
+        }
+        await waitForTasks(0.2)
+
+        let events = mockInputSimulator.events
+        let holdStarts = events.filter {
+            if case .startHoldMapping(let m) = $0 { return m.keyCode == KeyCodeMapping.mouseRightClick }
+            return false
+        }
+        let holdStops = events.filter {
+            if case .stopHoldMapping(let m) = $0 { return m.keyCode == KeyCodeMapping.mouseRightClick }
+            return false
+        }
+
+        XCTAssertEqual(holdStarts.count, 1, "Quick right click should produce exactly one startHoldMapping")
+        XCTAssertEqual(holdStops.count, 1, "Quick right click should produce exactly one stopHoldMapping")
+    }
+
+    func testRapidQuickClicks_NoneStuck() async throws {
+        // Rapidly clicking multiple times should never leave the mouse stuck
+        await MainActor.run {
+            let mapping = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick)
+            let profile = Profile(name: "RapidClicks", buttonMappings: [.x: mapping])
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        for _ in 0..<5 {
+            await MainActor.run {
+                controllerService.buttonPressed(.x)
+                controllerService.buttonReleased(.x)
+            }
+            await waitForTasks(0.15)
+        }
+
+        let events = mockInputSimulator.events
+        let holdStarts = events.filter {
+            if case .startHoldMapping(let m) = $0 { return m.keyCode == KeyCodeMapping.mouseLeftClick }
+            return false
+        }
+        let holdStops = events.filter {
+            if case .stopHoldMapping(let m) = $0 { return m.keyCode == KeyCodeMapping.mouseLeftClick }
+            return false
+        }
+
+        XCTAssertEqual(holdStarts.count, holdStops.count,
+                       "Every startHoldMapping must have a matching stopHoldMapping (got \(holdStarts.count) starts, \(holdStops.count) stops)")
+        XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld, "Mouse must not be stuck held after rapid clicks")
+    }
 }
 
 // MARK: - ButtonInteractionFlowPolicy Mouse Tests

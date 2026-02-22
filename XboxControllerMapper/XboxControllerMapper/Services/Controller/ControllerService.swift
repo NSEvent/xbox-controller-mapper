@@ -897,21 +897,23 @@ class ControllerService: ObservableObject {
 
         storage.lock.unlock()
 
-        // Deliver pending releases BEFORE chord/press callbacks.
-        // Buttons in `releases` were already physically released during the chord window.
-        // Processing releases first ensures the MappingEngine cleans up held state
-        // before the chord/press action fires (which may trigger a profile switch
-        // that reassigns callbacks, preventing stale release callbacks).
-        for button in captured {
-            if let duration = releases[button] {
-                releaseCallback?(button, duration)
-            }
-        }
-
+        // Deliver chord/press callbacks FIRST, then pending releases.
+        // The press callback may start a hold mapping (e.g. mouseDown for
+        // mouse-click buttons). If the button was already released during
+        // the chord window, the subsequent release callback will stop the
+        // hold (mouseUp), completing a proper click. Reversing this order
+        // causes the release to fire before any hold state exists, leaving
+        // hold-path buttons (mouse clicks) permanently stuck down.
         if captured.count >= 2 {
             chordCallback?(captured)
         } else if let button = captured.first {
             pressCallback?(button)
+        }
+
+        for button in captured {
+            if let duration = releases[button] {
+                releaseCallback?(button, duration)
+            }
         }
     }
 
