@@ -891,16 +891,21 @@ class ControllerService: ObservableObject {
 
         storage.lock.unlock()
 
-        if captured.count >= 2 {
-            chordCallback?(captured)
-        } else if let button = captured.first {
-            pressCallback?(button)
-        }
-
+        // Deliver pending releases BEFORE chord/press callbacks.
+        // Buttons in `releases` were already physically released during the chord window.
+        // Processing releases first ensures the MappingEngine cleans up held state
+        // before the chord/press action fires (which may trigger a profile switch
+        // that reassigns callbacks, preventing stale release callbacks).
         for button in captured {
             if let duration = releases[button] {
                 releaseCallback?(button, duration)
             }
+        }
+
+        if captured.count >= 2 {
+            chordCallback?(captured)
+        } else if let button = captured.first {
+            pressCallback?(button)
         }
     }
 
