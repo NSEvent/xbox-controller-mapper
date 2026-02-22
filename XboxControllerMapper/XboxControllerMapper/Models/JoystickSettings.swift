@@ -96,7 +96,7 @@ struct JoystickSettings: Codable, Equatable {
 
     /// Converts 0-1 gyro aiming sensitivity to pixel-scale multiplier
     var gyroAimingMultiplier: Double {
-        return 1.0 + gyroAimingSensitivity * 15.0
+        return 1.0 + gyroAimingSensitivity * 20.0
     }
 
     /// Validates settings ranges
