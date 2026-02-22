@@ -3,6 +3,7 @@ import SwiftUI
 struct ScriptEditorSheet: View {
     let script: Script?
     var prefilledExample: ScriptExample?
+    var onSave: ((Script) -> Void)?
 
     @EnvironmentObject var profileManager: ProfileManager
     @Environment(\.dismiss) private var dismiss
@@ -158,6 +159,7 @@ struct ScriptEditorSheet: View {
             existing.description = scriptDescription.isEmpty ? nil : scriptDescription
             existing.modifiedAt = Date()
             profileManager.updateScript(existing)
+            onSave?(existing)
         } else {
             let newScript = Script(
                 name: trimmedName,
@@ -165,6 +167,7 @@ struct ScriptEditorSheet: View {
                 description: scriptDescription.isEmpty ? nil : scriptDescription
             )
             profileManager.addScript(newScript)
+            onSave?(newScript)
         }
 
         dismiss()

@@ -57,6 +57,7 @@ struct SequenceMappingSheet: View {
     @State private var showingAppPicker = false
     @State private var showingBookmarkPicker = false
     @State private var showingMacroCreation = false
+    @State private var showingScriptCreation = false
 
     enum MappingType: Int {
         case singleKey = 0
@@ -294,15 +295,21 @@ struct SequenceMappingSheet: View {
                             }
                             .labelsHidden()
                             .frame(maxWidth: .infinity)
+
+                            Button { showingScriptCreation = true } label: {
+                                Label("Create New Script...", systemImage: "plus.circle")
+                                    .font(.subheadline)
+                            }
                         } else {
                             VStack(spacing: 8) {
                                 Text("No scripts defined in this profile.")
                                     .foregroundColor(.secondary)
                                     .italic()
 
-                                Text("Go to the Scripts tab to create a new script.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                Button { showingScriptCreation = true } label: {
+                                    Label("Create New Script...", systemImage: "plus.circle")
+                                        .font(.subheadline)
+                                }
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -370,6 +377,11 @@ struct SequenceMappingSheet: View {
         .sheet(isPresented: $showingMacroCreation) {
             MacroEditorSheet(macro: nil, onSave: { newMacro in
                 selectedMacroId = newMacro.id
+            })
+        }
+        .sheet(isPresented: $showingScriptCreation) {
+            ScriptEditorSheet(script: nil, onSave: { newScript in
+                selectedScriptId = newScript.id
             })
         }
     }

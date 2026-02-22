@@ -78,6 +78,7 @@ struct ButtonMappingSheet: View {
     @State private var showingMacroCreation = false
     @State private var showingLongHoldMacroCreation = false
     @State private var showingDoubleTapMacroCreation = false
+    @State private var showingScriptCreation = false
 
     // Long hold type support
     @State private var longHoldMappingType: MappingType = .singleKey
@@ -267,6 +268,11 @@ struct ButtonMappingSheet: View {
         .sheet(isPresented: $showingDoubleTapMacroCreation) {
             MacroEditorSheet(macro: nil, onSave: { newMacro in
                 doubleTapMacroId = newMacro.id
+            })
+        }
+        .sheet(isPresented: $showingScriptCreation) {
+            ScriptEditorSheet(script: nil, onSave: { newScript in
+                selectedScriptId = newScript.id
             })
         }
     }
@@ -493,6 +499,11 @@ struct ButtonMappingSheet: View {
                         .labelsHidden()
                         .frame(maxWidth: .infinity)
 
+                        Button { showingScriptCreation = true } label: {
+                            Label("Create New Script...", systemImage: "plus.circle")
+                                .font(.subheadline)
+                        }
+
                         // Hint field for scripts
                         HStack {
                             Text("Hint:")
@@ -509,9 +520,10 @@ struct ButtonMappingSheet: View {
                                 .foregroundColor(.secondary)
                                 .italic()
 
-                            Text("Go to the Scripts tab to create a new script.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Button { showingScriptCreation = true } label: {
+                                Label("Create New Script...", systemImage: "plus.circle")
+                                    .font(.subheadline)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
