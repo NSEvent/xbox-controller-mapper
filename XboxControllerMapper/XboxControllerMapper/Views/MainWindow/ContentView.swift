@@ -22,13 +22,33 @@ struct ContentView: View {
     @State private var selectedLayerId: UUID? = nil // nil = base layer
     @State private var showingAddLayerSheet = false
     @State private var editingLayerId: UUID? = nil
-    @State private var actionFeedbackEnabled: Bool = ActionFeedbackIndicator.isEnabled
-    @State private var streamOverlayEnabled: Bool = StreamOverlayManager.isEnabled
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
     @State private var showingGestureSheet = false
     @State private var editingGestureType: MotionGestureType?
     @State private var scrollKeyMonitor: Any?
+    private var actionFeedbackEnabled: Binding<Bool> {
+        Binding(
+            get: { ActionFeedbackIndicator.isEnabled },
+            set: { ActionFeedbackIndicator.isEnabled = $0 }
+        )
+    }
+    private var streamOverlayEnabled: Binding<Bool> {
+        Binding(
+            get: { StreamOverlayManager.isEnabled },
+            set: { newValue in
+                StreamOverlayManager.isEnabled = newValue
+                if newValue {
+                    StreamOverlayManager.shared.show(
+                        controllerService: controllerService,
+                        inputLogService: inputLogService
+                    )
+                } else {
+                    StreamOverlayManager.shared.hide()
+                }
+            }
+        )
+    }
     var body: some View {
         HSplitView {
             // Sidebar: Profile management
@@ -710,7 +730,7 @@ struct ContentView: View {
             }
 
             // Action feedback toggle (styled like layer tabs)
-            Toggle(isOn: $actionFeedbackEnabled) {
+            Toggle(isOn: actionFeedbackEnabled) {
                 HStack(spacing: 4) {
                     Image(systemName: "bubble.left.fill")
                         .font(.system(size: 10))
@@ -720,19 +740,16 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(actionFeedbackEnabled ? Color.accentColor : Color.white.opacity(0.1))
+                .background(actionFeedbackEnabled.wrappedValue ? Color.accentColor : Color.white.opacity(0.1))
                 .cornerRadius(6)
             }
             .toggleStyle(.button)
             .buttonStyle(.plain)
-            .foregroundColor(actionFeedbackEnabled ? .white : .secondary)
+            .foregroundColor(actionFeedbackEnabled.wrappedValue ? .white : .secondary)
             .hoverableButton()
-            .onChange(of: actionFeedbackEnabled) { _, newValue in
-                ActionFeedbackIndicator.isEnabled = newValue
-            }
 
             // Stream overlay toggle
-            Toggle(isOn: $streamOverlayEnabled) {
+            Toggle(isOn: streamOverlayEnabled) {
                 HStack(spacing: 4) {
                     Image(systemName: "play.rectangle.on.rectangle")
                         .font(.system(size: 10))
@@ -742,23 +759,13 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(streamOverlayEnabled ? Color.purple : Color.white.opacity(0.1))
+                .background(streamOverlayEnabled.wrappedValue ? Color.purple : Color.white.opacity(0.1))
                 .cornerRadius(6)
             }
             .toggleStyle(.button)
             .buttonStyle(.plain)
-            .foregroundColor(streamOverlayEnabled ? .white : .secondary)
+            .foregroundColor(streamOverlayEnabled.wrappedValue ? .white : .secondary)
             .hoverableButton()
-            .onChange(of: streamOverlayEnabled) { _, newValue in
-                if newValue {
-                    StreamOverlayManager.shared.show(
-                        controllerService: controllerService,
-                        inputLogService: inputLogService
-                    )
-                } else {
-                    StreamOverlayManager.shared.hide()
-                }
-            }
         }
     }
 

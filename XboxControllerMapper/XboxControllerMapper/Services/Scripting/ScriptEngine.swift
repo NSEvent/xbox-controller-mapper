@@ -38,6 +38,10 @@ class ScriptEngine {
     private weak var controllerService: ControllerService?
     private weak var inputLogService: InputLogService?
 
+    /// Dedicated serial queue for script execution — serializes JSContext access
+    /// and isolates script blocking (delay/hold usleep) from callers' queues.
+    private let scriptQueue = DispatchQueue(label: "com.controllerkeys.scriptexec", qos: .userInitiated)
+
     /// Whether this is a test execution (key presses are logged instead of executed)
     private var isTestMode = false
     private var testLogs: [String] = []
@@ -64,30 +68,43 @@ class ScriptEngine {
         // JSContext() virtually never fails (only under extreme memory pressure).
         // Force-unwrap is appropriate here — there's no meaningful recovery path.
         self.context = JSContext()!
-        installAPI()
     }
 
     // MARK: - Script Execution
 
     func execute(script: Script, trigger: ScriptTrigger) -> ScriptResult {
-        isTestMode = false
-        return runScript(script: script, trigger: trigger)
+        // Run on dedicated script queue to serialize JSContext access
+        var result: ScriptResult = .error("Script execution failed")
+        scriptQueue.sync {
+            self.isTestMode = false
+            result = self.runScript(script: script, trigger: trigger)
+        }
+        return result
     }
 
     /// Execute in test mode - key presses are logged instead of executed
     func executeTest(script: Script, trigger: ScriptTrigger) -> (ScriptResult, [String]) {
-        isTestMode = true
-        testLogs = []
-        let result = runScript(script: script, trigger: trigger)
-        let logs = testLogs
-        isTestMode = false
-        testLogs = []
+        var result: ScriptResult = .error("Script execution failed")
+        var logs: [String] = []
+        scriptQueue.sync {
+            self.isTestMode = true
+            self.testLogs = []
+            result = self.runScript(script: script, trigger: trigger)
+            logs = self.testLogs
+            self.isTestMode = false
+            self.testLogs = []
+        }
         return (result, logs)
     }
 
     /// Clear all script state (called on profile switch)
     func clearState() {
         scriptState.removeAll()
+    }
+
+    /// Remove persisted state for a specific script (call when a script is deleted)
+    func removeState(for scriptId: UUID) {
+        scriptState.removeValue(forKey: scriptId)
     }
 
     // MARK: - Internal Execution
@@ -116,7 +133,7 @@ class ScriptEngine {
         }
 
         // Set timeout flag - timer fires on global queue so it can set the flag
-        // while the script blocks inputQueue. Uses AtomicBool for thread-safe access
+        // while the script blocks scriptQueue. Uses AtomicBool for thread-safe access
         // without manual pointer management (no leak risk on exceptions).
         let timedOut = AtomicBool(false)
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
@@ -126,8 +143,11 @@ class ScriptEngine {
         }
         timer.resume()
 
-        // Execute
-        context.evaluateScript(script.source)
+        // Re-install APIs before each execution to prevent persistent overrides from prior scripts
+        installAPI()
+
+        // Execute in IIFE to prevent global namespace pollution between scripts
+        context.evaluateScript("(function() {\n\(script.source)\n})()")
 
         timer.cancel()
         let didTimeout = timedOut.value
@@ -181,7 +201,7 @@ class ScriptEngine {
                 self.testLogs.append("[hold] keyCode=\(keyCode) duration=\(duration)s modifiers=\(self.modifierString(flags))")
             } else {
                 self.inputSimulator.keyDown(CGKeyCode(keyCode), modifiers: flags)
-                let durationUs = useconds_t(min(duration, 5.0) * 1_000_000)
+                let durationUs = useconds_t(min(duration, 2.0) * 1_000_000)
                 usleep(durationUs)
                 self.inputSimulator.keyUp(CGKeyCode(keyCode))
             }
@@ -242,11 +262,13 @@ class ScriptEngine {
                 let oldContent = pasteboard.string(forType: .string)
                 pasteboard.clearContents()
                 pasteboard.setString(text, forType: .string)
+                let changeCountAfterSet = pasteboard.changeCount
                 // Cmd+V
                 self.inputSimulator.pressKey(9, modifiers: .maskCommand)
-                // Restore clipboard after brief delay
-                usleep(100_000) // 100ms
-                if let old = oldContent {
+                // Wait for target app to consume the paste
+                usleep(300_000) // 300ms for slow apps
+                // Only restore if clipboard wasn't modified by the user during the delay
+                if pasteboard.changeCount == changeCountAfterSet, let old = oldContent {
                     pasteboard.clearContents()
                     pasteboard.setString(old, forType: .string)
                 }
@@ -500,7 +522,7 @@ class ScriptEngine {
                 self?.testLogs.append("[delay] \(seconds)s")
                 return
             }
-            let clamped = min(max(seconds, 0), 5.0) // Max 5 seconds
+            let clamped = min(max(seconds, 0), 2.0) // Max 2 seconds
             usleep(useconds_t(clamped * 1_000_000))
         }
         context.setObject(delay, forKeyedSubscript: "delay" as NSString)

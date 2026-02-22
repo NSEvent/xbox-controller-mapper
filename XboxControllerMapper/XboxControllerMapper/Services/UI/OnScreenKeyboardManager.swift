@@ -296,6 +296,9 @@ class OnScreenKeyboardManager: ObservableObject {
     private var cachedKeyboardRows: [[KeyboardNavigationMap.KeyPosition]]?
     /// Invalidate cache when content changes
     private var navigationGridNeedsRebuild = true
+    /// Dedicated serial queue for character-by-character typing so Thread.sleep
+    /// does not block shared GCD worker threads.
+    private nonisolated(unsafe) let typingQueue = DispatchQueue(label: "com.controllerkeys.typing", qos: .userInitiated)
 
     private init() {}
 
@@ -1313,8 +1316,8 @@ class OnScreenKeyboardManager: ObservableObject {
         let characters = Array(text)
         let delay = typingDelay
 
-        // Type characters on a background queue to avoid blocking
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Type characters on a dedicated serial queue to avoid blocking shared GCD threads
+        typingQueue.async {
             // Use nil source to avoid inheriting HID system modifier state
             // This ensures typed characters aren't affected by held controller buttons
 
@@ -1366,7 +1369,7 @@ class OnScreenKeyboardManager: ObservableObject {
         pasteboard.setString(text, forType: .string)
 
         // Small delay to ensure clipboard is ready
-        DispatchQueue.global(qos: .userInitiated).async {
+        typingQueue.async {
             Thread.sleep(forTimeInterval: 0.05)
 
             // Simulate Cmd+V to paste

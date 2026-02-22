@@ -937,9 +937,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                         NSWorkspace.shared.open(url)
                     }
                     onOpenSettings()
+                    objc_setAssociatedObject(panel, "keepAlive", nil, .OBJC_ASSOCIATION_RETAIN)
+                    objc_setAssociatedObject(panel, "handler", nil, .OBJC_ASSOCIATION_RETAIN)
                     panel.close()
                 }
                 @objc func dismiss() {
+                    objc_setAssociatedObject(panel, "keepAlive", nil, .OBJC_ASSOCIATION_RETAIN)
+                    objc_setAssociatedObject(panel, "handler", nil, .OBJC_ASSOCIATION_RETAIN)
                     panel.close()
                 }
             }

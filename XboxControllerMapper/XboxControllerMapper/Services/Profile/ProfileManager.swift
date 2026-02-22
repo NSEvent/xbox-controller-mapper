@@ -141,11 +141,14 @@ class ProfileManager: ObservableObject {
         setActiveProfile(profile)
     }
     
-    private func createDirectoryIfNeeded(at url: URL) {
+    @discardableResult
+    private func createDirectoryIfNeeded(at url: URL) -> Bool {
         do {
             try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+            return true
         } catch {
-            // Directory creation failed, but we'll handle it gracefully
+            NSLog("[ProfileManager] Failed to create directory at %@: %@", url.path, error.localizedDescription)
+            return false
         }
     }
 
