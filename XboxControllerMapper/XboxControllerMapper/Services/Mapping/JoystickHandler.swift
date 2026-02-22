@@ -269,6 +269,23 @@ extension MappingEngine {
         state.rightStickLastDirection = 0
     }
 
+    // MARK: - Gyro Aiming Helpers
+
+    /// Smooth deadzone ramp: returns 0 below deadzone, quadratic ease-in through
+    /// a transition zone of width `deadzone`, then linear above `2 * deadzone`.
+    /// Eliminates the hard cutoff discontinuity that causes stutter at the boundary.
+    nonisolated func smoothDeadzone(_ value: Double, deadzone: Double) -> Double {
+        if value <= deadzone { return 0 }
+        let excess = value - deadzone
+        if excess < deadzone {
+            // Quadratic ease-in: derivative is 0 at boundary, ramps to 1 at 2*deadzone
+            let t = excess / deadzone
+            return t * t * deadzone
+        }
+        // Linear above 2*deadzone (offset to match the quadratic endpoint)
+        return excess
+    }
+
     // MARK: - Mouse Movement (incl. Focus Mode + Gyro Aiming)
 
     nonisolated func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime) {
@@ -302,34 +319,42 @@ extension MappingEngine {
         if settings.gyroAimingEnabled && isFocusActive && controllerService.threadSafeIsDualSense {
             let (pitchRate, rollRate) = controllerService.consumeAverageMotionRates()
 
-            let absPitch = abs(pitchRate)
-            let absRoll = abs(rollRate)
-            let gyroDeadzone = settings.gyroAimingDeadzone
-            let mult = settings.gyroAimingMultiplier
+            // Skip filter update if no new gyro samples arrived this tick
+            // (poll at 120Hz can outpace gyro at ~100Hz); avoids feeding false zeros
+            if pitchRate != 0 || rollRate != 0 {
+                let gyroDeadzone = settings.gyroAimingDeadzone
+                let mult = settings.gyroAimingMultiplier
 
-            var gyroDx: Double = 0
-            var gyroDy: Double = 0
+                // Smooth deadzone ramp: quadratic ease-in over a transition zone
+                // avoids the hard cutoff discontinuity that causes stutter at the boundary
+                let gyroDx = -smoothDeadzone(abs(rollRate), deadzone: gyroDeadzone)
+                    * (rollRate < 0 ? -1.0 : 1.0) * mult * Config.gyroAimingRollBoost
+                let gyroDy = -smoothDeadzone(abs(pitchRate), deadzone: gyroDeadzone)
+                    * (pitchRate < 0 ? -1.0 : 1.0) * mult
 
-            if absRoll > gyroDeadzone {
-                let adjusted = (absRoll - gyroDeadzone) * (rollRate < 0 ? -1.0 : 1.0)
-                gyroDx = -adjusted * mult * Config.gyroAimingRollBoost
-            }
-            if absPitch > gyroDeadzone {
-                let adjusted = (absPitch - gyroDeadzone) * (pitchRate < 0 ? -1.0 : 1.0)
-                gyroDy = -adjusted * mult
-            }
+                // 1-Euro filter: adaptive smoothing (heavy at low speed, minimal at high speed)
+                let dt: Double
+                if state.lastGyroTime > 0 {
+                    dt = max(now - state.lastGyroTime, 1.0 / 240.0)
+                } else {
+                    dt = Config.joystickPollInterval
+                }
+                state.lastGyroTime = now
 
-            let alpha = 0.4
-            state.smoothedGyroDx += alpha * (gyroDx - state.smoothedGyroDx)
-            state.smoothedGyroDy += alpha * (gyroDy - state.smoothedGyroDy)
+                let filteredDx = state.gyroFilterX.filter(gyroDx, dt: dt)
+                let filteredDy = state.gyroFilterY.filter(gyroDy, dt: dt)
 
-            if abs(state.smoothedGyroDx) > 0.01 || abs(state.smoothedGyroDy) > 0.01 {
-                inputSimulator.moveMouse(dx: CGFloat(state.smoothedGyroDx), dy: CGFloat(state.smoothedGyroDy))
+                if abs(filteredDx) > 0.01 || abs(filteredDy) > 0.01 {
+                    inputSimulator.moveMouse(dx: CGFloat(filteredDx), dy: CGFloat(filteredDy))
+                }
             }
         } else {
-            // Decay smoothed gyro values toward zero when inactive
-            state.smoothedGyroDx *= 0.8
-            state.smoothedGyroDy *= 0.8
+            // Reset filter state when gyro is inactive so there's no stale residual on re-entry
+            if state.lastGyroTime > 0 {
+                state.gyroFilterX.reset()
+                state.gyroFilterY.reset()
+                state.lastGyroTime = 0
+            }
         }
 
         let deadzone = settings.mouseDeadzone

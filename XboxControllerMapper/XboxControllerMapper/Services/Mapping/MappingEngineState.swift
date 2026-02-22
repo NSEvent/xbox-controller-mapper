@@ -102,9 +102,10 @@ extension MappingEngine {
         var currentMultiplier: Double = 0
         var focusExitTime: TimeInterval = 0
 
-        // Gyro aiming EMA state
-        var smoothedGyroDx: Double = 0
-        var smoothedGyroDy: Double = 0
+        // Gyro aiming filter state
+        var gyroFilterX = OneEuroFilter(fcmin: 1.0, beta: 0.007, dcutoff: 1.0)
+        var gyroFilterY = OneEuroFilter(fcmin: 1.0, beta: 0.007, dcutoff: 1.0)
+        var lastGyroTime: TimeInterval = 0
 
         /// Thread-safe reset: acquires the lock, resets all transient state, and releases the lock.
         /// Use this when you are NOT already holding the lock.
@@ -198,8 +199,9 @@ extension MappingEngine {
             wasFocusActive = false
             currentMultiplier = 0
             focusExitTime = 0
-            smoothedGyroDx = 0
-            smoothedGyroDy = 0
+            gyroFilterX.reset()
+            gyroFilterY.reset()
+            lastGyroTime = 0
         }
     }
 }
