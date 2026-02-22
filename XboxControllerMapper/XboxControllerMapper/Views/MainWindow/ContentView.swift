@@ -166,6 +166,18 @@ struct ContentView: View {
                 .hidden()
                 .accessibilityHidden(true)
         )
+        .background(
+            Button("Previous Tab") { switchTab(direction: -1) }
+                .keyboardShortcut(.leftArrow, modifiers: .command)
+                .hidden()
+                .accessibilityHidden(true)
+        )
+        .background(
+            Button("Next Tab") { switchTab(direction: 1) }
+                .keyboardShortcut(.rightArrow, modifiers: .command)
+                .hidden()
+                .accessibilityHidden(true)
+        )
         .highPriorityGesture(
             MagnificationGesture()
                 .onChanged { value in
@@ -230,6 +242,29 @@ struct ContentView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         // Transparent toolbar to let glass show through
+    }
+
+    // MARK: - Tab Navigation
+
+    /// Ordered list of visible tab tags matching the TabView order.
+    private var orderedTabTags: [Int] {
+        var tags = [0, 1, 9, 7, 10, 3, 2]
+        if controllerService.threadSafeIsPlayStation {
+            tags.append(4)
+        }
+        if controllerService.threadSafeIsDualSense {
+            tags.append(5)
+            tags.append(6)
+        }
+        tags.append(8)
+        return tags
+    }
+
+    private func switchTab(direction: Int) {
+        let tags = orderedTabTags
+        guard let currentIndex = tags.firstIndex(of: selectedTab) else { return }
+        let nextIndex = (currentIndex + direction + tags.count) % tags.count
+        selectedTab = tags[nextIndex]
     }
 
     // MARK: - Controller Tab
