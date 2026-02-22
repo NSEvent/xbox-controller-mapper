@@ -1,98 +1,18 @@
 import Foundation
 import CoreGraphics
 
-// MARK: - Mapping Action Strategy
-
-private struct TapModifierExecutor {
-    let inputSimulator: InputSimulatorProtocol
-    let inputQueue: DispatchQueue
-
-    func execute(_ flags: CGEventFlags) {
-        inputSimulator.holdModifier(flags)
-        inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [inputSimulator] in
-            inputSimulator.releaseModifier(flags)
-        }
-    }
-}
-
-private struct SystemCommandActionHandler {
-    let systemCommandExecutor: SystemCommandExecutor
-
-    func executeIfPossible(_ action: any ExecutableAction) -> String? {
-        guard action.systemCommand != nil else { return nil }
-        systemCommandExecutor.execute(action.systemCommand!)
-        return action.feedbackString
-    }
-}
-
-private struct MacroActionHandler {
-    let inputSimulator: InputSimulatorProtocol
-
-    func executeIfPossible(_ action: any ExecutableAction, profile: Profile?) -> String? {
-        guard let macroId = action.macroId else { return nil }
-
-        if let profile, let macro = profile.macros.first(where: { $0.id == macroId }) {
-            inputSimulator.executeMacro(macro)
-            return (action.hint?.isEmpty == false) ? action.hint! : macro.name
-        }
-
-        return (action.hint?.isEmpty == false) ? action.hint! : "Macro"
-    }
-}
-
-private struct ScriptActionHandler {
-    let scriptEngine: ScriptEngine?
-
-    func executeIfPossible(_ action: any ExecutableAction, profile: Profile?,
-                           button: ControllerButton, pressType: PressType) -> String? {
-        guard let scriptId = action.scriptId, let scriptEngine else { return nil }
-
-        guard let profile, let script = profile.scripts.first(where: { $0.id == scriptId }) else {
-            return (action.hint?.isEmpty == false) ? action.hint! : "Script"
-        }
-
-        let trigger = ScriptTrigger(button: button, pressType: pressType)
-        let result = scriptEngine.execute(script: script, trigger: trigger)
-
-        switch result {
-        case .success(let hintOverride):
-            return hintOverride ?? (action.hint?.isEmpty == false ? action.hint! : script.name)
-        case .error(let message):
-            NSLog("[ScriptActionHandler] Error: %@", message)
-            return "Script Error"
-        }
-    }
-}
-
-private struct KeyOrModifierActionHandler {
-    let inputSimulator: InputSimulatorProtocol
-    let tapModifierExecutor: TapModifierExecutor
-
-    func execute(_ action: any ExecutableAction) -> String {
-        if let keyCode = action.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: action.modifiers.cgEventFlags)
-            // Update typing buffer if on-screen keyboard is visible
-            OnScreenKeyboardManager.shared.notifyControllerKeyPress(
-                keyCode: keyCode, modifiers: action.modifiers.cgEventFlags
-            )
-        } else if action.modifiers.hasAny {
-            tapModifierExecutor.execute(action.modifiers.cgEventFlags)
-        }
-        return action.feedbackString
-    }
-}
-
 // MARK: - Mapping Executor
 
-/// Executes action mappings via a strategy chain (system command, macro, script, key/modifier).
+/// Executes action mappings via ActionCommandFactory (command pattern).
+///
+/// Priority chain: systemCommand > macro > script > keyPress/modifier.
+/// The factory creates the appropriate ActionCommand, which is then executed polymorphically.
 struct MappingExecutor {
     private let inputLogService: InputLogService?
     private let usageStatsService: UsageStatsService?
     let systemCommandExecutor: SystemCommandExecutor
-    private let systemCommandHandler: SystemCommandActionHandler
-    private let macroHandler: MacroActionHandler
-    private let scriptHandler: ScriptActionHandler
-    private let keyOrModifierHandler: KeyOrModifierActionHandler
+    let macroExecutor: MacroExecutor
+    private let commandFactory: ActionCommandFactory
 
     init(
         inputSimulator: InputSimulatorProtocol,
@@ -105,17 +25,17 @@ struct MappingExecutor {
         self.inputLogService = inputLogService
         self.usageStatsService = usageStatsService
         self.systemCommandExecutor = SystemCommandExecutor(profileManager: profileManager)
-        let tapModifierExecutor = TapModifierExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue)
-        self.systemCommandHandler = SystemCommandActionHandler(systemCommandExecutor: self.systemCommandExecutor)
-        self.macroHandler = MacroActionHandler(inputSimulator: inputSimulator)
-        self.scriptHandler = ScriptActionHandler(scriptEngine: scriptEngine)
-        self.keyOrModifierHandler = KeyOrModifierActionHandler(inputSimulator: inputSimulator, tapModifierExecutor: tapModifierExecutor)
-
-        // Wire up system command handler for macro steps
-        let executor = self.systemCommandExecutor
-        (inputSimulator as? InputSimulator)?.systemCommandHandler = { command in
-            executor.execute(command)
-        }
+        self.macroExecutor = MacroExecutor(
+            inputSimulator: inputSimulator,
+            systemCommandExecutor: self.systemCommandExecutor
+        )
+        self.commandFactory = ActionCommandFactory(
+            inputSimulator: inputSimulator,
+            inputQueue: inputQueue,
+            macroExecutor: self.macroExecutor,
+            systemCommandExecutor: self.systemCommandExecutor,
+            scriptEngine: scriptEngine
+        )
     }
 
     /// Executes any action mapping (key press, macro, script, or system command).
@@ -163,16 +83,8 @@ struct MappingExecutor {
         button: ControllerButton = .a,
         pressType: PressType = .press
     ) -> String {
-        if let feedback = systemCommandHandler.executeIfPossible(action) {
-            return feedback
-        }
-        if let feedback = macroHandler.executeIfPossible(action, profile: profile) {
-            return feedback
-        }
-        if let feedback = scriptHandler.executeIfPossible(action, profile: profile, button: button, pressType: pressType) {
-            return feedback
-        }
-        return keyOrModifierHandler.execute(action)
+        let command = commandFactory.makeCommand(for: action, profile: profile, button: button, pressType: pressType)
+        return command.execute()
     }
 
     /// Record what type of output action was performed.
