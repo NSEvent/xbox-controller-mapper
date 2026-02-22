@@ -80,7 +80,10 @@ final class ControllerStorage: @unchecked Sendable {
     var chordWorkItem: DispatchWorkItem?
     var chordWindow: TimeInterval = 0.15
 
-    // Callbacks
+    // Unified controller input event callback (replaces individual callbacks below)
+    var onControllerInput: ((ControllerInputEvent) -> Void)?
+
+    // Callbacks (legacy — kept for backward compatibility, proxied through onControllerInput)
     var onButtonPressed: ((ControllerButton) -> Void)?
     var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)?
     var onChordDetected: ((Set<ControllerButton>) -> Void)?
@@ -349,6 +352,10 @@ class ControllerService: ObservableObject {
     @Published var batteryState: GCDeviceBattery.State = .unknown
 
     // Callback proxies (Thread-safe storage backing)
+    var onControllerInput: ((ControllerInputEvent) -> Void)? {
+        get { readStorage(\.onControllerInput) }
+        set { writeStorage(\.onControllerInput, newValue) }
+    }
     var onButtonPressed: ((ControllerButton) -> Void)? {
         get { readStorage(\.onButtonPressed) }
         set { writeStorage(\.onButtonPressed, newValue) }

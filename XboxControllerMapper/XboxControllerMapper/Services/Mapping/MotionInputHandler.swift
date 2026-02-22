@@ -7,7 +7,9 @@ import CoreGraphics
 extension MappingEngine {
 
     /// Process a completed motion gesture from the DualSense gyroscope
+    /// - Precondition: Must be called on inputQueue
     nonisolated func processMotionGesture(_ gestureType: MotionGestureType) {
+        dispatchPrecondition(condition: .onQueue(inputQueue))
         guard let profile = state.lock.withLock({
             guard state.isEnabled, !state.isLocked else { return nil as Profile? }
             return state.activeProfile

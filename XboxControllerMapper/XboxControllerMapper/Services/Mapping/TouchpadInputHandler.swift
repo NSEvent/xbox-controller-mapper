@@ -9,7 +9,9 @@ extension MappingEngine {
 
     // MARK: - Touchpad Movement (single-finger mouse control)
 
+    /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadMovement(_ delta: CGPoint) {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
         guard let (settings, isGestureActive) = state.lock.withLock({
             guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil as (JoystickSettings, Bool)? }
             return (settings, state.isTouchpadGestureActive)
@@ -75,12 +77,16 @@ extension MappingEngine {
 
     // MARK: - Touchpad Tap Gestures
 
+    /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadTap() {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
         let button = ControllerButton.touchpadTap
         processTapGesture(button)
     }
 
+    /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadTwoFingerTap() {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
         let button = ControllerButton.touchpadTwoFingerTap
         processTapGesture(button)
     }
@@ -114,12 +120,16 @@ extension MappingEngine {
 
     // MARK: - Touchpad Long Tap Gestures
 
+    /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadLongTap() {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
         let button = ControllerButton.touchpadTap
         processLongTapGesture(button)
     }
 
+    /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadTwoFingerLongTap() {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
         let button = ControllerButton.touchpadTwoFingerTap
         processLongTapGesture(button)
     }
@@ -145,7 +155,9 @@ extension MappingEngine {
 
     // MARK: - Two-Finger Touchpad Gestures (pan + pinch zoom)
 
+    /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadGesture(_ gesture: TouchpadGesture) {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
         let isActive = gesture.isPrimaryTouching && gesture.isSecondaryTouching
         guard let snapshot = state.lock.withLock({ () -> (settings: JoystickSettings, wasActive: Bool, smoothedCenter: CGPoint, smoothedDistance: Double, lastSampleTime: TimeInterval, smoothedVelocity: CGPoint)? in
             guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil }
@@ -396,7 +408,9 @@ extension MappingEngine {
 
     // MARK: - Touchpad Momentum Scrolling
 
+    /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadMomentumTick(now: CFAbsoluteTime) {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
         guard let snapshot = state.lock.withLock({ () -> (isGestureActive: Bool, panActive: Bool, panVelocity: CGPoint, lastGestureTime: TimeInterval, velocity: CGPoint, wasActive: Bool, residualX: Double, residualY: Double, lastUpdate: TimeInterval)? in
             guard state.isEnabled, !state.isLocked else { return nil }
             return (state.isTouchpadGestureActive, state.touchpadPanActive, state.smoothedTouchpadPanVelocity, state.touchpadMomentumLastGestureTime, state.touchpadMomentumVelocity, state.touchpadMomentumWasActive, state.touchpadScrollResidualX, state.touchpadScrollResidualY, state.touchpadMomentumLastUpdate)

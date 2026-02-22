@@ -34,7 +34,9 @@ extension MappingEngine {
 
     // MARK: - Joystick Processing (called at 120Hz from pollingQueue)
 
+    /// - Precondition: Must be called on pollingQueue
     nonisolated func processJoysticks(now: CFAbsoluteTime) {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
         state.lock.lock()
         defer { state.lock.unlock() }
 

@@ -184,23 +184,21 @@ class MappingEngine: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Button press handler (Off-Main Thread)
+        // Controller input callbacks — route each event to the appropriate queue.
+        // The unified handleControllerInput(_:) method is also available as a
+        // single entry point that can be used by external consumers or tests.
         controllerService.onButtonPressed = { [weak self] button in
             guard let self = self else { return }
             self.inputQueue.async {
                 self.handleButtonPressed(button)
             }
         }
-
-        // Button release handler (Off-Main Thread)
         controllerService.onButtonReleased = { [weak self] button, duration in
             guard let self = self else { return }
             self.inputQueue.async {
                 self.handleButtonReleased(button, holdDuration: duration)
             }
         }
-
-        // Chord handler (Off-Main Thread)
         controllerService.onChordDetected = { [weak self] buttons in
             guard let self = self else { return }
             self.inputQueue.async {
@@ -234,55 +232,42 @@ class MappingEngine: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Touchpad movement handler (DualSense only)
         controllerService.onTouchpadMoved = { [weak self] delta in
             guard let self = self else { return }
             self.pollingQueue.async {
                 self.processTouchpadMovement(delta)
             }
         }
-
-        // Touchpad gesture handler (DualSense two-finger)
         controllerService.onTouchpadGesture = { [weak self] gesture in
             guard let self = self else { return }
             self.pollingQueue.async {
                 self.processTouchpadGesture(gesture)
             }
         }
-
-        // Touchpad tap handler
         controllerService.onTouchpadTap = { [weak self] in
             guard let self = self else { return }
             self.pollingQueue.async {
                 self.processTouchpadTap()
             }
         }
-
-        // Touchpad two-finger tap handler
         controllerService.onTouchpadTwoFingerTap = { [weak self] in
             guard let self = self else { return }
             self.pollingQueue.async {
                 self.processTouchpadTwoFingerTap()
             }
         }
-
-        // Touchpad long tap handler
         controllerService.onTouchpadLongTap = { [weak self] in
             guard let self = self else { return }
             self.pollingQueue.async {
                 self.processTouchpadLongTap()
             }
         }
-
-        // Touchpad two-finger long tap handler
         controllerService.onTouchpadTwoFingerLongTap = { [weak self] in
             guard let self = self else { return }
             self.pollingQueue.async {
                 self.processTouchpadTwoFingerLongTap()
             }
         }
-
-        // Motion gesture handler
         controllerService.onMotionGesture = { [weak self] gestureType in
             guard let self = self else { return }
             self.inputQueue.async {
@@ -313,6 +298,35 @@ class MappingEngine: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+    }
+
+    // MARK: - Unified Controller Input Handler
+
+    /// Single entry point for all controller input events.
+    /// Routes each event to the appropriate dispatch queue and handler method.
+    nonisolated func handleControllerInput(_ event: ControllerInputEvent) {
+        switch event {
+        case .buttonPressed(let button):
+            inputQueue.async { self.handleButtonPressed(button) }
+        case .buttonReleased(let button, let duration):
+            inputQueue.async { self.handleButtonReleased(button, holdDuration: duration) }
+        case .chord(let buttons):
+            inputQueue.async { self.handleChord(buttons) }
+        case .touchpadMoved(let delta):
+            pollingQueue.async { self.processTouchpadMovement(delta) }
+        case .touchpadGesture(let gesture):
+            pollingQueue.async { self.processTouchpadGesture(gesture) }
+        case .touchpadTap:
+            pollingQueue.async { self.processTouchpadTap() }
+        case .touchpadTwoFingerTap:
+            pollingQueue.async { self.processTouchpadTwoFingerTap() }
+        case .touchpadLongTap:
+            pollingQueue.async { self.processTouchpadLongTap() }
+        case .touchpadTwoFingerLongTap:
+            pollingQueue.async { self.processTouchpadTwoFingerLongTap() }
+        case .motionGesture(let gestureType):
+            inputQueue.async { self.processMotionGesture(gestureType) }
+        }
     }
 
     // MARK: - Button Handling (Background Queue)
@@ -455,7 +469,9 @@ class MappingEngine: ObservableObject {
         )
     }
 
+    /// - Precondition: Must be called on inputQueue
     nonisolated private func handleButtonPressed(_ button: ControllerButton) {
+        dispatchPrecondition(condition: .onQueue(inputQueue))
         switch beginButtonPress(button) {
         case .blocked:
             return
@@ -763,7 +779,9 @@ class MappingEngine: ObservableObject {
         mappingExecutor.executeAction(mapping, for: button, profile: profile, logType: .longPress)
     }
 
+    /// - Precondition: Must be called on inputQueue
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
+        dispatchPrecondition(condition: .onQueue(inputQueue))
         stopRepeatTimer(for: button)
 
         // Layer Activator Release
@@ -1003,7 +1021,9 @@ class MappingEngine: ObservableObject {
         }
     }
 
+    /// - Precondition: Must be called on inputQueue
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
+        dispatchPrecondition(condition: .onQueue(inputQueue))
         guard let (profile, chordButtons) = state.lock.withLock({ () -> (Profile, Set<ControllerButton>)? in
             guard state.isEnabled, let profile = state.activeProfile else {
                 return nil
