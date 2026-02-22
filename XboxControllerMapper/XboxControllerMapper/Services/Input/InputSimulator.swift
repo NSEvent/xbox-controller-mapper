@@ -238,9 +238,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private func postKeyEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags = []) {
         // Use the configured source
         guard let event = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: keyDown) else {
-            #if DEBUG
-            print("  ❌ Failed to create event for keyCode \(keyCode)")
-            #endif
+            NSLog("[InputSimulator] Failed to create keyboard event for keyCode %d (keyDown=%d) - check Accessibility permissions", keyCode, keyDown ? 1 : 0)
             return
         }
 
@@ -278,6 +276,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
             event.flags = combinedModifiers
             event.post(tap: .cghidEventTap)
+        } else {
+            NSLog("[InputSimulator] Failed to create key-down event for keyCode %d - check Accessibility permissions", keyCode)
         }
     }
 
@@ -290,7 +290,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
-        
+
         stateLock.lock()
         let currentHeld = heldModifiers
         stateLock.unlock()
@@ -302,6 +302,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
             event.flags = combinedFlags
             event.post(tap: .cghidEventTap)
+        } else {
+            NSLog("[InputSimulator] Failed to create key-up event for keyCode %d - check Accessibility permissions", keyCode)
         }
     }
 
@@ -327,6 +329,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: true) {
                         event.flags = heldModifiers
                         event.post(tap: .cghidEventTap)
+                    } else {
+                        NSLog("[InputSimulator] Failed to create modifier key-down event for mask 0x%llx - check Accessibility permissions", key)
                     }
                 }
             }
@@ -344,17 +348,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
-            if count > 0 {
-                modifierCounts[key] = count - 1
+            guard count > 0 else {
+                // Underflow protection: ignore release when count is already 0
+                continue
+            }
+            modifierCounts[key] = count - 1
 
-                if count == 1 {
-                    // Last button holding this modifier released
-                    heldModifiers.remove(mask)
-                    if let vKey = ModifierKeyState.maskToKeyCode[key] {
-                        if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: false) {
-                            event.flags = heldModifiers
-                            event.post(tap: .cghidEventTap)
-                        }
+            if count == 1 {
+                // Last button holding this modifier released
+                heldModifiers.remove(mask)
+                if let vKey = ModifierKeyState.maskToKeyCode[key] {
+                    if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: false) {
+                        event.flags = heldModifiers
+                        event.post(tap: .cghidEventTap)
+                    } else {
+                        NSLog("[InputSimulator] Failed to create modifier key-up event for mask 0x%llx - check Accessibility permissions", key)
                     }
                 }
             }
@@ -375,21 +383,34 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         return heldModifiers
     }
 
-    /// Releases all held modifiers
+    /// Releases all held modifiers.
+    /// Performs all state mutation and event posting under a single lock acquisition
+    /// to prevent races between reading state and resetting counts.
     func releaseAllModifiers() {
+        guard let source = eventSource else { return }
+
         stateLock.lock()
-        let currentHeld = heldModifiers
-        stateLock.unlock()
-        
-        releaseModifier(currentHeld)
-        
-        stateLock.lock()
+        defer { stateLock.unlock() }
+
+        // Post key-up events for each modifier that is currently held
+        for mask in ModifierKeyState.modifierMasks where heldModifiers.contains(mask) {
+            let key = mask.rawValue
+            heldModifiers.remove(mask)
+            if let vKey = ModifierKeyState.maskToKeyCode[key] {
+                if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: false) {
+                    event.flags = heldModifiers
+                    event.post(tap: .cghidEventTap)
+                } else {
+                    NSLog("[InputSimulator] Failed to create modifier key-up event for mask 0x%llx during releaseAll", key)
+                }
+            }
+        }
+
         // Reset all counts to zero
         for key in modifierCounts.keys {
             modifierCounts[key] = 0
         }
         heldModifiers = []
-        stateLock.unlock()
     }
 
     // MARK: - Mouse Button State
@@ -635,6 +656,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     event.setDoubleValueField(.mouseEventPressure, value: 1.0)
                 }
                 event.post(tap: .cghidEventTap)
+            } else {
+                NSLog("[InputSimulator] Failed to create mouse move event - check Accessibility permissions")
             }
         }
     }
@@ -683,7 +706,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseType: eventType,
                 mouseCursorPosition: cursorPos,
                 mouseButton: mouseButton
-            ) else { return }
+            ) else {
+                NSLog("[InputSimulator] Failed to create native mouse move event - check Accessibility permissions")
+                return
+            }
 
             event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
             event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
@@ -778,6 +804,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     event.flags = event.flags.union(scrollFlags)
                 }
                 event.post(tap: .cghidEventTap)
+            } else {
+                NSLog("[InputSimulator] Failed to create scroll wheel event - check Accessibility permissions")
             }
         }
     }
@@ -833,6 +861,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if let downEvent = CGEvent(keyboardEventSource: self.eventSource, virtualKey: keyCode, keyDown: true) {
                 downEvent.flags = modifiers
                 downEvent.post(tap: .cghidEventTap)
+            } else {
+                NSLog("[InputSimulator] Failed to create zoom key-down event - check Accessibility permissions")
             }
 
             usleep(10000) // 10ms hold
@@ -840,6 +870,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if let upEvent = CGEvent(keyboardEventSource: self.eventSource, virtualKey: keyCode, keyDown: false) {
                 upEvent.flags = modifiers
                 upEvent.post(tap: .cghidEventTap)
+            } else {
+                NSLog("[InputSimulator] Failed to create zoom key-up event - check Accessibility permissions")
             }
         }
     }
@@ -1020,6 +1052,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 // Set pressure so system tools (screencapture, etc.) recognize the click
                 event.setDoubleValueField(.mouseEventPressure, value: 1.0)
                 event.post(tap: .cghidEventTap)
+            } else {
+                NSLog("[InputSimulator] Failed to create mouse-down event for button %d - check Accessibility permissions", button.rawValue)
             }
         }
     }
@@ -1056,6 +1090,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
                 event.setDoubleValueField(.mouseEventPressure, value: 0.0)
                 event.post(tap: .cghidEventTap)
+            } else {
+                NSLog("[InputSimulator] Failed to create mouse-up event for button %d - check Accessibility permissions", button.rawValue)
             }
         }
     }
@@ -1106,9 +1142,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     private func pressMediaKey(_ keyCode: CGKeyCode) {
         guard let nxKeyType = mediaKeyToNXType(keyCode) else {
-            #if DEBUG
-            print("❌ Unknown media key code: \(keyCode)")
-            #endif
+            NSLog("[InputSimulator] Unknown media key code: %d", keyCode)
             return
         }
 
@@ -1153,7 +1187,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             subtype: 8,  // NX_SUBTYPE_AUX_CONTROL_BUTTONS
             data1: data1,
             data2: -1
-        ) else { return }
+        ) else {
+            NSLog("[InputSimulator] Failed to create media key event for keyType %d", keyType.rawValue)
+            return
+        }
 
         event.cgEvent?.post(tap: .cghidEventTap)
     }
