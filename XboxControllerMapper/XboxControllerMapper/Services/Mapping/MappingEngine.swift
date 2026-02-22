@@ -1790,17 +1790,20 @@ class MappingEngine: ObservableObject {
             let absPitch = abs(pitchRate)
             let absRoll = abs(rollRate)
             let gyroDeadzone = Config.gyroAimingDeadzone
+            let mult = settings.gyroAimingMultiplier
 
             var gyroDx: Double = 0
             var gyroDy: Double = 0
 
             if absRoll > gyroDeadzone {
-                // Roll produces less angular velocity than pitch for the same effort; boost horizontal
-                gyroDx = -rollRate * settings.gyroAimingMultiplier * Config.gyroAimingRollBoost
+                // Subtract deadzone so movement ramps from zero at the boundary
+                let adjusted = (absRoll - gyroDeadzone) * (rollRate < 0 ? -1.0 : 1.0)
+                gyroDx = -adjusted * mult * Config.gyroAimingRollBoost
             }
             if absPitch > gyroDeadzone {
+                let adjusted = (absPitch - gyroDeadzone) * (pitchRate < 0 ? -1.0 : 1.0)
                 // Invert: pitch up (positive X rotation) should move cursor up (negative screen Y)
-                gyroDy = -pitchRate * settings.gyroAimingMultiplier
+                gyroDy = -adjusted * mult
             }
 
             if gyroDx != 0 || gyroDy != 0 {
