@@ -40,6 +40,10 @@ struct OnScreenKeyboardSettingsView: View {
     // Cached installed apps (loaded once on appear)
     @State private var cachedInstalledApps: [AppInfo] = []
 
+    // Custom words state
+    @State private var newCustomWord = ""
+    @State private var customWords: [String] = []
+
     // Variable autocomplete state
     @State private var showSnippetSuggestions = false
     @State private var showCommandSuggestions = false
@@ -910,8 +914,109 @@ struct OnScreenKeyboardSettingsView: View {
                             .monospacedDigit()
                     }
                 }
+
+                Divider()
+
+                // Custom Dictionary
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Custom Dictionary")
+                        .fontWeight(.medium)
+                    Text("Add words that aren't in the built-in dictionary.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                HStack {
+                    TextField("Add a word...", text: $newCustomWord)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { addCustomWord() }
+                    Button("Add") { addCustomWord() }
+                        .disabled(newCustomWord.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+
+                if !customWords.isEmpty {
+                    ForEach(customWords, id: \.self) { word in
+                        HStack {
+                            Text(word)
+                                .font(.body.monospaced())
+                            Spacer()
+                            Button {
+                                removeCustomWord(word)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+
+                Divider()
+
+                Button {
+                    let dirURL = FileManager.default.homeDirectoryForCurrentUser
+                        .appendingPathComponent(".controllerkeys/dictionaries")
+                    try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+                    NSWorkspace.shared.open(dirURL)
+                } label: {
+                    Label("Open Dictionaries Folder", systemImage: "folder")
+                }
+                .buttonStyle(.borderless)
+
+                Text("Add .txt files with custom words (one per line) for domain-specific vocabulary.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
+        .onAppear { loadCustomWords() }
+    }
+
+    // MARK: - Custom Words Helpers
+
+    private var customWordsFileURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".controllerkeys/dictionaries/_custom.txt")
+    }
+
+    private func loadCustomWords() {
+        let url = customWordsFileURL
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+            customWords = []
+            return
+        }
+        customWords = content.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func addCustomWord() {
+        let word = newCustomWord.trimmingCharacters(in: .whitespaces).lowercased()
+        guard word.count >= 2, word.count <= 12, word.allSatisfy({ $0.isLetter }) else { return }
+        guard !customWords.contains(word) else {
+            newCustomWord = ""
+            return
+        }
+        customWords.append(word)
+        saveCustomWords()
+        newCustomWord = ""
+        reloadSwipeModel()
+    }
+
+    private func removeCustomWord(_ word: String) {
+        customWords.removeAll { $0 == word }
+        saveCustomWords()
+        reloadSwipeModel()
+    }
+
+    private func saveCustomWords() {
+        let url = customWordsFileURL
+        let dir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? customWords.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func reloadSwipeModel() {
+        SwipeTypingEngine.shared.reloadModel()
     }
 
     // MARK: - Text Snippets Section

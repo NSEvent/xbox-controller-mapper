@@ -94,6 +94,45 @@ class SwipeTypingModel {
                 NSLog("[SwipeTypingModel] Added %d shell aliases/functions to dictionary", shellAdded)
             }
 
+            // Load user custom dictionaries from ~/.controllerkeys/dictionaries/
+            let existingWordsAfterShell = Set(wordFreqs.map { $0.0 })
+            let userDictDir = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".controllerkeys/dictionaries")
+
+            // Create directory if it doesn't exist so users can find it
+            try? FileManager.default.createDirectory(at: userDictDir, withIntermediateDirectories: true)
+
+            var userDictAdded = 0
+            if let enumerator = FileManager.default.enumerator(at: userDictDir, includingPropertiesForKeys: nil) {
+                let defaultUserFreq = 8000
+                for case let fileURL as URL in enumerator where fileURL.pathExtension == "txt" {
+                    guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
+                    for line in content.components(separatedBy: .newlines) {
+                        let trimmed = line.trimmingCharacters(in: .whitespaces)
+                        guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
+
+                        let word: String
+                        let freq: Int
+                        if let tabIdx = trimmed.firstIndex(of: "\t") {
+                            word = String(trimmed[trimmed.startIndex..<tabIdx]).lowercased()
+                            freq = Int(trimmed[trimmed.index(after: tabIdx)...]) ?? defaultUserFreq
+                        } else {
+                            word = trimmed.lowercased()
+                            freq = defaultUserFreq
+                        }
+                        guard word.count >= 2, word.count <= 12, word.allSatisfy({ $0.isLetter }) else { continue }
+                        if !existingWordsAfterShell.contains(word) {
+                            wordFreqs.append((word, freq))
+                            userDictAdded += 1
+                        }
+                        maxFreq = max(maxFreq, freq)
+                    }
+                }
+            }
+            if userDictAdded > 0 {
+                NSLog("[SwipeTypingModel] Added %d user dictionary words from %@", userDictAdded, userDictDir.path)
+            }
+
             // Precompute templates
             var builtTemplates: [String: WordTemplate] = [:]
             builtTemplates.reserveCapacity(wordFreqs.count)

@@ -88,6 +88,13 @@ class SwipeTypingEngine: ObservableObject {
         return model
     }
 
+    /// Reloads the swipe typing model (e.g. after custom dictionary changes).
+    func reloadModel() {
+        modelLoaded = false
+        model = nil
+        ensureModelLoaded()
+    }
+
     private init() {}
 
     // MARK: - Mode Lifecycle
