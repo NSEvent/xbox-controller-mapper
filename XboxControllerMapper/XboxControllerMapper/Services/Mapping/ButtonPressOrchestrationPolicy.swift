@@ -14,6 +14,10 @@ enum ButtonPressOrchestrationPolicy {
         case interceptOnScreenKeyboard(holdMode: Bool)
         case interceptLaserPointer(holdMode: Bool)
         case interceptControllerLock
+        case interceptDirectoryNavigator(holdMode: Bool)
+        case interceptDirectoryNavigation
+        case interceptDirectoryConfirm
+        case interceptDirectoryDismiss
         case interceptSwipePredictionNavigation
         case interceptSwipePredictionConfirm
         case interceptSwipePredictionCancel
@@ -26,9 +30,24 @@ enum ButtonPressOrchestrationPolicy {
         mapping: KeyMapping?,
         keyboardVisible: Bool,
         navigationModeActive: Bool,
+        directoryNavigatorVisible: Bool,
         isChordPart: Bool,
         lastTap: Date?
     ) -> Outcome {
+        // Directory navigator interceptions
+        if directoryNavigatorVisible {
+            switch button {
+            case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
+                return .interceptDirectoryNavigation
+            case .a, .x:
+                return .interceptDirectoryConfirm
+            case .b:
+                return .interceptDirectoryDismiss
+            default:
+                break
+            }
+        }
+
         // Swipe typing interceptions based on current swipe state
         if keyboardVisible {
             let swipeState = SwipeTypingEngine.shared.threadSafeState
@@ -81,6 +100,10 @@ enum ButtonPressOrchestrationPolicy {
 
         if mapping.keyCode == KeyCodeMapping.controllerLock {
             return .interceptControllerLock
+        }
+
+        if mapping.keyCode == KeyCodeMapping.showDirectoryNavigator {
+            return .interceptDirectoryNavigator(holdMode: mapping.isHoldModifier)
         }
 
         return .mapping(

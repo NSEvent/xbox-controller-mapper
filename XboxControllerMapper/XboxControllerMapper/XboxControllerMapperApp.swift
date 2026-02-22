@@ -72,6 +72,7 @@ final class ServiceContainer {
             keyCode: settings.toggleShortcutKeyCode,
             modifiers: settings.toggleShortcutModifiers
         )
+        DirectoryNavigatorManager.shared.defaultTerminalApp = settings.defaultTerminalApp
 
         // Observe active profile changes (keyboard settings are per-profile)
         profileManager.$activeProfile
@@ -91,6 +92,7 @@ final class ServiceContainer {
                     keyCode: settings.toggleShortcutKeyCode,
                     modifiers: settings.toggleShortcutModifiers
                 )
+                DirectoryNavigatorManager.shared.defaultTerminalApp = settings.defaultTerminalApp
             }
             .store(in: &cancellables)
     }

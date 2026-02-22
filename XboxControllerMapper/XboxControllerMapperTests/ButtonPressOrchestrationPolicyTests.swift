@@ -8,6 +8,7 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
             mapping: .key(1),
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -21,6 +22,7 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
             mapping: nil,
             keyboardVisible: false,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -34,6 +36,7 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
             mapping: KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick),
             keyboardVisible: true,
             navigationModeActive: true,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -47,6 +50,7 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
             mapping: KeyMapping(keyCode: KeyCodeMapping.showOnScreenKeyboard, isHoldModifier: true),
             keyboardVisible: false,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -62,6 +66,7 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
             mapping: mapping,
             keyboardVisible: false,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: lastTap
         )
@@ -85,6 +90,7 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
             mapping: mapping,
             keyboardVisible: false,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: true,
             lastTap: nil
         )

@@ -25,6 +25,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: mapping,
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -39,6 +40,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: mapping,
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -55,6 +57,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: KeyMapping(keyCode: 0),
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -70,6 +73,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: mapping,
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -88,6 +92,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: KeyMapping(keyCode: 0),
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -108,6 +113,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick),
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -122,6 +128,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: KeyMapping(keyCode: 0),
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -136,6 +143,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: nil,
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -150,6 +158,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: nil,
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -164,6 +173,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: nil,
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -180,6 +190,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: mapping,
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -199,6 +210,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick),
             keyboardVisible: false,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -214,6 +226,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: KeyMapping(keyCode: 0),
             keyboardVisible: false,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )
@@ -236,6 +249,7 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
             mapping: KeyMapping(keyCode: 0),
             keyboardVisible: true,
             navigationModeActive: false,
+            directoryNavigatorVisible: false,
             isChordPart: false,
             lastTap: nil
         )

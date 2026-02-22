@@ -36,6 +36,8 @@ extension MappingEngine {
         var onScreenKeyboardHoldMode: Bool = false
         var laserPointerButton: ControllerButton? = nil
         var laserPointerHoldMode: Bool = false
+        var directoryNavigatorButton: ControllerButton? = nil
+        var directoryNavigatorHoldMode: Bool = false
         var commandWheelActive: Bool = false
         var wheelAlternateModifiers: ModifierFlags = ModifierFlags()
         var dpadNavigationTimer: DispatchSourceTimer? = nil
@@ -133,6 +135,8 @@ extension MappingEngine {
             onScreenKeyboardHoldMode = false
             laserPointerButton = nil
             laserPointerHoldMode = false
+            directoryNavigatorButton = nil
+            directoryNavigatorHoldMode = false
             commandWheelActive = false
             wheelAlternateModifiers = ModifierFlags()
 
