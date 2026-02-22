@@ -113,6 +113,10 @@ final class ControllerStorage: @unchecked Sendable {
     var pitchGesture = AxisGestureState()  // tilt back/forward (rotation rate X)
     var rollGesture = AxisGestureState()   // steer left/right (rotation rate Z)
     var onMotionGesture: ((MotionGestureType) -> Void)?
+
+    // Raw gyroscope rotation rates for gyro aiming (updated every motion callback)
+    var motionPitchRate: Double = 0  // rotation rate X (rad/s)
+    var motionRollRate: Double = 0   // rotation rate Z (rad/s)
 }
 
 /// Service for managing game controller connection and input
@@ -277,6 +281,18 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isDualSense || storage.isDualShock
+    }
+
+    nonisolated var threadSafeMotionPitchRate: Double {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.motionPitchRate
+    }
+
+    nonisolated var threadSafeMotionRollRate: Double {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.motionRollRate
     }
 
     nonisolated var threadSafeIsBluetoothConnection: Bool {

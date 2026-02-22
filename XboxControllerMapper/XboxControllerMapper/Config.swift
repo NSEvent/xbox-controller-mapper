@@ -320,6 +320,11 @@ struct Config {
     static let gestureCompletionRatio: Double = 0.4
     /// Minimum peak velocity for a valid gesture (rad/s)
     static let gestureMinPeakVelocity: Double = 7.0
+    /// Minimum rotation rate to begin tracking a roll (steer) gesture (rad/s).
+    /// Lower than pitch because sideways rolls produce less angular velocity.
+    static let gestureRollActivationThreshold: Double = 3.5
+    /// Minimum peak velocity for a valid roll (steer) gesture (rad/s)
+    static let gestureRollMinPeakVelocity: Double = 5.0
     /// Maximum duration for a gesture before it's discarded as too slow (seconds)
     static let gestureMaxDuration: TimeInterval = 1.0
     // MARK: - Gyro Aiming (Focus Mode)

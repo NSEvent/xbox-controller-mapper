@@ -86,7 +86,18 @@ struct JoystickSettings: Codable, Equatable {
     /// Mode for right stick (default: scroll)
     var rightStickMode: StickMode = .scroll
 
+    /// Whether gyroscope aiming is enabled during focus mode (DualSense only)
+    var gyroAimingEnabled: Bool = false
+
+    /// Sensitivity for gyroscope aiming (0.0 - 1.0)
+    var gyroAimingSensitivity: Double = 0.3
+
     static let `default` = JoystickSettings()
+
+    /// Converts 0-1 gyro aiming sensitivity to pixel-scale multiplier
+    var gyroAimingMultiplier: Double {
+        return 1.0 + gyroAimingSensitivity * 15.0
+    }
 
     /// Validates settings ranges
     func isValid() -> Bool {
@@ -191,6 +202,8 @@ extension JoystickSettings {
         case focusModeModifier
         case leftStickMode
         case rightStickMode
+        case gyroAimingEnabled
+        case gyroAimingSensitivity
     }
 
     init(from decoder: Decoder) throws {
@@ -271,6 +284,12 @@ extension JoystickSettings {
         focusModeModifier = try container.decodeIfPresent(ModifierFlags.self, forKey: .focusModeModifier) ?? .command
         leftStickMode = try container.decodeIfPresent(StickMode.self, forKey: .leftStickMode) ?? .mouse
         rightStickMode = try container.decodeIfPresent(StickMode.self, forKey: .rightStickMode) ?? .scroll
+        gyroAimingEnabled = try container.decodeIfPresent(Bool.self, forKey: .gyroAimingEnabled) ?? false
+        gyroAimingSensitivity = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .gyroAimingSensitivity) ?? 0.3,
+            to: 0.0...1.0,
+            fallback: 0.3
+        )
     }
 
     func encode(to encoder: Encoder) throws {
@@ -295,5 +314,7 @@ extension JoystickSettings {
         try container.encode(focusModeModifier, forKey: .focusModeModifier)
         try container.encode(leftStickMode, forKey: .leftStickMode)
         try container.encode(rightStickMode, forKey: .rightStickMode)
+        try container.encode(gyroAimingEnabled, forKey: .gyroAimingEnabled)
+        try container.encode(gyroAimingSensitivity, forKey: .gyroAimingSensitivity)
     }
 }

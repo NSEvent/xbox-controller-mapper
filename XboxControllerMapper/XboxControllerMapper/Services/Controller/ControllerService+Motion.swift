@@ -12,9 +12,17 @@ extension ControllerService {
 
         motion.valueChangedHandler = { [weak self] motion in
             guard let self = self else { return }
+            let pitch = motion.rotationRate.x
+            let roll = motion.rotationRate.z
+
+            // Store raw rates for gyro aiming (read by MappingEngine each poll tick)
+            self.storage.lock.lock()
+            self.storage.motionPitchRate = pitch
+            self.storage.motionRollRate = roll
+            self.storage.lock.unlock()
+
             // X axis = pitch (tilt back/forward), Z axis = roll (steer left/right)
-            self.processMotionUpdate(pitchVelocity: motion.rotationRate.x,
-                                     rollVelocity: motion.rotationRate.z)
+            self.processMotionUpdate(pitchVelocity: pitch, rollVelocity: roll)
         }
     }
 
@@ -29,11 +37,13 @@ extension ControllerService {
         let pitchResult = processAxis(
             state: &storage.pitchGesture,
             velocity: pitchVelocity,
+            activationThreshold: Config.gestureActivationThreshold,
             now: now
         )
         let rollResult = processAxis(
             state: &storage.rollGesture,
             velocity: rollVelocity,
+            activationThreshold: Config.gestureRollActivationThreshold,
             now: now
         )
 
@@ -49,7 +59,7 @@ extension ControllerService {
         }
 
         if let (peakVelocity, peakSign) = rollResult,
-           peakVelocity >= Config.gestureMinPeakVelocity {
+           peakVelocity >= Config.gestureRollMinPeakVelocity {
             let gestureType: MotionGestureType = peakSign > 0 ? .steerLeft : .steerRight
             callback(gestureType)
         }
@@ -61,6 +71,7 @@ extension ControllerService {
     nonisolated private func processAxis(
         state: inout ControllerStorage.AxisGestureState,
         velocity: Double,
+        activationThreshold: Double,
         now: TimeInterval
     ) -> (Double, Double)? {
         let absVelocity = abs(velocity)
@@ -76,7 +87,7 @@ extension ControllerService {
                 : Config.gestureCooldown
             let cooldownElapsed = (now - state.lastGestureTime) >= requiredCooldown
 
-            if absVelocity >= Config.gestureActivationThreshold && cooldownElapsed {
+            if absVelocity >= activationThreshold && cooldownElapsed {
                 state.state = .tracking
                 state.peakVelocity = absVelocity
                 state.peakSign = currentSign
