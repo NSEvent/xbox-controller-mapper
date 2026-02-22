@@ -75,6 +75,9 @@ struct ButtonMappingSheet: View {
     @State private var showingPrimaryBookmarkPicker = false
     @State private var showingLongHoldBookmarkPicker = false
     @State private var showingDoubleTapBookmarkPicker = false
+    @State private var showingMacroCreation = false
+    @State private var showingLongHoldMacroCreation = false
+    @State private var showingDoubleTapMacroCreation = false
 
     // Long hold type support
     @State private var longHoldMappingType: MappingType = .singleKey
@@ -250,6 +253,21 @@ struct ButtonMappingSheet: View {
             DispatchQueue.main.async {
                 isLoading = false
             }
+        }
+        .sheet(isPresented: $showingMacroCreation) {
+            MacroEditorSheet(macro: nil, onSave: { newMacro in
+                selectedMacroId = newMacro.id
+            })
+        }
+        .sheet(isPresented: $showingLongHoldMacroCreation) {
+            MacroEditorSheet(macro: nil, onSave: { newMacro in
+                longHoldMacroId = newMacro.id
+            })
+        }
+        .sheet(isPresented: $showingDoubleTapMacroCreation) {
+            MacroEditorSheet(macro: nil, onSave: { newMacro in
+                doubleTapMacroId = newMacro.id
+            })
         }
     }
 
@@ -432,6 +450,11 @@ struct ButtonMappingSheet: View {
                         .labelsHidden()
                         .frame(maxWidth: .infinity)
 
+                        Button { showingMacroCreation = true } label: {
+                            Label("Create New Macro...", systemImage: "plus.circle")
+                                .font(.subheadline)
+                        }
+
                         // Hint field for macros
                         HStack {
                             Text("Hint:")
@@ -448,9 +471,10 @@ struct ButtonMappingSheet: View {
                                 .foregroundColor(.secondary)
                                 .italic()
 
-                            Text("Go to the Macros tab to create a new macro.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Button { showingMacroCreation = true } label: {
+                                Label("Create New Macro...", systemImage: "plus.circle")
+                                    .font(.subheadline)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -1085,11 +1109,21 @@ struct ButtonMappingSheet: View {
                     Text(macro.name).tag(macro.id as UUID?)
                 }
             }
+
+            Button { showingLongHoldMacroCreation = true } label: {
+                Label("Create New Macro...", systemImage: "plus.circle")
+                    .font(.caption)
+            }
         } else {
             Text("No macros defined in this profile.")
                 .foregroundColor(.secondary)
                 .italic()
                 .font(.caption)
+
+            Button { showingLongHoldMacroCreation = true } label: {
+                Label("Create New Macro...", systemImage: "plus.circle")
+                    .font(.caption)
+            }
         }
     }
 
@@ -1244,11 +1278,21 @@ struct ButtonMappingSheet: View {
                     Text(macro.name).tag(macro.id as UUID?)
                 }
             }
+
+            Button { showingDoubleTapMacroCreation = true } label: {
+                Label("Create New Macro...", systemImage: "plus.circle")
+                    .font(.caption)
+            }
         } else {
             Text("No macros defined in this profile.")
                 .foregroundColor(.secondary)
                 .italic()
                 .font(.caption)
+
+            Button { showingDoubleTapMacroCreation = true } label: {
+                Label("Create New Macro...", systemImage: "plus.circle")
+                    .font(.caption)
+            }
         }
     }
 

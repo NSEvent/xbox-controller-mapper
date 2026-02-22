@@ -56,6 +56,7 @@ struct ChordMappingSheet: View {
     @State private var obsRequestData: String = ""
     @State private var showingAppPicker = false
     @State private var showingBookmarkPicker = false
+    @State private var showingMacroCreation = false
 
     enum MappingType: Int {
         case singleKey = 0
@@ -294,15 +295,21 @@ struct ChordMappingSheet: View {
                         }
                         .labelsHidden()
                         .frame(maxWidth: .infinity)
+
+                        Button { showingMacroCreation = true } label: {
+                            Label("Create New Macro...", systemImage: "plus.circle")
+                                .font(.subheadline)
+                        }
                     } else {
                         VStack(spacing: 8) {
                             Text("No macros defined in this profile.")
                                 .foregroundColor(.secondary)
                                 .italic()
 
-                            Text("Go to the Macros tab to create a new macro.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Button { showingMacroCreation = true } label: {
+                                Label("Create New Macro...", systemImage: "plus.circle")
+                                    .font(.subheadline)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -392,6 +399,11 @@ struct ChordMappingSheet: View {
                     mappingType = .singleKey
                 }
             }
+        }
+        .sheet(isPresented: $showingMacroCreation) {
+            MacroEditorSheet(macro: nil, onSave: { newMacro in
+                selectedMacroId = newMacro.id
+            })
         }
     }
 

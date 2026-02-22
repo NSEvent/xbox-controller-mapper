@@ -61,9 +61,11 @@ struct MacroEditorSheet: View {
     @State private var draggedStep: IdentifiedStep?
 
     let originalMacro: Macro?
+    var onSave: ((Macro) -> Void)?
 
-    init(macro: Macro?) {
+    init(macro: Macro?, onSave: ((Macro) -> Void)? = nil) {
         self.originalMacro = macro
+        self.onSave = onSave
         _name = State(initialValue: macro?.name ?? "")
         _identifiedSteps = State(initialValue: (macro?.steps ?? []).map { IdentifiedStep($0) })
     }
@@ -206,9 +208,11 @@ struct MacroEditorSheet: View {
             updated.name = macroName
             updated.steps = steps
             profileManager.updateMacro(updated)
+            onSave?(updated)
         } else {
             let newMacro = Macro(name: macroName, steps: steps)
             profileManager.addMacro(newMacro)
+            onSave?(newMacro)
         }
         dismiss()
     }
