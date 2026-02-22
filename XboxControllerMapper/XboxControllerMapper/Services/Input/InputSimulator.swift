@@ -28,7 +28,7 @@ protocol InputSimulatorProtocol: Sendable {
     func executeMapping(_ mapping: KeyMapping)
     func startHoldMapping(_ mapping: KeyMapping)
     func stopHoldMapping(_ mapping: KeyMapping)
-    func executeMacro(_ macro: Macro)
+    func typeText(_ text: String, speed: Int, pressEnter: Bool)
 }
 
 extension InputSimulatorProtocol {
@@ -121,9 +121,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         sharedLock.unlock()
     }
     private let eventSource: CGEventSource?
-
-    /// Handler for executing system commands from macro steps
-    var systemCommandHandler: (@Sendable (SystemCommand) -> Void)?
 
     /// Currently held modifier flags (for hold-type mappings)
     private var heldModifiers: CGEventFlags = []
@@ -1243,100 +1240,37 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             releaseModifier(mapping.modifiers.cgEventFlags)
         }
     }
-    
-    // MARK: - Macro Execution
-    
-    func executeMacro(_ macro: Macro) {
+
+    // MARK: - Text Typing
+
+    /// Types text character-by-character or pastes via clipboard, then optionally presses Enter.
+    func typeText(_ text: String, speed: Int, pressEnter: Bool) {
         keyboardQueue.async { [weak self] in
             guard let self = self else { return }
-            
-            for step in macro.steps {
-                switch step {
-                case .press(let mapping):
-                    self.pressKeyMapping(mapping)
 
-                case .hold(let mapping, let duration):
-                    self.holdKeyMapping(mapping, duration: duration)
+            if speed == 0 {
+                self.pasteString(text)
+            } else {
+                self.typeString(text, speed: speed)
+            }
 
-                case .delay(let duration):
-                    usleep(useconds_t(duration * 1_000_000))
-
-                case .typeText(let text, let speed, let pressEnter):
-                    self.typeString(text, speed: speed)
-                    if pressEnter {
-                        self.pressKey(36, modifiers: []) // 36 = Return key
-                    }
-
-                case .openApp(let bundleIdentifier, let newWindow):
-                    self.openApplication(bundleIdentifier: bundleIdentifier, newWindow: newWindow)
-
-                case .openLink(let url):
-                    self.openURL(url)
-
-                case .shellCommand(let command, let inTerminal):
-                    let systemCommand = SystemCommand.shellCommand(command: command, inTerminal: inTerminal)
-                    self.systemCommandHandler?(systemCommand)
-
-                case .webhook(let url, let method, let headers, let body):
-                    let systemCommand = SystemCommand.httpRequest(url: url, method: method, headers: headers, body: body)
-                    self.systemCommandHandler?(systemCommand)
-
-                case .obsWebSocket(let url, let password, let requestType, let requestData):
-                    let systemCommand = SystemCommand.obsWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
-                    self.systemCommandHandler?(systemCommand)
-                }
+            if pressEnter {
+                self.pressKey(36, modifiers: []) // 36 = Return key
             }
         }
     }
-    
-    private func pressKeyMapping(_ mapping: KeyMapping) {
-        if let keyCode = mapping.keyCode {
-            pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-        } else if mapping.modifiers.hasAny {
-            let flags = mapping.modifiers.cgEventFlags
-            holdModifier(flags)
-            usleep(Config.keyPressDuration)
-            releaseModifier(flags)
-        }
-    }
-    
-    private func holdKeyMapping(_ mapping: KeyMapping, duration: TimeInterval) {
-        if let keyCode = mapping.keyCode {
-            keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-            usleep(useconds_t(duration * 1_000_000))
-            keyUp(keyCode)
-        } else if mapping.modifiers.hasAny {
-            let flags = mapping.modifiers.cgEventFlags
-            holdModifier(flags)
-            usleep(useconds_t(duration * 1_000_000))
-            releaseModifier(flags)
-        }
-    }
-    
+
     private func typeString(_ text: String, speed: Int) {
-        // 0 = Paste (Instant)
-        if speed == 0 {
-            pasteString(text)
-            return
-        }
-
-        // Use nil source to avoid inheriting HID system modifier state
-        // This ensures typed characters aren't affected by held controller buttons
-
         // Calculate delay in microseconds
-        // CPM (Chars Per Minute) -> Chars Per Second = CPM / 60
-        // Seconds Per Char = 60 / CPM
-        // Microseconds = (60 / CPM) * 1_000_000
         let charDelayUs = useconds_t((60.0 / Double(speed)) * 1_000_000)
 
         for char in text {
-            // Create a unicode event with nil source (no inherited modifier state)
             guard let firstUTF16 = String(char).utf16.first else { continue }
             var chars = [UniChar(firstUTF16)]
 
             if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
                 event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &chars)
-                event.flags = []  // Explicitly clear any flags
+                event.flags = []
                 event.post(tap: .cghidEventTap)
             }
 
@@ -1351,80 +1285,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             usleep(charDelayUs)
         }
     }
-    
-    private func pasteString(_ text: String) {
-        // Use clipboard for instant paste
-        // NSPasteboard must be accessed from the main thread
-        DispatchQueue.main.async {
-            // 1. Save current clipboard
-            let pasteboard = NSPasteboard.general
-            // We can't reliably copy old items without potentially blocking or issues, so we skip restoring for now
-            // Or we could try to just clear and set.
 
-            // 2. Set new text
+    private func pasteString(_ text: String) {
+        DispatchQueue.main.async {
+            let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
         }
-
-        // Wait briefly for clipboard update
         usleep(50000) // 50ms
-
-        // 3. Cmd+V
         pressKey(CGKeyCode(kVK_ANSI_V), modifiers: .maskCommand)
-
-        // 4. Restore clipboard - skipped for stability
-    }
-
-    private func openApplication(bundleIdentifier: String, newWindow: Bool) {
-        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
-            NSLog("[Macro] App not found: \(bundleIdentifier)")
-            return
-        }
-
-        let semaphore = DispatchSemaphore(value: 0)
-        let config = NSWorkspace.OpenConfiguration()
-
-        DispatchQueue.main.async {
-            NSWorkspace.shared.openApplication(at: appURL, configuration: config) { _, error in
-                if let error = error {
-                    NSLog("[Macro] Failed to open app: \(error.localizedDescription)")
-                }
-                semaphore.signal()
-            }
-        }
-
-        _ = semaphore.wait(timeout: .now() + 3.0)
-
-        if newWindow {
-            // Wait for app to be ready, then send Cmd+N
-            usleep(300_000)
-            pressKey(CGKeyCode(kVK_ANSI_N), modifiers: .maskCommand)
-        }
-    }
-
-    private func openURL(_ urlString: String) {
-        var resolved = urlString
-        if !resolved.contains("://") {
-            resolved = "https://" + resolved
-        }
-        guard let url = URL(string: resolved) else {
-            NSLog("[Macro] Invalid URL: \(urlString)")
-            return
-        }
-        guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
-            NSLog("[Macro] openURL blocked non-http(s) scheme: %@", urlString)
-            return
-        }
-
-        let semaphore = DispatchSemaphore(value: 0)
-        DispatchQueue.main.async {
-            NSWorkspace.shared.open(url)
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + 2.0)
-
-        // Small delay to let the browser handle the URL
-        usleep(200_000)
     }
 }
 

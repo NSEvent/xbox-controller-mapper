@@ -343,5 +343,5 @@ private class MockInputSimulator: InputSimulatorProtocol {
     func executeMapping(_ mapping: KeyMapping) {}
     func startHoldMapping(_ mapping: KeyMapping) {}
     func stopHoldMapping(_ mapping: KeyMapping) {}
-    func executeMacro(_ macro: Macro) {}
+    func typeText(_ text: String, speed: Int, pressEnter: Bool) {}
 }
