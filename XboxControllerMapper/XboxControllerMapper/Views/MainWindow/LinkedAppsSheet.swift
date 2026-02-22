@@ -71,9 +71,14 @@ struct LinkedAppsSheet: View {
                 Button(action: { showingAppPicker = true }) {
                     Label("Add App...", systemImage: "plus")
                 }
-                
+
                 Spacer()
-                
+
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
                 Button("Done") {
                     dismiss()
                 }

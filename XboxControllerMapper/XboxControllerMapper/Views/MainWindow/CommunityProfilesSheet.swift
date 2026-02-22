@@ -35,6 +35,7 @@ struct CommunityProfilesSheet: View {
                 Button("Done") {
                     dismiss()
                 }
+                .keyboardShortcut(.cancelAction)
                 .buttonStyle(.plain)
                 .foregroundColor(.accentColor)
             }

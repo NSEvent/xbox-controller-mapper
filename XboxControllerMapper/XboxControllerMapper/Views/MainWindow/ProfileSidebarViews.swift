@@ -104,29 +104,33 @@ struct ProfileSidebar: View {
                 .padding(.vertical, 8)
             }
         }
-        .alert("New Profile", isPresented: $showingNewProfileAlert) {
-            TextField("Profile name", text: $newProfileName)
-            Button("Cancel", role: .cancel) {
-                newProfileName = ""
-            }
-            Button("Create") {
+        .sheet(isPresented: $showingNewProfileAlert) {
+            ProfileNameSheet(
+                title: "New Profile",
+                actionLabel: "Create",
+                name: $newProfileName
+            ) {
                 if !newProfileName.isEmpty {
                     let profile = profileManager.createProfile(name: newProfileName)
                     profileManager.setActiveProfile(profile)
                     newProfileName = ""
                 }
+            } onCancel: {
+                newProfileName = ""
             }
         }
-        .alert("Rename Profile", isPresented: $showingRenameProfileAlert) {
-            TextField("Profile name", text: $renameProfileName)
-            Button("Cancel", role: .cancel) {
-                renameProfileName = ""
-                profileToRename = nil
-            }
-            Button("Rename") {
+        .sheet(isPresented: $showingRenameProfileAlert) {
+            ProfileNameSheet(
+                title: "Rename Profile",
+                actionLabel: "Rename",
+                name: $renameProfileName
+            ) {
                 if !renameProfileName.isEmpty, let profile = profileToRename {
                     profileManager.renameProfile(profile, to: renameProfileName)
                 }
+                renameProfileName = ""
+                profileToRename = nil
+            } onCancel: {
                 renameProfileName = ""
                 profileToRename = nil
             }
@@ -299,5 +303,52 @@ struct ProfileContextMenu: View {
 
         Button("Delete", role: .destructive, action: onDelete)
             .disabled(profileCount <= 1)
+    }
+}
+
+// MARK: - Profile Name Sheet
+
+struct ProfileNameSheet: View {
+    let title: String
+    let actionLabel: String
+    @Binding var name: String
+    let onSave: () -> Void
+    let onCancel: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(title)
+                .font(.headline)
+
+            TextField("Profile name", text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            HStack {
+                Spacer()
+
+                Button("Cancel") {
+                    onCancel()
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Button(actionLabel) {
+                    onSave()
+                    dismiss()
+                }
+                .keyboardShortcut(.return, modifiers: .command)
+                .buttonStyle(.borderedProminent)
+                .disabled(name.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 340)
+        .onSubmit {
+            guard !name.isEmpty else { return }
+            onSave()
+            dismiss()
+        }
     }
 }
