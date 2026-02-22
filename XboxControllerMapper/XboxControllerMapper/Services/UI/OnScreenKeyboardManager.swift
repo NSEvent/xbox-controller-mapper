@@ -285,6 +285,8 @@ class OnScreenKeyboardManager: ObservableObject {
     private var toggleShortcutModifiers: ModifierFlags = ModifierFlags()
     /// Saved keyboard positions per screen (session-only, keyed by display ID)
     private var savedPositions: [CGDirectDisplayID: NSPoint] = [:]
+    /// Display ID the panel was last created/sized for
+    private var panelCreatedForDisplayID: CGDirectDisplayID?
 
     // MARK: - Navigation Grid Cache
     /// Cached navigation grid to avoid rebuilding on every D-pad press
@@ -404,13 +406,23 @@ class OnScreenKeyboardManager: ObservableObject {
 
     /// Shows the on-screen keyboard window on the screen where the mouse currently is
     func show() {
+        // Check if we need to recreate the panel for a different screen size
+        let mouseLocation = NSEvent.mouseLocation
+        let currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+        let currentDisplayID = currentScreen?.displayID
+
+        if panel != nil, let currentDisplayID = currentDisplayID,
+           currentDisplayID != panelCreatedForDisplayID {
+            // Screen changed - recreate panel to handle different resolutions
+            panel?.orderOut(nil)
+            panel = nil
+        }
+
         if panel == nil {
             createPanel()
         }
         // Position on the screen where the mouse is
         if let panel = panel {
-            let mouseLocation = NSEvent.mouseLocation
-            let currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
             if let screen = currentScreen {
                 let displayID = screen.displayID
                 if let savedPosition = savedPositions[displayID] {
@@ -421,7 +433,7 @@ class OnScreenKeyboardManager: ObservableObject {
                     let screenFrame = screen.visibleFrame
                     let panelSize = panel.frame.size
                     let x = screenFrame.midX - panelSize.width / 2
-                    let y = screenFrame.minY + 100
+                    let y = screenFrame.minY + max(100, 20) // Use 100 if it fits, 20 minimum
                     panel.setFrameOrigin(NSPoint(x: x, y: y))
                 }
             }
@@ -455,12 +467,49 @@ class OnScreenKeyboardManager: ObservableObject {
             showExtendedFunctionKeys: showExtendedFunctionKeys
         )
 
-        let hostingView = NSHostingView(rootView: keyboardView)
+        // Measure the natural size of the keyboard, then check if scaling is needed
+        let mouseLocation = NSEvent.mouseLocation
+        let currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
+        let bottomMargin: CGFloat = 20
+        let topMargin: CGFloat = 20
+
+        // First, measure natural size with an unscaled hosting view
+        let measureView = NSHostingView(rootView: keyboardView)
+        measureView.setFrameSize(measureView.fittingSize)
+        let naturalSize = measureView.fittingSize
+
+        var scale: CGFloat = 1.0
+        if let screen = currentScreen {
+            let screenFrame = screen.visibleFrame
+            let availableHeight = screenFrame.height - bottomMargin - topMargin
+            let availableWidth = screenFrame.width - 40
+
+            if naturalSize.height > availableHeight || naturalSize.width > availableWidth {
+                let scaleH = availableHeight / naturalSize.height
+                let scaleW = availableWidth / naturalSize.width
+                scale = min(scaleH, scaleW)
+            }
+        }
+
+        // Create the actual hosting view with SwiftUI scaleEffect applied
+        let finalView: AnyView
+        if scale < 1.0 {
+            finalView = AnyView(
+                keyboardView
+                    .scaleEffect(scale)
+                    .frame(width: naturalSize.width * scale, height: naturalSize.height * scale)
+            )
+        } else {
+            finalView = AnyView(keyboardView)
+        }
+
+        let hostingView = NSHostingView(rootView: finalView)
         hostingView.setFrameSize(hostingView.fittingSize)
+        let panelSize = hostingView.fittingSize
 
         // Use NSPanel with nonactivatingPanel to avoid stealing focus
         let panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: hostingView.fittingSize),
+            contentRect: NSRect(origin: .zero, size: panelSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -477,18 +526,17 @@ class OnScreenKeyboardManager: ObservableObject {
         panel.becomesKeyOnlyIfNeeded = true
 
         // Center panel on the screen where the mouse cursor currently is
-        let mouseLocation = NSEvent.mouseLocation
-        let currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
         if let screen = currentScreen {
             let screenFrame = screen.visibleFrame
-            let panelSize = panel.frame.size
             let x = screenFrame.midX - panelSize.width / 2
-            let y = screenFrame.minY + 100  // Position near bottom of screen
+            // Use smaller bottom offset when keyboard was scaled to fit
+            let y = screenFrame.minY + (scale < 1.0 ? bottomMargin : 100)
             panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
 
         panel.orderFrontRegardless()
         self.panel = panel
+        self.panelCreatedForDisplayID = currentScreen?.displayID
 
         // Observe keyboard panel movement to reposition buffer panel
         if let observer = panelMovedObserver {
