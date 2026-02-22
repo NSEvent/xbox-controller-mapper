@@ -126,7 +126,7 @@ struct ContentView: View {
                         }
                         return profileManager.activeProfile?.buttonMappings[button]
                     },
-                    set: { _ in }
+                    set: { _ in } // Read-only: ButtonMappingSheet saves directly via ProfileManager (see saveMapping())
                 ),
                 isDualSense: controllerService.threadSafeIsPlayStation,
                 selectedLayerId: selectedLayerId
