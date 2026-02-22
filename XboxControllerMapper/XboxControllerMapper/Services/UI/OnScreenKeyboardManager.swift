@@ -526,6 +526,14 @@ class OnScreenKeyboardManager: ObservableObject {
         self.panel = panel
         self.panelCreatedForDisplayID = currentScreen?.displayID
 
+        // Disable window dragging while swipe mode is active
+        SwipeTypingEngine.shared.$state
+            .receive(on: DispatchQueue.main)
+            .sink { [weak panel] swipeState in
+                panel?.isMovableByWindowBackground = (swipeState == .idle)
+            }
+            .store(in: &cancellables)
+
         // Observe keyboard panel movement to reposition buffer panel
         if let observer = panelMovedObserver {
             NotificationCenter.default.removeObserver(observer)
