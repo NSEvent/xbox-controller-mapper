@@ -4,6 +4,14 @@ import IOKit.hid
 
 // MARK: - PlayStation HID Monitoring (PS button, mic, Edge paddles)
 
+/// Weak callback context for the PlayStation HID input report callback.
+/// Prevents use-after-free when ControllerService is deallocated while a
+/// pending HID callback fires on the run loop.
+fileprivate final class PSHIDCallbackContext {
+    weak var service: ControllerService?
+    init(service: ControllerService) { self.service = service }
+}
+
 @MainActor
 extension ControllerService {
 
@@ -64,12 +72,15 @@ extension ControllerService {
 
         guard let buffer = hidReportBuffer else { return }
 
-        let context = Unmanaged.passUnretained(self).toOpaque()
+        let ctx = PSHIDCallbackContext(service: self)
+        let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
+        psHIDCallbackContext = retainedContext
         IOHIDDeviceRegisterInputReportCallback(device, buffer, 100, { context, result, sender, type, reportID, report, reportLength in
             guard let context = context else { return }
-            let service = Unmanaged<ControllerService>.fromOpaque(context).takeUnretainedValue()
+            let holder = Unmanaged<PSHIDCallbackContext>.fromOpaque(context).takeUnretainedValue()
+            guard let service = holder.service else { return }
             service.handleHIDReport(reportID: reportID, report: report, length: Int(reportLength))
-        }, context)
+        }, retainedContext)
 
         IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
 
@@ -100,6 +111,11 @@ extension ControllerService {
             buffer.deallocate()
         }
         hidReportBuffer = nil
+
+        if let ctx = psHIDCallbackContext {
+            Unmanaged<PSHIDCallbackContext>.fromOpaque(ctx).release()
+            psHIDCallbackContext = nil
+        }
     }
 
     nonisolated func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {

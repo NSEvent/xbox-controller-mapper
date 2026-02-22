@@ -4,6 +4,14 @@ import IOKit.hid
 
 // MARK: - Generic HID Controller Fallback
 
+/// Weak callback context for generic HID device matching/removal callbacks.
+/// Prevents use-after-free when ControllerService is deallocated while a HID
+/// callback fires on the run loop.
+fileprivate final class GenericHIDCallbackContext {
+    weak var service: ControllerService?
+    init(service: ControllerService) { self.service = service }
+}
+
 @MainActor
 extension ControllerService {
 
@@ -24,7 +32,11 @@ extension ControllerService {
         let criteria = [gamepadMatching, joystickMatching] as CFArray
         IOHIDManagerSetDeviceMatchingMultiple(manager, criteria)
 
-        let context = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        let ctx = GenericHIDCallbackContext(service: self)
+        let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
+        genericHIDCallbackContext = retainedContext
+        let context = UnsafeMutableRawPointer(retainedContext)
+
         IOHIDManagerRegisterDeviceMatchingCallback(manager, genericHIDDeviceMatched, context)
         IOHIDManagerRegisterDeviceRemovalCallback(manager, genericHIDDeviceRemoved, context)
 
@@ -42,6 +54,11 @@ extension ControllerService {
             IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         }
         genericHIDManager = nil
+
+        if let ctx = genericHIDCallbackContext {
+            Unmanaged<GenericHIDCallbackContext>.fromOpaque(ctx).release()
+            genericHIDCallbackContext = nil
+        }
     }
 
     func genericDeviceAppeared(_ device: IOHIDDevice) {
@@ -132,7 +149,8 @@ extension ControllerService {
 
 private nonisolated func genericHIDDeviceMatched(context: UnsafeMutableRawPointer?, result: IOReturn, sender: UnsafeMutableRawPointer?, device: IOHIDDevice) {
     guard let context = context else { return }
-    let service = Unmanaged<ControllerService>.fromOpaque(context).takeUnretainedValue()
+    let holder = Unmanaged<GenericHIDCallbackContext>.fromOpaque(context).takeUnretainedValue()
+    guard let service = holder.service else { return }
     DispatchQueue.main.async {
         service.genericDeviceAppeared(device)
     }
@@ -140,7 +158,8 @@ private nonisolated func genericHIDDeviceMatched(context: UnsafeMutableRawPointe
 
 private nonisolated func genericHIDDeviceRemoved(context: UnsafeMutableRawPointer?, result: IOReturn, sender: UnsafeMutableRawPointer?, device: IOHIDDevice) {
     guard let context = context else { return }
-    let service = Unmanaged<ControllerService>.fromOpaque(context).takeUnretainedValue()
+    let holder = Unmanaged<GenericHIDCallbackContext>.fromOpaque(context).takeUnretainedValue()
+    guard let service = holder.service else { return }
     DispatchQueue.main.async {
         service.genericDeviceRemoved(device)
     }

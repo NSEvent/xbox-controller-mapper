@@ -151,6 +151,12 @@ class ControllerService: ObservableObject {
     var genericHIDFallbackTimer: DispatchWorkItem?
     @Published var isGenericController = false
 
+    /// Retained context pointer for generic HID callbacks — released in cleanupGenericHIDMonitoring().
+    var genericHIDCallbackContext: UnsafeMutableRawPointer?
+
+    /// Retained context pointer for PlayStation HID report callback — released in cleanupHIDMonitoring().
+    var psHIDCallbackContext: UnsafeMutableRawPointer?
+
     enum TouchpadIdleSentinelConfig {
         static let activationThreshold: CGFloat = 0.02
     }
