@@ -495,7 +495,11 @@ class ScriptEngine {
         context.setObject(expand, forKeyedSubscript: "expand" as NSString)
 
         // delay(seconds)
-        let delay: @convention(block) (Double) -> Void = { seconds in
+        let delay: @convention(block) (Double) -> Void = { [weak self] seconds in
+            if self?.isTestMode == true {
+                self?.testLogs.append("[delay] \(seconds)s")
+                return
+            }
             let clamped = min(max(seconds, 0), 5.0) // Max 5 seconds
             usleep(useconds_t(clamped * 1_000_000))
         }

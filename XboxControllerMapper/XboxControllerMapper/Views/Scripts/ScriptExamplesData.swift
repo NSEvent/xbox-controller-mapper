@@ -31,10 +31,10 @@ enum ScriptExamplesData {
             description: "Opens Apple Notes and pastes a timestamped entry.",
             source: """
                 openApp("com.apple.Notes");
-                delay(0.5);
+                delay(0.2);
                 // Cmd+N for new note
                 press(45, {command: true});
-                delay(0.3);
+                delay(0.1);
                 paste(expand("--- {date} {time} ---\\n"));
                 """,
             icon: "note.text.badge.plus",
