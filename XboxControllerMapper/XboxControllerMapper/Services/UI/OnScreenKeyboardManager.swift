@@ -470,26 +470,14 @@ class OnScreenKeyboardManager: ObservableObject {
         // Measure the natural size of the keyboard, then check if scaling is needed
         let mouseLocation = NSEvent.mouseLocation
         let currentScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) }) ?? NSScreen.main
-        let bottomMargin: CGFloat = 20
-        let topMargin: CGFloat = 20
 
         // First, measure natural size with an unscaled hosting view
         let measureView = NSHostingView(rootView: keyboardView)
         measureView.setFrameSize(measureView.fittingSize)
         let naturalSize = measureView.fittingSize
 
-        var scale: CGFloat = 1.0
-        if let screen = currentScreen {
-            let screenFrame = screen.visibleFrame
-            let availableHeight = screenFrame.height - bottomMargin - topMargin
-            let availableWidth = screenFrame.width - 40
-
-            if naturalSize.height > availableHeight || naturalSize.width > availableWidth {
-                let scaleH = availableHeight / naturalSize.height
-                let scaleW = availableWidth / naturalSize.width
-                scale = min(scaleH, scaleW)
-            }
-        }
+        let screenVisibleFrame = currentScreen?.visibleFrame ?? .zero
+        let scale = Self.scaleToFit(keyboardSize: naturalSize, screenVisibleFrame: screenVisibleFrame)
 
         // Create the actual hosting view with SwiftUI scaleEffect applied
         let finalView: AnyView
@@ -530,7 +518,7 @@ class OnScreenKeyboardManager: ObservableObject {
             let screenFrame = screen.visibleFrame
             let x = screenFrame.midX - panelSize.width / 2
             // Use smaller bottom offset when keyboard was scaled to fit
-            let y = screenFrame.minY + (scale < 1.0 ? bottomMargin : 100)
+            let y = screenFrame.minY + (scale < 1.0 ? Self.screenMargin : 100)
             panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
 
@@ -1500,6 +1488,35 @@ class OnScreenKeyboardManager: ObservableObject {
         handleKeyPress(keyCode: keyCode, modifiers: modifiers)
     }
     #endif
+
+    // MARK: - Screen Scaling (extracted for testability)
+
+    /// Margin (in points) reserved on each edge when the keyboard must be scaled to fit
+    static let screenMargin: CGFloat = 20
+
+    /// Computes the uniform scale factor needed to fit the keyboard within the screen's visible area.
+    /// Returns 1.0 when the keyboard fits without scaling.
+    static func scaleToFit(keyboardSize: NSSize, screenVisibleFrame: NSRect) -> CGFloat {
+        guard screenVisibleFrame.width > 0, screenVisibleFrame.height > 0 else { return 1.0 }
+
+        let availableHeight = screenVisibleFrame.height - screenMargin * 2
+        let availableWidth = screenVisibleFrame.width - screenMargin * 2
+
+        guard keyboardSize.height > availableHeight || keyboardSize.width > availableWidth else {
+            return 1.0
+        }
+
+        let scaleH = availableHeight / keyboardSize.height
+        let scaleW = availableWidth / keyboardSize.width
+        return min(scaleH, scaleW)
+    }
+
+    /// Computes the panel origin to center it horizontally and place it near the bottom of the screen.
+    static func panelOrigin(panelSize: NSSize, screenVisibleFrame: NSRect, scaled: Bool) -> NSPoint {
+        let x = screenVisibleFrame.midX - panelSize.width / 2
+        let y = screenVisibleFrame.minY + (scaled ? screenMargin : 100)
+        return NSPoint(x: x, y: y)
+    }
 }
 
 // MARK: - NSScreen Display ID Helper
