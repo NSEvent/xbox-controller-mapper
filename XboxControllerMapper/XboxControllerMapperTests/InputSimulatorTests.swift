@@ -97,6 +97,180 @@ final class InputSimulatorTests: XCTestCase {
     }
 }
 
+// MARK: - Modifier Reference Counting Tests
+//
+// These tests exercise holdModifier/releaseModifier ref counting logic.
+// They require Accessibility permissions and are skipped in CI.
+
+final class ModifierRefCountingTests: XCTestCase {
+
+    var simulator: InputSimulator!
+
+    override func setUp() {
+        super.setUp()
+        simulator = InputSimulator()
+        // Skip all tests if Accessibility is not available
+        try? XCTSkipUnless(AXIsProcessTrusted(),
+            "Modifier ref counting tests require Accessibility permissions")
+    }
+
+    override func tearDown() {
+        simulator?.releaseAllModifiers()
+        simulator = nil
+        super.tearDown()
+    }
+
+    // MARK: - Basic hold/release
+
+    func testHoldModifier_singleHold_setsFlag() {
+        simulator.holdModifier(.maskCommand)
+        XCTAssertTrue(simulator.isHoldingModifiers(.maskCommand),
+            "Command should be held after holdModifier")
+    }
+
+    func testReleaseModifier_afterSingleHold_clearsFlag() {
+        simulator.holdModifier(.maskCommand)
+        simulator.releaseModifier(.maskCommand)
+        XCTAssertFalse(simulator.isHoldingModifiers(.maskCommand),
+            "Command should be released after releaseModifier")
+    }
+
+    // MARK: - Overlapping holds (ref counting)
+
+    func testOverlappingHolds_sameModifier_staysHeldUntilAllReleased() {
+        // Two buttons hold Command
+        simulator.holdModifier(.maskCommand)
+        simulator.holdModifier(.maskCommand)
+
+        // Release one - should still be held (count = 1)
+        simulator.releaseModifier(.maskCommand)
+        XCTAssertTrue(simulator.isHoldingModifiers(.maskCommand),
+            "Command should remain held when one of two holds is released")
+
+        // Release second - now should be clear (count = 0)
+        simulator.releaseModifier(.maskCommand)
+        XCTAssertFalse(simulator.isHoldingModifiers(.maskCommand),
+            "Command should be released when all holds are released")
+    }
+
+    func testOverlappingHolds_releaseInReverseOrder() {
+        // Button A holds, then Button B holds
+        simulator.holdModifier(.maskShift)
+        simulator.holdModifier(.maskShift)
+
+        // Button B releases first (reverse order)
+        simulator.releaseModifier(.maskShift)
+        XCTAssertTrue(simulator.isHoldingModifiers(.maskShift),
+            "Shift should still be held after first release")
+
+        // Button A releases
+        simulator.releaseModifier(.maskShift)
+        XCTAssertFalse(simulator.isHoldingModifiers(.maskShift),
+            "Shift should be released after both releases")
+    }
+
+    // MARK: - Underflow protection
+
+    func testReleaseWithoutHold_isNoOp() {
+        // Release without prior hold should not crash or corrupt state
+        simulator.releaseModifier(.maskCommand)
+        XCTAssertEqual(simulator.getHeldModifiers(), [],
+            "Releasing without holding should leave modifiers empty")
+    }
+
+    func testExtraRelease_doesNotUnderflow() {
+        simulator.holdModifier(.maskAlternate)
+        simulator.releaseModifier(.maskAlternate)
+        // Extra release - should be no-op (count is already 0)
+        simulator.releaseModifier(.maskAlternate)
+        XCTAssertFalse(simulator.isHoldingModifiers(.maskAlternate),
+            "Extra release should not corrupt state")
+    }
+
+    // MARK: - Multiple different modifiers
+
+    func testMultipleModifiersSimultaneously() {
+        simulator.holdModifier(.maskCommand)
+        simulator.holdModifier(.maskShift)
+        simulator.holdModifier(.maskAlternate)
+
+        let held = simulator.getHeldModifiers()
+        XCTAssertTrue(held.contains(.maskCommand))
+        XCTAssertTrue(held.contains(.maskShift))
+        XCTAssertTrue(held.contains(.maskAlternate))
+        XCTAssertFalse(held.contains(.maskControl))
+
+        simulator.releaseModifier(.maskShift)
+        let afterRelease = simulator.getHeldModifiers()
+        XCTAssertTrue(afterRelease.contains(.maskCommand))
+        XCTAssertFalse(afterRelease.contains(.maskShift))
+        XCTAssertTrue(afterRelease.contains(.maskAlternate))
+    }
+
+    func testHoldCompoundModifier_holdsBothFlags() {
+        // Hold Command+Shift in a single call
+        let compound: CGEventFlags = [.maskCommand, .maskShift]
+        simulator.holdModifier(compound)
+
+        XCTAssertTrue(simulator.isHoldingModifiers(.maskCommand))
+        XCTAssertTrue(simulator.isHoldingModifiers(.maskShift))
+        XCTAssertFalse(simulator.isHoldingModifiers(.maskAlternate))
+    }
+
+    // MARK: - releaseAllModifiers
+
+    func testReleaseAllModifiers_clearsEverything() {
+        simulator.holdModifier(.maskCommand)
+        simulator.holdModifier(.maskShift)
+        simulator.holdModifier(.maskCommand) // ref count 2
+
+        simulator.releaseAllModifiers()
+
+        XCTAssertEqual(simulator.getHeldModifiers(), [],
+            "releaseAll should clear all modifiers regardless of ref counts")
+    }
+
+    func testReleaseAllModifiers_subsequentHoldWorks() {
+        simulator.holdModifier(.maskCommand)
+        simulator.releaseAllModifiers()
+
+        // After releaseAll, a fresh hold should work normally
+        simulator.holdModifier(.maskShift)
+        XCTAssertTrue(simulator.isHoldingModifiers(.maskShift),
+            "Should be able to hold modifiers after releaseAll")
+        XCTAssertFalse(simulator.isHoldingModifiers(.maskCommand),
+            "Previously held modifier should not reappear")
+
+        simulator.releaseModifier(.maskShift)
+        XCTAssertEqual(simulator.getHeldModifiers(), [],
+            "Single release after releaseAll should clear the modifier")
+    }
+
+    // MARK: - Concurrent access
+
+    func testConcurrentHoldRelease_doesNotCrash() {
+        // Stress test: many concurrent hold/release cycles should not crash
+        let iterations = 1000
+        let group = DispatchGroup()
+
+        for _ in 0..<iterations {
+            group.enter()
+            DispatchQueue.global().async {
+                self.simulator.holdModifier(.maskCommand)
+                self.simulator.releaseModifier(.maskCommand)
+                group.leave()
+            }
+        }
+
+        let result = group.wait(timeout: .now() + 10)
+        XCTAssertEqual(result, .success, "Concurrent hold/release should complete without deadlock")
+
+        // After all pairs complete, modifiers should be clear
+        XCTAssertEqual(simulator.getHeldModifiers(), [],
+            "After equal holds and releases, no modifiers should be held")
+    }
+}
+
 // MARK: - KeyCodeMapping Special Key Flag Tests
 // (isMouseButton, isMediaKey, isSpecialMarker, displayName, allKeyOptions, and keyInfo
 //  are covered by KeyCodeMappingDisplayTests.swift — only uncovered helpers are tested here.)
