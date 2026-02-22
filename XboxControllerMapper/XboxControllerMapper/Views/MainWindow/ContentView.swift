@@ -59,70 +59,96 @@ struct ContentView: View {
             // Main content
             VStack(spacing: 0) {
                 // Toolbar
-                toolbar
+                ContentToolbar(showingSettingsSheet: $showingSettingsSheet)
                     .zIndex(1) // Keep above content
 
                 // Tab content
                 TabView(selection: $selectedTab) {
                     // Controller Visual
-                    controllerTab
-                        .tabItem { Text("Buttons") }
-                        .tag(0)
+                    ButtonMappingsTab(
+                        selectedButton: $selectedButton,
+                        configuringButton: $configuringButton,
+                        selectedLayerId: $selectedLayerId,
+                        isSwapMode: $isSwapMode,
+                        swapFirstButton: $swapFirstButton,
+                        showingAddLayerSheet: $showingAddLayerSheet,
+                        editingLayerId: $editingLayerId,
+                        editingChord: $editingChord,
+                        editingSequence: $editingSequence,
+                        isMagnifying: $isMagnifying,
+                        actionFeedbackEnabled: actionFeedbackEnabled,
+                        streamOverlayEnabled: streamOverlayEnabled
+                    )
+                    .tabItem { Text("Buttons") }
+                    .tag(0)
 
                     // Chords
-                    chordsTab
-                        .tabItem { Text("Chords") }
-                        .tag(1)
+                    ChordsTab(
+                        showingChordSheet: $showingChordSheet,
+                        editingChord: $editingChord
+                    )
+                    .tabItem { Text("Chords") }
+                    .tag(1)
 
                     // Sequences
-                    sequencesTab
-                        .tabItem { Text("Sequences") }
-                        .tag(9)
+                    SequencesTab(
+                        showingSequenceSheet: $showingSequenceSheet,
+                        editingSequence: $editingSequence
+                    )
+                    .tabItem { Text("Sequences") }
+                    .tag(9)
 
                     // Gestures (only shown for DualSense - requires gyroscope)
                     if controllerService.threadSafeIsDualSense {
-                        gesturesTab
+                        GesturesTab(editingGestureType: $editingGestureType)
                             .tabItem { Text("Gestures") }
                             .tag(11)
                     }
 
                     // Macros Tab
-                    macroListTab
+                    MacroListView()
+                        .scrollContentBackground(.hidden)
                         .tabItem { Text("Macros") }
                         .tag(7)
 
                     // Scripts Tab
-                    scriptListTab
+                    ScriptListView()
+                        .scrollContentBackground(.hidden)
                         .tabItem { Text("Scripts") }
                         .tag(10)
 
                     // On-Screen Keyboard Settings
-                    keyboardSettingsTab
+                    OnScreenKeyboardSettingsView()
+                        .scrollContentBackground(.hidden)
                         .tabItem { Text("Keyboard") }
                         .tag(3)
 
                     // Joystick Settings
-                    joystickSettingsTab
+                    JoystickSettingsView()
+                        .scrollContentBackground(.hidden)
                         .tabItem { Text("Joysticks") }
                         .tag(2)
 
                     // Touchpad Settings (only shown when controller has touchpad - DualSense/DualShock)
                     if controllerService.threadSafeIsPlayStation {
-                        touchpadSettingsTab
+                        TouchpadSettingsView()
+                            .scrollContentBackground(.hidden)
                             .tabItem { Text("Touchpad") }
                             .tag(4)
                     }
 
                     // LED Settings (only shown for DualSense - DualShock LED control not supported)
                     if controllerService.threadSafeIsDualSense {
-                        ledSettingsTab
+                        LEDSettingsView()
+                            .scrollContentBackground(.hidden)
                             .tabItem { Text("LEDs") }
                             .tag(5)
                     }
 
                     // Microphone Settings (only shown for DualSense)
                     if controllerService.threadSafeIsDualSense {
-                        microphoneSettingsTab
+                        MicrophoneSettingsView()
+                            .scrollContentBackground(.hidden)
                             .tabItem { Text("Microphone") }
                             .tag(6)
                     }
@@ -232,53 +258,12 @@ struct ContentView: View {
                 }
         )
         .onAppear { installScrollKeyMonitor() }
-    }
-
-    // MARK: - Toolbar
-
-    private var toolbar: some View {
-        HStack {
-            // Connection status
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(controllerService.isConnected ? Color.green : Color.red)
-                    .frame(width: 8, height: 8)
-                    .shadow(color: (controllerService.isConnected ? Color.green : Color.red).opacity(0.6), radius: 4)
-
-                Text(controllerService.isConnected ? controllerService.controllerName : "No Controller")
-                    .font(.caption.bold())
-                    .foregroundColor(controllerService.isConnected ? .white : .secondary)
+        .onDisappear {
+            if let monitor = scrollKeyMonitor {
+                NSEvent.removeMonitor(monitor)
+                scrollKeyMonitor = nil
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.black.opacity(0.3))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
-            .accessibilityElement(children: .combine)
-
-            Spacer()
-
-            Spacer()
-
-            // Enable/disable toggle
-            MappingActiveToggle(isEnabled: $mappingEngine.isEnabled)
-
-            Button {
-                showingSettingsSheet = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .hoverableIconButton()
-            .accessibilityLabel("Settings")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        // Transparent toolbar to let glass show through
     }
 
     // MARK: - Tab Navigation
@@ -399,590 +384,6 @@ struct ContentView: View {
 
         search(contentView)
         return best
-    }
-
-    // MARK: - Controller Tab
-
-    private var controllerTab: some View {
-        VStack(spacing: 0) {
-            InputLogView()
-                .padding(.top, 8)
-
-            // Layer Tab Bar
-            layerTabBar
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-
-            GeometryReader { geometry in
-                // Base size of ControllerVisualView content
-                let baseWidth: CGFloat = 920
-                let baseHeight: CGFloat = 580
-
-                // Calculate scale to fit available space (allow both up and down scaling)
-                let scaleX = geometry.size.width / baseWidth
-                let scaleY = geometry.size.height / baseHeight
-                let autoScale = min(scaleX, scaleY)
-
-                // Combine with user's manual zoom setting
-                let finalScale = autoScale * profileManager.uiScale
-
-                ControllerVisualView(
-                    selectedButton: $selectedButton,
-                    selectedLayerId: selectedLayerId,
-                    swapFirstButton: swapFirstButton,
-                    isSwapMode: isSwapMode,
-                    onButtonTap: { button in
-                        // Ignore taps during magnification gestures to prevent accidental triggers
-                        guard !isMagnifying else { return }
-                        // Async dispatch to avoid layout recursion if triggered during layout pass
-                        DispatchQueue.main.async {
-                            if isSwapMode {
-                                handleSwapButtonTap(button)
-                            } else {
-                                selectedButton = button
-                                configuringButton = button
-                            }
-                        }
-                    }
-                )
-                .scaleEffect(finalScale)
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .allowsHitTesting(!isMagnifying)
-            }
-            .clipped()
-
-            // Mapped Chords Display
-            if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
-                Divider()
-                    .background(Color.white.opacity(0.1))
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("ACTIVE CHORDS")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal)
-
-                    FlowLayout(data: profile.chordMappings, spacing: 10) { chord in
-                        HStack(spacing: 10) {
-                            HStack(spacing: 2) {
-                                ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-                                    ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation)
-                                }
-                            }
-
-                            Image(systemName: "arrow.right")
-                                .font(.caption2)
-                                .foregroundColor(.white.opacity(0.3))
-                                .accessibilityHidden(true)
-
-                            if let systemCommand = chord.systemCommand {
-                                Text(chord.hint ?? systemCommand.displayName)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.green)
-                                    .lineLimit(1)
-                                    .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
-                            } else if let macroId = chord.macroId,
-                               let macro = profile.macros.first(where: { $0.id == macroId }) {
-                                Text(chord.hint ?? macro.name)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.purple)
-                                    .lineLimit(1)
-                                    .tooltipIfPresent(chord.hint != nil ? macro.name : nil)
-                            } else {
-                                Text(chord.hint ?? chord.actionDisplayString)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                    .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
-                            }
-                        }
-                        .frame(minHeight: 28)  // Consistent height regardless of button types
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .cornerRadius(10)
-                        .hoverableGlassRow {
-                            editingChord = chord
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityHint("Double-tap to edit")
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 16)
-                }
-                .padding(.top, 12)
-            }
-
-            // Mapped Sequences Display
-            if let profile = profileManager.activeProfile, !profile.sequenceMappings.isEmpty {
-                Divider()
-                    .background(Color.white.opacity(0.1))
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("ACTIVE SEQUENCES")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal)
-
-                    FlowLayout(data: profile.sequenceMappings.filter { $0.isValid }, spacing: 10) { sequence in
-                        HStack(spacing: 10) {
-                            HStack(spacing: 2) {
-                                ForEach(Array(sequence.steps.enumerated()), id: \.offset) { index, button in
-                                    if index > 0 {
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 7))
-                                            .foregroundColor(.white.opacity(0.2))
-                                            .accessibilityHidden(true)
-                                    }
-                                    ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation)
-                                }
-                            }
-
-                            Image(systemName: "arrow.right")
-                                .font(.caption2)
-                                .foregroundColor(.white.opacity(0.3))
-                                .accessibilityHidden(true)
-
-                            if let systemCommand = sequence.systemCommand {
-                                Text(sequence.hint ?? systemCommand.displayName)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.green)
-                                    .lineLimit(1)
-                                    .tooltipIfPresent(sequence.hint != nil ? systemCommand.displayName : nil)
-                            } else if let macroId = sequence.macroId,
-                               let macro = profile.macros.first(where: { $0.id == macroId }) {
-                                Text(sequence.hint ?? macro.name)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.purple)
-                                    .lineLimit(1)
-                                    .tooltipIfPresent(sequence.hint != nil ? macro.name : nil)
-                            } else {
-                                Text(sequence.hint ?? sequence.actionDisplayString)
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                    .tooltipIfPresent(sequence.hint != nil ? sequence.actionDisplayString : nil)
-                            }
-                        }
-                        .frame(minHeight: 28)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .cornerRadius(10)
-                        .hoverableGlassRow {
-                            editingSequence = sequence
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityHint("Double-tap to edit")
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 16)
-                }
-                .padding(.top, 12)
-            }
-        }
-        .sheet(isPresented: $showingAddLayerSheet) {
-            AddLayerSheet()
-        }
-        .sheet(item: $editingLayerId) { layerId in
-            if let profile = profileManager.activeProfile,
-               let layer = profile.layers.first(where: { $0.id == layerId }) {
-                EditLayerSheet(layer: layer)
-            }
-        }
-        .onChange(of: controllerService.activeButtons) { _, activeButtons in
-            guard let profile = profileManager.activeProfile else { return }
-
-            // Check if any layer activator is being held
-            for layer in profile.layers {
-                if let activator = layer.activatorButton, activeButtons.contains(activator) {
-                    selectedLayerId = layer.id
-                    return
-                }
-            }
-
-            // No layer activator held - return to base layer
-            selectedLayerId = nil
-        }
-    }
-
-    // MARK: - Layer Tab Bar
-
-    private var layerTabBar: some View {
-        HStack(spacing: 8) {
-            // Base Layer tab (always present)
-            Button {
-                selectedLayerId = nil
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.caption)
-                    Text("Base Layer")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(selectedLayerId == nil ? Color.accentColor : Color.white.opacity(0.1))
-                .cornerRadius(6)
-            }
-            .buttonStyle(.plain)
-            .foregroundColor(selectedLayerId == nil ? .white : .secondary)
-            .hoverableButton()
-
-            // Layer tabs
-            if let profile = profileManager.activeProfile {
-                ForEach(profile.layers) { layer in
-                    Button {
-                        selectedLayerId = layer.id
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(layer.name)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .lineLimit(1)
-                            // Activator button badge (or "No Activator" if unassigned)
-                            if let activator = layer.activatorButton {
-                                Text(activator.shortLabel(forDualSense: controllerService.threadSafeIsPlayStation))
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(Color.purple.opacity(0.8))
-                                    .cornerRadius(4)
-                            } else {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.orange)
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(selectedLayerId == layer.id ? Color.accentColor : Color.white.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(selectedLayerId == layer.id ? .white : .secondary)
-                    .hoverableButton()
-                    .contextMenu {
-                        Button("Rename...") {
-                            editingLayerId = layer.id
-                        }
-                        Button("Delete", role: .destructive) {
-                            profileManager.deleteLayer(layer)
-                            if selectedLayerId == layer.id {
-                                selectedLayerId = nil
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Add Layer button (if under max)
-            if let profile = profileManager.activeProfile, profile.layers.count < ProfileManager.maxLayers {
-                Button {
-                    showingAddLayerSheet = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus")
-                            .font(.caption)
-                        Text("Add Layer")
-                            .font(.caption)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.05))
-                    .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-                .hoverableButton()
-            }
-
-            Spacer()
-
-            // Swap mode toggle
-            Toggle(isOn: $isSwapMode) {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 10))
-                    Text(swapFirstButton != nil ? "Select 2nd" : "Swap")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(isSwapMode ? Color.orange : Color.white.opacity(0.1))
-                .cornerRadius(6)
-            }
-            .toggleStyle(.button)
-            .buttonStyle(.plain)
-            .foregroundColor(isSwapMode ? .white : .secondary)
-            .hoverableButton()
-            .onChange(of: isSwapMode) { _, newValue in
-                if !newValue {
-                    swapFirstButton = nil
-                }
-            }
-
-            // Action feedback toggle (styled like layer tabs)
-            Toggle(isOn: actionFeedbackEnabled) {
-                HStack(spacing: 4) {
-                    Image(systemName: "bubble.left.fill")
-                        .font(.system(size: 10))
-                    Text("Cursor Hints")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(actionFeedbackEnabled.wrappedValue ? Color.accentColor : Color.white.opacity(0.1))
-                .cornerRadius(6)
-            }
-            .toggleStyle(.button)
-            .buttonStyle(.plain)
-            .foregroundColor(actionFeedbackEnabled.wrappedValue ? .white : .secondary)
-            .hoverableButton()
-
-            // Stream overlay toggle
-            Toggle(isOn: streamOverlayEnabled) {
-                HStack(spacing: 4) {
-                    Image(systemName: "play.rectangle.on.rectangle")
-                        .font(.system(size: 10))
-                    Text("Stream")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(streamOverlayEnabled.wrappedValue ? Color.purple : Color.white.opacity(0.1))
-                .cornerRadius(6)
-            }
-            .toggleStyle(.button)
-            .buttonStyle(.plain)
-            .foregroundColor(streamOverlayEnabled.wrappedValue ? .white : .secondary)
-            .hoverableButton()
-        }
-    }
-
-    // MARK: - Chords Tab
-
-    private var chordsTab: some View {
-        Form {
-            Section {
-                Button(action: { showingChordSheet = true }) {
-                    Label("Add New Chord", systemImage: "plus")
-                        .fontWeight(.medium)
-                }
-                .padding(.vertical, 4)
-
-                if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
-                    ChordListView(
-                        chords: profile.chordMappings,
-                        isDualSense: controllerService.threadSafeIsPlayStation,
-                        onEdit: { chord in
-                            editingChord = chord
-                        },
-                        onDelete: { chord in
-                            profileManager.removeChord(chord)
-                        },
-                        onMove: { source, destination in
-                            profileManager.moveChords(from: source, to: destination)
-                        }
-                    )
-                    .equatable()
-                } else {
-                    Text("No chords configured")
-                        .foregroundColor(.secondary)
-                        .italic()
-                        .padding()
-                }
-            } header: {
-                Text("Chord Mappings")
-                    .foregroundColor(.secondary)
-            } footer: {
-                Text("Chords let you map multiple button presses to a single action.")
-                    .foregroundColor(.secondary.opacity(0.7))
-            }
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .padding()
-    }
-
-    // MARK: - Sequences Tab
-
-    private var sequencesTab: some View {
-        Form {
-            Section {
-                Button(action: { showingSequenceSheet = true }) {
-                    Label("Add New Sequence", systemImage: "plus")
-                        .fontWeight(.medium)
-                }
-                .padding(.vertical, 4)
-
-                if let profile = profileManager.activeProfile, !profile.sequenceMappings.isEmpty {
-                    SequenceListView(
-                        sequences: profile.sequenceMappings,
-                        isDualSense: controllerService.threadSafeIsPlayStation,
-                        onEdit: { sequence in
-                            editingSequence = sequence
-                        },
-                        onDelete: { sequence in
-                            profileManager.removeSequence(sequence)
-                        },
-                        onMove: { source, destination in
-                            profileManager.moveSequences(from: source, to: destination)
-                        }
-                    )
-                    .equatable()
-                } else {
-                    Text("No sequences configured")
-                        .foregroundColor(.secondary)
-                        .italic()
-                        .padding()
-                }
-            } header: {
-                Text("Sequence Mappings")
-                    .foregroundColor(.secondary)
-            } footer: {
-                Text("Sequences fire an extra action when buttons are pressed in order within a time window. Individual button actions still fire normally (zero added latency).")
-                    .foregroundColor(.secondary.opacity(0.7))
-            }
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .padding()
-    }
-
-    // MARK: - Gestures Tab
-
-    private var gesturesTab: some View {
-        Form {
-            Section {
-                GestureListView(
-                    gestureMappings: profileManager.activeProfile?.gestureMappings ?? [],
-                    onEdit: { gestureType in
-                        editingGestureType = gestureType
-                    },
-                    onClear: { gestureType in
-                        if let mapping = profileManager.gestureMapping(for: gestureType) {
-                            profileManager.removeGesture(mapping)
-                        }
-                    }
-                )
-            } header: {
-                Text("Motion Gestures")
-                    .foregroundColor(.secondary)
-            } footer: {
-                Text("Map quick tilt gestures on your DualSense controller to actions. Snap the controller top toward you (Tilt Back) or away from you (Tilt Forward).")
-                    .foregroundColor(.secondary.opacity(0.7))
-            }
-
-            Section {
-                Toggle("Gyro Aiming (Focus Mode)", isOn: Binding(
-                    get: { profileManager.activeProfile?.joystickSettings.gyroAimingEnabled ?? false },
-                    set: { newValue in
-                        guard var settings = profileManager.activeProfile?.joystickSettings else { return }
-                        settings.gyroAimingEnabled = newValue
-                        profileManager.updateJoystickSettings(settings)
-                    }
-                ))
-
-                if profileManager.activeProfile?.joystickSettings.gyroAimingEnabled == true {
-                    HStack {
-                        Text("Sensitivity")
-                        Slider(value: Binding(
-                            get: { profileManager.activeProfile?.joystickSettings.gyroAimingSensitivity ?? 0.3 },
-                            set: { newValue in
-                                guard var settings = profileManager.activeProfile?.joystickSettings else { return }
-                                settings.gyroAimingSensitivity = newValue
-                                profileManager.updateJoystickSettings(settings)
-                            }
-                        ), in: 0.0...1.0)
-                    }
-                }
-            } header: {
-                Text("Gyro Aiming")
-                    .foregroundColor(.secondary)
-            } footer: {
-                Text("Tilt the controller to move the mouse cursor while in focus mode. Uses the DualSense gyroscope for fine-grained aiming.")
-                    .foregroundColor(.secondary.opacity(0.7))
-            }
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .padding()
-    }
-
-    // MARK: - Joystick Settings Tab
-
-    private var joystickSettingsTab: some View {
-        JoystickSettingsView()
-            .scrollContentBackground(.hidden)
-    }
-
-    // MARK: - Touchpad Settings Tab
-
-    private var touchpadSettingsTab: some View {
-        TouchpadSettingsView()
-            .scrollContentBackground(.hidden)
-    }
-
-    // MARK: - LED Settings Tab
-
-    private var ledSettingsTab: some View {
-        LEDSettingsView()
-            .scrollContentBackground(.hidden)
-    }
-
-    // MARK: - Microphone Settings Tab
-
-    private var microphoneSettingsTab: some View {
-        MicrophoneSettingsView()
-            .scrollContentBackground(.hidden)
-    }
-
-    private var keyboardSettingsTab: some View {
-        OnScreenKeyboardSettingsView()
-            .scrollContentBackground(.hidden)
-    }
-
-    // MARK: - Macro List Tab
-
-    private var macroListTab: some View {
-        MacroListView()
-            .scrollContentBackground(.hidden)
-    }
-
-    // MARK: - Script List Tab
-
-    private var scriptListTab: some View {
-        ScriptListView()
-            .scrollContentBackground(.hidden)
-    }
-
-    // MARK: - Swap Mode
-
-    private func handleSwapButtonTap(_ button: ControllerButton) {
-        if let firstButton = swapFirstButton {
-            // Second button selected - perform the swap
-            if let layerId = selectedLayerId {
-                profileManager.swapLayerMappings(button1: firstButton, button2: button, in: layerId)
-            } else {
-                profileManager.swapMappings(button1: firstButton, button2: button)
-            }
-            // Exit swap mode
-            swapFirstButton = nil
-            isSwapMode = false
-        } else {
-            // First button selected
-            swapFirstButton = button
-        }
     }
 }
 
