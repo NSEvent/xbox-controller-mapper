@@ -62,16 +62,38 @@ enum ScriptExamplesData {
         ),
 
         ScriptExample(
-            name: "Screenshot to Clipboard",
-            description: "Takes a screenshot of a selected region and copies it to the clipboard. Uses shellAsync so the controller isn't blocked during selection.",
+            name: "Screenshot Window to Clipboard",
+            description: "Captures the focused window and copies it to the clipboard.",
             source: """
-                shellAsync("screencapture -ic", function() {
-                    notify("Screenshot copied!");
-                    haptic();
-                });
+                var wid = shell("swift -e 'import Cocoa;import CoreGraphics;let p=NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0;guard let w=CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] else{exit(0)};for i in w{if (i[kCGWindowLayer as String] as? Int ?? -1)==0&&(i[kCGWindowOwnerPID as String] as? Int32 ?? 0)==p{print(i[kCGWindowNumber as String] as? Int ?? 0);break}}' 2>/dev/null").trim();
+                if (wid) {
+                    shell("screencapture -x -c -l" + wid);
+                    notify("Copied to clipboard!");
+                } else {
+                    notify("No focused window found");
+                }
+                haptic();
                 """,
             icon: "camera.viewfinder",
-            tags: ["shellAsync()", "notify()"]
+            tags: ["shell()", "notify()", "haptic()"]
+        ),
+
+        ScriptExample(
+            name: "Screenshot Window to Desktop",
+            description: "Captures the focused window and saves it to the Desktop as a PNG.",
+            source: """
+                var wid = shell("swift -e 'import Cocoa;import CoreGraphics;let p=NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0;guard let w=CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] else{exit(0)};for i in w{if (i[kCGWindowLayer as String] as? Int ?? -1)==0&&(i[kCGWindowOwnerPID as String] as? Int32 ?? 0)==p{print(i[kCGWindowNumber as String] as? Int ?? 0);break}}' 2>/dev/null").trim();
+                if (wid) {
+                    var ts = shell("date +%Y%m%d-%H%M%S").trim();
+                    shellAsync("screencapture -x -l" + wid + " ~/Desktop/screenshot-" + ts + ".png");
+                    notify("Saved to Desktop!");
+                } else {
+                    notify("No focused window found");
+                }
+                haptic();
+                """,
+            icon: "desktopcomputer",
+            tags: ["shell()", "shellAsync()", "notify()", "haptic()"]
         ),
 
         ScriptExample(
