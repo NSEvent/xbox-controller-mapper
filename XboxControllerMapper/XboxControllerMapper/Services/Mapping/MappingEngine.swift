@@ -1795,7 +1795,7 @@ class MappingEngine: ObservableObject {
             var gyroDy: Double = 0
 
             if absRoll > gyroDeadzone {
-                gyroDx = rollRate * settings.gyroAimingMultiplier
+                gyroDx = -rollRate * settings.gyroAimingMultiplier
             }
             if absPitch > gyroDeadzone {
                 // Invert: pitch up (positive X rotation) should move cursor up (negative screen Y)
