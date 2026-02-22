@@ -25,12 +25,18 @@ def generate_from_nltk():
             if w.isalpha() and 2 <= len(w) <= 20:
                 freq[w] = freq.get(w, 0) + 1
 
-        # Also include common words from words corpus
+        # Combine NLTK words dictionary AND Brown corpus words
+        # Brown corpus contains actual English text, so it naturally includes
+        # inflected forms (past tense, plurals, gerunds) that the NLTK words
+        # dictionary misses.
         all_words = set()
         for w in words.words():
             w = w.lower().strip()
             if w.isalpha() and 2 <= len(w) <= 20:
                 all_words.add(w)
+
+        # Include all Brown corpus words (inflected forms!)
+        all_words.update(freq.keys())
 
         # Sort by frequency (Brown corpus), then alphabetically for ties
         scored = []
