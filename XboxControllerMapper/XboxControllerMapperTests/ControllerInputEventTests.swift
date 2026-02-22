@@ -71,6 +71,14 @@ final class ControllerInputEventTests: XCTestCase {
         XCTAssertEqual(ControllerInputEvent.touchpadTwoFingerLongTap, ControllerInputEvent.touchpadTwoFingerLongTap)
     }
 
+    func testButtonReleasedCrossButtonInequality() {
+        let releaseA = ControllerInputEvent.buttonReleased(.a, holdDuration: 0.5)
+        let releaseB = ControllerInputEvent.buttonReleased(.b, holdDuration: 0.5)
+
+        XCTAssertNotEqual(releaseA, releaseB,
+            "buttonReleased events for different buttons should not be equal even with same holdDuration")
+    }
+
     func testDifferentEventTypesNotEqual() {
         let button = ControllerInputEvent.buttonPressed(.a)
         let tap = ControllerInputEvent.touchpadTap

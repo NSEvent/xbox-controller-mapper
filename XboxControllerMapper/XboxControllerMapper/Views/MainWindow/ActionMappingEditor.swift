@@ -77,15 +77,17 @@ struct ActionMappingEditor: View {
                 .foregroundColor(.secondary)
         }
 
-        // Hint field
-        HStack {
-            Text("Hint:")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+        // Hint field (only for primary; long hold/double tap have their own hint in ButtonMappingSheet)
+        if variant == .primary {
+            HStack {
+                Text("Hint:")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
 
-            TextField("e.g. Copy, Paste, Switch App...", text: $state.hint)
-                .textFieldStyle(.roundedBorder)
-                .font(.subheadline)
+                TextField("e.g. Copy, Paste, Switch App...", text: $state.hint)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.subheadline)
+            }
         }
     }
 

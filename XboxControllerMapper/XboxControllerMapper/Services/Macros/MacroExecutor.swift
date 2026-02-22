@@ -37,7 +37,7 @@ class MacroExecutor: @unchecked Sendable {
                     self.holdKeyMapping(mapping, duration: duration)
 
                 case .delay(let duration):
-                    usleep(useconds_t(duration * 1_000_000))
+                    usleep(useconds_t(min(duration * 1_000_000, Double(UInt32.max))))
 
                 case .typeText(let text, let speed, let pressEnter):
                     self.inputSimulator.typeText(text, speed: speed, pressEnter: pressEnter)
@@ -80,12 +80,12 @@ class MacroExecutor: @unchecked Sendable {
     private func holdKeyMapping(_ mapping: KeyMapping, duration: TimeInterval) {
         if let keyCode = mapping.keyCode {
             inputSimulator.keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-            usleep(useconds_t(duration * 1_000_000))
+            usleep(useconds_t(min(duration * 1_000_000, Double(UInt32.max))))
             inputSimulator.keyUp(keyCode)
         } else if mapping.modifiers.hasAny {
             let flags = mapping.modifiers.cgEventFlags
             inputSimulator.holdModifier(flags)
-            usleep(useconds_t(duration * 1_000_000))
+            usleep(useconds_t(min(duration * 1_000_000, Double(UInt32.max))))
             inputSimulator.releaseModifier(flags)
         }
     }

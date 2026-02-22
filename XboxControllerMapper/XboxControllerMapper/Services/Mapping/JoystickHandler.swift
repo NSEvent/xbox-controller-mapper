@@ -131,22 +131,9 @@ extension MappingEngine {
 
         let swipeBlocksLeftStick = state.swipeTypingActive && SwipeTypingEngine.shared.threadSafeState == .swiping
         guard !swipeBlocksLeftStick else {
-            let rightStick = controllerService.threadSafeRightStick
             if state.commandWheelActive {
-                let altMods = state.wheelAlternateModifiers
-                let alternateHeld: Bool = {
-                    guard altMods.command || altMods.option || altMods.shift || altMods.control else { return false }
-                    let flags = CGEventSource.flagsState(.combinedSessionState)
-                    if altMods.command && !flags.contains(.maskCommand) { return false }
-                    if altMods.option && !flags.contains(.maskAlternate) { return false }
-                    if altMods.shift && !flags.contains(.maskShift) { return false }
-                    if altMods.control && !flags.contains(.maskControl) { return false }
-                    return true
-                }()
-                DispatchQueue.main.async {
-                    CommandWheelManager.shared.setShowingAlternate(alternateHeld)
-                    CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
-                }
+                let rightStick = controllerService.threadSafeRightStick
+                updateCommandWheel(rightStick: rightStick)
             }
             return
         }
@@ -178,20 +165,7 @@ extension MappingEngine {
         let rightStick = controllerService.threadSafeRightStick
 
         if state.commandWheelActive {
-            let altMods = state.wheelAlternateModifiers
-            let alternateHeld: Bool = {
-                guard altMods.command || altMods.option || altMods.shift || altMods.control else { return false }
-                let flags = CGEventSource.flagsState(.combinedSessionState)
-                if altMods.command && !flags.contains(.maskCommand) { return false }
-                if altMods.option && !flags.contains(.maskAlternate) { return false }
-                if altMods.shift && !flags.contains(.maskShift) { return false }
-                if altMods.control && !flags.contains(.maskControl) { return false }
-                return true
-            }()
-            DispatchQueue.main.async {
-                CommandWheelManager.shared.setShowingAlternate(alternateHeld)
-                CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
-            }
+            updateCommandWheel(rightStick: rightStick)
         } else {
             switch settings.rightStickMode {
             case .none:
@@ -218,6 +192,27 @@ extension MappingEngine {
                     invertY: settings.invertScrollY
                 )
             }
+        }
+    }
+
+    // MARK: - Command Wheel Update
+
+    /// Updates the command wheel selection from the right stick input.
+    /// Called from processJoysticks() when the command wheel is active.
+    nonisolated func updateCommandWheel(rightStick: CGPoint) {
+        let altMods = state.wheelAlternateModifiers
+        let alternateHeld: Bool = {
+            guard altMods.command || altMods.option || altMods.shift || altMods.control else { return false }
+            let flags = CGEventSource.flagsState(.combinedSessionState)
+            if altMods.command && !flags.contains(.maskCommand) { return false }
+            if altMods.option && !flags.contains(.maskAlternate) { return false }
+            if altMods.shift && !flags.contains(.maskShift) { return false }
+            if altMods.control && !flags.contains(.maskControl) { return false }
+            return true
+        }()
+        DispatchQueue.main.async {
+            CommandWheelManager.shared.setShowingAlternate(alternateHeld)
+            CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
         }
     }
 

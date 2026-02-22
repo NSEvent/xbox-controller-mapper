@@ -32,8 +32,6 @@ struct ContentToolbar: View {
 
             Spacer()
 
-            Spacer()
-
             // Enable/disable toggle
             MappingActiveToggle(isEnabled: $mappingEngine.isEnabled)
 

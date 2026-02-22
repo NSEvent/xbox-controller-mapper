@@ -54,20 +54,25 @@ struct ScriptActionCommand: ActionCommand {
     let trigger: ScriptTrigger
     let hint: String?
 
+    /// Returns the hint if non-empty, otherwise falls back to the given default.
+    private func effectiveHint(fallback: String = "Script") -> String {
+        (hint?.isEmpty == false) ? hint! : fallback
+    }
+
     func execute() -> String {
         guard let scriptEngine = scriptEngine else {
-            return (hint?.isEmpty == false) ? hint! : "Script"
+            return effectiveHint()
         }
 
         guard let script = script else {
-            return (hint?.isEmpty == false) ? hint! : "Script"
+            return effectiveHint()
         }
 
         let result = scriptEngine.execute(script: script, trigger: trigger)
 
         switch result {
         case .success(let hintOverride):
-            return hintOverride ?? ((hint?.isEmpty == false) ? hint! : script.name)
+            return hintOverride ?? effectiveHint(fallback: script.name)
         case .error(let message):
             NSLog("[ScriptActionCommand] Error: %@", message)
             return "Script Error"

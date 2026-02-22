@@ -88,6 +88,30 @@ final class SequenceDetectorTests: XCTestCase {
         XCTAssertNil(result, "B should not complete sequence after reset")
     }
 
+    func testRepeatedButtonSequenceCompletes() {
+        let sequence = SequenceMapping(steps: [.a, .a, .a], stepTimeout: 0.5, keyCode: 30)
+        detector.configure(sequences: [sequence])
+
+        let now = CFAbsoluteTimeGetCurrent()
+        XCTAssertNil(detector.process(.a, at: now), "First A should not complete")
+        XCTAssertNil(detector.process(.a, at: now + 0.1), "Second A should not complete")
+        let result = detector.process(.a, at: now + 0.2)
+        XCTAssertNotNil(result, "Third A should complete the A->A->A sequence")
+        XCTAssertEqual(result?.keyCode, 30)
+    }
+
+    func testRepeatedButtonSequenceTimesOutMidway() {
+        let sequence = SequenceMapping(steps: [.a, .a, .a], stepTimeout: 0.3, keyCode: 30)
+        detector.configure(sequences: [sequence])
+
+        let now = CFAbsoluteTimeGetCurrent()
+        _ = detector.process(.a, at: now)
+        _ = detector.process(.a, at: now + 0.1)
+        // Third press after timeout
+        let result = detector.process(.a, at: now + 0.5)
+        XCTAssertNil(result, "Sequence should not complete when step timeout expires between presses")
+    }
+
     func testMultipleSequencesTrackedConcurrently() {
         let seq1 = SequenceMapping(steps: [.a, .b], stepTimeout: 0.5, keyCode: 10)
         let seq2 = SequenceMapping(steps: [.a, .x], stepTimeout: 0.5, keyCode: 20)

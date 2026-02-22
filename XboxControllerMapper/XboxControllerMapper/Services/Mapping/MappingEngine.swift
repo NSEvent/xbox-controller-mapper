@@ -881,7 +881,7 @@ class MappingEngine: ObservableObject {
             state.longHoldTimers.removeValue(forKey: button)
         }
 
-        guard state.isEnabled, let profile = state.activeProfile else { return nil }
+        guard state.isEnabled, state.activeProfile != nil else { return nil }
 
         if let heldMapping = state.heldButtons[button] {
             state.heldButtons.removeValue(forKey: button)

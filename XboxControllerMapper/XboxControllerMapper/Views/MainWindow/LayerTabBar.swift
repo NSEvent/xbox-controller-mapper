@@ -5,7 +5,7 @@ import SwiftUI
 struct LayerTabBar: View {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
-    @EnvironmentObject var inputLogService: InputLogService
+
     @Binding var selectedLayerId: UUID?
     @Binding var isSwapMode: Bool
     @Binding var swapFirstButton: ControllerButton?

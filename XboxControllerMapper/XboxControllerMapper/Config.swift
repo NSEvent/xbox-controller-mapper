@@ -248,6 +248,12 @@ struct Config {
     /// Minimum interval between touchpad debug logs
     static let touchpadDebugLogInterval: TimeInterval = 0.05
 
+    // MARK: - D-Pad Navigation Repeat
+    /// Initial delay before D-pad repeat starts, similar to keyboard repeat delay (seconds)
+    static let dpadRepeatInitialDelay: TimeInterval = 0.4
+    /// Interval between D-pad repeats once started (seconds)
+    static let dpadRepeatInterval: TimeInterval = 0.08
+
     // MARK: - Button Processing
     /// Delay for chord button release processing (seconds)
     static let chordReleaseProcessingDelay: TimeInterval = 0.18

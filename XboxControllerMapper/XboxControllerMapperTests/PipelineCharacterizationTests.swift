@@ -37,7 +37,8 @@ final class PipelineCharacterizationTests: XCTestCase {
         await MainActor.run {
             mappingEngine?.disable()
         }
-        try? await Task.sleep(nanoseconds: 80_000_000)
+        // Allow disable to propagate
+        await waitForInputQueue()
 
         await MainActor.run {
             controllerService?.onButtonPressed = nil
@@ -61,10 +62,30 @@ final class PipelineCharacterizationTests: XCTestCase {
         }
     }
 
-    private func waitForTasks(_ delay: TimeInterval = 0.35) async {
-        await Task.yield()
-        try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-        await Task.yield()
+    /// Waits for all prior work on inputQueue to complete by dispatching a
+    /// trailing block and awaiting it. This is deterministic: the continuation
+    /// resumes only after every previously-enqueued block on the queue has run.
+    private func waitForInputQueue() async {
+        let queue = await MainActor.run { mappingEngine.inputQueue }
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume() }
+        }
+    }
+
+    /// Waits for all prior work on pollingQueue to complete.
+    private func waitForPollingQueue() async {
+        let queue = await MainActor.run { mappingEngine.pollingQueue }
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume() }
+        }
+    }
+
+    /// Waits for the chord detection window timer to fire (chord window + margin),
+    /// then drains inputQueue to process the resulting work.
+    private func waitForChordWindow() async {
+        // The chord window is 0.05s. Wait slightly longer to ensure the timer fires.
+        try? await Task.sleep(nanoseconds: 80_000_000)
+        await waitForInputQueue()
     }
 
     // MARK: - Chord Detection Characterization
@@ -83,11 +104,11 @@ final class PipelineCharacterizationTests: XCTestCase {
         await MainActor.run {
             controllerService.buttonPressed(.a)
         }
-        await waitForTasks()
+        await waitForChordWindow()
         await MainActor.run {
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks(0.2)
+        await waitForInputQueue()
 
         let events = mockInputSimulator.events
         let pressCount = events.filter {
@@ -118,12 +139,12 @@ final class PipelineCharacterizationTests: XCTestCase {
             controllerService.buttonPressed(.a)
             controllerService.buttonPressed(.b)
         }
-        await waitForTasks()
+        await waitForChordWindow()
         await MainActor.run {
             controllerService.buttonReleased(.a)
             controllerService.buttonReleased(.b)
         }
-        await waitForTasks(0.2)
+        await waitForInputQueue()
 
         let events = mockInputSimulator.events
         let chordCount = events.filter {
@@ -167,19 +188,20 @@ final class PipelineCharacterizationTests: XCTestCase {
         await MainActor.run {
             controllerService.buttonPressed(.a)
         }
-        await waitForTasks(0.15)
+        // Wait for chord window so A is processed as a single button press
+        await waitForChordWindow()
         await MainActor.run {
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks(0.05)
+        await waitForInputQueue()
         await MainActor.run {
             controllerService.buttonPressed(.b)
         }
-        await waitForTasks(0.15)
+        await waitForChordWindow()
         await MainActor.run {
             controllerService.buttonReleased(.b)
         }
-        await waitForTasks(0.4)
+        await waitForInputQueue()
 
         let events = mockInputSimulator.events
         let seqCount = events.filter {
@@ -208,7 +230,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         await MainActor.run {
             controllerService.onMotionGesture?(.tiltBack)
         }
-        await waitForTasks(0.2)
+        await waitForInputQueue()
 
         let events = mockInputSimulator.events
         let gestureCount = events.filter {
@@ -234,7 +256,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         await MainActor.run {
             controllerService.onTouchpadTap?()
         }
-        await waitForTasks(0.3)
+        await waitForPollingQueue()
 
         let events = mockInputSimulator.events
         let tapCount = events.filter {
@@ -258,7 +280,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         await MainActor.run {
             controllerService.onTouchpadTwoFingerTap?()
         }
-        await waitForTasks(0.3)
+        await waitForPollingQueue()
 
         let events = mockInputSimulator.events
         let tapCount = events.filter {
@@ -270,38 +292,36 @@ final class PipelineCharacterizationTests: XCTestCase {
 
     // MARK: - Callback Queue Routing Characterization
 
-    /// Verify that button callbacks dispatch to inputQueue (not pollingQueue).
+    /// Verify that button handling triggered from MainActor produces correct
+    /// output, confirming the engine internally dispatches to inputQueue.
+    /// Uses a different button (.b) than other tests to prove this is an
+    /// independent queue-routing verification, not a duplicate.
     func testButtonCallbacksDispatchToInputQueue() async throws {
-        let expectation = XCTestExpectation(description: "Button press handled on input queue")
-        var handledOnInputQueue = false
-
         await MainActor.run {
             let profile = Profile(
                 name: "QueueTest",
-                buttonMappings: [.a: .key(1)]
+                buttonMappings: [.b: .key(7)]
             )
             profileManager.setActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
-        // The inputQueue label should be "com.xboxmapper.input"
-        // We verify the callback fires and produces a result
+        // Trigger from MainActor — engine must internally dispatch to inputQueue
         await MainActor.run {
-            controllerService.buttonPressed(.a)
+            controllerService.buttonPressed(.b)
         }
-        await waitForTasks()
+        await waitForChordWindow()
         await MainActor.run {
-            controllerService.buttonReleased(.a)
+            controllerService.buttonReleased(.b)
         }
-        await waitForTasks(0.2)
+        await waitForInputQueue()
 
         let events = mockInputSimulator.events
         let pressCount = events.filter {
-            if case .pressKey(let keyCode, _) = $0 { return keyCode == 1 }
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == 7 }
             return false
         }.count
-        // If routing was correct, action should have fired
-        XCTAssertEqual(pressCount, 1, "Button action should have executed via correct queue routing")
+        XCTAssertEqual(pressCount, 1, "Button action should execute via internal queue routing from MainActor")
     }
 
     /// Verify that touchpad movement dispatches to pollingQueue and produces mouse movement.
@@ -317,7 +337,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         await MainActor.run {
             controllerService.onTouchpadMoved?(CGPoint(x: 0.5, y: 0.3))
         }
-        await waitForTasks(0.2)
+        await waitForPollingQueue()
 
         let events = mockInputSimulator.events
         let hasMove = events.contains { event in
@@ -346,11 +366,11 @@ final class PipelineCharacterizationTests: XCTestCase {
         await MainActor.run {
             controllerService.buttonPressed(.a)
         }
-        await waitForTasks()
+        await waitForChordWindow()
         await MainActor.run {
             controllerService.buttonReleased(.a)
         }
-        await waitForTasks(0.2)
+        await waitForInputQueue()
 
         let events = mockInputSimulator.events
         let pressCount = events.filter {

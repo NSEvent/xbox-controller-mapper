@@ -44,6 +44,27 @@ final class ActionPriorityDispatchTests: XCTestCase {
         }
     }
 
+    // MARK: - Helpers
+
+    /// Waits for the mock input simulator to record at least one event matching
+    /// the predicate, or times out. Uses polling with an expectation.
+    private func waitForMockEvent(
+        timeout: TimeInterval = 2.0,
+        description: String = "Wait for mock event",
+        predicate: @escaping (MockInputSimulator.Event) -> Bool
+    ) async {
+        let expectation = XCTestExpectation(description: description)
+        let start = CFAbsoluteTimeGetCurrent()
+        while CFAbsoluteTimeGetCurrent() - start < timeout {
+            if mockInputSimulator.events.contains(where: predicate) {
+                expectation.fulfill()
+                break
+            }
+            try? await Task.sleep(nanoseconds: 10_000_000) // 10ms poll interval
+        }
+        await fulfillment(of: [expectation], timeout: 0.1)
+    }
+
     // MARK: - Priority: systemCommand wins over everything
 
     func testSystemCommandTakesPriorityOverMacro() async {
@@ -87,8 +108,11 @@ final class ActionPriorityDispatchTests: XCTestCase {
 
         XCTAssertEqual(feedback, "TestMacro", "Macro name should be returned as feedback")
 
-        // Wait for async macro execution on MacroExecutor's queue
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Wait for async macro execution — poll for the expected key event
+        await waitForMockEvent(description: "Macro key 42 fires") {
+            if case .pressKey(42, _) = $0 { return true }
+            return false
+        }
 
         // The macro's key (42) should fire, not the mapping's key (99)
         let events = mockInputSimulator.events
@@ -96,6 +120,45 @@ final class ActionPriorityDispatchTests: XCTestCase {
         let directKeyFired = events.contains { if case .pressKey(99, _) = $0 { return true }; return false }
         XCTAssertTrue(macroKeyFired, "Macro step key should fire")
         XCTAssertFalse(directKeyFired, "Direct keyCode should not fire when macro is present")
+    }
+
+    // MARK: - Priority: script wins over keyPress
+
+    func testScriptTakesPriorityOverKeyPress() async {
+        let scriptId = UUID()
+        let script = Script(id: scriptId, name: "TestScript", source: "log('script executed');")
+
+        let inputQueue = DispatchQueue(label: "test.script.input", qos: .userInteractive)
+        let scriptEngine = ScriptEngine(inputSimulator: mockInputSimulator, inputQueue: inputQueue)
+
+        let executorWithScript = await MainActor.run {
+            MappingExecutor(
+                inputSimulator: mockInputSimulator,
+                inputQueue: inputQueue,
+                inputLogService: nil,
+                profileManager: profileManager,
+                scriptEngine: scriptEngine
+            )
+        }
+
+        // Action has both scriptId and keyCode — script should win
+        let action = KeyMapping(
+            keyCode: 99,  // This keyPress should NOT fire
+            scriptId: scriptId
+        )
+        let profile = Profile(name: "Test", scripts: [script])
+
+        let feedback = await MainActor.run {
+            executorWithScript.executeAction(action, profile: profile)
+        }
+
+        // Script ran successfully; feedback is the script name (no hint override)
+        XCTAssertEqual(feedback, "TestScript", "Script name should be returned as feedback when script runs")
+
+        // No key presses should have occurred (key press didn't fire)
+        let events = mockInputSimulator.events
+        let directKeyFired = events.contains { if case .pressKey(99, _) = $0 { return true }; return false }
+        XCTAssertFalse(directKeyFired, "Direct keyCode should not fire when script is present")
     }
 
     // MARK: - Priority: keyPress is the fallback
@@ -108,7 +171,7 @@ final class ActionPriorityDispatchTests: XCTestCase {
             executor.executeAction(action, profile: profile)
         }
 
-        XCTAssertTrue(feedback.contains("⌘"), "Feedback should show command modifier")
+        XCTAssertTrue(feedback.contains("\u{2318}"), "Feedback should show command modifier")
 
         let events = mockInputSimulator.events
         let pressEvent = events.first { if case .pressKey(49, _) = $0 { return true }; return false }
@@ -182,6 +245,25 @@ final class MacroActionHandlerIsolationTests: XCTestCase {
         }
     }
 
+    /// Waits for the mock input simulator to record at least one event matching
+    /// the predicate, or times out.
+    private func waitForMockEvent(
+        timeout: TimeInterval = 2.0,
+        description: String = "Wait for mock event",
+        predicate: @escaping (MockInputSimulator.Event) -> Bool
+    ) async {
+        let expectation = XCTestExpectation(description: description)
+        let start = CFAbsoluteTimeGetCurrent()
+        while CFAbsoluteTimeGetCurrent() - start < timeout {
+            if mockInputSimulator.events.contains(where: predicate) {
+                expectation.fulfill()
+                break
+            }
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        await fulfillment(of: [expectation], timeout: 0.1)
+    }
+
     func testMacroWithMultipleSteps() async {
         let macroId = UUID()
         let macro = Macro(id: macroId, name: "MultiStep", steps: [
@@ -196,8 +278,11 @@ final class MacroActionHandlerIsolationTests: XCTestCase {
             executor.executeAction(action, profile: profile)
         }
 
-        // Wait for async macro execution on keyboardQueue
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Wait for the last key in the macro to appear
+        await waitForMockEvent(description: "Macro key 3 fires") {
+            if case .pressKey(3, _) = $0 { return true }
+            return false
+        }
 
         let events = mockInputSimulator.events
         let keyPresses = events.compactMap { event -> CGKeyCode? in
@@ -219,8 +304,11 @@ final class MacroActionHandlerIsolationTests: XCTestCase {
             executor.executeAction(action, profile: profile)
         }
 
-        // Wait for async macro execution
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Wait for typeText event to appear
+        await waitForMockEvent(description: "Type text event fires") {
+            if case .typeText = $0 { return true }
+            return false
+        }
 
         let events = mockInputSimulator.events
         let typeEvents = events.filter { if case .typeText = $0 { return true }; return false }

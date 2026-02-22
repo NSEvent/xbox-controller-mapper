@@ -55,7 +55,10 @@ struct MappingExecutor {
         profile: Profile?,
         logType: InputEventType = .singlePress
     ) {
-        let button = buttons.first ?? .a
+        guard let button = buttons.first else {
+            NSLog("[MappingExecutor] executeAction called with empty buttons array — skipping")
+            return
+        }
         let pressType: PressType
         switch logType {
         case .longPress: pressType = .longHold

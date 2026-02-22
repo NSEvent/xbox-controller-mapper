@@ -12,23 +12,27 @@ extension MappingEngine {
     /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadMovement(_ delta: CGPoint) {
         dispatchPrecondition(condition: .onQueue(pollingQueue))
-        guard let (settings, isGestureActive) = state.lock.withLock({
-            guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil as (JoystickSettings, Bool)? }
-            return (settings, state.isTouchpadGestureActive)
+
+        // Single lock acquisition for all initial state reads
+        guard let snapshot = state.lock.withLock({ () -> (settings: JoystickSettings, isGestureActive: Bool, swipeTypingActive: Bool, swipeTypingSensitivity: Double, smoothedDelta: CGPoint, lastSampleTime: TimeInterval)? in
+            guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil }
+            return (settings, state.isTouchpadGestureActive, state.swipeTypingActive, state.swipeTypingSensitivity, state.smoothedTouchpadDelta, state.lastTouchpadSampleTime)
         }) else { return }
 
+        let settings = snapshot.settings
+
         // Route to swipe typing engine only while actively swiping (left click held)
-        if state.lock.withLock({ state.swipeTypingActive }) && SwipeTypingEngine.shared.threadSafeState == .swiping {
+        if snapshot.swipeTypingActive && SwipeTypingEngine.shared.threadSafeState == .swiping {
             SwipeTypingEngine.shared.updateCursorFromTouchpadDelta(
                 dx: Double(delta.x),
                 dy: Double(-delta.y),
-                sensitivity: state.lock.withLock({ state.swipeTypingSensitivity })
+                sensitivity: snapshot.swipeTypingSensitivity
             )
             return
         }
 
         let movementBlocked = controllerService.threadSafeIsTouchpadMovementBlocked
-        if isGestureActive || movementBlocked {
+        if snapshot.isGestureActive || movementBlocked {
             state.lock.withLock {
                 state.smoothedTouchpadDelta = .zero
                 state.lastTouchpadSampleTime = 0
@@ -38,10 +42,9 @@ extension MappingEngine {
 
         let now = CFAbsoluteTimeGetCurrent()
 
-        let (smoothedDeltaSnapshot, lastSampleTime) = state.lock.withLock {
-            (state.smoothedTouchpadDelta, state.lastTouchpadSampleTime)
-        }
-        var smoothedDelta = smoothedDeltaSnapshot
+        // Compute smoothed delta using snapshot (no additional lock needed for reads)
+        var smoothedDelta = snapshot.smoothedDelta
+        let lastSampleTime = snapshot.lastSampleTime
 
         let resetSmoothing = lastSampleTime == 0 || (now - lastSampleTime) > Config.touchpadSmoothingResetInterval
         if resetSmoothing || settings.touchpadSmoothing <= 0 {
@@ -54,6 +57,7 @@ extension MappingEngine {
             )
         }
 
+        // Single lock acquisition to write back computed smoothed state
         state.lock.withLock {
             state.smoothedTouchpadDelta = smoothedDelta
             state.lastTouchpadSampleTime = now
@@ -199,6 +203,17 @@ extension MappingEngine {
                 )
             }
             state.lock.withLock {
+                // Transfer momentum candidate to active momentum velocity on finger lift.
+                // This is the only place the candidate becomes the live velocity that
+                // processTouchpadMomentumTick reads from.
+                state.touchpadMomentumVelocity = state.touchpadMomentumCandidateVelocity
+                state.touchpadMomentumCandidateVelocity = .zero
+                state.touchpadMomentumCandidateTime = 0
+                state.touchpadMomentumHighVelocityStartTime = 0
+                state.touchpadMomentumHighVelocitySampleCount = 0
+                state.touchpadMomentumPeakVelocity = .zero
+                state.touchpadMomentumPeakMagnitude = 0
+
                 state.smoothedTouchpadCenterDelta = .zero
                 state.smoothedTouchpadDistanceDelta = 0
                 state.lastTouchpadGestureSampleTime = 0
@@ -227,6 +242,17 @@ extension MappingEngine {
             state.smoothedTouchpadCenterDelta = smoothedCenter
             state.smoothedTouchpadDistanceDelta = smoothedDistance
             state.lastTouchpadGestureSampleTime = now
+
+            // Reset momentum candidate state when a new gesture begins so stale
+            // velocity from a previous gesture cannot leak into the new one.
+            if !wasActive {
+                state.touchpadMomentumCandidateVelocity = .zero
+                state.touchpadMomentumCandidateTime = 0
+                state.touchpadMomentumHighVelocityStartTime = 0
+                state.touchpadMomentumHighVelocitySampleCount = 0
+                state.touchpadMomentumPeakVelocity = .zero
+                state.touchpadMomentumPeakMagnitude = 0
+            }
         }
 
         let phase: CGScrollPhase = wasActive ? .changed : .began

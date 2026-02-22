@@ -211,16 +211,11 @@ extension MappingEngine {
 
     // MARK: - D-Pad Navigation Repeat
 
-    /// Initial delay before repeat starts (similar to keyboard repeat delay)
-    nonisolated static let dpadRepeatInitialDelay: TimeInterval = 0.4
-    /// Interval between repeats once started
-    nonisolated static let dpadRepeatInterval: TimeInterval = 0.08
-
     nonisolated func startDpadNavigationRepeat(_ button: ControllerButton) {
         let timer = DispatchSource.makeTimerSource(queue: inputQueue)
         timer.schedule(
-            deadline: .now() + Self.dpadRepeatInitialDelay,
-            repeating: Self.dpadRepeatInterval
+            deadline: .now() + Config.dpadRepeatInitialDelay,
+            repeating: Config.dpadRepeatInterval
         )
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
