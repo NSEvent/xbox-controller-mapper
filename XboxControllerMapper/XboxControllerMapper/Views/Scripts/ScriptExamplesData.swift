@@ -65,35 +65,32 @@ enum ScriptExamplesData {
             name: "Screenshot Window to Clipboard",
             description: "Captures the focused window and copies it to the clipboard.",
             source: """
-                var wid = shell("swift -e 'import Cocoa;import CoreGraphics;let p=NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0;guard let w=CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] else{exit(0)};for i in w{if (i[kCGWindowLayer as String] as? Int ?? -1)==0&&(i[kCGWindowOwnerPID as String] as? Int32 ?? 0)==p{print(i[kCGWindowNumber as String] as? Int ?? 0);break}}' 2>/dev/null").trim();
-                if (wid) {
-                    shell("screencapture -x -c -l" + wid);
+                if (screenshotWindow()) {
                     notify("Copied to clipboard!");
                 } else {
-                    notify("No focused window found");
+                    notify("Failed — check Screen Recording permission");
                 }
                 haptic();
                 """,
             icon: "camera.viewfinder",
-            tags: ["shell()", "notify()", "haptic()"]
+            tags: ["screenshotWindow()", "notify()", "haptic()"]
         ),
 
         ScriptExample(
             name: "Screenshot Window to Desktop",
             description: "Captures the focused window and saves it to the Desktop as a PNG.",
             source: """
-                var wid = shell("swift -e 'import Cocoa;import CoreGraphics;let p=NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0;guard let w=CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] else{exit(0)};for i in w{if (i[kCGWindowLayer as String] as? Int ?? -1)==0&&(i[kCGWindowOwnerPID as String] as? Int32 ?? 0)==p{print(i[kCGWindowNumber as String] as? Int ?? 0);break}}' 2>/dev/null").trim();
-                if (wid) {
-                    var ts = shell("date +%Y%m%d-%H%M%S").trim();
-                    shellAsync("screencapture -x -l" + wid + " ~/Desktop/screenshot-" + ts + ".png");
+                var ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+                var path = "~/Desktop/screenshot-" + ts + ".png";
+                if (screenshotWindow(path)) {
                     notify("Saved to Desktop!");
                 } else {
-                    notify("No focused window found");
+                    notify("Failed — check Screen Recording permission");
                 }
                 haptic();
                 """,
             icon: "desktopcomputer",
-            tags: ["shell()", "shellAsync()", "notify()", "haptic()"]
+            tags: ["screenshotWindow()", "notify()", "haptic()"]
         ),
 
         ScriptExample(

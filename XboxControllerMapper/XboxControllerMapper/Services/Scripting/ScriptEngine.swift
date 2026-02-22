@@ -526,6 +526,89 @@ class ScriptEngine {
             usleep(useconds_t(clamped * 1_000_000))
         }
         context.setObject(delay, forKeyedSubscript: "delay" as NSString)
+
+        // screenshotWindow() - capture focused window to clipboard (returns true/false)
+        // screenshotWindow("~/Desktop/shot.png") - capture focused window to file
+        let screenshotWindow: @convention(block) (JSValue?) -> Bool = { [weak self] pathVal in
+            guard let self else { return false }
+            if self.isTestMode {
+                let dest = (pathVal != nil && !pathVal!.isUndefined && !pathVal!.isNull)
+                    ? (pathVal!.toString() ?? "clipboard") : "clipboard"
+                self.testLogs.append("[screenshotWindow] destination=\(dest)")
+                return true
+            }
+
+            // Check screen recording permission
+            if !CGPreflightScreenCaptureAccess() {
+                self.logMessage("[Script] screenshotWindow: Screen Recording permission required")
+                CGRequestScreenCaptureAccess()
+                return false
+            }
+
+            // Get frontmost window CGWindowID
+            guard let frontApp = NSWorkspace.shared.frontmostApplication else {
+                self.logMessage("[Script] screenshotWindow: No frontmost application")
+                return false
+            }
+            guard let windowList = CGWindowListCopyWindowInfo(
+                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+            ) as? [[String: Any]] else {
+                self.logMessage("[Script] screenshotWindow: Could not get window list")
+                return false
+            }
+
+            let pid = frontApp.processIdentifier
+            var windowID: CGWindowID = 0
+            for info in windowList {
+                guard let ownerPID = info[kCGWindowOwnerPID as String] as? Int32,
+                      let layer = info[kCGWindowLayer as String] as? Int,
+                      ownerPID == pid, layer == 0,
+                      let wid = info[kCGWindowNumber as String] as? Int else { continue }
+                windowID = CGWindowID(wid)
+                break
+            }
+            guard windowID != 0 else {
+                self.logMessage("[Script] screenshotWindow: No focused window found")
+                return false
+            }
+
+            // Capture window image
+            guard let image = CGWindowListCreateImage(
+                .null, .optionIncludingWindow, windowID, .bestResolution
+            ) else {
+                self.logMessage("[Script] screenshotWindow: Capture failed (Screen Recording permission may be needed)")
+                return false
+            }
+
+            // Determine destination
+            let hasPath = pathVal != nil && !pathVal!.isUndefined && !pathVal!.isNull
+            if let path = hasPath ? pathVal!.toString() : nil, !path.isEmpty {
+                // Save to file
+                var resolvedPath = path
+                if resolvedPath.hasPrefix("~/") {
+                    resolvedPath = NSString(string: resolvedPath).expandingTildeInPath
+                }
+                let bitmap = NSBitmapImageRep(cgImage: image)
+                guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
+                    self.logMessage("[Script] screenshotWindow: Failed to create PNG data")
+                    return false
+                }
+                do {
+                    try pngData.write(to: URL(fileURLWithPath: resolvedPath))
+                    return true
+                } catch {
+                    self.logMessage("[Script] screenshotWindow: \(error.localizedDescription)")
+                    return false
+                }
+            } else {
+                // Copy to clipboard
+                let nsImage = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.writeObjects([nsImage])
+                return true
+            }
+        }
+        context.setObject(screenshotWindow, forKeyedSubscript: "screenshotWindow" as NSString)
     }
 
     // MARK: - Feedback API
