@@ -166,22 +166,24 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         guard checkAccessibility() else { return }
 
-        // Capture state needed for async execution safely
-        stateLock.lock()
-        let currentHeldModifiers = heldModifiers
-        stateLock.unlock()
-        
-        let modifiersToPress = modifiers.subtracting(currentHeldModifiers)
-        let startingFlags = currentHeldModifiers
-
-        #if DEBUG
-        print("🎮 Pressing key: \(keyCode) with modifiers: \(modifiers.rawValue) (Simulating: \(modifiersToPress.rawValue))")
-        print("   Current held modifiers: \(currentHeldModifiers.rawValue)")
-        #endif
-
         // Run key simulation on dedicated queue
         keyboardQueue.async { [weak self] in
             guard let self = self else { return }
+
+            // Read held modifiers at execution time (not dispatch time) to avoid
+            // a race where holdModifier/releaseModifier changes heldModifiers between
+            // the dispatch and actual execution.
+            self.stateLock.lock()
+            let currentHeldModifiers = self.heldModifiers
+            self.stateLock.unlock()
+
+            let modifiersToPress = modifiers.subtracting(currentHeldModifiers)
+            let startingFlags = currentHeldModifiers
+
+            #if DEBUG
+            print("🎮 Pressing key: \(keyCode) with modifiers: \(modifiers.rawValue) (Simulating: \(modifiersToPress.rawValue))")
+            print("   Current held modifiers: \(currentHeldModifiers.rawValue)")
+            #endif
 
             var currentFlags = startingFlags
 
