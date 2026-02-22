@@ -1781,6 +1781,32 @@ class MappingEngine: ObservableObject {
             return  // Skip mouse movement during pause
         }
 
+        // Gyro aiming: add DualSense gyroscope input during focus mode
+        // Runs before joystick deadzone check so gyro works even with stick idle
+        if settings.gyroAimingEnabled && isFocusActive && controllerService.threadSafeIsDualSense {
+            let pitchRate = controllerService.threadSafeMotionPitchRate
+            let rollRate = controllerService.threadSafeMotionRollRate
+
+            let absPitch = abs(pitchRate)
+            let absRoll = abs(rollRate)
+            let gyroDeadzone = Config.gyroAimingDeadzone
+
+            var gyroDx: Double = 0
+            var gyroDy: Double = 0
+
+            if absRoll > gyroDeadzone {
+                gyroDx = rollRate * settings.gyroAimingMultiplier
+            }
+            if absPitch > gyroDeadzone {
+                // Invert: pitch up (positive X rotation) should move cursor up (negative screen Y)
+                gyroDy = -pitchRate * settings.gyroAimingMultiplier
+            }
+
+            if gyroDx != 0 || gyroDy != 0 {
+                inputSimulator.moveMouse(dx: CGFloat(gyroDx), dy: CGFloat(gyroDy))
+            }
+        }
+
         // Early exit if stick is within deadzone
         let deadzone = settings.mouseDeadzone
         let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
@@ -1811,31 +1837,6 @@ class MappingEngine: ObservableObject {
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
         usageStatsService?.recordJoystickMouseDistance(dx: Double(dx), dy: Double(dy))
-
-        // Gyro aiming: add DualSense gyroscope input during focus mode
-        if settings.gyroAimingEnabled && isFocusActive && controllerService.threadSafeIsDualSense {
-            let pitchRate = controllerService.threadSafeMotionPitchRate
-            let rollRate = controllerService.threadSafeMotionRollRate
-
-            let absPitch = abs(pitchRate)
-            let absRoll = abs(rollRate)
-            let deadzone = Config.gyroAimingDeadzone
-
-            var gyroDx: Double = 0
-            var gyroDy: Double = 0
-
-            if absRoll > deadzone {
-                gyroDx = rollRate * settings.gyroAimingMultiplier
-            }
-            if absPitch > deadzone {
-                // Invert: pitch up (positive X rotation) should move cursor up (negative screen Y)
-                gyroDy = -pitchRate * settings.gyroAimingMultiplier
-            }
-
-            if gyroDx != 0 || gyroDy != 0 {
-                inputSimulator.moveMouse(dx: CGFloat(gyroDx), dy: CGFloat(gyroDy))
-            }
-        }
     }
 
     /// Process touchpad tap gesture (uses user mapping, supports double-tap)
