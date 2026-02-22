@@ -13,92 +13,27 @@ struct ButtonMappingSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    // Local state for editing
-    @State private var keyCode: CGKeyCode?
-    @State private var modifiers = ModifierFlags()
+    // MARK: - Per-variant editing state (replaces ~60 individual @State vars)
+
+    @State private var primaryState = MappingEditorState()
+    @State private var longHoldState = MappingEditorState()
+    @State private var doubleTapState = MappingEditorState()
+
+    // MARK: - Sheet-level state
+
     @State private var isHoldModifier = false
-
     @State private var enableLongHold = false
-    @State private var longHoldKeyCode: CGKeyCode?
-    @State private var longHoldModifiers = ModifierFlags()
     @State private var longHoldThreshold: Double = 0.5
-    @State private var longHoldHint: String = ""
-
     @State private var enableDoubleTap = false
-    @State private var doubleTapKeyCode: CGKeyCode?
-    @State private var doubleTapModifiers = ModifierFlags()
     @State private var doubleTapThreshold: Double = 0.4
-    @State private var doubleTapHint: String = ""
-
     @State private var enableRepeat = false
     @State private var repeatRate: Double = 5.0  // Actions per second
 
     // Track if user manually overrode the hold setting
     @State private var userHasInteractedWithHold = false
-    
+
     // Prevent auto-logic from running during initial load
     @State private var isLoading = true
-
-    // Hint
-    @State private var hint: String = ""
-
-    // Keyboard visual state
-    @State private var showingKeyboardForPrimary = false
-    @State private var showingKeyboardForLongHold = false
-    @State private var showingKeyboardForDoubleTap = false
-
-    // Macro/Script support
-    @State private var mappingType: MappingType = .singleKey
-    @State private var selectedMacroId: UUID?
-    @State private var selectedScriptId: UUID?
-
-    // System command support
-    @State private var systemCommandCategory: SystemCommandCategory = .shell
-    @State private var appBundleIdentifier: String = ""
-    @State private var appNewWindow: Bool = false
-    @State private var shellCommandText: String = ""
-    @State private var shellRunInTerminal: Bool = true
-    @State private var linkURL: String = ""
-    @State private var webhookURL: String = ""
-    @State private var webhookMethod: HTTPMethod = .POST
-    @State private var webhookBody: String = ""
-    @State private var webhookHeaders: [String: String] = [:]
-    @State private var newWebhookHeaderKey: String = ""
-    @State private var newWebhookHeaderValue: String = ""
-    @State private var obsWebSocketURL: String = "ws://127.0.0.1:4455"
-    @State private var obsWebSocketPassword: String = ""
-    @State private var obsRequestType: String = ""
-    @State private var obsRequestData: String = ""
-    @State private var showingPrimaryAppPicker = false
-    @State private var showingLongHoldAppPicker = false
-    @State private var showingDoubleTapAppPicker = false
-    @State private var showingPrimaryBookmarkPicker = false
-    @State private var showingLongHoldBookmarkPicker = false
-    @State private var showingDoubleTapBookmarkPicker = false
-    @State private var showingMacroCreation = false
-    @State private var showingLongHoldMacroCreation = false
-    @State private var showingDoubleTapMacroCreation = false
-    @State private var showingScriptCreation = false
-
-    // Long hold type support
-    @State private var longHoldMappingType: MappingType = .singleKey
-    @State private var longHoldMacroId: UUID?
-    @State private var longHoldSystemCommandCategory: SystemCommandCategory = .shell
-    @State private var longHoldAppBundleIdentifier: String = ""
-    @State private var longHoldAppNewWindow: Bool = false
-    @State private var longHoldShellCommandText: String = ""
-    @State private var longHoldShellRunInTerminal: Bool = true
-    @State private var longHoldLinkURL: String = ""
-
-    // Double tap type support
-    @State private var doubleTapMappingType: MappingType = .singleKey
-    @State private var doubleTapMacroId: UUID?
-    @State private var doubleTapSystemCommandCategory: SystemCommandCategory = .shell
-    @State private var doubleTapAppBundleIdentifier: String = ""
-    @State private var doubleTapAppNewWindow: Bool = false
-    @State private var doubleTapShellCommandText: String = ""
-    @State private var doubleTapShellRunInTerminal: Bool = true
-    @State private var doubleTapLinkURL: String = ""
 
     // Layer activator support
     @State private var isLayerActivator = false
@@ -107,26 +42,19 @@ struct ButtonMappingSheet: View {
     @State private var selectedExistingLayerId: UUID? = nil  // For assigning this button to an existing unassigned layer
     @State private var createNewLayer = true  // true = create new, false = use existing unassigned layer
 
-    enum MappingType: Int {
-        case singleKey = 0
-        case macro = 1
-        case systemCommand = 2
-        case script = 3
-    }
-
     private var showingAnyKeyboard: Bool {
-        showingKeyboardForPrimary || showingKeyboardForLongHold || showingKeyboardForDoubleTap
+        primaryState.showingKeyboard || longHoldState.showingKeyboard || doubleTapState.showingKeyboard
     }
 
     /// Check if the primary action is a mouse click - disables double tap/long hold
     private var primaryIsMouseClick: Bool {
-        guard let code = keyCode else { return false }
+        guard let code = primaryState.keyCode else { return false }
         return KeyCodeMapping.isMouseButton(code)
     }
 
     /// Check if the primary action is on-screen keyboard - disables double tap/long hold/repeat
     private var primaryIsOnScreenKeyboard: Bool {
-        guard let code = keyCode else { return false }
+        guard let code = primaryState.keyCode else { return false }
         return KeyCodeMapping.isSpecialAction(code)
     }
 
@@ -239,11 +167,11 @@ struct ButtonMappingSheet: View {
             footer
         }
         .onSubmit { saveMapping() }
-        .frame(width: showingAnyKeyboard ? 750 : (mappingType == .systemCommand ? 580 : 520), height: showingAnyKeyboard ? 700 : 550)
-        .animation(.easeInOut(duration: 0.2), value: showingKeyboardForPrimary)
-        .animation(.easeInOut(duration: 0.2), value: showingKeyboardForLongHold)
-        .animation(.easeInOut(duration: 0.2), value: showingKeyboardForDoubleTap)
-        .animation(.easeInOut(duration: 0.2), value: mappingType)
+        .frame(width: showingAnyKeyboard ? 750 : (primaryState.mappingType == .systemCommand ? 580 : 520), height: showingAnyKeyboard ? 700 : 550)
+        .animation(.easeInOut(duration: 0.2), value: primaryState.showingKeyboard)
+        .animation(.easeInOut(duration: 0.2), value: longHoldState.showingKeyboard)
+        .animation(.easeInOut(duration: 0.2), value: doubleTapState.showingKeyboard)
+        .animation(.easeInOut(duration: 0.2), value: primaryState.mappingType)
         .onAppear {
             loadCurrentMapping()
             // Initialize selectedExistingLayerId if there are unassigned layers
@@ -255,24 +183,24 @@ struct ButtonMappingSheet: View {
                 isLoading = false
             }
         }
-        .sheet(isPresented: $showingMacroCreation) {
+        .sheet(isPresented: $primaryState.showingMacroCreation) {
             MacroEditorSheet(macro: nil, onSave: { newMacro in
-                selectedMacroId = newMacro.id
+                primaryState.selectedMacroId = newMacro.id
             })
         }
-        .sheet(isPresented: $showingLongHoldMacroCreation) {
+        .sheet(isPresented: $longHoldState.showingMacroCreation) {
             MacroEditorSheet(macro: nil, onSave: { newMacro in
-                longHoldMacroId = newMacro.id
+                longHoldState.selectedMacroId = newMacro.id
             })
         }
-        .sheet(isPresented: $showingDoubleTapMacroCreation) {
+        .sheet(isPresented: $doubleTapState.showingMacroCreation) {
             MacroEditorSheet(macro: nil, onSave: { newMacro in
-                doubleTapMacroId = newMacro.id
+                doubleTapState.selectedMacroId = newMacro.id
             })
         }
-        .sheet(isPresented: $showingScriptCreation) {
+        .sheet(isPresented: $primaryState.showingScriptCreation) {
             ScriptEditorSheet(script: nil, onSave: { newScript in
-                selectedScriptId = newScript.id
+                primaryState.selectedScriptId = newScript.id
             })
         }
     }
@@ -291,7 +219,7 @@ struct ButtonMappingSheet: View {
                 if let currentMapping = mapping {
                     HStack(spacing: 4) {
                         Text("Current:")
-                        
+
                         if let macroId = currentMapping.macroId,
                            let profile = profileManager.activeProfile,
                            let macro = profile.macros.first(where: { $0.id == macroId }) {
@@ -343,22 +271,22 @@ struct ButtonMappingSheet: View {
                     .font(.headline)
 
                 Spacer()
-                
-                Picker("", selection: $mappingType) {
-                    Text("Key").tag(MappingType.singleKey)
-                    Text("Macro").tag(MappingType.macro)
-                    Text("Script").tag(MappingType.script)
-                    Text("System").tag(MappingType.systemCommand)
+
+                Picker("", selection: $primaryState.mappingType) {
+                    Text("Key").tag(MappingEditorState.MappingType.singleKey)
+                    Text("Macro").tag(MappingEditorState.MappingType.macro)
+                    Text("Script").tag(MappingEditorState.MappingType.script)
+                    Text("System").tag(MappingEditorState.MappingType.systemCommand)
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 280)
                 .padding(.trailing, 8)
 
-                if mappingType == .singleKey {
-                    Button(action: { showingKeyboardForPrimary.toggle() }) {
+                if primaryState.mappingType == .singleKey {
+                    Button(action: { primaryState.showingKeyboard.toggle() }) {
                         HStack(spacing: 6) {
-                            Image(systemName: showingKeyboardForPrimary ? "keyboard.chevron.compact.down" : "keyboard")
-                            Text(showingKeyboardForPrimary ? "Hide Keyboard" : "Show Keyboard")
+                            Image(systemName: primaryState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
+                            Text(primaryState.showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
                         }
                         .font(.callout)
                         .padding(.horizontal, 10)
@@ -372,52 +300,11 @@ struct ButtonMappingSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                if mappingType == .singleKey {
-                    // Current selection display
-                    HStack {
-                        Text("Selected:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-
-                        Text(currentMappingDisplay)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-
-                        Spacer()
-
-                        if keyCode != nil || modifiers.hasAny {
-                            Button("Clear") {
-                                keyCode = nil
-                                modifiers = ModifierFlags()
-                            }
-                            .font(.caption)
-                            .foregroundColor(.red)
-                        }
-                    }
-
-                    if showingKeyboardForPrimary {
-                        KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
-                    } else {
-                        KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
-
-                        Text("Click to type a shortcut, or show keyboard to select visually")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-
-                    // Hint field
-                    HStack {
-                        Text("Hint:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-
-                        TextField("e.g. Copy, Paste, Switch App...", text: $hint)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-                    }
+                if primaryState.mappingType == .singleKey {
+                    ActionMappingEditor(state: $primaryState, variant: .primary)
 
                     // Show hold option if any mapping is configured
-                    if keyCode != nil || modifiers.hasAny {
+                    if primaryState.keyCode != nil || primaryState.modifiers.hasAny {
                         Divider()
 
                         Toggle("Hold action while button is held", isOn: Binding(
@@ -429,8 +316,8 @@ struct ButtonMappingSheet: View {
                                 if newValue {
                                     enableRepeat = false
                                     enableLongHold = false
-                                    longHoldKeyCode = nil
-                                    longHoldModifiers = ModifierFlags()
+                                    longHoldState.keyCode = nil
+                                    longHoldState.modifiers = ModifierFlags()
                                 }
                             }
                         ))
@@ -444,98 +331,11 @@ struct ButtonMappingSheet: View {
                         // Repeat section (moved inside Primary Action)
                         repeatContent
                     }
-                } else if mappingType == .macro {
-                    // MACRO SELECTION
-                    if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
-                        Picker("Select Macro", selection: $selectedMacroId) {
-                            Text("Select a Macro...").tag(nil as UUID?)
-                            ForEach(profile.macros) { macro in
-                                Text(macro.name).tag(macro.id as UUID?)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(maxWidth: .infinity)
-
-                        Button { showingMacroCreation = true } label: {
-                            Label("Create New Macro...", systemImage: "plus.circle")
-                                .font(.subheadline)
-                        }
-
-                        // Hint field for macros
-                        HStack {
-                            Text("Hint:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-
-                            TextField("e.g. Open Editor, Run Script...", text: $hint)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.subheadline)
-                        }
-                    } else {
-                        VStack(spacing: 8) {
-                            Text("No macros defined in this profile.")
-                                .foregroundColor(.secondary)
-                                .italic()
-
-                            Button { showingMacroCreation = true } label: {
-                                Label("Create New Macro...", systemImage: "plus.circle")
-                                    .font(.subheadline)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.black.opacity(0.05))
-                        .cornerRadius(8)
-                    }
-                } else if mappingType == .script {
-                    // SCRIPT SELECTION
-                    if let profile = profileManager.activeProfile, !profile.scripts.isEmpty {
-                        Picker("Select Script", selection: $selectedScriptId) {
-                            Text("Select a Script...").tag(nil as UUID?)
-                            ForEach(profile.scripts) { script in
-                                Text(script.name).tag(script.id as UUID?)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(maxWidth: .infinity)
-
-                        Button { showingScriptCreation = true } label: {
-                            Label("Create New Script...", systemImage: "plus.circle")
-                                .font(.subheadline)
-                        }
-
-                        // Hint field for scripts
-                        HStack {
-                            Text("Hint:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-
-                            TextField("e.g. Smart Spacebar, Toggle Mode...", text: $hint)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.subheadline)
-                        }
-                    } else {
-                        VStack(spacing: 8) {
-                            Text("No scripts defined in this profile.")
-                                .foregroundColor(.secondary)
-                                .italic()
-
-                            Button { showingScriptCreation = true } label: {
-                                Label("Create New Script...", systemImage: "plus.circle")
-                                    .font(.subheadline)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.black.opacity(0.05))
-                        .cornerRadius(8)
-                    }
                 } else {
-                    // SYSTEM COMMAND SELECTION
-                    systemCommandContent
+                    ActionMappingEditor(state: $primaryState, variant: .primary)
                 }
             }
-            .onChange(of: keyCode) { _, newValue in
+            .onChange(of: primaryState.keyCode) { _, newValue in
                 guard !isLoading else { return }
 
                 if let code = newValue, KeyCodeMapping.isMouseButton(code) || KeyCodeMapping.isSpecialAction(code) {
@@ -548,25 +348,25 @@ struct ButtonMappingSheet: View {
                     enableLongHold = false
                     enableDoubleTap = false
                     enableRepeat = false
-                    longHoldKeyCode = nil
-                    longHoldModifiers = ModifierFlags()
-                    doubleTapKeyCode = nil
-                    doubleTapModifiers = ModifierFlags()
+                    longHoldState.keyCode = nil
+                    longHoldState.modifiers = ModifierFlags()
+                    doubleTapState.keyCode = nil
+                    doubleTapState.modifiers = ModifierFlags()
                 } else if !userHasInteractedWithHold {
                     if newValue != nil {
                         // Auto-disable hold modifier for regular keys
                         isHoldModifier = false
-                    } else if modifiers.hasAny {
+                    } else if primaryState.modifiers.hasAny {
                         // Auto-enable hold modifier for modifier-only mappings
                         isHoldModifier = true
                     }
                 }
             }
-            .onChange(of: modifiers) { _, newValue in
+            .onChange(of: primaryState.modifiers) { _, newValue in
                 guard !isLoading else { return }
                 guard !userHasInteractedWithHold else { return }
 
-                if keyCode == nil && newValue.hasAny {
+                if primaryState.keyCode == nil && newValue.hasAny {
                     // Auto-enable hold for modifier-only mappings
                     isHoldModifier = true
                 }
@@ -577,22 +377,10 @@ struct ButtonMappingSheet: View {
         }
     }
 
-    private var currentMappingDisplay: String {
-        var parts: [String] = []
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
-        if let keyCode = keyCode {
-            parts.append(KeyCodeMapping.displayName(for: keyCode))
-        }
-        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
-    }
-
     private var holdDescription: String {
-        if let code = keyCode, KeyCodeMapping.isMouseButton(code) {
+        if let code = primaryState.keyCode, KeyCodeMapping.isMouseButton(code) {
             return "When enabled, the mouse button stays pressed for dragging"
-        } else if keyCode == nil && modifiers.hasAny {
+        } else if primaryState.keyCode == nil && primaryState.modifiers.hasAny {
             return "When enabled, the modifier stays pressed while the button is held"
         } else {
             return "When enabled, the key action stays active while the button is held"
@@ -690,293 +478,11 @@ struct ButtonMappingSheet: View {
         .cornerRadius(8)
     }
 
-    // MARK: - System Command Section
-
-    @ViewBuilder
-    private var systemCommandContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Category picker
-            Picker("", selection: $systemCommandCategory) {
-                ForEach(SystemCommandCategory.allCases, id: \.self) { category in
-                    Text(category.rawValue).tag(category)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            // Category-specific content
-            switch systemCommandCategory {
-            case .shell:
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.subheadline)
-
-                    Toggle("Run silently (no terminal window)", isOn: Binding(
-                        get: { !shellRunInTerminal },
-                        set: { shellRunInTerminal = !$0 }
-                    ))
-                        .font(.caption)
-
-                    Text(shellRunInTerminal
-                        ? "Opens a terminal window and executes the command"
-                        : "Runs silently in the background (no visible output)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    if shellRunInTerminal {
-                        Divider()
-                        TerminalAppPickerRow()
-                    }
-                }
-            case .app:
-                AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingPrimaryAppPicker)
-                    .sheet(isPresented: $showingPrimaryAppPicker) {
-                        SystemActionAppPickerSheet(
-                            currentBundleIdentifier: appBundleIdentifier.isEmpty ? nil : appBundleIdentifier
-                        ) { app in
-                            appBundleIdentifier = app.bundleIdentifier
-                        }
-                    }
-                Toggle("Open in new window (Cmd+N)", isOn: $appNewWindow)
-                    .font(.caption)
-            case .link:
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("URL (e.g. https://google.com)", text: $linkURL)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.subheadline)
-
-                    Button {
-                        showingPrimaryBookmarkPicker = true
-                    } label: {
-                        Label("Browse Bookmarks", systemImage: "book")
-                            .font(.subheadline)
-                    }
-                    .sheet(isPresented: $showingPrimaryBookmarkPicker) {
-                        BookmarkPickerSheet { url in
-                            linkURL = url
-                        }
-                    }
-                }
-            case .webhook:
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.subheadline)
-
-                    Picker("Method", selection: $webhookMethod) {
-                        ForEach(HTTPMethod.allCases) { method in
-                            Text(method.rawValue).tag(method)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    if [.POST, .PUT, .PATCH].contains(webhookMethod) {
-                        TextField("Body (JSON)", text: $webhookBody, axis: .vertical)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.subheadline)
-                            .lineLimit(3...6)
-                    }
-
-                    DisclosureGroup("Headers") {
-                        ForEach(Array(webhookHeaders.keys.sorted()), id: \.self) { key in
-                            HStack {
-                                Text(key)
-                                    .font(.caption)
-                                Spacer()
-                                Text(webhookHeaders[key] ?? "")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Button {
-                                    webhookHeaders.removeValue(forKey: key)
-                                } label: {
-                                    Image(systemName: "minus.circle.fill")
-                                        .foregroundColor(.red)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-
-                        HStack {
-                            TextField("Header", text: $newWebhookHeaderKey)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.caption)
-                            TextField("Value", text: $newWebhookHeaderValue)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.caption)
-                            Button {
-                                if !newWebhookHeaderKey.isEmpty {
-                                    webhookHeaders[newWebhookHeaderKey] = newWebhookHeaderValue
-                                    newWebhookHeaderKey = ""
-                                    newWebhookHeaderValue = ""
-                                }
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(.green)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(newWebhookHeaderKey.isEmpty)
-                        }
-                    }
-
-                    Text("Fires an HTTP request when triggered. Use for webhooks, APIs, home automation, etc.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            case .obs:
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("WebSocket URL (e.g. ws://127.0.0.1:4455)", text: $obsWebSocketURL)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.subheadline)
-
-                    SecureField("Password (optional)", text: $obsWebSocketPassword)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.subheadline)
-
-                    TextField("Request Type (e.g. StartRecord)", text: $obsRequestType)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.subheadline)
-
-                    TextField("Request Data (JSON object, optional)", text: $obsRequestData, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.subheadline)
-                        .lineLimit(3...6)
-
-                    Text("Sends any OBS WebSocket v5 request type with optional requestData JSON.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            // Hint field for system commands
-            HStack {
-                Text("Hint:")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                TextField("e.g. Launch Safari, Say Hello...", text: $hint)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.subheadline)
-            }
-        }
-    }
-
-    /// Compact system command fields for long hold and double tap sections
-    @ViewBuilder
-    private func compactSystemCommandFields(
-        category: SystemCommandCategory,
-        shellText: Binding<String>,
-        inTerminal: Binding<Bool>,
-        bundleId: Binding<String>,
-        newWindow: Binding<Bool>,
-        linkURL: Binding<String>,
-        showingAppPicker: Binding<Bool>,
-        showingBookmarkPicker: Binding<Bool>
-    ) -> some View {
-        switch category {
-        case .shell:
-            TextField("Command", text: shellText)
-                .textFieldStyle(.roundedBorder)
-                .font(.subheadline)
-            Toggle("Run silently (no terminal window)", isOn: Binding(
-                get: { !inTerminal.wrappedValue },
-                set: { inTerminal.wrappedValue = !$0 }
-            ))
-                .font(.caption)
-            if inTerminal.wrappedValue {
-                TerminalAppPickerRow()
-            }
-        case .app:
-            AppSelectionButton(bundleId: bundleId.wrappedValue, showingPicker: showingAppPicker)
-                .sheet(isPresented: showingAppPicker) {
-                    SystemActionAppPickerSheet(
-                        currentBundleIdentifier: bundleId.wrappedValue.isEmpty ? nil : bundleId.wrappedValue
-                    ) { app in
-                        bundleId.wrappedValue = app.bundleIdentifier
-                    }
-                }
-            Toggle("Open in new window (Cmd+N)", isOn: newWindow)
-                .font(.caption)
-        case .link:
-            TextField("URL (e.g. https://google.com)", text: linkURL)
-                .textFieldStyle(.roundedBorder)
-                .font(.subheadline)
-            Button {
-                showingBookmarkPicker.wrappedValue = true
-            } label: {
-                Label("Browse Bookmarks", systemImage: "book")
-                    .font(.subheadline)
-            }
-            .sheet(isPresented: showingBookmarkPicker) {
-                BookmarkPickerSheet { url in
-                    linkURL.wrappedValue = url
-                }
-            }
-        case .webhook:
-            Text("Webhook not supported for long hold / double tap. Use primary mapping.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        case .obs:
-            Text("OBS WebSocket not supported for long hold / double tap. Use primary mapping.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-
-    /// Builds a SystemCommand from the given state values, or nil if invalid
-    private func buildCommand(category: SystemCommandCategory, shellText: String, inTerminal: Bool, bundleId: String, newWindow: Bool, linkURL: String) -> SystemCommand? {
-        switch category {
-        case .shell:
-            guard !shellText.isEmpty else { return nil }
-            return .shellCommand(command: shellText, inTerminal: inTerminal)
-        case .app:
-            guard !bundleId.isEmpty else { return nil }
-            return .launchApp(bundleIdentifier: bundleId, newWindow: newWindow)
-        case .link:
-            guard !linkURL.isEmpty else { return nil }
-            return .openLink(url: linkURL)
-        case .webhook:
-            // Webhook is handled separately in buildSystemCommand
-            return nil
-        case .obs:
-            // OBS WebSocket is handled separately in buildSystemCommand
-            return nil
-        }
-    }
-
-    private func buildSystemCommand() -> SystemCommand? {
-        if systemCommandCategory == .webhook {
-            guard !webhookURL.isEmpty else { return nil }
-            let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
-            let body = webhookBody.isEmpty ? nil : webhookBody
-            return .httpRequest(url: webhookURL, method: webhookMethod, headers: headers, body: body)
-        } else if systemCommandCategory == .obs {
-            guard !obsWebSocketURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-            guard !obsRequestType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-            let password = obsWebSocketPassword.trimmingCharacters(in: .whitespacesAndNewlines)
-            let requestData = obsRequestData.trimmingCharacters(in: .whitespacesAndNewlines)
-            return .obsWebSocket(
-                url: obsWebSocketURL,
-                password: password.isEmpty ? nil : password,
-                requestType: obsRequestType,
-                requestData: requestData.isEmpty ? nil : requestData
-            )
-        }
-        return buildCommand(category: systemCommandCategory, shellText: shellCommandText, inTerminal: shellRunInTerminal, bundleId: appBundleIdentifier, newWindow: appNewWindow, linkURL: linkURL)
-    }
-
-    private func buildLongHoldSystemCommand() -> SystemCommand? {
-        buildCommand(category: longHoldSystemCommandCategory, shellText: longHoldShellCommandText, inTerminal: longHoldShellRunInTerminal, bundleId: longHoldAppBundleIdentifier, newWindow: longHoldAppNewWindow, linkURL: longHoldLinkURL)
-    }
-
-    private func buildDoubleTapSystemCommand() -> SystemCommand? {
-        buildCommand(category: doubleTapSystemCommandCategory, shellText: doubleTapShellCommandText, inTerminal: doubleTapShellRunInTerminal, bundleId: doubleTapAppBundleIdentifier, newWindow: doubleTapAppNewWindow, linkURL: doubleTapLinkURL)
-    }
-
     // MARK: - Long Hold Section
 
     /// Whether long hold should be disabled (mouse click, special action, or hold modifier enabled)
     private var longHoldDisabled: Bool {
-        primaryDisablesAdvancedFeatures || (mappingType == .singleKey && (isHoldModifier || enableRepeat))
+        primaryDisablesAdvancedFeatures || (primaryState.mappingType == .singleKey && (isHoldModifier || enableRepeat))
     }
 
     private var longHoldSection: some View {
@@ -988,11 +494,11 @@ struct ButtonMappingSheet: View {
 
                 Spacer()
 
-                if enableLongHold && !longHoldDisabled && longHoldMappingType == .singleKey {
-                    Button(action: { showingKeyboardForLongHold.toggle() }) {
+                if enableLongHold && !longHoldDisabled && longHoldState.mappingType == .singleKey {
+                    Button(action: { longHoldState.showingKeyboard.toggle() }) {
                         HStack(spacing: 6) {
-                            Image(systemName: showingKeyboardForLongHold ? "keyboard.chevron.compact.down" : "keyboard")
-                            Text(showingKeyboardForLongHold ? "Hide" : "Show Keyboard")
+                            Image(systemName: longHoldState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
+                            Text(longHoldState.showingKeyboard ? "Hide" : "Show Keyboard")
                         }
                         .font(.callout)
                         .padding(.horizontal, 10)
@@ -1016,7 +522,7 @@ struct ButtonMappingSheet: View {
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
                 .cornerRadius(8)
-            } else if mappingType == .singleKey && isHoldModifier {
+            } else if primaryState.mappingType == .singleKey && isHoldModifier {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
@@ -1027,7 +533,7 @@ struct ButtonMappingSheet: View {
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
                 .cornerRadius(8)
-            } else if mappingType == .singleKey && enableRepeat {
+            } else if primaryState.mappingType == .singleKey && enableRepeat {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
@@ -1052,43 +558,22 @@ struct ButtonMappingSheet: View {
                             .frame(width: 40)
                     }
 
-                    Picker("", selection: $longHoldMappingType) {
-                        Text("Key").tag(MappingType.singleKey)
-                        Text("Macro").tag(MappingType.macro)
-                        Text("System").tag(MappingType.systemCommand)
+                    Picker("", selection: $longHoldState.mappingType) {
+                        Text("Key").tag(MappingEditorState.MappingType.singleKey)
+                        Text("Macro").tag(MappingEditorState.MappingType.macro)
+                        Text("System").tag(MappingEditorState.MappingType.systemCommand)
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 220)
 
-                    if longHoldMappingType == .singleKey {
-                        // Current selection display
-                        HStack {
-                            Text("Long Hold Action:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-
-                            Text(longHoldMappingDisplay)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-
-                        if showingKeyboardForLongHold {
-                            KeyboardVisualView(selectedKeyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
-                        } else {
-                            KeyCaptureField(keyCode: $longHoldKeyCode, modifiers: $longHoldModifiers)
-                        }
-                    } else if longHoldMappingType == .macro {
-                        longHoldMacroContent
-                    } else {
-                        longHoldSystemCommandContent
-                    }
+                    ActionMappingEditor(state: $longHoldState, variant: .longHold)
 
                     HStack {
                         Text("Hint:")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
-                        TextField("e.g. Copy, Paste, Switch App...", text: $longHoldHint)
+                        TextField("e.g. Copy, Paste, Switch App...", text: $longHoldState.hint)
                             .textFieldStyle(.roundedBorder)
                             .font(.subheadline)
                     }
@@ -1097,68 +582,6 @@ struct ButtonMappingSheet: View {
                 .background(Color(nsColor: .controlBackgroundColor))
                 .cornerRadius(8)
             }
-        }
-    }
-
-    private var longHoldMappingDisplay: String {
-        var parts: [String] = []
-        if longHoldModifiers.command { parts.append("⌘") }
-        if longHoldModifiers.option { parts.append("⌥") }
-        if longHoldModifiers.shift { parts.append("⇧") }
-        if longHoldModifiers.control { parts.append("⌃") }
-        if let keyCode = longHoldKeyCode {
-            parts.append(KeyCodeMapping.displayName(for: keyCode))
-        }
-        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
-    }
-
-    @ViewBuilder
-    private var longHoldMacroContent: some View {
-        if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
-            Picker("Select Macro", selection: $longHoldMacroId) {
-                Text("None").tag(nil as UUID?)
-                ForEach(profile.macros) { macro in
-                    Text(macro.name).tag(macro.id as UUID?)
-                }
-            }
-
-            Button { showingLongHoldMacroCreation = true } label: {
-                Label("Create New Macro...", systemImage: "plus.circle")
-                    .font(.caption)
-            }
-        } else {
-            Text("No macros defined in this profile.")
-                .foregroundColor(.secondary)
-                .italic()
-                .font(.caption)
-
-            Button { showingLongHoldMacroCreation = true } label: {
-                Label("Create New Macro...", systemImage: "plus.circle")
-                    .font(.caption)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var longHoldSystemCommandContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Picker("", selection: $longHoldSystemCommandCategory) {
-                ForEach(SystemCommandCategory.allCases.filter { ![.webhook, .obs].contains($0) }, id: \.self) { category in
-                    Text(category.rawValue).tag(category)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            compactSystemCommandFields(
-                category: longHoldSystemCommandCategory,
-                shellText: $longHoldShellCommandText,
-                inTerminal: $longHoldShellRunInTerminal,
-                bundleId: $longHoldAppBundleIdentifier,
-                newWindow: $longHoldAppNewWindow,
-                linkURL: $longHoldLinkURL,
-                showingAppPicker: $showingLongHoldAppPicker,
-                showingBookmarkPicker: $showingLongHoldBookmarkPicker
-            )
         }
     }
 
@@ -1173,11 +596,11 @@ struct ButtonMappingSheet: View {
 
                 Spacer()
 
-                if enableDoubleTap && !primaryDisablesAdvancedFeatures && doubleTapMappingType == .singleKey {
-                    Button(action: { showingKeyboardForDoubleTap.toggle() }) {
+                if enableDoubleTap && !primaryDisablesAdvancedFeatures && doubleTapState.mappingType == .singleKey {
+                    Button(action: { doubleTapState.showingKeyboard.toggle() }) {
                         HStack(spacing: 6) {
-                            Image(systemName: showingKeyboardForDoubleTap ? "keyboard.chevron.compact.down" : "keyboard")
-                            Text(showingKeyboardForDoubleTap ? "Hide" : "Show Keyboard")
+                            Image(systemName: doubleTapState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
+                            Text(doubleTapState.showingKeyboard ? "Hide" : "Show Keyboard")
                         }
                         .font(.callout)
                         .padding(.horizontal, 10)
@@ -1221,43 +644,22 @@ struct ButtonMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    Picker("", selection: $doubleTapMappingType) {
-                        Text("Key").tag(MappingType.singleKey)
-                        Text("Macro").tag(MappingType.macro)
-                        Text("System").tag(MappingType.systemCommand)
+                    Picker("", selection: $doubleTapState.mappingType) {
+                        Text("Key").tag(MappingEditorState.MappingType.singleKey)
+                        Text("Macro").tag(MappingEditorState.MappingType.macro)
+                        Text("System").tag(MappingEditorState.MappingType.systemCommand)
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 220)
 
-                    if doubleTapMappingType == .singleKey {
-                        // Current selection display
-                        HStack {
-                            Text("Double Tap Action:")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-
-                            Text(doubleTapMappingDisplay)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-
-                        if showingKeyboardForDoubleTap {
-                            KeyboardVisualView(selectedKeyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
-                        } else {
-                            KeyCaptureField(keyCode: $doubleTapKeyCode, modifiers: $doubleTapModifiers)
-                        }
-                    } else if doubleTapMappingType == .macro {
-                        doubleTapMacroContent
-                    } else {
-                        doubleTapSystemCommandContent
-                    }
+                    ActionMappingEditor(state: $doubleTapState, variant: .doubleTap)
 
                     HStack {
                         Text("Hint:")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
-                        TextField("e.g. Copy, Paste, Switch App...", text: $doubleTapHint)
+                        TextField("e.g. Copy, Paste, Switch App...", text: $doubleTapState.hint)
                             .textFieldStyle(.roundedBorder)
                             .font(.subheadline)
                     }
@@ -1266,68 +668,6 @@ struct ButtonMappingSheet: View {
                 .background(Color(nsColor: .controlBackgroundColor))
                 .cornerRadius(8)
             }
-        }
-    }
-
-    private var doubleTapMappingDisplay: String {
-        var parts: [String] = []
-        if doubleTapModifiers.command { parts.append("⌘") }
-        if doubleTapModifiers.option { parts.append("⌥") }
-        if doubleTapModifiers.shift { parts.append("⇧") }
-        if doubleTapModifiers.control { parts.append("⌃") }
-        if let keyCode = doubleTapKeyCode {
-            parts.append(KeyCodeMapping.displayName(for: keyCode))
-        }
-        return parts.isEmpty ? "None" : parts.joined(separator: " + ")
-    }
-
-    @ViewBuilder
-    private var doubleTapMacroContent: some View {
-        if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
-            Picker("Select Macro", selection: $doubleTapMacroId) {
-                Text("None").tag(nil as UUID?)
-                ForEach(profile.macros) { macro in
-                    Text(macro.name).tag(macro.id as UUID?)
-                }
-            }
-
-            Button { showingDoubleTapMacroCreation = true } label: {
-                Label("Create New Macro...", systemImage: "plus.circle")
-                    .font(.caption)
-            }
-        } else {
-            Text("No macros defined in this profile.")
-                .foregroundColor(.secondary)
-                .italic()
-                .font(.caption)
-
-            Button { showingDoubleTapMacroCreation = true } label: {
-                Label("Create New Macro...", systemImage: "plus.circle")
-                    .font(.caption)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var doubleTapSystemCommandContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Picker("", selection: $doubleTapSystemCommandCategory) {
-                ForEach(SystemCommandCategory.allCases.filter { ![.webhook, .obs].contains($0) }, id: \.self) { category in
-                    Text(category.rawValue).tag(category)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            compactSystemCommandFields(
-                category: doubleTapSystemCommandCategory,
-                shellText: $doubleTapShellCommandText,
-                inTerminal: $doubleTapShellRunInTerminal,
-                bundleId: $doubleTapAppBundleIdentifier,
-                newWindow: $doubleTapAppNewWindow,
-                linkURL: $doubleTapLinkURL,
-                showingAppPicker: $showingDoubleTapAppPicker,
-                showingBookmarkPicker: $showingDoubleTapBookmarkPicker
-            )
         }
     }
 
@@ -1346,8 +686,8 @@ struct ButtonMappingSheet: View {
                 if newValue {
                     isHoldModifier = false
                     enableLongHold = false
-                    longHoldKeyCode = nil
-                    longHoldModifiers = ModifierFlags()
+                    longHoldState.keyCode = nil
+                    longHoldState.modifiers = ModifierFlags()
                     userHasInteractedWithHold = true
                 }
             }
@@ -1453,21 +793,21 @@ struct ButtonMappingSheet: View {
         }
 
         if let existingMapping = existingMapping {
-            hint = existingMapping.hint ?? ""
+            primaryState.hint = existingMapping.hint ?? ""
 
             if let systemCommand = existingMapping.systemCommand {
-                mappingType = .systemCommand
-                loadSystemCommandState(systemCommand)
+                primaryState.mappingType = .systemCommand
+                primaryState.loadSystemCommand(systemCommand)
             } else if let macroId = existingMapping.macroId {
-                mappingType = .macro
-                selectedMacroId = macroId
+                primaryState.mappingType = .macro
+                primaryState.selectedMacroId = macroId
             } else if let scriptId = existingMapping.scriptId {
-                mappingType = .script
-                selectedScriptId = scriptId
+                primaryState.mappingType = .script
+                primaryState.selectedScriptId = scriptId
             } else {
-                mappingType = .singleKey
-                keyCode = existingMapping.keyCode
-                modifiers = existingMapping.modifiers
+                primaryState.mappingType = .singleKey
+                primaryState.keyCode = existingMapping.keyCode
+                primaryState.modifiers = existingMapping.modifiers
                 isHoldModifier = existingMapping.isHoldModifier
             }
 
@@ -1475,34 +815,34 @@ struct ButtonMappingSheet: View {
             if let longHold = existingMapping.longHoldMapping {
                 enableLongHold = true
                 longHoldThreshold = longHold.threshold
-                longHoldHint = longHold.hint ?? ""
+                longHoldState.hint = longHold.hint ?? ""
                 if let systemCommand = longHold.systemCommand {
-                    longHoldMappingType = .systemCommand
-                    loadLongHoldSystemCommandState(systemCommand)
+                    longHoldState.mappingType = .systemCommand
+                    longHoldState.loadSystemCommand(systemCommand)
                 } else if let macroId = longHold.macroId {
-                    longHoldMappingType = .macro
-                    longHoldMacroId = macroId
+                    longHoldState.mappingType = .macro
+                    longHoldState.selectedMacroId = macroId
                 } else {
-                    longHoldMappingType = .singleKey
-                    longHoldKeyCode = longHold.keyCode
-                    longHoldModifiers = longHold.modifiers
+                    longHoldState.mappingType = .singleKey
+                    longHoldState.keyCode = longHold.keyCode
+                    longHoldState.modifiers = longHold.modifiers
                 }
             }
 
             if let doubleTap = existingMapping.doubleTapMapping {
                 enableDoubleTap = true
                 doubleTapThreshold = doubleTap.threshold
-                doubleTapHint = doubleTap.hint ?? ""
+                doubleTapState.hint = doubleTap.hint ?? ""
                 if let systemCommand = doubleTap.systemCommand {
-                    doubleTapMappingType = .systemCommand
-                    loadDoubleTapSystemCommandState(systemCommand)
+                    doubleTapState.mappingType = .systemCommand
+                    doubleTapState.loadSystemCommand(systemCommand)
                 } else if let macroId = doubleTap.macroId {
-                    doubleTapMappingType = .macro
-                    doubleTapMacroId = macroId
+                    doubleTapState.mappingType = .macro
+                    doubleTapState.selectedMacroId = macroId
                 } else {
-                    doubleTapMappingType = .singleKey
-                    doubleTapKeyCode = doubleTap.keyCode
-                    doubleTapModifiers = doubleTap.modifiers
+                    doubleTapState.mappingType = .singleKey
+                    doubleTapState.keyCode = doubleTap.keyCode
+                    doubleTapState.modifiers = doubleTap.modifiers
                 }
             }
 
@@ -1544,21 +884,21 @@ struct ButtonMappingSheet: View {
 
         var newMapping: KeyMapping
 
-        if mappingType == .systemCommand {
-            guard let command = buildSystemCommand() else { return }
-            newMapping = KeyMapping(systemCommand: command, hint: hint.isEmpty ? nil : hint)
-        } else if mappingType == .macro {
-            guard let macroId = selectedMacroId else { return }
-            newMapping = KeyMapping(macroId: macroId, hint: hint.isEmpty ? nil : hint)
-        } else if mappingType == .script {
-            guard let scriptId = selectedScriptId else { return }
-            newMapping = KeyMapping(scriptId: scriptId, hint: hint.isEmpty ? nil : hint)
+        if primaryState.mappingType == .systemCommand {
+            guard let command = primaryState.buildSystemCommand() else { return }
+            newMapping = KeyMapping(systemCommand: command, hint: primaryState.hint.isEmpty ? nil : primaryState.hint)
+        } else if primaryState.mappingType == .macro {
+            guard let macroId = primaryState.selectedMacroId else { return }
+            newMapping = KeyMapping(macroId: macroId, hint: primaryState.hint.isEmpty ? nil : primaryState.hint)
+        } else if primaryState.mappingType == .script {
+            guard let scriptId = primaryState.selectedScriptId else { return }
+            newMapping = KeyMapping(scriptId: scriptId, hint: primaryState.hint.isEmpty ? nil : primaryState.hint)
         } else {
             newMapping = KeyMapping(
-                keyCode: keyCode,
-                modifiers: modifiers,
+                keyCode: primaryState.keyCode,
+                modifiers: primaryState.modifiers,
                 isHoldModifier: isHoldModifier,
-                hint: hint.isEmpty ? nil : hint
+                hint: primaryState.hint.isEmpty ? nil : primaryState.hint
             )
 
             if enableRepeat {
@@ -1572,48 +912,48 @@ struct ButtonMappingSheet: View {
         // Long hold and double tap apply to all primary mapping types
         if enableLongHold && !longHoldDisabled {
             let longHoldValid: Bool
-            switch longHoldMappingType {
+            switch longHoldState.mappingType {
             case .singleKey:
-                longHoldValid = longHoldKeyCode != nil || longHoldModifiers.hasAny
+                longHoldValid = longHoldState.keyCode != nil || longHoldState.modifiers.hasAny
             case .macro:
-                longHoldValid = longHoldMacroId != nil
+                longHoldValid = longHoldState.selectedMacroId != nil
             case .systemCommand:
-                longHoldValid = buildLongHoldSystemCommand() != nil
+                longHoldValid = longHoldState.buildSystemCommand() != nil
             case .script:
                 longHoldValid = false
             }
             if longHoldValid {
                 newMapping.longHoldMapping = LongHoldMapping(
-                    keyCode: longHoldMappingType == .singleKey ? longHoldKeyCode : nil,
-                    modifiers: longHoldMappingType == .singleKey ? longHoldModifiers : ModifierFlags(),
+                    keyCode: longHoldState.mappingType == .singleKey ? longHoldState.keyCode : nil,
+                    modifiers: longHoldState.mappingType == .singleKey ? longHoldState.modifiers : ModifierFlags(),
                     threshold: longHoldThreshold,
-                    macroId: longHoldMappingType == .macro ? longHoldMacroId : nil,
-                    systemCommand: longHoldMappingType == .systemCommand ? buildLongHoldSystemCommand() : nil,
-                    hint: longHoldHint.isEmpty ? nil : longHoldHint
+                    macroId: longHoldState.mappingType == .macro ? longHoldState.selectedMacroId : nil,
+                    systemCommand: longHoldState.mappingType == .systemCommand ? longHoldState.buildSystemCommand() : nil,
+                    hint: longHoldState.hint.isEmpty ? nil : longHoldState.hint
                 )
             }
         }
 
         if enableDoubleTap && !primaryDisablesAdvancedFeatures {
             let doubleTapValid: Bool
-            switch doubleTapMappingType {
+            switch doubleTapState.mappingType {
             case .singleKey:
-                doubleTapValid = doubleTapKeyCode != nil || doubleTapModifiers.hasAny
+                doubleTapValid = doubleTapState.keyCode != nil || doubleTapState.modifiers.hasAny
             case .macro:
-                doubleTapValid = doubleTapMacroId != nil
+                doubleTapValid = doubleTapState.selectedMacroId != nil
             case .systemCommand:
-                doubleTapValid = buildDoubleTapSystemCommand() != nil
+                doubleTapValid = doubleTapState.buildSystemCommand() != nil
             case .script:
                 doubleTapValid = false
             }
             if doubleTapValid {
                 newMapping.doubleTapMapping = DoubleTapMapping(
-                    keyCode: doubleTapMappingType == .singleKey ? doubleTapKeyCode : nil,
-                    modifiers: doubleTapMappingType == .singleKey ? doubleTapModifiers : ModifierFlags(),
+                    keyCode: doubleTapState.mappingType == .singleKey ? doubleTapState.keyCode : nil,
+                    modifiers: doubleTapState.mappingType == .singleKey ? doubleTapState.modifiers : ModifierFlags(),
                     threshold: doubleTapThreshold,
-                    macroId: doubleTapMappingType == .macro ? doubleTapMacroId : nil,
-                    systemCommand: doubleTapMappingType == .systemCommand ? buildDoubleTapSystemCommand() : nil,
-                    hint: doubleTapHint.isEmpty ? nil : doubleTapHint
+                    macroId: doubleTapState.mappingType == .macro ? doubleTapState.selectedMacroId : nil,
+                    systemCommand: doubleTapState.mappingType == .systemCommand ? doubleTapState.buildSystemCommand() : nil,
+                    hint: doubleTapState.hint.isEmpty ? nil : doubleTapState.hint
                 )
             }
         }
@@ -1627,50 +967,6 @@ struct ButtonMappingSheet: View {
 
         mapping = newMapping
         dismiss()
-    }
-
-    /// Loads system command state into the given bindings
-    private func loadCommandState(_ command: SystemCommand, category: inout SystemCommandCategory, bundleId: inout String, newWindow: inout Bool, shellText: inout String, inTerminal: inout Bool, linkURL: inout String) {
-        category = command.category
-        switch command {
-        case .launchApp(let id, let nw):
-            bundleId = id
-            newWindow = nw
-        case .shellCommand(let cmd, let terminal):
-            shellText = cmd
-            inTerminal = terminal
-        case .openLink(let url):
-            linkURL = url
-        case .httpRequest, .obsWebSocket:
-            // Webhook and OBS are handled separately in loadSystemCommandState
-            break
-        }
-    }
-
-    private func loadSystemCommandState(_ command: SystemCommand) {
-        if case .httpRequest(let url, let method, let headers, let body) = command {
-            systemCommandCategory = .webhook
-            webhookURL = url
-            webhookMethod = method
-            webhookHeaders = headers ?? [:]
-            webhookBody = body ?? ""
-        } else if case .obsWebSocket(let url, let password, let requestType, let requestData) = command {
-            systemCommandCategory = .obs
-            obsWebSocketURL = url
-            obsWebSocketPassword = password ?? ""
-            obsRequestType = requestType
-            obsRequestData = requestData ?? ""
-        } else {
-            loadCommandState(command, category: &systemCommandCategory, bundleId: &appBundleIdentifier, newWindow: &appNewWindow, shellText: &shellCommandText, inTerminal: &shellRunInTerminal, linkURL: &linkURL)
-        }
-    }
-
-    private func loadLongHoldSystemCommandState(_ command: SystemCommand) {
-        loadCommandState(command, category: &longHoldSystemCommandCategory, bundleId: &longHoldAppBundleIdentifier, newWindow: &longHoldAppNewWindow, shellText: &longHoldShellCommandText, inTerminal: &longHoldShellRunInTerminal, linkURL: &longHoldLinkURL)
-    }
-
-    private func loadDoubleTapSystemCommandState(_ command: SystemCommand) {
-        loadCommandState(command, category: &doubleTapSystemCommandCategory, bundleId: &doubleTapAppBundleIdentifier, newWindow: &doubleTapAppNewWindow, shellText: &doubleTapShellCommandText, inTerminal: &doubleTapShellRunInTerminal, linkURL: &doubleTapLinkURL)
     }
 
     private func clearMapping() {
