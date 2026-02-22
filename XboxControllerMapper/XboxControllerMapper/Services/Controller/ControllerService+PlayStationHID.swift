@@ -138,6 +138,9 @@ extension ControllerService {
             }
         }
 
+        // Defense-in-depth: verify offset is within report bounds
+        guard buttons3Offset < length else { return }
+
         // buttons3 contains PS/Touch/Mute and Edge paddles
         // Bit 0: PS button, Bit 1: Touchpad button, Bit 2: Mic mute
         // DualSense Edge additional buttons (bits 4-7):
