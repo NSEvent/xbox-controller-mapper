@@ -458,14 +458,18 @@ class ScriptEngine {
 
         // openURL("https://...")
         let openURL: @convention(block) (String) -> Void = { [weak self] urlString in
+            guard let url = URL(string: urlString),
+                  let scheme = url.scheme?.lowercased(),
+                  ["http", "https"].contains(scheme) else {
+                NSLog("[ScriptEngine] openURL blocked non-http(s) scheme: %@", urlString)
+                return
+            }
             if self?.isTestMode == true {
                 self?.testLogs.append("[openURL] \"\(urlString)\"")
                 return
             }
-            if let url = URL(string: urlString) {
-                DispatchQueue.main.async {
-                    NSWorkspace.shared.open(url)
-                }
+            DispatchQueue.main.async {
+                NSWorkspace.shared.open(url)
             }
         }
         context.setObject(openURL, forKeyedSubscript: "openURL" as NSString)

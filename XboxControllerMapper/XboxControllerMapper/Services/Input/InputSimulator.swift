@@ -1368,6 +1368,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             NSLog("[Macro] Invalid URL: \(urlString)")
             return
         }
+        guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
+            NSLog("[Macro] openURL blocked non-http(s) scheme: %@", urlString)
+            return
+        }
 
         let semaphore = DispatchSemaphore(value: 0)
         DispatchQueue.main.async {
