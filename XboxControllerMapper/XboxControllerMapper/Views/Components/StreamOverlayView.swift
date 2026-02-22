@@ -47,6 +47,9 @@ struct StreamOverlayView: View {
                 showAction(latest)
             }
         }
+        .onDisappear {
+            hideTimer?.invalidate()
+        }
     }
 
     // MARK: - Background
