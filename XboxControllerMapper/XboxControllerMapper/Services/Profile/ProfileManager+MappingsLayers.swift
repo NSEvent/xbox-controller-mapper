@@ -142,6 +142,37 @@ extension ProfileManager {
         updateProfile(targetProfile)
     }
 
+    // MARK: - Gesture Mapping
+
+    func addGesture(_ gesture: GestureMapping, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.gestureMappings.append(gesture)
+        updateProfile(targetProfile)
+    }
+
+    func removeGesture(_ gesture: GestureMapping, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.gestureMappings.removeAll { $0.id == gesture.id }
+        updateProfile(targetProfile)
+    }
+
+    func updateGesture(_ gesture: GestureMapping, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        if let index = targetProfile.gestureMappings.firstIndex(where: { $0.id == gesture.id }) {
+            targetProfile.gestureMappings[index] = gesture
+        }
+        updateProfile(targetProfile)
+    }
+
+    /// Returns the gesture mapping for a given gesture type, if one exists
+    func gestureMapping(for gestureType: MotionGestureType, in profile: Profile? = nil) -> GestureMapping? {
+        let targetProfile = profile ?? activeProfile
+        return targetProfile?.gestureMappings.first(where: { $0.gestureType == gestureType })
+    }
+
     // MARK: - Layer Management
 
     /// Maximum number of layers allowed per profile

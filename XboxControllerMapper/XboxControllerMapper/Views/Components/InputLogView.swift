@@ -98,6 +98,7 @@ private struct LogEntryView: View, Equatable {
         case .sequence: return .cyan
         case .webhookSuccess: return .green
         case .webhookFailure: return .red
+        case .gesture: return .teal
         }
     }
 }

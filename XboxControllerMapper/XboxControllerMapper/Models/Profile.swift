@@ -143,6 +143,9 @@ struct Profile: Codable, Identifiable, Equatable {
     /// On-screen keyboard settings (quick texts, app bar, websites, toggle shortcut, etc.)
     var onScreenKeyboardSettings: OnScreenKeyboardSettings
 
+    /// Gesture mappings (DualSense gyroscope tilt gestures)
+    var gestureMappings: [GestureMapping]
+
     /// Mapping layers (max 12) - activated by holding a button
     var layers: [Layer]
 
@@ -160,6 +163,7 @@ struct Profile: Codable, Identifiable, Equatable {
         macros: [Macro] = [],
         scripts: [Script] = [],
         onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings(),
+        gestureMappings: [GestureMapping] = [],
         layers: [Layer] = []
     ) {
         self.id = id
@@ -177,6 +181,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.macros = macros
         self.scripts = scripts
         self.onScreenKeyboardSettings = onScreenKeyboardSettings
+        self.gestureMappings = gestureMappings
         self.layers = layers
     }
 
@@ -361,7 +366,7 @@ extension Profile {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, sequenceMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, macros, scripts
-        case onScreenKeyboardSettings, layers
+        case onScreenKeyboardSettings, gestureMappings, layers
     }
 
     init(from decoder: Decoder) throws {
@@ -392,6 +397,7 @@ extension Profile {
         macros = try container.decodeIfPresent([Macro].self, forKey: .macros) ?? []
         scripts = try container.decodeIfPresent([Script].self, forKey: .scripts) ?? []
         onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings) ?? OnScreenKeyboardSettings()
+        gestureMappings = try container.decodeIfPresent([GestureMapping].self, forKey: .gestureMappings) ?? []
         layers = try container.decodeIfPresent([Layer].self, forKey: .layers) ?? []
     }
 
@@ -417,6 +423,7 @@ extension Profile {
         try container.encode(macros, forKey: .macros)
         try container.encode(scripts, forKey: .scripts)
         try container.encode(onScreenKeyboardSettings, forKey: .onScreenKeyboardSettings)
+        try container.encode(gestureMappings, forKey: .gestureMappings)
         try container.encode(layers, forKey: .layers)
     }
 }
@@ -438,6 +445,7 @@ extension Profile {
         lhs.macros == rhs.macros &&
         lhs.scripts == rhs.scripts &&
         lhs.onScreenKeyboardSettings == rhs.onScreenKeyboardSettings &&
+        lhs.gestureMappings == rhs.gestureMappings &&
         lhs.layers == rhs.layers
     }
 }

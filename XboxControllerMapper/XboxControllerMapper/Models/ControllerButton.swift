@@ -45,6 +45,12 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case leftFunction             // Front function button, left (Edge only)
     case rightFunction            // Front function button, right (Edge only)
 
+    // Motion gestures (virtual buttons for logging/stats)
+    case gestureTiltBack          // Gyroscope tilt back gesture (DualSense only)
+    case gestureTiltForward       // Gyroscope tilt forward gesture (DualSense only)
+    case gestureSteerLeft         // Gyroscope steer left gesture (DualSense only)
+    case gestureSteerRight        // Gyroscope steer right gesture (DualSense only)
+
     var id: String { rawValue }
 
     /// Human-readable display name
@@ -77,6 +83,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .rightPaddle: return "Right Paddle"
         case .leftFunction: return "Left Fn"
         case .rightFunction: return "Right Fn"
+        case .gestureTiltBack: return "Tilt Back"
+        case .gestureTiltForward: return "Tilt Forward"
+        case .gestureSteerLeft: return "Steer Left"
+        case .gestureSteerRight: return "Steer Right"
         }
     }
 
@@ -132,6 +142,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .rightPaddle: return "RP"
         case .leftFunction: return "LFn"
         case .rightFunction: return "RFn"
+        case .gestureTiltBack: return "⤴"
+        case .gestureTiltForward: return "⤵"
+        case .gestureSteerLeft: return "↰"
+        case .gestureSteerRight: return "↱"
         }
     }
 
@@ -228,6 +242,8 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return .touchpad  // DualSense-specific buttons
         case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
             return .paddle  // DualSense Edge-specific buttons
+        case .gestureTiltBack, .gestureTiltForward, .gestureSteerLeft, .gestureSteerRight:
+            return .touchpad  // DualSense-specific virtual buttons
         }
     }
 
@@ -252,6 +268,18 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return true  // DualShock 4 doesn't have mic mute
         case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
             return true  // Edge-only
+        case .gestureTiltBack, .gestureTiltForward, .gestureSteerLeft, .gestureSteerRight:
+            return true  // DualSense gyroscope only
+        default:
+            return false
+        }
+    }
+
+    /// Whether this button is a virtual gesture button (not a physical button)
+    var isGestureButton: Bool {
+        switch self {
+        case .gestureTiltBack, .gestureTiltForward, .gestureSteerLeft, .gestureSteerRight:
+            return true
         default:
             return false
         }
@@ -280,7 +308,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
 
     /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)
     static var dualSenseButtons: [ControllerButton] {
-        allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly }
+        allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton }
     }
 }
 

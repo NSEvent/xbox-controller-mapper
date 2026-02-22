@@ -94,6 +94,25 @@ final class ControllerStorage: @unchecked Sendable {
     var onTouchpadTwoFingerLongTap: (() -> Void)?  // Two-finger long tap
     var touchpadLongTapTimer: DispatchWorkItem?  // Timer for long tap detection
     var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
+
+    // Motion Gesture State (DualSense gyroscope)
+    enum MotionGestureState {
+        case idle
+        case tracking
+        case settling  // waiting for controller to return to rest after a gesture
+    }
+    /// Per-axis gesture detection state (pitch and roll are independent)
+    struct AxisGestureState {
+        var state: MotionGestureState = .idle
+        var peakVelocity: Double = 0
+        var peakSign: Double = 0
+        var startTime: TimeInterval = 0
+        var lastGestureTime: TimeInterval = 0
+        var lastGestureSign: Double = 0  // sign of last completed gesture (for opposite-direction cooldown)
+    }
+    var pitchGesture = AxisGestureState()  // tilt back/forward (rotation rate X)
+    var rollGesture = AxisGestureState()   // steer left/right (rotation rate Z)
+    var onMotionGesture: ((MotionGestureType) -> Void)?
 }
 
 /// Service for managing game controller connection and input
@@ -358,6 +377,10 @@ class ControllerService: ObservableObject {
         get { readStorage(\.onTouchpadTwoFingerLongTap) }
         set { writeStorage(\.onTouchpadTwoFingerLongTap, newValue) }
     }
+    var onMotionGesture: ((MotionGestureType) -> Void)? {
+        get { readStorage(\.onMotionGesture) }
+        set { writeStorage(\.onMotionGesture, newValue) }
+    }
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -477,6 +500,8 @@ class ControllerService: ObservableObject {
     }
 
     func controllerDisconnected() {
+        // Disable motion sensors before disconnecting
+        connectedController?.motion?.sensorsActive = false
         connectedController = nil
         isConnected = false
         isGenericController = false
@@ -502,6 +527,7 @@ class ControllerService: ObservableObject {
         storage.rightStick = .zero
         // Reset touchpad state (but keep isDualSense to remember last controller type)
         resetTouchpadStateLocked()
+        resetMotionStateLocked()
         storage.lastMicButtonState = false
         storage.lock.unlock()
     }
@@ -718,6 +744,9 @@ class ControllerService: ObservableObject {
                 secondary: dualSenseGamepad.touchpadSecondary,
                 button: dualSenseGamepad.touchpadButton
             )
+
+            // Set up gyroscope gesture detection
+            setupMotionHandlers()
 
             // Set up HID monitoring for PS button, mic, and Edge paddles
             setupPlayStationHIDMonitoring()

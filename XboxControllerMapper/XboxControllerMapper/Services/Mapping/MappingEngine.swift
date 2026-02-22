@@ -284,6 +284,14 @@ class MappingEngine: ObservableObject {
             }
         }
 
+        // Motion gesture handler (DualSense gyroscope tilt gestures)
+        controllerService.onMotionGesture = { [weak self] gestureType in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.processMotionGesture(gestureType)
+            }
+        }
+
         // Enable/Disable toggle sync
         $isEnabled
             .sink { [weak self] enabled in
@@ -412,6 +420,13 @@ class MappingEngine: ObservableObject {
                     inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "On-Screen Keyboard")
                     return
                 }
+                if keyCode == KeyCodeMapping.showDirectoryNavigator {
+                    DispatchQueue.main.async {
+                        DirectoryNavigatorManager.shared.toggle()
+                    }
+                    inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "Directory Navigator")
+                    return
+                }
             } else {
                 // No keyCode — still block if locked
                 if state.lock.withLock({ state.isLocked }) { return }
@@ -450,6 +465,7 @@ class MappingEngine: ObservableObject {
         lastTap: Date?
     ) -> ButtonPressOrchestrationPolicy.Outcome {
         let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+        let directoryNavigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
         let mapping = effectiveMapping(for: button, in: profile)
         let navigationModeActive = keyboardVisible ? OnScreenKeyboardManager.shared.threadSafeNavigationModeActive : false
         let isChordPart = mapping != nil ? isButtonUsedInChords(button, profile: profile) : false
@@ -459,6 +475,7 @@ class MappingEngine: ObservableObject {
             mapping: mapping,
             keyboardVisible: keyboardVisible,
             navigationModeActive: navigationModeActive,
+            directoryNavigatorVisible: directoryNavigatorVisible,
             isChordPart: isChordPart,
             lastTap: lastTap
         )
@@ -525,6 +542,29 @@ class MappingEngine: ObservableObject {
 
             case .interceptControllerLock:
                 _ = performLockToggle()
+                return
+
+            case .interceptDirectoryNavigator(let holdMode):
+                handleDirectoryNavigatorPressed(button, holdMode: holdMode)
+                return
+
+            case .interceptDirectoryNavigation:
+                Task { @MainActor in
+                    DirectoryNavigatorManager.shared.handleDPadNavigation(button)
+                }
+                startDpadNavigationRepeat(button)
+                return
+
+            case .interceptDirectoryConfirm:
+                DispatchQueue.main.async {
+                    DirectoryNavigatorManager.shared.dismissAndCd()
+                }
+                return
+
+            case .interceptDirectoryDismiss:
+                DispatchQueue.main.async {
+                    DirectoryNavigatorManager.shared.hide()
+                }
                 return
 
             case .interceptSwipePredictionNavigation:
@@ -786,6 +826,41 @@ class MappingEngine: ObservableObject {
         }
     }
 
+    /// Handles directory navigator button press
+    nonisolated private func handleDirectoryNavigatorPressed(_ button: ControllerButton, holdMode: Bool) {
+        state.lock.withLock {
+            state.directoryNavigatorButton = button
+            state.directoryNavigatorHoldMode = holdMode
+        }
+
+        DispatchQueue.main.async {
+            if holdMode {
+                DirectoryNavigatorManager.shared.show()
+            } else {
+                DirectoryNavigatorManager.shared.toggle()
+            }
+        }
+        inputLogService?.log(buttons: [button], type: .singlePress, action: "Directory Navigator")
+    }
+
+    /// Handles directory navigator button release (hides only in hold mode)
+    nonisolated private func handleDirectoryNavigatorReleased(_ button: ControllerButton) {
+        let (wasNavButton, wasHoldMode) = state.lock.withLock {
+            let wasNavButton = state.directoryNavigatorButton == button
+            let wasHoldMode = state.directoryNavigatorHoldMode
+            if wasNavButton {
+                state.directoryNavigatorButton = nil
+            }
+            return (wasNavButton, wasHoldMode)
+        }
+
+        if wasNavButton && wasHoldMode {
+            DispatchQueue.main.async {
+                DirectoryNavigatorManager.shared.hide()
+            }
+        }
+    }
+
     /// Toggles the controller lock state. When locking, clears all held state and timers.
     /// Returns true if now locked, false if now unlocked.
     nonisolated private func performLockToggle() -> Bool {
@@ -837,11 +912,13 @@ class MappingEngine: ObservableObject {
             state.touchpadMomentumVelocity = .zero
             state.touchpadMomentumWasActive = false
 
-            // Clear on-screen keyboard and laser pointer state
+            // Clear on-screen keyboard, laser pointer, and directory navigator state
             state.onScreenKeyboardButton = nil
             state.onScreenKeyboardHoldMode = false
             state.laserPointerButton = nil
             state.laserPointerHoldMode = false
+            state.directoryNavigatorButton = nil
+            state.directoryNavigatorHoldMode = false
             state.commandWheelActive = false
 
             keysToRelease = (leftKeys, rightKeys)
@@ -866,6 +943,7 @@ class MappingEngine: ObservableObject {
             DispatchQueue.main.async {
                 LaserPointerOverlay.shared.hide()
                 OnScreenKeyboardManager.shared.hide()
+                DirectoryNavigatorManager.shared.hide()
             }
         }
 
@@ -951,14 +1029,20 @@ class MappingEngine: ObservableObject {
         )
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
-            // Check if keyboard is still visible
-            guard OnScreenKeyboardManager.shared.threadSafeIsVisible else {
+            let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+            let navigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+            // Check if keyboard or directory navigator is still visible
+            guard keyboardVisible || navigatorVisible else {
                 self.stopDpadNavigationRepeat(button)
                 return
             }
             // Use Task for MainActor context
             Task { @MainActor in
-                OnScreenKeyboardManager.shared.handleDPadNavigation(button)
+                if navigatorVisible {
+                    DirectoryNavigatorManager.shared.handleDPadNavigation(button)
+                } else {
+                    OnScreenKeyboardManager.shared.handleDPadNavigation(button)
+                }
             }
         }
         state.lock.withLock {
@@ -1025,10 +1109,14 @@ class MappingEngine: ObservableObject {
         // Check if this button was showing the laser pointer
         handleLaserPointerReleased(button)
 
-        // Skip all release handling for D-pad when keyboard is visible
+        // Check if this button was showing the directory navigator
+        handleDirectoryNavigatorReleased(button)
+
+        // Skip all release handling for D-pad when keyboard or directory navigator is visible
         // This prevents double-tap and long-hold from triggering
         let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
-        if keyboardVisible {
+        let directoryNavigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+        if keyboardVisible || directoryNavigatorVisible {
             switch button {
             case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
                 stopDpadNavigationRepeat(button)
@@ -1336,6 +1424,11 @@ class MappingEngine: ObservableObject {
                 if keyCode == KeyCodeMapping.showOnScreenKeyboard {
                     DispatchQueue.main.async { OnScreenKeyboardManager.shared.toggle() }
                     inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "On-Screen Keyboard")
+                    return
+                }
+                if keyCode == KeyCodeMapping.showDirectoryNavigator {
+                    DispatchQueue.main.async { DirectoryNavigatorManager.shared.toggle() }
+                    inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "Directory Navigator")
                     return
                 }
             } else {
@@ -1780,6 +1873,34 @@ class MappingEngine: ObservableObject {
         }
 
         mappingExecutor.executeAction(longHoldMapping, for: button, profile: profile, logType: .longPress)
+    }
+
+    // MARK: - Motion Gesture Handling
+
+    /// Process a completed motion gesture from the DualSense gyroscope
+    nonisolated private func processMotionGesture(_ gestureType: MotionGestureType) {
+        guard let profile = state.lock.withLock({
+            guard state.isEnabled, !state.isLocked else { return nil as Profile? }
+            return state.activeProfile
+        }) else { return }
+
+        // Look up gesture mapping
+        guard let gestureMapping = profile.gestureMappings.first(where: { $0.gestureType == gestureType }),
+              gestureMapping.hasAction else {
+            return
+        }
+
+        // Execute the mapped action
+        let button = gestureType.controllerButton
+        mappingExecutor.executeAction(gestureMapping, for: button, profile: profile, logType: .gesture)
+
+        // Play haptic feedback
+        controllerService.playHaptic(
+            intensity: Config.gestureHapticIntensity,
+            sharpness: Config.gestureHapticSharpness,
+            duration: Config.gestureHapticDuration,
+            transient: true
+        )
     }
 
     /// Process touchpad movement for mouse control (DualSense only)

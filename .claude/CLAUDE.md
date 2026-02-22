@@ -86,6 +86,7 @@ Profile (CUSTOM decoder - see Profile.swift)
 ├── buttonMappings: [String: KeyMapping]         decodeIfPresent ?? [:] (string-keyed in JSON)
 ├── chordMappings: [ChordMapping]                decodeIfPresent ?? []
 ├── sequenceMappings: [SequenceMapping]          decodeIfPresent ?? []
+├── gestureMappings: [GestureMapping]            decodeIfPresent ?? []
 ├── joystickSettings: JoystickSettings           decodeIfPresent ?? .default
 ├── dualSenseLEDSettings: DualSenseLEDSettings   decodeIfPresent ?? .default
 └── onScreenKeyboardSettings: OnScreenKeyboardSettings  decodeIfPresent ?? OnScreenKeyboardSettings()
@@ -137,6 +138,16 @@ SequenceMapping (CUSTOM decoder - see SequenceMapping.swift)
 ├── keyCode: CGKeyCode?                          decodeIfPresent (auto nil)
 ├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
 ├── macroId: UUID?                               decodeIfPresent (auto nil)
+├── systemCommand: SystemCommand?                decodeIfPresent (auto nil)
+└── hint: String?                                decodeIfPresent (auto nil)
+
+GestureMapping (CUSTOM decoder - see GestureMapping.swift)
+├── id: UUID                                     decodeIfPresent ?? UUID()
+├── gestureType: MotionGestureType               decodeIfPresent ?? .tiltBack
+├── keyCode: CGKeyCode?                          decodeIfPresent (auto nil)
+├── modifiers: ModifierFlags                     decodeIfPresent ?? ModifierFlags()
+├── macroId: UUID?                               decodeIfPresent (auto nil)
+├── scriptId: UUID?                              decodeIfPresent (auto nil)
 ├── systemCommand: SystemCommand?                decodeIfPresent (auto nil)
 └── hint: String?                                decodeIfPresent (auto nil)
 

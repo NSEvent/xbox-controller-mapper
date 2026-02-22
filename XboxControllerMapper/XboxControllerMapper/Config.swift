@@ -297,6 +297,28 @@ struct Config {
     /// Maximum sample rate for swipe path collection (Hz)
     static let swipeSampleRateLimit: Double = 60.0
 
+    // MARK: - Motion Gesture Detection
+    /// Minimum rotation rate to begin tracking a gesture (rad/s)
+    static let gestureActivationThreshold: Double = 5.0
+    /// Cooldown between consecutive gesture detections in the same direction (seconds)
+    static let gestureCooldown: TimeInterval = 0.5
+    /// Cooldown before the opposite direction gesture can fire (seconds).
+    /// Prevents the return/recoil motion from accidentally triggering the reverse gesture.
+    static let gestureOppositeDirectionCooldown: TimeInterval = 1.5
+    /// Rotation rate must drop below this before a new gesture can be detected (rad/s).
+    /// Prevents the return/recoil motion from triggering the opposite gesture.
+    static let gestureSettlingThreshold: Double = 2.0
+    /// Ratio of peak velocity at which gesture is considered complete
+    static let gestureCompletionRatio: Double = 0.4
+    /// Minimum peak velocity for a valid gesture (rad/s)
+    static let gestureMinPeakVelocity: Double = 7.0
+    /// Maximum duration for a gesture before it's discarded as too slow (seconds)
+    static let gestureMaxDuration: TimeInterval = 1.0
+    /// Haptic feedback for gesture detection
+    static let gestureHapticIntensity: Float = 0.3
+    static let gestureHapticSharpness: Float = 0.8
+    static let gestureHapticDuration: TimeInterval = 0.1
+
     // MARK: - Battery Monitoring
     /// Interval between battery info updates (seconds)
     static let batteryUpdateInterval: TimeInterval = 10.0

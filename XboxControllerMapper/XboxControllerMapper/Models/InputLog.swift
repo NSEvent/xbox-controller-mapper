@@ -6,6 +6,7 @@ enum InputEventType: String, Codable {
     case longPress = "Long Press"
     case chord = "Chord"
     case sequence = "Sequence"
+    case gesture = "Gesture"
     case webhookSuccess = "Webhook ✓"
     case webhookFailure = "Webhook ✗"
 }

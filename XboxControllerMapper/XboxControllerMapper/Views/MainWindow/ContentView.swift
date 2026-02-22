@@ -26,6 +26,8 @@ struct ContentView: View {
     @State private var streamOverlayEnabled: Bool = StreamOverlayManager.isEnabled
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
+    @State private var showingGestureSheet = false
+    @State private var editingGestureType: MotionGestureType?
     @State private var scrollKeyMonitor: Any?
     var body: some View {
         HSplitView {
@@ -56,6 +58,13 @@ struct ContentView: View {
                     sequencesTab
                         .tabItem { Text("Sequences") }
                         .tag(9)
+
+                    // Gestures (only shown for DualSense - requires gyroscope)
+                    if controllerService.threadSafeIsDualSense {
+                        gesturesTab
+                            .tabItem { Text("Gestures") }
+                            .tag(11)
+                    }
 
                     // Macros Tab
                     macroListTab
@@ -144,6 +153,12 @@ struct ContentView: View {
         }
         .sheet(item: $editingSequence) { sequence in
             SequenceMappingSheet(editingSequence: sequence)
+        }
+        .sheet(item: $editingGestureType) { gestureType in
+            GestureMappingSheet(
+                gestureType: gestureType,
+                existingMapping: profileManager.gestureMapping(for: gestureType)
+            )
         }
         .sheet(isPresented: $showingSettingsSheet) {
             SettingsSheet()
@@ -250,7 +265,11 @@ struct ContentView: View {
 
     /// Ordered list of visible tab tags matching the TabView order.
     private var orderedTabTags: [Int] {
-        var tags = [0, 1, 9, 7, 10, 3, 2]
+        var tags = [0, 1, 9]
+        if controllerService.threadSafeIsDualSense {
+            tags.append(11)
+        }
+        tags.append(contentsOf: [7, 10, 3, 2])
         if controllerService.threadSafeIsPlayStation {
             tags.append(4)
         }
@@ -825,6 +844,35 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
             } footer: {
                 Text("Sequences fire an extra action when buttons are pressed in order within a time window. Individual button actions still fire normally (zero added latency).")
+                    .foregroundColor(.secondary.opacity(0.7))
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .padding()
+    }
+
+    // MARK: - Gestures Tab
+
+    private var gesturesTab: some View {
+        Form {
+            Section {
+                GestureListView(
+                    gestureMappings: profileManager.activeProfile?.gestureMappings ?? [],
+                    onEdit: { gestureType in
+                        editingGestureType = gestureType
+                    },
+                    onClear: { gestureType in
+                        if let mapping = profileManager.gestureMapping(for: gestureType) {
+                            profileManager.removeGesture(mapping)
+                        }
+                    }
+                )
+            } header: {
+                Text("Motion Gestures")
+                    .foregroundColor(.secondary)
+            } footer: {
+                Text("Map quick tilt gestures on your DualSense controller to actions. Snap the controller top toward you (Tilt Back) or away from you (Tilt Forward).")
                     .foregroundColor(.secondary.opacity(0.7))
             }
         }

@@ -342,6 +342,8 @@ struct ActionFeedbackView: View {
             return ("✓", .green)
         case .webhookFailure:
             return ("✗", .red)
+        case .gesture:
+            return ("↻", .teal)
         }
     }
 }
