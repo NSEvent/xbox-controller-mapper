@@ -1528,6 +1528,12 @@ class MappingEngine: ObservableObject {
                         SwipeTypingEngine.shared.setCursorPosition(normalized)
                     }
                     SwipeTypingEngine.shared.beginSwipe()
+                    controllerService.playHaptic(
+                        intensity: Config.swipeBeginHapticIntensity,
+                        sharpness: Config.swipeBeginHapticSharpness,
+                        duration: Config.swipeBeginHapticDuration,
+                        transient: true
+                    )
                 } else if !isClicking && wasClicking {
                     // Debounce: require multiple consecutive frames of release to end swipe
                     // This filters out momentary button bounce from the touchpad
@@ -1537,6 +1543,12 @@ class MappingEngine: ObservableObject {
                         // Read swipe cursor position BEFORE endSwipe for cursor warp
                         let swipeCursorPos = SwipeTypingEngine.shared.threadSafeCursorPosition
                         SwipeTypingEngine.shared.endSwipe()
+                        controllerService.playHaptic(
+                            intensity: Config.swipeEndHapticIntensity,
+                            sharpness: Config.swipeEndHapticSharpness,
+                            duration: Config.swipeEndHapticDuration,
+                            transient: true
+                        )
                         state.swipeClickReleaseFrames = 0
                         // Warp real macOS cursor to where the swipe cursor ended
                         // so the user can continue from that position
@@ -1799,6 +1811,31 @@ class MappingEngine: ObservableObject {
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
         usageStatsService?.recordJoystickMouseDistance(dx: Double(dx), dy: Double(dy))
+
+        // Gyro aiming: add DualSense gyroscope input during focus mode
+        if settings.gyroAimingEnabled && isFocusActive && controllerService.threadSafeIsDualSense {
+            let pitchRate = controllerService.threadSafeMotionPitchRate
+            let rollRate = controllerService.threadSafeMotionRollRate
+
+            let absPitch = abs(pitchRate)
+            let absRoll = abs(rollRate)
+            let deadzone = Config.gyroAimingDeadzone
+
+            var gyroDx: Double = 0
+            var gyroDy: Double = 0
+
+            if absRoll > deadzone {
+                gyroDx = rollRate * settings.gyroAimingMultiplier
+            }
+            if absPitch > deadzone {
+                // Invert: pitch up (positive X rotation) should move cursor up (negative screen Y)
+                gyroDy = -pitchRate * settings.gyroAimingMultiplier
+            }
+
+            if gyroDx != 0 || gyroDy != 0 {
+                inputSimulator.moveMouse(dx: CGFloat(gyroDx), dy: CGFloat(gyroDy))
+            }
+        }
     }
 
     /// Process touchpad tap gesture (uses user mapping, supports double-tap)

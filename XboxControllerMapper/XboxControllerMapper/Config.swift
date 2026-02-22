@@ -296,6 +296,14 @@ struct Config {
     static let swipeMaximumSamples: Int = 256
     /// Maximum sample rate for swipe path collection (Hz)
     static let swipeSampleRateLimit: Double = 60.0
+    /// Haptic feedback when starting a swipe gesture (soft thump)
+    static let swipeBeginHapticIntensity: Float = 0.15
+    static let swipeBeginHapticSharpness: Float = 0.3
+    static let swipeBeginHapticDuration: TimeInterval = 0.06
+    /// Haptic feedback when ending a swipe gesture (sharper click)
+    static let swipeEndHapticIntensity: Float = 0.25
+    static let swipeEndHapticSharpness: Float = 0.8
+    static let swipeEndHapticDuration: TimeInterval = 0.06
 
     // MARK: - Motion Gesture Detection
     /// Minimum rotation rate to begin tracking a gesture (rad/s)
@@ -314,6 +322,11 @@ struct Config {
     static let gestureMinPeakVelocity: Double = 7.0
     /// Maximum duration for a gesture before it's discarded as too slow (seconds)
     static let gestureMaxDuration: TimeInterval = 1.0
+    // MARK: - Gyro Aiming (Focus Mode)
+    /// Minimum rotation rate to register as intentional aiming input (rad/s).
+    /// Filters out hand tremor at rest (~0.1-0.2 rad/s).
+    static let gyroAimingDeadzone: Double = 0.3
+
     /// Haptic feedback for gesture detection
     static let gestureHapticIntensity: Float = 0.3
     static let gestureHapticSharpness: Float = 0.8
