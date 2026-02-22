@@ -51,16 +51,22 @@ struct ScriptListView: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .padding()
+        .sheet(item: $prefilledExample) { example in
+            ScriptEditorSheet(script: nil, prefilledExample: example)
+        }
         .sheet(isPresented: $showingAddSheet) {
-            ScriptEditorSheet(script: nil, prefilledExample: prefilledExample)
-                .onDisappear { prefilledExample = nil }
+            ScriptEditorSheet(script: nil)
         }
         .sheet(item: $editingScript) { script in
             ScriptEditorSheet(script: script)
         }
         .sheet(isPresented: $showingExamplesGallery, onDismiss: {
-            if prefilledExample != nil {
-                showingAddSheet = true
+            if let example = prefilledExample {
+                // Re-trigger after gallery is fully dismissed so .sheet(item:) picks it up
+                prefilledExample = nil
+                DispatchQueue.main.async {
+                    prefilledExample = example
+                }
             }
         }) {
             ScriptExamplesGalleryView { example in
@@ -84,9 +90,6 @@ struct ScriptListView: View {
             ForEach(ScriptExamplesData.featured) { example in
                 Button(action: {
                     prefilledExample = example
-                    DispatchQueue.main.async {
-                        showingAddSheet = true
-                    }
                 }) {
                     HStack(spacing: 10) {
                         Image(systemName: example.icon)

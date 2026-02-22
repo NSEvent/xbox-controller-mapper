@@ -153,6 +153,25 @@ enum ScriptExamplesData {
             icon: "envelope",
             tags: ["paste()", "expand()"]
         ),
+
+        ScriptExample(
+            name: "Screenshot Region to Desktop",
+            description: "Opens the interactive screenshot tool (Cmd+Shift+4) to select a window or region. Saves to the Desktop.",
+            source: """
+                var ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+                var path = expand("~/Desktop/screenshot-" + ts + ".png");
+                shellAsync("screencapture -i " + path, function(result) {
+                    if (result) {
+                        notify("Screenshot saved to Desktop!");
+                    } else {
+                        notify("Screenshot cancelled");
+                    }
+                });
+                haptic();
+                """,
+            icon: "crop",
+            tags: ["shellAsync()", "notify()", "haptic()"]
+        ),
     ]
 
     /// A few featured examples for the empty state
