@@ -229,6 +229,53 @@ final class ScriptEngineSecurityTests: XCTestCase {
         }
     }
 
+    // MARK: - openURL Scheme Validation
+
+    func testOpenURL_blocksFileScheme() {
+        let script = makeScript(source: """
+            openURL("file:///etc/passwd");
+        """)
+        let (_, logs) = engine.executeTest(script: script, trigger: makeTrigger())
+        let opened = logs.filter { $0.contains("[openURL]") && $0.contains("file:///etc/passwd") }
+        XCTAssertTrue(opened.isEmpty, "openURL should block file:// scheme")
+    }
+
+    func testOpenURL_blocksTelScheme() {
+        let script = makeScript(source: """
+            openURL("tel:1234567");
+        """)
+        let (_, logs) = engine.executeTest(script: script, trigger: makeTrigger())
+        let opened = logs.filter { $0.contains("[openURL]") && $0.contains("tel:") }
+        XCTAssertTrue(opened.isEmpty, "openURL should block tel: scheme")
+    }
+
+    func testOpenURL_blocksJavascriptScheme() {
+        let script = makeScript(source: """
+            openURL("javascript:alert(1)");
+        """)
+        let (_, logs) = engine.executeTest(script: script, trigger: makeTrigger())
+        let opened = logs.filter { $0.contains("[openURL]") && $0.contains("javascript:") }
+        XCTAssertTrue(opened.isEmpty, "openURL should block javascript: scheme")
+    }
+
+    func testOpenURL_allowsHttpScheme() {
+        let script = makeScript(source: """
+            openURL("http://example.com");
+        """)
+        let (_, logs) = engine.executeTest(script: script, trigger: makeTrigger())
+        let opened = logs.filter { $0.contains("[openURL]") && $0.contains("http://example.com") }
+        XCTAssertFalse(opened.isEmpty, "openURL should allow http:// scheme")
+    }
+
+    func testOpenURL_allowsHttpsScheme() {
+        let script = makeScript(source: """
+            openURL("https://example.com");
+        """)
+        let (_, logs) = engine.executeTest(script: script, trigger: makeTrigger())
+        let opened = logs.filter { $0.contains("[openURL]") && $0.contains("https://example.com") }
+        XCTAssertFalse(opened.isEmpty, "openURL should allow https:// scheme")
+    }
+
     // MARK: - State isolation between scripts
 
     func testScriptStateIsolation() {
