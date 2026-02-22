@@ -13,16 +13,16 @@ struct ScriptExample: Identifiable {
 enum ScriptExamplesData {
     static let all: [ScriptExample] = [
         ScriptExample(
-            name: "App-Aware Paste",
-            description: "Pastes with Cmd+V in most apps, but uses Ctrl+Shift+V in Terminal to avoid escape codes.",
+            name: "App-Aware Undo",
+            description: "Sends Cmd+Z in most apps, but Cmd+Shift+Z in Photoshop (which uses Cmd+Z for toggle undo/redo).",
             source: """
-                if (app.is("com.apple.Terminal") || app.is("com.googlecode.iterm2")) {
-                    press(9, {control: true, shift: true}); // Ctrl+Shift+V
+                if (app.is("com.adobe.Photoshop")) {
+                    press(6, {command: true, shift: true}); // Cmd+Shift+Z (step backward)
                 } else {
-                    press(9, {command: true}); // Cmd+V
+                    press(6, {command: true}); // Cmd+Z
                 }
                 """,
-            icon: "doc.on.clipboard",
+            icon: "arrow.uturn.backward",
             tags: ["app.is()", "press()"]
         ),
 
@@ -63,7 +63,7 @@ enum ScriptExamplesData {
 
         ScriptExample(
             name: "Screenshot to Clipboard",
-            description: "Takes a screenshot of a selected region and copies it to the clipboard. Uses shellAsync so controller input isn't blocked during selection.",
+            description: "Takes a screenshot of a selected region and copies it to the clipboard. Uses shellAsync so the controller isn't blocked during selection.",
             source: """
                 shellAsync("screencapture -ic", function() {
                     notify("Screenshot copied!");
@@ -76,13 +76,13 @@ enum ScriptExamplesData {
 
         ScriptExample(
             name: "Window Snap Left/Right",
-            description: "Snaps the current window left on D-pad Left, right on D-pad Right. Uses macOS Sequoia window tiling.",
+            description: "Snaps the current window left on D-pad Left, right on D-pad Right using Rectangle or similar window manager.",
             source: """
                 if (trigger.button === "dpadLeft") {
-                    // Ctrl+Globe+Left for left half
+                    // Ctrl+Option+Left (Rectangle: left half)
                     press(123, {control: true, option: true});
                 } else if (trigger.button === "dpadRight") {
-                    // Ctrl+Globe+Right for right half
+                    // Ctrl+Option+Right (Rectangle: right half)
                     press(124, {control: true, option: true});
                 }
                 """,
