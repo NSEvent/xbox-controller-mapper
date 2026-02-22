@@ -51,6 +51,7 @@ struct ChordRow: View {
                 .foregroundColor(.white.opacity(0.3))
                 .font(.caption)
                 .frame(width: 20)
+                .accessibilityHidden(true)
 
             // Tappable content area
             HStack {
@@ -63,6 +64,7 @@ struct ChordRow: View {
                 Image(systemName: "arrow.right")
                     .font(.caption2)
                     .foregroundColor(.white.opacity(0.3))
+                    .accessibilityHidden(true)
 
                 if let systemCommand = chord.systemCommand {
                     Text(chord.hint ?? systemCommand.displayName)
@@ -94,12 +96,14 @@ struct ChordRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Edit")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Delete")
             }
         }
         .padding(.horizontal, 12)
@@ -159,6 +163,7 @@ struct SequenceRow: View {
                 .foregroundColor(.white.opacity(0.3))
                 .font(.caption)
                 .frame(width: 20)
+                .accessibilityHidden(true)
 
             // Tappable content area
             HStack {
@@ -168,6 +173,7 @@ struct SequenceRow: View {
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 9))
                                 .foregroundColor(.white.opacity(0.3))
+                                .accessibilityHidden(true)
                         }
                         ButtonIconView(button: button, isDualSense: isDualSense)
                     }
@@ -176,6 +182,7 @@ struct SequenceRow: View {
                 Image(systemName: "arrow.right")
                     .font(.caption2)
                     .foregroundColor(.white.opacity(0.3))
+                    .accessibilityHidden(true)
 
                 if let systemCommand = sequence.systemCommand {
                     Text(sequence.hint ?? systemCommand.displayName)
@@ -207,12 +214,14 @@ struct SequenceRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Edit")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Delete")
             }
         }
         .padding(.horizontal, 12)

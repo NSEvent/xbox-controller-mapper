@@ -112,6 +112,7 @@ struct ControllerVisualView: View {
                         xboxOverlay
                     }
                 }
+                .accessibilityHidden(true)
 
                 // System Buttons Reference
                 HStack(spacing: 20) {
@@ -424,6 +425,10 @@ struct ControllerVisualView: View {
         .contentShape(Rectangle())
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
         .allowsHitTesting(!isLayerActivatorInLayerContext(button))  // Disable clicks on layer activators when in layer context
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(button.displayName(forDualSense: isPlayStation))
+        .accessibilityHint("Double-tap to configure")
+        .accessibilityAddTraits(.isButton)
         .onTapGesture { onButtonTap(button) }
     }
 
@@ -949,6 +954,7 @@ struct BatteryView: View {
                 .frame(width: 2, height: 4)
         }
         .help(isUnknown ? "Battery level unavailable (common macOS limitation for Xbox controllers)" : "Battery: \(Int(level * 100))%")
+        .accessibilityLabel(isUnknown ? "Battery unavailable" : "Battery: \(Int(level * 100)) percent")
     }
     
     private var batteryColor: Color {

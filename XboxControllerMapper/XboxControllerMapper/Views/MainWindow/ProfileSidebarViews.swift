@@ -52,6 +52,7 @@ struct ProfileSidebar: View {
                         .clipShape(Circle())
                 }
                 .menuStyle(.borderlessButton)
+                .accessibilityLabel("Add profile")
                 .fixedSize()
                 .hoverableIconButton()
             }

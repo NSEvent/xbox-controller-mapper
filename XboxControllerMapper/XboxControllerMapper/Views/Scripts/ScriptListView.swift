@@ -167,6 +167,7 @@ struct ScriptRow: View {
                 .foregroundColor(.white.opacity(0.3))
                 .font(.caption)
                 .frame(width: 20)
+                .accessibilityHidden(true)
 
             // Tappable content area
             HStack {
@@ -203,12 +204,14 @@ struct ScriptRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Edit")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Delete")
             }
         }
         .padding(.horizontal, 12)

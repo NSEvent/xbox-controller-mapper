@@ -50,6 +50,7 @@ struct StreamOverlayView: View {
         .onDisappear {
             hideTimer?.invalidate()
         }
+        .accessibilityHidden(true)
     }
 
     // MARK: - Background

@@ -475,6 +475,8 @@ struct LEDSettingsView: View {
                 .shadow(color: isOn ? .white.opacity(0.8) : .clear, radius: 4)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Player LED \(index + 1)")
+        .accessibilityValue(isOn ? "On" : "Off")
     }
 
     private func getPlayerLED(index: Int) -> Bool {
@@ -825,6 +827,8 @@ struct SliderRow: View {
             }
 
             Slider(value: $value, in: range)
+                .accessibilityLabel(label)
+                .accessibilityValue("\(value, specifier: "%.2f")")
 
             if let description = description {
                 Text(description)

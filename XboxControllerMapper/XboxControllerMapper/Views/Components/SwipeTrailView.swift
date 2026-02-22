@@ -57,6 +57,7 @@ struct SwipeTrailView: View {
                 .position(cursorPt)
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     /// Map a normalized (0-1) point to view coordinates within the letter area.

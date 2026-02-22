@@ -152,16 +152,19 @@ struct ContentView: View {
             Button("Zoom In") { profileManager.setUiScale(min(profileManager.uiScale + 0.1, 2.0)) }
                 .keyboardShortcut("+", modifiers: .command)
                 .hidden()
+                .accessibilityHidden(true)
         )
         .background(
             Button("Zoom Out") { profileManager.setUiScale(max(profileManager.uiScale - 0.1, 0.5)) }
                 .keyboardShortcut("-", modifiers: .command)
                 .hidden()
+                .accessibilityHidden(true)
         )
         .background(
             Button("Reset Zoom") { profileManager.setUiScale(1.0) }
                 .keyboardShortcut("0", modifiers: .command)
                 .hidden()
+                .accessibilityHidden(true)
         )
         .highPriorityGesture(
             MagnificationGesture()
@@ -205,6 +208,7 @@ struct ContentView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
             )
+            .accessibilityElement(children: .combine)
 
             Spacer()
 
@@ -221,6 +225,7 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .hoverableIconButton()
+            .accessibilityLabel("Settings")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -299,6 +304,7 @@ struct ContentView: View {
                             Image(systemName: "arrow.right")
                                 .font(.caption2)
                                 .foregroundColor(.white.opacity(0.3))
+                                .accessibilityHidden(true)
 
                             if let systemCommand = chord.systemCommand {
                                 Text(chord.hint ?? systemCommand.displayName)
@@ -331,6 +337,8 @@ struct ContentView: View {
                         .hoverableGlassRow {
                             editingChord = chord
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityHint("Double-tap to edit")
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 16)
@@ -357,6 +365,7 @@ struct ContentView: View {
                                         Image(systemName: "chevron.right")
                                             .font(.system(size: 7))
                                             .foregroundColor(.white.opacity(0.2))
+                                            .accessibilityHidden(true)
                                     }
                                     ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation)
                                 }
@@ -365,6 +374,7 @@ struct ContentView: View {
                             Image(systemName: "arrow.right")
                                 .font(.caption2)
                                 .foregroundColor(.white.opacity(0.3))
+                                .accessibilityHidden(true)
 
                             if let systemCommand = sequence.systemCommand {
                                 Text(sequence.hint ?? systemCommand.displayName)
@@ -397,6 +407,8 @@ struct ContentView: View {
                         .hoverableGlassRow {
                             editingSequence = sequence
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityHint("Double-tap to edit")
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 16)
@@ -793,6 +805,10 @@ struct MappingActiveToggle: View {
                 NSCursor.pop()
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Mapping")
+        .accessibilityValue(isEnabled ? "Active" : "Disabled")
+        .accessibilityAddTraits(.isToggle)
     }
 }
 

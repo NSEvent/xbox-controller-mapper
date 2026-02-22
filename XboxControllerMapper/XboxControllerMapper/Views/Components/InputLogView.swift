@@ -20,6 +20,7 @@ struct InputLogView: View {
             .padding(.vertical, 8)
         }
         .frame(height: 70)
+        .accessibilityLabel("Recent button presses")
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.8))
         .overlay(
             Rectangle()
@@ -47,7 +48,7 @@ private struct LogEntryView: View, Equatable {
                     ForEach(entry.buttons, id: \.self) { button in
                         ButtonIconView(button: button, isDualSense: isPlayStation)
                     }
-                    
+
                     if entry.type != .singlePress {
                         Text(entry.type.rawValue)
                             .font(.system(size: 10, weight: .bold))
@@ -63,14 +64,14 @@ private struct LogEntryView: View, Equatable {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                
+
                 // Bottom: Action
                 Text(entry.actionDescription)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.accentColor)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                
+
             }
             .padding(.horizontal, 8)
 
@@ -80,8 +81,10 @@ private struct LogEntryView: View, Equatable {
                     .font(.caption2)
                     .foregroundColor(.secondary.opacity(0.3))
                     .padding(.horizontal, 2)
+                    .accessibilityHidden(true)
             }
         }
+        .accessibilityElement(children: .combine)
         // Use simple opacity transition - complex spring animations block input handling
         .transition(.opacity)
     }

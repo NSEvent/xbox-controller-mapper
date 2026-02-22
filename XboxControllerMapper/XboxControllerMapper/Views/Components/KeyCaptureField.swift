@@ -22,6 +22,7 @@ struct KeyCaptureField: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Clear shortcut")
             }
         }
         .padding(.horizontal, 10)
@@ -37,6 +38,7 @@ struct KeyCaptureField: View {
         .overlay(
             KeyCaptureOverlay(isCapturing: $isCapturing, keyCode: $keyCode, modifiers: $modifiers)
                 .opacity(0.01) // Nearly invisible but captures events
+                .accessibilityHidden(true)
         )
         .onTapGesture {
             isCapturing = true
