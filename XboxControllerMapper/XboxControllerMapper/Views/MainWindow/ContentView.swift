@@ -26,6 +26,7 @@ struct ContentView: View {
     @State private var streamOverlayEnabled: Bool = StreamOverlayManager.isEnabled
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
+    @State private var scrollKeyMonitor: Any?
     var body: some View {
         HSplitView {
             // Sidebar: Profile management
@@ -195,6 +196,7 @@ struct ContentView: View {
                     }
                 }
         )
+        .onAppear { installScrollKeyMonitor() }
     }
 
     // MARK: - Toolbar
@@ -265,6 +267,99 @@ struct ContentView: View {
         guard let currentIndex = tags.firstIndex(of: selectedTab) else { return }
         let nextIndex = (currentIndex + direction + tags.count) % tags.count
         selectedTab = tags[nextIndex]
+    }
+
+    // MARK: - Scroll Key Navigation (Home/End/PageUp/PageDown)
+
+    private func installScrollKeyMonitor() {
+        scrollKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Don't intercept when text is being edited or keys are being captured
+            if let firstResponder = NSApp.keyWindow?.firstResponder,
+               firstResponder is NSTextView || firstResponder is KeyCaptureNSView {
+                return event
+            }
+
+            switch event.keyCode {
+            case KeyCodeMapping.home:
+                Self.scrollToEdge(top: true)
+                return nil
+            case KeyCodeMapping.end:
+                Self.scrollToEdge(top: false)
+                return nil
+            case KeyCodeMapping.pageUp:
+                Self.scrollByPage(up: true)
+                return nil
+            case KeyCodeMapping.pageDown:
+                Self.scrollByPage(up: false)
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    private static func scrollToEdge(top: Bool) {
+        guard let scrollView = findMainScrollView() else { return }
+        let clipView = scrollView.contentView
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.3
+            context.allowsImplicitAnimation = true
+            if top {
+                clipView.scroll(to: .zero)
+            } else {
+                let maxY = max(0, (scrollView.documentView?.frame.height ?? 0) - clipView.bounds.height)
+                clipView.scroll(to: NSPoint(x: clipView.bounds.origin.x, y: maxY))
+            }
+            scrollView.reflectScrolledClipView(clipView)
+        }
+    }
+
+    private static func scrollByPage(up: Bool) {
+        guard let scrollView = findMainScrollView() else { return }
+        let clipView = scrollView.contentView
+        let pageHeight = clipView.bounds.height * 0.9
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.3
+            context.allowsImplicitAnimation = true
+            var newOrigin = clipView.bounds.origin
+            if up {
+                newOrigin.y = max(0, newOrigin.y - pageHeight)
+            } else {
+                let maxY = max(0, (scrollView.documentView?.frame.height ?? 0) - clipView.bounds.height)
+                newOrigin.y = min(maxY, newOrigin.y + pageHeight)
+            }
+            clipView.scroll(to: newOrigin)
+            scrollView.reflectScrolledClipView(clipView)
+        }
+    }
+
+    /// Finds the largest visible, scrollable NSScrollView in the key window.
+    private static func findMainScrollView() -> NSScrollView? {
+        guard let contentView = NSApp.keyWindow?.contentView else { return nil }
+        var best: NSScrollView?
+        var bestArea: CGFloat = 0
+
+        func search(_ view: NSView) {
+            if let sv = view as? NSScrollView,
+               !sv.isHidden,
+               sv.visibleRect.width > 100, sv.visibleRect.height > 100,
+               let docView = sv.documentView,
+               docView.frame.height > sv.contentView.bounds.height + 1 {
+                let area = sv.visibleRect.width * sv.visibleRect.height
+                if area > bestArea {
+                    best = sv
+                    bestArea = area
+                }
+            }
+            for child in view.subviews {
+                search(child)
+            }
+        }
+
+        search(contentView)
+        return best
     }
 
     // MARK: - Controller Tab
