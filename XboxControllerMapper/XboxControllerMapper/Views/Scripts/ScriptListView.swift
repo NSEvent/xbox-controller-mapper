@@ -58,10 +58,13 @@ struct ScriptListView: View {
         .sheet(item: $editingScript) { script in
             ScriptEditorSheet(script: script)
         }
-        .sheet(isPresented: $showingExamplesGallery) {
+        .sheet(isPresented: $showingExamplesGallery, onDismiss: {
+            if prefilledExample != nil {
+                showingAddSheet = true
+            }
+        }) {
             ScriptExamplesGalleryView { example in
                 prefilledExample = example
-                showingAddSheet = true
             }
         }
         .sheet(isPresented: $showingAIPrompt) {
@@ -81,7 +84,9 @@ struct ScriptListView: View {
             ForEach(ScriptExamplesData.featured) { example in
                 Button(action: {
                     prefilledExample = example
-                    showingAddSheet = true
+                    DispatchQueue.main.async {
+                        showingAddSheet = true
+                    }
                 }) {
                     HStack(spacing: 10) {
                         Image(systemName: example.icon)
