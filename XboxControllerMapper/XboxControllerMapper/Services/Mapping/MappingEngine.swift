@@ -708,6 +708,27 @@ class MappingEngine: ObservableObject {
             }
         }
 
+        if nowLocked {
+            controllerService.playHaptic(
+                intensity: Config.lockHapticIntensity1,
+                sharpness: Config.lockHapticSharpness1,
+                duration: Config.lockHapticDuration1
+            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + Config.lockHapticDuration1 + Config.lockHapticGap) { [weak self] in
+                self?.controllerService.playHaptic(
+                    intensity: Config.lockHapticIntensity2,
+                    sharpness: Config.lockHapticSharpness2,
+                    duration: Config.lockHapticDuration2
+                )
+            }
+        } else {
+            controllerService.playHaptic(
+                intensity: Config.unlockHapticIntensity,
+                sharpness: Config.unlockHapticSharpness,
+                duration: Config.unlockHapticDuration
+            )
+        }
+
         DispatchQueue.main.async { [weak self] in
             self?.isLocked = nowLocked
             ActionFeedbackIndicator.shared.show(

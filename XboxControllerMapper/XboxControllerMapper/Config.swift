@@ -125,6 +125,20 @@ struct Config {
     static let webhookFailureHapticDuration: TimeInterval = 0.15
     static let webhookFailureHapticGap: TimeInterval = 0.1  // Gap between double pulses
 
+    /// Haptic feedback for controller lock (descending double-pulse: sharp strike → deep settle)
+    static let lockHapticIntensity1: Float = 0.7
+    static let lockHapticSharpness1: Float = 0.8
+    static let lockHapticDuration1: TimeInterval = 0.06
+    static let lockHapticGap: TimeInterval = 0.04
+    static let lockHapticIntensity2: Float = 0.4
+    static let lockHapticSharpness2: Float = 0.2
+    static let lockHapticDuration2: TimeInterval = 0.10
+
+    /// Haptic feedback for controller unlock (single crisp spring-release pulse)
+    static let unlockHapticIntensity: Float = 0.5
+    static let unlockHapticSharpness: Float = 0.9
+    static let unlockHapticDuration: TimeInterval = 0.08
+
     // MARK: - Input Simulation Timing
     /// Delay between modifier key presses (milliseconds)
     static let modifierPressDelay: useconds_t = 20000  // 20ms
