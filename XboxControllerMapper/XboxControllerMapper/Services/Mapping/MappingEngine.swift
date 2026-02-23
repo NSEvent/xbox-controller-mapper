@@ -143,6 +143,7 @@ class MappingEngine: ObservableObject {
         self.state.swipeTypingSensitivity = oskSettings?.swipeTypingSensitivity ?? 0.5
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
+        syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
     }
 
     /// Rebuilds the layer activator button -> layer ID lookup map
@@ -154,6 +155,20 @@ class MappingEngine: ObservableObject {
                 state.layerActivatorMap[activatorButton] = layer.id
             }
         }
+    }
+
+    /// Pushes effective gesture detection settings from the profile into ControllerStorage
+    /// so the motion callback thread can read them without accessing JoystickSettings.
+    private func syncGestureSettings(from settings: JoystickSettings?) {
+        let settings = settings ?? .default
+        controllerService.storage.lock.lock()
+        controllerService.storage.gestureActivationThreshold = settings.effectiveGestureActivationThreshold
+        controllerService.storage.gestureMinPeakVelocity = settings.effectiveGestureMinPeakVelocity
+        controllerService.storage.gestureRollActivationThreshold = settings.effectiveGestureRollActivationThreshold
+        controllerService.storage.gestureRollMinPeakVelocity = settings.effectiveGestureRollMinPeakVelocity
+        controllerService.storage.gestureCooldown = settings.effectiveGestureCooldown
+        controllerService.storage.gestureOppositeDirectionCooldown = settings.effectiveGestureOppositeDirectionCooldown
+        controllerService.storage.lock.unlock()
     }
 
     private func setupBindings() {
@@ -170,6 +185,7 @@ class MappingEngine: ObservableObject {
                     self.state.activeLayerIds.removeAll()
                     self.rebuildLayerActivatorMap(profile: profile)
                 }
+                self.syncGestureSettings(from: profile?.joystickSettings)
                 self.scriptEngine.clearState()
             }
             .store(in: &cancellables)

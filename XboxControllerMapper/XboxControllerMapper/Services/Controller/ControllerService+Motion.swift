@@ -35,16 +35,21 @@ extension ControllerService {
 
         storage.lock.lock()
 
+        let pitchActivation = storage.gestureActivationThreshold
+        let rollActivation = storage.gestureRollActivationThreshold
+        let pitchMinPeak = storage.gestureMinPeakVelocity
+        let rollMinPeak = storage.gestureRollMinPeakVelocity
+
         let pitchResult = processAxis(
             state: &storage.pitchGesture,
             velocity: pitchVelocity,
-            activationThreshold: Config.gestureActivationThreshold,
+            activationThreshold: pitchActivation,
             now: now
         )
         let rollResult = processAxis(
             state: &storage.rollGesture,
             velocity: rollVelocity,
-            activationThreshold: Config.gestureRollActivationThreshold,
+            activationThreshold: rollActivation,
             now: now
         )
 
@@ -54,13 +59,13 @@ extension ControllerService {
         guard let callback = callback else { return }
 
         if let (peakVelocity, peakSign) = pitchResult,
-           peakVelocity >= Config.gestureMinPeakVelocity {
+           peakVelocity >= pitchMinPeak {
             let gestureType: MotionGestureType = peakSign > 0 ? .tiltBack : .tiltForward
             callback(gestureType)
         }
 
         if let (peakVelocity, peakSign) = rollResult,
-           peakVelocity >= Config.gestureRollMinPeakVelocity {
+           peakVelocity >= rollMinPeak {
             let gestureType: MotionGestureType = peakSign > 0 ? .steerLeft : .steerRight
             callback(gestureType)
         }
@@ -84,8 +89,8 @@ extension ControllerService {
             let currentSign: Double = velocity > 0 ? 1.0 : -1.0
             let isOppositeDirection = state.lastGestureSign != 0 && currentSign != state.lastGestureSign
             let requiredCooldown = isOppositeDirection
-                ? Config.gestureOppositeDirectionCooldown
-                : Config.gestureCooldown
+                ? storage.gestureOppositeDirectionCooldown
+                : storage.gestureCooldown
             let cooldownElapsed = (now - state.lastGestureTime) >= requiredCooldown
 
             if absVelocity >= activationThreshold && cooldownElapsed {
@@ -130,7 +135,7 @@ extension ControllerService {
             // Wait for controller to return to near-rest before allowing new gestures.
             // Prevents the return/recoil motion from triggering the opposite gesture.
             if absVelocity < Config.gestureSettlingThreshold {
-                let cooldownElapsed = (now - state.lastGestureTime) >= Config.gestureCooldown
+                let cooldownElapsed = (now - state.lastGestureTime) >= storage.gestureCooldown
                 if cooldownElapsed {
                     state.state = .idle
                 }

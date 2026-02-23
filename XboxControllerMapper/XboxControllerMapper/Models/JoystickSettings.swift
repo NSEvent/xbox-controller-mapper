@@ -95,11 +95,49 @@ struct JoystickSettings: Codable, Equatable {
     /// Deadzone for gyroscope aiming (0.0 - 1.0, rad/s threshold)
     var gyroAimingDeadzone: Double = 0.3
 
+    /// Motion gesture sensitivity (0.0 = hard to trigger, 1.0 = very sensitive)
+    var gestureSensitivity: Double = 0.5
+
+    /// Motion gesture cooldown (0.0 = fast repeat, 1.0 = slow repeat)
+    var gestureCooldown: Double = 0.5
+
     static let `default` = JoystickSettings()
 
     /// Converts 0-1 gyro aiming sensitivity to pixel-scale multiplier (cubic curve)
     var gyroAimingMultiplier: Double {
         return 1.0 + pow(gyroAimingSensitivity, 3.0) * 20.0
+    }
+
+    // MARK: - Gesture Detection Computed Properties
+
+    /// Pitch activation threshold (rad/s): 0.0→7.0 (hard), 0.5→5.0 (default), 1.0→3.0 (sensitive)
+    var effectiveGestureActivationThreshold: Double {
+        7.0 - gestureSensitivity * 4.0
+    }
+
+    /// Pitch minimum peak velocity (rad/s): 0.0→9.0, 0.5→7.0, 1.0→5.0
+    var effectiveGestureMinPeakVelocity: Double {
+        9.0 - gestureSensitivity * 4.0
+    }
+
+    /// Roll activation threshold (proportional to pitch: pitch * 0.7)
+    var effectiveGestureRollActivationThreshold: Double {
+        effectiveGestureActivationThreshold * 0.7
+    }
+
+    /// Roll minimum peak velocity (proportional to pitch: pitch * 5/7)
+    var effectiveGestureRollMinPeakVelocity: Double {
+        effectiveGestureMinPeakVelocity * (5.0 / 7.0)
+    }
+
+    /// Same-direction cooldown (seconds): 0.0→0.2s, 0.5→0.5s, 1.0→1.0s
+    var effectiveGestureCooldown: TimeInterval {
+        0.4 * gestureCooldown * gestureCooldown + 0.4 * gestureCooldown + 0.2
+    }
+
+    /// Opposite-direction cooldown (always 3x same-direction)
+    var effectiveGestureOppositeDirectionCooldown: TimeInterval {
+        effectiveGestureCooldown * 3.0
     }
 
     /// Validates settings ranges
@@ -120,7 +158,9 @@ struct JoystickSettings: Codable, Equatable {
                (1.0...4.0).contains(scrollBoostMultiplier) &&
                range.contains(focusModeSensitivity) &&
                range.contains(gyroAimingSensitivity) &&
-               range.contains(gyroAimingDeadzone)
+               range.contains(gyroAimingDeadzone) &&
+               range.contains(gestureSensitivity) &&
+               range.contains(gestureCooldown)
     }
 
     /// Converts 0-1 sensitivity to actual multiplier for mouse
@@ -210,6 +250,8 @@ extension JoystickSettings {
         case gyroAimingEnabled
         case gyroAimingSensitivity
         case gyroAimingDeadzone
+        case gestureSensitivity
+        case gestureCooldown
     }
 
     init(from decoder: Decoder) throws {
@@ -301,6 +343,16 @@ extension JoystickSettings {
             to: 0.0...1.0,
             fallback: 0.3
         )
+        gestureSensitivity = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .gestureSensitivity) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
+        gestureCooldown = Self.clamp(
+            try container.decodeIfPresent(Double.self, forKey: .gestureCooldown) ?? 0.5,
+            to: 0.0...1.0,
+            fallback: 0.5
+        )
     }
 
     func encode(to encoder: Encoder) throws {
@@ -328,5 +380,7 @@ extension JoystickSettings {
         try container.encode(gyroAimingEnabled, forKey: .gyroAimingEnabled)
         try container.encode(gyroAimingSensitivity, forKey: .gyroAimingSensitivity)
         try container.encode(gyroAimingDeadzone, forKey: .gyroAimingDeadzone)
+        try container.encode(gestureSensitivity, forKey: .gestureSensitivity)
+        try container.encode(gestureCooldown, forKey: .gestureCooldown)
     }
 }

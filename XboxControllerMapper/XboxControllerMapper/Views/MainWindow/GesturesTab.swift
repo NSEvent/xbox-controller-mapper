@@ -28,6 +28,42 @@ struct GesturesTab: View {
             }
 
             Section {
+                SliderRow(
+                    label: "Sensitivity",
+                    value: Binding(
+                        get: { profileManager.activeProfile?.joystickSettings.gestureSensitivity ?? 0.5 },
+                        set: { newValue in
+                            guard var settings = profileManager.activeProfile?.joystickSettings else { return }
+                            settings.gestureSensitivity = newValue
+                            profileManager.updateJoystickSettings(settings)
+                        }
+                    ),
+                    range: 0...1.0,
+                    description: "How easily gestures trigger"
+                )
+
+                SliderRow(
+                    label: "Cooldown",
+                    value: Binding(
+                        get: { profileManager.activeProfile?.joystickSettings.gestureCooldown ?? 0.5 },
+                        set: { newValue in
+                            guard var settings = profileManager.activeProfile?.joystickSettings else { return }
+                            settings.gestureCooldown = newValue
+                            profileManager.updateJoystickSettings(settings)
+                        }
+                    ),
+                    range: 0...1.0,
+                    description: "Wait time between gestures"
+                )
+            } header: {
+                Text("Gesture Detection")
+                    .foregroundColor(.secondary)
+            } footer: {
+                Text("Adjust sensitivity to control how hard you need to snap the controller. Adjust cooldown to control the wait time before another gesture can fire.")
+                    .foregroundColor(.secondary.opacity(0.7))
+            }
+
+            Section {
                 Toggle("Gyro Aiming (Focus Mode)", isOn: Binding(
                     get: { profileManager.activeProfile?.joystickSettings.gyroAimingEnabled ?? false },
                     set: { newValue in

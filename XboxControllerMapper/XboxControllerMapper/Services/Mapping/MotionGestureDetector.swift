@@ -31,6 +31,14 @@ final class MotionGestureDetector: GestureDetecting {
     private(set) var pitchState = AxisGestureState()
     private(set) var rollState = AxisGestureState()
 
+    // Configurable thresholds (default to Config values for backward compatibility)
+    var pitchActivationThreshold: Double = Config.gestureActivationThreshold
+    var pitchMinPeakVelocity: Double = Config.gestureMinPeakVelocity
+    var rollActivationThreshold: Double = Config.gestureRollActivationThreshold
+    var rollMinPeakVelocity: Double = Config.gestureRollMinPeakVelocity
+    var cooldown: TimeInterval = Config.gestureCooldown
+    var oppositeDirectionCooldown: TimeInterval = Config.gestureOppositeDirectionCooldown
+
     /// Process gyroscope rotation rates and detect completed gestures.
     ///
     /// Since two axes are processed independently, this may return a pitch gesture.
@@ -57,18 +65,18 @@ final class MotionGestureDetector: GestureDetecting {
         if let (peakVelocity, peakSign) = processAxis(
             state: &pitchState,
             velocity: input.pitchRate,
-            activationThreshold: Config.gestureActivationThreshold,
+            activationThreshold: pitchActivationThreshold,
             now: time
-        ), peakVelocity >= Config.gestureMinPeakVelocity {
+        ), peakVelocity >= pitchMinPeakVelocity {
             results.append(peakSign > 0 ? .tiltBack : .tiltForward)
         }
 
         if let (peakVelocity, peakSign) = processAxis(
             state: &rollState,
             velocity: input.rollRate,
-            activationThreshold: Config.gestureRollActivationThreshold,
+            activationThreshold: rollActivationThreshold,
             now: time
-        ), peakVelocity >= Config.gestureRollMinPeakVelocity {
+        ), peakVelocity >= rollMinPeakVelocity {
             results.append(peakSign > 0 ? .steerLeft : .steerRight)
         }
 
@@ -98,8 +106,8 @@ final class MotionGestureDetector: GestureDetecting {
             let currentSign: Double = velocity > 0 ? 1.0 : -1.0
             let isOppositeDirection = state.lastGestureSign != 0 && currentSign != state.lastGestureSign
             let requiredCooldown = isOppositeDirection
-                ? Config.gestureOppositeDirectionCooldown
-                : Config.gestureCooldown
+                ? oppositeDirectionCooldown
+                : cooldown
             let cooldownElapsed = (now - state.lastGestureTime) >= requiredCooldown
 
             if absVelocity >= activationThreshold && cooldownElapsed {
@@ -138,7 +146,7 @@ final class MotionGestureDetector: GestureDetecting {
 
         case .settling:
             if absVelocity < Config.gestureSettlingThreshold {
-                let cooldownElapsed = (now - state.lastGestureTime) >= Config.gestureCooldown
+                let cooldownElapsed = (now - state.lastGestureTime) >= cooldown
                 if cooldownElapsed {
                     state.phase = .idle
                 }

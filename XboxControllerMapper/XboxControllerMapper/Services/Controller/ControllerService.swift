@@ -121,6 +121,14 @@ final class ControllerStorage: @unchecked Sendable {
     var motionPitchAccum: Double = 0
     var motionRollAccum: Double = 0
     var motionSampleCount: Int = 0
+
+    // Gesture detection thresholds (cached from JoystickSettings, written on profile change)
+    var gestureActivationThreshold: Double = Config.gestureActivationThreshold
+    var gestureMinPeakVelocity: Double = Config.gestureMinPeakVelocity
+    var gestureRollActivationThreshold: Double = Config.gestureRollActivationThreshold
+    var gestureRollMinPeakVelocity: Double = Config.gestureRollMinPeakVelocity
+    var gestureCooldown: TimeInterval = Config.gestureCooldown
+    var gestureOppositeDirectionCooldown: TimeInterval = Config.gestureOppositeDirectionCooldown
 }
 
 /// Service for managing game controller connection and input
