@@ -284,7 +284,7 @@ class UsageStatsService: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(snapshot)
-            try data.write(to: statsFileURL, options: .atomic)
+            try data.write(to: statsFileURL.resolvingSymlinksInPath(), options: .atomic)
         } catch {
             // Silently fail - stats are non-critical
         }
