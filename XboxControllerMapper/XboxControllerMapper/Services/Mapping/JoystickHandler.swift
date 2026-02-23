@@ -263,13 +263,9 @@ extension MappingEngine {
     // MARK: - Stick Smoothing
 
     nonisolated func smoothStick(_ raw: CGPoint, previous: CGPoint, dt: TimeInterval) -> CGPoint {
-        let magnitude = sqrt(Double(raw.x * raw.x + raw.y * raw.y))
-        let t = min(1.0, magnitude * 1.2)
-        let cutoff = Config.joystickMinCutoffFrequency + (Config.joystickMaxCutoffFrequency - Config.joystickMinCutoffFrequency) * t
-        let alpha = 1.0 - exp(-2.0 * Double.pi * cutoff * max(0.0, dt))
-        let newX = Double(previous.x) + alpha * (Double(raw.x) - Double(previous.x))
-        let newY = Double(previous.y) + alpha * (Double(raw.y) - Double(previous.y))
-        return CGPoint(x: newX, y: newY)
+        JoystickMath.smoothStick(raw, previous: previous, dt: dt,
+                                 minCutoff: Config.joystickMinCutoffFrequency,
+                                 maxCutoff: Config.joystickMaxCutoffFrequency)
     }
 
     // MARK: - Scroll Double-Tap Boost
@@ -319,15 +315,7 @@ extension MappingEngine {
     /// a transition zone of width `deadzone`, then linear above `2 * deadzone`.
     /// Eliminates the hard cutoff discontinuity that causes stutter at the boundary.
     nonisolated func smoothDeadzone(_ value: Double, deadzone: Double) -> Double {
-        if value <= deadzone { return 0 }
-        let excess = value - deadzone
-        if excess < deadzone {
-            // Quadratic ease-in: derivative is 0 at boundary, ramps to 1 at 2*deadzone
-            let t = excess / deadzone
-            return t * t * deadzone
-        }
-        // Linear above 2*deadzone (offset to match the quadratic endpoint)
-        return excess
+        JoystickMath.smoothDeadzone(value, deadzone: deadzone)
     }
 
     // MARK: - Mouse Movement (incl. Focus Mode + Gyro Aiming)
@@ -401,13 +389,11 @@ extension MappingEngine {
             }
         }
 
-        let deadzone = settings.mouseDeadzone
-        let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
-        let deadzoneSquared = deadzone * deadzone
-        guard magnitudeSquared > deadzoneSquared else { return }
+        guard let magnitude = JoystickMath.circularDeadzone(
+            x: Double(stick.x), y: Double(stick.y), deadzone: settings.mouseDeadzone
+        ) else { return }
 
-        let magnitude = sqrt(magnitudeSquared)
-        let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
+        let normalizedMagnitude = JoystickMath.normalizedMagnitude(magnitude, deadzone: settings.mouseDeadzone)
         let acceleratedMagnitude = pow(normalizedMagnitude, settings.mouseAccelerationExponent)
 
         let targetMultiplier = isFocusActive ? settings.focusMultiplier : settings.mouseMultiplier
@@ -431,24 +417,18 @@ extension MappingEngine {
     // MARK: - Scrolling
 
     nonisolated func processScrolling(_ stick: CGPoint, rawStick: CGPoint, settings: JoystickSettings, now: TimeInterval) {
-        let deadzone = settings.scrollDeadzone
-        let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
-        let deadzoneSquared = deadzone * deadzone
-        guard magnitudeSquared > deadzoneSquared else { return }
+        guard let magnitude = JoystickMath.circularDeadzone(
+            x: Double(stick.x), y: Double(stick.y), deadzone: settings.scrollDeadzone
+        ) else { return }
 
-        let magnitude = sqrt(magnitudeSquared)
-        let normalizedMagnitude = (magnitude - deadzone) / (1.0 - deadzone)
-        let acceleratedMagnitude = pow(normalizedMagnitude, settings.scrollAccelerationExponent)
+        let normalizedMag = JoystickMath.normalizedMagnitude(magnitude, deadzone: settings.scrollDeadzone)
+        let acceleratedMagnitude = pow(normalizedMag, settings.scrollAccelerationExponent)
         let scale = acceleratedMagnitude * settings.scrollMultiplier / magnitude
 
-        let absX = abs(stick.x)
-        let absY = abs(stick.y)
-        let effectiveX: CGFloat
-        if absY > absX && absX < absY * Config.scrollHorizontalThresholdRatio {
-            effectiveX = 0
-        } else {
-            effectiveX = stick.x
-        }
+        let effectiveX = JoystickMath.scrollEffectiveX(
+            stickX: Double(stick.x), stickY: Double(stick.y),
+            thresholdRatio: Config.scrollHorizontalThresholdRatio
+        )
 
         let dx = -effectiveX * scale
         var dy = stick.y * scale

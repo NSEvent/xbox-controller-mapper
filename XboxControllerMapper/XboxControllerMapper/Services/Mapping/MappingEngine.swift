@@ -142,6 +142,7 @@ class MappingEngine: ObservableObject {
         self.state.swipeTypingEnabled = oskSettings?.swipeTypingEnabled ?? false
         self.state.swipeTypingSensitivity = oskSettings?.swipeTypingSensitivity ?? 0.5
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
+        self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
     }
@@ -162,12 +163,12 @@ class MappingEngine: ObservableObject {
     private func syncGestureSettings(from settings: JoystickSettings?) {
         let settings = settings ?? .default
         controllerService.storage.lock.lock()
-        controllerService.storage.gestureActivationThreshold = settings.effectiveGestureActivationThreshold
-        controllerService.storage.gestureMinPeakVelocity = settings.effectiveGestureMinPeakVelocity
-        controllerService.storage.gestureRollActivationThreshold = settings.effectiveGestureRollActivationThreshold
-        controllerService.storage.gestureRollMinPeakVelocity = settings.effectiveGestureRollMinPeakVelocity
-        controllerService.storage.gestureCooldown = settings.effectiveGestureCooldown
-        controllerService.storage.gestureOppositeDirectionCooldown = settings.effectiveGestureOppositeDirectionCooldown
+        controllerService.storage.motionGestureDetector.pitchActivationThreshold = settings.effectiveGestureActivationThreshold
+        controllerService.storage.motionGestureDetector.pitchMinPeakVelocity = settings.effectiveGestureMinPeakVelocity
+        controllerService.storage.motionGestureDetector.rollActivationThreshold = settings.effectiveGestureRollActivationThreshold
+        controllerService.storage.motionGestureDetector.rollMinPeakVelocity = settings.effectiveGestureRollMinPeakVelocity
+        controllerService.storage.motionGestureDetector.cooldown = settings.effectiveGestureCooldown
+        controllerService.storage.motionGestureDetector.oppositeDirectionCooldown = settings.effectiveGestureOppositeDirectionCooldown
         controllerService.storage.lock.unlock()
     }
 
@@ -184,6 +185,7 @@ class MappingEngine: ObservableObject {
                     self.state.swipeTypingSensitivity = osk?.swipeTypingSensitivity ?? 0.5
                     self.state.activeLayerIds.removeAll()
                     self.rebuildLayerActivatorMap(profile: profile)
+                    self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                 }
                 self.syncGestureSettings(from: profile?.joystickSettings)
                 self.scriptEngine.clearState()
@@ -201,8 +203,6 @@ class MappingEngine: ObservableObject {
             .store(in: &cancellables)
 
         // Controller input callbacks — route each event to the appropriate queue.
-        // The unified handleControllerInput(_:) method is also available as a
-        // single entry point that can be used by external consumers or tests.
         controllerService.onButtonPressed = { [weak self] button in
             guard let self = self else { return }
             self.inputQueue.async {
@@ -316,35 +316,6 @@ class MappingEngine: ObservableObject {
             .store(in: &cancellables)
     }
 
-    // MARK: - Unified Controller Input Handler
-
-    /// Single entry point for all controller input events.
-    /// Routes each event to the appropriate dispatch queue and handler method.
-    nonisolated func handleControllerInput(_ event: ControllerInputEvent) {
-        switch event {
-        case .buttonPressed(let button):
-            inputQueue.async { self.handleButtonPressed(button) }
-        case .buttonReleased(let button, let duration):
-            inputQueue.async { self.handleButtonReleased(button, holdDuration: duration) }
-        case .chord(let buttons):
-            inputQueue.async { self.handleChord(buttons) }
-        case .touchpadMoved(let delta):
-            pollingQueue.async { self.processTouchpadMovement(delta) }
-        case .touchpadGesture(let gesture):
-            pollingQueue.async { self.processTouchpadGesture(gesture) }
-        case .touchpadTap:
-            pollingQueue.async { self.processTouchpadTap() }
-        case .touchpadTwoFingerTap:
-            pollingQueue.async { self.processTouchpadTwoFingerTap() }
-        case .touchpadLongTap:
-            pollingQueue.async { self.processTouchpadLongTap() }
-        case .touchpadTwoFingerLongTap:
-            pollingQueue.async { self.processTouchpadTwoFingerLongTap() }
-        case .motionGesture(let gestureType):
-            inputQueue.async { self.processMotionGesture(gestureType) }
-        }
-    }
-
     // MARK: - Button Handling (Background Queue)
 
     nonisolated private func isButtonUsedInChords(_ button: ControllerButton, profile: Profile) -> Bool {
@@ -359,83 +330,62 @@ class MappingEngine: ObservableObject {
         }
     }
 
+    // MARK: - Special Action Intercepts
+
+    /// Checks if a keyCode maps to a special action (controller lock, laser pointer, etc.)
+    /// and executes it. Returns true if the action was intercepted (caller should return early).
+    nonisolated private func handleSpecialActionIntercept(
+        keyCode: CGKeyCode?,
+        buttons: [ControllerButton],
+        logType: InputEventType
+    ) -> Bool {
+        guard let keyCode = keyCode else { return false }
+
+        if keyCode == KeyCodeMapping.controllerLock {
+            _ = performLockToggle()
+            inputLogService?.log(buttons: buttons, type: logType, action: "Controller Lock")
+            return true
+        }
+
+        if state.lock.withLock({ state.isLocked }) { return true }
+
+        if keyCode == KeyCodeMapping.showLaserPointer {
+            DispatchQueue.main.async { LaserPointerOverlay.shared.toggle() }
+            inputLogService?.log(buttons: buttons, type: logType, action: "Laser Pointer")
+            return true
+        }
+        if keyCode == KeyCodeMapping.showOnScreenKeyboard {
+            DispatchQueue.main.async { OnScreenKeyboardManager.shared.toggle() }
+            inputLogService?.log(buttons: buttons, type: logType, action: "On-Screen Keyboard")
+            return true
+        }
+        if keyCode == KeyCodeMapping.showDirectoryNavigator {
+            DispatchQueue.main.async { DirectoryNavigatorManager.shared.toggle() }
+            inputLogService?.log(buttons: buttons, type: logType, action: "Directory Navigator")
+            return true
+        }
+        return false
+    }
+
     // MARK: - Sequence Detection (Zero-Latency)
 
-    nonisolated private func advanceSequenceTracking(_ button: ControllerButton, profile: Profile, chordWindow: TimeInterval = 0) {
-        let now = Date()
+    nonisolated private func advanceSequenceTracking(_ button: ControllerButton) {
+        let now = CFAbsoluteTimeGetCurrent()
+        let chordWindow = controllerService.threadSafeChordWindow
 
-        let completedSequence: SequenceMapping? = state.lock.withLock {
-            var survivingSequences: [EngineState.SequenceProgress] = []
-            for var seq in state.activeSequences {
-                let sinceLastStep = now.timeIntervalSince(seq.lastStepTime)
-                let effectiveTimeout = seq.stepTimeout + chordWindow
-                if sinceLastStep <= effectiveTimeout && seq.matchedCount < seq.steps.count && button == seq.steps[seq.matchedCount] {
-                    seq.matchedCount += 1
-                    seq.lastStepTime = now
-                    survivingSequences.append(seq)
-                }
-            }
-
-            let trackedIds = Set(survivingSequences.map { $0.sequenceId })
-            for seq in profile.sequenceMappings where seq.isValid {
-                if !trackedIds.contains(seq.id) && seq.steps[0] == button {
-                    survivingSequences.append(EngineState.SequenceProgress(
-                        sequenceId: seq.id,
-                        steps: seq.steps,
-                        stepTimeout: seq.stepTimeout,
-                        matchedCount: 1,
-                        lastStepTime: now
-                    ))
-                }
-            }
-
-            if let completedIdx = survivingSequences.firstIndex(where: { $0.matchedCount == $0.steps.count }) {
-                let completed = survivingSequences[completedIdx]
-                let sequence = profile.sequenceMappings.first { $0.id == completed.sequenceId }
-
-                survivingSequences.remove(at: completedIdx)
-                state.activeSequences = survivingSequences
-                return sequence
-            }
-
-            state.activeSequences = survivingSequences
-            return nil
+        let (completedSequence, profile): (SequenceMapping?, Profile?) = state.lock.withLock {
+            state.sequenceDetector.chordWindowTolerance = chordWindow
+            let result = state.sequenceDetector.process(button, at: now)
+            // Read profile atomically with the detector result to ensure
+            // the completed sequence executes against the current profile.
+            return (result, state.activeProfile)
         }
 
         if let sequence = completedSequence {
-            if let keyCode = sequence.keyCode {
-                if keyCode == KeyCodeMapping.controllerLock {
-                    _ = performLockToggle()
-                    inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "Controller Lock")
-                    return
-                }
-
-                if state.lock.withLock({ state.isLocked }) { return }
-
-                if keyCode == KeyCodeMapping.showLaserPointer {
-                    DispatchQueue.main.async {
-                        LaserPointerOverlay.shared.toggle()
-                    }
-                    inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "Laser Pointer")
-                    return
-                }
-                if keyCode == KeyCodeMapping.showOnScreenKeyboard {
-                    DispatchQueue.main.async {
-                        OnScreenKeyboardManager.shared.toggle()
-                    }
-                    inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "On-Screen Keyboard")
-                    return
-                }
-                if keyCode == KeyCodeMapping.showDirectoryNavigator {
-                    DispatchQueue.main.async {
-                        DirectoryNavigatorManager.shared.toggle()
-                    }
-                    inputLogService?.log(buttons: sequence.steps, type: .sequence, action: "Directory Navigator")
-                    return
-                }
-            } else {
-                if state.lock.withLock({ state.isLocked }) { return }
+            if handleSpecialActionIntercept(keyCode: sequence.keyCode, buttons: sequence.steps, logType: .sequence) {
+                return
             }
+            if sequence.keyCode == nil, state.lock.withLock({ state.isLocked }) { return }
             mappingExecutor.executeAction(sequence, for: sequence.steps, profile: profile, logType: .sequence)
         }
     }
@@ -503,8 +453,7 @@ class MappingEngine: ObservableObject {
 
         case .ready(let profile, let lastTap):
             if !profile.sequenceMappings.isEmpty {
-                let chordWindow = controllerService.threadSafeChordWindow
-                advanceSequenceTracking(button, profile: profile, chordWindow: chordWindow)
+                advanceSequenceTracking(button)
             }
 
             let outcome = resolveButtonPressOutcome(button, profile: profile, lastTap: lastTap)
@@ -678,7 +627,7 @@ class MappingEngine: ObservableObject {
             state.dpadNavigationTimer = nil
             state.dpadNavigationButton = nil
 
-            state.activeSequences.removeAll()
+            state.sequenceDetector.reset()
 
             state.smoothedLeftStick = .zero
             state.smoothedRightStick = .zero
@@ -687,8 +636,6 @@ class MappingEngine: ObservableObject {
 
             state.smoothedTouchpadDelta = .zero
             state.lastTouchpadSampleTime = 0
-            state.touchpadResidualX = 0
-            state.touchpadResidualY = 0
             state.touchpadMomentumVelocity = .zero
             state.touchpadMomentumWasActive = false
 
@@ -1116,33 +1063,10 @@ class MappingEngine: ObservableObject {
                 state.activeChordButtons = chordButtons
             }
 
-            if let keyCode = chord.keyCode {
-                if keyCode == KeyCodeMapping.controllerLock {
-                    _ = performLockToggle()
-                    inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "Controller Lock")
-                    return
-                }
-
-                if state.lock.withLock({ state.isLocked }) { return }
-
-                if keyCode == KeyCodeMapping.showLaserPointer {
-                    DispatchQueue.main.async { LaserPointerOverlay.shared.toggle() }
-                    inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "Laser Pointer")
-                    return
-                }
-                if keyCode == KeyCodeMapping.showOnScreenKeyboard {
-                    DispatchQueue.main.async { OnScreenKeyboardManager.shared.toggle() }
-                    inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "On-Screen Keyboard")
-                    return
-                }
-                if keyCode == KeyCodeMapping.showDirectoryNavigator {
-                    DispatchQueue.main.async { DirectoryNavigatorManager.shared.toggle() }
-                    inputLogService?.log(buttons: Array(chordButtons), type: .chord, action: "Directory Navigator")
-                    return
-                }
-            } else {
-                if state.lock.withLock({ state.isLocked }) { return }
+            if handleSpecialActionIntercept(keyCode: chord.keyCode, buttons: Array(chordButtons), logType: .chord) {
+                return
             }
+            if chord.keyCode == nil, state.lock.withLock({ state.isLocked }) { return }
 
             mappingExecutor.executeAction(chord, for: Array(chordButtons), profile: profile, logType: .chord)
         } else {

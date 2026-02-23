@@ -50,7 +50,8 @@ extension MappingEngine {
         if resetSmoothing || settings.touchpadSmoothing <= 0 {
             smoothedDelta = delta
         } else {
-            let alpha = max(Config.touchpadMinSmoothingAlpha, 1.0 - settings.touchpadSmoothing)
+            let alpha = JoystickMath.touchpadSmoothingAlpha(
+                smoothing: settings.touchpadSmoothing, minAlpha: Config.touchpadMinSmoothingAlpha)
             smoothedDelta = CGPoint(
                 x: smoothedDelta.x + (delta.x - smoothedDelta.x) * alpha,
                 y: smoothedDelta.y + (delta.y - smoothedDelta.y) * alpha
@@ -230,7 +231,8 @@ extension MappingEngine {
             smoothedCenter = gesture.centerDelta
             smoothedDistance = gesture.distanceDelta
         } else {
-            let alpha = max(Config.touchpadMinSmoothingAlpha, 1.0 - settings.touchpadSmoothing)
+            let alpha = JoystickMath.touchpadSmoothingAlpha(
+                smoothing: settings.touchpadSmoothing, minAlpha: Config.touchpadMinSmoothingAlpha)
             smoothedCenter = CGPoint(
                 x: smoothedCenter.x + (gesture.centerDelta.x - smoothedCenter.x) * alpha,
                 y: smoothedCenter.y + (gesture.centerDelta.y - smoothedCenter.y) * alpha

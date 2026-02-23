@@ -178,7 +178,7 @@ struct JoystickSettings: Codable, Equatable {
         return 2.0 + pow(sensitivity, 3.0) * 118.0
     }
 
-    private func calibratedTouchpadValue(_ raw: Double, boost: Double) -> Double {
+    func calibratedTouchpadValue(_ raw: Double, boost: Double) -> Double {
         // Calibration curve: keeps 0 and 1 stable, but maps 0.5 -> 0.5 + boost * 0.25.
         return min(1.0, max(0.0, raw + boost * raw * (1.0 - raw)))
     }

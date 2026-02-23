@@ -80,10 +80,7 @@ final class ControllerStorage: @unchecked Sendable {
     var chordWorkItem: DispatchWorkItem?
     var chordWindow: TimeInterval = 0.15
 
-    // Unified controller input event callback (replaces individual callbacks below)
-    var onControllerInput: ((ControllerInputEvent) -> Void)?
-
-    // Callbacks (legacy — kept for backward compatibility, proxied through onControllerInput)
+    // Callbacks
     var onButtonPressed: ((ControllerButton) -> Void)?
     var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)?
     var onChordDetected: ((Set<ControllerButton>) -> Void)?
@@ -99,36 +96,13 @@ final class ControllerStorage: @unchecked Sendable {
     var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
 
     // Motion Gesture State (DualSense gyroscope)
-    enum MotionGestureState {
-        case idle
-        case tracking
-        case settling  // waiting for controller to return to rest after a gesture
-    }
-    /// Per-axis gesture detection state (pitch and roll are independent)
-    struct AxisGestureState {
-        var state: MotionGestureState = .idle
-        var peakVelocity: Double = 0
-        var peakSign: Double = 0
-        var startTime: TimeInterval = 0
-        var lastGestureTime: TimeInterval = 0
-        var lastGestureSign: Double = 0  // sign of last completed gesture (for opposite-direction cooldown)
-    }
-    var pitchGesture = AxisGestureState()  // tilt back/forward (rotation rate X)
-    var rollGesture = AxisGestureState()   // steer left/right (rotation rate Z)
+    var motionGestureDetector = MotionGestureDetector()
     var onMotionGesture: ((MotionGestureType) -> Void)?
 
     // Gyro aiming: accumulated rotation rates between polls (averaged on consume)
     var motionPitchAccum: Double = 0
     var motionRollAccum: Double = 0
     var motionSampleCount: Int = 0
-
-    // Gesture detection thresholds (cached from JoystickSettings, written on profile change)
-    var gestureActivationThreshold: Double = Config.gestureActivationThreshold
-    var gestureMinPeakVelocity: Double = Config.gestureMinPeakVelocity
-    var gestureRollActivationThreshold: Double = Config.gestureRollActivationThreshold
-    var gestureRollMinPeakVelocity: Double = Config.gestureRollMinPeakVelocity
-    var gestureCooldown: TimeInterval = Config.gestureCooldown
-    var gestureOppositeDirectionCooldown: TimeInterval = Config.gestureOppositeDirectionCooldown
 }
 
 /// Service for managing game controller connection and input
@@ -363,10 +337,6 @@ class ControllerService: ObservableObject {
     @Published var batteryState: GCDeviceBattery.State = .unknown
 
     // Callback proxies (Thread-safe storage backing)
-    var onControllerInput: ((ControllerInputEvent) -> Void)? {
-        get { readStorage(\.onControllerInput) }
-        set { writeStorage(\.onControllerInput, newValue) }
-    }
     var onButtonPressed: ((ControllerButton) -> Void)? {
         get { readStorage(\.onButtonPressed) }
         set { writeStorage(\.onButtonPressed, newValue) }

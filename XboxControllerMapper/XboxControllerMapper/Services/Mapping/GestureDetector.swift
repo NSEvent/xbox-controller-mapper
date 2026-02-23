@@ -6,9 +6,9 @@ protocol GestureDetecting {
     associatedtype Input
     associatedtype Result
 
-    /// Process a new input sample at the given time.
+    /// Process a new input sample at the given timestamp.
     /// Returns a result if a gesture pattern completed, nil otherwise.
-    func process(_ input: Input, at time: CFAbsoluteTime) -> Result?
+    func process(_ input: Input, at time: TimeInterval) -> Result?
 
     /// Reset all internal state.
     func reset()

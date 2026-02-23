@@ -15,7 +15,7 @@ final class SequenceDetector: GestureDetecting {
         let steps: [ControllerButton]
         let stepTimeout: TimeInterval
         var matchedCount: Int
-        var lastStepTime: CFAbsoluteTime
+        var lastStepTime: TimeInterval
     }
 
     /// Currently active (partially matched) sequences.
@@ -37,9 +37,9 @@ final class SequenceDetector: GestureDetecting {
     ///
     /// - Parameters:
     ///   - button: The button that was pressed.
-    ///   - time: The current time as CFAbsoluteTime.
+    ///   - time: Current timestamp (any monotonic time source).
     /// - Returns: The completed SequenceMapping if a sequence was fully matched, nil otherwise.
-    func process(_ button: ControllerButton, at time: CFAbsoluteTime) -> SequenceMapping? {
+    func process(_ button: ControllerButton, at time: TimeInterval) -> SequenceMapping? {
         var survivingSequences: [SequenceProgress] = []
         for var seq in activeSequences {
             let sinceLastStep = time - seq.lastStepTime

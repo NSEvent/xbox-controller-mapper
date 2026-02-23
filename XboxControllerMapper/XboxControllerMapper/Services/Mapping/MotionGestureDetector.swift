@@ -46,9 +46,9 @@ final class MotionGestureDetector: GestureDetecting {
     ///
     /// - Parameters:
     ///   - input: Tuple of (pitchRate, rollRate) rotation velocities.
-    ///   - time: Current time.
+    ///   - time: Current timestamp (any monotonic time source).
     /// - Returns: The first completed gesture, or nil.
-    func process(_ input: Input, at time: CFAbsoluteTime) -> MotionGestureType? {
+    func process(_ input: Input, at time: TimeInterval) -> MotionGestureType? {
         let results = processAll(input, at: time)
         return results.first
     }
@@ -57,9 +57,9 @@ final class MotionGestureDetector: GestureDetecting {
     ///
     /// - Parameters:
     ///   - input: Tuple of (pitchRate, rollRate) rotation velocities.
-    ///   - time: Current time.
+    ///   - time: Current timestamp (any monotonic time source).
     /// - Returns: Array of completed gestures (0, 1, or 2 elements).
-    func processAll(_ input: Input, at time: CFAbsoluteTime) -> [MotionGestureType] {
+    func processAll(_ input: Input, at time: TimeInterval) -> [MotionGestureType] {
         var results: [MotionGestureType] = []
 
         if let (peakVelocity, peakSign) = processAxis(
