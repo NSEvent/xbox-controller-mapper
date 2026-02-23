@@ -54,6 +54,8 @@ class ProfileManager: ObservableObject {
     @Published var activeProfile: Profile?
     @Published var activeProfileId: UUID?
     @Published var uiScale: CGFloat = 1.0
+    /// Non-nil when the initial config load failed. UI can observe this to show a warning.
+    @Published var configLoadError: String?
 
     var onScreenKeyboardSettings: OnScreenKeyboardSettings {
         activeProfile?.onScreenKeyboardSettings ?? OnScreenKeyboardSettings()
@@ -63,7 +65,9 @@ class ProfileManager: ObservableObject {
     private let configurationSaveService: ProfileConfigurationSaveService
     private let configURL: URL
     private let legacyConfigURL: URL
-    private var loadSucceeded = false  // Track if initial load succeeded to prevent clobbering
+    /// Tracks if config load succeeded to prevent clobbering on save.
+    /// Thread-safe: only accessed from @MainActor context (all callers are @MainActor-isolated).
+    private var loadSucceeded = false
     
     // Track previous app for restoration logic
     private var previousBundleId: String?
@@ -334,8 +338,10 @@ class ProfileManager: ObservableObject {
                 }
             }
         } catch {
-            NSLog("[ProfileManager] Configuration load failed: \(error)")
-            // DO NOT set loadSucceeded = true, so we won't overwrite corrupted/incompatible config
+            NSLog("[ProfileManager] ⚠️ Configuration load failed: \(error)")
+            configLoadError = error.localizedDescription
+            // loadSucceeded stays false — saves will be blocked until in-memory state is validated.
+            // See saveConfiguration() for the recovery logic.
         }
     }
 
@@ -347,13 +353,23 @@ class ProfileManager: ObservableObject {
     }
 
     private func saveConfiguration() {
-        // Safety check: don't save if load failed (to avoid clobbering existing config)
-        guard configurationSaveService.shouldSave(loadSucceeded: loadSucceeded, configURL: configURL) else {
-            NSLog("[ProfileManager] Skipping save - config load failed earlier, refusing to clobber existing config")
-            return
+        // Safety check: don't save if load failed (to avoid clobbering existing config).
+        // Recovery: if load failed but user has since built up valid in-memory state
+        // (non-empty profiles), allow the save — the user's work should not be silently lost.
+        if !configurationSaveService.shouldSave(loadSucceeded: loadSucceeded, configURL: configURL) {
+            if !profiles.isEmpty {
+                NSLog("[ProfileManager] ⚠️ Config load had failed, but in-memory state has %d profile(s) — allowing save to preserve user work", profiles.count)
+                loadSucceeded = true
+                configLoadError = nil
+            } else {
+                NSLog("[ProfileManager] ⚠️ Skipping save — config load failed earlier and no valid profiles in memory. User data on disk is preserved.")
+                return
+            }
         }
 
-        // Capture state for background save
+        // Snapshot captured here on @MainActor BEFORE dispatching to the serial save queue.
+        // This guarantees each save gets the state at the time it was requested,
+        // and the serial queue guarantees they are written in order (fixes Issue 5 & 13).
         let config = ProfileConfiguration(
             profiles: profiles,
             activeProfileId: activeProfileId,

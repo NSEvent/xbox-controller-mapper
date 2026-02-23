@@ -89,7 +89,15 @@ struct GestureMapping: Codable, Identifiable, Equatable, ExecutableAction {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        gestureType = try container.decodeIfPresent(MotionGestureType.self, forKey: .gestureType) ?? .tiltBack
+        // decodeIfPresent throws on invalid enum values (key present but value unrecognized),
+        // so wrap in do-catch to log the bad value and fall back gracefully.
+        do {
+            gestureType = try container.decodeIfPresent(MotionGestureType.self, forKey: .gestureType) ?? .tiltBack
+        } catch {
+            let rawValue = try? container.decode(String.self, forKey: .gestureType)
+            NSLog("[GestureMapping] Unknown gestureType '%@', falling back to tiltBack", rawValue ?? "<decode failure>")
+            gestureType = .tiltBack
+        }
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)

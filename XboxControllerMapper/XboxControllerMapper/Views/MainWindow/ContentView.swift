@@ -264,7 +264,8 @@ struct ContentView: View {
                     lastScale = 1.0
                     profileManager.setUiScale(profileManager.uiScale)
                     // Delay resetting isMagnifying to prevent tap events that fire at gesture end
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(100))
                         isMagnifying = false
                     }
                 }

@@ -70,6 +70,7 @@ struct GestureMappingSheet: View {
                     Image(systemName: gestureType.iconName)
                         .font(.system(size: 18))
                         .foregroundColor(.accentColor)
+                        .accessibilityHidden(true)
                     Text(gestureType.displayName)
                         .font(.title3)
                         .fontWeight(.medium)
@@ -78,6 +79,8 @@ struct GestureMappingSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.accentColor.opacity(0.1))
                 .cornerRadius(8)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Gesture type: \(gestureType.displayName)")
 
                 // Action section
                 VStack(alignment: .leading, spacing: 8) {
@@ -87,13 +90,14 @@ struct GestureMappingSheet: View {
 
                         Spacer()
 
-                        Picker("", selection: $mappingType) {
+                        Picker("Action type", selection: $mappingType) {
                             Text("Key").tag(MappingType.singleKey)
                             Text("Macro").tag(MappingType.macro)
                             Text("Script").tag(MappingType.script)
                             Text("System").tag(MappingType.systemCommand)
                         }
                         .pickerStyle(.segmented)
+                        .labelsHidden()
                         .frame(width: 280)
                         .padding(.trailing, 8)
 

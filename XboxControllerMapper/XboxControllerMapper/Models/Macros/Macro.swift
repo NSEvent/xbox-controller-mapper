@@ -132,6 +132,15 @@ enum MacroStep: Codable, Equatable {
         let duration: TimeInterval
     }
     
+    /// Payload for the typeText macro step.
+    ///
+    /// Backward compatibility: The typeText case handles legacy configs where the payload was
+    /// a plain string (no speed/pressEnter). The decoder first tries TypeTextPayload, then
+    /// falls back to decoding a bare String with default speed=0, pressEnter=false.
+    ///
+    /// Forward compatibility: New fields added to this struct should use `decodeIfPresent`
+    /// with a sensible default. Older app versions will silently drop unknown keys when
+    /// reading a newer config — this is acceptable behavior for a local config file.
     private struct TypeTextPayload: Codable {
         let text: String
         let speed: Int

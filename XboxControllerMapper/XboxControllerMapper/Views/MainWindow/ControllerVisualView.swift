@@ -1,6 +1,7 @@
 import SwiftUI
 import GameController
 import AppKit
+import Combine
 
 /// Interactive visual representation of a controller with a professional Reference Page layout
 /// Automatically adapts to show Xbox or DualSense layouts based on connected controller
@@ -105,12 +106,13 @@ struct ControllerVisualView: View {
                         .frame(width: 320, height: 220)
 
                     // Compact Controller Overlay (Just icons, no labels)
-                    // Uses throttled display values (15Hz) instead of raw values (60Hz) to avoid UI blocking
-                    if isPlayStation {
-                        dualSenseOverlay  // DualSense/DualShock share same overlay layout
-                    } else {
-                        xboxOverlay
-                    }
+                    // Extracted into a separate view to isolate 15Hz analog display
+                    // updates from the rest of the view hierarchy
+                    ControllerAnalogOverlay(
+                        controllerService: controllerService,
+                        isPlayStation: isPlayStation,
+                        onButtonTap: onButtonTap
+                    )
                 }
                 .accessibilityHidden(true)
 
@@ -171,145 +173,6 @@ struct ControllerVisualView: View {
     }
 
     // MARK: - Controller Body
-
-    // MARK: - Xbox Controller Overlay
-
-    private var xboxOverlay: some View {
-        VStack(spacing: 15) {
-            HStack(spacing: 140) {
-                miniTrigger(.leftTrigger, label: "LT", value: controllerService.displayLeftTrigger)
-                miniTrigger(.rightTrigger, label: "RT", value: controllerService.displayRightTrigger)
-            }
-
-            HStack(spacing: 120) {
-                miniBumper(.leftBumper, label: "LB")
-                miniBumper(.rightBumper, label: "RB")
-            }
-            .offset(y: -5)
-
-            HStack(spacing: 40) {
-                miniStick(.leftThumbstick, pos: controllerService.displayLeftStick)
-
-                VStack(spacing: 6) {
-                    miniCircle(.xbox, size: 22)
-
-                    if controllerService.isConnected {
-                        BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
-                    }
-
-                    HStack(spacing: 12) {
-                        miniCircle(.view, size: 14)
-                        miniCircle(.menu, size: 14)
-                    }
-                    miniCircle(.share, size: 10)
-                }
-
-                miniFaceButtons()
-            }
-
-            HStack(spacing: 80) {
-                miniDPad()
-                miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
-            }
-        }
-    }
-
-    // MARK: - DualSense Controller Overlay
-
-    private var dualSenseOverlay: some View {
-        VStack(spacing: 4) {
-            // Row 1: Triggers (top)
-            HStack(spacing: 150) {
-                miniTrigger(.leftTrigger, label: "L2", value: controllerService.displayLeftTrigger)
-                miniTrigger(.rightTrigger, label: "R2", value: controllerService.displayRightTrigger)
-            }
-
-            // Row 2: Bumpers
-            HStack(spacing: 130) {
-                miniBumper(.leftBumper, label: "L1")
-                miniBumper(.rightBumper, label: "R1")
-            }
-
-            // Row 3: Battery indicator (above touchpad)
-            if controllerService.isConnected {
-                BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
-                    .frame(width: 40)
-            }
-
-            // Row 4: D-pad + Touchpad section + Face buttons (straddling touchpad)
-            HStack(spacing: 8) {
-                miniDPad()
-                    .frame(width: 40)
-                    .offset(y: 15)
-
-                // Center: Create + Touchpad + Options
-                HStack(alignment: .top, spacing: 6) {
-                    miniCircle(.view, size: 12)  // Create button
-                    miniTouchpad()
-                    miniCircle(.menu, size: 12)  // Options button
-                }
-
-                miniFaceButtons()
-                    .frame(width: 40)
-                    .offset(y: 15)
-            }
-
-            // Row 5: Sticks with PS/Mic in center (bottom)
-            HStack(spacing: 20) {
-                miniStick(.leftThumbstick, pos: controllerService.displayLeftStick)
-                VStack(spacing: 3) {
-                    miniCircle(.xbox, size: 16)  // PS button
-                    miniBumperWithIcon(.micMute, icon: "mic.slash", width: 16)  // Mic mute
-                }
-                miniStick(.rightThumbstick, pos: controllerService.displayRightStick)
-            }
-        }
-    }
-
-    // MARK: - Mini Touchpad
-
-    private func miniTouchpad() -> some View {
-        let color = isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.25)
-        let touchpadWidth: CGFloat = 100
-        let touchpadHeight: CGFloat = 50
-
-        return ZStack {
-            // Base touchpad shape
-            RoundedRectangle(cornerRadius: 10)
-                .fill(jewelGradient(color, pressed: isPressed(.touchpadButton)))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
-                )
-
-            // Primary touch point
-            if controllerService.displayIsTouchpadTouching {
-                Circle()
-                    .fill(Color.white.opacity(0.8))
-                    .frame(width: 10, height: 10)
-                    .shadow(color: .white.opacity(0.5), radius: 3)
-                    .offset(
-                        x: controllerService.displayTouchpadPosition.x * (touchpadWidth / 2 - 5),
-                        y: -controllerService.displayTouchpadPosition.y * (touchpadHeight / 2 - 5)
-                    )
-            }
-
-            // Secondary touch point (two-finger)
-            if controllerService.displayIsTouchpadSecondaryTouching {
-                Circle()
-                    .fill(Color.white.opacity(0.6))
-                    .frame(width: 8, height: 8)
-                    .shadow(color: .white.opacity(0.4), radius: 2)
-                    .offset(
-                        x: controllerService.displayTouchpadSecondaryPosition.x * (touchpadWidth / 2 - 4),
-                        y: -controllerService.displayTouchpadSecondaryPosition.y * (touchpadHeight / 2 - 4)
-                    )
-            }
-        }
-        .frame(width: touchpadWidth, height: touchpadHeight)
-        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-        .onTapGesture { onButtonTap(.touchpadButton) }
-    }
 
     @ViewBuilder
     private var controllerBodyView: some View {
@@ -432,6 +295,247 @@ struct ControllerVisualView: View {
         .onTapGesture { onButtonTap(button) }
     }
 
+    // MARK: - Helpers
+
+    private func isPressed(_ button: ControllerButton) -> Bool {
+        controllerService.activeButtons.contains(button)
+    }
+
+    private func mapping(for button: ControllerButton) -> KeyMapping? {
+        guard let profile = profileManager.activeProfile else { return nil }
+
+        // If viewing a layer, check layer mapping first
+        if selectedLayerId != nil {
+            // Any layer activator button shows no mapping when viewing any layer
+            // (layer activators can't be remapped, they only switch layers)
+            if isLayerActivator(button) {
+                return nil
+            }
+            // Check if this button has a layer-specific mapping
+            if let layer = selectedLayer,
+               let layerMapping = layer.buttonMappings[button], !layerMapping.isEmpty {
+                return layerMapping
+            }
+            // Fall through to base layer
+        }
+
+        // Check base layer
+        guard let mapping = profile.buttonMappings[button] else { return nil }
+
+        // If the mapping is effectively empty (no primary, no long hold, no double tap), return nil
+        // so the UI renders it as "Unmapped"
+        if mapping.isEmpty &&
+           (mapping.longHoldMapping?.isEmpty ?? true) &&
+           (mapping.doubleTapMapping?.isEmpty ?? true) {
+            return nil
+        }
+
+        return mapping
+    }
+
+    /// Returns true if the mapping shown is from the base layer (fallthrough)
+    private func isBaseFallthrough(for button: ControllerButton) -> Bool {
+        guard let layer = selectedLayer,
+              let profile = profileManager.activeProfile else { return false }
+
+        // Not a fallthrough if button is the layer's activator
+        if layer.activatorButton == button { return false }
+
+        // It's a fallthrough if the layer doesn't have a mapping for this button
+        let layerMapping = layer.buttonMappings[button]
+        let hasLayerMapping = layerMapping != nil && !layerMapping!.isEmpty
+        let hasBaseMapping = profile.buttonMappings[button] != nil
+
+        return !hasLayerMapping && hasBaseMapping
+    }
+}
+
+// MARK: - Controller Analog Overlay
+
+/// Extracted overlay view that isolates high-frequency analog display updates (15Hz)
+/// from the rest of the ControllerVisualView hierarchy. By snapshotting display values
+/// into local @State via .onReceive, only this sub-view redraws when joystick/trigger
+/// values change, preventing cascading redraws of the mapping reference rows.
+struct ControllerAnalogOverlay: View {
+    let controllerService: ControllerService
+    let isPlayStation: Bool
+    var onButtonTap: (ControllerButton) -> Void
+
+    // Snapshotted analog display values (updated via .onReceive at 15Hz)
+    @State private var leftStick: CGPoint = .zero
+    @State private var rightStick: CGPoint = .zero
+    @State private var leftTrigger: Float = 0
+    @State private var rightTrigger: Float = 0
+    @State private var isTouchpadTouching: Bool = false
+    @State private var touchpadPosition: CGPoint = .zero
+    @State private var isTouchpadSecondaryTouching: Bool = false
+    @State private var touchpadSecondaryPosition: CGPoint = .zero
+    @State private var activeButtons: Set<ControllerButton> = []
+    @State private var isConnected: Bool = false
+    @State private var batteryLevel: Float = -1
+    @State private var batteryState: GCDeviceBattery.State = .unknown
+
+    var body: some View {
+        Group {
+            if isPlayStation {
+                dualSenseOverlay
+            } else {
+                xboxOverlay
+            }
+        }
+        .onReceive(controllerService.$displayLeftStick) { leftStick = $0 }
+        .onReceive(controllerService.$displayRightStick) { rightStick = $0 }
+        .onReceive(controllerService.$displayLeftTrigger) { leftTrigger = $0 }
+        .onReceive(controllerService.$displayRightTrigger) { rightTrigger = $0 }
+        .onReceive(controllerService.$displayIsTouchpadTouching) { isTouchpadTouching = $0 }
+        .onReceive(controllerService.$displayTouchpadPosition) { touchpadPosition = $0 }
+        .onReceive(controllerService.$displayIsTouchpadSecondaryTouching) { isTouchpadSecondaryTouching = $0 }
+        .onReceive(controllerService.$displayTouchpadSecondaryPosition) { touchpadSecondaryPosition = $0 }
+        .onReceive(controllerService.$activeButtons) { activeButtons = $0 }
+        .onReceive(controllerService.$isConnected) { isConnected = $0 }
+        .onReceive(controllerService.$batteryLevel) { batteryLevel = $0 }
+        .onReceive(controllerService.$batteryState) { batteryState = $0 }
+    }
+
+    // MARK: - Xbox Controller Overlay
+
+    private var xboxOverlay: some View {
+        VStack(spacing: 15) {
+            HStack(spacing: 140) {
+                miniTrigger(.leftTrigger, label: "LT", value: leftTrigger)
+                miniTrigger(.rightTrigger, label: "RT", value: rightTrigger)
+            }
+
+            HStack(spacing: 120) {
+                miniBumper(.leftBumper, label: "LB")
+                miniBumper(.rightBumper, label: "RB")
+            }
+            .offset(y: -5)
+
+            HStack(spacing: 40) {
+                miniStick(.leftThumbstick, pos: leftStick)
+
+                VStack(spacing: 6) {
+                    miniCircle(.xbox, size: 22)
+
+                    if isConnected {
+                        BatteryView(level: batteryLevel, state: batteryState)
+                    }
+
+                    HStack(spacing: 12) {
+                        miniCircle(.view, size: 14)
+                        miniCircle(.menu, size: 14)
+                    }
+                    miniCircle(.share, size: 10)
+                }
+
+                miniFaceButtons()
+            }
+
+            HStack(spacing: 80) {
+                miniDPad()
+                miniStick(.rightThumbstick, pos: rightStick)
+            }
+        }
+    }
+
+    // MARK: - DualSense Controller Overlay
+
+    private var dualSenseOverlay: some View {
+        VStack(spacing: 4) {
+            // Row 1: Triggers (top)
+            HStack(spacing: 150) {
+                miniTrigger(.leftTrigger, label: "L2", value: leftTrigger)
+                miniTrigger(.rightTrigger, label: "R2", value: rightTrigger)
+            }
+
+            // Row 2: Bumpers
+            HStack(spacing: 130) {
+                miniBumper(.leftBumper, label: "L1")
+                miniBumper(.rightBumper, label: "R1")
+            }
+
+            // Row 3: Battery indicator (above touchpad)
+            if isConnected {
+                BatteryView(level: batteryLevel, state: batteryState)
+                    .frame(width: 40)
+            }
+
+            // Row 4: D-pad + Touchpad section + Face buttons (straddling touchpad)
+            HStack(spacing: 8) {
+                miniDPad()
+                    .frame(width: 40)
+                    .offset(y: 15)
+
+                // Center: Create + Touchpad + Options
+                HStack(alignment: .top, spacing: 6) {
+                    miniCircle(.view, size: 12)  // Create button
+                    miniTouchpad()
+                    miniCircle(.menu, size: 12)  // Options button
+                }
+
+                miniFaceButtons()
+                    .frame(width: 40)
+                    .offset(y: 15)
+            }
+
+            // Row 5: Sticks with PS/Mic in center (bottom)
+            HStack(spacing: 20) {
+                miniStick(.leftThumbstick, pos: leftStick)
+                VStack(spacing: 3) {
+                    miniCircle(.xbox, size: 16)  // PS button
+                    miniBumperWithIcon(.micMute, icon: "mic.slash", width: 16)  // Mic mute
+                }
+                miniStick(.rightThumbstick, pos: rightStick)
+            }
+        }
+    }
+
+    // MARK: - Mini Touchpad
+
+    private func miniTouchpad() -> some View {
+        let color = isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.25)
+        let touchpadWidth: CGFloat = 100
+        let touchpadHeight: CGFloat = 50
+
+        return ZStack {
+            // Base touchpad shape
+            RoundedRectangle(cornerRadius: 10)
+                .fill(jewelGradient(color, pressed: isPressed(.touchpadButton)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
+                )
+
+            // Primary touch point
+            if isTouchpadTouching {
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 10, height: 10)
+                    .shadow(color: .white.opacity(0.5), radius: 3)
+                    .offset(
+                        x: touchpadPosition.x * (touchpadWidth / 2 - 5),
+                        y: -touchpadPosition.y * (touchpadHeight / 2 - 5)
+                    )
+            }
+
+            // Secondary touch point (two-finger)
+            if isTouchpadSecondaryTouching {
+                Circle()
+                    .fill(Color.white.opacity(0.6))
+                    .frame(width: 8, height: 8)
+                    .shadow(color: .white.opacity(0.4), radius: 2)
+                    .offset(
+                        x: touchpadSecondaryPosition.x * (touchpadWidth / 2 - 4),
+                        y: -touchpadSecondaryPosition.y * (touchpadHeight / 2 - 4)
+                    )
+            }
+        }
+        .frame(width: touchpadWidth, height: touchpadHeight)
+        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+        .onTapGesture { onButtonTap(.touchpadButton) }
+    }
+
     // MARK: - Mini Controller Helpers (Jewel/Glass Style)
 
     private func jewelGradient(_ color: Color, pressed: Bool) -> LinearGradient {
@@ -458,17 +562,21 @@ struct ControllerVisualView: View {
         )
     }
 
+    private func isPressed(_ button: ControllerButton) -> Bool {
+        activeButtons.contains(button)
+    }
+
     private func miniTrigger(_ button: ControllerButton, label: String, value: Float) -> some View {
         let color = Color(white: 0.2) // Dark grey plastic
         let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
-        
+
         return ZStack(alignment: .bottom) {
             // Background
             shape
                 .fill(jewelGradient(color, pressed: false))
                 .overlay(glassOverlay.clipShape(shape))
                 .frame(width: 34, height: 18)
-            
+
             // Fill based on pressure
             if value > 0 {
                 shape
@@ -476,7 +584,7 @@ struct ControllerVisualView: View {
                     .frame(width: 34, height: 18 * CGFloat(value))
                     .overlay(glassOverlay.clipShape(shape))
             }
-            
+
             Text(label)
                 .font(.system(size: 7, weight: .bold))
                 .foregroundColor(.white.opacity(0.9))
@@ -524,42 +632,6 @@ struct ControllerVisualView: View {
             .onTapGesture { onButtonTap(button) }
     }
 
-    /// Circle button with a custom icon (used for Create button on DualSense)
-    private func miniCircleWithIcon(_ button: ControllerButton, size: CGFloat, icon: String) -> some View {
-        let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
-
-        return ZStack {
-            Circle()
-                .fill(jewelGradient(color, pressed: isPressed(button)))
-                .overlay(glassOverlay.clipShape(Circle()))
-
-            Image(systemName: icon)
-                .font(.system(size: size * 0.5, weight: .medium))
-                .foregroundColor(.white)
-        }
-        .frame(width: size, height: size)
-        .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
-        .onTapGesture { onButtonTap(button) }
-    }
-
-    /// Circle button with a text label (used for two-finger tap on DualSense)
-    private func miniCircleWithLabel(_ button: ControllerButton, size: CGFloat, label: String) -> some View {
-        let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
-
-        return ZStack {
-            Circle()
-                .fill(jewelGradient(color, pressed: isPressed(button)))
-                .overlay(glassOverlay.clipShape(Circle()))
-
-            Text(label)
-                .font(.system(size: size * 0.5, weight: .bold))
-                .foregroundColor(.white)
-        }
-        .frame(width: size, height: size)
-        .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
-        .onTapGesture { onButtonTap(button) }
-    }
-
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
         ZStack {
             // Base well
@@ -570,7 +642,7 @@ struct ControllerVisualView: View {
                 .frame(width: 30, height: 30)
                 .shadow(color: .white.opacity(0.1), radius: 0, x: 0, y: 1) // Highlight at bottom lip
                 .overlay(Circle().stroke(Color.black.opacity(0.5), lineWidth: 1))
-            
+
             // Stick Cap
             let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
             Circle()
@@ -627,10 +699,10 @@ struct ControllerVisualView: View {
         let bgColor = Color(white: 0.12)
         let symbol: String = {
             switch button {
-            case .a: return "✕"
-            case .b: return "○"
-            case .x: return "□"
-            case .y: return "△"
+            case .a: return "\u{2715}" // Cross
+            case .b: return "\u{25CB}" // Circle
+            case .x: return "\u{25A1}" // Square
+            case .y: return "\u{25B3}" // Triangle
             default: return ""
             }
         }()
@@ -681,7 +753,7 @@ struct ControllerVisualView: View {
 
     private func miniDPad() -> some View {
         let color = Color(white: 0.25)
-        
+
         return ZStack {
             // Background Cross
             Group {
@@ -690,7 +762,7 @@ struct ControllerVisualView: View {
             }
             .foregroundStyle(jewelGradient(color, pressed: false))
             .shadow(radius: 1)
-            
+
             // Active states (Lighting up)
             if isPressed(.dpadUp) {
                 RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 8, height: 10).offset(y: -7).blur(radius: 2)
@@ -704,7 +776,7 @@ struct ControllerVisualView: View {
             if isPressed(.dpadRight) {
                 RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7).blur(radius: 2)
             }
-            
+
             // Tap zones
             Group {
                 // Up
@@ -712,19 +784,19 @@ struct ControllerVisualView: View {
                     .frame(width: 20, height: 20)
                     .offset(y: -10)
                     .onTapGesture { onButtonTap(.dpadUp) }
-                
+
                 // Down
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(y: 10)
                     .onTapGesture { onButtonTap(.dpadDown) }
-                
+
                 // Left
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(x: -10)
                     .onTapGesture { onButtonTap(.dpadLeft) }
-                
+
                 // Right
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
@@ -732,60 +804,6 @@ struct ControllerVisualView: View {
                     .onTapGesture { onButtonTap(.dpadRight) }
             }
         }
-    }
-
-    // MARK: - Helpers
-
-    private func isPressed(_ button: ControllerButton) -> Bool {
-        controllerService.activeButtons.contains(button)
-    }
-
-    private func mapping(for button: ControllerButton) -> KeyMapping? {
-        guard let profile = profileManager.activeProfile else { return nil }
-
-        // If viewing a layer, check layer mapping first
-        if selectedLayerId != nil {
-            // Any layer activator button shows no mapping when viewing any layer
-            // (layer activators can't be remapped, they only switch layers)
-            if isLayerActivator(button) {
-                return nil
-            }
-            // Check if this button has a layer-specific mapping
-            if let layer = selectedLayer,
-               let layerMapping = layer.buttonMappings[button], !layerMapping.isEmpty {
-                return layerMapping
-            }
-            // Fall through to base layer
-        }
-
-        // Check base layer
-        guard let mapping = profile.buttonMappings[button] else { return nil }
-
-        // If the mapping is effectively empty (no primary, no long hold, no double tap), return nil
-        // so the UI renders it as "Unmapped"
-        if mapping.isEmpty &&
-           (mapping.longHoldMapping?.isEmpty ?? true) &&
-           (mapping.doubleTapMapping?.isEmpty ?? true) {
-            return nil
-        }
-
-        return mapping
-    }
-
-    /// Returns true if the mapping shown is from the base layer (fallthrough)
-    private func isBaseFallthrough(for button: ControllerButton) -> Bool {
-        guard let layer = selectedLayer,
-              let profile = profileManager.activeProfile else { return false }
-
-        // Not a fallthrough if button is the layer's activator
-        if layer.activatorButton == button { return false }
-
-        // It's a fallthrough if the layer doesn't have a mapping for this button
-        let layerMapping = layer.buttonMappings[button]
-        let hasLayerMapping = layerMapping != nil && !layerMapping!.isEmpty
-        let hasBaseMapping = profile.buttonMappings[button] != nil
-
-        return !hasLayerMapping && hasBaseMapping
     }
 }
 

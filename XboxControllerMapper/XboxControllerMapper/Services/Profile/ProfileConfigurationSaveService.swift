@@ -6,11 +6,15 @@ struct ProfileConfigurationSaveService {
     private let scheduleWrite: (@escaping () -> Void) -> Void
     private let logSaveFailure: (String) -> Void
 
+    /// Private serial queue to prevent concurrent save interleaving.
+    /// All disk writes are dispatched here to guarantee ordering.
+    private static let saveQueue = DispatchQueue(label: "com.controllerkeys.config-save", qos: .utility)
+
     init(
         fileManager: FileManager = .default,
         backupService: ConfigBackupService? = nil,
         scheduleWrite: @escaping (@escaping () -> Void) -> Void = { work in
-            DispatchQueue.global(qos: .utility).async(execute: work)
+            ProfileConfigurationSaveService.saveQueue.async(execute: work)
         },
         logSaveFailure: @escaping (String) -> Void = { message in
             NSLog("%@", message)

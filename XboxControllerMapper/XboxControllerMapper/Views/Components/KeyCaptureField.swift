@@ -43,6 +43,10 @@ struct KeyCaptureField: View {
         .onTapGesture {
             isCapturing = true
         }
+        .accessibilityLabel(displayText.isEmpty ? "Key capture field, no shortcut set" : "Key capture field: \(displayText)")
+        .accessibilityHint("Click to record a keyboard shortcut. Press any key combination to capture it.")
+        .accessibilityValue(displayText.isEmpty ? "Empty" : displayText)
+        .accessibilityAddTraits(.isButton)
         .onChange(of: keyCode) { _, _ in
             updateDisplayText()
         }
@@ -256,15 +260,19 @@ struct ModifierPicker: View {
         HStack(spacing: 16) {
             Toggle("⌘", isOn: $modifiers.command)
                 .toggleStyle(.checkbox)
+                .accessibilityLabel("Command modifier")
 
             Toggle("⌥", isOn: $modifiers.option)
                 .toggleStyle(.checkbox)
+                .accessibilityLabel("Option modifier")
 
             Toggle("⇧", isOn: $modifiers.shift)
                 .toggleStyle(.checkbox)
+                .accessibilityLabel("Shift modifier")
 
             Toggle("⌃", isOn: $modifiers.control)
                 .toggleStyle(.checkbox)
+                .accessibilityLabel("Control modifier")
         }
     }
 }

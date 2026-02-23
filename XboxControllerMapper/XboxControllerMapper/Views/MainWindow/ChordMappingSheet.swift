@@ -248,13 +248,14 @@ struct ChordMappingSheet: View {
 
                     Spacer()
 
-                    Picker("", selection: $mappingType) {
+                    Picker("Action type", selection: $mappingType) {
                         Text("Key").tag(MappingType.singleKey)
                         Text("Macro").tag(MappingType.macro)
                         Text("Script").tag(MappingType.script)
                         Text("System").tag(MappingType.systemCommand)
                     }
                     .pickerStyle(.segmented)
+                    .labelsHidden()
                     .frame(width: 280)
                     .padding(.trailing, 8)
 
@@ -640,6 +641,7 @@ struct ChordMappingSheet: View {
         let conflictingChord = buttonConflicts[button]
         let isConflicted = conflictingChord != nil
         let isSelected = selectedButtons.contains(button)
+        let buttonName = button.displayName(forDualSense: isPlayStation)
 
         VStack(spacing: 2) {
             Button(action: {
@@ -662,6 +664,9 @@ struct ChordMappingSheet: View {
             }
             .buttonStyle(.plain)
             .disabled(isConflicted)
+            .accessibilityLabel(buttonName)
+            .accessibilityValue(isConflicted ? "Unavailable, conflicts with existing chord" : (isSelected ? "Selected" : "Not selected"))
+            .accessibilityAddTraits(.isToggle)
 
             // Show conflicting chord pill below the button
             if let chord = conflictingChord {

@@ -179,7 +179,7 @@ struct ButtonMappingSheet: View {
                 selectedExistingLayerId = firstUnassigned.id
             }
             // Allow state updates to settle before enabling auto-logic
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 isLoading = false
             }
         }

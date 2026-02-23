@@ -236,8 +236,12 @@ class ControllerService: ObservableObject {
     }
 
     nonisolated var threadSafeIsTouchpadMovementBlocked: Bool {
-        let now = CFAbsoluteTimeGetCurrent()
         storage.lock.lock()
+        // Capture timestamp INSIDE the lock so it is consistent with the
+        // touchpadSecondaryLastTouchTime read. Reading `now` before locking
+        // creates a race where another thread updates the touch time between
+        // our timestamp capture and the lock acquisition.
+        let now = CFAbsoluteTimeGetCurrent()
         let blocked = storage.touchpadMovementBlocked ||
             (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
         storage.lock.unlock()

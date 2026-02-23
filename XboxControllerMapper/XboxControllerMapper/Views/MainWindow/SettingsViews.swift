@@ -108,6 +108,7 @@ struct JoystickSettingsView: View {
                             }
                         ))
                         .toggleStyle(.button)
+                        .accessibilityLabel("Command modifier")
 
                         Toggle("⌥", isOn: Binding(
                             get: { settings.focusModeModifier.option },
@@ -118,6 +119,7 @@ struct JoystickSettingsView: View {
                             }
                         ))
                         .toggleStyle(.button)
+                        .accessibilityLabel("Option modifier")
 
                         Toggle("⌃", isOn: Binding(
                             get: { settings.focusModeModifier.control },
@@ -128,6 +130,7 @@ struct JoystickSettingsView: View {
                             }
                         ))
                         .toggleStyle(.button)
+                        .accessibilityLabel("Control modifier")
 
                         Toggle("⇧", isOn: Binding(
                             get: { settings.focusModeModifier.shift },
@@ -138,6 +141,7 @@ struct JoystickSettingsView: View {
                             }
                         ))
                         .toggleStyle(.button)
+                        .accessibilityLabel("Shift modifier")
                     }
                 }
 
@@ -379,6 +383,7 @@ struct LEDSettingsView: View {
                     .frame(height: 44)
                     .disabled(controllerService.partyModeEnabled)
                     .opacity(controllerService.partyModeEnabled ? 0.5 : 1.0)
+                    .accessibilityLabel("Light bar color picker")
 
                     Picker("Brightness", selection: Binding(
                         get: { settings.lightBarBrightness },
@@ -522,6 +527,7 @@ struct LEDSettingsView: View {
         Button(label) { applyPlayerPreset(preset) }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            .accessibilityLabel("Player LED preset: \(label)")
     }
 
     private func updateSettings<T>(_ keyPath: WritableKeyPath<DualSenseLEDSettings, T>, _ value: T) {
@@ -674,6 +680,8 @@ struct AudioLevelMeter: View {
                 }
             }
         }
+        .accessibilityLabel("Microphone audio level")
+        .accessibilityValue("\(Int(level * 100)) percent")
     }
 
     private var levelColor: LinearGradient {
@@ -829,6 +837,7 @@ struct SliderRow: View {
             Slider(value: $value, in: range)
                 .accessibilityLabel(label)
                 .accessibilityValue("\(value, specifier: "%.2f")")
+                .accessibilityHint(description ?? "")
 
             if let description = description {
                 Text(description)

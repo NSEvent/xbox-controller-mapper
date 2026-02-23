@@ -60,6 +60,7 @@ private struct LogEntryView: View, Equatable {
                                 Capsule()
                                     .stroke(badgeColor(for: entry.type).opacity(0.5), lineWidth: 1)
                             )
+                            .accessibilityLabel("Event type: \(entry.type.rawValue)")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -85,10 +86,17 @@ private struct LogEntryView: View, Equatable {
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
         // Use simple opacity transition - complex spring animations block input handling
         .transition(.opacity)
     }
     
+    private var accessibilityDescription: String {
+        let buttonNames = entry.buttons.map { $0.displayName(forDualSense: isPlayStation) }.joined(separator: " plus ")
+        let typeDescription = entry.type == .singlePress ? "" : ", \(entry.type.rawValue)"
+        return "\(buttonNames)\(typeDescription): \(entry.actionDescription)"
+    }
+
     private func badgeColor(for type: InputEventType) -> Color {
         switch type {
         case .singlePress: return .secondary

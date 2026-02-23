@@ -15,12 +15,18 @@ fileprivate final class PSHIDCallbackContext {
 @MainActor
 extension ControllerService {
 
-    func setupPlayStationHIDMonitoring() {
-        // Clean up any existing HID manager
-        cleanupHIDMonitoring()
+    /// Size of the HID input report buffer. Used for both allocation and callback registration.
+    private static let hidReportBufferSize = 100
 
-        // Allocate report buffer (must persist for callbacks)
-        hidReportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 100)
+    func setupPlayStationHIDMonitoring() {
+        // Guard: if already monitoring, clean up first to avoid leaking the old manager/buffer/context.
+        // This handles rapid controllerConnected() calls safely.
+        if hidManager != nil {
+            cleanupHIDMonitoring()
+        }
+
+        // Allocate report buffer (must persist for the lifetime of HID callbacks)
+        hidReportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.hidReportBufferSize)
 
         // Create HID manager
         hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
@@ -75,7 +81,7 @@ extension ControllerService {
         let ctx = PSHIDCallbackContext(service: self)
         let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
         psHIDCallbackContext = retainedContext
-        IOHIDDeviceRegisterInputReportCallback(device, buffer, 100, { context, result, sender, type, reportID, report, reportLength in
+        IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.hidReportBufferSize, { context, result, sender, type, reportID, report, reportLength in
             guard let context = context else { return }
             let holder = Unmanaged<PSHIDCallbackContext>.fromOpaque(context).takeUnretainedValue()
             guard let service = holder.service else { return }
@@ -96,26 +102,46 @@ extension ControllerService {
     }
 
     func cleanupHIDMonitoring() {
+        // ORDERING IS CRITICAL for memory safety:
+        //   1. Unregister the input report callback (register nil) — stops IOKit from invoking
+        //      the callback, which references both the context pointer and the report buffer.
+        //   2. Unschedule the device from the run loop — prevents any queued events from firing.
+        //   3. Close the HID manager and unschedule it.
+        //   4. Release the callback context (passRetained balanced by release).
+        //   5. Deallocate the report buffer — safe now because no callback can reference it.
+        //
+        // Violating this order can cause use-after-free: IOKit does NOT retain the buffer
+        // or context, so they must outlive all possible callback invocations.
+
+        // Step 1: Unregister callback by passing nil — IOKit will no longer invoke our closure.
+        if let device = hidDevice, let buffer = hidReportBuffer {
+            IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.hidReportBufferSize, nil, nil)
+        }
+
+        // Step 2: Unschedule device from run loop.
         if let device = hidDevice {
             IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
         }
         hidDevice = nil
 
+        // Step 3: Close and unschedule HID manager.
         if let manager = hidManager {
             IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
             IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
         }
         hidManager = nil
 
-        if let buffer = hidReportBuffer {
-            buffer.deallocate()
-        }
-        hidReportBuffer = nil
-
+        // Step 4: Release callback context (balances passRetained in setupHIDDeviceCallback).
         if let ctx = psHIDCallbackContext {
             Unmanaged<PSHIDCallbackContext>.fromOpaque(ctx).release()
             psHIDCallbackContext = nil
         }
+
+        // Step 5: Deallocate report buffer — safe because callback is fully unregistered.
+        if let buffer = hidReportBuffer {
+            buffer.deallocate()
+        }
+        hidReportBuffer = nil
     }
 
     nonisolated func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {

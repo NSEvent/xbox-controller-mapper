@@ -2,7 +2,13 @@ import Foundation
 import SwiftUI
 
 struct ProfileConfiguration: Codable {
-    var schemaVersion: Int = 1
+    /// Current schema version. Bump this when making breaking changes to the config format.
+    /// Version 1: Initial schema (all fields use decodeIfPresent with defaults).
+    /// No version-based migration dispatch exists yet — all migrations are handled by
+    /// decodeIfPresent defaults and ad-hoc legacy field handling (e.g. onScreenKeyboardSettings).
+    static let currentSchemaVersion = 1
+
+    var schemaVersion: Int = currentSchemaVersion
     var profiles: [Profile]
     var activeProfileId: UUID?
     var uiScale: CGFloat?
@@ -23,6 +29,9 @@ struct ProfileConfiguration: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        if schemaVersion > Self.currentSchemaVersion {
+            NSLog("[ProfileConfiguration] Warning: config has schemaVersion %d but app only knows up to %d. Some settings may be lost or ignored.", schemaVersion, Self.currentSchemaVersion)
+        }
         profiles = try container.decodeIfPresent([Profile].self, forKey: .profiles) ?? []
         activeProfileId = try container.decodeIfPresent(UUID.self, forKey: .activeProfileId)
         uiScale = try container.decodeIfPresent(CGFloat.self, forKey: .uiScale)

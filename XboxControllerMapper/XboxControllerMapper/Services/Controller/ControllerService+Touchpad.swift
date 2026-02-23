@@ -566,8 +566,9 @@ extension ControllerService {
         let defaultsEnabled = UserDefaults.standard.bool(forKey: Config.touchpadDebugLoggingKey)
         guard envEnabled || defaultsEnabled else { return }
 
-        let now = CFAbsoluteTimeGetCurrent()
         storage.lock.lock()
+        // Capture timestamp inside the lock so it is consistent with the stored last-log time.
+        let now = CFAbsoluteTimeGetCurrent()
         if now - storage.touchpadDebugLastLogTime < Config.touchpadDebugLogInterval {
             storage.lock.unlock()
             return
@@ -601,8 +602,9 @@ extension ControllerService {
     /// Arms/disarms touchpad click and detects two-finger clicks.
     /// Returns true if this is a two-finger click (on release), in which case the normal button handling should be suppressed.
     nonisolated func armTouchpadClick(pressed: Bool) -> Bool {
-        let now = CFAbsoluteTimeGetCurrent()
         storage.lock.lock()
+        // Capture timestamp inside the lock so it is consistent with touchpadSecondaryLastTouchTime.
+        let now = CFAbsoluteTimeGetCurrent()
         if pressed {
             storage.touchpadClickArmed = true
             storage.touchpadClickStartPosition = storage.touchpadPosition

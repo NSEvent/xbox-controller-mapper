@@ -54,6 +54,9 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         buttons = try container.decodeIfPresent(Set<ControllerButton>.self, forKey: .buttons) ?? []
+        if buttons.count < 2 {
+            NSLog("[ChordMapping] Warning: chord %@ has %d button(s) — a chord requires at least 2", id.uuidString, buttons.count)
+        }
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
@@ -111,6 +114,9 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
 
     /// ExecutableAction protocol conformance
     var displayString: String { actionDisplayString }
+
+    /// A chord is valid only if it has at least 2 buttons (otherwise it's just a regular button press).
+    var isValid: Bool { buttons.count >= 2 }
 
     // MARK: - Action Conflict Resolution
 

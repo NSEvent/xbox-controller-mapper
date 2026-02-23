@@ -7,21 +7,25 @@ struct ProfileLegacyKeyboardMigrationResult: Equatable {
 }
 
 enum ProfileConfigurationMigrationService {
+    private static func approxEqual(_ a: Double, _ b: Double, epsilon: Double = 0.0001) -> Bool {
+        abs(a - b) < epsilon
+    }
+
     static func migrateTouchpadSettingsIfNeeded(in profiles: [Profile]) -> ([Profile], Bool) {
         var didMigrate = false
         let migratedProfiles = profiles.map { profile in
             var updated = profile
-            if updated.joystickSettings.touchpadSensitivity == 0.8 &&
-                updated.joystickSettings.touchpadAcceleration == 0.9 &&
-                updated.joystickSettings.touchpadDeadzone == 0.0 &&
-                updated.joystickSettings.touchpadSmoothing == 0.4 {
+            if approxEqual(updated.joystickSettings.touchpadSensitivity, 0.8) &&
+                approxEqual(updated.joystickSettings.touchpadAcceleration, 0.9) &&
+                approxEqual(updated.joystickSettings.touchpadDeadzone, 0.0) &&
+                approxEqual(updated.joystickSettings.touchpadSmoothing, 0.4) {
                 updated.joystickSettings.touchpadSensitivity = 0.5
                 updated.joystickSettings.touchpadAcceleration = 0.5
                 didMigrate = true
-            } else if updated.joystickSettings.touchpadSensitivity == 0.5 &&
-                        updated.joystickSettings.touchpadAcceleration == 0.5 &&
-                        updated.joystickSettings.touchpadDeadzone == 0.01 &&
-                        updated.joystickSettings.touchpadSmoothing == 0.4 {
+            } else if approxEqual(updated.joystickSettings.touchpadSensitivity, 0.5) &&
+                        approxEqual(updated.joystickSettings.touchpadAcceleration, 0.5) &&
+                        approxEqual(updated.joystickSettings.touchpadDeadzone, 0.01) &&
+                        approxEqual(updated.joystickSettings.touchpadSmoothing, 0.4) {
                 updated.joystickSettings.touchpadDeadzone = 0.0
                 didMigrate = true
             }

@@ -11,6 +11,11 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     /// Maximum time allowed between consecutive button presses (seconds)
     var stepTimeout: TimeInterval
 
+    private static func sanitizedStepTimeout(_ stepTimeout: TimeInterval) -> TimeInterval {
+        guard stepTimeout.isFinite, stepTimeout > 0 else { return Config.defaultSequenceStepTimeout }
+        return stepTimeout
+    }
+
     /// The key code to simulate when sequence is completed
     var keyCode: CGKeyCode?
 
@@ -42,7 +47,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     ) {
         self.id = id
         self.steps = steps
-        self.stepTimeout = stepTimeout
+        self.stepTimeout = Self.sanitizedStepTimeout(stepTimeout)
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.macroId = macroId
@@ -59,7 +64,8 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         steps = try container.decodeIfPresent([ControllerButton].self, forKey: .steps) ?? []
-        stepTimeout = try container.decodeIfPresent(TimeInterval.self, forKey: .stepTimeout) ?? Config.defaultSequenceStepTimeout
+        let decodedStepTimeout = try container.decodeIfPresent(TimeInterval.self, forKey: .stepTimeout) ?? Config.defaultSequenceStepTimeout
+        stepTimeout = Self.sanitizedStepTimeout(decodedStepTimeout)
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
         modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)

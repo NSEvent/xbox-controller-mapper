@@ -300,7 +300,8 @@ struct OnScreenKeyboardView: View {
             keyboardManager.exitNavigationMode()
             pressedAppBarItemId = item.id
             onAppActivate?(item.bundleIdentifier)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
                 if pressedAppBarItemId == item.id {
                     pressedAppBarItemId = nil
                 }
@@ -373,7 +374,8 @@ struct OnScreenKeyboardView: View {
             keyboardManager.exitNavigationMode()
             pressedWebsiteLinkId = link.id
             onWebsiteLinkOpen?(link.url)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
                 if pressedWebsiteLinkId == link.id {
                     pressedWebsiteLinkId = nil
                 }
@@ -479,7 +481,8 @@ struct OnScreenKeyboardView: View {
             keyboardManager.exitNavigationMode()
             pressedQuickTextId = quickText.id
             onQuickText?(quickText)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
                 if pressedQuickTextId == quickText.id {
                     pressedQuickTextId = nil
                 }
@@ -578,7 +581,8 @@ struct OnScreenKeyboardView: View {
             keyboardManager.exitNavigationMode()
             pressedKey = keyCode
             onKeyPress(keyCode, activeModifiers)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
                 if pressedKey == keyCode {
                     pressedKey = nil
                 }
@@ -800,7 +804,8 @@ struct OnScreenKeyboardView: View {
                 modifiersToSend.shift = true
             }
             onKeyPress(keyCode, modifiersToSend)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
                 if pressedKey == keyCode {
                     pressedKey = nil
                 }

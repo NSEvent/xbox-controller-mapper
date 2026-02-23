@@ -142,9 +142,11 @@ struct SequenceMappingSheet: View {
                                     Image(systemName: "arrow.right")
                                         .font(.system(size: 10))
                                         .foregroundColor(.white.opacity(0.4))
+                                        .accessibilityHidden(true)
                                 }
                                 HStack(spacing: 2) {
                                     ButtonIconView(button: button, isDualSense: isPlayStation)
+                                        .accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: isPlayStation))")
                                     Button(action: {
                                         steps.remove(at: index)
                                     }) {
@@ -153,6 +155,7 @@ struct SequenceMappingSheet: View {
                                             .foregroundColor(.red.opacity(0.7))
                                     }
                                     .buttonStyle(.borderless)
+                                    .accessibilityLabel("Remove \(button.displayName(forDualSense: isPlayStation)) from step \(index + 1)")
                                 }
                             }
 
@@ -165,12 +168,14 @@ struct SequenceMappingSheet: View {
                                         .foregroundColor(.red.opacity(0.8))
                                 }
                                 .buttonStyle(.borderless)
+                                .accessibilityLabel("Clear all steps")
                             }
                         }
                         .padding(8)
                         .frame(height: 40)
                         .background(Color.black.opacity(0.2))
                         .cornerRadius(8)
+                        .accessibilityLabel("Current sequence: \(steps.map { $0.displayName(forDualSense: isPlayStation) }.joined(separator: ", then "))")
                     }
 
                     if sequenceAlreadyExists {
@@ -204,6 +209,8 @@ struct SequenceMappingSheet: View {
                             .foregroundColor(.secondary)
                     }
                     Slider(value: $stepTimeout, in: 0.1...1.5, step: 0.05)
+                        .accessibilityLabel("Maximum time between presses")
+                        .accessibilityValue(String(format: "%.1f seconds", stepTimeout))
                     Text("Each button press must follow the previous one within this time.")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -217,13 +224,14 @@ struct SequenceMappingSheet: View {
 
                         Spacer()
 
-                        Picker("", selection: $mappingType) {
+                        Picker("Action type", selection: $mappingType) {
                             Text("Key").tag(MappingType.singleKey)
                             Text("Macro").tag(MappingType.macro)
                             Text("Script").tag(MappingType.script)
                             Text("System").tag(MappingType.systemCommand)
                         }
                         .pickerStyle(.segmented)
+                        .labelsHidden()
                         .frame(width: 280)
                         .padding(.trailing, 8)
 
@@ -486,6 +494,7 @@ struct SequenceMappingSheet: View {
     @ViewBuilder
     private func addStepButton(_ button: ControllerButton) -> some View {
         let scale: CGFloat = 1.3
+        let buttonName = button.displayName(forDualSense: isPlayStation)
 
         Button(action: {
             if steps.count < Config.maxSequenceSteps {
@@ -496,6 +505,8 @@ struct SequenceMappingSheet: View {
                 .scaleEffect(scale)
         }
         .buttonStyle(.borderless)
+        .accessibilityLabel("Add \(buttonName) step")
+        .accessibilityHint("Adds \(buttonName) as the next step in the sequence")
     }
 
     // MARK: - System Command Helpers
