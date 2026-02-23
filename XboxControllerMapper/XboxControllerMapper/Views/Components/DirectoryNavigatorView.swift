@@ -130,7 +130,7 @@ struct DirectoryNavigatorView: View {
             hintItem(icon: "arrow.right", text: "Enter")
             hintItem(icon: "arrow.left", text: "Back")
             hintItem(symbol: "a.circle", text: "cd here")
-            hintItem(symbol: "b.circle", text: "Close")
+            hintItem(symbol: "y.circle", text: "Close")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)

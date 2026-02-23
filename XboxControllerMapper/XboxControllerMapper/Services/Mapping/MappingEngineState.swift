@@ -97,6 +97,10 @@ extension MappingEngine {
         var wasTouchpadTouching: Bool = false
         var swipeClickReleaseFrames: Int = 0  // debounce: consecutive frames with click released
 
+        // Directory navigator stick navigation
+        var directoryNavLastMoveTime: TimeInterval = 0
+        var directoryNavStickWasInDeadzone = true
+
         // Focus mode state
         var wasFocusActive = false
         var currentMultiplier: Double = 0
@@ -196,6 +200,8 @@ extension MappingEngine {
             swipeTypingCursorY = 0.5
             wasTouchpadTouching = false
             swipeClickReleaseFrames = 0
+            directoryNavLastMoveTime = 0
+            directoryNavStickWasInDeadzone = true
             wasFocusActive = false
             currentMultiplier = 0
             focusExitTime = 0

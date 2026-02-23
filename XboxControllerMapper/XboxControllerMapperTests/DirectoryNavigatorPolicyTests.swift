@@ -85,11 +85,26 @@ final class DirectoryNavigatorPolicyTests: XCTestCase {
         XCTAssertEqual(outcome, .interceptDirectoryConfirm)
     }
 
-    // MARK: - B dismisses (close without terminal)
+    // MARK: - B confirms (cd here)
 
-    func testBButton_WhenNavigatorVisible_InterceptsDismiss() {
+    func testBButton_WhenNavigatorVisible_InterceptsConfirm() {
         let outcome = ButtonPressOrchestrationPolicy.resolve(
             button: .b,
+            mapping: KeyMapping(keyCode: 0),
+            keyboardVisible: false,
+            navigationModeActive: false,
+            directoryNavigatorVisible: true,
+            isChordPart: false,
+            lastTap: nil
+        )
+        XCTAssertEqual(outcome, .interceptDirectoryConfirm)
+    }
+
+    // MARK: - Y dismisses (close without terminal)
+
+    func testYButton_WhenNavigatorVisible_InterceptsDismiss() {
+        let outcome = ButtonPressOrchestrationPolicy.resolve(
+            button: .y,
             mapping: KeyMapping(keyCode: 0),
             keyboardVisible: false,
             navigationModeActive: false,
@@ -101,22 +116,6 @@ final class DirectoryNavigatorPolicyTests: XCTestCase {
     }
 
     // MARK: - Other buttons pass through when navigator visible
-
-    func testYButton_WhenNavigatorVisible_NotIntercepted() {
-        let mapping = KeyMapping(keyCode: 0)
-        let outcome = ButtonPressOrchestrationPolicy.resolve(
-            button: .y,
-            mapping: mapping,
-            keyboardVisible: false,
-            navigationModeActive: false,
-            directoryNavigatorVisible: true,
-            isChordPart: false,
-            lastTap: nil
-        )
-        XCTAssertNotEqual(outcome, .interceptDirectoryNavigation)
-        XCTAssertNotEqual(outcome, .interceptDirectoryConfirm)
-        XCTAssertNotEqual(outcome, .interceptDirectoryDismiss)
-    }
 
     func testLeftBumper_WhenNavigatorVisible_NotIntercepted() {
         let mapping = KeyMapping(keyCode: 0)
@@ -165,6 +164,19 @@ final class DirectoryNavigatorPolicyTests: XCTestCase {
     func testBButton_WhenNavigatorHidden_NotInterceptedForNavigator() {
         let outcome = ButtonPressOrchestrationPolicy.resolve(
             button: .b,
+            mapping: nil,
+            keyboardVisible: false,
+            navigationModeActive: false,
+            directoryNavigatorVisible: false,
+            isChordPart: false,
+            lastTap: nil
+        )
+        XCTAssertNotEqual(outcome, .interceptDirectoryConfirm)
+    }
+
+    func testYButton_WhenNavigatorHidden_NotInterceptedForNavigator() {
+        let outcome = ButtonPressOrchestrationPolicy.resolve(
+            button: .y,
             mapping: nil,
             keyboardVisible: false,
             navigationModeActive: false,
@@ -238,6 +250,19 @@ final class DirectoryNavigatorPolicyTests: XCTestCase {
     func testAButton_WhenNavigatorVisible_ConfirmsEvenWithoutMapping() {
         let outcome = ButtonPressOrchestrationPolicy.resolve(
             button: .a,
+            mapping: nil,
+            keyboardVisible: false,
+            navigationModeActive: false,
+            directoryNavigatorVisible: true,
+            isChordPart: false,
+            lastTap: nil
+        )
+        XCTAssertEqual(outcome, .interceptDirectoryConfirm)
+    }
+
+    func testBButton_WhenNavigatorVisible_ConfirmsEvenWithoutMapping() {
+        let outcome = ButtonPressOrchestrationPolicy.resolve(
+            button: .b,
             mapping: nil,
             keyboardVisible: false,
             navigationModeActive: false,

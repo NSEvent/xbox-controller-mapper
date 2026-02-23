@@ -164,7 +164,11 @@ extension MappingEngine {
 
         let rightStick = controllerService.threadSafeRightStick
 
-        if state.commandWheelActive {
+        // Right stick navigates directory navigator when visible
+        let navigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+        if navigatorVisible {
+            processDirectoryNavigatorStick(rightStick, now: now)
+        } else if state.commandWheelActive {
             updateCommandWheel(rightStick: rightStick)
         } else {
             switch settings.rightStickMode {
@@ -191,6 +195,46 @@ extension MappingEngine {
                     heldKeys: &state.rightStickHeldKeys,
                     invertY: settings.invertScrollY
                 )
+            }
+        }
+    }
+
+    // MARK: - Directory Navigator Stick Navigation
+
+    /// Converts right stick input into directory navigator navigation commands.
+    /// Uses a deadzone + throttle approach: the first deflection triggers immediately,
+    /// then repeats at the D-pad repeat interval while held.
+    nonisolated func processDirectoryNavigatorStick(_ stick: CGPoint, now: CFAbsoluteTime) {
+        let deadzone: Double = 0.4
+        let magnitude = sqrt(Double(stick.x * stick.x + stick.y * stick.y))
+
+        guard magnitude > deadzone else {
+            state.directoryNavStickWasInDeadzone = true
+            return
+        }
+
+        // Determine dominant axis direction
+        let button: ControllerButton
+        if abs(stick.x) > abs(stick.y) {
+            button = stick.x > 0 ? .dpadRight : .dpadLeft
+        } else {
+            button = stick.y > 0 ? .dpadUp : .dpadDown
+        }
+
+        let justEntered = state.directoryNavStickWasInDeadzone
+        state.directoryNavStickWasInDeadzone = false
+
+        if justEntered {
+            // First deflection — move immediately
+            state.directoryNavLastMoveTime = now
+            Task { @MainActor in
+                DirectoryNavigatorManager.shared.handleDPadNavigation(button)
+            }
+        } else if now - state.directoryNavLastMoveTime >= Config.dpadRepeatInterval {
+            // Repeat at dpad interval
+            state.directoryNavLastMoveTime = now
+            Task { @MainActor in
+                DirectoryNavigatorManager.shared.handleDPadNavigation(button)
             }
         }
     }

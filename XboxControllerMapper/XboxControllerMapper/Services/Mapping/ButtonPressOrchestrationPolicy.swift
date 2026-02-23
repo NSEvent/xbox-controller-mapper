@@ -39,9 +39,9 @@ enum ButtonPressOrchestrationPolicy {
             switch button {
             case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
                 return .interceptDirectoryNavigation
-            case .a, .x:
+            case .a, .x, .b:
                 return .interceptDirectoryConfirm
-            case .b:
+            case .y:
                 return .interceptDirectoryDismiss
             default:
                 break
