@@ -71,7 +71,12 @@ class ActionFeedbackIndicator {
 
         if !heldActions.isEmpty {
             // Combine all held actions (sorted for consistent ordering)
-            displayAction = heldActions.keys.sorted().joined(separator: " + ")
+            var parts = heldActions.keys.sorted()
+            // Include the current non-held action so e.g. "⌘ + →" shows both
+            if !isHeld && !parts.contains(action) {
+                parts.append(action)
+            }
+            displayAction = parts.joined(separator: " + ")
             displayIsHeld = true
         } else {
             displayAction = action

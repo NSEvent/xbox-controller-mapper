@@ -364,10 +364,16 @@ struct StreamOverlayView: View {
 
     // MARK: - Display Logic
 
-    /// Shows held actions when modifiers are held, otherwise shows last single action
+    /// Shows held actions when modifiers are held, otherwise shows last single action.
+    /// When a non-held action fires while modifiers are held, combines both (e.g. "⌘ + →").
     private var displayActionText: String {
         if !inputLogService.heldActions.isEmpty {
-            return inputLogService.heldActions.joined(separator: " + ")
+            var parts = inputLogService.heldActions
+            // Include the latest non-held action alongside held modifiers
+            if !lastActionText.isEmpty && !parts.contains(lastActionText) {
+                parts.append(lastActionText)
+            }
+            return parts.joined(separator: " + ")
         }
         return lastActionText
     }
