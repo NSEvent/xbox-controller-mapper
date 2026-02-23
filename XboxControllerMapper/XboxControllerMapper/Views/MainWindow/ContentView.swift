@@ -240,6 +240,18 @@ struct ContentView: View {
                 .hidden()
                 .accessibilityHidden(true)
         )
+        .background(
+            Button("Previous Tab Alt") { switchTab(direction: -1) }
+                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                .hidden()
+                .accessibilityHidden(true)
+        )
+        .background(
+            Button("Next Tab Alt") { switchTab(direction: 1) }
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                .hidden()
+                .accessibilityHidden(true)
+        )
         .highPriorityGesture(
             MagnificationGesture()
                 .onChanged { value in
