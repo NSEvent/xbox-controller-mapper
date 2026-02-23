@@ -77,6 +77,15 @@ struct DirectoryNavigatorView: View {
                     ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                         directoryRow(entry: entry, isSelected: selectedIndex == index, isPreview: isPreview)
                             .id(entry.id)
+                            .contentShape(Rectangle())
+                            .onTapGesture(count: 2) {
+                                guard !isPreview else { return }
+                                manager.activateEntry(at: index)
+                            }
+                            .onTapGesture {
+                                guard !isPreview else { return }
+                                manager.selectEntry(at: index)
+                            }
                     }
                 }
             }

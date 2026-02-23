@@ -16,6 +16,8 @@ class DirectoryNavigatorManager: ObservableObject {
     var defaultTerminalApp: String = "Terminal"
 
     private var panel: NSPanel?
+    private var clickOutsideMonitor: Any?
+    private var localClickMonitor: Any?
 
     // MARK: - Thread-Safe State
 
@@ -58,8 +60,8 @@ class DirectoryNavigatorManager: ObservableObject {
             createPanel()
         }
 
-        // Load initial directory
-        loadDirectory(currentDirectory)
+        // Refresh directory contents, preserving selection position
+        refreshCurrentDirectory()
 
         panel?.alphaValue = 0
         panel?.orderFrontRegardless()
@@ -71,10 +73,12 @@ class DirectoryNavigatorManager: ObservableObject {
         }
         isVisible = true
         updateThreadSafeState()
+        installClickOutsideMonitors()
     }
 
     func hide() {
         guard isVisible else { return }
+        removeClickOutsideMonitors()
         if let panel = panel {
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = 0.12
@@ -119,6 +123,11 @@ class DirectoryNavigatorManager: ObservableObject {
             selectedIndex = newIndex
             updatePreview()
         }
+    }
+
+    /// Navigates to a specific directory URL.
+    func navigateTo(_ url: URL) {
+        loadDirectory(url)
     }
 
     func enterDirectory() {
@@ -229,7 +238,102 @@ class DirectoryNavigatorManager: ObservableObject {
         }
     }
 
+    // MARK: - Mouse Interaction
+
+    /// Selects an entry by index (used for mouse click).
+    func selectEntry(at index: Int) {
+        guard index >= 0, index < currentEntries.count else { return }
+        selectedIndex = index
+        updatePreview()
+    }
+
+    /// Activates (enters) the entry at the given index (used for mouse double-click).
+    func activateEntry(at index: Int) {
+        guard index >= 0, index < currentEntries.count else { return }
+        selectedIndex = index
+        let entry = currentEntries[index]
+        if entry.isDirectory {
+            loadDirectory(entry.url)
+        }
+    }
+
+    // MARK: - Click Outside to Dismiss
+
+    private func installClickOutsideMonitors() {
+        removeClickOutsideMonitors()
+
+        // Global monitor catches clicks in other apps / desktop
+        clickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            Task { @MainActor in
+                self?.hide()
+            }
+        }
+
+        // Local monitor catches clicks within our own app but outside the panel
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self = self, let panel = self.panel else { return event }
+            if event.window === panel {
+                // Click is inside the panel — let it through
+                return event
+            }
+            // Click is in another window or outside — dismiss
+            Task { @MainActor in
+                self.hide()
+            }
+            return event
+        }
+    }
+
+    private func removeClickOutsideMonitors() {
+        if let monitor = clickOutsideMonitor {
+            NSEvent.removeMonitor(monitor)
+            clickOutsideMonitor = nil
+        }
+        if let monitor = localClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            localClickMonitor = nil
+        }
+    }
+
     // MARK: - File Enumeration
+
+    /// Refreshes the current directory contents while preserving the selection position.
+    private func refreshCurrentDirectory() {
+        let previousSelectedName = (selectedIndex < currentEntries.count)
+            ? currentEntries[selectedIndex].name : nil
+
+        let fm = FileManager.default
+        guard let urls = try? fm.contentsOfDirectory(
+            at: currentDirectory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            currentEntries = []
+            previewEntries = []
+            selectedIndex = 0
+            return
+        }
+
+        let entries = urls.map { DirectoryEntry(url: $0) }
+        currentEntries = entries.sorted { a, b in
+            if a.isDirectory != b.isDirectory {
+                return a.isDirectory
+            }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
+
+        // Try to restore selection by name, fall back to clamping index
+        if let name = previousSelectedName,
+           let index = currentEntries.firstIndex(where: { $0.name == name }) {
+            selectedIndex = index
+        } else if !currentEntries.isEmpty {
+            selectedIndex = min(selectedIndex, currentEntries.count - 1)
+        } else {
+            selectedIndex = 0
+        }
+
+        updatePreview()
+    }
 
     private func loadDirectory(_ url: URL) {
         currentDirectory = url
