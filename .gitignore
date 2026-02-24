@@ -80,6 +80,9 @@ build/
 release/
 DerivedData/
 
+# Debug/diagnostic tools
+Tools/
+
 # User-specific Xcode files
 *.xcuserstate
 xcuserdata/

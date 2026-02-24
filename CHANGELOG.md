@@ -5,6 +5,95 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-02-24
+
+### Added
+
+- **JavaScript Scripting System (Beta)**: Write custom automation scripts powered by JavaScriptCore
+  - Full API: `press()`, `hold()`, `click()`, `type()`, `paste()`, `delay()`, `clipboard.get()/set()`, `shell()`, `openURL()`, `openApp()`, `notify()`, `haptic()`, `log()`, `state.get()/set()/toggle()`
+  - App-aware scripting with `app.name`, `app.bundleId`, `app.is()` for context-sensitive actions
+  - Trigger context (`trigger.button`, `trigger.pressType`, `trigger.holdDuration`)
+  - `screenshotWindow()` API for capturing the focused window to clipboard or file
+  - Per-script persistent state that survives across invocations
+  - Built-in example gallery with ready-to-use scripts
+  - Script editor with syntax reference and AI prompt assistant
+  - "Create New Script" button accessible from mapping sheet pickers
+  - Security: shell command blocklist, URL scheme validation (http/s only)
+- **Swipe Typing for On-Screen Keyboard**: Slide across letters to type words
+  - SHARK2 template matching algorithm for accurate predictions
+  - Haptic feedback on swipe begin/end and prediction navigation
+  - Custom words UI in swipe typing settings
+  - Dictionary includes Brown corpus inflected forms, computing terms, and user's shell aliases
+- **Button Sequence Mappings**: Trigger actions with ordered button combos (e.g., Up-Up-Down-Down)
+  - Zero-latency detection with configurable step timeout
+  - Active sequences displayed on Buttons tab
+- **DualSense Gyroscope Gestures**: Map controller tilts and steers to actions
+  - Tilt forward/back and steer left/right gesture types
+  - Per-profile gesture sensitivity and cooldown sliders
+- **Gyro Aiming**: Use DualSense gyroscope for precise mouse control in focus mode
+  - 1-Euro filter for jitter-free smoothing with responsive tracking
+  - Smooth deadzone transitions, cubic sensitivity curve, horizontal roll boost
+  - Configurable sensitivity and deadzone
+- **Stream Overlay for OBS**: Floating overlay showing active button presses for stream capture
+- **Laser Pointer Overlay**: On-screen pointer for presentations
+- **Directory Navigator**: Controller-driven file browser overlay
+  - Right stick navigation, B to confirm, Y to dismiss
+  - Mouse support, position memory, click-outside-dismiss
+- **Controller Lock Toggle**: Lock/unlock controller input with haptic feedback
+- **Stream Deck Profile Import**: Import Stream Deck V2 format profiles
+- **Shannon-Optimal Binding Analysis**: Recommendations for efficient button assignments with button icons
+- **On-Screen Keyboard Typing Buffer**: Visual buffer showing typed text (36pt font)
+- **Keyboard Navigation**: Cmd+Left/Right and Cmd+Opt+Arrow to switch tabs; Home/End/PageUp/PageDown for scroll navigation; Escape and Cmd+Enter for all dialogs
+- **VoiceOver Accessibility**: Support across 12 view files
+- **Visual Press Feedback**: Controller activation highlights on on-screen keyboard
+- **On-Screen Keyboard Auto-Scaling**: Keyboard scales to fit smaller displays
+
+### Changed
+
+- Script execution timeout increased from 500ms to 2000ms to support scripts with delays
+- Decomposed ControllerService and ContentView god objects into focused extension files
+- Unified input pipeline with ControllerInputEvent type and extracted gesture detectors
+- Command pattern for action dispatch via MacroExecutor and ActionCommand protocol
+- MappingEngine split into focused extension files with proper lock discipline
+- Services reorganized into subdirectories
+- Profile equality excludes timestamps to prevent unnecessary re-renders
+- String-based PressType replaced with type-safe enum
+
+### Fixed
+
+- Clipboard race condition in "Search Selected Text" example script (now compares before/after clipboard)
+- Action hints showing held modifiers together with current action
+- Mouse click buttons getting stuck held down
+- IOKit use-after-free in GenericHID and PlayStation HID callbacks
+- XboxGuideMonitor use-after-free crash
+- Modifier state race condition (heldModifiers read moved inside keyboardQueue)
+- releaseAllModifiers race condition with Release-build CGEvent failure logging
+- Linked profile not staying active for its linked app
+- Joystick cursor visibility and swipe drag line stability
+- Gyro aiming blocked by joystick deadzone early return
+- Gyro aiming horizontal axis reversed
+- Stream overlay not showing combined held actions
+- Script editor showing blank on first example selection
+- Keyboard window draggable during swipe mode
+- On-screen keyboard key presses firing during swipe typing
+- Config saves now atomic with symlink preservation (stow compatibility)
+- Stable Keychain keys with plaintext fallback for OBS passwords
+- Stats top button bars aligned with fixed-width icon column
+- Sequence step bar fixed height in mapping sheet
+- Shell blocklist whitespace bypass and JSContext exception capture
+- AppleScript injection in terminal commands
+- HID report bounds checking
+
+### Security
+
+- OBS passwords stored in macOS Keychain
+- ScriptEngine shell command blocklist hardened with validation
+- SystemCommandExecutor URL scheme validation and command logging
+- openURL restricted to http(s) schemes only
+- Defense-in-depth bounds check on HID report data
+- Threading safety: eliminated `nonisolated(unsafe)`, protected timer access
+- Force unwraps eliminated in SwipeTypingModel and InputSimulator
+
 ## [1.5.0] - 2026-02-18
 
 ### Added
