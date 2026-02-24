@@ -114,7 +114,7 @@ struct ContentView: View {
                     // Scripts Tab
                     ScriptListView()
                         .scrollContentBackground(.hidden)
-                        .tabItem { Text("Scripts") }
+                        .tabItem { Text("Scripts (Beta)") }
                         .tag(10)
 
                     // On-Screen Keyboard Settings

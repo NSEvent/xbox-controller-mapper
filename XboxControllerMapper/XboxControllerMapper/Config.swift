@@ -301,7 +301,7 @@ struct Config {
 
     // MARK: - Scripting
     /// Maximum execution time for a single script invocation (milliseconds)
-    static let scriptExecutionTimeoutMs: Int = 500
+    static let scriptExecutionTimeoutMs: Int = 2000
     /// Maximum execution time for shell() commands within scripts (seconds)
     static let shellCommandTimeoutSeconds: Int = 5
 

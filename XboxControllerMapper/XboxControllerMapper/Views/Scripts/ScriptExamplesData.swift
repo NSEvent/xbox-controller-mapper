@@ -113,12 +113,13 @@ enum ScriptExamplesData {
             name: "Search Selected Text",
             description: "Copies the selected text and searches for it in your default browser.",
             source: """
-                // Copy selection
+                // Save current clipboard, then copy selection
+                var before = clipboard.get();
                 press(8, {command: true}); // Cmd+C
-                delay(0.2);
-                var text = clipboard.get();
-                if (text && text.length > 0) {
-                    openURL("https://www.google.com/search?q=" + encodeURIComponent(text));
+                delay(0.5);
+                var after = clipboard.get();
+                if (after !== before && after.length > 0) {
+                    openURL("https://www.google.com/search?q=" + encodeURIComponent(after));
                 } else {
                     notify("No text selected");
                 }

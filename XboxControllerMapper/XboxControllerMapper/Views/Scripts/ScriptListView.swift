@@ -42,8 +42,18 @@ struct ScriptListView: View {
                     }
                 }
             } header: {
-                Text("Scripts")
-                    .foregroundColor(.secondary)
+                HStack(spacing: 6) {
+                    Text("Scripts")
+                    Text("Beta")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(.blue.opacity(0.2))
+                        .foregroundColor(.blue)
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                }
+                .foregroundColor(.secondary)
             } footer: {
                 scriptsFooter
             }
