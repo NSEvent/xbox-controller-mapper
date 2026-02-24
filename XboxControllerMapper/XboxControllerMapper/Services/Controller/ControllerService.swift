@@ -666,11 +666,44 @@ class ControllerService: ObservableObject {
             batteryState = battery.batteryState
         }
 
+        // Update battery light bar if enabled
+        updateBatteryLightBar()
+
         if isConnected {
             DispatchQueue.main.asyncAfter(deadline: .now() + Config.batteryUpdateInterval) { [weak self] in
                 self?.updateBatteryInfo()
             }
         }
+    }
+
+    /// Updates the light bar color to reflect battery level when battery light bar mode is enabled.
+    /// Red (0%) → Yellow (50%) → Green (100%).
+    func updateBatteryLightBar() {
+        guard threadSafeIsPlayStation,
+              let currentSettings = threadSafeLEDSettings,
+              currentSettings.batteryLightBar,
+              currentSettings.lightBarEnabled,
+              !partyModeEnabled,
+              batteryLevel >= 0 else { return }
+
+        let level = Double(min(1.0, max(0.0, batteryLevel)))
+
+        // Red → Yellow → Green gradient
+        let red: Double
+        let green: Double
+        if level < 0.5 {
+            // 0% = red (1,0,0) → 50% = yellow (1,1,0)
+            red = 1.0
+            green = level * 2.0
+        } else {
+            // 50% = yellow (1,1,0) → 100% = green (0,1,0)
+            red = (1.0 - level) * 2.0
+            green = 1.0
+        }
+
+        var settings = currentSettings
+        settings.lightBarColor = CodableColor(red: red, green: green, blue: 0.0)
+        applyLEDSettings(settings)
     }
 
     // MARK: - Input Handlers

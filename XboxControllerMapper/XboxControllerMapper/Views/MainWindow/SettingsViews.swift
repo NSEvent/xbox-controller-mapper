@@ -374,16 +374,36 @@ struct LEDSettingsView: View {
                 .disabled(controllerService.partyModeEnabled)
 
                 if settings.lightBarEnabled {
-                    LightBarColorPicker(
-                        color: Binding(
-                            get: { settings.lightBarColor.color },
-                            set: { updateColor($0) }
-                        )
-                    )
-                    .frame(height: 44)
+                    Toggle(isOn: Binding(
+                        get: { settings.batteryLightBar },
+                        set: { newValue in
+                            updateSettings(\.batteryLightBar, newValue)
+                            if newValue {
+                                controllerService.updateBatteryLightBar()
+                            }
+                        }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Battery Level Color")
+                            Text("Red when low, yellow at half, green when full")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     .disabled(controllerService.partyModeEnabled)
-                    .opacity(controllerService.partyModeEnabled ? 0.5 : 1.0)
-                    .accessibilityLabel("Light bar color picker")
+
+                    if !settings.batteryLightBar {
+                        LightBarColorPicker(
+                            color: Binding(
+                                get: { settings.lightBarColor.color },
+                                set: { updateColor($0) }
+                            )
+                        )
+                        .frame(height: 44)
+                        .disabled(controllerService.partyModeEnabled)
+                        .opacity(controllerService.partyModeEnabled ? 0.5 : 1.0)
+                        .accessibilityLabel("Light bar color picker")
+                    }
 
                     Picker("Brightness", selection: Binding(
                         get: { settings.lightBarBrightness },

@@ -184,8 +184,11 @@ struct DualSenseLEDSettings: Codable, Equatable {
     /// Player LEDs configuration
     var playerLEDs: PlayerLEDs = .default
 
+    /// When true, light bar color tracks battery level (red → yellow → green)
+    var batteryLightBar: Bool = false
+
     private enum CodingKeys: String, CodingKey {
-        case lightBarColor, lightBarBrightness, lightBarEnabled, muteButtonLED, playerLEDs
+        case lightBarColor, lightBarBrightness, lightBarEnabled, muteButtonLED, playerLEDs, batteryLightBar
     }
 
     init(from decoder: Decoder) throws {
@@ -195,14 +198,16 @@ struct DualSenseLEDSettings: Codable, Equatable {
         lightBarEnabled = try container.decodeIfPresent(Bool.self, forKey: .lightBarEnabled) ?? true
         muteButtonLED = try container.decodeIfPresent(MuteButtonLEDMode.self, forKey: .muteButtonLED) ?? .off
         playerLEDs = try container.decodeIfPresent(PlayerLEDs.self, forKey: .playerLEDs) ?? .default
+        batteryLightBar = try container.decodeIfPresent(Bool.self, forKey: .batteryLightBar) ?? false
     }
 
-    init(lightBarColor: CodableColor = CodableColor(red: 0.0, green: 0.4, blue: 1.0), lightBarBrightness: LightBarBrightness = .bright, lightBarEnabled: Bool = true, muteButtonLED: MuteButtonLEDMode = .off, playerLEDs: PlayerLEDs = .default) {
+    init(lightBarColor: CodableColor = CodableColor(red: 0.0, green: 0.4, blue: 1.0), lightBarBrightness: LightBarBrightness = .bright, lightBarEnabled: Bool = true, muteButtonLED: MuteButtonLEDMode = .off, playerLEDs: PlayerLEDs = .default, batteryLightBar: Bool = false) {
         self.lightBarColor = lightBarColor
         self.lightBarBrightness = lightBarBrightness
         self.lightBarEnabled = lightBarEnabled
         self.muteButtonLED = muteButtonLED
         self.playerLEDs = playerLEDs
+        self.batteryLightBar = batteryLightBar
     }
 
     static let `default` = DualSenseLEDSettings()
