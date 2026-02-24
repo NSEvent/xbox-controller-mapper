@@ -25,11 +25,6 @@ class FocusModeIndicator {
     private let ringSize: CGFloat = 32
     private let ringStrokeWidth: CGFloat = 3
 
-    /// Base position for delta-based tracking during Accessibility Zoom
-    private var basePosition: NSPoint?
-    /// Whether we're currently using delta-based positioning (zoom active + moving)
-    private var usingDeltaPositioning: Bool = false
-
     private init() {}
 
     func show() {
@@ -39,11 +34,6 @@ class FocusModeIndicator {
         if panel == nil {
             createPanel()
         }
-
-        // Reset delta-based positioning state
-        basePosition = nil
-        usingDeltaPositioning = false
-        InputSimulator.resetMovementDelta()
 
         panel?.alphaValue = 0
         panel?.orderFrontRegardless()
@@ -62,10 +52,6 @@ class FocusModeIndicator {
     func hide() {
         guard isVisible else { return }
         isVisible = false
-
-        // Reset delta-based positioning state
-        basePosition = nil
-        usingDeltaPositioning = false
 
         stopTracking()
 
@@ -88,7 +74,7 @@ class FocusModeIndicator {
 
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.level = .screenSaver  // Above everything including cursor
+        panel.level = .screenSaver
         panel.hasShadow = false
         panel.ignoresMouseEvents = true  // Click through
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
@@ -117,51 +103,24 @@ class FocusModeIndicator {
         trackingTimer = nil
     }
 
+    /// Returns the cursor location in NS screen coordinates.
+    /// The panel is at .screenSaver level (above the zoom compositing layer), so during
+    /// Accessibility Zoom we need the visual/physical cursor position, not the virtual one.
+    /// CGEvent(source:nil).location consistently returns the visual position during zoom.
+    private func cursorLocationInScreenCoords() -> NSPoint {
+        if UAZoomEnabled(), let cgLocation = CGEvent(source: nil)?.location {
+            let screenHeight = NSScreen.main?.frame.height ?? 0
+            return NSPoint(x: cgLocation.x, y: screenHeight - cgLocation.y)
+        }
+        return NSEvent.mouseLocation
+    }
+
     private func updatePosition() {
         guard let panel = panel else { return }
 
         let offset = ringSize / 2
-        let isZoomActive = UAZoomEnabled()
-        let isMoving = InputSimulator.isCursorBeingMoved()
-
-        // Strategy for Accessibility Zoom:
-        // - When movement starts: capture base position from NSEvent.mouseLocation
-        // - During movement: apply deltas to base position (avoids unreliable absolute coords)
-        // - When movement stops: resync to NSEvent.mouseLocation
-
-        if isZoomActive && isMoving {
-            // Cursor is being moved with zoom active - use delta-based positioning
-            let delta = InputSimulator.consumeMovementDelta()
-
-            if !usingDeltaPositioning {
-                // Just started moving - establish base position
-                let mouseLocation = NSEvent.mouseLocation
-                basePosition = NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset)
-                usingDeltaPositioning = true
-            }
-
-            if var base = basePosition {
-                // Apply delta scaled inversely by zoom level
-                // Delta Y is in CG coords where +Y is down, but NS coords have +Y up, so we subtract
-                let zoomLevel = max(1.0, InputSimulator.getZoomLevel())
-                base.x += delta.x / zoomLevel
-                base.y -= delta.y / zoomLevel
-                basePosition = base
-                panel.setFrameOrigin(base)
-            }
-        } else {
-            // Not moving or zoom not active - use absolute positioning
-            if usingDeltaPositioning {
-                // Just stopped moving - resync
-                usingDeltaPositioning = false
-                InputSimulator.resetMovementDelta()
-            }
-
-            let mouseLocation = NSEvent.mouseLocation
-            let position = NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset)
-            basePosition = position
-            panel.setFrameOrigin(position)
-        }
+        let mouseLocation = cursorLocationInScreenCoords()
+        panel.setFrameOrigin(NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset))
     }
 }
 
