@@ -1038,6 +1038,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             self.stateLock.unlock()
 
+            let zoomActive = UAZoomEnabled()
+
             if let event = CGEvent(
                 mouseEventSource: source,
                 mouseType: downType,
@@ -1046,11 +1048,22 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             ) {
                 event.setIntegerValueField(.mouseEventClickState, value: clickCount)
                 event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
+                // Set zero deltas so the zoom system treats this as an in-place event
+                event.setIntegerValueField(.mouseEventDeltaX, value: 0)
+                event.setIntegerValueField(.mouseEventDeltaY, value: 0)
                 // Set pressure so system tools (screencapture, etc.) recognize the click
                 event.setDoubleValueField(.mouseEventPressure, value: 1.0)
                 event.post(tap: .cghidEventTap)
             } else {
                 NSLog("[InputSimulator] Failed to create mouse-down event for button %d - check Accessibility permissions", button.rawValue)
+            }
+
+            // Immediately re-focus the zoom viewport after the click event.
+            // The CGEvent's absolute position can briefly displace the viewport;
+            // snapping it back here minimises any visible flash.
+            if zoomActive {
+                var focusRect = CGRect(x: cgLocation.x - 1, y: cgLocation.y - 1, width: 2, height: 2)
+                UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
             }
         }
     }
@@ -1077,6 +1090,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             self.stateLock.unlock()
 
+            let zoomActive = UAZoomEnabled()
+
             if let event = CGEvent(
                 mouseEventSource: source,
                 mouseType: upType,
@@ -1085,10 +1100,17 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             ) {
                 event.setIntegerValueField(.mouseEventClickState, value: clickCount)
                 event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
+                event.setIntegerValueField(.mouseEventDeltaX, value: 0)
+                event.setIntegerValueField(.mouseEventDeltaY, value: 0)
                 event.setDoubleValueField(.mouseEventPressure, value: 0.0)
                 event.post(tap: .cghidEventTap)
             } else {
                 NSLog("[InputSimulator] Failed to create mouse-up event for button %d - check Accessibility permissions", button.rawValue)
+            }
+
+            if zoomActive {
+                var focusRect = CGRect(x: cgLocation.x - 1, y: cgLocation.y - 1, width: 2, height: 2)
+                UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
             }
         }
     }
