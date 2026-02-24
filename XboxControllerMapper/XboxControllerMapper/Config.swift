@@ -374,6 +374,10 @@ struct Config {
     static let batteryBlinkThreshold: Float = 0.05
     /// Blink interval (seconds) — on/off cycle
     static let batteryBlinkInterval: TimeInterval = 0.5
+    /// Charging animation tick rate (Hz)
+    static let chargingAnimFrequency: Double = 30.0
+    /// Charging animation: one full pulse cycle duration (seconds)
+    static let chargingAnimCycleDuration: Double = 2.0
 }
 
 // MARK: - Button Colors
