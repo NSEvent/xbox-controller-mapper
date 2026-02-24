@@ -368,6 +368,12 @@ struct Config {
     static let keepAliveIdleThreshold: TimeInterval = 60.0
     /// UserDefaults key for the keep-alive toggle
     static let keepAliveEnabledKey: String = "bluetoothKeepAliveEnabled"
+
+    // MARK: - Battery Light Bar
+    /// Battery percentage at or below which the light bar blinks red
+    static let batteryBlinkThreshold: Float = 0.05
+    /// Blink interval (seconds) — on/off cycle
+    static let batteryBlinkInterval: TimeInterval = 0.5
 }
 
 // MARK: - Button Colors

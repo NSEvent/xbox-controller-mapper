@@ -133,6 +133,9 @@ class ControllerService: ObservableObject {
     var micLevelTimer: Timer?
     var audioEngine: AVAudioEngine?
 
+    var batteryBlinkTimer: Timer?
+    var batteryBlinkOn: Bool = true
+
     var partyModeTimer: Timer?
     var partyHue: Double = 0.0
     var partyLEDIndex: Int = 0
@@ -524,6 +527,7 @@ class ControllerService: ObservableObject {
         batteryMonitor.resetBatteryLevel()  // Clear stale battery reading
         stopDisplayUpdateTimer()
         stopKeepAliveTimer()
+        stopBatteryBlink()
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
 
@@ -677,32 +681,75 @@ class ControllerService: ObservableObject {
     }
 
     /// Updates the light bar color to reflect battery level when battery light bar mode is enabled.
-    /// Red (0%) → Yellow (50%) → Green (100%).
+    /// Red (0%) → Yellow (50%) → Green (100%). Blinks red at 5% or below.
     func updateBatteryLightBar() {
         guard threadSafeIsPlayStation,
               let currentSettings = threadSafeLEDSettings,
               currentSettings.batteryLightBar,
               currentSettings.lightBarEnabled,
               !partyModeEnabled,
-              batteryLevel >= 0 else { return }
+              batteryLevel >= 0 else {
+            stopBatteryBlink()
+            return
+        }
+
+        // Start or stop blink based on battery threshold
+        if batteryLevel <= Config.batteryBlinkThreshold {
+            startBatteryBlink()
+            return  // blink timer handles the light bar updates
+        } else {
+            stopBatteryBlink()
+        }
 
         let level = Double(min(1.0, max(0.0, batteryLevel)))
 
-        // Red → Yellow → Green gradient
-        let red: Double
-        let green: Double
-        if level < 0.5 {
-            // 0% = red (1,0,0) → 50% = yellow (1,1,0)
-            red = 1.0
-            green = level * 2.0
-        } else {
-            // 50% = yellow (1,1,0) → 100% = green (0,1,0)
-            red = (1.0 - level) * 2.0
-            green = 1.0
-        }
+        // Map battery 0-100% to hue 0°-120° (red → orange → yellow → green)
+        // Using HSB gives a smooth, perceptually even gradient through all intermediate colors
+        let hue = level / 3.0  // 0.0 = red (0°), 0.166 = yellow (60°), 0.333 = green (120°)
+        let nsColor = NSColor(hue: hue, saturation: 1.0, brightness: 1.0, alpha: 1.0)
+            .usingColorSpace(.sRGB) ?? NSColor(red: 1, green: 0, blue: 0, alpha: 1)
 
         var settings = currentSettings
-        settings.lightBarColor = CodableColor(red: red, green: green, blue: 0.0)
+        settings.lightBarColor = CodableColor(
+            red: Double(nsColor.redComponent),
+            green: Double(nsColor.greenComponent),
+            blue: Double(nsColor.blueComponent)
+        )
+        applyLEDSettings(settings)
+    }
+
+    private func startBatteryBlink() {
+        guard batteryBlinkTimer == nil else { return }
+        batteryBlinkOn = true
+        batteryBlinkTimer = Timer.scheduledTimer(withTimeInterval: Config.batteryBlinkInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.tickBatteryBlink()
+            }
+        }
+    }
+
+    func stopBatteryBlink() {
+        batteryBlinkTimer?.invalidate()
+        batteryBlinkTimer = nil
+    }
+
+    private func tickBatteryBlink() {
+        guard let currentSettings = threadSafeLEDSettings,
+              currentSettings.batteryLightBar,
+              currentSettings.lightBarEnabled,
+              !partyModeEnabled else {
+            stopBatteryBlink()
+            return
+        }
+
+        batteryBlinkOn.toggle()
+
+        var settings = currentSettings
+        if batteryBlinkOn {
+            settings.lightBarColor = CodableColor(red: 1.0, green: 0.0, blue: 0.0)
+        } else {
+            settings.lightBarColor = CodableColor(red: 0.0, green: 0.0, blue: 0.0)
+        }
         applyLEDSettings(settings)
     }
 
