@@ -1192,14 +1192,16 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         // NX media key events use NSEvent with subtype 8 (NX_SUBTYPE_AUX_CONTROL_BUTTONS)
         // data1 format: (keyCode << 16) | (flags << 8) | repeat
         // flags: 0x0A = key down, 0x0B = key up
+        // modifierFlags: 0xA00 = key down, 0xB00 = key up (must match data1 flags)
         let keyCode = Int(keyType.rawValue)
         let flags = keyDown ? 0x0A : 0x0B
         let data1 = (keyCode << 16) | (flags << 8)
+        let modifierFlags = NSEvent.ModifierFlags(rawValue: UInt(keyDown ? 0xA00 : 0xB00))
 
         guard let event = NSEvent.otherEvent(
             with: .systemDefined,
             location: .zero,
-            modifierFlags: [],
+            modifierFlags: modifierFlags,
             timestamp: 0,
             windowNumber: 0,
             context: nil,
