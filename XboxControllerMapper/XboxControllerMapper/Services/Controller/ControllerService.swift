@@ -35,6 +35,7 @@ final class ControllerStorage: @unchecked Sendable {
     var isDualShock: Bool = false  // PS4 DualShock 4 controller
     var isBluetoothConnection: Bool = false
     var lastInputTime: TimeInterval = 0
+    var lastHIDBatteryCharging: Bool? = nil  // Track charging state changes from HID reports
     var currentLEDSettings: DualSenseLEDSettings?
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
     var touchpadFramesSinceTouch: Int = 0  // Skip first frames after touch to let position settle
@@ -548,6 +549,7 @@ class ControllerService: ObservableObject {
         resetTouchpadStateLocked()
         resetMotionStateLocked()
         storage.lastMicButtonState = false
+        storage.lastHIDBatteryCharging = nil
         storage.lock.unlock()
     }
 
@@ -658,7 +660,7 @@ class ControllerService: ObservableObject {
         displayIsTouchpadSecondaryTouching = false
     }
 
-    private func updateBatteryInfo() {
+    func updateBatteryInfo() {
         // Use appropriate battery source based on controller type:
         // - DualSense: GCController.battery works reliably
         // - Xbox: Use BluetoothBatteryMonitor workaround (GCController often returns -1/0 on macOS)

@@ -265,5 +265,42 @@ extension ControllerService {
                 }
             }
         }
+
+        // Parse battery charging state from HID report to detect plug/unplug instantly.
+        // Status byte layout: bits 3:0 = capacity (0-10), bits 7:4 = power state
+        // Power state: 0x0 = discharging, 0x1 = charging, 0x2 = complete
+        let batteryStatusOffset: Int
+        if isDualShockController {
+            // DS4: status at common offset 29. USB +1, BT +3
+            batteryStatusOffset = (reportID == 0x11) ? 32 : 30
+        } else {
+            // DualSense: status at common offset 52. USB +1, BT +2
+            batteryStatusOffset = (reportID == 0x31) ? 54 : 53
+        }
+
+        if batteryStatusOffset < length {
+            let statusByte = report[batteryStatusOffset]
+            let isCharging: Bool
+            if isDualShockController {
+                // DS4: bit 4 = cable state (1 = plugged in / charging)
+                isCharging = (statusByte & 0x10) != 0
+            } else {
+                // DualSense: bits 7:4 = power state (0x1 = charging, 0x2 = complete)
+                let powerState = (statusByte >> 4) & 0x0F
+                isCharging = (powerState == 0x01)
+            }
+
+            storage.lock.lock()
+            let previousCharging = storage.lastHIDBatteryCharging
+            storage.lastHIDBatteryCharging = isCharging
+            storage.lock.unlock()
+
+            // On charging state change, immediately update battery light bar
+            if previousCharging != nil && previousCharging != isCharging {
+                DispatchQueue.main.async { [weak self] in
+                    self?.updateBatteryInfo()
+                }
+            }
+        }
     }
 }
