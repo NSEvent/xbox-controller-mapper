@@ -239,10 +239,11 @@ class MappingEngine: ObservableObject {
             .filter { $0 == true }
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                if self.controllerService.threadSafeIsDualSense,
+                if self.controllerService.threadSafeIsPlayStation,
                    let ledSettings = self.profileManager.activeProfile?.dualSenseLEDSettings {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         self.controllerService.applyLEDSettings(ledSettings)
+                        self.controllerService.updateBatteryLightBar()
                     }
                 }
             }
