@@ -360,6 +360,14 @@ struct Config {
     // MARK: - Battery Monitoring
     /// Interval between battery info updates (seconds)
     static let batteryUpdateInterval: TimeInterval = 10.0
+
+    // MARK: - Bluetooth Keep-Alive
+    /// Timer fires every 30s to check idle state
+    static let keepAliveCheckInterval: TimeInterval = 30.0
+    /// Only send tickle after 60s of no HID input
+    static let keepAliveIdleThreshold: TimeInterval = 60.0
+    /// UserDefaults key for the keep-alive toggle
+    static let keepAliveEnabledKey: String = "bluetoothKeepAliveEnabled"
 }
 
 // MARK: - Button Colors

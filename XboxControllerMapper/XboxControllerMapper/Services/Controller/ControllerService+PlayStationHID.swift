@@ -157,6 +157,7 @@ extension ControllerService {
 
         storage.lock.lock()
         let isDualShockController = storage.isDualShock
+        storage.lastInputTime = CFAbsoluteTimeGetCurrent()
         storage.lock.unlock()
 
         let buttons3Offset: Int

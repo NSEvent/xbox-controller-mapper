@@ -358,7 +358,7 @@ struct LEDSettingsView: View {
                     HStack {
                         Image(systemName: "info.circle.fill")
                             .foregroundColor(.blue)
-                        Text("LED control requires USB connection on macOS. Settings will be applied when you connect via USB.")
+                        Text("Over Bluetooth, only the light bar color is supported. Player LEDs, mute LED, and brightness require USB.")
                             .font(.callout)
                             .foregroundColor(.secondary)
                     }
@@ -394,7 +394,7 @@ struct LEDSettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .disabled(controllerService.partyModeEnabled)
+                    .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
                 }
             }
 
@@ -408,7 +408,7 @@ struct LEDSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .disabled(controllerService.partyModeEnabled)
+                .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
             }
 
             Section("Player LEDs") {
@@ -418,8 +418,8 @@ struct LEDSettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .disabled(controllerService.partyModeEnabled)
-                .opacity(controllerService.partyModeEnabled ? 0.5 : 1.0)
+                .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
+                .opacity((controllerService.partyModeEnabled || controllerService.isBluetoothConnection) ? 0.5 : 1.0)
 
                 HStack {
                     Text("Presets:")
@@ -435,7 +435,7 @@ struct LEDSettingsView: View {
                     playerPresetButton("All", preset: .allOn)
                     playerPresetButton("Off", preset: .default)
                 }
-                .disabled(controllerService.partyModeEnabled)
+                .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
             }
 
             Section("Party Mode") {
@@ -852,6 +852,7 @@ struct SliderRow: View {
 
 struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var controllerService: ControllerService
 
     @AppStorage("launchAtLogin") private var launchAtLogin = false
 
@@ -909,6 +910,29 @@ struct SettingsSheet: View {
                 } header: {
                     Text("Third-Party Controllers")
                 }
+
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { ControllerService.isKeepAliveEnabled },
+                        set: { newValue in
+                            ControllerService.isKeepAliveEnabled = newValue
+                            if newValue {
+                                controllerService.startKeepAliveTimer()
+                            } else {
+                                controllerService.stopKeepAliveTimer()
+                            }
+                        }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Prevent Controller Sleep")
+                            Text("Sends periodic signals to keep PlayStation controllers awake over Bluetooth")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Bluetooth")
+                }
             }
             .formStyle(.grouped)
 
@@ -925,7 +949,7 @@ struct SettingsSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 380, height: 400)
+        .frame(width: 380, height: 460)
     }
 
     private func refreshDatabase() {

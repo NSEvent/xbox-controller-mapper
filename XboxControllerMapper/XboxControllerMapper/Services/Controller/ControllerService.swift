@@ -34,6 +34,7 @@ final class ControllerStorage: @unchecked Sendable {
     var isDualSenseEdge: Bool = false
     var isDualShock: Bool = false  // PS4 DualShock 4 controller
     var isBluetoothConnection: Bool = false
+    var lastInputTime: TimeInterval = 0
     var currentLEDSettings: DualSenseLEDSettings?
     var pendingTouchpadDelta: CGPoint? = nil  // Delayed by 1 frame to filter lift artifacts
     var touchpadFramesSinceTouch: Int = 0  // Skip first frames after touch to let position settle
@@ -153,6 +154,7 @@ class ControllerService: ObservableObject {
     var hidReportBuffer: UnsafeMutablePointer<UInt8>?
     var hidDevice: IOHIDDevice?
     var bluetoothOutputSeq: UInt8 = 0  // Sequence number for Bluetooth output reports (0-15)
+    var keepAliveTimer: DispatchSourceTimer?
 
     // Generic HID controller fallback (for controllers not recognized by GameController framework)
     var genericHIDManager: IOHIDManager?
@@ -521,6 +523,7 @@ class ControllerService: ObservableObject {
         batteryState = .unknown
         batteryMonitor.resetBatteryLevel()  // Clear stale battery reading
         stopDisplayUpdateTimer()
+        stopKeepAliveTimer()
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
 
@@ -758,6 +761,7 @@ class ControllerService: ObservableObject {
 
             // Set up HID monitoring for PS button, mic, and Edge paddles
             setupPlayStationHIDMonitoring()
+            startKeepAliveTimer()
         }
 
         // DualShock 4-specific: Touchpad support (same API as DualSense)
@@ -780,6 +784,7 @@ class ControllerService: ObservableObject {
 
             // Set up HID monitoring for PS button
             setupPlayStationHIDMonitoring()
+            startKeepAliveTimer()
         }
     }
 

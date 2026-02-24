@@ -1,4 +1,5 @@
 import Foundation
+import GameController
 import IOKit
 import IOKit.hid
 import SwiftUI
@@ -82,7 +83,10 @@ extension ControllerService {
         }
     }
 
-    /// Applies LED settings to the connected DualSense controller
+    /// Applies LED settings to the connected DualSense controller.
+    /// Over USB: sends a full HID output report (light bar, player LEDs, mute LED, brightness).
+    /// Over Bluetooth: uses GCController.light for the light bar color (only channel macOS allows).
+    ///   Player LEDs, mute button LED, and brightness require USB.
     func applyLEDSettings(_ settings: DualSenseLEDSettings) {
         storage.lock.lock()
         let isDualSense = storage.isDualSense
@@ -90,20 +94,52 @@ extension ControllerService {
         storage.currentLEDSettings = settings
         storage.lock.unlock()
 
-        guard isDualSense, let device = hidDevice else {
+        guard isDualSense else {
             #if DEBUG
-            print("[LED] No DualSense device available (isDualSense=\(isDualSense), hidDevice=\(hidDevice != nil))")
+            print("[LED] No DualSense device available (isDualSense=\(isDualSense))")
             #endif
             return
         }
 
-        #if DEBUG
-        print("[LED] Applying settings via \(isBluetooth ? "Bluetooth" : "USB")")
-        #endif
         if isBluetooth {
-            sendBluetoothOutputReport(device: device, settings: settings)
+            #if DEBUG
+            print("[LED] Applying light bar color via GCController.light (Bluetooth)")
+            #endif
+            applyLightBarViaBluetooth(settings: settings)
         } else {
+            guard let device = hidDevice else {
+                #if DEBUG
+                print("[LED] No HID device available for USB report")
+                #endif
+                return
+            }
+            #if DEBUG
+            print("[LED] Applying settings via USB")
+            #endif
             sendUSBOutputReport(device: device, settings: settings)
+        }
+    }
+
+    /// Sets light bar color via GCController.light — works over Bluetooth.
+    /// This is the only LED control channel macOS exposes over BT.
+    private func applyLightBarViaBluetooth(settings: DualSenseLEDSettings) {
+        guard let controller = connectedController,
+              let light = controller.light else {
+            #if DEBUG
+            print("[LED] GCController.light not available")
+            #endif
+            return
+        }
+
+        if settings.lightBarEnabled {
+            let brightness = Double(settings.lightBarBrightness.multiplier) / 255.0
+            light.color = GCColor(
+                red: Float(settings.lightBarColor.red * brightness),
+                green: Float(settings.lightBarColor.green * brightness),
+                blue: Float(settings.lightBarColor.blue * brightness)
+            )
+        } else {
+            light.color = GCColor(red: 0, green: 0, blue: 0)
         }
     }
 
