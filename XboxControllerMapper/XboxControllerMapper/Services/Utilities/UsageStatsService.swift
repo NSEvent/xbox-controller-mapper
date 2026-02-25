@@ -240,20 +240,24 @@ class UsageStatsService: ObservableObject {
     }
 
     private func scheduleSave() {
-        saveWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             self?.saveNow()
         }
+        lock.lock()
+        saveWorkItem?.cancel()
         saveWorkItem = item
+        lock.unlock()
         backgroundQueue.asyncAfter(deadline: .now() + timing.saveDelaySeconds, execute: item)
     }
 
     private func schedulePublish() {
-        publishWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             self?.publishSnapshot()
         }
+        lock.lock()
+        publishWorkItem?.cancel()
         publishWorkItem = item
+        lock.unlock()
         backgroundQueue.asyncAfter(deadline: .now() + timing.publishDelaySeconds, execute: item)
     }
 
@@ -274,10 +278,10 @@ class UsageStatsService: ObservableObject {
             let snapshot = workingStats
             isDirty = false
             isPublishScheduled = false
+            publishWorkItem?.cancel()
+            publishWorkItem = nil
             return snapshot
         }
-        publishWorkItem?.cancel()
-        publishWorkItem = nil
 
         do {
             let encoder = JSONEncoder()

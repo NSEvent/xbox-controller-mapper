@@ -98,13 +98,19 @@ class ScriptEngine {
     }
 
     /// Clear all script state (called on profile switch)
+    /// Routed through scriptQueue to avoid racing with concurrent script execution.
     func clearState() {
-        scriptState.removeAll()
+        scriptQueue.async {
+            self.scriptState.removeAll()
+        }
     }
 
     /// Remove persisted state for a specific script (call when a script is deleted)
+    /// Routed through scriptQueue to avoid racing with concurrent script execution.
     func removeState(for scriptId: UUID) {
-        scriptState.removeValue(forKey: scriptId)
+        scriptQueue.async {
+            self.scriptState.removeValue(forKey: scriptId)
+        }
     }
 
     // MARK: - Internal Execution

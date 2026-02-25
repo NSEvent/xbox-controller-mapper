@@ -83,6 +83,9 @@ extension ProfileManager {
         }
 
         updateProfile(targetProfile)
+
+        // Clean up orphaned script state in the engine
+        ServiceContainer.shared.mappingEngine.scriptEngine.removeState(for: script.id)
     }
 
     func updateScript(_ script: Script, in profile: Profile? = nil) {

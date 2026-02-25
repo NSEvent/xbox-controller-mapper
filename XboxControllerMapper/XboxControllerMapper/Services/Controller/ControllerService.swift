@@ -408,6 +408,8 @@ class ControllerService: ObservableObject {
     private let batteryMonitor = BluetoothBatteryMonitor()
 
     // Haptic engines for controller feedback (try multiple localities)
+    // Protected by hapticLock — accessed from both @MainActor (setup/stop) and hapticQueue (play)
+    let hapticLock = NSLock()
     var hapticEngines: [CHHapticEngine] = []
     let hapticQueue = DispatchQueue(label: "com.xboxmapper.haptic", qos: .userInitiated)
     struct ActiveHapticPlayer {

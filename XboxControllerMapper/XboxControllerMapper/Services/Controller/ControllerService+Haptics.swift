@@ -15,6 +15,7 @@ extension ControllerService {
         // Try multiple localities - Xbox controllers may respond to different ones
         let localities: [GCHapticsLocality] = [.default, .handles, .leftHandle, .rightHandle, .leftTrigger, .rightTrigger]
 
+        var newEngines: [CHHapticEngine] = []
         for locality in localities {
             if let engine = haptics.createEngine(withLocality: locality) {
                 engine.resetHandler = { [weak engine] in
@@ -23,19 +24,26 @@ extension ControllerService {
                 }
                 do {
                     try engine.start()
-                    hapticEngines.append(engine)
+                    newEngines.append(engine)
                 } catch {
                     // Engine startup failed, continue to next locality
                 }
             }
         }
+        hapticLock.lock()
+        hapticEngines = newEngines
+        hapticLock.unlock()
     }
 
     func stopHaptics() {
-        for engine in hapticEngines {
+        hapticLock.lock()
+        let engines = hapticEngines
+        hapticEngines.removeAll()
+        activeHapticPlayers.removeAll()
+        hapticLock.unlock()
+        for engine in engines {
             engine.stop()
         }
-        hapticEngines.removeAll()
     }
 
     /// Plays a haptic pulse on the controller
@@ -45,11 +53,18 @@ extension ControllerService {
     nonisolated func playHaptic(intensity: Float = 0.5, sharpness: Float = 0.5, duration: TimeInterval = 0.1, transient: Bool = false) {
         hapticQueue.async { [weak self] in
             guard let self = self else { return }
-            guard !self.hapticEngines.isEmpty else { return }
+
+            // Snapshot engines under lock
+            self.hapticLock.lock()
+            let engines = self.hapticEngines
+            self.hapticLock.unlock()
+            guard !engines.isEmpty else { return }
 
             // Prune expired players to avoid truncating overlapping haptics
             let now = CFAbsoluteTimeGetCurrent()
+            self.hapticLock.lock()
             self.activeHapticPlayers.removeAll { $0.endTime <= now }
+            self.hapticLock.unlock()
 
             do {
                 let event: CHHapticEvent
@@ -81,23 +96,27 @@ extension ControllerService {
 
                 // Play on all available engines for maximum effect
                 // Retain players so they aren't deallocated before playback completes
-                for engine in self.hapticEngines {
+                var newPlayers: [ActiveHapticPlayer] = []
+                for engine in engines {
                     do {
                         let player = try engine.makePlayer(with: pattern)
-                        self.activeHapticPlayers.append(ActiveHapticPlayer(player: player, endTime: endTime))
+                        newPlayers.append(ActiveHapticPlayer(player: player, endTime: endTime))
                         try player.start(atTime: CHHapticTimeImmediate)
                     } catch {
                         // Try to restart engine and retry once
                         try? engine.start()
                         if let player = try? engine.makePlayer(with: pattern) {
-                            self.activeHapticPlayers.append(ActiveHapticPlayer(player: player, endTime: endTime))
+                            newPlayers.append(ActiveHapticPlayer(player: player, endTime: endTime))
                             try? player.start(atTime: CHHapticTimeImmediate)
                         }
                     }
                 }
+                self.hapticLock.lock()
+                self.activeHapticPlayers.append(contentsOf: newPlayers)
                 if self.activeHapticPlayers.count > 12 {
                     self.activeHapticPlayers.removeFirst(self.activeHapticPlayers.count - 12)
                 }
+                self.hapticLock.unlock()
             } catch {
                 // Haptic pattern error, continue silently
             }
