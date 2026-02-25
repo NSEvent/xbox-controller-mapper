@@ -111,6 +111,23 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         CGFloat(UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0)
     }
 
+    /// Returns whether Accessibility Zoom is currently active by checking UserDefaults directly.
+    /// More reliable than `UAZoomEnabled()` which may return stale results on some macOS versions.
+    static func isZoomCurrentlyActive() -> Bool {
+        let defaults = UserDefaults(suiteName: "com.apple.universalaccess")
+        return (defaults?.bool(forKey: "closeViewZoomedIn") ?? false)
+            && (defaults?.double(forKey: "closeViewZoomFactor") ?? 1.0) > 1.0
+    }
+
+    /// Returns the last tracked cursor position regardless of zoom state.
+    /// Unlike `getTrackedCursorPosition()`, this does not gate on `UAZoomEnabled()`.
+    /// Used by overlay indicators that manage their own zoom detection via UserDefaults.
+    static func getLastTrackedPosition() -> CGPoint? {
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return sharedTrackedPosition
+    }
+
     /// Updates the shared tracked position (called from moveMouse)
     private static func updateSharedTrackedPosition(_ point: CGPoint?, delta: CGPoint = .zero) {
         sharedLock.lock()

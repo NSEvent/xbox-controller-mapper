@@ -20,6 +20,8 @@ class FocusModeIndicator {
     private var panel: NSPanel?
     private var trackingTimer: Timer?
     private var isVisible = false
+    /// Last confirmed physical cursor position during zoom (NS coords)
+    private var lastPhysicalPosition: NSPoint?
 
     // Ring appearance settings - matches the app's "jewel" aesthetic
     private let ringSize: CGFloat = 32
@@ -103,24 +105,40 @@ class FocusModeIndicator {
         trackingTimer = nil
     }
 
-    /// Returns the cursor location in NS screen coordinates.
-    /// The panel is at .screenSaver level (above the zoom compositing layer), so during
-    /// Accessibility Zoom we need the visual/physical cursor position, not the virtual one.
-    /// CGEvent(source:nil).location consistently returns the visual position during zoom.
-    private func cursorLocationInScreenCoords() -> NSPoint {
-        if UAZoomEnabled(), let cgLocation = CGEvent(source: nil)?.location {
-            let screenHeight = NSScreen.main?.frame.height ?? 0
-            return NSPoint(x: cgLocation.x, y: screenHeight - cgLocation.y)
-        }
-        return NSEvent.mouseLocation
-    }
-
     private func updatePosition() {
         guard let panel = panel else { return }
 
         let offset = ringSize / 2
-        let mouseLocation = cursorLocationInScreenCoords()
-        panel.setFrameOrigin(NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset))
+        let zoomLevel = InputSimulator.getZoomLevel()
+        let isZoomed = InputSimulator.isZoomCurrentlyActive() && zoomLevel > 1.0
+        let tracked = InputSimulator.getLastTrackedPosition()
+        let mouseLocation = NSEvent.mouseLocation
+
+        if isZoomed, let tracked = tracked {
+            // During Accessibility Zoom, NSEvent.mouseLocation oscillates between
+            // virtual (absolute) and physical (visual) cursor positions on alternating
+            // reads. Filter out virtual readings by comparing to our tracked position.
+            let screenHeight = NSScreen.screens.first?.frame.height ?? 1329
+            let virtualNS = NSPoint(x: tracked.x, y: screenHeight - tracked.y)
+
+            let tolerance: CGFloat = 10
+            let isVirtualReading = abs(mouseLocation.x - virtualNS.x) < tolerance
+                                && abs(mouseLocation.y - virtualNS.y) < tolerance
+
+            let cursorPos: NSPoint
+            if isVirtualReading {
+                guard let last = lastPhysicalPosition else { return }
+                cursorPos = last
+            } else {
+                lastPhysicalPosition = mouseLocation
+                cursorPos = mouseLocation
+            }
+
+            panel.setFrameOrigin(NSPoint(x: cursorPos.x - offset, y: cursorPos.y - offset))
+        } else {
+            lastPhysicalPosition = nil
+            panel.setFrameOrigin(NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset))
+        }
     }
 }
 

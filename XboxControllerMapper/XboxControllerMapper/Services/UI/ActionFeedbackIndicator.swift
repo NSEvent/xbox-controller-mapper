@@ -24,6 +24,9 @@ class ActionFeedbackIndicator {
     private var trackingTimer: Timer?
     private var isVisible = false
     private var showTime: Date?  // When the indicator was shown
+    /// Last confirmed physical cursor position during zoom (NS coords).
+    /// Used to filter out virtual readings from NSEvent.mouseLocation oscillation.
+    private var lastPhysicalPosition: NSPoint?
 
     /// Currently held actions (maps action string to input type for display)
     private var heldActions: [String: InputEventType] = [:]
@@ -215,27 +218,47 @@ class ActionFeedbackIndicator {
         trackingTimer = nil
     }
 
-    /// Returns the cursor location in NS screen coordinates.
-    /// The panel is at .screenSaver level (above the zoom compositing layer), so during
-    /// Accessibility Zoom we need the visual/physical cursor position, not the virtual one.
-    /// CGEvent(source:nil).location consistently returns the visual position during zoom.
-    /// NSEvent.mouseLocation is unreliable during zoom (oscillates between values).
-    private func cursorLocationInScreenCoords() -> NSPoint {
-        if UAZoomEnabled(), let cgLocation = CGEvent(source: nil)?.location {
-            let screenHeight = NSScreen.main?.frame.height ?? 0
-            return NSPoint(x: cgLocation.x, y: screenHeight - cgLocation.y)
-        }
-        return NSEvent.mouseLocation
-    }
-
     private func updatePosition() {
         guard let panel = panel else { return }
 
         let panelSize = panel.frame.size
-        let mouseLocation = cursorLocationInScreenCoords()
-        let x = mouseLocation.x - panelSize.width / 2
-        let y = mouseLocation.y + cursorOffset
-        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        let zoomLevel = InputSimulator.getZoomLevel()
+
+        let isZoomed = InputSimulator.isZoomCurrentlyActive() && zoomLevel > 1.0
+        let tracked = InputSimulator.getLastTrackedPosition()
+        let mouseLocation = NSEvent.mouseLocation
+
+        if isZoomed, let tracked = tracked {
+            // During Accessibility Zoom, NSEvent.mouseLocation oscillates between
+            // virtual (absolute) and physical (visual) cursor positions on alternating
+            // reads. Filter out virtual readings by comparing to our tracked position.
+            let screenHeight = NSScreen.screens.first?.frame.height ?? 1329
+            let virtualNS = NSPoint(x: tracked.x, y: screenHeight - tracked.y)
+
+            let tolerance: CGFloat = 10
+            let isVirtualReading = abs(mouseLocation.x - virtualNS.x) < tolerance
+                                && abs(mouseLocation.y - virtualNS.y) < tolerance
+
+            let cursorPos: NSPoint
+            if isVirtualReading {
+                // Virtual reading — use last known physical position
+                guard let last = lastPhysicalPosition else { return }
+                cursorPos = last
+            } else {
+                // Physical reading — save and use it
+                lastPhysicalPosition = mouseLocation
+                cursorPos = mouseLocation
+            }
+
+            let x = cursorPos.x - panelSize.width / 2
+            let y = cursorPos.y + cursorOffset
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+        } else {
+            lastPhysicalPosition = nil
+            let x = mouseLocation.x - panelSize.width / 2
+            let y = mouseLocation.y + cursorOffset
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
+        }
     }
 }
 
