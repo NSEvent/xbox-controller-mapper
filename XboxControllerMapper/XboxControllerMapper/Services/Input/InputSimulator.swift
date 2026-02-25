@@ -1234,7 +1234,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             &eventData,
             UInt32(kNXEventDataVersion),
             0,  // eventFlags
-            0   // options — NO kIOHIDSetCursorPosition
+            IOOptionBits(kIOHIDSetCursorPosition)  // set position for correct click targeting
         )
 
         if result != KERN_SUCCESS {
