@@ -158,7 +158,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     
     /// Dedicated high-priority queue for mouse movement (avoids blocking by keyboard sleeps)
     private let mouseQueue = DispatchQueue(label: "com.xboxmapper.mouse", qos: .userInteractive)
-    
+
+    /// IOHIDSystem connection for posting mouse events without cursor repositioning during zoom.
+    /// IOHIDPostEvent with options=0 (no kIOHIDSetCursorPosition) avoids the zoom compositor
+    /// briefly flashing the cursor at its virtual/absolute position.
+    private var hidSystemConnection: io_connect_t = 0
+    private var hidSystemConnectionAttempted = false
+
     /// Lock for protecting shared state
     private let stateLock = NSLock()
 
@@ -554,7 +560,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // This prevents Accessibility Zoom coordinate transformations from causing
             // cursor "reset" behavior when reading position each frame
             let now = Date()
-            let zoomActive = UAZoomEnabled()
+            let zoomActive = Self.isZoomCurrentlyActive()
             let currentCGPoint: CGPoint
 
             // If there's been no movement for 2+ seconds, clear tracked position
@@ -646,9 +652,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // Pass the movement delta for relative positioning during zoom
             Self.updateSharedTrackedPosition(newPoint, delta: CGPoint(x: moveX, y: moveY))
 
-            // If Accessibility Zoom is enabled, tell it to focus on the new cursor position
+            // If Accessibility Zoom is active, tell it to focus on the new cursor position
             // This helps the zoom viewport follow the cursor movement
-            if UAZoomEnabled() {
+            if zoomActive {
                 var focusRect = CGRect(x: newPoint.x - 1, y: newPoint.y - 1, width: 2, height: 2)
                 UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
             }
@@ -1055,29 +1061,42 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             self.stateLock.unlock()
 
-            let zoomActive = UAZoomEnabled()
+            let zoomActive = Self.isZoomCurrentlyActive()
 
-            if let event = CGEvent(
-                mouseEventSource: source,
-                mouseType: downType,
-                mouseCursorPosition: cgLocation,
-                mouseButton: button
-            ) {
-                event.setIntegerValueField(.mouseEventClickState, value: clickCount)
-                event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
-                // Set zero deltas so the zoom system treats this as an in-place event
-                event.setIntegerValueField(.mouseEventDeltaX, value: 0)
-                event.setIntegerValueField(.mouseEventDeltaY, value: 0)
-                // Set pressure so system tools (screencapture, etc.) recognize the click
-                event.setDoubleValueField(.mouseEventPressure, value: 1.0)
-                event.post(tap: .cghidEventTap)
-            } else {
-                NSLog("[InputSimulator] Failed to create mouse-down event for button %d - check Accessibility permissions", button.rawValue)
+            // During Accessibility Zoom, CGEvent mouse-down events cause the zoom
+            // compositor's software cursor to briefly flash at the virtual/absolute
+            // position. Use IOHIDPostEvent without kIOHIDSetCursorPosition to deliver
+            // the click without triggering cursor repositioning.
+            var posted = false
+            if zoomActive {
+                posted = self.postMouseEventViaHID(
+                    down: true,
+                    at: cgLocation,
+                    button: button,
+                    clickCount: clickCount,
+                    eventNumber: eventNumber
+                )
             }
 
-            // Immediately re-focus the zoom viewport after the click event.
-            // The CGEvent's absolute position can briefly displace the viewport;
-            // snapping it back here minimises any visible flash.
+            if !posted {
+                // Normal path (no zoom) or IOHIDPostEvent fallback
+                if let event = CGEvent(
+                    mouseEventSource: source,
+                    mouseType: downType,
+                    mouseCursorPosition: cgLocation,
+                    mouseButton: button
+                ) {
+                    event.setIntegerValueField(.mouseEventClickState, value: clickCount)
+                    event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
+                    event.setIntegerValueField(.mouseEventDeltaX, value: 0)
+                    event.setIntegerValueField(.mouseEventDeltaY, value: 0)
+                    event.setDoubleValueField(.mouseEventPressure, value: 1.0)
+                    event.post(tap: .cghidEventTap)
+                } else {
+                    NSLog("[InputSimulator] Failed to create mouse-down event for button %d - check Accessibility permissions", button.rawValue)
+                }
+            }
+
             if zoomActive {
                 var focusRect = CGRect(x: cgLocation.x - 1, y: cgLocation.y - 1, width: 2, height: 2)
                 UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
@@ -1107,22 +1126,35 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             self.stateLock.unlock()
 
-            let zoomActive = UAZoomEnabled()
+            let zoomActive = Self.isZoomCurrentlyActive()
 
-            if let event = CGEvent(
-                mouseEventSource: source,
-                mouseType: upType,
-                mouseCursorPosition: cgLocation,
-                mouseButton: button
-            ) {
-                event.setIntegerValueField(.mouseEventClickState, value: clickCount)
-                event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
-                event.setIntegerValueField(.mouseEventDeltaX, value: 0)
-                event.setIntegerValueField(.mouseEventDeltaY, value: 0)
-                event.setDoubleValueField(.mouseEventPressure, value: 0.0)
-                event.post(tap: .cghidEventTap)
-            } else {
-                NSLog("[InputSimulator] Failed to create mouse-up event for button %d - check Accessibility permissions", button.rawValue)
+            var posted = false
+            if zoomActive {
+                posted = self.postMouseEventViaHID(
+                    down: false,
+                    at: cgLocation,
+                    button: button,
+                    clickCount: clickCount,
+                    eventNumber: eventNumber
+                )
+            }
+
+            if !posted {
+                if let event = CGEvent(
+                    mouseEventSource: source,
+                    mouseType: upType,
+                    mouseCursorPosition: cgLocation,
+                    mouseButton: button
+                ) {
+                    event.setIntegerValueField(.mouseEventClickState, value: clickCount)
+                    event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
+                    event.setIntegerValueField(.mouseEventDeltaX, value: 0)
+                    event.setIntegerValueField(.mouseEventDeltaY, value: 0)
+                    event.setDoubleValueField(.mouseEventPressure, value: 0.0)
+                    event.post(tap: .cghidEventTap)
+                } else {
+                    NSLog("[InputSimulator] Failed to create mouse-up event for button %d - check Accessibility permissions", button.rawValue)
+                }
             }
 
             if zoomActive {
@@ -1130,6 +1162,86 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
             }
         }
+    }
+
+    // MARK: - IOHIDPostEvent for zoom-safe mouse clicks
+
+    /// Opens a connection to the HID system for IOHIDPostEvent. Returns true if ready.
+    private func ensureHIDSystemConnection() -> Bool {
+        if hidSystemConnection != 0 { return true }
+        if hidSystemConnectionAttempted { return false }
+        hidSystemConnectionAttempted = true
+
+        guard let matching = IOServiceMatching(kIOHIDSystemClass) else { return false }
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, matching)
+        guard service != IO_OBJECT_NULL else {
+            NSLog("[InputSimulator] Could not find IOHIDSystem service")
+            return false
+        }
+        defer { IOObjectRelease(service) }
+
+        let result = IOServiceOpen(service, mach_task_self_, UInt32(kIOHIDParamConnectType), &hidSystemConnection)
+        if result != KERN_SUCCESS {
+            NSLog("[InputSimulator] Could not open IOHIDSystem connection: %d", result)
+            return false
+        }
+        return true
+    }
+
+    /// Posts a mouse button event via IOHIDPostEvent WITHOUT kIOHIDSetCursorPosition.
+    /// This delivers the click at the specified location but does not trigger cursor
+    /// repositioning, avoiding the zoom compositor's cursor flash.
+    /// Returns true if the event was successfully posted.
+    private func postMouseEventViaHID(
+        down: Bool,
+        at location: CGPoint,
+        button: CGMouseButton,
+        clickCount: Int64,
+        eventNumber: Int64
+    ) -> Bool {
+        guard ensureHIDSystemConnection() else { return false }
+
+        let eventType: UInt32
+        if down {
+            switch button {
+            case .left: eventType = UInt32(NX_LMOUSEDOWN)
+            case .right: eventType = UInt32(NX_RMOUSEDOWN)
+            default: eventType = UInt32(NX_OMOUSEDOWN)
+            }
+        } else {
+            switch button {
+            case .left: eventType = UInt32(NX_LMOUSEUP)
+            case .right: eventType = UInt32(NX_RMOUSEUP)
+            default: eventType = UInt32(NX_OMOUSEUP)
+            }
+        }
+
+        var point = IOGPoint(x: Int16(clamping: Int(location.x)), y: Int16(clamping: Int(location.y)))
+
+        var eventData = NXEventData()
+        withUnsafeMutablePointer(to: &eventData) { ptr in
+            memset(UnsafeMutableRawPointer(ptr), 0, MemoryLayout<NXEventData>.size)
+        }
+        eventData.mouse.buttonNumber = UInt8(button.rawValue)
+        eventData.mouse.click = Int32(clickCount)
+        eventData.mouse.pressure = UInt8(down ? 255 : 0)
+        eventData.mouse.eventNum = Int16(clamping: eventNumber)
+
+        let result = IOHIDPostEvent(
+            hidSystemConnection,
+            eventType,
+            point,
+            &eventData,
+            UInt32(kNXEventDataVersion),
+            0,  // eventFlags
+            0   // options — NO kIOHIDSetCursorPosition
+        )
+
+        if result != KERN_SUCCESS {
+            NSLog("[InputSimulator] IOHIDPostEvent failed: %d", result)
+            return false
+        }
+        return true
     }
 
     private func mouseEventType(for keyCode: CGKeyCode, down: Bool) -> (CGEventType, CGMouseButton) {
@@ -1150,7 +1262,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let fallbackLocation = NSEvent.mouseLocation
         let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
         return MouseClickLocationPolicy.resolve(
-            zoomActive: UAZoomEnabled(),
+            zoomActive: Self.isZoomCurrentlyActive(),
             trackedCursorPosition: trackedCursorPosition,
             lastControllerMoveTime: lastMouseMoveTime,
             fallbackMouseLocation: fallbackLocation,
