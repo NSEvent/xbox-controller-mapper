@@ -145,8 +145,8 @@ struct JoystickSettings: Codable, Equatable {
         let range = 0.0...1.0
         return range.contains(mouseSensitivity) &&
                range.contains(scrollSensitivity) &&
-               range.contains(mouseDeadzone) &&
-               range.contains(scrollDeadzone) &&
+               (0.0...0.99).contains(mouseDeadzone) &&
+               (0.0...0.99).contains(scrollDeadzone) &&
                range.contains(mouseAcceleration) &&
                range.contains(touchpadSensitivity) &&
                range.contains(touchpadAcceleration) &&
@@ -268,12 +268,12 @@ extension JoystickSettings {
         )
         mouseDeadzone = Self.clamp(
             try container.decodeIfPresent(Double.self, forKey: .mouseDeadzone) ?? 0.15,
-            to: 0.0...1.0,
+            to: 0.0...0.99,
             fallback: 0.15
         )
         scrollDeadzone = Self.clamp(
             try container.decodeIfPresent(Double.self, forKey: .scrollDeadzone) ?? 0.15,
-            to: 0.0...1.0,
+            to: 0.0...0.99,
             fallback: 0.15
         )
         invertMouseY = try container.decodeIfPresent(Bool.self, forKey: .invertMouseY) ?? false

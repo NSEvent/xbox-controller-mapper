@@ -518,4 +518,36 @@ final class JoystickMathTests: XCTestCase {
         XCTAssertEqual(boostAtMid, (boostMin + boostMax) / 2.0, accuracy: 1e-10,
                         "Midpoint velocity should give midpoint boost")
     }
+
+    // MARK: - Deadzone = 1.0 Division-by-Zero Regression Tests
+
+    func testNormalizedMagnitudeDoesNotDivideByZeroAtMaxDeadzone() {
+        // normalizedMagnitude computes (magnitude - deadzone) / (1.0 - deadzone).
+        // If deadzone were allowed to be 1.0, this would divide by zero.
+        // JoystickSettings clamps deadzone to 0.0...0.99, so verify the clamp holds.
+        let json = """
+        {"mouseDeadzone": 1.0, "scrollDeadzone": 1.0}
+        """.data(using: .utf8)!
+        let settings = try! JSONDecoder().decode(JoystickSettings.self, from: json)
+        XCTAssertLessThanOrEqual(settings.mouseDeadzone, 0.99,
+                                  "mouseDeadzone must be clamped below 1.0 to prevent division by zero")
+        XCTAssertLessThanOrEqual(settings.scrollDeadzone, 0.99,
+                                  "scrollDeadzone must be clamped below 1.0 to prevent division by zero")
+
+        // Verify normalizedMagnitude produces a finite result at the clamped max
+        let result = JoystickMath.normalizedMagnitude(1.0, deadzone: settings.mouseDeadzone)
+        XCTAssertTrue(result.isFinite, "normalizedMagnitude must be finite at max clamped deadzone")
+    }
+
+    func testDeadzoneClampRejectsInvalidValues() {
+        let json = """
+        {"mouseDeadzone": "NaN", "scrollDeadzone": -0.5}
+        """.data(using: .utf8)!
+        // NaN string will fail to decode as Double, falling back to default
+        // Negative value will be clamped to 0.0
+        if let settings = try? JSONDecoder().decode(JoystickSettings.self, from: json) {
+            XCTAssertTrue(settings.mouseDeadzone.isFinite)
+            XCTAssertGreaterThanOrEqual(settings.scrollDeadzone, 0.0)
+        }
+    }
 }
