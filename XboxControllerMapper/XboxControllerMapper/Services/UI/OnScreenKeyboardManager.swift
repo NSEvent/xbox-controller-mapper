@@ -278,6 +278,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private(set) var activateAllWindows: Bool = true
     private var hapticHandler: (() -> Void)?
     private var cancellables = Set<AnyCancellable>()
+    private var swipeTypingCancellable: AnyCancellable?
 
     private var globalMonitor: Any?
     private var localMonitor: Any?
@@ -530,12 +531,11 @@ class OnScreenKeyboardManager: ObservableObject {
         self.panelCreatedForDisplayID = currentScreen?.displayID
 
         // Disable window dragging while swipe mode is active
-        SwipeTypingEngine.shared.$state
+        swipeTypingCancellable = SwipeTypingEngine.shared.$state
             .receive(on: DispatchQueue.main)
             .sink { [weak panel] swipeState in
                 panel?.isMovableByWindowBackground = (swipeState == .idle)
             }
-            .store(in: &cancellables)
 
         // Observe keyboard panel movement to reposition buffer panel
         if let observer = panelMovedObserver {
@@ -1484,11 +1484,14 @@ class OnScreenKeyboardManager: ObservableObject {
 
     // MARK: - Swipe Typing
 
-    /// Types a swiped word: appends to the typing buffer and types the text
+    /// Types a swiped word: appends to the typing buffer and types the text.
+    /// Automatically prepends a space before the 2nd+ swiped word in a session.
     func typeSwipedWord(_ text: String) {
-        typingBuffer.append(text)
+        let needsSpace = SwipeTypingEngine.shared.confirmedWordCount > 1
+        let textToType = needsSpace ? " \(text)" : text
+        typingBuffer.append(textToType)
         updateBufferPanel()
-        typeText(text)
+        typeText(textToType)
     }
 
     // MARK: - Test Support

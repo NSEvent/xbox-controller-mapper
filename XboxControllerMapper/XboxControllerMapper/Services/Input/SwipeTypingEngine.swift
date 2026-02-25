@@ -26,6 +26,10 @@ class SwipeTypingEngine: ObservableObject {
     @Published var selectedPredictionIndex: Int = 0
     @Published var cursorPosition: CGPoint = CGPoint(x: 0.5, y: 0.5)
 
+    /// Number of words confirmed in the current swipe session (reset on deactivate/activate).
+    /// Used to auto-insert a space before the 2nd+ swiped word.
+    private(set) var confirmedWordCount: Int = 0
+
     // MARK: - Thread-Safe Locked Storage
 
     /// All mutable state shared between the polling thread and the main actor is held
@@ -114,6 +118,7 @@ class SwipeTypingEngine: ObservableObject {
             self.swipePath = []
             self.predictions = []
             self.selectedPredictionIndex = 0
+            self.confirmedWordCount = 0
         }
     }
 
@@ -130,6 +135,7 @@ class SwipeTypingEngine: ObservableObject {
             self.swipePath = []
             self.predictions = []
             self.selectedPredictionIndex = 0
+            self.confirmedWordCount = 0
         }
     }
 
@@ -262,6 +268,7 @@ class SwipeTypingEngine: ObservableObject {
     func confirmSelection() -> String? {
         guard state == .showingPredictions, !predictions.isEmpty else { return nil }
         let word = predictions[selectedPredictionIndex].word
+        confirmedWordCount += 1
         resetToActive()
         return word
     }
@@ -317,6 +324,36 @@ class SwipeTypingEngine: ObservableObject {
             }
         }
     }
+
+    // MARK: - Test Support
+
+    #if DEBUG
+    /// Sets the engine to `.showingPredictions` with the given predictions.
+    /// Allows tests to exercise prediction confirm/cancel without the ML model.
+    func testSetShowingPredictions(_ words: [String]) {
+        state = .showingPredictions
+        predictions = words.map { SwipeTypingPrediction(word: $0, confidence: 1.0) }
+        selectedPredictionIndex = 0
+        storage.withLock { s in
+            s.state = .showingPredictions
+        }
+    }
+
+    /// Resets all engine state synchronously. Use in test setUp/tearDown instead of
+    /// deactivateMode() which dispatches resets asynchronously.
+    func testReset() {
+        state = .idle
+        swipePath = []
+        predictions = []
+        selectedPredictionIndex = 0
+        confirmedWordCount = 0
+        storage.withLock { s in
+            s.state = .idle
+            s.swipePath = []
+            s.samples = []
+        }
+    }
+    #endif
 
     /// Update cursor position from touchpad delta values.
     /// Called from the controller polling thread. Applies EMA smoothing for fluid motion.

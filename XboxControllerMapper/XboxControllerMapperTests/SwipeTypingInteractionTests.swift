@@ -596,3 +596,99 @@ final class SwipeCursorRoutingTests: XCTestCase {
         XCTAssertEqual(recoveredQuartzY_tl, topLeftQuartzY, accuracy: 0.001)
     }
 }
+
+// MARK: - Swipe Auto-Space Tests
+
+@MainActor
+final class SwipeAutoSpaceTests: XCTestCase {
+    let engine = SwipeTypingEngine.shared
+
+    override func setUp() {
+        super.setUp()
+        engine.testReset()
+    }
+
+    override func tearDown() {
+        engine.testReset()
+        super.tearDown()
+    }
+
+    func testConfirmedWordCount_StartsAtZero() {
+        XCTAssertEqual(engine.confirmedWordCount, 0)
+    }
+
+    func testConfirmedWordCount_IncrementsOnConfirm() {
+        engine.testSetShowingPredictions(["hello"])
+        let word = engine.confirmSelection()
+        XCTAssertEqual(word, "hello")
+        XCTAssertEqual(engine.confirmedWordCount, 1)
+    }
+
+    func testConfirmedWordCount_IncrementsOnSecondConfirm() {
+        // First word
+        engine.testSetShowingPredictions(["hello"])
+        _ = engine.confirmSelection()
+        XCTAssertEqual(engine.confirmedWordCount, 1)
+
+        // Second word
+        engine.testSetShowingPredictions(["world"])
+        _ = engine.confirmSelection()
+        XCTAssertEqual(engine.confirmedWordCount, 2)
+    }
+
+    func testConfirmedWordCount_ResetsOnTestReset() {
+        engine.testSetShowingPredictions(["hello"])
+        _ = engine.confirmSelection()
+        XCTAssertEqual(engine.confirmedWordCount, 1)
+
+        engine.testReset()
+        XCTAssertEqual(engine.confirmedWordCount, 0)
+    }
+
+    func testConfirmedWordCount_NotIncrementedOnCancel() {
+        engine.testSetShowingPredictions(["hello"])
+        engine.cancelPredictions()
+        XCTAssertEqual(engine.confirmedWordCount, 0)
+    }
+
+    func testConfirmedWordCount_NotIncrementedWhenNoPredictions() {
+        // No predictions set — confirmSelection should return nil
+        let word = engine.confirmSelection()
+        XCTAssertNil(word)
+        XCTAssertEqual(engine.confirmedWordCount, 0)
+    }
+
+    func testAutoSpace_FirstWordNoSpace() {
+        engine.testSetShowingPredictions(["hello"])
+        _ = engine.confirmSelection()
+        // confirmedWordCount is 1 — first word, no space needed
+        XCTAssertEqual(engine.confirmedWordCount, 1)
+        XCTAssertFalse(engine.confirmedWordCount > 1)
+    }
+
+    func testAutoSpace_SecondWordNeedsSpace() {
+        engine.testSetShowingPredictions(["hello"])
+        _ = engine.confirmSelection()
+
+        engine.testSetShowingPredictions(["world"])
+        _ = engine.confirmSelection()
+
+        // confirmedWordCount is 2 — second word, space should be prepended
+        XCTAssertEqual(engine.confirmedWordCount, 2)
+        XCTAssertTrue(engine.confirmedWordCount > 1)
+    }
+
+    func testAutoSpace_ThirdWordAlsoNeedsSpace() {
+        engine.testSetShowingPredictions(["hello"])
+        _ = engine.confirmSelection()
+
+        engine.testSetShowingPredictions(["beautiful"])
+        _ = engine.confirmSelection()
+
+        engine.testSetShowingPredictions(["world"])
+        _ = engine.confirmSelection()
+
+        XCTAssertEqual(engine.confirmedWordCount, 3)
+        XCTAssertTrue(engine.confirmedWordCount > 1)
+    }
+}
