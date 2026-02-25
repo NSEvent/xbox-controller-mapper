@@ -256,6 +256,8 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return true  // DualSense only
         case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
             return true  // Edge-only, but still PlayStation family
+        case .gestureTiltBack, .gestureTiltForward, .gestureSteerLeft, .gestureSteerRight:
+            return true  // DualSense gyroscope only
         default:
             return false
         }

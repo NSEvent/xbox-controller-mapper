@@ -27,7 +27,11 @@ final class ControllerButtonCoverageTests: XCTestCase {
             .leftPaddle,
             .rightPaddle,
             .leftFunction,
-            .rightFunction
+            .rightFunction,
+            .gestureTiltBack,
+            .gestureTiltForward,
+            .gestureSteerLeft,
+            .gestureSteerRight,
         ]
 
         let expectedEdgeOnly: Set<ControllerButton> = [
@@ -49,7 +53,11 @@ final class ControllerButtonCoverageTests: XCTestCase {
             .leftPaddle,
             .rightPaddle,
             .leftFunction,
-            .rightFunction
+            .rightFunction,
+            .gestureTiltBack,
+            .gestureTiltForward,
+            .gestureSteerLeft,
+            .gestureSteerRight,
         ]
 
         XCTAssertEqual(dualSenseOnly, expectedDualSenseOnly)
