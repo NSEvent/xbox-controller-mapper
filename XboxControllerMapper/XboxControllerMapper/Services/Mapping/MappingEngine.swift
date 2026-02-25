@@ -115,8 +115,8 @@ class MappingEngine: ObservableObject {
                     duration: Config.webhookFailureHapticDuration,
                     transient: false
                 )
-                DispatchQueue.main.asyncAfter(deadline: .now() + Config.webhookFailureHapticGap + Config.webhookFailureHapticDuration) {
-                    self.controllerService.playHaptic(
+                DispatchQueue.main.asyncAfter(deadline: .now() + Config.webhookFailureHapticGap + Config.webhookFailureHapticDuration) { [weak self] in
+                    self?.controllerService.playHaptic(
                         intensity: Config.webhookFailureHapticIntensity,
                         sharpness: Config.webhookFailureHapticSharpness,
                         duration: Config.webhookFailureHapticDuration,
@@ -241,9 +241,9 @@ class MappingEngine: ObservableObject {
                 guard let self = self else { return }
                 if self.controllerService.threadSafeIsPlayStation,
                    let ledSettings = self.profileManager.activeProfile?.dualSenseLEDSettings {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        self.controllerService.applyLEDSettings(ledSettings)
-                        self.controllerService.updateBatteryLightBar()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                        self?.controllerService.applyLEDSettings(ledSettings)
+                        self?.controllerService.updateBatteryLightBar()
                     }
                 }
             }

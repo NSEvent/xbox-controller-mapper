@@ -164,6 +164,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// briefly flashing the cursor at its virtual/absolute position.
     private var hidSystemConnection: io_connect_t = 0
     private var hidSystemConnectionAttempted = false
+    private var screenChangeObserver: NSObjectProtocol?
 
     /// Lock for protecting shared state
     private let stateLock = NSLock()
@@ -482,12 +483,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         isAccessibilityTrusted = AXIsProcessTrusted()
         
         // Listen for screen changes to invalidate cache
-        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+        screenChangeObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
             self.stateLock.lock()
             self.cachedScreenBounds = nil
             self.cachedPrimaryHeight = nil
             self.stateLock.unlock()
+        }
+    }
+
+    deinit {
+        if let token = screenChangeObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+        if hidSystemConnection != 0 {
+            IOServiceClose(hidSystemConnection)
         }
     }
 

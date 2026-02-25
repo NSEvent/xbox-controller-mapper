@@ -147,10 +147,8 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
             // Battery level is a single byte (0-100)
             let level = Int(value.first ?? 0)
 
-            DispatchQueue.main.async {
-                self.batteryLevel = level
-                // Assuming not charging if on BLE, or we can't tell.
-                // Xbox controllers often just report level.
+            DispatchQueue.main.async { [weak self] in
+                self?.batteryLevel = level
             }
         }
     }

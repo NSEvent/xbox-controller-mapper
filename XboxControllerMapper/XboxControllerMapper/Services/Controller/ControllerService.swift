@@ -441,9 +441,8 @@ class ControllerService: ObservableObject {
         }
 
         guideMonitor.onGuideButtonAction = { [weak self] isPressed in
-            guard let self = self else { return }
-            self.controllerQueue.async {
-                self.handleButton(.xbox, pressed: isPressed)
+            self?.controllerQueue.async { [weak self] in
+                self?.handleButton(.xbox, pressed: isPressed)
             }
         }
     }
@@ -990,8 +989,8 @@ class ControllerService: ObservableObject {
         storage.leftTrigger = value
         storage.lock.unlock()
 
-        controllerQueue.async {
-            self.handleButton(.leftTrigger, pressed: pressed)
+        controllerQueue.async { [weak self] in
+            self?.handleButton(.leftTrigger, pressed: pressed)
         }
     }
 
@@ -1000,8 +999,8 @@ class ControllerService: ObservableObject {
         storage.rightTrigger = value
         storage.lock.unlock()
 
-        controllerQueue.async {
-            self.handleButton(.rightTrigger, pressed: pressed)
+        controllerQueue.async { [weak self] in
+            self?.handleButton(.rightTrigger, pressed: pressed)
         }
     }
 

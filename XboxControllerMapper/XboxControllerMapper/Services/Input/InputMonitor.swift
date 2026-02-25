@@ -6,7 +6,6 @@ class InputMonitor: ObservableObject {
     @Published var lastEvent: NSEvent?
 
     private var localMonitor: Any?
-    private var cancellables = Set<AnyCancellable>()
 
     init() {
         if AXIsProcessTrusted() {

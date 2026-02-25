@@ -30,7 +30,11 @@ extension ControllerService {
 
         // Create HID manager
         hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-        guard let manager = hidManager else { return }
+        guard let manager = hidManager else {
+            hidReportBuffer?.deallocate()
+            hidReportBuffer = nil
+            return
+        }
 
         // Match all PlayStation controllers
         let dualSenseDict: [String: Any] = [
@@ -78,6 +82,10 @@ extension ControllerService {
 
         guard let buffer = hidReportBuffer else { return }
 
+        // Release previous retained context before overwriting (guards against multi-device loop leak)
+        if let existingCtx = psHIDCallbackContext {
+            Unmanaged<PSHIDCallbackContext>.fromOpaque(existingCtx).release()
+        }
         let ctx = PSHIDCallbackContext(service: self)
         let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
         psHIDCallbackContext = retainedContext
