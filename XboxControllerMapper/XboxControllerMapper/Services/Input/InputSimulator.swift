@@ -659,25 +659,40 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
             }
 
-            if let event = CGEvent(
-                mouseEventSource: source,
-                mouseType: eventType,
-                mouseCursorPosition: newPoint,
-                mouseButton: mouseButton
-            ) {
-                // Set delta fields for Accessibility Zoom viewport panning
-                event.setIntegerValueField(.mouseEventDeltaX, value: Int64(moveX))
-                event.setIntegerValueField(.mouseEventDeltaY, value: Int64(moveY))
-                // For drag events, set the same event number as the originating mouseDown
-                // and pressure so system tools (screencapture, etc.) recognize the drag
-                // as part of a continuous down-drag-up gesture.
-                if isDrag {
-                    event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
-                    event.setDoubleValueField(.mouseEventPressure, value: 1.0)
+            // Use IOHIDPostEvent for drag events during zoom to avoid cursor flash
+            let dragCategory: ZoomMouseEventPolicy.MouseEventCategory = isDrag ? .drag : .move
+            var postedViaHID = false
+            if ZoomMouseEventPolicy.shouldUseIOHIDPostEvent(zoomActive: zoomActive, category: dragCategory) {
+                postedViaHID = self.postMouseDragViaHID(
+                    at: newPoint,
+                    button: mouseButton,
+                    dx: Int(moveX),
+                    dy: Int(moveY),
+                    eventNumber: eventNumber
+                )
+            }
+
+            if !postedViaHID {
+                if let event = CGEvent(
+                    mouseEventSource: source,
+                    mouseType: eventType,
+                    mouseCursorPosition: newPoint,
+                    mouseButton: mouseButton
+                ) {
+                    // Set delta fields for Accessibility Zoom viewport panning
+                    event.setIntegerValueField(.mouseEventDeltaX, value: Int64(moveX))
+                    event.setIntegerValueField(.mouseEventDeltaY, value: Int64(moveY))
+                    // For drag events, set the same event number as the originating mouseDown
+                    // and pressure so system tools (screencapture, etc.) recognize the drag
+                    // as part of a continuous down-drag-up gesture.
+                    if isDrag {
+                        event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
+                        event.setDoubleValueField(.mouseEventPressure, value: 1.0)
+                    }
+                    event.post(tap: .cghidEventTap)
+                } else {
+                    NSLog("[InputSimulator] Failed to create mouse move event - check Accessibility permissions")
                 }
-                event.post(tap: .cghidEventTap)
-            } else {
-                NSLog("[InputSimulator] Failed to create mouse move event - check Accessibility permissions")
             }
         }
     }
@@ -1063,12 +1078,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             let zoomActive = Self.isZoomCurrentlyActive()
 
-            // During Accessibility Zoom, CGEvent mouse-down events cause the zoom
-            // compositor's software cursor to briefly flash at the virtual/absolute
-            // position. Use IOHIDPostEvent without kIOHIDSetCursorPosition to deliver
-            // the click without triggering cursor repositioning.
+            // Use IOHIDPostEvent for mouse-down during zoom to avoid cursor flash
             var posted = false
-            if zoomActive {
+            if ZoomMouseEventPolicy.shouldUseIOHIDPostEvent(zoomActive: zoomActive, category: .buttonDown) {
                 posted = self.postMouseEventViaHID(
                     down: true,
                     at: cgLocation,
@@ -1128,8 +1140,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             let zoomActive = Self.isZoomCurrentlyActive()
 
+            // Use IOHIDPostEvent for mouse-up during zoom to avoid cursor flash
             var posted = false
-            if zoomActive {
+            if ZoomMouseEventPolicy.shouldUseIOHIDPostEvent(zoomActive: zoomActive, category: .buttonUp) {
                 posted = self.postMouseEventViaHID(
                     down: false,
                     at: cgLocation,
@@ -1188,9 +1201,58 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         return true
     }
 
-    /// Posts a mouse button event via IOHIDPostEvent WITHOUT kIOHIDSetCursorPosition.
-    /// This delivers the click at the specified location but does not trigger cursor
-    /// repositioning, avoiding the zoom compositor's cursor flash.
+    /// Posts a mouse drag event via IOHIDPostEvent with kIOHIDSetCursorPosition.
+    /// During Accessibility Zoom, CGEvent drag events cause the zoom compositor's
+    /// software cursor to flash at the virtual/absolute position. This method
+    /// delivers the drag at the IOKit level, avoiding that flash.
+    /// Returns true if the event was successfully posted.
+    private func postMouseDragViaHID(
+        at location: CGPoint,
+        button: CGMouseButton,
+        dx: Int,
+        dy: Int,
+        eventNumber: Int64
+    ) -> Bool {
+        guard ensureHIDSystemConnection() else { return false }
+
+        let eventType: UInt32
+        switch button {
+        case .left: eventType = UInt32(NX_LMOUSEDRAGGED)
+        case .right: eventType = UInt32(NX_RMOUSEDRAGGED)
+        default: eventType = UInt32(NX_OMOUSEDRAGGED)
+        }
+
+        let point = IOGPoint(x: Int16(clamping: Int(location.x)), y: Int16(clamping: Int(location.y)))
+
+        var eventData = NXEventData()
+        withUnsafeMutablePointer(to: &eventData) { ptr in
+            memset(UnsafeMutableRawPointer(ptr), 0, MemoryLayout<NXEventData>.size)
+        }
+        // Drag events use the mouseMove data union member for delta fields
+        eventData.mouseMove.dx = Int32(dx)
+        eventData.mouseMove.dy = Int32(dy)
+
+        let result = IOHIDPostEvent(
+            hidSystemConnection,
+            eventType,
+            point,
+            &eventData,
+            UInt32(kNXEventDataVersion),
+            0,  // eventFlags
+            IOOptionBits(kIOHIDSetCursorPosition)
+        )
+
+        if result != KERN_SUCCESS {
+            NSLog("[InputSimulator] IOHIDPostEvent drag failed: %d", result)
+            return false
+        }
+        return true
+    }
+
+    /// Posts a mouse button event via IOHIDPostEvent with kIOHIDSetCursorPosition.
+    /// During Accessibility Zoom, CGEvent mouse-down/up events cause the zoom
+    /// compositor's software cursor to flash at the virtual/absolute position.
+    /// This method delivers the click at the IOKit level, avoiding that flash.
     /// Returns true if the event was successfully posted.
     private func postMouseEventViaHID(
         down: Bool,

@@ -229,15 +229,12 @@ class ActionFeedbackIndicator {
         let mouseLocation = NSEvent.mouseLocation
 
         if isZoomed, let tracked = tracked {
-            // During Accessibility Zoom, NSEvent.mouseLocation oscillates between
-            // virtual (absolute) and physical (visual) cursor positions on alternating
-            // reads. Filter out virtual readings by comparing to our tracked position.
             let screenHeight = NSScreen.screens.first?.frame.height ?? 1329
-            let virtualNS = NSPoint(x: tracked.x, y: screenHeight - tracked.y)
-
-            let tolerance: CGFloat = 10
-            let isVirtualReading = abs(mouseLocation.x - virtualNS.x) < tolerance
-                                && abs(mouseLocation.y - virtualNS.y) < tolerance
+            let isVirtualReading = CursorOscillationFilter.isVirtualReading(
+                mouseLocation: mouseLocation,
+                trackedCGPosition: tracked,
+                screenHeight: screenHeight
+            )
 
             let cursorPos: NSPoint
             if isVirtualReading {
