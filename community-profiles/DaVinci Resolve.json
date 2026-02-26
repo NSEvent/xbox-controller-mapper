@@ -11,7 +11,7 @@
   ],
   "buttonMappings" : {
     "a" : {
-      "hint" : "Play / Pause (L / K)",
+      "hint" : "Play Forward (L)",
       "keyCode" : 37,
       "modifiers" : {
         "command" : false,
@@ -54,7 +54,7 @@
       },
       "isHoldModifier" : false,
       "longHoldMapping" : {
-        "hint" : "Clear In/Out (Option+X)",
+        "hint" : "Clear In/Out (Opt+X)",
         "keyCode" : 7,
         "modifiers" : {
           "command" : false,
@@ -274,7 +274,7 @@
         "shift" : false,
         "control" : false
       },
-      "hint" : "Clear In/Out (Option+X)"
+      "hint" : "Clear In/Out (Opt+X)"
     },
     {
       "id" : "A1B2C3D4-0001-0001-0001-000000000002",

@@ -221,8 +221,8 @@
       "isHoldModifier" : false
     },
     "share" : {
-      "hint" : "Undo (backup)",
-      "keyCode" : 6,
+      "hint" : "Bounce / Export (Cmd+B)",
+      "keyCode" : 11,
       "modifiers" : {
         "command" : true,
         "option" : false,

@@ -163,6 +163,15 @@
         "control" : false
       },
       "isHoldModifier" : false
+    },
+    "menu" : {
+      "hint" : "Toggle Studio Mode",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "ToggleStudioMode"
+      },
+      "isHoldModifier" : false
     }
   },
   "chordMappings" : [

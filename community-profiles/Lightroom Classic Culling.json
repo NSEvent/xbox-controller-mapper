@@ -217,6 +217,17 @@
         "control" : false
       },
       "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Export (Cmd+Shift+E)",
+      "keyCode" : 14,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
     }
   },
   "chordMappings" : [

@@ -53,7 +53,7 @@
       },
       "isHoldModifier" : false,
       "longHoldMapping" : {
-        "hint" : "Clear Range (Option+X)",
+        "hint" : "Clear Range (Opt+X)",
         "keyCode" : 7,
         "modifiers" : {
           "command" : false,
@@ -198,7 +198,7 @@
       },
       "isHoldModifier" : false,
       "longHoldMapping" : {
-        "hint" : "Add & Edit Marker (Option+M)",
+        "hint" : "Add & Edit Marker (Opt+M)",
         "keyCode" : 46,
         "modifiers" : {
           "command" : false,
@@ -284,7 +284,7 @@
         "shift" : false,
         "control" : false
       },
-      "hint" : "Clear Range (Option+X)"
+      "hint" : "Clear Range (Opt+X)"
     },
     {
       "id" : "B2C3D4E5-0001-0001-0001-000000000002",
@@ -296,7 +296,7 @@
         "shift" : false,
         "control" : false
       },
-      "hint" : "Trim Start to Playhead (Option+[)"
+      "hint" : "Trim Start to Playhead (Opt+[)"
     },
     {
       "id" : "B2C3D4E5-0001-0001-0001-000000000003",
@@ -308,7 +308,7 @@
         "shift" : false,
         "control" : false
       },
-      "hint" : "Trim End to Playhead (Option+])"
+      "hint" : "Trim End to Playhead (Opt+])"
     },
     {
       "id" : "B2C3D4E5-0001-0001-0001-000000000004",
