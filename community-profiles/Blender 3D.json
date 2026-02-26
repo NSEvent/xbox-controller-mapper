@@ -1,0 +1,326 @@
+{
+  "id" : "F3A4B5C6-D7E8-9012-F3A4-B5C6D7E89003",
+  "name" : "Blender 3D",
+  "icon" : "cube.transparent",
+  "isDefault" : false,
+  "createdAt" : "2026-02-26T12:00:00Z",
+  "modifiedAt" : "2026-02-26T12:00:00Z",
+  "linkedApps" : [
+    "org.blenderfoundation.blender"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Grab / Move (G)",
+      "keyCode" : 5,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "b" : {
+      "hint" : "Rotate (R)",
+      "keyCode" : 15,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "x" : {
+      "hint" : "Scale (S)",
+      "keyCode" : 1,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "y" : {
+      "hint" : "Extrude (E)",
+      "keyCode" : 14,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Add Menu (Shift+A)",
+        "keyCode" : 0,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "leftBumper" : {
+      "hint" : "Undo (Cmd+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightBumper" : {
+      "hint" : "Redo (Cmd+Shift+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftTrigger" : {
+      "hint" : "HOLD: Shift",
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : true
+    },
+    "rightTrigger" : {
+      "hint" : "Delete (X)",
+      "keyCode" : 7,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Search Commands (F3)",
+        "keyCode" : 99,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "dpadUp" : {
+      "hint" : "Top View (Numpad 7)",
+      "keyCode" : 89,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadDown" : {
+      "hint" : "Front View (Numpad 1)",
+      "keyCode" : 83,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadLeft" : {
+      "hint" : "Side View (Numpad 3)",
+      "keyCode" : 85,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadRight" : {
+      "hint" : "Camera View (Numpad 0)",
+      "keyCode" : 82,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "menu" : {
+      "hint" : "Toggle Edit Mode (Tab)",
+      "keyCode" : 48,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Shading Menu (Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Hide Selected (H)",
+      "keyCode" : 4,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Unhide All (Opt+H)",
+        "keyCode" : 4,
+        "modifiers" : {
+          "command" : false,
+          "option" : true,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "leftThumbstick" : {
+      "hint" : "Toggle Select All (A)",
+      "keyCode" : 0,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightThumbstick" : {
+      "hint" : "Focus Selected (Numpad .)",
+      "keyCode" : 65,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "F3A4B5C6-0001-0001-0001-000000000001",
+      "buttons" : [
+        "leftTrigger",
+        "a"
+      ],
+      "keyCode" : 2,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Duplicate (Shift+D)"
+    },
+    {
+      "id" : "F3A4B5C6-0001-0001-0001-000000000002",
+      "buttons" : [
+        "leftBumper",
+        "rightBumper"
+      ],
+      "keyCode" : 0,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "hint" : "Apply Transform (Ctrl+A)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.5,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.9,
+      "green" : 0.5,
+      "blue" : 0.0
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led2" : true,
+      "led3" : false,
+      "led4" : true,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}

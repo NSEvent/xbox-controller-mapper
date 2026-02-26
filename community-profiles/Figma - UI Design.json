@@ -1,0 +1,305 @@
+{
+  "id" : "B5C6D7E8-F9A0-1234-B5C6-D7E8F9A01205",
+  "name" : "Figma — UI Design",
+  "icon" : "paintpalette.fill",
+  "isDefault" : false,
+  "createdAt" : "2026-02-26T12:00:00Z",
+  "modifiedAt" : "2026-02-26T12:00:00Z",
+  "linkedApps" : [
+    "com.figma.Desktop",
+    "com.bohemiancoding.sketch3"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Select / Move (V)",
+      "keyCode" : 9,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "b" : {
+      "hint" : "Frame (F)",
+      "keyCode" : 3,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "x" : {
+      "hint" : "Rectangle (R)",
+      "keyCode" : 15,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Ellipse (O)",
+        "keyCode" : 31,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.3
+      }
+    },
+    "y" : {
+      "hint" : "Text (T)",
+      "keyCode" : 17,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftBumper" : {
+      "hint" : "Undo (Cmd+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightBumper" : {
+      "hint" : "Redo (Cmd+Shift+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftTrigger" : {
+      "hint" : "HOLD: Shift (Constrain)",
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : true
+    },
+    "rightTrigger" : {
+      "hint" : "HOLD: Option (Duplicate / Spacing)",
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : true
+    },
+    "dpadUp" : {
+      "hint" : "Bring Forward (Cmd+])",
+      "keyCode" : 30,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Send Backward (Cmd+[)",
+      "keyCode" : 33,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "dpadLeft" : {
+      "hint" : "Zoom Out (Cmd+-)",
+      "keyCode" : 27,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Zoom In (Cmd+=)",
+      "keyCode" : 24,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "menu" : {
+      "hint" : "Quick Actions (Cmd+/)",
+      "keyCode" : 44,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Zoom to Fit (Cmd+1)",
+      "keyCode" : 18,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Duplicate (Cmd+D)",
+      "keyCode" : 2,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftThumbstick" : {
+      "hint" : "Zoom to 100% (Cmd+0)",
+      "keyCode" : 29,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightThumbstick" : {
+      "hint" : "Zoom to Selection (Cmd+2)",
+      "keyCode" : 19,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "B5C6D7E8-0001-0001-0001-000000000001",
+      "buttons" : [
+        "leftBumper",
+        "rightBumper"
+      ],
+      "keyCode" : 5,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Group (Cmd+G)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.55,
+    "scrollSensitivity" : 0.4,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.2,
+      "green" : 0.8,
+      "blue" : 0.3
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led2" : false,
+      "led3" : false,
+      "led4" : true,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}

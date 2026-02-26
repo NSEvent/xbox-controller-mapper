@@ -1,0 +1,400 @@
+{
+  "id" : "A4B5C6D7-E8F9-0123-A4B5-C6D7E8F90104",
+  "name" : "Premiere Pro",
+  "icon" : "film",
+  "isDefault" : false,
+  "createdAt" : "2026-02-26T12:00:00Z",
+  "modifiedAt" : "2026-02-26T12:00:00Z",
+  "linkedApps" : [
+    "com.adobe.PremierePro"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Play / Pause (Space)",
+      "keyCode" : 49,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Reverse Play (J)",
+        "keyCode" : 38,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.3
+      }
+    },
+    "b" : {
+      "hint" : "Stop (K)",
+      "keyCode" : 40,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "x" : {
+      "hint" : "Mark In (I)",
+      "keyCode" : 34,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Go to In Point (Shift+I)",
+        "keyCode" : 34,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "y" : {
+      "hint" : "Mark Out (O)",
+      "keyCode" : 31,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Go to Out Point (Shift+O)",
+        "keyCode" : 31,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "leftBumper" : {
+      "hint" : "Previous Edit (Up Arrow)",
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "rightBumper" : {
+      "hint" : "Next Edit (Down Arrow)",
+      "keyCode" : 125,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "leftTrigger" : {
+      "hint" : "Add Edit / Cut (Cmd+K)",
+      "keyCode" : 40,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightTrigger" : {
+      "hint" : "Extract / Ripple Delete (')",
+      "keyCode" : 39,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadUp" : {
+      "hint" : "Zoom In (Cmd+=)",
+      "keyCode" : 24,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Zoom Out (Cmd+-)",
+      "keyCode" : 27,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "dpadLeft" : {
+      "hint" : "Nudge Left (,)",
+      "keyCode" : 43,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.12
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Nudge Right (.)",
+      "keyCode" : 47,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.12
+      }
+    },
+    "menu" : {
+      "hint" : "Add Marker (M)",
+      "keyCode" : 46,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Fit Timeline (\\)",
+      "keyCode" : 42,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Undo (Cmd+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Redo (Cmd+Shift+Z)",
+        "keyCode" : 6,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "leftThumbstick" : {
+      "hint" : "Step Back 1 Frame (Left Arrow)",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "rightThumbstick" : {
+      "hint" : "Step Forward 1 Frame (Right Arrow)",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "A4B5C6D7-0001-0001-0001-000000000001",
+      "buttons" : [
+        "leftTrigger",
+        "x"
+      ],
+      "keyCode" : 12,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Trim Start to Playhead (Q)"
+    },
+    {
+      "id" : "A4B5C6D7-0001-0001-0001-000000000002",
+      "buttons" : [
+        "leftTrigger",
+        "y"
+      ],
+      "keyCode" : 13,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Trim End to Playhead (W)"
+    },
+    {
+      "id" : "A4B5C6D7-0001-0001-0001-000000000003",
+      "buttons" : [
+        "menu",
+        "dpadLeft"
+      ],
+      "keyCode" : 43,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Nudge Left 5 Frames (Shift+,)"
+    },
+    {
+      "id" : "A4B5C6D7-0001-0001-0001-000000000004",
+      "buttons" : [
+        "menu",
+        "dpadRight"
+      ],
+      "keyCode" : 47,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Nudge Right 5 Frames (Shift+.)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.45,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.6,
+      "green" : 0.1,
+      "blue" : 0.9
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led2" : true,
+      "led3" : false,
+      "led4" : false,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}

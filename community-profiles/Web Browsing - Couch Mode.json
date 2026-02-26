@@ -1,0 +1,330 @@
+{
+  "id" : "E2F3A4B5-C6D7-8901-E2F3-A4B5C6D78902",
+  "name" : "Web Browsing — Couch Mode",
+  "icon" : "safari.fill",
+  "isDefault" : false,
+  "createdAt" : "2026-02-26T12:00:00Z",
+  "modifiedAt" : "2026-02-26T12:00:00Z",
+  "linkedApps" : [
+    "com.apple.Safari",
+    "com.google.Chrome",
+    "company.thebrowser.Browser"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Left Click",
+      "keyCode" : 61440,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Right Click",
+        "keyCode" : 61441,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "b" : {
+      "hint" : "Go Back (Cmd+[)",
+      "keyCode" : 33,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Go Forward (Cmd+])",
+        "keyCode" : 30,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "x" : {
+      "hint" : "Close Tab (Cmd+W)",
+      "keyCode" : 13,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Reopen Tab (Cmd+Shift+T)",
+        "keyCode" : 17,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.3
+      }
+    },
+    "y" : {
+      "hint" : "New Tab (Cmd+T)",
+      "keyCode" : 17,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftBumper" : {
+      "hint" : "Previous Tab (Cmd+Shift+[)",
+      "keyCode" : 33,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightBumper" : {
+      "hint" : "Next Tab (Cmd+Shift+])",
+      "keyCode" : 30,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftTrigger" : {
+      "hint" : "Page Up",
+      "keyCode" : 116,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.3
+      }
+    },
+    "rightTrigger" : {
+      "hint" : "Page Down",
+      "keyCode" : 121,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.3
+      }
+    },
+    "dpadUp" : {
+      "hint" : "Scroll Up",
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.06
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Scroll Down",
+      "keyCode" : 125,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.06
+      }
+    },
+    "dpadLeft" : {
+      "hint" : "Go Back (Cmd+[)",
+      "keyCode" : 33,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadRight" : {
+      "hint" : "Go Forward (Cmd+])",
+      "keyCode" : 30,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "menu" : {
+      "hint" : "Address Bar (Cmd+L)",
+      "keyCode" : 37,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Find on Page (Cmd+F)",
+      "keyCode" : 3,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Bookmark Page (Cmd+D)",
+      "keyCode" : 2,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftThumbstick" : {
+      "hint" : "Reload (Cmd+R)",
+      "keyCode" : 15,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightThumbstick" : {
+      "hint" : "Reset Zoom (Cmd+0)",
+      "keyCode" : 29,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "E2F3A4B5-0001-0001-0001-000000000001",
+      "buttons" : [
+        "leftBumper",
+        "rightBumper"
+      ],
+      "keyCode" : 13,
+      "modifiers" : {
+        "command" : true,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Close Other Tabs (Cmd+Opt+W)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.55,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 1.0,
+      "green" : 0.6,
+      "blue" : 0.0
+    },
+    "lightBarBrightness" : "mid",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : true,
+      "led2" : false,
+      "led3" : false,
+      "led4" : false,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}
