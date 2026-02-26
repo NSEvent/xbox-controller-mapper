@@ -1,0 +1,471 @@
+{
+  "id" : "B95743FD-7F13-4708-B22E-8253E1F4C725",
+  "name" : "Logic Pro X",
+  "icon" : "music.note",
+  "isDefault" : false,
+  "createdAt" : "2026-02-25T12:00:00Z",
+  "modifiedAt" : "2026-02-25T12:00:00Z",
+  "linkedApps" : [
+    "com.apple.logic10"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Play / Stop",
+      "keyCode" : 49,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "b" : {
+      "hint" : "Record",
+      "keyCode" : 15,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Capture Last Take (Shift+R)",
+        "keyCode" : 15,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.35
+      }
+    },
+    "x" : {
+      "hint" : "Undo (Cmd+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Redo (Cmd+Shift+Z)",
+        "keyCode" : 6,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "y" : {
+      "hint" : "Toggle Cycle / Loop (C)",
+      "keyCode" : 8,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftBumper" : {
+      "hint" : "HOLD: Nav Layer",
+      "isHoldModifier" : true
+    },
+    "rightBumper" : {
+      "hint" : "Metronome (K)",
+      "keyCode" : 40,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Count-in (Shift+K)",
+        "keyCode" : 40,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.35
+      }
+    },
+    "leftTrigger" : {
+      "hint" : "HOLD: Shift Layer",
+      "isHoldModifier" : true
+    },
+    "rightTrigger" : {
+      "hint" : "Go to Beginning",
+      "keyCode" : 36,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Set Locators (Cmd+U)",
+        "keyCode" : 32,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "dpadLeft" : {
+      "hint" : "Rewind 1 Bar (,)",
+      "keyCode" : 43,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.25
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Forward 1 Bar (.)",
+      "keyCode" : 47,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.25
+      }
+    },
+    "dpadUp" : {
+      "hint" : "Select Track Above",
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Select Track Below",
+      "keyCode" : 125,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "menu" : {
+      "hint" : "Mute Track (M)",
+      "keyCode" : 46,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Solo Track (S)",
+        "keyCode" : 1,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "view" : {
+      "hint" : "Create Marker (Opt+')",
+      "keyCode" : 39,
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Undo (backup)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftThumbstick" : {
+      "hint" : "Left Click",
+      "keyCode" : 61440,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightThumbstick" : {
+      "hint" : "Right Click",
+      "keyCode" : 61441,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "E71A6145-B4EF-4A19-88DE-BB9A074D0806",
+      "buttons" : [
+        "leftTrigger",
+        "a"
+      ],
+      "keyCode" : 36,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Go to Beginning (Return)"
+    },
+    {
+      "id" : "0BDF1DAD-E5D3-4DB4-ABA4-C2CBA142DB9A",
+      "buttons" : [
+        "leftTrigger",
+        "b"
+      ],
+      "keyCode" : 15,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Capture Last Take (Shift+R)"
+    },
+    {
+      "id" : "0B7594E9-5179-4EFA-B9FC-AA6006D9E2B6",
+      "buttons" : [
+        "leftTrigger",
+        "x"
+      ],
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Redo (Cmd+Shift+Z)"
+    },
+    {
+      "id" : "AB8FEF8A-7528-4D94-9974-D61F13B76046",
+      "buttons" : [
+        "leftTrigger",
+        "y"
+      ],
+      "keyCode" : 32,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Set Locators (Cmd+U)"
+    },
+    {
+      "id" : "C2241142-2C55-4AB6-9F9C-CA56A2364581",
+      "buttons" : [
+        "leftBumper",
+        "dpadLeft"
+      ],
+      "keyCode" : 43,
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Previous Marker (Opt+,)"
+    },
+    {
+      "id" : "FBBA99F3-B8D6-47E0-BC98-EAFE94C74C5D",
+      "buttons" : [
+        "leftBumper",
+        "dpadRight"
+      ],
+      "keyCode" : 47,
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Next Marker (Opt+.)"
+    },
+    {
+      "id" : "4AFBDD61-22F3-4CF0-A7AF-27B0D3BEA588",
+      "buttons" : [
+        "leftBumper",
+        "dpadUp"
+      ],
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Zoom In (Cmd+Right)"
+    },
+    {
+      "id" : "DE890021-E200-4A82-B1FA-9BDA24527C66",
+      "buttons" : [
+        "leftBumper",
+        "dpadDown"
+      ],
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Zoom Out (Cmd+Left)"
+    },
+    {
+      "id" : "B5C523E3-41E3-474F-A557-5754017DE1DF",
+      "buttons" : [
+        "leftBumper",
+        "a"
+      ],
+      "keyCode" : 1,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Solo Track (S)"
+    },
+    {
+      "id" : "A3D7A7E9-87C6-485C-BCE4-9391BDBA3EA8",
+      "buttons" : [
+        "leftBumper",
+        "b"
+      ],
+      "keyCode" : 46,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Mute Track (M)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.45,
+    "scrollSensitivity" : 0.4,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.2,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.4,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.4,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.6,
+      "green" : 0.3,
+      "blue" : 1.0
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led2" : true,
+      "led3" : false,
+      "led4" : true,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}

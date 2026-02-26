@@ -1,0 +1,315 @@
+{
+  "id" : "6ACDA5CA-8B26-49E9-952F-75113057DB23",
+  "name" : "OBS Live Streaming",
+  "icon" : "record.circle",
+  "isDefault" : false,
+  "createdAt" : "2026-02-25T12:00:00Z",
+  "modifiedAt" : "2026-02-25T12:00:00Z",
+  "linkedApps" : [
+    "com.obsproject.obs-studio"
+  ],
+  "buttonMappings" : {
+    "dpadUp" : {
+      "hint" : "Scene: Gaming",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentProgramScene",
+        "requestData" : "{\"sceneName\": \"Gaming\"}"
+      },
+      "isHoldModifier" : false
+    },
+    "dpadDown" : {
+      "hint" : "Scene: Just Chatting",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentProgramScene",
+        "requestData" : "{\"sceneName\": \"Just Chatting\"}"
+      },
+      "isHoldModifier" : false
+    },
+    "dpadLeft" : {
+      "hint" : "Scene: BRB",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentProgramScene",
+        "requestData" : "{\"sceneName\": \"BRB\"}"
+      },
+      "isHoldModifier" : false
+    },
+    "dpadRight" : {
+      "hint" : "Scene: Starting Soon",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentProgramScene",
+        "requestData" : "{\"sceneName\": \"Starting Soon\"}"
+      },
+      "isHoldModifier" : false
+    },
+    "a" : {
+      "hint" : "Mute / Unmute Mic",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "ToggleInputMute",
+        "requestData" : "{\"inputName\": \"Mic/Aux\"}"
+      },
+      "isHoldModifier" : false
+    },
+    "b" : {
+      "hint" : "Mute / Unmute Desktop Audio",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "ToggleInputMute",
+        "requestData" : "{\"inputName\": \"Desktop Audio\"}"
+      },
+      "isHoldModifier" : false
+    },
+    "x" : {
+      "hint" : "Studio Mode Transition",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "TriggerStudioModeTransition"
+      },
+      "isHoldModifier" : false
+    },
+    "y" : {
+      "hint" : "Toggle Virtual Camera",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "ToggleVirtualCam"
+      },
+      "isHoldModifier" : false
+    },
+    "leftBumper" : {
+      "hint" : "Toggle Recording",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "ToggleRecord"
+      },
+      "isHoldModifier" : false
+    },
+    "rightBumper" : {
+      "hint" : "Save Replay Clip",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SaveReplayBuffer"
+      },
+      "isHoldModifier" : false
+    },
+    "leftTrigger" : {
+      "hint" : "Start Stream",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "StartStream"
+      },
+      "isHoldModifier" : false
+    },
+    "rightTrigger" : {
+      "hint" : "Stop Stream",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "StopStream"
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Scene: Ending",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentProgramScene",
+        "requestData" : "{\"sceneName\": \"Ending\"}"
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Toggle Stream",
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "ToggleStream"
+      },
+      "isHoldModifier" : false
+    },
+    "leftThumbstick" : {
+      "hint" : "Volume Down",
+      "keyCode" : 61489,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightThumbstick" : {
+      "hint" : "Volume Up",
+      "keyCode" : 61488,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "9E1493E1-C5AC-46F9-AB4A-E2DA952A6C5A",
+      "buttons" : [
+        "leftBumper",
+        "rightBumper"
+      ],
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentProgramScene",
+        "requestData" : "{\"sceneName\": \"BRB\"}"
+      },
+      "hint" : "Emergency BRB (LB+RB)"
+    },
+    {
+      "id" : "F9682585-3316-444B-B2F3-AD29D11E71CE",
+      "buttons" : [
+        "leftTrigger",
+        "rightTrigger"
+      ],
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "StopStream"
+      },
+      "hint" : "Confirm Stop Stream (LT+RT)"
+    },
+    {
+      "id" : "079FE55B-855F-4353-8399-5111B1F30EC7",
+      "buttons" : [
+        "menu",
+        "dpadUp"
+      ],
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentPreviewScene",
+        "requestData" : "{\"sceneName\": \"Gaming\"}"
+      },
+      "hint" : "Preview: Gaming (Studio Mode)"
+    },
+    {
+      "id" : "CAB2358C-B318-4A95-B2A5-D4DE3505DA1C",
+      "buttons" : [
+        "menu",
+        "dpadDown"
+      ],
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentPreviewScene",
+        "requestData" : "{\"sceneName\": \"Just Chatting\"}"
+      },
+      "hint" : "Preview: Just Chatting (Studio Mode)"
+    },
+    {
+      "id" : "3C47577A-22D0-41C0-ADE8-3EE884578F70",
+      "buttons" : [
+        "menu",
+        "dpadLeft"
+      ],
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentPreviewScene",
+        "requestData" : "{\"sceneName\": \"BRB\"}"
+      },
+      "hint" : "Preview: BRB (Studio Mode)"
+    },
+    {
+      "id" : "3FD4207F-614A-4A20-B6D9-057C20DE79E1",
+      "buttons" : [
+        "menu",
+        "dpadRight"
+      ],
+      "systemCommand" : {
+        "type" : "obsWebSocket",
+        "url" : "ws://localhost:4455",
+        "requestType" : "SetCurrentPreviewScene",
+        "requestData" : "{\"sceneName\": \"Starting Soon\"}"
+      },
+      "hint" : "Preview: Starting Soon (Studio Mode)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.5,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 1.0,
+      "green" : 0.0,
+      "blue" : 0.0
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : true,
+      "led2" : false,
+      "led3" : false,
+      "led4" : false,
+      "led5" : true
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}

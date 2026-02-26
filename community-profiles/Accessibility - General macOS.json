@@ -1,0 +1,596 @@
+{
+  "id" : "CFEC07C4-A96C-4D04-8580-399585D137F5",
+  "name" : "Accessibility — General macOS",
+  "icon" : "accessibility",
+  "isDefault" : false,
+  "createdAt" : "2026-02-25T12:00:00Z",
+  "modifiedAt" : "2026-02-25T12:00:00Z",
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Left Click",
+      "keyCode" : 61440,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "b" : {
+      "hint" : "Escape / Back",
+      "keyCode" : 53,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "x" : {
+      "hint" : "Tab (Focus Next)",
+      "keyCode" : 48,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Shift+Tab (Focus Prev)",
+        "keyCode" : 48,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.3
+      }
+    },
+    "y" : {
+      "hint" : "On-Screen Keyboard",
+      "keyCode" : 61456,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftTrigger" : {
+      "hint" : "HOLD: Command",
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : true
+    },
+    "rightTrigger" : {
+      "hint" : "HOLD: Shift",
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : true
+    },
+    "leftBumper" : {
+      "hint" : "HOLD: Option",
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : true
+    },
+    "rightBumper" : {
+      "hint" : "Right Click",
+      "keyCode" : 61441,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadUp" : {
+      "hint" : "Arrow Up",
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Arrow Down",
+      "keyCode" : 125,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "dpadLeft" : {
+      "hint" : "Arrow Left",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Arrow Right",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "menu" : {
+      "hint" : "Spotlight (Cmd+Space)",
+      "keyCode" : 49,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Directory Navigator",
+      "keyCode" : 61459,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Mission Control",
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "isHoldModifier" : false
+    },
+    "xbox" : {
+      "hint" : "Controller Lock",
+      "keyCode" : 61458,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftThumbstick" : {
+      "hint" : "Return / Confirm",
+      "keyCode" : 36,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightThumbstick" : {
+      "hint" : "Delete",
+      "keyCode" : 51,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "A1000001-0000-0000-0000-000000000001",
+      "buttons" : [
+        "leftTrigger",
+        "a"
+      ],
+      "keyCode" : 8,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Copy (Cmd+C)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000002",
+      "buttons" : [
+        "leftTrigger",
+        "b"
+      ],
+      "keyCode" : 9,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Paste (Cmd+V)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000003",
+      "buttons" : [
+        "leftTrigger",
+        "x"
+      ],
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Undo (Cmd+Z)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000004",
+      "buttons" : [
+        "leftTrigger",
+        "y"
+      ],
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Redo (Cmd+Shift+Z)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000005",
+      "buttons" : [
+        "leftTrigger",
+        "rightBumper"
+      ],
+      "keyCode" : 48,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "App Switch (Cmd+Tab)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000006",
+      "buttons" : [
+        "leftTrigger",
+        "leftBumper"
+      ],
+      "keyCode" : 48,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "App Switch Back (Cmd+Shift+Tab)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000007",
+      "buttons" : [
+        "leftTrigger",
+        "dpadUp"
+      ],
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "hint" : "Mission Control (Ctrl+Up)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000008",
+      "buttons" : [
+        "leftTrigger",
+        "dpadDown"
+      ],
+      "keyCode" : 125,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "hint" : "App Expose (Ctrl+Down)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000009",
+      "buttons" : [
+        "leftTrigger",
+        "dpadLeft"
+      ],
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "hint" : "Previous Space (Ctrl+Left)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000010",
+      "buttons" : [
+        "leftTrigger",
+        "dpadRight"
+      ],
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "hint" : "Next Space (Ctrl+Right)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000011",
+      "buttons" : [
+        "leftTrigger",
+        "menu"
+      ],
+      "keyCode" : 13,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Close Window (Cmd+W)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000012",
+      "buttons" : [
+        "leftTrigger",
+        "view"
+      ],
+      "keyCode" : 12,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Quit App (Cmd+Q)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000013",
+      "buttons" : [
+        "leftBumper",
+        "dpadLeft"
+      ],
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Move Word Left (Opt+Left)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000014",
+      "buttons" : [
+        "leftBumper",
+        "dpadRight"
+      ],
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Move Word Right (Opt+Right)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000015",
+      "buttons" : [
+        "rightTrigger",
+        "dpadLeft"
+      ],
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Select Left (Shift+Left)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000016",
+      "buttons" : [
+        "rightTrigger",
+        "dpadRight"
+      ],
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Select Right (Shift+Right)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000017",
+      "buttons" : [
+        "rightTrigger",
+        "dpadUp"
+      ],
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Select Up (Shift+Up)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000018",
+      "buttons" : [
+        "rightTrigger",
+        "dpadDown"
+      ],
+      "keyCode" : 125,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Select Down (Shift+Down)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000019",
+      "buttons" : [
+        "rightTrigger",
+        "a"
+      ],
+      "keyCode" : 0,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Select All (Cmd+A)"
+    },
+    {
+      "id" : "A1000001-0000-0000-0000-000000000020",
+      "buttons" : [
+        "leftTrigger",
+        "rightTrigger"
+      ],
+      "keyCode" : 51,
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Delete Word (Opt+Delete)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.55,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.18,
+    "scrollDeadzone" : 0.18,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.6,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.2,
+      "green" : 0.8,
+      "blue" : 0.4
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led2" : false,
+      "led3" : true,
+      "led4" : false,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}

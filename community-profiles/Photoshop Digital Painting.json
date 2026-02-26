@@ -1,0 +1,338 @@
+{
+  "id" : "11358E94-C38E-40C9-B968-677AA64A0B64",
+  "name" : "Photoshop — Digital Painting",
+  "icon" : "paintbrush.pointed.fill",
+  "isDefault" : false,
+  "createdAt" : "2026-02-25T12:00:00Z",
+  "modifiedAt" : "2026-02-25T12:00:00Z",
+  "linkedApps" : [
+    "com.adobe.Photoshop"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Brush (B)",
+      "keyCode" : 11,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "b" : {
+      "hint" : "Eraser (E)",
+      "keyCode" : 14,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "x" : {
+      "hint" : "Swap FG/BG Colors (X)",
+      "keyCode" : 7,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "y" : {
+      "hint" : "Eyedropper (I)",
+      "keyCode" : 34,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftBumper" : {
+      "hint" : "Undo (Cmd+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightBumper" : {
+      "hint" : "Redo (Cmd+Shift+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftTrigger" : {
+      "hint" : "HOLD: Option (Eyedropper)",
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : true
+    },
+    "rightTrigger" : {
+      "hint" : "HOLD: Shift (Straight Lines)",
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : true
+    },
+    "dpadLeft" : {
+      "hint" : "Brush Smaller ([)",
+      "keyCode" : 33,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Brush Larger (])",
+      "keyCode" : 30,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "dpadUp" : {
+      "hint" : "Harder Brush (Shift+])",
+      "keyCode" : 30,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.12
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Softer Brush (Shift+[)",
+      "keyCode" : 33,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.12
+      }
+    },
+    "menu" : {
+      "hint" : "New Layer (Cmd+Shift+N)",
+      "keyCode" : 45,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Deselect (Cmd+D)",
+      "keyCode" : 2,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Toggle Panels (Tab)",
+      "keyCode" : 48,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftThumbstick" : {
+      "hint" : "Fit to Screen (Cmd+0)",
+      "keyCode" : 29,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightThumbstick" : {
+      "hint" : "Reset FG/BG to B&W (D)",
+      "keyCode" : 2,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "8E373CE9-DCFE-4862-A624-68D9A235A8FA",
+      "buttons" : [
+        "leftBumper",
+        "rightBumper"
+      ],
+      "keyCode" : 14,
+      "modifiers" : {
+        "command" : true,
+        "option" : true,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Stamp Visible (Cmd+Opt+Shift+E)"
+    },
+    {
+      "id" : "C85B2449-700E-4EAB-915C-26F005EBF16D",
+      "buttons" : [
+        "leftTrigger",
+        "leftBumper"
+      ],
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Step Back History (Cmd+Opt+Z)"
+    },
+    {
+      "id" : "A60A61A5-68CD-41BF-AFED-D6C91A33EEF7",
+      "buttons" : [
+        "rightTrigger",
+        "a"
+      ],
+      "keyCode" : 17,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Free Transform (Cmd+T)"
+    },
+    {
+      "id" : "7F6EC2D1-733C-4DBF-9A65-1A6DC5BEE64C",
+      "buttons" : [
+        "leftTrigger",
+        "a"
+      ],
+      "keyCode" : 38,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Duplicate Layer (Cmd+J)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.6,
+    "scrollSensitivity" : 0.4,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.4,
+    "scrollBoostMultiplier" : 1.5,
+    "focusModeSensitivity" : 0.2,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.0,
+      "green" : 0.47,
+      "blue" : 1.0
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : true,
+      "led2" : false,
+      "led3" : false,
+      "led4" : false,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}

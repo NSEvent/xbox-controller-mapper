@@ -1,0 +1,339 @@
+{
+  "id" : "0879E8A6-1BD6-49C9-B84E-71D0F82B62AD",
+  "name" : "Home Theater",
+  "icon" : "tv.fill",
+  "isDefault" : false,
+  "createdAt" : "2026-02-25T12:00:00Z",
+  "modifiedAt" : "2026-02-25T12:00:00Z",
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Select / Click",
+      "keyCode" : 61440,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Right Click",
+        "keyCode" : 61441,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "b" : {
+      "hint" : "Back / Exit",
+      "keyCode" : 53,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "x" : {
+      "hint" : "Play / Pause",
+      "keyCode" : 49,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Subtitles / Skip Intro",
+        "keyCode" : 1,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.3
+      }
+    },
+    "y" : {
+      "hint" : "Mute (App)",
+      "keyCode" : 46,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "System Mute",
+        "keyCode" : 61490,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.6
+      }
+    },
+    "dpadUp" : {
+      "hint" : "Volume Up / Navigate Up",
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Volume Down / Navigate Down",
+      "keyCode" : 125,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "dpadLeft" : {
+      "hint" : "Navigate Left / Seek Back",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.12
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Navigate Right / Seek Forward",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.12
+      }
+    },
+    "leftBumper" : {
+      "hint" : "Previous Track / Episode",
+      "keyCode" : 61474,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Seek Back 30s",
+        "keyCode" : 123,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "rightBumper" : {
+      "hint" : "Next Track / Episode",
+      "keyCode" : 61473,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Seek Forward 30s",
+        "keyCode" : 124,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "leftTrigger" : {
+      "hint" : "Seek Back (hold to repeat)",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "rightTrigger" : {
+      "hint" : "Seek Forward (hold to repeat)",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "menu" : {
+      "hint" : "Fullscreen",
+      "keyCode" : 3,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Fullscreen (Plex / Apple TV)",
+        "keyCode" : 3,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : false,
+          "control" : true
+        },
+        "threshold" : 0.6
+      }
+    },
+    "view" : {
+      "hint" : "Subtitles",
+      "keyCode" : 1,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Next Subtitle Track",
+        "keyCode" : 37,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "rightThumbstick" : {
+      "hint" : "Play / Pause (System)",
+      "keyCode" : 61472,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.6,
+    "scrollSensitivity" : 0.4,
+    "mouseDeadzone" : 0.2,
+    "scrollDeadzone" : 0.2,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.5,
+      "green" : 0.0,
+      "blue" : 1.0
+    },
+    "lightBarBrightness" : "medium",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led2" : false,
+      "led3" : true,
+      "led4" : false,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}

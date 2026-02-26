@@ -1,0 +1,414 @@
+{
+  "id" : "A1B2C3D4-E5F6-7890-ABCD-EF1234567801",
+  "name" : "DaVinci Resolve",
+  "icon" : "film.stack",
+  "isDefault" : false,
+  "createdAt" : "2026-02-25T00:00:00Z",
+  "modifiedAt" : "2026-02-25T00:00:00Z",
+  "linkedApps" : [
+    "com.blackmagic-design.DaVinciResolve",
+    "com.blackmagic-design.DaVinciResolveAdvanced"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Play / Pause (L / K)",
+      "keyCode" : 37,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Reverse Play (J)",
+        "keyCode" : 38,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.3
+      }
+    },
+    "b" : {
+      "hint" : "Stop (K)",
+      "keyCode" : 40,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "x" : {
+      "hint" : "Mark In (I)",
+      "keyCode" : 34,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Clear In/Out (Option+X)",
+        "keyCode" : 7,
+        "modifiers" : {
+          "command" : false,
+          "option" : true,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "y" : {
+      "hint" : "Mark Out (O)",
+      "keyCode" : 31,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftBumper" : {
+      "hint" : "Previous Edit Point",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "rightBumper" : {
+      "hint" : "Next Edit Point",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.15
+      }
+    },
+    "leftTrigger" : {
+      "hint" : "Blade at Playhead (Cmd+B)",
+      "keyCode" : 11,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightTrigger" : {
+      "hint" : "Ripple Delete (Shift+Delete)",
+      "keyCode" : 51,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadUp" : {
+      "hint" : "Zoom In (Cmd+=)",
+      "keyCode" : 24,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Zoom Out (Cmd+-)",
+      "keyCode" : 27,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "dpadLeft" : {
+      "hint" : "Nudge Clip Left (,)",
+      "keyCode" : 43,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.12
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Nudge Clip Right (.)",
+      "keyCode" : 47,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.12
+      }
+    },
+    "menu" : {
+      "hint" : "Add Marker (M)",
+      "keyCode" : 46,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Fit Timeline (Shift+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Undo (Cmd+Z)",
+      "keyCode" : 6,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Redo (Cmd+Shift+Z)",
+        "keyCode" : 6,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "leftThumbstick" : {
+      "hint" : "Step Back 1 Frame (Left Arrow)",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "rightThumbstick" : {
+      "hint" : "Step Forward 1 Frame (Right Arrow)",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "A1B2C3D4-0001-0001-0001-000000000001",
+      "buttons" : [ "leftBumper", "rightBumper" ],
+      "keyCode" : 7,
+      "modifiers" : {
+        "command" : false,
+        "option" : true,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Clear In/Out (Option+X)"
+    },
+    {
+      "id" : "A1B2C3D4-0001-0001-0001-000000000002",
+      "buttons" : [ "leftTrigger", "x" ],
+      "keyCode" : 34,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Trim Start to Playhead (Shift+I)"
+    },
+    {
+      "id" : "A1B2C3D4-0001-0001-0001-000000000003",
+      "buttons" : [ "leftTrigger", "y" ],
+      "keyCode" : 31,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Trim End to Playhead (Shift+O)"
+    },
+    {
+      "id" : "A1B2C3D4-0001-0001-0001-000000000004",
+      "buttons" : [ "rightTrigger", "b" ],
+      "keyCode" : 51,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Delete Selected Clip (Cmd+Delete)"
+    },
+    {
+      "id" : "A1B2C3D4-0001-0001-0001-000000000005",
+      "buttons" : [ "leftBumper", "a" ],
+      "keyCode" : 38,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Reverse Play (J)"
+    },
+    {
+      "id" : "A1B2C3D4-0001-0001-0001-000000000006",
+      "buttons" : [ "menu", "dpadLeft" ],
+      "keyCode" : 43,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Nudge Left 5 Frames (Shift+,)"
+    },
+    {
+      "id" : "A1B2C3D4-0001-0001-0001-000000000007",
+      "buttons" : [ "menu", "dpadRight" ],
+      "keyCode" : 47,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Nudge Right 5 Frames (Shift+.)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.45,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.88,
+      "green" : 0.18,
+      "blue" : 0.18
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led2" : false,
+      "led3" : true,
+      "led4" : false,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}
