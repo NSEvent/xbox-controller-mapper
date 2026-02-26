@@ -310,7 +310,7 @@
       "green" : 0.0,
       "blue" : 1.0
     },
-    "lightBarBrightness" : "medium",
+    "lightBarBrightness" : "mid",
     "lightBarEnabled" : true,
     "muteButtonLED" : "off",
     "playerLEDs" : {
