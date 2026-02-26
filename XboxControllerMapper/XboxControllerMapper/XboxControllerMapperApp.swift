@@ -103,8 +103,8 @@ struct XboxControllerMapperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Original WindowGroup with ContentView
-        WindowGroup("ControllerKeys") {
+        // Single-window scene (prevents Cmd+N from opening duplicates)
+        Window("ControllerKeys", id: "main") {
             ContentView()
                 .environmentObject(ServiceContainer.shared.controllerService)
                 .environmentObject(ServiceContainer.shared.profileManager)
