@@ -1,0 +1,296 @@
+{
+  "buttonMappings": {
+    "a": {
+      "hint": "Return (Send)",
+      "isHoldModifier": false,
+      "keyCode": 36,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "b": {
+      "hint": "Escape",
+      "isHoldModifier": false,
+      "keyCode": 53,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadDown": {
+      "hint": "Down Arrow",
+      "isHoldModifier": false,
+      "keyCode": 125,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "dpadLeft": {
+      "hint": "Left Arrow",
+      "isHoldModifier": false,
+      "keyCode": 123,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.08
+      }
+    },
+    "dpadRight": {
+      "hint": "Right Arrow",
+      "isHoldModifier": false,
+      "keyCode": 124,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.08
+      }
+    },
+    "dpadUp": {
+      "hint": "Up Arrow",
+      "isHoldModifier": false,
+      "keyCode": 126,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "leftBumper": {
+      "hint": "Page Up (Scroll Back)",
+      "isHoldModifier": false,
+      "keyCode": 116,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.25
+      }
+    },
+    "leftThumbstick": {
+      "hint": "Left Click",
+      "isHoldModifier": false,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "leftTrigger": {
+      "hint": "HOLD: Shift (Select Text)",
+      "isHoldModifier": true,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": true
+      }
+    },
+    "menu": {
+      "hint": "New Chat (Cmd+N)",
+      "isHoldModifier": false,
+      "keyCode": 45,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightBumper": {
+      "hint": "Page Down (Scroll Forward)",
+      "isHoldModifier": false,
+      "keyCode": 121,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.25
+      }
+    },
+    "rightThumbstick": {
+      "hint": "On-Screen Keyboard",
+      "isHoldModifier": false,
+      "keyCode": 61456,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTrigger": {
+      "hint": "HOLD: Cmd",
+      "isHoldModifier": true,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "share": {
+      "hint": "Undo (Cmd+Z)",
+      "isHoldModifier": false,
+      "keyCode": 6,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "view": {
+      "hint": "Search (Cmd+K)",
+      "isHoldModifier": false,
+      "keyCode": 40,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "x": {
+      "hint": "Paste (Cmd+V)",
+      "isHoldModifier": false,
+      "keyCode": 9,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "y": {
+      "hint": "Copy (Cmd+C)",
+      "isHoldModifier": false,
+      "keyCode": 8,
+      "longHoldMapping": {
+        "hint": "Select All (Cmd+A)",
+        "keyCode": 0,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": false,
+          "shift": false
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    }
+  },
+  "chordMappings": [],
+  "createdAt": "2026-02-26T12:00:00Z",
+  "dualSenseLEDSettings": {
+    "lightBarBrightness": "bright",
+    "lightBarColor": {
+      "blue": 0.25,
+      "green": 0.55,
+      "red": 0.85
+    },
+    "lightBarEnabled": true,
+    "muteButtonLED": "off",
+    "playerLEDs": {
+      "led1": false,
+      "led2": false,
+      "led3": true,
+      "led4": false,
+      "led5": false
+    }
+  },
+  "gestureMappings": [],
+  "icon": "brain",
+  "id": "A6B7C8D9-E0F1-2345-A6B7-C8D9E0F12310",
+  "isDefault": false,
+  "joystickSettings": {
+    "focusModeModifier": {
+      "command": true,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "focusModeSensitivity": 0.1,
+    "gyroAimingEnabled": false,
+    "gyroAimingSensitivity": 0.3,
+    "invertMouseY": false,
+    "invertScrollY": false,
+    "mouseAcceleration": 0.5,
+    "mouseDeadzone": 0.15,
+    "mouseSensitivity": 0.5,
+    "scrollAcceleration": 0.5,
+    "scrollBoostMultiplier": 2.0,
+    "scrollDeadzone": 0.15,
+    "scrollSensitivity": 0.5,
+    "touchpadAcceleration": 0.5,
+    "touchpadDeadzone": 0.001,
+    "touchpadPanSensitivity": 0.5,
+    "touchpadSensitivity": 0.5,
+    "touchpadSmoothing": 0.4,
+    "touchpadUseNativeZoom": true,
+    "touchpadZoomToPanRatio": 1.8
+  },
+  "linkedApps": [
+    "com.anthropic.claudefordesktop"
+  ],
+  "macros": [],
+  "modifiedAt": "2026-02-26T12:00:00Z",
+  "name": "Claude",
+  "onScreenKeyboardSettings": {
+    "activateAllWindows": true,
+    "appBarItems": [],
+    "defaultTerminalApp": "Terminal",
+    "quickTexts": [],
+    "showExtendedFunctionKeys": false,
+    "toggleShortcutModifiers": {
+      "command": false,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "typingDelay": 0.03,
+    "websiteLinks": []
+  },
+  "sequenceMappings": []
+}

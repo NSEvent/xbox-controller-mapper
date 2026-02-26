@@ -1,0 +1,347 @@
+{
+  "buttonMappings": {
+    "a": {
+      "doubleTapMapping": {
+        "hint": "Rename (Return)",
+        "keyCode": 36,
+        "modifiers": {
+          "command": false,
+          "control": false,
+          "option": false,
+          "shift": false
+        },
+        "threshold": 0.3
+      },
+      "hint": "Open (Cmd+Down)",
+      "isHoldModifier": false,
+      "keyCode": 125,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "b": {
+      "hint": "Go Back (Cmd+[)",
+      "isHoldModifier": false,
+      "keyCode": 33,
+      "longHoldMapping": {
+        "hint": "Go Forward (Cmd+])",
+        "keyCode": 30,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": false,
+          "shift": false
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadDown": {
+      "hint": "Down Arrow",
+      "isHoldModifier": false,
+      "keyCode": 125,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "dpadLeft": {
+      "hint": "Collapse / Parent (Left)",
+      "isHoldModifier": false,
+      "keyCode": 123,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "dpadRight": {
+      "hint": "Expand / Enter (Right)",
+      "isHoldModifier": false,
+      "keyCode": 124,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "dpadUp": {
+      "hint": "Up Arrow",
+      "isHoldModifier": false,
+      "keyCode": 126,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "leftBumper": {
+      "hint": "Previous Tab (Cmd+Shift+[)",
+      "isHoldModifier": false,
+      "keyCode": 33,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": true
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.2
+      }
+    },
+    "leftThumbstick": {
+      "hint": "Get Info (Cmd+I)",
+      "isHoldModifier": false,
+      "keyCode": 34,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "leftTrigger": {
+      "hint": "List View (Cmd+2)",
+      "isHoldModifier": false,
+      "keyCode": 19,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "menu": {
+      "hint": "New Window (Cmd+N)",
+      "isHoldModifier": false,
+      "keyCode": 45,
+      "longHoldMapping": {
+        "hint": "New Folder (Cmd+Shift+N)",
+        "keyCode": 45,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": false,
+          "shift": true
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightBumper": {
+      "hint": "Next Tab (Cmd+Shift+])",
+      "isHoldModifier": false,
+      "keyCode": 30,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": true
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.2
+      }
+    },
+    "rightThumbstick": {
+      "hint": "Search (Cmd+F)",
+      "isHoldModifier": false,
+      "keyCode": 3,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTrigger": {
+      "hint": "Column View (Cmd+3)",
+      "isHoldModifier": false,
+      "keyCode": 20,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "share": {
+      "hint": "Delete (Cmd+Delete)",
+      "isHoldModifier": false,
+      "keyCode": 51,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "view": {
+      "hint": "Quick Look (Space)",
+      "isHoldModifier": false,
+      "keyCode": 49,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "x": {
+      "hint": "Copy (Cmd+C)",
+      "isHoldModifier": false,
+      "keyCode": 8,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "y": {
+      "hint": "Paste (Cmd+V)",
+      "isHoldModifier": false,
+      "keyCode": 9,
+      "longHoldMapping": {
+        "hint": "Move Here (Cmd+Opt+V)",
+        "keyCode": 9,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": true,
+          "shift": false
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    }
+  },
+  "chordMappings": [
+    {
+      "buttons": [
+        "leftBumper",
+        "rightBumper"
+      ],
+      "hint": "New Tab (Cmd+T)",
+      "id": "D9E0F1A2-0001-0001-0001-000000000001",
+      "keyCode": 17,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    }
+  ],
+  "createdAt": "2026-02-26T12:00:00Z",
+  "dualSenseLEDSettings": {
+    "lightBarBrightness": "bright",
+    "lightBarColor": {
+      "blue": 0.85,
+      "green": 0.48,
+      "red": 0.0
+    },
+    "lightBarEnabled": true,
+    "muteButtonLED": "off",
+    "playerLEDs": {
+      "led1": false,
+      "led2": false,
+      "led3": true,
+      "led4": false,
+      "led5": false
+    }
+  },
+  "gestureMappings": [],
+  "icon": "folder.fill",
+  "id": "D9E0F1A2-B3C4-5678-D9E0-F1A2B3C45613",
+  "isDefault": false,
+  "joystickSettings": {
+    "focusModeModifier": {
+      "command": true,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "focusModeSensitivity": 0.1,
+    "gyroAimingEnabled": false,
+    "gyroAimingSensitivity": 0.3,
+    "invertMouseY": false,
+    "invertScrollY": false,
+    "mouseAcceleration": 0.5,
+    "mouseDeadzone": 0.15,
+    "mouseSensitivity": 0.5,
+    "scrollAcceleration": 0.5,
+    "scrollBoostMultiplier": 2.0,
+    "scrollDeadzone": 0.15,
+    "scrollSensitivity": 0.5,
+    "touchpadAcceleration": 0.5,
+    "touchpadDeadzone": 0.001,
+    "touchpadPanSensitivity": 0.5,
+    "touchpadSensitivity": 0.5,
+    "touchpadSmoothing": 0.4,
+    "touchpadUseNativeZoom": true,
+    "touchpadZoomToPanRatio": 1.8
+  },
+  "linkedApps": [
+    "com.apple.finder"
+  ],
+  "macros": [],
+  "modifiedAt": "2026-02-26T12:00:00Z",
+  "name": "Finder",
+  "onScreenKeyboardSettings": {
+    "activateAllWindows": true,
+    "appBarItems": [],
+    "defaultTerminalApp": "Terminal",
+    "quickTexts": [],
+    "showExtendedFunctionKeys": false,
+    "toggleShortcutModifiers": {
+      "command": false,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "typingDelay": 0.03,
+    "websiteLinks": []
+  },
+  "sequenceMappings": []
+}

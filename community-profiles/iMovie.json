@@ -1,0 +1,331 @@
+{
+  "buttonMappings": {
+    "a": {
+      "doubleTapMapping": {
+        "hint": "Play Selection (/)",
+        "keyCode": 44,
+        "modifiers": {
+          "command": false,
+          "control": false,
+          "option": false,
+          "shift": false
+        },
+        "threshold": 0.3
+      },
+      "hint": "Play / Pause (Space)",
+      "isHoldModifier": false,
+      "keyCode": 49,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "b": {
+      "hint": "Split Clip (Cmd+B)",
+      "isHoldModifier": false,
+      "keyCode": 11,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadDown": {
+      "hint": "Down Arrow",
+      "isHoldModifier": false,
+      "keyCode": 125,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "dpadLeft": {
+      "hint": "Beginning (Home)",
+      "isHoldModifier": false,
+      "keyCode": 115,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadRight": {
+      "hint": "End",
+      "isHoldModifier": false,
+      "keyCode": 119,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadUp": {
+      "hint": "Up Arrow",
+      "isHoldModifier": false,
+      "keyCode": 126,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "leftBumper": {
+      "hint": "Step Back (Left Arrow)",
+      "isHoldModifier": false,
+      "keyCode": 123,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.08
+      }
+    },
+    "leftThumbstick": {
+      "hint": "Left Click",
+      "isHoldModifier": false,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "leftTrigger": {
+      "hint": "Zoom Out (Cmd+-)",
+      "isHoldModifier": false,
+      "keyCode": 27,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.2
+      }
+    },
+    "menu": {
+      "hint": "Undo (Cmd+Z)",
+      "isHoldModifier": false,
+      "keyCode": 6,
+      "longHoldMapping": {
+        "hint": "Redo (Cmd+Shift+Z)",
+        "keyCode": 6,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": false,
+          "shift": true
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightBumper": {
+      "hint": "Step Forward (Right Arrow)",
+      "isHoldModifier": false,
+      "keyCode": 124,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.08
+      }
+    },
+    "rightThumbstick": {
+      "hint": "Toggle Fullscreen (Cmd+Ctrl+F)",
+      "isHoldModifier": false,
+      "keyCode": 3,
+      "modifiers": {
+        "command": true,
+        "control": true,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTrigger": {
+      "hint": "Zoom In (Cmd+=)",
+      "isHoldModifier": false,
+      "keyCode": 24,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.2
+      }
+    },
+    "share": {
+      "hint": "Crop (C)",
+      "isHoldModifier": false,
+      "keyCode": 8,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "view": {
+      "hint": "Favorite (F)",
+      "isHoldModifier": false,
+      "keyCode": 3,
+      "longHoldMapping": {
+        "hint": "Delete Selected (Delete)",
+        "keyCode": 51,
+        "modifiers": {
+          "command": false,
+          "control": false,
+          "option": false,
+          "shift": false
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "x": {
+      "hint": "Add to End (E)",
+      "isHoldModifier": false,
+      "keyCode": 14,
+      "longHoldMapping": {
+        "hint": "Insert at Playhead (W)",
+        "keyCode": 13,
+        "modifiers": {
+          "command": false,
+          "control": false,
+          "option": false,
+          "shift": false
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "y": {
+      "hint": "Add Transition (Cmd+T)",
+      "isHoldModifier": false,
+      "keyCode": 17,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    }
+  },
+  "chordMappings": [],
+  "createdAt": "2026-02-26T12:00:00Z",
+  "dualSenseLEDSettings": {
+    "lightBarBrightness": "bright",
+    "lightBarColor": {
+      "blue": 0.87,
+      "green": 0.13,
+      "red": 0.58
+    },
+    "lightBarEnabled": true,
+    "muteButtonLED": "off",
+    "playerLEDs": {
+      "led1": false,
+      "led2": false,
+      "led3": true,
+      "led4": false,
+      "led5": false
+    }
+  },
+  "gestureMappings": [],
+  "icon": "play.rectangle.fill",
+  "id": "F5A6B7C8-D9E0-1234-F5A6-B7C8D9E0120F",
+  "isDefault": false,
+  "joystickSettings": {
+    "focusModeModifier": {
+      "command": true,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "focusModeSensitivity": 0.1,
+    "gyroAimingEnabled": false,
+    "gyroAimingSensitivity": 0.3,
+    "invertMouseY": false,
+    "invertScrollY": false,
+    "mouseAcceleration": 0.5,
+    "mouseDeadzone": 0.15,
+    "mouseSensitivity": 0.5,
+    "scrollAcceleration": 0.5,
+    "scrollBoostMultiplier": 2.0,
+    "scrollDeadzone": 0.15,
+    "scrollSensitivity": 0.5,
+    "touchpadAcceleration": 0.5,
+    "touchpadDeadzone": 0.001,
+    "touchpadPanSensitivity": 0.5,
+    "touchpadSensitivity": 0.5,
+    "touchpadSmoothing": 0.4,
+    "touchpadUseNativeZoom": true,
+    "touchpadZoomToPanRatio": 1.8
+  },
+  "linkedApps": [
+    "com.apple.iMovieApp"
+  ],
+  "macros": [],
+  "modifiedAt": "2026-02-26T12:00:00Z",
+  "name": "iMovie",
+  "onScreenKeyboardSettings": {
+    "activateAllWindows": true,
+    "appBarItems": [],
+    "defaultTerminalApp": "Terminal",
+    "quickTexts": [],
+    "showExtendedFunctionKeys": false,
+    "toggleShortcutModifiers": {
+      "command": false,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "typingDelay": 0.03,
+    "websiteLinks": []
+  },
+  "sequenceMappings": []
+}

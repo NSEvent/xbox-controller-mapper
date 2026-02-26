@@ -1,0 +1,362 @@
+{
+  "buttonMappings": {
+    "a": {
+      "hint": "Run / Debug (F5)",
+      "isHoldModifier": false,
+      "keyCode": 96,
+      "longHoldMapping": {
+        "hint": "Stop Debug (Shift+F5)",
+        "keyCode": 96,
+        "modifiers": {
+          "command": false,
+          "control": false,
+          "option": false,
+          "shift": true
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "b": {
+      "hint": "Toggle Terminal (Ctrl+`)",
+      "isHoldModifier": false,
+      "keyCode": 50,
+      "modifiers": {
+        "command": false,
+        "control": true,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadDown": {
+      "hint": "Move Line Down (Opt+Down)",
+      "isHoldModifier": false,
+      "keyCode": 125,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": true,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.15
+      }
+    },
+    "dpadLeft": {
+      "hint": "Outdent (Cmd+[)",
+      "isHoldModifier": false,
+      "keyCode": 33,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "dpadRight": {
+      "hint": "Indent (Cmd+])",
+      "isHoldModifier": false,
+      "keyCode": 30,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "dpadUp": {
+      "hint": "Move Line Up (Opt+Up)",
+      "isHoldModifier": false,
+      "keyCode": 126,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": true,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.15
+      }
+    },
+    "leftBumper": {
+      "hint": "Previous Tab (Cmd+Shift+[)",
+      "isHoldModifier": false,
+      "keyCode": 33,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": true
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.2
+      }
+    },
+    "leftThumbstick": {
+      "hint": "Go to Definition (F12)",
+      "isHoldModifier": false,
+      "keyCode": 111,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "leftTrigger": {
+      "hint": "Comment Toggle (Cmd+/)",
+      "isHoldModifier": false,
+      "keyCode": 44,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "menu": {
+      "hint": "Quick Fix (Cmd+.)",
+      "isHoldModifier": false,
+      "keyCode": 47,
+      "longHoldMapping": {
+        "hint": "Settings (Cmd+,)",
+        "keyCode": 43,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": false,
+          "shift": false
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightBumper": {
+      "hint": "Next Tab (Cmd+Shift+])",
+      "isHoldModifier": false,
+      "keyCode": 30,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": true
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.2
+      }
+    },
+    "rightThumbstick": {
+      "hint": "Go to File (Cmd+P)",
+      "isHoldModifier": false,
+      "keyCode": 35,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTrigger": {
+      "hint": "Format Document (Opt+Shift+F)",
+      "isHoldModifier": false,
+      "keyCode": 3,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": true,
+        "shift": true
+      }
+    },
+    "share": {
+      "hint": "Undo (Cmd+Z)",
+      "isHoldModifier": false,
+      "keyCode": 6,
+      "longHoldMapping": {
+        "hint": "Redo (Cmd+Shift+Z)",
+        "keyCode": 6,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": false,
+          "shift": true
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "view": {
+      "hint": "Toggle Sidebar (Cmd+B)",
+      "isHoldModifier": false,
+      "keyCode": 11,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "x": {
+      "hint": "Find (Cmd+F)",
+      "isHoldModifier": false,
+      "keyCode": 3,
+      "longHoldMapping": {
+        "hint": "Find in Files (Cmd+Shift+F)",
+        "keyCode": 3,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": false,
+          "shift": true
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "y": {
+      "hint": "Command Palette (Cmd+Shift+P)",
+      "isHoldModifier": false,
+      "keyCode": 35,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": true
+      }
+    }
+  },
+  "chordMappings": [
+    {
+      "buttons": [
+        "leftBumper",
+        "rightBumper"
+      ],
+      "hint": "Close Tab (Cmd+W)",
+      "id": "E4F5A6B7-0001-0001-0001-000000000001",
+      "keyCode": 13,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    {
+      "buttons": [
+        "leftTrigger",
+        "rightTrigger"
+      ],
+      "hint": "Toggle Word Wrap (Opt+Z)",
+      "id": "E4F5A6B7-0001-0001-0001-000000000002",
+      "keyCode": 6,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": true,
+        "shift": false
+      }
+    }
+  ],
+  "createdAt": "2026-02-26T12:00:00Z",
+  "dualSenseLEDSettings": {
+    "lightBarBrightness": "bright",
+    "lightBarColor": {
+      "blue": 0.73,
+      "green": 0.48,
+      "red": 0.0
+    },
+    "lightBarEnabled": true,
+    "muteButtonLED": "off",
+    "playerLEDs": {
+      "led1": false,
+      "led2": false,
+      "led3": true,
+      "led4": false,
+      "led5": false
+    }
+  },
+  "gestureMappings": [],
+  "icon": "chevron.left.forwardslash.chevron.right",
+  "id": "E4F5A6B7-C8D9-0123-E4F5-A6B7C8D9010E",
+  "isDefault": false,
+  "joystickSettings": {
+    "focusModeModifier": {
+      "command": true,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "focusModeSensitivity": 0.1,
+    "gyroAimingEnabled": false,
+    "gyroAimingSensitivity": 0.3,
+    "invertMouseY": false,
+    "invertScrollY": false,
+    "mouseAcceleration": 0.5,
+    "mouseDeadzone": 0.15,
+    "mouseSensitivity": 0.5,
+    "scrollAcceleration": 0.5,
+    "scrollBoostMultiplier": 2.0,
+    "scrollDeadzone": 0.15,
+    "scrollSensitivity": 0.5,
+    "touchpadAcceleration": 0.5,
+    "touchpadDeadzone": 0.001,
+    "touchpadPanSensitivity": 0.5,
+    "touchpadSensitivity": 0.5,
+    "touchpadSmoothing": 0.4,
+    "touchpadUseNativeZoom": true,
+    "touchpadZoomToPanRatio": 1.8
+  },
+  "linkedApps": [
+    "com.microsoft.VSCode"
+  ],
+  "macros": [],
+  "modifiedAt": "2026-02-26T12:00:00Z",
+  "name": "Visual Studio Code",
+  "onScreenKeyboardSettings": {
+    "activateAllWindows": true,
+    "appBarItems": [],
+    "defaultTerminalApp": "Terminal",
+    "quickTexts": [],
+    "showExtendedFunctionKeys": false,
+    "toggleShortcutModifiers": {
+      "command": false,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "typingDelay": 0.03,
+    "websiteLinks": []
+  },
+  "sequenceMappings": []
+}

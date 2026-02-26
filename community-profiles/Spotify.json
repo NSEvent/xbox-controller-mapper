@@ -1,0 +1,290 @@
+{
+  "buttonMappings": {
+    "a": {
+      "hint": "Play / Pause (Space)",
+      "isHoldModifier": false,
+      "keyCode": 49,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "b": {
+      "hint": "Enter (Play Selected)",
+      "isHoldModifier": false,
+      "keyCode": 36,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadDown": {
+      "hint": "Down Arrow",
+      "isHoldModifier": false,
+      "keyCode": 125,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "dpadLeft": {
+      "hint": "Navigate Back (Opt+Left)",
+      "isHoldModifier": false,
+      "keyCode": 123,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": true,
+        "shift": false
+      }
+    },
+    "dpadRight": {
+      "hint": "Navigate Forward (Opt+Right)",
+      "isHoldModifier": false,
+      "keyCode": 124,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": true,
+        "shift": false
+      }
+    },
+    "dpadUp": {
+      "hint": "Up Arrow",
+      "isHoldModifier": false,
+      "keyCode": 126,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.1
+      }
+    },
+    "leftBumper": {
+      "hint": "Volume Down (Cmd+Down)",
+      "isHoldModifier": false,
+      "keyCode": 125,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.15
+      }
+    },
+    "leftThumbstick": {
+      "hint": "Left Click",
+      "isHoldModifier": false,
+      "keyCode": 61440,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "leftTrigger": {
+      "hint": "Seek Back (Cmd+Shift+Left)",
+      "isHoldModifier": false,
+      "keyCode": 123,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": true
+      }
+    },
+    "menu": {
+      "hint": "Search (Cmd+L)",
+      "isHoldModifier": false,
+      "keyCode": 37,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightBumper": {
+      "hint": "Volume Up (Cmd+Up)",
+      "isHoldModifier": false,
+      "keyCode": 126,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      },
+      "repeatMapping": {
+        "enabled": true,
+        "interval": 0.15
+      }
+    },
+    "rightThumbstick": {
+      "hint": "Media Play / Pause",
+      "isHoldModifier": false,
+      "keyCode": 61472,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "rightTrigger": {
+      "hint": "Seek Forward (Cmd+Shift+Right)",
+      "isHoldModifier": false,
+      "keyCode": 124,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": true
+      }
+    },
+    "share": {
+      "hint": "Escape",
+      "isHoldModifier": false,
+      "keyCode": 53,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "view": {
+      "hint": "Zoom In (Cmd+=)",
+      "isHoldModifier": false,
+      "keyCode": 24,
+      "longHoldMapping": {
+        "hint": "Zoom Out (Cmd+-)",
+        "keyCode": 27,
+        "modifiers": {
+          "command": true,
+          "control": false,
+          "option": false,
+          "shift": false
+        },
+        "threshold": 0.5
+      },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "x": {
+      "hint": "Previous Track (Cmd+Left)",
+      "isHoldModifier": false,
+      "keyCode": 123,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "y": {
+      "hint": "Next Track (Cmd+Right)",
+      "isHoldModifier": false,
+      "keyCode": 124,
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    }
+  },
+  "chordMappings": [],
+  "createdAt": "2026-02-26T12:00:00Z",
+  "dualSenseLEDSettings": {
+    "lightBarBrightness": "bright",
+    "lightBarColor": {
+      "blue": 0.38,
+      "green": 0.84,
+      "red": 0.12
+    },
+    "lightBarEnabled": true,
+    "muteButtonLED": "off",
+    "playerLEDs": {
+      "led1": false,
+      "led2": false,
+      "led3": true,
+      "led4": false,
+      "led5": false
+    }
+  },
+  "gestureMappings": [],
+  "icon": "music.note",
+  "id": "B1C2D3E4-F5A6-7890-B1C2-D3E4F5A6780B",
+  "isDefault": false,
+  "joystickSettings": {
+    "focusModeModifier": {
+      "command": true,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "focusModeSensitivity": 0.1,
+    "gyroAimingEnabled": false,
+    "gyroAimingSensitivity": 0.3,
+    "invertMouseY": false,
+    "invertScrollY": false,
+    "mouseAcceleration": 0.5,
+    "mouseDeadzone": 0.15,
+    "mouseSensitivity": 0.5,
+    "scrollAcceleration": 0.5,
+    "scrollBoostMultiplier": 2.0,
+    "scrollDeadzone": 0.15,
+    "scrollSensitivity": 0.5,
+    "touchpadAcceleration": 0.5,
+    "touchpadDeadzone": 0.001,
+    "touchpadPanSensitivity": 0.5,
+    "touchpadSensitivity": 0.5,
+    "touchpadSmoothing": 0.4,
+    "touchpadUseNativeZoom": true,
+    "touchpadZoomToPanRatio": 1.8
+  },
+  "linkedApps": [
+    "com.spotify.client"
+  ],
+  "macros": [],
+  "modifiedAt": "2026-02-26T12:00:00Z",
+  "name": "Spotify",
+  "onScreenKeyboardSettings": {
+    "activateAllWindows": true,
+    "appBarItems": [],
+    "defaultTerminalApp": "Terminal",
+    "quickTexts": [],
+    "showExtendedFunctionKeys": false,
+    "toggleShortcutModifiers": {
+      "command": false,
+      "control": false,
+      "option": false,
+      "shift": false
+    },
+    "typingDelay": 0.03,
+    "websiteLinks": []
+  },
+  "sequenceMappings": []
+}
