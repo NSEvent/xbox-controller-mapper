@@ -1,0 +1,426 @@
+{
+  "id" : "F9A0B1C2-D3E4-5678-F9A0-B1C2D3E45609",
+  "name" : "iTerm2",
+  "icon" : "terminal",
+  "isDefault" : false,
+  "createdAt" : "2026-02-26T12:00:00Z",
+  "modifiedAt" : "2026-02-26T12:00:00Z",
+  "linkedApps" : [
+    "com.googlecode.iterm2"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Return (Execute)",
+      "keyCode" : 36,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "doubleTapMapping" : {
+        "hint" : "Tab (Autocomplete)",
+        "keyCode" : 48,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.3
+      }
+    },
+    "b" : {
+      "hint" : "Interrupt (Ctrl+C)",
+      "keyCode" : 8,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Escape",
+        "keyCode" : 53,
+        "modifiers" : {
+          "command" : false,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "x" : {
+      "hint" : "Paste (Cmd+V)",
+      "keyCode" : 9,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Paste History (Cmd+Shift+H)",
+        "keyCode" : 4,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : true,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "y" : {
+      "hint" : "Copy (Cmd+C)",
+      "keyCode" : 8,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "Select All (Cmd+A)",
+        "keyCode" : 0,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "leftBumper" : {
+      "hint" : "Previous Tab (Cmd+Shift+[)",
+      "keyCode" : 33,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "rightBumper" : {
+      "hint" : "Next Tab (Cmd+Shift+])",
+      "keyCode" : 30,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "leftTrigger" : {
+      "hint" : "Previous Pane (Cmd+[)",
+      "keyCode" : 33,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "rightTrigger" : {
+      "hint" : "Next Pane (Cmd+])",
+      "keyCode" : 30,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.2
+      }
+    },
+    "dpadUp" : {
+      "hint" : "Up Arrow (History)",
+      "keyCode" : 126,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.1
+      }
+    },
+    "dpadDown" : {
+      "hint" : "Down Arrow (History)",
+      "keyCode" : 125,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.1
+      }
+    },
+    "dpadLeft" : {
+      "hint" : "Left Arrow",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "dpadRight" : {
+      "hint" : "Right Arrow",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "repeatMapping" : {
+        "enabled" : true,
+        "interval" : 0.08
+      }
+    },
+    "menu" : {
+      "hint" : "New Tab (Cmd+T)",
+      "keyCode" : 17,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "longHoldMapping" : {
+        "hint" : "New Window (Cmd+N)",
+        "keyCode" : 45,
+        "modifiers" : {
+          "command" : true,
+          "option" : false,
+          "shift" : false,
+          "control" : false
+        },
+        "threshold" : 0.5
+      }
+    },
+    "view" : {
+      "hint" : "Close Tab (Cmd+W)",
+      "keyCode" : 13,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "share" : {
+      "hint" : "Clear Screen (Cmd+K)",
+      "keyCode" : 40,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftThumbstick" : {
+      "hint" : "Reverse Search (Ctrl+R)",
+      "keyCode" : 15,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "isHoldModifier" : false
+    },
+    "rightThumbstick" : {
+      "hint" : "Find (Cmd+F)",
+      "keyCode" : 3,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [
+    {
+      "id" : "F9A0B1C2-0001-0001-0001-000000000001",
+      "buttons" : [
+        "menu",
+        "x"
+      ],
+      "keyCode" : 2,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "hint" : "Split Vertically (Cmd+D)"
+    },
+    {
+      "id" : "F9A0B1C2-0001-0001-0001-000000000002",
+      "buttons" : [
+        "menu",
+        "y"
+      ],
+      "keyCode" : 2,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Split Horizontally (Cmd+Shift+D)"
+    },
+    {
+      "id" : "F9A0B1C2-0001-0001-0001-000000000003",
+      "buttons" : [
+        "leftTrigger",
+        "dpadLeft"
+      ],
+      "keyCode" : 0,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "hint" : "Beginning of Line (Ctrl+A)"
+    },
+    {
+      "id" : "F9A0B1C2-0001-0001-0001-000000000004",
+      "buttons" : [
+        "leftTrigger",
+        "dpadRight"
+      ],
+      "keyCode" : 14,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : true
+      },
+      "hint" : "End of Line (Ctrl+E)"
+    },
+    {
+      "id" : "F9A0B1C2-0001-0001-0001-000000000005",
+      "buttons" : [
+        "leftBumper",
+        "rightBumper"
+      ],
+      "keyCode" : 36,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
+        "control" : false
+      },
+      "hint" : "Toggle Maximize Pane (Cmd+Shift+Return)"
+    }
+  ],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.5,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.0,
+      "green" : 0.85,
+      "blue" : 0.3
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : false,
+      "led2" : true,
+      "led3" : false,
+      "led4" : true,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "iTerm",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}
