@@ -12,14 +12,14 @@
       }
     },
     "b": {
-      "hint": "New Line (Opt+Return)",
+      "hint": "New Line (Shift+Return)",
       "isHoldModifier": false,
       "keyCode": 36,
       "modifiers": {
         "command": false,
         "control": false,
-        "option": true,
-        "shift": false
+        "option": false,
+        "shift": true
       }
     },
     "dpadDown": {

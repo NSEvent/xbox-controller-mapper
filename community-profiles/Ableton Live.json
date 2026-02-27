@@ -254,7 +254,7 @@
       "isHoldModifier" : false
     },
     "rightThumbstick" : {
-      "hint" : "Metronome",
+      "hint" : "Media Play / Pause",
       "keyCode" : 61472,
       "modifiers" : {
         "command" : false,

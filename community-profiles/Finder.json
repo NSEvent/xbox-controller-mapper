@@ -223,17 +223,6 @@
       }
     },
     "x": {
-      "hint": "Copy (Cmd+C)",
-      "isHoldModifier": false,
-      "keyCode": 8,
-      "modifiers": {
-        "command": true,
-        "control": false,
-        "option": false,
-        "shift": false
-      }
-    },
-    "y": {
       "hint": "Paste (Cmd+V)",
       "isHoldModifier": false,
       "keyCode": 9,
@@ -248,6 +237,17 @@
         },
         "threshold": 0.5
       },
+      "modifiers": {
+        "command": true,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "y": {
+      "hint": "Copy (Cmd+C)",
+      "isHoldModifier": false,
+      "keyCode": 8,
       "modifiers": {
         "command": true,
         "control": false,

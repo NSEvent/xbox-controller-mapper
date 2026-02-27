@@ -179,12 +179,12 @@
       "isHoldModifier" : false
     },
     "view" : {
-      "hint" : "Zoom to Fit (Cmd+1)",
+      "hint" : "Zoom to Fit (Shift+1)",
       "keyCode" : 18,
       "modifiers" : {
-        "command" : true,
+        "command" : false,
         "option" : false,
-        "shift" : false,
+        "shift" : true,
         "control" : false
       },
       "isHoldModifier" : false
@@ -212,12 +212,12 @@
       "isHoldModifier" : false
     },
     "rightThumbstick" : {
-      "hint" : "Zoom to Selection (Cmd+2)",
+      "hint" : "Zoom to Selection (Shift+2)",
       "keyCode" : 19,
       "modifiers" : {
-        "command" : true,
+        "command" : false,
         "option" : false,
-        "shift" : false,
+        "shift" : true,
         "control" : false
       },
       "isHoldModifier" : false

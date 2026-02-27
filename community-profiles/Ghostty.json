@@ -413,7 +413,7 @@
     }
   },
   "onScreenKeyboardSettings" : {
-    "defaultTerminalApp" : "Terminal",
+    "defaultTerminalApp" : "Ghostty",
     "typingDelay" : 0.03,
     "showExtendedFunctionKeys" : false,
     "activateAllWindows" : true,

@@ -128,7 +128,7 @@
       "isHoldModifier" : false
     },
     "rightTrigger" : {
-      "hint" : "Extract / Ripple Delete (')",
+      "hint" : "Extract (')",
       "keyCode" : 39,
       "modifiers" : {
         "command" : false,

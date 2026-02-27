@@ -77,8 +77,8 @@
       "isHoldModifier" : false
     },
     "leftBumper" : {
-      "hint" : "Previous Edit Point",
-      "keyCode" : 123,
+      "hint" : "Previous Edit Point (Up Arrow)",
+      "keyCode" : 126,
       "modifiers" : {
         "command" : false,
         "option" : false,
@@ -92,8 +92,8 @@
       }
     },
     "rightBumper" : {
-      "hint" : "Next Edit Point",
-      "keyCode" : 124,
+      "hint" : "Next Edit Point (Down Arrow)",
+      "keyCode" : 125,
       "modifiers" : {
         "command" : false,
         "option" : false,

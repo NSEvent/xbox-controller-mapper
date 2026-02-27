@@ -34,7 +34,7 @@
       }
     },
     "dpadDown": {
-      "hint": "Down Arrow",
+      "hint": "Next Clip (Down Arrow)",
       "isHoldModifier": false,
       "keyCode": 125,
       "modifiers": {
@@ -71,7 +71,7 @@
       }
     },
     "dpadUp": {
-      "hint": "Up Arrow",
+      "hint": "Previous Clip (Up Arrow)",
       "isHoldModifier": false,
       "keyCode": 126,
       "modifiers": {

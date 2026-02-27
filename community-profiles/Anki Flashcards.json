@@ -84,13 +84,13 @@
     },
     {
       "id" : "401AA9C3-C79C-4FA2-9315-1FAA61ED5B76",
-      "keyCode" : 28,
-      "hint" : "Flag Card",
+      "keyCode" : 18,
+      "hint" : "Flag Card (Ctrl+1)",
       "modifiers" : {
         "command" : false,
         "option" : false,
-        "shift" : true,
-        "control" : false
+        "shift" : false,
+        "control" : true
       },
       "buttons" : [
         "y",
@@ -293,8 +293,8 @@
       "isHoldModifier" : false
     },
     "menu" : {
-      "hint" : "Sync",
-      "keyCode" : 1,
+      "hint" : "Sync (Y)",
+      "keyCode" : 16,
       "modifiers" : {
         "command" : false,
         "option" : false,

@@ -179,9 +179,9 @@
       }
     },
     "rightThumbstick": {
-      "hint": "Show/Hide Debug (Cmd+Shift+Y)",
+      "hint": "Show Library (Cmd+Shift+L)",
       "isHoldModifier": false,
-      "keyCode": 16,
+      "keyCode": 37,
       "modifiers": {
         "command": true,
         "control": false,

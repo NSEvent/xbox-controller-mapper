@@ -101,11 +101,10 @@
       }
     },
     "leftTrigger": {
-      "hint": "Rewind (Cmd+Shift+Left)",
-      "isHoldModifier": false,
-      "keyCode": 123,
+      "hint": "HOLD: Shift (Select)",
+      "isHoldModifier": true,
       "modifiers": {
-        "command": true,
+        "command": false,
         "control": false,
         "option": false,
         "shift": true
@@ -160,14 +159,13 @@
       }
     },
     "rightTrigger": {
-      "hint": "Fast Forward (Cmd+Shift+Right)",
-      "isHoldModifier": false,
-      "keyCode": 124,
+      "hint": "HOLD: Cmd",
+      "isHoldModifier": true,
       "modifiers": {
         "command": true,
         "control": false,
         "option": false,
-        "shift": true
+        "shift": false
       }
     },
     "share": {

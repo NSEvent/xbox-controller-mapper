@@ -171,7 +171,7 @@
       }
     },
     "view": {
-      "hint": "Zoom In (Cmd+=)",
+      "hint": "Zoom In (Cmd+Shift+=)",
       "isHoldModifier": false,
       "keyCode": 24,
       "longHoldMapping": {
@@ -189,7 +189,7 @@
         "command": true,
         "control": false,
         "option": false,
-        "shift": false
+        "shift": true
       }
     },
     "x": {

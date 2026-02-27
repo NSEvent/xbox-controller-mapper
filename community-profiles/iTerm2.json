@@ -409,7 +409,7 @@
     }
   },
   "onScreenKeyboardSettings" : {
-    "defaultTerminalApp" : "iTerm",
+    "defaultTerminalApp" : "iTerm2",
     "typingDelay" : 0.03,
     "showExtendedFunctionKeys" : false,
     "activateAllWindows" : true,
