@@ -327,6 +327,15 @@ struct Profile: Codable, Identifiable, Equatable {
             ChordMapping(buttons: [.rightBumper, .dpadRight], keyCode: KeyCodeMapping.keyE, modifiers: .control),
             // RB + D-Left = Ctrl+A
             ChordMapping(buttons: [.rightBumper, .dpadLeft], keyCode: KeyCodeMapping.keyA, modifiers: .control),
+            // Xbox/Menu (DualSense: PS + Options) = Center mouse on main display
+            ChordMapping(
+                buttons: [.xbox, .menu],
+                systemCommand: .shellCommand(
+                    command: "osascript -l JavaScript -e 'ObjC.import(\"CoreGraphics\"); var b=$.CGDisplayBounds($.CGMainDisplayID()); $.CGWarpMouseCursorPosition($.CGPointMake(b.origin.x + b.size.width / 2, b.origin.y + b.size.height / 2));'",
+                    inTerminal: false
+                ),
+                hint: "Center Mouse"
+            )
         ]
 
         // Joystick settings tuned for comfortable use
