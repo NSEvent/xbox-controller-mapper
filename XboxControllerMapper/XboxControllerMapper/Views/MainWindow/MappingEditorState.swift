@@ -40,6 +40,9 @@ struct MappingEditorState {
     // MARK: - Hint
     var hint: String = ""
 
+    // MARK: - Haptic feedback
+    var hapticStyle: HapticStyle?
+
     // MARK: - UI state
     var showingKeyboard: Bool = false
     var showingAppPicker: Bool = false

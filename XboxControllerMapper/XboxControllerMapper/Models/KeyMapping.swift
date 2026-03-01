@@ -168,6 +168,9 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     /// Optional user-provided description of what this mapping does
     var hint: String?
 
+    /// Optional haptic feedback style to play when this action fires
+    var hapticStyle: HapticStyle?
+
     init(
         keyCode: CGKeyCode? = nil,
         modifiers: ModifierFlags = ModifierFlags(),
@@ -178,7 +181,8 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         macroId: UUID? = nil,
         scriptId: UUID? = nil,
         systemCommand: SystemCommand? = nil,
-        hint: String? = nil
+        hint: String? = nil,
+        hapticStyle: HapticStyle? = nil
     ) {
         self.keyCode = keyCode
         self.modifiers = modifiers
@@ -190,10 +194,11 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         self.scriptId = scriptId
         self.systemCommand = systemCommand
         self.hint = hint
+        self.hapticStyle = hapticStyle
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, macroId, scriptId, systemCommand, hint
+        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, macroId, scriptId, systemCommand, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -208,6 +213,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
+        hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
 
     /// Creates a simple key mapping
@@ -320,13 +326,14 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
     var scriptId: UUID?
     var systemCommand: SystemCommand?
     var hint: String?
+    var hapticStyle: HapticStyle?
 
     private static func sanitizedThreshold(_ threshold: TimeInterval) -> TimeInterval {
         guard threshold.isFinite, threshold > 0 else { return defaultThreshold }
         return threshold
     }
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil, hapticStyle: HapticStyle? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = Self.sanitizedThreshold(threshold)
@@ -334,10 +341,11 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         self.scriptId = scriptId
         self.systemCommand = systemCommand
         self.hint = hint
+        self.hapticStyle = hapticStyle
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, hint
+        case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -350,6 +358,7 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
+        hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
 
     var displayString: String {
@@ -405,13 +414,14 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
     var scriptId: UUID?
     var systemCommand: SystemCommand?
     var hint: String?
+    var hapticStyle: HapticStyle?
 
     private static func sanitizedThreshold(_ threshold: TimeInterval) -> TimeInterval {
         guard threshold.isFinite, threshold > 0 else { return defaultThreshold }
         return threshold
     }
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil, hapticStyle: HapticStyle? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = Self.sanitizedThreshold(threshold)
@@ -419,10 +429,11 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         self.scriptId = scriptId
         self.systemCommand = systemCommand
         self.hint = hint
+        self.hapticStyle = hapticStyle
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, hint
+        case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -435,6 +446,7 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
+        hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
 
     var displayString: String {

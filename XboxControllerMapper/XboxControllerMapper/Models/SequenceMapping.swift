@@ -34,6 +34,9 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     /// Optional user-provided description of what this sequence does
     var hint: String?
 
+    /// Optional haptic feedback style to play when this sequence fires
+    var hapticStyle: HapticStyle?
+
     init(
         id: UUID = UUID(),
         steps: [ControllerButton] = [],
@@ -43,7 +46,8 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         macroId: UUID? = nil,
         scriptId: UUID? = nil,
         systemCommand: SystemCommand? = nil,
-        hint: String? = nil
+        hint: String? = nil,
+        hapticStyle: HapticStyle? = nil
     ) {
         self.id = id
         self.steps = steps
@@ -54,10 +58,11 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         self.scriptId = scriptId
         self.systemCommand = systemCommand
         self.hint = hint
+        self.hapticStyle = hapticStyle
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, steps, stepTimeout, keyCode, modifiers, macroId, scriptId, systemCommand, hint
+        case id, steps, stepTimeout, keyCode, modifiers, macroId, scriptId, systemCommand, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -72,6 +77,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
+        hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -85,6 +91,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         try container.encodeIfPresent(scriptId, forKey: .scriptId)
         try container.encodeIfPresent(systemCommand, forKey: .systemCommand)
         try container.encodeIfPresent(hint, forKey: .hint)
+        try container.encodeIfPresent(hapticStyle, forKey: .hapticStyle)
     }
 
     /// Human-readable description of the sequence steps

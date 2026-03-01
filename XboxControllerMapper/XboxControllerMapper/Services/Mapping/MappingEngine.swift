@@ -172,6 +172,17 @@ class MappingEngine: ObservableObject {
         controllerService.storage.lock.unlock()
     }
 
+    /// Plays haptic feedback for a discrete controller action if the mapping has a haptic style configured.
+    nonisolated func playActionHaptic(style: HapticStyle?) {
+        guard let style else { return }
+        controllerService.playHaptic(
+            intensity: style.intensity,
+            sharpness: style.sharpness,
+            duration: style.duration,
+            transient: true
+        )
+    }
+
     private func setupBindings() {
         // Sync Profile
         profileManager.$activeProfile
@@ -388,6 +399,7 @@ class MappingEngine: ObservableObject {
             }
             if sequence.keyCode == nil, state.lock.withLock({ state.isLocked }) { return }
             mappingExecutor.executeAction(sequence, for: sequence.steps, profile: profile, logType: .sequence)
+            playActionHaptic(style: sequence.hapticStyle)
         }
     }
 
@@ -583,6 +595,7 @@ class MappingEngine: ObservableObject {
                     state.lastTapTime.removeValue(forKey: button)
                 }
                 mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
+                playActionHaptic(style: doubleTapMapping.hapticStyle)
                 return
             }
             state.lock.withLock {
@@ -595,6 +608,7 @@ class MappingEngine: ObservableObject {
         }
 
         inputSimulator.startHoldMapping(mapping)
+        playActionHaptic(style: mapping.hapticStyle)
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString, isHeld: true)
     }
 
@@ -762,6 +776,7 @@ class MappingEngine: ObservableObject {
         }
 
         mappingExecutor.executeAction(mapping, for: button, profile: profile, logType: .longPress)
+        playActionHaptic(style: mapping.hapticStyle)
     }
 
     /// - Precondition: Must be called on inputQueue
@@ -831,6 +846,7 @@ class MappingEngine: ObservableObject {
         case .executeLongHold(let longHoldMapping):
             clearTapState(for: button)
             mappingExecutor.executeAction(longHoldMapping, for: button, profile: profile, logType: .longPress)
+            playActionHaptic(style: longHoldMapping.hapticStyle)
             return
 
         case .evaluateDoubleTap(let doubleTapMapping, let skipSingleTapFallback):
@@ -954,6 +970,7 @@ class MappingEngine: ObservableObject {
             }
             clearTapState(for: button)
             mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
+            playActionHaptic(style: doubleTapMapping.hapticStyle)
             return true
         }
 
@@ -970,6 +987,7 @@ class MappingEngine: ObservableObject {
 
                 let profile = self.state.lock.withLock { self.state.activeProfile }
                 self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
+                self.playActionHaptic(style: mapping.hapticStyle)
             }
             state.pendingSingleTap[button] = workItem
             return workItem
@@ -990,6 +1008,7 @@ class MappingEngine: ObservableObject {
             }
 
             self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
+            self.playActionHaptic(style: mapping.hapticStyle)
         }
 
         state.lock.withLock {
@@ -1070,6 +1089,7 @@ class MappingEngine: ObservableObject {
             if chord.keyCode == nil, state.lock.withLock({ state.isLocked }) { return }
 
             mappingExecutor.executeAction(chord, for: Array(chordButtons), profile: profile, logType: .chord)
+            playActionHaptic(style: chord.hapticStyle)
         } else {
             if state.lock.withLock({ state.isLocked }) { return }
 

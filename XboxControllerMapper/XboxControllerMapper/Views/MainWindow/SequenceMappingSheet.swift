@@ -30,6 +30,7 @@ struct SequenceMappingSheet: View {
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
     @State private var hint: String = ""
+    @State private var hapticStyle: HapticStyle?
     @State private var showingKeyboard = false
 
     // Macro/Script support
@@ -106,6 +107,7 @@ struct SequenceMappingSheet: View {
             updated.scriptId = finalScriptId
             updated.systemCommand = finalSystemCommand
             updated.hint = hintValue
+            updated.hapticStyle = hapticStyle
             profileManager.updateSequence(updated)
         } else {
             let sequence = SequenceMapping(
@@ -116,7 +118,8 @@ struct SequenceMappingSheet: View {
                 macroId: finalMacroId,
                 scriptId: finalScriptId,
                 systemCommand: finalSystemCommand,
-                hint: hintValue
+                hint: hintValue,
+                hapticStyle: hapticStyle
             )
             profileManager.addSequence(sequence)
         }
@@ -338,6 +341,8 @@ struct SequenceMappingSheet: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.subheadline)
                     }
+
+                    HapticStylePicker(hapticStyle: $hapticStyle)
                 }
 
                 HStack {
@@ -367,6 +372,7 @@ struct SequenceMappingSheet: View {
                 keyCode = sequence.keyCode
                 modifiers = sequence.modifiers
                 hint = sequence.hint ?? ""
+                hapticStyle = sequence.hapticStyle
 
                 if let systemCommand = sequence.systemCommand {
                     mappingType = .systemCommand

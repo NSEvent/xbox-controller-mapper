@@ -577,6 +577,8 @@ struct ButtonMappingSheet: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.subheadline)
                     }
+
+                    HapticStylePicker(hapticStyle: $longHoldState.hapticStyle)
                 }
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor))
@@ -663,6 +665,8 @@ struct ButtonMappingSheet: View {
                             .textFieldStyle(.roundedBorder)
                             .font(.subheadline)
                     }
+
+                    HapticStylePicker(hapticStyle: $doubleTapState.hapticStyle)
                 }
                 .padding(12)
                 .background(Color(nsColor: .controlBackgroundColor))
@@ -794,6 +798,7 @@ struct ButtonMappingSheet: View {
 
         if let existingMapping = existingMapping {
             primaryState.hint = existingMapping.hint ?? ""
+            primaryState.hapticStyle = existingMapping.hapticStyle
 
             if let systemCommand = existingMapping.systemCommand {
                 primaryState.mappingType = .systemCommand
@@ -816,6 +821,7 @@ struct ButtonMappingSheet: View {
                 enableLongHold = true
                 longHoldThreshold = longHold.threshold
                 longHoldState.hint = longHold.hint ?? ""
+                longHoldState.hapticStyle = longHold.hapticStyle
                 if let systemCommand = longHold.systemCommand {
                     longHoldState.mappingType = .systemCommand
                     longHoldState.loadSystemCommand(systemCommand)
@@ -833,6 +839,7 @@ struct ButtonMappingSheet: View {
                 enableDoubleTap = true
                 doubleTapThreshold = doubleTap.threshold
                 doubleTapState.hint = doubleTap.hint ?? ""
+                doubleTapState.hapticStyle = doubleTap.hapticStyle
                 if let systemCommand = doubleTap.systemCommand {
                     doubleTapState.mappingType = .systemCommand
                     doubleTapState.loadSystemCommand(systemCommand)
@@ -886,19 +893,20 @@ struct ButtonMappingSheet: View {
 
         if primaryState.mappingType == .systemCommand {
             guard let command = primaryState.buildSystemCommand() else { return }
-            newMapping = KeyMapping(systemCommand: command, hint: primaryState.hint.isEmpty ? nil : primaryState.hint)
+            newMapping = KeyMapping(systemCommand: command, hint: primaryState.hint.isEmpty ? nil : primaryState.hint, hapticStyle: primaryState.hapticStyle)
         } else if primaryState.mappingType == .macro {
             guard let macroId = primaryState.selectedMacroId else { return }
-            newMapping = KeyMapping(macroId: macroId, hint: primaryState.hint.isEmpty ? nil : primaryState.hint)
+            newMapping = KeyMapping(macroId: macroId, hint: primaryState.hint.isEmpty ? nil : primaryState.hint, hapticStyle: primaryState.hapticStyle)
         } else if primaryState.mappingType == .script {
             guard let scriptId = primaryState.selectedScriptId else { return }
-            newMapping = KeyMapping(scriptId: scriptId, hint: primaryState.hint.isEmpty ? nil : primaryState.hint)
+            newMapping = KeyMapping(scriptId: scriptId, hint: primaryState.hint.isEmpty ? nil : primaryState.hint, hapticStyle: primaryState.hapticStyle)
         } else {
             newMapping = KeyMapping(
                 keyCode: primaryState.keyCode,
                 modifiers: primaryState.modifiers,
                 isHoldModifier: isHoldModifier,
-                hint: primaryState.hint.isEmpty ? nil : primaryState.hint
+                hint: primaryState.hint.isEmpty ? nil : primaryState.hint,
+                hapticStyle: primaryState.hapticStyle
             )
 
             if enableRepeat {
@@ -929,7 +937,8 @@ struct ButtonMappingSheet: View {
                     threshold: longHoldThreshold,
                     macroId: longHoldState.mappingType == .macro ? longHoldState.selectedMacroId : nil,
                     systemCommand: longHoldState.mappingType == .systemCommand ? longHoldState.buildSystemCommand() : nil,
-                    hint: longHoldState.hint.isEmpty ? nil : longHoldState.hint
+                    hint: longHoldState.hint.isEmpty ? nil : longHoldState.hint,
+                    hapticStyle: longHoldState.hapticStyle
                 )
             }
         }
@@ -953,7 +962,8 @@ struct ButtonMappingSheet: View {
                     threshold: doubleTapThreshold,
                     macroId: doubleTapState.mappingType == .macro ? doubleTapState.selectedMacroId : nil,
                     systemCommand: doubleTapState.mappingType == .systemCommand ? doubleTapState.buildSystemCommand() : nil,
-                    hint: doubleTapState.hint.isEmpty ? nil : doubleTapState.hint
+                    hint: doubleTapState.hint.isEmpty ? nil : doubleTapState.hint,
+                    hapticStyle: doubleTapState.hapticStyle
                 )
             }
         }

@@ -88,6 +88,8 @@ struct ActionMappingEditor: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.subheadline)
             }
+
+            HapticStylePicker(hapticStyle: $state.hapticStyle)
         }
     }
 
@@ -121,6 +123,8 @@ struct ActionMappingEditor: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
                 }
+
+                HapticStylePicker(hapticStyle: $state.hapticStyle)
             }
         } else {
             VStack(spacing: 8) {
@@ -170,6 +174,8 @@ struct ActionMappingEditor: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.subheadline)
             }
+
+            HapticStylePicker(hapticStyle: $state.hapticStyle)
         } else {
             VStack(spacing: 8) {
                 Text("No scripts defined in this profile.")
@@ -224,6 +230,8 @@ struct ActionMappingEditor: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
                 }
+
+                HapticStylePicker(hapticStyle: $state.hapticStyle)
             }
         }
     }

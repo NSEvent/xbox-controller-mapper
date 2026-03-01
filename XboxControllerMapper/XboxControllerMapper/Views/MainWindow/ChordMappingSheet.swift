@@ -30,6 +30,7 @@ struct ChordMappingSheet: View {
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
     @State private var hint: String = ""
+    @State private var hapticStyle: HapticStyle?
     @State private var showingKeyboard = false
 
     // Macro/Script support
@@ -114,6 +115,7 @@ struct ChordMappingSheet: View {
             updatedChord.scriptId = finalScriptId
             updatedChord.systemCommand = finalSystemCommand
             updatedChord.hint = hintValue
+            updatedChord.hapticStyle = hapticStyle
             profileManager.updateChord(updatedChord)
         } else {
             let chord = ChordMapping(
@@ -123,7 +125,8 @@ struct ChordMappingSheet: View {
                 macroId: finalMacroId,
                 scriptId: finalScriptId,
                 systemCommand: finalSystemCommand,
-                hint: hintValue
+                hint: hintValue,
+                hapticStyle: hapticStyle
             )
             profileManager.addChord(chord)
         }
@@ -365,6 +368,8 @@ struct ChordMappingSheet: View {
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
                 }
+
+                HapticStylePicker(hapticStyle: $hapticStyle)
             }
 
             HStack {
@@ -393,6 +398,7 @@ struct ChordMappingSheet: View {
                 keyCode = chord.keyCode
                 modifiers = chord.modifiers
                 hint = chord.hint ?? ""
+                hapticStyle = chord.hapticStyle
 
                 if let systemCommand = chord.systemCommand {
                     mappingType = .systemCommand
