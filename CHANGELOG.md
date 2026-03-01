@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-02-28
+
+### Added
+
+- **Per-Mapping Haptic Feedback**: Configure haptic feedback individually for buttons, chords, and sequences
+- **Battery Level Light Bar**: DualSense light bar reflects battery level with color gradient
+  - Low battery blink animation
+  - Charging animation with pulsing effect
+  - Instant transitions via HID report battery/charging state parsing
+- **Bluetooth Light Bar Control**: Light bar colors now work over Bluetooth via GCController.light
+- **Bluetooth Keep-Alive**: Prevents controller from disconnecting during idle periods
+- **30 New Community Profiles**: Spotify, Apple Music, Xcode, VS Code, iMovie, Claude, ChatGPT, Codex, Finder, Messages, Discord, Slack, Chrome, Notes, Zoom, Web Browsing, Blender, Premiere, Figma, PDF, Ableton, Terminal, iTerm2, Ghostty, and 9 targeted-audience profiles
+- **Accessibility Zoom Regression Tests**: Prevent fragile overlay/cursor behavior from breaking
+
+### Fixed
+
+- Accessibility Zoom cursor flash on mouse click events (now uses IOHIDPostEvent with kIOHIDSetCursorPosition)
+- Accessibility Zoom drag cursor flash, extracted testable overlay position policies
+- Overlay positioning during Accessibility Zoom (oscillation filter)
+- Media key events routing to wrong app
+- Battery light bar not applying on app restart
+- Gesture buttons missing from isPlayStationOnly classification
+- Division-by-zero in normalizedMagnitude when deadzone = 1.0
+- Auto-insert space between consecutive swiped words
+- Memory leaks: IOKit port, retain cycles, observer cleanup
+- Data races in haptics, script state, and usage stats
+- Duplicate windows from Cmd+N
+- Bugs across 13 community profiles (naming consistency, missing shortcuts, lightBarBrightness enum)
+
 ## [1.6.0] - 2026-02-24
 
 ### Added
