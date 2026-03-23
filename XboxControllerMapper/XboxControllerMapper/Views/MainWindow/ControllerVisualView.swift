@@ -200,7 +200,8 @@ struct ControllerVisualView: View {
     @ViewBuilder
     private func referenceGroup(title: String, buttons: [ControllerButton]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title.uppercased())
+            Text(LocalizedStringKey(title))
+                .textCase(.uppercase)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)

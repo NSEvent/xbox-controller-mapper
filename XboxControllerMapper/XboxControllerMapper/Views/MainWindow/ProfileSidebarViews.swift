@@ -233,7 +233,7 @@ struct ProfileListRow: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white)
 
-                Text("\(profile.buttonMappings.count) mappings")
+                Text("\(profile.buttonMappings.count) \(String(localized: "mappings"))")
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.6))
             }

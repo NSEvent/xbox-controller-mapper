@@ -18,7 +18,7 @@ struct JoystickSettingsView: View {
                     set: { updateSettings(\.leftStickMode, $0) }
                 )) {
                     ForEach(StickMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
+                        Text(LocalizedStringKey(mode.displayName)).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -157,7 +157,7 @@ struct JoystickSettingsView: View {
                     set: { updateSettings(\.rightStickMode, $0) }
                 )) {
                     ForEach(StickMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
+                        Text(LocalizedStringKey(mode.displayName)).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -424,7 +424,7 @@ struct LEDSettingsView: View {
                     set: { updateSettings(\.muteButtonLED, $0) }
                 )) {
                     ForEach(MuteButtonLEDMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
+                        Text(LocalizedStringKey(mode.displayName)).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -837,10 +837,10 @@ struct LightBarColorPicker: NSViewRepresentable {
 
 /// Reusable slider row for settings
 struct SliderRow: View {
-    let label: String
+    let label: LocalizedStringKey
     @Binding var value: Double
     let range: ClosedRange<Double>
-    var description: String? = nil
+    var description: LocalizedStringKey? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -857,7 +857,6 @@ struct SliderRow: View {
             Slider(value: $value, in: range)
                 .accessibilityLabel(label)
                 .accessibilityValue("\(value, specifier: "%.2f")")
-                .accessibilityHint(description ?? "")
 
             if let description = description {
                 Text(description)

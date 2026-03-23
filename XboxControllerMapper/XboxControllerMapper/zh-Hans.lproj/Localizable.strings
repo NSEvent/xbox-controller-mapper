@@ -1,0 +1,558 @@
+/* ControllerKeys Simplified Chinese Localization */
+
+/* 菜单栏 */
+"Connected" = "已连接";
+"No Controller" = "未检测到手柄";
+"Connect via Bluetooth" = "通过蓝牙连接";
+"Accessibility permission required for global input" = "需要辅助功能权限以支持全局输入";
+"Open System Settings" = "打开系统设置";
+"Mapping Enabled" = "映射已启用";
+"Stream Overlay" = "直播覆盖层";
+"Profile" = "配置文件";
+"Settings" = "设置";
+"Quit ControllerKeys" = "退出 ControllerKeys";
+"© 2026 Kevin Tang. All rights reserved." = "© 2026 Kevin Tang. 保留所有权利。";
+"Default" = "默认";
+
+/* 配置文件 */
+"PROFILES" = "配置文件";
+"New Profile" = "新建配置文件";
+"Import Profile..." = "导入配置文件…";
+"Import Stream Deck Profile..." = "导入 Stream Deck 配置…";
+"Import Community Profile..." = "导入社区配置…";
+"Add profile" = "添加配置文件";
+"Duplicate" = "复制";
+"Rename" = "重命名";
+"Set as Default Profile" = "设为默认配置";
+"Linked Apps..." = "关联应用…";
+"Set Icon" = "设置图标";
+"Remove Icon" = "移除图标";
+"Export..." = "导出…";
+"Delete" = "删除";
+"Rename Profile" = "重命名配置文件";
+"Profile name" = "配置文件名称";
+"Profiles" = "配置文件";
+"Preview" = "预览";
+"Click a profile to see its mappings" = "点击配置文件查看其映射";
+
+/* 主窗口标签页 */
+"Buttons" = "按键";
+"Chords" = "组合键";
+"Sequences" = "序列";
+"Gestures" = "手势";
+"Macros" = "宏";
+"Scripts" = "脚本";
+"Keyboard" = "键盘";
+"Joysticks" = "摇杆";
+"Touchpad" = "触控板";
+"LEDs" = "灯光";
+"Microphone" = "麦克风";
+"Stats" = "统计";
+
+/* 层 */
+"Base Layer" = "基础层";
+"Add Layer" = "添加层";
+"Layer Name" = "层名称";
+"e.g., Combat Mode" = "例如：战斗模式";
+"Activator Button (Optional)" = "激活按键（可选）";
+"Hold this button to activate the layer's mappings" = "按住此按键以激活该层的映射";
+"None (assign later)" = "无（稍后分配）";
+"Edit Layer" = "编辑层";
+"Activator Button" = "激活按键";
+"Editing layer:" = "正在编辑层：";
+"Unmapped buttons fall through to base layer" = "未映射的按键将回退到基础层";
+"Layer Activator" = "层激活键";
+"This button activates the" = "此按键激活";
+"layer. Layer activators cannot have additional mappings - they are reserved for switching between layers." = "层。层激活键不能设置其他映射——它们专用于层之间的切换。";
+"Select 2nd" = "选择第二个";
+"Swap" = "交换";
+"Cursor Hints" = "光标提示";
+"Stream" = "直播";
+
+/* 按键映射 */
+"Configure" = "配置";
+"Current:" = "当前：";
+"Macro:" = "宏：";
+"Script:" = "脚本：";
+"No mapping configured" = "未配置映射";
+"Clear Mapping" = "清除映射";
+"Primary Action" = "主要操作";
+"Hold action while button is held" = "按住按键时持续触发操作";
+"Use as Layer Activator" = "用作层激活键";
+"Create New Layer" = "创建新层";
+"Use Existing Layer" = "使用已有层";
+"Select Layer" = "选择层";
+"When this button is held, the layer's alternate button mappings become active. Other buttons not mapped in the layer fall through to the base layer." = "按住此按键时，该层的备用按键映射将生效。层中未映射的其他按键将回退到基础层。";
+"This button currently activates a layer. Disabling will unassign the button but keep the layer." = "此按键当前用于激活一个层。禁用将取消按键分配，但保留该层。";
+"Action:" = "操作：";
+"Action type" = "操作类型";
+"Key" = "按键";
+"Macro" = "宏";
+"Script" = "脚本";
+"System" = "系统";
+"Hide Keyboard" = "隐藏键盘";
+"Show Keyboard" = "显示键盘";
+"Select a Macro..." = "选择宏…";
+"Create New Macro..." = "创建新宏…";
+"No macros defined in this profile." = "此配置文件中未定义宏。";
+"Select a Script..." = "选择脚本…";
+"Create New Script..." = "创建新脚本…";
+"No scripts defined in this profile." = "此配置文件中未定义脚本。";
+"Hint:" = "提示：";
+"e.g. Copy, Paste, Switch App..." = "例如：复制、粘贴、切换应用…";
+"e.g. Open Editor, Run Script..." = "例如：打开编辑器、运行脚本…";
+"e.g. Smart Spacebar, Toggle Mode..." = "例如：智能空格、切换模式…";
+"Selected:" = "已选择：";
+"EDGE CONTROLS" = "边缘控制";
+"Fn" = "Fn";
+"Paddles" = "拨片";
+
+/* 长按 / 双击 / 重复 */
+"Enable Long Hold Action" = "启用长按操作";
+"Long Hold Action" = "长按操作";
+"Long Hold" = "长按";
+"Long hold is not available for mouse clicks." = "鼠标点击不支持长按操作。";
+"Long hold is not available for special actions." = "特殊操作不支持长按。";
+"Long hold is not available when \"Hold action\" is enabled." = "启用【持续操作】时不支持长按。";
+"Long hold is not available when \"Repeat Action\" is enabled." = "启用\"重复操作\"时不支持长按。";
+"Hold Duration:" = "按住时长：";
+"Enable Double Tap Action" = "启用双击操作";
+"Double Tap Action" = "双击操作";
+"Double Tap" = "双击";
+"Tap Window:" = "双击时间窗口：";
+"Two taps within this time window trigger the double-tap action" = "在此时间窗口内点击两次触发双击操作";
+"Repeat Action While Held" = "按住时重复操作";
+"Repeat is not available for mouse clicks." = "鼠标点击不支持重复操作。";
+"Repeat is not available for special actions." = "特殊操作不支持重复。";
+"Repeat is not available when \"Hold action\" is enabled." = "启用【持续操作】时不支持重复。";
+"Repeat Rate:" = "重复频率：";
+"The action will be triggered" = "操作将被触发";
+"times per second while the button is held" = "次/秒（按住期间）";
+"Webhook not supported for long hold / double tap. Use primary mapping." = "Webhook 不支持长按/双击，请使用主要映射。";
+"OBS WebSocket not supported for long hold / double tap. Use primary mapping." = "OBS WebSocket 不支持长按/双击，请使用主要映射。";
+
+/* 组合键 */
+"Add New Chord" = "添加组合键";
+"No chords configured" = "未配置组合键";
+"Chord Mappings" = "组合键映射";
+"Chords let you map multiple button presses to a single action." = "组合键允许你将多个按键同时按下映射到一个操作。";
+"Edit Chord" = "编辑组合键";
+"Add Chord" = "添加组合键";
+"Select buttons (2 or more):" = "选择按键（2个或更多）：";
+"Chord" = "组合键";
+"chords" = "个组合键";
+"CHORDS" = "组合键列表";
+"mappings" = "个映射";
+
+/* 序列 */
+"Add New Sequence" = "添加序列";
+"No sequences configured" = "未配置序列";
+"Sequence Mappings" = "序列映射";
+"Sequences fire an extra action when buttons are pressed in order within a time window. Individual button actions still fire normally (zero added latency)." = "序列在时间窗口内按顺序按下按键时触发额外操作。各按键的独立操作仍正常触发（零延迟）。";
+"Edit Sequence" = "编辑序列";
+"Add Sequence" = "添加序列";
+"Button sequence (press order):" = "按键序列（按下顺序）：";
+"This sequence already exists" = "此序列已存在";
+"Tap a button to add it as the next step:" = "按下按键以添加为下一步：";
+"Maximum 6 steps reached" = "已达到最多 6 步";
+"Max time between presses:" = "最大按键间隔时间：";
+"Each button press must follow the previous one within this time." = "每次按键必须在此时间内跟随上一次按键。";
+"e.g. Quick Save, Combo Attack..." = "例如：快速存档、连击…";
+
+/* 手势 */
+"Motion Gestures" = "体感手势";
+"Beta" = "测试版";
+"Map quick tilt gestures on your DualSense controller to actions. Snap the controller top toward you (Tilt Back) or away from you (Tilt Forward)." = "将 DualSense 手柄的快速倾斜手势映射到操作。";
+"Gesture Detection" = "手势检测";
+"How easily gestures trigger" = "手势触发灵敏度";
+"Cooldown" = "冷却时间";
+"Wait time between gestures" = "手势之间的等待时间";
+"Adjust sensitivity to control how hard you need to snap the controller. Adjust cooldown to control the wait time before another gesture can fire." = "调整灵敏度以控制需要多大力度甩动手柄，调整冷却时间控制下次触发前的等待时间。";
+"Gyro Aiming (Focus Mode)" = "陀螺仪瞄准（精确模式）";
+"Cursor speed from gyro tilt" = "陀螺仪倾斜的光标速度";
+"Filter hand tremor (rad/s threshold)" = "过滤手抖（弧度/秒阈值）";
+"Tilt the controller to move the mouse cursor while in focus mode. Uses the DualSense gyroscope for fine-grained aiming." = "在精确模式下倾斜手柄移动鼠标光标，使用 DualSense 陀螺仪进行精细瞄准。";
+"Configure Gesture" = "配置手势";
+"Edit Gesture" = "编辑手势";
+"Tap to type a shortcut, or show keyboard to select visually" = "点击输入快捷键，或显示键盘进行可视化选择";
+"e.g. Quick Save, Screenshot..." = "例如：快速存档、截图…";
+
+/* 宏 */
+"Add Macro" = "添加宏";
+"Edit Macro" = "编辑宏";
+"Name" = "名称";
+"Macro Name" = "宏名称";
+"Add Step" = "添加步骤";
+"Edit Step" = "编辑步骤";
+"Key Press" = "按键";
+"Key Hold" = "按住按键";
+"Type Text" = "输入文本";
+"Delay" = "延迟";
+"Open App" = "打开应用";
+"Open Link" = "打开链接";
+"Shell Command" = "Shell 命令";
+"Webhook" = "Webhook";
+"OBS WebSocket" = "OBS WebSocket";
+"Duplicate step" = "复制步骤";
+"Delete step" = "删除步骤";
+"Key Combination" = "组合键";
+"Duration" = "持续时间";
+"Seconds" = "秒";
+"Text to Type" = "输入的文本";
+"Typing Speed" = "输入速度";
+"Instant (Paste)" = "即时（粘贴）";
+"Fast (1200 CPM)" = "快速（1200 字符/分）";
+"Natural (600 CPM)" = "自然（600 字符/分）";
+"Slow (300 CPM)" = "慢速（300 字符/分）";
+"Press Enter after typing" = "输入后按回车";
+"Application" = "应用";
+"https://example.com" = "https://example.com";
+"Request" = "请求";
+"No macros defined" = "未定义宏";
+"Macros allow you to execute a sequence of actions (keys, text, delays) with a single button press." = "宏允许你通过一次按键执行一系列操作（按键、文本、延迟）。";
+
+/* 脚本 */
+"Add New Script" = "添加新脚本";
+"No scripts defined" = "未定义脚本";
+"Scripts let you write JavaScript logic for conditional actions, state tracking, and app-aware behavior. Powered by JavaScriptCore." = "脚本让你编写 JavaScript 逻辑，实现条件操作、状态追踪和应用感知行为。由 JavaScriptCore 驱动。";
+"New Script" = "新建脚本";
+"JavaScript:" = "JavaScript：";
+"Notes:" = "备注：";
+"Optional description" = "可选描述";
+"Test Output:" = "测试输出：";
+"API Reference" = "API 参考";
+"Examples" = "示例";
+"AI" = "AI";
+"Test" = "测试";
+"Script API Reference" = "脚本 API 参考";
+"Input Simulation" = "输入模拟";
+"Application Context" = "应用上下文";
+"Persistent State" = "持久状态";
+"Feedback" = "反馈";
+"Trigger Context" = "触发上下文";
+"Logging" = "日志";
+"(Script executed successfully, no output)" = "（脚本执行成功，无输出）";
+"ERROR:" = "错误：";
+"Automate anything with JavaScript. Here are some ideas:" = "用 JavaScript 自动化任何操作，这里有一些想法：";
+"Browse All Examples" = "浏览所有示例";
+"Generate with AI" = "用 AI 生成";
+"Browse Examples" = "浏览示例";
+"Untitled Script" = "未命名脚本";
+"chars" = "字符";
+"Loading preview..." = "加载预览中…";
+
+/* 摇杆设置 */
+"Left Joystick" = "左摇杆";
+"Right Joystick" = "右摇杆";
+"Mode" = "模式";
+"Sensitivity" = "灵敏度";
+"How fast the cursor moves" = "光标移动速度";
+"Acceleration" = "加速度";
+"0 = linear, 1 = max curve" = "0 = 线性，1 = 最大曲线";
+"How fast scrolling occurs" = "滚动速度";
+"Deadzone" = "死区";
+"Activation threshold for keys" = "按键激活阈值";
+"Ignore small movements" = "忽略细微移动";
+"Invert Y Axis" = "反转 Y 轴";
+"Focus Mode (Precision)" = "精确模式";
+"Focus Speed" = "精确模式速度";
+"Sensitivity when holding modifier" = "按住修饰键时的灵敏度";
+"Activation Modifier" = "激活修饰键";
+"Command modifier" = "Command 键";
+"Option modifier" = "Option 键";
+"Control modifier" = "Control 键";
+"Shift modifier" = "Shift 键";
+"Highlight Focused Cursor" = "高亮精确模式光标";
+"Double-Tap Boost" = "双击加速";
+"Speed multiplier after double-tap up/down" = "上下双击后的速度倍增";
+
+/* 触控板设置 */
+"Touchpad (DualSense)" = "触控板（DualSense）";
+"Touchpad cursor speed" = "触控板光标速度";
+"Ignore tiny jitter" = "忽略细微抖动";
+"Reduce mouse jitter" = "减少鼠标抖动";
+"Two-Finger Pan" = "双指平移";
+"Scroll speed for two-finger pan" = "双指平移滚动速度";
+"Pan to Zoom Ratio" = "平移/缩放比例";
+"Low = easier to zoom, High = easier to pan" = "低 = 更容易缩放，高 = 更容易平移";
+"Native Zoom Gestures" = "原生缩放手势";
+"Use macOS magnify gestures instead of Cmd+Plus/Minus" = "使用 macOS 放大手势替代 Cmd+加/减";
+
+/* 灯光设置 */
+"Light Bar" = "灯条";
+"Enabled" = "已启用";
+"Battery Level Color" = "电量颜色";
+"Red when low, yellow at half, green when full" = "电量低时红色，一半时黄色，充满时绿色";
+"Brightness" = "亮度";
+"Mute Button LED" = "静音按键 LED";
+"Player LEDs" = "玩家 LED";
+"Presets:" = "预设：";
+"P1" = "P1";
+"P2" = "P2";
+"P3" = "P3";
+"P4" = "P4";
+"All" = "全部";
+"Off" = "关闭";
+"Party Mode" = "派对模式";
+"Enable Party Mode" = "启用派对模式";
+"Rainbow lightbar, cycling player LEDs, breathing mute button" = "彩虹灯条、循环玩家 LED、呼吸静音按键";
+"Player LED 1" = "玩家 LED 1";
+"On" = "开启";
+"Over Bluetooth, only the light bar color is supported. Player LEDs, mute LED, and brightness require USB." = "蓝牙连接时仅支持灯条颜色。玩家 LED、静音 LED 和亮度调节需要 USB 连接。";
+
+/* 麦克风设置 */
+"Microphone Control" = "麦克风控制";
+"Mute Microphone" = "静音麦克风";
+"Use this to mute or unmute the built-in microphone on your DualSense controller." = "用于静音或取消静音 DualSense 手柄内置麦克风。";
+"Audio Input Test" = "音频输入测试";
+"Speak into your controller to test the microphone input level:" = "对手柄说话以测试麦克风输入电平：";
+"Level:" = "电平：";
+"Tips" = "提示";
+"• The DualSense microphone appears as \"DualSense Wireless Controller\" in System Settings → Sound → Input" = "• DualSense 麦克风在系统设置 → 声音 → 输入 中显示为\"DualSense Wireless Controller\"";
+"• You can select it as your input device in apps like Discord, Zoom, or FaceTime" = "• 你可以在 Discord、Zoom 或 FaceTime 等应用中将其选为输入设备";
+"• The mute button on the controller (between the analog sticks) can also toggle mute" = "• 手柄上的静音按键（摇杆之间）也可切换静音状态";
+"Microphone audio level" = "麦克风音频电平";
+"percent" = "%";
+"Microphone control requires USB connection on macOS. Connect via USB to use the DualSense microphone." = "在 macOS 上麦克风控制需要 USB 连接。通过 USB 连接以使用 DualSense 麦克风。";
+
+/* 通用设置 */
+"ControllerKeys" = "ControllerKeys";
+"Version" = "版本";
+"Launch at Login" = "登录时启动";
+"Controller Database" = "手柄数据库";
+"Maps generic controllers to Xbox layout" = "将通用手柄映射到 Xbox 布局";
+"Refresh" = "刷新";
+"Third-Party Controllers" = "第三方手柄";
+"Prevent Controller Sleep" = "防止手柄休眠";
+"Sends periodic signals to keep PlayStation controllers awake over Bluetooth" = "定期发送信号以保持 PlayStation 手柄蓝牙连接唤醒状态";
+"Bluetooth" = "蓝牙";
+
+/* 快捷键输入 */
+"Clear" = "清除";
+"Click to type a shortcut, or show keyboard to select visually" = "点击输入快捷键，或显示键盘进行可视化选择";
+
+/* 系统命令 */
+"Command (e.g. say \"Hello\")" = "命令（例如：say \"你好\"）";
+"Command" = "命令";
+"Run silently (no terminal window)" = "静默运行（不显示终端窗口）";
+"Opens a terminal window and executes the command" = "打开终端窗口并执行命令";
+"Runs silently in the background (no visible output)" = "在后台静默运行（无可见输出）";
+"Open in new window (Cmd+N)" = "在新窗口中打开（Cmd+N）";
+"URL (e.g. https://google.com)" = "URL（例如：https://google.com）";
+"Browse Bookmarks" = "浏览书签";
+"Opens the URL in your default browser" = "在默认浏览器中打开 URL";
+"URL (e.g. https://api.example.com/webhook)" = "URL（例如：https://api.example.com/webhook）";
+"Method" = "方法";
+"Body (JSON)" = "请求体（JSON）";
+"Headers" = "请求头";
+"Header" = "请求头键";
+"Value" = "值";
+"Fires an HTTP request when triggered. Use for webhooks, APIs, home automation, etc." = "触发时发送 HTTP 请求。可用于 Webhook、API、智能家居等。";
+"Sends an HTTP request when triggered" = "触发时发送 HTTP 请求";
+"WebSocket URL (e.g. ws://127.0.0.1:4455)" = "WebSocket URL（例如：ws://127.0.0.1:4455）";
+"Password (optional)" = "密码（可选）";
+"Request Type (e.g. StartRecord)" = "请求类型（例如：StartRecord）";
+"Request Data (JSON object, optional)" = "请求数据（JSON 对象，可选）";
+"Sends any OBS WebSocket v5 request type with optional requestData JSON." = "发送任意 OBS WebSocket v5 请求类型，支持可选的 requestData JSON。";
+
+/* 关联应用 */
+"Linked Apps" = "关联应用";
+"This profile will automatically activate when any of these apps are in the front." = "当以下任意应用处于前台时，此配置文件将自动激活。";
+"No apps linked" = "未关联应用";
+"Add App..." = "添加应用…";
+"Done" = "完成";
+"Select App" = "选择应用";
+"Running" = "正在运行";
+"Installed" = "已安装";
+"Search" = "搜索";
+"Linked" = "已关联";
+"Add" = "添加";
+"Add App" = "添加应用";
+"No apps added yet" = "尚未添加应用";
+"Add apps for quick switching from the on-screen keyboard." = "添加应用以从屏幕键盘快速切换。";
+"Unassigned" = "未分配";
+"Search apps..." = "搜索应用…";
+
+/* 统计 */
+"Key Presses" = "按键次数";
+"Mouse Clicks" = "鼠标点击";
+"Macros Run" = "宏运行次数";
+"Steps Automated" = "自动化步骤";
+"Apps Launched" = "启动应用数";
+"Links Opened" = "打开链接数";
+"Snippets Pasted" = "粘贴片段数";
+"Terminals Popped" = "打开终端数";
+"Webhooks Run" = "Webhook 调用数";
+"DISTANCE TRAVELED" = "移动距离";
+"Joystick Mouse" = "摇杆鼠标";
+"Touchpad Mouse" = "触控板鼠标";
+"Scroll Distance" = "滚动距离";
+"TOP BUTTONS" = "最常用按键";
+"INPUT TYPES" = "输入类型";
+"Single Press" = "单击";
+"Webhook Success" = "Webhook 成功";
+"Webhook Failure" = "Webhook 失败";
+"Total Presses" = "总按键次数";
+"Sessions" = "会话次数";
+"Streak" = "连续天数";
+"Best Streak" = "最长连续天数";
+"Share Wrapped" = "分享年度总结";
+"AUTOMATION" = "自动化";
+"BINDING OPTIMIZATION" = "映射优化";
+"efficient" = "高效";
+"suggestion" = "条建议";
+"suggestions" = "条建议";
+"Bindings are well-optimized" = "映射已充分优化";
+"Analyze your button usage to find optimization opportunities" = "分析按键使用情况以发现优化机会";
+"View Recommendations" = "查看建议";
+"Analyze" = "分析";
+"INPUT → OUTPUT" = "输入 → 输出";
+
+/* 优化建议 */
+"Binding Optimization" = "映射优化";
+"recommendation" = "条建议";
+"recommendations" = "条建议";
+"tracked actions" = "个已跟踪操作";
+"Efficiency" = "效率";
+"Your bindings are already well-optimized!" = "你的映射已经充分优化！";
+"Select All" = "全选";
+"Deselect All" = "取消全选";
+"Apply Selected" = "应用所选";
+"Applied!" = "已应用！";
+"Promote" = "提升";
+"Demote" = "降级";
+"press:" = "按键：";
+"long hold:" = "长按：";
+"hold:" = "按住：";
+"2×" = "双击：";
+
+/* 社区配置 */
+"Community Profiles" = "社区配置文件";
+"Loading profiles..." = "加载配置文件中…";
+"Retry" = "重试";
+"No community profiles available" = "暂无社区配置文件";
+"Imported" = "已导入";
+"Downloading" = "下载中";
+"Import" = "导入";
+
+/* Stream Deck 导入 */
+"Stream Deck Profile" = "Stream Deck 配置文件";
+"Parsing Stream Deck profile..." = "解析 Stream Deck 配置文件中…";
+"Type:" = "类型：";
+"Hotkey" = "热键";
+"Open Application" = "打开应用";
+"Website" = "网站";
+"Multi-Action" = "多操作";
+"Text" = "文本";
+"Unsupported" = "不支持";
+"This action cannot be imported because it uses an unsupported Stream Deck plugin." = "此操作无法导入，因为它使用了不支持的 Stream Deck 插件。";
+"Select an action to view details" = "选择操作以查看详情";
+"of" = "/";
+"actions will be imported" = "个操作将被导入";
+"unsupported" = "个不支持";
+
+/* 通用按钮 */
+"Cancel" = "取消";
+"Save" = "保存";
+"Close" = "关闭";
+
+/* 控制器视图分组标题 */
+"Shoulder" = "肩键";
+"Movement" = "移动";
+"D-Pad" = "方向键";
+"Actions" = "动作键";
+"Camera" = "镜头";
+
+/* 状态文字 */
+"MAPPING ACTIVE" = "映射已启用";
+"DISABLED" = "已禁用";
+"ACTIVE CHORDS" = "活跃组合键";
+"mappings" = "个映射";
+
+/* 键盘标签页 - 屏幕键盘提示 */
+"To show the on-screen keyboard widget, assign a button to toggle it." = "要显示屏幕键盘组件，请分配一个按键来切换它。";
+"Go to the Buttons tab, add a command, select \"Show Keyboard\", then choose \"Keyboard\"." = "前往「按键」标签，添加命令，选择「显示键盘」，然后选择「键盘」。";
+"Toggle Shortcut" = "切换快捷键";
+"Click to record" = "点击录制";
+
+/* 文字片段 */
+"Text Snippets" = "文字片段";
+"Enter text snippet..." = "输入文字片段…";
+"No text snippets yet" = "暂无文字片段";
+"Click these to type the text into any app." = "点击即可在任意应用中输入文字。";
+"to insert variables like date, time, clipboard, etc." = "以插入日期、时间、剪贴板等变量";
+"View all" = "查看全部";
+
+/* 输入速度预设 */
+"Paste" = "粘贴";
+"Slow" = "慢速";
+"Medium" = "中速";
+"Fast" = "快速";
+"Very Fast" = "极速";
+
+/* 终端命令 */
+"Terminal" = "终端";
+"Enter terminal command..." = "输入终端命令…";
+"No terminal commands yet" = "暂无终端命令";
+"Default App" = "默认应用";
+"Automation permission granted" = "自动化权限已授予";
+"Automation permission required" = "需要自动化权限";
+"Click these to open a new terminal window and run the command." = "点击即可打开新终端窗口并执行命令。";
+"Other..." = "其他…";
+
+/* 屏幕键盘设置 */
+"App Bar" = "应用栏";
+"Activate All Windows" = "激活所有窗口";
+"When switching to an app, bring all of its windows to the front." = "切换到应用时，将其所有窗口置于前台。";
+"Show Websites in Wheel" = "在命令轮盘中显示网站";
+"Command wheel shows website links instead of apps." = "命令轮盘显示网站链接而非应用。";
+"Alternate Modifier" = "备用修饰键";
+"None" = "无";
+"Show F13-F20 Keys" = "显示 F13-F20 按键";
+"Display extended function keys (F13-F20) in a row above F1-F12." = "在 F1-F12 上方显示扩展功能键（F13-F20）。";
+
+/* 网站链接 */
+"Website Links" = "网站链接";
+"Enter website URL..." = "输入网站 URL…";
+"No website links yet" = "暂无网站链接";
+"Add websites for quick access from the on-screen keyboard." = "添加网站以从屏幕键盘快速访问。";
+
+/* 键盘设置分区 */
+"App Switching" = "应用切换";
+"Command Wheel" = "命令轮盘";
+"Keyboard Layout" = "键盘布局";
+"Swipe Typing" = "滑动输入";
+"Enable Swipe Typing" = "启用滑动输入";
+"Hold left trigger and move the left stick to swipe across letter keys." = "按住左扳机并移动左摇杆以在字母键上滑动输入。";
+
+/* 命令轮盘动态描述 */
+"apps" = "应用";
+"websites" = "网站";
+
+"Hold this key to show apps instead on the command wheel." = "按住此键在命令轮盘中显示应用。";
+"Hold this key to show websites instead on the command wheel." = "按住此键在命令轮盘中显示网站。";
+
+/* 摇杆模式选项 */
+"Mouse" = "鼠标";
+"Scroll" = "滚动";
+"WASD" = "WASD";
+"Arrows" = "方向键";
+
+/* 触控板滑块 */
+"Smoothing" = "平滑度";
+
+/* 个性类型标题 */
+"Sharpshooter" = "神枪手";
+"Brawler" = "格斗家";
+"Strategist" = "战略家";
+"Navigator" = "导航者";
+"Multitasker" = "多面手";
+"Minimalist" = "极简主义者";
+
+/* 个性类型描述 */
+"Trigger-happy and precision-focused" = "扳机敏捷，精准至上";
+"All about the face buttons" = "面板按键控";
+"Master of combos and complex inputs" = "组合技与复杂操作的大师";
+"D-pad devotee, menu master" = "方向键爱好者，菜单达人";
+"Uses everything, masters all" = "无所不用，全能精通";
+"Less is more, every press counts" = "少即是多，每次按键都算数";

@@ -68,12 +68,12 @@ struct StatsView: View {
             Text(personality.emoji)
                 .font(.system(size: 48))
 
-            Text(personality.title)
+            Text(LocalizedStringKey(personality.title))
                 .font(.title)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
 
-            Text(personality.tagline)
+            Text(LocalizedStringKey(personality.tagline))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
@@ -223,7 +223,7 @@ struct StatsView: View {
         )
     }
 
-    private func outputCard(title: String, value: String, icon: String, color: Color) -> some View {
+    private func outputCard(title: LocalizedStringKey, value: String, icon: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 18))
@@ -289,7 +289,7 @@ struct StatsView: View {
         )
     }
 
-    private func distanceCard(title: String, pixels: Double, icon: String, color: Color) -> some View {
+    private func distanceCard(title: LocalizedStringKey, pixels: Double, icon: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 18))
@@ -312,7 +312,7 @@ struct StatsView: View {
         )
     }
 
-    private func metricCard(title: String, value: String, icon: String) -> some View {
+    private func metricCard(title: LocalizedStringKey, value: String, icon: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)
