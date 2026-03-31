@@ -295,15 +295,15 @@ struct KeyboardVisualView: View {
 
                 Spacer().frame(width: 20)
 
-                // Mouse click options
+                // Mouse & scroll options
                 KeyButton(keyCode: KeyCodeMapping.mouseLeftClick, label: "L Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.mouseRightClick, label: "R Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.mouseMiddleClick, label: "M Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.scrollUp, label: "Scr ↑", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.scrollDown, label: "Scr ↓", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+            }
 
-                Spacer().frame(width: 20)
-
+            HStack(spacing: 4) {
                 // Special actions
                 KeyButton(keyCode: KeyCodeMapping.showOnScreenKeyboard, label: "⌨ Keyboard", width: 80, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.showLaserPointer, label: "Laser", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
