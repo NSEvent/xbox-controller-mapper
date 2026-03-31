@@ -280,35 +280,45 @@ struct KeyboardVisualView: View {
     // MARK: - Navigation Keys
 
     private var navigationKeyRow: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Navigation & Special Keys")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
+        VStack(spacing: 4) {
             HStack(spacing: 4) {
-                KeyButton(keyCode: CGKeyCode(kVK_Help), label: "Help", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: CGKeyCode(kVK_Home), label: "Home", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: CGKeyCode(kVK_End), label: "End", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: CGKeyCode(kVK_PageUp), label: "PgUp", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: CGKeyCode(kVK_PageDown), label: "PgDn", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: CGKeyCode(kVK_ForwardDelete), label: "Del", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                Spacer()
 
-                Spacer().frame(width: 20)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Navigation & Special Keys")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
 
-                // Mouse & scroll options
-                KeyButton(keyCode: KeyCodeMapping.mouseLeftClick, label: "L Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: KeyCodeMapping.mouseRightClick, label: "R Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: KeyCodeMapping.mouseMiddleClick, label: "M Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: KeyCodeMapping.scrollUp, label: "Scr ↑", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-                KeyButton(keyCode: KeyCodeMapping.scrollDown, label: "Scr ↓", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    HStack(spacing: 4) {
+                        KeyButton(keyCode: CGKeyCode(kVK_Help), label: "Help", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: CGKeyCode(kVK_Home), label: "Home", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: CGKeyCode(kVK_End), label: "End", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: CGKeyCode(kVK_PageUp), label: "PgUp", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: CGKeyCode(kVK_PageDown), label: "PgDn", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: CGKeyCode(kVK_ForwardDelete), label: "Del", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+
+                        Spacer().frame(width: 20)
+
+                        // Mouse & scroll options
+                        KeyButton(keyCode: KeyCodeMapping.mouseLeftClick, label: "L Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: KeyCodeMapping.mouseRightClick, label: "R Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: KeyCodeMapping.mouseMiddleClick, label: "M Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: KeyCodeMapping.scrollUp, label: "Scr ↑", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                        KeyButton(keyCode: KeyCodeMapping.scrollDown, label: "Scr ↓", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                    }
+                }
+
+                Spacer()
             }
 
             HStack(spacing: 4) {
+                Spacer()
                 // Special actions
                 KeyButton(keyCode: KeyCodeMapping.showOnScreenKeyboard, label: "⌨ Keyboard", width: 80, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.showLaserPointer, label: "Laser", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.controllerLock, label: "🔒 Lock", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.showDirectoryNavigator, label: "📁 Nav", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                Spacer()
             }
         }
     }
