@@ -83,6 +83,9 @@ DerivedData/
 # Debug/diagnostic tools
 Tools/
 
+# Marketing docs
+marketing/
+
 # User-specific Xcode files
 *.xcuserstate
 xcuserdata/
