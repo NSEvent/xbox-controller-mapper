@@ -110,6 +110,8 @@ enum KeyCodeMapping {
     static let mouseLeftClick: CGKeyCode = 0xF000
     static let mouseRightClick: CGKeyCode = 0xF001
     static let mouseMiddleClick: CGKeyCode = 0xF002
+    static let scrollUp: CGKeyCode = 0xF003
+    static let scrollDown: CGKeyCode = 0xF004
 
     // MARK: - Special Action Markers
 
@@ -257,6 +259,8 @@ enum KeyCodeMapping {
         case 0xF000: return "Left Click"
         case 0xF001: return "Right Click"
         case 0xF002: return "Middle Click"
+        case 0xF003: return "Scroll Up"
+        case 0xF004: return "Scroll Down"
 
         // Special actions
         case 0xF010: return "On-Screen Keyboard"
@@ -353,6 +357,8 @@ enum KeyCodeMapping {
         options.append(("Left Click", mouseLeftClick))
         options.append(("Right Click", mouseRightClick))
         options.append(("Middle Click", mouseMiddleClick))
+        options.append(("Scroll Up", scrollUp))
+        options.append(("Scroll Down", scrollDown))
 
         // Special actions
         options.append(("On-Screen Keyboard", showOnScreenKeyboard))
@@ -384,6 +390,11 @@ enum KeyCodeMapping {
         keyCode == mouseLeftClick || keyCode == mouseRightClick || keyCode == mouseMiddleClick
     }
 
+    /// Checks if a key code represents a scroll action
+    static func isScrollAction(_ keyCode: CGKeyCode) -> Bool {
+        keyCode == scrollUp || keyCode == scrollDown
+    }
+
     /// Checks if a key code represents a special action (on-screen keyboard, etc.)
     static func isSpecialAction(_ keyCode: CGKeyCode) -> Bool {
         keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock || keyCode == showDirectoryNavigator
@@ -398,7 +409,7 @@ enum KeyCodeMapping {
 
     /// Checks if a key code is a special marker that shouldn't be sent as a key event
     static func isSpecialMarker(_ keyCode: CGKeyCode) -> Bool {
-        isMouseButton(keyCode) || isSpecialAction(keyCode) || isMediaKey(keyCode)
+        isMouseButton(keyCode) || isScrollAction(keyCode) || isSpecialAction(keyCode) || isMediaKey(keyCode)
     }
 
     // MARK: - Character to Key Code Mapping

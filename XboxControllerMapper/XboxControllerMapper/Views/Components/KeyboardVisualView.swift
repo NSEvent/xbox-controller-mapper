@@ -299,6 +299,8 @@ struct KeyboardVisualView: View {
                 KeyButton(keyCode: KeyCodeMapping.mouseLeftClick, label: "L Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.mouseRightClick, label: "R Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.mouseMiddleClick, label: "M Click", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                KeyButton(keyCode: KeyCodeMapping.scrollUp, label: "Scr ↑", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                KeyButton(keyCode: KeyCodeMapping.scrollDown, label: "Scr ↓", width: 45, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
 
                 Spacer().frame(width: 20)
 

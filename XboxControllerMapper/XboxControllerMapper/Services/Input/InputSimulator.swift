@@ -179,6 +179,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             return
         }
 
+        // Handle scroll action "key codes"
+        if KeyCodeMapping.isScrollAction(keyCode) {
+            performScrollAction(keyCode)
+            return
+        }
+
         // Handle media key "key codes"
         if KeyCodeMapping.isMediaKey(keyCode) {
             pressMediaKey(keyCode)
@@ -283,6 +289,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             return
         }
 
+        if KeyCodeMapping.isScrollAction(keyCode) {
+            performScrollAction(keyCode)
+            return
+        }
+
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
         
@@ -306,6 +317,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     func keyUp(_ keyCode: CGKeyCode) {
         if KeyCodeMapping.isMouseButton(keyCode) {
             mouseButtonUp(keyCode)
+            return
+        }
+
+        // Scroll actions are fire-and-forget, nothing to release
+        if KeyCodeMapping.isScrollAction(keyCode) {
             return
         }
 
@@ -1034,6 +1050,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             dismissButton.target = handler
             dismissButton.action = #selector(ButtonHandler.dismiss)
         }
+    }
+
+    // MARK: - Scroll Action Simulation
+
+    private func performScrollAction(_ keyCode: CGKeyCode) {
+        let dy: CGFloat = keyCode == KeyCodeMapping.scrollUp ? 10 : -10
+        scroll(dx: 0, dy: dy, phase: nil, momentumPhase: nil, isContinuous: false, flags: [])
     }
 
     // MARK: - Mouse Button Simulation
