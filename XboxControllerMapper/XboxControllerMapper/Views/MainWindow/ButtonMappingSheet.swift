@@ -167,7 +167,7 @@ struct ButtonMappingSheet: View {
             footer
         }
         .onSubmit { saveMapping() }
-        .frame(width: showingAnyKeyboard ? 750 : (primaryState.mappingType == .systemCommand ? 580 : 520), height: showingAnyKeyboard ? 700 : 550)
+        .frame(width: showingAnyKeyboard ? 850 : (primaryState.mappingType == .systemCommand ? 580 : 520), height: showingAnyKeyboard ? 700 : 550)
         .animation(.easeInOut(duration: 0.2), value: primaryState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: longHoldState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: doubleTapState.showingKeyboard)
@@ -287,6 +287,7 @@ struct ButtonMappingSheet: View {
                         HStack(spacing: 6) {
                             Image(systemName: primaryState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
                             Text(primaryState.showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                                .lineLimit(1)
                         }
                         .font(.callout)
                         .padding(.horizontal, 10)
@@ -296,6 +297,7 @@ struct ButtonMappingSheet: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.accentColor)
+                    .fixedSize()
                 }
             }
 
@@ -499,6 +501,7 @@ struct ButtonMappingSheet: View {
                         HStack(spacing: 6) {
                             Image(systemName: longHoldState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
                             Text(longHoldState.showingKeyboard ? "Hide" : "Show Keyboard")
+                                .lineLimit(1)
                         }
                         .font(.callout)
                         .padding(.horizontal, 10)
@@ -508,6 +511,7 @@ struct ButtonMappingSheet: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.accentColor)
+                    .fixedSize()
                 }
             }
 
@@ -603,6 +607,7 @@ struct ButtonMappingSheet: View {
                         HStack(spacing: 6) {
                             Image(systemName: doubleTapState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
                             Text(doubleTapState.showingKeyboard ? "Hide" : "Show Keyboard")
+                                .lineLimit(1)
                         }
                         .font(.callout)
                         .padding(.horizontal, 10)
@@ -612,6 +617,7 @@ struct ButtonMappingSheet: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.accentColor)
+                    .fixedSize()
                 }
             }
 
