@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-03-30
+
+### Added
+
+- **Scroll Up / Scroll Down Actions**: Map any controller button, chord, or sequence to scroll up or scroll down
+- Tests for scroll action key codes, display names, classifiers, and picker availability
+
+### Fixed
+
+- Button mapping sheet too narrow to show all keyboard keys when "Show Keyboard" is toggled
+- "Show Keyboard" button text wrapping into multiple lines
+- Navigation & special keys row overflowing in the visual keyboard picker (split into two centered rows)
+
 ## [1.6.1] - 2026-02-28
 
 ### Added
