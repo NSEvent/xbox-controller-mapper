@@ -857,6 +857,7 @@ struct SliderRow: View {
             Slider(value: $value, in: range)
                 .accessibilityLabel(label)
                 .accessibilityValue("\(value, specifier: "%.2f")")
+                .accessibilityHint(description ?? "")
 
             if let description = description {
                 Text(description)
