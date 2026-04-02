@@ -155,6 +155,12 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
 
     /// Whether this mapping acts as a held modifier (released when button released)
     var isHoldModifier: Bool
+
+    /// Whether to re-post keyDown events periodically while held (simulates OS key repeat)
+    var holdRepeatEnabled: Bool
+
+    /// Interval between re-posted keyDown events when holdRepeatEnabled is true (default ~30/s)
+    var holdRepeatInterval: TimeInterval
     
     /// Optional ID of a macro to execute instead of key press
     var macroId: UUID?
@@ -178,6 +184,8 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         doubleTapMapping: DoubleTapMapping? = nil,
         repeatMapping: RepeatMapping? = nil,
         isHoldModifier: Bool = false,
+        holdRepeatEnabled: Bool = false,
+        holdRepeatInterval: TimeInterval = 0.033,
         macroId: UUID? = nil,
         scriptId: UUID? = nil,
         systemCommand: SystemCommand? = nil,
@@ -190,6 +198,8 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         self.doubleTapMapping = doubleTapMapping
         self.repeatMapping = repeatMapping
         self.isHoldModifier = isHoldModifier
+        self.holdRepeatEnabled = holdRepeatEnabled
+        self.holdRepeatInterval = holdRepeatInterval
         self.macroId = macroId
         self.scriptId = scriptId
         self.systemCommand = systemCommand
@@ -198,7 +208,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, macroId, scriptId, systemCommand, hint, hapticStyle
+        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, holdRepeatEnabled, holdRepeatInterval, macroId, scriptId, systemCommand, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -209,6 +219,8 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         doubleTapMapping = try container.decodeIfPresent(DoubleTapMapping.self, forKey: .doubleTapMapping)
         repeatMapping = try container.decodeIfPresent(RepeatMapping.self, forKey: .repeatMapping)
         isHoldModifier = try container.decodeIfPresent(Bool.self, forKey: .isHoldModifier) ?? false
+        holdRepeatEnabled = try container.decodeIfPresent(Bool.self, forKey: .holdRepeatEnabled) ?? false
+        holdRepeatInterval = try container.decodeIfPresent(TimeInterval.self, forKey: .holdRepeatInterval) ?? 0.033
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)

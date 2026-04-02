@@ -98,6 +98,8 @@ KeyMapping (CUSTOM decoder - see KeyMapping.swift)
 ├── doubleTapMapping: DoubleTapMapping?          decodeIfPresent (auto nil)
 ├── repeatMapping: RepeatMapping?                decodeIfPresent (auto nil)
 ├── isHoldModifier: Bool                         decodeIfPresent ?? false
+├── holdRepeatEnabled: Bool                      decodeIfPresent ?? false
+├── holdRepeatInterval: TimeInterval             decodeIfPresent ?? 0.033
 └── hint: String?                                decodeIfPresent (auto nil)
 
 LongHoldMapping (CUSTOM decoder - see KeyMapping.swift)

@@ -28,6 +28,8 @@ struct ButtonMappingSheet: View {
     @State private var doubleTapThreshold: Double = 0.4
     @State private var enableRepeat = false
     @State private var repeatRate: Double = 5.0  // Actions per second
+    @State private var enableHoldRepeat = false
+    @State private var holdRepeatRate: Double = 30.0  // keyDown re-posts per second
 
     // Track if user manually overrode the hold setting
     @State private var userHasInteractedWithHold = false
@@ -320,6 +322,8 @@ struct ButtonMappingSheet: View {
                                     enableLongHold = false
                                     longHoldState.keyCode = nil
                                     longHoldState.modifiers = ModifierFlags()
+                                } else {
+                                    enableHoldRepeat = false
                                 }
                             }
                         ))
@@ -329,6 +333,31 @@ struct ButtonMappingSheet: View {
                         Text(holdDescription)
                             .font(.caption)
                             .foregroundColor(.secondary)
+
+                        if isHoldModifier && primaryState.keyCode != nil && !primaryIsMouseClick && !primaryIsOnScreenKeyboard {
+                            Toggle("Simulate key repeat while held", isOn: $enableHoldRepeat)
+                                .font(.caption)
+
+                            if enableHoldRepeat {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Text("Repeat Rate:")
+                                            .font(.caption)
+
+                                        Slider(value: $holdRepeatRate, in: 10...60, step: 1)
+
+                                        Text("\(Int(holdRepeatRate))/s")
+                                            .font(.caption)
+                                            .monospacedDigit()
+                                            .frame(width: 35)
+                                    }
+
+                                    Text("Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input.")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
 
                         // Repeat section (moved inside Primary Action)
                         repeatContent
@@ -820,6 +849,10 @@ struct ButtonMappingSheet: View {
                 primaryState.keyCode = existingMapping.keyCode
                 primaryState.modifiers = existingMapping.modifiers
                 isHoldModifier = existingMapping.isHoldModifier
+                enableHoldRepeat = existingMapping.holdRepeatEnabled
+                if existingMapping.holdRepeatInterval > 0 {
+                    holdRepeatRate = 1.0 / existingMapping.holdRepeatInterval
+                }
             }
 
             // Long hold, double tap, and repeat apply to all primary mapping types
@@ -911,6 +944,8 @@ struct ButtonMappingSheet: View {
                 keyCode: primaryState.keyCode,
                 modifiers: primaryState.modifiers,
                 isHoldModifier: isHoldModifier,
+                holdRepeatEnabled: isHoldModifier && enableHoldRepeat,
+                holdRepeatInterval: enableHoldRepeat ? 1.0 / holdRepeatRate : 0.033,
                 hint: primaryState.hint.isEmpty ? nil : primaryState.hint,
                 hapticStyle: primaryState.hapticStyle
             )

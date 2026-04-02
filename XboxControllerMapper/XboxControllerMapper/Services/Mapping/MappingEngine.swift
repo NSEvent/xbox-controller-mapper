@@ -608,6 +608,11 @@ class MappingEngine: ObservableObject {
         }
 
         inputSimulator.startHoldMapping(mapping)
+
+        if mapping.holdRepeatEnabled, mapping.keyCode != nil {
+            startHoldRepeatTimer(for: button, mapping: mapping)
+        }
+
         playActionHaptic(style: mapping.hapticStyle)
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString, isHeld: true)
     }
@@ -638,6 +643,8 @@ class MappingEngine: ObservableObject {
             state.longHoldTriggered.removeAll()
             state.repeatTimers.values.forEach { $0.cancel() }
             state.repeatTimers.removeAll()
+            state.holdRepeatTimers.values.forEach { $0.cancel() }
+            state.holdRepeatTimers.removeAll()
             state.dpadNavigationTimer?.cancel()
             state.dpadNavigationTimer = nil
             state.dpadNavigationButton = nil
@@ -769,6 +776,33 @@ class MappingEngine: ObservableObject {
         }
     }
 
+    /// Starts a timer that re-posts keyDown events while a hold mapping is active.
+    /// Unlike `startRepeatTimer` which does full press-release cycles, this only
+    /// re-posts keyDown to simulate the OS key-repeat behavior for physical keys.
+    nonisolated private func startHoldRepeatTimer(for button: ControllerButton, mapping: KeyMapping) {
+        guard let keyCode = mapping.keyCode else { return }
+        let interval = max(mapping.holdRepeatInterval, 0.01)
+        let modifiers = mapping.modifiers.cgEventFlags
+
+        // Cancel any existing hold repeat timer for this button
+        state.lock.lock()
+        if let existing = state.holdRepeatTimers.removeValue(forKey: button) {
+            existing.cancel()
+        }
+        state.lock.unlock()
+
+        let timer = DispatchSource.makeTimerSource(queue: inputQueue)
+        timer.schedule(deadline: .now() + interval, repeating: interval)
+        timer.setEventHandler { [weak self] in
+            self?.inputSimulator.keyDown(keyCode, modifiers: modifiers)
+        }
+        timer.resume()
+
+        state.lock.lock()
+        defer { state.lock.unlock() }
+        state.holdRepeatTimers[button] = timer
+    }
+
     nonisolated private func handleLongHoldTriggered(_ button: ControllerButton, mapping: LongHoldMapping) {
         let profile = state.lock.withLock {
             state.longHoldTriggered.insert(button)
@@ -887,6 +921,10 @@ class MappingEngine: ObservableObject {
         if let heldMapping = state.heldButtons[button] {
             state.heldButtons.removeValue(forKey: button)
             state.activeChordButtons.remove(button)
+            if let timer = state.holdRepeatTimers[button] {
+                timer.cancel()
+                state.holdRepeatTimers.removeValue(forKey: button)
+            }
             return .heldMapping(heldMapping)
         }
 

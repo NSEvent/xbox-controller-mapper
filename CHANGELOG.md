@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4] - 2026-04-02
+
+### Added
+
+- **Simulate Key Repeat While Held**: New opt-in option under "Hold action while button is held" that re-posts key-down events on a timer, simulating physical keyboard key repeat. Fixes games that require repeated key-down events (e.g., hold-to-jump) rather than just checking if a key is currently pressed. Configurable rate from 10–60 per second.
+
 ## [1.6.3] - 2026-04-02
 
 ### Added
