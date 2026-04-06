@@ -98,6 +98,7 @@ final class ControllerStorage: @unchecked Sendable {
     var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
 
     // Motion Gesture State (DualSense gyroscope)
+    var motionInputEnabled: Bool = false
     var motionGestureDetector = MotionGestureDetector()
     var onMotionGesture: ((MotionGestureType) -> Void)?
 
@@ -501,7 +502,6 @@ class ControllerService: ObservableObject {
         }
 
         connectedController = controller
-        isConnected = true
         controllerName = controller.vendorName ?? "Game Controller"
 
         storage.lock.lock()
@@ -510,6 +510,11 @@ class ControllerService: ObservableObject {
 
         setupInputHandlers(for: controller)
         setupHaptics(for: controller)
+
+        // Publish connection only after controller-specific handlers have populated
+        // storage flags like isDualSense. MappingEngine reacts to this publisher.
+        isConnected = true
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.playHaptic(intensity: 0.7, sharpness: 0.6, duration: 0.12)
         }
@@ -589,6 +594,7 @@ class ControllerService: ObservableObject {
         timer.schedule(deadline: .now(), repeating: Config.displayRefreshInterval, leeway: .milliseconds(10))
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
+            PerformanceProbe.shared.recordDisplayTick()
 
             // Touchpad samples are not exposed via dedicated thread-safe accessors.
             self.storage.lock.lock()
@@ -627,6 +633,14 @@ class ControllerService: ObservableObject {
                 sample: sample,
                 deadzone: Config.displayUpdateDeadzone
             )
+            if updatedState == currentState {
+                PerformanceProbe.shared.recordDisplayNoOpTick()
+                guard !Config.performanceForceLegacyDisplayPublishing else {
+                    self.applyDisplayState(updatedState)
+                    return
+                }
+                return
+            }
             self.applyDisplayState(updatedState)
         }
         timer.resume()
@@ -634,18 +648,76 @@ class ControllerService: ObservableObject {
     }
 
     private func applyDisplayState(_ state: ControllerDisplayState) {
-        leftStick = state.leftStick
-        rightStick = state.rightStick
-        leftTriggerValue = state.leftTriggerValue
-        rightTriggerValue = state.rightTriggerValue
-        displayLeftStick = state.displayLeftStick
-        displayRightStick = state.displayRightStick
-        displayLeftTrigger = state.displayLeftTrigger
-        displayRightTrigger = state.displayRightTrigger
-        displayTouchpadPosition = state.displayTouchpadPosition
-        displayTouchpadSecondaryPosition = state.displayTouchpadSecondaryPosition
-        displayIsTouchpadTouching = state.displayIsTouchpadTouching
-        displayIsTouchpadSecondaryTouching = state.displayIsTouchpadSecondaryTouching
+        if Config.performanceForceLegacyDisplayPublishing {
+            leftStick = state.leftStick
+            rightStick = state.rightStick
+            leftTriggerValue = state.leftTriggerValue
+            rightTriggerValue = state.rightTriggerValue
+            displayLeftStick = state.displayLeftStick
+            displayRightStick = state.displayRightStick
+            displayLeftTrigger = state.displayLeftTrigger
+            displayRightTrigger = state.displayRightTrigger
+            displayTouchpadPosition = state.displayTouchpadPosition
+            displayTouchpadSecondaryPosition = state.displayTouchpadSecondaryPosition
+            displayIsTouchpadTouching = state.displayIsTouchpadTouching
+            displayIsTouchpadSecondaryTouching = state.displayIsTouchpadSecondaryTouching
+            PerformanceProbe.shared.recordDisplayApply(fieldWrites: 12)
+            return
+        }
+
+        var fieldWrites = 0
+        if leftStick != state.leftStick {
+            leftStick = state.leftStick
+            fieldWrites += 1
+        }
+        if rightStick != state.rightStick {
+            rightStick = state.rightStick
+            fieldWrites += 1
+        }
+        if leftTriggerValue != state.leftTriggerValue {
+            leftTriggerValue = state.leftTriggerValue
+            fieldWrites += 1
+        }
+        if rightTriggerValue != state.rightTriggerValue {
+            rightTriggerValue = state.rightTriggerValue
+            fieldWrites += 1
+        }
+        if displayLeftStick != state.displayLeftStick {
+            displayLeftStick = state.displayLeftStick
+            fieldWrites += 1
+        }
+        if displayRightStick != state.displayRightStick {
+            displayRightStick = state.displayRightStick
+            fieldWrites += 1
+        }
+        if displayLeftTrigger != state.displayLeftTrigger {
+            displayLeftTrigger = state.displayLeftTrigger
+            fieldWrites += 1
+        }
+        if displayRightTrigger != state.displayRightTrigger {
+            displayRightTrigger = state.displayRightTrigger
+            fieldWrites += 1
+        }
+        if displayTouchpadPosition != state.displayTouchpadPosition {
+            displayTouchpadPosition = state.displayTouchpadPosition
+            fieldWrites += 1
+        }
+        if displayTouchpadSecondaryPosition != state.displayTouchpadSecondaryPosition {
+            displayTouchpadSecondaryPosition = state.displayTouchpadSecondaryPosition
+            fieldWrites += 1
+        }
+        if displayIsTouchpadTouching != state.displayIsTouchpadTouching {
+            displayIsTouchpadTouching = state.displayIsTouchpadTouching
+            fieldWrites += 1
+        }
+        if displayIsTouchpadSecondaryTouching != state.displayIsTouchpadSecondaryTouching {
+            displayIsTouchpadSecondaryTouching = state.displayIsTouchpadSecondaryTouching
+            fieldWrites += 1
+        }
+
+        if fieldWrites > 0 {
+            PerformanceProbe.shared.recordDisplayApply(fieldWrites: fieldWrites)
+        }
     }
 
     private func stopDisplayUpdateTimer() {

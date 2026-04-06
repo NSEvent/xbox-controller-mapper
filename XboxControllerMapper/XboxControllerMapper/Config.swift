@@ -261,6 +261,21 @@ struct Config {
     static let touchpadDebugEnvKey: String = "XCM_TOUCHPAD_DEBUG"
     /// Minimum interval between touchpad debug logs
     static let touchpadDebugLogInterval: TimeInterval = 0.05
+    /// Env var to enable runtime performance probe logging
+    static let performanceProbeEnvKey: String = "XCM_PERF_PROBE"
+    /// Env var label included in performance probe logs
+    static let performanceScenarioEnvKey: String = "XCM_PERF_SCENARIO"
+    /// Env var to force legacy idle display publishing behavior for perf comparison
+    static let performanceLegacyDisplayEnvKey: String = "XCM_PERF_FORCE_LEGACY_DISPLAY_PUBLISHING"
+    /// Env var to force legacy always-on motion behavior for perf comparison
+    static let performanceLegacyMotionEnvKey: String = "XCM_PERF_FORCE_LEGACY_ALWAYS_ON_MOTION"
+    /// Env var to force motion sensors off regardless of profile for perf comparison
+    static let performanceForceMotionDisabledEnvKey: String = "XCM_PERF_FORCE_MOTION_DISABLED"
+    static let performanceProbeEnabled: Bool = ProcessInfo.processInfo.environment[performanceProbeEnvKey] == "1"
+    static let performanceScenarioLabel: String = ProcessInfo.processInfo.environment[performanceScenarioEnvKey] ?? "default"
+    static let performanceForceLegacyDisplayPublishing: Bool = ProcessInfo.processInfo.environment[performanceLegacyDisplayEnvKey] == "1"
+    static let performanceForceLegacyAlwaysOnMotion: Bool = ProcessInfo.processInfo.environment[performanceLegacyMotionEnvKey] == "1"
+    static let performanceForceMotionDisabled: Bool = ProcessInfo.processInfo.environment[performanceForceMotionDisabledEnvKey] == "1"
 
     // MARK: - D-Pad Navigation Repeat
     /// Initial delay before D-pad repeat starts, similar to keyboard repeat delay (seconds)

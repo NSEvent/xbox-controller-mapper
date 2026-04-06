@@ -95,6 +95,32 @@ final class ControllerDisplayUpdatePolicyTests: XCTestCase {
         XCTAssertEqual(result.displayIsTouchpadSecondaryTouching, sample.isTouchpadSecondaryTouching)
     }
 
+    func testResolveReturnsIdenticalStateWhenIdleSampleMatchesCurrentDisplay() {
+        let current = makeState(
+            leftStick: .zero,
+            rightStick: .zero,
+            leftTriggerValue: 0,
+            rightTriggerValue: 0,
+            displayLeftStick: .zero,
+            displayRightStick: .zero,
+            displayLeftTrigger: 0,
+            displayRightTrigger: 0,
+            displayTouchpadPosition: .zero,
+            displayTouchpadSecondaryPosition: .zero,
+            displayIsTouchpadTouching: false,
+            displayIsTouchpadSecondaryTouching: false
+        )
+        let sample = makeSample()
+
+        let result = ControllerDisplayUpdatePolicy.resolve(
+            current: current,
+            sample: sample,
+            deadzone: 0.15
+        )
+
+        XCTAssertEqual(result, current)
+    }
+
     private func makeState(
         leftStick: CGPoint = .zero,
         rightStick: CGPoint = .zero,

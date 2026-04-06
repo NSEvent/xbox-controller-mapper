@@ -145,6 +145,7 @@ class MappingEngine: ObservableObject {
         self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
+        syncMotionActivation(for: profileManager.activeProfile)
     }
 
     /// Rebuilds the layer activator button -> layer ID lookup map
@@ -170,6 +171,14 @@ class MappingEngine: ObservableObject {
         controllerService.storage.motionGestureDetector.cooldown = settings.effectiveGestureCooldown
         controllerService.storage.motionGestureDetector.oppositeDirectionCooldown = settings.effectiveGestureOppositeDirectionCooldown
         controllerService.storage.lock.unlock()
+    }
+
+    private func syncMotionActivation(for profile: Profile?) {
+        let shouldEnableMotion = ControllerMotionActivationPolicy.shouldEnableMotion(
+            profile: profile,
+            isDualSense: controllerService.threadSafeIsDualSense
+        )
+        controllerService.setMotionSensorsActive(shouldEnableMotion)
     }
 
     /// Plays haptic feedback for a discrete controller action if the mapping has a haptic style configured.
@@ -199,6 +208,7 @@ class MappingEngine: ObservableObject {
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                 }
                 self.syncGestureSettings(from: profile?.joystickSettings)
+                self.syncMotionActivation(for: profile)
                 self.scriptEngine.clearState()
             }
             .store(in: &cancellables)
@@ -238,6 +248,7 @@ class MappingEngine: ObservableObject {
             .sink { [weak self] connected in
                 if connected {
                     self?.startJoystickPollingIfNeeded()
+                    self?.syncMotionActivation(for: self?.profileManager.activeProfile)
                 } else {
                     self?.stopJoystickPollingInternal()
                 }

@@ -8,10 +8,11 @@ extension ControllerService {
         guard let controller = connectedController,
               let motion = controller.motion else { return }
 
-        motion.sensorsActive = true
-
         motion.valueChangedHandler = { [weak self] motion in
             guard let self = self else { return }
+            let shouldProcessMotion = self.storage.lock.withLock { self.storage.motionInputEnabled }
+            PerformanceProbe.shared.recordMotionCallback(rawOnly: !shouldProcessMotion)
+            guard shouldProcessMotion else { return }
             let pitch = motion.rotationRate.x
             let roll = motion.rotationRate.z
 
@@ -45,9 +46,36 @@ extension ControllerService {
         }
     }
 
+    func setMotionSensorsActive(_ active: Bool) {
+        guard let motion = connectedController?.motion else { return }
+
+        if motion.sensorsActive != active {
+            motion.sensorsActive = active
+        }
+
+        storage.lock.withLock {
+            storage.motionInputEnabled = active
+        }
+
+        if Config.performanceProbeEnabled {
+            NSLog(
+                "[PerfProbe] motion_activation scenario=%@ requested=%d actual=%d",
+                Config.performanceScenarioLabel,
+                active ? 1 : 0,
+                motion.sensorsActive ? 1 : 0
+            )
+        }
+
+        guard !active else { return }
+        storage.lock.withLock {
+            resetMotionStateLocked()
+        }
+    }
+
     /// Resets motion gesture state. Called from controllerDisconnected().
     /// Caller must hold storage.lock.
     func resetMotionStateLocked() {
+        storage.motionInputEnabled = false
         storage.motionGestureDetector.reset()
         storage.motionPitchAccum = 0
         storage.motionRollAccum = 0
