@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.6.5] - 2026-04-06
 
-### Added
-
-- **Simulate Key Repeat While Held**: New opt-in option under "Hold action while button is held" that re-posts key-down events on a timer, simulating physical keyboard key repeat. Fixes games that require repeated key-down events (e.g., hold-to-jump) rather than just checking if a key is currently pressed. Configurable rate from 10–60 per second.
-
 ### Fixed
 
 - **Idle DualSense / Controller CPU Usage**: Eliminated idle UI state churn that was re-publishing unchanged controller display state at 15 Hz, significantly reducing background CPU usage while a controller sits untouched
 - **DualSense Motion Activation**: Motion processing now activates only when the active profile actually uses gyro aiming or motion gestures, while preserving connect-time ordering so motion features still come online correctly when enabled
+
+## [1.6.4] - 2026-04-02
+
+### Added
+
+- **Simulate Key Repeat While Held**: New opt-in option under "Hold action while button is held" that re-posts key-down events on a timer, simulating physical keyboard key repeat. Fixes games that require repeated key-down events (e.g., hold-to-jump) rather than just checking if a key is currently pressed. Configurable rate from 10–60 per second.
 
 ## [1.6.3] - 2026-04-02
 
