@@ -5,15 +5,15 @@ struct MouseClickLocationPolicy {
     static func resolve(
         zoomActive: Bool,
         trackedCursorPosition: CGPoint?,
-        lastControllerMoveTime: Date,
+        lastControllerMoveTime: CFAbsoluteTime,
         fallbackMouseLocation: CGPoint,
         primaryDisplayHeight: CGFloat,
-        now: Date,
+        now: CFAbsoluteTime,
         trackedCursorMaxAge: TimeInterval
     ) -> CGPoint {
         if zoomActive,
            let tracked = trackedCursorPosition,
-           now.timeIntervalSince(lastControllerMoveTime) <= trackedCursorMaxAge {
+           now - lastControllerMoveTime <= trackedCursorMaxAge {
             return tracked
         }
 

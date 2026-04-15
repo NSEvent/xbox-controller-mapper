@@ -302,7 +302,7 @@ final class MouseClickLocationZoomRegressionTests: XCTestCase {
         // If this fails, clicks will land at random positions during zoom.
         let tracked = CGPoint(x: 500, y: 300)
         let fallback = CGPoint(x: 960, y: 665) // Different position
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
@@ -323,7 +323,7 @@ final class MouseClickLocationZoomRegressionTests: XCTestCase {
         // (after CG→NS conversion)
         let tracked = CGPoint(x: 500, y: 300)
         let fallback = CGPoint(x: 200, y: 800)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: false,
@@ -347,12 +347,12 @@ final class MouseClickLocationZoomRegressionTests: XCTestCase {
         // might be stale (user moved with physical trackpad). Must fall back.
         let tracked = CGPoint(x: 500, y: 300)
         let fallback = CGPoint(x: 800, y: 600)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
             trackedCursorPosition: tracked,
-            lastControllerMoveTime: now.addingTimeInterval(-5.0), // 5 seconds stale
+            lastControllerMoveTime: now - 5.0, // 5 seconds stale
             fallbackMouseLocation: fallback,
             primaryDisplayHeight: primaryHeight,
             now: now,

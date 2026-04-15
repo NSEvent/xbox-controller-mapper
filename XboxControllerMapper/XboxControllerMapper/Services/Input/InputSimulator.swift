@@ -61,7 +61,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Static tracked cursor position for use by other services (e.g., ActionFeedbackIndicator)
     /// when Accessibility Zoom is active. Access via getTrackedCursorPosition().
     private static var sharedTrackedPosition: CGPoint?
-    private static var sharedLastMoveTime: Date = .distantPast
+    private static var sharedLastMoveTime: CFAbsoluteTime = 0
     private static var sharedLock = NSLock()
 
     /// Accumulated movement delta since last consumption (for hint positioning during zoom)
@@ -84,7 +84,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     static func isCursorBeingMoved() -> Bool {
         sharedLock.lock()
         defer { sharedLock.unlock() }
-        return Date().timeIntervalSince(sharedLastMoveTime) < 0.05
+        return CFAbsoluteTimeGetCurrent() - sharedLastMoveTime < 0.05
     }
 
     /// Consumes and returns the accumulated movement delta since last call.
@@ -113,10 +113,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Returns whether Accessibility Zoom is currently active by checking UserDefaults directly.
     /// More reliable than `UAZoomEnabled()` which may return stale results on some macOS versions.
+    /// Result is cached for 0.5s to avoid expensive inter-process UserDefaults reads at 120Hz.
+    private static var cachedZoomActive: Bool = false
+    private static var cachedZoomCheckTime: CFAbsoluteTime = 0
+    private static let zoomCacheInterval: CFAbsoluteTime = 0.5
+
     static func isZoomCurrentlyActive() -> Bool {
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - cachedZoomCheckTime < zoomCacheInterval {
+            return cachedZoomActive
+        }
+        cachedZoomCheckTime = now
         let defaults = UserDefaults(suiteName: "com.apple.universalaccess")
-        return (defaults?.bool(forKey: "closeViewZoomedIn") ?? false)
+        cachedZoomActive = (defaults?.bool(forKey: "closeViewZoomedIn") ?? false)
             && (defaults?.double(forKey: "closeViewZoomFactor") ?? 1.0) > 1.0
+        return cachedZoomActive
     }
 
     /// Returns the last tracked cursor position regardless of zoom state.
@@ -132,7 +143,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private static func updateSharedTrackedPosition(_ point: CGPoint?, delta: CGPoint = .zero) {
         sharedLock.lock()
         sharedTrackedPosition = point
-        sharedLastMoveTime = Date()
+        sharedLastMoveTime = CFAbsoluteTimeGetCurrent()
         accumulatedDelta.x += delta.x
         accumulatedDelta.y += delta.y
         sharedLock.unlock()
@@ -480,9 +491,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// coordinates that cause "reset" behavior. We track position internally instead.
     private var trackedCursorPosition: CGPoint?
     /// Last time we synced the tracked position with the system (for drift correction)
-    private var lastCursorSyncTime: Date = .distantPast
+    private var lastCursorSyncTime: CFAbsoluteTime = 0
     /// Last time moveMouse was called (to detect inactivity and clear tracked position)
-    private var lastMouseMoveTime: Date = .distantPast
+    private var lastMouseMoveTime: CFAbsoluteTime = 0
 
     /// Cached union of all screen frames
     private var cachedScreenBounds: CGRect?
@@ -491,13 +502,22 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Cached accessibility state
     private var isAccessibilityTrusted: Bool = false
     
+    /// Reusable event source for warp suppression interval (avoids creating one per frame)
+    private let warpEventSource: CGEventSource?
+
     init() {
         // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
         eventSource = CGEventSource(stateID: .hidSystemState)
-        
+
+        // Pre-create a combined-session event source with suppression disabled.
+        // This avoids creating a new CGEventSource on every mouse move frame (120Hz).
+        let warpSource = CGEventSource(stateID: .combinedSessionState)
+        warpSource?.localEventsSuppressionInterval = 0.0
+        warpEventSource = warpSource
+
         // Check accessibility once on init
         isAccessibilityTrusted = AXIsProcessTrusted()
-        
+
         // Listen for screen changes to invalidate cache
         screenChangeObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
@@ -585,13 +605,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // Use tracked position if available, otherwise sync from system
             // This prevents Accessibility Zoom coordinate transformations from causing
             // cursor "reset" behavior when reading position each frame
-            let now = Date()
+            let now = CFAbsoluteTimeGetCurrent()
             let zoomActive = Self.isZoomCurrentlyActive()
             let currentCGPoint: CGPoint
 
             // If there's been no movement for 2+ seconds, clear tracked position
             // This ensures we re-sync if user moved cursor with physical trackpad
-            if now.timeIntervalSince(self.lastMouseMoveTime) > 2.0 {
+            if now - self.lastMouseMoveTime > 2.0 {
                 self.trackedCursorPosition = nil
             }
             self.lastMouseMoveTime = now
@@ -599,7 +619,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if let tracked = self.trackedCursorPosition {
                 // When zoom is active, always use tracked position (never sync during movement)
                 // When zoom is inactive, sync every 0.5s for drift correction
-                if zoomActive || now.timeIntervalSince(self.lastCursorSyncTime) < 0.5 {
+                if zoomActive || now - self.lastCursorSyncTime < 0.5 {
                     currentCGPoint = tracked
                 } else {
                     // Zoom inactive and timeout expired - sync from system
@@ -627,6 +647,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 }
                 self.lastCursorSyncTime = now
             }
+
             self.stateLock.unlock()
 
             let newX = currentCGPoint.x + moveX
@@ -662,10 +683,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // for system tools like screencapture. The CGEvent with mouseCursorPosition
             // already moves the cursor to the correct location.
             if !isDrag {
-                // Set suppression interval to 0 to prevent 250ms freeze after warp
-                if let warpSource = CGEventSource(stateID: .combinedSessionState) {
-                    warpSource.localEventsSuppressionInterval = 0.0
-                }
+                // Set suppression interval to 0 to prevent 250ms freeze after warp.
+                // Reuses pre-created warpEventSource instead of creating one per frame.
+                self.warpEventSource?.localEventsSuppressionInterval = 0.0
                 _ = CGWarpMouseCursorPosition(newPoint)
             }
 
@@ -789,14 +809,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     func warpMouseTo(point: CGPoint) {
         mouseQueue.async { [weak self] in
             guard let self = self else { return }
-            if let source = CGEventSource(stateID: .combinedSessionState) {
-                source.localEventsSuppressionInterval = 0.0
-            }
+            self.warpEventSource?.localEventsSuppressionInterval = 0.0
             _ = CGWarpMouseCursorPosition(point)
             self.stateLock.lock()
             self.trackedCursorPosition = point
-            self.lastMouseMoveTime = Date()
-            self.lastCursorSyncTime = Date()
+            let now = CFAbsoluteTimeGetCurrent()
+            self.lastMouseMoveTime = now
+            self.lastCursorSyncTime = now
             self.stateLock.unlock()
         }
     }
@@ -1083,7 +1102,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             self.stateLock.lock()
 
-            let cgLocation = self.resolveClickLocationLocked(now: Date())
+            let cgLocation = self.resolveClickLocationLocked(now: CFAbsoluteTimeGetCurrent())
 
             // Track hold state
             self.heldMouseButtons.insert(button)
@@ -1160,7 +1179,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             self.stateLock.lock()
 
-            let cgLocation = self.resolveClickLocationLocked(now: Date())
+            let cgLocation = self.resolveClickLocationLocked(now: CFAbsoluteTimeGetCurrent())
 
             // Update hold state
             self.heldMouseButtons.remove(button)
@@ -1353,7 +1372,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     }
 
     /// Resolves click location while `stateLock` is held.
-    private func resolveClickLocationLocked(now: Date) -> CGPoint {
+    private func resolveClickLocationLocked(now: CFAbsoluteTime) -> CGPoint {
         let fallbackLocation = NSEvent.mouseLocation
         let primaryDisplayHeight = CGDisplayBounds(CGMainDisplayID()).height
         return MouseClickLocationPolicy.resolve(

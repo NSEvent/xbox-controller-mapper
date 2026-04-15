@@ -343,6 +343,8 @@ class ControllerService: ObservableObject {
     @Published var displayIsTouchpadTouching: Bool = false
     @Published var displayIsTouchpadSecondaryTouching: Bool = false
     private var displayUpdateTimer: DispatchSourceTimer?
+    private var displayTimerSuspended = false
+    private var windowVisibilityObservers: [NSObjectProtocol] = []
 
     /// Battery level (0 to 1)
     @Published var batteryLevel: Float = -1
@@ -645,6 +647,50 @@ class ControllerService: ObservableObject {
         }
         timer.resume()
         displayUpdateTimer = timer
+        displayTimerSuspended = false
+        observeWindowVisibility()
+    }
+
+    /// Observes all app window occlusion state changes to pause/resume the display
+    /// timer when no window is visible. This avoids burning CPU on @Published
+    /// updates and SwiftUI invalidation when the user has minimized/hidden the app.
+    private func observeWindowVisibility() {
+        removeWindowVisibilityObservers()
+
+        let checkVisibility = { [weak self] in
+            guard let self = self, let timer = self.displayUpdateTimer else { return }
+            let anyVisible = NSApp.windows.contains {
+                $0.isVisible && $0.occlusionState.contains(.visible)
+            }
+            if anyVisible && self.displayTimerSuspended {
+                timer.resume()
+                self.displayTimerSuspended = false
+            } else if !anyVisible && !self.displayTimerSuspended {
+                timer.suspend()
+                self.displayTimerSuspended = true
+            }
+        }
+
+        let names: [Notification.Name] = [
+            NSWindow.didMiniaturizeNotification,
+            NSWindow.didDeminiaturizeNotification,
+            NSWindow.didChangeOcclusionStateNotification,
+            NSApplication.didHideNotification,
+            NSApplication.didUnhideNotification,
+        ]
+        for name in names {
+            let token = NotificationCenter.default.addObserver(
+                forName: name, object: nil, queue: .main
+            ) { _ in checkVisibility() }
+            windowVisibilityObservers.append(token)
+        }
+    }
+
+    private func removeWindowVisibilityObservers() {
+        for token in windowVisibilityObservers {
+            NotificationCenter.default.removeObserver(token)
+        }
+        windowVisibilityObservers.removeAll()
     }
 
     private func applyDisplayState(_ state: ControllerDisplayState) {
@@ -721,6 +767,12 @@ class ControllerService: ObservableObject {
     }
 
     private func stopDisplayUpdateTimer() {
+        removeWindowVisibilityObservers()
+        // DispatchSource must not be cancelled while suspended — resume first
+        if displayTimerSuspended {
+            displayUpdateTimer?.resume()
+            displayTimerSuspended = false
+        }
         displayUpdateTimer?.cancel()
         displayUpdateTimer = nil
         displayLeftStick = .zero

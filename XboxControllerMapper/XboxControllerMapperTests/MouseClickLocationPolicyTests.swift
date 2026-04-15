@@ -12,12 +12,12 @@ final class MouseClickLocationPolicyTests: XCTestCase {
 
     func testZoomActive_freshTrackedPosition_returnsTrackedPosition() {
         let tracked = CGPoint(x: 700, y: 420)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
             trackedCursorPosition: tracked,
-            lastControllerMoveTime: now.addingTimeInterval(-0.1),
+            lastControllerMoveTime: now - 0.1,
             fallbackMouseLocation: CGPoint(x: 999, y: 999),
             primaryDisplayHeight: primaryHeight,
             now: now,
@@ -32,7 +32,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
         // Verify the fallback mouse location and display height are irrelevant
         // when the tracked position path is taken
         let tracked = CGPoint(x: 100, y: 200)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
@@ -51,12 +51,12 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     func testZoomActive_moveTimeExactlyAtMaxAge_returnsTrackedPosition() {
         // Boundary: moveTime is exactly maxAge seconds ago (<=, not <)
         let tracked = CGPoint(x: 500, y: 300)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
             trackedCursorPosition: tracked,
-            lastControllerMoveTime: now.addingTimeInterval(-maxAge),
+            lastControllerMoveTime: now - maxAge,
             fallbackMouseLocation: CGPoint(x: 0, y: 0),
             primaryDisplayHeight: primaryHeight,
             now: now,
@@ -72,12 +72,12 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     func testZoomActive_trackedPositionJustOverMaxAge_fallsBackToSystem() {
         let tracked = CGPoint(x: 500, y: 300)
         let fallback = CGPoint(x: 200, y: 100)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
             trackedCursorPosition: tracked,
-            lastControllerMoveTime: now.addingTimeInterval(-maxAge - 0.001),
+            lastControllerMoveTime: now - maxAge - 0.001,
             fallbackMouseLocation: fallback,
             primaryDisplayHeight: primaryHeight,
             now: now,
@@ -92,12 +92,12 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     func testZoomActive_trackedPositionVeryStale_fallsBackToSystem() {
         let tracked = CGPoint(x: 900, y: 700)
         let fallback = CGPoint(x: 480, y: 330)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
             trackedCursorPosition: tracked,
-            lastControllerMoveTime: now.addingTimeInterval(-60.0),
+            lastControllerMoveTime: now - 60.0,
             fallbackMouseLocation: fallback,
             primaryDisplayHeight: primaryHeight,
             now: now,
@@ -113,7 +113,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
 
     func testZoomActive_nilTrackedPosition_fallsBackToSystem() {
         let fallback = CGPoint(x: 320, y: 640)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
@@ -135,7 +135,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     func testZoomNotActive_withFreshTrackedPosition_stillFallsBackToSystem() {
         let tracked = CGPoint(x: 700, y: 420)
         let fallback = CGPoint(x: 150, y: 200)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: false,
@@ -154,7 +154,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
 
     func testZoomNotActive_nilTrackedPosition_fallsBackToSystem() {
         let fallback = CGPoint(x: 100, y: 50)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: false,
@@ -176,7 +176,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
         // NSEvent.mouseLocation uses bottom-left origin (y=0 at bottom).
         // CG coordinates use top-left origin (y=0 at top).
         // The policy must convert: cgY = primaryDisplayHeight - nsY
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         // Cursor at bottom of screen in NS coords (y near 0)
         let bottomResult = MouseClickLocationPolicy.resolve(
@@ -207,7 +207,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
 
     func testFallback_xCoordinatePassedThrough() {
         // X coordinate should be identical between NS and CG (both origin at left)
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: false,
@@ -226,7 +226,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     // MARK: - Different display sizes
 
     func testFallback_differentDisplayHeights() {
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
         let fallback = CGPoint(x: 100, y: 300)
 
         for height: CGFloat in [900, 1080, 1440, 2160] {
@@ -247,7 +247,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     // MARK: - Edge coordinates
 
     func testTrackedPosition_atOrigin() {
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
             trackedCursorPosition: CGPoint(x: 0, y: 0),
@@ -262,7 +262,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     }
 
     func testTrackedPosition_atMaxScreenBounds() {
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
         let tracked = CGPoint(x: 2559, y: 1439) // e.g. bottom-right of a 2560x1440 display
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
@@ -280,7 +280,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     // MARK: - maxAge = 0 (instant expiry)
 
     func testZeroMaxAge_simultaneousMoveAndClick_returnsTracked() {
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
         let tracked = CGPoint(x: 400, y: 400)
 
         let result = MouseClickLocationPolicy.resolve(
@@ -297,13 +297,13 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     }
 
     func testZeroMaxAge_anyDelay_fallsBackToSystem() {
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
         let fallback = CGPoint(x: 100, y: 100)
 
         let result = MouseClickLocationPolicy.resolve(
             zoomActive: true,
             trackedCursorPosition: CGPoint(x: 400, y: 400),
-            lastControllerMoveTime: now.addingTimeInterval(-0.001),
+            lastControllerMoveTime: now - 0.001,
             fallbackMouseLocation: fallback,
             primaryDisplayHeight: primaryHeight,
             now: now,
@@ -320,7 +320,7 @@ final class MouseClickLocationPolicyTests: XCTestCase {
     func testTrackedPosition_isReturnedWithoutYFlip() {
         // The tracked position is already in CG coordinate space (top-left origin).
         // It must NOT be Y-flipped when returned.
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
         let tracked = CGPoint(x: 500, y: 100)  // Near top of screen in CG
 
         let result = MouseClickLocationPolicy.resolve(
