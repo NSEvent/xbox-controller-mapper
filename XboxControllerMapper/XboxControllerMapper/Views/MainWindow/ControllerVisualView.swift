@@ -32,6 +32,10 @@ struct ControllerVisualView: View {
         controllerService.threadSafeIsDualSenseEdge
     }
 
+    private var isNintendo: Bool {
+        controllerService.threadSafeIsNintendo
+    }
+
     /// Returns the currently selected layer, if any
     private var selectedLayer: Layer? {
         guard let layerId = selectedLayerId,
@@ -111,6 +115,7 @@ struct ControllerVisualView: View {
                     ControllerAnalogOverlay(
                         controllerService: controllerService,
                         isPlayStation: isPlayStation,
+                        isNintendo: isNintendo,
                         onButtonTap: onButtonTap
                     )
                 }
@@ -290,7 +295,7 @@ struct ControllerVisualView: View {
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
         .allowsHitTesting(!isLayerActivatorInLayerContext(button))  // Disable clicks on layer activators when in layer context
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(button.displayName(forDualSense: isPlayStation))
+        .accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))
         .accessibilityHint("Double-tap to configure")
         .accessibilityAddTraits(.isButton)
         .onTapGesture { onButtonTap(button) }
@@ -360,6 +365,7 @@ struct ControllerVisualView: View {
 struct ControllerAnalogOverlay: View {
     let controllerService: ControllerService
     let isPlayStation: Bool
+    let isNintendo: Bool
     var onButtonTap: (ControllerButton) -> Void
 
     // Snapshotted analog display values (updated via .onReceive at 15Hz)
@@ -673,7 +679,7 @@ struct ControllerAnalogOverlay: View {
 
             // Add Xbox or PlayStation logo for the center button
             if button == .xbox {
-                Image(systemName: isPlayStation ? "playstation.logo" : "xbox.logo")
+                Image(systemName: isPlayStation ? "playstation.logo" : (isNintendo ? "house" : "xbox.logo"))
                     .font(.system(size: size * 0.45, weight: .medium))
                     .foregroundColor(isPressed(button) ? .white : Color(white: 0.3))
             }

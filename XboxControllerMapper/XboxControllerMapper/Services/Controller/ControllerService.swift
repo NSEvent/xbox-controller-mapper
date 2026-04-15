@@ -33,6 +33,9 @@ final class ControllerStorage: @unchecked Sendable {
     var isDualSense: Bool = false
     var isDualSenseEdge: Bool = false
     var isDualShock: Bool = false  // PS4 DualShock 4 controller
+    var isNintendo: Bool = false   // Nintendo controller (Joy-Con, Pro Controller)
+    var isJoyConLeft: Bool = false
+    var isJoyConRight: Bool = false
     var isBluetoothConnection: Bool = false
     var lastInputTime: TimeInterval = 0
     var lastHIDBatteryCharging: Bool? = nil  // Track charging state changes from HID reports
@@ -281,6 +284,19 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isDualSense || storage.isDualShock
+    }
+
+    nonisolated var threadSafeIsNintendo: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isNintendo
+    }
+
+    /// Returns true if a single Joy-Con is connected (left or right, not a Pro Controller)
+    nonisolated var threadSafeIsSingleJoyCon: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isJoyConLeft || storage.isJoyConRight
     }
 
     /// Returns the average gyro rotation rates accumulated since the last call, then resets the accumulator.
@@ -973,7 +989,18 @@ class ControllerService: ObservableObject {
     }
 
     private func setupInputHandlers(for controller: GCController) {
-        guard let gamepad = controller.extendedGamepad else { return }
+        // Detect Nintendo controller type before the extendedGamepad guard,
+        // since single Joy-Cons may only provide GCMicroGamepad.
+        detectNintendoController(controller)
+
+        // Try extendedGamepad first (works for Xbox, DualSense, Pro Controller, paired Joy-Cons)
+        guard let gamepad = controller.extendedGamepad else {
+            // Fallback: single Joy-Con may only expose GCMicroGamepad
+            if let micro = controller.microGamepad {
+                setupMicroGamepadHandlers(micro)
+            }
+            return
+        }
 
         // Face buttons
         bindButton(gamepad.buttonA, to: .a)
@@ -1009,10 +1036,14 @@ class ControllerService: ObservableObject {
             storage.isDualSense = false
             storage.isDualSenseEdge = false
             storage.isDualShock = false
+            storage.isNintendo = false
+            storage.isJoyConLeft = false
+            storage.isJoyConRight = false
             storage.lock.unlock()
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
 
             // Trigger battery monitor refresh for Xbox controller
             batteryMonitor.refreshBatteryLevel()
@@ -1035,10 +1066,14 @@ class ControllerService: ObservableObject {
         if let dualSenseGamepad = gamepad as? GCDualSenseGamepad {
             storage.lock.lock()
             storage.isDualSense = true
-            storage.isDualShock = false  // Ensure we're not flagged as DualShock
+            storage.isDualShock = false
+            storage.isNintendo = false
+            storage.isJoyConLeft = false
+            storage.isJoyConRight = false
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
 
             setupTouchpadHandlers(
                 primary: dualSenseGamepad.touchpadPrimary,
@@ -1059,12 +1094,16 @@ class ControllerService: ObservableObject {
         else if let dualShockGamepad = gamepad as? GCDualShockGamepad {
             storage.lock.lock()
             storage.isDualShock = true
-            storage.isDualSense = false  // Ensure we're not flagged as DualSense
+            storage.isDualSense = false
             storage.isDualSenseEdge = false
+            storage.isNintendo = false
+            storage.isJoyConLeft = false
+            storage.isJoyConRight = false
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
 
             setupTouchpadHandlers(
                 primary: dualShockGamepad.touchpadPrimary,
@@ -1075,6 +1114,60 @@ class ControllerService: ObservableObject {
             // Set up HID monitoring for PS button
             setupPlayStationHIDMonitoring()
             startKeepAliveTimer()
+        }
+    }
+
+    // MARK: - Nintendo Controller Detection
+
+    /// Detects Nintendo controllers (Joy-Con, Pro Controller) via vendor name and product category.
+    /// Must be called before the extendedGamepad guard since single Joy-Cons may only provide GCMicroGamepad.
+    private func detectNintendoController(_ controller: GCController) {
+        let vendorName = controller.vendorName?.lowercased() ?? ""
+        let productCategory = controller.productCategory.lowercased()
+        let isNintendoController = vendorName.contains("nintendo")
+            || productCategory.contains("joy-con") || productCategory.contains("joycon")
+            || productCategory.contains("pro controller")
+
+        guard isNintendoController else { return }
+
+        let isLeft = productCategory.contains("(l)") || productCategory.contains("left")
+        let isRight = productCategory.contains("(r)") || productCategory.contains("right")
+
+        storage.lock.lock()
+        storage.isNintendo = true
+        storage.isJoyConLeft = isLeft
+        storage.isJoyConRight = isRight
+        storage.isDualSense = false
+        storage.isDualSenseEdge = false
+        storage.isDualShock = false
+        storage.lock.unlock()
+
+        UserDefaults.standard.set(true, forKey: Config.lastControllerWasNintendoKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
+    }
+
+    // MARK: - MicroGamepad Handlers (Single Joy-Con)
+
+    /// Sets up input handlers for controllers that only expose GCMicroGamepad (e.g., single Joy-Con).
+    /// GCMicroGamepad provides: dpad, buttonA, buttonX, buttonMenu.
+    private func setupMicroGamepadHandlers(_ micro: GCMicroGamepad) {
+        // Allow the D-pad to report absolute values (not just snapped 8-way directions)
+        micro.allowsRotation = true
+        micro.reportsAbsoluteDpadValues = true
+
+        bindButton(micro.dpad.up, to: .dpadUp)
+        bindButton(micro.dpad.down, to: .dpadDown)
+        bindButton(micro.dpad.left, to: .dpadLeft)
+        bindButton(micro.dpad.right, to: .dpadRight)
+        bindButton(micro.buttonA, to: .a)
+        bindButton(micro.buttonX, to: .x)
+        bindButton(micro.buttonMenu, to: .menu)
+
+        // Use the dpad as a virtual analog stick for mouse movement
+        micro.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
+            self?.updateLeftStick(x: xValue, y: yValue)
         }
     }
 

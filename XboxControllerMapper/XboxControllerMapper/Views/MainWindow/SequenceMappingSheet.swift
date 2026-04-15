@@ -25,6 +25,10 @@ struct SequenceMappingSheet: View {
         controllerService.threadSafeIsDualSenseEdge
     }
 
+    private var isNintendo: Bool {
+        controllerService.threadSafeIsNintendo
+    }
+
     @State private var steps: [ControllerButton] = []
     @State private var stepTimeout: TimeInterval = Config.defaultSequenceStepTimeout
     @State private var keyCode: CGKeyCode?
@@ -149,7 +153,7 @@ struct SequenceMappingSheet: View {
                                 }
                                 HStack(spacing: 2) {
                                     ButtonIconView(button: button, isDualSense: isPlayStation)
-                                        .accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: isPlayStation))")
+                                        .accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))")
                                     Button(action: {
                                         steps.remove(at: index)
                                     }) {
@@ -158,7 +162,7 @@ struct SequenceMappingSheet: View {
                                             .foregroundColor(.red.opacity(0.7))
                                     }
                                     .buttonStyle(.borderless)
-                                    .accessibilityLabel("Remove \(button.displayName(forDualSense: isPlayStation)) from step \(index + 1)")
+                                    .accessibilityLabel("Remove \(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)) from step \(index + 1)")
                                 }
                             }
 
@@ -178,7 +182,7 @@ struct SequenceMappingSheet: View {
                         .frame(height: 40)
                         .background(Color.black.opacity(0.2))
                         .cornerRadius(8)
-                        .accessibilityLabel("Current sequence: \(steps.map { $0.displayName(forDualSense: isPlayStation) }.joined(separator: ", then "))")
+                        .accessibilityLabel("Current sequence: \(steps.map { $0.displayName(forDualSense: isPlayStation, forNintendo: isNintendo) }.joined(separator: ", then "))")
                     }
 
                     if sequenceAlreadyExists {
@@ -500,7 +504,7 @@ struct SequenceMappingSheet: View {
     @ViewBuilder
     private func addStepButton(_ button: ControllerButton) -> some View {
         let scale: CGFloat = 1.3
-        let buttonName = button.displayName(forDualSense: isPlayStation)
+        let buttonName = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)
 
         Button(action: {
             if steps.count < Config.maxSequenceSteps {

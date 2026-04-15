@@ -55,7 +55,7 @@ struct AddLayerSheet: View {
                     Picker("Activator", selection: $selectedActivator) {
                         Text("None (assign later)").tag(nil as ControllerButton?)
                         ForEach(availableButtons, id: \.self) { button in
-                            Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation))
+                            Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo))
                                 .tag(button as ControllerButton?)
                         }
                     }
@@ -148,7 +148,7 @@ struct EditLayerSheet: View {
                     Picker("Activator", selection: $selectedActivator) {
                         Text("None (assign later)").tag(nil as ControllerButton?)
                         ForEach(availableButtons, id: \.self) { button in
-                            Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation))
+                            Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo))
                                 .tag(button as ControllerButton?)
                         }
                     }

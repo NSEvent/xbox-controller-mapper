@@ -6,6 +6,7 @@ struct ButtonMappingSheet: View {
     let button: ControllerButton
     @Binding var mapping: KeyMapping?
     var isDualSense: Bool = false
+    var isNintendo: Bool = false
     var selectedLayerId: UUID? = nil  // nil = editing base layer
 
     @EnvironmentObject var profileManager: ProfileManager
@@ -215,7 +216,7 @@ struct ButtonMappingSheet: View {
                 .padding(.trailing, 8)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Configure \(button.displayName(forDualSense: isDualSense))")
+                Text("Configure \(button.displayName(forDualSense: isDualSense, forNintendo: isNintendo))")
                     .font(.headline)
 
                 if let currentMapping = mapping {

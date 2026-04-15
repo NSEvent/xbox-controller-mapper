@@ -26,6 +26,10 @@ struct ChordMappingSheet: View {
         controllerService.threadSafeIsDualSenseEdge
     }
 
+    private var isNintendo: Bool {
+        controllerService.threadSafeIsNintendo
+    }
+
     @State private var selectedButtons: Set<ControllerButton> = []
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
@@ -647,7 +651,7 @@ struct ChordMappingSheet: View {
         let conflictingChord = buttonConflicts[button]
         let isConflicted = conflictingChord != nil
         let isSelected = selectedButtons.contains(button)
-        let buttonName = button.displayName(forDualSense: isPlayStation)
+        let buttonName = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)
 
         VStack(spacing: 2) {
             Button(action: {

@@ -9,11 +9,15 @@ struct InputLogView: View {
         controllerService.threadSafeIsPlayStation
     }
 
+    private var isNintendo: Bool {
+        controllerService.threadSafeIsNintendo
+    }
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 0) {
                 ForEach(inputLogService.entries) { entry in
-                    LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation)
+                    LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo)
                 }
             }
             .padding(.horizontal)
@@ -35,9 +39,10 @@ private struct LogEntryView: View, Equatable {
     let entry: InputLogEntry
     let isLast: Bool
     let isPlayStation: Bool  // True for DualSense/DualShock - used for PS-style labels
+    let isNintendo: Bool
 
     static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
-        lhs.isLast == rhs.isLast && lhs.entry == rhs.entry && lhs.isPlayStation == rhs.isPlayStation
+        lhs.isLast == rhs.isLast && lhs.entry == rhs.entry && lhs.isPlayStation == rhs.isPlayStation && lhs.isNintendo == rhs.isNintendo
     }
 
     var body: some View {
@@ -92,7 +97,7 @@ private struct LogEntryView: View, Equatable {
     }
     
     private var accessibilityDescription: String {
-        let buttonNames = entry.buttons.map { $0.displayName(forDualSense: isPlayStation) }.joined(separator: " plus ")
+        let buttonNames = entry.buttons.map { $0.displayName(forDualSense: isPlayStation, forNintendo: isNintendo) }.joined(separator: " plus ")
         let typeDescription = entry.type == .singlePress ? "" : ", \(entry.type.rawValue)"
         return "\(buttonNames)\(typeDescription): \(entry.actionDescription)"
     }

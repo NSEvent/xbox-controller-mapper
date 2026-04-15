@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.7] - 2026-04-15
+
+### Added
+
+- **Nintendo Joy-Con & Pro Controller Support**: Nintendo controllers are now recognized and display correct button labels (L/R, ZL/ZR, +/−, Capture, Home). Single Joy-Cons that only expose `GCMicroGamepad` now have input handlers bound (D-pad, face buttons, menu), with the D-pad also driving mouse movement. Pro Controller and paired Joy-Cons work via the standard `GCExtendedGamepad` path.
+
 ## [1.6.6] - 2026-04-15
 
 ### Fixed

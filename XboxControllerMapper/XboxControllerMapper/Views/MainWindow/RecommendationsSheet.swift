@@ -11,6 +11,7 @@ struct RecommendationsSheet: View {
     @State private var applied = false
 
     private var isDualSense: Bool { controllerService.threadSafeIsPlayStation }
+    private var isNintendo: Bool { controllerService.threadSafeIsNintendo }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -236,12 +237,12 @@ struct RecommendationsSheet: View {
     // MARK: - Button Display Helpers
 
     private func buttonName(_ button: ControllerButton) -> String {
-        button.displayName(forDualSense: isDualSense)
+        button.displayName(forDualSense: isDualSense, forNintendo: isNintendo)
     }
 
     private func chordButtonNames(_ buttons: Set<ControllerButton>) -> String {
         buttons.sorted { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }
-            .map { $0.shortLabel(forDualSense: isDualSense) }
+            .map { $0.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo) }
             .joined(separator: "+")
     }
 

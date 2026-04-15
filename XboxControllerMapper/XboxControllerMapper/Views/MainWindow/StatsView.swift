@@ -11,6 +11,7 @@ struct StatsView: View {
 
     private var stats: UsageStats { usageStatsService.stats }
     private var isDualSense: Bool { controllerService.threadSafeIsPlayStation }
+    private var isNintendo: Bool { controllerService.threadSafeIsNintendo }
 
     var body: some View {
         ScrollView {
@@ -350,7 +351,7 @@ struct StatsView: View {
                     ButtonIconView(button: item.button, isDualSense: isDualSense)
                         .frame(width: ButtonIconView.maxIconWidth)
 
-                    Text(item.button.displayName(forDualSense: isDualSense))
+                    Text(item.button.displayName(forDualSense: isDualSense, forNintendo: isNintendo))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white)
                         .frame(width: 90, alignment: .leading)

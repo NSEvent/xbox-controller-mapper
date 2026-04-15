@@ -112,6 +112,32 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// Display name for Nintendo controllers (Joy-Con, Pro Controller)
+    func displayName(forNintendo isNintendo: Bool) -> String {
+        guard isNintendo else { return displayName }
+        switch self {
+        // GameController framework maps Nintendo buttons to match Xbox positions,
+        // so A/B/X/Y labels match Xbox (not Nintendo physical layout)
+        case .leftBumper: return "L"
+        case .rightBumper: return "R"
+        case .leftTrigger: return "ZL"
+        case .rightTrigger: return "ZR"
+        case .menu: return "+"
+        case .view: return "\u{2212}"  // minus sign
+        case .share: return "Capture"
+        case .xbox: return "Home"
+        case .leftThumbstick: return "L Stick"
+        case .rightThumbstick: return "R Stick"
+        default: return displayName
+        }
+    }
+
+    /// Display name that adapts to any controller type
+    func displayName(forDualSense isDualSense: Bool, forNintendo isNintendo: Bool) -> String {
+        if isNintendo { return displayName(forNintendo: true) }
+        return displayName(forDualSense: isDualSense)
+    }
+
     /// Short label for compact UI
     var shortLabel: String {
         switch self {
@@ -166,6 +192,28 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .xbox: return "ⓟ"  // PS button
         default: return shortLabel
         }
+    }
+
+    /// Short label for Nintendo controllers
+    func shortLabel(forNintendo isNintendo: Bool) -> String {
+        guard isNintendo else { return shortLabel }
+        switch self {
+        case .leftBumper: return "L"
+        case .rightBumper: return "R"
+        case .leftTrigger: return "ZL"
+        case .rightTrigger: return "ZR"
+        case .menu: return "+"
+        case .view: return "\u{2212}"  // minus sign
+        case .share: return "\u{25A1}"  // capture button (square)
+        case .xbox: return "\u{2302}"   // home button
+        default: return shortLabel
+        }
+    }
+
+    /// Short label that adapts to any controller type
+    func shortLabel(forDualSense isDualSense: Bool, forNintendo isNintendo: Bool) -> String {
+        if isNintendo { return shortLabel(forNintendo: true) }
+        return shortLabel(forDualSense: isDualSense)
     }
 
     /// SF Symbol name if available
@@ -311,6 +359,21 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)
     static var dualSenseButtons: [ControllerButton] {
         allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton }
+    }
+
+    /// Buttons available for Nintendo controllers (Joy-Con, Pro Controller)
+    /// Same as Xbox — no touchpad, mic, paddles, or gyro gestures
+    static var nintendoButtons: [ControllerButton] {
+        allCases.filter { !$0.isPlayStationOnly }
+    }
+
+    /// SF Symbol name for Nintendo controllers
+    func systemImageName(forNintendo isNintendo: Bool) -> String? {
+        guard isNintendo else { return systemImageName }
+        switch self {
+        case .xbox: return "house"  // Home button
+        default: return systemImageName  // Reuse Xbox SF Symbols for everything else
+        }
     }
 }
 

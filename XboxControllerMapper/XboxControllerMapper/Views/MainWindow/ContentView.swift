@@ -185,6 +185,7 @@ struct ContentView: View {
                     set: { _ in } // Read-only: ButtonMappingSheet saves directly via ProfileManager (see saveMapping())
                 ),
                 isDualSense: controllerService.threadSafeIsPlayStation,
+                isNintendo: controllerService.threadSafeIsNintendo,
                 selectedLayerId: selectedLayerId
             )
         }
