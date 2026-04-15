@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.6] - 2026-04-15
+
+### Fixed
+
+- **Active Controller CPU Usage**: Reduced CPU and energy impact while actively using the controller (e.g., joystick mouse movement). Cached expensive Accessibility Zoom state checks, eliminated per-frame object allocations in the 120 Hz mouse movement path, and reused system resources instead of recreating them every frame.
+- **Display Timer Paused When Hidden**: The 15 Hz UI display update timer now automatically suspends when all app windows are minimized or hidden, eliminating unnecessary SwiftUI invalidation while the app is not visible.
+
 ## [1.6.5] - 2026-04-06
 
 ### Fixed
