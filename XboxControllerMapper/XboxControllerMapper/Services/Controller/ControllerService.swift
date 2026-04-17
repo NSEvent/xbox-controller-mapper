@@ -989,16 +989,23 @@ class ControllerService: ObservableObject {
     }
 
     private func setupInputHandlers(for controller: GCController) {
+        // Log controller info for diagnostics (visible in Console.app)
+        NSLog("[ControllerKeys] vendorName=%@  productCategory=%@  extendedGamepad=%@  microGamepad=%@",
+              controller.vendorName ?? "(nil)",
+              controller.productCategory,
+              controller.extendedGamepad != nil ? "YES" : "NO",
+              controller.microGamepad != nil ? "YES" : "NO")
+
         // Detect Nintendo controller type before the extendedGamepad guard,
         // since single Joy-Cons may only provide GCMicroGamepad.
         detectNintendoController(controller)
 
         // Try extendedGamepad first (works for Xbox, DualSense, Pro Controller, paired Joy-Cons)
         guard let gamepad = controller.extendedGamepad else {
-            // Fallback: single Joy-Con may only expose GCMicroGamepad
-            if let micro = controller.microGamepad {
-                setupMicroGamepadHandlers(micro)
-            }
+            // Single Joy-Cons don't expose extendedGamepad or microGamepad — they only
+            // provide physicalInputProfile. Use it to dynamically bind available elements.
+            NSLog("[ControllerKeys] No extendedGamepad — using physicalInputProfile fallback")
+            setupPhysicalInputProfileHandlers(controller.physicalInputProfile)
             return
         }
 
@@ -1030,6 +1037,19 @@ class ControllerService: ObservableObject {
         bindButton(gamepad.buttonMenu, to: .menu)
         bindButton(gamepad.buttonOptions, to: .view)
         bindButton((gamepad as? GCExtendedGamepad)?.buttonHome, to: .xbox)
+
+        // Log available elements for diagnostics (helps debug Joy-Con/third-party controllers)
+        if storage.lock.withLock({ storage.isNintendo }) {
+            NSLog("[ControllerKeys] extendedGamepad elements: A=%d B=%d X=%d Y=%d LS=%d RS=%d LT=%d RT=%d dpad=%d menu=%d options=%d home=%d L3=%d R3=%d leftStick=%d rightStick=%d",
+                  gamepad.buttonA != nil ? 1 : 0, gamepad.buttonB != nil ? 1 : 0,
+                  gamepad.buttonX != nil ? 1 : 0, gamepad.buttonY != nil ? 1 : 0,
+                  gamepad.leftShoulder != nil ? 1 : 0, gamepad.rightShoulder != nil ? 1 : 0,
+                  gamepad.leftTrigger != nil ? 1 : 0, gamepad.rightTrigger != nil ? 1 : 0,
+                  gamepad.dpad != nil ? 1 : 0, gamepad.buttonMenu != nil ? 1 : 0,
+                  gamepad.buttonOptions != nil ? 1 : 0, gamepad.buttonHome != nil ? 1 : 0,
+                  gamepad.leftThumbstickButton != nil ? 1 : 0, gamepad.rightThumbstickButton != nil ? 1 : 0,
+                  gamepad.leftThumbstick != nil ? 1 : 0, gamepad.rightThumbstick != nil ? 1 : 0)
+        }
 
         if let xboxGamepad = gamepad as? GCXboxGamepad {
             storage.lock.lock()
@@ -1120,18 +1140,33 @@ class ControllerService: ObservableObject {
     // MARK: - Nintendo Controller Detection
 
     /// Detects Nintendo controllers (Joy-Con, Pro Controller) via vendor name and product category.
-    /// Must be called before the extendedGamepad guard since single Joy-Cons may only provide GCMicroGamepad.
+    /// Must be called before the extendedGamepad guard since single Joy-Cons only provide physicalInputProfile.
+    ///
+    /// Known productCategory values from GameController framework:
+    ///   "Nintendo Switch Joy-Con (L)", "Nintendo Switch Joy-Con (R)",
+    ///   "Nintendo Switch Joy-Con (L/R)", "Switch Pro Controller"
+    /// vendorName is the Bluetooth device name: "Joy-Con (L)", "Joy-Con (R)", "Pro Controller"
     private func detectNintendoController(_ controller: GCController) {
         let vendorName = controller.vendorName?.lowercased() ?? ""
         let productCategory = controller.productCategory.lowercased()
-        let isNintendoController = vendorName.contains("nintendo")
+
+        // Check both vendorName and productCategory for Nintendo identifiers
+        let isNintendoController = vendorName.contains("joy-con") || vendorName.contains("pro controller")
             || productCategory.contains("joy-con") || productCategory.contains("joycon")
             || productCategory.contains("pro controller")
+            || productCategory.contains("nintendo")
 
         guard isNintendoController else { return }
 
-        let isLeft = productCategory.contains("(l)") || productCategory.contains("left")
-        let isRight = productCategory.contains("(r)") || productCategory.contains("right")
+        NSLog("[ControllerKeys] Nintendo detected — vendorName=%@  productCategory=%@",
+              controller.vendorName ?? "(nil)", controller.productCategory)
+
+        // Check both vendorName and productCategory for L/R — vendorName is "Joy-Con (L)",
+        // productCategory is "Nintendo Switch Joy-Con (L)". Check both for robustness.
+        let combined = vendorName + " " + productCategory
+        let isLeft = combined.contains("(l)") && !combined.contains("(l/r)")
+        let isRight = combined.contains("(r)") && !combined.contains("(l/r)")
+        NSLog("[ControllerKeys] Joy-Con L/R detection: isLeft=%d  isRight=%d", isLeft ? 1 : 0, isRight ? 1 : 0)
 
         storage.lock.lock()
         storage.isNintendo = true
@@ -1148,27 +1183,66 @@ class ControllerService: ObservableObject {
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
     }
 
-    // MARK: - MicroGamepad Handlers (Single Joy-Con)
+    // MARK: - PhysicalInputProfile Handlers (Single Joy-Con, etc.)
 
-    /// Sets up input handlers for controllers that only expose GCMicroGamepad (e.g., single Joy-Con).
-    /// GCMicroGamepad provides: dpad, buttonA, buttonX, buttonMenu.
-    private func setupMicroGamepadHandlers(_ micro: GCMicroGamepad) {
-        // Allow the D-pad to report absolute values (not just snapped 8-way directions)
-        micro.allowsRotation = true
-        micro.reportsAbsoluteDpadValues = true
+    /// Sets up input handlers by dynamically enumerating the controller's physicalInputProfile.
+    /// Single Joy-Cons don't expose extendedGamepad or microGamepad — they only provide
+    /// physicalInputProfile with a dynamic set of buttons, axes, and dpads.
+    private func setupPhysicalInputProfileHandlers(_ profile: GCPhysicalInputProfile) {
+        // Map known GCInput element names to ControllerButton cases
+        let buttonMap: [(String, ControllerButton)] = [
+            (GCInputButtonA, .a),
+            (GCInputButtonB, .b),
+            (GCInputButtonX, .x),
+            (GCInputButtonY, .y),
+            (GCInputLeftShoulder, .leftBumper),
+            (GCInputRightShoulder, .rightBumper),
+            (GCInputLeftTrigger, .leftTrigger),
+            (GCInputRightTrigger, .rightTrigger),
+            (GCInputButtonMenu, .menu),
+            (GCInputButtonOptions, .view),
+            (GCInputButtonHome, .xbox),
+            (GCInputLeftThumbstickButton, .leftThumbstick),
+            (GCInputRightThumbstickButton, .rightThumbstick),
+        ]
 
-        bindButton(micro.dpad.up, to: .dpadUp)
-        bindButton(micro.dpad.down, to: .dpadDown)
-        bindButton(micro.dpad.left, to: .dpadLeft)
-        bindButton(micro.dpad.right, to: .dpadRight)
-        bindButton(micro.buttonA, to: .a)
-        bindButton(micro.buttonX, to: .x)
-        bindButton(micro.buttonMenu, to: .menu)
-
-        // Use the dpad as a virtual analog stick for mouse movement
-        micro.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.updateLeftStick(x: xValue, y: yValue)
+        var boundCount = 0
+        for (inputName, controllerButton) in buttonMap {
+            if let element = profile.buttons[inputName] {
+                bindButton(element, to: controllerButton)
+                boundCount += 1
+            }
         }
+
+        // D-pad
+        if let dpad = profile.dpads[GCInputDirectionPad] {
+            bindButton(dpad.up, to: .dpadUp)
+            bindButton(dpad.down, to: .dpadDown)
+            bindButton(dpad.left, to: .dpadLeft)
+            bindButton(dpad.right, to: .dpadRight)
+            boundCount += 4
+        }
+
+        // Left thumbstick (analog) — use for mouse movement
+        if let leftStick = profile.dpads[GCInputLeftThumbstick] {
+            leftStick.valueChangedHandler = { [weak self] _, xValue, yValue in
+                self?.updateLeftStick(x: xValue, y: yValue)
+            }
+        }
+
+        // Right thumbstick (analog)
+        if let rightStick = profile.dpads[GCInputRightThumbstick] {
+            rightStick.valueChangedHandler = { [weak self] _, xValue, yValue in
+                self?.updateRightStick(x: xValue, y: yValue)
+            }
+        }
+
+        // Log all available elements for diagnostics
+        NSLog("[ControllerKeys] physicalInputProfile: bound %d elements. buttons=%@ dpads=%@ axes=%@",
+              boundCount,
+              profile.buttons.keys.sorted().joined(separator: ", "),
+              profile.dpads.keys.sorted().joined(separator: ", "),
+              profile.axes.keys.sorted().joined(separator: ", "))
     }
 
     // MARK: - Thread-Safe Update Helpers
