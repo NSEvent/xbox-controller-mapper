@@ -997,7 +997,7 @@ class ControllerService: ObservableObject {
               controller.microGamepad != nil ? "YES" : "NO")
 
         // Detect Nintendo controller type before the extendedGamepad guard,
-        // since single Joy-Cons may only provide GCMicroGamepad.
+        // since single Joy-Cons only provide physicalInputProfile.
         detectNintendoController(controller)
 
         // Try extendedGamepad first (works for Xbox, DualSense, Pro Controller, paired Joy-Cons)
@@ -1226,6 +1226,12 @@ class ControllerService: ObservableObject {
         // Left thumbstick (analog) — use for mouse movement
         if let leftStick = profile.dpads[GCInputLeftThumbstick] {
             leftStick.valueChangedHandler = { [weak self] _, xValue, yValue in
+                self?.updateLeftStick(x: xValue, y: yValue)
+            }
+        } else if let dpad = profile.dpads[GCInputDirectionPad] {
+            // Fallback: Joy-Con stick may be exposed as a D-pad rather than a thumbstick.
+            // Use it for mouse movement so the user gets analog-like cursor control.
+            dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
                 self?.updateLeftStick(x: xValue, y: yValue)
             }
         }
