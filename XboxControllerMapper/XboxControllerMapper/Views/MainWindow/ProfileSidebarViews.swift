@@ -12,7 +12,7 @@ struct ProfileSidebar: View {
     @State private var renameProfileName = ""
     @State private var profileToRename: Profile?
     @State private var isImporting = false
-    @State private var isImportingStreamDeck = false
+    @State private var importType: ProfileImportType = .json
     @State private var showingStreamDeckImport = false
     @State private var streamDeckFileURL: URL?
     @State private var isExporting = false
@@ -35,10 +35,12 @@ struct ProfileSidebar: View {
                         showingNewProfileAlert = true
                     }
                     Button("Import Profile...") {
+                        importType = .json
                         isImporting = true
                     }
                     Button("Import Stream Deck Profile...") {
-                        isImportingStreamDeck = true
+                        importType = .streamDeck
+                        isImporting = true
                     }
                     Button("Import Community Profile...") {
                         showingCommunityProfiles = true
@@ -140,23 +142,30 @@ struct ProfileSidebar: View {
         }
         .fileImporter(
             isPresented: $isImporting,
-            allowedContentTypes: [.json],
+            allowedContentTypes: [.json, .data],
             allowsMultipleSelection: false
         ) { result in
             switch result {
             case .success(let urls):
                 guard let url = urls.first else { return }
-                do {
-                    let profile = try profileManager.importProfile(from: url)
-                    profileManager.setActiveProfile(profile)
-                } catch {
-                    // Import failed, profile not loaded
+                switch importType {
+                case .json:
+                    do {
+                        let profile = try profileManager.importProfile(from: url)
+                        profileManager.setActiveProfile(profile)
+                    } catch {
+                        // Import failed, profile not loaded
+                    }
+                case .streamDeck:
+                    // No extension filter — the parser handles invalid files
+                    // and shows a descriptive error in the import sheet
+                    streamDeckFileURL = url
+                    showingStreamDeckImport = true
                 }
             case .failure:
                 #if DEBUG
                 print("File import failed")
                 #endif
-                // File selection failed
             }
         }
         .fileExporter(
@@ -167,24 +176,6 @@ struct ProfileSidebar: View {
         ) { result in
             // Export completed, success or failure handled by system
         }
-        .fileImporter(
-            isPresented: $isImportingStreamDeck,
-            allowedContentTypes: [.data],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else { return }
-                // No extension filter — the parser handles invalid files
-                // and shows a descriptive error in the import sheet
-                streamDeckFileURL = url
-                showingStreamDeckImport = true
-            case .failure:
-                #if DEBUG
-                print("Stream Deck file import failed")
-                #endif
-            }
-        }
         .sheet(isPresented: $showingStreamDeckImport) {
             if let url = streamDeckFileURL {
                 StreamDeckImportSheet(fileURL: url)
@@ -194,6 +185,11 @@ struct ProfileSidebar: View {
             CommunityProfilesSheet()
         }
     }
+}
+
+private enum ProfileImportType {
+    case json
+    case streamDeck
 }
 
 struct ProfileDocument: FileDocument {
