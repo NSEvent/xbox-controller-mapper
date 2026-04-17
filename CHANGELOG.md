@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Single Joy-Con Button Binding**: Single Joy-Cons don't expose `GCExtendedGamepad` or `GCMicroGamepad` — they only provide `GCPhysicalInputProfile`. The previous fallback path failed silently, leaving zero handlers bound. Now dynamically enumerates the physical input profile to bind all available buttons, D-pad, and analog stick elements.
 - **Joy-Con L/R Detection**: Improved left/right Joy-Con identification by checking both `vendorName` and `productCategory`, and excluding paired "(L/R)" from single-side detection.
+- **Profile Import File Picker**: The "Import Profile..." file picker was not appearing because SwiftUI only honors the last `.fileImporter` modifier on a view. Consolidated the regular and Stream Deck import into a single file importer with a type-based dispatch.
 
 ## [1.7.0] - 2026-04-15
 
