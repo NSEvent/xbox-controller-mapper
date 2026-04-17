@@ -5,11 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-04-16
+
+### Fixed
+
+- **Single Joy-Con Button Binding**: Single Joy-Cons don't expose `GCExtendedGamepad` or `GCMicroGamepad` — they only provide `GCPhysicalInputProfile`. The previous fallback path failed silently, leaving zero handlers bound. Now dynamically enumerates the physical input profile to bind all available buttons, D-pad, and analog stick elements.
+- **Joy-Con L/R Detection**: Improved left/right Joy-Con identification by checking both `vendorName` and `productCategory`, and excluding paired "(L/R)" from single-side detection.
+
 ## [1.7.0] - 2026-04-15
 
 ### Added
 
-- **Nintendo Joy-Con & Pro Controller Support**: Nintendo controllers are now recognized and display correct button labels (L/R, ZL/ZR, +/−, Capture, Home). Single Joy-Cons that only expose `GCMicroGamepad` now have input handlers bound (D-pad, face buttons, menu), with the D-pad also driving mouse movement. Pro Controller and paired Joy-Cons work via the standard `GCExtendedGamepad` path.
+- **Nintendo Joy-Con & Pro Controller Support**: Nintendo controllers are now recognized and display correct button labels (L/R, ZL/ZR, +/−, Capture, Home). Pro Controller and paired Joy-Cons work via the standard `GCExtendedGamepad` path.
 
 ### Fixed
 
