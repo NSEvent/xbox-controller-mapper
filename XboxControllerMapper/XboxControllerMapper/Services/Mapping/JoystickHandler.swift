@@ -45,11 +45,13 @@ extension MappingEngine {
         let dt = state.lastJoystickSampleTime > 0 ? now - state.lastJoystickSampleTime : Config.joystickPollInterval
         state.lastJoystickSampleTime = now
 
-        let leftStick = controllerService.threadSafeLeftStick
+        // Single lock acquisition for all controller input state (cache-friendly snapshot)
+        let controllerSnapshot = controllerService.snapshot()
+        let leftStick = controllerSnapshot.leftStick
 
         // Swipe typing: left trigger toggles swipe mode, touchpad touch drives word boundaries
         let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
-        let leftTrigger = controllerService.threadSafeLeftTrigger
+        let leftTrigger = controllerSnapshot.leftTrigger
         if keyboardVisible && state.swipeTypingEnabled {
             let wasSwipeActive = state.swipeTypingActive
             if !wasSwipeActive && leftTrigger > Config.swipeTriggerThreshold {
@@ -132,8 +134,7 @@ extension MappingEngine {
         let swipeBlocksLeftStick = state.swipeTypingActive && SwipeTypingEngine.shared.threadSafeState == .swiping
         guard !swipeBlocksLeftStick else {
             if state.commandWheelActive {
-                let rightStick = controllerService.threadSafeRightStick
-                updateCommandWheel(rightStick: rightStick)
+                updateCommandWheel(rightStick: controllerSnapshot.rightStick)
             }
             return
         }
@@ -142,7 +143,7 @@ extension MappingEngine {
         case .none:
             break
         case .mouse:
-            processMouseMovement(leftStick, settings: settings, now: now)
+            processMouseMovement(leftStick, settings: settings, now: now, isDualSense: controllerSnapshot.isDualSense)
         case .scroll:
             let leftMagnitudeSquared = leftStick.x * leftStick.x + leftStick.y * leftStick.y
             let leftDeadzoneSquared = settings.mouseDeadzone * settings.mouseDeadzone
@@ -162,7 +163,7 @@ extension MappingEngine {
             )
         }
 
-        let rightStick = controllerService.threadSafeRightStick
+        let rightStick = controllerSnapshot.rightStick
 
         // Right stick navigates directory navigator when visible
         let navigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
@@ -175,7 +176,7 @@ extension MappingEngine {
             case .none:
                 break
             case .mouse:
-                processMouseMovement(rightStick, settings: settings, now: now)
+                processMouseMovement(rightStick, settings: settings, now: now, isDualSense: controllerSnapshot.isDualSense)
             case .scroll:
                 updateScrollDoubleTapState(rawStick: rightStick, settings: settings, now: now)
                 let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
@@ -320,7 +321,7 @@ extension MappingEngine {
 
     // MARK: - Mouse Movement (incl. Focus Mode + Gyro Aiming)
 
-    nonisolated func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime) {
+    nonisolated func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime, isDualSense: Bool? = nil) {
         let focusFlags = settings.focusModeModifier.cgEventFlags
         let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
 
@@ -348,7 +349,7 @@ extension MappingEngine {
             return
         }
 
-        if settings.gyroAimingEnabled && isFocusActive && controllerService.threadSafeIsDualSense {
+        if settings.gyroAimingEnabled && isFocusActive && (isDualSense ?? controllerService.threadSafeIsDualSense) {
             let (pitchRate, rollRate) = controllerService.consumeAverageMotionRates()
 
             // Skip filter update if no new gyro samples arrived this tick

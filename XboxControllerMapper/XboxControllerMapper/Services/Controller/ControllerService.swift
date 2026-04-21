@@ -200,6 +200,33 @@ class ControllerService: ObservableObject {
         withStorageLock { $0[keyPath: keyPath] = value }
     }
 
+    // MARK: - Controller Snapshot (single lock acquisition for hot-path polling)
+
+    /// A value-type snapshot of controller input state, captured in a single lock acquisition.
+    /// Used by JoystickHandler's 120Hz polling loop to avoid per-field lock thrashing.
+    /// All ~40 bytes fit in a single cache line, eliminating repeated memory barriers.
+    struct ControllerSnapshot {
+        var leftStick: CGPoint = .zero
+        var rightStick: CGPoint = .zero
+        var leftTrigger: Float = 0
+        var rightTrigger: Float = 0
+        var isDualSense: Bool = false
+    }
+
+    /// Captures a consistent snapshot of all joystick-polling-relevant state in a single lock acquisition.
+    /// This replaces 4-6 individual `threadSafe*` property reads that each acquire/release the lock separately.
+    nonisolated func snapshot() -> ControllerSnapshot {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return ControllerSnapshot(
+            leftStick: storage.leftStick,
+            rightStick: storage.rightStick,
+            leftTrigger: storage.leftTrigger,
+            rightTrigger: storage.rightTrigger,
+            isDualSense: storage.isDualSense
+        )
+    }
+
     nonisolated var threadSafeLeftStick: CGPoint {
         storage.lock.lock()
         defer { storage.lock.unlock() }
