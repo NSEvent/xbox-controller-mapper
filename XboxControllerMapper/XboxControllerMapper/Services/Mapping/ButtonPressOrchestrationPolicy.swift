@@ -4,7 +4,7 @@ import Foundation
 enum ButtonPressOrchestrationPolicy {
     struct MappingContext: Equatable {
         let mapping: KeyMapping
-        let lastTap: Date?
+        let lastTap: CFAbsoluteTime?
         let shouldTreatAsHold: Bool
     }
 
@@ -32,7 +32,7 @@ enum ButtonPressOrchestrationPolicy {
         navigationModeActive: Bool,
         directoryNavigatorVisible: Bool,
         isChordPart: Bool,
-        lastTap: Date?
+        lastTap: CFAbsoluteTime?
     ) -> Outcome {
         // Directory navigator interceptions
         if directoryNavigatorVisible {

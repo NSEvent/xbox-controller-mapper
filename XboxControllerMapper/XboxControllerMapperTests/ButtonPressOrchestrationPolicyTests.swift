@@ -59,7 +59,7 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
     }
 
     func testResolveCreatesMappingContextWithHoldPath() {
-        let lastTap = Date()
+        let lastTap = CFAbsoluteTimeGetCurrent()
         let mapping = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick)
         let outcome = ButtonPressOrchestrationPolicy.resolve(
             button: .a,

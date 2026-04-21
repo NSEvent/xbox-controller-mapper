@@ -424,7 +424,7 @@ class MappingEngine: ObservableObject {
     private enum ButtonPressStartState {
         case blocked
         case layerActivated(profile: Profile, layerId: UUID)
-        case ready(profile: Profile, lastTap: Date?)
+        case ready(profile: Profile, lastTap: CFAbsoluteTime?)
     }
 
     nonisolated private func beginButtonPress(_ button: ControllerButton) -> ButtonPressStartState {
@@ -447,7 +447,7 @@ class MappingEngine: ObservableObject {
     nonisolated private func resolveButtonPressOutcome(
         _ button: ControllerButton,
         profile: Profile,
-        lastTap: Date?
+        lastTap: CFAbsoluteTime?
     ) -> ButtonPressOrchestrationPolicy.Outcome {
         let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
         let directoryNavigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
@@ -605,10 +605,10 @@ class MappingEngine: ObservableObject {
     }
 
     /// Handles mapping that should be treated as continuously held
-    nonisolated private func handleHoldMapping(_ button: ControllerButton, mapping: KeyMapping, lastTap: Date?, profile: Profile?) {
+    nonisolated private func handleHoldMapping(_ button: ControllerButton, mapping: KeyMapping, lastTap: CFAbsoluteTime?, profile: Profile?) {
         if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
-            let now = Date()
-            if let lastTap = lastTap, now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
+            let now = CFAbsoluteTimeGetCurrent()
+            if let lastTap = lastTap, now - lastTap <= doubleTapMapping.threshold {
                 state.lock.withLock {
                     state.lastTapTime.removeValue(forKey: button)
                 }
@@ -990,7 +990,7 @@ class MappingEngine: ObservableObject {
     }
 
     /// Get pending tap state for double-tap detection
-    nonisolated func getPendingTapInfo(for button: ControllerButton) -> (DispatchWorkItem?, Date?) {
+    nonisolated func getPendingTapInfo(for button: ControllerButton) -> (DispatchWorkItem?, CFAbsoluteTime?) {
         state.lock.lock()
         defer { state.lock.unlock() }
 
@@ -1011,15 +1011,15 @@ class MappingEngine: ObservableObject {
         _ button: ControllerButton,
         mapping: KeyMapping,
         pendingSingle: DispatchWorkItem?,
-        lastTap: Date?,
+        lastTap: CFAbsoluteTime?,
         doubleTapMapping: DoubleTapMapping,
         skipSingleTap: Bool = false,
         profile: Profile? = nil
     ) -> Bool {
-        let now = Date()
+        let now = CFAbsoluteTimeGetCurrent()
 
         if let lastTap = lastTap,
-           now.timeIntervalSince(lastTap) <= doubleTapMapping.threshold {
+           now - lastTap <= doubleTapMapping.threshold {
 
             if let pending = pendingSingle {
                 pending.cancel()

@@ -21,7 +21,7 @@ extension MappingEngine {
         // Button State
         var heldButtons: [ControllerButton: KeyMapping] = [:]
         var activeChordButtons: Set<ControllerButton> = []
-        var lastTapTime: [ControllerButton: Date] = [:]
+        var lastTapTime: [ControllerButton: CFAbsoluteTime] = [:]
         var pendingSingleTap: [ControllerButton: DispatchWorkItem] = [:]
         var pendingReleaseActions: [ControllerButton: DispatchWorkItem] = [:]
         var longHoldTimers: [ControllerButton: DispatchWorkItem] = [:]
