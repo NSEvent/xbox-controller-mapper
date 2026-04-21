@@ -10,10 +10,9 @@ final class SequenceDetector: GestureDetecting {
     typealias Result = SequenceMapping
 
     /// Tracks progress through a single sequence mapping.
-    /// Uses an index into the `sequences` array to avoid copying the steps array.
     struct SequenceProgress {
-        let sequenceIndex: Int
-        let stepCount: Int
+        let sequenceId: UUID
+        let steps: [ControllerButton]
         let stepTimeout: TimeInterval
         var matchedCount: Int
         var lastStepTime: TimeInterval
@@ -41,33 +40,23 @@ final class SequenceDetector: GestureDetecting {
     ///   - time: Current timestamp (any monotonic time source).
     /// - Returns: The completed SequenceMapping if a sequence was fully matched, nil otherwise.
     func process(_ button: ControllerButton, at time: TimeInterval) -> SequenceMapping? {
-        // Phase 1: Filter active sequences in-place — advance matching ones, discard the rest.
-        var writeIdx = 0
-        for i in 0..<activeSequences.count {
-            let seq = activeSequences[i]
+        var survivingSequences: [SequenceProgress] = []
+        for var seq in activeSequences {
             let sinceLastStep = time - seq.lastStepTime
             let effectiveTimeout = seq.stepTimeout + chordWindowTolerance
-            if sinceLastStep <= effectiveTimeout
-                && seq.matchedCount < seq.stepCount
-                && button == sequences[seq.sequenceIndex].steps[seq.matchedCount]
-            {
-                activeSequences[writeIdx] = seq
-                activeSequences[writeIdx].matchedCount += 1
-                activeSequences[writeIdx].lastStepTime = time
-                writeIdx += 1
+            if sinceLastStep <= effectiveTimeout && seq.matchedCount < seq.steps.count && button == seq.steps[seq.matchedCount] {
+                seq.matchedCount += 1
+                seq.lastStepTime = time
+                survivingSequences.append(seq)
             }
         }
-        activeSequences.removeSubrange(writeIdx...)
 
-        // Phase 2: Start tracking new sequences whose first step matches.
-        // Linear scan for duplicate check — faster than Set for typical sequence counts (<20).
-        let survivingCount = writeIdx
-        for (seqIdx, seq) in sequences.enumerated() where seq.isValid {
-            let alreadyTracked = activeSequences[0..<survivingCount].contains { $0.sequenceIndex == seqIdx }
-            if !alreadyTracked && seq.steps[0] == button {
-                activeSequences.append(SequenceProgress(
-                    sequenceIndex: seqIdx,
-                    stepCount: seq.steps.count,
+        let trackedIds = Set(survivingSequences.map { $0.sequenceId })
+        for seq in sequences where seq.isValid {
+            if !trackedIds.contains(seq.id) && seq.steps[0] == button {
+                survivingSequences.append(SequenceProgress(
+                    sequenceId: seq.id,
+                    steps: seq.steps,
                     stepTimeout: seq.stepTimeout,
                     matchedCount: 1,
                     lastStepTime: time
@@ -75,15 +64,16 @@ final class SequenceDetector: GestureDetecting {
             }
         }
 
-        // Phase 3: Check for a completed sequence.
-        if let completedIdx = activeSequences.firstIndex(where: { $0.matchedCount == $0.stepCount }) {
-            let completed = activeSequences[completedIdx]
-            let sequence = sequences[completed.sequenceIndex]
+        if let completedIdx = survivingSequences.firstIndex(where: { $0.matchedCount == $0.steps.count }) {
+            let completed = survivingSequences[completedIdx]
+            let sequence = sequences.first { $0.id == completed.sequenceId }
 
-            activeSequences.remove(at: completedIdx)
+            survivingSequences.remove(at: completedIdx)
+            activeSequences = survivingSequences
             return sequence
         }
 
+        activeSequences = survivingSequences
         return nil
     }
 
