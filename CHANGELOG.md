@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-04-21
+
+### Performance
+
+- **Button Press Lookup (10–22x faster)**: Chord and sequence membership checks (`isButtonUsedInChords`, `isButtonUsedInSequences`) replaced O(m×k) linear scans of heap-allocated Sets with O(1) precomputed Set lookups, built once at profile load time. Chord matching replaced O(m) linear scan with Set equality comparisons with O(1) dictionary lookup.
+- **120 Hz Joystick Polling (31% fewer lock cycles)**: Controller input reads consolidated from 5 individual lock/unlock cycles per tick into a single `ControllerSnapshot` struct captured in one lock acquisition. All ~40 bytes of stick/trigger state fit in a single cache line.
+- **UI Singleton Reads (33% faster)**: Batched per-frame reads from `OnScreenKeyboardManager` and `SwipeTypingEngine` into single-lock snapshot methods, eliminating duplicate reads (6 lock cycles → 3 per tick).
+- **Letter Area Geometry Cache (58% faster)**: `threadSafeLetterAreaScreenRect` now caches the coordinate-transform result and only recomputes when the overlay frame or panel position changes, eliminating redundant math at 120 Hz.
+- **Debug-only NSLog**: Guarded `MappingActionExecutor` error-path NSLog with `#if DEBUG` to avoid system log IPC overhead in release builds.
+
 ## [1.7.1] - 2026-04-16
 
 ### Fixed

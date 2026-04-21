@@ -49,8 +49,15 @@ extension MappingEngine {
         let controllerSnapshot = controllerService.snapshot()
         let leftStick = controllerSnapshot.leftStick
 
+        // Batch UI singleton reads: one lock per singleton instead of multiple per-property reads.
+        // Previously 6 separate lock/unlock cycles across 3 singletons; now 3 total.
+        let keyboardSnapshot = OnScreenKeyboardManager.shared.keyboardUISnapshot()
+        let swipeSnapshot = SwipeTypingEngine.shared.swipeSnapshot()
+        let navigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+
         // Swipe typing: left trigger toggles swipe mode, touchpad touch drives word boundaries
-        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+        let keyboardVisible = keyboardSnapshot.visible
+        let letterArea = keyboardSnapshot.letterArea
         let leftTrigger = controllerSnapshot.leftTrigger
         if keyboardVisible && state.swipeTypingEnabled {
             let wasSwipeActive = state.swipeTypingActive
@@ -69,7 +76,6 @@ extension MappingEngine {
                 let wasClicking = state.wasTouchpadTouching
                 if isClicking && !wasClicking {
                     state.swipeClickReleaseFrames = 0
-                    let letterArea = OnScreenKeyboardManager.shared.threadSafeLetterAreaScreenRect
                     if letterArea.width > 0 && letterArea.height > 0,
                        let mouseEvent = CGEvent(source: nil) {
                         let quartz = mouseEvent.location
@@ -92,7 +98,7 @@ extension MappingEngine {
                 } else if !isClicking && wasClicking {
                     state.swipeClickReleaseFrames += 1
                     if state.swipeClickReleaseFrames >= 3 {
-                        let swipeCursorPos = SwipeTypingEngine.shared.threadSafeCursorPosition
+                        let swipeCursorPos = swipeSnapshot.cursorPosition
                         SwipeTypingEngine.shared.endSwipe()
                         controllerService.playHaptic(
                             intensity: Config.swipeEndHapticIntensity,
@@ -101,7 +107,6 @@ extension MappingEngine {
                             transient: true
                         )
                         state.swipeClickReleaseFrames = 0
-                        let letterArea = OnScreenKeyboardManager.shared.threadSafeLetterAreaScreenRect
                         if letterArea.width > 0 && letterArea.height > 0 {
                             let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
                             let cocoaX = swipeCursorPos.x * letterArea.width + letterArea.origin.x
@@ -117,7 +122,7 @@ extension MappingEngine {
                     state.wasTouchpadTouching = isClicking
                 }
 
-                if SwipeTypingEngine.shared.threadSafeState == .swiping {
+                if swipeSnapshot.state == .swiping {
                     SwipeTypingEngine.shared.updateCursorFromJoystick(
                         x: Double(leftStick.x),
                         y: Double(-leftStick.y),
@@ -131,7 +136,7 @@ extension MappingEngine {
             SwipeTypingEngine.shared.deactivateMode()
         }
 
-        let swipeBlocksLeftStick = state.swipeTypingActive && SwipeTypingEngine.shared.threadSafeState == .swiping
+        let swipeBlocksLeftStick = state.swipeTypingActive && swipeSnapshot.state == .swiping
         guard !swipeBlocksLeftStick else {
             if state.commandWheelActive {
                 updateCommandWheel(rightStick: controllerSnapshot.rightStick)
@@ -166,7 +171,6 @@ extension MappingEngine {
         let rightStick = controllerSnapshot.rightStick
 
         // Right stick navigates directory navigator when visible
-        let navigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
         if navigatorVisible {
             processDirectoryNavigatorStick(rightStick, now: now)
         } else if state.commandWheelActive {

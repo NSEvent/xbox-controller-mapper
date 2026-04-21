@@ -147,6 +147,10 @@ class OnScreenKeyboardManager: ObservableObject {
     private nonisolated(unsafe) var _overlayFrameInWindow: CGRect = .zero
     /// Panel frame in Cocoa screen coords (y-up from screen bottom)
     private nonisolated(unsafe) var _panelFrame: CGRect = .zero
+    /// Cached result of threadSafeLetterAreaScreenRect computation
+    private nonisolated(unsafe) var _cachedLetterAreaScreenRect: CGRect = .zero
+    /// Whether the cached letter area rect needs recomputation
+    private nonisolated(unsafe) var _letterAreaCacheDirty: Bool = true
 
     /// Thread-safe accessor for keyboard visibility (can be called from any thread)
     nonisolated var threadSafeIsVisible: Bool {
@@ -169,10 +173,54 @@ class OnScreenKeyboardManager: ObservableObject {
         return _threadSafeHighlightedItem
     }
 
+    /// Single-lock snapshot of visibility and letter area rect (Cocoa screen coordinates).
+    /// Use from the 120Hz polling loop instead of reading `threadSafeIsVisible` and
+    /// `threadSafeLetterAreaScreenRect` separately to halve the lock acquisitions per tick.
+    nonisolated func keyboardUISnapshot() -> (visible: Bool, letterArea: CGRect) {
+        stateLock.lock()
+        let visible = _threadSafeIsVisible
+        if !_letterAreaCacheDirty {
+            let cached = _cachedLetterAreaScreenRect
+            stateLock.unlock()
+            return (visible, cached)
+        }
+        let overlayFrame = _overlayFrameInWindow
+        let panelFrame = _panelFrame
+        stateLock.unlock()
+
+        guard overlayFrame.width > 0, panelFrame.width > 0 else {
+            return (visible, .zero)
+        }
+
+        let letterArea = Self.computeLetterAreaInOverlay(overlaySize: overlayFrame.size)
+        let letterInWindowX = overlayFrame.origin.x + letterArea.origin.x
+        let letterInWindowY = overlayFrame.origin.y + letterArea.origin.y
+
+        let result = CGRect(
+            x: panelFrame.origin.x + letterInWindowX,
+            y: panelFrame.origin.y + panelFrame.height - letterInWindowY - letterArea.height,
+            width: letterArea.width,
+            height: letterArea.height
+        )
+
+        stateLock.lock()
+        _cachedLetterAreaScreenRect = result
+        _letterAreaCacheDirty = false
+        stateLock.unlock()
+
+        return (visible, result)
+    }
+
     /// Thread-safe letter area rect in Cocoa screen coordinates (y-up from screen bottom).
-    /// Returns .zero if not yet computed.
+    /// Returns .zero if not yet computed. Caches the result and only recomputes when
+    /// the overlay frame or panel frame changes.
     nonisolated var threadSafeLetterAreaScreenRect: CGRect {
         stateLock.lock()
+        if !_letterAreaCacheDirty {
+            let cached = _cachedLetterAreaScreenRect
+            stateLock.unlock()
+            return cached
+        }
         let overlayFrame = _overlayFrameInWindow
         let panelFrame = _panelFrame
         stateLock.unlock()
@@ -186,12 +234,19 @@ class OnScreenKeyboardManager: ObservableObject {
         let letterInWindowY = overlayFrame.origin.y + letterArea.origin.y
 
         // Convert to Cocoa screen coords (y-up from screen bottom)
-        return CGRect(
+        let result = CGRect(
             x: panelFrame.origin.x + letterInWindowX,
             y: panelFrame.origin.y + panelFrame.height - letterInWindowY - letterArea.height,
             width: letterArea.width,
             height: letterArea.height
         )
+
+        stateLock.lock()
+        _cachedLetterAreaScreenRect = result
+        _letterAreaCacheDirty = false
+        stateLock.unlock()
+
+        return result
     }
 
     /// Called from SwiftUI when the keyboard overlay HStack frame changes
@@ -199,6 +254,7 @@ class OnScreenKeyboardManager: ObservableObject {
         stateLock.lock()
         _overlayFrameInWindow = frameInWindow
         _panelFrame = panel?.frame ?? .zero
+        _letterAreaCacheDirty = true
         stateLock.unlock()
     }
 
@@ -551,6 +607,7 @@ class OnScreenKeyboardManager: ObservableObject {
             guard let self = self else { return }
             self.stateLock.lock()
             self._panelFrame = self.panel?.frame ?? .zero
+            self._letterAreaCacheDirty = true
             self.stateLock.unlock()
         }
     }
@@ -1500,6 +1557,36 @@ class OnScreenKeyboardManager: ObservableObject {
     /// Exposes handleKeyPress for unit tests (mirrors on-screen keyboard key press path)
     func testHandleKeyPress(keyCode: CGKeyCode, modifiers: ModifierFlags) {
         handleKeyPress(keyCode: keyCode, modifiers: modifiers)
+    }
+
+    /// Exposes computeLetterAreaInOverlay for benchmarks (simulates uncached computation path)
+    nonisolated static func testComputeLetterAreaScreenRect(overlayFrame: CGRect, panelFrame: CGRect) -> CGRect {
+        guard overlayFrame.width > 0, panelFrame.width > 0 else { return .zero }
+        let letterArea = computeLetterAreaInOverlay(overlaySize: overlayFrame.size)
+        let letterInWindowX = overlayFrame.origin.x + letterArea.origin.x
+        let letterInWindowY = overlayFrame.origin.y + letterArea.origin.y
+        return CGRect(
+            x: panelFrame.origin.x + letterInWindowX,
+            y: panelFrame.origin.y + panelFrame.height - letterInWindowY - letterArea.height,
+            width: letterArea.width,
+            height: letterArea.height
+        )
+    }
+
+    /// Sets the overlay and panel frames for testing, with cache invalidation
+    func testSetFrames(overlayFrame: CGRect, panelFrame: CGRect) {
+        stateLock.lock()
+        _overlayFrameInWindow = overlayFrame
+        _panelFrame = panelFrame
+        _letterAreaCacheDirty = true
+        stateLock.unlock()
+    }
+
+    /// Returns whether the letter area cache is currently dirty
+    nonisolated var testLetterAreaCacheDirty: Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return _letterAreaCacheDirty
     }
     #endif
 

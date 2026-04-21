@@ -56,7 +56,9 @@ struct MappingExecutor {
         logType: InputEventType = .singlePress
     ) {
         guard let button = buttons.first else {
+            #if DEBUG
             NSLog("[MappingExecutor] executeAction called with empty buttons array — skipping")
+            #endif
             return
         }
         let pressType: PressType

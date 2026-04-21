@@ -73,6 +73,13 @@ class SwipeTypingEngine: ObservableObject {
         storage.withLock { $0.cursorPosition }
     }
 
+    /// Single-lock snapshot of state and cursor position.
+    /// Use from the 120Hz polling loop instead of reading `threadSafeState` and
+    /// `threadSafeCursorPosition` separately.
+    nonisolated func swipeSnapshot() -> (state: SwipeTypingState, cursorPosition: CGPoint) {
+        storage.withLock { ($0.state, $0.cursorPosition) }
+    }
+
     // MARK: - Model
 
     private var model: SwipeTypingModel?
