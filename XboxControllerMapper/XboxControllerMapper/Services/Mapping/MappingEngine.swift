@@ -143,6 +143,11 @@ class MappingEngine: ObservableObject {
         self.state.swipeTypingSensitivity = oskSettings?.swipeTypingSensitivity ?? 0.5
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
         self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
+        // Build precomputed lookup caches
+        let initialChords = profileManager.activeProfile?.chordMappings ?? []
+        self.state.chordParticipantButtons = Set(initialChords.flatMap { $0.buttons })
+        self.state.sequenceParticipantButtons = Set((profileManager.activeProfile?.sequenceMappings ?? []).flatMap { $0.steps })
+        self.state.chordLookup = Dictionary(uniqueKeysWithValues: initialChords.map { ($0.buttons, $0) })
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
         syncMotionActivation(for: profileManager.activeProfile)
@@ -206,6 +211,12 @@ class MappingEngine: ObservableObject {
                     self.state.activeLayerIds.removeAll()
                     self.rebuildLayerActivatorMap(profile: profile)
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
+
+                    // Build precomputed lookup caches
+                    let chords = profile?.chordMappings ?? []
+                    self.state.chordParticipantButtons = Set(chords.flatMap { $0.buttons })
+                    self.state.sequenceParticipantButtons = Set((profile?.sequenceMappings ?? []).flatMap { $0.steps })
+                    self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
                 }
                 self.syncGestureSettings(from: profile?.joystickSettings)
                 self.syncMotionActivation(for: profile)
@@ -342,15 +353,11 @@ class MappingEngine: ObservableObject {
     // MARK: - Button Handling (Background Queue)
 
     nonisolated private func isButtonUsedInChords(_ button: ControllerButton, profile: Profile) -> Bool {
-        return profile.chordMappings.contains { chord in
-            chord.buttons.contains(button)
-        }
+        return state.lock.withLock { state.chordParticipantButtons.contains(button) }
     }
 
     nonisolated private func isButtonUsedInSequences(_ button: ControllerButton, profile: Profile) -> Bool {
-        return profile.sequenceMappings.contains { seq in
-            seq.steps.contains(button)
-        }
+        return state.lock.withLock { state.sequenceParticipantButtons.contains(button) }
     }
 
     // MARK: - Special Action Intercepts
@@ -1123,9 +1130,7 @@ class MappingEngine: ObservableObject {
             return
         }
 
-        let matchingChord = profile.chordMappings.first { chord in
-            chord.buttons == chordButtons
-        }
+        let matchingChord = state.lock.withLock { state.chordLookup[chordButtons] }
 
         if let chord = matchingChord {
             state.lock.withLock {

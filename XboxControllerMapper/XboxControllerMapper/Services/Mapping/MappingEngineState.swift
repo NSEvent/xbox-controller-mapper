@@ -13,6 +13,11 @@ extension MappingEngine {
         var frontmostBundleId: String?
         var joystickSettings: JoystickSettings?
 
+        // Precomputed lookup caches (rebuilt on profile change)
+        var chordParticipantButtons: Set<ControllerButton> = []
+        var sequenceParticipantButtons: Set<ControllerButton> = []
+        var chordLookup: [Set<ControllerButton>: ChordMapping] = [:]
+
         // Button State
         var heldButtons: [ControllerButton: KeyMapping] = [:]
         var activeChordButtons: Set<ControllerButton> = []
@@ -113,6 +118,9 @@ extension MappingEngine {
 
         /// Resets all transient state. Caller MUST already hold `lock`.
         func reset() {
+            chordParticipantButtons.removeAll()
+            sequenceParticipantButtons.removeAll()
+            chordLookup.removeAll()
             heldButtons.removeAll()
             activeChordButtons.removeAll()
             lastTapTime.removeAll()
