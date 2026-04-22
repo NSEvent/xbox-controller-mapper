@@ -687,10 +687,6 @@ class ControllerService: ObservableObject {
 
     // MARK: - Display Update Timer
 
-    /// Consecutive ticks where analog values changed — used to throttle display updates
-    /// during active joystick use (user is looking at the screen, not the app UI).
-    private var displayConsecutiveChangeTicks: Int = 0
-
     func startDisplayUpdateTimer() {
         stopDisplayUpdateTimer()
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
@@ -737,20 +733,11 @@ class ControllerService: ObservableObject {
                 deadzone: Config.displayUpdateDeadzone
             )
             if updatedState == currentState {
-                self.displayConsecutiveChangeTicks = 0
                 PerformanceProbe.shared.recordDisplayNoOpTick()
                 guard !Config.performanceForceLegacyDisplayPublishing else {
                     self.applyDisplayState(updatedState)
                     return
                 }
-                return
-            }
-
-            // During sustained analog input, suspend display updates entirely.
-            // The user is looking at the screen (driving the mouse), not the controller UI.
-            // Updates resume immediately when input stops (consecutiveChangeTicks resets to 0).
-            self.displayConsecutiveChangeTicks += 1
-            if self.displayConsecutiveChangeTicks > 3 {
                 return
             }
 
