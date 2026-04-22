@@ -633,6 +633,10 @@ class ControllerService: ObservableObject {
 
     // MARK: - Display Update Timer
 
+    /// Consecutive ticks where analog values changed — used to throttle display updates
+    /// during active joystick use (user is looking at the screen, not the app UI).
+    private var displayConsecutiveChangeTicks: Int = 0
+
     func startDisplayUpdateTimer() {
         stopDisplayUpdateTimer()
         let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
@@ -679,6 +683,7 @@ class ControllerService: ObservableObject {
                 deadzone: Config.displayUpdateDeadzone
             )
             if updatedState == currentState {
+                self.displayConsecutiveChangeTicks = 0
                 PerformanceProbe.shared.recordDisplayNoOpTick()
                 guard !Config.performanceForceLegacyDisplayPublishing else {
                     self.applyDisplayState(updatedState)
@@ -686,6 +691,15 @@ class ControllerService: ObservableObject {
                 }
                 return
             }
+
+            // Throttle during sustained analog input: after 3 consecutive change ticks
+            // (~200ms of continuous movement), drop to ~5Hz (every 3rd tick of the 15Hz timer).
+            // This cuts SwiftUI layout cost by 3x while the user is actively using the joystick.
+            self.displayConsecutiveChangeTicks += 1
+            if self.displayConsecutiveChangeTicks > 3 && self.displayConsecutiveChangeTicks % 3 != 0 {
+                return
+            }
+
             self.applyDisplayState(updatedState)
         }
         timer.resume()
@@ -704,6 +718,7 @@ class ControllerService: ObservableObject {
             guard let self = self, let timer = self.displayUpdateTimer else { return }
             let anyVisible = NSApp.windows.contains {
                 $0.isVisible && $0.occlusionState.contains(.visible)
+                && $0.level == .normal  // Exclude overlay panels, popovers, floating indicators
             }
             if anyVisible && self.displayTimerSuspended {
                 timer.resume()
