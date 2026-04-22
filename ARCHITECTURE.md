@@ -234,7 +234,7 @@ Measured via `sample` and `top` on Apple M2 Ultra, macOS 26.2.
 |-----------|-------|-------|
 | **CGEvent.post IPC** | ~28% | Synchronous Mach IPC to WindowServer per event at 120Hz. Irreducible without reducing event rate. |
 | **120Hz polling timer** | ~2% | DispatchSource timer + snapshot reads + math. Very efficient. |
-| **SwiftUI layout passes** | ~2-5% | `NSDisplayCycleFlush` → `NSHostingView.layout()` when display updates are active. Suspended during sustained analog input. |
+| **SwiftUI layout passes** | ~2-5% | `NSDisplayCycleFlush` → `NSHostingView.layout()` at 15Hz when analog values change. |
 | **GCDeviceSession callbacks** | <1% | ~100Hz for DualSense motion data. |
 | **Total (window visible)** | ~30-35% | |
 | **Total (window minimized)** | ~10% | Display timer suspended; only polling + CGEvent.post. |
