@@ -678,15 +678,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             let isDrag = eventType != .mouseMoved
 
-            // During drags, do NOT call CGWarpMouseCursorPosition. The warp resets
-            // macOS internal mouse-button-down state, which breaks drag correlation
-            // for system tools like screencapture. The CGEvent with mouseCursorPosition
-            // already moves the cursor to the correct location.
+            // CGWarpMouseCursorPosition was previously called here every frame for
+            // non-drag moves, but profiling showed it consumed 98.7% of mouse-queue
+            // CPU time (synchronous Mach IPC to WindowServer, ~4.9ms per call at 120Hz).
+            // The CGEvent posted below with mouseCursorPosition already moves the cursor
+            // to the correct location, making the warp redundant.
+            // The suppression interval is still set to prevent 250ms cursor freeze
+            // if other code paths (e.g., warpMouseTo) trigger a warp.
             if !isDrag {
-                // Set suppression interval to 0 to prevent 250ms freeze after warp.
-                // Reuses pre-created warpEventSource instead of creating one per frame.
                 self.warpEventSource?.localEventsSuppressionInterval = 0.0
-                _ = CGWarpMouseCursorPosition(newPoint)
             }
 
             // Update tracked position to avoid reading back transformed coordinates

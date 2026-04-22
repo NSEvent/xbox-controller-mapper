@@ -561,10 +561,21 @@ extension ControllerService {
         }
     }
 
+    /// Cached result of the environment variable check (immutable after launch).
+    private static let touchpadDebugEnvEnabled: Bool = ProcessInfo.processInfo.environment[Config.touchpadDebugEnvKey] == "1"
+    /// Cached UserDefaults check (refreshed every 2 seconds to avoid per-callback IPC).
+    private nonisolated(unsafe) static var touchpadDebugDefaultsEnabled: Bool = false
+    private nonisolated(unsafe) static var touchpadDebugDefaultsCheckTime: CFAbsoluteTime = 0
+
     nonisolated func logTouchpadDebugIfNeeded(source: String) {
-        let envEnabled = ProcessInfo.processInfo.environment[Config.touchpadDebugEnvKey] == "1"
-        let defaultsEnabled = UserDefaults.standard.bool(forKey: Config.touchpadDebugLoggingKey)
-        guard envEnabled || defaultsEnabled else { return }
+        if !Self.touchpadDebugEnvEnabled {
+            let now = CFAbsoluteTimeGetCurrent()
+            if now - Self.touchpadDebugDefaultsCheckTime > 2.0 {
+                Self.touchpadDebugDefaultsCheckTime = now
+                Self.touchpadDebugDefaultsEnabled = UserDefaults.standard.bool(forKey: Config.touchpadDebugLoggingKey)
+            }
+            guard Self.touchpadDebugDefaultsEnabled else { return }
+        }
 
         storage.lock.lock()
         // Capture timestamp inside the lock so it is consistent with the stored last-log time.
