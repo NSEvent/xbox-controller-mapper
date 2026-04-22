@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **UI Singleton Reads (33% faster)**: Batched per-frame reads from `OnScreenKeyboardManager` and `SwipeTypingEngine` into single-lock snapshot methods, eliminating duplicate reads (6 lock cycles → 3 per tick).
 - **Letter Area Geometry Cache (58% faster)**: `threadSafeLetterAreaScreenRect` now caches the coordinate-transform result and only recomputes when the overlay frame or panel position changes, eliminating redundant math at 120 Hz.
 - **Debug-only NSLog**: Guarded `MappingActionExecutor` error-path NSLog with `#if DEBUG` to avoid system log IPC overhead in release builds.
+- **CGWarpMouseCursorPosition Removed**: Profiling (`sample`) revealed this single call consumed 98.7% of mouse-queue CPU (586/594 samples). It was a synchronous Mach IPC round-trip to WindowServer on every frame, redundant with the CGEvent that already positions the cursor.
+- **Touchpad Debug Logging**: `ProcessInfo.environment` dictionary copy (called on every touchpad update) replaced with a one-time cached check at launch. `UserDefaults` check cached with 2-second refresh interval.
+- **Display Timer Window Visibility**: Overlay panels (on-screen keyboard, laser pointer, focus mode indicator) no longer prevent the display timer from suspending when the main window is minimized. Filter changed from any-window-visible to normal-level-window-visible.
+- **Display Suspend During Active Input**: After ~200ms of continuous analog stick/trigger input, display updates are fully suspended. The user is driving the mouse and looking at the screen, not the controller UI. Updates resume immediately when input stops.
+- **Decoupled Analog Display from objectWillChange**: 12 analog display properties (`displayLeftStick`, `displayRightStick`, etc.) changed from `@Published` to `CurrentValueSubject`. Previously, each 15Hz analog update triggered `objectWillChange` on `ControllerService`, causing all 26 observing SwiftUI views to re-evaluate — even though only 2 views (`ControllerAnalogOverlay`, `StreamOverlayView`) read analog values. Body evaluations for `ControllerVisualView` dropped from 44 to 13 samples, `ContentView` from 21 to 8.
+- **Date() → CFAbsoluteTimeGetCurrent()**: Replaced heap-allocating `Date()` with stack-allocated `CFAbsoluteTimeGetCurrent()` in button tap timing, consistent with the rest of the input pipeline.
 
 ## [1.7.1] - 2026-04-16
 

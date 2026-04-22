@@ -221,3 +221,58 @@ XboxControllerMapper/
 - **Swift version**: 5 with upcoming features (`NonisolatedNonsendingByDefault`, `MemberImportVisibility`, `InferSendableFromCaptures`, `DefaultIsolation=MainActor`)
 - **Team ID**: 542GXYT5Z2
 - **Build command**: `make install BUILD_FROM_SOURCE=1` (kills running app, builds Release, copies to /Applications, launches)
+
+---
+
+## Performance Profile (April 2026)
+
+### CPU Breakdown During Active Joystick Mouse Movement
+
+Measured via `sample` and `top` on Apple M2 Ultra, macOS 26.2.
+
+| Component | CPU % | Notes |
+|-----------|-------|-------|
+| **CGEvent.post IPC** | ~28% | Synchronous Mach IPC to WindowServer per event at 120Hz. Irreducible without reducing event rate. |
+| **120Hz polling timer** | ~2% | DispatchSource timer + snapshot reads + math. Very efficient. |
+| **SwiftUI layout passes** | ~2-5% | `NSDisplayCycleFlush` → `NSHostingView.layout()` when display updates are active. Suspended during sustained analog input. |
+| **GCDeviceSession callbacks** | <1% | ~100Hz for DualSense motion data. |
+| **Total (window visible)** | ~30-35% | |
+| **Total (window minimized)** | ~10% | Display timer suspended; only polling + CGEvent.post. |
+| **Total (idle, no input)** | ~1% | All timers quiescent. |
+
+### Key Findings
+
+- **CGEvent.post is the dominant cost.** Each `CGEvent.post(tap: .cghidEventTap)` is a synchronous Mach message to WindowServer. At 120Hz, this is 120 kernel round-trips/sec. The `sample` tool shows most mouse-queue time in `mach_msg2_trap` waiting for WindowServer. This is the macOS cost of synthetic mouse movement — any app posting mouse events at this rate pays the same price.
+
+- **CGWarpMouseCursorPosition was the original top offender.** Before removal, it consumed 98.7% of mouse-queue CPU (586/594 samples) — a redundant synchronous IPC call every frame in addition to the CGEvent that already positions the cursor.
+
+- **@Published on high-frequency properties invalidates the entire view tree.** `ControllerService` is observed by 26 SwiftUI views via `@EnvironmentObject`. When any `@Published` property fires `objectWillChange`, all 26 views re-evaluate their bodies — even if only 2 views read the changed property. Solved by using `CurrentValueSubject` for analog display values.
+
+- **Window visibility check must exclude overlay panels.** The display timer suspension logic checked `NSApp.windows.contains { $0.isVisible }`, but overlay panels (on-screen keyboard, laser pointer, etc.) remain visible when the main window is minimized. Fixed by filtering to `$0.level == .normal`.
+
+- **ProcessInfo.environment is expensive in hot paths.** Copies the entire environment dictionary on every call. Must be cached at launch for values checked per-frame.
+
+### Profiling Commands
+
+```bash
+# CPU by process while moving joystick
+top -l 5 -pid $(pgrep -x ControllerKeys) -stats pid,cpu,command | grep ControllerKeys
+
+# Full call tree sample (5 seconds)
+sample $(pgrep -x ControllerKeys) 5 -f /tmp/ck_sample.txt
+
+# Thread breakdown
+grep -E '^\s+[0-9]+ Thread' /tmp/ck_sample.txt
+
+# App code hotspots
+grep -oE '[A-Za-z_.]+\s+\(in ControllerKeys\)' /tmp/ck_sample.txt | sort | uniq -c | sort -rn | head -20
+
+# SwiftUI layout cost
+grep -oE '[0-9]+ NSDisplayCycleFlush' /tmp/ck_sample.txt | awk '{sum+=$1} END {print sum}'
+```
+
+### Future Optimization Opportunities
+
+- **Reduce mouse event rate to 60Hz with velocity-adaptive posting** — post at 120Hz during slow/precise movement, drop to 60Hz during fast sweeps where individual frames aren't perceptible. Would halve IPC cost during fast movement.
+- **Separate NSHostingView for ControllerAnalogOverlay** — isolates the analog overlay's `@State` updates from the main view tree's layout pass.
+- **CALayer-based analog overlay** — replace SwiftUI analog rendering with Core Graphics/CALayer. Layer property updates don't trigger view tree diffing.
