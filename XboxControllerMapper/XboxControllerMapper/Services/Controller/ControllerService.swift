@@ -746,11 +746,11 @@ class ControllerService: ObservableObject {
                 return
             }
 
-            // Throttle during sustained analog input: after 3 consecutive change ticks
-            // (~200ms of continuous movement), drop to ~5Hz (every 3rd tick of the 15Hz timer).
-            // This cuts SwiftUI layout cost by 3x while the user is actively using the joystick.
+            // During sustained analog input, suspend display updates entirely.
+            // The user is looking at the screen (driving the mouse), not the controller UI.
+            // Updates resume immediately when input stops (consecutiveChangeTicks resets to 0).
             self.displayConsecutiveChangeTicks += 1
-            if self.displayConsecutiveChangeTicks > 3 && self.displayConsecutiveChangeTicks % 3 != 0 {
+            if self.displayConsecutiveChangeTicks > 3 {
                 return
             }
 
