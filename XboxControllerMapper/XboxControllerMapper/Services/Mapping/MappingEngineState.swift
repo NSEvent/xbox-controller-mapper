@@ -98,12 +98,6 @@ extension MappingEngine {
         var directoryNavLastMoveTime: TimeInterval = 0
         var directoryNavStickWasInDeadzone = true
 
-        // Mouse event throttle: post at 60Hz instead of 120Hz to halve WindowServer IPC.
-        // Deltas accumulate every tick; the event is posted every other tick.
-        var mouseThrottleAccumX: CGFloat = 0
-        var mouseThrottleAccumY: CGFloat = 0
-        var mouseThrottleSkip: Bool = false
-
         // Focus mode state
         var wasFocusActive = false
         var currentMultiplier: Double = 0
@@ -209,9 +203,6 @@ extension MappingEngine {
             swipeClickReleaseFrames = 0
             directoryNavLastMoveTime = 0
             directoryNavStickWasInDeadzone = true
-            mouseThrottleAccumX = 0
-            mouseThrottleAccumY = 0
-            mouseThrottleSkip = false
             wasFocusActive = false
             currentMultiplier = 0
             focusExitTime = 0

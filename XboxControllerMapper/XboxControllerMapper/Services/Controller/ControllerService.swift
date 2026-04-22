@@ -358,17 +358,35 @@ class ControllerService: ObservableObject {
         return storage.chordWindow
     }
 
-    /// Left joystick position (-1 to 1) - UI/Legacy use only
-    @Published var leftStick: CGPoint = .zero
+    /// Left joystick position (-1 to 1) - UI/Legacy use only.
+    /// Uses CurrentValueSubject to avoid triggering objectWillChange on ControllerService,
+    /// which would invalidate all 26 observing SwiftUI views on every analog input change.
+    let leftStickSubject = CurrentValueSubject<CGPoint, Never>(.zero)
+    var leftStick: CGPoint {
+        get { leftStickSubject.value }
+        set { leftStickSubject.send(newValue) }
+    }
 
     /// Right joystick position (-1 to 1) - UI/Legacy use only
-    @Published var rightStick: CGPoint = .zero
+    let rightStickSubject = CurrentValueSubject<CGPoint, Never>(.zero)
+    var rightStick: CGPoint {
+        get { rightStickSubject.value }
+        set { rightStickSubject.send(newValue) }
+    }
 
     /// Left trigger pressure (0 to 1) - UI/Legacy use only
-    @Published var leftTriggerValue: Float = 0
+    let leftTriggerValueSubject = CurrentValueSubject<Float, Never>(0)
+    var leftTriggerValue: Float {
+        get { leftTriggerValueSubject.value }
+        set { leftTriggerValueSubject.send(newValue) }
+    }
 
     /// Right trigger pressure (0 to 1) - UI/Legacy use only
-    @Published var rightTriggerValue: Float = 0
+    let rightTriggerValueSubject = CurrentValueSubject<Float, Never>(0)
+    var rightTriggerValue: Float {
+        get { rightTriggerValueSubject.value }
+        set { rightTriggerValueSubject.send(newValue) }
+    }
 
     /// Chord detection window (accessible for testing and configuration)
     var chordWindow: TimeInterval {
@@ -377,14 +395,50 @@ class ControllerService: ObservableObject {
     }
 
     // MARK: - Throttled UI Display Values (updated at ~15Hz to avoid UI blocking)
-    @Published var displayLeftStick: CGPoint = .zero
-    @Published var displayRightStick: CGPoint = .zero
-    @Published var displayLeftTrigger: Float = 0
-    @Published var displayRightTrigger: Float = 0
-    @Published var displayTouchpadPosition: CGPoint = .zero
-    @Published var displayTouchpadSecondaryPosition: CGPoint = .zero
-    @Published var displayIsTouchpadTouching: Bool = false
-    @Published var displayIsTouchpadSecondaryTouching: Bool = false
+    // These use CurrentValueSubject instead of @Published to avoid triggering
+    // objectWillChange on ControllerService. Only ControllerAnalogOverlay and
+    // StreamOverlayView read these — the other 24 views that observe ControllerService
+    // don't need to re-render when analog values change.
+    let displayLeftStickSubject = CurrentValueSubject<CGPoint, Never>(.zero)
+    var displayLeftStick: CGPoint {
+        get { displayLeftStickSubject.value }
+        set { displayLeftStickSubject.send(newValue) }
+    }
+    let displayRightStickSubject = CurrentValueSubject<CGPoint, Never>(.zero)
+    var displayRightStick: CGPoint {
+        get { displayRightStickSubject.value }
+        set { displayRightStickSubject.send(newValue) }
+    }
+    let displayLeftTriggerSubject = CurrentValueSubject<Float, Never>(0)
+    var displayLeftTrigger: Float {
+        get { displayLeftTriggerSubject.value }
+        set { displayLeftTriggerSubject.send(newValue) }
+    }
+    let displayRightTriggerSubject = CurrentValueSubject<Float, Never>(0)
+    var displayRightTrigger: Float {
+        get { displayRightTriggerSubject.value }
+        set { displayRightTriggerSubject.send(newValue) }
+    }
+    let displayTouchpadPositionSubject = CurrentValueSubject<CGPoint, Never>(.zero)
+    var displayTouchpadPosition: CGPoint {
+        get { displayTouchpadPositionSubject.value }
+        set { displayTouchpadPositionSubject.send(newValue) }
+    }
+    let displayTouchpadSecondaryPositionSubject = CurrentValueSubject<CGPoint, Never>(.zero)
+    var displayTouchpadSecondaryPosition: CGPoint {
+        get { displayTouchpadSecondaryPositionSubject.value }
+        set { displayTouchpadSecondaryPositionSubject.send(newValue) }
+    }
+    let displayIsTouchpadTouchingSubject = CurrentValueSubject<Bool, Never>(false)
+    var displayIsTouchpadTouching: Bool {
+        get { displayIsTouchpadTouchingSubject.value }
+        set { displayIsTouchpadTouchingSubject.send(newValue) }
+    }
+    let displayIsTouchpadSecondaryTouchingSubject = CurrentValueSubject<Bool, Never>(false)
+    var displayIsTouchpadSecondaryTouching: Bool {
+        get { displayIsTouchpadSecondaryTouchingSubject.value }
+        set { displayIsTouchpadSecondaryTouchingSubject.send(newValue) }
+    }
     private var displayUpdateTimer: DispatchSourceTimer?
     private var displayTimerSuspended = false
     private var windowVisibilityObservers: [NSObjectProtocol] = []

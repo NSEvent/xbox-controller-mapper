@@ -382,7 +382,7 @@ extension MappingEngine {
                 let filteredDy = state.gyroFilterY.filter(gyroDy, dt: dt)
 
                 if abs(filteredDx) > 0.01 || abs(filteredDy) > 0.01 {
-                    throttledMoveMouse(dx: CGFloat(filteredDx), dy: CGFloat(filteredDy))
+                    inputSimulator.moveMouse(dx: CGFloat(filteredDx), dy: CGFloat(filteredDy))
                 }
             }
         } else {
@@ -415,23 +415,8 @@ extension MappingEngine {
 
         dy = settings.invertMouseY ? dy : -dy
 
-        throttledMoveMouse(dx: dx, dy: dy)
+        inputSimulator.moveMouse(dx: dx, dy: dy)
         usageStatsService?.recordJoystickMouseDistance(dx: Double(dx), dy: Double(dy))
-    }
-
-    /// Accumulates mouse deltas at 120Hz but posts events at 60Hz to halve
-    /// WindowServer IPC overhead. Must be called with state lock held.
-    nonisolated private func throttledMoveMouse(dx: CGFloat, dy: CGFloat) {
-        state.mouseThrottleAccumX += dx
-        state.mouseThrottleAccumY += dy
-        state.mouseThrottleSkip.toggle()
-        if state.mouseThrottleSkip { return }
-
-        let totalDx = state.mouseThrottleAccumX
-        let totalDy = state.mouseThrottleAccumY
-        state.mouseThrottleAccumX = 0
-        state.mouseThrottleAccumY = 0
-        inputSimulator.moveMouse(dx: totalDx, dy: totalDy)
     }
 
     // MARK: - Scrolling

@@ -390,14 +390,14 @@ struct ControllerAnalogOverlay: View {
                 xboxOverlay
             }
         }
-        .onReceive(controllerService.$displayLeftStick) { leftStick = $0 }
-        .onReceive(controllerService.$displayRightStick) { rightStick = $0 }
-        .onReceive(controllerService.$displayLeftTrigger) { leftTrigger = $0 }
-        .onReceive(controllerService.$displayRightTrigger) { rightTrigger = $0 }
-        .onReceive(controllerService.$displayIsTouchpadTouching) { isTouchpadTouching = $0 }
-        .onReceive(controllerService.$displayTouchpadPosition) { touchpadPosition = $0 }
-        .onReceive(controllerService.$displayIsTouchpadSecondaryTouching) { isTouchpadSecondaryTouching = $0 }
-        .onReceive(controllerService.$displayTouchpadSecondaryPosition) { touchpadSecondaryPosition = $0 }
+        .onReceive(controllerService.displayLeftStickSubject) { leftStick = $0 }
+        .onReceive(controllerService.displayRightStickSubject) { rightStick = $0 }
+        .onReceive(controllerService.displayLeftTriggerSubject) { leftTrigger = $0 }
+        .onReceive(controllerService.displayRightTriggerSubject) { rightTrigger = $0 }
+        .onReceive(controllerService.displayIsTouchpadTouchingSubject) { isTouchpadTouching = $0 }
+        .onReceive(controllerService.displayTouchpadPositionSubject) { touchpadPosition = $0 }
+        .onReceive(controllerService.displayIsTouchpadSecondaryTouchingSubject) { isTouchpadSecondaryTouching = $0 }
+        .onReceive(controllerService.displayTouchpadSecondaryPositionSubject) { touchpadSecondaryPosition = $0 }
         .onReceive(controllerService.$activeButtons) { activeButtons = $0 }
         .onReceive(controllerService.$isConnected) { isConnected = $0 }
         .onReceive(controllerService.$batteryLevel) { batteryLevel = $0 }
