@@ -210,7 +210,7 @@ extension MappingEngine {
     /// Uses a deadzone + throttle approach: the first deflection triggers immediately,
     /// then repeats at the D-pad repeat interval while held.
     nonisolated func processDirectoryNavigatorStick(_ stick: CGPoint, now: CFAbsoluteTime) {
-        let deadzone: Double = 0.4
+        let deadzone: Double = state.joystickSettings?.mouseDeadzone ?? 0.4
         let magnitude = sqrt(Double(stick.x * stick.x + stick.y * stick.y))
 
         guard magnitude > deadzone else {

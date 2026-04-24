@@ -240,8 +240,11 @@ class ProfileManager: ObservableObject {
     }
 
     func setActiveProfile(_ profile: Profile) {
-        activeProfile = profile
+        // Update both properties atomically: set activeProfileId first so that
+        // when activeProfile's @Published triggers objectWillChange, any
+        // downstream reader that also reads activeProfileId sees the new value.
         activeProfileId = profile.id
+        activeProfile = profile
         saveConfiguration()
     }
 
@@ -347,8 +350,9 @@ class ProfileManager: ObservableObject {
 
     private func applyLoadedState(_ state: ProfileConfigurationApplyState) {
         self.profiles = state.profiles
-        self.activeProfile = state.activeProfile
+        // Set activeProfileId before activeProfile to avoid transient desync
         self.activeProfileId = state.activeProfileId
+        self.activeProfile = state.activeProfile
         self.uiScale = state.uiScale
     }
 
@@ -367,12 +371,22 @@ class ProfileManager: ObservableObject {
             }
         }
 
+        // Validate activeProfileId: if it references a profile that doesn't exist
+        // in the profiles array, fall back to the first profile's id (or nil).
+        var validatedActiveProfileId = activeProfileId
+        if let id = validatedActiveProfileId, !profiles.contains(where: { $0.id == id }) {
+            NSLog("[ProfileManager] ⚠️ activeProfileId %@ is orphaned — falling back to first profile", id.uuidString)
+            validatedActiveProfileId = profiles.first?.id
+            activeProfileId = validatedActiveProfileId
+            activeProfile = profiles.first
+        }
+
         // Snapshot captured here on @MainActor BEFORE dispatching to the serial save queue.
         // This guarantees each save gets the state at the time it was requested,
         // and the serial queue guarantees they are written in order (fixes Issue 5 & 13).
         let config = ProfileConfiguration(
             profiles: profiles,
-            activeProfileId: activeProfileId,
+            activeProfileId: validatedActiveProfileId,
             uiScale: uiScale
         )
         configurationSaveService.save(config, to: configURL)
