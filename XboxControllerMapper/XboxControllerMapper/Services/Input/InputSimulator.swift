@@ -117,17 +117,29 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private static var cachedZoomActive: Bool = false
     private static var cachedZoomCheckTime: CFAbsoluteTime = 0
     private static let zoomCacheInterval: CFAbsoluteTime = 0.5
+    /// Lock protecting zoom cache static vars (cachedZoomActive, cachedZoomCheckTime)
+    private static let zoomCacheLock = NSLock()
 
     static func isZoomCurrentlyActive() -> Bool {
         let now = CFAbsoluteTimeGetCurrent()
+        zoomCacheLock.lock()
         if now - cachedZoomCheckTime < zoomCacheInterval {
-            return cachedZoomActive
+            let cached = cachedZoomActive
+            zoomCacheLock.unlock()
+            return cached
         }
         cachedZoomCheckTime = now
+        zoomCacheLock.unlock()
+
+        // UserDefaults read is thread-safe and potentially slow -- do it outside the lock
         let defaults = UserDefaults(suiteName: "com.apple.universalaccess")
-        cachedZoomActive = (defaults?.bool(forKey: "closeViewZoomedIn") ?? false)
+        let active = (defaults?.bool(forKey: "closeViewZoomedIn") ?? false)
             && (defaults?.double(forKey: "closeViewZoomFactor") ?? 1.0) > 1.0
-        return cachedZoomActive
+
+        zoomCacheLock.lock()
+        cachedZoomActive = active
+        zoomCacheLock.unlock()
+        return active
     }
 
     /// Returns the last tracked cursor position regardless of zoom state.
@@ -397,7 +409,19 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             guard count > 0 else {
-                // Underflow protection: ignore release when count is already 0
+                // Underflow protection: ignore release when count is already 0.
+                // Also verify heldModifiers is consistent -- if the modifier is in
+                // heldModifiers but count is 0, force-remove it to prevent stuck modifiers.
+                if heldModifiers.contains(mask) {
+                    NSLog("[InputSimulator] WARNING: modifier 0x%llx in heldModifiers but count is 0 — force-removing to prevent stuck modifier", key)
+                    heldModifiers.remove(mask)
+                    if let vKey = ModifierKeyState.maskToKeyCode[key] {
+                        if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: false) {
+                            event.flags = heldModifiers
+                            event.post(tap: .cghidEventTap)
+                        }
+                    }
+                }
                 continue
             }
             modifierCounts[key] = count - 1
@@ -890,17 +914,27 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         }
     }
 
-    /// Handles Accessibility Zoom by converting Control+scroll to Option+Command+Plus/Minus
+    /// Handles Accessibility Zoom by converting Control+scroll to Option+Command+Plus/Minus.
+    /// Protected by stateLock to prevent data races on accumulator and zoom detection state
+    /// when called concurrently from multiple threads via scroll().
     private func handleAccessibilityZoom(dy: CGFloat) {
+        stateLock.lock()
+
         // Accumulate scroll delta
         accessibilityZoomAccumulator += dy
 
         // Check if we've accumulated enough for a zoom step
-        guard abs(accessibilityZoomAccumulator) >= accessibilityZoomThreshold else { return }
+        guard abs(accessibilityZoomAccumulator) >= accessibilityZoomThreshold else {
+            stateLock.unlock()
+            return
+        }
 
         // Rate limit keyboard shortcut sending
         let now = Date()
-        guard now.timeIntervalSince(lastAccessibilityZoomTime) >= accessibilityZoomMinInterval else { return }
+        guard now.timeIntervalSince(lastAccessibilityZoomTime) >= accessibilityZoomMinInterval else {
+            stateLock.unlock()
+            return
+        }
 
         // Determine zoom direction: positive dy = scroll up = zoom in
         let zoomIn = accessibilityZoomAccumulator > 0
@@ -919,14 +953,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 // After 5 attempts with no zoom activity, show warning and stop sending shortcuts
                 if zoomAttemptCount >= 5 {
                     hasShownZoomKeyboardShortcutWarning = true
+                    stateLock.unlock()
                     showZoomKeyboardShortcutWarning()
                     return // Don't send shortcuts that won't work
                 }
             } else {
                 // Warning was already shown and zoom still not working - don't send shortcuts
+                stateLock.unlock()
                 return
             }
         }
+
+        stateLock.unlock()
 
         // Send zoom keyboard shortcut on keyboard queue
         // Option+Command+= (zoom in) or Option+Command+- (zoom out)
@@ -961,11 +999,14 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0
     }
 
-    /// Resets zoom detection state so shortcuts will be tried again
-    /// Called when user opens Settings to enable keyboard shortcuts
+    /// Resets zoom detection state so shortcuts will be tried again.
+    /// Called when user opens Settings to enable keyboard shortcuts.
+    /// Protected by stateLock for consistency with handleAccessibilityZoom.
     private func resetZoomDetectionState() {
+        stateLock.lock()
         zoomAttemptCount = 0
         hasShownZoomKeyboardShortcutWarning = false
+        stateLock.unlock()
         // Don't reset hasEverSeenZoomActive - if it was working before, it should still work
     }
 
@@ -1068,6 +1109,16 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             openButton.action = #selector(ButtonHandler.openSettings)
             dismissButton.target = handler
             dismissButton.action = #selector(ButtonHandler.dismiss)
+
+            // Auto-dismiss after 30 seconds to prevent orphaned panels.
+            // If the user doesn't interact, the panel closes itself and
+            // the associated objects are cleaned up.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak panel] in
+                guard let panel = panel, panel.isVisible else { return }
+                objc_setAssociatedObject(panel, "keepAlive", nil, .OBJC_ASSOCIATION_RETAIN)
+                objc_setAssociatedObject(panel, "handler", nil, .OBJC_ASSOCIATION_RETAIN)
+                panel.close()
+            }
         }
     }
 
