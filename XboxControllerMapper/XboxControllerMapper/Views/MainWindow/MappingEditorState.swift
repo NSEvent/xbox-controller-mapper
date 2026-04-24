@@ -31,6 +31,14 @@ struct MappingEditorState {
     var newWebhookHeaderKey: String = ""
     var newWebhookHeaderValue: String = ""
 
+    // Webhook response handling
+    var webhookShowNotification: Bool = false
+    var webhookMaxRetries: Int = 0
+    var webhookRetryDelay: Double = 1.0
+    var webhookOnSuccessCommand: String = ""
+    var webhookOnErrorCommand: String = ""
+    var webhookTimeout: Double = 10
+
     // OBS WebSocket (primary-only, but kept here for uniformity)
     var obsWebSocketURL: String = "ws://127.0.0.1:4455"
     var obsWebSocketPassword: String = ""
@@ -91,7 +99,15 @@ struct MappingEditorState {
             guard !webhookURL.isEmpty else { return nil }
             let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
             let body = webhookBody.isEmpty ? nil : webhookBody
-            return .httpRequest(url: webhookURL, method: webhookMethod, headers: headers, body: body)
+            let rh = HTTPResponseHandling(
+                showNotification: webhookShowNotification,
+                maxRetries: webhookMaxRetries,
+                retryDelay: webhookRetryDelay,
+                onSuccessCommand: webhookOnSuccessCommand.isEmpty ? nil : webhookOnSuccessCommand,
+                onErrorCommand: webhookOnErrorCommand.isEmpty ? nil : webhookOnErrorCommand,
+                timeout: webhookTimeout
+            )
+            return .httpRequest(url: webhookURL, method: webhookMethod, headers: headers, body: body, responseHandling: rh.hasConfiguration ? rh : nil)
         case .obs:
             guard !obsWebSocketURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
             guard !obsRequestType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
@@ -120,11 +136,19 @@ struct MappingEditorState {
             shellRunInTerminal = terminal
         case .openLink(let url):
             linkURL = url
-        case .httpRequest(let url, let method, let headers, let body):
+        case .httpRequest(let url, let method, let headers, let body, let responseHandling):
             webhookURL = url
             webhookMethod = method
             webhookHeaders = headers ?? [:]
             webhookBody = body ?? ""
+            if let rh = responseHandling {
+                webhookShowNotification = rh.showNotification
+                webhookMaxRetries = rh.maxRetries
+                webhookRetryDelay = rh.retryDelay
+                webhookOnSuccessCommand = rh.onSuccessCommand ?? ""
+                webhookOnErrorCommand = rh.onErrorCommand ?? ""
+                webhookTimeout = rh.timeout
+            }
         case .obsWebSocket(let url, let password, let requestType, let requestData):
             obsWebSocketURL = url
             obsWebSocketPassword = password ?? ""

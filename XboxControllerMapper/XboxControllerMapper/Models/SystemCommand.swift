@@ -12,6 +12,68 @@ enum HTTPMethod: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Configuration for how HTTP response should be handled
+struct HTTPResponseHandling: Codable, Equatable {
+    /// Whether to show a macOS notification with the result
+    var showNotification: Bool = false
+
+    /// Maximum number of retries on failure (0 = no retries)
+    var maxRetries: Int = 0
+
+    /// Base delay in seconds for exponential backoff between retries
+    var retryDelay: Double = 1.0
+
+    /// Optional shell command to run on success (2xx response)
+    var onSuccessCommand: String?
+
+    /// Optional shell command to run on error (non-2xx or network error)
+    var onErrorCommand: String?
+
+    /// Request timeout in seconds
+    var timeout: TimeInterval = 10
+
+    /// Default instance with no response handling configured
+    static let `default` = HTTPResponseHandling()
+
+    /// Whether any response handling is configured beyond defaults
+    var hasConfiguration: Bool {
+        showNotification || maxRetries > 0 || onSuccessCommand != nil || onErrorCommand != nil || timeout != 10
+    }
+
+    // MARK: - Codable
+
+    private enum CodingKeys: String, CodingKey {
+        case showNotification, maxRetries, retryDelay
+        case onSuccessCommand, onErrorCommand, timeout
+    }
+
+    init(
+        showNotification: Bool = false,
+        maxRetries: Int = 0,
+        retryDelay: Double = 1.0,
+        onSuccessCommand: String? = nil,
+        onErrorCommand: String? = nil,
+        timeout: TimeInterval = 10
+    ) {
+        self.showNotification = showNotification
+        self.maxRetries = maxRetries
+        self.retryDelay = retryDelay
+        self.onSuccessCommand = onSuccessCommand
+        self.onErrorCommand = onErrorCommand
+        self.timeout = timeout
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        showNotification = try container.decodeIfPresent(Bool.self, forKey: .showNotification) ?? false
+        maxRetries = try container.decodeIfPresent(Int.self, forKey: .maxRetries) ?? 0
+        retryDelay = try container.decodeIfPresent(Double.self, forKey: .retryDelay) ?? 1.0
+        onSuccessCommand = try container.decodeIfPresent(String.self, forKey: .onSuccessCommand)
+        onErrorCommand = try container.decodeIfPresent(String.self, forKey: .onErrorCommand)
+        timeout = try container.decodeIfPresent(TimeInterval.self, forKey: .timeout) ?? 10
+    }
+}
+
 /// Categories for grouping system commands in the UI
 enum SystemCommandCategory: String, CaseIterable, Identifiable {
     case shell = "Shell Command"
@@ -35,7 +97,7 @@ enum SystemCommand: Equatable {
     case openLink(url: String)
 
     // HTTP request / webhook
-    case httpRequest(url: String, method: HTTPMethod = .POST, headers: [String: String]? = nil, body: String? = nil)
+    case httpRequest(url: String, method: HTTPMethod = .POST, headers: [String: String]? = nil, body: String? = nil, responseHandling: HTTPResponseHandling? = nil)
 
     // OBS WebSocket request (generic requestType + optional requestData JSON)
     case obsWebSocket(url: String, password: String? = nil, requestType: String, requestData: String? = nil)
@@ -61,7 +123,7 @@ enum SystemCommand: Equatable {
                 return String(url.prefix(30)) + "..."
             }
             return url
-        case .httpRequest(let url, let method, _, _):
+        case .httpRequest(let url, let method, _, _, _):
             let display = "\(method.rawValue) \(url)"
             if display.count > 30 {
                 return String(display.prefix(30)) + "..."
@@ -98,6 +160,7 @@ extension SystemCommand: Codable {
     private enum CodingKeys: String, CodingKey {
         case type, bundleIdentifier, command, inTerminal, url, newWindow
         case method, headers, body, password, requestType, requestData
+        case responseHandling
     }
 
     init(from decoder: Decoder) throws {
@@ -121,7 +184,8 @@ extension SystemCommand: Codable {
             let method = try container.decodeIfPresent(HTTPMethod.self, forKey: .method) ?? .POST
             let headers = try container.decodeIfPresent([String: String].self, forKey: .headers)
             let body = try container.decodeIfPresent(String.self, forKey: .body)
-            self = .httpRequest(url: url, method: method, headers: headers, body: body)
+            let responseHandling = try container.decodeIfPresent(HTTPResponseHandling.self, forKey: .responseHandling)
+            self = .httpRequest(url: url, method: method, headers: headers, body: body, responseHandling: responseHandling)
         case .obsWebSocket:
             let url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
             let storedPassword = try container.decodeIfPresent(String.self, forKey: .password)
@@ -154,12 +218,16 @@ extension SystemCommand: Codable {
         case .openLink(let url):
             try container.encode(CommandType.openLink, forKey: .type)
             try container.encode(url, forKey: .url)
-        case .httpRequest(let url, let method, let headers, let body):
+        case .httpRequest(let url, let method, let headers, let body, let responseHandling):
             try container.encode(CommandType.httpRequest, forKey: .type)
             try container.encode(url, forKey: .url)
             try container.encode(method, forKey: .method)
             try container.encodeIfPresent(headers, forKey: .headers)
             try container.encodeIfPresent(body, forKey: .body)
+            // Only persist responseHandling if it has non-default config
+            if let rh = responseHandling, rh.hasConfiguration {
+                try container.encode(rh, forKey: .responseHandling)
+            }
         case .obsWebSocket(let url, let password, let requestType, let requestData):
             try container.encode(CommandType.obsWebSocket, forKey: .type)
             try container.encode(url, forKey: .url)

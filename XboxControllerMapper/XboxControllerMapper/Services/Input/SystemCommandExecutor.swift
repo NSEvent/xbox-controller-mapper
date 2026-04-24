@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import UserNotifications
 
 /// Executes system commands triggered by button or chord mappings
 class SystemCommandExecutor: @unchecked Sendable {
@@ -79,8 +80,8 @@ class SystemCommandExecutor: @unchecked Sendable {
         case .openLink(let urlString):
             openLink(urlString)
 
-        case .httpRequest(let url, let method, let headers, let body):
-            executeHTTPRequest(url: url, method: method, headers: headers, body: body)
+        case .httpRequest(let url, let method, let headers, let body, let responseHandling):
+            executeHTTPRequest(url: url, method: method, headers: headers, body: body, responseHandling: responseHandling)
 
         case .obsWebSocket(let url, let password, let requestType, let requestData):
             executeOBSWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
@@ -331,7 +332,26 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     // MARK: - HTTP Request / Webhook
 
-    private func executeHTTPRequest(url urlString: String, method: HTTPMethod, headers: [String: String]?, body: String?) {
+    /// Result of an HTTP request execution
+    struct HTTPRequestResult {
+        let success: Bool
+        let statusCode: Int?
+        let responseBody: Data?
+        let parsedJSON: [String: Any]?
+        let error: Error?
+
+        /// Short status message for feedback display
+        var feedbackMessage: String {
+            if let statusCode = statusCode {
+                return "Webhook \(statusCode)"
+            } else if error != nil {
+                return "Webhook Error"
+            }
+            return "Webhook"
+        }
+    }
+
+    private func executeHTTPRequest(url urlString: String, method: HTTPMethod, headers: [String: String]?, body: String?, responseHandling: HTTPResponseHandling? = nil) {
         // Attempt to create URL, with percent-encoding fallback for special characters
         var url = URL(string: urlString)
         if url == nil, let encoded = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
@@ -349,47 +369,172 @@ class SystemCommandExecutor: @unchecked Sendable {
             return
         }
 
-        executionQueue.async { [url = validURL, urlSession = self.urlSession, feedbackHandler = self.webhookFeedbackHandler] in
-            var request = URLRequest(url: url)
-            request.httpMethod = method.rawValue
-            request.timeoutInterval = 10
+        let handling = responseHandling ?? .default
+        let maxRetries = min(handling.maxRetries, 5) // Cap at 5 retries
+        let timeout = handling.timeout
 
-            // Set default Content-Type for methods that typically have a body
-            if [.POST, .PUT, .PATCH].contains(method) {
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        executionQueue.async { [url = validURL, urlSession = self.urlSession, feedbackHandler = self.webhookFeedbackHandler, weak self] in
+            self?.executeHTTPRequestWithRetry(
+                url: url,
+                urlString: urlString,
+                method: method,
+                headers: headers,
+                body: body,
+                timeout: timeout,
+                attempt: 0,
+                maxRetries: maxRetries,
+                retryDelay: handling.retryDelay,
+                responseHandling: handling,
+                urlSession: urlSession,
+                feedbackHandler: feedbackHandler
+            )
+        }
+    }
+
+    private func executeHTTPRequestWithRetry(
+        url: URL,
+        urlString: String,
+        method: HTTPMethod,
+        headers: [String: String]?,
+        body: String?,
+        timeout: TimeInterval,
+        attempt: Int,
+        maxRetries: Int,
+        retryDelay: Double,
+        responseHandling: HTTPResponseHandling,
+        urlSession: URLSession,
+        feedbackHandler: ((Bool, String) -> Void)?
+    ) {
+        var request = URLRequest(url: url)
+        request.httpMethod = method.rawValue
+        request.timeoutInterval = timeout
+
+        // Set default Content-Type for methods that typically have a body
+        if [.POST, .PUT, .PATCH].contains(method) {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+
+        // Apply custom headers (can override Content-Type if specified)
+        if let headers = headers {
+            for (key, value) in headers {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+        }
+
+        // Set body if provided (only for methods that support a body)
+        if [.POST, .PUT, .PATCH].contains(method), let body = body, !body.isEmpty {
+            request.httpBody = body.data(using: .utf8)
+        }
+
+        let task = urlSession.dataTask(with: request) { [weak self] data, response, error in
+            let httpResponse = response as? HTTPURLResponse
+            let statusCode = httpResponse?.statusCode
+            let isSuccess = statusCode.map { $0 >= 200 && $0 < 300 } ?? false
+
+            // Parse JSON response body if available
+            var parsedJSON: [String: Any]?
+            if let data = data, !data.isEmpty {
+                parsedJSON = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             }
 
-            // Apply custom headers (can override Content-Type if specified)
-            if let headers = headers {
-                for (key, value) in headers {
-                    request.setValue(value, forHTTPHeaderField: key)
+            let result = HTTPRequestResult(
+                success: isSuccess && error == nil,
+                statusCode: statusCode,
+                responseBody: data,
+                parsedJSON: parsedJSON,
+                error: error
+            )
+
+            if let error = error {
+                NSLog("[SystemCommand] HTTP request failed (attempt %d/%d): %@", attempt + 1, maxRetries + 1, error.localizedDescription)
+            } else if let statusCode = statusCode {
+                if isSuccess {
+                    NSLog("[SystemCommand] HTTP %@ %@ → %d OK", method.rawValue, urlString, statusCode)
+                } else {
+                    NSLog("[SystemCommand] HTTP %@ %@ → %d (attempt %d/%d)", method.rawValue, urlString, statusCode, attempt + 1, maxRetries + 1)
                 }
             }
 
-            // Set body if provided (only for methods that support a body)
-            if [.POST, .PUT, .PATCH].contains(method), let body = body, !body.isEmpty {
-                request.httpBody = body.data(using: .utf8)
+            // Log parsed JSON response if available
+            if let parsedJSON = parsedJSON {
+                let keys = parsedJSON.keys.joined(separator: ", ")
+                NSLog("[SystemCommand] Response JSON keys: %@", keys)
             }
 
-            let task = urlSession.dataTask(with: request) { data, response, error in
-                if let error = error {
-                    NSLog("[SystemCommand] HTTP request failed: %@", error.localizedDescription)
-                    feedbackHandler?(false, "Webhook Error")
-                    return
+            // Retry logic: retry on failure if we have retries remaining
+            if !result.success && attempt < maxRetries {
+                let delay = retryDelay * pow(2.0, Double(attempt)) // Exponential backoff
+                NSLog("[SystemCommand] Retrying in %.1fs (attempt %d/%d)", delay, attempt + 2, maxRetries + 1)
+                self?.executionQueue.asyncAfter(deadline: .now() + delay) {
+                    self?.executeHTTPRequestWithRetry(
+                        url: url,
+                        urlString: urlString,
+                        method: method,
+                        headers: headers,
+                        body: body,
+                        timeout: timeout,
+                        attempt: attempt + 1,
+                        maxRetries: maxRetries,
+                        retryDelay: retryDelay,
+                        responseHandling: responseHandling,
+                        urlSession: urlSession,
+                        feedbackHandler: feedbackHandler
+                    )
                 }
-
-                if let httpResponse = response as? HTTPURLResponse {
-                    let statusCode = httpResponse.statusCode
-                    if statusCode >= 200 && statusCode < 300 {
-                        NSLog("[SystemCommand] HTTP %@ %@ → %d OK", method.rawValue, urlString, statusCode)
-                        feedbackHandler?(true, "Webhook \(statusCode)")
-                    } else {
-                        NSLog("[SystemCommand] HTTP %@ %@ → %d", method.rawValue, urlString, statusCode)
-                        feedbackHandler?(false, "Webhook \(statusCode)")
-                    }
-                }
+                return
             }
-            task.resume()
+
+            // Final result — invoke feedback
+            feedbackHandler?(result.success, result.feedbackMessage)
+
+            // Execute follow-up commands
+            self?.handleResponseActions(result: result, responseHandling: responseHandling, urlString: urlString)
+        }
+        task.resume()
+    }
+
+    /// Handle post-response actions: notifications and follow-up shell commands
+    private func handleResponseActions(result: HTTPRequestResult, responseHandling: HTTPResponseHandling, urlString: String) {
+        // Show macOS notification if enabled
+        if responseHandling.showNotification {
+            let title = result.success ? "Webhook Succeeded" : "Webhook Failed"
+            let body: String
+            if let statusCode = result.statusCode {
+                body = "HTTP \(statusCode) — \(urlString)"
+            } else if let error = result.error {
+                body = error.localizedDescription
+            } else {
+                body = urlString
+            }
+            postNotification(title: title, body: body)
+        }
+
+        // Execute follow-up shell command
+        if result.success, let command = responseHandling.onSuccessCommand, !command.isEmpty {
+            NSLog("[SystemCommand] Running onSuccess command: %@", command)
+            executeSilently(command)
+        } else if !result.success, let command = responseHandling.onErrorCommand, !command.isEmpty {
+            NSLog("[SystemCommand] Running onError command: %@", command)
+            executeSilently(command)
+        }
+    }
+
+    /// Post a macOS user notification
+    private func postNotification(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+
+        let request = UNNotificationRequest(
+            identifier: "webhook-\(UUID().uuidString)",
+            content: content,
+            trigger: nil // Deliver immediately
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                NSLog("[SystemCommand] Failed to post notification: %@", error.localizedDescription)
+            }
         }
     }
 

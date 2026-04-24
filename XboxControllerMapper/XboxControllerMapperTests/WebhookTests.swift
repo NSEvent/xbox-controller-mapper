@@ -217,7 +217,7 @@ final class WebhookTests: XCTestCase {
         let command = try JSONDecoder().decode(SystemCommand.self, from: data)
 
         // Then
-        if case .httpRequest(let url, let method, let headers, let body) = command {
+        if case .httpRequest(let url, let method, let headers, let body, _) = command {
             XCTAssertEqual(url, "https://example.com/api")
             XCTAssertEqual(method, .PUT)
             XCTAssertEqual(headers?["X-API-Key"], "secret")
@@ -241,7 +241,7 @@ final class WebhookTests: XCTestCase {
         let command = try JSONDecoder().decode(SystemCommand.self, from: data)
 
         // Then - should use defaults
-        if case .httpRequest(let url, let method, let headers, let body) = command {
+        if case .httpRequest(let url, let method, let headers, let body, _) = command {
             XCTAssertEqual(url, "https://example.com/webhook")
             XCTAssertEqual(method, .POST) // default
             XCTAssertNil(headers)

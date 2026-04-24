@@ -392,6 +392,70 @@ struct ActionMappingEditor: View {
             Text("Fires an HTTP request when triggered. Use for webhooks, APIs, home automation, etc.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Divider()
+
+            // Response handling section
+            DisclosureGroup("Response Handling") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Show notification on completion", isOn: $state.webhookShowNotification)
+                        .font(.caption)
+
+                    HStack {
+                        Text("Timeout:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Slider(value: $state.webhookTimeout, in: 1...60, step: 1)
+                        Text("\(Int(state.webhookTimeout))s")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .frame(width: 30, alignment: .trailing)
+                    }
+
+                    HStack {
+                        Text("Retries:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Slider(value: Binding(
+                            get: { Double(state.webhookMaxRetries) },
+                            set: { state.webhookMaxRetries = Int($0) }
+                        ), in: 0...5, step: 1)
+                        Text("\(state.webhookMaxRetries)")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .frame(width: 16, alignment: .trailing)
+                    }
+
+                    if state.webhookMaxRetries > 0 {
+                        HStack {
+                            Text("Retry delay:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Slider(value: $state.webhookRetryDelay, in: 0.5...10, step: 0.5)
+                            Text("\(state.webhookRetryDelay, specifier: "%.1f")s")
+                                .font(.caption)
+                                .monospacedDigit()
+                                .frame(width: 36, alignment: .trailing)
+                        }
+
+                        Text("Uses exponential backoff: \(state.webhookRetryDelay, specifier: "%.1f")s, \(state.webhookRetryDelay * 2, specifier: "%.1f")s, \(state.webhookRetryDelay * 4, specifier: "%.1f")s...")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    TextField("On success command (optional)", text: $state.webhookOnSuccessCommand)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+
+                    TextField("On error command (optional)", text: $state.webhookOnErrorCommand)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+
+                    Text("Shell commands run silently on success (2xx) or error (non-2xx / network failure).")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
     }
 
