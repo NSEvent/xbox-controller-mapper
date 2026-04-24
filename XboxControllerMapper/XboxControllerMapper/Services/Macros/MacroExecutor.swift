@@ -25,7 +25,9 @@ class MacroExecutor: @unchecked Sendable {
     }
 
     func execute(_ macro: Macro) {
-        executionQueue.async { [weak self] in
+        // Use Task to enable async/await for steps that need main-thread work
+        // (openApp, openURL), eliminating semaphore-based deadlock risk.
+        Task.detached(priority: .userInitiated) { [weak self] in
             guard let self = self else { return }
 
             for step in macro.steps {
@@ -37,16 +39,17 @@ class MacroExecutor: @unchecked Sendable {
                     self.holdKeyMapping(mapping, duration: duration)
 
                 case .delay(let duration):
-                    usleep(useconds_t(min(duration * 1_000_000, Double(UInt32.max))))
+                    // Use Task.sleep for delays to avoid blocking a GCD thread
+                    try? await Task.sleep(nanoseconds: UInt64(min(duration * 1_000_000_000, Double(UInt64.max / 2))))
 
                 case .typeText(let text, let speed, let pressEnter):
                     self.inputSimulator.typeText(text, speed: speed, pressEnter: pressEnter)
 
                 case .openApp(let bundleIdentifier, let newWindow):
-                    self.openApplication(bundleIdentifier: bundleIdentifier, newWindow: newWindow)
+                    await self.openApplicationAsync(bundleIdentifier: bundleIdentifier, newWindow: newWindow)
 
                 case .openLink(let url):
-                    self.openURL(url)
+                    await self.openURLAsync(url)
 
                 case .shellCommand(let command, let inTerminal):
                     let systemCommand = SystemCommand.shellCommand(command: command, inTerminal: inTerminal)
@@ -90,33 +93,29 @@ class MacroExecutor: @unchecked Sendable {
         }
     }
 
-    private func openApplication(bundleIdentifier: String, newWindow: Bool) {
+    @MainActor
+    private func openApplicationAsync(bundleIdentifier: String, newWindow: Bool) async {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
             NSLog("[Macro] App not found: \(bundleIdentifier)")
             return
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
         let config = NSWorkspace.OpenConfiguration()
 
-        DispatchQueue.main.async {
-            NSWorkspace.shared.openApplication(at: appURL, configuration: config) { _, error in
-                if let error = error {
-                    NSLog("[Macro] Failed to open app: \(error.localizedDescription)")
-                }
-                semaphore.signal()
-            }
+        do {
+            _ = try await NSWorkspace.shared.openApplication(at: appURL, configuration: config)
+        } catch {
+            NSLog("[Macro] Failed to open app: \(error.localizedDescription)")
         }
 
-        _ = semaphore.wait(timeout: .now() + 3.0)
-
         if newWindow {
-            usleep(300_000)
+            try? await Task.sleep(nanoseconds: 300_000_000)
             inputSimulator.pressKey(CGKeyCode(kVK_ANSI_N), modifiers: .maskCommand)
         }
     }
 
-    private func openURL(_ urlString: String) {
+    @MainActor
+    private func openURLAsync(_ urlString: String) async {
         var resolved = urlString
         if !resolved.contains("://") {
             resolved = "https://" + resolved
@@ -130,13 +129,8 @@ class MacroExecutor: @unchecked Sendable {
             return
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        DispatchQueue.main.async {
-            NSWorkspace.shared.open(url)
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + 2.0)
+        NSWorkspace.shared.open(url)
 
-        usleep(200_000)
+        try? await Task.sleep(nanoseconds: 200_000_000)
     }
 }

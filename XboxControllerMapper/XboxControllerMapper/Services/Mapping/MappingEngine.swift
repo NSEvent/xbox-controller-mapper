@@ -153,6 +153,14 @@ class MappingEngine: ObservableObject {
         syncMotionActivation(for: profileManager.activeProfile)
     }
 
+    /// Tears down all subscriptions and timers. Must be called before dropping
+    /// the last reference to avoid leaking Combine subscriptions.
+    func tearDown() {
+        cancellables.removeAll()
+        joystickTimer?.cancel()
+        joystickTimer = nil
+    }
+
     /// Rebuilds the layer activator button -> layer ID lookup map
     private func rebuildLayerActivatorMap(profile: Profile?) {
         state.layerActivatorMap.removeAll()

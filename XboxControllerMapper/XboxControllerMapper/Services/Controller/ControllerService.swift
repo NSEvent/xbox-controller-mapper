@@ -650,11 +650,20 @@ class ControllerService: ObservableObject {
         storage.chordWorkItem?.cancel()
         storage.leftStick = .zero
         storage.rightStick = .zero
+        storage.leftTrigger = 0
+        storage.rightTrigger = 0
+        storage.lastInputTime = 0
         // Reset touchpad state (but keep isDualSense to remember last controller type)
         resetTouchpadStateLocked()
         resetMotionStateLocked()
         storage.lastMicButtonState = false
+        storage.lastPSButtonState = false
         storage.lastHIDBatteryCharging = nil
+        // Reset DualSense Edge paddle/function button state
+        storage.lastLeftPaddleState = false
+        storage.lastRightPaddleState = false
+        storage.lastLeftFunctionState = false
+        storage.lastRightFunctionState = false
         storage.lock.unlock()
     }
 
