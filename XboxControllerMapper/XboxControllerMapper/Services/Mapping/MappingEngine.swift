@@ -166,9 +166,12 @@ class MappingEngine: ObservableObject {
 
     /// Pushes effective gesture detection settings from the profile into ControllerStorage
     /// so the motion callback thread can read them without accessing JoystickSettings.
+    /// Also resets gesture detector tracking state to prevent stale gestures from a
+    /// previous profile carrying over (e.g., a mid-tracking gesture completing after switch).
     private func syncGestureSettings(from settings: JoystickSettings?) {
         let settings = settings ?? .default
         controllerService.storage.lock.lock()
+        controllerService.storage.motionGestureDetector.reset()
         controllerService.storage.motionGestureDetector.pitchActivationThreshold = settings.effectiveGestureActivationThreshold
         controllerService.storage.motionGestureDetector.pitchMinPeakVelocity = settings.effectiveGestureMinPeakVelocity
         controllerService.storage.motionGestureDetector.rollActivationThreshold = settings.effectiveGestureRollActivationThreshold
@@ -430,6 +433,11 @@ class MappingEngine: ObservableObject {
     nonisolated private func beginButtonPress(_ button: ControllerButton) -> ButtonPressStartState {
         state.lock.withLock {
             guard state.isEnabled, let profile = state.activeProfile else {
+                #if DEBUG
+                if state.isEnabled && state.activeProfile == nil {
+                    print("⚠️ MappingEngine: Button \(button) pressed but no active profile — input ignored")
+                }
+                #endif
                 return .blocked
             }
 
@@ -1086,6 +1094,11 @@ class MappingEngine: ObservableObject {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         guard let (profile, chordButtons) = state.lock.withLock({ () -> (Profile, Set<ControllerButton>)? in
             guard state.isEnabled, let profile = state.activeProfile else {
+                #if DEBUG
+                if state.isEnabled && state.activeProfile == nil {
+                    print("⚠️ MappingEngine: Chord \(buttons) detected but no active profile — input ignored")
+                }
+                #endif
                 return nil
             }
 
