@@ -128,6 +128,24 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     /// ExecutableAction protocol conformance
     var displayString: String { actionDisplayString }
 
+    /// Whether this sequence mapping has any action configured
+    var hasAction: Bool {
+        keyCode != nil || macroId != nil || scriptId != nil || systemCommand != nil || modifiers.hasAny
+    }
+
+    /// Returns a copy with all action fields cleared (steps, timing, and id preserved)
+    func clearingAllActions() -> SequenceMapping {
+        var copy = self
+        copy.keyCode = nil
+        copy.modifiers = ModifierFlags()
+        copy.macroId = nil
+        copy.scriptId = nil
+        copy.systemCommand = nil
+        copy.hint = nil
+        copy.hapticStyle = nil
+        return copy
+    }
+
     /// Whether this sequence has enough steps to be valid
     var isValid: Bool { steps.count >= 2 }
 

@@ -26,6 +26,9 @@ struct ChordsTab: View {
                         onDelete: { chord in
                             profileManager.removeChord(chord)
                         },
+                        onClearAction: { chord in
+                            profileManager.updateChord(chord.clearingAllActions())
+                        },
                         onMove: { source, destination in
                             profileManager.moveChords(from: source, to: destination)
                         }

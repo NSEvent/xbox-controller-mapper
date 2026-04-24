@@ -122,6 +122,24 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
     /// ExecutableAction protocol conformance
     var displayString: String { actionDisplayString }
 
+    /// Whether this chord mapping has any action configured
+    var hasAction: Bool {
+        keyCode != nil || macroId != nil || scriptId != nil || systemCommand != nil || modifiers.hasAny
+    }
+
+    /// Returns a copy with all action fields cleared (buttons and id preserved)
+    func clearingAllActions() -> ChordMapping {
+        var copy = self
+        copy.keyCode = nil
+        copy.modifiers = ModifierFlags()
+        copy.macroId = nil
+        copy.scriptId = nil
+        copy.systemCommand = nil
+        copy.hint = nil
+        copy.hapticStyle = nil
+        return copy
+    }
+
     /// A chord is valid only if it has at least 2 buttons (otherwise it's just a regular button press).
     var isValid: Bool { buttons.count >= 2 }
 

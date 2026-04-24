@@ -26,6 +26,9 @@ struct SequencesTab: View {
                         onDelete: { sequence in
                             profileManager.removeSequence(sequence)
                         },
+                        onClearAction: { sequence in
+                            profileManager.updateSequence(sequence.clearingAllActions())
+                        },
                         onMove: { source, destination in
                             profileManager.moveSequences(from: source, to: destination)
                         }

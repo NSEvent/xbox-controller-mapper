@@ -61,6 +61,26 @@ struct ActiveChordsView: View {
                     .hoverableGlassRow {
                         editingChord = chord
                     }
+                    .contextMenu {
+                        Button {
+                            editingChord = chord
+                        } label: {
+                            Label("Edit Chord", systemImage: "pencil")
+                        }
+                        if chord.hasAction {
+                            Button {
+                                profileManager.updateChord(chord.clearingAllActions())
+                            } label: {
+                                Label("Clear Action", systemImage: "xmark.circle")
+                            }
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            profileManager.removeChord(chord)
+                        } label: {
+                            Label("Delete Chord", systemImage: "trash")
+                        }
+                    }
                     .accessibilityElement(children: .combine)
                     .accessibilityHint("Double-tap to edit")
                 }

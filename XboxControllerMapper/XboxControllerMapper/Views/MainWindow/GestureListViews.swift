@@ -95,6 +95,16 @@ struct GestureRow: View {
         .contentShape(Rectangle())
         .onTapGesture { onEdit() }
         .hoverableRow()
+        .contextMenu {
+            Button(action: onEdit) {
+                Label("Edit Gesture", systemImage: "pencil")
+            }
+            if mapping?.hasAction == true {
+                Button(action: onClear) {
+                    Label("Clear Action", systemImage: "xmark.circle")
+                }
+            }
+        }
     }
 
     @ViewBuilder

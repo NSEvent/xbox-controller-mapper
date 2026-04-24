@@ -299,6 +299,24 @@ struct ControllerVisualView: View {
         .accessibilityHint("Double-tap to configure")
         .accessibilityAddTraits(.isButton)
         .onTapGesture { onButtonTap(button) }
+        .contextMenu {
+            Button {
+                onButtonTap(button)
+            } label: {
+                Label("Edit Mapping", systemImage: "pencil")
+            }
+            if mapping(for: button) != nil {
+                Button {
+                    if let layer = selectedLayer {
+                        profileManager.removeLayerMapping(for: button, from: layer)
+                    } else {
+                        profileManager.removeMapping(for: button)
+                    }
+                } label: {
+                    Label("Clear Mapping", systemImage: "xmark.circle")
+                }
+            }
+        }
     }
 
     // MARK: - Helpers

@@ -7,6 +7,7 @@ struct ChordListView: View, Equatable {
     let isDualSense: Bool
     let onEdit: (ChordMapping) -> Void
     let onDelete: (ChordMapping) -> Void
+    let onClearAction: (ChordMapping) -> Void
     let onMove: (IndexSet, Int) -> Void
 
     static func == (lhs: ChordListView, rhs: ChordListView) -> Bool {
@@ -20,7 +21,8 @@ struct ChordListView: View, Equatable {
                     chord: chord,
                     isDualSense: isDualSense,
                     onEdit: { onEdit(chord) },
-                    onDelete: { onDelete(chord) }
+                    onDelete: { onDelete(chord) },
+                    onClearAction: { onClearAction(chord) }
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -41,6 +43,7 @@ struct ChordRow: View {
     let isDualSense: Bool
     var onEdit: () -> Void
     var onDelete: () -> Void
+    var onClearAction: () -> Void
 
     @EnvironmentObject var profileManager: ProfileManager
 
@@ -109,6 +112,20 @@ struct ChordRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .hoverableRow()
+        .contextMenu {
+            Button(action: onEdit) {
+                Label("Edit Chord", systemImage: "pencil")
+            }
+            if chord.hasAction {
+                Button(action: onClearAction) {
+                    Label("Clear Action", systemImage: "xmark.circle")
+                }
+            }
+            Divider()
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete Chord", systemImage: "trash")
+            }
+        }
     }
 }
 
@@ -119,6 +136,7 @@ struct SequenceListView: View, Equatable {
     let isDualSense: Bool
     let onEdit: (SequenceMapping) -> Void
     let onDelete: (SequenceMapping) -> Void
+    let onClearAction: (SequenceMapping) -> Void
     let onMove: (IndexSet, Int) -> Void
 
     static func == (lhs: SequenceListView, rhs: SequenceListView) -> Bool {
@@ -132,7 +150,8 @@ struct SequenceListView: View, Equatable {
                     sequence: sequence,
                     isDualSense: isDualSense,
                     onEdit: { onEdit(sequence) },
-                    onDelete: { onDelete(sequence) }
+                    onDelete: { onDelete(sequence) },
+                    onClearAction: { onClearAction(sequence) }
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -153,6 +172,7 @@ struct SequenceRow: View {
     let isDualSense: Bool
     var onEdit: () -> Void
     var onDelete: () -> Void
+    var onClearAction: () -> Void
 
     @EnvironmentObject var profileManager: ProfileManager
 
@@ -227,5 +247,19 @@ struct SequenceRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .hoverableRow()
+        .contextMenu {
+            Button(action: onEdit) {
+                Label("Edit Sequence", systemImage: "pencil")
+            }
+            if sequence.hasAction {
+                Button(action: onClearAction) {
+                    Label("Clear Action", systemImage: "xmark.circle")
+                }
+            }
+            Divider()
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete Sequence", systemImage: "trash")
+            }
+        }
     }
 }

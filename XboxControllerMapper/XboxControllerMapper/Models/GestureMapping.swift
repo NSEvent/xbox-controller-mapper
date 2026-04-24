@@ -140,6 +140,18 @@ struct GestureMapping: Codable, Identifiable, Equatable, ExecutableAction {
         keyCode != nil || macroId != nil || scriptId != nil || systemCommand != nil || modifiers.hasAny
     }
 
+    /// Returns a copy with all action fields cleared (gesture type and id preserved)
+    func clearingAllActions() -> GestureMapping {
+        var copy = self
+        copy.keyCode = nil
+        copy.modifiers = ModifierFlags()
+        copy.macroId = nil
+        copy.scriptId = nil
+        copy.systemCommand = nil
+        copy.hint = nil
+        return copy
+    }
+
     // MARK: - Action Conflict Resolution
 
     /// Returns a copy with all action fields cleared except the specified type.

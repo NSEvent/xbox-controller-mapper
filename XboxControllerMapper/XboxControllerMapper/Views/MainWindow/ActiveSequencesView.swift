@@ -67,6 +67,26 @@ struct ActiveSequencesView: View {
                     .hoverableGlassRow {
                         editingSequence = sequence
                     }
+                    .contextMenu {
+                        Button {
+                            editingSequence = sequence
+                        } label: {
+                            Label("Edit Sequence", systemImage: "pencil")
+                        }
+                        if sequence.hasAction {
+                            Button {
+                                profileManager.updateSequence(sequence.clearingAllActions())
+                            } label: {
+                                Label("Clear Action", systemImage: "xmark.circle")
+                            }
+                        }
+                        Divider()
+                        Button(role: .destructive) {
+                            profileManager.removeSequence(sequence)
+                        } label: {
+                            Label("Delete Sequence", systemImage: "trash")
+                        }
+                    }
                     .accessibilityElement(children: .combine)
                     .accessibilityHint("Double-tap to edit")
                 }
