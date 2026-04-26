@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.4] - 2026-04-25
+
+### Added
+
+- **Xbox Elite Series 2 Back Paddles**: All 4 back paddles (P1–P4) are now detected and mappable via Apple's `GCXboxGamepad` API. Upper and lower paddle pairs use distinct SF Symbols (outline vs filled) and positional names for easy identification. Paddles appear in the "ELITE PADDLES" section on the main view, chord editor, and sequence editor when an Elite controller is connected. Note: paddles only report when no hardware remapping profile is active on the controller (all 3 front LEDs unlit).
+
 ## [1.7.3] - 2026-04-24
 
 ### Added
