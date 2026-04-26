@@ -89,3 +89,7 @@ marketing/
 # User-specific Xcode files
 *.xcuserstate
 xcuserdata/
+
+# Claude Code transient files
+.claude/skills/
+.claude/worktrees/
