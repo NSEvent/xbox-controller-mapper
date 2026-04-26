@@ -169,22 +169,34 @@ struct ControllerVisualView: View {
 
                 // Xbox Elite-specific buttons (back paddles)
                 if isXboxElite {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("ELITE CONTROLS")
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("ELITE PADDLES")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 4)
-                        HStack(spacing: 20) {
-                            VStack(alignment: .trailing) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Upper")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.secondary.opacity(0.7))
+                                .padding(.horizontal, 4)
+                            HStack(spacing: 20) {
                                 referenceRow(for: .xboxPaddle1)
-                                referenceRow(for: .xboxPaddle3)
-                            }
-                            .frame(width: 220)
-                            VStack(alignment: .leading) {
+                                    .frame(width: 220, alignment: .trailing)
                                 referenceRow(for: .xboxPaddle2)
-                                referenceRow(for: .xboxPaddle4)
+                                    .frame(width: 220, alignment: .leading)
                             }
-                            .frame(width: 220)
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Lower")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.secondary.opacity(0.7))
+                                .padding(.horizontal, 4)
+                            HStack(spacing: 20) {
+                                referenceRow(for: .xboxPaddle3)
+                                    .frame(width: 220, alignment: .trailing)
+                                referenceRow(for: .xboxPaddle4)
+                                    .frame(width: 220, alignment: .leading)
+                            }
                         }
                     }
                 }

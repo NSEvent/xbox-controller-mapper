@@ -509,8 +509,8 @@ struct SequenceMappingSheet: View {
 
             // Xbox Elite Controls
             if isXboxElite {
-                VStack(spacing: 8) {
-                    Text("ELITE CONTROLS")
+                VStack(spacing: 12) {
+                    Text("ELITE PADDLES")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.secondary)
 

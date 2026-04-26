@@ -256,12 +256,11 @@ struct ChordMappingSheet: View {
 
                     // Xbox Elite Controls (back paddles)
                     if isXboxElite {
-                        VStack(spacing: 8) {
-                            Text("ELITE CONTROLS")
+                        VStack(spacing: 12) {
+                            Text("ELITE PADDLES")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.secondary)
 
-                            // Upper paddles row
                             HStack(spacing: 40) {
                                 toggleButton(.xboxPaddle1)
                                 Text("Upper")
@@ -270,7 +269,6 @@ struct ChordMappingSheet: View {
                                 toggleButton(.xboxPaddle2)
                             }
 
-                            // Lower paddles row
                             HStack(spacing: 40) {
                                 toggleButton(.xboxPaddle3)
                                 Text("Lower")

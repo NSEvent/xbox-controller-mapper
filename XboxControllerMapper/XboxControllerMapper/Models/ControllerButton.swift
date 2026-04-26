@@ -89,10 +89,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .rightPaddle: return "Right Paddle"
         case .leftFunction: return "Left Fn"
         case .rightFunction: return "Right Fn"
-        case .xboxPaddle1: return "Paddle 1"
-        case .xboxPaddle2: return "Paddle 2"
-        case .xboxPaddle3: return "Paddle 3"
-        case .xboxPaddle4: return "Paddle 4"
+        case .xboxPaddle1: return "Upper Left Paddle"
+        case .xboxPaddle2: return "Upper Right Paddle"
+        case .xboxPaddle3: return "Lower Left Paddle"
+        case .xboxPaddle4: return "Lower Right Paddle"
         case .gestureTiltBack: return "Tilt Back"
         case .gestureTiltForward: return "Tilt Forward"
         case .gestureSteerLeft: return "Steer Left"
@@ -280,8 +280,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .y: return "y.circle"
             case .touchpadButton: return "hand.point.up.left"
             case .micMute: return "mic.slash"
-            case .xboxPaddle1, .xboxPaddle3: return "l.button.roundedbottom.horizontal"
-            case .xboxPaddle2, .xboxPaddle4: return "r.button.roundedbottom.horizontal"
+            case .xboxPaddle1: return "l.button.roundedbottom.horizontal"
+            case .xboxPaddle2: return "r.button.roundedbottom.horizontal"
+            case .xboxPaddle3: return "l.button.roundedbottom.horizontal.fill"
+            case .xboxPaddle4: return "r.button.roundedbottom.horizontal.fill"
             default: return nil
             }
         }
