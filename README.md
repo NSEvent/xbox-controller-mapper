@@ -10,7 +10,7 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 
 A native macOS application that maps Xbox, DualSense, DualShock 4, and 300+ third-party controller inputs to keyboard shortcuts, mouse movements, scroll/magnify/pan actions, macros, scripts, webhooks, and system commands. Features an on-screen keyboard with swipe typing, DualSense touchpad and gyroscope support, and a JavaScript scripting engine.
 
-**[Website & Documentation](https://www.kevintang.xyz/apps/xbox-controller-mapper)** | **[Download](https://thekevintang.gumroad.com/l/xbox-controller-mapper)**
+**[Website & Documentation](https://www.kevintang.xyz/apps/xbox-controller-mapper)** | **[Download](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord Community](https://discord.gg/FfX8CxsTQ)**
 
 ![ControllerKeys - Button Mappings](screenshots/xbox-series-xs/1-buttons.png)
 
@@ -360,6 +360,10 @@ Contributions are welcome! If you'd like to contribute code:
 7. Open a Pull Request
 
 Please ensure your code follows the existing style and includes appropriate comments for complex logic.
+
+## Community
+
+Join the **[ControllerKeys Discord](https://discord.gg/FfX8CxsTQ)** to share profiles, get help, and connect with other users.
 
 ## Feature Requests
 

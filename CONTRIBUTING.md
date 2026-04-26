@@ -111,7 +111,7 @@ XboxControllerMapper/
 
 ## Questions?
 
-If you have questions about contributing, feel free to open an issue with the `question` label.
+Join the **[ControllerKeys Discord](https://discord.gg/FfX8CxsTQ)** or open an issue with the `question` label.
 
 ## License
 
