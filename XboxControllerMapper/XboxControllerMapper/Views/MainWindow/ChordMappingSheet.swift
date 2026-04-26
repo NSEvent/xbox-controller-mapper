@@ -26,6 +26,10 @@ struct ChordMappingSheet: View {
         controllerService.threadSafeIsDualSenseEdge
     }
 
+    private var isXboxElite: Bool {
+        controllerService.threadSafeIsXboxElite
+    }
+
     private var isNintendo: Bool {
         controllerService.threadSafeIsNintendo
     }
@@ -245,6 +249,34 @@ struct ChordMappingSheet: View {
                                     .font(.system(size: 10, weight: .medium))
                                     .foregroundColor(.secondary)
                                 toggleButton(.rightPaddle)
+                            }
+                        }
+                        .padding(.top, 20)
+                    }
+
+                    // Xbox Elite Controls (back paddles)
+                    if isXboxElite {
+                        VStack(spacing: 8) {
+                            Text("ELITE CONTROLS")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.secondary)
+
+                            // Upper paddles row
+                            HStack(spacing: 40) {
+                                toggleButton(.xboxPaddle1)
+                                Text("Upper")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                toggleButton(.xboxPaddle2)
+                            }
+
+                            // Lower paddles row
+                            HStack(spacing: 40) {
+                                toggleButton(.xboxPaddle3)
+                                Text("Lower")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                toggleButton(.xboxPaddle4)
                             }
                         }
                         .padding(.top, 20)

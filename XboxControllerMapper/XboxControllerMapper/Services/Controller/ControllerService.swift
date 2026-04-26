@@ -34,6 +34,7 @@ final class ControllerStorage: @unchecked Sendable {
     var isDualSenseEdge: Bool = false
     var isDualShock: Bool = false  // PS4 DualShock 4 controller
     var isNintendo: Bool = false   // Nintendo controller (Joy-Con, Pro Controller)
+    var isXboxElite: Bool = false  // Xbox Elite Series 2 controller
     var isJoyConLeft: Bool = false
     var isJoyConRight: Bool = false
     var isBluetoothConnection: Bool = false
@@ -319,6 +320,12 @@ class ControllerService: ObservableObject {
         return storage.isNintendo
     }
 
+    nonisolated var threadSafeIsXboxElite: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isXboxElite
+    }
+
     /// Returns true if a single Joy-Con is connected (left or right, not a Pro Controller)
     nonisolated var threadSafeIsSingleJoyCon: Bool {
         storage.lock.lock()
@@ -525,6 +532,7 @@ class ControllerService: ObservableObject {
         storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
         storage.isDualSenseEdge = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey)
         storage.isDualShock = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey)
+        storage.isXboxElite = UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey)
 
         if shouldEnableHardwareMonitoring {
             GCController.shouldMonitorBackgroundEvents = true
@@ -1161,6 +1169,25 @@ class ControllerService: ObservableObject {
             batteryMonitor.refreshBatteryLevel()
 
             bindButton(xboxGamepad.buttonShare, to: .share)
+
+            // Xbox Elite Series 2 back paddles (nil on standard Xbox controllers)
+            // Note: paddles only report when no hardware profile is selected (all 3 front LEDs unlit)
+            if xboxGamepad.paddleButton1 != nil {
+                storage.lock.lock()
+                storage.isXboxElite = true
+                storage.lock.unlock()
+                UserDefaults.standard.set(true, forKey: Config.lastControllerWasXboxEliteKey)
+
+                bindButton(xboxGamepad.paddleButton1, to: .xboxPaddle1)
+                bindButton(xboxGamepad.paddleButton2, to: .xboxPaddle2)
+                bindButton(xboxGamepad.paddleButton3, to: .xboxPaddle3)
+                bindButton(xboxGamepad.paddleButton4, to: .xboxPaddle4)
+            } else {
+                storage.lock.lock()
+                storage.isXboxElite = false
+                storage.lock.unlock()
+                UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
+            }
         }
 
         bindButton(gamepad.leftThumbstickButton, to: .leftThumbstick)
@@ -1180,12 +1207,14 @@ class ControllerService: ObservableObject {
             storage.isDualSense = true
             storage.isDualShock = false
             storage.isNintendo = false
+            storage.isXboxElite = false
             storage.isJoyConLeft = false
             storage.isJoyConRight = false
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
 
             setupTouchpadHandlers(
                 primary: dualSenseGamepad.touchpadPrimary,
@@ -1209,6 +1238,7 @@ class ControllerService: ObservableObject {
             storage.isDualSense = false
             storage.isDualSenseEdge = false
             storage.isNintendo = false
+            storage.isXboxElite = false
             storage.isJoyConLeft = false
             storage.isJoyConRight = false
             storage.lock.unlock()
@@ -1216,6 +1246,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
 
             setupTouchpadHandlers(
                 primary: dualShockGamepad.touchpadPrimary,
@@ -1267,11 +1298,13 @@ class ControllerService: ObservableObject {
         storage.isDualSense = false
         storage.isDualSenseEdge = false
         storage.isDualShock = false
+        storage.isXboxElite = false
         storage.lock.unlock()
 
         UserDefaults.standard.set(true, forKey: Config.lastControllerWasNintendoKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
     }
 

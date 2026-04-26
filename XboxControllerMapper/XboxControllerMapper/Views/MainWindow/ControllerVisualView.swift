@@ -32,6 +32,10 @@ struct ControllerVisualView: View {
         controllerService.threadSafeIsDualSenseEdge
     }
 
+    private var isXboxElite: Bool {
+        controllerService.threadSafeIsXboxElite
+    }
+
     private var isNintendo: Bool {
         controllerService.threadSafeIsNintendo
     }
@@ -157,6 +161,28 @@ struct ControllerVisualView: View {
                             VStack(alignment: .leading) {
                                 referenceRow(for: .rightFunction)
                                 referenceRow(for: .rightPaddle)
+                            }
+                            .frame(width: 220)
+                        }
+                    }
+                }
+
+                // Xbox Elite-specific buttons (back paddles)
+                if isXboxElite {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("ELITE CONTROLS")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 4)
+                        HStack(spacing: 20) {
+                            VStack(alignment: .trailing) {
+                                referenceRow(for: .xboxPaddle1)
+                                referenceRow(for: .xboxPaddle3)
+                            }
+                            .frame(width: 220)
+                            VStack(alignment: .leading) {
+                                referenceRow(for: .xboxPaddle2)
+                                referenceRow(for: .xboxPaddle4)
                             }
                             .frame(width: 220)
                         }

@@ -25,6 +25,10 @@ struct SequenceMappingSheet: View {
         controllerService.threadSafeIsDualSenseEdge
     }
 
+    private var isXboxElite: Bool {
+        controllerService.threadSafeIsXboxElite
+    }
+
     private var isNintendo: Bool {
         controllerService.threadSafeIsNintendo
     }
@@ -498,6 +502,32 @@ struct SequenceMappingSheet: View {
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.secondary)
                         addStepButton(.rightPaddle)
+                    }
+                }
+                .padding(.top, 20)
+            }
+
+            // Xbox Elite Controls
+            if isXboxElite {
+                VStack(spacing: 8) {
+                    Text("ELITE CONTROLS")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 40) {
+                        addStepButton(.xboxPaddle1)
+                        Text("Upper")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                        addStepButton(.xboxPaddle2)
+                    }
+
+                    HStack(spacing: 40) {
+                        addStepButton(.xboxPaddle3)
+                        Text("Lower")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                        addStepButton(.xboxPaddle4)
                     }
                 }
                 .padding(.top, 20)

@@ -45,6 +45,12 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case leftFunction             // Front function button, left (Edge only)
     case rightFunction            // Front function button, right (Edge only)
 
+    // Xbox Elite Series 2-specific (4 back paddles)
+    case xboxPaddle1              // Back paddle P1 (Elite only)
+    case xboxPaddle2              // Back paddle P2 (Elite only)
+    case xboxPaddle3              // Back paddle P3 (Elite only)
+    case xboxPaddle4              // Back paddle P4 (Elite only)
+
     // Motion gestures (virtual buttons for logging/stats)
     case gestureTiltBack          // Gyroscope tilt back gesture (DualSense only)
     case gestureTiltForward       // Gyroscope tilt forward gesture (DualSense only)
@@ -83,6 +89,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .rightPaddle: return "Right Paddle"
         case .leftFunction: return "Left Fn"
         case .rightFunction: return "Right Fn"
+        case .xboxPaddle1: return "Paddle 1"
+        case .xboxPaddle2: return "Paddle 2"
+        case .xboxPaddle3: return "Paddle 3"
+        case .xboxPaddle4: return "Paddle 4"
         case .gestureTiltBack: return "Tilt Back"
         case .gestureTiltForward: return "Tilt Forward"
         case .gestureSteerLeft: return "Steer Left"
@@ -168,6 +178,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .rightPaddle: return "RP"
         case .leftFunction: return "LFn"
         case .rightFunction: return "RFn"
+        case .xboxPaddle1: return "P1"
+        case .xboxPaddle2: return "P2"
+        case .xboxPaddle3: return "P3"
+        case .xboxPaddle4: return "P4"
         case .gestureTiltBack: return "⤴"
         case .gestureTiltForward: return "⤵"
         case .gestureSteerLeft: return "↰"
@@ -266,6 +280,8 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .y: return "y.circle"
             case .touchpadButton: return "hand.point.up.left"
             case .micMute: return "mic.slash"
+            case .xboxPaddle1, .xboxPaddle3: return "l.button.roundedbottom.horizontal"
+            case .xboxPaddle2, .xboxPaddle4: return "r.button.roundedbottom.horizontal"
             default: return nil
             }
         }
@@ -290,6 +306,8 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return .touchpad  // DualSense-specific buttons
         case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
             return .paddle  // DualSense Edge-specific buttons
+        case .xboxPaddle1, .xboxPaddle2, .xboxPaddle3, .xboxPaddle4:
+            return .paddle  // Xbox Elite-specific buttons
         case .gestureTiltBack, .gestureTiltForward, .gestureSteerLeft, .gestureSteerRight:
             return .touchpad  // DualSense-specific virtual buttons
         }
@@ -345,26 +363,41 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Buttons available for Xbox controllers
+    /// Whether this button is only available on Xbox Elite controllers
+    var isXboxEliteOnly: Bool {
+        switch self {
+        case .xboxPaddle1, .xboxPaddle2, .xboxPaddle3, .xboxPaddle4:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Buttons available for Xbox controllers (excludes Elite-only paddles)
     static var xboxButtons: [ControllerButton] {
-        allCases.filter { !$0.isPlayStationOnly }
+        allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly }
+    }
+
+    /// Buttons available only on Xbox Elite controllers
+    static var xboxEliteButtons: [ControllerButton] {
+        [.xboxPaddle1, .xboxPaddle2, .xboxPaddle3, .xboxPaddle4]
     }
 
     /// Buttons available for DualShock 4 controllers (has touchpad, no mic mute or paddles)
     /// Note: DualShock 4's physical Share button maps to .view (buttonOptions), not .share
     static var dualShockButtons: [ControllerButton] {
-        allCases.filter { !$0.isDualSenseOnly && $0 != .share }
+        allCases.filter { !$0.isDualSenseOnly && !$0.isXboxEliteOnly && $0 != .share }
     }
 
     /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)
     static var dualSenseButtons: [ControllerButton] {
-        allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton }
+        allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton && !$0.isXboxEliteOnly }
     }
 
     /// Buttons available for Nintendo controllers (Joy-Con, Pro Controller)
     /// Same as Xbox — no touchpad, mic, paddles, or gyro gestures
     static var nintendoButtons: [ControllerButton] {
-        allCases.filter { !$0.isPlayStationOnly }
+        allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly }
     }
 
     /// SF Symbol name for Nintendo controllers
