@@ -431,9 +431,9 @@ class SystemCommandExecutor: @unchecked Sendable {
             let statusCode = httpResponse?.statusCode
             let isSuccess = statusCode.map { $0 >= 200 && $0 < 300 } ?? false
 
-            // Parse JSON response body if available
+            // Parse JSON response body only on success (skip on network errors/retries)
             var parsedJSON: [String: Any]?
-            if let data = data, !data.isEmpty {
+            if isSuccess, let data = data, !data.isEmpty {
                 parsedJSON = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             }
 
@@ -463,7 +463,7 @@ class SystemCommandExecutor: @unchecked Sendable {
 
             // Retry logic: retry on failure if we have retries remaining
             if !result.success && attempt < maxRetries {
-                let delay = retryDelay * pow(2.0, Double(attempt)) // Exponential backoff
+                let delay = retryDelay * pow(2.0, Double(attempt)) * (1.0 + Double.random(in: 0...0.1)) // Exponential backoff with jitter
                 NSLog("[SystemCommand] Retrying in %.1fs (attempt %d/%d)", delay, attempt + 2, maxRetries + 1)
                 self?.executionQueue.asyncAfter(deadline: .now() + delay) {
                     self?.executeHTTPRequestWithRetry(
@@ -519,22 +519,39 @@ class SystemCommandExecutor: @unchecked Sendable {
         }
     }
 
-    /// Post a macOS user notification
+    /// Whether notification permission has been requested this session
+    private var hasRequestedNotificationPermission = false
+
+    /// Post a macOS user notification, requesting permission if needed
     private func postNotification(title: String, body: String) {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
+        let center = UNUserNotificationCenter.current()
 
-        let request = UNNotificationRequest(
-            identifier: "webhook-\(UUID().uuidString)",
-            content: content,
-            trigger: nil // Deliver immediately
-        )
+        let deliver = {
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
 
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                NSLog("[SystemCommand] Failed to post notification: %@", error.localizedDescription)
+            let request = UNNotificationRequest(
+                identifier: "webhook-\(UUID().uuidString)",
+                content: content,
+                trigger: nil
+            )
+
+            center.add(request) { error in
+                if let error = error {
+                    NSLog("[SystemCommand] Failed to post notification: %@", error.localizedDescription)
+                }
             }
+        }
+
+        if !hasRequestedNotificationPermission {
+            hasRequestedNotificationPermission = true
+            center.requestAuthorization(options: [.alert]) { granted, _ in
+                if granted { deliver() }
+                else { NSLog("[SystemCommand] Notification permission denied") }
+            }
+        } else {
+            deliver()
         }
     }
 

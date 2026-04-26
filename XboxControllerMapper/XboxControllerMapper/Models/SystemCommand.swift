@@ -30,14 +30,17 @@ struct HTTPResponseHandling: Codable, Equatable {
     var onErrorCommand: String?
 
     /// Request timeout in seconds
-    var timeout: TimeInterval = 10
+    var timeout: TimeInterval = Self.defaultTimeout
+
+    /// Default timeout for HTTP requests (seconds)
+    static let defaultTimeout: TimeInterval = 10
 
     /// Default instance with no response handling configured
     static let `default` = HTTPResponseHandling()
 
     /// Whether any response handling is configured beyond defaults
     var hasConfiguration: Bool {
-        showNotification || maxRetries > 0 || onSuccessCommand != nil || onErrorCommand != nil || timeout != 10
+        showNotification || maxRetries > 0 || onSuccessCommand != nil || onErrorCommand != nil || timeout != Self.defaultTimeout
     }
 
     // MARK: - Codable
@@ -53,7 +56,7 @@ struct HTTPResponseHandling: Codable, Equatable {
         retryDelay: Double = 1.0,
         onSuccessCommand: String? = nil,
         onErrorCommand: String? = nil,
-        timeout: TimeInterval = 10
+        timeout: TimeInterval = Self.defaultTimeout
     ) {
         self.showNotification = showNotification
         self.maxRetries = maxRetries
@@ -70,7 +73,7 @@ struct HTTPResponseHandling: Codable, Equatable {
         retryDelay = try container.decodeIfPresent(Double.self, forKey: .retryDelay) ?? 1.0
         onSuccessCommand = try container.decodeIfPresent(String.self, forKey: .onSuccessCommand)
         onErrorCommand = try container.decodeIfPresent(String.self, forKey: .onErrorCommand)
-        timeout = try container.decodeIfPresent(TimeInterval.self, forKey: .timeout) ?? 10
+        timeout = try container.decodeIfPresent(TimeInterval.self, forKey: .timeout) ?? Self.defaultTimeout
     }
 }
 

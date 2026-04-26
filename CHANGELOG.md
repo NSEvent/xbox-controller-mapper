@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.3] - 2026-04-24
+
+### Added
+
+- **Quick-Clear Context Menus**: Right-click any button, chord, sequence, or gesture mapping row to clear all actions in one click. Chord and sequence clear preserves the button combination / steps while removing the mapped action. Also adds "Delete" option for chords and sequences.
+- **HTTP Response Handling**: Webhooks now support response capture with configurable retry (exponential backoff, up to 5 attempts), macOS notifications on completion, configurable timeout, and follow-up shell commands for success/error paths. New "Response Handling" section in the webhook configuration UI.
+
+### Fixed
+
+- **Modifier Key Stuck State**: Added consistency check in InputSimulator to force-remove modifiers stuck in `heldModifiers` when their reference count reaches zero, preventing keys from staying held after rapid overlapping button releases.
+- **Zoom Cache Thread Safety**: Protected `cachedZoomActive` and `cachedZoomCheckTime` with NSLock to prevent data races across threads.
+- **Zoom Accumulator Data Race**: Wrapped accessibility zoom accumulator updates with `stateLock` to prevent corruption from concurrent scroll events.
+- **Zoom Warning Panel Orphaning**: Added 30-second auto-dismiss timer to the zoom keyboard shortcut warning panel to prevent orphaned windows.
+- **Gesture Detector Not Reset on Profile Change**: Motion gesture detector pitch/roll state machines are now reset when switching profiles, preventing a mid-tracking gesture from Profile A completing in Profile B.
+- **Null Profile Silent Input Loss**: Added DEBUG warning logs when button presses or chords are silently dropped due to nil active profile.
+- **Controller Disconnect State Reset**: Trigger, paddle, function button, and PS button state are now properly cleared under lock when a controller disconnects.
+- **Profile Property Desynchronization**: `activeProfileId` is now set before `activeProfile` so downstream `@Published` observers see a consistent state.
+- **Config Save Validation**: `saveConfiguration()` now validates that `activeProfileId` references an existing profile, falling back to the first profile if orphaned.
+- **MappingEngine Teardown**: Added `tearDown()` method to properly clean up Combine subscriptions and timers.
+- **Directory Navigator Hardcoded Deadzone**: Now uses the profile's configured mouse deadzone instead of a hardcoded 0.4 value.
+- **MacroExecutor Deadlock Risk**: Replaced `DispatchSemaphore` blocking pattern with `async/await` to eliminate potential main thread deadlocks when opening apps or URLs.
+
 ## [1.7.2] - 2026-04-21
 
 ### Performance
