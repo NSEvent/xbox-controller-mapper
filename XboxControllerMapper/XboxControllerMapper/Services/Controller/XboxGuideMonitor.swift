@@ -9,6 +9,18 @@ class XboxGuideMonitor {
     private var callbackContext: UnsafeMutableRawPointer?
     private(set) var isStarted = false
 
+    /// Opaque pointers to devices identified as Xbox Elite Series 2 (tracked to avoid
+    /// misinterpreting paddle buttons as the Guide button — see handleInput for details).
+    private var eliteDevicePointers = Set<UnsafeMutableRawPointer>()
+
+    /// Known Xbox Elite Series 2 product IDs (Microsoft VID 0x045E).
+    private static let eliteSeries2PIDs: Set<Int> = [
+        0x0B00,  // Elite 2
+        0x0B02,  // Elite 2 Core
+        0x0B05,  // Elite 2 (USB)
+        0x0B22,  // Elite 2 (Bluetooth)
+    ]
+
     // Callback to main controller service
     // button state: true = pressed, false = released
     var onGuideButtonAction: ((Bool) -> Void)?
@@ -115,9 +127,13 @@ class XboxGuideMonitor {
     // MARK: - Handlers
 
     fileprivate func deviceMatched(_ device: IOHIDDevice) {
+        if Self.isEliteController(device) {
+            eliteDevicePointers.insert(Unmanaged.passUnretained(device).toOpaque())
+        }
     }
 
     fileprivate func deviceRemoved(_ device: IOHIDDevice) {
+        eliteDevicePointers.remove(Unmanaged.passUnretained(device).toOpaque())
     }
 
     fileprivate func handleInput(_ value: IOHIDValue) {
@@ -126,20 +142,49 @@ class XboxGuideMonitor {
         let usage = IOHIDElementGetUsage(element)
         let intValue = IOHIDValueGetIntegerValue(value)
 
-        // Xbox Guide button is typically Button Usage 17 (0x11) on Button Page (0x09)
-        // Some firmwares/drivers might map it differently, e.g. Usage 11 or 12.
-        // We look for the Button usage page.
+        // Consumer Page: AC Home (0x0223) is used by Xbox controllers over Bluetooth
+        // to report the Guide button (including Xbox Elite Series 2).
+        if usagePage == kHIDPage_Consumer && usage == 0x0223 {
+            let isPressed = intValue != 0
+            DispatchQueue.main.async { [weak self] in
+                self?.onGuideButtonAction?(isPressed)
+            }
+            return
+        }
+
         if usagePage == kHIDPage_Button {
             // Usage 17 is standard for Xbox One/Series Guide button over USB on macOS
-            // Usage 11 or 12 is the select and start button
-            // Usage 13 is for the Xbox Series X/S controller over Bluetooth on macOS
-            if usage == 17 || usage == 13 {
+            if usage == 17 {
+                let isPressed = intValue != 0
+                DispatchQueue.main.async { [weak self] in
+                    self?.onGuideButtonAction?(isPressed)
+                }
+                return
+            }
+
+            // Usage 13 is the Guide button for standard Xbox Series X/S controllers
+            // over Bluetooth on macOS. However, on the Xbox Elite Series 2, usage 13
+            // is a paddle button (P2/P3), NOT the Guide button — the Elite 2 reports
+            // Guide via Consumer Page AC Home instead.
+            if usage == 13 {
+                let device = IOHIDElementGetDevice(element)
+                let devicePtr = Unmanaged.passUnretained(device).toOpaque()
+                guard !eliteDevicePointers.contains(devicePtr) else { return }
                 let isPressed = intValue != 0
                 DispatchQueue.main.async { [weak self] in
                     self?.onGuideButtonAction?(isPressed)
                 }
             }
         }
+    }
+
+    private static func isEliteController(_ device: IOHIDDevice) -> Bool {
+        guard let vid = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int,
+              vid == 0x045E,
+              let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int else {
+            return false
+        }
+        return eliteSeries2PIDs.contains(pid)
     }
 
     private func getDeviceName(_ device: IOHIDDevice) -> String {
