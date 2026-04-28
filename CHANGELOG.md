@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.5] - 2026-04-27
+
+### Fixed
+
+- **Bluetooth Reconnection Input Loss**: Fixed a race condition where a controller would reconnect (vibrate confirming connection) but all input—button mappings, mouse cursor, everything—would stop working. Caused by macOS delivering a late `GCControllerDidDisconnect` notification *after* `GCControllerDidConnect` during Bluetooth reconnect, tearing down the just-established connection. The disconnect handler now verifies the controller is actually gone from the system before processing.
+
 ## [1.7.4] - 2026-04-25
 
 ### Added
