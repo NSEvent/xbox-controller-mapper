@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Bluetooth Reconnection Input Loss**: Fixed a race condition where a controller would reconnect (vibrate confirming connection) but all input—button mappings, mouse cursor, everything—would stop working. Caused by macOS delivering a late `GCControllerDidDisconnect` notification *after* `GCControllerDidConnect` during Bluetooth reconnect, tearing down the just-established connection. The disconnect handler now verifies the controller is actually gone from the system before processing.
+- **Xbox Elite Series 2 Guide Button Crosstalk**: The Guide button monitor was misinterpreting paddle presses (P2/P3) as Xbox button events on the Elite 2, because HID Button Page usage 13 maps to paddles on Elite 2 but to Guide on standard controllers. Now detects Elite 2 by VID/PID and reads Guide from Consumer Page AC Home (0x0223) instead.
+- **Button Mapping Sheet Clipping**: The button mapping sheet content was clipped on left/right edges because the system command category picker labels exceeded the sheet width. Widened the sheet and shortened picker labels.
 
 ## [1.7.4] - 2026-04-25
 
