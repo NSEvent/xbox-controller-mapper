@@ -120,6 +120,7 @@ struct ControllerVisualView: View {
                         controllerService: controllerService,
                         isPlayStation: isPlayStation,
                         isNintendo: isNintendo,
+                        isXboxElite: isXboxElite,
                         onButtonTap: onButtonTap
                     )
                 }
@@ -134,11 +135,12 @@ struct ControllerVisualView: View {
                     .frame(width: 220)
                     VStack(alignment: .leading) {
                         referenceRow(for: .menu)
-                        // Show mic mute for DualSense, share for Xbox only
+                        // Show mic mute for DualSense, share for Xbox (but not Elite 2 where
+                        // the Share button is the hardware profile cycle button, not mappable)
                         // DualShock 4's physical Share button maps to .view (buttonOptions), not .share
                         if isDualSense {
                             referenceRow(for: .micMute)
-                        } else if !isDualShock {
+                        } else if !isDualShock && !isXboxElite {
                             referenceRow(for: .share)
                         }
                     }
@@ -422,6 +424,7 @@ struct ControllerAnalogOverlay: View {
     let controllerService: ControllerService
     let isPlayStation: Bool
     let isNintendo: Bool
+    let isXboxElite: Bool
     var onButtonTap: (ControllerButton) -> Void
 
     // Snapshotted analog display values (updated via .onReceive at 15Hz)
@@ -489,7 +492,9 @@ struct ControllerAnalogOverlay: View {
                         miniCircle(.view, size: 14)
                         miniCircle(.menu, size: 14)
                     }
-                    miniCircle(.share, size: 10)
+                    if !isXboxElite {
+                        miniCircle(.share, size: 10)
+                    }
                 }
 
                 miniFaceButtons()

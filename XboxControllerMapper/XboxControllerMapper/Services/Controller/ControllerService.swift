@@ -1227,6 +1227,7 @@ class ControllerService: ObservableObject {
                 storage.isXboxElite = true
                 storage.lock.unlock()
                 UserDefaults.standard.set(true, forKey: Config.lastControllerWasXboxEliteKey)
+                controllerName = "Xbox Elite Series 2 Controller"
 
                 if hasPaddles {
                     bindButton(xboxGamepad.paddleButton1, to: .xboxPaddle1)
