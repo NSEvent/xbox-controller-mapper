@@ -117,6 +117,12 @@ struct ContentView: View {
                         .tabItem { Text("Scripts") }
                         .tag(10)
 
+                    // Command Wheel Settings
+                    CommandWheelSettingsView()
+                        .scrollContentBackground(.hidden)
+                        .tabItem { Text("Wheel") }
+                        .tag(12)
+
                     // On-Screen Keyboard Settings
                     OnScreenKeyboardSettingsView()
                         .scrollContentBackground(.hidden)
@@ -288,7 +294,7 @@ struct ContentView: View {
         if controllerService.threadSafeIsDualSense {
             tags.append(11)
         }
-        tags.append(contentsOf: [7, 10, 3, 2])
+        tags.append(contentsOf: [7, 10, 12, 3, 2])
         if controllerService.threadSafeIsPlayStation {
             tags.append(4)
         }

@@ -209,6 +209,108 @@ extension MappingEngine {
         }
     }
 
+    // MARK: - Standalone Command Wheel
+
+    /// Handles standalone command wheel button press (independent of on-screen keyboard).
+    /// Only hold mode is supported — the wheel requires stick input to select.
+    nonisolated func handleCommandWheelPressed(_ button: ControllerButton, holdMode: Bool) {
+        guard holdMode else { return }
+
+        let shouldActivate = state.lock.withLock { () -> Bool in
+            // Don't activate if another wheel is already active
+            guard !state.commandWheelActive else { return false }
+            state.commandWheelButton = button
+            state.commandWheelHoldMode = true
+            state.commandWheelActive = true
+            return true
+        }
+
+        guard shouldActivate else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let actions = self.profileManager.activeProfile?.commandWheelActions ?? []
+            guard !actions.isEmpty else {
+                // No actions configured — play error haptic and bail
+                self.controllerService.playHaptic(
+                    intensity: 0.3,
+                    sharpness: 1.0,
+                    transient: true
+                )
+                self.state.lock.withLock {
+                    self.state.commandWheelButton = nil
+                    self.state.commandWheelHoldMode = false
+                    self.state.commandWheelActive = false
+                }
+                return
+            }
+
+            self.controllerService.playHaptic(
+                intensity: Config.keyboardShowHapticIntensity,
+                sharpness: Config.keyboardShowHapticSharpness,
+                duration: Config.keyboardShowHapticDuration,
+                transient: true
+            )
+            CommandWheelManager.shared.prepare(
+                actions: actions,
+                executor: self.mappingExecutor,
+                profile: self.profileManager.activeProfile
+            )
+            CommandWheelManager.shared.onSegmentChanged = { [weak self] in
+                self?.controllerService.playHaptic(
+                    intensity: Config.wheelSegmentHapticIntensity,
+                    sharpness: Config.wheelSegmentHapticSharpness,
+                    transient: true
+                )
+            }
+            CommandWheelManager.shared.onPerimeterCrossed = { [weak self] in
+                self?.controllerService.playHaptic(
+                    intensity: Config.wheelPerimeterHapticIntensity,
+                    sharpness: Config.wheelPerimeterHapticSharpness,
+                    transient: true
+                )
+            }
+            CommandWheelManager.shared.onForceQuitReady = nil
+            CommandWheelManager.shared.onSelectionActivated = { [weak self] _ in
+                self?.controllerService.playHaptic(
+                    intensity: Config.wheelActivateHapticIntensity,
+                    sharpness: Config.wheelActivateHapticSharpness,
+                    duration: Config.wheelActivateHapticDuration,
+                    transient: true
+                )
+            }
+            CommandWheelManager.shared.onItemSetChanged = nil
+        }
+        inputLogService?.log(buttons: [button], type: .singlePress, action: "Command Wheel")
+    }
+
+    /// Handles standalone command wheel button release
+    nonisolated func handleCommandWheelReleased(_ button: ControllerButton) {
+        let (wasWheelButton, wasHoldMode) = state.lock.withLock {
+            let wasWheelButton = state.commandWheelButton == button
+            let wasHoldMode = state.commandWheelHoldMode
+            if wasWheelButton {
+                state.commandWheelButton = nil
+                state.commandWheelActive = false
+            }
+            return (wasWheelButton, wasHoldMode)
+        }
+
+        if wasWheelButton && wasHoldMode {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                CommandWheelManager.shared.activateSelection()
+                CommandWheelManager.shared.hide()
+                self.controllerService.playHaptic(
+                    intensity: Config.keyboardHideHapticIntensity,
+                    sharpness: Config.keyboardHideHapticSharpness,
+                    duration: Config.keyboardHideHapticDuration,
+                    transient: true
+                )
+            }
+        }
+    }
+
     // MARK: - D-Pad Navigation Repeat
 
     nonisolated func startDpadNavigationRepeat(_ button: ControllerButton) {

@@ -318,6 +318,7 @@ struct KeyboardVisualView: View {
                 KeyButton(keyCode: KeyCodeMapping.showLaserPointer, label: "Laser", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.controllerLock, label: "🔒 Lock", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 KeyButton(keyCode: KeyCodeMapping.showDirectoryNavigator, label: "📁 Nav", width: 55, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
+                KeyButton(keyCode: KeyCodeMapping.showCommandWheel, label: "◎ Wheel", width: 60, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
                 Spacer()
             }
         }

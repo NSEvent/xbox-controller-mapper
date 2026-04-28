@@ -542,6 +542,10 @@ class MappingEngine: ObservableObject {
                 handleDirectoryNavigatorPressed(button, holdMode: holdMode)
                 return
 
+            case .interceptCommandWheel(let holdMode):
+                handleCommandWheelPressed(button, holdMode: holdMode)
+                return
+
             case .interceptDirectoryNavigation:
                 Task { @MainActor in
                     DirectoryNavigatorManager.shared.handleDPadNavigation(button)
@@ -880,6 +884,7 @@ class MappingEngine: ObservableObject {
         handleOnScreenKeyboardReleased(button)
         handleLaserPointerReleased(button)
         handleDirectoryNavigatorReleased(button)
+        handleCommandWheelReleased(button)
 
         let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
         let directoryNavigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible

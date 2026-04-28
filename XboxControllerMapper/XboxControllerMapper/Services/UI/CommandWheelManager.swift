@@ -12,6 +12,12 @@ struct CommandWheelItem: Identifiable {
     enum Kind {
         case app(bundleIdentifier: String)
         case website(url: String, faviconData: Data?)
+        case action(CommandWheelAction)
+
+        var isAction: Bool {
+            if case .action = self { return true }
+            return false
+        }
     }
 }
 
@@ -27,6 +33,8 @@ class CommandWheelManager: ObservableObject {
 
     private var panel: NSPanel?
     private var usageStatsService: UsageStatsService?
+    private var actionExecutor: MappingExecutor?
+    private var actionProfile: Profile?
     private(set) var items: [CommandWheelItem] = []
     private var primaryItems: [CommandWheelItem] = []
     private var alternateItems: [CommandWheelItem] = []
@@ -120,6 +128,35 @@ class CommandWheelManager: ObservableObject {
         isShowingAlternate = false
         alternateReleaseTime = nil
         items = primaryItems.isEmpty ? alternateItems : primaryItems
+        selectedIndex = nil
+        previousSegmentIndex = nil
+        previousIsFullRange = false
+        isSelectionActive = false
+        lastValidSelection = nil
+        lastValidSelectionTime = 0
+        lastValidFullRange = false
+        lastSegmentHapticTime = 0
+        lastPerimeterHapticTime = 0
+        resetForceQuit()
+    }
+
+    /// Prepares the command wheel with action-based items for standalone mode
+    func prepare(actions: [CommandWheelAction], executor: MappingExecutor, profile: Profile?) {
+        self.actionExecutor = executor
+        self.actionProfile = profile
+        let actionItems = actions.map { action in
+            CommandWheelItem(
+                id: action.id,
+                displayName: action.displayName,
+                kind: .action(action),
+                icon: action.resolvedIcon()
+            )
+        }
+        primaryItems = actionItems
+        alternateItems = []
+        isShowingAlternate = false
+        alternateReleaseTime = nil
+        items = primaryItems
         selectedIndex = nil
         previousSegmentIndex = nil
         previousIsFullRange = false
@@ -321,6 +358,15 @@ class CommandWheelManager: ObservableObject {
         onSelectionActivated?(effectiveFullRange)
         let item = items[index]
 
+        // Action items execute the same way regardless of stick range
+        if case .action(let wheelAction) = item.kind {
+            if let executor = actionExecutor {
+                let feedback = executor.executeAction(wheelAction, profile: actionProfile)
+                ActionFeedbackIndicator.shared.show(action: feedback, type: .singlePress)
+            }
+            return
+        }
+
         // Check for long-hold actions (progress must be complete)
         if forceQuitProgress >= 1.0 {
             switch item.kind {
@@ -328,6 +374,8 @@ class CommandWheelManager: ObservableObject {
                 forceQuitApp(bundleIdentifier: bundleIdentifier)
             case .website(let url, _):
                 openWebsiteIncognito(url: url)
+            case .action:
+                break // handled above
             }
             return
         }
@@ -339,6 +387,8 @@ class CommandWheelManager: ObservableObject {
                 openNewWindow(bundleIdentifier: bundleIdentifier)
             case .website(let url, _):
                 openWebsite(url: url)
+            case .action:
+                break // handled above
             }
         } else {
             switch item.kind {
@@ -346,6 +396,8 @@ class CommandWheelManager: ObservableObject {
                 activateApp(bundleIdentifier: bundleIdentifier)
             case .website(let url, _):
                 openWebsite(url: url)
+            case .action:
+                break // handled above
             }
         }
     }

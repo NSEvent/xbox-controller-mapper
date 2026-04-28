@@ -149,6 +149,9 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Mapping layers (max 12) - activated by holding a button
     var layers: [Layer]
 
+    /// Command wheel actions (standalone wheel, independent of on-screen keyboard)
+    var commandWheelActions: [CommandWheelAction]
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -164,7 +167,8 @@ struct Profile: Codable, Identifiable, Equatable {
         scripts: [Script] = [],
         onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings(),
         gestureMappings: [GestureMapping] = [],
-        layers: [Layer] = []
+        layers: [Layer] = [],
+        commandWheelActions: [CommandWheelAction] = []
     ) {
         self.id = id
         self.name = name
@@ -183,6 +187,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.onScreenKeyboardSettings = onScreenKeyboardSettings
         self.gestureMappings = gestureMappings
         self.layers = layers
+        self.commandWheelActions = commandWheelActions
     }
 
     /// Validates the profile for sanity
@@ -375,7 +380,7 @@ extension Profile {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, sequenceMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, macros, scripts
-        case onScreenKeyboardSettings, gestureMappings, layers
+        case onScreenKeyboardSettings, gestureMappings, layers, commandWheelActions
     }
 
     init(from decoder: Decoder) throws {
@@ -408,6 +413,7 @@ extension Profile {
         onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings) ?? OnScreenKeyboardSettings()
         gestureMappings = try container.decodeIfPresent([GestureMapping].self, forKey: .gestureMappings) ?? []
         layers = try container.decodeIfPresent([Layer].self, forKey: .layers) ?? []
+        commandWheelActions = try container.decodeIfPresent([CommandWheelAction].self, forKey: .commandWheelActions) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -434,6 +440,7 @@ extension Profile {
         try container.encode(onScreenKeyboardSettings, forKey: .onScreenKeyboardSettings)
         try container.encode(gestureMappings, forKey: .gestureMappings)
         try container.encode(layers, forKey: .layers)
+        try container.encode(commandWheelActions, forKey: .commandWheelActions)
     }
 }
 
@@ -455,6 +462,7 @@ extension Profile {
         lhs.scripts == rhs.scripts &&
         lhs.onScreenKeyboardSettings == rhs.onScreenKeyboardSettings &&
         lhs.gestureMappings == rhs.gestureMappings &&
-        lhs.layers == rhs.layers
+        lhs.layers == rhs.layers &&
+        lhs.commandWheelActions == rhs.commandWheelActions
     }
 }

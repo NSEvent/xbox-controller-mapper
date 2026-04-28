@@ -66,10 +66,10 @@ struct WheelSegmentView: View {
         // Force Quit / Secondary Action Progress
         let progress = isSelected ? manager.forceQuitProgress : 0
         let progressColor: Color = {
-            if case .app = item.kind {
-                return .red // Red for Force Quit
-            } else {
-                return .green // Green for Incognito
+            switch item.kind {
+            case .app: return .red // Red for Force Quit
+            case .website: return .green // Green for Incognito
+            case .action: return .accentColor // Action items don't have secondary actions
             }
         }()
 
@@ -133,6 +133,9 @@ struct ItemIconView: View {
                 case .website:
                     Image(systemName: "globe")
                         .resizable()
+                case .action:
+                    Image(systemName: "questionmark.circle")
+                        .resizable()
                 }
             }
         }
@@ -169,8 +172,8 @@ struct CenterHubView: View {
                         .lineLimit(2)
                         .padding(.horizontal, 10)
 
-                    // Secondary Status / Instruction
-                    if manager.isFullRange {
+                    // Secondary Status / Instruction (not applicable for action items)
+                    if manager.isFullRange, !item.kind.isAction {
                         Group {
                             if manager.forceQuitProgress >= 1.0 {
                                 Text(forceQuitText(for: item.kind))
@@ -198,6 +201,7 @@ struct CenterHubView: View {
         switch kind {
         case .app: return "New Window"
         case .website: return "New Window"
+        case .action: return "" // unreachable — caller guards with !isAction
         }
     }
 
@@ -205,6 +209,7 @@ struct CenterHubView: View {
         switch kind {
         case .app: return "FORCE QUIT"
         case .website: return "INCOGNITO"
+        case .action: return "" // unreachable — caller guards with !isAction
         }
     }
 }
