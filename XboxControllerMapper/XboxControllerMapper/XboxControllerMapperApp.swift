@@ -15,6 +15,7 @@ final class ServiceContainer {
     let inputLogService: InputLogService
     let usageStatsService: UsageStatsService
     let batteryNotificationManager: BatteryNotificationManager
+    let updateCheckService: UpdateCheckService
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -43,6 +44,10 @@ final class ServiceContainer {
         let batteryNotificationManager = BatteryNotificationManager()
         self.batteryNotificationManager = batteryNotificationManager
         batteryNotificationManager.startMonitoring(controllerService: controllerService)
+
+        let updateCheckService = UpdateCheckService()
+        self.updateCheckService = updateCheckService
+        updateCheckService.checkForUpdates()
 
         // Wire up on-screen keyboard quick texts from profile manager
         setupOnScreenKeyboardObserver(profileManager: profileManager)

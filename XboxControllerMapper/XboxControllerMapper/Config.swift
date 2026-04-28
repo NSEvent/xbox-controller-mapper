@@ -376,6 +376,22 @@ struct Config {
     static let gestureHapticSharpness: Float = 0.8
     static let gestureHapticDuration: TimeInterval = 0.1
 
+    // MARK: - Update Checking
+    /// GitHub repo for checking releases
+    static let updateCheckGitHubRepo: String = "NSEvent/xbox-controller-mapper"
+    /// Gumroad purchase URL
+    static let updateCheckGumroadURL: String = "https://thekevintang.gumroad.com/l/xbox-controller-mapper"
+    /// Minimum interval between update checks (24 hours)
+    static let updateCheckInterval: TimeInterval = 86400
+    /// Suppress notifications for "remind later" duration (3 days)
+    static let updateCheckRemindLaterInterval: TimeInterval = 259200
+    /// UserDefaults key for last update check timestamp
+    static let updateCheckLastCheckedKey: String = "updateCheck.lastChecked"
+    /// UserDefaults key for version the user chose to skip
+    static let updateCheckSkippedVersionKey: String = "updateCheck.skippedVersion"
+    /// UserDefaults key for "remind me later" timestamp
+    static let updateCheckRemindLaterDateKey: String = "updateCheck.remindLaterDate"
+
     // MARK: - Battery Monitoring
     /// Interval between battery info updates (seconds)
     static let batteryUpdateInterval: TimeInterval = 10.0

@@ -80,9 +80,26 @@ echo "Created tag: $TAG"
 echo "Pushing tag to origin..."
 git push origin "$TAG"
 
+# Extract release notes from CHANGELOG.md for this version
+echo ""
+echo "=== Creating GitHub Release ==="
+RELEASE_NOTES=$(awk "/^## \\[${MARKETING_VERSION}\\]/{found=1; next} /^## \\[/{if(found) exit} found" CHANGELOG.md)
+
+if [[ -z "$RELEASE_NOTES" ]]; then
+    RELEASE_NOTES="Release ${MARKETING_VERSION}"
+    echo "Warning: No changelog entry found for ${MARKETING_VERSION}, using default notes"
+fi
+
+gh release create "$TAG" \
+    --title "ControllerKeys ${MARKETING_VERSION}" \
+    --notes "$RELEASE_NOTES"
+
+echo "GitHub release created: $TAG"
+
 echo ""
 echo "=== Release Complete ==="
 echo "Tag created: $TAG"
+echo "GitHub release: https://github.com/${GITHUB_REPO:-NSEvent/xbox-controller-mapper}/releases/tag/$TAG"
 echo ""
 echo "Next step: Upload $APP_DMG to Gumroad"
 echo ""
