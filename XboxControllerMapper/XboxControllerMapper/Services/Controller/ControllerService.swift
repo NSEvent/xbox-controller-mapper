@@ -161,6 +161,11 @@ class ControllerService: ObservableObject {
     let controllerQueue = DispatchQueue(label: "com.xboxmapper.controller", qos: .userInteractive)
     let storage = ControllerStorage()
 
+    /// Monotonically increasing generation counter for the current connection.
+    /// Incremented each time `controllerConnected(_:)` runs. Used in diagnostic
+    /// logs to correlate connect/disconnect events during Bluetooth reconnection.
+    private var connectionGeneration: UInt64 = 0
+
     // HID monitoring for DualSense mic button (not exposed by GameController framework)
     var hidManager: IOHIDManager?
     var hidReportBuffer: UnsafeMutablePointer<UInt8>?
@@ -576,9 +581,20 @@ class ControllerService: ObservableObject {
         NotificationCenter.default.publisher(for: .GCControllerDidDisconnect)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] notification in
+                guard let self = self else { return }
                 if let controller = notification.object as? GCController,
-                   controller == self?.connectedController {
-                    self?.controllerDisconnected()
+                   controller == self.connectedController {
+                    // Guard against late/out-of-order disconnect notifications.
+                    // During Bluetooth reconnect macOS may reuse the same GCController
+                    // object and deliver didDisconnect AFTER didConnect. Check the
+                    // system controller list to verify the controller is actually gone.
+                    if GCController.controllers().contains(controller) {
+                        NSLog("[ControllerKeys] Ignoring stale disconnect (gen=%llu) — controller still in system list",
+                              self.connectionGeneration)
+                        return
+                    }
+                    NSLog("[ControllerKeys] controllerDisconnected — generation=%llu", self.connectionGeneration)
+                    self.controllerDisconnected()
                 }
             }
             .store(in: &cancellables)
@@ -599,6 +615,10 @@ class ControllerService: ObservableObject {
     }
 
     private func controllerConnected(_ controller: GCController) {
+        connectionGeneration += 1
+        NSLog("[ControllerKeys] controllerConnected — generation=%llu vendor=%@",
+              connectionGeneration, controller.vendorName ?? "(nil)")
+
         // Cancel generic HID fallback if GameController framework claimed this device
         genericHIDFallbackTimer?.cancel()
         genericHIDFallbackTimer = nil
