@@ -17,13 +17,20 @@ struct CommandWheelSettingsView: View {
         Form {
             // Info Section
             Section {
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.secondary)
-                    Text("Map any button to **Command Wheel** (with Hold enabled) to activate. Hold the button and use the right stick to select an action.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                HStack(spacing: 12) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Map any button to **Command Wheel** (with Hold enabled) to activate.")
+                            .fontWeight(.medium)
+                        Text("Hold the button and use the right stick to select an action.")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .padding(.vertical, 4)
             }
 
             // Wheel Preview
@@ -77,6 +84,7 @@ struct CommandWheelSettingsView: View {
                         )
                         .onTapGesture {
                             selectedItemId = action.id
+                            editingAction = action
                         }
                     }
                 }
