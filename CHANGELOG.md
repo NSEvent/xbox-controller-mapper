@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.5] - 2026-04-27
 
+### Added
+
+- **Update Notifications**: The app now checks GitHub Releases on launch (once per day) and shows an in-app alert when a newer version is available, with a link to download from Gumroad. Users can skip a specific version or snooze the reminder for 3 days.
+
 ### Fixed
 
 - **Bluetooth Reconnection Input Loss**: Fixed a race condition where a controller would reconnect (vibrate confirming connection) but all input—button mappings, mouse cursor, everything—would stop working. Caused by macOS delivering a late `GCControllerDidDisconnect` notification *after* `GCControllerDidConnect` during Bluetooth reconnect, tearing down the just-established connection. The disconnect handler now verifies the controller is actually gone from the system before processing.

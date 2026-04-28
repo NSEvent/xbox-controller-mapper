@@ -90,9 +90,14 @@ if [[ -z "$RELEASE_NOTES" ]]; then
     echo "Warning: No changelog entry found for ${MARKETING_VERSION}, using default notes"
 fi
 
+GUMROAD_LINK="---
+
+**[Download on Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper)**"
+
 gh release create "$TAG" \
     --title "ControllerKeys ${MARKETING_VERSION}" \
-    --notes "$RELEASE_NOTES"
+    --notes "${RELEASE_NOTES}
+${GUMROAD_LINK}"
 
 echo "GitHub release created: $TAG"
 
