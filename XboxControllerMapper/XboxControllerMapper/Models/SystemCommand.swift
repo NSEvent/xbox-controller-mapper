@@ -86,6 +86,17 @@ enum SystemCommandCategory: String, CaseIterable, Identifiable {
     case obs = "OBS WebSocket"
 
     var id: String { rawValue }
+
+    /// Short label for use in segmented pickers where space is limited
+    var shortLabel: String {
+        switch self {
+        case .shell: return "Shell"
+        case .app: return "App"
+        case .link: return "Link"
+        case .webhook: return "Webhook"
+        case .obs: return "OBS"
+        }
+    }
 }
 
 /// Represents a system-level command that can be triggered by a button or chord mapping

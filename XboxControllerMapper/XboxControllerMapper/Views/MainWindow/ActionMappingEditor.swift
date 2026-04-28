@@ -203,14 +203,14 @@ struct ActionMappingEditor: View {
             if showFullSystemCategories {
                 Picker("", selection: $state.systemCommandCategory) {
                     ForEach(SystemCommandCategory.allCases, id: \.self) { category in
-                        Text(category.rawValue).tag(category)
+                        Text(category.shortLabel).tag(category)
                     }
                 }
                 .pickerStyle(.segmented)
             } else {
                 Picker("", selection: $state.systemCommandCategory) {
                     ForEach(SystemCommandCategory.allCases.filter { ![.webhook, .obs].contains($0) }, id: \.self) { category in
-                        Text(category.rawValue).tag(category)
+                        Text(category.shortLabel).tag(category)
                     }
                 }
                 .pickerStyle(.segmented)

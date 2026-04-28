@@ -170,7 +170,7 @@ struct ButtonMappingSheet: View {
             footer
         }
         .onSubmit { saveMapping() }
-        .frame(width: showingAnyKeyboard ? 850 : (primaryState.mappingType == .systemCommand ? 580 : 520), height: showingAnyKeyboard ? 700 : 550)
+        .frame(width: showingAnyKeyboard ? 850 : (primaryState.mappingType == .systemCommand ? 640 : 600), height: showingAnyKeyboard ? 700 : 550)
         .animation(.easeInOut(duration: 0.2), value: primaryState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: longHoldState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: doubleTapState.showingKeyboard)
