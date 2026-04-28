@@ -185,6 +185,9 @@ class ControllerService: ObservableObject {
     /// Retained context pointer for PlayStation HID report callback — released in cleanupHIDMonitoring().
     var psHIDCallbackContext: UnsafeMutableRawPointer?
 
+    /// Xbox Elite Series 2 helper process (separate binary without GameController.framework)
+    var eliteHelperProcess: Process?
+
     enum TouchpadIdleSentinelConfig {
         static let activationThreshold: CGFloat = 0.02
     }
@@ -560,12 +563,27 @@ class ControllerService: ObservableObject {
                 self?.handleButton(.xbox, pressed: isPressed)
             }
         }
+
+        guideMonitor.onPaddleAction = { [weak self] paddleIndex, isPressed in
+            let button: ControllerButton
+            switch paddleIndex {
+            case 1: button = .xboxPaddle1
+            case 2: button = .xboxPaddle2
+            case 3: button = .xboxPaddle3
+            case 4: button = .xboxPaddle4
+            default: return
+            }
+            self?.controllerQueue.async { [weak self] in
+                self?.handleButton(button, pressed: isPressed)
+            }
+        }
     }
 
     func cleanup() {
         stopDiscovery()
         batteryMonitor.stopMonitoring()
         cleanupGenericHIDMonitoring()
+        stopEliteHelper()
     }
 
     private func setupNotifications() {
@@ -639,8 +657,15 @@ class ControllerService: ObservableObject {
         setupHaptics(for: controller)
 
         // Publish connection only after controller-specific handlers have populated
-        // storage flags like isDualSense. MappingEngine reacts to this publisher.
+        // storage flags like isDualSense/isXboxElite. MappingEngine reacts to this publisher.
         isConnected = true
+
+        // Force SwiftUI to re-read computed properties (threadSafeIsXboxElite, etc.)
+        // that depend on storage flags set during setupInputHandlers.
+        // Deferred to next run loop to ensure SwiftUI processes this as a separate update cycle.
+        DispatchQueue.main.async { [weak self] in
+            self?.objectWillChange.send()
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.playHaptic(intensity: 0.7, sharpness: 0.6, duration: 0.12)
@@ -668,6 +693,7 @@ class ControllerService: ObservableObject {
         stopChargingAnim()
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
+        stopEliteHelper()  // Clean up Elite helper process
 
         storage.lock.lock()
         storage.activeButtons.removeAll()
@@ -1190,18 +1216,29 @@ class ControllerService: ObservableObject {
 
             bindButton(xboxGamepad.buttonShare, to: .share)
 
-            // Xbox Elite Series 2 back paddles (nil on standard Xbox controllers)
-            // Note: paddles only report when no hardware profile is selected (all 3 front LEDs unlit)
-            if xboxGamepad.paddleButton1 != nil {
+            // Xbox Elite Series 2 detection:
+            // 1. Paddle detection (paddles only report when no hardware profile is selected)
+            // 2. PID-based detection via HID device enumeration (always works regardless of profile)
+            let hasPaddles = xboxGamepad.paddleButton1 != nil
+            let isEliteByPID = guideMonitor.isEliteControllerConnected || Self.isEliteByHIDEnumeration()
+
+            if hasPaddles || isEliteByPID {
                 storage.lock.lock()
                 storage.isXboxElite = true
                 storage.lock.unlock()
                 UserDefaults.standard.set(true, forKey: Config.lastControllerWasXboxEliteKey)
 
-                bindButton(xboxGamepad.paddleButton1, to: .xboxPaddle1)
-                bindButton(xboxGamepad.paddleButton2, to: .xboxPaddle2)
-                bindButton(xboxGamepad.paddleButton3, to: .xboxPaddle3)
-                bindButton(xboxGamepad.paddleButton4, to: .xboxPaddle4)
+                if hasPaddles {
+                    bindButton(xboxGamepad.paddleButton1, to: .xboxPaddle1)
+                    bindButton(xboxGamepad.paddleButton2, to: .xboxPaddle2)
+                    bindButton(xboxGamepad.paddleButton3, to: .xboxPaddle3)
+                    bindButton(xboxGamepad.paddleButton4, to: .xboxPaddle4)
+                }
+
+                // Launch helper process for Guide button + paddle detection via raw HID.
+                // gamecontrollerd blocks IOKit HID access to Elite 2 over BLE when
+                // GameController.framework is loaded, so we use a separate process.
+                startEliteHelper()
             } else {
                 storage.lock.lock()
                 storage.isXboxElite = false
@@ -1278,6 +1315,7 @@ class ControllerService: ObservableObject {
             setupPlayStationHIDMonitoring()
             startKeepAliveTimer()
         }
+
     }
 
     // MARK: - Nintendo Controller Detection
@@ -1287,6 +1325,27 @@ class ControllerService: ObservableObject {
     ///
     /// Known productCategory values from GameController framework:
     ///   "Nintendo Switch Joy-Con (L)", "Nintendo Switch Joy-Con (R)",
+    /// One-shot HID enumeration to check if an Xbox Elite Series 2 is connected by PID.
+    /// Used as a fallback when the XboxGuideMonitor hasn't processed the device match yet.
+    private static func isEliteByHIDEnumeration() -> Bool {
+        guard let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone)) as IOHIDManager? else {
+            return false
+        }
+        let matching = [kIOHIDVendorIDKey: 0x045E] as CFDictionary
+        IOHIDManagerSetDeviceMatching(manager, matching)
+        IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+        defer { IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone)) }
+
+        guard let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> else { return false }
+        for device in devices {
+            if let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int,
+               XboxGuideMonitor.eliteSeries2PIDs.contains(pid) {
+                return true
+            }
+        }
+        return false
+    }
+
     ///   "Nintendo Switch Joy-Con (L/R)", "Switch Pro Controller"
     /// vendorName is the Bluetooth device name: "Joy-Con (L)", "Joy-Con (R)", "Pro Controller"
     private func detectNintendoController(_ controller: GCController) {

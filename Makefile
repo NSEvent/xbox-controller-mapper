@@ -46,6 +46,9 @@ HAS_DEV_CERT := $(shell security find-identity -v -p codesigning 2>/dev/null | g
 
 INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 
+HELPER_SRC := Helpers/XboxEliteHelper.swift
+HELPER_NAME := XboxEliteHelper
+
 .PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full refactor-gate
 
 help:
@@ -101,12 +104,20 @@ else
 		build
 endif
 
-install: build
+install: build elite-helper
 	-pkill -x "$(PROCESS_NAME)" || true
 	@sleep 1
 	/usr/bin/ditto "$(APP_PATH)" "/Applications/$(WRAPPER_NAME)"
+	@# Bundle the Elite helper inside the app
+	@mkdir -p "/Applications/$(WRAPPER_NAME)/Contents/Helpers"
+	@cp "$(TARGET_BUILD_DIR)/$(HELPER_NAME)" "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"
 	@echo "Installed to /Applications/$(WRAPPER_NAME)"
 	open "/Applications/$(WRAPPER_NAME)"
+
+elite-helper: check-permissions
+	@echo "Building Xbox Elite helper..."
+	@swiftc -O -o "$(TARGET_BUILD_DIR)/$(HELPER_NAME)" $(HELPER_SRC)
+	@echo "Elite helper built"
 
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean
