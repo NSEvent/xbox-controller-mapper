@@ -28,11 +28,6 @@ class XboxGuideMonitor {
     private var callbackContext: UnsafeMutableRawPointer?
     private(set) var isStarted = false
 
-    // Raw report state
-    private var reportBuffers: [UnsafeMutablePointer<UInt8>] = []
-    private static let reportBufferSize = 64
-    private var guideButtonPressed = false
-
     // Paddle state tracking (Consumer Page 0x81 bitmask)
     private var paddleState: [Int: Bool] = [1: false, 2: false, 3: false, 4: false]
     // Consumer 0x81 bitmask mapping: bit -> paddle index
@@ -134,16 +129,6 @@ class XboxGuideMonitor {
         IOHIDManagerScheduleWithRunLoop(hidManager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         _ = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
         isStarted = true
-
-        // Also immediately enumerate already-connected devices and register report callbacks
-        if let devices = IOHIDManagerCopyDevices(hidManager) as? Set<IOHIDDevice> {
-            guideLog("Immediate enumeration: found \(devices.count) device(s)")
-            for device in devices {
-                registerReportCallback(on: device)
-            }
-        }
-
-        guideLog("XboxGuideMonitor started")
     }
 
     func stop() {
@@ -165,11 +150,6 @@ class XboxGuideMonitor {
             self.callbackContext = nil
         }
 
-        for buf in reportBuffers {
-            buf.deallocate()
-        }
-        reportBuffers.removeAll()
-
         isStarted = false
     }
 
@@ -186,8 +166,6 @@ class XboxGuideMonitor {
         if vid == 0x045E {
             connectedMicrosoftPIDs.insert(pid)
         }
-
-        registerReportCallback(on: device)
     }
 
     fileprivate func deviceRemoved(_ device: IOHIDDevice) {
@@ -200,49 +178,7 @@ class XboxGuideMonitor {
         }
     }
 
-    /// Register a raw report callback on a device for Xbox Guide button detection.
-    private func registerReportCallback(on device: IOHIDDevice) {
-        guard let ctx = callbackContext else { return }
-
-        let vid = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int ?? 0
-        // Only register on Microsoft devices
-        guard vid == 0x045E else { return }
-
-        let name = getDeviceName(device)
-        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.reportBufferSize)
-        reportBuffers.append(buffer)
-
-        guideLog("Registering raw report callback on \"\(name)\"")
-
-        IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.reportBufferSize, { context, result, sender, type, reportID, report, reportLength in
-            guard let context = context else { return }
-            let holder = Unmanaged<CallbackContext>.fromOpaque(context).takeUnretainedValue()
-            holder.monitor?.handleRawReport(reportID: reportID, report: report, length: Int(reportLength))
-        }, ctx)
-
-        IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
-    }
-
-    // MARK: - Raw Report Handler
-
-    fileprivate func handleRawReport(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) {
-        // Xbox BT Report ID 1: byte 11, bit 4 = button 13 (Guide)
-        // Xbox USB Report ID 0 or varies: button 17 may be at different offset
-        guard reportID == 1, length >= 12 else { return }
-
-        let byte11 = report[11]
-        let pressed = (byte11 & 0x10) != 0
-
-        guard pressed != guideButtonPressed else { return }
-        guideButtonPressed = pressed
-
-        guideLog("Raw report: Guide \(pressed ? "PRESSED" : "RELEASED") (byte11=0x\(String(byte11, radix: 16)))")
-        DispatchQueue.main.async { [weak self] in
-            self?.onGuideButtonAction?(pressed)
-        }
-    }
-
-    // MARK: - Input Value Handler (fallback path)
+    // MARK: - Input Value Handler
 
     fileprivate func handleInput(_ value: IOHIDValue) {
         let element = IOHIDValueGetElement(value)
