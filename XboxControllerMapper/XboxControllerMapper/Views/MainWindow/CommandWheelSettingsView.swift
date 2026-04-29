@@ -47,7 +47,7 @@ struct CommandWheelSettingsView: View {
                             profileManager.moveCommandWheelActions(from: source, to: destination)
                         }
                     )
-                    .frame(width: 350, height: 350)
+                    .frame(minHeight: 300, maxHeight: 500)
                     Spacer()
                 }
                 .listRowBackground(Color.clear)

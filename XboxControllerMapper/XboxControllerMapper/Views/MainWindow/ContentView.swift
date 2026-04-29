@@ -62,109 +62,70 @@ struct ContentView: View {
                 ContentToolbar(showingSettingsSheet: $showingSettingsSheet)
                     .zIndex(1) // Keep above content
 
-                // Tab content
-                TabView(selection: $selectedTab) {
-                    // Controller Visual
-                    ButtonMappingsTab(
-                        selectedButton: $selectedButton,
-                        configuringButton: $configuringButton,
-                        selectedLayerId: $selectedLayerId,
-                        isSwapMode: $isSwapMode,
-                        swapFirstButton: $swapFirstButton,
-                        showingAddLayerSheet: $showingAddLayerSheet,
-                        editingLayerId: $editingLayerId,
-                        editingChord: $editingChord,
-                        editingSequence: $editingSequence,
-                        isMagnifying: $isMagnifying,
-                        actionFeedbackEnabled: actionFeedbackEnabled,
-                        streamOverlayEnabled: streamOverlayEnabled
-                    )
-                    .tabItem { Text("Buttons") }
-                    .tag(0)
+                // Custom tab bar + content
+                CustomTabBar(selectedTab: $selectedTab, tabs: customTabs)
 
-                    // Chords
-                    ChordsTab(
-                        showingChordSheet: $showingChordSheet,
-                        editingChord: $editingChord
-                    )
-                    .tabItem { Text("Chords") }
-                    .tag(1)
-
-                    // Sequences
-                    SequencesTab(
-                        showingSequenceSheet: $showingSequenceSheet,
-                        editingSequence: $editingSequence
-                    )
-                    .tabItem { Text("Sequences") }
-                    .tag(9)
-
-                    // Gestures (only shown for DualSense - requires gyroscope)
-                    if controllerService.threadSafeIsDualSense {
+                // Tab content (driven by custom tab bar, no native TabView)
+                Group {
+                    switch selectedTab {
+                    case 0:
+                        ButtonMappingsTab(
+                            selectedButton: $selectedButton,
+                            configuringButton: $configuringButton,
+                            selectedLayerId: $selectedLayerId,
+                            isSwapMode: $isSwapMode,
+                            swapFirstButton: $swapFirstButton,
+                            showingAddLayerSheet: $showingAddLayerSheet,
+                            editingLayerId: $editingLayerId,
+                            editingChord: $editingChord,
+                            editingSequence: $editingSequence,
+                            isMagnifying: $isMagnifying,
+                            actionFeedbackEnabled: actionFeedbackEnabled,
+                            streamOverlayEnabled: streamOverlayEnabled
+                        )
+                    case 1:
+                        ChordsTab(
+                            showingChordSheet: $showingChordSheet,
+                            editingChord: $editingChord
+                        )
+                    case 9:
+                        SequencesTab(
+                            showingSequenceSheet: $showingSequenceSheet,
+                            editingSequence: $editingSequence
+                        )
+                    case 11:
                         GesturesTab(editingGestureType: $editingGestureType)
-                            .tabItem { Text("Gestures") }
-                            .tag(11)
-                    }
-
-                    // Macros Tab
-                    MacroListView()
-                        .scrollContentBackground(.hidden)
-                        .tabItem { Text("Macros") }
-                        .tag(7)
-
-                    // Scripts Tab
-                    ScriptListView()
-                        .scrollContentBackground(.hidden)
-                        .tabItem { Text("Scripts") }
-                        .tag(10)
-
-                    // Command Wheel Settings
-                    CommandWheelSettingsView()
-                        .scrollContentBackground(.hidden)
-                        .tabItem { Text("Wheel") }
-                        .tag(12)
-
-                    // On-Screen Keyboard Settings
-                    OnScreenKeyboardSettingsView()
-                        .scrollContentBackground(.hidden)
-                        .tabItem { Text("Keyboard") }
-                        .tag(3)
-
-                    // Joystick Settings
-                    JoystickSettingsView()
-                        .scrollContentBackground(.hidden)
-                        .tabItem { Text("Joysticks") }
-                        .tag(2)
-
-                    // Touchpad Settings (only shown when controller has touchpad - DualSense/DualShock)
-                    if controllerService.threadSafeIsPlayStation {
+                    case 7:
+                        MacroListView()
+                            .scrollContentBackground(.hidden)
+                    case 10:
+                        ScriptListView()
+                            .scrollContentBackground(.hidden)
+                    case 12:
+                        CommandWheelSettingsView()
+                            .scrollContentBackground(.hidden)
+                    case 2:
+                        JoystickSettingsView()
+                            .scrollContentBackground(.hidden)
+                    case 4:
                         TouchpadSettingsView()
                             .scrollContentBackground(.hidden)
-                            .tabItem { Text("Touchpad") }
-                            .tag(4)
-                    }
-
-                    // LED Settings (only shown for DualSense - DualShock LED control not supported)
-                    if controllerService.threadSafeIsDualSense {
+                    case 5:
                         LEDSettingsView()
                             .scrollContentBackground(.hidden)
-                            .tabItem { Text("LEDs") }
-                            .tag(5)
-                    }
-
-                    // Microphone Settings (only shown for DualSense)
-                    if controllerService.threadSafeIsDualSense {
+                    case 6:
                         MicrophoneSettingsView()
                             .scrollContentBackground(.hidden)
-                            .tabItem { Text("Microphone") }
-                            .tag(6)
+                    case 3:
+                        OnScreenKeyboardSettingsView()
+                            .scrollContentBackground(.hidden)
+                    case 8:
+                        StatsView()
+                    default:
+                        EmptyView()
                     }
-
-                    // Stats
-                    StatsView()
-                        .tabItem { Text("Stats") }
-                        .tag(8)
                 }
-                .tabViewStyle(.automatic)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(minWidth: 900, minHeight: 650)
@@ -288,22 +249,38 @@ struct ContentView: View {
 
     // MARK: - Tab Navigation
 
+    /// Tab definitions for the custom tab bar.
+    private var customTabs: [CustomTabItem] {
+        var tabs: [CustomTabItem] = [
+            CustomTabItem(tag: 0, label: "Buttons"),
+            CustomTabItem(tag: 1, label: "Chords"),
+            CustomTabItem(tag: 9, label: "Sequences"),
+        ]
+        if controllerService.threadSafeIsDualSense {
+            tabs.append(CustomTabItem(tag: 11, label: "Gestures"))
+        }
+        tabs.append(contentsOf: [
+            CustomTabItem(tag: 7, label: "Macros"),
+            CustomTabItem(tag: 10, label: "Scripts"),
+            CustomTabItem(tag: 12, label: "Wheel"),
+            CustomTabItem(tag: 2, label: "Joysticks"),
+        ])
+        if controllerService.threadSafeIsPlayStation {
+            tabs.append(CustomTabItem(tag: 4, label: "Touchpad"))
+        }
+        if controllerService.threadSafeIsDualSense {
+            tabs.append(CustomTabItem(tag: 5, label: "LEDs"))
+            tabs.append(CustomTabItem(tag: 6, label: "Microphone"))
+        }
+        // Global tabs (not per-profile) — rendered with a different highlight color
+        tabs.append(CustomTabItem(tag: 3, label: "Keyboard", isGlobal: true))
+        tabs.append(CustomTabItem(tag: 8, label: "Stats", isGlobal: true))
+        return tabs
+    }
+
     /// Ordered list of visible tab tags matching the TabView order.
     private var orderedTabTags: [Int] {
-        var tags = [0, 1, 9]
-        if controllerService.threadSafeIsDualSense {
-            tags.append(11)
-        }
-        tags.append(contentsOf: [7, 10, 12, 3, 2])
-        if controllerService.threadSafeIsPlayStation {
-            tags.append(4)
-        }
-        if controllerService.threadSafeIsDualSense {
-            tags.append(5)
-            tags.append(6)
-        }
-        tags.append(8)
-        return tags
+        customTabs.map(\.tag)
     }
 
     private func switchTab(direction: Int) {
@@ -543,4 +520,71 @@ extension UUID: @retroactive Identifiable {
         .environmentObject(appMonitor)
         .environmentObject(mappingEngine)
         .environmentObject(inputLogService)
+}
+
+// MARK: - Custom Tab Bar
+
+struct CustomTabItem: Identifiable {
+    let tag: Int
+    let label: String
+    var isGlobal: Bool = false
+    var id: Int { tag }
+}
+
+struct CustomTabBar: View {
+    @Binding var selectedTab: Int
+    let tabs: [CustomTabItem]
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
+                // Insert divider before the first global tab
+                if tab.isGlobal && (index == 0 || !tabs[index - 1].isGlobal) {
+                    Divider()
+                        .frame(height: 18)
+                        .padding(.horizontal, 6)
+                }
+
+                let isSelected = selectedTab == tab.tag
+
+                Button {
+                    selectedTab = tab.tag
+                } label: {
+                    Text(tab.label)
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(isSelected ? highlightColor(isGlobal: tab.isGlobal) : Color.clear)
+                        )
+                        .foregroundColor(isSelected ? selectedTextColor(isGlobal: tab.isGlobal) : .secondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+    }
+
+    private func highlightColor(isGlobal: Bool) -> Color {
+        if isGlobal {
+            return colorScheme == .dark
+                ? Color.gray.opacity(0.3)
+                : Color.gray.opacity(0.2)
+        }
+        return colorScheme == .dark
+            ? Color.accentColor.opacity(0.3)
+            : Color.accentColor.opacity(0.15)
+    }
+
+    private func selectedTextColor(isGlobal: Bool) -> Color {
+        if isGlobal {
+            return .primary.opacity(0.7)
+        }
+        return .primary
+    }
 }

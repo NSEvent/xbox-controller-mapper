@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.6] - 2026-04-28
+
+### Added
+
+- **Xbox Elite Series 2 Full Support**: Reliable detection by USB product ID (works regardless of hardware profile or firmware version), correct "Xbox Elite Series 2 Controller" name in the UI, and dedicated Elite paddle section.
+- **Elite Series 2 Guide Button**: The Xbox/Guide button now works on the Elite 2 via IOKit HID input value callbacks, bypassing the GameController framework's `buttonHome` handler which never fires for this controller over Bluetooth.
+- **Elite Series 2 Paddles via HID**: All 4 back paddles (P1–P4) are detected through Consumer Page usage 0x81 bitmask on firmware 5.x+ where `GCXboxGamepad.paddleButton1-4` are always nil. Works independently of the Xbox Accessories app profile configuration.
+- **Elite Helper Process**: Bundled standalone helper binary (`XboxEliteHelper`) that monitors the Elite 2 via IOKit HID without the GameController framework, for environments where `gamecontrollerd` blocks direct HID access.
+- **Command Wheel**: Standalone command wheel with per-profile action support and configurable items.
+- **Custom Tab Bar**: Replaced native macOS TabView with a custom tab bar that visually distinguishes per-profile tabs (accent highlight) from global tabs (gray highlight) with a divider. Keyboard and Stats tabs are now positioned last as global settings.
+
+### Fixed
+
+- **Elite Series 2 RT False Trigger**: Removed raw HID report callbacks that caused the right trigger to false-trigger the Xbox/Guide button. The Elite 2 exposes two HID interfaces with different report layouts — byte 11 is button data on one but analog trigger data on the other.
+- **Elite Series 2 Share Button Hidden**: The Elite 2's Share button is a firmware-only hardware profile cycle button (not mappable), so it is now hidden from the UI when an Elite controller is detected.
+- **SwiftUI Elite State Timing**: Fixed Elite UI not appearing by deferring `objectWillChange` to ensure SwiftUI re-reads storage flags after `setupInputHandlers` completes.
+- **Command Wheel Row Click**: Row click now opens the editor, info style matches keyboard tab.
+
 ## [1.7.5] - 2026-04-27
 
 ### Added
@@ -14,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Bluetooth Reconnection Input Loss**: Fixed a race condition where a controller would reconnect (vibrate confirming connection) but all input—button mappings, mouse cursor, everything—would stop working. Caused by macOS delivering a late `GCControllerDidDisconnect` notification *after* `GCControllerDidConnect` during Bluetooth reconnect, tearing down the just-established connection. The disconnect handler now verifies the controller is actually gone from the system before processing.
-- **Xbox Elite Series 2 Guide Button Crosstalk**: The Guide button monitor was misinterpreting paddle presses (P2/P3) as Xbox button events on the Elite 2, because HID Button Page usage 13 maps to paddles on Elite 2 but to Guide on standard controllers. Now detects Elite 2 by VID/PID and reads Guide from Consumer Page AC Home (0x0223) instead.
 - **Button Mapping Sheet Clipping**: The button mapping sheet content was clipped on left/right edges because the system command category picker labels exceeded the sheet width. Widened the sheet and shortened picker labels.
 
 ## [1.7.4] - 2026-04-25
