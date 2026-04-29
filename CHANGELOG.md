@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Elite Series 2 Paddles via HID**: All 4 back paddles (P1–P4) are detected through Consumer Page usage 0x81 bitmask on firmware 5.x+ where `GCXboxGamepad.paddleButton1-4` are always nil. Works independently of the Xbox Accessories app profile configuration.
 - **Elite Helper Process**: Bundled standalone helper binary (`XboxEliteHelper`) that monitors the Elite 2 via IOKit HID without the GameController framework, for environments where `gamecontrollerd` blocks direct HID access.
 - **Command Wheel**: Standalone command wheel with per-profile action support and configurable items.
-- **Custom Tab Bar**: Replaced native macOS TabView with a custom tab bar that visually distinguishes per-profile tabs (accent highlight) from global tabs (gray highlight) with a divider. Keyboard and Stats tabs are now positioned last as global settings.
+- **Custom Tab Bar**: Replaced native macOS TabView with a custom tab bar using the app's dark glass style. Per-profile tabs use accent highlight, global tabs (Keyboard, Stats) use muted highlight, grouped into separate rounded containers. Keyboard and Stats tabs are now positioned last as global settings.
+- **Scalable Command Wheel Editor**: The wheel preview in the Wheel tab now scales with available space and mirrors the actual command wheel's appearance (dark material backdrop, accent highlights, scale effects, shadow styling). App and website icons stay in full color.
 
 ### Fixed
 
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Elite Series 2 Share Button Hidden**: The Elite 2's Share button is a firmware-only hardware profile cycle button (not mappable), so it is now hidden from the UI when an Elite controller is detected.
 - **SwiftUI Elite State Timing**: Fixed Elite UI not appearing by deferring `objectWillChange` to ensure SwiftUI re-reads storage flags after `setupInputHandlers` completes.
 - **Command Wheel Row Click**: Row click now opens the editor, info style matches keyboard tab.
+- **Input Log Bar Styling**: Restyled the button feedback bar to match the app's dark glass style (rounded container with subtle border) for visual cohesion.
 
 ## [1.7.5] - 2026-04-27
 
