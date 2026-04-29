@@ -212,7 +212,7 @@ struct ButtonMappingSheet: View {
 
     private var header: some View {
         HStack {
-            ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense)
+            ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo)
                 .padding(.trailing, 8)
 
             VStack(alignment: .leading, spacing: 4) {

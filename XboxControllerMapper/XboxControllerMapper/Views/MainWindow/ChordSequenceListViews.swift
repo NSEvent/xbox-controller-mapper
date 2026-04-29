@@ -5,13 +5,14 @@ import SwiftUI
 struct ChordListView: View, Equatable {
     let chords: [ChordMapping]
     let isDualSense: Bool
+    let isNintendo: Bool
     let onEdit: (ChordMapping) -> Void
     let onDelete: (ChordMapping) -> Void
     let onClearAction: (ChordMapping) -> Void
     let onMove: (IndexSet, Int) -> Void
 
     static func == (lhs: ChordListView, rhs: ChordListView) -> Bool {
-        lhs.chords == rhs.chords && lhs.isDualSense == rhs.isDualSense
+        lhs.chords == rhs.chords && lhs.isDualSense == rhs.isDualSense && lhs.isNintendo == rhs.isNintendo
     }
 
     var body: some View {
@@ -20,6 +21,7 @@ struct ChordListView: View, Equatable {
                 ChordRow(
                     chord: chord,
                     isDualSense: isDualSense,
+                    isNintendo: isNintendo,
                     onEdit: { onEdit(chord) },
                     onDelete: { onDelete(chord) },
                     onClearAction: { onClearAction(chord) }
@@ -41,6 +43,7 @@ struct ChordListView: View, Equatable {
 struct ChordRow: View {
     let chord: ChordMapping
     let isDualSense: Bool
+    let isNintendo: Bool
     var onEdit: () -> Void
     var onDelete: () -> Void
     var onClearAction: () -> Void
@@ -60,7 +63,7 @@ struct ChordRow: View {
             HStack {
                 HStack(spacing: 4) {
                     ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-                        ButtonIconView(button: button, isDualSense: isDualSense)
+                        ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo)
                     }
                 }
 
@@ -134,13 +137,14 @@ struct ChordRow: View {
 struct SequenceListView: View, Equatable {
     let sequences: [SequenceMapping]
     let isDualSense: Bool
+    let isNintendo: Bool
     let onEdit: (SequenceMapping) -> Void
     let onDelete: (SequenceMapping) -> Void
     let onClearAction: (SequenceMapping) -> Void
     let onMove: (IndexSet, Int) -> Void
 
     static func == (lhs: SequenceListView, rhs: SequenceListView) -> Bool {
-        lhs.sequences == rhs.sequences && lhs.isDualSense == rhs.isDualSense
+        lhs.sequences == rhs.sequences && lhs.isDualSense == rhs.isDualSense && lhs.isNintendo == rhs.isNintendo
     }
 
     var body: some View {
@@ -149,6 +153,7 @@ struct SequenceListView: View, Equatable {
                 SequenceRow(
                     sequence: sequence,
                     isDualSense: isDualSense,
+                    isNintendo: isNintendo,
                     onEdit: { onEdit(sequence) },
                     onDelete: { onDelete(sequence) },
                     onClearAction: { onClearAction(sequence) }
@@ -170,6 +175,7 @@ struct SequenceListView: View, Equatable {
 struct SequenceRow: View {
     let sequence: SequenceMapping
     let isDualSense: Bool
+    let isNintendo: Bool
     var onEdit: () -> Void
     var onDelete: () -> Void
     var onClearAction: () -> Void
@@ -195,7 +201,7 @@ struct SequenceRow: View {
                                 .foregroundColor(.white.opacity(0.3))
                                 .accessibilityHidden(true)
                         }
-                        ButtonIconView(button: button, isDualSense: isDualSense)
+                        ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo)
                     }
                 }
 

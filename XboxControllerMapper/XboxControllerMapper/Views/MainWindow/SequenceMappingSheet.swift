@@ -162,7 +162,7 @@ struct SequenceMappingSheet: View {
                                         .accessibilityHidden(true)
                                 }
                                 HStack(spacing: 2) {
-                                    ButtonIconView(button: button, isDualSense: isPlayStation)
+                                    ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo)
                                         .accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))")
                                     Button(action: {
                                         steps.remove(at: index)
@@ -547,7 +547,7 @@ struct SequenceMappingSheet: View {
                 steps.append(button)
             }
         }) {
-            ButtonIconView(button: button, isPressed: false, isDualSense: isPlayStation)
+            ButtonIconView(button: button, isPressed: false, isDualSense: isPlayStation, isNintendo: isNintendo)
                 .scaleEffect(scale)
         }
         .buttonStyle(.borderless)

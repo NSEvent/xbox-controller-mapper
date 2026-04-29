@@ -247,7 +247,7 @@ struct RecommendationsSheet: View {
     }
 
     private func buttonIcon(_ button: ControllerButton) -> some View {
-        ButtonIconView(button: button, isDualSense: isDualSense)
+        ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo)
             .scaleEffect(0.7)
             .frame(width: 22, height: 22)
     }

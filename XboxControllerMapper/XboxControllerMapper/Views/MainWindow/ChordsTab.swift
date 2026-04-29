@@ -20,6 +20,7 @@ struct ChordsTab: View {
                     ChordListView(
                         chords: profile.chordMappings,
                         isDualSense: controllerService.threadSafeIsPlayStation,
+                        isNintendo: controllerService.threadSafeIsNintendo,
                         onEdit: { chord in
                             editingChord = chord
                         },

@@ -69,7 +69,7 @@ struct WrappedCardView: View {
                                 .foregroundColor(.white.opacity(0.6))
                                 .frame(width: 22)
 
-                            ButtonIconView(button: item.button, isDualSense: isDualSense)
+                            ButtonIconView(button: item.button, isDualSense: isDualSense, isNintendo: isNintendo)
 
                             Text(item.button.displayName(forDualSense: isDualSense, forNintendo: isNintendo))
                                 .font(.system(size: 14, weight: .semibold))

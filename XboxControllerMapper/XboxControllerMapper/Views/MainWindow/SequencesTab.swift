@@ -20,6 +20,7 @@ struct SequencesTab: View {
                     SequenceListView(
                         sequences: profile.sequenceMappings,
                         isDualSense: controllerService.threadSafeIsPlayStation,
+                        isNintendo: controllerService.threadSafeIsNintendo,
                         onEdit: { sequence in
                             editingSequence = sequence
                         },

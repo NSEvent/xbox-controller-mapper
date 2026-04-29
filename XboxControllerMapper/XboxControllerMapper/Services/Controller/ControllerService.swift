@@ -73,6 +73,9 @@ final class ControllerStorage: @unchecked Sendable {
     var lastMicButtonState: Bool = false
     var lastPSButtonState: Bool = false
 
+    // Nintendo Pro Controller HID button state
+    var lastNintendoHomeState: Bool = false
+
     // DualSense Edge button state (paddles and function buttons)
     var lastLeftPaddleState: Bool = false
     var lastRightPaddleState: Bool = false
@@ -184,6 +187,12 @@ class ControllerService: ObservableObject {
 
     /// Retained context pointer for PlayStation HID report callback — released in cleanupHIDMonitoring().
     var psHIDCallbackContext: UnsafeMutableRawPointer?
+
+    // Nintendo Pro Controller HID monitoring (Home button not exposed by GameController framework)
+    var nintendoHIDManager: IOHIDManager?
+    var nintendoHIDDevice: IOHIDDevice?
+    var nintendoHIDReportBuffer: UnsafeMutablePointer<UInt8>?
+    var nintendoHIDCallbackContext: UnsafeMutableRawPointer?
 
     /// Xbox Elite Series 2 helper process (separate binary without GameController.framework)
     var eliteHelperProcess: Process?
@@ -693,6 +702,7 @@ class ControllerService: ObservableObject {
         stopChargingAnim()
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
+        cleanupNintendoHIDMonitoring()  // Clean up Nintendo Home button monitoring
         stopEliteHelper()  // Clean up Elite helper process
 
         storage.lock.lock()
@@ -712,6 +722,7 @@ class ControllerService: ObservableObject {
         resetMotionStateLocked()
         storage.lastMicButtonState = false
         storage.lastPSButtonState = false
+        storage.lastNintendoHomeState = false
         storage.lastHIDBatteryCharging = nil
         // Reset DualSense Edge paddle/function button state
         storage.lastLeftPaddleState = false
@@ -1195,6 +1206,44 @@ class ControllerService: ObservableObject {
                   gamepad.buttonOptions != nil ? 1 : 0, gamepad.buttonHome != nil ? 1 : 0,
                   gamepad.leftThumbstickButton != nil ? 1 : 0, gamepad.rightThumbstickButton != nil ? 1 : 0,
                   gamepad.leftThumbstick != nil ? 1 : 0, gamepad.rightThumbstick != nil ? 1 : 0)
+
+            // Log all physicalInputProfile buttons for Nintendo controllers (helps identify capture button name)
+            let profileButtons = controller.physicalInputProfile.buttons.keys.sorted()
+            NSLog("[ControllerKeys] Nintendo physicalInputProfile buttons: %@", profileButtons.joined(separator: ", "))
+        }
+
+        // Nintendo Pro Controller: set display name and bind capture + home buttons
+        // GCExtendedGamepad doesn't reliably expose buttonHome or capture for the Pro Controller,
+        // so we bind them from physicalInputProfile instead.
+        if storage.lock.withLock({ storage.isNintendo && !storage.isJoyConLeft && !storage.isJoyConRight }) {
+            controllerName = "Nintendo Pro Controller"
+
+            let knownNames: Set<String> = [
+                GCInputButtonA, GCInputButtonB, GCInputButtonX, GCInputButtonY,
+                GCInputLeftShoulder, GCInputRightShoulder,
+                GCInputLeftTrigger, GCInputRightTrigger,
+                GCInputButtonMenu, GCInputButtonOptions,
+                GCInputLeftThumbstickButton, GCInputRightThumbstickButton,
+            ]
+
+            // Home button — not exposed by GCExtendedGamepad or physicalInputProfile (macOS intercepts it).
+            // Use raw HID monitoring to read it directly from the controller's input reports.
+            setupNintendoHIDMonitoring()
+
+            // Capture (screenshot) button
+            if let captureButton = controller.physicalInputProfile.buttons["Button Share"] {
+                bindButton(captureButton, to: .share)
+                NSLog("[ControllerKeys] Nintendo capture button bound via physicalInputProfile (Button Share)")
+            } else {
+                // Fallback: scan for any unmapped button that might be the capture button
+                let extendedKnown = knownNames.union([GCInputButtonHome])
+                for (name, button) in controller.physicalInputProfile.buttons where !extendedKnown.contains(name) {
+                    NSLog("[ControllerKeys] Nintendo unknown button found: %@", name)
+                    bindButton(button, to: .share)
+                    NSLog("[ControllerKeys] Nintendo capture button bound via unknown element: %@", name)
+                    break
+                }
+            }
         }
 
         if let xboxGamepad = gamepad as? GCXboxGamepad {

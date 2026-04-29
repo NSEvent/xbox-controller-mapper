@@ -229,6 +229,14 @@ struct ControllerVisualView: View {
                     endPoint: .bottom
                 ))
                 .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        } else if isNintendo {
+            NintendoProBodyShape()
+                .fill(LinearGradient(
+                    colors: [Color(white: 0.18), Color(white: 0.12)], // Nintendo Pro Controller dark charcoal
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+                .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
         } else {
             ControllerBodyShape()
                 .fill(LinearGradient(
@@ -265,7 +273,7 @@ struct ControllerVisualView: View {
             // Button Indicator (adapts to Xbox or PlayStation styling)
             // Fixed width container ensures mapping labels align across different button sizes
             ZStack(alignment: .topTrailing) {
-                ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isPlayStation)
+                ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isPlayStation, isNintendo: isNintendo)
 
                 // Layer activator badge
                 if let layer = layerForButton(button) {
@@ -445,6 +453,8 @@ struct ControllerAnalogOverlay: View {
         Group {
             if isPlayStation {
                 dualSenseOverlay
+            } else if isNintendo {
+                nintendoOverlay
             } else {
                 xboxOverlay
             }
@@ -494,6 +504,52 @@ struct ControllerAnalogOverlay: View {
                     }
                     if !isXboxElite {
                         miniCircle(.share, size: 10)
+                    }
+                }
+
+                miniFaceButtons()
+            }
+
+            HStack(spacing: 80) {
+                miniDPad()
+                miniStick(.rightThumbstick, pos: rightStick)
+            }
+        }
+    }
+
+    // MARK: - Nintendo Pro Controller Overlay
+
+    private var nintendoOverlay: some View {
+        VStack(spacing: 15) {
+            HStack(spacing: 140) {
+                miniTrigger(.leftTrigger, label: "ZL", value: leftTrigger)
+                miniTrigger(.rightTrigger, label: "ZR", value: rightTrigger)
+            }
+
+            HStack(spacing: 120) {
+                miniBumper(.leftBumper, label: "L")
+                miniBumper(.rightBumper, label: "R")
+            }
+            .offset(y: -5)
+
+            HStack(spacing: 40) {
+                miniStick(.leftThumbstick, pos: leftStick)
+
+                VStack(spacing: 6) {
+                    if isConnected {
+                        BatteryView(level: batteryLevel, state: batteryState)
+                    }
+
+                    // − and + buttons (slightly wider)
+                    HStack(spacing: 20) {
+                        miniCircle(.view, size: 16)   // − button
+                        miniCircle(.menu, size: 16)   // + button
+                    }
+
+                    // Capture and Home — side by side, mirrored (slightly narrower)
+                    HStack(spacing: 20) {
+                        miniSquare(.share, size: 10)   // Capture (left)
+                        miniCircle(.xbox, size: 10)    // Home (right)
                     }
                 }
 
@@ -750,6 +806,16 @@ struct ControllerAnalogOverlay: View {
         .onTapGesture { onButtonTap(button) }
     }
 
+    private func miniSquare(_ button: ControllerButton, size: CGFloat) -> some View {
+        let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
+        return RoundedRectangle(cornerRadius: size * 0.2)
+            .fill(jewelGradient(color, pressed: isPressed(button)))
+            .overlay(glassOverlay.clipShape(RoundedRectangle(cornerRadius: size * 0.2)))
+            .frame(width: size, height: size)
+            .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
+            .onTapGesture { onButtonTap(button) }
+    }
+
     private func miniFaceButton(_ button: ControllerButton, color: Color) -> some View {
         // Use the vibrant colors for A/B/X/Y even when not pressed, just like the real controller
         let displayColor = isPressed(button) ? color.opacity(0.8) : color
@@ -973,6 +1039,64 @@ struct DualSenseBodyShape: Shape {
             to: CGPoint(x: width * 0.18, y: height * 0.10),
             control1: CGPoint(x: width * 0.0, y: height * 0.28),
             control2: CGPoint(x: width * 0.08, y: height * 0.10)
+        )
+
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// Nintendo Switch Pro Controller body shape - wide, rounded rectangular form with smooth grips
+struct NintendoProBodyShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.width
+        let height = rect.height
+
+        // Pro Controller: wider and more rounded than Xbox, with straighter top edge
+        // and smooth cylindrical grips that curve gently outward
+
+        // Start at top-left
+        path.move(to: CGPoint(x: width * 0.22, y: height * 0.12))
+
+        // Top edge - wide and gently curved
+        path.addQuadCurve(
+            to: CGPoint(x: width * 0.78, y: height * 0.12),
+            control: CGPoint(x: width * 0.5, y: height * 0.06)
+        )
+
+        // Right shoulder - smooth curve into grip
+        path.addCurve(
+            to: CGPoint(x: width * 0.96, y: height * 0.40),
+            control1: CGPoint(x: width * 0.90, y: height * 0.12),
+            control2: CGPoint(x: width * 0.97, y: height * 0.25)
+        )
+
+        // Right grip - smooth cylindrical shape, less angular than Xbox
+        path.addCurve(
+            to: CGPoint(x: width * 0.72, y: height * 0.92),
+            control1: CGPoint(x: width * 0.97, y: height * 0.62),
+            control2: CGPoint(x: width * 0.85, y: height * 0.88)
+        )
+
+        // Bottom edge - wide rounded curve connecting grips
+        path.addQuadCurve(
+            to: CGPoint(x: width * 0.28, y: height * 0.92),
+            control: CGPoint(x: width * 0.5, y: height * 0.80)
+        )
+
+        // Left grip - mirror of right
+        path.addCurve(
+            to: CGPoint(x: width * 0.04, y: height * 0.40),
+            control1: CGPoint(x: width * 0.15, y: height * 0.88),
+            control2: CGPoint(x: width * 0.03, y: height * 0.62)
+        )
+
+        // Left shoulder - back to top
+        path.addCurve(
+            to: CGPoint(x: width * 0.22, y: height * 0.12),
+            control1: CGPoint(x: width * 0.03, y: height * 0.25),
+            control2: CGPoint(x: width * 0.10, y: height * 0.12)
         )
 
         path.closeSubpath()

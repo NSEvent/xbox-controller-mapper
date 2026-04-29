@@ -51,7 +51,7 @@ private struct LogEntryView: View, Equatable {
                 // Top: Button(s) + Type
                 HStack(spacing: 4) {
                     ForEach(entry.buttons, id: \.self) { button in
-                        ButtonIconView(button: button, isDualSense: isPlayStation)
+                        ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo)
                     }
 
                     if entry.type != .singlePress {

@@ -27,7 +27,7 @@ struct ActiveSequencesView: View {
                                         .foregroundColor(.white.opacity(0.2))
                                         .accessibilityHidden(true)
                                 }
-                                ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation)
+                                ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation, isNintendo: controllerService.threadSafeIsNintendo)
                             }
                         }
 

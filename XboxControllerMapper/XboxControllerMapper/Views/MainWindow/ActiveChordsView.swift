@@ -21,7 +21,7 @@ struct ActiveChordsView: View {
                     HStack(spacing: 10) {
                         HStack(spacing: 2) {
                             ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-                                ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation)
+                                ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation, isNintendo: controllerService.threadSafeIsNintendo)
                             }
                         }
 
