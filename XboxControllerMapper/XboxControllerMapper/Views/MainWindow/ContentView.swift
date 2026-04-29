@@ -535,56 +535,64 @@ struct CustomTabBar: View {
     @Binding var selectedTab: Int
     let tabs: [CustomTabItem]
 
-    @Environment(\.colorScheme) private var colorScheme
-
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(Array(tabs.enumerated()), id: \.element.id) { index, tab in
-                // Insert divider before the first global tab
-                if tab.isGlobal && (index == 0 || !tabs[index - 1].isGlobal) {
-                    Divider()
-                        .frame(height: 18)
-                        .padding(.horizontal, 6)
+        HStack(spacing: 4) {
+            // Per-profile tabs
+            HStack(spacing: 1) {
+                ForEach(tabs.filter { !$0.isGlobal }) { tab in
+                    tabButton(tab)
                 }
-
-                let isSelected = selectedTab == tab.tag
-
-                Button {
-                    selectedTab = tab.tag
-                } label: {
-                    Text(tab.label)
-                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(isSelected ? highlightColor(isGlobal: tab.isGlobal) : Color.clear)
-                        )
-                        .foregroundColor(isSelected ? selectedTextColor(isGlobal: tab.isGlobal) : .secondary)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
             }
+            .background(Color.black.opacity(0.3))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+
+            // Global tabs
+            HStack(spacing: 1) {
+                ForEach(tabs.filter { $0.isGlobal }) { tab in
+                    tabButton(tab)
+                }
+            }
+            .background(Color.black.opacity(0.2))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 10)
         .padding(.vertical, 6)
     }
 
-    private func highlightColor(isGlobal: Bool) -> Color {
-        if isGlobal {
-            return colorScheme == .dark
-                ? Color.gray.opacity(0.3)
-                : Color.gray.opacity(0.2)
-        }
-        return colorScheme == .dark
-            ? Color.accentColor.opacity(0.3)
-            : Color.accentColor.opacity(0.15)
-    }
+    @ViewBuilder
+    private func tabButton(_ tab: CustomTabItem) -> some View {
+        let isSelected = selectedTab == tab.tag
 
-    private func selectedTextColor(isGlobal: Bool) -> Color {
-        if isGlobal {
-            return .primary.opacity(0.7)
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                selectedTab = tab.tag
+            }
+        } label: {
+            Text(tab.label)
+                .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                .foregroundColor(isSelected ? .white : .white.opacity(0.5))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Group {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(tab.isGlobal
+                                    ? Color.white.opacity(0.15)
+                                    : Color.accentColor.opacity(0.5))
+                        }
+                    }
+                )
+                .contentShape(Rectangle())
         }
-        return .primary
+        .buttonStyle(.plain)
     }
 }
