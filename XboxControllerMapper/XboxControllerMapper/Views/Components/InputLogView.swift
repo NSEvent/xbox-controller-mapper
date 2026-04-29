@@ -20,18 +20,18 @@ struct InputLogView: View {
                     LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo)
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
         .frame(height: 70)
         .accessibilityLabel("Recent button presses")
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.8))
+        .background(Color.black.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(Color(nsColor: .separatorColor)),
-            alignment: .bottom
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
+        .padding(.horizontal, 12)
     }
 }
 
@@ -59,11 +59,11 @@ private struct LogEntryView: View, Equatable {
                             .font(.system(size: 10, weight: .bold))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
-                            .background(Capsule().fill(badgeColor(for: entry.type).opacity(0.2)))
+                            .background(Capsule().fill(badgeColor(for: entry.type).opacity(0.3)))
                             .foregroundColor(badgeColor(for: entry.type))
                             .overlay(
                                 Capsule()
-                                    .stroke(badgeColor(for: entry.type).opacity(0.5), lineWidth: 1)
+                                    .stroke(badgeColor(for: entry.type).opacity(0.4), lineWidth: 1)
                             )
                             .accessibilityLabel("Event type: \(entry.type.rawValue)")
                     }
@@ -85,7 +85,7 @@ private struct LogEntryView: View, Equatable {
             if !isLast {
                 Image(systemName: "chevron.left") // Newest is at left/start
                     .font(.caption2)
-                    .foregroundColor(.secondary.opacity(0.3))
+                    .foregroundColor(.white.opacity(0.2))
                     .padding(.horizontal, 2)
                     .accessibilityHidden(true)
             }
@@ -95,7 +95,7 @@ private struct LogEntryView: View, Equatable {
         // Use simple opacity transition - complex spring animations block input handling
         .transition(.opacity)
     }
-    
+
     private var accessibilityDescription: String {
         let buttonNames = entry.buttons.map { $0.displayName(forDualSense: isPlayStation, forNintendo: isNintendo) }.joined(separator: " plus ")
         let typeDescription = entry.type == .singlePress ? "" : ", \(entry.type.rawValue)"
