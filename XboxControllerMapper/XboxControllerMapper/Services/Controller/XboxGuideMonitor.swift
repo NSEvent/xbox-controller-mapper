@@ -18,10 +18,9 @@ func guideLog(_ message: String) {
 /// Low-level HID monitor specifically to capture the Xbox Guide/Home button
 /// which is often swallowed by the macOS GameController framework.
 ///
-/// Uses THREE parallel approaches to maximize compatibility:
-/// 1. IOHIDManager input value callback (works when framework doesn't fully claim device)
-/// 2. IOHIDDevice raw report callbacks on every matched device (lower-level, may bypass framework)
-/// 3. VID-based matching (catches all Microsoft controller interfaces, not just GamePad usage)
+/// Uses IOHIDManager input value callbacks with VID-based matching to catch all Microsoft
+/// controller interfaces. Automatically detects the HID descriptor variant (BLE vs USB/Classic BT)
+/// to determine whether Button Page usage 13 is the Guide button or a paddle.
 class XboxGuideMonitor {
 
     private var hidManager: IOHIDManager?
@@ -39,12 +38,19 @@ class XboxGuideMonitor {
     ]
 
     /// Known Xbox Elite Series 2 product IDs (Microsoft VID 0x045E).
+    /// The same hardware (Model 1797) reports different PIDs depending on
+    /// connection type and firmware version:
     static let eliteSeries2PIDs: Set<Int> = [
-        0x0B00,  // Elite 2
+        0x0B00,  // Elite 2 (USB)
         0x0B02,  // Elite 2 Core
-        0x0B05,  // Elite 2 (USB)
-        0x0B22,  // Elite 2 (Bluetooth)
+        0x0B05,  // Elite 2 (Classic Bluetooth — old firmware, BR/EDR)
+        0x0B22,  // Elite 2 (Bluetooth Low Energy — new firmware 5.x+)
     ]
+
+    /// Tracks devices where Button Page usage 13 is a paddle (not Guide).
+    /// On USB-style Elite 2 descriptors (>15 Button Page usages), usage 13 is a paddle
+    /// and Guide is at usage 17. On BLE-style descriptors (15 usages), usage 13 IS Guide.
+    private var devicesWhereUsage13IsPaddle = Set<UnsafeMutableRawPointer>()
 
     /// Product IDs of currently connected Microsoft controller devices.
     /// Updated on device match/removal. Thread-safe via main queue (HID callbacks run on main).
@@ -159,23 +165,48 @@ class XboxGuideMonitor {
         let name = getDeviceName(device)
         let vid = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int ?? 0
         let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int ?? 0
-        let usagePage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsagePageKey as CFString) as? Int ?? 0
-        let usage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsageKey as CFString) as? Int ?? 0
-        guideLog("Device matched: \"\(name)\" VID=0x\(String(vid, radix: 16)) PID=0x\(String(pid, radix: 16)) usagePage=0x\(String(usagePage, radix: 16)) usage=0x\(String(usage, radix: 16))")
+        guideLog("Device matched: \"\(name)\" VID=0x\(String(vid, radix: 16)) PID=0x\(String(pid, radix: 16))")
 
         if vid == 0x045E {
             connectedMicrosoftPIDs.insert(pid)
+
+            // Determine if usage 13 is Guide or a paddle on this device.
+            // USB-style Elite 2 descriptors have >15 Button Page usages (buttons + paddles),
+            // where usage 13 is a paddle and Guide is at usage 17.
+            // BLE-style descriptors have exactly 15 Button Page usages, where usage 13 IS Guide.
+            let maxButtonUsage = Self.maxButtonPageUsage(for: device)
+            guideLog("  maxButtonUsage=\(maxButtonUsage)")
+            if maxButtonUsage > 15 {
+                let ptr = Unmanaged.passUnretained(device).toOpaque()
+                devicesWhereUsage13IsPaddle.insert(ptr)
+                guideLog("  usage 13 = paddle (USB-style descriptor), Guide at usage 17")
+            }
         }
     }
 
+    /// Returns the highest Button Page usage on a device by enumerating its HID elements.
+    private static func maxButtonPageUsage(for device: IOHIDDevice) -> UInt32 {
+        guard let elements = IOHIDDeviceCopyMatchingElements(device, nil, IOOptionBits(kIOHIDOptionsTypeNone)) as? [IOHIDElement] else {
+            return 0
+        }
+        var maxUsage: UInt32 = 0
+        for element in elements {
+            if IOHIDElementGetUsagePage(element) == kHIDPage_Button {
+                let usage = IOHIDElementGetUsage(element)
+                if usage > maxUsage { maxUsage = usage }
+            }
+        }
+        return maxUsage
+    }
+
     fileprivate func deviceRemoved(_ device: IOHIDDevice) {
-        let vid = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int ?? 0
-        let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int ?? 0
         guideLog("Device removed: \"\(getDeviceName(device))\"")
 
-        if vid == 0x045E {
+        let vid = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int ?? 0
+        if vid == 0x045E, let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int {
             connectedMicrosoftPIDs.remove(pid)
         }
+        devicesWhereUsage13IsPaddle.remove(Unmanaged.passUnretained(device).toOpaque())
     }
 
     // MARK: - Input Value Handler
@@ -186,12 +217,24 @@ class XboxGuideMonitor {
         let usage = IOHIDElementGetUsage(element)
         let intValue = IOHIDValueGetIntegerValue(value)
 
-        // Guide button: Button Page, usage 13 (BT) or 17 (USB)
+        // Guide button: Button Page
+        // - Usage 17: Guide on USB and Classic BT controllers (>15 buttons on Button Page)
+        // - Usage 13: Guide on BLE controllers (exactly 15 buttons on Button Page)
+        //   BUT on USB-style Elite 2 descriptors, usage 13 is a PADDLE — skip it.
         if usagePage == kHIDPage_Button {
-            if usage == 17 || usage == 13 {
+            if usage == 17 {
                 let isPressed = intValue != 0
                 DispatchQueue.main.async { [weak self] in
                     self?.onGuideButtonAction?(isPressed)
+                }
+            } else if usage == 13 {
+                let device = IOHIDElementGetDevice(element)
+                let ptr = Unmanaged.passUnretained(device).toOpaque()
+                if !devicesWhereUsage13IsPaddle.contains(ptr) {
+                    let isPressed = intValue != 0
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onGuideButtonAction?(isPressed)
+                    }
                 }
             }
         }
