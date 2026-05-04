@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.7] - 2026-05-04
+
+### Fixed
+
+- **Elite Series 2 Guide/Paddle Crosstalk (Classic BT Firmware)**: Fixed B button triggering the Xbox Guide button on Elite Series 2 controllers with older (pre-BLE) firmware. The Elite 2 has two firmware variants with completely different HID descriptors — old firmware (Classic BT, PID 0x0B05) puts paddles on Button Page usages 11-14 where usage 13 collides with Guide on newer controllers, while new firmware (BLE, PID 0x0B22) uses 15-button descriptors where usage 13 IS Guide. The monitor now enumerates each device's Button Page elements at connection time and only treats usage 13 as Guide on 15-button descriptors. Usage 17 (Guide on USB/Classic BT) always works regardless.
+
 ## [1.7.6] - 2026-04-28
 
 ### Added
