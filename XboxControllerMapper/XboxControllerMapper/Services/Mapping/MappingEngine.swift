@@ -342,7 +342,17 @@ class MappingEngine: ObservableObject {
                 guard let self = self else { return }
                 let keysToRelease: (left: Set<CGKeyCode>, right: Set<CGKeyCode>)? = self.state.lock.withLock {
                     self.state.isEnabled = enabled
-                    guard !enabled else { return nil }
+                    if enabled {
+                        // Rebuild precomputed lookup caches that were cleared by reset()
+                        let profile = self.state.activeProfile
+                        let chords = profile?.chordMappings ?? []
+                        self.state.chordParticipantButtons = Set(chords.flatMap { $0.buttons })
+                        self.state.sequenceParticipantButtons = Set((profile?.sequenceMappings ?? []).flatMap { $0.steps })
+                        self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
+                        self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
+                        self.rebuildLayerActivatorMap(profile: profile)
+                        return nil
+                    }
                     let leftKeys = self.state.leftStickHeldKeys
                     let rightKeys = self.state.rightStickHeldKeys
                     self.state.reset()
