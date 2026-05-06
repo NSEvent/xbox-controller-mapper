@@ -128,16 +128,7 @@ class CommandWheelManager: ObservableObject {
         isShowingAlternate = false
         alternateReleaseTime = nil
         items = primaryItems.isEmpty ? alternateItems : primaryItems
-        selectedIndex = nil
-        previousSegmentIndex = nil
-        previousIsFullRange = false
-        isSelectionActive = false
-        lastValidSelection = nil
-        lastValidSelectionTime = 0
-        lastValidFullRange = false
-        lastSegmentHapticTime = 0
-        lastPerimeterHapticTime = 0
-        resetForceQuit()
+        resetSelectionState()
     }
 
     /// Prepares the command wheel with action-based items for standalone mode
@@ -157,16 +148,7 @@ class CommandWheelManager: ObservableObject {
         isShowingAlternate = false
         alternateReleaseTime = nil
         items = primaryItems
-        selectedIndex = nil
-        previousSegmentIndex = nil
-        previousIsFullRange = false
-        isSelectionActive = false
-        lastValidSelection = nil
-        lastValidSelectionTime = 0
-        lastValidFullRange = false
-        lastSegmentHapticTime = 0
-        lastPerimeterHapticTime = 0
-        resetForceQuit()
+        resetSelectionState()
     }
 
     /// Switches between primary and alternate items based on modifier state
@@ -178,16 +160,7 @@ class CommandWheelManager: ObservableObject {
             isShowingAlternate = true
             guard !alternateItems.isEmpty else { return }
             items = alternateItems
-            selectedIndex = nil
-            previousSegmentIndex = nil
-            previousIsFullRange = false
-            isSelectionActive = false
-            lastValidSelection = nil
-            lastValidSelectionTime = 0
-            lastValidFullRange = false
-            lastSegmentHapticTime = 0
-            lastPerimeterHapticTime = 0
-            resetForceQuit()
+            resetSelectionState()
             onItemSetChanged?(true)
         } else {
             // Switching back to primary: delay to allow simultaneous release
@@ -206,16 +179,7 @@ class CommandWheelManager: ObservableObject {
             isShowingAlternate = false
             guard !primaryItems.isEmpty else { return }
             items = primaryItems
-            selectedIndex = nil
-            previousSegmentIndex = nil
-            previousIsFullRange = false
-            isSelectionActive = false
-            lastValidSelection = nil
-            lastValidSelectionTime = 0
-            lastValidFullRange = false
-            lastSegmentHapticTime = 0
-            lastPerimeterHapticTime = 0
-            resetForceQuit()
+            resetSelectionState()
             onItemSetChanged?(false)
         }
     }
@@ -235,6 +199,11 @@ class CommandWheelManager: ObservableObject {
             })
         }
         isVisible = false
+        alternateReleaseTime = nil
+        resetSelectionState()
+    }
+
+    private func resetSelectionState() {
         selectedIndex = nil
         previousSegmentIndex = nil
         previousIsFullRange = false
@@ -242,7 +211,6 @@ class CommandWheelManager: ObservableObject {
         lastValidSelection = nil
         lastValidSelectionTime = 0
         lastValidFullRange = false
-        alternateReleaseTime = nil
         lastSegmentHapticTime = 0
         lastPerimeterHapticTime = 0
         resetForceQuit()
@@ -540,21 +508,19 @@ class CommandWheelManager: ObservableObject {
         }
     }
 
+    private static func normalizeURL(_ urlString: String) -> String {
+        urlString.contains("://") ? urlString : "https://\(urlString)"
+    }
+
     private func openWebsite(url urlString: String) {
-        var urlStr = urlString
-        if !urlStr.contains("://") {
-            urlStr = "https://\(urlStr)"
-        }
+        let urlStr = Self.normalizeURL(urlString)
         guard let url = URL(string: urlStr) else { return }
         NSWorkspace.shared.open(url)
         usageStatsService?.recordLinkOpened()
     }
 
     private func openWebsiteIncognito(url urlString: String) {
-        var urlStr = urlString
-        if !urlStr.contains("://") {
-            urlStr = "https://\(urlStr)"
-        }
+        let urlStr = Self.normalizeURL(urlString)
 
         // Determine the default browser
         let defaultBrowser = LSCopyDefaultHandlerForURLScheme("https" as CFString)?.takeRetainedValue() as String? ?? ""
@@ -577,13 +543,15 @@ class CommandWheelManager: ObservableObject {
             process.arguments = ["-na", "Firefox", "--args", "--private-window", urlStr]
         case let id where id.contains("com.apple.Safari"):
             // Safari: use AppleScript to open a private window
+            // Escape quotes to prevent AppleScript injection
+            let escapedURL = urlStr.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
             let script = """
             tell application "Safari"
                 activate
                 delay 0.3
                 tell application "System Events" to keystroke "n" using {command down, shift down}
                 delay 0.5
-                set URL of current tab of front window to "\(urlStr)"
+                set URL of current tab of front window to "\(escapedURL)"
             end tell
             """
             let appleScript = Process()

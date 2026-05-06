@@ -70,10 +70,11 @@ let inputCallback: IOHIDValueCallback = { _, _, _, value in
     // Paddles: Consumer Page, usage 0x81 (4-bit bitmask)
     if usagePage == UInt32(kHIDPage_Consumer) && usage == 0x81 {
         let mask = intValue
+        // Matches GCXboxGamepad convention: P1=upper left, P2=upper right, P3=lower left, P4=lower right
         let mapping: [(bit: Int, paddle: Int)] = [
             (2, 1),  // bit 2 = P1 (upper left)
-            (3, 2),  // bit 3 = P2 (lower left)
-            (0, 3),  // bit 0 = P3 (upper right)
+            (0, 2),  // bit 0 = P2 (upper right)
+            (3, 3),  // bit 3 = P3 (lower left)
             (1, 4),  // bit 1 = P4 (lower right)
         ]
         for (bit, paddle) in mapping {
