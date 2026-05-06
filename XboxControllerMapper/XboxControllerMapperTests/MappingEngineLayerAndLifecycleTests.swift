@@ -601,6 +601,128 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(aKeyCount, 1, "After reset and re-enable, single A press should fire normally")
     }
 
+    // MARK: - Chord/Sequence Survival After Disable→Enable
+
+    /// Test: Chord lookup caches survive disable→enable cycle.
+    /// Regression test for bug where state.reset() cleared chordLookup/chordParticipantButtons
+    /// but re-enable never rebuilt them, silently breaking all chord detection.
+    func testChord_firesAfterDisableEnableCycle() async throws {
+        await MainActor.run {
+            let profile = Profile(
+                name: "ChordSurvival",
+                buttonMappings: [.a: .key(1), .b: .key(2)],
+                chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 99)]
+            )
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Capture chord lookup count from the active profile's state
+        let lookupBefore: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.chordLookup.count }
+        }
+        // The lookup should be non-empty (at minimum our chord, possibly defaults)
+        XCTAssertGreaterThanOrEqual(lookupBefore, 1, "Chord lookup should have entries after profile set")
+
+        // Disable
+        await MainActor.run {
+            mappingEngine.disable()
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Verify chord lookup is cleared after disable
+        let lookupAfterDisable: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.chordLookup.count }
+        }
+        XCTAssertEqual(lookupAfterDisable, 0, "Chord lookup should be empty after disable (reset)")
+
+        // Re-enable
+        await MainActor.run {
+            mappingEngine.enable()
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Verify chord lookup is rebuilt with the same count as before
+        let lookupAfterReEnable: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.chordLookup.count }
+        }
+        XCTAssertEqual(lookupAfterReEnable, lookupBefore, "Chord lookup must be fully rebuilt after re-enable")
+
+        // Verify participant cache is also rebuilt (non-empty)
+        let participantsAfterReEnable: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.chordParticipantButtons.count }
+        }
+        XCTAssertGreaterThan(participantsAfterReEnable, 0, "Chord participant cache must be rebuilt after re-enable")
+    }
+
+    /// Test: Sequence participant cache survives disable→enable cycle.
+    func testSequenceParticipants_survivesDisableEnableCycle() async throws {
+        // Modify the existing default profile to include sequences
+        // (setActiveProfile with a new profile gets orphaned by ProfileManager validation)
+        await MainActor.run {
+            if var profile = profileManager.activeProfile {
+                profile.sequenceMappings = [SequenceMapping(steps: [.dpadDown, .dpadDown, .a], stepTimeout: 0.4, keyCode: 88)]
+                profileManager.updateProfile(profile)
+            }
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Capture participant count before disable
+        let countBefore: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.sequenceParticipantButtons.count }
+        }
+        XCTAssertGreaterThan(countBefore, 0, "Sequence participants should be populated before disable")
+
+        // Disable
+        await MainActor.run { mappingEngine.disable() }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        let countAfterDisable: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.sequenceParticipantButtons.count }
+        }
+        XCTAssertEqual(countAfterDisable, 0, "Sequence participants should be empty after disable")
+
+        // Re-enable
+        await MainActor.run { mappingEngine.enable() }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        let countAfterReEnable: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.sequenceParticipantButtons.count }
+        }
+        XCTAssertEqual(countAfterReEnable, countBefore, "Sequence participants must be rebuilt after re-enable")
+    }
+
+    /// Test: Layer activator map survives disable→enable cycle.
+    func testLayerActivator_worksAfterDisableEnableCycle() async throws {
+        // Modify the existing default profile to include a layer
+        await MainActor.run {
+            if var profile = profileManager.activeProfile {
+                let layer = Layer(name: "Combat", activatorButton: .leftBumper, buttonMappings: [.a: .key(50)])
+                profile.layers = [layer]
+                profileManager.updateProfile(profile)
+            }
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Capture activator count before
+        let countBefore: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.layerActivatorMap.count }
+        }
+        XCTAssertGreaterThan(countBefore, 0, "Layer activator map should be populated before disable")
+
+        // Disable then re-enable
+        await MainActor.run { mappingEngine.disable() }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        await MainActor.run { mappingEngine.enable() }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // Verify layer activator map count matches after disable→enable cycle
+        let countAfterReEnable: Int = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.layerActivatorMap.count }
+        }
+        XCTAssertEqual(countAfterReEnable, countBefore, "Layer activator map must survive disable→enable cycle")
+    }
+
     // MARK: - Button Input After Profile Switch
 
     /// Test 15: After switching profile, button press uses new profile's mapping.
