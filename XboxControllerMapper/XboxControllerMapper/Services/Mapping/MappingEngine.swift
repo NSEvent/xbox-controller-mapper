@@ -563,6 +563,35 @@ class MappingEngine: ObservableObject {
             if state.lock.withLock({ state.isLocked }) {
                 if case .interceptControllerLock = outcome {
                     _ = performLockToggle()
+                    return
+                }
+                // Allow unlock via double-tap or long-hold when those alternates resolve
+                // to controller lock. Track the timestamp and on second tap within
+                // threshold, toggle. Long-hold fires from the longHoldTimer scheduled below.
+                if case .mapping(let context) = outcome {
+                    let mapping = context.mapping
+                    if let dt = mapping.doubleTapMapping, dt.keyCode == KeyCodeMapping.controllerLock {
+                        let now = CFAbsoluteTimeGetCurrent()
+                        let prevTap = state.lock.withLock { state.lastTapTime[button] }
+                        if let prev = prevTap, now - prev <= dt.threshold {
+                            state.lock.withLock {
+                                state.lastTapTime.removeValue(forKey: button)
+                                state.pressConsumedByAction.insert(button)
+                            }
+                            _ = performLockToggle()
+                        } else {
+                            state.lock.withLock {
+                                state.lastTapTime[button] = now
+                                state.pressConsumedByAction.insert(button)
+                            }
+                        }
+                        return
+                    }
+                    if let lh = mapping.longHoldMapping, lh.keyCode == KeyCodeMapping.controllerLock {
+                        state.lock.withLock { state.pressConsumedByAction.insert(button) }
+                        setupLongHoldTimer(for: button, mapping: lh)
+                        return
+                    }
                 }
                 return
             }
@@ -686,6 +715,10 @@ class MappingEngine: ObservableObject {
             if let lastTap = lastTap, now - lastTap <= doubleTapMapping.threshold {
                 state.lock.withLock {
                     state.lastTapTime.removeValue(forKey: button)
+                }
+                if handleSpecialActionIntercept(keyCode: doubleTapMapping.keyCode, buttons: [button], logType: .doubleTap) {
+                    playActionHaptic(style: doubleTapMapping.hapticStyle)
+                    return
                 }
                 mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
                 playActionHaptic(style: doubleTapMapping.hapticStyle)
@@ -902,6 +935,13 @@ class MappingEngine: ObservableObject {
             return state.activeProfile
         }
 
+        // Route special action keycodes (controller lock, laser pointer, etc.) through
+        // the intercept path. Otherwise the bogus keycode would be sent as a real keypress.
+        if handleSpecialActionIntercept(keyCode: mapping.keyCode, buttons: [button], logType: .longPress) {
+            playActionHaptic(style: mapping.hapticStyle)
+            return
+        }
+
         mappingExecutor.executeAction(mapping, for: button, profile: profile, logType: .longPress)
         playActionHaptic(style: mapping.hapticStyle)
     }
@@ -910,6 +950,19 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         stopRepeatTimer(for: button)
+
+        // If the press was consumed by a special action (e.g., double-tap unlock),
+        // skip all release handling so the regular single-tap doesn't fire.
+        // Don't clear lastTapTime here — double-tap detection needs that timestamp
+        // to survive across presses.
+        let consumed = state.lock.withLock { () -> Bool in
+            if state.pressConsumedByAction.remove(button) != nil {
+                if let timer = state.longHoldTimers.removeValue(forKey: button) { timer.cancel() }
+                return true
+            }
+            return false
+        }
+        if consumed { return }
 
         // Layer Activator Release — only deactivate if this button actually activated a layer
         // (it might have been remapped as a regular button within another active layer)
@@ -1123,6 +1176,10 @@ class MappingEngine: ObservableObject {
                 pending.cancel()
             }
             clearTapState(for: button)
+            if handleSpecialActionIntercept(keyCode: doubleTapMapping.keyCode, buttons: [button], logType: .doubleTap) {
+                playActionHaptic(style: doubleTapMapping.hapticStyle)
+                return true
+            }
             mappingExecutor.executeAction(doubleTapMapping, for: button, profile: profile, logType: .doubleTap)
             playActionHaptic(style: doubleTapMapping.hapticStyle)
             return true

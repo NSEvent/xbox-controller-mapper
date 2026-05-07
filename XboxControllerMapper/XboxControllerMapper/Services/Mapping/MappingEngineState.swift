@@ -50,6 +50,9 @@ extension MappingEngine {
         var layerActivatorMap: [ControllerButton: UUID] = [:]
         // Tracks buttons that actually activated a layer (vs. being remapped within another layer)
         var buttonsActingAsLayerActivators: Set<ControllerButton> = []
+        // Buttons whose press was consumed by a special action (e.g., double-tap unlock)
+        // — release should be a no-op so the single-tap doesn't fire.
+        var pressConsumedByAction: Set<ControllerButton> = []
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
@@ -164,6 +167,7 @@ extension MappingEngine {
 
             activeLayerIds.removeAll()
             buttonsActingAsLayerActivators.removeAll()
+            pressConsumedByAction.removeAll()
             // layerActivatorMap is rebuilt on profile updates.
 
             smoothedLeftStick = .zero
