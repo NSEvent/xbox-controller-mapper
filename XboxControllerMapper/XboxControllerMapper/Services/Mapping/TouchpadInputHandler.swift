@@ -97,8 +97,11 @@ extension MappingEngine {
     }
 
     nonisolated func processTapGesture(_ button: ControllerButton) {
-        guard let profile = state.lock.withLock({
-            guard state.isEnabled, !state.isLocked else { return nil as Profile? }
+        guard let profile = state.lock.withLock({ () -> Profile? in
+            guard state.isEnabled, !state.isLocked else { return nil }
+            // If a region tap mapping just consumed this tap, skip the regular tap action.
+            // Tap is a one-shot event with no release, so we self-clear here.
+            if state.pressConsumedByAction.remove(button) != nil { return nil }
             return state.activeProfile
         }) else { return }
 
@@ -127,6 +130,8 @@ extension MappingEngine {
 
     /// Processes a touchpad region event (tap or click on a specific quadrant).
     /// Looks up a matching region mapping in the active profile and executes it.
+    /// When fired, also marks the corresponding touchpad button/tap as consumed
+    /// so the regular tap/click action doesn't run alongside the region action.
     nonisolated func processTouchpadRegionEvent(_ region: TouchpadRegion, trigger: TouchpadTriggerMode) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         guard let profile = state.lock.withLock({
@@ -139,6 +144,12 @@ extension MappingEngine {
             $0.region == region && !$0.isEmpty &&
             ($0.triggerMode == trigger || $0.triggerMode == .both)
         }) else { return }
+
+        // Suppress the regular touchpad tap/click action that fires alongside this event
+        let suppressedButton: ControllerButton = (trigger == .click) ? .touchpadButton : .touchpadTap
+        state.lock.withLock {
+            state.pressConsumedByAction.insert(suppressedButton)
+        }
 
         // Build a KeyMapping from the region mapping fields and execute via the standard path
         let mapping = KeyMapping(

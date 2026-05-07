@@ -517,6 +517,10 @@ class MappingEngine: ObservableObject {
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleButtonPressed(_ button: ControllerButton) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
+        // If a region mapping (or other special action) consumed this press,
+        // skip normal handling. Don't remove yet — the release handler removes.
+        let isConsumed = state.lock.withLock { state.pressConsumedByAction.contains(button) }
+        if isConsumed { return }
         switch beginButtonPress(button) {
         case .blocked:
             return

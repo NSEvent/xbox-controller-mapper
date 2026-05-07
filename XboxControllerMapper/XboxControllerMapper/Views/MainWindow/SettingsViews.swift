@@ -331,11 +331,12 @@ struct TouchpadSettingsView: View {
             }
 
             Section("Region Mappings") {
-                Text("Map each touchpad quadrant to a separate action on tap or click.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                TouchpadRegionGrid()
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Map each touchpad quadrant to a separate action on tap or click.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TouchpadRegionGrid()
+                }
             }
         }
         .formStyle(.grouped)
@@ -354,62 +355,93 @@ struct TouchpadSettingsView: View {
 struct TouchpadRegionGrid: View {
     @EnvironmentObject var profileManager: ProfileManager
 
+    @State private var editingRegion: TouchpadRegion?
+
     private var regionMappings: [TouchpadRegionMapping] {
         profileManager.activeProfile?.touchpadRegionMappings ?? []
     }
 
-    private func mapping(for region: TouchpadRegion) -> TouchpadRegionMapping? {
-        regionMappings.first(where: { $0.region == region })
-    }
-
     var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 4) {
+        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+            GridRow {
                 regionCell(.topLeft)
                 regionCell(.topRight)
             }
-            HStack(spacing: 4) {
+            GridRow {
                 regionCell(.bottomLeft)
                 regionCell(.bottomRight)
             }
         }
-        .frame(height: 120)
+        .frame(minHeight: 180)
+        .sheet(item: $editingRegion) { region in
+            TouchpadRegionMappingSheet(
+                region: region,
+                existingMappings: mappings(for: region)
+            )
+            .environmentObject(profileManager)
+        }
+    }
+
+    private func mappings(for region: TouchpadRegion) -> [TouchpadRegionMapping] {
+        regionMappings.filter { $0.region == region && !$0.isEmpty }
+    }
+
+    private func keyMapping(from regionMapping: TouchpadRegionMapping) -> KeyMapping {
+        KeyMapping(
+            keyCode: regionMapping.keyCode,
+            modifiers: regionMapping.modifiers,
+            macroId: regionMapping.macroId,
+            systemCommand: regionMapping.systemCommand,
+            hint: regionMapping.hint
+        )
     }
 
     @ViewBuilder
     private func regionCell(_ region: TouchpadRegion) -> some View {
-        let existing = mapping(for: region)
-        let hasMapping = existing != nil && !(existing?.isEmpty ?? true)
+        let regionMaps = mappings(for: region)
+        let hasMapping = !regionMaps.isEmpty
+        let touchMap = regionMaps.first { $0.triggerMode == .touch || $0.triggerMode == .both }
+        let clickMap = regionMaps.first { $0.triggerMode == .click || $0.triggerMode == .both }
 
-        Button(action: {
-            if hasMapping {
-                // Remove the mapping
-                removeMapping(for: region)
-            } else {
-                // This would open a mapping editor sheet — for now, show as configurable
-            }
-        }) {
-            VStack(spacing: 2) {
+        Button(action: { editingRegion = region }) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(region.displayName)
                     .font(.caption2.bold())
-                if let existing, !existing.isEmpty {
-                    if let hint = existing.hint, !hint.isEmpty {
-                        Text(hint)
-                            .font(.caption2)
-                            .lineLimit(1)
-                    } else if let keyCode = existing.keyCode {
-                        Text("Key \(keyCode)")
-                            .font(.caption2)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 4)
+                if hasMapping {
+                    if let touch = touchMap {
+                        HStack(spacing: 3) {
+                            Text("touch")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            MappingLabelView(
+                                mapping: keyMapping(from: touch),
+                                horizontal: true,
+                                font: .caption2
+                            )
+                        }
                     }
-                    Text(existing.triggerMode.displayName)
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
+                    if let click = clickMap {
+                        HStack(spacing: 3) {
+                            Text("click")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            MappingLabelView(
+                                mapping: keyMapping(from: click),
+                                horizontal: true,
+                                font: .caption2
+                            )
+                        }
+                    }
                 } else {
-                    Text("Not mapped")
+                    Text("Tap to map")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
+            .padding(6)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(hasMapping ? Color.accentColor.opacity(0.15) : Color.gray.opacity(0.1))
             .cornerRadius(6)
@@ -419,6 +451,13 @@ struct TouchpadRegionGrid: View {
             )
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contextMenu {
+            if hasMapping {
+                Button("Edit...") { editingRegion = region }
+                Button("Clear", role: .destructive) { removeMapping(for: region) }
+            }
+        }
     }
 
     private func removeMapping(for region: TouchpadRegion) {
