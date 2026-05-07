@@ -192,7 +192,13 @@ extension ProfileManager {
             return nil
         }
 
-        let layer = Layer(name: name, activatorButton: activatorButton)
+        // Auto-assign a distinct LED color from the palette so the lightbar
+        // visually indicates the active layer out of the box.
+        var ledSettings = DualSenseLEDSettings()
+        ledSettings.lightBarColor = LayerColorPalette.nextColor(usedBy: targetProfile.layers)
+        ledSettings.lightBarEnabled = true
+
+        let layer = Layer(name: name, activatorButton: activatorButton, dualSenseLEDSettings: ledSettings)
         targetProfile.layers.append(layer)
         updateProfile(targetProfile)
         return layer

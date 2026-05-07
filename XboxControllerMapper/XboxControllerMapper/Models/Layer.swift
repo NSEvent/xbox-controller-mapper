@@ -1,5 +1,37 @@
 import Foundation
 
+/// Distinct, visually-different colors auto-assigned to layers in order of creation.
+/// Hand-picked for high mutual contrast on a DualSense/DS4 lightbar.
+enum LayerColorPalette {
+    static let colors: [CodableColor] = [
+        CodableColor(red: 0.0, green: 0.55, blue: 1.0),   // Blue
+        CodableColor(red: 1.0, green: 0.2, blue: 0.0),    // Red
+        CodableColor(red: 0.0, green: 0.85, blue: 0.3),   // Green
+        CodableColor(red: 1.0, green: 0.55, blue: 0.0),   // Orange
+        CodableColor(red: 0.7, green: 0.2, blue: 0.95),   // Purple
+        CodableColor(red: 0.0, green: 0.85, blue: 0.85),  // Cyan
+        CodableColor(red: 1.0, green: 0.85, blue: 0.0),   // Yellow
+        CodableColor(red: 1.0, green: 0.3, blue: 0.7),    // Pink
+        CodableColor(red: 0.4, green: 1.0, blue: 0.4),    // Light green
+        CodableColor(red: 0.5, green: 0.5, blue: 1.0),    // Periwinkle
+        CodableColor(red: 1.0, green: 0.4, blue: 0.3),    // Coral
+        CodableColor(red: 0.0, green: 0.5, blue: 0.4),    // Teal
+    ]
+
+    /// Returns the next palette color not already used by an existing layer's LED settings.
+    /// Falls back to cycling through the palette if all colors are taken.
+    static func nextColor(usedBy layers: [Layer]) -> CodableColor {
+        let usedColors = layers.compactMap { $0.dualSenseLEDSettings?.lightBarColor }
+        for color in colors {
+            if !usedColors.contains(where: { $0.red == color.red && $0.green == color.green && $0.blue == color.blue }) {
+                return color
+            }
+        }
+        // All palette colors are taken — cycle by index
+        return colors[layers.count % colors.count]
+    }
+}
+
 /// Represents a mapping layer that can be activated by holding a button.
 /// When the activator button is held, the layer's buttonMappings override the base layer.
 /// Buttons not mapped in the layer fall through to the base layer mapping.

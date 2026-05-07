@@ -14,6 +14,17 @@ struct LayerTabBar: View {
     var actionFeedbackEnabled: Binding<Bool>
     var streamOverlayEnabled: Binding<Bool>
 
+    @State private var colorEditingLayerId: UUID? = nil
+    @State private var colorEditingColor: Color = .blue
+
+    /// Returns the layer's configured LED color, or a fallback purple if none is set.
+    private func layerBadgeColor(_ layer: Layer) -> Color {
+        if let led = layer.dualSenseLEDSettings, led.lightBarEnabled {
+            return led.lightBarColor.color
+        }
+        return Color.purple.opacity(0.8)
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             // Base Layer tab (always present)
@@ -54,7 +65,7 @@ struct LayerTabBar: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 2)
-                                    .background(Color.purple.opacity(0.8))
+                                    .background(layerBadgeColor(layer))
                                     .cornerRadius(4)
                             } else {
                                 Image(systemName: "exclamationmark.circle.fill")
@@ -74,12 +85,43 @@ struct LayerTabBar: View {
                         Button("Rename...") {
                             editingLayerId = layer.id
                         }
+                        Button("Change Color...") {
+                            colorEditingColor = layer.dualSenseLEDSettings?.lightBarColor.color ?? .blue
+                            colorEditingLayerId = layer.id
+                        }
                         Button("Delete", role: .destructive) {
                             profileManager.deleteLayer(layer)
                             if selectedLayerId == layer.id {
                                 selectedLayerId = nil
                             }
                         }
+                    }
+                    .popover(isPresented: Binding(
+                        get: { colorEditingLayerId == layer.id },
+                        set: { if !$0 { colorEditingLayerId = nil } }
+                    )) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Layer Color: \(layer.name)")
+                                .font(.headline)
+                            Text("Lightbar color shown when this layer is active")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            ColorPicker("Color", selection: $colorEditingColor, supportsOpacity: false)
+                            HStack {
+                                Button("Done") {
+                                    var updated = layer
+                                    var led = updated.dualSenseLEDSettings ?? DualSenseLEDSettings()
+                                    led.lightBarColor = CodableColor(color: colorEditingColor)
+                                    led.lightBarEnabled = true
+                                    updated.dualSenseLEDSettings = led
+                                    profileManager.updateLayer(updated)
+                                    colorEditingLayerId = nil
+                                }
+                                .keyboardShortcut(.defaultAction)
+                            }
+                        }
+                        .padding()
+                        .frame(width: 280)
                     }
                 }
             }

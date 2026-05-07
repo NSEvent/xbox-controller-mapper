@@ -9,6 +9,7 @@ struct AddLayerSheet: View {
 
     @State private var layerName: String = ""
     @State private var selectedActivator: ControllerButton? = .leftBumper
+    @State private var ledColor: Color = .blue
 
     /// Buttons that are already used as layer activators
     private var usedActivators: Set<ControllerButton> {
@@ -61,6 +62,18 @@ struct AddLayerSheet: View {
                     }
                     .pickerStyle(.menu)
                 }
+
+                if controllerService.threadSafeIsPlayStation {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Light Bar Color")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Text("Lightbar shows this color while the layer is active")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        ColorPicker("Color", selection: $ledColor, supportsOpacity: false)
+                    }
+                }
             }
             .padding(.horizontal)
 
@@ -74,7 +87,15 @@ struct AddLayerSheet: View {
 
                 Button("Add Layer") {
                     guard !layerName.isEmpty else { return }
-                    _ = profileManager.createLayer(name: layerName, activatorButton: selectedActivator)
+                    if let layer = profileManager.createLayer(name: layerName, activatorButton: selectedActivator) {
+                        // Override the auto-assigned color with the user's pick
+                        var updated = layer
+                        var led = updated.dualSenseLEDSettings ?? DualSenseLEDSettings()
+                        led.lightBarColor = CodableColor(color: ledColor)
+                        led.lightBarEnabled = true
+                        updated.dualSenseLEDSettings = led
+                        profileManager.updateLayer(updated)
+                    }
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -89,6 +110,10 @@ struct AddLayerSheet: View {
             if let first = availableButtons.first {
                 selectedActivator = first
             }
+            // Pre-fill color picker with the next distinct palette color
+            // (matches what createLayer would auto-assign)
+            let existingLayers = profileManager.activeProfile?.layers ?? []
+            ledColor = LayerColorPalette.nextColor(usedBy: existingLayers).color
         }
     }
 }

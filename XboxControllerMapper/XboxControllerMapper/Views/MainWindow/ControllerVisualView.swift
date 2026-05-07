@@ -81,6 +81,14 @@ struct ControllerVisualView: View {
         return layer.id != selectedLayerId
     }
 
+    /// Returns the layer's configured LED color, or fallback purple if none.
+    private func layerColor(_ layer: Layer) -> Color {
+        if let led = layer.dualSenseLEDSettings, led.lightBarEnabled {
+            return led.lightBarColor.color
+        }
+        return Color.purple
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
             // Left Column: Shoulder and Left-side inputs
@@ -289,7 +297,7 @@ struct ControllerVisualView: View {
                         .font(.system(size: 8, weight: .bold))
                         .foregroundColor(.white)
                         .frame(width: 12, height: 12)
-                        .background(Circle().fill(Color.purple))
+                        .background(Circle().fill(layerColor(layer)))
                         .offset(x: 4, y: -4)
                         .help("Layer Activator: \(layer.name)")
                 }
@@ -307,7 +315,7 @@ struct ControllerVisualView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
-                                .background(Color.purple)
+                                .background(layerColor(layer))
                                 .cornerRadius(3)
                             Text(layer.name)
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))

@@ -545,6 +545,9 @@ class MappingEngine: ObservableObject {
                 if let ledSettings = layer.dualSenseLEDSettings {
                     DispatchQueue.main.async { [weak self] in
                         self?.controllerService.applyLEDSettings(ledSettings)
+                        // Layer LEDs default to batteryLightBar=false, so this just stops
+                        // any battery blink/charging animation that might be running.
+                        self?.controllerService.updateBatteryLightBar()
                     }
                 }
             }
@@ -934,14 +937,15 @@ class MappingEngine: ObservableObject {
             }
             #endif
 
-            // Revert LED settings: apply next active layer's LED, or fall back to profile default
+            // Revert LED settings: apply next active layer's LED, or fall back to profile default.
+            // After applying, also kick the battery monitor so battery-light-bar mode resumes
+            // if the profile uses it (otherwise its periodic updates would override our color).
             DispatchQueue.main.async { [weak self] in
                 guard let self = self,
                       !self.controllerService.partyModeEnabled else { return }
                 let (remainingLayerIds, profile) = self.state.lock.withLock {
                     (self.state.activeLayerIds, self.state.activeProfile)
                 }
-                // Check if another layer with LED settings is still active
                 if let activeLayerId = remainingLayerIds.last,
                    let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
                    let ledSettings = activeLayer.dualSenseLEDSettings {
@@ -949,6 +953,7 @@ class MappingEngine: ObservableObject {
                 } else if let profileLED = profile?.dualSenseLEDSettings {
                     self.controllerService.applyLEDSettings(profileLED)
                 }
+                self.controllerService.updateBatteryLightBar()
             }
             return
         }
