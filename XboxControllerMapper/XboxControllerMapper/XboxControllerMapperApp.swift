@@ -103,10 +103,79 @@ final class ServiceContainer {
     }
 }
 
+/// Menu bar label. SwiftUI's MenuBarExtra ignores complex view hierarchies in
+/// the label slot — only a single Image renders reliably as a template icon.
+/// We composite gamecontroller + lock into one NSImage when locked.
+struct MenuBarLabel: View {
+    @ObservedObject var controllerService: ControllerService
+    @ObservedObject var mappingEngine: MappingEngine
+
+    private var iconImage: NSImage? {
+        let baseName = controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller"
+        guard let base = NSImage(systemSymbolName: baseName, accessibilityDescription: nil) else {
+            return nil
+        }
+        if !mappingEngine.isLocked { return base }
+        guard let lock = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: "Locked") else {
+            return base
+        }
+        return composite(base: base, overlay: lock)
+    }
+
+    /// Renders `base` and `overlay` (a smaller, centered lock) into a single
+    /// non-template NSImage so the lock can be drawn in red while the
+    /// gamecontroller follows the menu bar text color.
+    private func composite(base: NSImage, overlay: NSImage) -> NSImage {
+        let size = base.size
+        let result = NSImage(size: size)
+        result.lockFocus()
+        // Tint the base gamecontroller with the system label color (auto-adapts
+        // to light/dark menu bar) at 45% opacity.
+        if let tintedBase = tinted(image: base, color: NSColor.labelColor) {
+            tintedBase.draw(in: NSRect(origin: .zero, size: size),
+                            from: .zero,
+                            operation: .sourceOver,
+                            fraction: 0.45)
+        }
+        let overlayScale: CGFloat = 0.65
+        let overlaySize = NSSize(width: size.width * overlayScale,
+                                 height: size.height * overlayScale)
+        let overlayOrigin = NSPoint(x: (size.width - overlaySize.width) / 2,
+                                    y: (size.height - overlaySize.height) / 2)
+        if let tintedOverlay = tinted(image: overlay, color: NSColor.systemRed) {
+            tintedOverlay.draw(in: NSRect(origin: overlayOrigin, size: overlaySize),
+                               from: .zero,
+                               operation: .sourceOver,
+                               fraction: 1.0)
+        }
+        result.unlockFocus()
+        result.isTemplate = false
+        return result
+    }
+
+    /// Returns a copy of `image` tinted with `color` (preserves alpha).
+    private func tinted(image: NSImage, color: NSColor) -> NSImage? {
+        let copy = image.copy() as? NSImage ?? image
+        copy.lockFocus()
+        color.set()
+        let rect = NSRect(origin: .zero, size: copy.size)
+        rect.fill(using: .sourceAtop)
+        copy.unlockFocus()
+        return copy
+    }
+
+    var body: some View {
+        if let icon = iconImage {
+            Image(nsImage: icon)
+        } else {
+            Image(systemName: "gamecontroller")
+        }
+    }
+}
+
 @main
 struct XboxControllerMapperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-
     var body: some Scene {
         // Single-window scene (prevents Cmd+N from opening duplicates)
         Window("ControllerKeys", id: "main") {
@@ -121,13 +190,18 @@ struct XboxControllerMapperApp: App {
         }
         .windowResizability(.contentSize)
 
-        MenuBarExtra("ControllerKeys", systemImage: ServiceContainer.shared.controllerService.isConnected ? "gamecontroller.fill" : "gamecontroller") {
+        MenuBarExtra {
             MenuBarView()
                 .environmentObject(ServiceContainer.shared.controllerService)
                 .environmentObject(ServiceContainer.shared.profileManager)
                 .environmentObject(ServiceContainer.shared.mappingEngine)
                 .environmentObject(ServiceContainer.shared.inputMonitor)
                 .environmentObject(ServiceContainer.shared.inputLogService)
+        } label: {
+            MenuBarLabel(
+                controllerService: ServiceContainer.shared.controllerService,
+                mappingEngine: ServiceContainer.shared.mappingEngine
+            )
         }
         .menuBarExtraStyle(.window)
     }

@@ -848,6 +848,31 @@ class MappingEngine: ObservableObject {
             )
         }
 
+        // Lightbar feedback: solid red while locked, restore layer/profile color on unlock.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self,
+                  !self.controllerService.partyModeEnabled else { return }
+            if nowLocked {
+                var lockedSettings = DualSenseLEDSettings()
+                lockedSettings.lightBarEnabled = true
+                lockedSettings.lightBarColor = CodableColor(red: 1.0, green: 0.0, blue: 0.0)
+                lockedSettings.batteryLightBar = false
+                self.controllerService.applyLEDSettings(lockedSettings)
+            } else {
+                let (activeLayerIds, profile) = self.state.lock.withLock {
+                    (self.state.activeLayerIds, self.state.activeProfile)
+                }
+                if let activeLayerId = activeLayerIds.last,
+                   let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
+                   let layerLED = activeLayer.dualSenseLEDSettings {
+                    self.controllerService.applyLEDSettings(layerLED)
+                } else if let profileLED = profile?.dualSenseLEDSettings {
+                    self.controllerService.applyLEDSettings(profileLED)
+                }
+                self.controllerService.updateBatteryLightBar()
+            }
+        }
+
         return nowLocked
     }
 
