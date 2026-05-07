@@ -100,7 +100,13 @@ class CommandWheelManager: ObservableObject {
         self.usageStatsService = service
     }
 
-    /// Prepares the command wheel with primary and alternate item sets (does NOT show it yet - waits for stick input)
+    /// Shows the command wheel panel immediately (call after prepare).
+    func show() {
+        guard !items.isEmpty, !isVisible else { return }
+        showPanel()
+    }
+
+    /// Prepares the command wheel with primary and alternate item sets (does NOT show it yet - call show() after).
     func prepare(apps: [AppBarItem], websites: [WebsiteLink], showWebsitesFirst: Bool) {
         let appItems = apps.map { app in
             CommandWheelItem(

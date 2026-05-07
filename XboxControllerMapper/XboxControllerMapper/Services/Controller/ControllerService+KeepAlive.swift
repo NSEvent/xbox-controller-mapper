@@ -119,70 +119,24 @@ extension ControllerService {
     }
 
     private func sendDualShock4BluetoothTickle(device: IOHIDDevice) {
-        // DS4 Bluetooth output report (report ID 0x11, 78 bytes total).
-        // Report is sent WITHOUT the report ID byte (IOKit takes it separately).
-        var report = [UInt8](repeating: 0, count: DualShock4HIDConstants.btReportSize - 1)
-
-        // Header bytes (transaction type + poll interval flags)
-        report[0] = 0x80  // HID transaction header
-        report[1] = 0x00
-        report[2] = 0xFF  // poll interval hint
-
-        // Valid flags — enable rumble + LED section
-        report[3] = 0xF7  // motor enable + LED flags
-        report[4] = 0x04  // LED flag
-
-        // Light bar RGB — dim blue (non-zero so controller knows it's a real report)
-        report[8] = 0x00   // Red
-        report[9] = 0x00   // Green
-        report[10] = 0x40  // Blue
-
-        let result = IOHIDDeviceSetReport(
-            device,
-            kIOHIDReportTypeOutput,
-            CFIndex(DualShock4HIDConstants.btOutputReportID),
-            report,
-            report.count
-        )
+        // Re-send current LED settings as the tickle — preserves user-set colors
+        // and the controller treats it as host activity, resetting its sleep timer.
+        let settings = storage.lock.withLock { storage.currentLEDSettings } ?? DualSenseLEDSettings()
+        sendDualShock4BluetoothLEDReport(device: device, settings: settings)
 
         #if DEBUG
-        if result == kIOReturnSuccess {
-            print("[KeepAlive] Sent tickle (DualShock 4 BT)")
-        } else {
-            print("[KeepAlive] DualShock 4 BT tickle failed: \(String(format: "0x%08X", result))")
-        }
+        print("[KeepAlive] Sent tickle (DualShock 4 BT, using stored LED settings)")
         #endif
     }
 
     private func sendDualShock4USBTickle(device: IOHIDDevice) {
-        // DS4 USB output report (report ID 0x05, 32 bytes total).
-        var report = [UInt8](repeating: 0, count: DualShock4HIDConstants.usbReportSize)
-
-        // Report ID
-        report[0] = DualShock4HIDConstants.usbOutputReportID
-
-        // Valid flags — enable LED section
-        report[1] = 0xFF
-
-        // Light bar RGB — dim blue
-        report[6] = 0x00   // Red
-        report[7] = 0x00   // Green
-        report[8] = 0x40   // Blue
-
-        let result = IOHIDDeviceSetReport(
-            device,
-            kIOHIDReportTypeOutput,
-            CFIndex(DualShock4HIDConstants.usbOutputReportID),
-            report,
-            report.count
-        )
+        // Re-send current LED settings as the tickle — preserves user-set colors
+        // and the controller treats it as host activity, resetting its sleep timer.
+        let settings = storage.lock.withLock { storage.currentLEDSettings } ?? DualSenseLEDSettings()
+        sendDualShock4USBLEDReport(device: device, settings: settings)
 
         #if DEBUG
-        if result == kIOReturnSuccess {
-            print("[KeepAlive] Sent tickle (DualShock 4 USB)")
-        } else {
-            print("[KeepAlive] DualShock 4 USB tickle failed: \(String(format: "0x%08X", result))")
-        }
+        print("[KeepAlive] Sent tickle (DualShock 4 USB, using stored LED settings)")
         #endif
     }
 }

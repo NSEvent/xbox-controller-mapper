@@ -66,11 +66,19 @@ struct ControllerVisualView: View {
         return layer.activatorButton == button
     }
 
-    /// Returns true if this button is ANY layer activator and we're viewing a secondary layer
-    /// All layer activators should be dimmed when editing any layer, since they can't be remapped
+    /// Returns true if this button is the activator for the currently selected layer.
+    /// Only that specific activator should be dimmed/disabled — other layer activators
+    /// are freed up for remapping within the current layer.
     private func isLayerActivatorInLayerContext(_ button: ControllerButton) -> Bool {
-        guard selectedLayerId != nil else { return false }  // Only in layer context
-        return isLayerActivator(button)
+        return isActivatorForSelectedLayer(button)
+    }
+
+    /// Returns true if we're editing a layer AND this button activates a DIFFERENT layer.
+    /// In that case, we show the layer mapping instead of the activator badge.
+    private func isEditingDifferentLayer(_ button: ControllerButton) -> Bool {
+        guard selectedLayerId != nil else { return false }
+        guard let layer = layerForButton(button) else { return false }
+        return layer.id != selectedLayerId
     }
 
     var body: some View {
@@ -291,8 +299,8 @@ struct ControllerVisualView: View {
             // Shortcut Labels Container
             HoverableGlassContainer(isActive: selectedButton == button) {
                 HStack {
-                    if let layer = layerForButton(button) {
-                        // This button is a layer activator
+                    if let layer = layerForButton(button), !isEditingDifferentLayer(button) {
+                        // This button is a layer activator (only show when on base or its own layer)
                         HStack(spacing: 6) {
                             Text("L")
                                 .font(.system(size: 9, weight: .black))
@@ -378,9 +386,8 @@ struct ControllerVisualView: View {
 
         // If viewing a layer, check layer mapping first
         if selectedLayerId != nil {
-            // Any layer activator button shows no mapping when viewing any layer
-            // (layer activators can't be remapped, they only switch layers)
-            if isLayerActivator(button) {
+            // The current layer's own activator button can't be remapped
+            if isActivatorForSelectedLayer(button) {
                 return nil
             }
             // Check if this button has a layer-specific mapping

@@ -145,6 +145,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Request Accessibility permissions if not granted
         requestAccessibilityPermissions()
+
+        // Apply dock icon visibility preference
+        if UserDefaults.standard.bool(forKey: "hideFromDock") {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

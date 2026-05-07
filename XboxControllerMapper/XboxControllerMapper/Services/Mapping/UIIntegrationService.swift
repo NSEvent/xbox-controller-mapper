@@ -40,6 +40,7 @@ extension MappingEngine {
                 }
                 if !apps.isEmpty || !websites.isEmpty {
                     CommandWheelManager.shared.prepare(apps: apps, websites: websites, showWebsitesFirst: showWebsitesFirst)
+                    CommandWheelManager.shared.show()
                     CommandWheelManager.shared.onSegmentChanged = { [weak self] in
                         self?.controllerService.playHaptic(
                             intensity: Config.wheelSegmentHapticIntensity,
@@ -256,6 +257,7 @@ extension MappingEngine {
                 executor: self.mappingExecutor,
                 profile: self.profileManager.activeProfile
             )
+            CommandWheelManager.shared.show()
             CommandWheelManager.shared.onSegmentChanged = { [weak self] in
                 self?.controllerService.playHaptic(
                     intensity: Config.wheelSegmentHapticIntensity,

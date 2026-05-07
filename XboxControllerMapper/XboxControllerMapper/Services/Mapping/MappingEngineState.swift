@@ -48,6 +48,8 @@ extension MappingEngine {
         // Ordered list of active layer IDs; latest item takes priority.
         var activeLayerIds: [UUID] = []
         var layerActivatorMap: [ControllerButton: UUID] = [:]
+        // Tracks buttons that actually activated a layer (vs. being remapped within another layer)
+        var buttonsActingAsLayerActivators: Set<ControllerButton> = []
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
@@ -161,6 +163,7 @@ extension MappingEngine {
             dpadNavigationButton = nil
 
             activeLayerIds.removeAll()
+            buttonsActingAsLayerActivators.removeAll()
             // layerActivatorMap is rebuilt on profile updates.
 
             smoothedLeftStick = .zero

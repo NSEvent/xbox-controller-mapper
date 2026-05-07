@@ -88,9 +88,15 @@ struct ButtonMappingSheet: View {
     }
 
     /// Whether this button is a layer activator (in the base layer)
-    /// Layer activators cannot be mapped to actions in any layer
     private var isBaseLayerActivator: Bool {
         profileManager.layerForActivator(button) != nil
+    }
+
+    /// Whether this button is the activator for the layer we're currently editing.
+    /// Only this specific activator should be blocked from remapping.
+    private var isActivatorForCurrentLayer: Bool {
+        guard let layer = editingLayer else { return false }
+        return layer.activatorButton == button
     }
 
     /// The layer we're editing, if any
@@ -128,8 +134,8 @@ struct ButtonMappingSheet: View {
                         .cornerRadius(8)
                     }
 
-                    // Show warning if this button is a layer activator and we're editing a layer
-                    if isEditingLayer && isBaseLayerActivator {
+                    // Show warning if this button is the activator for the layer we're editing
+                    if isActivatorForCurrentLayer {
                         if let activatorLayer = profileManager.layerForActivator(button) {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 8) {
@@ -148,8 +154,8 @@ struct ButtonMappingSheet: View {
                             .cornerRadius(8)
                         }
                     } else {
-                        // Only show mapping sections if not a layer activator
-                        if !isLayerActivator {
+                        // Show mapping sections (hidden only for the current layer's own activator)
+                        if !isActivatorForCurrentLayer {
                             primaryMappingSection
                             longHoldSection
                             doubleTapSection
@@ -777,8 +783,8 @@ struct ButtonMappingSheet: View {
 
     private var footer: some View {
         HStack {
-            // Don't show Clear/Save when editing a layer activator in a layer context
-            if isEditingLayer && isBaseLayerActivator {
+            // Don't show Clear/Save when editing this layer's own activator button
+            if isActivatorForCurrentLayer {
                 Spacer()
                 Button("Close") {
                     dismiss()

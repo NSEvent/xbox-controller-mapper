@@ -149,6 +149,9 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Mapping layers (max 12) - activated by holding a button
     var layers: [Layer]
 
+    /// Touchpad region mappings (quadrant-based actions)
+    var touchpadRegionMappings: [TouchpadRegionMapping]
+
     /// Command wheel actions (standalone wheel, independent of on-screen keyboard)
     var commandWheelActions: [CommandWheelAction]
 
@@ -168,6 +171,7 @@ struct Profile: Codable, Identifiable, Equatable {
         onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings(),
         gestureMappings: [GestureMapping] = [],
         layers: [Layer] = [],
+        touchpadRegionMappings: [TouchpadRegionMapping] = [],
         commandWheelActions: [CommandWheelAction] = []
     ) {
         self.id = id
@@ -187,6 +191,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.onScreenKeyboardSettings = onScreenKeyboardSettings
         self.gestureMappings = gestureMappings
         self.layers = layers
+        self.touchpadRegionMappings = touchpadRegionMappings
         self.commandWheelActions = commandWheelActions
     }
 
@@ -380,7 +385,7 @@ extension Profile {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, chordMappings, sequenceMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, macros, scripts
-        case onScreenKeyboardSettings, gestureMappings, layers, commandWheelActions
+        case onScreenKeyboardSettings, gestureMappings, layers, touchpadRegionMappings, commandWheelActions
     }
 
     init(from decoder: Decoder) throws {
@@ -413,6 +418,7 @@ extension Profile {
         onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings) ?? OnScreenKeyboardSettings()
         gestureMappings = try container.decodeIfPresent([GestureMapping].self, forKey: .gestureMappings) ?? []
         layers = try container.decodeIfPresent([Layer].self, forKey: .layers) ?? []
+        touchpadRegionMappings = try container.decodeIfPresent([TouchpadRegionMapping].self, forKey: .touchpadRegionMappings) ?? []
         commandWheelActions = try container.decodeIfPresent([CommandWheelAction].self, forKey: .commandWheelActions) ?? []
     }
 
@@ -440,6 +446,7 @@ extension Profile {
         try container.encode(onScreenKeyboardSettings, forKey: .onScreenKeyboardSettings)
         try container.encode(gestureMappings, forKey: .gestureMappings)
         try container.encode(layers, forKey: .layers)
+        try container.encode(touchpadRegionMappings, forKey: .touchpadRegionMappings)
         try container.encode(commandWheelActions, forKey: .commandWheelActions)
     }
 }

@@ -123,6 +123,35 @@ extension MappingEngine {
         mappingExecutor.executeAction(mapping, for: button, profile: profile)
     }
 
+    // MARK: - Touchpad Region Mappings
+
+    /// Processes a touchpad region event (tap or click on a specific quadrant).
+    /// Looks up a matching region mapping in the active profile and executes it.
+    nonisolated func processTouchpadRegionEvent(_ region: TouchpadRegion, trigger: TouchpadTriggerMode) {
+        dispatchPrecondition(condition: .onQueue(inputQueue))
+        guard let profile = state.lock.withLock({
+            guard state.isEnabled, !state.isLocked else { return nil as Profile? }
+            return state.activeProfile
+        }) else { return }
+
+        // Find a region mapping that matches the region and trigger mode
+        guard let regionMapping = profile.touchpadRegionMappings.first(where: {
+            $0.region == region && !$0.isEmpty &&
+            ($0.triggerMode == trigger || $0.triggerMode == .both)
+        }) else { return }
+
+        // Build a KeyMapping from the region mapping fields and execute via the standard path
+        let mapping = KeyMapping(
+            keyCode: regionMapping.keyCode,
+            modifiers: regionMapping.modifiers,
+            macroId: regionMapping.macroId,
+            systemCommand: regionMapping.systemCommand,
+            hint: regionMapping.hint
+        )
+        mappingExecutor.executeAction(mapping, for: .touchpadButton, profile: profile)
+        playActionHaptic(style: nil)
+    }
+
     // MARK: - Touchpad Long Tap Gestures
 
     /// - Precondition: Must be called on pollingQueue

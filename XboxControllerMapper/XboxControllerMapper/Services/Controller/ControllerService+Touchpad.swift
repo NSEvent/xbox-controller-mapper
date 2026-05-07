@@ -28,7 +28,15 @@ extension ControllerService {
             if pressed {
                 self.storage.lock.lock()
                 let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
+                let clickPosition = self.storage.touchpadPosition
+                let regionClickCallback = self.storage.onTouchpadRegionClick
                 self.storage.lock.unlock()
+
+                // Fire region click callback (single-finger clicks only)
+                if !willBeTwoFingerClick, let callback = regionClickCallback {
+                    let region = TouchpadRegion.from(position: clickPosition)
+                    self.controllerQueue.async { callback(region) }
+                }
 
                 if willBeTwoFingerClick {
                     self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
@@ -372,6 +380,17 @@ extension ControllerService {
                 touchDistance < Config.touchpadTapMaxMovement
             let tapCallback = isSingleTap ? storage.onTouchpadTap : nil
 
+            // Region tap: use touch start position for consistent region detection
+            let regionTapCallback: ((TouchpadRegion) -> Void)?
+            let tapRegion: TouchpadRegion?
+            if isSingleTap {
+                regionTapCallback = storage.onTouchpadRegionTap
+                tapRegion = TouchpadRegion.from(position: storage.touchpadTouchStartPosition)
+            } else {
+                regionTapCallback = nil
+                tapRegion = nil
+            }
+
             // Two-finger tap: both fingers had short duration and minimal movement, long tap not fired,
             // and no physical click during this touch
             // Secondary finger uses more lenient threshold due to touchpad noise
@@ -410,6 +429,9 @@ extension ControllerService {
 
             // Fire tap callback if it was a tap (not if long tap was fired)
             tapCallback?()
+            if let regionTapCallback, let tapRegion {
+                regionTapCallback(tapRegion)
+            }
             twoFingerTapCallback?()
 
             if wasTwoFinger && !isTwoFinger {

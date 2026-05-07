@@ -268,8 +268,10 @@ struct ContentView: View {
         if controllerService.threadSafeIsPlayStation {
             tabs.append(CustomTabItem(tag: 4, label: "Touchpad"))
         }
-        if controllerService.threadSafeIsDualSense {
+        if controllerService.threadSafeIsPlayStation {
             tabs.append(CustomTabItem(tag: 5, label: "LEDs"))
+        }
+        if controllerService.threadSafeIsDualSense {
             tabs.append(CustomTabItem(tag: 6, label: "Microphone"))
         }
         // Global tabs (not per-profile) — rendered with a different highlight color

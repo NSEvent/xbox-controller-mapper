@@ -299,6 +299,15 @@ class ProfileManager: ObservableObject {
         updateProfile(targetProfile)
     }
 
+    // MARK: - Touchpad Region Mappings
+
+    func updateTouchpadRegionMappings(_ mappings: [TouchpadRegionMapping], in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.touchpadRegionMappings = mappings
+        updateProfile(targetProfile)
+    }
+
     // MARK: - Persistence
     private func loadConfiguration() {
         guard let loadSource = ProfileConfigLoadSourceResolver.resolve(

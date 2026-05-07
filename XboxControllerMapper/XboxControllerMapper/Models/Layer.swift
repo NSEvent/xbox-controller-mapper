@@ -15,22 +15,27 @@ struct Layer: Codable, Identifiable, Equatable {
     /// Layer-specific button mappings (overrides base layer when active)
     var buttonMappings: [ControllerButton: KeyMapping]
 
+    /// Optional LED settings applied when this layer is active (nil = inherit profile settings)
+    var dualSenseLEDSettings: DualSenseLEDSettings?
+
     init(
         id: UUID = UUID(),
         name: String,
         activatorButton: ControllerButton? = nil,
-        buttonMappings: [ControllerButton: KeyMapping] = [:]
+        buttonMappings: [ControllerButton: KeyMapping] = [:],
+        dualSenseLEDSettings: DualSenseLEDSettings? = nil
     ) {
         self.id = id
         self.name = name
         self.activatorButton = activatorButton
         self.buttonMappings = buttonMappings
+        self.dualSenseLEDSettings = dualSenseLEDSettings
     }
 
     // MARK: - Custom Codable
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, activatorButton, buttonMappings
+        case id, name, activatorButton, buttonMappings, dualSenseLEDSettings
     }
 
     init(from decoder: Decoder) throws {
@@ -47,6 +52,8 @@ struct Layer: Codable, Identifiable, Equatable {
             guard let button = ControllerButton(rawValue: key) else { return nil }
             return (button, value)
         })
+
+        dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -59,5 +66,7 @@ struct Layer: Codable, Identifiable, Equatable {
         // Encode button mappings as string-keyed dictionary
         let stringKeyedMappings = Dictionary(uniqueKeysWithValues: buttonMappings.map { ($0.key.rawValue, $0.value) })
         try container.encode(stringKeyedMappings, forKey: .buttonMappings)
+
+        try container.encodeIfPresent(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
     }
 }

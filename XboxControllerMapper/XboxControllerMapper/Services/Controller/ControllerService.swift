@@ -101,6 +101,8 @@ final class ControllerStorage: @unchecked Sendable {
     var onTouchpadTwoFingerTap: (() -> Void)?  // Two-finger tap or click (right-click)
     var onTouchpadLongTap: (() -> Void)?  // Long tap (touch held without moving)
     var onTouchpadTwoFingerLongTap: (() -> Void)?  // Two-finger long tap
+    var onTouchpadRegionTap: ((TouchpadRegion) -> Void)?  // Region-specific tap
+    var onTouchpadRegionClick: ((TouchpadRegion) -> Void)?  // Region-specific click
     var touchpadLongTapTimer: DispatchWorkItem?  // Timer for long tap detection
     var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
 
@@ -517,6 +519,14 @@ class ControllerService: ObservableObject {
     var onTouchpadTwoFingerLongTap: (() -> Void)? {
         get { readStorage(\.onTouchpadTwoFingerLongTap) }
         set { writeStorage(\.onTouchpadTwoFingerLongTap, newValue) }
+    }
+    var onTouchpadRegionTap: ((TouchpadRegion) -> Void)? {
+        get { readStorage(\.onTouchpadRegionTap) }
+        set { writeStorage(\.onTouchpadRegionTap, newValue) }
+    }
+    var onTouchpadRegionClick: ((TouchpadRegion) -> Void)? {
+        get { readStorage(\.onTouchpadRegionClick) }
+        set { writeStorage(\.onTouchpadRegionClick, newValue) }
     }
     var onMotionGesture: ((MotionGestureType) -> Void)? {
         get { readStorage(\.onMotionGesture) }

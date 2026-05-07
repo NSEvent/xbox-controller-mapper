@@ -220,6 +220,7 @@ class MappingEngine: ObservableObject {
                     self.state.swipeTypingEnabled = osk?.swipeTypingEnabled ?? false
                     self.state.swipeTypingSensitivity = osk?.swipeTypingSensitivity ?? 0.5
                     self.state.activeLayerIds.removeAll()
+                    self.state.buttonsActingAsLayerActivators.removeAll()
                     self.rebuildLayerActivatorMap(profile: profile)
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
 
@@ -327,6 +328,18 @@ class MappingEngine: ObservableObject {
             guard let self = self else { return }
             self.pollingQueue.async {
                 self.processTouchpadTwoFingerLongTap()
+            }
+        }
+        controllerService.onTouchpadRegionTap = { [weak self] region in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.processTouchpadRegionEvent(region, trigger: .touch)
+            }
+        }
+        controllerService.onTouchpadRegionClick = { [weak self] region in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.processTouchpadRegionEvent(region, trigger: .click)
             }
         }
         controllerService.onMotionGesture = { [weak self] gestureType in
@@ -461,8 +474,17 @@ class MappingEngine: ObservableObject {
 
             let lastTap = state.lastTapTime[button]
             if let layerId = state.layerActivatorMap[button] {
+                // If a different layer is already active, don't activate this button's
+                // layer. Instead, treat it as a regular button so it can use the active
+                // layer's mapping or its base mapping. This frees up other layer activators
+                // for remapping within the current layer.
+                if let activeLayerId = state.activeLayerIds.last, activeLayerId != layerId {
+                    return .ready(profile: profile, lastTap: lastTap)
+                }
+
                 state.activeLayerIds.removeAll { $0 == layerId }
                 state.activeLayerIds.append(layerId)
+                state.buttonsActingAsLayerActivators.insert(button)
                 return .layerActivated(profile: profile, layerId: layerId)
             }
 
@@ -500,11 +522,31 @@ class MappingEngine: ObservableObject {
             return
 
         case .layerActivated(let profile, let layerId):
+            // Check if this activator button is also mapped to controller lock in the base layer.
+            // Controller lock must always take precedence over layer activation.
+            if let baseMapping = profile.buttonMappings[button],
+               baseMapping.keyCode == KeyCodeMapping.controllerLock {
+                _ = performLockToggle()
+                inputLogService?.log(buttons: [button], type: .singlePress, action: "Controller Lock")
+                // Undo the layer activation that beginButtonPress() already performed
+                state.lock.withLock {
+                    state.activeLayerIds.removeAll { $0 == layerId }
+                    state.buttonsActingAsLayerActivators.remove(button)
+                }
+                return
+            }
             if let layer = profile.layers.first(where: { $0.id == layerId }) {
                 #if DEBUG
                 print("🔷 Layer activated: \(layer.name)")
                 #endif
                 inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
+
+                // Apply layer-specific LED settings if configured
+                if let ledSettings = layer.dualSenseLEDSettings {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.controllerService.applyLEDSettings(ledSettings)
+                    }
+                }
             }
             return
 
@@ -866,12 +908,15 @@ class MappingEngine: ObservableObject {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         stopRepeatTimer(for: button)
 
-        // Layer Activator Release
+        // Layer Activator Release — only deactivate if this button actually activated a layer
+        // (it might have been remapped as a regular button within another active layer)
         let layerDeactivation = state.lock.withLock { () -> (didDeactivate: Bool, layerName: String?) in
-            guard let layerId = state.layerActivatorMap[button] else {
+            guard let layerId = state.layerActivatorMap[button],
+                  state.buttonsActingAsLayerActivators.contains(button) else {
                 return (false, nil)
             }
             state.activeLayerIds.removeAll { $0 == layerId }
+            state.buttonsActingAsLayerActivators.remove(button)
             #if DEBUG
             let layerName = state.activeProfile?
                 .layers
@@ -888,6 +933,23 @@ class MappingEngine: ObservableObject {
                 print("🔷 Layer deactivated: \(layerName)")
             }
             #endif
+
+            // Revert LED settings: apply next active layer's LED, or fall back to profile default
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self,
+                      !self.controllerService.partyModeEnabled else { return }
+                let (remainingLayerIds, profile) = self.state.lock.withLock {
+                    (self.state.activeLayerIds, self.state.activeProfile)
+                }
+                // Check if another layer with LED settings is still active
+                if let activeLayerId = remainingLayerIds.last,
+                   let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
+                   let ledSettings = activeLayer.dualSenseLEDSettings {
+                    self.controllerService.applyLEDSettings(ledSettings)
+                } else if let profileLED = profile?.dualSenseLEDSettings {
+                    self.controllerService.applyLEDSettings(profileLED)
+                }
+            }
             return
         }
 
@@ -1128,9 +1190,15 @@ class MappingEngine: ObservableObject {
             var layerActivators: Set<ControllerButton> = []
             for button in buttons {
                 if let layerId = state.layerActivatorMap[button] {
+                    // Same logic as beginButtonPress: if a different layer is already active,
+                    // don't activate this button's layer — free it up for remapping.
+                    if let activeLayerId = state.activeLayerIds.last, activeLayerId != layerId {
+                        continue  // Skip — treat as regular button in the chord
+                    }
                     layerActivators.insert(button)
                     state.activeLayerIds.removeAll { $0 == layerId }
                     state.activeLayerIds.append(layerId)
+                    state.buttonsActingAsLayerActivators.insert(button)
                     #if DEBUG
                     if let layer = profile.layers.first(where: { $0.id == layerId }) {
                         print("🔷 Layer activated (via chord): \(layer.name)")

@@ -76,6 +76,94 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
         XCTAssertEqual(twoFingerTap, KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true))
     }
 
+    // MARK: - Flexible Layer Modifier Tests
+
+    func testResolveAllowsActivatorRemappingInDifferentActiveLayer() {
+        // R1 activates Layer 1, R2 activates Layer 2.
+        // Layer 1 maps R2 to key 42.
+        // When Layer 1 is active, R2 should resolve to key 42 (not nil).
+        let layer1 = Layer(name: "Layer 1", activatorButton: .leftBumper, buttonMappings: [.rightBumper: .key(42)])
+        let layer2 = Layer(name: "Layer 2", activatorButton: .rightBumper, buttonMappings: [.a: .key(99)])
+        let profile = Profile(
+            name: "Test",
+            buttonMappings: [:],
+            layers: [layer1, layer2]
+        )
+
+        let result = ButtonMappingResolutionPolicy.resolve(
+            button: .rightBumper,
+            profile: profile,
+            activeLayerIds: [layer1.id],
+            layerActivatorMap: [.leftBumper: layer1.id, .rightBumper: layer2.id]
+        )
+
+        XCTAssertEqual(result?.keyCode, 42)
+    }
+
+    func testResolveFreesActivatorWhenDifferentLayerActive() {
+        // R1 activates Layer 1, R2 activates Layer 2.
+        // Layer 1 does NOT map R2, and base layer has no mapping for R2.
+        // When Layer 1 is active, R2 is freed (not consumed as activator) but resolves to nil
+        // because neither the active layer nor the base has a mapping for it.
+        let layer1 = Layer(name: "Layer 1", activatorButton: .leftBumper, buttonMappings: [.a: .key(10)])
+        let layer2 = Layer(name: "Layer 2", activatorButton: .rightBumper, buttonMappings: [.a: .key(20)])
+        let profile = Profile(
+            name: "Test",
+            buttonMappings: [:],
+            layers: [layer1, layer2]
+        )
+
+        let result = ButtonMappingResolutionPolicy.resolve(
+            button: .rightBumper,
+            profile: profile,
+            activeLayerIds: [layer1.id],
+            layerActivatorMap: [.leftBumper: layer1.id, .rightBumper: layer2.id]
+        )
+
+        XCTAssertNil(result)
+    }
+
+    func testResolveFreedActivatorUsesBaseMappingWhenActiveLayerHasNone() {
+        // R1 activates Layer 1, R2 activates Layer 2.
+        // Layer 1 does NOT map R2, but base layer maps R2 to key 50.
+        // When Layer 1 is active, R2 should resolve to its base mapping (key 50).
+        let layer1 = Layer(name: "Layer 1", activatorButton: .leftBumper, buttonMappings: [.a: .key(10)])
+        let layer2 = Layer(name: "Layer 2", activatorButton: .rightBumper, buttonMappings: [.a: .key(20)])
+        let profile = Profile(
+            name: "Test",
+            buttonMappings: [.rightBumper: .key(50)],
+            layers: [layer1, layer2]
+        )
+
+        let result = ButtonMappingResolutionPolicy.resolve(
+            button: .rightBumper,
+            profile: profile,
+            activeLayerIds: [layer1.id],
+            layerActivatorMap: [.leftBumper: layer1.id, .rightBumper: layer2.id]
+        )
+
+        XCTAssertEqual(result?.keyCode, 50)
+    }
+
+    func testResolveConsumesActivatorWhenNoLayerIsActive() {
+        // No layer is active. R2 (a layer activator) should return nil.
+        let layer2 = Layer(name: "Layer 2", activatorButton: .rightBumper, buttonMappings: [.a: .key(20)])
+        let profile = Profile(
+            name: "Test",
+            buttonMappings: [.rightBumper: .key(50)],
+            layers: [layer2]
+        )
+
+        let result = ButtonMappingResolutionPolicy.resolve(
+            button: .rightBumper,
+            profile: profile,
+            activeLayerIds: [],
+            layerActivatorMap: [.rightBumper: layer2.id]
+        )
+
+        XCTAssertNil(result)
+    }
+
     func testResolveReturnsNilWhenNoLayerBaseOrDefaultMappingExists() {
         let profile = Profile(name: "Test")
 

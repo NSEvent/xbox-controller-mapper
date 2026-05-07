@@ -94,29 +94,48 @@ extension ControllerService {
         storage.currentLEDSettings = settings
         storage.lock.unlock()
 
-        guard isDualSense else {
-            #if DEBUG
-            print("[LED] No DualSense device available (isDualSense=\(isDualSense))")
-            #endif
-            return
-        }
+        let isDualShock = storage.isDualShock
 
-        if isBluetooth {
-            #if DEBUG
-            print("[LED] Applying light bar color via GCController.light (Bluetooth)")
-            #endif
-            applyLightBarViaBluetooth(settings: settings)
-        } else {
-            guard let device = hidDevice else {
+        if isDualSense {
+            if isBluetooth {
                 #if DEBUG
-                print("[LED] No HID device available for USB report")
+                print("[LED] Applying light bar color via GCController.light (Bluetooth)")
                 #endif
+                applyLightBarViaBluetooth(settings: settings)
+            } else {
+                guard let device = hidDevice else {
+                    #if DEBUG
+                    print("[LED] No HID device available for USB report")
+                    #endif
+                    return
+                }
+                #if DEBUG
+                print("[LED] Applying settings via USB")
+                #endif
+                sendUSBOutputReport(device: device, settings: settings)
+            }
+        } else if isDualShock {
+            guard let device = hidDevice else {
+                // Fall back to GCController.light for DS4 over Bluetooth
+                applyLightBarViaBluetooth(settings: settings)
                 return
             }
+            if isBluetooth {
+                #if DEBUG
+                print("[LED] Applying DS4 light bar via Bluetooth HID")
+                #endif
+                sendDualShock4BluetoothLEDReport(device: device, settings: settings)
+            } else {
+                #if DEBUG
+                print("[LED] Applying DS4 light bar via USB HID")
+                #endif
+                sendDualShock4USBLEDReport(device: device, settings: settings)
+            }
+        } else {
             #if DEBUG
-            print("[LED] Applying settings via USB")
+            print("[LED] No PlayStation controller available (isDualSense=\(isDualSense), isDualShock=\(isDualShock))")
             #endif
-            sendUSBOutputReport(device: device, settings: settings)
+            return
         }
     }
 
@@ -289,6 +308,78 @@ extension ControllerService {
             }
         }
         return ~crc
+    }
+
+    // MARK: - DualShock 4 LED Control
+
+    /// Sends a USB output report to set the DS4 light bar color.
+    /// Report ID 0x05, 32 bytes. RGB at bytes 6-8.
+    func sendDualShock4USBLEDReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
+        var report = [UInt8](repeating: 0, count: DualShock4HIDConstants.usbReportSize)
+
+        report[0] = DualShock4HIDConstants.usbOutputReportID
+        report[1] = 0xFF  // Valid flags — enable LED section
+
+        // Light bar RGB (bytes 6, 7, 8) — apply brightness multiplier
+        let brightness = UInt16(settings.lightBarBrightness.multiplier)
+        if settings.lightBarEnabled {
+            report[6] = UInt8(UInt16(settings.lightBarColor.redByte) * brightness / 255)
+            report[7] = UInt8(UInt16(settings.lightBarColor.greenByte) * brightness / 255)
+            report[8] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
+        }
+        // else: bytes 6-8 stay 0 (light bar off)
+
+        let result = IOHIDDeviceSetReport(
+            device,
+            kIOHIDReportTypeOutput,
+            CFIndex(DualShock4HIDConstants.usbOutputReportID),
+            report,
+            report.count
+        )
+
+        #if DEBUG
+        if result != kIOReturnSuccess {
+            print("[LED] DS4 USB LED report failed: \(String(format: "0x%08X", result))")
+        }
+        #endif
+    }
+
+    /// Sends a Bluetooth output report to set the DS4 light bar color.
+    /// Report ID 0x11, 78 bytes total (77 sent, report ID separate).
+    func sendDualShock4BluetoothLEDReport(device: IOHIDDevice, settings: DualSenseLEDSettings) {
+        var report = [UInt8](repeating: 0, count: DualShock4HIDConstants.btReportSize - 1)
+
+        // Header bytes (transaction type + poll interval flags)
+        report[0] = 0x80  // HID transaction header
+        report[1] = 0x00
+        report[2] = 0xFF  // poll interval hint
+
+        // Valid flags — enable rumble + LED section
+        report[3] = 0xF7  // motor enable + LED flags
+        report[4] = 0x04  // LED flag
+
+        // Light bar RGB (bytes 8, 9, 10) — apply brightness multiplier
+        let brightness = UInt16(settings.lightBarBrightness.multiplier)
+        if settings.lightBarEnabled {
+            report[8] = UInt8(UInt16(settings.lightBarColor.redByte) * brightness / 255)
+            report[9] = UInt8(UInt16(settings.lightBarColor.greenByte) * brightness / 255)
+            report[10] = UInt8(UInt16(settings.lightBarColor.blueByte) * brightness / 255)
+        }
+        // else: bytes 8-10 stay 0 (light bar off)
+
+        let result = IOHIDDeviceSetReport(
+            device,
+            kIOHIDReportTypeOutput,
+            CFIndex(DualShock4HIDConstants.btOutputReportID),
+            report,
+            report.count
+        )
+
+        #if DEBUG
+        if result != kIOReturnSuccess {
+            print("[LED] DS4 BT LED report failed: \(String(format: "0x%08X", result))")
+        }
+        #endif
     }
 
     // MARK: - Party Mode

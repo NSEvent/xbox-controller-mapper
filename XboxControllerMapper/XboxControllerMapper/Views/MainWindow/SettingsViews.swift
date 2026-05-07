@@ -329,6 +329,14 @@ struct TouchpadSettingsView: View {
                     }
                 }
             }
+
+            Section("Region Mappings") {
+                Text("Map each touchpad quadrant to a separate action on tap or click.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                TouchpadRegionGrid()
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -338,6 +346,85 @@ struct TouchpadSettingsView: View {
         var newSettings = settings
         newSettings[keyPath: keyPath] = value
         profileManager.updateJoystickSettings(newSettings)
+    }
+}
+
+// MARK: - Touchpad Region Grid
+
+struct TouchpadRegionGrid: View {
+    @EnvironmentObject var profileManager: ProfileManager
+
+    private var regionMappings: [TouchpadRegionMapping] {
+        profileManager.activeProfile?.touchpadRegionMappings ?? []
+    }
+
+    private func mapping(for region: TouchpadRegion) -> TouchpadRegionMapping? {
+        regionMappings.first(where: { $0.region == region })
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                regionCell(.topLeft)
+                regionCell(.topRight)
+            }
+            HStack(spacing: 4) {
+                regionCell(.bottomLeft)
+                regionCell(.bottomRight)
+            }
+        }
+        .frame(height: 120)
+    }
+
+    @ViewBuilder
+    private func regionCell(_ region: TouchpadRegion) -> some View {
+        let existing = mapping(for: region)
+        let hasMapping = existing != nil && !(existing?.isEmpty ?? true)
+
+        Button(action: {
+            if hasMapping {
+                // Remove the mapping
+                removeMapping(for: region)
+            } else {
+                // This would open a mapping editor sheet — for now, show as configurable
+            }
+        }) {
+            VStack(spacing: 2) {
+                Text(region.displayName)
+                    .font(.caption2.bold())
+                if let existing, !existing.isEmpty {
+                    if let hint = existing.hint, !hint.isEmpty {
+                        Text(hint)
+                            .font(.caption2)
+                            .lineLimit(1)
+                    } else if let keyCode = existing.keyCode {
+                        Text("Key \(keyCode)")
+                            .font(.caption2)
+                    }
+                    Text(existing.triggerMode.displayName)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Not mapped")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(hasMapping ? Color.accentColor.opacity(0.15) : Color.gray.opacity(0.1))
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(hasMapping ? Color.accentColor.opacity(0.4) : Color.gray.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func removeMapping(for region: TouchpadRegion) {
+        guard var profile = profileManager.activeProfile else { return }
+        profile.touchpadRegionMappings.removeAll { $0.region == region }
+        profileManager.updateTouchpadRegionMappings(profile.touchpadRegionMappings)
     }
 }
 
@@ -351,9 +438,24 @@ struct LEDSettingsView: View {
         profileManager.activeProfile?.dualSenseLEDSettings ?? .default
     }
 
+    private var isDualShock: Bool {
+        controllerService.threadSafeIsDualShock
+    }
+
     var body: some View {
         Form {
-            if controllerService.isBluetoothConnection {
+            if isDualShock {
+                Section {
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.blue)
+                        Text("DualShock 4 supports light bar color only. Player LEDs, mute LED, and brightness controls are DualSense features.")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } else if controllerService.isBluetoothConnection {
                 Section {
                     HStack {
                         Image(systemName: "info.circle.fill")
@@ -405,19 +507,22 @@ struct LEDSettingsView: View {
                         .accessibilityLabel("Light bar color picker")
                     }
 
-                    Picker("Brightness", selection: Binding(
-                        get: { settings.lightBarBrightness },
-                        set: { updateSettings(\.lightBarBrightness, $0) }
-                    )) {
-                        ForEach(LightBarBrightness.allCases, id: \.self) { brightness in
-                            Text(brightness.displayName).tag(brightness)
+                    if !isDualShock {
+                        Picker("Brightness", selection: Binding(
+                            get: { settings.lightBarBrightness },
+                            set: { updateSettings(\.lightBarBrightness, $0) }
+                        )) {
+                            ForEach(LightBarBrightness.allCases, id: \.self) { brightness in
+                                Text(brightness.displayName).tag(brightness)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
                     }
-                    .pickerStyle(.segmented)
-                    .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
                 }
             }
 
+            if !isDualShock {
             Section("Mute Button LED") {
                 Picker("Mode", selection: Binding(
                     get: { settings.muteButtonLED },
@@ -457,6 +562,7 @@ struct LEDSettingsView: View {
                 }
                 .disabled(controllerService.partyModeEnabled || controllerService.isBluetoothConnection)
             }
+            } // end if !isDualShock
 
             Section("Party Mode") {
                 Toggle("Enable Party Mode", isOn: Binding(
@@ -875,6 +981,7 @@ struct SettingsSheet: View {
     @EnvironmentObject var controllerService: ControllerService
 
     @AppStorage("launchAtLogin") private var launchAtLogin = false
+    @AppStorage("hideFromDock") private var hideFromDock = false
 
     @State private var isRefreshingDatabase = false
     @State private var databaseStatus: String?
@@ -902,6 +1009,22 @@ struct SettingsSheet: View {
 
             Form {
                 Toggle("Launch at Login", isOn: $launchAtLogin)
+
+                Toggle(isOn: $hideFromDock) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Hide Dock Icon")
+                        Text("Show only in menu bar. Use the menu bar icon to open the main window.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: hideFromDock) { _, newValue in
+                    NSApp.setActivationPolicy(newValue ? .accessory : .regular)
+                    if !newValue {
+                        // Switching back to regular — re-activate so the dock icon appears immediately
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                }
 
                 Section {
                     HStack {
@@ -969,7 +1092,7 @@ struct SettingsSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 380, height: 460)
+        .frame(width: 380, height: 520)
     }
 
     private func refreshDatabase() {

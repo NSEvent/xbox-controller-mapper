@@ -104,6 +104,8 @@ struct EditLayerSheet: View {
 
     @State private var layerName: String = ""
     @State private var selectedActivator: ControllerButton? = .leftBumper
+    @State private var enableCustomLED: Bool = false
+    @State private var ledColor: Color = .blue
 
     /// Buttons that are already used as layer activators (excluding current layer)
     private var usedActivators: Set<ControllerButton> {
@@ -154,6 +156,21 @@ struct EditLayerSheet: View {
                     }
                     .pickerStyle(.menu)
                 }
+
+                if controllerService.threadSafeIsPlayStation {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Custom Light Bar Color", isOn: $enableCustomLED)
+                            .font(.subheadline)
+
+                        if enableCustomLED {
+                            Text("Light bar changes to this color when the layer is active")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            ColorPicker("Color", selection: $ledColor, supportsOpacity: false)
+                        }
+                    }
+                }
             }
             .padding(.horizontal)
 
@@ -170,6 +187,14 @@ struct EditLayerSheet: View {
                     var updatedLayer = layer
                     updatedLayer.name = layerName
                     updatedLayer.activatorButton = selectedActivator
+                    if enableCustomLED {
+                        var ledSettings = DualSenseLEDSettings()
+                        ledSettings.lightBarEnabled = true
+                        ledSettings.lightBarColor = CodableColor(color: ledColor)
+                        updatedLayer.dualSenseLEDSettings = ledSettings
+                    } else {
+                        updatedLayer.dualSenseLEDSettings = nil
+                    }
                     profileManager.updateLayer(updatedLayer)
                     dismiss()
                 }
@@ -183,6 +208,10 @@ struct EditLayerSheet: View {
         .onAppear {
             layerName = layer.name
             selectedActivator = layer.activatorButton
+            if let ledSettings = layer.dualSenseLEDSettings {
+                enableCustomLED = true
+                ledColor = ledSettings.lightBarColor.color
+            }
         }
     }
 }

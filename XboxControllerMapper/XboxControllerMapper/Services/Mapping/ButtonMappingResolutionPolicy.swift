@@ -8,9 +8,18 @@ enum ButtonMappingResolutionPolicy {
         activeLayerIds: [UUID],
         layerActivatorMap: [ControllerButton: UUID]
     ) -> KeyMapping? {
-        // Layer activators only switch layers and do not emit output mappings.
-        if layerActivatorMap[button] != nil {
-            return nil
+        // Layer activator handling: context-aware.
+        if let activatorLayerId = layerActivatorMap[button] {
+            // If this button's own layer is currently active (being held), consume it.
+            if activeLayerIds.contains(activatorLayerId) {
+                return nil
+            }
+            // If no layer is active, consume it (it will activate its layer).
+            if activeLayerIds.isEmpty {
+                return nil
+            }
+            // A different layer is active — fall through to check if the active layer
+            // has a mapping for this button (allows remapping activators within layers).
         }
 
         // Only the most recently activated layer is considered active.
