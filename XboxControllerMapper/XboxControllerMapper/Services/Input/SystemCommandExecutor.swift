@@ -92,6 +92,16 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     private func launchApplication(bundleIdentifier: String, newWindow: Bool) {
         DispatchQueue.main.async {
+            // If already frontmost (and not requesting a new window), hide it instead.
+            // Matches the standalone command wheel's app-toggle behavior so that
+            // re-selecting the active app in a wheel minimizes/hides it.
+            if !newWindow,
+               let frontmost = NSWorkspace.shared.frontmostApplication,
+               frontmost.bundleIdentifier == bundleIdentifier {
+                frontmost.hide()
+                return
+            }
+
             if let url = self.appURLResolver(bundleIdentifier) {
                 let config = NSWorkspace.OpenConfiguration()
                 self.appOpener(url, config) { _, error in
