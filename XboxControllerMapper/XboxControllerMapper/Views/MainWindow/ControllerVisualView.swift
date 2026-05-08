@@ -3,6 +3,48 @@ import GameController
 import AppKit
 import Combine
 
+// MARK: - Connector Layer Types
+
+enum ConnectorRole {
+    case controller
+    case label
+}
+
+struct ConnectorEndpoint {
+    let button: ControllerButton
+    let role: ConnectorRole
+    let anchor: Anchor<CGRect>
+}
+
+struct ControllerButtonAnchorPreferenceKey: PreferenceKey {
+    static var defaultValue: [ConnectorEndpoint] = []
+    static func reduce(value: inout [ConnectorEndpoint], nextValue: () -> [ConnectorEndpoint]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
+extension View {
+    /// Reports this view's bounds as a connector endpoint for the given button.
+    /// Used to draw connector lines between controller-side mini buttons and their action labels.
+    func controllerAnchor(_ button: ControllerButton, role: ConnectorRole) -> some View {
+        controllerAnchor([button], role: role)
+    }
+
+    /// Reports this view's bounds as a connector endpoint for each of the given buttons.
+    /// Used when multiple actions visually share a single controller element (e.g. all
+    /// touchpad gestures originate from the same touchpad rect). Stacking individual
+    /// `.controllerAnchor(...)` modifiers does NOT reliably propagate every endpoint
+    /// — emitting them all from one `anchorPreference` call does.
+    func controllerAnchor(_ buttons: [ControllerButton], role: ConnectorRole) -> some View {
+        anchorPreference(
+            key: ControllerButtonAnchorPreferenceKey.self,
+            value: .bounds
+        ) { anchor in
+            buttons.map { ConnectorEndpoint(button: $0, role: role, anchor: anchor) }
+        }
+    }
+}
+
 /// Interactive visual representation of a controller with a professional Reference Page layout
 /// Automatically adapts to show Xbox or DualSense layouts based on connected controller
 struct ControllerVisualView: View {
@@ -14,6 +56,8 @@ struct ControllerVisualView: View {
     var swapFirstButton: ControllerButton? = nil  // First button selected in swap mode
     var isSwapMode: Bool = false
     var onButtonTap: (ControllerButton) -> Void
+
+    @State private var hoveredButton: ControllerButton?
 
     private var isDualSense: Bool {
         controllerService.threadSafeIsDualSense
@@ -137,7 +181,8 @@ struct ControllerVisualView: View {
                         isPlayStation: isPlayStation,
                         isNintendo: isNintendo,
                         isXboxElite: isXboxElite,
-                        onButtonTap: onButtonTap
+                        onButtonTap: onButtonTap,
+                        onButtonHover: handleButtonHover
                     )
                 }
                 .accessibilityHidden(true)
@@ -231,6 +276,23 @@ struct ControllerVisualView: View {
             .padding(.leading, 20)
         }
         .padding(20)
+        .overlayPreferenceValue(ControllerButtonAnchorPreferenceKey.self) { endpoints in
+            GeometryReader { proxy in
+                ConnectorLayer(
+                    endpoints: endpoints,
+                    proxy: proxy,
+                    hoveredButton: hoveredButton
+                )
+            }
+        }
+    }
+
+    private func handleButtonHover(_ button: ControllerButton, _ hovering: Bool) {
+        if hovering {
+            hoveredButton = button
+        } else if hoveredButton == button {
+            hoveredButton = nil
+        }
     }
 
     // MARK: - Controller Body
@@ -354,6 +416,10 @@ struct ControllerVisualView: View {
                     .opacity(swapFirstButton == button ? 1 : 0)
             )
             .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)  // Dim fallthrough mappings
+            // Anchor only the glass container so connectors terminate at the box edge,
+            // independent of which side of the controller the row sits on. Anchoring
+            // the parent HStack would have right-column rows resolve to the icon edge.
+            .controllerAnchor(button, role: .label)
         }
         .contentShape(Rectangle())
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
@@ -380,6 +446,9 @@ struct ControllerVisualView: View {
                     Label("Clear Mapping", systemImage: "xmark.circle")
                 }
             }
+        }
+        .onHover { hovering in
+            handleButtonHover(button, hovering)
         }
     }
 
@@ -449,6 +518,7 @@ struct ControllerAnalogOverlay: View {
     let isNintendo: Bool
     let isXboxElite: Bool
     var onButtonTap: (ControllerButton) -> Void
+    var onButtonHover: ((ControllerButton, Bool) -> Void)? = nil
 
     // Snapshotted analog display values (updated via .onReceive at 15Hz)
     @State private var leftStick: CGPoint = .zero
@@ -673,6 +743,13 @@ struct ControllerAnalogOverlay: View {
         .frame(width: touchpadWidth, height: touchpadHeight)
         .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
         .onTapGesture { onButtonTap(.touchpadButton) }
+        // All four touchpad-related actions visually originate from the touchpad rect,
+        // so a single anchorPreference call emits an endpoint for each one.
+        .controllerAnchor(
+            [.touchpadButton, .touchpadTap, .touchpadTwoFingerButton, .touchpadTwoFingerTap],
+            role: .controller
+        )
+        .onHover { hovering in onButtonHover?(.touchpadButton, hovering) }
     }
 
     // MARK: - Mini Controller Helpers (Jewel/Glass Style)
@@ -732,6 +809,8 @@ struct ControllerAnalogOverlay: View {
         .clipShape(shape)
         .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
         .onTapGesture { onButtonTap(button) }
+        .controllerAnchor(button, role: .controller)
+        .onHover { hovering in onButtonHover?(button, hovering) }
     }
 
     private func miniBumper(_ button: ControllerButton, label: String) -> some View {
@@ -750,6 +829,8 @@ struct ControllerAnalogOverlay: View {
             )
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
             .onTapGesture { onButtonTap(button) }
+            .controllerAnchor(button, role: .controller)
+            .onHover { hovering in onButtonHover?(button, hovering) }
     }
 
     /// Bumper-shaped button with an icon inside (used for mic mute on DualSense)
@@ -769,6 +850,8 @@ struct ControllerAnalogOverlay: View {
             )
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
             .onTapGesture { onButtonTap(button) }
+            .controllerAnchor(button, role: .controller)
+            .onHover { hovering in onButtonHover?(button, hovering) }
     }
 
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
@@ -792,6 +875,8 @@ struct ControllerAnalogOverlay: View {
                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
         }
         .onTapGesture { onButtonTap(button) }
+        .controllerAnchor(button, role: .controller)
+        .onHover { hovering in onButtonHover?(button, hovering) }
     }
 
     private func miniCircle(_ button: ControllerButton, size: CGFloat) -> some View {
@@ -819,6 +904,8 @@ struct ControllerAnalogOverlay: View {
         .frame(width: size, height: size)
         .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
         .onTapGesture { onButtonTap(button) }
+        .controllerAnchor(button, role: .controller)
+        .onHover { hovering in onButtonHover?(button, hovering) }
     }
 
     private func miniSquare(_ button: ControllerButton, size: CGFloat) -> some View {
@@ -829,6 +916,8 @@ struct ControllerAnalogOverlay: View {
             .frame(width: size, height: size)
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
             .onTapGesture { onButtonTap(button) }
+            .controllerAnchor(button, role: .controller)
+            .onHover { hovering in onButtonHover?(button, hovering) }
     }
 
     private func miniFaceButton(_ button: ControllerButton, color: Color) -> some View {
@@ -841,6 +930,8 @@ struct ControllerAnalogOverlay: View {
             .frame(width: 12, height: 12)
             .shadow(color: displayColor.opacity(0.4), radius: 2)
             .onTapGesture { onButtonTap(button) }
+            .controllerAnchor(button, role: .controller)
+            .onHover { hovering in onButtonHover?(button, hovering) }
     }
 
     /// PlayStation-style face button: dark background with colored symbol
@@ -879,6 +970,8 @@ struct ControllerAnalogOverlay: View {
         .frame(width: 12, height: 12)
         .shadow(color: symbolColor.opacity(0.3), radius: 2)
         .onTapGesture { onButtonTap(button) }
+        .controllerAnchor(button, role: .controller)
+        .onHover { hovering in onButtonHover?(button, hovering) }
     }
 
     private func miniFaceButtons() -> some View {
@@ -926,33 +1019,150 @@ struct ControllerAnalogOverlay: View {
                 RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7).blur(radius: 2)
             }
 
-            // Tap zones
+            // Tap zones — `.offset` is render-only and works fine for hit-testing.
+            // Anchors are reported separately by the markers below, since `.offset`
+            // does NOT propagate into anchor preference reads from ancestor proxies.
             Group {
-                // Up
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(y: -10)
                     .onTapGesture { onButtonTap(.dpadUp) }
+                    .onHover { hovering in onButtonHover?(.dpadUp, hovering) }
 
-                // Down
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(y: 10)
                     .onTapGesture { onButtonTap(.dpadDown) }
+                    .onHover { hovering in onButtonHover?(.dpadDown, hovering) }
 
-                // Left
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(x: -10)
                     .onTapGesture { onButtonTap(.dpadLeft) }
+                    .onHover { hovering in onButtonHover?(.dpadLeft, hovering) }
 
-                // Right
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(x: 10)
                     .onTapGesture { onButtonTap(.dpadRight) }
+                    .onHover { hovering in onButtonHover?(.dpadRight, hovering) }
+            }
+
+            // Connector anchor markers. VStack/HStack layout guarantees each
+            // marker's reported anchor sits at the corresponding edge of the
+            // d-pad cross, so per-direction connector lines emerge correctly.
+            VStack(spacing: 0) {
+                Color.clear.frame(width: 1, height: 1)
+                    .controllerAnchor(.dpadUp, role: .controller)
+                Spacer(minLength: 0)
+                Color.clear.frame(width: 1, height: 1)
+                    .controllerAnchor(.dpadDown, role: .controller)
+            }
+            HStack(spacing: 0) {
+                Color.clear.frame(width: 1, height: 1)
+                    .controllerAnchor(.dpadLeft, role: .controller)
+                Spacer(minLength: 0)
+                Color.clear.frame(width: 1, height: 1)
+                    .controllerAnchor(.dpadRight, role: .controller)
             }
         }
+        .frame(width: 24, height: 24)
+    }
+}
+
+// MARK: - Connector Layer
+
+/// Renders semi-transparent Bezier connectors between each controller-side mini button
+/// and its corresponding action label. The connector for the hovered button is drawn
+/// brighter and slightly thicker; all others remain faint.
+///
+/// The layer is placed via `.backgroundPreferenceValue` so connector strokes are masked
+/// behind the controller body and the label glass containers — visible only in the gap.
+struct ConnectorLayer: View {
+    let endpoints: [ConnectorEndpoint]
+    let proxy: GeometryProxy
+    let hoveredButton: ControllerButton?
+
+    private struct Pair {
+        let button: ControllerButton
+        let controllerAnchor: Anchor<CGRect>
+        let labelAnchor: Anchor<CGRect>
+    }
+
+    private var pairs: [Pair] {
+        var byButton: [ControllerButton: (controller: Anchor<CGRect>?, label: Anchor<CGRect>?)] = [:]
+        for endpoint in endpoints {
+            var entry = byButton[endpoint.button] ?? (controller: nil, label: nil)
+            switch endpoint.role {
+            case .controller: entry.controller = endpoint.anchor
+            case .label: entry.label = endpoint.anchor
+            }
+            byButton[endpoint.button] = entry
+        }
+        return byButton.compactMap { (button, entry) in
+            guard let c = entry.controller, let l = entry.label else { return nil }
+            return Pair(button: button, controllerAnchor: c, labelAnchor: l)
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            // Only the hovered button's connector is drawn. Resting state shows nothing
+            // — the line acts as an explicit on-demand spatial cue rather than ambient
+            // visual noise.
+            if let hovered = hoveredButton,
+               let pair = pairs.first(where: { $0.button == hovered }) {
+                let controllerRect = proxy[pair.controllerAnchor]
+                let labelRect = proxy[pair.labelAnchor]
+                let labelCenter = CGPoint(x: labelRect.midX, y: labelRect.midY)
+                let controllerCenter = CGPoint(x: controllerRect.midX, y: controllerRect.midY)
+                let start = rectEdgePoint(of: controllerRect, towards: labelCenter)
+                let end = rectEdgePoint(of: labelRect, towards: controllerCenter)
+
+                ConnectorPath(start: start, end: end)
+                    .stroke(
+                        Color.accentColor,
+                        style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+                    )
+                    .opacity(0.9)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: hoveredButton)
+        .allowsHitTesting(false)
+    }
+
+    /// Projects a ray from the rect's center toward `target` and returns the point where
+    /// it intersects the rect's boundary. Used to terminate connector lines at the visual
+    /// edge of buttons and labels rather than at their geometric centers.
+    private func rectEdgePoint(of rect: CGRect, towards target: CGPoint) -> CGPoint {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let dx = target.x - center.x
+        let dy = target.y - center.y
+        if dx == 0 && dy == 0 { return center }
+
+        let halfW = rect.width / 2
+        let halfH = rect.height / 2
+        let scaleX = abs(dx) > 0 ? halfW / abs(dx) : .infinity
+        let scaleY = abs(dy) > 0 ? halfH / abs(dy) : .infinity
+        let scale = min(scaleX, scaleY)
+
+        return CGPoint(x: center.x + dx * scale, y: center.y + dy * scale)
+    }
+}
+
+/// A smooth horizontal-tangent Bezier curve between two points.
+struct ConnectorPath: Shape {
+    let start: CGPoint
+    let end: CGPoint
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let midX = (start.x + end.x) / 2
+        let cp1 = CGPoint(x: midX, y: start.y)
+        let cp2 = CGPoint(x: midX, y: end.y)
+        path.move(to: start)
+        path.addCurve(to: end, control1: cp1, control2: cp2)
+        return path
     }
 }
 
