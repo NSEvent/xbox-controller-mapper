@@ -2,6 +2,62 @@ import SwiftUI
 import GameController
 import AppKit
 import Combine
+import CoreTransferable
+
+// MARK: - Drag & Drop
+
+/// Transports a `ControllerButton` across a SwiftUI drag-and-drop. Backed by the
+/// enum's String rawValue, which is already its on-disk identity in the config.
+extension ControllerButton: Transferable {
+    public static var transferRepresentation: some TransferRepresentation {
+        ProxyRepresentation(
+            exporting: { (button: ControllerButton) -> String in button.rawValue },
+            importing: { (rawValue: String) -> ControllerButton in
+                guard let button = ControllerButton(rawValue: rawValue) else {
+                    throw CocoaError(.coderInvalidValue)
+                }
+                return button
+            }
+        )
+    }
+}
+
+/// Marks a view as draggable for `button` and as a drop target that swaps mappings
+/// between the dropped source button and `button`. While the drop target is hovered,
+/// the view glows in the accent color and scales up slightly. Implemented as a
+/// `ViewModifier` (not a plain extension) so we can hold `@State` for `isTargeted`.
+private struct SwappableModifier: ViewModifier {
+    let button: ControllerButton
+    let onSwap: ((ControllerButton, ControllerButton) -> Void)?
+    @State private var isTargeted = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isTargeted ? 1.08 : 1.0)
+            .shadow(
+                color: Color.accentColor.opacity(isTargeted ? 0.9 : 0),
+                radius: isTargeted ? 8 : 0
+            )
+            .animation(.easeInOut(duration: 0.15), value: isTargeted)
+            .draggable(button)
+            .dropDestination(for: ControllerButton.self) { items, _ in
+                guard let onSwap, let source = items.first else { return false }
+                onSwap(source, button)
+                return true
+            } isTargeted: { targeted in
+                isTargeted = targeted
+            }
+    }
+}
+
+extension View {
+    fileprivate func swappable(
+        _ button: ControllerButton,
+        onSwap: ((ControllerButton, ControllerButton) -> Void)?
+    ) -> some View {
+        modifier(SwappableModifier(button: button, onSwap: onSwap))
+    }
+}
 
 // MARK: - Connector Layer Types
 
@@ -182,7 +238,8 @@ struct ControllerVisualView: View {
                         isNintendo: isNintendo,
                         isXboxElite: isXboxElite,
                         onButtonTap: onButtonTap,
-                        onButtonHover: handleButtonHover
+                        onButtonHover: handleButtonHover,
+                        onSwapRequest: performSwap
                     )
                 }
                 .accessibilityHidden(true)
@@ -292,6 +349,17 @@ struct ControllerVisualView: View {
             hoveredButton = button
         } else if hoveredButton == button {
             hoveredButton = nil
+        }
+    }
+
+    /// Swaps two buttons' mappings, dispatching to the layer-specific or base-layer
+    /// swap method to match the existing tap-select-tap swap mode in `ButtonMappingsTab`.
+    private func performSwap(from source: ControllerButton, to target: ControllerButton) {
+        guard source != target else { return }
+        if let layerId = selectedLayerId {
+            profileManager.swapLayerMappings(button1: source, button2: target, in: layerId)
+        } else {
+            profileManager.swapMappings(button1: source, button2: target)
         }
     }
 
@@ -450,6 +518,7 @@ struct ControllerVisualView: View {
         .onHover { hovering in
             handleButtonHover(button, hovering)
         }
+        .swappable(button, onSwap: performSwap)
     }
 
     // MARK: - Helpers
@@ -519,6 +588,7 @@ struct ControllerAnalogOverlay: View {
     let isXboxElite: Bool
     var onButtonTap: (ControllerButton) -> Void
     var onButtonHover: ((ControllerButton, Bool) -> Void)? = nil
+    var onSwapRequest: ((ControllerButton, ControllerButton) -> Void)? = nil
 
     // Snapshotted analog display values (updated via .onReceive at 15Hz)
     @State private var leftStick: CGPoint = .zero
@@ -750,6 +820,7 @@ struct ControllerAnalogOverlay: View {
             role: .controller
         )
         .onHover { hovering in onButtonHover?(.touchpadButton, hovering) }
+        .swappable(.touchpadButton, onSwap: onSwapRequest)
     }
 
     // MARK: - Mini Controller Helpers (Jewel/Glass Style)
@@ -811,6 +882,7 @@ struct ControllerAnalogOverlay: View {
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
         .onHover { hovering in onButtonHover?(button, hovering) }
+        .swappable(button, onSwap: onSwapRequest)
     }
 
     private func miniBumper(_ button: ControllerButton, label: String) -> some View {
@@ -831,6 +903,7 @@ struct ControllerAnalogOverlay: View {
             .onTapGesture { onButtonTap(button) }
             .controllerAnchor(button, role: .controller)
             .onHover { hovering in onButtonHover?(button, hovering) }
+            .swappable(button, onSwap: onSwapRequest)
     }
 
     /// Bumper-shaped button with an icon inside (used for mic mute on DualSense)
@@ -852,6 +925,7 @@ struct ControllerAnalogOverlay: View {
             .onTapGesture { onButtonTap(button) }
             .controllerAnchor(button, role: .controller)
             .onHover { hovering in onButtonHover?(button, hovering) }
+            .swappable(button, onSwap: onSwapRequest)
     }
 
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
@@ -877,6 +951,7 @@ struct ControllerAnalogOverlay: View {
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
         .onHover { hovering in onButtonHover?(button, hovering) }
+        .swappable(button, onSwap: onSwapRequest)
     }
 
     private func miniCircle(_ button: ControllerButton, size: CGFloat) -> some View {
@@ -906,6 +981,7 @@ struct ControllerAnalogOverlay: View {
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
         .onHover { hovering in onButtonHover?(button, hovering) }
+        .swappable(button, onSwap: onSwapRequest)
     }
 
     private func miniSquare(_ button: ControllerButton, size: CGFloat) -> some View {
@@ -918,6 +994,7 @@ struct ControllerAnalogOverlay: View {
             .onTapGesture { onButtonTap(button) }
             .controllerAnchor(button, role: .controller)
             .onHover { hovering in onButtonHover?(button, hovering) }
+            .swappable(button, onSwap: onSwapRequest)
     }
 
     private func miniFaceButton(_ button: ControllerButton, color: Color) -> some View {
@@ -932,6 +1009,7 @@ struct ControllerAnalogOverlay: View {
             .onTapGesture { onButtonTap(button) }
             .controllerAnchor(button, role: .controller)
             .onHover { hovering in onButtonHover?(button, hovering) }
+            .swappable(button, onSwap: onSwapRequest)
     }
 
     /// PlayStation-style face button: dark background with colored symbol
@@ -972,6 +1050,7 @@ struct ControllerAnalogOverlay: View {
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
         .onHover { hovering in onButtonHover?(button, hovering) }
+        .swappable(button, onSwap: onSwapRequest)
     }
 
     private func miniFaceButtons() -> some View {
@@ -1028,24 +1107,28 @@ struct ControllerAnalogOverlay: View {
                     .offset(y: -10)
                     .onTapGesture { onButtonTap(.dpadUp) }
                     .onHover { hovering in onButtonHover?(.dpadUp, hovering) }
+                    .swappable(.dpadUp, onSwap: onSwapRequest)
 
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(y: 10)
                     .onTapGesture { onButtonTap(.dpadDown) }
                     .onHover { hovering in onButtonHover?(.dpadDown, hovering) }
+                    .swappable(.dpadDown, onSwap: onSwapRequest)
 
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(x: -10)
                     .onTapGesture { onButtonTap(.dpadLeft) }
                     .onHover { hovering in onButtonHover?(.dpadLeft, hovering) }
+                    .swappable(.dpadLeft, onSwap: onSwapRequest)
 
                 Rectangle().fill(Color.black.opacity(0.001))
                     .frame(width: 20, height: 20)
                     .offset(x: 10)
                     .onTapGesture { onButtonTap(.dpadRight) }
                     .onHover { hovering in onButtonHover?(.dpadRight, hovering) }
+                    .swappable(.dpadRight, onSwap: onSwapRequest)
             }
 
             // Connector anchor markers. VStack/HStack layout guarantees each
