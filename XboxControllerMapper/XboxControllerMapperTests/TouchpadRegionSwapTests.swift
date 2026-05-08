@@ -22,28 +22,31 @@ final class TouchpadRegionSwapTests: XCTestCase {
 
     // MARK: - Classification (TouchpadRegion.from(position:))
     //
-    // Convention from `TouchpadRegion.from`: x >= 0.5 → right, y >= 0.5 → top.
-    // That makes the (0.5, 0.5) center fall in `.topRight`. Tests pin this so any
+    // Convention from `TouchpadRegion.from`: positions come from
+    // `GCControllerDirectionPad` in [-1, 1] with (0, 0) at the pad center.
+    // Threshold is >= 0 → right, >= 0 → top. That makes the (0, 0) center
+    // fall in `.topRight` (inclusive on both axes). Tests pin this so any
     // future refactor of the classifier breaks visibly rather than silently.
 
     func testRegionFromPositionInteriorPoints() {
-        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.25, y: 0.75)), .topLeft)
-        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.75, y: 0.75)), .topRight)
-        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.25, y: 0.25)), .bottomLeft)
-        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.75, y: 0.25)), .bottomRight)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: -0.5, y: 0.5)), .topLeft)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.5, y: 0.5)), .topRight)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: -0.5, y: -0.5)), .bottomLeft)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.5, y: -0.5)), .bottomRight)
     }
 
     func testRegionFromPositionCenterFallsIntoTopRight() {
-        // Inclusive boundary on both axes: (0.5, 0.5) belongs to the top-right quadrant.
-        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.5, y: 0.5)), .topRight)
+        // (0, 0) is the pad center in HID coordinates. Inclusive on both
+        // axes → top-right.
+        XCTAssertEqual(TouchpadRegion.from(position: .zero), .topRight)
     }
 
-    func testRegionFromOriginClassifiesAsBottomLeft() {
-        // (0, 0) is the "no finger position registered yet" sentinel that the
-        // ControllerService corner-click guard filters out before reaching this
-        // classifier. The classifier itself still maps (0, 0) to bottom-left;
-        // the fix lives in the caller, not here.
-        XCTAssertEqual(TouchpadRegion.from(position: .zero), .bottomLeft)
+    func testRegionFromPositionEdgesClassifyCorrectly() {
+        // Sanity-check the four corners.
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: -1, y: 1)), .topLeft)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 1, y: 1)), .topRight)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: -1, y: -1)), .bottomLeft)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 1, y: -1)), .bottomRight)
     }
 
     // MARK: - swapTouchpadRegions
@@ -175,7 +178,7 @@ final class TouchpadRegionSwapTests: XCTestCase {
     func testShouldFireRegionClick_FiresOnNormalSingleFingerClick() {
         let result = ControllerService.shouldFireRegionClick(
             willBeTwoFingerClick: false,
-            clickPosition: CGPoint(x: 0.25, y: 0.75),
+            clickPosition: CGPoint(x: -0.5, y: 0.5),
             isCurrentlyTouching: true,
             requireActiveTouch: true
         )
@@ -185,7 +188,7 @@ final class TouchpadRegionSwapTests: XCTestCase {
     func testShouldFireRegionClick_SuppressesTwoFingerClick() {
         let result = ControllerService.shouldFireRegionClick(
             willBeTwoFingerClick: true,
-            clickPosition: CGPoint(x: 0.25, y: 0.75),
+            clickPosition: CGPoint(x: -0.5, y: 0.5),
             isCurrentlyTouching: true,
             requireActiveTouch: true
         )
@@ -207,11 +210,11 @@ final class TouchpadRegionSwapTests: XCTestCase {
     func testShouldFireRegionClick_RequireActiveTouchSuppressesStalePosition() {
         // Reproduces the customer's reported bug: finger landed near top-left,
         // lifted, then user pressed the physical click button. Without the
-        // active-touch requirement, the stale (0.1, 0.9) would re-fire the
+        // active-touch requirement, the stale (-0.8, 0.8) would re-fire the
         // top-left action ("Select All").
         let result = ControllerService.shouldFireRegionClick(
             willBeTwoFingerClick: false,
-            clickPosition: CGPoint(x: 0.1, y: 0.9),
+            clickPosition: CGPoint(x: -0.8, y: 0.8),
             isCurrentlyTouching: false,
             requireActiveTouch: true
         )
@@ -222,11 +225,63 @@ final class TouchpadRegionSwapTests: XCTestCase {
         // Legacy behavior — preserved for users who explicitly opt out.
         let result = ControllerService.shouldFireRegionClick(
             willBeTwoFingerClick: false,
-            clickPosition: CGPoint(x: 0.1, y: 0.9),
+            clickPosition: CGPoint(x: -0.8, y: 0.8),
             isCurrentlyTouching: false,
             requireActiveTouch: false
         )
         XCTAssertTrue(result, "With the setting off, stale-position clicks still fire (legacy behavior)")
+    }
+
+    // MARK: - Region action position selection
+
+    func testPreferredTouchpadRegionPosition_UsesLatestLivePosition() {
+        // The first touch sample can be noisier than the settled position the
+        // UI displays. Region actions should follow the same latest position,
+        // otherwise tap/click actions can feel biased while the visual overlay
+        // looks correct.
+        let position = ControllerService.preferredTouchpadRegionPosition(
+            currentPosition: CGPoint(x: 0.5, y: 0.5),
+            touchStartPosition: CGPoint(x: -0.5, y: -0.5)
+        )
+
+        XCTAssertEqual(position, CGPoint(x: 0.5, y: 0.5))
+        XCTAssertEqual(TouchpadRegion.from(position: position), .topRight)
+    }
+
+    func testPreferredTouchpadRegionPosition_FallsBackToTouchStartWhenCurrentIsZero() {
+        let position = ControllerService.preferredTouchpadRegionPosition(
+            currentPosition: .zero,
+            touchStartPosition: CGPoint(x: -0.5, y: 0.5)
+        )
+
+        XCTAssertEqual(position, CGPoint(x: -0.5, y: 0.5))
+        XCTAssertEqual(TouchpadRegion.from(position: position), .topLeft)
+    }
+
+    func testPreferredTouchpadRegionPosition_RepairsZeroedXAxisOnLeftTapLift() {
+        // Tap lift can report x == 0 while y still carries the real vertical
+        // side. Without repairing x from touch-start, left-side taps classify
+        // as right-side actions because the center boundary is inclusive.
+        let topLeft = ControllerService.preferredTouchpadRegionPosition(
+            currentPosition: CGPoint(x: 0, y: 0.5),
+            touchStartPosition: CGPoint(x: -0.5, y: 0.5)
+        )
+        let bottomLeft = ControllerService.preferredTouchpadRegionPosition(
+            currentPosition: CGPoint(x: 0, y: -0.5),
+            touchStartPosition: CGPoint(x: -0.5, y: -0.5)
+        )
+
+        XCTAssertEqual(TouchpadRegion.from(position: topLeft), .topLeft)
+        XCTAssertEqual(TouchpadRegion.from(position: bottomLeft), .bottomLeft)
+    }
+
+    func testPreferredTouchpadRegionPosition_RepairsZeroedYAxisOnBottomTapLift() {
+        let bottomRight = ControllerService.preferredTouchpadRegionPosition(
+            currentPosition: CGPoint(x: 0.5, y: 0),
+            touchStartPosition: CGPoint(x: 0.5, y: -0.5)
+        )
+
+        XCTAssertEqual(TouchpadRegion.from(position: bottomRight), .bottomRight)
     }
 
     // MARK: - JoystickSettings codable roundtrip for the new flag

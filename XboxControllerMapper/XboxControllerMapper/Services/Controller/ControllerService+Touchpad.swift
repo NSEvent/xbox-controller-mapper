@@ -30,6 +30,26 @@ extension ControllerService {
         return isCurrentlyTouching || !requireActiveTouch
     }
 
+    /// Region actions should classify from the latest live finger position
+    /// when possible, but GameController can zero one axis during tap/click
+    /// release while the other axis still carries the real position. Because
+    /// x/y == 0 is also the quadrant boundary, repair zeroed axes from the
+    /// touch-start sample so left/bottom taps don't collapse into the
+    /// inclusive right/top side.
+    nonisolated static func preferredTouchpadRegionPosition(
+        currentPosition: CGPoint,
+        touchStartPosition: CGPoint
+    ) -> CGPoint {
+        let epsilon: CGFloat = 0.001
+        let x = abs(currentPosition.x) <= epsilon && abs(touchStartPosition.x) > epsilon
+            ? touchStartPosition.x
+            : currentPosition.x
+        let y = abs(currentPosition.y) <= epsilon && abs(touchStartPosition.y) > epsilon
+            ? touchStartPosition.y
+            : currentPosition.y
+        return CGPoint(x: x, y: y)
+    }
+
     // MARK: - Shared Touchpad Setup (DualSense / DualShock)
 
     /// Configures touchpad handlers shared by DualSense and DualShock controllers.
@@ -65,10 +85,15 @@ extension ControllerService {
                 self.storage.lock.lock()
                 let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
                 let clickPosition = self.storage.touchpadPosition
+                let touchStartPosition = self.storage.touchpadTouchStartPosition
                 let isCurrentlyTouching = self.storage.isTouchpadTouching
                 let requireActiveTouch = self.storage.requireActiveTouchForRegionClick
                 let mode = self.storage.touchpadInputMode
                 self.storage.lock.unlock()
+                let regionPosition = ControllerService.preferredTouchpadRegionPosition(
+                    currentPosition: clickPosition,
+                    touchStartPosition: touchStartPosition
+                )
 
                 if willBeTwoFingerClick {
                     self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
@@ -81,13 +106,13 @@ extension ControllerService {
                 case .quadrants:
                     let canDispatch = ControllerService.shouldFireRegionClick(
                         willBeTwoFingerClick: false,
-                        clickPosition: clickPosition,
+                        clickPosition: regionPosition,
                         isCurrentlyTouching: isCurrentlyTouching,
                         requireActiveTouch: requireActiveTouch
                     )
                     guard canDispatch,
                           let regionButton = ControllerButton.from(
-                              region: TouchpadRegion.from(position: clickPosition),
+                              region: TouchpadRegion.from(position: regionPosition),
                               trigger: .click
                           ) else {
                         return
@@ -459,7 +484,11 @@ extension ControllerService {
             let tapRegion: TouchpadRegion?
             if isSingleTap && mode == .quadrants {
                 regionTapCallback = storage.onTouchpadRegionTap
-                tapRegion = TouchpadRegion.from(position: storage.touchpadTouchStartPosition)
+                let regionPosition = ControllerService.preferredTouchpadRegionPosition(
+                    currentPosition: storage.touchpadPosition,
+                    touchStartPosition: storage.touchpadTouchStartPosition
+                )
+                tapRegion = TouchpadRegion.from(position: regionPosition)
             } else {
                 regionTapCallback = nil
                 tapRegion = nil

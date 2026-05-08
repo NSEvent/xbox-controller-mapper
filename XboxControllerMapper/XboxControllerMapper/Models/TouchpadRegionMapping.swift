@@ -17,11 +17,20 @@ enum TouchpadRegion: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Determines which quadrant a normalized touchpad position (0-1) falls in.
-    /// x: 0 = left, 1 = right. y: 0 = bottom, 1 = top.
+    /// Determines which quadrant a touchpad finger position falls in.
+    ///
+    /// Position values come straight from `GCControllerDirectionPad`, which
+    /// reports x and y in **[-1, 1]** with (0, 0) at the pad's *center*:
+    /// - x: -1 = left edge, 0 = center, 1 = right edge
+    /// - y: -1 = bottom edge, 0 = center, 1 = top edge
+    ///
+    /// Earlier code used a 0.5 threshold (valid only for a [0, 1] range),
+    /// which biased classification heavily toward bottom-left — most of the
+    /// pad has x < 0.5 and y < 0.5 in HID coordinates, so the upper-right
+    /// quadrant only triggered when the finger reached the very corner.
     static func from(position: CGPoint) -> TouchpadRegion {
-        let isRight = position.x >= 0.5
-        let isTop = position.y >= 0.5
+        let isRight = position.x >= 0
+        let isTop = position.y >= 0
         switch (isRight, isTop) {
         case (false, true):  return .topLeft
         case (true, true):   return .topRight
