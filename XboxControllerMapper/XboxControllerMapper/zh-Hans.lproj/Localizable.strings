@@ -467,7 +467,6 @@
 "MAPPING ACTIVE" = "映射已启用";
 "DISABLED" = "已禁用";
 "ACTIVE CHORDS" = "活跃组合键";
-"mappings" = "个映射";
 
 /* 键盘标签页 - 屏幕键盘提示 */
 "To show the on-screen keyboard widget, assign a button to toggle it." = "要显示屏幕键盘组件，请分配一个按键来切换它。";
@@ -556,3 +555,50 @@
 "D-pad devotee, menu master" = "方向键爱好者，菜单达人";
 "Uses everything, masters all" = "无所不用，全能精通";
 "Less is more, every press counts" = "少即是多，每次按键都算数";
+
+/* 层 - 灯条颜色 (v1.7.9) */
+"Light Bar Color" = "灯条颜色";
+"Lightbar shows this color while the layer is active" = "层激活时灯条显示此颜色";
+"Custom Light Bar Color" = "自定义灯条颜色";
+"Light bar changes to this color when the layer is active" = "层激活时灯条切换为此颜色";
+
+/* 隐藏 Dock 图标 (v1.7.9) */
+"Hide Dock Icon" = "隐藏 Dock 图标";
+"Show only in menu bar. Use the menu bar icon to open the main window." = "仅在菜单栏显示。使用菜单栏图标打开主窗口。";
+
+/* DualShock 4 灯光 (v1.7.9) */
+"DualShock 4 supports light bar color only. Player LEDs, mute LED, and brightness controls are DualSense features." = "DualShock 4 仅支持灯条颜色。玩家 LED、静音 LED 和亮度控制为 DualSense 专属功能。";
+
+/* 触控板区域映射 (v1.7.9) */
+"Configure Touchpad Region" = "配置触控板区域";
+"Map each touchpad quadrant to a separate action on tap or click." = "将触控板每个象限映射到不同的触摸或点击操作。";
+"On Touch" = "触摸时";
+"On Click" = "点击时";
+"Fires the moment your finger lands in this quadrant" = "手指触碰此象限时立即触发";
+"Fires when you physically press the touchpad here" = "在此处按下触控板时触发";
+
+/* Xbox Elite Series 2 拨片 (v1.7.4) */
+"ELITE PADDLES" = "精英拨片";
+"Upper" = "上方";
+"Lower" = "下方";
+
+/* 命令轮盘标签页 (v1.7.6) */
+"Map any button to **Command Wheel** (with Hold enabled) to activate." = "将任意按键映射为**命令轮盘**（启用按住模式）以激活。";
+"Hold the button and use the right stick to select an action." = "按住按键并使用右摇杆选择操作。";
+"Wheel Preview" = "轮盘预览";
+"No actions configured" = "未配置操作";
+"Add actions to build your command wheel" = "添加操作以构建命令轮盘";
+"Add Action" = "添加操作";
+
+/* Webhook 响应处理 (v1.7.3) */
+"Response Handling" = "响应处理";
+"Show notification on completion" = "完成时显示通知";
+"Timeout:" = "超时：";
+"Retries:" = "重试次数：";
+"Retry delay:" = "重试延迟：";
+"On success command (optional)" = "成功时执行命令（可选）";
+"On error command (optional)" = "失败时执行命令（可选）";
+"Shell commands run silently on success (2xx) or error (non-2xx / network failure)." = "Shell 命令在成功（2xx）或失败（非 2xx / 网络错误）时静默运行。";
+
+/* 模拟按键重复 (v1.6.4) */
+"Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input." = "重新发送按键事件以模拟物理键盘重复。适用于需要持续按键产生重复输入的游戏。";
