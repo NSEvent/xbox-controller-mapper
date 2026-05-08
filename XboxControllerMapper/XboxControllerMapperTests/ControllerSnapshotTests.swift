@@ -25,7 +25,7 @@ final class ControllerSnapshotTests: XCTestCase {
         XCTAssertEqual(snap.rightStick, .zero)
         XCTAssertEqual(snap.leftTrigger, 0)
         XCTAssertEqual(snap.rightTrigger, 0)
-        XCTAssertFalse(snap.isDualSense)
+        XCTAssertFalse(snap.hasMotion)
     }
 
     // MARK: - Value Correctness
@@ -47,16 +47,17 @@ final class ControllerSnapshotTests: XCTestCase {
         XCTAssertEqual(snap.rightStick.y, 0.9, accuracy: 0.001)
         XCTAssertEqual(snap.leftTrigger, 0.6, accuracy: 0.001)
         XCTAssertEqual(snap.rightTrigger, 0.85, accuracy: 0.001)
-        XCTAssertTrue(snap.isDualSense)
+        XCTAssertTrue(snap.hasMotion)  // hasMotion = isDualSense || isDualShock
     }
 
-    func testSnapshotCapturesDualSenseFalse() {
+    func testSnapshotCapturesHasMotionFalseWhenNeitherFlagSet() {
         controllerService.storage.lock.lock()
         controllerService.storage.isDualSense = false
+        controllerService.storage.isDualShock = false
         controllerService.storage.lock.unlock()
 
         let snap = controllerService.snapshot()
-        XCTAssertFalse(snap.isDualSense)
+        XCTAssertFalse(snap.hasMotion)
     }
 
     // MARK: - Atomicity (Conceptual)
@@ -132,6 +133,9 @@ final class ControllerSnapshotTests: XCTestCase {
         XCTAssertEqual(snap.rightStick, controllerService.threadSafeRightStick)
         XCTAssertEqual(snap.leftTrigger, controllerService.threadSafeLeftTrigger)
         XCTAssertEqual(snap.rightTrigger, controllerService.threadSafeRightTrigger)
-        XCTAssertEqual(snap.isDualSense, controllerService.threadSafeIsDualSense)
+        XCTAssertEqual(
+            snap.hasMotion,
+            controllerService.threadSafeIsDualSense || controllerService.threadSafeIsDualShock
+        )
     }
 }
