@@ -61,4 +61,46 @@ final class DockVisibilityControllerTests: XCTestCase {
             "Borderless/untitled helper windows must not affect dock visibility"
         )
     }
+
+    // MARK: - Activation policy
+
+    func testHideFromDockUsesAccessoryOnlyWhenNoWindowOrPromotionExists() {
+        XCTAssertEqual(
+            DockVisibilityController.targetActivationPolicy(
+                hideFromDock: true,
+                hasUserFacingWindow: false,
+                hasTemporaryRegularPromotion: false
+            ),
+            .accessory
+        )
+
+        XCTAssertEqual(
+            DockVisibilityController.targetActivationPolicy(
+                hideFromDock: true,
+                hasUserFacingWindow: true,
+                hasTemporaryRegularPromotion: false
+            ),
+            .regular
+        )
+
+        XCTAssertEqual(
+            DockVisibilityController.targetActivationPolicy(
+                hideFromDock: true,
+                hasUserFacingWindow: false,
+                hasTemporaryRegularPromotion: true
+            ),
+            .regular
+        )
+    }
+
+    func testDockStaysRegularWhenHideFromDockIsDisabled() {
+        XCTAssertEqual(
+            DockVisibilityController.targetActivationPolicy(
+                hideFromDock: false,
+                hasUserFacingWindow: false,
+                hasTemporaryRegularPromotion: false
+            ),
+            .regular
+        )
+    }
 }

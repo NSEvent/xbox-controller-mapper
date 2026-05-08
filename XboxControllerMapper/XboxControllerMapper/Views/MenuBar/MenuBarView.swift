@@ -186,13 +186,9 @@ struct MenuBarView: View {
 
     private func openMainWindow() {
         // Promote the activation policy first so the dock icon appears as the
-        // window comes up, rather than after the visibility notification fires.
-        // DockVisibilityController will reconcile shortly either way, but doing
-        // this first avoids a brief flash where the window is visible without
-        // the dock icon.
-        if NSApp.activationPolicy() != .regular {
-            NSApp.setActivationPolicy(.regular)
-        }
+        // window comes up, and hold that promotion while SwiftUI opens the
+        // Window scene.
+        DockVisibilityController.shared.promoteForOpeningMainWindow()
         // SwiftUI's openWindow reliably opens (or reactivates) the Window scene
         // by id, even after the user closed it with the red traffic light.
         // The previous AppKit fallback used a non-existent selector and only

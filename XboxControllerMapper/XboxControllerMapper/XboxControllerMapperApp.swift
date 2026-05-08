@@ -195,6 +195,7 @@ final class DockVisibilityController {
 
     private var observers: [NSObjectProtocol] = []
     private var started = false
+    private var forceRegularUntil: Date?
 
     static let hideFromDockDefaultsKey = "hideFromDock"
 
@@ -225,7 +226,7 @@ final class DockVisibilityController {
 
         for name in interestingNames {
             // willClose fires *before* isVisible flips, so defer the recompute
-            // one runloop tick. Other notifications can update synchronously.
+            // briefly. Other notifications can update synchronously.
             let deferToNextTick = (name == NSWindow.willCloseNotification)
             observers.append(
                 center.addObserver(
@@ -241,7 +242,10 @@ final class DockVisibilityController {
                               let window = note.object as? NSWindow,
                               Self.isUserFacingAppWindow(window) else { return }
                         if deferToNextTick {
-                            DispatchQueue.main.async { self.updatePolicy() }
+                            self.forceRegularUntil = nil
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                self.updatePolicy()
+                            }
                         } else {
                             self.updatePolicy()
                         }
@@ -257,17 +261,53 @@ final class DockVisibilityController {
     /// the policy applies immediately (we don't want to rely on KVO of a plain
     /// UserDefaults key).
     func preferenceChanged() {
-        updatePolicy()
+        if hideFromDock {
+            promoteForOpeningMainWindow()
+        } else {
+            forceRegularUntil = nil
+            updatePolicy()
+        }
+    }
+
+    /// Keeps the app in `.regular` long enough for SwiftUI to materialize or
+    /// reactivate the main Window scene. Without this grace period, a menu-bar
+    /// click can promote the app, observe "no visible main window" before
+    /// `openWindow` completes, then immediately demote back to `.accessory`.
+    func promoteForOpeningMainWindow() {
+        let deadline = Date().addingTimeInterval(1.5)
+        forceRegularUntil = deadline
+        applyPolicy(.regular)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            MainActor.assumeIsolated {
+                if self?.forceRegularUntil == deadline {
+                    self?.forceRegularUntil = nil
+                }
+                self?.updatePolicy()
+            }
+        }
     }
 
     /// Recomputes the activation policy based on the current preference and
     /// window state. Idempotent — safe to call repeatedly.
     func updatePolicy() {
-        let wantsAccessory = hideFromDock && !anyUserFacingWindowVisible()
-        let target: NSApplication.ActivationPolicy = wantsAccessory ? .accessory : .regular
+        let target = Self.targetActivationPolicy(
+            hideFromDock: hideFromDock,
+            hasUserFacingWindow: anyUserFacingWindowVisible(),
+            hasTemporaryRegularPromotion: hasTemporaryRegularPromotion()
+        )
+        applyPolicy(target)
+    }
+
+    private func applyPolicy(_ target: NSApplication.ActivationPolicy) {
         if NSApp.activationPolicy() != target {
             NSApp.setActivationPolicy(target)
         }
+    }
+
+    private func hasTemporaryRegularPromotion(now: Date = Date()) -> Bool {
+        guard let forceRegularUntil else { return false }
+        return forceRegularUntil > now
     }
 
     private func anyUserFacingWindowVisible() -> Bool {
@@ -286,6 +326,17 @@ final class DockVisibilityController {
         if window is NSPanel { return false }
         guard window.styleMask.contains(.titled) else { return false }
         return true
+    }
+
+    static func targetActivationPolicy(
+        hideFromDock: Bool,
+        hasUserFacingWindow: Bool,
+        hasTemporaryRegularPromotion: Bool
+    ) -> NSApplication.ActivationPolicy {
+        if !hideFromDock || hasUserFacingWindow || hasTemporaryRegularPromotion {
+            return .regular
+        }
+        return .accessory
     }
 }
 
@@ -348,6 +399,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false // Keep running in menu bar
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        DockVisibilityController.shared.promoteForOpeningMainWindow()
+
+        if !flag {
+            sender.windows
+                .first(where: DockVisibilityController.isUserFacingAppWindow)?
+                .makeKeyAndOrderFront(nil)
+        }
+
+        return true
     }
 
     private func disableAppNap() {
