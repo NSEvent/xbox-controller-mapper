@@ -45,6 +45,7 @@ struct ButtonMappingSheet: View {
     @State private var selectedExistingLayerId: UUID? = nil  // For assigning this button to an existing unassigned layer
     @State private var createNewLayer = true  // true = create new, false = use existing unassigned layer
 
+
     private var showingAnyKeyboard: Bool {
         primaryState.showingKeyboard || longHoldState.showingKeyboard || doubleTapState.showingKeyboard
     }

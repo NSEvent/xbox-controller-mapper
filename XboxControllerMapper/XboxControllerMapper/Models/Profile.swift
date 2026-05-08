@@ -149,8 +149,26 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Mapping layers (max 12) - activated by holding a button
     var layers: [Layer]
 
-    /// Touchpad region mappings (quadrant-based actions)
+    /// Touchpad region mappings (quadrant-based actions).
+    /// **Legacy v1.** Original schema used this list as the source of truth for
+    /// quadrant bindings. Schema v3+ promotes quadrants to eight first-class
+    /// `ControllerButton` cases (4 regions × {touch, click}), each stored in
+    /// `buttonMappings`. This array is preserved on the type so legacy configs
+    /// decode cleanly; `ProfileConfigurationMigrationService` drains it on load.
     var touchpadRegionMappings: [TouchpadRegionMapping]
+
+    /// **Legacy v2.** Briefly used in schema v2 to store per-quadrant trigger
+    /// sense alongside 4 single-case quadrant buttons. Schema v3 splits the
+    /// quadrant into separate touch/click button cases, so this map is no
+    /// longer authoritative — but we keep it on the type for a release so v2
+    /// configs migrate cleanly. Drained on load.
+    var touchpadRegionTriggerModes: [ControllerButton: TouchpadTriggerMode]
+
+    /// Selects which set of touchpad buttons is active for this profile.
+    /// `.wholePad` (default) → classic 4 touchpad buttons fire. `.quadrants`
+    /// → 4 region click + 4 region touch buttons fire instead. Two-finger
+    /// buttons stay active in both modes.
+    var touchpadInputMode: TouchpadInputMode
 
     /// Command wheel actions (standalone wheel, independent of on-screen keyboard)
     var commandWheelActions: [CommandWheelAction]
@@ -172,6 +190,8 @@ struct Profile: Codable, Identifiable, Equatable {
         gestureMappings: [GestureMapping] = [],
         layers: [Layer] = [],
         touchpadRegionMappings: [TouchpadRegionMapping] = [],
+        touchpadRegionTriggerModes: [ControllerButton: TouchpadTriggerMode] = [:],
+        touchpadInputMode: TouchpadInputMode = .wholePad,
         commandWheelActions: [CommandWheelAction] = []
     ) {
         self.id = id
@@ -192,6 +212,8 @@ struct Profile: Codable, Identifiable, Equatable {
         self.gestureMappings = gestureMappings
         self.layers = layers
         self.touchpadRegionMappings = touchpadRegionMappings
+        self.touchpadRegionTriggerModes = touchpadRegionTriggerModes
+        self.touchpadInputMode = touchpadInputMode
         self.commandWheelActions = commandWheelActions
     }
 
@@ -386,6 +408,8 @@ extension Profile {
         case buttonMappings, chordMappings, sequenceMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, macros, scripts
         case onScreenKeyboardSettings, gestureMappings, layers, touchpadRegionMappings, commandWheelActions
+        case touchpadRegionTriggerModes
+        case touchpadInputMode
     }
 
     init(from decoder: Decoder) throws {
@@ -398,8 +422,20 @@ extension Profile {
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? Date()
 
-        // Decode button mappings from string-keyed dictionary
-        let stringKeyedMappings = try container.decodeIfPresent([String: KeyMapping].self, forKey: .buttonMappings) ?? [:]
+        // Decode button mappings from string-keyed dictionary. Schema v2 used
+        // four single-case quadrant button keys (e.g. "touchpadRegionTopLeft");
+        // schema v3 splits these into per-trigger variants. We rewrite v2 keys
+        // to v3 keys here using the trigger-mode hint in the legacy
+        // `touchpadRegionTriggerModes` field. By the time the rewrite finishes
+        // only v3-shaped keys remain, and the legacy trigger-mode map can be
+        // discarded.
+        var stringKeyedMappings = try container.decodeIfPresent([String: KeyMapping].self, forKey: .buttonMappings) ?? [:]
+        let legacyTriggerModes = try container.decodeIfPresent(
+            [String: TouchpadTriggerMode].self,
+            forKey: .touchpadRegionTriggerModes
+        ) ?? [:]
+        Profile.rewriteV2QuadrantKeys(stringKeyedMappings: &stringKeyedMappings,
+                                      legacyTriggerModes: legacyTriggerModes)
         buttonMappings = Dictionary(uniqueKeysWithValues: stringKeyedMappings.compactMap { key, value in
             guard let button = ControllerButton(rawValue: key) else {
                 NSLog("[Profile] Ignoring unknown button mapping key: %@", key)
@@ -419,7 +455,48 @@ extension Profile {
         gestureMappings = try container.decodeIfPresent([GestureMapping].self, forKey: .gestureMappings) ?? []
         layers = try container.decodeIfPresent([Layer].self, forKey: .layers) ?? []
         touchpadRegionMappings = try container.decodeIfPresent([TouchpadRegionMapping].self, forKey: .touchpadRegionMappings) ?? []
+        // The trigger-mode map is consumed by the v2→v3 rewrite above; we
+        // intentionally drop it on decode so re-encoding doesn't propagate
+        // stale legacy state.
+        touchpadRegionTriggerModes = [:]
+        // Default to whole-pad mode when the field is absent (pre-v3 configs).
+        // The migration step in ProfileConfigurationLoadCoordinator promotes
+        // profiles with quadrant data to .quadrants; this default just keeps
+        // freshly-decoded objects sane in test contexts.
+        touchpadInputMode = try container.decodeIfPresent(TouchpadInputMode.self, forKey: .touchpadInputMode) ?? .wholePad
         commandWheelActions = try container.decodeIfPresent([CommandWheelAction].self, forKey: .commandWheelActions) ?? []
+    }
+
+    /// Mutates `stringKeyedMappings` in place, rewriting the four schema-v2
+    /// single-case quadrant keys to their v3 click/touch variants. The trigger
+    /// hint comes from the legacy `touchpadRegionTriggerModes` map (key = old
+    /// raw-value string, value = trigger mode). `.both` fans out the mapping
+    /// to BOTH the click and touch variants so no data is lost.
+    private static func rewriteV2QuadrantKeys(
+        stringKeyedMappings: inout [String: KeyMapping],
+        legacyTriggerModes: [String: TouchpadTriggerMode]
+    ) {
+        // Old v2 raw values → region. These cases were renamed in v3 so
+        // `ControllerButton(rawValue:)` no longer recognizes them; the
+        // rewrite has to be a hardcoded mapping table.
+        let v2KeyToRegion: [String: TouchpadRegion] = [
+            "touchpadRegionTopLeft": .topLeft,
+            "touchpadRegionTopRight": .topRight,
+            "touchpadRegionBottomLeft": .bottomLeft,
+            "touchpadRegionBottomRight": .bottomRight
+        ]
+        for (oldKey, region) in v2KeyToRegion {
+            guard let mapping = stringKeyedMappings.removeValue(forKey: oldKey) else { continue }
+            let trigger = legacyTriggerModes[oldKey] ?? .both
+            if trigger == .click || trigger == .both,
+               let clickButton = ControllerButton.from(region: region, trigger: .click) {
+                stringKeyedMappings[clickButton.rawValue] = mapping
+            }
+            if trigger == .touch || trigger == .both,
+               let touchButton = ControllerButton.from(region: region, trigger: .touch) {
+                stringKeyedMappings[touchButton.rawValue] = mapping
+            }
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -447,6 +524,10 @@ extension Profile {
         try container.encode(gestureMappings, forKey: .gestureMappings)
         try container.encode(layers, forKey: .layers)
         try container.encode(touchpadRegionMappings, forKey: .touchpadRegionMappings)
+        // touchpadRegionTriggerModes is legacy (v2 only). The decoder consumes
+        // it during the v2→v3 rewrite and leaves it empty, so encoding it as
+        // an empty object would just emit dead JSON. Skip the field entirely.
+        try container.encode(touchpadInputMode, forKey: .touchpadInputMode)
         try container.encode(commandWheelActions, forKey: .commandWheelActions)
     }
 }
@@ -470,6 +551,7 @@ extension Profile {
         lhs.onScreenKeyboardSettings == rhs.onScreenKeyboardSettings &&
         lhs.gestureMappings == rhs.gestureMappings &&
         lhs.layers == rhs.layers &&
+        lhs.touchpadInputMode == rhs.touchpadInputMode &&
         lhs.commandWheelActions == rhs.commandWheelActions
     }
 }

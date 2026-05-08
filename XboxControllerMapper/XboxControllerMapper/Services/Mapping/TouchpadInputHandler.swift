@@ -128,39 +128,29 @@ extension MappingEngine {
 
     // MARK: - Touchpad Region Mappings
 
-    /// Processes a touchpad region event (tap or click on a specific quadrant).
-    /// Looks up a matching region mapping in the active profile and executes it.
-    /// When fired, also marks the corresponding touchpad button/tap as consumed
-    /// so the regular tap/click action doesn't run alongside the region action.
+    /// Processes a touchpad region tap event (finger touch + lift inside one
+    /// quadrant, no physical click). Schema v3: tap dispatches through the
+    /// standard tap path so double-tap detection on the quadrant's `*Touch`
+    /// button works; long hold for the touch path is handled separately by
+    /// `processTouchpadLongTap` reading the touch start position.
+    ///
+    /// Click events do NOT come through here — ControllerService dispatches
+    /// them as `handleButton(.touchpadRegion*Click, pressed:)` directly so
+    /// they get the full press/release machinery (long hold, double tap,
+    /// repeat, layer overrides) for free.
     nonisolated func processTouchpadRegionEvent(_ region: TouchpadRegion, trigger: TouchpadTriggerMode) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
-        guard let profile = state.lock.withLock({
-            guard state.isEnabled, !state.isLocked else { return nil as Profile? }
-            return state.activeProfile
-        }) else { return }
-
-        // Find a region mapping that matches the region and trigger mode
-        guard let regionMapping = profile.touchpadRegionMappings.first(where: {
-            $0.region == region && !$0.isEmpty &&
-            ($0.triggerMode == trigger || $0.triggerMode == .both)
-        }) else { return }
-
-        // Suppress the regular touchpad tap/click action that fires alongside this event
-        let suppressedButton: ControllerButton = (trigger == .click) ? .touchpadButton : .touchpadTap
-        state.lock.withLock {
-            state.pressConsumedByAction.insert(suppressedButton)
+        // Only the touch trigger reaches this handler. Click events are
+        // dispatched via handleButton press/release directly from
+        // ControllerService.
+        guard trigger == .touch,
+              let quadrantButton = ControllerButton.from(region: region, trigger: .touch) else {
+            return
         }
-
-        // Build a KeyMapping from the region mapping fields and execute via the standard path
-        let mapping = KeyMapping(
-            keyCode: regionMapping.keyCode,
-            modifiers: regionMapping.modifiers,
-            macroId: regionMapping.macroId,
-            systemCommand: regionMapping.systemCommand,
-            hint: regionMapping.hint
-        )
-        mappingExecutor.executeAction(mapping, for: .touchpadButton, profile: profile)
-        playActionHaptic(style: nil)
+        // Reuse the standard tap-dispatch path so double-tap, layer-aware
+        // mapping lookup, and the `pressConsumedByAction` suppression all work
+        // identically to `.touchpadTap`.
+        processTapGesture(quadrantButton)
     }
 
     // MARK: - Touchpad Long Tap Gestures

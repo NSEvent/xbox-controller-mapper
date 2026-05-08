@@ -24,6 +24,17 @@ extension ProfileManager {
         return targetProfile?.buttonMappings[button]
     }
 
+    /// Switches the active profile's touchpad input mode between whole-pad
+    /// and quadrants. The change is observed by `MappingEngine.syncTouchpadSettings`
+    /// which pushes the new mode to `ControllerStorage`, so the next click/tap
+    /// fires the appropriate button case.
+    func setTouchpadInputMode(_ mode: TouchpadInputMode, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+        guard targetProfile.touchpadInputMode != mode else { return }
+        targetProfile.touchpadInputMode = mode
+        updateProfile(targetProfile)
+    }
+
     /// Swaps all mappings between two buttons (base layer only, does not affect chords)
     func swapMappings(button1: ControllerButton, button2: ControllerButton, in profile: Profile? = nil) {
         guard var targetProfile = profile ?? activeProfile else { return }

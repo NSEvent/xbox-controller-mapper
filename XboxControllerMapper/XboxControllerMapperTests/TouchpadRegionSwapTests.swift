@@ -166,6 +166,87 @@ final class TouchpadRegionSwapTests: XCTestCase {
         XCTAssertEqual(profileManager.activeProfile?.touchpadRegionMappings.count, 0)
     }
 
+    // MARK: - shouldFireRegionClick policy
+    //
+    // Pure-function unit tests for the click-firing decision. These pin the
+    // policy that ControllerService+Touchpad's pressedChangedHandler relies on,
+    // without having to drive a real GameController button event through.
+
+    func testShouldFireRegionClick_FiresOnNormalSingleFingerClick() {
+        let result = ControllerService.shouldFireRegionClick(
+            willBeTwoFingerClick: false,
+            clickPosition: CGPoint(x: 0.25, y: 0.75),
+            isCurrentlyTouching: true,
+            requireActiveTouch: true
+        )
+        XCTAssertTrue(result, "Finger down at a real position should fire the region click")
+    }
+
+    func testShouldFireRegionClick_SuppressesTwoFingerClick() {
+        let result = ControllerService.shouldFireRegionClick(
+            willBeTwoFingerClick: true,
+            clickPosition: CGPoint(x: 0.25, y: 0.75),
+            isCurrentlyTouching: true,
+            requireActiveTouch: true
+        )
+        XCTAssertFalse(result, "Two-finger clicks route through the two-finger handler, not regions")
+    }
+
+    func testShouldFireRegionClick_SuppressesZeroPosition() {
+        // (0, 0) is the "never touched" sentinel; falling through to the base
+        // touchpad click is preferable to misclassifying as bottom-left.
+        let result = ControllerService.shouldFireRegionClick(
+            willBeTwoFingerClick: false,
+            clickPosition: .zero,
+            isCurrentlyTouching: false,
+            requireActiveTouch: false
+        )
+        XCTAssertFalse(result, "(0, 0) should never fire region clicks regardless of policy")
+    }
+
+    func testShouldFireRegionClick_RequireActiveTouchSuppressesStalePosition() {
+        // Reproduces the customer's reported bug: finger landed near top-left,
+        // lifted, then user pressed the physical click button. Without the
+        // active-touch requirement, the stale (0.1, 0.9) would re-fire the
+        // top-left action ("Select All").
+        let result = ControllerService.shouldFireRegionClick(
+            willBeTwoFingerClick: false,
+            clickPosition: CGPoint(x: 0.1, y: 0.9),
+            isCurrentlyTouching: false,
+            requireActiveTouch: true
+        )
+        XCTAssertFalse(result, "Click after finger-lift should not fire when active-touch is required")
+    }
+
+    func testShouldFireRegionClick_RequireActiveTouchOff_AllowsStalePosition() {
+        // Legacy behavior — preserved for users who explicitly opt out.
+        let result = ControllerService.shouldFireRegionClick(
+            willBeTwoFingerClick: false,
+            clickPosition: CGPoint(x: 0.1, y: 0.9),
+            isCurrentlyTouching: false,
+            requireActiveTouch: false
+        )
+        XCTAssertTrue(result, "With the setting off, stale-position clicks still fire (legacy behavior)")
+    }
+
+    // MARK: - JoystickSettings codable roundtrip for the new flag
+
+    func testRequireActiveTouchForRegionClick_DefaultsToTrueWhenAbsentFromJSON() throws {
+        // Older configs predate this field. They must still decode cleanly with
+        // the safer default (require active touch = on).
+        let legacyJSON = "{}".data(using: .utf8)!
+        let settings = try JSONDecoder().decode(JoystickSettings.self, from: legacyJSON)
+        XCTAssertTrue(settings.requireActiveTouchForRegionClick, "Missing field should default to true")
+    }
+
+    func testRequireActiveTouchForRegionClick_RoundtripsWhenSetToFalse() throws {
+        var settings = JoystickSettings.default
+        settings.requireActiveTouchForRegionClick = false
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(JoystickSettings.self, from: data)
+        XCTAssertFalse(decoded.requireActiveTouchForRegionClick, "Explicit false must roundtrip")
+    }
+
     // MARK: - Helpers
 
     /// Seeds the bootstrap default profile's touchpad region mappings. We mutate the

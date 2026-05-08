@@ -92,6 +92,11 @@ struct ButtonIconView: View {
         // Touchpad press buttons use rounded square
         if button == .micMute || button == .touchpadTap || button == .touchpadTwoFingerTap { return true }
         if button == .touchpadButton || button == .touchpadTwoFingerButton { return false }
+        // Touchpad region buttons follow the same convention: Touch = circle,
+        // Click = rounded square. Distinguishes them at a glance.
+        if let trigger = button.touchpadQuadrantTrigger {
+            return trigger == .touch
+        }
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return true
         default: return false
@@ -107,6 +112,10 @@ struct ButtonIconView: View {
         if button == .touchpadTwoFingerTap { return 32 }
         // Touchpad press buttons are rounded squares (same size for 1 and 2 finger)
         if button == .touchpadButton || button == .touchpadTwoFingerButton { return 32 }
+        // Touchpad region buttons match the touchpadButton/touchpadTap sizing.
+        if let trigger = button.touchpadQuadrantTrigger {
+            return trigger == .click ? 32 : 28
+        }
         switch button.category {
         case .face, .special, .thumbstick, .dpad: return 28
         case .bumper, .trigger: return 42
@@ -120,6 +129,8 @@ struct ButtonIconView: View {
         if showDirectionalArrows { return 36 }
         // Touchpad press buttons are square
         if button == .touchpadButton || button == .touchpadTwoFingerButton { return width }
+        // Touchpad region click buttons are square (height == width).
+        if button.touchpadQuadrantTrigger == .click { return width }
         return isCircle ? width : 22
     }
     
@@ -219,6 +230,13 @@ struct ButtonIconView: View {
                         .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.white.opacity(0.95))
+            } else if let region = button.touchpadRegion {
+                // Touchpad region indicator: a small 2×2 grid with the active
+                // quadrant filled. Much more legible at button-tile size than
+                // diagonal arrows, and instantly readable as "this is one of
+                // four quarters."
+                quadrantGlyph(for: region)
+                    .foregroundColor(.white.opacity(0.95))
             } else if button == .leftFunction || button == .rightFunction {
                 // Function buttons: show "LFn" or "RFn" text (similar to L1/R1)
                 Text(button.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo))
@@ -241,6 +259,45 @@ struct ButtonIconView: View {
         case .rightThumbstick: return "R"
         case .leftThumbstick: return "L"
         default: return ""
+        }
+    }
+
+    /// 2×2 grid where the active quadrant is filled; the other three are
+    /// drawn as faint outlines. Sized to fit naturally inside the existing
+    /// 28-32pt button shape.
+    @ViewBuilder
+    private func quadrantGlyph(for region: TouchpadRegion) -> some View {
+        let cellSize: CGFloat = 6
+        let spacing: CGFloat = 1.5
+        let cornerRadius: CGFloat = 1.2
+
+        let isTopLeftFilled = region == .topLeft
+        let isTopRightFilled = region == .topRight
+        let isBottomLeftFilled = region == .bottomLeft
+        let isBottomRightFilled = region == .bottomRight
+
+        VStack(spacing: spacing) {
+            HStack(spacing: spacing) {
+                quadrantCell(filled: isTopLeftFilled, size: cellSize, cornerRadius: cornerRadius)
+                quadrantCell(filled: isTopRightFilled, size: cellSize, cornerRadius: cornerRadius)
+            }
+            HStack(spacing: spacing) {
+                quadrantCell(filled: isBottomLeftFilled, size: cellSize, cornerRadius: cornerRadius)
+                quadrantCell(filled: isBottomRightFilled, size: cellSize, cornerRadius: cornerRadius)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func quadrantCell(filled: Bool, size: CGFloat, cornerRadius: CGFloat) -> some View {
+        if filled {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.white.opacity(0.95))
+                .frame(width: size, height: size)
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8)
+                .frame(width: size, height: size)
         }
     }
 }

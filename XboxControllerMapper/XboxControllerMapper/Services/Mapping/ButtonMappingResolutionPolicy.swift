@@ -36,22 +36,14 @@ enum ButtonMappingResolutionPolicy {
         return defaultMapping(for: button)
     }
 
+    /// Hardcoded resolver fallback. Historically returned a "trackpad-like"
+    /// default (left/right mouse click) for touchpad buttons even when the
+    /// user had explicitly cleared the mapping — making it impossible to
+    /// disable touchpad clicks. Now `nil` for everything: an absent mapping
+    /// means no action. New users still get sensible click behavior because
+    /// `Profile.createDefault()` populates the four touchpad buttons
+    /// explicitly; clearing them in the UI is the way to disable.
     private static func defaultMapping(for button: ControllerButton) -> KeyMapping? {
-        switch button {
-        case .touchpadButton:
-            // DualSense touchpad click defaults to left mouse click.
-            return KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
-        case .touchpadTwoFingerButton:
-            // DualSense touchpad two-finger click defaults to right mouse click.
-            return KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true)
-        case .touchpadTap:
-            // DualSense touchpad single tap defaults to left mouse click.
-            return KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
-        case .touchpadTwoFingerTap:
-            // DualSense touchpad two-finger tap defaults to right mouse click.
-            return KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true)
-        default:
-            return nil
-        }
+        return nil
     }
 }

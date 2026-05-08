@@ -19,9 +19,16 @@ enum ProfileConfigurationLoadCoordinator {
         let config = try ProfileConfigurationCodec.decode(from: data)
         var didMigrate = false
 
-        let (migratedProfiles, migratedTouchpadSettings) = ProfileConfigurationMigrationService
+        let (touchpadSettingsMigrated, migratedTouchpadSettings) = ProfileConfigurationMigrationService
             .migrateTouchpadSettingsIfNeeded(in: config.profiles)
         didMigrate = didMigrate || migratedTouchpadSettings
+
+        // v1 → v2: promote `touchpadRegionMappings` rows to first-class
+        // ControllerButton mappings. Idempotent — profiles whose legacy list
+        // is already empty pass through unchanged.
+        let (migratedProfiles, regionsPromoted) = ProfileConfigurationMigrationService
+            .migrateTouchpadRegionsToButtons(in: touchpadSettingsMigrated)
+        didMigrate = didMigrate || regionsPromoted
 
         let applied = ProfileLoadedDataApplicator.apply(
             loadedProfiles: migratedProfiles,

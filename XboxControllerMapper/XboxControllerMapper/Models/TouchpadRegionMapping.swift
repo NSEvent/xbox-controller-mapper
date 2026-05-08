@@ -45,6 +45,32 @@ extension TouchpadRegion: Transferable {
     }
 }
 
+/// Selects which set of touchpad buttons is active for a profile.
+///
+/// **Whole pad mode (default):** the four classic touchpad buttons fire —
+/// `.touchpadButton`, `.touchpadTap`, `.touchpadTwoFingerButton`,
+/// `.touchpadTwoFingerTap`. The eight quadrant buttons are inactive.
+///
+/// **Quadrants mode:** the eight region buttons fire (4 quadrants × {click,
+/// touch}). The single-finger global buttons (`.touchpadButton`,
+/// `.touchpadTap`) are suppressed in favor of the per-quadrant variants.
+/// Two-finger buttons stay active in both modes — there's no quadrant
+/// concept for two-finger actions.
+///
+/// The mode is per-profile so different controllers / use cases can pick
+/// different layouts.
+enum TouchpadInputMode: String, Codable, CaseIterable {
+    case wholePad
+    case quadrants
+
+    var displayName: String {
+        switch self {
+        case .wholePad: return "Whole Pad"
+        case .quadrants: return "Quadrants"
+        }
+    }
+}
+
 /// When a touchpad region mapping fires.
 enum TouchpadTriggerMode: String, Codable, CaseIterable {
     case touch   // Fires on finger contact

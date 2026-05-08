@@ -4,9 +4,18 @@ import SwiftUI
 struct ProfileConfiguration: Codable {
     /// Current schema version. Bump this when making breaking changes to the config format.
     /// Version 1: Initial schema (all fields use decodeIfPresent with defaults).
-    /// No version-based migration dispatch exists yet — all migrations are handled by
-    /// decodeIfPresent defaults and ad-hoc legacy field handling (e.g. onScreenKeyboardSettings).
-    static let currentSchemaVersion = 1
+    /// Version 2 (internal-only, never released): Touchpad quadrants promoted to
+    ///            four first-class `ControllerButton` cases. Per-quadrant trigger
+    ///            sense stored in `Profile.touchpadRegionTriggerModes`.
+    /// Version 3: Touchpad quadrant cases split into `*Click` and `*Touch` variants
+    ///            (8 total), restoring the legacy ability to assign separate
+    ///            actions per trigger. A new `Profile.touchpadInputMode` field
+    ///            picks between whole-pad mode (classic 4 buttons) and quadrants
+    ///            mode (8 region buttons). Migration happens on load via
+    ///            `Profile.rewriteV2QuadrantKeys` (decode-time, v2 → v3 key
+    ///            rewrite) and `ProfileConfigurationMigrationService.migrateTouchpadRegionsToButtons`
+    ///            (post-decode, v1 list → v3 buttons + mode flip).
+    static let currentSchemaVersion = 3
 
     var schemaVersion: Int = currentSchemaVersion
     var profiles: [Profile]

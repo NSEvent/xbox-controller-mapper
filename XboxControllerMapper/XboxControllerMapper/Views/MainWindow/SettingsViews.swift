@@ -330,12 +330,23 @@ struct TouchpadSettingsView: View {
                 }
             }
 
-            Section("Region Mappings") {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Map each touchpad quadrant to a separate action on tap or click.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    TouchpadRegionGrid()
+            // Region Mappings have been promoted to first-class buttons in the
+            // Buttons tab (see the "TOUCHPAD REGIONS" section above the controller
+            // diagram). Configure each quadrant the same way you configure any
+            // other controller button. The legacy in-place grid is gone; the
+            // toggle below stays here because it's a global touchpad-input
+            // policy, not a per-quadrant binding.
+            Section("Region Behavior") {
+                Toggle(isOn: Binding(
+                    get: { settings.requireActiveTouchForRegionClick },
+                    set: { updateSettings(\.requireActiveTouchForRegionClick, $0) }
+                )) {
+                    VStack(alignment: .leading) {
+                        Text("Require Active Touch for Region Clicks")
+                        Text("Only fire region clicks when a finger is on the pad. Prevents stale-position misfires when clicking after lifting off.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
         }
@@ -1090,15 +1101,19 @@ struct SettingsSheet: View {
                 Toggle(isOn: $hideFromDock) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Hide Dock Icon")
-                        Text("Show only in menu bar. Use the menu bar icon to open the main window.")
+                        Text("Run as a menu bar app. The dock icon only appears while the main window is open.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .onChange(of: hideFromDock) { _, newValue in
-                    NSApp.setActivationPolicy(newValue ? .accessory : .regular)
-                    if !newValue {
-                        // Switching back to regular — re-activate so the dock icon appears immediately
+                .onChange(of: hideFromDock) { _, _ in
+                    // The DockVisibilityController owns the activation policy and
+                    // ties it to window visibility. Just notify it that the
+                    // preference flipped; it'll recompute and apply.
+                    DockVisibilityController.shared.preferenceChanged()
+                    if !hideFromDock {
+                        // Switching back to always-show — re-activate so the dock
+                        // icon appears immediately even if no window is key.
                         NSApp.activate(ignoringOtherApps: true)
                     }
                 }

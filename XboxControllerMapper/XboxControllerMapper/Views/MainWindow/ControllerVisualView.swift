@@ -202,26 +202,13 @@ struct ControllerVisualView: View {
 
             // Center Column: Controller Graphic and System Buttons
             VStack(spacing: 20) {
-                // Touchpad section (PlayStation controllers with touchpad) - above controller
+                // Touchpad section (PlayStation controllers) — header has a
+                // mode picker that switches between the classic 4-button
+                // layout and the 8-button quadrant layout. Two-finger buttons
+                // stay visible in both modes since there's no quadrant
+                // analog for two fingers.
                 if isPlayStation {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("TOUCHPAD")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 4)
-                        HStack(spacing: 20) {
-                            VStack(alignment: .trailing) {
-                                referenceRow(for: .touchpadButton)
-                                referenceRow(for: .touchpadTap)
-                            }
-                            .frame(width: 220)
-                            VStack(alignment: .leading) {
-                                referenceRow(for: .touchpadTwoFingerButton)
-                                referenceRow(for: .touchpadTwoFingerTap)
-                            }
-                            .frame(width: 220)
-                        }
-                    }
+                    touchpadButtonsSection
                 }
 
                 ZStack {
@@ -237,6 +224,7 @@ struct ControllerVisualView: View {
                         isPlayStation: isPlayStation,
                         isNintendo: isNintendo,
                         isXboxElite: isXboxElite,
+                        touchpadInputMode: touchpadInputMode,
                         onButtonTap: onButtonTap,
                         onButtonHover: handleButtonHover,
                         onSwapRequest: performSwap
@@ -349,6 +337,140 @@ struct ControllerVisualView: View {
             hoveredButton = button
         } else if hoveredButton == button {
             hoveredButton = nil
+        }
+    }
+
+    // MARK: - Touchpad Buttons Section (mode picker + bindings)
+
+    private var touchpadInputMode: TouchpadInputMode {
+        profileManager.activeProfile?.touchpadInputMode ?? .wholePad
+    }
+
+    /// Toggle between whole-pad and quadrants mode. Routes through
+    /// `ProfileManager.setTouchpadInputMode` so the change persists and
+    /// `MappingEngine` re-syncs the controller-side flag.
+    private func setTouchpadInputMode(_ mode: TouchpadInputMode) {
+        profileManager.setTouchpadInputMode(mode)
+    }
+
+    @ViewBuilder
+    private var touchpadButtonsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text("TOUCHPAD")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                Spacer()
+                touchpadModeTabs
+            }
+            .padding(.horizontal, 4)
+
+            switch touchpadInputMode {
+            case .wholePad:
+                wholePadTouchpadRows
+            case .quadrants:
+                quadrantTouchpadRows
+            }
+        }
+    }
+
+    /// Pill-style tab pair matching `LayerTabBar`: active tab uses the accent
+    /// color, inactive uses a faint white wash. Animates the swap so it feels
+    /// like a tab transition rather than a settings flip.
+    private var touchpadModeTabs: some View {
+        HStack(spacing: 6) {
+            touchpadModeTab(.wholePad, label: "Whole Pad", systemImage: "rectangle")
+            touchpadModeTab(.quadrants, label: "Quadrants", systemImage: "rectangle.split.2x2")
+        }
+        .animation(.easeInOut(duration: 0.15), value: touchpadInputMode)
+    }
+
+    @ViewBuilder
+    private func touchpadModeTab(_ mode: TouchpadInputMode, label: String, systemImage: String) -> some View {
+        let isSelected = touchpadInputMode == mode
+        Button {
+            setTouchpadInputMode(mode)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(isSelected ? Color.accentColor : Color.white.opacity(0.08))
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.white.opacity(isSelected ? 0 : 0.05), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(isSelected ? .white : .secondary)
+        .hoverableButton()
+    }
+
+    /// Classic 4-row layout: single + two-finger × {click, tap}. Reflects
+    /// `Profile.touchpadInputMode == .wholePad`.
+    @ViewBuilder
+    private var wholePadTouchpadRows: some View {
+        HStack(spacing: 20) {
+            VStack(alignment: .trailing) {
+                referenceRow(for: .touchpadButton)
+                referenceRow(for: .touchpadTap)
+            }
+            .frame(width: 220)
+            VStack(alignment: .leading) {
+                referenceRow(for: .touchpadTwoFingerButton)
+                referenceRow(for: .touchpadTwoFingerTap)
+            }
+            .frame(width: 220)
+        }
+    }
+
+    /// Quadrants mode rows. Two-finger buttons still appear (they have no
+    /// quadrant analog) followed by the eight per-quadrant rows grouped in a
+    /// 2×2 layout that mirrors the touchpad's physical orientation.
+    @ViewBuilder
+    private var quadrantTouchpadRows: some View {
+        HStack(spacing: 20) {
+            VStack(alignment: .trailing) {
+                referenceRow(for: .touchpadTwoFingerButton)
+            }
+            .frame(width: 220)
+            VStack(alignment: .leading) {
+                referenceRow(for: .touchpadTwoFingerTap)
+            }
+            .frame(width: 220)
+        }
+
+        // Per-quadrant rows: top-left + top-right grouped, then bottom row.
+        // Click and Touch variants are stacked within each quadrant column so
+        // users can see both bindings for a single quadrant at a glance.
+        HStack(spacing: 20) {
+            VStack(alignment: .trailing, spacing: 4) {
+                referenceRow(for: .touchpadRegionTopLeftClick)
+                referenceRow(for: .touchpadRegionTopLeftTouch)
+            }
+            .frame(width: 220)
+            VStack(alignment: .leading, spacing: 4) {
+                referenceRow(for: .touchpadRegionTopRightClick)
+                referenceRow(for: .touchpadRegionTopRightTouch)
+            }
+            .frame(width: 220)
+        }
+        HStack(spacing: 20) {
+            VStack(alignment: .trailing, spacing: 4) {
+                referenceRow(for: .touchpadRegionBottomLeftClick)
+                referenceRow(for: .touchpadRegionBottomLeftTouch)
+            }
+            .frame(width: 220)
+            VStack(alignment: .leading, spacing: 4) {
+                referenceRow(for: .touchpadRegionBottomRightClick)
+                referenceRow(for: .touchpadRegionBottomRightTouch)
+            }
+            .frame(width: 220)
         }
     }
 
@@ -586,6 +708,11 @@ struct ControllerAnalogOverlay: View {
     let isPlayStation: Bool
     let isNintendo: Bool
     let isXboxElite: Bool
+    /// Whole-pad shows one big click target with a single anchor. Quadrants
+    /// shows the dashed divider cross plus four per-quadrant tap zones, each
+    /// anchoring its `.touchpadRegion*Click` and `.touchpadRegion*Touch`
+    /// buttons so connectors land at the correct quarter of the pad.
+    var touchpadInputMode: TouchpadInputMode = .wholePad
     var onButtonTap: (ControllerButton) -> Void
     var onButtonHover: ((ControllerButton, Bool) -> Void)? = nil
     var onSwapRequest: ((ControllerButton, ControllerButton) -> Void)? = nil
@@ -600,6 +727,10 @@ struct ControllerAnalogOverlay: View {
     @State private var isTouchpadSecondaryTouching: Bool = false
     @State private var touchpadSecondaryPosition: CGPoint = .zero
     @State private var activeButtons: Set<ControllerButton> = []
+    /// Local hover tracking — used by the touchpad quadrant zones to highlight
+    /// the targeted region. The parent owns the canonical hover state for
+    /// connector drawing; this is just for the per-zone tint.
+    @State private var hoveredQuadrant: ControllerButton?
     @State private var isConnected: Bool = false
     @State private var batteryLevel: Float = -1
     @State private var batteryState: GCDeviceBattery.State = .unknown
@@ -776,6 +907,7 @@ struct ControllerAnalogOverlay: View {
         let color = isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.25)
         let touchpadWidth: CGFloat = 100
         let touchpadHeight: CGFloat = 50
+        let inQuadrantsMode = touchpadInputMode == .quadrants
 
         return ZStack {
             // Base touchpad shape
@@ -785,6 +917,27 @@ struct ControllerAnalogOverlay: View {
                     RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
                 )
+
+            // Quadrant divider cross is only meaningful in quadrants mode.
+            // In whole-pad mode the entire pad is one binding target and the
+            // dashed cross would mislead users.
+            if inQuadrantsMode {
+                quadrantDividers(width: touchpadWidth, height: touchpadHeight)
+            }
+
+            // Live activation overlay: which quadrant is currently being
+            // touched, and is it being clicked? Drawn under the touch dot so
+            // the dot stays visible. Touch = soft accent wash; click = brighter
+            // accent fill — the click distinction makes a physical press
+            // visually distinct from a finger that's just resting on the pad.
+            if isTouchpadTouching {
+                quadrantHighlight(
+                    region: TouchpadRegion.from(position: touchpadPosition),
+                    width: touchpadWidth,
+                    height: touchpadHeight,
+                    isClicked: isPressed(.touchpadButton)
+                )
+            }
 
             // Primary touch point
             if isTouchpadTouching {
@@ -809,18 +962,131 @@ struct ControllerAnalogOverlay: View {
                         y: -touchpadSecondaryPosition.y * (touchpadHeight / 2 - 4)
                     )
             }
+
+            // Quadrant tap zones are ALWAYS rendered (so their per-quadrant
+            // connector anchors propagate to ConnectorLayer reliably — SwiftUI
+            // preference collection through conditional rendering is flaky
+            // when the conditional flips). In `.wholePad` mode hit testing is
+            // disabled so taps fall through to the whole-pad tap gesture
+            // below; in `.quadrants` mode the zones intercept taps and own
+            // their own onTap/onHover behavior.
+            quadrantTapZones(width: touchpadWidth, height: touchpadHeight)
+                .allowsHitTesting(inQuadrantsMode)
         }
         .frame(width: touchpadWidth, height: touchpadHeight)
         .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+        // The whole-pad tap gesture only applies when no quadrant zones are
+        // intercepting. In quadrants mode the zones are on top, so taps on
+        // the base never reach this gesture.
         .onTapGesture { onButtonTap(.touchpadButton) }
-        // All four touchpad-related actions visually originate from the touchpad rect,
-        // so a single anchorPreference call emits an endpoint for each one.
+        // Whole-pad anchor: in whole-pad mode, four reference rows
+        // (.touchpadButton/.touchpadTap and the two-finger pair) all light up
+        // their connector to the entire pad. In quadrants mode, only the
+        // two-finger reference rows still live in the TOUCHPAD section, but
+        // they share the same whole-pad anchor since two-finger doesn't
+        // distinguish quadrants.
         .controllerAnchor(
             [.touchpadButton, .touchpadTap, .touchpadTwoFingerButton, .touchpadTwoFingerTap],
             role: .controller
         )
         .onHover { hovering in onButtonHover?(.touchpadButton, hovering) }
         .swappable(.touchpadButton, onSwap: onSwapRequest)
+    }
+
+    /// Live highlight on the active quadrant. `isClicked` distinguishes a
+    /// physical click (brighter, accent-saturated fill) from a passive touch
+    /// (soft, low-opacity wash) so the same overlay communicates two
+    /// different input states. Clipped to a rounded rectangle slightly inset
+    /// from the touchpad's corner radius so it doesn't bleed past the bezel.
+    private func quadrantHighlight(
+        region: TouchpadRegion,
+        width: CGFloat,
+        height: CGFloat,
+        isClicked: Bool
+    ) -> some View {
+        let halfW = width / 2
+        let halfH = height / 2
+        let originX: CGFloat = (region == .topLeft || region == .bottomLeft) ? 0 : halfW
+        // SwiftUI Y grows downward inside this view; touchpad "top" maps to y=0.
+        let originY: CGFloat = (region == .topLeft || region == .topRight) ? 0 : halfH
+        let touchOpacity: Double = 0.18
+        let clickOpacity: Double = 0.42
+        return Rectangle()
+            .fill(Color.accentColor.opacity(isClicked ? clickOpacity : touchOpacity))
+            .frame(width: halfW, height: halfH)
+            .position(x: originX + halfW / 2, y: originY + halfH / 2)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .frame(width: width, height: height)
+            .allowsHitTesting(false)
+            .animation(.easeOut(duration: 0.08), value: isClicked)
+    }
+
+    /// Subtle dashed cross dividing the touchpad into four quadrants. Visual
+    /// only — no hit testing.
+    private func quadrantDividers(width: CGFloat, height: CGFloat) -> some View {
+        ZStack {
+            // Vertical divider at horizontal center
+            Path { path in
+                path.move(to: CGPoint(x: width / 2, y: 4))
+                path.addLine(to: CGPoint(x: width / 2, y: height - 4))
+            }
+            .stroke(Color.white.opacity(0.18),
+                    style: StrokeStyle(lineWidth: 0.6, lineCap: .round, dash: [2, 2]))
+            // Horizontal divider at vertical center
+            Path { path in
+                path.move(to: CGPoint(x: 4, y: height / 2))
+                path.addLine(to: CGPoint(x: width - 4, y: height / 2))
+            }
+            .stroke(Color.white.opacity(0.18),
+                    style: StrokeStyle(lineWidth: 0.6, lineCap: .round, dash: [2, 2]))
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// 2×2 grid of transparent tap zones. Each zone:
+    /// - Anchors BOTH its `.touchpadRegion*Click` and `.touchpadRegion*Touch`
+    ///   buttons so connectors from either reference row land at this
+    ///   quadrant.
+    /// - Routes taps to the click variant (the more common case for direct
+    ///   editing); users can still open the touch variant from the TOUCHPAD
+    ///   section's reference row.
+    /// - Highlights faintly while hovered.
+    private func quadrantTapZones(width: CGFloat, height: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                quadrantTapZone(region: .topLeft)
+                quadrantTapZone(region: .topRight)
+            }
+            HStack(spacing: 0) {
+                quadrantTapZone(region: .bottomLeft)
+                quadrantTapZone(region: .bottomRight)
+            }
+        }
+        .frame(width: width, height: height)
+    }
+
+    @ViewBuilder
+    private func quadrantTapZone(region: TouchpadRegion) -> some View {
+        let clickButton = ControllerButton.from(region: region, trigger: .click) ?? .touchpadButton
+        let touchButton = ControllerButton.from(region: region, trigger: .touch) ?? .touchpadTap
+        let isHovered = hoveredQuadrant == clickButton || hoveredQuadrant == touchButton
+        Rectangle()
+            .fill(Color.white.opacity(isHovered ? 0.12 : 0.001))
+            .contentShape(Rectangle())
+            .onTapGesture { onButtonTap(clickButton) }
+            // Anchor both buttons to this quadrant rect so the connector lines
+            // land at the correct quarter regardless of which reference row
+            // (click or touch) the user hovers.
+            .controllerAnchor([clickButton, touchButton], role: .controller)
+            .onHover { hovering in
+                if hovering {
+                    hoveredQuadrant = clickButton
+                } else if hoveredQuadrant == clickButton || hoveredQuadrant == touchButton {
+                    hoveredQuadrant = nil
+                }
+                onButtonHover?(clickButton, hovering)
+            }
+            .swappable(clickButton, onSwap: onSwapRequest)
     }
 
     // MARK: - Mini Controller Helpers (Jewel/Glass Style)

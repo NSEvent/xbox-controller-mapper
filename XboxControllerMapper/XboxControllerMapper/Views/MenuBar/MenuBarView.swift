@@ -7,6 +7,8 @@ struct MenuBarView: View {
     @EnvironmentObject var mappingEngine: MappingEngine
     @EnvironmentObject var inputLogService: InputLogService
 
+    @Environment(\.openWindow) private var openWindow
+
     @State private var streamOverlayEnabled: Bool = StreamOverlayManager.isEnabled
 
     var body: some View {
@@ -183,13 +185,20 @@ struct MenuBarView: View {
     // MARK: - Actions
 
     private func openMainWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.title.contains("ControllerKeys") || $0.isKeyWindow }) {
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            // Open new window
-            NSApp.sendAction(Selector(("showMainWindow:")), to: nil, from: nil)
+        // Promote the activation policy first so the dock icon appears as the
+        // window comes up, rather than after the visibility notification fires.
+        // DockVisibilityController will reconcile shortly either way, but doing
+        // this first avoids a brief flash where the window is visible without
+        // the dock icon.
+        if NSApp.activationPolicy() != .regular {
+            NSApp.setActivationPolicy(.regular)
         }
+        // SwiftUI's openWindow reliably opens (or reactivates) the Window scene
+        // by id, even after the user closed it with the red traffic light.
+        // The previous AppKit fallback used a non-existent selector and only
+        // worked while the window was still in NSApp.windows.
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func quitApp() {

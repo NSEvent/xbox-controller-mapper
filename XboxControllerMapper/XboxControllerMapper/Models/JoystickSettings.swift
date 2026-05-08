@@ -59,6 +59,13 @@ struct JoystickSettings: Codable, Equatable {
     /// Smoothing amount for touchpad movement (0.0 - 1.0)
     var touchpadSmoothing: Double = 0.4
 
+    /// When true, touchpad region clicks only fire if a finger is actively touching
+    /// the pad at the moment of click. Prevents stale-position misfires (e.g. clicking
+    /// after the finger has lifted off, where the last known position falls into a
+    /// quadrant the user never intended). When false, the last known touch position
+    /// is used regardless of whether a finger is currently down.
+    var requireActiveTouchForRegionClick: Bool = true
+
     /// Two-finger pan sensitivity (0.0 - 1.0)
     var touchpadPanSensitivity: Double = 0.5
 
@@ -238,6 +245,7 @@ extension JoystickSettings {
         case touchpadAcceleration
         case touchpadDeadzone
         case touchpadSmoothing
+        case requireActiveTouchForRegionClick
         case touchpadPanSensitivity
         case touchpadZoomToPanRatio
         case touchpadUseNativeZoom
@@ -303,6 +311,10 @@ extension JoystickSettings {
             to: 0.0...1.0,
             fallback: 0.4
         )
+        requireActiveTouchForRegionClick = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .requireActiveTouchForRegionClick
+        ) ?? true
         touchpadPanSensitivity = Self.clamp(
             try container.decodeIfPresent(Double.self, forKey: .touchpadPanSensitivity) ?? 0.5,
             to: 0.0...1.0,
@@ -368,6 +380,7 @@ extension JoystickSettings {
         try container.encode(touchpadAcceleration, forKey: .touchpadAcceleration)
         try container.encode(touchpadDeadzone, forKey: .touchpadDeadzone)
         try container.encode(touchpadSmoothing, forKey: .touchpadSmoothing)
+        try container.encode(requireActiveTouchForRegionClick, forKey: .requireActiveTouchForRegionClick)
         try container.encode(touchpadPanSensitivity, forKey: .touchpadPanSensitivity)
         try container.encode(touchpadZoomToPanRatio, forKey: .touchpadZoomToPanRatio)
         try container.encode(touchpadUseNativeZoom, forKey: .touchpadUseNativeZoom)

@@ -34,6 +34,76 @@ enum ProfileConfigurationMigrationService {
         return (migratedProfiles, didMigrate)
     }
 
+    /// Promotes legacy v1 `Profile.touchpadRegionMappings` rows into the v3
+    /// per-trigger first-class button cases (`*Click` and `*Touch`), and
+    /// switches the profile's `touchpadInputMode` to `.quadrants` whenever any
+    /// quadrant data is present.
+    ///
+    /// v2 configs (4 single-case quadrant keys + trigger-mode map) are handled
+    /// at decode time inside `Profile.rewriteV2QuadrantKeys`. By the time
+    /// profiles reach this function their v2 keys have already been unfolded
+    /// into the v3 button mapping shape — this function only needs to drain
+    /// the legacy v1 list and flip the mode.
+    ///
+    /// Per-region behavior:
+    /// - `.click`-trigger entries → write to the `*Click` button case
+    /// - `.touch`-trigger entries → write to the `*Touch` button case
+    /// - `.both`-trigger entries → write to BOTH cases (KeyMapping duplicated;
+    ///   users can edit them independently afterwards)
+    /// - If a button mapping already exists for a target case (typical when v2
+    ///   already populated it), the legacy entry is skipped without
+    ///   overwriting.
+    static func migrateTouchpadRegionsToButtons(in profiles: [Profile]) -> ([Profile], Bool) {
+        var anyDidMigrate = false
+        let migratedProfiles = profiles.map { profile -> Profile in
+            var updated = profile
+            var didMigrateThisProfile = false
+
+            // Drain the legacy v1 array.
+            for legacy in updated.touchpadRegionMappings where !legacy.isEmpty {
+                let triggers: [TouchpadTriggerMode]
+                switch legacy.triggerMode {
+                case .both: triggers = [.click, .touch]
+                case .click: triggers = [.click]
+                case .touch: triggers = [.touch]
+                }
+                for trigger in triggers {
+                    guard let buttonCase = ControllerButton.from(region: legacy.region, trigger: trigger) else { continue }
+                    if updated.buttonMappings[buttonCase] != nil {
+                        NSLog("[Migration] Skipping legacy %@ region %@ — a button mapping already exists for %@",
+                              trigger.rawValue, legacy.region.rawValue, buttonCase.rawValue)
+                        continue
+                    }
+                    updated.buttonMappings[buttonCase] = KeyMapping(
+                        keyCode: legacy.keyCode,
+                        modifiers: legacy.modifiers,
+                        macroId: legacy.macroId,
+                        systemCommand: legacy.systemCommand,
+                        hint: legacy.hint
+                    )
+                    didMigrateThisProfile = true
+                    anyDidMigrate = true
+                }
+            }
+
+            // Whether the profile carries any quadrant data at this point —
+            // either because we just migrated v1 entries, or because v2 decode
+            // already populated v3 keys. If so, flip to quadrants mode so the
+            // bindings actually fire.
+            let hasQuadrantData = updated.buttonMappings.keys.contains(where: { $0.isTouchpadQuadrant })
+            if hasQuadrantData && updated.touchpadInputMode == .wholePad {
+                updated.touchpadInputMode = .quadrants
+                anyDidMigrate = true
+            }
+
+            if didMigrateThisProfile {
+                updated.touchpadRegionMappings = []
+            }
+            return updated
+        }
+        return (migratedProfiles, anyDidMigrate)
+    }
+
     static func migrateLegacyKeyboardSettings(
         _ legacyKeyboardSettings: OnScreenKeyboardSettings,
         in profiles: [Profile],

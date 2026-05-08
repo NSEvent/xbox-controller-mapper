@@ -102,7 +102,21 @@ final class ControllerStorage: @unchecked Sendable {
     var onTouchpadLongTap: (() -> Void)?  // Long tap (touch held without moving)
     var onTouchpadTwoFingerLongTap: (() -> Void)?  // Two-finger long tap
     var onTouchpadRegionTap: ((TouchpadRegion) -> Void)?  // Region-specific tap
-    var onTouchpadRegionClick: ((TouchpadRegion) -> Void)?  // Region-specific click
+    /// When true, region-click events only fire while a finger is currently touching
+    /// the pad. Default true. Mirrors `JoystickSettings.requireActiveTouchForRegionClick`
+    /// and is updated by MappingEngine whenever joystick settings change.
+    var requireActiveTouchForRegionClick: Bool = true
+
+    /// Mirrors `Profile.touchpadInputMode`. Read by the touchpad input pipeline
+    /// to decide which button events to fire (whole-pad or quadrant variants).
+    /// Updated by MappingEngine on profile change.
+    var touchpadInputMode: TouchpadInputMode = .wholePad
+
+    /// Tracks which quadrant the touchpad's physical click is currently in,
+    /// across press → release. Cleared on release. Used to ensure the same
+    /// quadrant button gets both press AND release events even if the user's
+    /// finger drifts to a different quadrant during the hold.
+    var activeTouchpadClickQuadrant: ControllerButton?
     var touchpadLongTapTimer: DispatchWorkItem?  // Timer for long tap detection
     var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
 
@@ -534,9 +548,13 @@ class ControllerService: ObservableObject {
         get { readStorage(\.onTouchpadRegionTap) }
         set { writeStorage(\.onTouchpadRegionTap, newValue) }
     }
-    var onTouchpadRegionClick: ((TouchpadRegion) -> Void)? {
-        get { readStorage(\.onTouchpadRegionClick) }
-        set { writeStorage(\.onTouchpadRegionClick, newValue) }
+    var requireActiveTouchForRegionClick: Bool {
+        get { readStorage(\.requireActiveTouchForRegionClick) }
+        set { writeStorage(\.requireActiveTouchForRegionClick, newValue) }
+    }
+    var touchpadInputMode: TouchpadInputMode {
+        get { readStorage(\.touchpadInputMode) }
+        set { writeStorage(\.touchpadInputMode, newValue) }
     }
     var onMotionGesture: ((MotionGestureType) -> Void)? {
         get { readStorage(\.onMotionGesture) }

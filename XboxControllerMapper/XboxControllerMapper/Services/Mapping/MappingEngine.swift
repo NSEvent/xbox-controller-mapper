@@ -150,6 +150,7 @@ class MappingEngine: ObservableObject {
         self.state.chordLookup = Dictionary(uniqueKeysWithValues: initialChords.map { ($0.buttons, $0) })
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
+        syncTouchpadSettings(from: profileManager.activeProfile)
         syncMotionActivation(for: profileManager.activeProfile)
     }
 
@@ -176,6 +177,24 @@ class MappingEngine: ObservableObject {
     /// so the motion callback thread can read them without accessing JoystickSettings.
     /// Also resets gesture detector tracking state to prevent stale gestures from a
     /// previous profile carrying over (e.g., a mid-tracking gesture completing after switch).
+    /// Pushes touchpad-related ControllerStorage flags that affect callback policy.
+    /// ControllerService doesn't otherwise know about JoystickSettings or Profile,
+    /// so MappingEngine is responsible for keeping these in sync whenever the
+    /// active profile changes.
+    private func syncTouchpadSettings(from profile: Profile?) {
+        let settings = profile?.joystickSettings ?? .default
+        controllerService.requireActiveTouchForRegionClick = settings.requireActiveTouchForRegionClick
+        controllerService.touchpadInputMode = profile?.touchpadInputMode ?? .wholePad
+    }
+
+    private func syncTouchpadSettings(from settings: JoystickSettings?) {
+        // Backwards-compat shim for callers that didn't switch to the
+        // profile-based overload yet. Falls back to whole-pad mode since we
+        // don't know the active profile here.
+        let settings = settings ?? .default
+        controllerService.requireActiveTouchForRegionClick = settings.requireActiveTouchForRegionClick
+    }
+
     private func syncGestureSettings(from settings: JoystickSettings?) {
         let settings = settings ?? .default
         controllerService.storage.lock.lock()
@@ -231,6 +250,7 @@ class MappingEngine: ObservableObject {
                     self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
                 }
                 self.syncGestureSettings(from: profile?.joystickSettings)
+                self.syncTouchpadSettings(from: profile)
                 self.syncMotionActivation(for: profile)
                 self.scriptEngine.clearState()
             }
@@ -336,12 +356,10 @@ class MappingEngine: ObservableObject {
                 self.processTouchpadRegionEvent(region, trigger: .touch)
             }
         }
-        controllerService.onTouchpadRegionClick = { [weak self] region in
-            guard let self = self else { return }
-            self.inputQueue.async {
-                self.processTouchpadRegionEvent(region, trigger: .click)
-            }
-        }
+        // Region clicks no longer use a callback. ControllerService dispatches
+        // them directly as `handleButton(.touchpadRegion*Click, pressed:)`,
+        // which goes through the standard press/release machinery (long hold,
+        // double tap, repeat, layer overrides all work for free).
         controllerService.onMotionGesture = { [weak self] gestureType in
             guard let self = self else { return }
             self.inputQueue.async {
@@ -1325,7 +1343,20 @@ class MappingEngine: ObservableObject {
             return
         }
 
-        let matchingChord = state.lock.withLock { state.chordLookup[chordButtons] }
+        // Try the captured set as-is first; if no chord matches, fall back to
+        // an alias-substituted lookup so chords authored with `.touchpadButton`
+        // continue to match when quadrants mode dispatches `.touchpadRegion*Click`
+        // (and similarly for `.touchpadTap` ↔ `.touchpadRegion*Touch`).
+        let matchingChord = state.lock.withLock { () -> ChordMapping? in
+            if let direct = state.chordLookup[chordButtons] {
+                return direct
+            }
+            let aliased = Set(chordButtons.map { $0.chordSequenceAlias ?? $0 })
+            if aliased != chordButtons, let viaAlias = state.chordLookup[aliased] {
+                return viaAlias
+            }
+            return nil
+        }
 
         if let chord = matchingChord {
             state.lock.withLock {

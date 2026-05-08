@@ -44,7 +44,8 @@ final class SequenceDetector: GestureDetecting {
         for var seq in activeSequences {
             let sinceLastStep = time - seq.lastStepTime
             let effectiveTimeout = seq.stepTimeout + chordWindowTolerance
-            if sinceLastStep <= effectiveTimeout && seq.matchedCount < seq.steps.count && button == seq.steps[seq.matchedCount] {
+            if sinceLastStep <= effectiveTimeout && seq.matchedCount < seq.steps.count
+                && Self.matches(actual: button, expected: seq.steps[seq.matchedCount]) {
                 seq.matchedCount += 1
                 seq.lastStepTime = time
                 survivingSequences.append(seq)
@@ -53,7 +54,7 @@ final class SequenceDetector: GestureDetecting {
 
         let trackedIds = Set(survivingSequences.map { $0.sequenceId })
         for seq in sequences where seq.isValid {
-            if !trackedIds.contains(seq.id) && seq.steps[0] == button {
+            if !trackedIds.contains(seq.id) && Self.matches(actual: button, expected: seq.steps[0]) {
                 survivingSequences.append(SequenceProgress(
                     sequenceId: seq.id,
                     steps: seq.steps,
@@ -80,5 +81,16 @@ final class SequenceDetector: GestureDetecting {
     /// Reset all tracking state.
     func reset() {
         activeSequences.removeAll()
+    }
+
+    /// Match check that respects `ControllerButton.chordSequenceAlias`. A
+    /// sequence step authored with `.touchpadButton` matches a quadrant click
+    /// event because the click button's alias is `.touchpadButton`.
+    /// Symmetric: an expected step of `.touchpadRegion*Click` only matches
+    /// the literal button (no implicit alias from `.touchpadButton`).
+    private static func matches(actual: ControllerButton, expected: ControllerButton) -> Bool {
+        if actual == expected { return true }
+        if actual.chordSequenceAlias == expected { return true }
+        return false
     }
 }

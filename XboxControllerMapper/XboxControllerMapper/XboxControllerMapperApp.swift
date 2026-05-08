@@ -173,6 +173,122 @@ struct MenuBarLabel: View {
     }
 }
 
+/// Drives the app's `NSApplication.ActivationPolicy` so the dock icon presence
+/// can follow window visibility when "Hide Dock Icon" is enabled.
+///
+/// Behavior:
+/// - When `hideFromDock` UserDefault is **off**: the app is always `.regular`
+///   (dock icon always visible — standard app behavior).
+/// - When `hideFromDock` UserDefault is **on**: the app is `.regular` while a
+///   user-facing window is visible, and `.accessory` when no such window is
+///   visible. This matches the conventional macOS menu-bar-app pattern: opening
+///   the main window temporarily promotes the app to the dock; closing it
+///   returns to a quiet menu-bar-only presence.
+///
+/// We filter `NSApp.windows` to "user-facing app windows" — titled NSWindows
+/// that aren't `NSPanel`. That deliberately excludes the MenuBarExtra popover
+/// (an NSPanel) and system panels (alerts, color picker), which would
+/// otherwise cause spurious dock-icon promotions.
+@MainActor
+final class DockVisibilityController {
+    static let shared = DockVisibilityController()
+
+    private var observers: [NSObjectProtocol] = []
+    private var started = false
+
+    static let hideFromDockDefaultsKey = "hideFromDock"
+
+    private var hideFromDock: Bool {
+        UserDefaults.standard.bool(forKey: Self.hideFromDockDefaultsKey)
+    }
+
+    func start() {
+        guard !started else { return }
+        started = true
+
+        let center = NotificationCenter.default
+
+        // didBecomeKey covers "the user just opened or focused a window" — the
+        // common path that promotes the dock icon. NSWindow has no public
+        // "didBecomeVisible" notification, but didChangeOcclusionState fires
+        // when a window goes from hidden→visible (and vice versa), which
+        // catches the cases didBecomeKey doesn't (e.g. window restored from
+        // background without gaining focus). willClose / didMiniaturize /
+        // didDeminiaturize round out the visibility-affecting events.
+        let interestingNames: [Notification.Name] = [
+            NSWindow.didBecomeKeyNotification,
+            NSWindow.didChangeOcclusionStateNotification,
+            NSWindow.willCloseNotification,
+            NSWindow.didMiniaturizeNotification,
+            NSWindow.didDeminiaturizeNotification,
+        ]
+
+        for name in interestingNames {
+            // willClose fires *before* isVisible flips, so defer the recompute
+            // one runloop tick. Other notifications can update synchronously.
+            let deferToNextTick = (name == NSWindow.willCloseNotification)
+            observers.append(
+                center.addObserver(
+                    forName: name,
+                    object: nil,
+                    queue: .main
+                ) { [weak self] note in
+                    // Notifications delivered on .main queue are on the main
+                    // thread; the addObserver closure isn't @MainActor-typed,
+                    // so assert isolation explicitly.
+                    MainActor.assumeIsolated {
+                        guard let self,
+                              let window = note.object as? NSWindow,
+                              Self.isUserFacingAppWindow(window) else { return }
+                        if deferToNextTick {
+                            DispatchQueue.main.async { self.updatePolicy() }
+                        } else {
+                            self.updatePolicy()
+                        }
+                    }
+                }
+            )
+        }
+
+        updatePolicy()
+    }
+
+    /// Settings UI calls this after toggling the `hideFromDock` UserDefault so
+    /// the policy applies immediately (we don't want to rely on KVO of a plain
+    /// UserDefaults key).
+    func preferenceChanged() {
+        updatePolicy()
+    }
+
+    /// Recomputes the activation policy based on the current preference and
+    /// window state. Idempotent — safe to call repeatedly.
+    func updatePolicy() {
+        let wantsAccessory = hideFromDock && !anyUserFacingWindowVisible()
+        let target: NSApplication.ActivationPolicy = wantsAccessory ? .accessory : .regular
+        if NSApp.activationPolicy() != target {
+            NSApp.setActivationPolicy(target)
+        }
+    }
+
+    private func anyUserFacingWindowVisible() -> Bool {
+        NSApp.windows.contains { window in
+            Self.isUserFacingAppWindow(window) && window.isVisible && !window.isMiniaturized
+        }
+    }
+
+    /// Filters `NSApp.windows` down to windows that represent the user actively
+    /// using the app's UI. Excludes:
+    /// - `NSPanel` instances (MenuBarExtra popover, alerts, color picker, etc.)
+    /// - Untitled helper windows (tooltips, hidden hosting windows)
+    ///
+    /// Internal so tests can verify the filter without going through `NSApp`.
+    static func isUserFacingAppWindow(_ window: NSWindow) -> Bool {
+        if window is NSPanel { return false }
+        guard window.styleMask.contains(.titled) else { return false }
+        return true
+    }
+}
+
 @main
 struct XboxControllerMapperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -220,10 +336,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Request Accessibility permissions if not granted
         requestAccessibilityPermissions()
 
-        // Apply dock icon visibility preference
-        if UserDefaults.standard.bool(forKey: "hideFromDock") {
-            NSApp.setActivationPolicy(.accessory)
-        }
+        // Wire up dynamic dock-icon visibility. When `hideFromDock` is enabled,
+        // the activation policy follows window visibility (dock icon only appears
+        // while the main window is open). When disabled, the app is always .regular.
+        DockVisibilityController.shared.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

@@ -6,6 +6,30 @@ import GameController
 @MainActor
 extension ControllerService {
 
+    /// Pure decision function for whether a touchpad press should fire a region-click
+    /// callback. Extracted so the policy is unit-testable without driving the
+    /// GameController-backed `pressedChangedHandler` closure.
+    ///
+    /// The guards, in order:
+    /// 1. Two-finger clicks never fire region callbacks (those go through the
+    ///    dedicated two-finger handler).
+    /// 2. (0, 0) position means no finger has ever touched the pad — there's no
+    ///    sensible quadrant to fire, so fall through to the base touchpad click.
+    /// 3. If `requireActiveTouch` is on (default), the finger must be on the pad
+    ///    at click time. This prevents the stale-position misfire where a click
+    ///    after the finger lifts off would re-use the last known position. With
+    ///    the setting off, the last position is used regardless (legacy behavior).
+    nonisolated static func shouldFireRegionClick(
+        willBeTwoFingerClick: Bool,
+        clickPosition: CGPoint,
+        isCurrentlyTouching: Bool,
+        requireActiveTouch: Bool
+    ) -> Bool {
+        guard !willBeTwoFingerClick else { return false }
+        guard clickPosition != .zero else { return false }
+        return isCurrentlyTouching || !requireActiveTouch
+    }
+
     // MARK: - Shared Touchpad Setup (DualSense / DualShock)
 
     /// Configures touchpad handlers shared by DualSense and DualShock controllers.
@@ -20,7 +44,19 @@ extension ControllerService {
         button.preferredSystemGestureState = .alwaysReceive
 
         // Touchpad button (click)
-        // Two-finger + click triggers touchpadTwoFingerButton, single finger triggers touchpadButton
+        //
+        // Mode-aware dispatch:
+        // - Two-finger click → always `.touchpadTwoFingerButton` regardless of
+        //   mode (no quadrant analog).
+        // - Single-finger click in `.wholePad` mode → `.touchpadButton`.
+        // - Single-finger click in `.quadrants` mode → the appropriate
+        //   `.touchpadRegion*Click` button. `.touchpadButton` is NOT fired in
+        //   this mode; instead, MappingEngine's chord/sequence matching
+        //   treats any region-click event as an alias for `.touchpadButton`,
+        //   so existing chords and sequences keep working without firing a
+        //   second individual action.
+        // We track the active quadrant across press → release so the same
+        // button receives both events even if the user's finger drifts.
         button.pressedChangedHandler = { [weak self] _, _, pressed in
             guard let self = self else { return }
             let isTwoFingerClick = self.armTouchpadClick(pressed: pressed)
@@ -29,31 +65,57 @@ extension ControllerService {
                 self.storage.lock.lock()
                 let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
                 let clickPosition = self.storage.touchpadPosition
-                let regionClickCallback = self.storage.onTouchpadRegionClick
+                let isCurrentlyTouching = self.storage.isTouchpadTouching
+                let requireActiveTouch = self.storage.requireActiveTouchForRegionClick
+                let mode = self.storage.touchpadInputMode
                 self.storage.lock.unlock()
-
-                // Fire region click callback (single-finger clicks only).
-                // Skip when position is (0, 0) — that means the click landed
-                // before any finger position registered, so we don't know which
-                // quadrant it's in. Fall through to the base touchpad click
-                // action instead of mis-classifying as bottom-left.
-                if !willBeTwoFingerClick,
-                   let callback = regionClickCallback,
-                   clickPosition != .zero {
-                    let region = TouchpadRegion.from(position: clickPosition)
-                    self.controllerQueue.async { callback(region) }
-                }
 
                 if willBeTwoFingerClick {
                     self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
-                } else {
+                    return
+                }
+
+                switch mode {
+                case .wholePad:
                     self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
+                case .quadrants:
+                    let canDispatch = ControllerService.shouldFireRegionClick(
+                        willBeTwoFingerClick: false,
+                        clickPosition: clickPosition,
+                        isCurrentlyTouching: isCurrentlyTouching,
+                        requireActiveTouch: requireActiveTouch
+                    )
+                    guard canDispatch,
+                          let regionButton = ControllerButton.from(
+                              region: TouchpadRegion.from(position: clickPosition),
+                              trigger: .click
+                          ) else {
+                        return
+                    }
+                    self.storage.lock.lock()
+                    self.storage.activeTouchpadClickQuadrant = regionButton
+                    self.storage.lock.unlock()
+                    self.controllerQueue.async { self.handleButton(regionButton, pressed: true) }
                 }
             } else {
                 if isTwoFingerClick {
                     self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: false) }
-                } else {
+                    return
+                }
+
+                self.storage.lock.lock()
+                let mode = self.storage.touchpadInputMode
+                let activeQuadrant = self.storage.activeTouchpadClickQuadrant
+                self.storage.activeTouchpadClickQuadrant = nil
+                self.storage.lock.unlock()
+
+                switch mode {
+                case .wholePad:
                     self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
+                case .quadrants:
+                    if let activeQuadrant {
+                        self.controllerQueue.async { self.handleButton(activeQuadrant, pressed: false) }
+                    }
                 }
             }
         }
@@ -377,19 +439,25 @@ extension ControllerService {
             let clickFiredDuringTouch = storage.touchpadClickFiredDuringTouch
 
             // Single-finger tap: short duration, minimal movement, NOT a two-finger gesture,
-            // long tap not fired, and no physical click during this touch
+            // long tap not fired, and no physical click during this touch.
+            //
+            // Mode-aware dispatch parallels the click path. In `.wholePad`
+            // mode the global `.touchpadTap` fires. In `.quadrants` mode the
+            // per-quadrant region tap callback fires (which dispatches to
+            // `.touchpadRegion*Touch`). Aliasing in MappingEngine maps a
+            // region touch back to `.touchpadTap` for chord/sequence matching.
             let isSingleTap = wasTouching &&
                 !wasTwoFingerDuringTouch &&
                 !longTapFired &&
                 !clickFiredDuringTouch &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement
-            let tapCallback = isSingleTap ? storage.onTouchpadTap : nil
+            let mode = storage.touchpadInputMode
+            let tapCallback = (isSingleTap && mode == .wholePad) ? storage.onTouchpadTap : nil
 
-            // Region tap: use touch start position for consistent region detection
             let regionTapCallback: ((TouchpadRegion) -> Void)?
             let tapRegion: TouchpadRegion?
-            if isSingleTap {
+            if isSingleTap && mode == .quadrants {
                 regionTapCallback = storage.onTouchpadRegionTap
                 tapRegion = TouchpadRegion.from(position: storage.touchpadTouchStartPosition)
             } else {

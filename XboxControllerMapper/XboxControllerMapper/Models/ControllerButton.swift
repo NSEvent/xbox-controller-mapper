@@ -39,6 +39,21 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case touchpadTwoFingerTap     // Two-finger tap on touchpad (DualSense only)
     case micMute                  // Mic mute button (DualSense only)
 
+    // Touchpad region quadrants — first-class buttons. Each quadrant has TWO
+    // independent buttons: one that fires on physical click and one that fires
+    // on touch contact. This lets users assign different actions to touch vs
+    // click for the same quadrant (matching the legacy v1 behavior), and lets
+    // each binding use the full standard button feature set (long hold, double
+    // tap, repeat, layer overrides). PlayStation only.
+    case touchpadRegionTopLeftClick
+    case touchpadRegionTopRightClick
+    case touchpadRegionBottomLeftClick
+    case touchpadRegionBottomRightClick
+    case touchpadRegionTopLeftTouch
+    case touchpadRegionTopRightTouch
+    case touchpadRegionBottomLeftTouch
+    case touchpadRegionBottomRightTouch
+
     // DualSense Edge-specific (Pro controller)
     case leftPaddle               // Back paddle, left side (Edge only)
     case rightPaddle              // Back paddle, right side (Edge only)
@@ -85,6 +100,14 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .touchpadTap: return "Touchpad Tap"
         case .touchpadTwoFingerTap: return "Touchpad 2-Finger Tap"
         case .micMute: return "Mic Mute"
+        case .touchpadRegionTopLeftClick: return "Top-Left Click"
+        case .touchpadRegionTopRightClick: return "Top-Right Click"
+        case .touchpadRegionBottomLeftClick: return "Bottom-Left Click"
+        case .touchpadRegionBottomRightClick: return "Bottom-Right Click"
+        case .touchpadRegionTopLeftTouch: return "Top-Left Touch"
+        case .touchpadRegionTopRightTouch: return "Top-Right Touch"
+        case .touchpadRegionBottomLeftTouch: return "Bottom-Left Touch"
+        case .touchpadRegionBottomRightTouch: return "Bottom-Right Touch"
         case .leftPaddle: return "Left Paddle"
         case .rightPaddle: return "Right Paddle"
         case .leftFunction: return "Left Fn"
@@ -174,6 +197,18 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .touchpadTap: return "1T"
         case .touchpadTwoFingerTap: return "2"
         case .micMute: return "🎤"
+        // Region buttons fall back to text labels here, but they're rendered
+        // by `ButtonIconView` as a custom 2×2 quadrant indicator that's
+        // recognizable at a glance (the diagonal-arrow glyphs above looked
+        // too similar to each other at button-tile size).
+        case .touchpadRegionTopLeftClick: return "TL"
+        case .touchpadRegionTopRightClick: return "TR"
+        case .touchpadRegionBottomLeftClick: return "BL"
+        case .touchpadRegionBottomRightClick: return "BR"
+        case .touchpadRegionTopLeftTouch: return "TL"
+        case .touchpadRegionTopRightTouch: return "TR"
+        case .touchpadRegionBottomLeftTouch: return "BL"
+        case .touchpadRegionBottomRightTouch: return "BR"
         case .leftPaddle: return "LP"
         case .rightPaddle: return "RP"
         case .leftFunction: return "LFn"
@@ -254,6 +289,13 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .touchpadTap: return "hand.tap"
             case .touchpadTwoFingerTap: return "hand.tap"
             case .micMute: return "mic.slash"
+            case .touchpadRegionTopLeftClick, .touchpadRegionTopLeftTouch,
+                 .touchpadRegionTopRightClick, .touchpadRegionTopRightTouch,
+                 .touchpadRegionBottomLeftClick, .touchpadRegionBottomLeftTouch,
+                 .touchpadRegionBottomRightClick, .touchpadRegionBottomRightTouch:
+                // Custom 2×2 quadrant indicator drawn by ButtonIconView; no
+                // SF Symbol used for these.
+                return nil
             case .leftPaddle: return "l.button.roundedbottom.horizontal"
             case .rightPaddle: return "r.button.roundedbottom.horizontal"
             case .leftFunction: return "button.horizontal.top.press"
@@ -304,7 +346,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return .special
         case .leftThumbstick, .rightThumbstick:
             return .thumbstick
-        case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute:
+        case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute,
+             .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
+             .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick,
+             .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
+             .touchpadRegionBottomLeftTouch, .touchpadRegionBottomRightTouch:
             return .touchpad  // DualSense-specific buttons
         case .leftPaddle, .rightPaddle, .leftFunction, .rightFunction:
             return .paddle  // DualSense Edge-specific buttons
@@ -318,7 +364,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     /// Whether this button is only available on PlayStation controllers (DualSense or DualShock)
     var isPlayStationOnly: Bool {
         switch self {
-        case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap:
+        case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap,
+             .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
+             .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick,
+             .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
+             .touchpadRegionBottomLeftTouch, .touchpadRegionBottomRightTouch:
             return true  // Available on both DualSense and DualShock
         case .micMute:
             return true  // DualSense only
@@ -342,6 +392,81 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return true  // DualSense gyroscope only
         default:
             return false
+        }
+    }
+
+    /// Whether this button represents one of the eight touchpad quadrant
+    /// variants (4 regions × {touch, click}). Used by the mapping engine for
+    /// dispatch and by UI to know how to render the region group.
+    var isTouchpadQuadrant: Bool {
+        return touchpadRegion != nil
+    }
+
+    /// Returns the (region, trigger) pair this button represents, or nil if
+    /// it's not one of the quadrant variants.
+    var touchpadRegion: TouchpadRegion? {
+        switch self {
+        case .touchpadRegionTopLeftClick, .touchpadRegionTopLeftTouch: return .topLeft
+        case .touchpadRegionTopRightClick, .touchpadRegionTopRightTouch: return .topRight
+        case .touchpadRegionBottomLeftClick, .touchpadRegionBottomLeftTouch: return .bottomLeft
+        case .touchpadRegionBottomRightClick, .touchpadRegionBottomRightTouch: return .bottomRight
+        default: return nil
+        }
+    }
+
+    /// For chord/sequence matching only: which canonical "whole-pad" button
+    /// does this button alias for? `.touchpadRegion*Click` aliases for
+    /// `.touchpadButton`; `.touchpadRegion*Touch` aliases for `.touchpadTap`.
+    /// All other buttons return nil (no alias).
+    ///
+    /// This is the bridge that lets a chord like `[.touchpadButton, .a]` match
+    /// when the user clicks any quadrant in `.quadrants` mode without firing
+    /// a duplicate `.touchpadButton` press. The aliasing is *only* consulted
+    /// during chord/sequence detection; individual button mappings remain
+    /// distinct.
+    var chordSequenceAlias: ControllerButton? {
+        switch self {
+        case .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
+             .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick:
+            return .touchpadButton
+        case .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
+             .touchpadRegionBottomLeftTouch, .touchpadRegionBottomRightTouch:
+            return .touchpadTap
+        default:
+            return nil
+        }
+    }
+
+    /// Returns the trigger mode this quadrant button represents, or nil if
+    /// it's not a quadrant variant. `.both` is never returned — it's an
+    /// authoring concept, not a button identity.
+    var touchpadQuadrantTrigger: TouchpadTriggerMode? {
+        switch self {
+        case .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
+             .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick:
+            return .click
+        case .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
+             .touchpadRegionBottomLeftTouch, .touchpadRegionBottomRightTouch:
+            return .touch
+        default:
+            return nil
+        }
+    }
+
+    /// Maps a `(region, trigger)` pair to the corresponding ControllerButton
+    /// case. `trigger` must be `.click` or `.touch` — `.both` is not a single
+    /// button (it's an authoring concept that fans out to both variants).
+    static func from(region: TouchpadRegion, trigger: TouchpadTriggerMode) -> ControllerButton? {
+        switch (region, trigger) {
+        case (.topLeft, .click): return .touchpadRegionTopLeftClick
+        case (.topRight, .click): return .touchpadRegionTopRightClick
+        case (.bottomLeft, .click): return .touchpadRegionBottomLeftClick
+        case (.bottomRight, .click): return .touchpadRegionBottomRightClick
+        case (.topLeft, .touch): return .touchpadRegionTopLeftTouch
+        case (.topRight, .touch): return .touchpadRegionTopRightTouch
+        case (.bottomLeft, .touch): return .touchpadRegionBottomLeftTouch
+        case (.bottomRight, .touch): return .touchpadRegionBottomRightTouch
+        case (_, .both): return nil
         }
     }
 
