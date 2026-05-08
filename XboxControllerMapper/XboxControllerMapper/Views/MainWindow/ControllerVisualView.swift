@@ -964,30 +964,24 @@ struct ControllerAnalogOverlay: View {
                     )
             }
 
-            // Quadrant tap zones are ALWAYS rendered (so their per-quadrant
-            // connector anchors propagate to ConnectorLayer reliably — SwiftUI
-            // preference collection through conditional rendering is flaky
-            // when the conditional flips). In `.wholePad` mode hit testing is
-            // disabled so taps fall through to the whole-pad tap gesture
-            // below; in `.quadrants` mode the zones intercept taps and own
-            // their own onTap/onHover behavior.
             quadrantTapZones(width: touchpadWidth, height: touchpadHeight)
                 .allowsHitTesting(inQuadrantsMode)
         }
         .frame(width: touchpadWidth, height: touchpadHeight)
         .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-        // The whole-pad tap gesture only applies when no quadrant zones are
-        // intercepting. In quadrants mode the zones are on top, so taps on
-        // the base never reach this gesture.
         .onTapGesture { onButtonTap(.touchpadButton) }
-        // Whole-pad anchor: in whole-pad mode, four reference rows
-        // (.touchpadButton/.touchpadTap and the two-finger pair) all light up
-        // their connector to the entire pad. In quadrants mode, only the
-        // two-finger reference rows still live in the TOUCHPAD section, but
-        // they share the same whole-pad anchor since two-finger doesn't
-        // distinguish quadrants.
+        // All touchpad connector anchors. Whole-pad and quadrant variants
+        // both currently resolve to the entire pad rect; ConnectorLayer can
+        // refine quadrant endpoints visually if needed. Stacking these as
+        // sibling modifiers on the working chain (rather than nested child
+        // views) is the only placement that reliably propagates region
+        // anchors through SwiftUI's preference machinery here.
         .controllerAnchor(
-            [.touchpadButton, .touchpadTap, .touchpadTwoFingerButton, .touchpadTwoFingerTap],
+            [.touchpadButton, .touchpadTap, .touchpadTwoFingerButton, .touchpadTwoFingerTap,
+             .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
+             .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick,
+             .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
+             .touchpadRegionBottomLeftTouch, .touchpadRegionBottomRightTouch],
             role: .controller
         )
         .onHover { hovering in onButtonHover?(.touchpadButton, hovering) }
@@ -1044,41 +1038,34 @@ struct ControllerAnalogOverlay: View {
         .allowsHitTesting(false)
     }
 
-    /// 2×2 grid of transparent tap zones. Each zone:
-    /// - Anchors BOTH its `.touchpadRegion*Click` and `.touchpadRegion*Touch`
-    ///   buttons so connectors from either reference row land at this
-    ///   quadrant.
-    /// - Routes taps to the click variant (the more common case for direct
-    ///   editing); users can still open the touch variant from the TOUCHPAD
-    ///   section's reference row.
-    /// - Highlights faintly while hovered.
+    /// 2×2 grid of transparent tap zones for hover/tap/drag handling.
+    /// Connector anchors live in `quadrantAnchorOverlay`, separately attached
+    /// to miniTouchpad's outer ZStack so they propagate to the connector
+    /// preference reliably.
     private func quadrantTapZones(width: CGFloat, height: CGFloat) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                quadrantTapZone(region: .topLeft)
-                quadrantTapZone(region: .topRight)
+                quadrantTapTarget(region: .topLeft, width: width / 2, height: height / 2)
+                quadrantTapTarget(region: .topRight, width: width / 2, height: height / 2)
             }
             HStack(spacing: 0) {
-                quadrantTapZone(region: .bottomLeft)
-                quadrantTapZone(region: .bottomRight)
+                quadrantTapTarget(region: .bottomLeft, width: width / 2, height: height / 2)
+                quadrantTapTarget(region: .bottomRight, width: width / 2, height: height / 2)
             }
         }
         .frame(width: width, height: height)
     }
 
     @ViewBuilder
-    private func quadrantTapZone(region: TouchpadRegion) -> some View {
+    private func quadrantTapTarget(region: TouchpadRegion, width: CGFloat, height: CGFloat) -> some View {
         let clickButton = ControllerButton.from(region: region, trigger: .click) ?? .touchpadButton
         let touchButton = ControllerButton.from(region: region, trigger: .touch) ?? .touchpadTap
         let isHovered = hoveredQuadrant == clickButton || hoveredQuadrant == touchButton
         Rectangle()
             .fill(Color.white.opacity(isHovered ? 0.12 : 0.001))
+            .frame(width: width, height: height)
             .contentShape(Rectangle())
             .onTapGesture { onButtonTap(clickButton) }
-            // Anchor both buttons to this quadrant rect so the connector lines
-            // land at the correct quarter regardless of which reference row
-            // (click or touch) the user hovers.
-            .controllerAnchor([clickButton, touchButton], role: .controller)
             .onHover { hovering in
                 if hovering {
                     hoveredQuadrant = clickButton
@@ -1086,6 +1073,7 @@ struct ControllerAnalogOverlay: View {
                     hoveredQuadrant = nil
                 }
                 onButtonHover?(clickButton, hovering)
+                _ = touchButton  // kept in scope so Swift doesn't elide the binding
             }
             .swappable(clickButton, onSwap: onSwapRequest)
     }
@@ -1462,8 +1450,12 @@ struct ConnectorLayer: View {
             // visual noise.
             if let hovered = hoveredButton,
                let pair = pairs.first(where: { $0.button == hovered }) {
-                let controllerRect = proxy[pair.controllerAnchor]
+                let rawControllerRect = proxy[pair.controllerAnchor]
                 let labelRect = proxy[pair.labelAnchor]
+                // For touchpad quadrant buttons, slice the whole-pad anchor
+                // rect down to the corresponding quarter so the connector
+                // terminates at the quadrant edge, not the pad center.
+                let controllerRect = Self.quadrantRect(of: rawControllerRect, for: hovered)
                 let labelCenter = CGPoint(x: labelRect.midX, y: labelRect.midY)
                 let controllerCenter = CGPoint(x: controllerRect.midX, y: controllerRect.midY)
                 let start = rectEdgePoint(of: controllerRect, towards: labelCenter)
@@ -1479,6 +1471,20 @@ struct ConnectorLayer: View {
         }
         .animation(.easeOut(duration: 0.15), value: hoveredButton)
         .allowsHitTesting(false)
+    }
+
+    /// For touchpad quadrant buttons, returns the rect of the corresponding
+    /// quarter of the whole-pad anchor rect; for any other button, returns
+    /// the rect unchanged. Lets the eight region buttons share a single
+    /// whole-pad `controllerAnchor` while still having connectors that land
+    /// at each quadrant's center.
+    private static func quadrantRect(of padRect: CGRect, for button: ControllerButton) -> CGRect {
+        guard let region = button.touchpadRegion else { return padRect }
+        let halfW = padRect.width / 2
+        let halfH = padRect.height / 2
+        let originX = (region == .topLeft || region == .bottomLeft) ? padRect.minX : padRect.midX
+        let originY = (region == .topLeft || region == .topRight) ? padRect.minY : padRect.midY
+        return CGRect(x: originX, y: originY, width: halfW, height: halfH)
     }
 
     /// Projects a ray from the rect's center toward `target` and returns the point where
