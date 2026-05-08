@@ -1,4 +1,61 @@
+import Combine
 import SwiftUI
+
+extension Notification.Name {
+    static let hideFromDockPreferenceDidChange = Notification.Name("hideFromDockPreferenceDidChange")
+}
+
+@MainActor
+final class DockMenuPreferenceObserver: ObservableObject {
+    @Published private(set) var hideFromDock: Bool
+
+    private let defaults: UserDefaults
+    private let notificationCenter: NotificationCenter
+    private var observers: [NSObjectProtocol] = []
+
+    init(
+        defaults: UserDefaults = .standard,
+        notificationCenter: NotificationCenter = .default
+    ) {
+        self.defaults = defaults
+        self.notificationCenter = notificationCenter
+        self.hideFromDock = defaults.bool(forKey: DockVisibilityController.hideFromDockDefaultsKey)
+
+        observers.append(
+            notificationCenter.addObserver(
+                forName: .hideFromDockPreferenceDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.refresh()
+                }
+            }
+        )
+
+        observers.append(
+            notificationCenter.addObserver(
+                forName: UserDefaults.didChangeNotification,
+                object: defaults,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.refresh()
+                }
+            }
+        )
+    }
+
+    deinit {
+        for observer in observers {
+            notificationCenter.removeObserver(observer)
+        }
+    }
+
+    private func refresh() {
+        hideFromDock = defaults.bool(forKey: DockVisibilityController.hideFromDockDefaultsKey)
+    }
+}
 
 /// Menu bar popover view
 struct MenuBarView: View {
@@ -9,6 +66,7 @@ struct MenuBarView: View {
 
     @Environment(\.openWindow) private var openWindow
 
+    @StateObject private var dockPreference = DockMenuPreferenceObserver()
     @State private var streamOverlayEnabled: Bool = StreamOverlayManager.isEnabled
 
     var body: some View {
@@ -148,6 +206,17 @@ struct MenuBarView: View {
 
     private var footerSection: some View {
         VStack(spacing: 8) {
+            if dockPreference.hideFromDock {
+                Button(action: openMainWindow) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "macwindow")
+                        Text("Open Window")
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
             Button(action: openMainWindow) {
                 HStack(spacing: 4) {
                     Image(systemName: "gear")

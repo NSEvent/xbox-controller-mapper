@@ -1112,6 +1112,7 @@ struct SettingsSheet: View {
                     // ties it to window visibility. Just notify it that the
                     // preference flipped; it'll recompute and apply.
                     DockVisibilityController.shared.preferenceChanged()
+                    NotificationCenter.default.post(name: .hideFromDockPreferenceDidChange, object: nil)
                     if !hideFromDock {
                         // Switching back to always-show — re-activate so the dock
                         // icon appears immediately even if no window is key.
