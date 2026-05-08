@@ -2,24 +2,24 @@ import XCTest
 @testable import ControllerKeys
 
 final class ControllerMotionActivationPolicyTests: XCTestCase {
-    func testShouldEnableMotion_falseWhenNotDualSense() {
+    func testShouldEnableMotion_falseWhenControllerHasNoMotion() {
         let profile = Profile(name: "NoMotion")
 
         XCTAssertFalse(
             ControllerMotionActivationPolicy.shouldEnableMotion(
                 profile: profile,
-                isDualSense: false
+                hasMotion: false
             )
         )
     }
 
-    func testShouldEnableMotion_falseWhenDualSenseHasNoMotionFeaturesEnabled() {
+    func testShouldEnableMotion_falseWhenControllerHasMotionButNoFeaturesEnabled() {
         let profile = Profile(name: "NoMotion")
 
         XCTAssertFalse(
             ControllerMotionActivationPolicy.shouldEnableMotion(
                 profile: profile,
-                isDualSense: true
+                hasMotion: true
             )
         )
     }
@@ -32,7 +32,7 @@ final class ControllerMotionActivationPolicyTests: XCTestCase {
         XCTAssertTrue(
             ControllerMotionActivationPolicy.shouldEnableMotion(
                 profile: profile,
-                isDualSense: true
+                hasMotion: true
             )
         )
     }
@@ -48,7 +48,7 @@ final class ControllerMotionActivationPolicyTests: XCTestCase {
         XCTAssertTrue(
             ControllerMotionActivationPolicy.shouldEnableMotion(
                 profile: profile,
-                isDualSense: true
+                hasMotion: true
             )
         )
     }

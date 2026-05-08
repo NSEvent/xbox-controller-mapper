@@ -3,7 +3,11 @@ import GameController
 
 extension ControllerService {
     /// Enables gyroscope sensors and sets up motion gesture detection.
-    /// Called from setupInputHandlers() for DualSense controllers.
+    /// Called from setupInputHandlers() for PlayStation controllers. For DualSense,
+    /// motion data flows through the GameController framework (this handler).
+    /// For DS4, GCMotion.rotationRate is always zero on macOS — DS4 motion is
+    /// parsed from raw HID input reports in parseDualShock4Motion instead, so
+    /// this handler is a no-op for DS4 but still installed to enable sensors.
     func setupMotionHandlers() {
         guard let controller = connectedController,
               let motion = controller.motion else { return }
@@ -16,14 +20,15 @@ extension ControllerService {
             let pitch = motion.rotationRate.x
             let roll = motion.rotationRate.z
 
-            // Accumulate rates for gyro aiming (averaged by MappingEngine each poll tick)
+            // DS4 reports zero through GCMotion; DS4 path uses HID parsing instead.
+            if pitch == 0 && roll == 0 { return }
+
             self.storage.lock.lock()
             self.storage.motionPitchAccum += pitch
             self.storage.motionRollAccum += roll
             self.storage.motionSampleCount += 1
             self.storage.lock.unlock()
 
-            // X axis = pitch (tilt back/forward), Z axis = roll (steer left/right)
             self.processMotionUpdate(pitchVelocity: pitch, rollVelocity: roll)
         }
     }
@@ -80,5 +85,10 @@ extension ControllerService {
         storage.motionPitchAccum = 0
         storage.motionRollAccum = 0
         storage.motionSampleCount = 0
+        storage.ds4GyroPitchBiasSum = 0
+        storage.ds4GyroRollBiasSum = 0
+        storage.ds4GyroBiasSampleCount = 0
+        storage.ds4GyroPitchBias = 0
+        storage.ds4GyroRollBias = 0
     }
 }

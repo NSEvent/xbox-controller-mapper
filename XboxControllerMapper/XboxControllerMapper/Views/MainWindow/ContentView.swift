@@ -256,7 +256,7 @@ struct ContentView: View {
             CustomTabItem(tag: 1, label: "Chords"),
             CustomTabItem(tag: 9, label: "Sequences"),
         ]
-        if controllerService.threadSafeIsDualSense {
+        if controllerService.threadSafeIsPlayStation {
             tabs.append(CustomTabItem(tag: 11, label: "Gestures"))
         }
         tabs.append(contentsOf: [

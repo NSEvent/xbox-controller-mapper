@@ -192,7 +192,7 @@ class MappingEngine: ObservableObject {
     private func syncMotionActivation(for profile: Profile?) {
         let shouldEnableMotion = ControllerMotionActivationPolicy.shouldEnableMotion(
             profile: profile,
-            isDualSense: controllerService.threadSafeIsDualSense
+            hasMotion: controllerService.threadSafeIsPlayStation
         )
         controllerService.setMotionSensorsActive(shouldEnableMotion)
     }

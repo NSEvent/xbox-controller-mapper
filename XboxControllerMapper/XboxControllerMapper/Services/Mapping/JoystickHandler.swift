@@ -148,7 +148,7 @@ extension MappingEngine {
         case .none:
             break
         case .mouse:
-            processMouseMovement(leftStick, settings: settings, now: now, isDualSense: controllerSnapshot.isDualSense)
+            processMouseMovement(leftStick, settings: settings, now: now, hasMotion: controllerSnapshot.hasMotion)
         case .scroll:
             let leftMagnitudeSquared = leftStick.x * leftStick.x + leftStick.y * leftStick.y
             let leftDeadzoneSquared = settings.mouseDeadzone * settings.mouseDeadzone
@@ -180,7 +180,7 @@ extension MappingEngine {
             case .none:
                 break
             case .mouse:
-                processMouseMovement(rightStick, settings: settings, now: now, isDualSense: controllerSnapshot.isDualSense)
+                processMouseMovement(rightStick, settings: settings, now: now, hasMotion: controllerSnapshot.hasMotion)
             case .scroll:
                 updateScrollDoubleTapState(rawStick: rightStick, settings: settings, now: now)
                 let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
@@ -325,7 +325,7 @@ extension MappingEngine {
 
     // MARK: - Mouse Movement (incl. Focus Mode + Gyro Aiming)
 
-    nonisolated func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime, isDualSense: Bool? = nil) {
+    nonisolated func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime, hasMotion: Bool? = nil) {
         let focusFlags = settings.focusModeModifier.cgEventFlags
         let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
 
@@ -353,7 +353,7 @@ extension MappingEngine {
             return
         }
 
-        if settings.gyroAimingEnabled && isFocusActive && (isDualSense ?? controllerService.threadSafeIsDualSense) {
+        if settings.gyroAimingEnabled && isFocusActive && (hasMotion ?? controllerService.threadSafeIsPlayStation) {
             let (pitchRate, rollRate) = controllerService.consumeAverageMotionRates()
 
             // Skip filter update if no new gyro samples arrived this tick

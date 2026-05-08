@@ -173,8 +173,10 @@ extension ControllerService {
             // DualShock 4 reports
             if reportID == 0x11 && length >= 10 {
                 buttons3Offset = 9   // Bluetooth extended report
+                parseDualShock4Motion(report: report, length: length, isBluetooth: true)
             } else if reportID == 0x01 && length >= 8 {
                 buttons3Offset = 7   // USB report
+                parseDualShock4Motion(report: report, length: length, isBluetooth: false)
             } else {
                 return
             }
@@ -310,5 +312,80 @@ extension ControllerService {
                 }
             }
         }
+    }
+
+    /// Parses gyroscope data from DS4 HID input reports. macOS's GameController
+    /// framework exposes GCMotion for DS4 but the rotationRate values are always
+    /// (0, 0, 0). The DS4 hardware does have a gyro — the values are in the raw
+    /// HID report at the same offsets used by the Linux hid-playstation driver.
+    ///
+    /// Common-struct layout (32 bytes): bytes 12-13 = gyro X (LE16 signed),
+    /// bytes 14-15 = gyro Y, bytes 16-17 = gyro Z. The common struct sits at
+    /// offset 1 in USB report 0x01 (after the stripped report ID) and offset 3
+    /// in BT report 0x11 (after stripped ID + 2-byte BT header).
+    nonisolated func parseDualShock4Motion(
+        report: UnsafeMutablePointer<UInt8>,
+        length: Int,
+        isBluetooth: Bool
+    ) {
+        let commonOffset = isBluetooth ? 3 : 1
+        let gyroXOffset = commonOffset + 12
+        let gyroYOffset = commonOffset + 14
+        guard gyroYOffset + 1 < length else { return }
+
+        // Per Linux hid-playstation, gyro is signed LE16, ~1024 LSB per rad/s.
+        // Empirical mapping for DS4 (different from DualSense's GCMotion axes):
+        //   gyro X = pitch (tilt forward/back) — matches DualSense rotationRate.x
+        //   gyro Y = yaw   (steer left/right)  — DualSense uses rotationRate.z
+        //                                        for the same gesture, but DS4
+        //                                        gyro Y already matches the
+        //                                        sign convention (positive = right).
+        // Discovered by capturing the highest-amplitude axis during a controlled
+        // steering motion; gyro Y produced ~2× the signal of gyro Z.
+        let gyroX = signedLE16(report, gyroXOffset)
+        let gyroY = signedLE16(report, gyroYOffset)
+        let scale: Double = 1.0 / 1024.0
+        let rawPitch = Double(gyroX) * scale
+        let rawRoll = Double(gyroY) * scale
+
+        let shouldProcessMotion = storage.lock.withLock { storage.motionInputEnabled }
+        guard shouldProcessMotion else { return }
+
+        // Auto-calibrate gyro bias: average the first ~60 frames after motion
+        // enable (assumes the user lays the controller still on startup) and
+        // then subtract that bias from every subsequent reading. Without this,
+        // hardware drift biases tilts asymmetrically — one direction feels
+        // stronger than the other.
+        let biasCalibrationFrames = 60
+        let (pitch, roll): (Double, Double) = storage.lock.withLock {
+            if storage.ds4GyroBiasSampleCount < biasCalibrationFrames {
+                storage.ds4GyroPitchBiasSum += rawPitch
+                storage.ds4GyroRollBiasSum += rawRoll
+                storage.ds4GyroBiasSampleCount += 1
+                if storage.ds4GyroBiasSampleCount == biasCalibrationFrames {
+                    storage.ds4GyroPitchBias = storage.ds4GyroPitchBiasSum / Double(biasCalibrationFrames)
+                    storage.ds4GyroRollBias = storage.ds4GyroRollBiasSum / Double(biasCalibrationFrames)
+                }
+                // Don't feed motion through the pipeline during calibration.
+                return (0, 0)
+            }
+            return (rawPitch - storage.ds4GyroPitchBias, rawRoll - storage.ds4GyroRollBias)
+        }
+        if pitch == 0 && roll == 0 { return }
+
+        storage.lock.lock()
+        storage.motionPitchAccum += pitch
+        storage.motionRollAccum += roll
+        storage.motionSampleCount += 1
+        storage.lock.unlock()
+
+        processMotionUpdate(pitchVelocity: pitch, rollVelocity: roll)
+    }
+
+    /// Reads a little-endian signed 16-bit integer from a byte array.
+    nonisolated private func signedLE16(_ buffer: UnsafeMutablePointer<UInt8>, _ offset: Int) -> Int16 {
+        let lo = UInt16(buffer[offset])
+        let hi = UInt16(buffer[offset + 1])
+        return Int16(bitPattern: lo | (hi << 8))
     }
 }

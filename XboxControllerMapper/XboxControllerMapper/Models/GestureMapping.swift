@@ -21,8 +21,8 @@ enum MotionGestureType: String, Codable, CaseIterable, Identifiable {
 
     var iconName: String {
         switch self {
-        case .tiltBack: return "iphone.and.arrow.backward"
-        case .tiltForward: return "iphone.and.arrow.forward"
+        case .tiltBack: return "arrow.uturn.backward"
+        case .tiltForward: return "arrow.uturn.forward"
         case .steerLeft: return "arrow.turn.up.left"
         case .steerRight: return "arrow.turn.up.right"
         }

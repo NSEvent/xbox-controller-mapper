@@ -112,6 +112,15 @@ final class ControllerStorage: @unchecked Sendable {
     var onMotionGesture: ((MotionGestureType) -> Void)?
 
     // Gyro aiming: accumulated rotation rates between polls (averaged on consume)
+    // DS4 raw-HID gyro bias calibration. Apple's framework calibrates DualSense
+    // automatically; for DS4 we sample the average gyro reading at rest so we
+    // can subtract it (otherwise the hardware drift makes one tilt direction
+    // feel stronger than the other).
+    var ds4GyroPitchBiasSum: Double = 0
+    var ds4GyroRollBiasSum: Double = 0
+    var ds4GyroBiasSampleCount: Int = 0
+    var ds4GyroPitchBias: Double = 0
+    var ds4GyroRollBias: Double = 0
     var motionPitchAccum: Double = 0
     var motionRollAccum: Double = 0
     var motionSampleCount: Int = 0
@@ -230,7 +239,8 @@ class ControllerService: ObservableObject {
         var rightStick: CGPoint = .zero
         var leftTrigger: Float = 0
         var rightTrigger: Float = 0
-        var isDualSense: Bool = false
+        /// True for any controller with gyroscope sensors (DualSense + DS4).
+        var hasMotion: Bool = false
     }
 
     /// Captures a consistent snapshot of all joystick-polling-relevant state in a single lock acquisition.
@@ -243,7 +253,7 @@ class ControllerService: ObservableObject {
             rightStick: storage.rightStick,
             leftTrigger: storage.leftTrigger,
             rightTrigger: storage.rightTrigger,
-            isDualSense: storage.isDualSense
+            hasMotion: storage.isDualSense || storage.isDualShock
         )
     }
 
@@ -1370,6 +1380,9 @@ class ControllerService: ObservableObject {
                 secondary: dualShockGamepad.touchpadSecondary,
                 button: dualShockGamepad.touchpadButton
             )
+
+            // Set up gyroscope gesture detection (DS4 has the same motion sensors as DualSense)
+            setupMotionHandlers()
 
             // Set up HID monitoring for PS button
             setupPlayStationHIDMonitoring()
