@@ -1,0 +1,604 @@
+/* ControllerKeys German Localization */
+
+/* Menüleiste */
+"Connected" = "Verbunden";
+"No Controller" = "Kein Controller erkannt";
+"Connect via Bluetooth" = "Über Bluetooth verbinden";
+"Accessibility permission required for global input" = "Bedienungshilfen-Berechtigung für globale Eingaben erforderlich";
+"Open System Settings" = "Systemeinstellungen öffnen";
+"Mapping Enabled" = "Zuordnung aktiviert";
+"Stream Overlay" = "Stream-Overlay";
+"Profile" = "Profil";
+"Settings" = "Einstellungen";
+"Quit ControllerKeys" = "ControllerKeys beenden";
+"© 2026 Kevin Tang. All rights reserved." = "© 2026 Kevin Tang. Alle Rechte vorbehalten.";
+"Default" = "Standard";
+
+/* Profile */
+"PROFILES" = "PROFILE";
+"New Profile" = "Neues Profil";
+"Import Profile..." = "Profil importieren …";
+"Import Stream Deck Profile..." = "Stream Deck-Profil importieren …";
+"Import Community Profile..." = "Community-Profil importieren …";
+"Add profile" = "Profil hinzufügen";
+"Duplicate" = "Duplizieren";
+"Rename" = "Umbenennen";
+"Set as Default Profile" = "Als Standardprofil festlegen";
+"Linked Apps..." = "Verknüpfte Apps …";
+"Set Icon" = "Symbol festlegen";
+"Remove Icon" = "Symbol entfernen";
+"Export..." = "Exportieren …";
+"Delete" = "Löschen";
+"Rename Profile" = "Profil umbenennen";
+"Profile name" = "Profilname";
+"Profiles" = "Profile";
+"Preview" = "Vorschau";
+"Click a profile to see its mappings" = "Klicken Sie auf ein Profil, um seine Zuordnungen anzuzeigen";
+
+/* Hauptfenster-Tabs */
+"Buttons" = "Tasten";
+"Chords" = "Akkorde";
+"Sequences" = "Sequenzen";
+"Gestures" = "Gesten";
+"Macros" = "Makros";
+"Scripts" = "Skripte";
+"Keyboard" = "Tastatur";
+"Joysticks" = "Sticks";
+"Touchpad" = "Trackpad";
+"LEDs" = "LEDs";
+"Microphone" = "Mikrofon";
+"Stats" = "Statistik";
+
+/* Ebenen */
+"Base Layer" = "Basisebene";
+"Add Layer" = "Ebene hinzufügen";
+"Layer Name" = "Ebenenname";
+"e.g., Combat Mode" = "z. B. Kampfmodus";
+"Activator Button (Optional)" = "Aktivierungstaste (optional)";
+"Hold this button to activate the layer's mappings" = "Halten Sie diese Taste gedrückt, um die Zuordnungen der Ebene zu aktivieren";
+"None (assign later)" = "Keine (später zuweisen)";
+"Edit Layer" = "Ebene bearbeiten";
+"Activator Button" = "Aktivierungstaste";
+"Editing layer:" = "Ebene wird bearbeitet:";
+"Unmapped buttons fall through to base layer" = "Nicht zugeordnete Tasten fallen auf die Basisebene zurück";
+"Layer Activator" = "Ebenen-Aktivator";
+"This button activates the" = "Diese Taste aktiviert die Ebene";
+"layer. Layer activators cannot have additional mappings - they are reserved for switching between layers." = ". Ebenen-Aktivatoren können keine zusätzlichen Zuordnungen haben – sie sind dem Wechsel zwischen Ebenen vorbehalten.";
+"Select 2nd" = "Zweite auswählen";
+"Swap" = "Tauschen";
+"Cursor Hints" = "Cursor-Hinweise";
+"Stream" = "Stream";
+
+/* Tastenzuordnung */
+"Configure" = "Konfigurieren";
+"Current:" = "Aktuell:";
+"Macro:" = "Makro:";
+"Script:" = "Skript:";
+"No mapping configured" = "Keine Zuordnung konfiguriert";
+"Clear Mapping" = "Zuordnung löschen";
+"Primary Action" = "Primäre Aktion";
+"Hold action while button is held" = "Aktion ausführen, solange die Taste gehalten wird";
+"Use as Layer Activator" = "Als Ebenen-Aktivator verwenden";
+"Create New Layer" = "Neue Ebene erstellen";
+"Use Existing Layer" = "Vorhandene Ebene verwenden";
+"Select Layer" = "Ebene auswählen";
+"When this button is held, the layer's alternate button mappings become active. Other buttons not mapped in the layer fall through to the base layer." = "Wenn diese Taste gehalten wird, werden die alternativen Tastenzuordnungen der Ebene aktiv. Andere in der Ebene nicht zugeordnete Tasten fallen auf die Basisebene zurück.";
+"This button currently activates a layer. Disabling will unassign the button but keep the layer." = "Diese Taste aktiviert derzeit eine Ebene. Beim Deaktivieren wird die Taste freigegeben, die Ebene bleibt jedoch erhalten.";
+"Action:" = "Aktion:";
+"Action type" = "Aktionstyp";
+"Key" = "Taste";
+"Macro" = "Makro";
+"Script" = "Skript";
+"System" = "System";
+"Hide Keyboard" = "Tastatur ausblenden";
+"Show Keyboard" = "Tastatur einblenden";
+"Select a Macro..." = "Makro auswählen …";
+"Create New Macro..." = "Neues Makro erstellen …";
+"No macros defined in this profile." = "In diesem Profil sind keine Makros definiert.";
+"Select a Script..." = "Skript auswählen …";
+"Create New Script..." = "Neues Skript erstellen …";
+"No scripts defined in this profile." = "In diesem Profil sind keine Skripte definiert.";
+"Hint:" = "Hinweis:";
+"e.g. Copy, Paste, Switch App..." = "z. B. Kopieren, Einsetzen, App wechseln …";
+"e.g. Open Editor, Run Script..." = "z. B. Editor öffnen, Skript ausführen …";
+"e.g. Smart Spacebar, Toggle Mode..." = "z. B. Intelligente Leertaste, Modus umschalten …";
+"Selected:" = "Ausgewählt:";
+"EDGE CONTROLS" = "RANDSTEUERUNG";
+"Fn" = "Fn";
+"Paddles" = "Paddles";
+
+/* Langes Halten / Doppeltippen / Wiederholen */
+"Enable Long Hold Action" = "Aktion bei langem Halten aktivieren";
+"Long Hold Action" = "Aktion bei langem Halten";
+"Long Hold" = "Langes Halten";
+"Long hold is not available for mouse clicks." = "Langes Halten ist für Mausklicks nicht verfügbar.";
+"Long hold is not available for special actions." = "Langes Halten ist für Sonderaktionen nicht verfügbar.";
+"Long hold is not available when \"Hold action\" is enabled." = "Langes Halten ist nicht verfügbar, wenn „Aktion halten\" aktiviert ist.";
+"Long hold is not available when \"Repeat Action\" is enabled." = "Langes Halten ist nicht verfügbar, wenn „Aktion wiederholen\" aktiviert ist.";
+"Hold Duration:" = "Haltedauer:";
+"Enable Double Tap Action" = "Doppeltipp-Aktion aktivieren";
+"Double Tap Action" = "Doppeltipp-Aktion";
+"Double Tap" = "Doppeltippen";
+"Tap Window:" = "Tipp-Zeitfenster:";
+"Two taps within this time window trigger the double-tap action" = "Zwei Tipps innerhalb dieses Zeitfensters lösen die Doppeltipp-Aktion aus";
+"Repeat Action While Held" = "Aktion beim Halten wiederholen";
+"Repeat is not available for mouse clicks." = "Wiederholen ist für Mausklicks nicht verfügbar.";
+"Repeat is not available for special actions." = "Wiederholen ist für Sonderaktionen nicht verfügbar.";
+"Repeat is not available when \"Hold action\" is enabled." = "Wiederholen ist nicht verfügbar, wenn „Aktion halten\" aktiviert ist.";
+"Repeat Rate:" = "Wiederholrate:";
+"The action will be triggered" = "Die Aktion wird ausgelöst";
+"times per second while the button is held" = "Mal pro Sekunde, solange die Taste gehalten wird";
+"Webhook not supported for long hold / double tap. Use primary mapping." = "Webhook wird für langes Halten / Doppeltippen nicht unterstützt. Verwenden Sie die primäre Zuordnung.";
+"OBS WebSocket not supported for long hold / double tap. Use primary mapping." = "OBS WebSocket wird für langes Halten / Doppeltippen nicht unterstützt. Verwenden Sie die primäre Zuordnung.";
+
+/* Akkorde */
+"Add New Chord" = "Neuen Akkord hinzufügen";
+"No chords configured" = "Keine Akkorde konfiguriert";
+"Chord Mappings" = "Akkord-Zuordnungen";
+"Chords let you map multiple button presses to a single action." = "Akkorde ermöglichen es, mehrere gleichzeitig gedrückte Tasten einer einzigen Aktion zuzuordnen.";
+"Edit Chord" = "Akkord bearbeiten";
+"Add Chord" = "Akkord hinzufügen";
+"Select buttons (2 or more):" = "Tasten auswählen (2 oder mehr):";
+"Chord" = "Akkord";
+"chords" = "Akkorde";
+"CHORDS" = "AKKORDE";
+"mappings" = "Zuordnungen";
+
+/* Sequenzen */
+"Add New Sequence" = "Neue Sequenz hinzufügen";
+"No sequences configured" = "Keine Sequenzen konfiguriert";
+"Sequence Mappings" = "Sequenz-Zuordnungen";
+"Sequences fire an extra action when buttons are pressed in order within a time window. Individual button actions still fire normally (zero added latency)." = "Sequenzen lösen eine zusätzliche Aktion aus, wenn Tasten innerhalb eines Zeitfensters in der richtigen Reihenfolge gedrückt werden. Die einzelnen Tastenaktionen werden weiterhin normal ausgelöst (keine zusätzliche Latenz).";
+"Edit Sequence" = "Sequenz bearbeiten";
+"Add Sequence" = "Sequenz hinzufügen";
+"Button sequence (press order):" = "Tastensequenz (Drückreihenfolge):";
+"This sequence already exists" = "Diese Sequenz existiert bereits";
+"Tap a button to add it as the next step:" = "Tippen Sie auf eine Taste, um sie als nächsten Schritt hinzuzufügen:";
+"Maximum 6 steps reached" = "Maximal 6 Schritte erreicht";
+"Max time between presses:" = "Maximale Zeit zwischen den Tastendrücken:";
+"Each button press must follow the previous one within this time." = "Jeder Tastendruck muss innerhalb dieser Zeit auf den vorherigen folgen.";
+"e.g. Quick Save, Combo Attack..." = "z. B. Schnellspeichern, Combo-Angriff …";
+
+/* Gesten */
+"Motion Gestures" = "Bewegungsgesten";
+"Beta" = "Beta";
+"Map quick tilt gestures on your DualSense controller to actions. Snap the controller top toward you (Tilt Back) or away from you (Tilt Forward)." = "Ordnen Sie schnelle Neigegesten Ihres DualSense-Controllers Aktionen zu. Kippen Sie die Oberseite des Controllers zu sich (Nach hinten neigen) oder von sich weg (Nach vorne neigen).";
+"Gesture Detection" = "Gestenerkennung";
+"How easily gestures trigger" = "Wie leicht Gesten ausgelöst werden";
+"Cooldown" = "Abklingzeit";
+"Wait time between gestures" = "Wartezeit zwischen Gesten";
+"Adjust sensitivity to control how hard you need to snap the controller. Adjust cooldown to control the wait time before another gesture can fire." = "Passen Sie die Empfindlichkeit an, um zu steuern, wie stark Sie den Controller bewegen müssen. Passen Sie die Abklingzeit an, um die Wartezeit bis zur nächsten Geste festzulegen.";
+"Gyro Aiming (Focus Mode)" = "Gyro-Zielen (Präzisionsmodus)";
+"Cursor speed from gyro tilt" = "Cursor-Geschwindigkeit durch Gyro-Neigung";
+"Filter hand tremor (rad/s threshold)" = "Handzittern filtern (rad/s-Schwellenwert)";
+"Tilt the controller to move the mouse cursor while in focus mode. Uses the DualSense gyroscope for fine-grained aiming." = "Neigen Sie den Controller, um im Präzisionsmodus den Mauszeiger zu bewegen. Nutzt das DualSense-Gyroskop für feinfühliges Zielen.";
+"Configure Gesture" = "Geste konfigurieren";
+"Edit Gesture" = "Geste bearbeiten";
+"Tap to type a shortcut, or show keyboard to select visually" = "Tippen Sie, um einen Kurzbefehl einzugeben, oder blenden Sie die Tastatur ein, um visuell auszuwählen";
+"e.g. Quick Save, Screenshot..." = "z. B. Schnellspeichern, Bildschirmfoto …";
+
+/* Makros */
+"Add Macro" = "Makro hinzufügen";
+"Edit Macro" = "Makro bearbeiten";
+"Name" = "Name";
+"Macro Name" = "Makroname";
+"Add Step" = "Schritt hinzufügen";
+"Edit Step" = "Schritt bearbeiten";
+"Key Press" = "Tastendruck";
+"Key Hold" = "Taste halten";
+"Type Text" = "Text eingeben";
+"Delay" = "Verzögerung";
+"Open App" = "App öffnen";
+"Open Link" = "Link öffnen";
+"Shell Command" = "Shell-Befehl";
+"Webhook" = "Webhook";
+"OBS WebSocket" = "OBS WebSocket";
+"Duplicate step" = "Schritt duplizieren";
+"Delete step" = "Schritt löschen";
+"Key Combination" = "Tastenkombination";
+"Duration" = "Dauer";
+"Seconds" = "Sekunden";
+"Text to Type" = "Einzugebender Text";
+"Typing Speed" = "Tippgeschwindigkeit";
+"Instant (Paste)" = "Sofort (Einsetzen)";
+"Fast (1200 CPM)" = "Schnell (1200 Zeichen/Min.)";
+"Natural (600 CPM)" = "Natürlich (600 Zeichen/Min.)";
+"Slow (300 CPM)" = "Langsam (300 Zeichen/Min.)";
+"Press Enter after typing" = "Nach der Eingabe Eingabetaste drücken";
+"Application" = "Anwendung";
+"https://example.com" = "https://example.com";
+"Request" = "Anfrage";
+"No macros defined" = "Keine Makros definiert";
+"Macros allow you to execute a sequence of actions (keys, text, delays) with a single button press." = "Makros ermöglichen es, mit einem einzigen Tastendruck eine Folge von Aktionen (Tasten, Text, Verzögerungen) auszuführen.";
+
+/* Skripte */
+"Add New Script" = "Neues Skript hinzufügen";
+"No scripts defined" = "Keine Skripte definiert";
+"Scripts let you write JavaScript logic for conditional actions, state tracking, and app-aware behavior. Powered by JavaScriptCore." = "Mit Skripten können Sie JavaScript-Logik für bedingte Aktionen, Statusverfolgung und app-bewusstes Verhalten schreiben. Bereitgestellt von JavaScriptCore.";
+"New Script" = "Neues Skript";
+"JavaScript:" = "JavaScript:";
+"Notes:" = "Notizen:";
+"Optional description" = "Optionale Beschreibung";
+"Test Output:" = "Testausgabe:";
+"API Reference" = "API-Referenz";
+"Examples" = "Beispiele";
+"AI" = "KI";
+"Test" = "Testen";
+"Script API Reference" = "Skript-API-Referenz";
+"Input Simulation" = "Eingabesimulation";
+"Application Context" = "App-Kontext";
+"Persistent State" = "Persistenter Zustand";
+"Feedback" = "Rückmeldung";
+"Trigger Context" = "Auslöser-Kontext";
+"Logging" = "Protokollierung";
+"(Script executed successfully, no output)" = "(Skript erfolgreich ausgeführt, keine Ausgabe)";
+"ERROR:" = "FEHLER:";
+"Automate anything with JavaScript. Here are some ideas:" = "Automatisieren Sie alles mit JavaScript. Hier einige Ideen:";
+"Browse All Examples" = "Alle Beispiele durchsuchen";
+"Generate with AI" = "Mit KI generieren";
+"Browse Examples" = "Beispiele durchsuchen";
+"Untitled Script" = "Skript ohne Titel";
+"chars" = "Zeichen";
+"Loading preview..." = "Vorschau wird geladen …";
+
+/* Stick-Einstellungen */
+"Left Joystick" = "Linker Stick";
+"Right Joystick" = "Rechter Stick";
+"Mode" = "Modus";
+"Sensitivity" = "Empfindlichkeit";
+"How fast the cursor moves" = "Wie schnell sich der Cursor bewegt";
+"Acceleration" = "Beschleunigung";
+"0 = linear, 1 = max curve" = "0 = linear, 1 = maximale Kurve";
+"How fast scrolling occurs" = "Wie schnell gescrollt wird";
+"Deadzone" = "Totzone";
+"Activation threshold for keys" = "Aktivierungsschwelle für Tasten";
+"Ignore small movements" = "Kleine Bewegungen ignorieren";
+"Invert Y Axis" = "Y-Achse umkehren";
+"Focus Mode (Precision)" = "Präzisionsmodus";
+"Focus Speed" = "Präzisionsgeschwindigkeit";
+"Sensitivity when holding modifier" = "Empfindlichkeit beim Halten der Sondertaste";
+"Activation Modifier" = "Aktivierungs-Sondertaste";
+"Command modifier" = "Command";
+"Option modifier" = "Option";
+"Control modifier" = "Control";
+"Shift modifier" = "Shift";
+"Highlight Focused Cursor" = "Cursor im Präzisionsmodus hervorheben";
+"Double-Tap Boost" = "Doppeltipp-Boost";
+"Speed multiplier after double-tap up/down" = "Geschwindigkeits-Multiplikator nach Doppeltipp nach oben/unten";
+
+/* Trackpad-Einstellungen */
+"Touchpad (DualSense)" = "Trackpad (DualSense)";
+"Touchpad cursor speed" = "Trackpad-Cursor-Geschwindigkeit";
+"Ignore tiny jitter" = "Winziges Zittern ignorieren";
+"Reduce mouse jitter" = "Mauszittern reduzieren";
+"Two-Finger Pan" = "Zwei-Finger-Schwenken";
+"Scroll speed for two-finger pan" = "Scroll-Geschwindigkeit beim Zwei-Finger-Schwenken";
+"Pan to Zoom Ratio" = "Verhältnis Schwenken/Zoomen";
+"Low = easier to zoom, High = easier to pan" = "Niedrig = leichteres Zoomen, Hoch = leichteres Schwenken";
+"Native Zoom Gestures" = "Native Zoom-Gesten";
+"Use macOS magnify gestures instead of Cmd+Plus/Minus" = "macOS-Vergrößerungsgesten statt Cmd+Plus/Minus verwenden";
+
+/* LED-Einstellungen */
+"Light Bar" = "Lichtleiste";
+"Enabled" = "Aktiviert";
+"Battery Level Color" = "Akkustand-Farbe";
+"Red when low, yellow at half, green when full" = "Rot bei niedrigem Stand, Gelb bei halb voll, Grün bei voll";
+"Brightness" = "Helligkeit";
+"Mute Button LED" = "LED der Stummschalttaste";
+"Player LEDs" = "Spieler-LEDs";
+"Presets:" = "Voreinstellungen:";
+"P1" = "P1";
+"P2" = "P2";
+"P3" = "P3";
+"P4" = "P4";
+"All" = "Alle";
+"Off" = "Aus";
+"Party Mode" = "Party-Modus";
+"Enable Party Mode" = "Party-Modus aktivieren";
+"Rainbow lightbar, cycling player LEDs, breathing mute button" = "Regenbogen-Lichtleiste, durchlaufende Spieler-LEDs, atmende Stummschalttaste";
+"Player LED 1" = "Spieler-LED 1";
+"On" = "Ein";
+"Over Bluetooth, only the light bar color is supported. Player LEDs, mute LED, and brightness require USB." = "Über Bluetooth wird nur die Farbe der Lichtleiste unterstützt. Spieler-LEDs, Stumm-LED und Helligkeit erfordern eine USB-Verbindung.";
+
+/* Mikrofon-Einstellungen */
+"Microphone Control" = "Mikrofonsteuerung";
+"Mute Microphone" = "Mikrofon stummschalten";
+"Use this to mute or unmute the built-in microphone on your DualSense controller." = "Verwenden Sie dies, um das integrierte Mikrofon Ihres DualSense-Controllers stummzuschalten oder die Stummschaltung aufzuheben.";
+"Audio Input Test" = "Audioeingangstest";
+"Speak into your controller to test the microphone input level:" = "Sprechen Sie in Ihren Controller, um den Mikrofon-Eingangspegel zu testen:";
+"Level:" = "Pegel:";
+"Tips" = "Tipps";
+"• The DualSense microphone appears as \"DualSense Wireless Controller\" in System Settings → Sound → Input" = "• Das DualSense-Mikrofon erscheint als „DualSense Wireless Controller\" unter Systemeinstellungen → Ton → Eingabe";
+"• You can select it as your input device in apps like Discord, Zoom, or FaceTime" = "• Sie können es in Apps wie Discord, Zoom oder FaceTime als Eingabegerät auswählen";
+"• The mute button on the controller (between the analog sticks) can also toggle mute" = "• Die Stummschalttaste am Controller (zwischen den Analog-Sticks) kann die Stummschaltung ebenfalls umschalten";
+"Microphone audio level" = "Mikrofon-Audiopegel";
+"percent" = "%";
+"Microphone control requires USB connection on macOS. Connect via USB to use the DualSense microphone." = "Die Mikrofonsteuerung erfordert unter macOS eine USB-Verbindung. Verbinden Sie den Controller per USB, um das DualSense-Mikrofon zu verwenden.";
+
+/* Allgemeine Einstellungen */
+"ControllerKeys" = "ControllerKeys";
+"Version" = "Version";
+"Launch at Login" = "Bei der Anmeldung starten";
+"Controller Database" = "Controller-Datenbank";
+"Maps generic controllers to Xbox layout" = "Bildet generische Controller auf das Xbox-Layout ab";
+"Refresh" = "Aktualisieren";
+"Third-Party Controllers" = "Drittanbieter-Controller";
+"Prevent Controller Sleep" = "Ruhezustand des Controllers verhindern";
+"Sends periodic signals to keep PlayStation controllers awake over Bluetooth" = "Sendet regelmäßig Signale, um PlayStation-Controller über Bluetooth wach zu halten";
+"Bluetooth" = "Bluetooth";
+
+/* Kurzbefehl-Eingabe */
+"Clear" = "Löschen";
+"Click to type a shortcut, or show keyboard to select visually" = "Klicken Sie, um einen Kurzbefehl einzugeben, oder blenden Sie die Tastatur ein, um visuell auszuwählen";
+
+/* Systembefehle */
+"Command (e.g. say \"Hello\")" = "Befehl (z. B. say \"Hallo\")";
+"Command" = "Befehl";
+"Run silently (no terminal window)" = "Im Hintergrund ausführen (kein Terminalfenster)";
+"Opens a terminal window and executes the command" = "Öffnet ein Terminalfenster und führt den Befehl aus";
+"Runs silently in the background (no visible output)" = "Wird im Hintergrund ausgeführt (keine sichtbare Ausgabe)";
+"Open in new window (Cmd+N)" = "In neuem Fenster öffnen (Cmd+N)";
+"URL (e.g. https://google.com)" = "URL (z. B. https://google.com)";
+"Browse Bookmarks" = "Lesezeichen durchsuchen";
+"Opens the URL in your default browser" = "Öffnet die URL in Ihrem Standardbrowser";
+"URL (e.g. https://api.example.com/webhook)" = "URL (z. B. https://api.example.com/webhook)";
+"Method" = "Methode";
+"Body (JSON)" = "Body (JSON)";
+"Headers" = "Header";
+"Header" = "Header";
+"Value" = "Wert";
+"Fires an HTTP request when triggered. Use for webhooks, APIs, home automation, etc." = "Sendet beim Auslösen eine HTTP-Anfrage. Geeignet für Webhooks, APIs, Smart-Home-Automatisierung usw.";
+"Sends an HTTP request when triggered" = "Sendet beim Auslösen eine HTTP-Anfrage";
+"WebSocket URL (e.g. ws://127.0.0.1:4455)" = "WebSocket-URL (z. B. ws://127.0.0.1:4455)";
+"Password (optional)" = "Passwort (optional)";
+"Request Type (e.g. StartRecord)" = "Anfragetyp (z. B. StartRecord)";
+"Request Data (JSON object, optional)" = "Anfragedaten (JSON-Objekt, optional)";
+"Sends any OBS WebSocket v5 request type with optional requestData JSON." = "Sendet einen beliebigen OBS WebSocket v5-Anfragetyp mit optionalem requestData-JSON.";
+
+/* Verknüpfte Apps */
+"Linked Apps" = "Verknüpfte Apps";
+"This profile will automatically activate when any of these apps are in the front." = "Dieses Profil wird automatisch aktiviert, wenn eine der folgenden Apps im Vordergrund ist.";
+"No apps linked" = "Keine Apps verknüpft";
+"Add App..." = "App hinzufügen …";
+"Done" = "Fertig";
+"Select App" = "App auswählen";
+"Running" = "Läuft";
+"Installed" = "Installiert";
+"Search" = "Suchen";
+"Linked" = "Verknüpft";
+"Add" = "Hinzufügen";
+"Add App" = "App hinzufügen";
+"No apps added yet" = "Noch keine Apps hinzugefügt";
+"Add apps for quick switching from the on-screen keyboard." = "Fügen Sie Apps hinzu, um schnell von der Bildschirmtastatur aus zwischen ihnen zu wechseln.";
+"Unassigned" = "Nicht zugewiesen";
+"Search apps..." = "Apps suchen …";
+
+/* Statistik */
+"Key Presses" = "Tastendrücke";
+"Mouse Clicks" = "Mausklicks";
+"Macros Run" = "Ausgeführte Makros";
+"Steps Automated" = "Automatisierte Schritte";
+"Apps Launched" = "Gestartete Apps";
+"Links Opened" = "Geöffnete Links";
+"Snippets Pasted" = "Eingefügte Textbausteine";
+"Terminals Popped" = "Geöffnete Terminals";
+"Webhooks Run" = "Ausgeführte Webhooks";
+"DISTANCE TRAVELED" = "ZURÜCKGELEGTE DISTANZ";
+"Joystick Mouse" = "Stick-Maus";
+"Touchpad Mouse" = "Trackpad-Maus";
+"Scroll Distance" = "Scroll-Distanz";
+"TOP BUTTONS" = "BELIEBTESTE TASTEN";
+"INPUT TYPES" = "EINGABETYPEN";
+"Single Press" = "Einfacher Druck";
+"Webhook Success" = "Webhook erfolgreich";
+"Webhook Failure" = "Webhook fehlgeschlagen";
+"Total Presses" = "Gesamtanzahl Tastendrücke";
+"Sessions" = "Sitzungen";
+"Streak" = "Aktuelle Serie";
+"Best Streak" = "Längste Serie";
+"Share Wrapped" = "Wrapped teilen";
+"AUTOMATION" = "AUTOMATISIERUNG";
+"BINDING OPTIMIZATION" = "ZUORDNUNGS-OPTIMIERUNG";
+"efficient" = "effizient";
+"suggestion" = "Vorschlag";
+"suggestions" = "Vorschläge";
+"Bindings are well-optimized" = "Zuordnungen sind gut optimiert";
+"Analyze your button usage to find optimization opportunities" = "Analysieren Sie Ihre Tastennutzung, um Optimierungsmöglichkeiten zu finden";
+"View Recommendations" = "Empfehlungen anzeigen";
+"Analyze" = "Analysieren";
+"INPUT → OUTPUT" = "EINGABE → AUSGABE";
+
+/* Optimierungsempfehlungen */
+"Binding Optimization" = "Zuordnungs-Optimierung";
+"recommendation" = "Empfehlung";
+"recommendations" = "Empfehlungen";
+"tracked actions" = "erfasste Aktionen";
+"Efficiency" = "Effizienz";
+"Your bindings are already well-optimized!" = "Ihre Zuordnungen sind bereits gut optimiert!";
+"Select All" = "Alle auswählen";
+"Deselect All" = "Auswahl aufheben";
+"Apply Selected" = "Auswahl anwenden";
+"Applied!" = "Angewendet!";
+"Promote" = "Heraufstufen";
+"Demote" = "Herabstufen";
+"press:" = "Druck:";
+"long hold:" = "Langes Halten:";
+"hold:" = "Halten:";
+"2×" = "2×";
+
+/* Community-Profile */
+"Community Profiles" = "Community-Profile";
+"Loading profiles..." = "Profile werden geladen …";
+"Retry" = "Erneut versuchen";
+"No community profiles available" = "Keine Community-Profile verfügbar";
+"Imported" = "Importiert";
+"Downloading" = "Wird geladen";
+"Import" = "Importieren";
+
+/* Stream Deck-Import */
+"Stream Deck Profile" = "Stream Deck-Profil";
+"Parsing Stream Deck profile..." = "Stream Deck-Profil wird ausgewertet …";
+"Type:" = "Typ:";
+"Hotkey" = "Kurzbefehl";
+"Open Application" = "Anwendung öffnen";
+"Website" = "Website";
+"Multi-Action" = "Mehrfachaktion";
+"Text" = "Text";
+"Unsupported" = "Nicht unterstützt";
+"This action cannot be imported because it uses an unsupported Stream Deck plugin." = "Diese Aktion kann nicht importiert werden, da sie ein nicht unterstütztes Stream Deck-Plug-in verwendet.";
+"Select an action to view details" = "Wählen Sie eine Aktion, um Details anzuzeigen";
+"of" = "/";
+"actions will be imported" = "Aktionen werden importiert";
+"unsupported" = "nicht unterstützt";
+
+/* Allgemeine Tasten */
+"Cancel" = "Abbrechen";
+"Save" = "Sichern";
+"Close" = "Schließen";
+
+/* Controller-Ansicht – Gruppentitel */
+"Shoulder" = "Schultertasten";
+"Movement" = "Bewegung";
+"D-Pad" = "Steuerkreuz";
+"Actions" = "Aktionstasten";
+"Camera" = "Kamera";
+
+/* Statustexte */
+"MAPPING ACTIVE" = "ZUORDNUNG AKTIV";
+"DISABLED" = "DEAKTIVIERT";
+"ACTIVE CHORDS" = "AKTIVE AKKORDE";
+
+/* Tastatur-Tab – Hinweis zur Bildschirmtastatur */
+"To show the on-screen keyboard widget, assign a button to toggle it." = "Um das Bildschirmtastatur-Widget anzuzeigen, weisen Sie eine Taste zum Umschalten zu.";
+"Go to the Buttons tab, add a command, select \"Show Keyboard\", then choose \"Keyboard\"." = "Wechseln Sie zum Tab „Tasten\", fügen Sie einen Befehl hinzu, wählen Sie „Tastatur einblenden\" und dann „Tastatur\".";
+"Toggle Shortcut" = "Umschalt-Kurzbefehl";
+"Click to record" = "Klicken zum Aufnehmen";
+
+/* Textbausteine */
+"Text Snippets" = "Textbausteine";
+"Enter text snippet..." = "Textbaustein eingeben …";
+"No text snippets yet" = "Noch keine Textbausteine";
+"Click these to type the text into any app." = "Klicken Sie darauf, um den Text in eine beliebige App einzugeben.";
+"to insert variables like date, time, clipboard, etc." = ", um Variablen wie Datum, Uhrzeit, Zwischenablage usw. einzufügen";
+"View all" = "Alle anzeigen";
+
+/* Tippgeschwindigkeit-Voreinstellungen */
+"Paste" = "Einsetzen";
+"Slow" = "Langsam";
+"Medium" = "Mittel";
+"Fast" = "Schnell";
+"Very Fast" = "Sehr schnell";
+
+/* Terminal-Befehle */
+"Terminal" = "Terminal";
+"Enter terminal command..." = "Terminal-Befehl eingeben …";
+"No terminal commands yet" = "Noch keine Terminal-Befehle";
+"Default App" = "Standard-App";
+"Automation permission granted" = "Automatisierungs-Berechtigung erteilt";
+"Automation permission required" = "Automatisierungs-Berechtigung erforderlich";
+"Click these to open a new terminal window and run the command." = "Klicken Sie darauf, um ein neues Terminalfenster zu öffnen und den Befehl auszuführen.";
+"Other..." = "Andere …";
+
+/* Bildschirmtastatur-Einstellungen */
+"App Bar" = "App-Leiste";
+"Activate All Windows" = "Alle Fenster aktivieren";
+"When switching to an app, bring all of its windows to the front." = "Beim Wechsel zu einer App werden alle ihre Fenster in den Vordergrund geholt.";
+"Show Websites in Wheel" = "Websites im Rad anzeigen";
+"Command wheel shows website links instead of apps." = "Das Befehlsrad zeigt Website-Links anstelle von Apps an.";
+"Alternate Modifier" = "Alternative Sondertaste";
+"None" = "Keine";
+"Show F13-F20 Keys" = "F13-F20-Tasten anzeigen";
+"Display extended function keys (F13-F20) in a row above F1-F12." = "Erweiterte Funktionstasten (F13-F20) in einer Reihe über F1-F12 anzeigen.";
+
+/* Website-Links */
+"Website Links" = "Website-Links";
+"Enter website URL..." = "Website-URL eingeben …";
+"No website links yet" = "Noch keine Website-Links";
+"Add websites for quick access from the on-screen keyboard." = "Fügen Sie Websites hinzu, um schnell von der Bildschirmtastatur aus darauf zuzugreifen.";
+
+/* Tastatur-Einstellungsbereiche */
+"App Switching" = "App-Wechsel";
+"Command Wheel" = "Befehlsrad";
+"Keyboard Layout" = "Tastaturbelegung";
+"Swipe Typing" = "Wischeingabe";
+"Enable Swipe Typing" = "Wischeingabe aktivieren";
+"Hold left trigger and move the left stick to swipe across letter keys." = "Halten Sie den linken Trigger gedrückt und bewegen Sie den linken Stick, um über die Buchstabentasten zu wischen.";
+
+/* Befehlsrad – dynamische Beschreibungen */
+"apps" = "Apps";
+"websites" = "Websites";
+
+"Hold this key to show apps instead on the command wheel." = "Halten Sie diese Taste gedrückt, um stattdessen Apps im Befehlsrad anzuzeigen.";
+"Hold this key to show websites instead on the command wheel." = "Halten Sie diese Taste gedrückt, um stattdessen Websites im Befehlsrad anzuzeigen.";
+
+/* Stick-Modusoptionen */
+"Mouse" = "Maus";
+"Scroll" = "Scrollen";
+"WASD" = "WASD";
+"Arrows" = "Pfeiltasten";
+
+/* Trackpad-Schieberegler */
+"Smoothing" = "Glättung";
+
+/* Persönlichkeitstypen – Titel */
+"Sharpshooter" = "Scharfschütze";
+"Brawler" = "Schläger";
+"Strategist" = "Stratege";
+"Navigator" = "Navigator";
+"Multitasker" = "Multitalent";
+"Minimalist" = "Minimalist";
+
+/* Persönlichkeitstypen – Beschreibungen */
+"Trigger-happy and precision-focused" = "Schießwütig und präzisionsorientiert";
+"All about the face buttons" = "Dreht sich alles um die Aktionstasten";
+"Master of combos and complex inputs" = "Meister von Kombos und komplexen Eingaben";
+"D-pad devotee, menu master" = "Steuerkreuz-Fan und Menü-Profi";
+"Uses everything, masters all" = "Nutzt alles, beherrscht alles";
+"Less is more, every press counts" = "Weniger ist mehr – jeder Tastendruck zählt";
+
+/* Ebenen – Lichtleistenfarbe (v1.7.9) */
+"Light Bar Color" = "Lichtleistenfarbe";
+"Lightbar shows this color while the layer is active" = "Die Lichtleiste zeigt diese Farbe, während die Ebene aktiv ist";
+"Custom Light Bar Color" = "Eigene Lichtleistenfarbe";
+"Light bar changes to this color when the layer is active" = "Die Lichtleiste wechselt zu dieser Farbe, wenn die Ebene aktiv ist";
+
+/* Dock-Symbol ausblenden (v1.7.9) */
+"Hide Dock Icon" = "Dock-Symbol ausblenden";
+"Show only in menu bar. Use the menu bar icon to open the main window." = "Nur in der Menüleiste anzeigen. Verwenden Sie das Symbol in der Menüleiste, um das Hauptfenster zu öffnen.";
+
+/* DualShock 4-Beleuchtung (v1.7.9) */
+"DualShock 4 supports light bar color only. Player LEDs, mute LED, and brightness controls are DualSense features." = "DualShock 4 unterstützt nur die Farbe der Lichtleiste. Spieler-LEDs, Stumm-LED und Helligkeitssteuerung sind DualSense-Funktionen.";
+
+/* Trackpad-Bereichszuordnung (v1.7.9) */
+"Configure Touchpad Region" = "Trackpad-Bereich konfigurieren";
+"Map each touchpad quadrant to a separate action on tap or click." = "Ordnen Sie jedem Trackpad-Quadranten eine eigene Aktion bei Berührung oder Klick zu.";
+"On Touch" = "Bei Berührung";
+"On Click" = "Beim Klicken";
+"Fires the moment your finger lands in this quadrant" = "Wird ausgelöst, sobald Ihr Finger diesen Quadranten berührt";
+"Fires when you physically press the touchpad here" = "Wird ausgelöst, wenn Sie hier physisch auf das Trackpad drücken";
+
+/* Xbox Elite Series 2-Paddles (v1.7.4) */
+"ELITE PADDLES" = "ELITE-PADDLES";
+"Upper" = "Oben";
+"Lower" = "Unten";
+
+/* Befehlsrad-Tab (v1.7.6) */
+"Map any button to **Command Wheel** (with Hold enabled) to activate." = "Ordnen Sie eine beliebige Taste dem **Befehlsrad** zu (mit aktiviertem Halten), um es zu aktivieren.";
+"Hold the button and use the right stick to select an action." = "Halten Sie die Taste gedrückt und wählen Sie mit dem rechten Stick eine Aktion aus.";
+"Wheel Preview" = "Rad-Vorschau";
+"No actions configured" = "Keine Aktionen konfiguriert";
+"Add actions to build your command wheel" = "Fügen Sie Aktionen hinzu, um Ihr Befehlsrad aufzubauen";
+"Add Action" = "Aktion hinzufügen";
+
+/* Webhook-Antwortverarbeitung (v1.7.3) */
+"Response Handling" = "Antwortverarbeitung";
+"Show notification on completion" = "Mitteilung nach Abschluss anzeigen";
+"Timeout:" = "Zeitlimit:";
+"Retries:" = "Wiederholungen:";
+"Retry delay:" = "Wartezeit zwischen Wiederholungen:";
+"On success command (optional)" = "Befehl bei Erfolg (optional)";
+"On error command (optional)" = "Befehl bei Fehler (optional)";
+"Shell commands run silently on success (2xx) or error (non-2xx / network failure)." = "Shell-Befehle werden im Hintergrund bei Erfolg (2xx) oder Fehler (nicht 2xx / Netzwerkfehler) ausgeführt.";
+
+/* Simulierte Tastenwiederholung (v1.6.4) */
+"Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input." = "Sendet Tastendruck-Ereignisse erneut, um eine physische Tastenwiederholung zu simulieren. Geeignet für Spiele, die für wiederholte Eingaben gehaltene Tasten erfordern.";

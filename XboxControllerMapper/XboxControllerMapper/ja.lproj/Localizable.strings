@@ -1,0 +1,604 @@
+/* ControllerKeys Japanese Localization */
+
+/* メニューバー */
+"Connected" = "接続済み";
+"No Controller" = "コントローラーが見つかりません";
+"Connect via Bluetooth" = "Bluetoothで接続";
+"Accessibility permission required for global input" = "グローバル入力にはアクセシビリティ権限が必要です";
+"Open System Settings" = "システム設定を開く";
+"Mapping Enabled" = "マッピング有効";
+"Stream Overlay" = "配信オーバーレイ";
+"Profile" = "プロファイル";
+"Settings" = "設定";
+"Quit ControllerKeys" = "ControllerKeysを終了";
+"© 2026 Kevin Tang. All rights reserved." = "© 2026 Kevin Tang. All rights reserved.";
+"Default" = "デフォルト";
+
+/* プロファイル */
+"PROFILES" = "プロファイル";
+"New Profile" = "新規プロファイル";
+"Import Profile..." = "プロファイルを読み込み…";
+"Import Stream Deck Profile..." = "Stream Deckプロファイルを読み込み…";
+"Import Community Profile..." = "コミュニティプロファイルを読み込み…";
+"Add profile" = "プロファイルを追加";
+"Duplicate" = "複製";
+"Rename" = "名称変更";
+"Set as Default Profile" = "デフォルトプロファイルに設定";
+"Linked Apps..." = "リンク済みApp…";
+"Set Icon" = "アイコンを設定";
+"Remove Icon" = "アイコンを削除";
+"Export..." = "書き出し…";
+"Delete" = "削除";
+"Rename Profile" = "プロファイル名を変更";
+"Profile name" = "プロファイル名";
+"Profiles" = "プロファイル";
+"Preview" = "プレビュー";
+"Click a profile to see its mappings" = "プロファイルをクリックしてマッピングを表示";
+
+/* メインウインドウタブ */
+"Buttons" = "ボタン";
+"Chords" = "コード";
+"Sequences" = "シーケンス";
+"Gestures" = "ジェスチャ";
+"Macros" = "マクロ";
+"Scripts" = "スクリプト";
+"Keyboard" = "キーボード";
+"Joysticks" = "スティック";
+"Touchpad" = "タッチパッド";
+"LEDs" = "LED";
+"Microphone" = "マイク";
+"Stats" = "統計";
+
+/* レイヤー */
+"Base Layer" = "ベースレイヤー";
+"Add Layer" = "レイヤーを追加";
+"Layer Name" = "レイヤー名";
+"e.g., Combat Mode" = "例：戦闘モード";
+"Activator Button (Optional)" = "起動ボタン（任意）";
+"Hold this button to activate the layer's mappings" = "このボタンを長押しでレイヤーのマッピングを有効化";
+"None (assign later)" = "なし（あとで割り当て）";
+"Edit Layer" = "レイヤーを編集";
+"Activator Button" = "起動ボタン";
+"Editing layer:" = "編集中のレイヤー：";
+"Unmapped buttons fall through to base layer" = "未割当のボタンはベースレイヤーにフォールバックします";
+"Layer Activator" = "レイヤー起動キー";
+"This button activates the" = "このボタンは次のレイヤーを起動します：";
+"layer. Layer activators cannot have additional mappings - they are reserved for switching between layers." = "レイヤー。レイヤー起動キーには追加のマッピングを設定できません。レイヤーの切り替え専用です。";
+"Select 2nd" = "2つ目を選択";
+"Swap" = "入れ替え";
+"Cursor Hints" = "カーソルヒント";
+"Stream" = "配信";
+
+/* ボタンマッピング */
+"Configure" = "設定";
+"Current:" = "現在：";
+"Macro:" = "マクロ：";
+"Script:" = "スクリプト：";
+"No mapping configured" = "マッピング未設定";
+"Clear Mapping" = "マッピングをクリア";
+"Primary Action" = "メインアクション";
+"Hold action while button is held" = "ボタンを押している間アクションを継続";
+"Use as Layer Activator" = "レイヤー起動キーとして使用";
+"Create New Layer" = "新規レイヤーを作成";
+"Use Existing Layer" = "既存のレイヤーを使用";
+"Select Layer" = "レイヤーを選択";
+"When this button is held, the layer's alternate button mappings become active. Other buttons not mapped in the layer fall through to the base layer." = "このボタンを長押ししている間、レイヤーの代替ボタンマッピングが有効になります。レイヤーで割り当てられていないボタンはベースレイヤーにフォールバックします。";
+"This button currently activates a layer. Disabling will unassign the button but keep the layer." = "このボタンは現在レイヤーを起動します。無効にするとボタンの割り当ては解除されますが、レイヤーは保持されます。";
+"Action:" = "アクション：";
+"Action type" = "アクションタイプ";
+"Key" = "キー";
+"Macro" = "マクロ";
+"Script" = "スクリプト";
+"System" = "システム";
+"Hide Keyboard" = "キーボードを非表示";
+"Show Keyboard" = "キーボードを表示";
+"Select a Macro..." = "マクロを選択…";
+"Create New Macro..." = "新規マクロを作成…";
+"No macros defined in this profile." = "このプロファイルにはマクロが定義されていません。";
+"Select a Script..." = "スクリプトを選択…";
+"Create New Script..." = "新規スクリプトを作成…";
+"No scripts defined in this profile." = "このプロファイルにはスクリプトが定義されていません。";
+"Hint:" = "ヒント：";
+"e.g. Copy, Paste, Switch App..." = "例：コピー、ペースト、アプリ切り替え…";
+"e.g. Open Editor, Run Script..." = "例：エディタを開く、スクリプトを実行…";
+"e.g. Smart Spacebar, Toggle Mode..." = "例：スマートスペースバー、モード切り替え…";
+"Selected:" = "選択中：";
+"EDGE CONTROLS" = "エッジコントロール";
+"Fn" = "Fn";
+"Paddles" = "パドル";
+
+/* 長押し / ダブルタップ / リピート */
+"Enable Long Hold Action" = "長押しアクションを有効化";
+"Long Hold Action" = "長押しアクション";
+"Long Hold" = "長押し";
+"Long hold is not available for mouse clicks." = "マウスクリックでは長押しは使用できません。";
+"Long hold is not available for special actions." = "特殊アクションでは長押しは使用できません。";
+"Long hold is not available when \"Hold action\" is enabled." = "「アクションを継続」が有効な場合、長押しは使用できません。";
+"Long hold is not available when \"Repeat Action\" is enabled." = "「リピートアクション」が有効な場合、長押しは使用できません。";
+"Hold Duration:" = "長押し時間：";
+"Enable Double Tap Action" = "ダブルタップアクションを有効化";
+"Double Tap Action" = "ダブルタップアクション";
+"Double Tap" = "ダブルタップ";
+"Tap Window:" = "タップ受付時間：";
+"Two taps within this time window trigger the double-tap action" = "この時間内に2回タップするとダブルタップアクションが発動します";
+"Repeat Action While Held" = "押している間アクションを繰り返す";
+"Repeat is not available for mouse clicks." = "マウスクリックではリピートは使用できません。";
+"Repeat is not available for special actions." = "特殊アクションではリピートは使用できません。";
+"Repeat is not available when \"Hold action\" is enabled." = "「アクションを継続」が有効な場合、リピートは使用できません。";
+"Repeat Rate:" = "リピート頻度：";
+"The action will be triggered" = "アクションは1秒あたり";
+"times per second while the button is held" = "回発動します（ボタンを押している間）";
+"Webhook not supported for long hold / double tap. Use primary mapping." = "Webhookは長押し／ダブルタップに対応していません。メインマッピングをご利用ください。";
+"OBS WebSocket not supported for long hold / double tap. Use primary mapping." = "OBS WebSocketは長押し／ダブルタップに対応していません。メインマッピングをご利用ください。";
+
+/* コード（同時押し） */
+"Add New Chord" = "新規コードを追加";
+"No chords configured" = "コードが設定されていません";
+"Chord Mappings" = "コードマッピング";
+"Chords let you map multiple button presses to a single action." = "コードを使うと、複数のボタンの同時押しを1つのアクションに割り当てられます。";
+"Edit Chord" = "コードを編集";
+"Add Chord" = "コードを追加";
+"Select buttons (2 or more):" = "ボタンを選択（2つ以上）：";
+"Chord" = "コード";
+"chords" = "個のコード";
+"CHORDS" = "コード一覧";
+"mappings" = "個のマッピング";
+
+/* シーケンス */
+"Add New Sequence" = "新規シーケンスを追加";
+"No sequences configured" = "シーケンスが設定されていません";
+"Sequence Mappings" = "シーケンスマッピング";
+"Sequences fire an extra action when buttons are pressed in order within a time window. Individual button actions still fire normally (zero added latency)." = "シーケンスは、一定時間内にボタンを順番に押すと追加のアクションを発動します。個々のボタンのアクションは通常通り発動します（遅延ゼロ）。";
+"Edit Sequence" = "シーケンスを編集";
+"Add Sequence" = "シーケンスを追加";
+"Button sequence (press order):" = "ボタンシーケンス（押す順序）：";
+"This sequence already exists" = "このシーケンスはすでに存在します";
+"Tap a button to add it as the next step:" = "ボタンをタップして次のステップとして追加：";
+"Maximum 6 steps reached" = "最大6ステップに達しました";
+"Max time between presses:" = "押下間隔の最大時間：";
+"Each button press must follow the previous one within this time." = "各ボタン押下は、前回の押下からこの時間内に行う必要があります。";
+"e.g. Quick Save, Combo Attack..." = "例：クイックセーブ、コンボ攻撃…";
+
+/* ジェスチャ */
+"Motion Gestures" = "モーションジェスチャ";
+"Beta" = "ベータ";
+"Map quick tilt gestures on your DualSense controller to actions. Snap the controller top toward you (Tilt Back) or away from you (Tilt Forward)." = "DualSenseコントローラーの素早い傾きジェスチャをアクションに割り当てます。コントローラーの上部を手前に倒す（ティルトバック）か、奥に倒す（ティルトフォワード）操作が可能です。";
+"Gesture Detection" = "ジェスチャ検出";
+"How easily gestures trigger" = "ジェスチャの発動しやすさ";
+"Cooldown" = "クールダウン";
+"Wait time between gestures" = "ジェスチャ間の待ち時間";
+"Adjust sensitivity to control how hard you need to snap the controller. Adjust cooldown to control the wait time before another gesture can fire." = "感度を調整してコントローラーをどれくらい強く振る必要があるかを制御し、クールダウンを調整して次のジェスチャが発動するまでの待ち時間を制御します。";
+"Gyro Aiming (Focus Mode)" = "ジャイロエイム（フォーカスモード）";
+"Cursor speed from gyro tilt" = "ジャイロ傾きによるカーソル速度";
+"Filter hand tremor (rad/s threshold)" = "手ぶれフィルター（rad/秒のしきい値）";
+"Tilt the controller to move the mouse cursor while in focus mode. Uses the DualSense gyroscope for fine-grained aiming." = "フォーカスモード中にコントローラーを傾けてマウスカーソルを動かします。DualSenseのジャイロスコープを使った精密なエイムが可能です。";
+"Configure Gesture" = "ジェスチャを設定";
+"Edit Gesture" = "ジェスチャを編集";
+"Tap to type a shortcut, or show keyboard to select visually" = "タップしてショートカットを入力、またはキーボードを表示して視覚的に選択";
+"e.g. Quick Save, Screenshot..." = "例：クイックセーブ、スクリーンショット…";
+
+/* マクロ */
+"Add Macro" = "マクロを追加";
+"Edit Macro" = "マクロを編集";
+"Name" = "名前";
+"Macro Name" = "マクロ名";
+"Add Step" = "ステップを追加";
+"Edit Step" = "ステップを編集";
+"Key Press" = "キー押下";
+"Key Hold" = "キー長押し";
+"Type Text" = "テキストを入力";
+"Delay" = "ディレイ";
+"Open App" = "Appを開く";
+"Open Link" = "リンクを開く";
+"Shell Command" = "シェルコマンド";
+"Webhook" = "Webhook";
+"OBS WebSocket" = "OBS WebSocket";
+"Duplicate step" = "ステップを複製";
+"Delete step" = "ステップを削除";
+"Key Combination" = "キーコンビネーション";
+"Duration" = "長さ";
+"Seconds" = "秒";
+"Text to Type" = "入力するテキスト";
+"Typing Speed" = "入力速度";
+"Instant (Paste)" = "即時（ペースト）";
+"Fast (1200 CPM)" = "高速（1200 CPM）";
+"Natural (600 CPM)" = "自然（600 CPM）";
+"Slow (300 CPM)" = "低速（300 CPM）";
+"Press Enter after typing" = "入力後にEnterを押す";
+"Application" = "アプリケーション";
+"https://example.com" = "https://example.com";
+"Request" = "リクエスト";
+"No macros defined" = "マクロが定義されていません";
+"Macros allow you to execute a sequence of actions (keys, text, delays) with a single button press." = "マクロを使うと、1回のボタン押下で一連のアクション（キー、テキスト、ディレイ）を実行できます。";
+
+/* スクリプト */
+"Add New Script" = "新規スクリプトを追加";
+"No scripts defined" = "スクリプトが定義されていません";
+"Scripts let you write JavaScript logic for conditional actions, state tracking, and app-aware behavior. Powered by JavaScriptCore." = "スクリプトを使うと、条件付きアクション、状態追跡、アプリ対応の挙動などをJavaScriptで記述できます。JavaScriptCoreで動作します。";
+"New Script" = "新規スクリプト";
+"JavaScript:" = "JavaScript：";
+"Notes:" = "メモ：";
+"Optional description" = "説明（任意）";
+"Test Output:" = "テスト出力：";
+"API Reference" = "APIリファレンス";
+"Examples" = "例";
+"AI" = "AI";
+"Test" = "テスト";
+"Script API Reference" = "スクリプトAPIリファレンス";
+"Input Simulation" = "入力シミュレーション";
+"Application Context" = "アプリケーションコンテキスト";
+"Persistent State" = "永続ステート";
+"Feedback" = "フィードバック";
+"Trigger Context" = "トリガーコンテキスト";
+"Logging" = "ロギング";
+"(Script executed successfully, no output)" = "（スクリプトは正常に実行されました。出力はありません）";
+"ERROR:" = "エラー：";
+"Automate anything with JavaScript. Here are some ideas:" = "JavaScriptであらゆる操作を自動化できます。アイデアの一例：";
+"Browse All Examples" = "すべての例を表示";
+"Generate with AI" = "AIで生成";
+"Browse Examples" = "例を表示";
+"Untitled Script" = "名称未設定スクリプト";
+"chars" = "文字";
+"Loading preview..." = "プレビューを読み込み中…";
+
+/* スティック設定 */
+"Left Joystick" = "左スティック";
+"Right Joystick" = "右スティック";
+"Mode" = "モード";
+"Sensitivity" = "感度";
+"How fast the cursor moves" = "カーソルの移動速度";
+"Acceleration" = "加速度";
+"0 = linear, 1 = max curve" = "0 = 線形、1 = 最大カーブ";
+"How fast scrolling occurs" = "スクロール速度";
+"Deadzone" = "デッドゾーン";
+"Activation threshold for keys" = "キーの発動しきい値";
+"Ignore small movements" = "わずかな動きを無視";
+"Invert Y Axis" = "Y軸を反転";
+"Focus Mode (Precision)" = "フォーカスモード（精密）";
+"Focus Speed" = "フォーカスモード速度";
+"Sensitivity when holding modifier" = "修飾キーを押している間の感度";
+"Activation Modifier" = "起動用修飾キー";
+"Command modifier" = "Commandキー";
+"Option modifier" = "Optionキー";
+"Control modifier" = "Controlキー";
+"Shift modifier" = "Shiftキー";
+"Highlight Focused Cursor" = "フォーカスモードのカーソルをハイライト";
+"Double-Tap Boost" = "ダブルタップブースト";
+"Speed multiplier after double-tap up/down" = "上下のダブルタップ後の速度倍率";
+
+/* タッチパッド設定 */
+"Touchpad (DualSense)" = "タッチパッド（DualSense）";
+"Touchpad cursor speed" = "タッチパッドのカーソル速度";
+"Ignore tiny jitter" = "わずかな揺れを無視";
+"Reduce mouse jitter" = "マウスのブレを軽減";
+"Two-Finger Pan" = "2本指パン";
+"Scroll speed for two-finger pan" = "2本指パンのスクロール速度";
+"Pan to Zoom Ratio" = "パン／ズーム比率";
+"Low = easier to zoom, High = easier to pan" = "低 = ズームしやすい、高 = パンしやすい";
+"Native Zoom Gestures" = "ネイティブのズームジェスチャ";
+"Use macOS magnify gestures instead of Cmd+Plus/Minus" = "Cmd+プラス／マイナスの代わりにmacOSの拡大ジェスチャを使用";
+
+/* LED設定 */
+"Light Bar" = "ライトバー";
+"Enabled" = "有効";
+"Battery Level Color" = "バッテリーレベル色";
+"Red when low, yellow at half, green when full" = "残量が少ないと赤、半分で黄、満充電で緑";
+"Brightness" = "明るさ";
+"Mute Button LED" = "ミュートボタンLED";
+"Player LEDs" = "プレイヤーLED";
+"Presets:" = "プリセット：";
+"P1" = "P1";
+"P2" = "P2";
+"P3" = "P3";
+"P4" = "P4";
+"All" = "すべて";
+"Off" = "オフ";
+"Party Mode" = "パーティーモード";
+"Enable Party Mode" = "パーティーモードを有効化";
+"Rainbow lightbar, cycling player LEDs, breathing mute button" = "レインボーのライトバー、循環するプレイヤーLED、ブリージングするミュートボタン";
+"Player LED 1" = "プレイヤーLED 1";
+"On" = "オン";
+"Over Bluetooth, only the light bar color is supported. Player LEDs, mute LED, and brightness require USB." = "Bluetooth接続ではライトバーの色のみサポートされます。プレイヤーLED、ミュートLED、明るさの調整にはUSB接続が必要です。";
+
+/* マイク設定 */
+"Microphone Control" = "マイクコントロール";
+"Mute Microphone" = "マイクをミュート";
+"Use this to mute or unmute the built-in microphone on your DualSense controller." = "DualSenseコントローラー内蔵マイクのミュート／ミュート解除に使用します。";
+"Audio Input Test" = "オーディオ入力テスト";
+"Speak into your controller to test the microphone input level:" = "コントローラーに向かって話し、マイク入力レベルをテストしてください：";
+"Level:" = "レベル：";
+"Tips" = "ヒント";
+"• The DualSense microphone appears as \"DualSense Wireless Controller\" in System Settings → Sound → Input" = "• DualSenseマイクはシステム設定 → サウンド → 入力で「DualSense Wireless Controller」として表示されます";
+"• You can select it as your input device in apps like Discord, Zoom, or FaceTime" = "• Discord、Zoom、FaceTimeなどのアプリで入力デバイスとして選択できます";
+"• The mute button on the controller (between the analog sticks) can also toggle mute" = "• コントローラーのミュートボタン（スティック間にあるボタン）でもミュートを切り替えられます";
+"Microphone audio level" = "マイクの音声レベル";
+"percent" = "％";
+"Microphone control requires USB connection on macOS. Connect via USB to use the DualSense microphone." = "macOSではマイク制御にUSB接続が必要です。USBで接続してDualSenseマイクをご利用ください。";
+
+/* 一般設定 */
+"ControllerKeys" = "ControllerKeys";
+"Version" = "バージョン";
+"Launch at Login" = "ログイン時に起動";
+"Controller Database" = "コントローラーデータベース";
+"Maps generic controllers to Xbox layout" = "汎用コントローラーをXboxレイアウトにマッピングします";
+"Refresh" = "更新";
+"Third-Party Controllers" = "サードパーティ製コントローラー";
+"Prevent Controller Sleep" = "コントローラーのスリープを防止";
+"Sends periodic signals to keep PlayStation controllers awake over Bluetooth" = "Bluetooth接続のPlayStationコントローラーを起動状態に保つため定期的に信号を送信します";
+"Bluetooth" = "Bluetooth";
+
+/* ショートカット入力 */
+"Clear" = "クリア";
+"Click to type a shortcut, or show keyboard to select visually" = "クリックしてショートカットを入力、またはキーボードを表示して視覚的に選択";
+
+/* システムコマンド */
+"Command (e.g. say \"Hello\")" = "コマンド（例：say \"Hello\"）";
+"Command" = "コマンド";
+"Run silently (no terminal window)" = "サイレント実行（ターミナルウインドウを表示しない）";
+"Opens a terminal window and executes the command" = "ターミナルウインドウを開いてコマンドを実行";
+"Runs silently in the background (no visible output)" = "バックグラウンドでサイレント実行（出力は表示されません）";
+"Open in new window (Cmd+N)" = "新規ウインドウで開く（Cmd+N）";
+"URL (e.g. https://google.com)" = "URL（例：https://google.com）";
+"Browse Bookmarks" = "ブックマークを表示";
+"Opens the URL in your default browser" = "デフォルトのブラウザでURLを開きます";
+"URL (e.g. https://api.example.com/webhook)" = "URL（例：https://api.example.com/webhook）";
+"Method" = "メソッド";
+"Body (JSON)" = "ボディ（JSON）";
+"Headers" = "ヘッダー";
+"Header" = "ヘッダー名";
+"Value" = "値";
+"Fires an HTTP request when triggered. Use for webhooks, APIs, home automation, etc." = "発動時にHTTPリクエストを送信します。Webhook、API、スマートホーム連携などに利用できます。";
+"Sends an HTTP request when triggered" = "発動時にHTTPリクエストを送信";
+"WebSocket URL (e.g. ws://127.0.0.1:4455)" = "WebSocket URL（例：ws://127.0.0.1:4455）";
+"Password (optional)" = "パスワード（任意）";
+"Request Type (e.g. StartRecord)" = "リクエストタイプ（例：StartRecord）";
+"Request Data (JSON object, optional)" = "リクエストデータ（JSONオブジェクト、任意）";
+"Sends any OBS WebSocket v5 request type with optional requestData JSON." = "任意のOBS WebSocket v5リクエストタイプを送信します。requestData JSONも指定可能です。";
+
+/* リンク済みApp */
+"Linked Apps" = "リンク済みApp";
+"This profile will automatically activate when any of these apps are in the front." = "以下のいずれかのAppが前面にあるとき、このプロファイルが自動的に有効になります。";
+"No apps linked" = "リンクされているAppはありません";
+"Add App..." = "Appを追加…";
+"Done" = "完了";
+"Select App" = "Appを選択";
+"Running" = "実行中";
+"Installed" = "インストール済み";
+"Search" = "検索";
+"Linked" = "リンク済み";
+"Add" = "追加";
+"Add App" = "Appを追加";
+"No apps added yet" = "Appはまだ追加されていません";
+"Add apps for quick switching from the on-screen keyboard." = "オンスクリーンキーボードから素早く切り替えられるようAppを追加します。";
+"Unassigned" = "未割当";
+"Search apps..." = "Appを検索…";
+
+/* 統計 */
+"Key Presses" = "キー押下回数";
+"Mouse Clicks" = "マウスクリック";
+"Macros Run" = "マクロ実行回数";
+"Steps Automated" = "自動化ステップ";
+"Apps Launched" = "起動したApp数";
+"Links Opened" = "開いたリンク数";
+"Snippets Pasted" = "ペーストしたスニペット数";
+"Terminals Popped" = "開いたターミナル数";
+"Webhooks Run" = "Webhook実行数";
+"DISTANCE TRAVELED" = "移動距離";
+"Joystick Mouse" = "スティックマウス";
+"Touchpad Mouse" = "タッチパッドマウス";
+"Scroll Distance" = "スクロール距離";
+"TOP BUTTONS" = "よく使うボタン";
+"INPUT TYPES" = "入力タイプ";
+"Single Press" = "シングルプレス";
+"Webhook Success" = "Webhook成功";
+"Webhook Failure" = "Webhook失敗";
+"Total Presses" = "押下回数の合計";
+"Sessions" = "セッション数";
+"Streak" = "連続日数";
+"Best Streak" = "最長連続日数";
+"Share Wrapped" = "年間まとめを共有";
+"AUTOMATION" = "自動化";
+"BINDING OPTIMIZATION" = "マッピング最適化";
+"efficient" = "最適";
+"suggestion" = "件の提案";
+"suggestions" = "件の提案";
+"Bindings are well-optimized" = "マッピングは十分に最適化されています";
+"Analyze your button usage to find optimization opportunities" = "ボタンの使用状況を分析して最適化のヒントを見つけます";
+"View Recommendations" = "おすすめを表示";
+"Analyze" = "分析";
+"INPUT → OUTPUT" = "入力 → 出力";
+
+/* 最適化の提案 */
+"Binding Optimization" = "マッピング最適化";
+"recommendation" = "件の提案";
+"recommendations" = "件の提案";
+"tracked actions" = "件の追跡済みアクション";
+"Efficiency" = "効率";
+"Your bindings are already well-optimized!" = "マッピングはすでに十分最適化されています！";
+"Select All" = "すべてを選択";
+"Deselect All" = "すべての選択を解除";
+"Apply Selected" = "選択した項目を適用";
+"Applied!" = "適用しました！";
+"Promote" = "昇格";
+"Demote" = "降格";
+"press:" = "押下：";
+"long hold:" = "長押し：";
+"hold:" = "ホールド：";
+"2×" = "2×";
+
+/* コミュニティプロファイル */
+"Community Profiles" = "コミュニティプロファイル";
+"Loading profiles..." = "プロファイルを読み込み中…";
+"Retry" = "再試行";
+"No community profiles available" = "コミュニティプロファイルはありません";
+"Imported" = "読み込み済み";
+"Downloading" = "ダウンロード中";
+"Import" = "読み込み";
+
+/* Stream Deck読み込み */
+"Stream Deck Profile" = "Stream Deckプロファイル";
+"Parsing Stream Deck profile..." = "Stream Deckプロファイルを解析中…";
+"Type:" = "タイプ：";
+"Hotkey" = "ホットキー";
+"Open Application" = "アプリケーションを開く";
+"Website" = "ウェブサイト";
+"Multi-Action" = "マルチアクション";
+"Text" = "テキスト";
+"Unsupported" = "未対応";
+"This action cannot be imported because it uses an unsupported Stream Deck plugin." = "このアクションは未対応のStream Deckプラグインを使用しているため、読み込めません。";
+"Select an action to view details" = "アクションを選択して詳細を表示";
+"of" = "/";
+"actions will be imported" = "個のアクションが読み込まれます";
+"unsupported" = "個が未対応";
+
+/* 共通ボタン */
+"Cancel" = "キャンセル";
+"Save" = "保存";
+"Close" = "閉じる";
+
+/* コントローラービューのグループタイトル */
+"Shoulder" = "ショルダー";
+"Movement" = "移動";
+"D-Pad" = "十字キー";
+"Actions" = "アクション";
+"Camera" = "カメラ";
+
+/* ステータステキスト */
+"MAPPING ACTIVE" = "マッピング有効";
+"DISABLED" = "無効";
+"ACTIVE CHORDS" = "アクティブなコード";
+
+/* キーボードタブ - オンスクリーンキーボードのヒント */
+"To show the on-screen keyboard widget, assign a button to toggle it." = "オンスクリーンキーボードウィジェットを表示するには、切り替え用のボタンを割り当ててください。";
+"Go to the Buttons tab, add a command, select \"Show Keyboard\", then choose \"Keyboard\"." = "「ボタン」タブを開いてコマンドを追加し、「キーボードを表示」を選択してから「キーボード」を選んでください。";
+"Toggle Shortcut" = "切替ショートカット";
+"Click to record" = "クリックして記録";
+
+/* テキストスニペット */
+"Text Snippets" = "テキストスニペット";
+"Enter text snippet..." = "テキストスニペットを入力…";
+"No text snippets yet" = "テキストスニペットはまだありません";
+"Click these to type the text into any app." = "クリックすると任意のAppにテキストを入力できます。";
+"to insert variables like date, time, clipboard, etc." = "日付、時刻、クリップボードなどの変数を挿入";
+"View all" = "すべて表示";
+
+/* 入力速度プリセット */
+"Paste" = "ペースト";
+"Slow" = "低速";
+"Medium" = "中速";
+"Fast" = "高速";
+"Very Fast" = "超高速";
+
+/* ターミナルコマンド */
+"Terminal" = "ターミナル";
+"Enter terminal command..." = "ターミナルコマンドを入力…";
+"No terminal commands yet" = "ターミナルコマンドはまだありません";
+"Default App" = "デフォルトApp";
+"Automation permission granted" = "オートメーション権限が許可されました";
+"Automation permission required" = "オートメーション権限が必要です";
+"Click these to open a new terminal window and run the command." = "クリックすると新規ターミナルウインドウを開いてコマンドを実行します。";
+"Other..." = "その他…";
+
+/* オンスクリーンキーボード設定 */
+"App Bar" = "Appバー";
+"Activate All Windows" = "すべてのウインドウをアクティブ化";
+"When switching to an app, bring all of its windows to the front." = "Appに切り替える際、そのAppのすべてのウインドウを前面に持ってきます。";
+"Show Websites in Wheel" = "コマンドホイールにウェブサイトを表示";
+"Command wheel shows website links instead of apps." = "コマンドホイールにAppではなくウェブサイトのリンクを表示します。";
+"Alternate Modifier" = "代替修飾キー";
+"None" = "なし";
+"Show F13-F20 Keys" = "F13-F20キーを表示";
+"Display extended function keys (F13-F20) in a row above F1-F12." = "拡張ファンクションキー（F13-F20）をF1-F12の上に1列表示します。";
+
+/* ウェブサイトリンク */
+"Website Links" = "ウェブサイトリンク";
+"Enter website URL..." = "ウェブサイトのURLを入力…";
+"No website links yet" = "ウェブサイトリンクはまだありません";
+"Add websites for quick access from the on-screen keyboard." = "オンスクリーンキーボードから素早くアクセスできるようウェブサイトを追加します。";
+
+/* キーボード設定セクション */
+"App Switching" = "App切り替え";
+"Command Wheel" = "コマンドホイール";
+"Keyboard Layout" = "キーボード配列";
+"Swipe Typing" = "スワイプ入力";
+"Enable Swipe Typing" = "スワイプ入力を有効化";
+"Hold left trigger and move the left stick to swipe across letter keys." = "左トリガーを押しながら左スティックを動かして文字キー上をスワイプします。";
+
+/* コマンドホイール動的説明 */
+"apps" = "App";
+"websites" = "ウェブサイト";
+
+"Hold this key to show apps instead on the command wheel." = "このキーを押している間、コマンドホイールにAppを表示します。";
+"Hold this key to show websites instead on the command wheel." = "このキーを押している間、コマンドホイールにウェブサイトを表示します。";
+
+/* スティックモードオプション */
+"Mouse" = "マウス";
+"Scroll" = "スクロール";
+"WASD" = "WASD";
+"Arrows" = "矢印キー";
+
+/* タッチパッドスライダー */
+"Smoothing" = "スムージング";
+
+/* パーソナリティタイプタイトル */
+"Sharpshooter" = "シャープシューター";
+"Brawler" = "ブロウラー";
+"Strategist" = "ストラテジスト";
+"Navigator" = "ナビゲーター";
+"Multitasker" = "マルチタスカー";
+"Minimalist" = "ミニマリスト";
+
+/* パーソナリティタイプ説明 */
+"Trigger-happy and precision-focused" = "トリガーを連打、精密重視";
+"All about the face buttons" = "フェイスボタン一筋";
+"Master of combos and complex inputs" = "コンボや複雑な入力の達人";
+"D-pad devotee, menu master" = "十字キー愛用、メニュー操作の達人";
+"Uses everything, masters all" = "すべてを使いこなすオールラウンダー";
+"Less is more, every press counts" = "少ないほど豊か、一押し一押しが大事";
+
+/* レイヤー - ライトバーの色 (v1.7.9) */
+"Light Bar Color" = "ライトバーの色";
+"Lightbar shows this color while the layer is active" = "レイヤーが有効な間、ライトバーがこの色を表示します";
+"Custom Light Bar Color" = "カスタムライトバーの色";
+"Light bar changes to this color when the layer is active" = "レイヤーが有効になるとライトバーがこの色に変わります";
+
+/* Dockアイコンを非表示 (v1.7.9) */
+"Hide Dock Icon" = "Dockアイコンを非表示";
+"Show only in menu bar. Use the menu bar icon to open the main window." = "メニューバーのみに表示します。メニューバーのアイコンからメインウインドウを開いてください。";
+
+/* DualShock 4 LED (v1.7.9) */
+"DualShock 4 supports light bar color only. Player LEDs, mute LED, and brightness controls are DualSense features." = "DualShock 4はライトバーの色のみサポートしています。プレイヤーLED、ミュートLED、明るさコントロールはDualSense専用の機能です。";
+
+/* タッチパッド領域マッピング (v1.7.9) */
+"Configure Touchpad Region" = "タッチパッド領域を設定";
+"Map each touchpad quadrant to a separate action on tap or click." = "タッチパッドの各クアドラントを、タップまたはクリックで別々のアクションに割り当てます。";
+"On Touch" = "タッチ時";
+"On Click" = "クリック時";
+"Fires the moment your finger lands in this quadrant" = "指がこのクアドラントに触れた瞬間に発動";
+"Fires when you physically press the touchpad here" = "ここでタッチパッドを物理的に押し込むと発動";
+
+/* Xbox Elite Series 2 パドル (v1.7.4) */
+"ELITE PADDLES" = "エリートパドル";
+"Upper" = "上";
+"Lower" = "下";
+
+/* コマンドホイールタブ (v1.7.6) */
+"Map any button to **Command Wheel** (with Hold enabled) to activate." = "任意のボタンを**コマンドホイール**（ホールド有効）に割り当てて起動します。";
+"Hold the button and use the right stick to select an action." = "ボタンを押したまま右スティックでアクションを選択します。";
+"Wheel Preview" = "ホイールプレビュー";
+"No actions configured" = "アクションが設定されていません";
+"Add actions to build your command wheel" = "アクションを追加してコマンドホイールを構築します";
+"Add Action" = "アクションを追加";
+
+/* Webhookレスポンス処理 (v1.7.3) */
+"Response Handling" = "レスポンス処理";
+"Show notification on completion" = "完了時に通知を表示";
+"Timeout:" = "タイムアウト：";
+"Retries:" = "リトライ回数：";
+"Retry delay:" = "リトライ間隔：";
+"On success command (optional)" = "成功時のコマンド（任意）";
+"On error command (optional)" = "エラー時のコマンド（任意）";
+"Shell commands run silently on success (2xx) or error (non-2xx / network failure)." = "シェルコマンドは成功時（2xx）またはエラー時（非2xx／ネットワーク障害）にサイレント実行されます。";
+
+/* キーリピートのシミュレーション (v1.6.4) */
+"Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input." = "キーダウンイベントを再送信して物理キーボードのキーリピートをシミュレートします。長押しによる連続入力が必要なゲームでお使いください。";
