@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.9] - 2026-05-07
+
+### Added
+
+- **DualShock 4 lightbar control**: The lightbar tab now works for DS4 over both USB and Bluetooth. macOS's `IOHIDDeviceSetReport` returns success but silently drops user-space HID output reports for controllers managed by the GameController framework, so we route DS4 BT through `GCController.light` (the same privileged path DualSense uses). USB uses raw HID output report 0x05 with the correct Linux `hid-playstation` byte layout.
+- **DualShock 4 gyroscope support**: Gestures (tilt/snap mappings) and gyro aiming both work on DS4. Apple's `GCMotion` exposes the API but the rotation rates are always zero, so we parse the gyro from raw HID input reports. Auto-calibrates the gyro bias from the first ~60 samples after motion enable to fix asymmetric drift between left/right tilts.
+- **Layer-aware lightbar**: Each layer can have its own lightbar color that activates while the layer is held. New layers get a distinct color auto-assigned from a 12-color palette. Configure via the layer editor or right-click "Change Color…" on a layer tab. Layer activator badges in the tab bar and on the controller view are tinted with the layer's color.
+- **Flexible layer modifier behavior**: When a layer is already active, other layer activator buttons are freed up — they no longer activate their own layers and can be remapped within the current layer. Pressing the same activator with no other layer active still activates its layer as before.
+- **Touchpad quadrant remapping**: Split the DualSense/DS4 touchpad into 4 regions (top-left, top-right, bottom-left, bottom-right). Each region can have separate actions for touch and click (or the same action for both via a `.both` mapping). Region action takes precedence over the regular touchpad button/tap when fired.
+- **Command wheel shows immediately on hold**: The command wheel now appears as soon as the assigned button is held, rather than waiting for stick movement past the deadzone.
+- **Hide Dock Icon option**: New Settings toggle that switches the app's activation policy to `.accessory`, hiding the Dock icon while keeping the menu bar icon. Applied immediately and on next launch.
+- **Visible lock state**: When the controller is locked, the lightbar turns solid red and the menu bar icon shows the gamecontroller dimmed at 45% with a red lock symbol overlaid. Lock state restores the layer/profile color (and re-enables battery-light-bar mode) on unlock.
+- **Per-quadrant action display**: Touchpad region cells now use the same `MappingLabelView` the buttons tab uses, so hints, system command badges, and macro names render consistently.
+
+### Fixed
+
+- **Controller lock from double-tap or long-hold**: Special action keycodes (controller lock, laser pointer, on-screen keyboard, directory navigator) were only intercepted on primary press, sequence, and chord paths. Mapping controller lock to a double-tap or long-hold sent the bogus internal keycode (0xF012) as a real keypress to macOS instead. Now intercepted correctly.
+- **Unlock via the same gesture used to lock**: When locked, double-tap or long-hold timestamps are still tracked for buttons whose alternates resolve to controller lock. After unlocking, the press is marked consumed so the regular single-tap action doesn't fire spuriously.
+- **Lightbar reverts after layer release**: After applying a layer's LED settings on release, also call `updateBatteryLightBar()` so battery-light-bar mode resumes when the profile uses it; without this, the next periodic battery update would override the revert color.
+- **Command wheel parity for app launch**: `SystemCommand.launchApp` now hides the app if it's already frontmost (matches the keyboard command wheel's app-toggle behavior) for the non-newWindow case.
+- **Touchpad region action firing alongside regular click/tap**: When a region mapping fires for a click or tap, the regular `.touchpadButton` / `.touchpadTap` action is now suppressed for that event so only the region action runs.
+- **Touchpad region corner clicks misclassified**: Clicks where the finger position is reported as `(0, 0)` (no real position registered) no longer mis-classify as bottom-left and instead fall through to the base touchpad click action.
+- **AppleScript injection in Safari incognito**: Quotes in URL strings are now escaped before being interpolated into AppleScript.
+- **Elite Series 2 paddle bit mapping**: P2 and P3 paddles were swapped on Classic BT firmware versus the `GCXboxGamepad` convention.
+
 ## [1.7.8] - 2026-05-05
 
 ### Fixed
