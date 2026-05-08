@@ -2,6 +2,40 @@ import XCTest
 import CoreGraphics
 @testable import ControllerKeys
 
+/// Reverses any system zoom accumulated by tests that drove
+/// `InputSimulator.scroll(flags: .maskControl)`. Posts `Option+Command+-` (the
+/// macOS accessibility zoom-out shortcut) until the system reports zoom level
+/// has reached 1.0, with a hard cap of 60 presses. Bypasses InputSimulator's
+/// own rate limiter and 5-attempt warning gate by posting CGEvents directly.
+///
+/// 60 is sized for the worst case: the offending tests can issue ~20 zoom
+/// shortcuts each, and macOS Accessibility Zoom can exceed 20x in the typical
+/// 1.25x-per-step increment scheme, so each test could leave the screen at the
+/// max zoom level which then takes ~20 outs to fully reverse.
+fileprivate func resetSystemZoomForTests() {
+    let zoomOutKeyCode: CGKeyCode = 27 // kVK_ANSI_Minus
+    let modifiers: CGEventFlags = [.maskAlternate, .maskCommand]
+    let source = CGEventSource(stateID: .hidSystemState)
+
+    func currentZoomLevel() -> Double {
+        UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0
+    }
+
+    for _ in 0..<60 {
+        if currentZoomLevel() <= 1.001 { break }
+        if let down = CGEvent(keyboardEventSource: source, virtualKey: zoomOutKeyCode, keyDown: true) {
+            down.flags = modifiers
+            down.post(tap: .cghidEventTap)
+        }
+        usleep(15_000)
+        if let up = CGEvent(keyboardEventSource: source, virtualKey: zoomOutKeyCode, keyDown: false) {
+            up.flags = modifiers
+            up.post(tap: .cghidEventTap)
+        }
+        usleep(80_000)
+    }
+}
+
 // MARK: - Bug 1: Modifier Reference Counting Race Condition Tests
 //
 // The modifier ref counting system uses a simple integer count per modifier.
@@ -196,6 +230,11 @@ final class ZoomCacheThreadSafetyTests: XCTestCase {
 
 final class ZoomAccumulatorThreadSafetyTests: XCTestCase {
 
+    override func tearDown() {
+        resetSystemZoomForTests()
+        super.tearDown()
+    }
+
     func testConcurrentScrollWithControl_noCrash() {
         // Stress test: many concurrent scroll calls with Control held
         // (triggers handleAccessibilityZoom path).
@@ -249,6 +288,11 @@ final class ZoomAccumulatorThreadSafetyTests: XCTestCase {
 // These tests verify the warning state machine doesn't allow orphaning.
 
 final class ZoomWarningStateMachineTests: XCTestCase {
+
+    override func tearDown() {
+        resetSystemZoomForTests()
+        super.tearDown()
+    }
 
     func testZoomWarningStateReset_afterSettingsOpened() {
         // The resetZoomDetectionState method should reset attempt count and warning flag.
