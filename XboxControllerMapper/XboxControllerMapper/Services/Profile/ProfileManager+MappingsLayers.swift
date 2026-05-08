@@ -49,6 +49,26 @@ extension ProfileManager {
         updateProfile(targetProfile)
     }
 
+    /// Swaps all touchpad-region mappings between two regions by rewriting each
+    /// matching mapping's `region` field. Multiple mappings per region (touch + click)
+    /// are all moved together.
+    func swapTouchpadRegions(region1: TouchpadRegion, region2: TouchpadRegion, in profile: Profile? = nil) {
+        guard region1 != region2 else { return }
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        targetProfile.touchpadRegionMappings = targetProfile.touchpadRegionMappings.map { mapping in
+            var copy = mapping
+            if mapping.region == region1 {
+                copy.region = region2
+            } else if mapping.region == region2 {
+                copy.region = region1
+            }
+            return copy
+        }
+
+        updateProfile(targetProfile)
+    }
+
     /// Swaps all mappings between two buttons within a specific layer
     func swapLayerMappings(button1: ControllerButton, button2: ControllerButton, in layerId: UUID, profile: Profile? = nil) {
         guard var targetProfile = profile ?? activeProfile else { return }

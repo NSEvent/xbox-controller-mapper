@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import CoreTransferable
 
 /// Represents a quadrant of the touchpad surface.
 enum TouchpadRegion: String, Codable, CaseIterable, Identifiable {
@@ -27,6 +28,20 @@ enum TouchpadRegion: String, Codable, CaseIterable, Identifiable {
         case (false, false): return .bottomLeft
         case (true, false):  return .bottomRight
         }
+    }
+}
+
+extension TouchpadRegion: Transferable {
+    public static var transferRepresentation: some TransferRepresentation {
+        ProxyRepresentation(
+            exporting: { (region: TouchpadRegion) -> String in region.rawValue },
+            importing: { (rawValue: String) -> TouchpadRegion in
+                guard let region = TouchpadRegion(rawValue: rawValue) else {
+                    throw CocoaError(.coderInvalidValue)
+                }
+                return region
+            }
+        )
     }
 }
 

@@ -352,6 +352,39 @@ struct TouchpadSettingsView: View {
 
 // MARK: - Touchpad Region Grid
 
+/// Drag-drop modifier for touchpad region cells. Mirrors the SwappableModifier in
+/// ControllerVisualView (glow + scale-up while targeted) but transports a TouchpadRegion.
+private struct RegionSwappableModifier: ViewModifier {
+    let region: TouchpadRegion
+    let onSwap: (TouchpadRegion, TouchpadRegion) -> Void
+    @State private var isTargeted = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isTargeted ? 1.06 : 1.0)
+            .shadow(
+                color: Color.accentColor.opacity(isTargeted ? 0.9 : 0),
+                radius: isTargeted ? 8 : 0
+            )
+            .animation(.easeInOut(duration: 0.15), value: isTargeted)
+            .draggable(region)
+            .dropDestination(for: TouchpadRegion.self) { items, _ in
+                guard let source = items.first else { return false }
+                onSwap(source, region)
+                return true
+            } isTargeted: { isTargeted = $0 }
+    }
+}
+
+extension View {
+    fileprivate func swappableRegion(
+        _ region: TouchpadRegion,
+        onSwap: @escaping (TouchpadRegion, TouchpadRegion) -> Void
+    ) -> some View {
+        modifier(RegionSwappableModifier(region: region, onSwap: onSwap))
+    }
+}
+
 struct TouchpadRegionGrid: View {
     @EnvironmentObject var profileManager: ProfileManager
 
@@ -458,6 +491,11 @@ struct TouchpadRegionGrid: View {
                 Button("Clear", role: .destructive) { removeMapping(for: region) }
             }
         }
+        .swappableRegion(region, onSwap: performSwap)
+    }
+
+    private func performSwap(from source: TouchpadRegion, to target: TouchpadRegion) {
+        profileManager.swapTouchpadRegions(region1: source, region2: target)
     }
 
     private func removeMapping(for region: TouchpadRegion) {
