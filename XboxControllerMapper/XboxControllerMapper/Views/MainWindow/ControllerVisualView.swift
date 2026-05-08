@@ -543,8 +543,9 @@ struct ControllerVisualView: View {
             ZStack(alignment: .topTrailing) {
                 ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isPlayStation, isNintendo: isNintendo)
 
-                // Layer activator badge
-                if let layer = layerForButton(button) {
+                // Layer activator badge — hidden when viewing a different layer,
+                // since other layers' activators are inert in that context.
+                if let layer = layerForButton(button), !isEditingDifferentLayer(button) {
                     Text("L")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundColor(.white)
