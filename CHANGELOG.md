@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.10] - 2026-05-08
+
+### Added
+
+- **Touchpad quadrants as first-class buttons**: New per-profile **whole-pad vs quadrants** input mode. In quadrants mode, each of the 4 touchpad regions becomes two real `ControllerButton` cases (Click and Touch) so layers, long hold, double tap, and repeat all work on per-quadrant bindings via the standard button machinery. Whole-pad mode keeps the classic 4 touchpad buttons. Two-finger buttons stay active in both modes. Existing chord/sequence mappings keep working — quadrant clicks alias to `.touchpadButton` and quadrant touches to `.touchpadTap` so nothing fires twice. Schema bumped to v3 with full migration: v1 region rows fan out to Click/Touch buttons (`.both` fans out to both variants — no data loss for dual-action quadrants); profiles with quadrant data auto-switch to quadrants mode.
+- **Configurable main window sections**: New Settings panel lets you toggle visibility of individual sections in the main window. Hide what you don't use to keep the UI focused.
+- **Open Main Window menu bar item**: When "Hide Dock Icon" is enabled, the menu bar now exposes an explicit "Open Main Window" command so the window remains reachable without the Dock.
+- **Localizations: German, Japanese, Traditional Chinese**: New `de`, `ja`, and `zh-Hant` `.strings` catalogs mirror the existing `zh-Hans` entries (510 keys each, all passing `plutil -lint`). Traditional Chinese uses Taiwan/Apple-Mac vocabulary (巨集 / 指令碼 / 觸控板 / 設定檔 / 對應) rather than a script-only conversion from Simplified.
+
+### Changed
+
+- **Hide Dock Icon lifecycle**: Replaced the static `LSUIElement`-style activation policy with a `DockVisibilityController` that ties dock-icon visibility to user-facing window visibility. Window state changes now drive the activation policy directly, so closing/reopening the main window behaves predictably while Hide Dock Icon is on.
+- **Touchpad button clearing now actually disables the action**: `ButtonMappingResolutionPolicy.defaultMapping` no longer hardcodes mouse click as a fallback for cleared touchpad buttons. First-run defaults are unchanged (still populated by `Profile.createDefault`), but explicitly clearing a touchpad binding now leaves it disabled.
+
+### Fixed
+
+- **Touchpad quadrant click misfires after finger lift**: Stale `(x, y)` positions reported by the controller after a finger lift were being misclassified as quadrant clicks. New `requireActiveTouchForRegionClick` setting (default on) suppresses these; the classification helper was extracted for unit testing.
+- **Touchpad quadrant connector lines land on the wrong quadrant**: Anchor placement in SwiftUI's preference machinery wasn't propagating per-quadrant rects reliably. The eight `.touchpadRegion*` anchors are now siblings on `miniTouchpad`'s outer chain alongside the whole-pad anchor, and `ConnectorLayer` slices the shared rect down to each quadrant's quarter at draw time so the line terminates at the correct corner.
+- **Touchpad quadrant action detection**: Fixed the resolution path so the correct quadrant action fires for both touch and click in all four regions.
+- **Layer activator badge shown on inert activators**: The "L" badge in the corner of a button icon advertised "this button activates layer X" — but when the user is already inside a different layer those activators are dimmed and don't function as activators. Badge is now gated on the same `isEditingDifferentLayer` check the label area uses, so it only shows on the base view and on the current layer's own activator.
+
 ## [1.7.9] - 2026-05-07
 
 ### Added
