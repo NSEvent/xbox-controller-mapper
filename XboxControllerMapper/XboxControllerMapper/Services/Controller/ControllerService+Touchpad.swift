@@ -32,8 +32,14 @@ extension ControllerService {
                 let regionClickCallback = self.storage.onTouchpadRegionClick
                 self.storage.lock.unlock()
 
-                // Fire region click callback (single-finger clicks only)
-                if !willBeTwoFingerClick, let callback = regionClickCallback {
+                // Fire region click callback (single-finger clicks only).
+                // Skip when position is (0, 0) — that means the click landed
+                // before any finger position registered, so we don't know which
+                // quadrant it's in. Fall through to the base touchpad click
+                // action instead of mis-classifying as bottom-left.
+                if !willBeTwoFingerClick,
+                   let callback = regionClickCallback,
+                   clickPosition != .zero {
                     let region = TouchpadRegion.from(position: clickPosition)
                     self.controllerQueue.async { callback(region) }
                 }
