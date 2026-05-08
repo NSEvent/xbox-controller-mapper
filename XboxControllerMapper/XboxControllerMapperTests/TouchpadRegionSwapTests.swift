@@ -1,0 +1,178 @@
+import XCTest
+import CoreGraphics
+@testable import ControllerKeys
+
+@MainActor
+final class TouchpadRegionSwapTests: XCTestCase {
+    private var profileManager: ProfileManager!
+    private var testConfigDirectory: URL!
+
+    override func setUp() async throws {
+        try await super.setUp()
+        testConfigDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("controllerkeys-tests-\(UUID().uuidString)", isDirectory: true)
+        profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+    }
+
+    override func tearDown() async throws {
+        profileManager = nil
+        testConfigDirectory = nil
+        try await super.tearDown()
+    }
+
+    // MARK: - Classification (TouchpadRegion.from(position:))
+    //
+    // Convention from `TouchpadRegion.from`: x >= 0.5 → right, y >= 0.5 → top.
+    // That makes the (0.5, 0.5) center fall in `.topRight`. Tests pin this so any
+    // future refactor of the classifier breaks visibly rather than silently.
+
+    func testRegionFromPositionInteriorPoints() {
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.25, y: 0.75)), .topLeft)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.75, y: 0.75)), .topRight)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.25, y: 0.25)), .bottomLeft)
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.75, y: 0.25)), .bottomRight)
+    }
+
+    func testRegionFromPositionCenterFallsIntoTopRight() {
+        // Inclusive boundary on both axes: (0.5, 0.5) belongs to the top-right quadrant.
+        XCTAssertEqual(TouchpadRegion.from(position: CGPoint(x: 0.5, y: 0.5)), .topRight)
+    }
+
+    func testRegionFromOriginClassifiesAsBottomLeft() {
+        // (0, 0) is the "no finger position registered yet" sentinel that the
+        // ControllerService corner-click guard filters out before reaching this
+        // classifier. The classifier itself still maps (0, 0) to bottom-left;
+        // the fix lives in the caller, not here.
+        XCTAssertEqual(TouchpadRegion.from(position: .zero), .bottomLeft)
+    }
+
+    // MARK: - swapTouchpadRegions
+
+    /// Both regions populated with one mapping each — fields move together.
+    func testSwapBothRegionsPopulated() {
+        let topLeftId = UUID()
+        let topRightId = UUID()
+        let topLeft = TouchpadRegionMapping(
+            id: topLeftId,
+            region: .topLeft,
+            triggerMode: .click,
+            keyCode: 10,
+            modifiers: ModifierFlags(command: true),
+            hint: "TL"
+        )
+        let topRight = TouchpadRegionMapping(
+            id: topRightId,
+            region: .topRight,
+            triggerMode: .both,
+            keyCode: 20,
+            modifiers: ModifierFlags(shift: true),
+            hint: "TR"
+        )
+        seedProfile(with: [topLeft, topRight])
+
+        profileManager.swapTouchpadRegions(region1: .topLeft, region2: .topRight)
+
+        let mappings = profileManager.activeProfile?.touchpadRegionMappings ?? []
+        let movedToTopLeft = mappings.first { $0.id == topRightId }
+        let movedToTopRight = mappings.first { $0.id == topLeftId }
+
+        XCTAssertEqual(movedToTopLeft?.region, .topLeft, "TR mapping should now be tagged topLeft")
+        XCTAssertEqual(movedToTopRight?.region, .topRight, "TL mapping should now be tagged topRight")
+
+        // Unrelated fields preserved exactly.
+        XCTAssertEqual(movedToTopLeft?.keyCode, 20)
+        XCTAssertEqual(movedToTopLeft?.triggerMode, .both)
+        XCTAssertTrue(movedToTopLeft?.modifiers.shift ?? false)
+        XCTAssertEqual(movedToTopLeft?.hint, "TR")
+
+        XCTAssertEqual(movedToTopRight?.keyCode, 10)
+        XCTAssertEqual(movedToTopRight?.triggerMode, .click)
+        XCTAssertTrue(movedToTopRight?.modifiers.command ?? false)
+        XCTAssertEqual(movedToTopRight?.hint, "TL")
+    }
+
+    /// Source region populated, destination empty — mapping moves, source becomes empty.
+    func testSwapOneEmptyRegion() {
+        let mapping = TouchpadRegionMapping(region: .bottomLeft, triggerMode: .click, keyCode: 7)
+        seedProfile(with: [mapping])
+
+        profileManager.swapTouchpadRegions(region1: .bottomLeft, region2: .bottomRight)
+
+        let mappings = profileManager.activeProfile?.touchpadRegionMappings ?? []
+        XCTAssertEqual(mappings.count, 1, "Mapping count should be unchanged")
+        XCTAssertEqual(mappings.first?.region, .bottomRight, "Sole mapping should now live in destination")
+        XCTAssertFalse(mappings.contains { $0.region == .bottomLeft }, "Source should have no mappings")
+    }
+
+    /// Multiple mappings per region (touch + click) all migrate together.
+    func testSwapMovesAllMappingsForRegionAsAUnit() {
+        let touchId = UUID()
+        let clickId = UUID()
+        let touch = TouchpadRegionMapping(id: touchId, region: .topLeft, triggerMode: .touch, keyCode: 1)
+        let click = TouchpadRegionMapping(id: clickId, region: .topLeft, triggerMode: .click, keyCode: 2)
+        seedProfile(with: [touch, click])
+
+        profileManager.swapTouchpadRegions(region1: .topLeft, region2: .bottomRight)
+
+        let mappings = profileManager.activeProfile?.touchpadRegionMappings ?? []
+        XCTAssertEqual(mappings.count, 2)
+        XCTAssertTrue(mappings.allSatisfy { $0.region == .bottomRight }, "Both mappings should have moved")
+        XCTAssertEqual(Set(mappings.map(\.id)), Set([touchId, clickId]), "IDs preserved across the swap")
+    }
+
+    /// Same region on both sides is a no-op — guard short-circuits before any rewrite.
+    func testSwapSameRegionIsNoOp() {
+        let id = UUID()
+        let mapping = TouchpadRegionMapping(id: id, region: .topLeft, triggerMode: .click, keyCode: 5, hint: "Same")
+        seedProfile(with: [mapping])
+
+        profileManager.swapTouchpadRegions(region1: .topLeft, region2: .topLeft)
+
+        let mappings = profileManager.activeProfile?.touchpadRegionMappings ?? []
+        XCTAssertEqual(mappings.count, 1)
+        XCTAssertEqual(mappings.first?.id, id)
+        XCTAssertEqual(mappings.first?.region, .topLeft)
+        XCTAssertEqual(mappings.first?.hint, "Same")
+    }
+
+    /// Swapping two regions leaves unrelated regions untouched.
+    func testSwapPreservesUnrelatedRegions() {
+        let tl = TouchpadRegionMapping(region: .topLeft, triggerMode: .click, keyCode: 1)
+        let tr = TouchpadRegionMapping(region: .topRight, triggerMode: .click, keyCode: 2)
+        let bl = TouchpadRegionMapping(region: .bottomLeft, triggerMode: .click, keyCode: 3)
+        let br = TouchpadRegionMapping(region: .bottomRight, triggerMode: .click, keyCode: 4)
+        seedProfile(with: [tl, tr, bl, br])
+
+        profileManager.swapTouchpadRegions(region1: .topLeft, region2: .topRight)
+
+        let mappings = profileManager.activeProfile?.touchpadRegionMappings ?? []
+        XCTAssertEqual(mappings.count, 4)
+
+        // Top-left and top-right swapped.
+        XCTAssertEqual(mappings.first { $0.id == tl.id }?.region, .topRight)
+        XCTAssertEqual(mappings.first { $0.id == tr.id }?.region, .topLeft)
+
+        // Bottom-left and bottom-right unchanged.
+        XCTAssertEqual(mappings.first { $0.id == bl.id }?.region, .bottomLeft)
+        XCTAssertEqual(mappings.first { $0.id == br.id }?.region, .bottomRight)
+    }
+
+    /// Both regions empty — the operation should be a no-op without crashing.
+    func testSwapBothRegionsEmpty() {
+        seedProfile(with: [])
+
+        profileManager.swapTouchpadRegions(region1: .topLeft, region2: .bottomRight)
+
+        XCTAssertEqual(profileManager.activeProfile?.touchpadRegionMappings.count, 0)
+    }
+
+    // MARK: - Helpers
+
+    /// Seeds the bootstrap default profile's touchpad region mappings. We mutate the
+    /// existing active profile rather than substituting a fresh `Profile` via
+    /// `setActiveProfile`, because `saveConfiguration` orphans any active profile
+    /// whose id isn't already in the `profiles` array.
+    private func seedProfile(with regionMappings: [TouchpadRegionMapping]) {
+        profileManager.updateTouchpadRegionMappings(regionMappings)
+    }
+}
