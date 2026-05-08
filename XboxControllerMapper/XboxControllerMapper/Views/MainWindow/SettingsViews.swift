@@ -1070,6 +1070,7 @@ struct SettingsSheet: View {
 
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("hideFromDock") private var hideFromDock = false
+    @AppStorage(MainWindowSection.hiddenDefaultsKey) private var hiddenSectionTags = ""
 
     @State private var isRefreshingDatabase = false
     @State private var databaseStatus: String?
@@ -1116,6 +1117,34 @@ struct SettingsSheet: View {
                         // icon appears immediately even if no window is key.
                         NSApp.activate(ignoringOtherApps: true)
                     }
+                }
+
+                Section {
+                    ForEach(MainWindowSection.displayOrder) { section in
+                        Toggle(isOn: visibleSectionBinding(for: section)) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(section.label)
+                                if !section.isAvailable(
+                                    isPlayStation: controllerService.threadSafeIsPlayStation,
+                                    isDualSense: controllerService.threadSafeIsDualSense
+                                ) {
+                                    Text(unavailableReason(for: section))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .disabled(!section.isAvailable(
+                            isPlayStation: controllerService.threadSafeIsPlayStation,
+                            isDualSense: controllerService.threadSafeIsDualSense
+                        ) || isLastVisibleSection(section))
+                    }
+
+                    Button("Show All Sections") {
+                        hiddenSectionTags = ""
+                    }
+                } header: {
+                    Text("Visible Sections")
                 }
 
                 Section {
@@ -1184,7 +1213,45 @@ struct SettingsSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 380, height: 520)
+        .frame(width: 420, height: 640)
+    }
+
+    private func visibleSectionBinding(for section: MainWindowSection) -> Binding<Bool> {
+        Binding(
+            get: {
+                !MainWindowSection.hiddenSections(from: hiddenSectionTags).contains(section)
+            },
+            set: { isVisible in
+                var hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
+                if isVisible {
+                    hiddenSections.remove(section)
+                } else if !isLastVisibleSection(section) {
+                    hiddenSections.insert(section)
+                }
+                hiddenSectionTags = MainWindowSection.encodedHiddenSections(hiddenSections)
+            }
+        )
+    }
+
+    private func isLastVisibleSection(_ section: MainWindowSection) -> Bool {
+        let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
+        let visibleSections = MainWindowSection.visibleSections(
+            hiddenSections: hiddenSections,
+            isPlayStation: controllerService.threadSafeIsPlayStation,
+            isDualSense: controllerService.threadSafeIsDualSense
+        )
+        return visibleSections.count == 1 && visibleSections.first == section
+    }
+
+    private func unavailableReason(for section: MainWindowSection) -> String {
+        switch section {
+        case .touchpad, .leds, .gestures:
+            return "Requires a PlayStation controller"
+        case .microphone:
+            return "Requires a DualSense controller"
+        default:
+            return ""
+        }
     }
 
     private func refreshDatabase() {

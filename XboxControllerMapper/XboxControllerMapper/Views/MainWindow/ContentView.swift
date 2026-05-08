@@ -27,6 +27,7 @@ struct ContentView: View {
     @State private var showingGestureSheet = false
     @State private var editingGestureType: MotionGestureType?
     @State private var scrollKeyMonitor: Any?
+    @AppStorage(MainWindowSection.hiddenDefaultsKey) private var hiddenSectionTags = ""
     private var actionFeedbackEnabled: Binding<Bool> {
         Binding(
             get: { ActionFeedbackIndicator.isEnabled },
@@ -239,6 +240,10 @@ struct ContentView: View {
                 }
         )
         .onAppear { installScrollKeyMonitor() }
+        .onAppear { selectFirstVisibleTabIfNeeded() }
+        .onChange(of: hiddenSectionTags) { _, _ in
+            selectFirstVisibleTabIfNeeded()
+        }
         .onDisappear {
             if let monitor = scrollKeyMonitor {
                 NSEvent.removeMonitor(monitor)
@@ -251,33 +256,13 @@ struct ContentView: View {
 
     /// Tab definitions for the custom tab bar.
     private var customTabs: [CustomTabItem] {
-        var tabs: [CustomTabItem] = [
-            CustomTabItem(tag: 0, label: "Buttons"),
-            CustomTabItem(tag: 1, label: "Chords"),
-            CustomTabItem(tag: 9, label: "Sequences"),
-        ]
-        if controllerService.threadSafeIsPlayStation {
-            tabs.append(CustomTabItem(tag: 11, label: "Gestures"))
-        }
-        tabs.append(contentsOf: [
-            CustomTabItem(tag: 7, label: "Macros"),
-            CustomTabItem(tag: 10, label: "Scripts"),
-            CustomTabItem(tag: 12, label: "Wheel"),
-            CustomTabItem(tag: 2, label: "Joysticks"),
-        ])
-        if controllerService.threadSafeIsPlayStation {
-            tabs.append(CustomTabItem(tag: 4, label: "Touchpad"))
-        }
-        if controllerService.threadSafeIsPlayStation {
-            tabs.append(CustomTabItem(tag: 5, label: "LEDs"))
-        }
-        if controllerService.threadSafeIsDualSense {
-            tabs.append(CustomTabItem(tag: 6, label: "Microphone"))
-        }
-        // Global tabs (not per-profile) — rendered with a different highlight color
-        tabs.append(CustomTabItem(tag: 3, label: "Keyboard", isGlobal: true))
-        tabs.append(CustomTabItem(tag: 8, label: "Stats", isGlobal: true))
-        return tabs
+        let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
+        return MainWindowSection.visibleSections(
+            hiddenSections: hiddenSections,
+            isPlayStation: controllerService.threadSafeIsPlayStation,
+            isDualSense: controllerService.threadSafeIsDualSense
+        )
+        .map(\.tabItem)
     }
 
     /// Ordered list of visible tab tags matching the TabView order.
@@ -290,6 +275,14 @@ struct ContentView: View {
         guard let currentIndex = tags.firstIndex(of: selectedTab) else { return }
         let nextIndex = (currentIndex + direction + tags.count) % tags.count
         selectedTab = tags[nextIndex]
+    }
+
+    private func selectFirstVisibleTabIfNeeded() {
+        guard !orderedTabTags.contains(selectedTab),
+              let firstVisibleTag = orderedTabTags.first else {
+            return
+        }
+        selectedTab = firstVisibleTag
     }
 
     // MARK: - Scroll Key Navigation (Home/End/PageUp/PageDown)
@@ -522,6 +515,113 @@ extension UUID: @retroactive Identifiable {
         .environmentObject(appMonitor)
         .environmentObject(mappingEngine)
         .environmentObject(inputLogService)
+}
+
+// MARK: - Main Window Sections
+
+enum MainWindowSection: Int, CaseIterable, Identifiable {
+    case buttons = 0
+    case chords = 1
+    case joysticks = 2
+    case keyboard = 3
+    case touchpad = 4
+    case leds = 5
+    case microphone = 6
+    case macros = 7
+    case stats = 8
+    case sequences = 9
+    case scripts = 10
+    case gestures = 11
+    case wheel = 12
+
+    static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
+
+    static let displayOrder: [MainWindowSection] = [
+        .buttons,
+        .chords,
+        .sequences,
+        .gestures,
+        .macros,
+        .scripts,
+        .wheel,
+        .joysticks,
+        .touchpad,
+        .leds,
+        .microphone,
+        .keyboard,
+        .stats
+    ]
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .buttons: return "Buttons"
+        case .chords: return "Chords"
+        case .joysticks: return "Joysticks"
+        case .keyboard: return "Keyboard"
+        case .touchpad: return "Touchpad"
+        case .leds: return "LEDs"
+        case .microphone: return "Microphone"
+        case .macros: return "Macros"
+        case .stats: return "Stats"
+        case .sequences: return "Sequences"
+        case .scripts: return "Scripts"
+        case .gestures: return "Gestures"
+        case .wheel: return "Wheel"
+        }
+    }
+
+    var isGlobal: Bool {
+        switch self {
+        case .keyboard, .stats:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var tabItem: CustomTabItem {
+        CustomTabItem(tag: rawValue, label: label, isGlobal: isGlobal)
+    }
+
+    func isAvailable(isPlayStation: Bool, isDualSense: Bool) -> Bool {
+        switch self {
+        case .touchpad, .leds, .gestures:
+            return isPlayStation
+        case .microphone:
+            return isDualSense
+        default:
+            return true
+        }
+    }
+
+    static func hiddenSections(from rawValue: String) -> Set<MainWindowSection> {
+        Set(rawValue
+            .split(separator: ",")
+            .compactMap { Int(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
+            .compactMap(MainWindowSection.init(rawValue:))
+        )
+    }
+
+    static func encodedHiddenSections(_ sections: Set<MainWindowSection>) -> String {
+        sections
+            .map(\.rawValue)
+            .sorted()
+            .map { String($0) }
+            .joined(separator: ",")
+    }
+
+    static func visibleSections(
+        hiddenSections: Set<MainWindowSection>,
+        isPlayStation: Bool,
+        isDualSense: Bool
+    ) -> [MainWindowSection] {
+        displayOrder.filter { section in
+            section.isAvailable(isPlayStation: isPlayStation, isDualSense: isDualSense)
+                && !hiddenSections.contains(section)
+        }
+    }
 }
 
 // MARK: - Custom Tab Bar
