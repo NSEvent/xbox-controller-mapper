@@ -485,15 +485,7 @@ struct SetupGuideSection: View {
                 .padding(.top, level <= 2 ? 8 : 4)
                 .padding(.bottom, 2)
         case .codeBlock:
-            ScrollView(.horizontal, showsIndicators: false) {
-                Text(block.text)
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .textSelection(.enabled)
-                    .padding(8)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.gray.opacity(0.18))
-            .cornerRadius(4)
+            CodeBlockView(text: block.text)
         case .table(let rows):
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
@@ -554,6 +546,58 @@ struct SetupGuideSection: View {
         case 2: return 14
         default: return 12.5
         }
+    }
+}
+
+/// Code-block renderer with a copy-to-clipboard button overlaid in the
+/// top-right corner. Setup guides often contain shell snippets that users want
+/// to paste verbatim — the button removes the friction of a manual select-all.
+private struct CodeBlockView: View {
+    let text: String
+    @State private var didCopy = false
+    @State private var resetWorkItem: DispatchWorkItem?
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(text)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(8)
+                    // Reserve space on the right so the button never overlaps
+                    // the last column of long lines.
+                    .padding(.trailing, 28)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.gray.opacity(0.18))
+            .cornerRadius(4)
+
+            Button(action: copy) {
+                Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(didCopy ? .green : .secondary)
+                    .frame(width: 22, height: 22)
+                    .background(Color.gray.opacity(0.25))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+            .buttonStyle(.plain)
+            .help(didCopy ? "Copied" : "Copy code")
+            .padding(4)
+        }
+    }
+
+    private func copy() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        // Brief visual confirmation, then revert. Cancel any prior pending
+        // revert so rapid double-clicks don't snap back early.
+        resetWorkItem?.cancel()
+        didCopy = true
+        let work = DispatchWorkItem { didCopy = false }
+        resetWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
     }
 }
 
