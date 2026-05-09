@@ -63,6 +63,7 @@ class ProfileManager: ObservableObject {
 
     private let fileManager = FileManager.default
     private let configurationSaveService: ProfileConfigurationSaveService
+    private let snapshotService: SnapshotService
     private let configURL: URL
     private let legacyConfigURL: URL
     /// Tracks if config load succeeded to prevent clobbering on save.
@@ -81,6 +82,10 @@ class ProfileManager: ObservableObject {
             configDirectoryOverride: configDirectoryOverride
         )
         configurationSaveService = ProfileConfigurationSaveService(fileManager: fileManager)
+        snapshotService = SnapshotService(
+            snapshotsDirectory: configPaths.configDirectory.appendingPathComponent("snapshots", isDirectory: true),
+            fileManager: fileManager
+        )
         configURL = configPaths.configURL
         legacyConfigURL = configPaths.legacyConfigURL
         createDirectoryIfNeeded(at: configPaths.configDirectory)
@@ -209,6 +214,7 @@ class ProfileManager: ObservableObject {
         // Don't delete the last profile
         guard profiles.count > 1 else { return }
 
+        snapshotCurrentState(reason: "Before deleting '\(profile.name)'")
         profiles.removeAll { $0.id == profile.id }
         saveConfiguration()
 
@@ -401,6 +407,65 @@ class ProfileManager: ObservableObject {
         configurationSaveService.save(config, to: configURL)
     }
 
+    /// Current in-memory state encoded as `ProfileConfiguration`. Used by both
+    /// the save path and the snapshot path so they capture the same shape.
+    private func currentConfiguration() -> ProfileConfiguration {
+        ProfileConfiguration(
+            profiles: profiles,
+            activeProfileId: activeProfileId,
+            uiScale: uiScale
+        )
+    }
+
+    // MARK: - Snapshots (Memento)
+
+    /// Snapshots the current configuration with a human-readable reason. Called
+    /// before destructive operations so the user can roll back via the Settings UI.
+    /// Best-effort: failures are logged but don't block the caller.
+    private func snapshotCurrentState(reason: String) {
+        snapshotService.writeSnapshot(currentConfiguration(), reason: reason)
+    }
+
+    /// All available snapshots, newest first.
+    func availableSnapshots() -> [ProfileSnapshot] {
+        snapshotService.listSnapshots()
+    }
+
+    /// Restore profile state from a snapshot. Captures the pre-restore state as
+    /// its own snapshot first, so the restore itself is undoable.
+    /// Returns true on success; logs and returns false on failure.
+    @discardableResult
+    func restoreSnapshot(_ snapshot: ProfileSnapshot) -> Bool {
+        snapshotCurrentState(reason: "Before restoring snapshot from \(snapshot.timestamp.formatted(date: .abbreviated, time: .shortened))")
+
+        let restoredConfig: ProfileConfiguration
+        do {
+            restoredConfig = try snapshotService.loadConfiguration(from: snapshot)
+        } catch {
+            NSLog("[ProfileManager] ⚠️ Failed to load snapshot %@: %@", snapshot.id, error.localizedDescription)
+            return false
+        }
+
+        // Run snapshot through the same validation pipeline as a fresh load so
+        // invalid profiles are dropped and active-profile resolution stays consistent.
+        guard let applied = ProfileLoadedDataApplicator.apply(
+            loadedProfiles: restoredConfig.profiles,
+            activeProfileId: restoredConfig.activeProfileId
+        ) else {
+            NSLog("[ProfileManager] ⚠️ Snapshot %@ contained no valid profiles — restore aborted", snapshot.id)
+            return false
+        }
+
+        applyLoadedState(ProfileConfigurationApplyState(
+            profiles: applied.profiles,
+            activeProfile: applied.activeProfile,
+            activeProfileId: applied.activeProfileId,
+            uiScale: restoredConfig.uiScale ?? uiScale
+        ))
+        saveConfiguration()
+        return true
+    }
+
     // MARK: - Import/Export
 
     func exportProfile(_ profile: Profile, to url: URL) throws {
@@ -444,6 +509,7 @@ class ProfileManager: ObservableObject {
     }
 
     private func persistImportedProfile(_ profile: Profile) -> Profile {
+        snapshotCurrentState(reason: "Before importing '\(profile.name)'")
         profiles.append(profile)
         saveConfiguration()
         return profile

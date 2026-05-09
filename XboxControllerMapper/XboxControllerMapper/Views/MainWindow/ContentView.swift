@@ -122,6 +122,8 @@ struct ContentView: View {
                             .scrollContentBackground(.hidden)
                     case 8:
                         StatsView()
+                    case 13:
+                        HistoryView()
                     default:
                         EmptyView()
                     }
@@ -533,6 +535,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     case scripts = 10
     case gestures = 11
     case wheel = 12
+    case history = 13
 
     static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
 
@@ -549,7 +552,8 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         .leds,
         .microphone,
         .keyboard,
-        .stats
+        .stats,
+        .history
     ]
 
     var id: Int { rawValue }
@@ -569,12 +573,13 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .scripts: return "Scripts"
         case .gestures: return "Gestures"
         case .wheel: return "Wheel"
+        case .history: return "History"
         }
     }
 
     var isGlobal: Bool {
         switch self {
-        case .keyboard, .stats:
+        case .keyboard, .stats, .history:
             return true
         default:
             return false
