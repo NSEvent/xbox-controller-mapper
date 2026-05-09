@@ -144,29 +144,15 @@ extension MappingEngine {
             return
         }
 
-        switch settings.leftStickMode {
-        case .none:
-            break
-        case .mouse:
-            processMouseMovement(leftStick, settings: settings, now: now, hasMotion: controllerSnapshot.hasMotion)
-        case .scroll:
-            let leftMagnitudeSquared = leftStick.x * leftStick.x + leftStick.y * leftStick.y
-            let leftDeadzoneSquared = settings.mouseDeadzone * settings.mouseDeadzone
-            if leftMagnitudeSquared <= leftDeadzoneSquared {
-                state.smoothedLeftStick = .zero
-            } else {
-                state.smoothedLeftStick = smoothStick(leftStick, previous: state.smoothedLeftStick, dt: dt)
-            }
-            processScrolling(state.smoothedLeftStick, rawStick: leftStick, settings: settings, now: now)
-        case .wasdKeys, .arrowKeys:
-            processDirectionKeys(
-                stick: leftStick,
-                deadzone: settings.mouseDeadzone,
-                mode: settings.leftStickMode,
-                heldKeys: &state.leftStickHeldKeys,
-                invertY: settings.invertMouseY
-            )
-        }
+        let leftInput = JoystickStickInput(
+            stick: leftStick,
+            side: .left,
+            settings: settings,
+            dt: dt,
+            now: now,
+            hasMotion: controllerSnapshot.hasMotion
+        )
+        settings.leftStickMode.strategy.process(leftInput, on: self)
 
         let rightStick = controllerSnapshot.rightStick
 
@@ -176,31 +162,15 @@ extension MappingEngine {
         } else if state.commandWheelActive {
             updateCommandWheel(rightStick: rightStick)
         } else {
-            switch settings.rightStickMode {
-            case .none:
-                break
-            case .mouse:
-                processMouseMovement(rightStick, settings: settings, now: now, hasMotion: controllerSnapshot.hasMotion)
-            case .scroll:
-                updateScrollDoubleTapState(rawStick: rightStick, settings: settings, now: now)
-                let rightMagnitudeSquared = rightStick.x * rightStick.x + rightStick.y * rightStick.y
-                let rightDeadzoneSquared = settings.scrollDeadzone * settings.scrollDeadzone
-
-                if rightMagnitudeSquared <= rightDeadzoneSquared {
-                    state.smoothedRightStick = .zero
-                } else {
-                    state.smoothedRightStick = smoothStick(rightStick, previous: state.smoothedRightStick, dt: dt)
-                }
-                processScrolling(state.smoothedRightStick, rawStick: rightStick, settings: settings, now: now)
-            case .wasdKeys, .arrowKeys:
-                processDirectionKeys(
-                    stick: rightStick,
-                    deadzone: settings.scrollDeadzone,
-                    mode: settings.rightStickMode,
-                    heldKeys: &state.rightStickHeldKeys,
-                    invertY: settings.invertScrollY
-                )
-            }
+            let rightInput = JoystickStickInput(
+                stick: rightStick,
+                side: .right,
+                settings: settings,
+                dt: dt,
+                now: now,
+                hasMotion: controllerSnapshot.hasMotion
+            )
+            settings.rightStickMode.strategy.process(rightInput, on: self)
         }
     }
 
