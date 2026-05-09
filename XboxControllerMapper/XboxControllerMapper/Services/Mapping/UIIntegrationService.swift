@@ -40,7 +40,9 @@ extension MappingEngine {
                 }
                 if !apps.isEmpty || !websites.isEmpty {
                     CommandWheelManager.shared.prepare(apps: apps, websites: websites, showWebsitesFirst: showWebsitesFirst)
-                    CommandWheelManager.shared.show()
+                    // Defer show() — the wheel auto-shows via updateSelection() once
+                    // the right stick moves past the deadzone. The on-screen keyboard
+                    // is the primary UI here; the wheel is opt-in by stick movement.
                     CommandWheelManager.shared.onSegmentChanged = { [weak self] in
                         self?.controllerService.playHaptic(
                             intensity: Config.wheelSegmentHapticIntensity,
