@@ -4,6 +4,13 @@ import CoreGraphics
 extension MappingEngine {
     /// Thread-safe state container used by `MappingEngine` from polling callbacks.
     final class EngineState: @unchecked Sendable {
+        /// Explicit nonisolated deinit prevents Swift 6 from inferring a
+        /// MainActor-isolated deinit from the enclosing `@MainActor`
+        /// MappingEngine. Without this, the cross-executor deinit hop double-
+        /// freed inside SequenceDetector's deallocation (libmalloc abort), which
+        /// silently broke every test that constructed an EngineState.
+        nonisolated deinit { }
+
         let lock = NSLock()
         var isEnabled = true
         var isLocked = false

@@ -9,6 +9,14 @@ final class SequenceDetector: GestureDetecting {
     typealias Input = ControllerButton
     typealias Result = SequenceMapping
 
+    /// Explicit nonisolated deinit prevents Swift 6 from inferring MainActor
+    /// isolation. SequenceDetector is held as a stored property of
+    /// `EngineState`, which is nested inside `@MainActor MappingEngine`; the
+    /// inferred isolated-deinit hop double-frees in libmalloc when the parent
+    /// is torn down off the main thread (e.g., in test bodies). See
+    /// `EngineState.deinit` for the parallel fix.
+    nonisolated deinit { }
+
     /// Tracks progress through a single sequence mapping.
     struct SequenceProgress {
         let sequenceId: UUID
