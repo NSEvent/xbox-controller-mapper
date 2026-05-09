@@ -168,6 +168,7 @@ JoystickSettings (CUSTOM decoder - see JoystickSettings.swift)
 ├── touchpadPanSensitivity: Double               decodeIfPresent ?? 0.5
 ├── touchpadZoomToPanRatio: Double               decodeIfPresent ?? 1.8
 ├── touchpadUseNativeZoom: Bool                  decodeIfPresent ?? true
+├── disableTouchpadAsMouse: Bool                 decodeIfPresent ?? false
 ├── scrollAcceleration: Double                   decodeIfPresent ?? 0.5
 ├── scrollBoostMultiplier: Double                decodeIfPresent ?? 2.0
 ├── focusModeSensitivity: Double                 decodeIfPresent ?? 0.1

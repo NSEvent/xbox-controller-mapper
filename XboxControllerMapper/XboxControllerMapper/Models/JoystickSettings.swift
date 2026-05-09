@@ -75,6 +75,11 @@ struct JoystickSettings: Codable, Equatable {
     /// Whether to use native magnify gestures (true) or Cmd+Plus/Minus (false) for zoom
     var touchpadUseNativeZoom: Bool = true
 
+    /// When true, single-finger touchpad movement no longer drives the system cursor.
+    /// Two-finger gestures, taps, region clicks, and swipe typing are unaffected.
+    /// Applies to DualSense, DualSense Edge, and DualShock 4 (same touchpad pipeline).
+    var disableTouchpadAsMouse: Bool = false
+
     /// Acceleration curve for scrolling (0.0 = linear, 1.0 = max acceleration)
     var scrollAcceleration: Double = 0.5
 
@@ -249,6 +254,7 @@ extension JoystickSettings {
         case touchpadPanSensitivity
         case touchpadZoomToPanRatio
         case touchpadUseNativeZoom
+        case disableTouchpadAsMouse
         case scrollAcceleration
         case scrollBoostMultiplier
         case focusModeSensitivity
@@ -326,6 +332,7 @@ extension JoystickSettings {
             fallback: 1.95
         )
         touchpadUseNativeZoom = try container.decodeIfPresent(Bool.self, forKey: .touchpadUseNativeZoom) ?? true
+        disableTouchpadAsMouse = try container.decodeIfPresent(Bool.self, forKey: .disableTouchpadAsMouse) ?? false
         scrollAcceleration = Self.clamp(
             try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration) ?? 0.5,
             to: 0.0...1.0,
@@ -384,6 +391,7 @@ extension JoystickSettings {
         try container.encode(touchpadPanSensitivity, forKey: .touchpadPanSensitivity)
         try container.encode(touchpadZoomToPanRatio, forKey: .touchpadZoomToPanRatio)
         try container.encode(touchpadUseNativeZoom, forKey: .touchpadUseNativeZoom)
+        try container.encode(disableTouchpadAsMouse, forKey: .disableTouchpadAsMouse)
         try container.encode(scrollAcceleration, forKey: .scrollAcceleration)
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
         try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)

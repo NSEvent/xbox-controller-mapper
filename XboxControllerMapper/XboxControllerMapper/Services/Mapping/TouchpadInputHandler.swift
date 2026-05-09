@@ -64,6 +64,8 @@ extension MappingEngine {
             state.lastTouchpadSampleTime = now
         }
 
+        if settings.disableTouchpadAsMouse { return }
+
         let magnitude = Double(hypot(smoothedDelta.x, smoothedDelta.y))
         guard magnitude > settings.touchpadDeadzone else { return }
 
