@@ -131,29 +131,11 @@ extension ControllerService {
 
     /// Parse Nintendo Pro Controller HID input reports for the Home button.
     nonisolated func handleNintendoHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
-        // The report buffer includes the report ID as byte 0.
-        // Both report formats have Home at bit 4 (0x10) of the "buttons2" byte.
-        //
-        // Standard full report (0x30): buffer layout is
-        //   [0]=0x30 [1]=timer [2]=battery [3]=buttons1 [4]=buttons2 [5]=buttons3 ...
-        //   buttons2Offset = 4
-        //
-        // Simple report (0x3F): buffer layout is
-        //   [0]=0x3F [1]=buttons_lo [2]=buttons_hi [3]=hat+pad ...
-        //   buttons2Offset = 2  (Home=0x10 in buttons_hi)
-        let buttons2Offset: Int
-        if reportID == 0x30 && length >= 5 {
-            buttons2Offset = 4  // Standard full report
-        } else if reportID == 0x3F && length >= 3 {
-            buttons2Offset = 2  // Simple report
-        } else {
-            return
-        }
-
-        guard buttons2Offset < length else { return }
-
-        let buttons2 = report[buttons2Offset]
-        let homePressed = (buttons2 & 0x10) != 0
+        guard let parsed = NintendoHIDParser().parse(
+            reportID: reportID,
+            report: UnsafePointer(report),
+            length: length
+        ), let homePressed = parsed.nintendoHome else { return }
 
         storage.lock.lock()
         let homeChanged = homePressed != storage.lastNintendoHomeState

@@ -153,163 +153,87 @@ extension ControllerService {
     }
 
     nonisolated func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
-        // Determine button byte offset based on controller type and report ID
-        //
-        // DualSense USB  (0x01): buttons3 at byte 10
-        // DualSense BT   (0x31): buttons3 at byte 11 (extra header byte)
-        // DualShock 4 USB (0x01): buttons3 at byte 7
-        // DualShock 4 BT  (0x11): buttons3 at byte 9 (2 extra header bytes)
-        //
-        // All share the same bit layout for buttons3:
-        //   Bit 0: PS button, Bit 1: Touchpad button, Bit 2: Mic mute (DualSense only)
-
         storage.lock.lock()
         let isDualShockController = storage.isDualShock
         storage.lastInputTime = CFAbsoluteTimeGetCurrent()
         storage.lock.unlock()
 
-        let buttons3Offset: Int
+        // DS4 reports also carry gyroscope data — parse motion before delegating
+        // button/battery extraction to the report parser. Motion has its own
+        // stateful pipeline (gyro-bias calibration) so it stays handler-side.
         if isDualShockController {
-            // DualShock 4 reports
             if reportID == 0x11 && length >= 10 {
-                buttons3Offset = 9   // Bluetooth extended report
                 parseDualShock4Motion(report: report, length: length, isBluetooth: true)
             } else if reportID == 0x01 && length >= 8 {
-                buttons3Offset = 7   // USB report
                 parseDualShock4Motion(report: report, length: length, isBluetooth: false)
-            } else {
-                return
-            }
-        } else {
-            // DualSense reports
-            if reportID == 0x31 && length >= 12 {
-                buttons3Offset = 11  // Bluetooth
-            } else if reportID == 0x01 && length >= 11 {
-                buttons3Offset = 10  // USB
-            } else {
-                return
             }
         }
 
-        // Defense-in-depth: verify offset is within report bounds
-        guard buttons3Offset < length else { return }
+        let parser: HIDReportParser = isDualShockController ? DualShockHIDParser() : DualSenseHIDParser()
+        guard let parsed = parser.parse(reportID: reportID, report: UnsafePointer(report), length: length) else { return }
 
-        // buttons3 contains PS/Touch/Mute and Edge paddles
-        // Bit 0: PS button, Bit 1: Touchpad button, Bit 2: Mic mute
-        // DualSense Edge additional buttons (bits 4-7):
-        // Bit 4: Left function (0x10), Bit 5: Right function (0x20)
-        // Bit 6: Left paddle (0x40), Bit 7: Right paddle (0x80)
-        let buttons3 = report[buttons3Offset]
-        let psPressed = (buttons3 & 0x01) != 0
-        let micPressed = isDualShockController ? false : (buttons3 & 0x04) != 0
+        applyParsedHIDReport(parsed)
+    }
 
-        // DualSense Edge buttons (not applicable to DualShock)
-        let leftFnPressed = (buttons3 & 0x10) != 0
-        let rightFnPressed = (buttons3 & 0x20) != 0
-        let leftPaddlePressed = (buttons3 & 0x40) != 0
-        let rightPaddlePressed = (buttons3 & 0x80) != 0
-
-        // Detect state changes (thread-safe)
+    /// Diff parsed HID button state against `storage.last*`, write back the
+    /// new values, and dispatch state-change events. Battery transitions
+    /// trigger a main-thread `updateBatteryInfo()`.
+    nonisolated private func applyParsedHIDReport(_ parsed: HIDReportParseResult) {
         storage.lock.lock()
-        let psChanged = psPressed != storage.lastPSButtonState
-        let micChanged = micPressed != storage.lastMicButtonState
         let isEdge = storage.isDualSenseEdge
 
-        // Edge button state changes
-        let leftFnChanged = leftFnPressed != storage.lastLeftFunctionState
-        let rightFnChanged = rightFnPressed != storage.lastRightFunctionState
-        let leftPaddleChanged = leftPaddlePressed != storage.lastLeftPaddleState
-        let rightPaddleChanged = rightPaddlePressed != storage.lastRightPaddleState
+        let psChanged = parsed.ps.map { $0 != storage.lastPSButtonState } ?? false
+        let micChanged = parsed.mic.map { $0 != storage.lastMicButtonState } ?? false
+        let leftFnChanged = parsed.edgeLeftFunction.map { $0 != storage.lastLeftFunctionState } ?? false
+        let rightFnChanged = parsed.edgeRightFunction.map { $0 != storage.lastRightFunctionState } ?? false
+        let leftPaddleChanged = parsed.edgeLeftPaddle.map { $0 != storage.lastLeftPaddleState } ?? false
+        let rightPaddleChanged = parsed.edgeRightPaddle.map { $0 != storage.lastRightPaddleState } ?? false
 
-        if psChanged {
-            storage.lastPSButtonState = psPressed
-        }
-        if micChanged {
-            storage.lastMicButtonState = micPressed
-        }
-        if leftFnChanged {
-            storage.lastLeftFunctionState = leftFnPressed
-        }
-        if rightFnChanged {
-            storage.lastRightFunctionState = rightFnPressed
-        }
-        if leftPaddleChanged {
-            storage.lastLeftPaddleState = leftPaddlePressed
-        }
-        if rightPaddleChanged {
-            storage.lastRightPaddleState = rightPaddlePressed
+        if let ps = parsed.ps, psChanged { storage.lastPSButtonState = ps }
+        if let mic = parsed.mic, micChanged { storage.lastMicButtonState = mic }
+        if let lf = parsed.edgeLeftFunction, leftFnChanged { storage.lastLeftFunctionState = lf }
+        if let rf = parsed.edgeRightFunction, rightFnChanged { storage.lastRightFunctionState = rf }
+        if let lp = parsed.edgeLeftPaddle, leftPaddleChanged { storage.lastLeftPaddleState = lp }
+        if let rp = parsed.edgeRightPaddle, rightPaddleChanged { storage.lastRightPaddleState = rp }
+
+        let previousCharging = storage.lastHIDBatteryCharging
+        if let charging = parsed.batteryCharging {
+            storage.lastHIDBatteryCharging = charging
         }
         storage.lock.unlock()
 
-        if psChanged {
+        if let ps = parsed.ps, psChanged {
             controllerQueue.async { [weak self] in
-                self?.handleButton(.xbox, pressed: psPressed)
+                self?.handleButton(.xbox, pressed: ps)
             }
         }
-        if micChanged {
+        if let mic = parsed.mic, micChanged {
             controllerQueue.async { [weak self] in
-                self?.handleButton(.micMute, pressed: micPressed)
+                self?.handleButton(.micMute, pressed: mic)
             }
         }
 
-        // Only process Edge buttons if this is actually an Edge controller
+        // Edge buttons fire only on Edge controllers (the parser still extracts
+        // the bits on non-Edge DualSense, but suppressing here matches the
+        // original behavior bit-for-bit).
         if isEdge {
-            if leftFnChanged {
-                controllerQueue.async { [weak self] in
-                    self?.handleButton(.leftFunction, pressed: leftFnPressed)
-                }
+            if let lf = parsed.edgeLeftFunction, leftFnChanged {
+                controllerQueue.async { [weak self] in self?.handleButton(.leftFunction, pressed: lf) }
             }
-            if rightFnChanged {
-                controllerQueue.async { [weak self] in
-                    self?.handleButton(.rightFunction, pressed: rightFnPressed)
-                }
+            if let rf = parsed.edgeRightFunction, rightFnChanged {
+                controllerQueue.async { [weak self] in self?.handleButton(.rightFunction, pressed: rf) }
             }
-            if leftPaddleChanged {
-                controllerQueue.async { [weak self] in
-                    self?.handleButton(.leftPaddle, pressed: leftPaddlePressed)
-                }
+            if let lp = parsed.edgeLeftPaddle, leftPaddleChanged {
+                controllerQueue.async { [weak self] in self?.handleButton(.leftPaddle, pressed: lp) }
             }
-            if rightPaddleChanged {
-                controllerQueue.async { [weak self] in
-                    self?.handleButton(.rightPaddle, pressed: rightPaddlePressed)
-                }
+            if let rp = parsed.edgeRightPaddle, rightPaddleChanged {
+                controllerQueue.async { [weak self] in self?.handleButton(.rightPaddle, pressed: rp) }
             }
         }
 
-        // Parse battery charging state from HID report to detect plug/unplug instantly.
-        // Status byte layout: bits 3:0 = capacity (0-10), bits 7:4 = power state
-        // Power state: 0x0 = discharging, 0x1 = charging, 0x2 = complete
-        let batteryStatusOffset: Int
-        if isDualShockController {
-            // DS4: status at common offset 29. USB +1, BT +3
-            batteryStatusOffset = (reportID == 0x11) ? 32 : 30
-        } else {
-            // DualSense: status at common offset 52. USB +1, BT +2
-            batteryStatusOffset = (reportID == 0x31) ? 54 : 53
-        }
-
-        if batteryStatusOffset < length {
-            let statusByte = report[batteryStatusOffset]
-            let isCharging: Bool
-            if isDualShockController {
-                // DS4: bit 4 = cable state (1 = plugged in / charging)
-                isCharging = (statusByte & 0x10) != 0
-            } else {
-                // DualSense: bits 7:4 = power state (0x1 = charging, 0x2 = complete)
-                let powerState = (statusByte >> 4) & 0x0F
-                isCharging = (powerState == 0x01)
-            }
-
-            storage.lock.lock()
-            let previousCharging = storage.lastHIDBatteryCharging
-            storage.lastHIDBatteryCharging = isCharging
-            storage.lock.unlock()
-
-            // On charging state change, immediately update battery light bar
-            if previousCharging != nil && previousCharging != isCharging {
-                DispatchQueue.main.async { [weak self] in
-                    self?.updateBatteryInfo()
-                }
+        if let charging = parsed.batteryCharging, previousCharging != nil, previousCharging != charging {
+            DispatchQueue.main.async { [weak self] in
+                self?.updateBatteryInfo()
             }
         }
     }
