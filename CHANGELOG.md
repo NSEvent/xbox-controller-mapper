@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.11] - 2026-05-08
+
+### Added
+
+- **Disable Touchpad as Mouse**: New per-profile toggle in Touchpad settings stops single-finger swipes from driving the system cursor. Two-finger gestures, taps, region clicks, and swipe typing keep working. Applies to DualSense, DualSense Edge, and DualShock 4 — all three share the same touchpad pipeline.
+
+### Fixed
+
+- **Command wheel showing immediately when on-screen keyboard held**: Holding the OSK button revealed the command wheel right away. Now the wheel stays hidden until the right stick crosses the deadzone, so the keyboard is visible alone unless the user opts in by moving the stick. The standalone command wheel trigger still shows the wheel immediately on press.
+
 ## [1.7.10] - 2026-05-08
 
 ### Added
