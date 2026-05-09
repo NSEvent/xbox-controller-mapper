@@ -126,7 +126,12 @@ final class HIDReportParserTests: XCTestCase {
     }
 
     func testNintendo_SimpleReport_homeFromOffset2Bit4() {
-        let bytes = makeReport(length: 4) { p in
+        // Length 5 (not 4) so byte index 4 exists — the trap value at offset 4
+        // makes the test catch a regression where the parser confuses the
+        // simple-report offset (2) with the standard-report offset (4). With
+        // length: 4 the parser's `buttons2Offset < length` guard would mask
+        // such a bug AND writing `p[4]` would be out of bounds.
+        let bytes = makeReport(length: 5) { p in
             p[4] = 0x10  // would be Home if simple report mistakenly used standard offset
             p[2] = 0x00
         }

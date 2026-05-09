@@ -436,8 +436,11 @@ class ProfileManager: ObservableObject {
     /// Returns true on success; logs and returns false on failure.
     @discardableResult
     func restoreSnapshot(_ snapshot: ProfileSnapshot) -> Bool {
-        snapshotCurrentState(reason: "Before restoring snapshot from \(snapshot.timestamp.formatted(date: .abbreviated, time: .shortened))")
-
+        // Load the target snapshot file BEFORE writing the pre-restore
+        // checkpoint. The checkpoint write triggers retention-cap pruning, and
+        // if `snapshot` is the oldest retained file, that pruning would delete
+        // the very file we're about to read. Loading first means the data is
+        // safely in memory before any pruning runs.
         let restoredConfig: ProfileConfiguration
         do {
             restoredConfig = try snapshotService.loadConfiguration(from: snapshot)
@@ -445,6 +448,8 @@ class ProfileManager: ObservableObject {
             NSLog("[ProfileManager] ⚠️ Failed to load snapshot %@: %@", snapshot.id, error.localizedDescription)
             return false
         }
+
+        snapshotCurrentState(reason: "Before restoring snapshot from \(snapshot.timestamp.formatted(date: .abbreviated, time: .shortened))")
 
         // Run snapshot through the same validation pipeline as a fresh load so
         // invalid profiles are dropped and active-profile resolution stays consistent.

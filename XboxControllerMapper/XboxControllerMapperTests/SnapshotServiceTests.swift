@@ -88,6 +88,34 @@ final class SnapshotServiceTests: XCTestCase {
         XCTAssertEqual(reasons, ["snap 4", "snap 3", "snap 2"])
     }
 
+    func testWritingNewSnapshotAtCapPrunesOldestImmediately() throws {
+        // Documents the constraint that callers (notably ProfileManager.restoreSnapshot)
+        // must load a target snapshot BEFORE writing a new one if they want to
+        // guarantee the target remains on disk. A previous version of restore
+        // wrote the pre-restore checkpoint first, which evicted the target
+        // when the target was the oldest at the cap boundary.
+        let service = SnapshotService(
+            snapshotsDirectory: snapshotsDirectory,
+            fileManager: fileManager,
+            maxSnapshots: 3
+        )
+        let config = makeConfiguration(profileName: "P")
+        let oldest = try XCTUnwrap(
+            service.writeSnapshot(config, reason: "oldest", now: Date(timeIntervalSince1970: 1))
+        )
+        _ = service.writeSnapshot(config, reason: "mid", now: Date(timeIntervalSince1970: 2))
+        _ = service.writeSnapshot(config, reason: "newer", now: Date(timeIntervalSince1970: 3))
+
+        // At the cap, oldest is still loadable.
+        XCTAssertNoThrow(try service.loadConfiguration(from: oldest))
+
+        // Writing a 4th at the cap evicts the oldest.
+        _ = service.writeSnapshot(config, reason: "fourth", now: Date(timeIntervalSince1970: 4))
+
+        XCTAssertThrowsError(try service.loadConfiguration(from: oldest),
+                             "Oldest file should be gone after a write past the cap — load now fails")
+    }
+
     func testListIgnoresUnrelatedAndUnreadableFiles() throws {
         let service = SnapshotService(snapshotsDirectory: snapshotsDirectory, fileManager: fileManager)
         let config = makeConfiguration(profileName: "P")
