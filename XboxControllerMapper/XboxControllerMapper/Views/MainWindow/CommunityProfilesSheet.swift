@@ -20,6 +20,10 @@ struct CommunityProfilesSheet: View {
     @State private var isLoadingPreview = false
     @State private var previewCache: [String: Profile] = [:]
 
+    // Setup guide state (sidecar markdown)
+    @State private var previewedSetupGuide: String?
+    @State private var setupGuideCache: [String: String?] = [:]
+
     // Count of new profiles to import (excludes already imported)
     private var newProfilesToImportCount: Int {
         selectedProfiles.subtracting(alreadyImportedProfiles).count
@@ -110,6 +114,7 @@ struct CommunityProfilesSheet: View {
                     CommunityProfilePreview(
                         profile: previewedProfile,
                         profileName: availableProfiles.first { $0.id == previewingProfileId }?.displayName,
+                        setupGuide: previewedSetupGuide,
                         isLoading: isLoadingPreview
                     )
                     .frame(maxWidth: .infinity)
@@ -192,7 +197,16 @@ struct CommunityProfilesSheet: View {
     private func loadPreview(for profileInfo: CommunityProfileInfo) {
         previewingProfileId = profileInfo.id
 
-        // Check cache first
+        // Setup guide: outer optional == "have we tried fetching", inner == "did one exist".
+        // `if let` unwraps the outer only, so a cached "no guide" is honored without a refetch.
+        if let cachedGuide = setupGuideCache[profileInfo.id] {
+            previewedSetupGuide = cachedGuide
+        } else {
+            previewedSetupGuide = nil
+            loadSetupGuide(for: profileInfo)
+        }
+
+        // Check profile cache
         if let cached = previewCache[profileInfo.id] {
             previewedProfile = cached
             return
@@ -215,6 +229,18 @@ struct CommunityProfilesSheet: View {
             } catch {
                 await MainActor.run {
                     isLoadingPreview = false
+                }
+            }
+        }
+    }
+
+    private func loadSetupGuide(for profileInfo: CommunityProfileInfo) {
+        Task {
+            let guide = try? await profileManager.fetchSetupGuideForPreview(profileURL: profileInfo.downloadURL)
+            await MainActor.run {
+                setupGuideCache[profileInfo.id] = guide
+                if previewingProfileId == profileInfo.id {
+                    previewedSetupGuide = guide
                 }
             }
         }
@@ -329,6 +355,7 @@ struct CommunityProfileRow: View {
 struct CommunityProfilePreview: View {
     let profile: Profile?
     let profileName: String?
+    let setupGuide: String?
     let isLoading: Bool
 
     var body: some View {
@@ -360,6 +387,15 @@ struct CommunityProfilePreview: View {
                 // Mappings list
                 ScrollView {
                     VStack(spacing: 6) {
+                        // Setup guide (if a sidecar markdown exists for this profile)
+                        if let guide = setupGuide {
+                            SetupGuideSection(markdown: guide)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 12)
+                            Divider()
+                                .padding(.bottom, 8)
+                        }
+
                         // Button mappings
                         ForEach(ControllerButton.allCases.filter { profile.buttonMappings[$0] != nil }, id: \.self) { button in
                             if let mapping = profile.buttonMappings[button], !mapping.isEmpty {
@@ -414,6 +450,255 @@ struct CommunityProfilePreview: View {
             }
         }
         .background(Color.black.opacity(0.15))
+    }
+}
+
+// MARK: - Setup Guide Section
+
+struct SetupGuideSection: View {
+    let markdown: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "book.fill")
+                    .font(.system(size: 11))
+                Text("SETUP GUIDE")
+                    .font(.system(size: 10, weight: .bold))
+                Spacer()
+            }
+            .foregroundColor(.accentColor)
+            .padding(.bottom, 4)
+
+            ForEach(SetupGuideMarkdown.parse(markdown)) { block in
+                blockView(block)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func blockView(_ block: SetupGuideMarkdown.Block) -> some View {
+        switch block.kind {
+        case .heading(let level):
+            Text(block.text)
+                .font(.system(size: headingSize(level), weight: .semibold))
+                .padding(.top, level <= 2 ? 8 : 4)
+                .padding(.bottom, 2)
+        case .codeBlock:
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(block.text)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(8)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.gray.opacity(0.18))
+            .cornerRadius(4)
+        case .table(let rows):
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                            inlineMarkdown(cell)
+                                .font(.system(size: 11, weight: idx == 0 ? .semibold : .regular))
+                                .foregroundColor(idx == 0 ? .secondary : .primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    if idx == 0 {
+                        Divider()
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        case .list(let items, let ordered):
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(Array(items.enumerated()), id: \.offset) { idx, item in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(ordered ? "\(idx + 1)." : "•")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                        inlineMarkdown(item)
+                            .font(.system(size: 12))
+                    }
+                }
+            }
+        case .blockquote:
+            HStack(spacing: 8) {
+                Rectangle()
+                    .fill(Color.accentColor.opacity(0.4))
+                    .frame(width: 3)
+                inlineMarkdown(block.text)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+        case .rule:
+            Divider().padding(.vertical, 4)
+        case .paragraph:
+            inlineMarkdown(block.text)
+                .font(.system(size: 12))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func inlineMarkdown(_ text: String) -> Text {
+        if let attr = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+            return Text(attr)
+        }
+        return Text(text)
+    }
+
+    private func headingSize(_ level: Int) -> CGFloat {
+        switch level {
+        case 1: return 16
+        case 2: return 14
+        default: return 12.5
+        }
+    }
+}
+
+enum SetupGuideMarkdown {
+    struct Block: Identifiable {
+        let id = UUID()
+        enum Kind {
+            case heading(Int)
+            case paragraph
+            case codeBlock
+            case table([[String]])
+            case list([String], ordered: Bool)
+            case blockquote
+            case rule
+        }
+        let kind: Kind
+        let text: String
+    }
+
+    static func parse(_ md: String) -> [Block] {
+        var blocks: [Block] = []
+        let lines = md.components(separatedBy: "\n")
+        var i = 0
+
+        func isOrderedListLine(_ s: String) -> Bool {
+            guard let dot = s.firstIndex(of: ".") else { return false }
+            let prefix = s[..<dot]
+            return !prefix.isEmpty && prefix.allSatisfy(\.isNumber) && s.distance(from: s.startIndex, to: dot) <= 3 && s.index(after: dot) < s.endIndex && s[s.index(after: dot)] == " "
+        }
+        func orderedListContent(_ s: String) -> String {
+            guard let dot = s.firstIndex(of: ".") else { return s }
+            return String(s[s.index(dot, offsetBy: 2)...])
+        }
+
+        while i < lines.count {
+            let line = lines[i]
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            if trimmed.isEmpty { i += 1; continue }
+
+            // Horizontal rule
+            if trimmed == "---" || trimmed == "***" {
+                blocks.append(Block(kind: .rule, text: ""))
+                i += 1
+                continue
+            }
+
+            // Headings
+            if line.hasPrefix("# ") {
+                blocks.append(Block(kind: .heading(1), text: String(line.dropFirst(2))))
+                i += 1; continue
+            }
+            if line.hasPrefix("## ") {
+                blocks.append(Block(kind: .heading(2), text: String(line.dropFirst(3))))
+                i += 1; continue
+            }
+            if line.hasPrefix("### ") {
+                blocks.append(Block(kind: .heading(3), text: String(line.dropFirst(4))))
+                i += 1; continue
+            }
+
+            // Code fence
+            if line.hasPrefix("```") {
+                var code = ""
+                i += 1
+                while i < lines.count && !lines[i].hasPrefix("```") {
+                    code += lines[i] + "\n"
+                    i += 1
+                }
+                if i < lines.count { i += 1 }
+                blocks.append(Block(kind: .codeBlock, text: code.trimmingCharacters(in: CharacterSet.newlines)))
+                continue
+            }
+
+            // Table (GFM): row starts with |, includes a separator row of dashes
+            if line.hasPrefix("|") {
+                var rows: [[String]] = []
+                while i < lines.count && lines[i].hasPrefix("|") {
+                    let row = lines[i]
+                        .split(separator: "|", omittingEmptySubsequences: false)
+                        .map { $0.trimmingCharacters(in: .whitespaces) }
+                    let trimmedRow = Array(row.dropFirst().dropLast())
+                    let isSeparator = !trimmedRow.isEmpty && trimmedRow.allSatisfy { cell in
+                        cell.allSatisfy { c in c == "-" || c == ":" }
+                    }
+                    if !isSeparator {
+                        rows.append(trimmedRow)
+                    }
+                    i += 1
+                }
+                blocks.append(Block(kind: .table(rows), text: ""))
+                continue
+            }
+
+            // Blockquote
+            if line.hasPrefix("> ") {
+                var quote = String(line.dropFirst(2))
+                i += 1
+                while i < lines.count && lines[i].hasPrefix("> ") {
+                    quote += " " + String(lines[i].dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                    i += 1
+                }
+                blocks.append(Block(kind: .blockquote, text: quote))
+                continue
+            }
+
+            // Bullet list
+            if line.hasPrefix("- ") || line.hasPrefix("* ") {
+                var items: [String] = []
+                while i < lines.count && (lines[i].hasPrefix("- ") || lines[i].hasPrefix("* ")) {
+                    items.append(String(lines[i].dropFirst(2)))
+                    i += 1
+                }
+                blocks.append(Block(kind: .list(items, ordered: false), text: ""))
+                continue
+            }
+
+            // Ordered list
+            if isOrderedListLine(line) {
+                var items: [String] = []
+                while i < lines.count && isOrderedListLine(lines[i]) {
+                    items.append(orderedListContent(lines[i]))
+                    i += 1
+                }
+                blocks.append(Block(kind: .list(items, ordered: true), text: ""))
+                continue
+            }
+
+            // Paragraph: gather until blank/special line
+            var para = line
+            i += 1
+            while i < lines.count {
+                let next = lines[i]
+                let nextTrim = next.trimmingCharacters(in: .whitespaces)
+                if nextTrim.isEmpty || next.hasPrefix("#") || next.hasPrefix("```") || next.hasPrefix("|")
+                    || next.hasPrefix("- ") || next.hasPrefix("* ") || next.hasPrefix("> ")
+                    || nextTrim == "---" || isOrderedListLine(next) {
+                    break
+                }
+                para += " " + nextTrim
+                i += 1
+            }
+            blocks.append(Block(kind: .paragraph, text: para))
+        }
+        return blocks
     }
 }
 

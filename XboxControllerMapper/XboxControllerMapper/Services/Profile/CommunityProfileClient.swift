@@ -27,6 +27,31 @@ enum CommunityProfileClient {
         }
     }
 
+    /// Fetches the setup guide markdown sidecar (same path as the profile, with `.md` instead of `.json`).
+    /// Returns nil if no sidecar exists (404). Throws only on network errors.
+    static func fetchSetupGuide(forProfileURL profileURLString: String, session: URLSession = .shared) async throws -> String? {
+        guard profileURLString.hasSuffix(".json") else { return nil }
+        let mdURLString = String(profileURLString.dropLast(".json".count)) + ".md"
+
+        guard let url = URL(string: mdURLString) else { return nil }
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await session.data(from: url)
+        } catch {
+            throw CommunityProfileError.networkError(error)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw CommunityProfileError.invalidResponse
+        }
+        if httpResponse.statusCode == 404 { return nil }
+        guard httpResponse.statusCode == 200 else {
+            throw CommunityProfileError.invalidResponse
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
     private static func fetchData(from urlString: String, session: URLSession) async throws -> Data {
         guard let url = URL(string: urlString) else {
             throw CommunityProfileError.invalidURL

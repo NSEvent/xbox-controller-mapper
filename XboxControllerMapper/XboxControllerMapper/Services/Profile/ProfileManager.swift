@@ -489,6 +489,11 @@ class ProfileManager: ObservableObject {
         try await CommunityProfileClient.fetchProfile(from: urlString)
     }
 
+    /// Fetches the setup guide markdown sidecar for a profile, if one exists.
+    nonisolated func fetchSetupGuideForPreview(profileURL urlString: String) async throws -> String? {
+        try await CommunityProfileClient.fetchSetupGuide(forProfileURL: urlString)
+    }
+
     /// Imports a profile that was previously fetched (e.g., from preview cache)
     func importFetchedProfile(_ profile: Profile) -> Profile {
         persistImportedProfile(ProfileTransferService.prepareForImport(profile))
