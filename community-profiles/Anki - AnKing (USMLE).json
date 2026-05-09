@@ -1,0 +1,705 @@
+{
+  "id" : "4CEBE02D-49D7-4FDB-A59D-88DA43778E1B",
+  "name" : "Anki - AnKing (USMLE)",
+  "icon" : "stethoscope",
+  "isDefault" : false,
+  "linkedApps" : [
+    "net.ankiweb.launcher"
+  ],
+  "createdAt" : "2026-05-09T20:47:46Z",
+  "modifiedAt" : "2026-05-09T20:47:46Z",
+  "buttonMappings" : {
+    "leftThumbstick" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "control" : false,
+        "command" : false,
+        "shift" : false,
+        "option" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 2,
+      "holdRepeatInterval" : 0.033,
+      "hint" : "Custom (Anki addon)"
+    },
+    "leftBumper" : {
+      "holdRepeatInterval" : 0.033,
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "option" : false,
+        "control" : false,
+        "shift" : true,
+        "command" : false
+      },
+      "isHoldModifier" : true,
+      "hint" : "Hold Shift"
+    },
+    "dpadUp" : {
+      "holdRepeatEnabled" : false,
+      "holdRepeatInterval" : 0.033,
+      "modifiers" : {
+        "option" : false,
+        "control" : false,
+        "shift" : false,
+        "command" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 45,
+      "hint" : "Custom (Anki addon)"
+    },
+    "leftTrigger" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "command" : false,
+        "shift" : false,
+        "control" : false,
+        "option" : false
+      },
+      "isHoldModifier" : true,
+      "keyCode" : 61440,
+      "holdRepeatInterval" : 0.033
+    },
+    "dpadRight" : {
+      "modifiers" : {
+        "control" : false,
+        "command" : true,
+        "option" : false,
+        "shift" : false
+      },
+      "holdRepeatEnabled" : false,
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033,
+      "keyCode" : 6,
+      "hint" : "Undo"
+    },
+    "menu" : {
+      "modifiers" : {
+        "control" : false,
+        "command" : true,
+        "shift" : false,
+        "option" : false
+      },
+      "holdRepeatEnabled" : false,
+      "isHoldModifier" : true,
+      "holdRepeatInterval" : 0.033,
+      "hint" : "Hold Cmd"
+    },
+    "b" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "command" : false,
+        "shift" : false,
+        "control" : false,
+        "option" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 19,
+      "holdRepeatInterval" : 0.033,
+      "hint" : "Hard"
+    },
+    "touchpadTwoFingerTap" : {
+      "holdRepeatInterval" : 0.033,
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "option" : false,
+        "command" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "xbox" : {
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033,
+      "holdRepeatEnabled" : false,
+      "keyCode" : 14,
+      "modifiers" : {
+        "command" : false,
+        "control" : false,
+        "option" : false,
+        "shift" : false
+      },
+      "hint" : "Edit Card"
+    },
+    "touchpadRegionBottomRightClick" : {
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033,
+      "holdRepeatEnabled" : false,
+      "keyCode" : 15,
+      "modifiers" : {
+        "shift" : false,
+        "option" : false,
+        "command" : false,
+        "control" : false
+      },
+      "hint" : "Replay Audio"
+    },
+    "touchpadRegionBottomLeftClick" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "option" : false,
+        "shift" : false,
+        "command" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 14,
+      "holdRepeatInterval" : 0.033,
+      "hint" : "Edit Card"
+    },
+    "touchpadTwoFingerButton" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : true,
+      "holdRepeatInterval" : 0.033
+    },
+    "touchpadButton" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "control" : false,
+        "option" : false,
+        "shift" : false,
+        "command" : false
+      },
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033
+    },
+    "touchpadRegionTopRightClick" : {
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033,
+      "holdRepeatEnabled" : false,
+      "keyCode" : 14,
+      "modifiers" : {
+        "shift" : false,
+        "option" : true,
+        "command" : true,
+        "control" : false
+      },
+      "hint" : "Edit Card (alt)"
+    },
+    "dpadLeft" : {
+      "holdRepeatEnabled" : false,
+      "holdRepeatInterval" : 0.033,
+      "modifiers" : {
+        "option" : false,
+        "command" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 13,
+      "hint" : "Custom (Anki addon)"
+    },
+    "rightThumbstick" : {
+      "modifiers" : {
+        "command" : false,
+        "shift" : false,
+        "control" : false,
+        "option" : false
+      },
+      "holdRepeatEnabled" : false,
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033,
+      "keyCode" : 43,
+      "hint" : "Custom (Anki addon)"
+    },
+    "x" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "command" : false,
+        "shift" : false,
+        "option" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 18,
+      "holdRepeatInterval" : 0.033,
+      "hint" : "Again"
+    },
+    "a" : {
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033,
+      "holdRepeatEnabled" : false,
+      "keyCode" : 36,
+      "modifiers" : {
+        "shift" : false,
+        "command" : false,
+        "option" : false,
+        "control" : false
+      },
+      "hint" : "Show Answer / Good"
+    },
+    "view" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "shift" : false,
+        "command" : false,
+        "control" : false,
+        "option" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 16,
+      "holdRepeatInterval" : 0.033,
+      "hint" : "Undo"
+    },
+    "touchpadRegionTopLeftClick" : {
+      "holdRepeatEnabled" : false,
+      "holdRepeatInterval" : 0.033,
+      "modifiers" : {
+        "control" : false,
+        "option" : false,
+        "command" : false,
+        "shift" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 23,
+      "hint" : "Custom (Anki addon)"
+    },
+    "y" : {
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033,
+      "holdRepeatEnabled" : false,
+      "keyCode" : 21,
+      "modifiers" : {
+        "command" : false,
+        "shift" : false,
+        "control" : false,
+        "option" : false
+      },
+      "hint" : "Easy"
+    },
+    "dpadDown" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "option" : false,
+        "control" : false,
+        "shift" : false,
+        "command" : false
+      },
+      "isHoldModifier" : false,
+      "keyCode" : 24,
+      "holdRepeatInterval" : 0.033,
+      "hint" : "Custom (Anki addon)"
+    },
+    "touchpadTap" : {
+      "holdRepeatEnabled" : false,
+      "modifiers" : {
+        "command" : false,
+        "shift" : false,
+        "option" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false,
+      "holdRepeatInterval" : 0.033
+    }
+  },
+  "touchpadInputMode" : "quadrants",
+  "joystickSettings" : {
+    "requireActiveTouchForRegionClick" : true,
+    "gestureSensitivity" : 0.5,
+    "touchpadDeadzone" : 0.005,
+    "mouseSensitivity" : 0.30065728037690526,
+    "gyroAimingDeadzone" : 0.3,
+    "gyroAimingEnabled" : false,
+    "focusModeModifier" : {
+      "control" : false,
+      "option" : false,
+      "shift" : true,
+      "command" : false
+    },
+    "invertMouseY" : false,
+    "touchpadZoomToPanRatio" : 0.5,
+    "touchpadPanSensitivity" : 1,
+    "invertScrollY" : false,
+    "focusModeSensitivity" : 0.1,
+    "mouseAcceleration" : 0.49942414986485495,
+    "scrollBoostMultiplier" : 2,
+    "gestureCooldown" : 0.5,
+    "rightStickMode" : "scroll",
+    "scrollDeadzone" : 0.019336681013141125,
+    "gyroAimingSensitivity" : 0.3,
+    "mouseDeadzone" : 0.05228254095441595,
+    "touchpadAcceleration" : 0,
+    "touchpadSmoothing" : 1,
+    "scrollSensitivity" : 0.8019654289557107,
+    "leftStickMode" : "mouse",
+    "scrollAcceleration" : 0.6485664563673899,
+    "touchpadUseNativeZoom" : true,
+    "touchpadSensitivity" : 0,
+    "disableTouchpadAsMouse" : true
+  },
+  "dualSenseLEDSettings" : {
+    "muteButtonLED" : "off",
+    "lightBarEnabled" : true,
+    "lightBarBrightness" : "bright",
+    "lightBarColor" : {
+      "green" : 0,
+      "blue" : 0,
+      "red" : 0
+    },
+    "batteryLightBar" : false,
+    "playerLEDs" : {
+      "led5" : false,
+      "led3" : false,
+      "led2" : false,
+      "led4" : false,
+      "led1" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "websiteLinks" : [
+
+    ],
+    "swipeTypingEnabled" : false,
+    "activateAllWindows" : true,
+    "typingDelay" : 0.03,
+    "quickTexts" : [
+
+    ],
+    "wheelShowsWebsites" : false,
+    "appBarItems" : [
+
+    ],
+    "wheelAlternateModifiers" : {
+      "control" : false,
+      "option" : false,
+      "shift" : false,
+      "command" : false
+    },
+    "swipeTypingSensitivity" : 0.5,
+    "showExtendedFunctionKeys" : false,
+    "defaultTerminalApp" : "Terminal",
+    "toggleShortcutModifiers" : {
+      "option" : false,
+      "control" : false,
+      "shift" : false,
+      "command" : false
+    },
+    "swipeTypingPredictionCount" : 5
+  },
+  "layers" : [
+    {
+      "id" : "C0ECFC62-CFDA-4D4A-8620-EE7389A35230",
+      "name" : "shift layer 1",
+      "activatorButton" : "rightTrigger",
+      "buttonMappings" : {
+        "touchpadRegionTopLeftClick" : {
+          "isHoldModifier" : false,
+          "keyCode" : 9,
+          "modifiers" : {
+            "command" : true,
+            "control" : false,
+            "shift" : false,
+            "option" : false
+          },
+          "holdRepeatEnabled" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Paste"
+        },
+        "dpadUp" : {
+          "keyCode" : 34,
+          "modifiers" : {
+            "shift" : false,
+            "command" : false,
+            "control" : false,
+            "option" : false
+          },
+          "holdRepeatInterval" : 0.033,
+          "isHoldModifier" : false,
+          "holdRepeatEnabled" : false,
+          "hint" : "Custom"
+        },
+        "leftBumper" : {
+          "isHoldModifier" : false,
+          "keyCode" : 116,
+          "modifiers" : {
+            "option" : false,
+            "control" : false,
+            "shift" : false,
+            "command" : false
+          },
+          "holdRepeatEnabled" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Page Up"
+        },
+        "menu" : {
+          "keyCode" : 11,
+          "modifiers" : {
+            "command" : false,
+            "shift" : false,
+            "option" : false,
+            "control" : false
+          },
+          "holdRepeatInterval" : 0.033,
+          "isHoldModifier" : false,
+          "holdRepeatEnabled" : false,
+          "hint" : "Bury Card"
+        },
+        "view" : {
+          "isHoldModifier" : false,
+          "keyCode" : 17,
+          "modifiers" : {
+            "control" : false,
+            "shift" : true,
+            "command" : false,
+            "option" : false
+          },
+          "holdRepeatEnabled" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Custom"
+        },
+        "touchpadRegionBottomLeftClick" : {
+          "keyCode" : 8,
+          "modifiers" : {
+            "command" : true,
+            "control" : false,
+            "option" : false,
+            "shift" : false
+          },
+          "holdRepeatInterval" : 0.033,
+          "isHoldModifier" : false,
+          "holdRepeatEnabled" : false,
+          "hint" : "Copy"
+        },
+        "dpadDown" : {
+          "keyCode" : 27,
+          "modifiers" : {
+            "option" : false,
+            "shift" : false,
+            "control" : false,
+            "command" : false
+          },
+          "holdRepeatInterval" : 0.033,
+          "isHoldModifier" : false,
+          "holdRepeatEnabled" : false,
+          "hint" : "Custom"
+        },
+        "rightBumper" : {
+          "isHoldModifier" : false,
+          "keyCode" : 121,
+          "modifiers" : {
+            "control" : false,
+            "command" : false,
+            "shift" : false,
+            "option" : false
+          },
+          "holdRepeatEnabled" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Page Down"
+        },
+        "dpadLeft" : {
+          "isHoldModifier" : false,
+          "keyCode" : 18,
+          "modifiers" : {
+            "shift" : true,
+            "control" : false,
+            "command" : false,
+            "option" : false
+          },
+          "holdRepeatEnabled" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Suspend Card"
+        }
+      },
+      "dualSenseLEDSettings" : {
+        "lightBarBrightness" : "bright",
+        "lightBarEnabled" : true,
+        "playerLEDs" : {
+          "led2" : false,
+          "led5" : false,
+          "led3" : false,
+          "led1" : false,
+          "led4" : false
+        },
+        "batteryLightBar" : false,
+        "muteButtonLED" : "off",
+        "lightBarColor" : {
+          "blue" : 0,
+          "green" : 0,
+          "red" : 1
+        }
+      }
+    },
+    {
+      "id" : "3F93AAA4-AB8F-4FEF-B5FF-C0051A710A33",
+      "name" : "shift layer 2",
+      "activatorButton" : "rightBumper",
+      "buttonMappings" : {
+        "rightThumbstick" : {
+          "holdRepeatEnabled" : false,
+          "keyCode" : 115,
+          "modifiers" : {
+            "control" : false,
+            "option" : false,
+            "command" : false,
+            "shift" : false
+          },
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Top of Card"
+        },
+        "dpadRight" : {
+          "keyCode" : 26,
+          "modifiers" : {
+            "shift" : true,
+            "command" : false,
+            "control" : false,
+            "option" : true
+          },
+          "holdRepeatEnabled" : false,
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Additional Resources"
+        },
+        "dpadUp" : {
+          "holdRepeatEnabled" : false,
+          "keyCode" : 29,
+          "modifiers" : {
+            "shift" : true,
+            "control" : false,
+            "command" : false,
+            "option" : true
+          },
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Missed Questions"
+        },
+        "y" : {
+          "holdRepeatEnabled" : false,
+          "keyCode" : 21,
+          "modifiers" : {
+            "command" : false,
+            "option" : true,
+            "shift" : true,
+            "control" : false
+          },
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Pathoma"
+        },
+        "menu" : {
+          "holdRepeatEnabled" : false,
+          "keyCode" : 28,
+          "modifiers" : {
+            "option" : true,
+            "control" : false,
+            "command" : false,
+            "shift" : true
+          },
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Extra"
+        },
+        "x" : {
+          "isHoldModifier" : false,
+          "keyCode" : 18,
+          "modifiers" : {
+            "control" : false,
+            "command" : false,
+            "option" : true,
+            "shift" : true
+          },
+          "holdRepeatEnabled" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "First Aid"
+        },
+        "b" : {
+          "keyCode" : 19,
+          "modifiers" : {
+            "control" : false,
+            "command" : false,
+            "option" : true,
+            "shift" : true
+          },
+          "holdRepeatEnabled" : false,
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Sketchy"
+        },
+        "a" : {
+          "keyCode" : 20,
+          "modifiers" : {
+            "control" : false,
+            "option" : true,
+            "shift" : true,
+            "command" : false
+          },
+          "holdRepeatEnabled" : false,
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Pixorize"
+        },
+        "dpadDown" : {
+          "holdRepeatEnabled" : false,
+          "keyCode" : 22,
+          "modifiers" : {
+            "option" : true,
+            "command" : false,
+            "control" : false,
+            "shift" : true
+          },
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Boards and Beyond"
+        },
+        "dpadLeft" : {
+          "keyCode" : 23,
+          "modifiers" : {
+            "control" : false,
+            "option" : true,
+            "command" : false,
+            "shift" : true
+          },
+          "holdRepeatEnabled" : false,
+          "isHoldModifier" : false,
+          "holdRepeatInterval" : 0.033,
+          "hint" : "Lecture Notes"
+        }
+      },
+      "dualSenseLEDSettings" : {
+        "playerLEDs" : {
+          "led1" : false,
+          "led3" : false,
+          "led4" : false,
+          "led5" : false,
+          "led2" : false
+        },
+        "lightBarBrightness" : "bright",
+        "batteryLightBar" : false,
+        "lightBarEnabled" : true,
+        "muteButtonLED" : "off",
+        "lightBarColor" : {
+          "red" : 0,
+          "green" : 0.9339460730552673,
+          "blue" : 0
+        }
+      }
+    }
+  ],
+  "macros" : [
+
+  ],
+  "chordMappings" : [
+
+  ],
+  "sequenceMappings" : [
+
+  ],
+  "gestureMappings" : [
+
+  ],
+  "commandWheelActions" : [
+
+  ],
+  "touchpadRegionMappings" : [
+
+  ],
+  "scripts" : [
+
+  ]
+}
