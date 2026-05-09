@@ -100,6 +100,6 @@ The face button cluster (X/B/A/Y) is mnemonic order for the four most-used resou
 
 ## Notes
 
-- The profile assumes a DualSense (PS5) controller for the lightbar feedback. It works fine on Xbox controllers too — you just won't get the colored layer indicator.
+- The lightbar feedback (red on Layer 1, green on Layer 2) works with both **DualSense** (PS5) and **DualShock 4** (PS4) controllers. The profile also works fine on Xbox controllers — you just won't see the colored layer indicator.
 - A few base-layer bindings (D-pad Up/Down/Left, L3/R3, top-left touchpad click) are tied to specific Anki addons that the original contributor uses. If a binding doesn't do anything for you, you're missing the corresponding addon — feel free to remap those buttons to whatever you prefer.
 - If `Opt+Shift+1` (or any other section shortcut) does nothing after pasting the snippet, double-check that the section is enabled to auto-show in the AnKing template config — the script can only scroll to sections that are actually rendered on the page.
