@@ -75,12 +75,12 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        id = try container.decode(.id, default: UUID())
+        displayName = try container.decode(.displayName, default: "")
         iconName = try container.decodeIfPresent(String.self, forKey: .iconName)
         iconData = try container.decodeIfPresent(Data.self, forKey: .iconData)
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        modifiers = try container.decode(.modifiers, default: ModifierFlags())
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)

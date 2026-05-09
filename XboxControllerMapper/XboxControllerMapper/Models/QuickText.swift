@@ -12,9 +12,9 @@ struct AppBarItem: Identifiable, Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        bundleIdentifier = try container.decodeIfPresent(String.self, forKey: .bundleIdentifier) ?? ""
-        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        id = try container.decode(.id, default: UUID())
+        bundleIdentifier = try container.decode(.bundleIdentifier, default: "")
+        displayName = try container.decode(.displayName, default: "")
     }
 
     init(id: UUID = UUID(), bundleIdentifier: String, displayName: String) {
@@ -37,9 +37,9 @@ struct WebsiteLink: Identifiable, Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
-        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
+        id = try container.decode(.id, default: UUID())
+        url = try container.decode(.url, default: "")
+        displayName = try container.decode(.displayName, default: "")
         faviconData = try container.decodeIfPresent(Data.self, forKey: .faviconData)
     }
 
@@ -83,9 +83,9 @@ struct QuickText: Identifiable, Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
-        isTerminalCommand = try container.decodeIfPresent(Bool.self, forKey: .isTerminalCommand) ?? false
+        id = try container.decode(.id, default: UUID())
+        text = try container.decode(.text, default: "")
+        isTerminalCommand = try container.decode(.isTerminalCommand, default: false)
     }
 
     init(text: String = "", isTerminalCommand: Bool = false) {
@@ -154,20 +154,20 @@ struct OnScreenKeyboardSettings: Codable, Equatable {
     // Custom decoder to handle missing keys from older config files
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        quickTexts = try container.decodeIfPresent([QuickText].self, forKey: .quickTexts) ?? []
-        defaultTerminalApp = try container.decodeIfPresent(String.self, forKey: .defaultTerminalApp) ?? "Terminal"
-        typingDelay = try container.decodeIfPresent(Double.self, forKey: .typingDelay) ?? 0.03
-        appBarItems = try container.decodeIfPresent([AppBarItem].self, forKey: .appBarItems) ?? []
-        websiteLinks = try container.decodeIfPresent([WebsiteLink].self, forKey: .websiteLinks) ?? []
-        showExtendedFunctionKeys = try container.decodeIfPresent(Bool.self, forKey: .showExtendedFunctionKeys) ?? false
+        quickTexts = try container.decode(.quickTexts, default: [])
+        defaultTerminalApp = try container.decode(.defaultTerminalApp, default: "Terminal")
+        typingDelay = try container.decode(.typingDelay, default: 0.03)
+        appBarItems = try container.decode(.appBarItems, default: [])
+        websiteLinks = try container.decode(.websiteLinks, default: [])
+        showExtendedFunctionKeys = try container.decode(.showExtendedFunctionKeys, default: false)
         toggleShortcutKeyCode = try container.decodeIfPresent(UInt16.self, forKey: .toggleShortcutKeyCode)
-        toggleShortcutModifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .toggleShortcutModifiers) ?? ModifierFlags()
-        activateAllWindows = try container.decodeIfPresent(Bool.self, forKey: .activateAllWindows) ?? true
-        wheelShowsWebsites = try container.decodeIfPresent(Bool.self, forKey: .wheelShowsWebsites) ?? false
-        wheelAlternateModifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .wheelAlternateModifiers) ?? ModifierFlags()
-        swipeTypingEnabled = try container.decodeIfPresent(Bool.self, forKey: .swipeTypingEnabled) ?? false
-        swipeTypingSensitivity = try container.decodeIfPresent(Double.self, forKey: .swipeTypingSensitivity) ?? 0.5
-        swipeTypingPredictionCount = try container.decodeIfPresent(Int.self, forKey: .swipeTypingPredictionCount) ?? 5
+        toggleShortcutModifiers = try container.decode(.toggleShortcutModifiers, default: ModifierFlags())
+        activateAllWindows = try container.decode(.activateAllWindows, default: true)
+        wheelShowsWebsites = try container.decode(.wheelShowsWebsites, default: false)
+        wheelAlternateModifiers = try container.decode(.wheelAlternateModifiers, default: ModifierFlags())
+        swipeTypingEnabled = try container.decode(.swipeTypingEnabled, default: false)
+        swipeTypingSensitivity = try container.decode(.swipeTypingSensitivity, default: 0.5)
+        swipeTypingPredictionCount = try container.decode(.swipeTypingPredictionCount, default: 5)
     }
 
     init(quickTexts: [QuickText] = [], defaultTerminalApp: String = "Terminal", typingDelay: Double = 0.03, appBarItems: [AppBarItem] = [], websiteLinks: [WebsiteLink] = [], showExtendedFunctionKeys: Bool = false, toggleShortcutKeyCode: UInt16? = nil, toggleShortcutModifiers: ModifierFlags = ModifierFlags(), activateAllWindows: Bool = true, wheelShowsWebsites: Bool = false, wheelAlternateModifiers: ModifierFlags = ModifierFlags(), swipeTypingEnabled: Bool = false, swipeTypingSensitivity: Double = 0.5, swipeTypingPredictionCount: Int = 5) {

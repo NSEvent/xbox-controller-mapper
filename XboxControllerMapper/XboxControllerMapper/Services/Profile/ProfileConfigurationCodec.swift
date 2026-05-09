@@ -37,11 +37,11 @@ struct ProfileConfiguration: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        schemaVersion = try container.decode(.schemaVersion, default: 1)
         if schemaVersion > Self.currentSchemaVersion {
             NSLog("[ProfileConfiguration] Warning: config has schemaVersion %d but app only knows up to %d. Some settings may be lost or ignored.", schemaVersion, Self.currentSchemaVersion)
         }
-        profiles = try container.decodeIfPresent([Profile].self, forKey: .profiles) ?? []
+        profiles = try container.decode(.profiles, default: [])
         activeProfileId = try container.decodeIfPresent(UUID.self, forKey: .activeProfileId)
         uiScale = try container.decodeIfPresent(CGFloat.self, forKey: .uiScale)
         onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings)

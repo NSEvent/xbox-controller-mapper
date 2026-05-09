@@ -139,11 +139,11 @@ struct TouchpadRegionMapping: Codable, Identifiable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        region = try container.decodeIfPresent(TouchpadRegion.self, forKey: .region) ?? .topLeft
-        triggerMode = try container.decodeIfPresent(TouchpadTriggerMode.self, forKey: .triggerMode) ?? .click
+        id = try container.decode(.id, default: UUID())
+        region = try container.decode(.region, default: .topLeft)
+        triggerMode = try container.decode(.triggerMode, default: .click)
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        modifiers = try container.decode(.modifiers, default: ModifierFlags())
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)

@@ -31,12 +31,12 @@ struct Script: Codable, Identifiable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
-        source = try container.decodeIfPresent(String.self, forKey: .source) ?? ""
+        id = try container.decode(.id, default: UUID())
+        name = try container.decode(.name, default: "")
+        source = try container.decode(.source, default: "")
         description = try container.decodeIfPresent(String.self, forKey: .description)
-        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
-        modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? Date()
+        createdAt = try container.decode(.createdAt, default: Date())
+        modifiedAt = try container.decode(.modifiedAt, default: Date())
     }
 }
 

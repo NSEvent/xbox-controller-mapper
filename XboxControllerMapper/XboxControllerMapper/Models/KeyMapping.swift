@@ -214,13 +214,13 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        modifiers = try container.decode(.modifiers, default: ModifierFlags())
         longHoldMapping = try container.decodeIfPresent(LongHoldMapping.self, forKey: .longHoldMapping)
         doubleTapMapping = try container.decodeIfPresent(DoubleTapMapping.self, forKey: .doubleTapMapping)
         repeatMapping = try container.decodeIfPresent(RepeatMapping.self, forKey: .repeatMapping)
-        isHoldModifier = try container.decodeIfPresent(Bool.self, forKey: .isHoldModifier) ?? false
-        holdRepeatEnabled = try container.decodeIfPresent(Bool.self, forKey: .holdRepeatEnabled) ?? false
-        holdRepeatInterval = try container.decodeIfPresent(TimeInterval.self, forKey: .holdRepeatInterval) ?? 0.033
+        isHoldModifier = try container.decode(.isHoldModifier, default: false)
+        holdRepeatEnabled = try container.decode(.holdRepeatEnabled, default: false)
+        holdRepeatInterval = try container.decode(.holdRepeatInterval, default: 0.033)
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
@@ -363,9 +363,8 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
-        let decodedThreshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? Self.defaultThreshold
-        threshold = Self.sanitizedThreshold(decodedThreshold)
+        modifiers = try container.decode(.modifiers, default: ModifierFlags())
+        threshold = Self.sanitizedThreshold(try container.decode(.threshold, default: Self.defaultThreshold))
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
@@ -451,9 +450,8 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
-        let decodedThreshold = try container.decodeIfPresent(TimeInterval.self, forKey: .threshold) ?? Self.defaultThreshold
-        threshold = Self.sanitizedThreshold(decodedThreshold)
+        modifiers = try container.decode(.modifiers, default: ModifierFlags())
+        threshold = Self.sanitizedThreshold(try container.decode(.threshold, default: Self.defaultThreshold))
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
@@ -527,9 +525,8 @@ struct RepeatMapping: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
-        let decodedInterval = try container.decodeIfPresent(TimeInterval.self, forKey: .interval) ?? Self.defaultInterval
-        interval = Self.sanitizedInterval(decodedInterval)
+        enabled = try container.decode(.enabled, default: false)
+        interval = Self.sanitizedInterval(try container.decode(.interval, default: Self.defaultInterval))
     }
 
     /// Repeat rate in actions per second
@@ -554,10 +551,10 @@ struct ModifierFlags: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        command = try container.decodeIfPresent(Bool.self, forKey: .command) ?? false
-        option = try container.decodeIfPresent(Bool.self, forKey: .option) ?? false
-        shift = try container.decodeIfPresent(Bool.self, forKey: .shift) ?? false
-        control = try container.decodeIfPresent(Bool.self, forKey: .control) ?? false
+        command = try container.decode(.command, default: false)
+        option = try container.decode(.option, default: false)
+        shift = try container.decode(.shift, default: false)
+        control = try container.decode(.control, default: false)
     }
 
     init(command: Bool = false, option: Bool = false, shift: Bool = false, control: Bool = false) {

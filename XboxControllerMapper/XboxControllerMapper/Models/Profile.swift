@@ -415,12 +415,13 @@ extension Profile {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
+        // id stays strict — a Profile without an ID is genuinely invalid.
         id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Unnamed"
-        isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
+        name = try container.decode(.name, default: "Unnamed")
+        isDefault = try container.decode(.isDefault, default: false)
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
-        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
-        modifiedAt = try container.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? Date()
+        createdAt = try container.decode(.createdAt, default: Date())
+        modifiedAt = try container.decode(.modifiedAt, default: Date())
 
         // Decode button mappings from string-keyed dictionary. Schema v2 used
         // four single-case quadrant button keys (e.g. "touchpadRegionTopLeft");
@@ -429,11 +430,8 @@ extension Profile {
         // `touchpadRegionTriggerModes` field. By the time the rewrite finishes
         // only v3-shaped keys remain, and the legacy trigger-mode map can be
         // discarded.
-        var stringKeyedMappings = try container.decodeIfPresent([String: KeyMapping].self, forKey: .buttonMappings) ?? [:]
-        let legacyTriggerModes = try container.decodeIfPresent(
-            [String: TouchpadTriggerMode].self,
-            forKey: .touchpadRegionTriggerModes
-        ) ?? [:]
+        var stringKeyedMappings = try container.decode(.buttonMappings, default: [String: KeyMapping]())
+        let legacyTriggerModes = try container.decode(.touchpadRegionTriggerModes, default: [String: TouchpadTriggerMode]())
         Profile.rewriteV2QuadrantKeys(stringKeyedMappings: &stringKeyedMappings,
                                       legacyTriggerModes: legacyTriggerModes)
         buttonMappings = Dictionary(uniqueKeysWithValues: stringKeyedMappings.compactMap { key, value in
@@ -444,17 +442,17 @@ extension Profile {
             return (button, value)
         })
 
-        chordMappings = try container.decodeIfPresent([ChordMapping].self, forKey: .chordMappings) ?? []
-        sequenceMappings = try container.decodeIfPresent([SequenceMapping].self, forKey: .sequenceMappings) ?? []
-        joystickSettings = try container.decodeIfPresent(JoystickSettings.self, forKey: .joystickSettings) ?? .default
-        dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings) ?? .default
-        linkedApps = try container.decodeIfPresent([String].self, forKey: .linkedApps) ?? []
-        macros = try container.decodeIfPresent([Macro].self, forKey: .macros) ?? []
-        scripts = try container.decodeIfPresent([Script].self, forKey: .scripts) ?? []
-        onScreenKeyboardSettings = try container.decodeIfPresent(OnScreenKeyboardSettings.self, forKey: .onScreenKeyboardSettings) ?? OnScreenKeyboardSettings()
-        gestureMappings = try container.decodeIfPresent([GestureMapping].self, forKey: .gestureMappings) ?? []
-        layers = try container.decodeIfPresent([Layer].self, forKey: .layers) ?? []
-        touchpadRegionMappings = try container.decodeIfPresent([TouchpadRegionMapping].self, forKey: .touchpadRegionMappings) ?? []
+        chordMappings = try container.decode(.chordMappings, default: [])
+        sequenceMappings = try container.decode(.sequenceMappings, default: [])
+        joystickSettings = try container.decode(.joystickSettings, default: .default)
+        dualSenseLEDSettings = try container.decode(.dualSenseLEDSettings, default: .default)
+        linkedApps = try container.decode(.linkedApps, default: [])
+        macros = try container.decode(.macros, default: [])
+        scripts = try container.decode(.scripts, default: [])
+        onScreenKeyboardSettings = try container.decode(.onScreenKeyboardSettings, default: OnScreenKeyboardSettings())
+        gestureMappings = try container.decode(.gestureMappings, default: [])
+        layers = try container.decode(.layers, default: [])
+        touchpadRegionMappings = try container.decode(.touchpadRegionMappings, default: [])
         // The trigger-mode map is consumed by the v2→v3 rewrite above; we
         // intentionally drop it on decode so re-encoding doesn't propagate
         // stale legacy state.
@@ -463,8 +461,8 @@ extension Profile {
         // The migration step in ProfileConfigurationLoadCoordinator promotes
         // profiles with quadrant data to .quadrants; this default just keeps
         // freshly-decoded objects sane in test contexts.
-        touchpadInputMode = try container.decodeIfPresent(TouchpadInputMode.self, forKey: .touchpadInputMode) ?? .wholePad
-        commandWheelActions = try container.decodeIfPresent([CommandWheelAction].self, forKey: .commandWheelActions) ?? []
+        touchpadInputMode = try container.decode(.touchpadInputMode, default: .wholePad)
+        commandWheelActions = try container.decode(.commandWheelActions, default: [])
     }
 
     /// Mutates `stringKeyedMappings` in place, rewriting the four schema-v2

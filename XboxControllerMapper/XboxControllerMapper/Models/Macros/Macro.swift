@@ -154,9 +154,11 @@ enum MacroStep: Codable, Equatable {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            // text and speed stay strict — TypeTextPayload decode failure
+            // triggers the legacy bare-string fallback in MacroStep.
             text = try container.decode(String.self, forKey: .text)
             speed = try container.decode(Int.self, forKey: .speed)
-            pressEnter = try container.decodeIfPresent(Bool.self, forKey: .pressEnter) ?? false
+            pressEnter = try container.decode(.pressEnter, default: false)
         }
     }
 
@@ -176,8 +178,8 @@ enum MacroStep: Codable, Equatable {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            command = try container.decodeIfPresent(String.self, forKey: .command) ?? ""
-            inTerminal = try container.decodeIfPresent(Bool.self, forKey: .inTerminal) ?? false
+            command = try container.decode(.command, default: "")
+            inTerminal = try container.decode(.inTerminal, default: false)
         }
     }
 
@@ -196,8 +198,8 @@ enum MacroStep: Codable, Equatable {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
-            method = try container.decodeIfPresent(HTTPMethod.self, forKey: .method) ?? .POST
+            url = try container.decode(.url, default: "")
+            method = try container.decode(.method, default: .POST)
             headers = try container.decodeIfPresent([String: String].self, forKey: .headers)
             body = try container.decodeIfPresent(String.self, forKey: .body)
         }
@@ -222,7 +224,7 @@ enum MacroStep: Codable, Equatable {
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: PayloadCodingKeys.self)
-            url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+            url = try container.decode(.url, default: "")
             // Resolve password: Keychain reference (UUID) → fetch, plaintext (legacy) → use as-is
             let storedPassword = try container.decodeIfPresent(String.self, forKey: .password)
             if let stored = storedPassword, KeychainService.isKeychainReference(stored) {
@@ -230,7 +232,7 @@ enum MacroStep: Codable, Equatable {
             } else {
                 password = storedPassword
             }
-            requestType = try container.decodeIfPresent(String.self, forKey: .requestType) ?? ""
+            requestType = try container.decode(.requestType, default: "")
             requestData = try container.decodeIfPresent(String.self, forKey: .requestData)
         }
 

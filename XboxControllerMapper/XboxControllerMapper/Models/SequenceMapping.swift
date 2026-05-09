@@ -67,12 +67,11 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        steps = try container.decodeIfPresent([ControllerButton].self, forKey: .steps) ?? []
-        let decodedStepTimeout = try container.decodeIfPresent(TimeInterval.self, forKey: .stepTimeout) ?? Config.defaultSequenceStepTimeout
-        stepTimeout = Self.sanitizedStepTimeout(decodedStepTimeout)
+        id = try container.decode(.id, default: UUID())
+        steps = try container.decode(.steps, default: [])
+        stepTimeout = Self.sanitizedStepTimeout(try container.decode(.stepTimeout, default: Config.defaultSequenceStepTimeout))
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        modifiers = try container.decode(.modifiers, default: ModifierFlags())
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)

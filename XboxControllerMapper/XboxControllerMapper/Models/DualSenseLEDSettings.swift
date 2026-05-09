@@ -71,11 +71,11 @@ struct PlayerLEDs: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        led1 = try container.decodeIfPresent(Bool.self, forKey: .led1) ?? false
-        led2 = try container.decodeIfPresent(Bool.self, forKey: .led2) ?? false
-        led3 = try container.decodeIfPresent(Bool.self, forKey: .led3) ?? false
-        led4 = try container.decodeIfPresent(Bool.self, forKey: .led4) ?? false
-        led5 = try container.decodeIfPresent(Bool.self, forKey: .led5) ?? false
+        led1 = try container.decode(.led1, default: false)
+        led2 = try container.decode(.led2, default: false)
+        led3 = try container.decode(.led3, default: false)
+        led4 = try container.decode(.led4, default: false)
+        led5 = try container.decode(.led5, default: false)
     }
 
     init(led1: Bool = false, led2: Bool = false, led3: Bool = false, led4: Bool = false, led5: Bool = false) {
@@ -127,9 +127,9 @@ struct CodableColor: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        red = Self.clampUnit(try container.decodeIfPresent(Double.self, forKey: .red) ?? 0.0)
-        green = Self.clampUnit(try container.decodeIfPresent(Double.self, forKey: .green) ?? 0.0)
-        blue = Self.clampUnit(try container.decodeIfPresent(Double.self, forKey: .blue) ?? 0.0)
+        red = try container.decode(.red, default: 0.0, clampedTo: 0.0...1.0)
+        green = try container.decode(.green, default: 0.0, clampedTo: 0.0...1.0)
+        blue = try container.decode(.blue, default: 0.0, clampedTo: 0.0...1.0)
     }
 
     var color: Color {
@@ -193,12 +193,12 @@ struct DualSenseLEDSettings: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        lightBarColor = try container.decodeIfPresent(CodableColor.self, forKey: .lightBarColor) ?? CodableColor(red: 0.0, green: 0.4, blue: 1.0)
-        lightBarBrightness = try container.decodeIfPresent(LightBarBrightness.self, forKey: .lightBarBrightness) ?? .bright
-        lightBarEnabled = try container.decodeIfPresent(Bool.self, forKey: .lightBarEnabled) ?? true
-        muteButtonLED = try container.decodeIfPresent(MuteButtonLEDMode.self, forKey: .muteButtonLED) ?? .off
-        playerLEDs = try container.decodeIfPresent(PlayerLEDs.self, forKey: .playerLEDs) ?? .default
-        batteryLightBar = try container.decodeIfPresent(Bool.self, forKey: .batteryLightBar) ?? false
+        lightBarColor = try container.decode(.lightBarColor, default: CodableColor(red: 0.0, green: 0.4, blue: 1.0))
+        lightBarBrightness = try container.decode(.lightBarBrightness, default: .bright)
+        lightBarEnabled = try container.decode(.lightBarEnabled, default: true)
+        muteButtonLED = try container.decode(.muteButtonLED, default: .off)
+        playerLEDs = try container.decode(.playerLEDs, default: .default)
+        batteryLightBar = try container.decode(.batteryLightBar, default: false)
     }
 
     init(lightBarColor: CodableColor = CodableColor(red: 0.0, green: 0.4, blue: 1.0), lightBarBrightness: LightBarBrightness = .bright, lightBarEnabled: Bool = true, muteButtonLED: MuteButtonLEDMode = .off, playerLEDs: PlayerLEDs = .default, batteryLightBar: Bool = false) {

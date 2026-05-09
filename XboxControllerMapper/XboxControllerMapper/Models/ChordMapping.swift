@@ -57,13 +57,13 @@ struct ChordMapping: Codable, Identifiable, Equatable, ExecutableAction {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        buttons = try container.decodeIfPresent(Set<ControllerButton>.self, forKey: .buttons) ?? []
+        id = try container.decode(.id, default: UUID())
+        buttons = try container.decode(.buttons, default: [])
         if buttons.count < 2 {
             NSLog("[ChordMapping] Warning: chord %@ has %d button(s) — a chord requires at least 2", id.uuidString, buttons.count)
         }
         keyCode = try container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-        modifiers = try container.decodeIfPresent(ModifierFlags.self, forKey: .modifiers) ?? ModifierFlags()
+        modifiers = try container.decode(.modifiers, default: ModifierFlags())
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)

@@ -147,26 +147,26 @@ struct UsageStats: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        buttonCounts = try container.decodeIfPresent([String: Int].self, forKey: .buttonCounts) ?? [:]
-        actionTypeCounts = try container.decodeIfPresent([String: Int].self, forKey: .actionTypeCounts) ?? [:]
-        actionDetailCounts = try container.decodeIfPresent([String: Int].self, forKey: .actionDetailCounts) ?? [:]
-        totalSessions = try container.decodeIfPresent(Int.self, forKey: .totalSessions) ?? 0
-        totalSessionSeconds = try container.decodeIfPresent(Double.self, forKey: .totalSessionSeconds) ?? 0
-        currentStreakDays = try container.decodeIfPresent(Int.self, forKey: .currentStreakDays) ?? 0
-        longestStreakDays = try container.decodeIfPresent(Int.self, forKey: .longestStreakDays) ?? 0
+        buttonCounts = try container.decode(.buttonCounts, default: [:])
+        actionTypeCounts = try container.decode(.actionTypeCounts, default: [:])
+        actionDetailCounts = try container.decode(.actionDetailCounts, default: [:])
+        totalSessions = try container.decode(.totalSessions, default: 0)
+        totalSessionSeconds = try container.decode(.totalSessionSeconds, default: 0)
+        currentStreakDays = try container.decode(.currentStreakDays, default: 0)
+        longestStreakDays = try container.decode(.longestStreakDays, default: 0)
         lastSessionDate = try container.decodeIfPresent(Date.self, forKey: .lastSessionDate)
         firstSessionDate = try container.decodeIfPresent(Date.self, forKey: .firstSessionDate)
-        keyPresses = try container.decodeIfPresent(Int.self, forKey: .keyPresses) ?? 0
-        mouseClicks = try container.decodeIfPresent(Int.self, forKey: .mouseClicks) ?? 0
-        macrosExecuted = try container.decodeIfPresent(Int.self, forKey: .macrosExecuted) ?? 0
-        macroStepsAutomated = try container.decodeIfPresent(Int.self, forKey: .macroStepsAutomated) ?? 0
-        webhooksFired = try container.decodeIfPresent(Int.self, forKey: .webhooksFired) ?? 0
-        appsLaunched = try container.decodeIfPresent(Int.self, forKey: .appsLaunched) ?? 0
-        textSnippetsRun = try container.decodeIfPresent(Int.self, forKey: .textSnippetsRun) ?? 0
-        terminalCommandsRun = try container.decodeIfPresent(Int.self, forKey: .terminalCommandsRun) ?? 0
-        linksOpened = try container.decodeIfPresent(Int.self, forKey: .linksOpened) ?? 0
-        joystickMousePixels = try container.decodeIfPresent(Double.self, forKey: .joystickMousePixels) ?? 0
-        touchpadMousePixels = try container.decodeIfPresent(Double.self, forKey: .touchpadMousePixels) ?? 0
-        scrollPixels = try container.decodeIfPresent(Double.self, forKey: .scrollPixels) ?? 0
+        keyPresses = try container.decode(.keyPresses, default: 0)
+        mouseClicks = try container.decode(.mouseClicks, default: 0)
+        macrosExecuted = try container.decode(.macrosExecuted, default: 0)
+        macroStepsAutomated = try container.decode(.macroStepsAutomated, default: 0)
+        webhooksFired = try container.decode(.webhooksFired, default: 0)
+        appsLaunched = try container.decode(.appsLaunched, default: 0)
+        textSnippetsRun = try container.decode(.textSnippetsRun, default: 0)
+        terminalCommandsRun = try container.decode(.terminalCommandsRun, default: 0)
+        linksOpened = try container.decode(.linksOpened, default: 0)
+        joystickMousePixels = try container.decode(.joystickMousePixels, default: 0)
+        touchpadMousePixels = try container.decode(.touchpadMousePixels, default: 0)
+        scrollPixels = try container.decode(.scrollPixels, default: 0)
     }
 }

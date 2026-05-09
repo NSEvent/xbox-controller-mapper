@@ -75,11 +75,11 @@ struct Layer: Codable, Identifiable, Equatable {
 
         // id is required for identity
         id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Layer"
+        name = try container.decode(.name, default: "Layer")
         activatorButton = try container.decodeIfPresent(ControllerButton.self, forKey: .activatorButton)
 
         // Decode button mappings from string-keyed dictionary (same pattern as Profile)
-        let stringKeyedMappings = try container.decodeIfPresent([String: KeyMapping].self, forKey: .buttonMappings) ?? [:]
+        let stringKeyedMappings: [String: KeyMapping] = try container.decode(.buttonMappings, default: [:])
         buttonMappings = Dictionary(uniqueKeysWithValues: stringKeyedMappings.compactMap { key, value in
             guard let button = ControllerButton(rawValue: key) else { return nil }
             return (button, value)

@@ -68,12 +68,12 @@ struct HTTPResponseHandling: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        showNotification = try container.decodeIfPresent(Bool.self, forKey: .showNotification) ?? false
-        maxRetries = try container.decodeIfPresent(Int.self, forKey: .maxRetries) ?? 0
-        retryDelay = try container.decodeIfPresent(Double.self, forKey: .retryDelay) ?? 1.0
+        showNotification = try container.decode(.showNotification, default: false)
+        maxRetries = try container.decode(.maxRetries, default: 0)
+        retryDelay = try container.decode(.retryDelay, default: 1.0)
         onSuccessCommand = try container.decodeIfPresent(String.self, forKey: .onSuccessCommand)
         onErrorCommand = try container.decodeIfPresent(String.self, forKey: .onErrorCommand)
-        timeout = try container.decodeIfPresent(TimeInterval.self, forKey: .timeout) ?? Self.defaultTimeout
+        timeout = try container.decode(.timeout, default: Self.defaultTimeout)
     }
 }
 
@@ -183,25 +183,25 @@ extension SystemCommand: Codable {
 
         switch type {
         case .launchApp:
-            let bundleId = try container.decodeIfPresent(String.self, forKey: .bundleIdentifier) ?? ""
-            let newWindow = try container.decodeIfPresent(Bool.self, forKey: .newWindow) ?? false
+            let bundleId: String = try container.decode(.bundleIdentifier, default: "")
+            let newWindow: Bool = try container.decode(.newWindow, default: false)
             self = .launchApp(bundleIdentifier: bundleId, newWindow: newWindow)
         case .shellCommand:
-            let command = try container.decodeIfPresent(String.self, forKey: .command) ?? ""
-            let inTerminal = try container.decodeIfPresent(Bool.self, forKey: .inTerminal) ?? false
+            let command: String = try container.decode(.command, default: "")
+            let inTerminal: Bool = try container.decode(.inTerminal, default: false)
             self = .shellCommand(command: command, inTerminal: inTerminal)
         case .openLink:
-            let url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+            let url: String = try container.decode(.url, default: "")
             self = .openLink(url: url)
         case .httpRequest:
-            let url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
-            let method = try container.decodeIfPresent(HTTPMethod.self, forKey: .method) ?? .POST
+            let url: String = try container.decode(.url, default: "")
+            let method: HTTPMethod = try container.decode(.method, default: .POST)
             let headers = try container.decodeIfPresent([String: String].self, forKey: .headers)
             let body = try container.decodeIfPresent(String.self, forKey: .body)
             let responseHandling = try container.decodeIfPresent(HTTPResponseHandling.self, forKey: .responseHandling)
             self = .httpRequest(url: url, method: method, headers: headers, body: body, responseHandling: responseHandling)
         case .obsWebSocket:
-            let url = try container.decodeIfPresent(String.self, forKey: .url) ?? ""
+            let url: String = try container.decode(.url, default: "")
             let storedPassword = try container.decodeIfPresent(String.self, forKey: .password)
             // Resolve password: if it's a Keychain reference (UUID), fetch from Keychain.
             // If plaintext (legacy), use as-is — it will migrate to Keychain on next save.
@@ -211,7 +211,7 @@ extension SystemCommand: Codable {
             } else {
                 password = storedPassword
             }
-            let requestType = try container.decodeIfPresent(String.self, forKey: .requestType) ?? ""
+            let requestType: String = try container.decode(.requestType, default: "")
             let requestData = try container.decodeIfPresent(String.self, forKey: .requestData)
             self = .obsWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
         }
