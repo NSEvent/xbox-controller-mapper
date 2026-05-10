@@ -164,11 +164,7 @@ struct SwipeTypingSection: View {
         let url = customWordsFileURL
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? customWords.joined(separator: "\n").write(
-            to: url.resolvingSymlinksInPath(),
-            atomically: true,
-            encoding: .utf8
-        )
+        try? AtomicFileWriter.write(customWords.joined(separator: "\n"), to: url)
     }
 
     private func reloadSwipeModel() {

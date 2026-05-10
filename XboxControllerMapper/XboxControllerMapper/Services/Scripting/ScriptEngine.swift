@@ -606,7 +606,7 @@ class ScriptEngine {
                     // .atomic so a partial write (e.g., script terminated
                     // mid-flush) can't leave a half-written PNG that crashes
                     // a downstream NSImage(contentsOfFile:) reader.
-                    try pngData.write(to: URL(fileURLWithPath: resolvedPath).resolvingSymlinksInPath(), options: .atomic)
+                    try AtomicFileWriter.write(pngData, to: URL(fileURLWithPath: resolvedPath))
                     return true
                 } catch {
                     self.logMessage("[Script] screenshotWindow: \(error.localizedDescription)")

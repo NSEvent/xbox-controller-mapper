@@ -35,7 +35,7 @@ struct ProfileConfigurationSaveService {
             backupService.createBackupIfNeeded(for: configURL)
             do {
                 let data = try ProfileConfigurationCodec.encode(config)
-                try data.write(to: configURL.resolvingSymlinksInPath(), options: .atomic)
+                try AtomicFileWriter.write(data, to: configURL)
             } catch {
                 logSaveFailure("[ProfileManager] Configuration save failed: \(error.localizedDescription)")
             }

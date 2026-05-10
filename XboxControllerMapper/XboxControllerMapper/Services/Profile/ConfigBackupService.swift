@@ -27,7 +27,7 @@ struct ConfigBackupService {
         let backupURL = backupDir.appendingPathComponent("config_\(timestamp).json")
 
         do {
-            try fileManager.copyItem(at: configURL.resolvingSymlinksInPath(), to: backupURL)
+            try AtomicFileWriter.copyResolvedItem(from: configURL, to: backupURL, fileManager: fileManager)
         } catch {
             NSLog("[ConfigBackup] Failed to copy config to backup: %@", error.localizedDescription)
         }

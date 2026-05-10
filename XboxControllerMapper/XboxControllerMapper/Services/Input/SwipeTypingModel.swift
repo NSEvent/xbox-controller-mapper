@@ -238,7 +238,7 @@ class SwipeTypingModel {
             h.write(msg.data(using: .utf8)!)
             h.closeFile()
         } else {
-            try? msg.write(to: debugURL.resolvingSymlinksInPath(), atomically: true, encoding: .utf8)
+            try? AtomicFileWriter.write(msg, to: debugURL)
         }
 
         return Array(predictions)

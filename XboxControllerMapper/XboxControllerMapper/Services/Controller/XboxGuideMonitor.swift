@@ -11,7 +11,7 @@ func guideLog(_ message: String) {
         handle.write(line.data(using: .utf8) ?? Data())
         handle.closeFile()
     } else {
-        try? line.write(to: url.resolvingSymlinksInPath(), atomically: true, encoding: .utf8)
+        try? AtomicFileWriter.write(line, to: url)
     }
 }
 
