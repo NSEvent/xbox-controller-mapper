@@ -1134,6 +1134,20 @@ struct SettingsSheet: View {
                 }
 
                 Section {
+                    ForEach(ButtonMappingsTabSection.allCases) { section in
+                        Toggle(isOn: visibleButtonSectionBinding(for: section)) {
+                            Text(section.label)
+                        }
+                    }
+
+                    Button("Show All Button Sections") {
+                        hiddenButtonSectionTags = ""
+                    }
+                } header: {
+                    Text("Buttons Tab Sections")
+                }
+
+                Section {
                     ForEach(MainWindowSection.displayOrder) { section in
                         Toggle(isOn: visibleSectionBinding(for: section)) {
                             VStack(alignment: .leading, spacing: 2) {
@@ -1159,20 +1173,6 @@ struct SettingsSheet: View {
                     }
                 } header: {
                     Text("Visible Sections")
-                }
-
-                Section {
-                    ForEach(ButtonMappingsTabSection.allCases) { section in
-                        Toggle(isOn: visibleButtonSectionBinding(for: section)) {
-                            Text(section.label)
-                        }
-                    }
-
-                    Button("Show All Button Sections") {
-                        hiddenButtonSectionTags = ""
-                    }
-                } header: {
-                    Text("Buttons Tab Sections")
                 }
 
                 Section {

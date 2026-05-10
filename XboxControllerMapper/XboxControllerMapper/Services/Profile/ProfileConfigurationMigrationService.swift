@@ -86,17 +86,18 @@ enum ProfileConfigurationMigrationService {
                 }
             }
 
-            // Whether the profile carries any quadrant data at this point —
-            // either because we just migrated v1 entries, or because v2 decode
-            // already populated v3 keys. If so, flip to quadrants mode so the
-            // bindings actually fire.
-            let hasQuadrantData = updated.buttonMappings.keys.contains(where: { $0.isTouchpadQuadrant })
-            if hasQuadrantData && updated.touchpadInputMode == .wholePad {
-                updated.touchpadInputMode = .quadrants
-                anyDidMigrate = true
-            }
-
+            // Only flip to quadrants when we actually drained v1 entries this
+            // pass. v2-decoded profiles already had their mode inferred at
+            // decode time via Profile.init(from:), and v3 profiles must keep
+            // whatever mode the user explicitly saved — flipping based purely
+            // on the presence of quadrant button mappings would clobber a
+            // deliberate `.wholePad` choice every time the app reopens.
             if didMigrateThisProfile {
+                let hasQuadrantData = updated.buttonMappings.keys.contains(where: { $0.isTouchpadQuadrant })
+                if hasQuadrantData && updated.touchpadInputMode == .wholePad {
+                    updated.touchpadInputMode = .quadrants
+                    anyDidMigrate = true
+                }
                 updated.touchpadRegionMappings = []
             }
             return updated

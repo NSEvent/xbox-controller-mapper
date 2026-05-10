@@ -248,6 +248,32 @@ final class TouchpadRegionMigrationTests: XCTestCase {
         XCTAssertEqual(v3Loaded.profiles[0].touchpadInputMode, .quadrants)
     }
 
+    // MARK: - Regression: v3 wholePad with leftover quadrant mappings
+
+    func testMigrate_V3WholePadWithLeftoverQuadrantMappings_PreservesWholePadAcrossReload() throws {
+        // Repro for the reopen bug: a user previously bound quadrant buttons,
+        // then switched the profile to .wholePad. The quadrant button mappings
+        // remain in `buttonMappings` (the UI doesn't auto-purge them). Each
+        // reload must preserve the user's .wholePad choice — the migration
+        // must NOT silently flip back to .quadrants based on data presence.
+        var profile = profileWith(regionMappings: [])
+        profile.buttonMappings[.touchpadRegionTopLeftClick] = KeyMapping(keyCode: KeyCodeMapping.keyA)
+        profile.touchpadInputMode = .wholePad
+
+        let config = ProfileConfiguration(
+            profiles: [profile],
+            activeProfileId: profile.id,
+            uiScale: nil
+        )
+        let encoded = try ProfileConfigurationCodec.encode(config)
+        let loaded = try ProfileConfigurationLoadCoordinator.load(data: encoded)
+
+        XCTAssertEqual(loaded.profiles[0].touchpadInputMode, .wholePad,
+                       "Reload must respect the saved .wholePad choice even when leftover quadrant mappings exist")
+        XCTAssertFalse(loaded.didMigrate,
+                       "A clean v3 reload must not report a migration")
+    }
+
     // MARK: - Helpers
 
     private func profileWith(regionMappings: [TouchpadRegionMapping]) -> Profile {

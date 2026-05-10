@@ -457,11 +457,21 @@ extension Profile {
         // intentionally drop it on decode so re-encoding doesn't propagate
         // stale legacy state.
         touchpadRegionTriggerModes = [:]
-        // Default to whole-pad mode when the field is absent (pre-v3 configs).
-        // The migration step in ProfileConfigurationLoadCoordinator promotes
-        // profiles with quadrant data to .quadrants; this default just keeps
-        // freshly-decoded objects sane in test contexts.
-        touchpadInputMode = try container.decode(.touchpadInputMode, default: .wholePad)
+        // v3 configs always write `touchpadInputMode`. Pre-v3 configs (v1/v2)
+        // omit it — for those we infer the mode from the data shape, since v2
+        // quadrant keys have already been rewritten into `buttonMappings` by
+        // this point and v1 data sits in `touchpadRegionMappings` waiting for
+        // the load-coordinator migration. Critically, we MUST NOT infer for
+        // v3 configs: the user may have deliberately switched back to wholePad
+        // while leftover quadrant button mappings persist, and the inference
+        // would clobber that choice on every load.
+        if container.contains(.touchpadInputMode) {
+            touchpadInputMode = try container.decode(.touchpadInputMode, default: .wholePad)
+        } else {
+            let hasQuadrantData = buttonMappings.keys.contains(where: { $0.isTouchpadQuadrant })
+            let hasLegacyV1Data = !touchpadRegionMappings.isEmpty
+            touchpadInputMode = (hasQuadrantData || hasLegacyV1Data) ? .quadrants : .wholePad
+        }
         commandWheelActions = try container.decode(.commandWheelActions, default: [])
     }
 
