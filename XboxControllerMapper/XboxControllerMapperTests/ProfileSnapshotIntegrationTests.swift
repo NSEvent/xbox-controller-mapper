@@ -70,4 +70,54 @@ final class ProfileSnapshotIntegrationTests: XCTestCase {
         XCTAssertTrue(snapshotsAfter.first?.reason.lowercased().contains("before restoring") == true,
                       "Newest snapshot should be the pre-restore checkpoint, got: \(snapshotsAfter.first?.reason ?? "nil")")
     }
+
+    // MARK: - snapshotsRevision (drives the History tab's reactive refresh)
+
+    func testSnapshotsRevision_startsAtZero() {
+        XCTAssertEqual(profileManager.snapshotsRevision, 0,
+                       "Fresh ProfileManager should not have bumped the revision yet")
+    }
+
+    func testSnapshotsRevision_bumpsOnDelete() {
+        let extra = profileManager.createProfile(name: "ToDelete")
+        let revisionBefore = profileManager.snapshotsRevision
+
+        profileManager.deleteProfile(extra)
+
+        XCTAssertEqual(profileManager.snapshotsRevision, revisionBefore + 1,
+                       "deleteProfile writes a snapshot, so the revision must bump exactly once")
+    }
+
+    func testSnapshotsRevision_bumpsOnImport() {
+        let imported = Profile(id: UUID(), name: "Imported")
+        let revisionBefore = profileManager.snapshotsRevision
+
+        _ = profileManager.importFetchedProfile(imported)
+
+        XCTAssertEqual(profileManager.snapshotsRevision, revisionBefore + 1,
+                       "importFetchedProfile snapshots before persisting, so revision must bump")
+    }
+
+    func testSnapshotsRevision_bumpsOnRestore() throws {
+        let extra = profileManager.createProfile(name: "Restorable")
+        profileManager.deleteProfile(extra)
+        let snapshot = try XCTUnwrap(profileManager.availableSnapshots().first { $0.reason.contains("Restorable") })
+
+        let revisionBefore = profileManager.snapshotsRevision
+        XCTAssertTrue(profileManager.restoreSnapshot(snapshot))
+
+        XCTAssertEqual(profileManager.snapshotsRevision, revisionBefore + 1,
+                       "restoreSnapshot writes a pre-restore checkpoint, so revision must bump")
+    }
+
+    func testSnapshotsRevision_doesNotBumpOnPureSettingsChanges() {
+        // Mutating settings (e.g., setUiScale) saves the config but does NOT
+        // capture a snapshot. The revision must stay flat so the History tab
+        // doesn't re-render on every slider drag.
+        let revisionBefore = profileManager.snapshotsRevision
+        profileManager.setUiScale(1.5)
+        profileManager.setUiScale(0.8)
+        XCTAssertEqual(profileManager.snapshotsRevision, revisionBefore,
+                       "setUiScale changes settings but not the snapshot store; revision must stay flat")
+    }
 }
