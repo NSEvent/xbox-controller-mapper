@@ -52,6 +52,13 @@ final class NXEventTypeConstantTests: XCTestCase {
         // kIOHIDSetCursorPosition is the flag that makes IOHIDPostEvent set the cursor position
         XCTAssertEqual(kIOHIDSetCursorPosition, 2, "kIOHIDSetCursorPosition changed — zoom click targeting will break")
     }
+
+    func testHIDSetRelativeCursorPositionConstant() {
+        // kIOHIDSetRelativeCursorPosition makes IOHIDPostEvent apply mouseMove dx/dy.
+        // Universal Control edge routing needs this relative hardware-like cursor movement.
+        XCTAssertEqual(kIOHIDSetRelativeCursorPosition, 4, "kIOHIDSetRelativeCursorPosition changed — relative mouse movement will break")
+    }
+
 }
 
 // MARK: - NXEventData Struct Layout
@@ -182,12 +189,11 @@ final class ZoomMouseEventPolicyMatrixTests: XCTestCase {
         }
 
         let cases: [TestCase] = [
-            // Zoom OFF: everything goes through CGEvent
+            // IOHID is only used for zoom drag/click paths that otherwise flash.
             TestCase(zoom: false, category: .move,       expectHID: false, label: "no-zoom + move"),
             TestCase(zoom: false, category: .drag,       expectHID: false, label: "no-zoom + drag"),
             TestCase(zoom: false, category: .buttonDown, expectHID: false, label: "no-zoom + buttonDown"),
             TestCase(zoom: false, category: .buttonUp,   expectHID: false, label: "no-zoom + buttonUp"),
-            // Zoom ON: move stays CGEvent, everything else goes through IOHIDPostEvent
             TestCase(zoom: true,  category: .move,       expectHID: false, label: "zoom + move"),
             TestCase(zoom: true,  category: .drag,       expectHID: true,  label: "zoom + drag"),
             TestCase(zoom: true,  category: .buttonDown, expectHID: true,  label: "zoom + buttonDown"),
@@ -437,11 +443,14 @@ final class ZoomEventDeliveryConsistencyTests: XCTestCase {
     }
 
     func testMoveBeforeAndAfterDrag_usesCGEvent() {
-        // Mouse moves before pressing button and after releasing should use CGEvent
-        // Only the held-button events (down, drag, up) use IOHIDPostEvent
+        // Mouse moves before pressing button and after releasing should stay
+        // on CGEvent; IOHID relative movement gets trapped at Universal Control edges.
         XCTAssertFalse(
             ZoomMouseEventPolicy.shouldUseIOHIDPostEvent(zoomActive: true, category: .move),
-            "Pre-drag mouse move should use CGEvent even during zoom")
+            "Pre-drag mouse move should use CGEvent")
+        XCTAssertFalse(
+            ZoomMouseEventPolicy.shouldSetCursorPositionInIOHIDEvent(zoomActive: true, category: .move),
+            "Pre-drag mouse move should not force cursor position")
     }
 
     func testAllButtonTypes_consistentDuringZoom() {

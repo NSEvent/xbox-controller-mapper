@@ -89,10 +89,12 @@ struct KeyPressActionCommand: ActionCommand {
 
     func execute() -> String {
         inputSimulator.pressKey(keyCode, modifiers: modifiers)
-        // Notify on-screen keyboard of controller key press
-        OnScreenKeyboardManager.shared.notifyControllerKeyPress(
-            keyCode: keyCode, modifiers: modifiers
-        )
+        if !UniversalControlMouseRelay.shared.isRoutingToRemote {
+            // Notify on-screen keyboard of controller key press
+            OnScreenKeyboardManager.shared.notifyControllerKeyPress(
+                keyCode: keyCode, modifiers: modifiers
+            )
+        }
         return action.feedbackString
     }
 }

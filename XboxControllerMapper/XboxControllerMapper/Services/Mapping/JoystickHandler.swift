@@ -229,6 +229,9 @@ extension MappingEngine {
             if altMods.control && !flags.contains(.maskControl) { return false }
             return true
         }()
+        if UniversalControlMouseRelay.shared.sendCommandWheelUpdate(stick: rightStick, alternateHeld: alternateHeld) {
+            return
+        }
         DispatchQueue.main.async {
             CommandWheelManager.shared.setShowingAlternate(alternateHeld)
             CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)

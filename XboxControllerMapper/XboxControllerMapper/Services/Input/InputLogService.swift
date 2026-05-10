@@ -35,6 +35,10 @@ class InputLogService: ObservableObject {
 
         // Show cursor feedback for the action (skip unmapped actions)
         if !action.contains("(unmapped)") {
+            if UniversalControlMouseRelay.shared.sendFeedback(action: action, type: type, isHeld: isHeld) {
+                return
+            }
+
             Task { @MainActor in
                 ActionFeedbackIndicator.shared.show(action: action, type: type, isHeld: isHeld)
                 if isHeld && !self.heldActions.contains(action) {
@@ -47,6 +51,10 @@ class InputLogService: ObservableObject {
     /// Dismiss held action feedback (call when button is released)
     /// - Parameter action: The specific action string to dismiss. If nil, dismisses all held actions.
     func dismissHeldFeedback(action: String? = nil) {
+        if UniversalControlMouseRelay.shared.sendDismissFeedback(action: action) {
+            return
+        }
+
         Task { @MainActor in
             ActionFeedbackIndicator.shared.dismissHeld(action: action)
             if let action = action {

@@ -56,7 +56,7 @@ private class ModifierKeyState {
 }
 
 
-/// Service for simulating keyboard and mouse input via CGEvent
+/// Service for simulating keyboard and mouse input via CGEvent and IOHIDPostEvent.
 class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Static tracked cursor position for use by other services (e.g., ActionFeedbackIndicator)
     /// when Accessibility Zoom is active. Access via getTrackedCursorPosition().
@@ -196,6 +196,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Simulates a key press with optional modifiers
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags = []) {
+        if shouldRelayUniversalControlAction(),
+           UniversalControlMouseRelay.shared.sendKeyPress(keyCode, modifiers: modifiers) {
+            return
+        }
+
         // Handle mouse button "key codes"
         if KeyCodeMapping.isMouseButton(keyCode) {
             pressMouseButton(keyCode)
@@ -307,6 +312,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Holds a key down (for continuous actions)
     func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags = []) {
+        if shouldRelayUniversalControlAction(),
+           UniversalControlMouseRelay.shared.sendKeyDown(keyCode, modifiers: modifiers) {
+            return
+        }
+
         if KeyCodeMapping.isMouseButton(keyCode) {
             mouseButtonDown(keyCode)
             return
@@ -338,6 +348,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Releases a held key
     func keyUp(_ keyCode: CGKeyCode) {
+        if shouldRelayUniversalControlAction(),
+           UniversalControlMouseRelay.shared.sendKeyUp(keyCode) {
+            return
+        }
+
         if KeyCodeMapping.isMouseButton(keyCode) {
             mouseButtonUp(keyCode)
             return
@@ -371,6 +386,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Starts holding a modifier (for bumper/trigger modifier mappings)
     func holdModifier(_ modifier: CGEventFlags) {
+        if shouldRelayUniversalControlAction(),
+           UniversalControlMouseRelay.shared.sendHoldModifier(modifier) {
+            recordHeldModifier(modifier)
+            return
+        }
+
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
@@ -399,6 +420,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Stops holding a modifier
     func releaseModifier(_ modifier: CGEventFlags) {
+        if shouldRelayUniversalControlAction(),
+           UniversalControlMouseRelay.shared.sendReleaseModifier(modifier) {
+            recordReleasedModifier(modifier)
+            return
+        }
+
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
 
@@ -459,6 +486,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Performs all state mutation and event posting under a single lock acquisition
     /// to prevent races between reading state and resetting counts.
     func releaseAllModifiers() {
+        if shouldRelayUniversalControlAction(),
+           UniversalControlMouseRelay.shared.sendReleaseAllModifiers() {
+            clearHeldModifiers()
+            return
+        }
+
         guard let source = eventSource else { return }
 
         stateLock.lock()
@@ -483,6 +516,42 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             modifierCounts[key] = 0
         }
         heldModifiers = []
+    }
+
+    private func recordHeldModifier(_ modifier: CGEventFlags) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+
+        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
+            let key = mask.rawValue
+            modifierCounts[key] = (modifierCounts[key] ?? 0) + 1
+            heldModifiers.insert(mask)
+        }
+    }
+
+    private func recordReleasedModifier(_ modifier: CGEventFlags) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+
+        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
+            let key = mask.rawValue
+            let count = modifierCounts[key] ?? 0
+            if count <= 1 {
+                modifierCounts[key] = 0
+                heldModifiers.remove(mask)
+            } else {
+                modifierCounts[key] = count - 1
+            }
+        }
+    }
+
+    private func clearHeldModifiers() {
+        stateLock.lock()
+        for key in modifierCounts.keys {
+            modifierCounts[key] = 0
+        }
+        heldModifiers = []
+        stateLock.unlock()
     }
 
     // MARK: - Mouse Button State
@@ -518,6 +587,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var lastCursorSyncTime: CFAbsoluteTime = 0
     /// Last time moveMouse was called (to detect inactivity and clear tracked position)
     private var lastMouseMoveTime: CFAbsoluteTime = 0
+    /// True after controller movement crosses a local edge and is being relayed
+    /// to the Mac Studio.
+    private var universalControlRelayActive = false
+    /// Direction of the local edge used to enter remote relay.
+    private var universalControlRelayEdgeDirection = CGPoint.zero
+
+    private func shouldRelayUniversalControlAction() -> Bool {
+        stateLock.lock()
+        let active = universalControlRelayActive
+        stateLock.unlock()
+        return active && UniversalControlMouseRelay.shared.canSendToRemote
+    }
 
     /// Cached union of all screen frames
     private var cachedScreenBounds: CGRect?
@@ -695,18 +776,89 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 mouseButton = .left // Default for move events
             }
 
-            // Clamp to valid screen bounds
+            // Clamp to valid local screen bounds for local targeting.
             let clampedX = max(bounds.minX, min(bounds.maxX - 1, newX))
             let clampedY = max(bounds.minY, min(bounds.maxY - 1, newY))
-            let newPoint = CGPoint(x: clampedX, y: clampedY)
-
             let isDrag = eventType != .mouseMoved
+            let eventX: CGFloat
+            if !zoomActive && !isDrag {
+                // Universal Control handoff starts on CGEvent, but if we keep
+                // pinning x to the local edge, the remote pointer can only move
+                // vertically along that edge. Let plain movement carry horizontal
+                // position past the local display while keeping y locally bounded.
+                eventX = newX
+            } else {
+                eventX = clampedX
+            }
+            let newPoint = CGPoint(x: eventX, y: clampedY)
+
+            if !zoomActive && !isDrag && UniversalControlMouseRelay.shared.canSendToRemote {
+                let edgeDirection: CGPoint
+                if newX >= bounds.maxX - 1 && moveX > 0 {
+                    edgeDirection = CGPoint(x: 1, y: 0)
+                } else if newX <= bounds.minX && moveX < 0 {
+                    edgeDirection = CGPoint(x: -1, y: 0)
+                } else if newY >= bounds.maxY - 1 && moveY > 0 {
+                    edgeDirection = CGPoint(x: 0, y: 1)
+                } else if newY <= bounds.minY && moveY < 0 {
+                    edgeDirection = CGPoint(x: 0, y: -1)
+                } else {
+                    edgeDirection = .zero
+                }
+                let movingPastLocalEdge = edgeDirection != .zero
+                let keepRelaying = self.universalControlRelayActive
+
+                if movingPastLocalEdge || keepRelaying {
+                    if !self.universalControlRelayActive {
+                        self.universalControlRelayEdgeDirection = edgeDirection
+                    }
+                    if keepRelaying,
+                       UniversalControlMouseRelay.shared.shouldReturnFromRemote(
+                           dx: Int(moveX),
+                           dy: Int(moveY),
+                           entryEdgeDirection: self.universalControlRelayEdgeDirection
+                       ) {
+                        self.universalControlRelayActive = false
+                        self.universalControlRelayEdgeDirection = .zero
+                        UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
+                    } else {
+                    self.universalControlRelayActive = true
+                    if UniversalControlMouseRelay.shared.sendMove(dx: Int(moveX), dy: Int(moveY)) {
+                        let edgeX: CGFloat
+                        if self.universalControlRelayEdgeDirection.x > 0 {
+                            edgeX = bounds.maxX - 1
+                        } else if self.universalControlRelayEdgeDirection.x < 0 {
+                            edgeX = bounds.minX
+                        } else {
+                            edgeX = clampedX
+                        }
+                        let edgeY: CGFloat
+                        if self.universalControlRelayEdgeDirection.y > 0 {
+                            edgeY = bounds.maxY - 1
+                        } else if self.universalControlRelayEdgeDirection.y < 0 {
+                            edgeY = bounds.minY
+                        } else {
+                            edgeY = clampedY
+                        }
+                        let edgePoint = CGPoint(x: edgeX, y: edgeY)
+                        self.stateLock.lock()
+                        self.trackedCursorPosition = edgePoint
+                        self.stateLock.unlock()
+                        Self.updateSharedTrackedPosition(
+                            edgePoint,
+                            delta: CGPoint(x: moveX, y: moveY)
+                        )
+                        return
+                    }
+                    }
+                }
+            }
 
             // CGWarpMouseCursorPosition was previously called here every frame for
             // non-drag moves, but profiling showed it consumed 98.7% of mouse-queue
             // CPU time (synchronous Mach IPC to WindowServer, ~4.9ms per call at 120Hz).
-            // The CGEvent posted below with mouseCursorPosition already moves the cursor
-            // to the correct location, making the warp redundant.
+            // The event posted below already moves the cursor to the correct location,
+            // making the warp redundant.
             // The suppression interval is still set to prevent 250ms cursor freeze
             // if other code paths (e.g., warpMouseTo) trigger a warp.
             if !isDrag {
@@ -729,17 +881,32 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
             }
 
-            // Use IOHIDPostEvent for drag events during zoom to avoid cursor flash
+            // During zoom, drags/buttons force cursor position through IOHID.
+            // Plain movement remains CGEvent-based; IOHID relative movement
+            // gets trapped on the local Universal Control edge.
             let dragCategory: ZoomMouseEventPolicy.MouseEventCategory = isDrag ? .drag : .move
             var postedViaHID = false
             if ZoomMouseEventPolicy.shouldUseIOHIDPostEvent(zoomActive: zoomActive, category: dragCategory) {
-                postedViaHID = self.postMouseDragViaHID(
-                    at: newPoint,
-                    button: mouseButton,
-                    dx: Int(moveX),
-                    dy: Int(moveY),
-                    eventNumber: eventNumber
+                let setCursorPosition = ZoomMouseEventPolicy.shouldSetCursorPositionInIOHIDEvent(
+                    zoomActive: zoomActive,
+                    category: dragCategory
                 )
+                if isDrag {
+                    postedViaHID = self.postMouseDragViaHID(
+                        at: newPoint,
+                        button: mouseButton,
+                        dx: Int(moveX),
+                        dy: Int(moveY),
+                        eventNumber: eventNumber,
+                        setCursorPosition: setCursorPosition
+                    )
+                } else {
+                    postedViaHID = self.postMouseMoveViaHID(
+                        at: currentCGPoint,
+                        dx: Int(moveX),
+                        dy: Int(moveY)
+                    )
+                }
             }
 
             if !postedViaHID {
@@ -767,7 +934,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         }
     }
 
-    /// Moves the mouse cursor by posting a CGEvent with delta fields at the HID event tap.
+    /// Moves the mouse cursor by posting relative delta fields.
     /// This lets macOS apply its native pointer acceleration, matching real trackpad feel.
     func moveMouseNative(dx: Int, dy: Int) {
         mouseQueue.async { [weak self] in
@@ -805,6 +972,30 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 let screenH = NSScreen.main?.frame.height ?? 1080
                 cursorPos = CGPoint(x: ns.x, y: screenH - ns.y)
             }
+
+            var postedViaHID = false
+            let category: ZoomMouseEventPolicy.MouseEventCategory = eventType == .mouseMoved ? .move : .drag
+            let zoomActive = Self.isZoomCurrentlyActive()
+
+            if ZoomMouseEventPolicy.shouldUseIOHIDPostEvent(zoomActive: zoomActive, category: category) {
+                if eventType == .mouseMoved {
+                    postedViaHID = self.postMouseMoveViaHID(at: cursorPos, dx: dx, dy: dy)
+                } else {
+                    postedViaHID = self.postMouseDragViaHID(
+                        at: cursorPos,
+                        button: mouseButton,
+                        dx: dx,
+                        dy: dy,
+                        eventNumber: eventNumber,
+                        setCursorPosition: ZoomMouseEventPolicy.shouldSetCursorPositionInIOHIDEvent(
+                            zoomActive: zoomActive,
+                            category: category
+                        )
+                    )
+                }
+            }
+
+            guard !postedViaHID else { return }
 
             guard let event = CGEvent(
                 mouseEventSource: self.eventSource,
@@ -868,6 +1059,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         isContinuous: Bool,
         flags: CGEventFlags
     ) {
+        if shouldRelayUniversalControlAction(),
+           UniversalControlMouseRelay.shared.sendScroll(
+                dx: dx,
+                dy: dy,
+                phase: phase,
+                momentumPhase: momentumPhase,
+                isContinuous: isContinuous,
+                flags: flags
+           ) {
+            return
+        }
+
         // Check if Control is held - if so, convert to Accessibility Zoom keyboard shortcuts
         // macOS Accessibility Zoom doesn't respond to synthetic Control+scroll events,
         // but does respond to Option+Command+Plus/Minus keyboard shortcuts
@@ -1181,7 +1384,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             let zoomActive = Self.isZoomCurrentlyActive()
 
-            // Use IOHIDPostEvent for mouse-down during zoom to avoid cursor flash
+            // During zoom, force cursor position to avoid compositor flash and keep click targeting.
             var posted = false
             if ZoomMouseEventPolicy.shouldUseIOHIDPostEvent(zoomActive: zoomActive, category: .buttonDown) {
                 posted = self.postMouseEventViaHID(
@@ -1189,7 +1392,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     at: cgLocation,
                     button: button,
                     clickCount: clickCount,
-                    eventNumber: eventNumber
+                    eventNumber: eventNumber,
+                    setCursorPosition: ZoomMouseEventPolicy.shouldSetCursorPositionInIOHIDEvent(
+                        zoomActive: zoomActive,
+                        category: .buttonDown
+                    )
                 )
             }
 
@@ -1243,7 +1450,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             let zoomActive = Self.isZoomCurrentlyActive()
 
-            // Use IOHIDPostEvent for mouse-up during zoom to avoid cursor flash
+            // During zoom, force cursor position to avoid compositor flash and keep click targeting.
             var posted = false
             if ZoomMouseEventPolicy.shouldUseIOHIDPostEvent(zoomActive: zoomActive, category: .buttonUp) {
                 posted = self.postMouseEventViaHID(
@@ -1251,7 +1458,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     at: cgLocation,
                     button: button,
                     clickCount: clickCount,
-                    eventNumber: eventNumber
+                    eventNumber: eventNumber,
+                    setCursorPosition: ZoomMouseEventPolicy.shouldSetCursorPositionInIOHIDEvent(
+                        zoomActive: zoomActive,
+                        category: .buttonUp
+                    )
                 )
             }
 
@@ -1304,17 +1515,58 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         return true
     }
 
-    /// Posts a mouse drag event via IOHIDPostEvent with kIOHIDSetCursorPosition.
-    /// During Accessibility Zoom, CGEvent drag events cause the zoom compositor's
-    /// software cursor to flash at the virtual/absolute position. This method
-    /// delivers the drag at the IOKit level, avoiding that flash.
+    /// Posts a mouse move event via IOHIDPostEvent with relative cursor positioning.
+    /// This preserves relative HID semantics so system-level pointer routing can
+    /// consume edge-crossing deltas.
+    /// Returns true if the event was successfully posted.
+    private func postMouseMoveViaHID(
+        at _: CGPoint,
+        dx: Int,
+        dy: Int
+    ) -> Bool {
+        guard ensureHIDSystemConnection() else { return false }
+
+        // With kIOHIDSetRelativeCursorPosition, NX_MOUSEMOVED expects the
+        // location argument to be relative-origin neutral. Passing the current
+        // absolute edge point pins Universal Control to that screen boundary.
+        let point = IOGPoint(x: 0, y: 0)
+
+        var eventData = NXEventData()
+        withUnsafeMutablePointer(to: &eventData) { ptr in
+            memset(UnsafeMutableRawPointer(ptr), 0, MemoryLayout<NXEventData>.size)
+        }
+        eventData.mouseMove.dx = Int32(dx)
+        eventData.mouseMove.dy = Int32(dy)
+
+        let result = IOHIDPostEvent(
+            hidSystemConnection,
+            UInt32(NX_MOUSEMOVED),
+            point,
+            &eventData,
+            UInt32(kNXEventDataVersion),
+            0,
+            IOOptionBits(kIOHIDSetRelativeCursorPosition)
+        )
+
+        if result != KERN_SUCCESS {
+            NSLog("[InputSimulator] IOHIDPostEvent move failed: %d", result)
+            return false
+        }
+        return true
+    }
+
+    /// Posts a mouse drag event via IOHIDPostEvent.
+    /// During Accessibility Zoom, callers pass `setCursorPosition=true` so the
+    /// drag is delivered at the IOKit level without the zoom compositor flash.
+    /// Outside zoom, callers leave it false to use relative cursor positioning.
     /// Returns true if the event was successfully posted.
     private func postMouseDragViaHID(
         at location: CGPoint,
         button: CGMouseButton,
         dx: Int,
         dy: Int,
-        eventNumber: Int64
+        eventNumber: Int64,
+        setCursorPosition: Bool
     ) -> Bool {
         guard ensureHIDSystemConnection() else { return false }
 
@@ -1342,7 +1594,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             &eventData,
             UInt32(kNXEventDataVersion),
             0,  // eventFlags
-            IOOptionBits(kIOHIDSetCursorPosition)
+            setCursorPosition
+                ? IOOptionBits(kIOHIDSetCursorPosition)
+                : IOOptionBits(kIOHIDSetRelativeCursorPosition)
         )
 
         if result != KERN_SUCCESS {
@@ -1352,17 +1606,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         return true
     }
 
-    /// Posts a mouse button event via IOHIDPostEvent with kIOHIDSetCursorPosition.
-    /// During Accessibility Zoom, CGEvent mouse-down/up events cause the zoom
-    /// compositor's software cursor to flash at the virtual/absolute position.
-    /// This method delivers the click at the IOKit level, avoiding that flash.
+    /// Posts a mouse button event via IOHIDPostEvent.
+    /// During Accessibility Zoom, callers pass `setCursorPosition=true` so click
+    /// targeting stays correct without the zoom compositor flash. Outside zoom,
+    /// callers leave it false to preserve relative HID semantics.
     /// Returns true if the event was successfully posted.
     private func postMouseEventViaHID(
         down: Bool,
         at location: CGPoint,
         button: CGMouseButton,
         clickCount: Int64,
-        eventNumber: Int64
+        eventNumber: Int64,
+        setCursorPosition: Bool
     ) -> Bool {
         guard ensureHIDSystemConnection() else { return false }
 
@@ -1381,7 +1636,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             }
         }
 
-        var point = IOGPoint(x: Int16(clamping: Int(location.x)), y: Int16(clamping: Int(location.y)))
+        let point = IOGPoint(x: Int16(clamping: Int(location.x)), y: Int16(clamping: Int(location.y)))
 
         var eventData = NXEventData()
         withUnsafeMutablePointer(to: &eventData) { ptr in
@@ -1399,7 +1654,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             &eventData,
             UInt32(kNXEventDataVersion),
             0,  // eventFlags
-            IOOptionBits(kIOHIDSetCursorPosition)  // set position for correct click targeting
+            setCursorPosition
+                ? IOOptionBits(kIOHIDSetCursorPosition)
+                : IOOptionBits(0)
         )
 
         if result != KERN_SUCCESS {
@@ -1563,6 +1820,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Types text character-by-character or pastes via clipboard, then optionally presses Enter.
     func typeText(_ text: String, speed: Int, pressEnter: Bool) {
+        if shouldRelayUniversalControlAction(),
+           UniversalControlMouseRelay.shared.sendTypeText(text, speed: speed, pressEnter: pressEnter) {
+            return
+        }
+
         keyboardQueue.async { [weak self] in
             guard let self = self else { return }
 

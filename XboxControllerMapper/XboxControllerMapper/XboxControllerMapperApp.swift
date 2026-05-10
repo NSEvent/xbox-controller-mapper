@@ -40,6 +40,10 @@ final class ServiceContainer {
             inputLogService: inputLogService,
             usageStatsService: usageStatsService
         )
+        UniversalControlMouseRelay.shared.startListening(
+            inputSimulator: self.mappingEngine.inputSimulator,
+            systemCommandExecutor: self.mappingEngine.mappingExecutor.systemCommandExecutor
+        )
 
         let batteryNotificationManager = BatteryNotificationManager()
         self.batteryNotificationManager = batteryNotificationManager

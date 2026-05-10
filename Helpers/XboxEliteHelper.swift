@@ -43,10 +43,7 @@ func emit(_ json: String) {
 
 // MARK: - HID Setup
 
-guard let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone)) else {
-    emit("{\"type\":\"error\",\"message\":\"IOHIDManagerCreate returned nil\"}")
-    exit(1)
-}
+let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
 
 // Match Microsoft controllers
 let matching = [kIOHIDVendorIDKey: 0x045E] as CFDictionary

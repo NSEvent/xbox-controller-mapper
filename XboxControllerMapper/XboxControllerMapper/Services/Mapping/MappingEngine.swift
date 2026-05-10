@@ -432,16 +432,25 @@ class MappingEngine: ObservableObject {
         if state.lock.withLock({ state.isLocked }) { return true }
 
         if keyCode == KeyCodeMapping.showLaserPointer {
+            if UniversalControlMouseRelay.shared.sendUIEvent("laserPress", button: buttons.first ?? .a) {
+                return true
+            }
             DispatchQueue.main.async { LaserPointerOverlay.shared.toggle() }
             inputLogService?.log(buttons: buttons, type: logType, action: "Laser Pointer")
             return true
         }
         if keyCode == KeyCodeMapping.showOnScreenKeyboard {
+            if UniversalControlMouseRelay.shared.sendUIEvent("oskPress", button: buttons.first ?? .a) {
+                return true
+            }
             DispatchQueue.main.async { OnScreenKeyboardManager.shared.toggle() }
             inputLogService?.log(buttons: buttons, type: logType, action: "On-Screen Keyboard")
             return true
         }
         if keyCode == KeyCodeMapping.showDirectoryNavigator {
+            if UniversalControlMouseRelay.shared.sendUIEvent("navPress", button: buttons.first ?? .a) {
+                return true
+            }
             DispatchQueue.main.async { DirectoryNavigatorManager.shared.toggle() }
             inputLogService?.log(buttons: buttons, type: logType, action: "Directory Navigator")
             return true

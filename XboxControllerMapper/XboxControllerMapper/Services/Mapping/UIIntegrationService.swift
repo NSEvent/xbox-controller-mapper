@@ -12,6 +12,10 @@ extension MappingEngine {
     /// Handles on-screen keyboard button press
     /// - holdMode: If true, shows keyboard while held. If false, toggles keyboard on/off.
     nonisolated func handleOnScreenKeyboardPressed(_ button: ControllerButton, holdMode: Bool) {
+        if UniversalControlMouseRelay.shared.sendUIEvent("oskPress", button: button, holdMode: holdMode) {
+            return
+        }
+
         state.lock.withLock {
             state.onScreenKeyboardButton = button
             state.onScreenKeyboardHoldMode = holdMode
@@ -116,6 +120,10 @@ extension MappingEngine {
 
     /// Handles on-screen keyboard button release (hides keyboard only in hold mode)
     nonisolated func handleOnScreenKeyboardReleased(_ button: ControllerButton) {
+        if UniversalControlMouseRelay.shared.sendUIEvent("oskRelease", button: button) {
+            return
+        }
+
         let (wasKeyboardButton, wasHoldMode) = state.lock.withLock {
             let wasKeyboardButton = state.onScreenKeyboardButton == button
             let wasHoldMode = state.onScreenKeyboardHoldMode
@@ -145,6 +153,10 @@ extension MappingEngine {
     // MARK: - Laser Pointer
 
     nonisolated func handleLaserPointerPressed(_ button: ControllerButton, holdMode: Bool) {
+        if UniversalControlMouseRelay.shared.sendUIEvent("laserPress", button: button, holdMode: holdMode) {
+            return
+        }
+
         state.lock.withLock {
             state.laserPointerButton = button
             state.laserPointerHoldMode = holdMode
@@ -161,6 +173,10 @@ extension MappingEngine {
     }
 
     nonisolated func handleLaserPointerReleased(_ button: ControllerButton) {
+        if UniversalControlMouseRelay.shared.sendUIEvent("laserRelease", button: button) {
+            return
+        }
+
         let (wasLaserButton, wasHoldMode) = state.lock.withLock {
             let wasLaserButton = state.laserPointerButton == button
             let wasHoldMode = state.laserPointerHoldMode
@@ -180,6 +196,10 @@ extension MappingEngine {
     // MARK: - Directory Navigator
 
     nonisolated func handleDirectoryNavigatorPressed(_ button: ControllerButton, holdMode: Bool) {
+        if UniversalControlMouseRelay.shared.sendUIEvent("navPress", button: button, holdMode: holdMode) {
+            return
+        }
+
         state.lock.withLock {
             state.directoryNavigatorButton = button
             state.directoryNavigatorHoldMode = holdMode
@@ -196,6 +216,10 @@ extension MappingEngine {
     }
 
     nonisolated func handleDirectoryNavigatorReleased(_ button: ControllerButton) {
+        if UniversalControlMouseRelay.shared.sendUIEvent("navRelease", button: button) {
+            return
+        }
+
         let (wasNavButton, wasHoldMode) = state.lock.withLock {
             let wasNavButton = state.directoryNavigatorButton == button
             let wasHoldMode = state.directoryNavigatorHoldMode
@@ -217,6 +241,17 @@ extension MappingEngine {
     /// Handles standalone command wheel button press (independent of on-screen keyboard).
     /// Only hold mode is supported — the wheel requires stick input to select.
     nonisolated func handleCommandWheelPressed(_ button: ControllerButton, holdMode: Bool) {
+        if UniversalControlMouseRelay.shared.sendUIEvent("wheelPress", button: button, holdMode: holdMode) {
+            if holdMode {
+                state.lock.withLock {
+                    state.commandWheelButton = button
+                    state.commandWheelHoldMode = true
+                    state.commandWheelActive = true
+                }
+            }
+            return
+        }
+
         guard holdMode else { return }
 
         let shouldActivate = state.lock.withLock { () -> Bool in
@@ -290,6 +325,16 @@ extension MappingEngine {
 
     /// Handles standalone command wheel button release
     nonisolated func handleCommandWheelReleased(_ button: ControllerButton) {
+        if UniversalControlMouseRelay.shared.sendUIEvent("wheelRelease", button: button) {
+            state.lock.withLock {
+                if state.commandWheelButton == button {
+                    state.commandWheelButton = nil
+                    state.commandWheelActive = false
+                }
+            }
+            return
+        }
+
         let (wasWheelButton, wasHoldMode) = state.lock.withLock {
             let wasWheelButton = state.commandWheelButton == button
             let wasHoldMode = state.commandWheelHoldMode
