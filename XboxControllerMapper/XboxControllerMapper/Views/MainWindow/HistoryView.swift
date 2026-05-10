@@ -21,6 +21,12 @@ struct HistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { reload() }
+        // Refresh while the tab is visible whenever a new snapshot is written
+        // (delete profile, import, restore — each calls snapshotCurrentState
+        // which bumps snapshotsRevision).
+        .onChange(of: profileManager.snapshotsRevision) { _, _ in
+            reload()
+        }
         .alert(
             "Restore this snapshot?",
             isPresented: Binding(

@@ -57,6 +57,11 @@ class ProfileManager: ObservableObject {
     /// Non-nil when the initial config load failed. UI can observe this to show a warning.
     @Published var configLoadError: String?
 
+    /// Bumped each time a snapshot is written. Lets the History tab refresh
+    /// reactively while it's visible (the alternative is polling the snapshot
+    /// directory on every render, which costs file I/O per redraw).
+    @Published private(set) var snapshotsRevision: Int = 0
+
     var onScreenKeyboardSettings: OnScreenKeyboardSettings {
         activeProfile?.onScreenKeyboardSettings ?? OnScreenKeyboardSettings()
     }
@@ -424,6 +429,11 @@ class ProfileManager: ObservableObject {
     /// Best-effort: failures are logged but don't block the caller.
     private func snapshotCurrentState(reason: String) {
         snapshotService.writeSnapshot(currentConfiguration(), reason: reason)
+        // Bump unconditionally — even if the write failed, a re-render is
+        // cheap and any observer that re-reads availableSnapshots() will see
+        // accurate state. Avoids returning a Bool from writeSnapshot just to
+        // gate this.
+        snapshotsRevision &+= 1
     }
 
     /// All available snapshots, newest first.
