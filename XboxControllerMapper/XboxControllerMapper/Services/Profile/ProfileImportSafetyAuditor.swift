@@ -88,16 +88,33 @@ enum ProfileImportSafetyAuditor {
             }
         }
 
-        mutating func visit(macro: Macro) {
-            let macroName = macro.name.isEmpty ? "(unnamed)" : macro.name
-            for (idx, step) in macro.steps.enumerated() {
-                guard case let .shellCommand(command, inTerminal) = step else { continue }
-                guard !command.isEmpty else { continue }
-                commands.append(.init(
-                    context: "Macro '\(macroName)' step \(idx + 1)",
-                    command: command,
-                    inTerminal: inTerminal
-                ))
+        mutating func visit(macroStep: MacroStep, context: String) {
+            switch macroStep {
+            case let .shellCommand(command, inTerminal):
+                guard !command.isEmpty else { return }
+                commands.append(.init(context: context, command: command, inTerminal: inTerminal))
+
+            // .press and .hold embed a full KeyMapping. MacroExecutor today
+            // only reads the keyCode/modifiers, so an embedded systemCommand
+            // is dead data — but the data shape allows it. Walk the embedded
+            // KeyMapping defensively so a future MacroExecutor change that
+            // starts honoring those fields can't silently activate a hidden
+            // execution surface the auditor was blind to.
+            case let .press(mapping):
+                mapping.accept(&self, context: "\(context) (press)")
+            case let .hold(mapping, _):
+                mapping.accept(&self, context: "\(context) (hold)")
+
+            // Explicit cases (no `default`): adding a new MacroStep variant
+            // must surface here as a compile error so the auditor doesn't
+            // silently drop it. Today these have no shell-execution surface:
+            // .delay sleeps, .typeText types characters, .openApp launches an
+            // installed app, .openLink opens an http(s) URL with a scheme
+            // allowlist, .webhook fires a request without a shell follow-up
+            // (only SystemCommand.httpRequest's responseHandling carries
+            // shell follow-ups), .obsWebSocket talks to OBS only.
+            case .delay, .typeText, .openApp, .openLink, .webhook, .obsWebSocket:
+                break
             }
         }
 

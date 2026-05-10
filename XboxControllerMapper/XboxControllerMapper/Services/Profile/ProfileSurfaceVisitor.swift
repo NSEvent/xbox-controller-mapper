@@ -17,7 +17,7 @@ import Foundation
 /// shell payloads past the safety warning sheet).
 protocol ProfileSurfaceVisitor {
     mutating func visit(systemCommand: SystemCommand, context: String)
-    mutating func visit(macro: Macro)
+    mutating func visit(macroStep: MacroStep, context: String)
     mutating func visit(script: Script)
     mutating func visit(quickText: QuickText)
 }
@@ -77,8 +77,17 @@ extension Profile {
             }
         }
 
+        // Macros: visit each step individually so the auditor can switch
+        // exhaustively over MacroStep cases. The previous design passed the
+        // whole Macro and let the visitor walk steps internally, which left
+        // the inner pattern non-exhaustive — exactly the recurring-bypass
+        // shape the refactor is trying to prevent.
         for macro in macros {
-            visitor.visit(macro: macro)
+            let macroName = macro.name.isEmpty ? "(unnamed)" : macro.name
+            for (idx, step) in macro.steps.enumerated() {
+                visitor.visit(macroStep: step,
+                              context: "Macro '\(macroName)' step \(idx + 1)")
+            }
         }
 
         for script in scripts {

@@ -300,6 +300,66 @@ final class ProfileImportSafetyAuditorTests: XCTestCase {
 
     // MARK: - Touchpad region webhook follow-ups
 
+    // MARK: - Macro step embedded KeyMappings
+
+    func testShellCommandEmbeddedInMacroPressStep_isReported() {
+        // .press(KeyMapping) embeds a full KeyMapping which can carry a
+        // systemCommand. MacroExecutor today only reads keyCode/modifiers,
+        // so the embedded systemCommand is dead data — but the data shape
+        // allows it. Auditor must surface defensively.
+        var profile = Profile(name: "p")
+        let embedded = KeyMapping(systemCommand: .shellCommand(command: "exfiltrate", inTerminal: false))
+        let macro = Macro(name: "Trojan", steps: [.press(embedded)])
+        profile.macros = [macro]
+
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1,
+                       "Embedded KeyMapping inside a macro .press step must be audited — the data shape allows it even if MacroExecutor doesn't currently honor it")
+        XCTAssertEqual(report.shellCommands.first?.command, "exfiltrate")
+        XCTAssertTrue(report.shellCommands.first?.context.contains("Macro 'Trojan' step 1") == true)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("(press)") == true)
+    }
+
+    func testShellCommandEmbeddedInMacroHoldStep_isReported() {
+        var profile = Profile(name: "p")
+        let embedded = KeyMapping(systemCommand: .shellCommand(command: "rm", inTerminal: false))
+        profile.macros = [Macro(name: "X", steps: [.hold(embedded, duration: 1.0)])]
+
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("(hold)") == true)
+    }
+
+    func testLongHoldVariantInsideMacroPressStep_isReported() {
+        // Defense in depth: KeyMapping.accept walks longHold/doubleTap, so
+        // recursing through it from a macro .press step picks those up too.
+        var profile = Profile(name: "p")
+        let longHold = LongHoldMapping(systemCommand: .shellCommand(command: "deep", inTerminal: false))
+        let embedded = KeyMapping(longHoldMapping: longHold)
+        profile.macros = [Macro(name: "Y", steps: [.press(embedded)])]
+
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1,
+                       "Long-hold variant of an embedded KeyMapping in a macro step must be reported — recursive walk via KeyMapping.accept")
+        XCTAssertTrue(report.shellCommands.first?.context.contains("Macro 'Y' step 1 (press) (long hold)") == true,
+                      "Context should chain step + variant labels: \(report.shellCommands.first?.context ?? "nil")")
+    }
+
+    func testNonExecutionMacroSteps_areNotReported() {
+        // Sanity check that .delay / .typeText / .openLink etc. don't trigger
+        // false positives.
+        var profile = Profile(name: "p")
+        profile.macros = [Macro(name: "Benign", steps: [
+            .delay(1.0),
+            .typeText("hello", speed: 50, pressEnter: false),
+            .openLink(url: "https://example.com"),
+            .openApp(bundleIdentifier: "com.apple.calculator", newWindow: false),
+        ])]
+        XCTAssertFalse(ProfileImportSafetyAuditor.audit(profile).requiresUserConfirmation)
+    }
+
+    // MARK: - Touchpad region webhook follow-ups
+
     func testWebhookOnSuccessCommandOnTouchpadRegion_isReported() {
         // Pre-fix: touchpad region used a manual `if case` that skipped
         // collectShell, missing webhook follow-ups entirely. Now routes

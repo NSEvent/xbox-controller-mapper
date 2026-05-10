@@ -220,3 +220,16 @@ What this doesn't fix: discipline still required when adding a new top-level fie
 Cost: ~200-300 lines added across Profile/Layer/KeyMapping + ~150 deleted from ProfileImportSafetyAuditor; ~25 existing auditor tests act as the regression net; estimated 2-3 hours.
 
 When to do this: if a fifth gemini pass finds another auditor bypass. Otherwise, the current hand-rolled walk plus comprehensive test suite is good enough.
+
+
+Add trigger context to macros/scripts in the import safety report.
+
+Today the safety sheet shows scripts and macros at profile-scope ("Script 'Background Update'", "Macro 'Trojan' step 2") without telling the user which controller binding triggers them. Multiple bindings can reference the same macroId/scriptId, so a malicious profile could give a script a benign name and the user wouldn't see that it's actually wired to "Button A" or "Chord X+Y".
+
+Fix idea: have ProfileSurfaceVisitor pass the originating trigger context when visiting macros/scripts that were resolved from a macroId/scriptId reference. Either:
+- Walk macros/scripts ONLY at trigger sites (drop the global pass), so the context is always the trigger label.
+- Walk both globally AND at trigger sites, dedupe by id, and aggregate the contexts ("Macro 'X' (triggered by Button A, Chord Y+Z)").
+
+Not a security bypass — the script CONTENT is still surfaced and the user can read it. UX improvement only.
+
+Estimated 1-2 hours. Add tests pinning that a macroId/scriptId referenced from a button shows the trigger button in the report.
