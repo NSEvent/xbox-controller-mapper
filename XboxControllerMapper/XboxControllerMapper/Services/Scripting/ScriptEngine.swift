@@ -207,7 +207,9 @@ class ScriptEngine {
                 self.testLogs.append("[hold] keyCode=\(keyCode) duration=\(duration)s modifiers=\(self.modifierString(flags))")
             } else {
                 self.inputSimulator.keyDown(CGKeyCode(keyCode), modifiers: flags)
-                let durationUs = useconds_t(min(duration, 2.0) * 1_000_000)
+                // Clamp to [0, 2s]: lower bound stops a negative `duration`
+                // from a script crashing the unsigned conversion.
+                let durationUs = useconds_t(max(0, min(duration, 2.0)) * 1_000_000)
                 usleep(durationUs)
                 self.inputSimulator.keyUp(CGKeyCode(keyCode))
             }

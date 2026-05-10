@@ -150,4 +150,42 @@ final class ProfileImportSafetyAuditorTests: XCTestCase {
         XCTAssertTrue(ProfileImportSafetyAuditor.audit(profile).requiresUserConfirmation,
                       "Any script — regardless of content — must trigger the import warning")
     }
+
+    // MARK: - On-screen-keyboard quick texts
+
+    func testTerminalQuickText_isReportedAsShellCommand() {
+        var profile = Profile(name: "p")
+        profile.onScreenKeyboardSettings.quickTexts = [
+            QuickText(text: "cat /etc/hosts", isTerminalCommand: true)
+        ]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1,
+                       "OSK terminal commands run shell payloads — must surface in the warning")
+        XCTAssertEqual(report.shellCommands.first?.command, "cat /etc/hosts")
+        XCTAssertTrue(report.shellCommands.first?.inTerminal == true,
+                      "OSK terminal commands always execute in Terminal — flag accordingly")
+        XCTAssertTrue(report.shellCommands.first?.context.lowercased().contains("on-screen keyboard") == true)
+    }
+
+    func testNonTerminalQuickText_isNotReported() {
+        var profile = Profile(name: "p")
+        profile.onScreenKeyboardSettings.quickTexts = [
+            QuickText(text: "Hello world", isTerminalCommand: false)
+        ]
+        XCTAssertFalse(ProfileImportSafetyAuditor.audit(profile).requiresUserConfirmation,
+                       "Plain text snippets are not code execution — must not trigger the warning")
+    }
+
+    func testMixOfTerminalAndPlainQuickTexts_onlyTerminalReported() {
+        var profile = Profile(name: "p")
+        profile.onScreenKeyboardSettings.quickTexts = [
+            QuickText(text: "Hello", isTerminalCommand: false),
+            QuickText(text: "whoami", isTerminalCommand: true),
+            QuickText(text: "Other plain text", isTerminalCommand: false),
+            QuickText(text: "uptime", isTerminalCommand: true),
+        ]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 2)
+        XCTAssertEqual(Set(report.shellCommands.map(\.command)), ["whoami", "uptime"])
+    }
 }

@@ -39,8 +39,13 @@ class MacroExecutor: @unchecked Sendable {
                     self.holdKeyMapping(mapping, duration: duration)
 
                 case .delay(let duration):
-                    // Use Task.sleep for delays to avoid blocking a GCD thread
-                    try? await Task.sleep(nanoseconds: UInt64(min(duration * 1_000_000_000, Double(UInt64.max / 2))))
+                    // Use Task.sleep for delays to avoid blocking a GCD thread.
+                    // Clamp to [0, UInt64.max/2]: the lower bound stops a
+                    // negative duration in a malicious community profile
+                    // from crashing on the unsigned conversion; the upper
+                    // bound prevents arithmetic overflow.
+                    let clampedNs = max(0, min(duration * 1_000_000_000, Double(UInt64.max / 2)))
+                    try? await Task.sleep(nanoseconds: UInt64(clampedNs))
 
                 case .typeText(let text, let speed, let pressEnter):
                     self.inputSimulator.typeText(text, speed: speed, pressEnter: pressEnter)
@@ -81,14 +86,17 @@ class MacroExecutor: @unchecked Sendable {
     }
 
     private func holdKeyMapping(_ mapping: KeyMapping, duration: TimeInterval) {
+        // Clamp to [0, UInt32.max] so a negative duration in a malicious
+        // community profile can't crash the unsigned conversion to useconds_t.
+        let clampedUs = max(0, min(duration * 1_000_000, Double(UInt32.max)))
         if let keyCode = mapping.keyCode {
             inputSimulator.keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
-            usleep(useconds_t(min(duration * 1_000_000, Double(UInt32.max))))
+            usleep(useconds_t(clampedUs))
             inputSimulator.keyUp(keyCode)
         } else if mapping.modifiers.hasAny {
             let flags = mapping.modifiers.cgEventFlags
             inputSimulator.holdModifier(flags)
-            usleep(useconds_t(min(duration * 1_000_000, Double(UInt32.max))))
+            usleep(useconds_t(clampedUs))
             inputSimulator.releaseModifier(flags)
         }
     }

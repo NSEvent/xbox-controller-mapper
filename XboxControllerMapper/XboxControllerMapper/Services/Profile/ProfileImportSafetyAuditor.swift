@@ -126,6 +126,19 @@ enum ProfileImportSafetyAuditor {
             }
         }
 
+        // On-screen-keyboard quick texts with `isTerminalCommand == true` run
+        // their text through Terminal — same code-execution surface as a
+        // .shellCommand binding, just reached via the OSK instead of a
+        // physical button. Missing this would let a malicious community
+        // profile hide shell payloads in the OSK and bypass the warning.
+        for quickText in profile.onScreenKeyboardSettings.quickTexts where quickText.isTerminalCommand {
+            commands.append(.init(
+                context: "On-screen keyboard terminal command",
+                command: quickText.text,
+                inTerminal: true
+            ))
+        }
+
         return ProfileImportSafetyReport(shellCommands: commands, scripts: scripts)
     }
 

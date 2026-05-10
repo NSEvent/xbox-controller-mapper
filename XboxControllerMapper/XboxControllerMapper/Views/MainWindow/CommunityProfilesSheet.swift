@@ -30,16 +30,26 @@ struct CommunityProfilesSheet: View {
     /// Bridges the synchronous SwiftUI sheet flow with the async download
     /// loop: the loop awaits a continuation that fires when the user clicks
     /// Import or Cancel on the safety sheet.
+    ///
+    /// `resume(_:)` is idempotent — only the first call wins. This lets the
+    /// sheet's `.onDisappear` safely fire as a fallback without double-resuming
+    /// (which would crash with a checked-continuation violation) when the user
+    /// already clicked a button.
     private final class SafetyApprovalRequest: Identifiable {
         let id = UUID()
         let profileName: String
         let report: ProfileImportSafetyReport
-        let continuation: CheckedContinuation<Bool, Never>
+        private var continuation: CheckedContinuation<Bool, Never>?
 
         init(profileName: String, report: ProfileImportSafetyReport, continuation: CheckedContinuation<Bool, Never>) {
             self.profileName = profileName
             self.report = report
             self.continuation = continuation
+        }
+
+        func resume(approved: Bool) {
+            continuation?.resume(returning: approved)
+            continuation = nil
         }
     }
 
@@ -185,9 +195,13 @@ struct CommunityProfilesSheet: View {
             ProfileImportSafetySheet(
                 profileName: request.profileName,
                 report: request.report,
-                onApprove: { request.continuation.resume(returning: true) },
-                onCancel: { request.continuation.resume(returning: false) }
+                onApprove: { request.resume(approved: true) },
+                onCancel: { request.resume(approved: false) }
             )
+            // Safety net for any non-button dismissal (parent close, system
+            // event, view teardown). resume() is idempotent so this is a
+            // no-op when the user clicked Approve or Cancel.
+            .onDisappear { request.resume(approved: false) }
         }
     }
 

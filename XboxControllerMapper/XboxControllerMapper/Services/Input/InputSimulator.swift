@@ -1566,7 +1566,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         keyboardQueue.async { [weak self] in
             guard let self = self else { return }
 
-            if speed == 0 {
+            // 0 = paste from clipboard (the documented "instant" speed).
+            // <= 0 routes to the same path: a malicious profile setting a
+            // negative `speed` would otherwise reach typeString → 60 / -1
+            // → useconds_t crash on the unsigned conversion.
+            if speed <= 0 {
                 self.pasteString(text)
             } else {
                 self.typeString(text, speed: speed)
