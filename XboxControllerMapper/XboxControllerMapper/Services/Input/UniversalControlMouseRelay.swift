@@ -74,6 +74,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var remoteCursorStatus: RemoteCursorStatus?
     private var activeHandoffZone: HandoffZone?
     private var pendingHandoffPortal: HandoffDecision?
+    private var remoteFocusModeSent: Bool?
     private var isRelayTarget = false
     private var isRemoteSessionActive = false
     private var remoteMouseButtonsHeld: Set<CGMouseButton> = []
@@ -107,6 +108,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             remoteCursorStatus = nil
             activeHandoffZone = nil
             pendingHandoffPortal = nil
+            remoteFocusModeSent = nil
         }
         lock.unlock()
         if !active {
@@ -149,6 +151,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     func endRemoteSession() {
+        _ = sendFocusMode(active: false)
         _ = sendLine("portalEnd")
         Task { @MainActor in
             UniversalControlPortalIndicator.shared.clearCursorState()
@@ -316,6 +319,21 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     func sendCommandWheelUpdate(stick: CGPoint, alternateHeld: Bool) -> Bool {
         guard hasActiveRemoteSession else { return false }
         return sendLine("wheel \(Double(stick.x)) \(Double(stick.y)) \(alternateHeld ? 1 : 0)")
+    }
+
+    func sendFocusMode(active: Bool) -> Bool {
+        lock.lock()
+        guard isRemoteSessionActive && !isRelayTarget else {
+            lock.unlock()
+            return false
+        }
+        if remoteFocusModeSent == active {
+            lock.unlock()
+            return true
+        }
+        remoteFocusModeSent = active
+        lock.unlock()
+        return sendLine("focus \(active ? 1 : 0)")
     }
 
     func sendScroll(
@@ -639,6 +657,17 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 CommandWheelManager.shared.updateSelection(stickX: stickX, stickY: stickY)
             }
             logFirstReceive("wheel update")
+        case "focus":
+            guard parts.count == 2,
+                  let activeRaw = Int(parts[1]) else { return }
+            Task { @MainActor in
+                if activeRaw != 0 {
+                    FocusModeIndicator.shared.show()
+                } else {
+                    FocusModeIndicator.shared.hide()
+                }
+            }
+            logFirstReceive("focus mode")
         case "fb":
             guard parts.count == 4,
                   let actionData = Data(base64Encoded: String(parts[1])),

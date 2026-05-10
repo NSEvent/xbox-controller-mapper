@@ -308,17 +308,29 @@ extension MappingEngine {
             state.wasFocusActive = isFocusActive
             performFocusModeHaptic(entering: isFocusActive)
 
-            Task { @MainActor in
-                if isFocusActive {
-                    FocusModeIndicator.shared.show()
-                } else {
-                    FocusModeIndicator.shared.hide()
+            if !UniversalControlMouseRelay.shared.sendFocusMode(active: isFocusActive) {
+                Task { @MainActor in
+                    if isFocusActive {
+                        FocusModeIndicator.shared.show()
+                    } else {
+                        FocusModeIndicator.shared.hide()
+                    }
                 }
             }
 
             if !isFocusActive {
                 state.focusExitTime = now
                 state.currentMultiplier = settings.focusMultiplier
+            }
+        } else if isFocusActive {
+            if UniversalControlMouseRelay.shared.sendFocusMode(active: true) {
+                Task { @MainActor in
+                    FocusModeIndicator.shared.hide()
+                }
+            } else {
+                Task { @MainActor in
+                    FocusModeIndicator.shared.show()
+                }
             }
         }
 
