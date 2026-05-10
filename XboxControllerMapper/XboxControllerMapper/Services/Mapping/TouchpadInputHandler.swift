@@ -22,6 +22,17 @@ extension MappingEngine {
         let settings = snapshot.settings
 
         // Route to swipe typing engine only while actively swiping (left click held)
+        if snapshot.swipeTypingActive,
+           inputSimulator.isLeftMouseButtonHeld,
+           UniversalControlMouseRelay.shared.remoteOverlayState().keyboardVisible,
+           UniversalControlMouseRelay.shared.sendSwipeTouchpadDelta(
+                dx: Double(delta.x),
+                dy: Double(-delta.y),
+                sensitivity: snapshot.swipeTypingSensitivity
+           ) {
+            return
+        }
+
         if snapshot.swipeTypingActive && SwipeTypingEngine.shared.threadSafeState == .swiping {
             SwipeTypingEngine.shared.updateCursorFromTouchpadDelta(
                 dx: Double(delta.x),

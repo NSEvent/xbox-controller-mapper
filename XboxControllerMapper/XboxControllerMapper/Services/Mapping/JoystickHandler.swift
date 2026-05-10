@@ -58,7 +58,8 @@ extension MappingEngine {
             || remoteOverlayState.directoryNavigatorVisible
 
         // Swipe typing: left trigger toggles swipe mode, touchpad touch drives word boundaries
-        let keyboardVisible = keyboardSnapshot.visible
+        let remoteKeyboardVisible = remoteOverlayState.keyboardVisible
+        let keyboardVisible = keyboardSnapshot.visible || remoteKeyboardVisible
         let letterArea = keyboardSnapshot.letterArea
         let leftTrigger = controllerSnapshot.leftTrigger
         if keyboardVisible && state.swipeTypingEnabled {
@@ -66,11 +67,15 @@ extension MappingEngine {
             if !wasSwipeActive && leftTrigger > Config.swipeTriggerThreshold {
                 state.swipeTypingActive = true
                 state.wasTouchpadTouching = inputSimulator.isLeftMouseButtonHeld
-                SwipeTypingEngine.shared.activateMode()
+                if !remoteKeyboardVisible || !UniversalControlMouseRelay.shared.sendSwipeMode(active: true) {
+                    SwipeTypingEngine.shared.activateMode()
+                }
             } else if wasSwipeActive && leftTrigger < Config.swipeTriggerReleaseThreshold {
                 state.swipeTypingActive = false
                 state.wasTouchpadTouching = false
-                SwipeTypingEngine.shared.deactivateMode()
+                if !remoteKeyboardVisible || !UniversalControlMouseRelay.shared.sendSwipeMode(active: false) {
+                    SwipeTypingEngine.shared.deactivateMode()
+                }
             }
 
             if state.swipeTypingActive {
@@ -78,7 +83,9 @@ extension MappingEngine {
                 let wasClicking = state.wasTouchpadTouching
                 if isClicking && !wasClicking {
                     state.swipeClickReleaseFrames = 0
-                    if letterArea.width > 0 && letterArea.height > 0,
+                    let beganRemotely = remoteKeyboardVisible
+                        && UniversalControlMouseRelay.shared.sendSwipeBegin()
+                    if !beganRemotely, letterArea.width > 0 && letterArea.height > 0,
                        let mouseEvent = CGEvent(source: nil) {
                         let quartz = mouseEvent.location
                         let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
@@ -89,8 +96,10 @@ extension MappingEngine {
                             y: 1.0 - (cocoaY - letterArea.origin.y) / letterArea.height
                         )
                         SwipeTypingEngine.shared.setCursorPosition(normalized)
+                        SwipeTypingEngine.shared.beginSwipe()
+                    } else if !beganRemotely {
+                        SwipeTypingEngine.shared.beginSwipe()
                     }
-                    SwipeTypingEngine.shared.beginSwipe()
                     controllerService.playHaptic(
                         intensity: Config.swipeBeginHapticIntensity,
                         sharpness: Config.swipeBeginHapticSharpness,
@@ -101,7 +110,11 @@ extension MappingEngine {
                     state.swipeClickReleaseFrames += 1
                     if state.swipeClickReleaseFrames >= 3 {
                         let swipeCursorPos = swipeSnapshot.cursorPosition
-                        SwipeTypingEngine.shared.endSwipe()
+                        let endedRemotely = remoteKeyboardVisible
+                            && UniversalControlMouseRelay.shared.sendSwipeEnd()
+                        if !endedRemotely {
+                            SwipeTypingEngine.shared.endSwipe()
+                        }
                         controllerService.playHaptic(
                             intensity: Config.swipeEndHapticIntensity,
                             sharpness: Config.swipeEndHapticSharpness,
@@ -124,7 +137,13 @@ extension MappingEngine {
                     state.wasTouchpadTouching = isClicking
                 }
 
-                if swipeSnapshot.state == .swiping {
+                if remoteKeyboardVisible, isClicking {
+                    _ = UniversalControlMouseRelay.shared.sendSwipeJoystick(
+                        x: Double(leftStick.x),
+                        y: Double(-leftStick.y),
+                        sensitivity: state.swipeTypingSensitivity
+                    )
+                } else if swipeSnapshot.state == .swiping {
                     SwipeTypingEngine.shared.updateCursorFromJoystick(
                         x: Double(leftStick.x),
                         y: Double(-leftStick.y),
@@ -135,10 +154,13 @@ extension MappingEngine {
         } else if state.swipeTypingActive {
             state.swipeTypingActive = false
             state.wasTouchpadTouching = false
-            SwipeTypingEngine.shared.deactivateMode()
+            if !UniversalControlMouseRelay.shared.sendSwipeMode(active: false) {
+                SwipeTypingEngine.shared.deactivateMode()
+            }
         }
 
-        let swipeBlocksLeftStick = state.swipeTypingActive && swipeSnapshot.state == .swiping
+        let swipeBlocksLeftStick = state.swipeTypingActive
+            && (swipeSnapshot.state == .swiping || (remoteKeyboardVisible && inputSimulator.isLeftMouseButtonHeld))
         guard !swipeBlocksLeftStick else {
             if state.commandWheelActive {
                 updateCommandWheel(rightStick: controllerSnapshot.rightStick)

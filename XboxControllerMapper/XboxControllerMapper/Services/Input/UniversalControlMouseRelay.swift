@@ -194,11 +194,21 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     func endRemoteSession() {
         _ = sendFocusMode(active: false)
-        _ = sendLine("portalEnd")
+        if let returnEdge = activeRemoteReturnEdge() {
+            _ = sendLine("portalExit \(returnEdge.rawValue)")
+        } else {
+            _ = sendLine("portalEnd")
+        }
         Task { @MainActor in
-            UniversalControlPortalIndicator.shared.clearCursorState()
+            UniversalControlPortalIndicator.shared.flashActiveCursor()
         }
         setRemoteSessionActive(false)
+    }
+
+    private func activeRemoteReturnEdge() -> HandoffEdge? {
+        lock.lock()
+        defer { lock.unlock() }
+        return activeHandoffZone?.remoteReturnEdge
     }
 
     func shouldReturnFromRemote(dx: Int, dy: Int) -> Bool {
@@ -383,6 +393,31 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     func sendSwipePredictionCancel() -> Bool {
         guard hasActiveRemoteSession else { return false }
         return sendUIEvent("swipeCancel", button: .b)
+    }
+
+    func sendSwipeMode(active: Bool) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendLine("swipeMode \(active ? 1 : 0)")
+    }
+
+    func sendSwipeBegin() -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendLine("swipeBegin")
+    }
+
+    func sendSwipeEnd() -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendLine("swipeEnd")
+    }
+
+    func sendSwipeJoystick(x: Double, y: Double, sensitivity: Double) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendLine("swipeStick \(x) \(y) \(sensitivity)")
+    }
+
+    func sendSwipeTouchpadDelta(dx: Double, dy: Double, sensitivity: Double) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendLine("swipeTouch \(dx) \(dy) \(sensitivity)")
     }
 
     func sendDirectoryNavigation(_ button: ControllerButton) -> Bool {
@@ -847,6 +882,45 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 }
             }
             logFirstReceive("focus mode")
+        case "swipeMode":
+            guard parts.count == 2,
+                  let activeRaw = Int(parts[1]) else { return }
+            if activeRaw != 0 {
+                SwipeTypingEngine.shared.activateMode()
+            } else {
+                SwipeTypingEngine.shared.deactivateMode()
+            }
+            logFirstReceive("swipe mode")
+        case "swipeBegin":
+            Task { @MainActor in
+                self.beginRemoteSwipe()
+            }
+            logFirstReceive("swipe begin")
+        case "swipeEnd":
+            SwipeTypingEngine.shared.endSwipe()
+            logFirstReceive("swipe end")
+        case "swipeStick":
+            guard parts.count == 4,
+                  let x = Double(parts[1]),
+                  let y = Double(parts[2]),
+                  let sensitivity = Double(parts[3]) else { return }
+            SwipeTypingEngine.shared.updateCursorFromJoystick(
+                x: x,
+                y: y,
+                sensitivity: sensitivity
+            )
+            logFirstReceive("swipe stick")
+        case "swipeTouch":
+            guard parts.count == 4,
+                  let dx = Double(parts[1]),
+                  let dy = Double(parts[2]),
+                  let sensitivity = Double(parts[3]) else { return }
+            SwipeTypingEngine.shared.updateCursorFromTouchpadDelta(
+                dx: dx,
+                dy: dy,
+                sensitivity: sensitivity
+            )
+            logFirstReceive("swipe touch")
         case "fb":
             guard parts.count == 4,
                   let actionData = Data(base64Encoded: String(parts[1])),
@@ -890,6 +964,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 UniversalControlPortalIndicator.shared.clearRemoteReturnHint()
             }
             logFirstReceive("portal end")
+        case "portalExit":
+            guard parts.count == 2,
+                  let edge = HandoffEdge(rawValue: String(parts[1])) else { return }
+            Task { @MainActor in
+                UniversalControlPortalIndicator.shared.showRemoteExit(edge: edge)
+            }
+            logFirstReceive("portal exit")
         default:
             return
         }
@@ -985,6 +1066,24 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 NSLog("[UCMouseRelay] Could not send UI state: %@", String(describing: error))
             }
         })
+    }
+
+    @MainActor
+    private func beginRemoteSwipe() {
+        let letterArea = OnScreenKeyboardManager.shared.threadSafeLetterAreaScreenRect
+        if letterArea.width > 0, letterArea.height > 0,
+           let mouseEvent = CGEvent(source: nil) {
+            let quartz = mouseEvent.location
+            let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
+            let cocoaX = quartz.x
+            let cocoaY = screenHeight - quartz.y
+            let normalized = CGPoint(
+                x: (cocoaX - letterArea.origin.x) / letterArea.width,
+                y: 1.0 - (cocoaY - letterArea.origin.y) / letterArea.height
+            )
+            SwipeTypingEngine.shared.setCursorPosition(normalized)
+        }
+        SwipeTypingEngine.shared.beginSwipe()
     }
 
     private func updateRemoteMouseButtonState(keyCode: CGKeyCode, isDown: Bool) {

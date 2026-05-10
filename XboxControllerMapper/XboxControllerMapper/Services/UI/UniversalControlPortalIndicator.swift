@@ -68,6 +68,25 @@ final class UniversalControlPortalIndicator {
         }
     }
 
+    func showRemoteExit(edge: UniversalControlMouseRelay.HandoffEdge) {
+        let screen = screen(containing: NSEvent.mouseLocation) ?? NSScreen.main ?? NSScreen.screens.first
+        guard let screen else { return }
+
+        show(
+            on: screen,
+            pulseEdge: edge,
+            persistentEdge: nil,
+            pulseActive: true
+        )
+
+        hideTimer?.invalidate()
+        hideTimer = Timer.scheduledTimer(withTimeInterval: pulseDuration, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.hide()
+            }
+        }
+    }
+
     func showInactiveCursor(at cgPoint: CGPoint, displayID: CGDirectDisplayID) {
         guard let screen = screen(displayID: displayID) ?? NSScreen.main else { return }
         let displayBounds = CGDisplayBounds(displayID)
