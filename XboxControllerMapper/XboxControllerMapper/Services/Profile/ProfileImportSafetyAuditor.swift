@@ -147,7 +147,33 @@ enum ProfileImportSafetyAuditor {
         context: String,
         into commands: inout [ProfileImportSafetyReport.DiscoveredShellCommand]
     ) {
-        guard case let .shellCommand(cmd, inTerminal)? = command else { return }
-        commands.append(.init(context: context, command: cmd, inTerminal: inTerminal))
+        switch command {
+        case let .shellCommand(cmd, inTerminal):
+            commands.append(.init(context: context, command: cmd, inTerminal: inTerminal))
+
+        case let .httpRequest(_, _, _, _, responseHandling):
+            // Webhook responseHandling can carry shell follow-ups that
+            // SystemCommandExecutor runs silently after the request resolves
+            // (see SystemCommandExecutor.swift:459). A malicious profile
+            // could otherwise hide a payload here and bypass this auditor
+            // since it doesn't appear under any .shellCommand binding.
+            if let onSuccess = responseHandling?.onSuccessCommand, !onSuccess.isEmpty {
+                commands.append(.init(
+                    context: "\(context) (webhook on-success)",
+                    command: onSuccess,
+                    inTerminal: false
+                ))
+            }
+            if let onError = responseHandling?.onErrorCommand, !onError.isEmpty {
+                commands.append(.init(
+                    context: "\(context) (webhook on-error)",
+                    command: onError,
+                    inTerminal: false
+                ))
+            }
+
+        case .launchApp, .openLink, .obsWebSocket, nil:
+            break
+        }
     }
 }

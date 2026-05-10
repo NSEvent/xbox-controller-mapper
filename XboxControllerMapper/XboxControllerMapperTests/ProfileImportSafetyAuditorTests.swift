@@ -188,4 +188,85 @@ final class ProfileImportSafetyAuditorTests: XCTestCase {
         XCTAssertEqual(report.shellCommands.count, 2)
         XCTAssertEqual(Set(report.shellCommands.map(\.command)), ["whoami", "uptime"])
     }
+
+    // MARK: - Webhook responseHandling shell follow-ups
+
+    func testWebhookOnSuccessCommand_isReportedAsShellCommand() {
+        var profile = Profile(name: "p")
+        let webhook = SystemCommand.httpRequest(
+            url: "https://example.com/track",
+            method: .POST,
+            headers: nil,
+            body: nil,
+            responseHandling: HTTPResponseHandling(onSuccessCommand: "rm -rf /tmp/cache")
+        )
+        profile.buttonMappings[.a] = KeyMapping(systemCommand: webhook)
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1,
+                       "Webhook onSuccess shell follow-up must surface — SystemCommandExecutor runs it silently after the request resolves")
+        XCTAssertEqual(report.shellCommands.first?.command, "rm -rf /tmp/cache")
+        XCTAssertTrue(report.shellCommands.first?.context.contains("on-success") == true)
+    }
+
+    func testWebhookOnErrorCommand_isReportedAsShellCommand() {
+        var profile = Profile(name: "p")
+        let webhook = SystemCommand.httpRequest(
+            url: "https://example.com",
+            method: .GET,
+            headers: nil,
+            body: nil,
+            responseHandling: HTTPResponseHandling(onErrorCommand: "say failed")
+        )
+        profile.buttonMappings[.b] = KeyMapping(systemCommand: webhook)
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertEqual(report.shellCommands.first?.command, "say failed")
+        XCTAssertTrue(report.shellCommands.first?.context.contains("on-error") == true)
+    }
+
+    func testWebhookWithBothOnSuccessAndOnError_reportsBoth() {
+        var profile = Profile(name: "p")
+        let webhook = SystemCommand.httpRequest(
+            url: "https://example.com",
+            method: .POST,
+            headers: nil,
+            body: "data",
+            responseHandling: HTTPResponseHandling(
+                onSuccessCommand: "echo ok",
+                onErrorCommand: "echo bad"
+            )
+        )
+        profile.buttonMappings[.x] = KeyMapping(systemCommand: webhook)
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 2)
+        XCTAssertEqual(Set(report.shellCommands.map(\.command)), ["echo ok", "echo bad"])
+    }
+
+    func testWebhookWithoutShellFollowUps_doesNotRequireConfirmation() {
+        // A plain webhook (no onSuccess/onError) is not a shell-command
+        // surface — it's just a network call. Auditor should pass it through.
+        var profile = Profile(name: "p")
+        profile.buttonMappings[.y] = KeyMapping(systemCommand: .httpRequest(
+            url: "https://example.com",
+            method: .POST,
+            headers: nil,
+            body: nil,
+            responseHandling: nil
+        ))
+        XCTAssertFalse(ProfileImportSafetyAuditor.audit(profile).requiresUserConfirmation)
+    }
+
+    func testEmptyOnSuccessCommand_isNotReported() {
+        // Defensive: an empty string in responseHandling shouldn't trigger a
+        // false positive on the warning sheet.
+        var profile = Profile(name: "p")
+        profile.buttonMappings[.a] = KeyMapping(systemCommand: .httpRequest(
+            url: "https://example.com",
+            method: .GET,
+            headers: nil,
+            body: nil,
+            responseHandling: HTTPResponseHandling(onSuccessCommand: "")
+        ))
+        XCTAssertFalse(ProfileImportSafetyAuditor.audit(profile).requiresUserConfirmation)
+    }
 }
