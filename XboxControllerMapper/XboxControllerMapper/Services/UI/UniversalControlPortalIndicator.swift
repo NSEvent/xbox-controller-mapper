@@ -12,6 +12,7 @@ final class UniversalControlPortalIndicator {
     private var cursorPanel: NSPanel?
     private var cursorHostingView: NSHostingView<CursorTeleportView>?
     private var cursorHideTimer: Timer?
+    private var cursorTrackingTimer: Timer?
 
     private let pulseDuration: TimeInterval = 0.55
     private let fadeDuration: TimeInterval = 0.18
@@ -79,6 +80,7 @@ final class UniversalControlPortalIndicator {
 
     func flashActiveCursor() {
         showCursor(at: NSEvent.mouseLocation, state: .active, persistent: false)
+        startCursorTracking()
         cursorHideTimer?.invalidate()
         cursorHideTimer = Timer.scheduledTimer(withTimeInterval: 0.9, repeats: false) { [weak self] _ in
             Task { @MainActor in
@@ -120,16 +122,38 @@ final class UniversalControlPortalIndicator {
         ensureCursorPanel()
         cursorHostingView?.rootView = CursorTeleportView(state: state)
         cursorPanel?.alphaValue = 1
-        cursorPanel?.setFrameOrigin(NSPoint(
-            x: point.x - cursorSize / 2,
-            y: point.y - cursorSize / 2
-        ))
+        setCursorPanelCenter(point)
         cursorPanel?.orderFrontRegardless()
 
         if persistent {
             cursorHideTimer?.invalidate()
             cursorHideTimer = nil
+            stopCursorTracking()
         }
+    }
+
+    private func setCursorPanelCenter(_ point: NSPoint) {
+        cursorPanel?.setFrameOrigin(NSPoint(
+            x: point.x - cursorSize / 2,
+            y: point.y - cursorSize / 2
+        ))
+    }
+
+    private func startCursorTracking() {
+        cursorTrackingTimer?.invalidate()
+        cursorTrackingTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.setCursorPanelCenter(NSEvent.mouseLocation)
+            }
+        }
+        if let cursorTrackingTimer {
+            RunLoop.main.add(cursorTrackingTimer, forMode: .common)
+        }
+    }
+
+    private func stopCursorTracking() {
+        cursorTrackingTimer?.invalidate()
+        cursorTrackingTimer = nil
     }
 
     private func hide() {
@@ -144,6 +168,7 @@ final class UniversalControlPortalIndicator {
 
     private func hideCursor() {
         guard let cursorPanel else { return }
+        stopCursorTracking()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = fadeDuration
             cursorPanel.animator().alphaValue = 0
@@ -348,18 +373,13 @@ private enum CursorTeleportState: Equatable {
     case inactive
 
     var color: Color {
-        switch self {
-        case .active:
-            return Color(red: 0.18, green: 0.88, blue: 1.0)
-        case .inactive:
-            return Color(red: 0.55, green: 0.68, blue: 0.74)
-        }
+        Color(red: 0.18, green: 0.88, blue: 1.0)
     }
 
     var opacity: Double {
         switch self {
         case .active: return 0.92
-        case .inactive: return 0.62
+        case .inactive: return 0.72
         }
     }
 }
@@ -370,16 +390,11 @@ private struct CursorTeleportView: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(state.color.opacity(state.opacity), lineWidth: 2.5)
-                .frame(width: 30, height: 30)
-                .shadow(color: state.color.opacity(state.opacity), radius: 6)
-
-            Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            state.color.opacity(state == .active ? 0.44 : 0.22),
-                            state.color.opacity(0.08),
+                            state.color.opacity(state == .active ? 0.44 : 0.34),
+                            state.color.opacity(state == .active ? 0.08 : 0.16),
                             .clear
                         ],
                         center: .center,
@@ -390,11 +405,40 @@ private struct CursorTeleportView: View {
                 .frame(width: 46, height: 46)
 
             if state == .inactive {
-                Rectangle()
-                    .fill(state.color.opacity(0.78))
-                    .frame(width: 24, height: 2)
-                    .rotationEffect(.degrees(-45))
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                .white.opacity(0.85),
+                                state.color.opacity(0.95),
+                                state.color.opacity(0.20),
+                                state.color.opacity(0.95),
+                                .white.opacity(0.85)
+                            ],
+                            center: .center
+                        ),
+                        lineWidth: 3.5
+                    )
+                    .frame(width: 31, height: 31)
+                    .shadow(color: state.color.opacity(0.82), radius: 7)
+
+                Circle()
+                    .trim(from: 0.08, to: 0.34)
+                    .stroke(.white.opacity(0.72), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .frame(width: 38, height: 38)
+                    .rotationEffect(.degrees(-18))
+
+                Circle()
+                    .trim(from: 0.58, to: 0.84)
+                    .stroke(state.color.opacity(0.72), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .frame(width: 24, height: 24)
+                    .rotationEffect(.degrees(24))
             } else {
+                Circle()
+                    .stroke(state.color.opacity(state.opacity), lineWidth: 2.5)
+                    .frame(width: 30, height: 30)
+                    .shadow(color: state.color.opacity(state.opacity), radius: 6)
+
                 Circle()
                     .fill(Color.white.opacity(0.85))
                     .frame(width: 5, height: 5)
