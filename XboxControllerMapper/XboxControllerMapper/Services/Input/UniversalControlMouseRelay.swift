@@ -73,6 +73,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var clientReceiveBuffer = ""
     private var remoteCursorStatus: RemoteCursorStatus?
     private var activeHandoffZone: HandoffZone?
+    private var pendingHandoffPortal: HandoffDecision?
     private var isRelayTarget = false
     private var isRemoteSessionActive = false
     private var remoteMouseButtonsHeld: Set<CGMouseButton> = []
@@ -105,6 +106,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         if !active {
             remoteCursorStatus = nil
             activeHandoffZone = nil
+            pendingHandoffPortal = nil
         }
         lock.unlock()
         if !active {
@@ -127,6 +129,12 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     func showLocalHandoffPortal(for decision: HandoffDecision) {
+        lock.lock()
+        pendingHandoffPortal = decision
+        lock.unlock()
+    }
+
+    private func showConfirmedHandoffPortal(for decision: HandoffDecision) {
         Task { @MainActor in
             UniversalControlPortalIndicator.shared.flash(
                 edge: decision.zone.localEdge,
@@ -708,7 +716,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             point: CGPoint(x: x, y: y),
             displays: displays
         )
+        let pendingPortal = pendingHandoffPortal
+        pendingHandoffPortal = nil
         lock.unlock()
+
+        if let pendingPortal {
+            showConfirmedHandoffPortal(for: pendingPortal)
+        }
     }
 
     private func sendRemoteCursorStatus(on connection: NWConnection) {
