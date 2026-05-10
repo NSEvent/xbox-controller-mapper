@@ -1166,7 +1166,6 @@ struct SettingsSheet: View {
                         Toggle(isOn: visibleButtonSectionBinding(for: section)) {
                             Text(section.label)
                         }
-                        .disabled(isLastVisibleButtonSection(section))
                     }
 
                     Button("Show All Button Sections") {
@@ -1281,17 +1280,12 @@ struct SettingsSheet: View {
                 var hiddenSections = ButtonMappingsTabSection.hiddenSections(from: hiddenButtonSectionTags)
                 if isVisible {
                     hiddenSections.remove(section)
-                } else if !isLastVisibleButtonSection(section) {
+                } else {
                     hiddenSections.insert(section)
                 }
                 hiddenButtonSectionTags = ButtonMappingsTabSection.encodedHiddenSections(hiddenSections)
             }
         )
-    }
-
-    private func isLastVisibleButtonSection(_ section: ButtonMappingsTabSection) -> Bool {
-        let hiddenSections = ButtonMappingsTabSection.hiddenSections(from: hiddenButtonSectionTags)
-        return ButtonMappingsTabSection.allCases.filter { !hiddenSections.contains($0) } == [section]
     }
 
     private func unavailableReason(for section: MainWindowSection) -> String {

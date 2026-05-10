@@ -29,71 +29,59 @@ struct ButtonMappingsTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if isSectionVisible(.inputLog) {
-                removableSection(.inputLog) {
-                    InputLogView()
-                        .padding(.top, 8)
-                }
-            }
+            InputLogView()
+                .padding(.top, 8)
 
             // Layer Tab Bar
-            if isSectionVisible(.layers) {
-                removableSection(.layers) {
-                    LayerTabBar(
-                        selectedLayerId: $selectedLayerId,
-                        isSwapMode: $isSwapMode,
-                        swapFirstButton: $swapFirstButton,
-                        showingAddLayerSheet: $showingAddLayerSheet,
-                        editingLayerId: $editingLayerId,
-                        actionFeedbackEnabled: actionFeedbackEnabled,
-                        streamOverlayEnabled: streamOverlayEnabled
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                }
-            }
+            LayerTabBar(
+                selectedLayerId: $selectedLayerId,
+                isSwapMode: $isSwapMode,
+                swapFirstButton: $swapFirstButton,
+                showingAddLayerSheet: $showingAddLayerSheet,
+                editingLayerId: $editingLayerId,
+                actionFeedbackEnabled: actionFeedbackEnabled,
+                streamOverlayEnabled: streamOverlayEnabled
+            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
 
-            if isSectionVisible(.controller) {
-                removableSection(.controller) {
-                    GeometryReader { geometry in
-                        // Base size of ControllerVisualView content
-                        let baseWidth: CGFloat = 920
-                        let baseHeight: CGFloat = 580
+            GeometryReader { geometry in
+                // Base size of ControllerVisualView content
+                let baseWidth: CGFloat = 920
+                let baseHeight: CGFloat = 580
 
-                        // Calculate scale to fit available space (allow both up and down scaling)
-                        let scaleX = geometry.size.width / baseWidth
-                        let scaleY = geometry.size.height / baseHeight
-                        let autoScale = min(scaleX, scaleY)
+                // Calculate scale to fit available space (allow both up and down scaling)
+                let scaleX = geometry.size.width / baseWidth
+                let scaleY = geometry.size.height / baseHeight
+                let autoScale = min(scaleX, scaleY)
 
-                        // Combine with user's manual zoom setting
-                        let finalScale = autoScale * profileManager.uiScale
+                // Combine with user's manual zoom setting
+                let finalScale = autoScale * profileManager.uiScale
 
-                        ControllerVisualView(
-                            selectedButton: $selectedButton,
-                            selectedLayerId: selectedLayerId,
-                            swapFirstButton: swapFirstButton,
-                            isSwapMode: isSwapMode,
-                            onButtonTap: { button in
-                                // Ignore taps during magnification gestures to prevent accidental triggers
-                                guard !isMagnifying else { return }
-                                // Async dispatch to avoid layout recursion if triggered during layout pass
-                                DispatchQueue.main.async {
-                                    if isSwapMode {
-                                        handleSwapButtonTap(button)
-                                    } else {
-                                        selectedButton = button
-                                        configuringButton = button
-                                    }
-                                }
+                ControllerVisualView(
+                    selectedButton: $selectedButton,
+                    selectedLayerId: selectedLayerId,
+                    swapFirstButton: swapFirstButton,
+                    isSwapMode: isSwapMode,
+                    onButtonTap: { button in
+                        // Ignore taps during magnification gestures to prevent accidental triggers
+                        guard !isMagnifying else { return }
+                        // Async dispatch to avoid layout recursion if triggered during layout pass
+                        DispatchQueue.main.async {
+                            if isSwapMode {
+                                handleSwapButtonTap(button)
+                            } else {
+                                selectedButton = button
+                                configuringButton = button
                             }
-                        )
-                        .scaleEffect(finalScale)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .allowsHitTesting(!isMagnifying)
+                        }
                     }
-                    .clipped()
-                }
+                )
+                .scaleEffect(finalScale)
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .allowsHitTesting(!isMagnifying)
             }
+            .clipped()
 
             // Mapped Chords Display
             if isSectionVisible(.activeChords) {
@@ -174,30 +162,20 @@ struct ButtonMappingsTab: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .disabled(isLastVisibleSection(section))
-                .opacity(isLastVisibleSection(section) ? 0.35 : 1)
-                .help(isLastVisibleSection(section) ? "At least one section must remain visible" : "Hide \(section.label)")
+                .help("Hide \(section.label)")
                 .padding(.top, 6)
                 .padding(.trailing, 8)
             }
     }
 
     private func hideSection(_ section: ButtonMappingsTabSection) {
-        guard !isLastVisibleSection(section) else { return }
         var currentHiddenSections = hiddenSections
         currentHiddenSections.insert(section)
         hiddenSectionTags = ButtonMappingsTabSection.encodedHiddenSections(currentHiddenSections)
     }
-
-    private func isLastVisibleSection(_ section: ButtonMappingsTabSection) -> Bool {
-        ButtonMappingsTabSection.allCases.filter { !hiddenSections.contains($0) } == [section]
-    }
 }
 
 enum ButtonMappingsTabSection: Int, CaseIterable, Identifiable {
-    case inputLog = 0
-    case layers = 1
-    case controller = 2
     case activeChords = 3
     case activeSequences = 4
 
@@ -207,9 +185,6 @@ enum ButtonMappingsTabSection: Int, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .inputLog: return "Input Log"
-        case .layers: return "Layers"
-        case .controller: return "Controller Diagram"
         case .activeChords: return "Active Chords"
         case .activeSequences: return "Active Sequences"
         }
