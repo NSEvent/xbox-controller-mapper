@@ -198,3 +198,25 @@ Marketing?
 
   - The controller breathes. A slow, rhythmic haptic pulse — inhale frequency — that you feel subconsciously. Studies show haptic
   breathing guides reduce stress as effectively as visual ones. Your input device becomes a biofeedback device.
+
+
+Refactor ProfileImportSafetyAuditor to use a Visitor pattern over Profile.
+
+The current auditor hand-walks every code-execution surface in a Profile (button mappings, chords, sequences, gestures, command-wheel actions, layers, macros, scripts, touchpad regions, OSK quick texts, webhook responseHandling). Four separate gemini audit passes have each found a bypass — a surface the auditor wasn't enumerating — that lets a malicious profile hide a shell payload past the import warning sheet:
+
+  Pass 2: missed `OnScreenKeyboardSettings.quickTexts` with isTerminalCommand=true
+  Pass 3: missed SystemCommand.httpRequest's responseHandling.onSuccess/onError
+  Pass 4 #1: missed longHold/doubleTap on Layer button mappings
+  Pass 4 #2: touchpadRegionMappings used a manual `if case` that fell behind when collectShell was extended
+
+Root cause: the data type knows its own substructure, but the auditor has to keep up by hand. Adding a new field to Profile, KeyMapping, SystemCommand, or any nested type compiles, tests pass, and the new surface is silently unaudited.
+
+Visitor design: data types (Profile, Layer, KeyMapping, etc.) own an `accept(visitor:)` method that walks their own structure and calls back into a `ProfileSurfaceVisitor` for each leaf (systemCommand, macroStep, script, quickText). The auditor becomes a ~40-line struct conforming to that protocol. New executable surfaces extend `accept` once on the data type — every visitor (auditor included) automatically gets the call.
+
+What this buys: walk lives in one place per type; layers can't forget what KeyMapping knows about itself; new visitors (e.g., "list all webhooks", "complexity estimate") are cheap; `accept` itself becomes testable independently of any specific consumer.
+
+What this doesn't fix: discipline still required when adding a new top-level field (someone has to extend `accept`). For full bulletproofing, wrap all executable surfaces in a `CodeExecutionSurface` enum and switch on it with no default — Swift's exhaustiveness check then makes it impossible to add a case without updating consumers. Bigger refactor; constrains the data model.
+
+Cost: ~200-300 lines added across Profile/Layer/KeyMapping + ~150 deleted from ProfileImportSafetyAuditor; ~25 existing auditor tests act as the regression net; estimated 2-3 hours.
+
+When to do this: if a fifth gemini pass finds another auditor bypass. Otherwise, the current hand-rolled walk plus comprehensive test suite is good enough.
