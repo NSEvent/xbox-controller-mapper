@@ -1,12 +1,12 @@
 # ControllerKeys — Remaining Issues & Features
 
-Tracked from May 7, 2026 testing session. Items below are NOT yet working as expected.
+Backlog audited May 10, 2026 against git history and current source.
 
 ---
 
-## Bugs to Fix
+## Backlog
 
-### 0. Buttons tab — collapse/expand Active Chords and Active Sequences sections
+### 1. Buttons tab — collapse/expand Active Chords and Active Sequences sections
 
 **Status:** Feature backlog
 **Where:** Buttons tab UI
@@ -18,87 +18,65 @@ Tracked from May 7, 2026 testing session. Items below are NOT yet working as exp
 - Each section can be maximized/expanded when the user wants to focus on chords or sequences.
 - The controls should feel lightweight and remember enough state to avoid surprising layout resets during normal settings use.
 
-**Likely location:** Buttons tab layout in `SettingsViews.swift` or the split-out view that renders active chord/sequence panels.
+**Likely location:** `ButtonMappingsTab.swift`, `ActiveChordsView.swift`, and `ActiveSequencesView.swift`.
+
+**Related but not sufficient:** `38f0d6e feat: add configurable main window sections` lets users hide whole top-level tabs. It does not add per-panel hide/maximize controls for the active chord/sequence sections inside the Buttons tab.
 
 ---
 
-### 1. Command wheel doesn't minimize app on second selection
+## Completed From Old Backlog
 
-**Status:** Bug
-**Where:** Standalone command wheel (the new one triggered by a dedicated button mapping)
+### Command wheel doesn't minimize app on second selection
 
-**Expected:** Selecting an already-frontmost app a second time should minimize it (matches keyboard command wheel behavior).
-**Actual:** Selecting Chrome twice in a row doesn't minimize Chrome.
-**Note:** The keyboard command wheel (the one inside the on-screen keyboard hold) does this correctly. The behavior should be ported to the standalone command wheel.
+**Status:** Done
 
-**Likely location:** `CommandWheelManager.swift` activation/selection handling, or wherever app activation is performed for `.app` items. Look for the keyboard command wheel's app activation code (something around `NSWorkspace` activate/hide) and mirror it.
+**Evidence:**
+- `6457a58 fix: command wheel hides app if it is already frontmost`
+- `771e72b fix: launchApp system command minimizes already-frontmost app`
+- Current code: `CommandWheelManager.activateApp` and `SystemCommandExecutor.launchApplication` both call `frontmost.hide()` when the selected bundle is already frontmost.
 
-**Test to add:** Selecting the same frontmost app twice should call hide/minimize on the second selection.
+### Touchpad quadrant UI — quadrant cells not clickable to configure mappings
 
----
+**Status:** Done
 
-### 2. Touchpad quadrant UI — quadrant cells not clickable to configure mappings
+**Evidence:**
+- `d920bd9 feat: touchpad region mapping editor with separate touch/click actions`
+- Current code: `TouchpadRegionGrid` opens `TouchpadRegionMappingSheet` via `.sheet(item: $editingRegion)`, and cells say "Tap to map" when empty.
 
-**Status:** Partial — model + engine integration done, UI is read-only
-**Where:** `SettingsViews.swift` → `TouchpadRegionGrid`
+### Controller lock doesn't actually block input on DS4
 
-**Current state:** The 2×2 grid in Touchpad settings shows "Not mapped" cells but clicking only removes existing mappings. There's no editor to assign keys/macros/system commands to a quadrant.
+**Status:** Done by history; re-open only with a fresh repro.
 
-**Needed:**
-- Sheet/popover to edit a region mapping (key picker, modifiers, macro/system command picker, trigger mode picker [touch/click/both], hint text)
-- Reuse `ButtonMappingSheet` patterns where possible — region mappings already use the same `KeyMapping`-shaped fields (keyCode, modifiers, macroId, systemCommand, hint)
+**Evidence:**
+- `d5be40b fix: controller lock from double-tap and long-hold mappings`
+- Current code: lock mappings are intercepted before locked-state blocking, `performLockToggle()` logs lock/unlock, and joystick/touchpad/motion paths guard on `!state.isLocked`.
 
-**Files:** `SettingsViews.swift` (`TouchpadRegionGrid`), possibly new `TouchpadRegionMappingSheet.swift`
+### DualSense / DS4 lightbar doesn't change color on layer activation
 
----
+**Status:** Done
 
-### 3. Controller lock doesn't actually block input on DS4
-
-**Status:** Bug — lock toggle fires but movement still works
-**Where:** Unknown — needs investigation
-
-**Expected:** When locked, ALL movement (mouse from joystick, mouse from touchpad, key presses, scroll) should be blocked until unlocked.
-**Actual:** After locking on DS4, mouse cursor still moves, etc.
-
-**What I checked already:**
-- `state.isLocked` checks ARE present in `processJoysticks()` (JoystickHandler.swift:43), `processTouchpadMovement()` (TouchpadInputHandler.swift:18), tap handlers (lines 101, 133, 173, 197, 472)
-- `performLockToggle()` correctly sets `state.isLocked = true` inside `state.lock`
-
-**Hypotheses to investigate:**
-- The button mapped to lock might not actually be reaching `performLockToggle()` on DS4 (verify with input log when toggling)
-- Lock state might be on a different `state` instance than the polling timer reads (rare)
-- Mouse movement might be coming through a path that doesn't check `state.isLocked` (e.g., directly via system if the touchpad emulates a mouse at OS level — but DS4 doesn't do this on macOS)
-
-**Concrete next step:** Add an input log entry on lock toggle and verify it fires when Kevin presses the lock button. If it does, dump the lock state from each handler when movement is observed.
+**Evidence:**
+- `dbcf331 fix: DS4 lightbar control via GCController.light over Bluetooth`
+- Current code: DS4 Bluetooth lightbar updates use `GCController.light`; DS4 USB HID reports remain for USB.
 
 ---
 
-### 4. ~~DualSense / DS4 lightbar doesn't change color on layer activation~~ ✅ FIXED
+## Features Already Shipped
 
-**Resolution:** Two fixes:
-1. Corrected DS4 HID report byte layout per Linux `hid-playstation.c` (USB byte 1 = `0x03` MOTOR|LED flag; BT report needed proper `hw_control` header at byte 0 and CRC32 at end)
-2. Discovered `IOHIDDeviceSetReport` returns success on macOS but the kernel silently drops reports for controllers managed by the GameController framework. Switched DS4 BT to use `GCController.light` (the same privileged path DualSense BT uses).
-
-The HID report code is still useful for DS4 over USB and serves as documentation of the correct format.
-
----
-
-## Features Already Shipped (Verified Working)
-
-- Command wheel appears immediately on button hold
-- Hide Dock Icon setting
-- Flexible layer modifier behavior (other layer activators are freed up when a layer is active)
-- Layer activator buttons can be remapped within other layers
-- Controller lock takes precedence when mapped to a layer activator button
-- Touchpad quadrant model + engine integration (region tap/click events route through `processTouchpadRegionEvent`)
-- DS4 lightbar HID output reports (code paths exist; visible behavior is bug #4 above)
-- Layer LED data model and apply/revert hooks (code paths exist; visible behavior is bug #4 above)
+- Command wheel appears immediately on button hold.
+- Hide Dock Icon setting.
+- Flexible layer modifier behavior.
+- Layer activator buttons can be remapped within other layers.
+- Controller lock takes precedence when mapped to layer activator, long-hold, or double-tap actions.
+- Touchpad quadrants are first-class buttons with touch/click mapping editor.
+- DS4 lightbar works over Bluetooth through `GCController.light`, with USB HID report support retained.
+- Layer LED data model and apply/revert hooks.
 
 ---
 
 ## Implementation Notes for Future Work
 
-- Build with `make install BUILD_FROM_SOURCE=1` (not `make install` alone — that path is for packaged users)
-- For NSLog visibility on Release builds, run `log show --predicate 'process == "ControllerKeys"' --last 5m --info --debug` (note: many logs show as `<private>` — use format strings with `%{public}@` if needed)
-- Config lives at `~/.controllerkeys/config.json` — inspect with `python3 -m json.tool` to verify mappings persist correctly
-- Tests: `xcodebuild -project XboxControllerMapper/XboxControllerMapper.xcodeproj -scheme XboxControllerMapper -configuration Debug test`
+- Build with `make install BUILD_FROM_SOURCE=1` (not `make install` alone — that path is for packaged users).
+- For NSLog visibility on Release builds, run `log show --predicate 'process == "ControllerKeys"' --last 5m --info --debug` (note: many logs show as `<private>` — use format strings with `%{public}@` if needed).
+- Config lives at `~/.controllerkeys/config.json` — inspect with `python3 -m json.tool` to verify mappings persist correctly.
+- Tests: `xcodebuild -project XboxControllerMapper/XboxControllerMapper.xcodeproj -scheme XboxControllerMapper -configuration Debug test`.
