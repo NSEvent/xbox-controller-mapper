@@ -8,7 +8,7 @@ func guideLog(_ message: String) {
     let line = "[\(ts)] \(message)\n"
     if let handle = try? FileHandle(forWritingTo: url) {
         handle.seekToEndOfFile()
-        handle.write(line.data(using: .utf8)!)
+        handle.write(line.data(using: .utf8) ?? Data())
         handle.closeFile()
     } else {
         try? line.write(to: url, atomically: true, encoding: .utf8)
