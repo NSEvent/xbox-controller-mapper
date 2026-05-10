@@ -6,6 +6,22 @@ Tracked from May 7, 2026 testing session. Items below are NOT yet working as exp
 
 ## Bugs to Fix
 
+### 0. Buttons tab — collapse/expand Active Chords and Active Sequences sections
+
+**Status:** Feature backlog
+**Where:** Buttons tab UI
+
+**Goal:** Give users a way to hide and maximize the Active Chords section and the Active Sequences section.
+
+**Expected:**
+- Each section can be collapsed/hidden when the user wants more room for button mappings.
+- Each section can be maximized/expanded when the user wants to focus on chords or sequences.
+- The controls should feel lightweight and remember enough state to avoid surprising layout resets during normal settings use.
+
+**Likely location:** Buttons tab layout in `SettingsViews.swift` or the split-out view that renders active chord/sequence panels.
+
+---
+
 ### 1. Command wheel doesn't minimize app on second selection
 
 **Status:** Bug
