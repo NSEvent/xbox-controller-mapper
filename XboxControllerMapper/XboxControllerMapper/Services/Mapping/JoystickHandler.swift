@@ -63,10 +63,13 @@ extension MappingEngine {
         let letterArea = keyboardSnapshot.letterArea
         let leftTrigger = controllerSnapshot.leftTrigger
         if keyboardVisible && state.swipeTypingEnabled {
+            let isSwipeClickHeld = remoteKeyboardVisible
+                ? UniversalControlMouseRelay.shared.isOutgoingRemoteLeftMouseButtonHeld
+                : inputSimulator.isLeftMouseButtonHeld
             let wasSwipeActive = state.swipeTypingActive
             if !wasSwipeActive && leftTrigger > Config.swipeTriggerThreshold {
                 state.swipeTypingActive = true
-                state.wasTouchpadTouching = inputSimulator.isLeftMouseButtonHeld
+                state.wasTouchpadTouching = isSwipeClickHeld
                 if !remoteKeyboardVisible || !UniversalControlMouseRelay.shared.sendSwipeMode(active: true) {
                     SwipeTypingEngine.shared.activateMode()
                 }
@@ -79,7 +82,7 @@ extension MappingEngine {
             }
 
             if state.swipeTypingActive {
-                let isClicking = inputSimulator.isLeftMouseButtonHeld
+                let isClicking = isSwipeClickHeld
                 let wasClicking = state.wasTouchpadTouching
                 if isClicking && !wasClicking {
                     state.swipeClickReleaseFrames = 0

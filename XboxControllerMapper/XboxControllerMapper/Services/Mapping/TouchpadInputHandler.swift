@@ -23,7 +23,7 @@ extension MappingEngine {
 
         // Route to swipe typing engine only while actively swiping (left click held)
         if snapshot.swipeTypingActive,
-           inputSimulator.isLeftMouseButtonHeld,
+           UniversalControlMouseRelay.shared.isOutgoingRemoteLeftMouseButtonHeld,
            UniversalControlMouseRelay.shared.remoteOverlayState().keyboardVisible,
            UniversalControlMouseRelay.shared.sendSwipeTouchpadDelta(
                 dx: Double(delta.x),

@@ -92,6 +92,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var remoteSwipePredictionsVisible = false
     private var isRelayTarget = false
     private var isRemoteSessionActive = false
+    private var outgoingRemoteMouseButtonsHeld: Set<CGMouseButton> = []
     private var remoteMouseButtonsHeld: Set<CGMouseButton> = []
     private var remoteMouseEventNumber: Int64 = 0
     private var remoteClickCounts: [CGMouseButton: Int64] = [:]
@@ -114,6 +115,12 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     var isRoutingToRemote: Bool {
         hasActiveRemoteSession
+    }
+
+    var isOutgoingRemoteLeftMouseButtonHeld: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return outgoingRemoteMouseButtonsHeld.contains(.left)
     }
 
     func remoteOverlayState() -> RemoteOverlayState {
@@ -143,6 +150,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             activeHandoffZone = nil
             pendingHandoffPortal = nil
             remoteFocusModeSent = nil
+            outgoingRemoteMouseButtonsHeld.removeAll()
             remoteKeyboardVisible = false
             remoteKeyboardNavigationModeActive = false
             remoteKeyboardButton = nil
@@ -332,11 +340,19 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     func sendKeyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags) -> Bool {
-        sendLine("kd \(keyCode) \(modifiers.rawValue)")
+        let sent = sendLine("kd \(keyCode) \(modifiers.rawValue)")
+        if sent {
+            updateOutgoingRemoteMouseButtonState(keyCode: keyCode, isDown: true)
+        }
+        return sent
     }
 
     func sendKeyUp(_ keyCode: CGKeyCode) -> Bool {
-        sendLine("ku \(keyCode)")
+        let sent = sendLine("ku \(keyCode)")
+        if sent {
+            updateOutgoingRemoteMouseButtonState(keyCode: keyCode, isDown: false)
+        }
+        return sent
     }
 
     func sendHoldModifier(_ modifier: CGEventFlags) -> Bool {
@@ -1094,6 +1110,18 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             remoteMouseButtonsHeld.insert(button)
         } else {
             remoteMouseButtonsHeld.remove(button)
+        }
+        lock.unlock()
+    }
+
+    private func updateOutgoingRemoteMouseButtonState(keyCode: CGKeyCode, isDown: Bool) {
+        guard KeyCodeMapping.isMouseButton(keyCode) else { return }
+        let (_, button) = mouseEventType(for: keyCode, down: isDown)
+        lock.lock()
+        if isDown {
+            outgoingRemoteMouseButtonsHeld.insert(button)
+        } else {
+            outgoingRemoteMouseButtonsHeld.remove(button)
         }
         lock.unlock()
     }
