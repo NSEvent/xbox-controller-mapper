@@ -35,10 +35,16 @@ class FaviconCache {
         return try? Data(contentsOf: url)
     }
 
-    /// Save favicon to disk cache
+    /// Save favicon to disk cache.
+    ///
+    /// Uses `.atomic` so concurrent calls for the same URL can't interleave
+    /// partial writes that produce a corrupt PNG (which would then crash
+    /// `NSImage(data:)` on subsequent reads). Atomic writes are temp-file +
+    /// rename; the rename is itself atomic so the worst case is one of the
+    /// two writers wins cleanly.
     func saveFavicon(_ data: Data, for websiteURL: String) {
         let url = cacheURL(for: websiteURL)
-        try? data.write(to: url)
+        try? data.write(to: url, options: .atomic)
     }
 
     /// Delete cached favicon

@@ -203,10 +203,14 @@ struct ProfileDocument: FileDocument {
 
     init(configuration: ReadConfiguration) throws {
         // Not used for export-only
-        let data = try configuration.file.regularFileContents
+        guard let data = configuration.file.regularFileContents else {
+            // Empty/unreadable file — surfaced to SwiftUI as a corrupt-file error
+            // instead of crashing on `data!`.
+            throw CocoaError(.fileReadCorruptFile)
+        }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        self.profile = try? decoder.decode(Profile.self, from: data!)
+        self.profile = try? decoder.decode(Profile.self, from: data)
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
