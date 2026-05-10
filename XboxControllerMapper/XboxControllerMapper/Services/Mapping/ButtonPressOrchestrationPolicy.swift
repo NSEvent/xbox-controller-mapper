@@ -32,6 +32,7 @@ enum ButtonPressOrchestrationPolicy {
         keyboardVisible: Bool,
         navigationModeActive: Bool,
         directoryNavigatorVisible: Bool,
+        remoteSwipePredictionsVisible: Bool = false,
         isChordPart: Bool,
         lastTap: CFAbsoluteTime?
     ) -> Outcome {
@@ -51,7 +52,9 @@ enum ButtonPressOrchestrationPolicy {
 
         // Swipe typing interceptions based on current swipe state
         if keyboardVisible {
-            let swipeState = SwipeTypingEngine.shared.threadSafeState
+            let swipeState: SwipeTypingState = remoteSwipePredictionsVisible
+                ? .showingPredictions
+                : SwipeTypingEngine.shared.threadSafeState
             if swipeState == .showingPredictions {
                 switch button {
                 case .dpadLeft, .dpadRight:

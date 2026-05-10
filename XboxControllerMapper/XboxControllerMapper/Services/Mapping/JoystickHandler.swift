@@ -53,7 +53,9 @@ extension MappingEngine {
         // Previously 6 separate lock/unlock cycles across 3 singletons; now 3 total.
         let keyboardSnapshot = OnScreenKeyboardManager.shared.keyboardUISnapshot()
         let swipeSnapshot = SwipeTypingEngine.shared.swipeSnapshot()
+        let remoteOverlayState = UniversalControlMouseRelay.shared.remoteOverlayState()
         let navigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+            || remoteOverlayState.directoryNavigatorVisible
 
         // Swipe typing: left trigger toggles swipe mode, touchpad touch drives word boundaries
         let keyboardVisible = keyboardSnapshot.visible
@@ -202,12 +204,18 @@ extension MappingEngine {
         if justEntered {
             // First deflection — move immediately
             state.directoryNavLastMoveTime = now
+            if UniversalControlMouseRelay.shared.sendDirectoryNavigation(button) {
+                return
+            }
             Task { @MainActor in
                 DirectoryNavigatorManager.shared.handleDPadNavigation(button)
             }
         } else if now - state.directoryNavLastMoveTime >= Config.dpadRepeatInterval {
             // Repeat at dpad interval
             state.directoryNavLastMoveTime = now
+            if UniversalControlMouseRelay.shared.sendDirectoryNavigation(button) {
+                return
+            }
             Task { @MainActor in
                 DirectoryNavigatorManager.shared.handleDPadNavigation(button)
             }

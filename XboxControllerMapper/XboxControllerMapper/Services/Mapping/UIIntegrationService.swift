@@ -370,10 +370,21 @@ extension MappingEngine {
         )
         timer.setEventHandler { [weak self] in
             guard let self = self else { return }
-            let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
-            let navigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+            let remoteOverlayState = UniversalControlMouseRelay.shared.remoteOverlayState()
+            let localKeyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+            let localNavigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+            let keyboardVisible = localKeyboardVisible || remoteOverlayState.keyboardVisible
+            let navigatorVisible = localNavigatorVisible || remoteOverlayState.directoryNavigatorVisible
             guard keyboardVisible || navigatorVisible else {
                 self.stopDpadNavigationRepeat(button)
+                return
+            }
+            if remoteOverlayState.directoryNavigatorVisible {
+                _ = UniversalControlMouseRelay.shared.sendDirectoryNavigation(button)
+                return
+            }
+            if remoteOverlayState.keyboardVisible {
+                _ = UniversalControlMouseRelay.shared.sendOnScreenKeyboardNavigation(button)
                 return
             }
             Task { @MainActor in

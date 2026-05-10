@@ -524,10 +524,17 @@ class MappingEngine: ObservableObject {
         profile: Profile,
         lastTap: CFAbsoluteTime?
     ) -> ButtonPressOrchestrationPolicy.Outcome {
-        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
-        let directoryNavigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+        let remoteOverlayState = UniversalControlMouseRelay.shared.remoteOverlayState()
+        let localKeyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+        let localDirectoryNavigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+        let keyboardVisible = localKeyboardVisible || remoteOverlayState.keyboardVisible
+        let directoryNavigatorVisible = localDirectoryNavigatorVisible || remoteOverlayState.directoryNavigatorVisible
         let mapping = effectiveMapping(for: button, in: profile)
-        let navigationModeActive = keyboardVisible ? OnScreenKeyboardManager.shared.threadSafeNavigationModeActive : false
+        let navigationModeActive = keyboardVisible
+            ? (localKeyboardVisible
+                ? OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
+                : remoteOverlayState.keyboardNavigationModeActive)
+            : false
         let isChordPart = mapping != nil ? isButtonUsedInChords(button, profile: profile) : false
 
         return ButtonPressOrchestrationPolicy.resolve(
@@ -536,6 +543,7 @@ class MappingEngine: ObservableObject {
             keyboardVisible: keyboardVisible,
             navigationModeActive: navigationModeActive,
             directoryNavigatorVisible: directoryNavigatorVisible,
+            remoteSwipePredictionsVisible: remoteOverlayState.swipePredictionsVisible,
             isChordPart: isChordPart,
             lastTap: lastTap
         )
@@ -629,6 +637,10 @@ class MappingEngine: ObservableObject {
 
             switch outcome {
             case .interceptDpadNavigation:
+                if UniversalControlMouseRelay.shared.sendOnScreenKeyboardNavigation(button) {
+                    startDpadNavigationRepeat(button)
+                    return
+                }
                 Task { @MainActor in
                     OnScreenKeyboardManager.shared.handleDPadNavigation(button)
                 }
@@ -636,6 +648,9 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptKeyboardActivation:
+                if UniversalControlMouseRelay.shared.sendOnScreenKeyboardActivate() {
+                    return
+                }
                 DispatchQueue.main.async {
                     OnScreenKeyboardManager.shared.activateHighlightedKey()
                 }
@@ -662,6 +677,10 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptDirectoryNavigation:
+                if UniversalControlMouseRelay.shared.sendDirectoryNavigation(button) {
+                    startDpadNavigationRepeat(button)
+                    return
+                }
                 Task { @MainActor in
                     DirectoryNavigatorManager.shared.handleDPadNavigation(button)
                 }
@@ -669,18 +688,33 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptDirectoryConfirm:
+                if UniversalControlMouseRelay.shared.sendDirectoryConfirm() {
+                    return
+                }
                 DispatchQueue.main.async {
                     DirectoryNavigatorManager.shared.dismissAndCd()
                 }
                 return
 
             case .interceptDirectoryDismiss:
+                if UniversalControlMouseRelay.shared.sendDirectoryDismiss() {
+                    return
+                }
                 DispatchQueue.main.async {
                     DirectoryNavigatorManager.shared.hide()
                 }
                 return
 
             case .interceptSwipePredictionNavigation:
+                if UniversalControlMouseRelay.shared.sendSwipePredictionNavigation(button) {
+                    controllerService.playHaptic(
+                        intensity: Config.keyboardActionHapticIntensity,
+                        sharpness: Config.keyboardActionHapticSharpness,
+                        duration: Config.keyboardActionHapticDuration,
+                        transient: true
+                    )
+                    return
+                }
                 controllerService.playHaptic(
                     intensity: Config.keyboardActionHapticIntensity,
                     sharpness: Config.keyboardActionHapticSharpness,
@@ -697,6 +731,15 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptSwipePredictionConfirm:
+                if UniversalControlMouseRelay.shared.sendSwipePredictionConfirm() {
+                    controllerService.playHaptic(
+                        intensity: Config.keyboardActionHapticIntensity,
+                        sharpness: Config.keyboardActionHapticSharpness,
+                        duration: Config.keyboardActionHapticDuration,
+                        transient: true
+                    )
+                    return
+                }
                 controllerService.playHaptic(
                     intensity: Config.keyboardActionHapticIntensity,
                     sharpness: Config.keyboardActionHapticSharpness,
@@ -711,6 +754,13 @@ class MappingEngine: ObservableObject {
                 return
 
             case .interceptSwipePredictionCancel:
+                if UniversalControlMouseRelay.shared.sendSwipePredictionCancel() {
+                    state.lock.withLock {
+                        state.swipeTypingActive = false
+                        state.wasTouchpadTouching = false
+                    }
+                    return
+                }
                 state.lock.withLock {
                     state.swipeTypingActive = false
                     state.wasTouchpadTouching = false
@@ -1072,8 +1122,11 @@ class MappingEngine: ObservableObject {
         handleDirectoryNavigatorReleased(button)
         handleCommandWheelReleased(button)
 
+        let remoteOverlayState = UniversalControlMouseRelay.shared.remoteOverlayState()
         let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+            || remoteOverlayState.keyboardVisible
         let directoryNavigatorVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+            || remoteOverlayState.directoryNavigatorVisible
         if keyboardVisible || directoryNavigatorVisible {
             switch button {
             case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:

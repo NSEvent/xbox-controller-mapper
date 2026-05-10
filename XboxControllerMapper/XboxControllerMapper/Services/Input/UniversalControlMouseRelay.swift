@@ -59,6 +59,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         let displays: [CGRect]
     }
 
+    struct RemoteOverlayState {
+        let keyboardVisible: Bool
+        let keyboardNavigationModeActive: Bool
+        let directoryNavigatorVisible: Bool
+        let swipePredictionsVisible: Bool
+    }
+
     private let queue = DispatchQueue(label: "com.controllerkeys.uc-relay", qos: .userInteractive)
     private let port: NWEndpoint.Port = 38383
     private let lock = NSLock()
@@ -75,6 +82,14 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var activeHandoffZone: HandoffZone?
     private var pendingHandoffPortal: HandoffDecision?
     private var remoteFocusModeSent: Bool?
+    private var remoteKeyboardVisible = false
+    private var remoteKeyboardNavigationModeActive = false
+    private var remoteKeyboardButton: ControllerButton?
+    private var remoteKeyboardHoldMode = false
+    private var remoteDirectoryNavigatorVisible = false
+    private var remoteDirectoryNavigatorButton: ControllerButton?
+    private var remoteDirectoryNavigatorHoldMode = false
+    private var remoteSwipePredictionsVisible = false
     private var isRelayTarget = false
     private var isRemoteSessionActive = false
     private var remoteMouseButtonsHeld: Set<CGMouseButton> = []
@@ -101,6 +116,25 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         hasActiveRemoteSession
     }
 
+    func remoteOverlayState() -> RemoteOverlayState {
+        lock.lock()
+        defer { lock.unlock() }
+        guard isRemoteSessionActive, !isRelayTarget else {
+            return RemoteOverlayState(
+                keyboardVisible: false,
+                keyboardNavigationModeActive: false,
+                directoryNavigatorVisible: false,
+                swipePredictionsVisible: false
+            )
+        }
+        return RemoteOverlayState(
+            keyboardVisible: remoteKeyboardVisible,
+            keyboardNavigationModeActive: remoteKeyboardNavigationModeActive,
+            directoryNavigatorVisible: remoteDirectoryNavigatorVisible,
+            swipePredictionsVisible: remoteSwipePredictionsVisible
+        )
+    }
+
     func setRemoteSessionActive(_ active: Bool) {
         lock.lock()
         isRemoteSessionActive = active
@@ -109,6 +143,14 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             activeHandoffZone = nil
             pendingHandoffPortal = nil
             remoteFocusModeSent = nil
+            remoteKeyboardVisible = false
+            remoteKeyboardNavigationModeActive = false
+            remoteKeyboardButton = nil
+            remoteKeyboardHoldMode = false
+            remoteDirectoryNavigatorVisible = false
+            remoteDirectoryNavigatorButton = nil
+            remoteDirectoryNavigatorHoldMode = false
+            remoteSwipePredictionsVisible = false
         }
         lock.unlock()
         if !active {
@@ -313,7 +355,49 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     func sendUIEvent(_ name: String, button: ControllerButton, holdMode: Bool = false) -> Bool {
         guard hasActiveRemoteSession else { return false }
+        updateRemoteOverlayStateForSentUIEvent(name, button: button, holdMode: holdMode)
         return sendLine("ui \(name) \(button.rawValue) \(holdMode ? 1 : 0)")
+    }
+
+    func sendOnScreenKeyboardNavigation(_ button: ControllerButton) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        markRemoteKeyboardNavigationActive()
+        return sendUIEvent("oskNavigate", button: button)
+    }
+
+    func sendOnScreenKeyboardActivate() -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendUIEvent("oskActivate", button: .a)
+    }
+
+    func sendSwipePredictionNavigation(_ button: ControllerButton) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendUIEvent("swipeNavigate", button: button)
+    }
+
+    func sendSwipePredictionConfirm() -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendUIEvent("swipeConfirm", button: .a)
+    }
+
+    func sendSwipePredictionCancel() -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendUIEvent("swipeCancel", button: .b)
+    }
+
+    func sendDirectoryNavigation(_ button: ControllerButton) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendUIEvent("dirNavigate", button: button)
+    }
+
+    func sendDirectoryConfirm() -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendUIEvent("dirConfirm", button: .a)
+    }
+
+    func sendDirectoryDismiss() -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendUIEvent("dirDismiss", button: .y)
     }
 
     func sendCommandWheelUpdate(stick: CGPoint, alternateHeld: Bool) -> Bool {
@@ -376,6 +460,73 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             self?.logSendFailureOnce(error)
         })
         return true
+    }
+
+    private func updateRemoteOverlayStateForSentUIEvent(_ name: String, button: ControllerButton, holdMode: Bool) {
+        lock.lock()
+        switch name {
+        case "oskPress":
+            remoteDirectoryNavigatorVisible = false
+            remoteDirectoryNavigatorButton = nil
+            remoteDirectoryNavigatorHoldMode = false
+            remoteKeyboardButton = button
+            remoteKeyboardHoldMode = holdMode
+            if holdMode {
+                remoteKeyboardVisible = true
+            } else {
+                remoteKeyboardVisible.toggle()
+            }
+            if !remoteKeyboardVisible {
+                remoteKeyboardNavigationModeActive = false
+                remoteKeyboardButton = nil
+                remoteKeyboardHoldMode = false
+                remoteSwipePredictionsVisible = false
+            }
+        case "oskRelease":
+            if remoteKeyboardButton == button, remoteKeyboardHoldMode {
+                remoteKeyboardVisible = false
+                remoteKeyboardNavigationModeActive = false
+                remoteKeyboardButton = nil
+                remoteKeyboardHoldMode = false
+                remoteSwipePredictionsVisible = false
+            }
+        case "navPress":
+            remoteKeyboardVisible = false
+            remoteKeyboardNavigationModeActive = false
+            remoteKeyboardButton = nil
+            remoteKeyboardHoldMode = false
+            remoteSwipePredictionsVisible = false
+            remoteDirectoryNavigatorButton = button
+            remoteDirectoryNavigatorHoldMode = holdMode
+            if holdMode {
+                remoteDirectoryNavigatorVisible = true
+            } else {
+                remoteDirectoryNavigatorVisible.toggle()
+            }
+            if !remoteDirectoryNavigatorVisible {
+                remoteDirectoryNavigatorButton = nil
+                remoteDirectoryNavigatorHoldMode = false
+            }
+        case "navRelease":
+            if remoteDirectoryNavigatorButton == button, remoteDirectoryNavigatorHoldMode {
+                remoteDirectoryNavigatorVisible = false
+                remoteDirectoryNavigatorButton = nil
+                remoteDirectoryNavigatorHoldMode = false
+            }
+        case "dirConfirm", "dirDismiss":
+            remoteDirectoryNavigatorVisible = false
+            remoteDirectoryNavigatorButton = nil
+            remoteDirectoryNavigatorHoldMode = false
+        default:
+            break
+        }
+        lock.unlock()
+    }
+
+    private func markRemoteKeyboardNavigationActive() {
+        lock.lock()
+        remoteKeyboardNavigationModeActive = true
+        lock.unlock()
     }
 
     private func ensureClientForActiveZone() -> NWConnection {
@@ -524,6 +675,11 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         let relayTarget = isRelayTarget
         let hasMouseButtonHeld = !remoteMouseButtonsHeld.isEmpty
         lock.unlock()
+        defer {
+            if relayTarget {
+                sendRemoteUIState(on: connection)
+            }
+        }
 
         switch command {
         case "m":
@@ -630,6 +786,22 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                     engine.handleOnScreenKeyboardPressed(button, holdMode: holdMode)
                 case "oskRelease":
                     engine.handleOnScreenKeyboardReleased(button)
+                case "oskNavigate":
+                    OnScreenKeyboardManager.shared.handleDPadNavigation(button)
+                case "oskActivate":
+                    OnScreenKeyboardManager.shared.activateHighlightedKey()
+                case "swipeNavigate":
+                    if button == .dpadRight {
+                        SwipeTypingEngine.shared.selectNextPrediction()
+                    } else if button == .dpadLeft {
+                        SwipeTypingEngine.shared.selectPreviousPrediction()
+                    }
+                case "swipeConfirm":
+                    if let word = SwipeTypingEngine.shared.confirmSelection() {
+                        OnScreenKeyboardManager.shared.typeSwipedWord(word)
+                    }
+                case "swipeCancel":
+                    SwipeTypingEngine.shared.deactivateMode()
                 case "laserPress":
                     engine.handleLaserPointerPressed(button, holdMode: holdMode)
                 case "laserRelease":
@@ -638,6 +810,12 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                     engine.handleDirectoryNavigatorPressed(button, holdMode: holdMode)
                 case "navRelease":
                     engine.handleDirectoryNavigatorReleased(button)
+                case "dirNavigate":
+                    DirectoryNavigatorManager.shared.handleDPadNavigation(button)
+                case "dirConfirm":
+                    DirectoryNavigatorManager.shared.dismissAndCd()
+                case "dirDismiss":
+                    DirectoryNavigatorManager.shared.hide()
                 case "wheelPress":
                     engine.handleCommandWheelPressed(button, holdMode: holdMode)
                 case "wheelRelease":
@@ -645,6 +823,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 default:
                     break
                 }
+                self.sendRemoteUIState(on: connection)
             }
             logFirstReceive("ui \(action)")
         case "wheel":
@@ -718,8 +897,33 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     private func handleClient(line: String) {
         let parts = line.split(separator: " ")
+        guard let command = parts.first else { return }
+
+        if command == "uiState" {
+            guard parts.count == 5,
+                  let keyboardRaw = Int(parts[1]),
+                  let navigationRaw = Int(parts[2]),
+                  let directoryRaw = Int(parts[3]),
+                  let swipeRaw = Int(parts[4]) else { return }
+            lock.lock()
+            remoteKeyboardVisible = keyboardRaw != 0
+            remoteKeyboardNavigationModeActive = navigationRaw != 0
+            remoteDirectoryNavigatorVisible = directoryRaw != 0
+            remoteSwipePredictionsVisible = swipeRaw != 0
+            if !remoteKeyboardVisible {
+                remoteKeyboardButton = nil
+                remoteKeyboardHoldMode = false
+            }
+            if !remoteDirectoryNavigatorVisible {
+                remoteDirectoryNavigatorButton = nil
+                remoteDirectoryNavigatorHoldMode = false
+            }
+            lock.unlock()
+            return
+        }
+
         guard parts.count >= 4,
-              parts[0] == "pos",
+              command == "pos",
               let x = Double(parts[1]),
               let y = Double(parts[2]),
               let displayCount = Int(parts[3]),
@@ -765,6 +969,20 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         connection.send(content: data, completion: .contentProcessed { error in
             if let error {
                 NSLog("[UCMouseRelay] Could not send cursor status: %@", String(describing: error))
+            }
+        })
+    }
+
+    private func sendRemoteUIState(on connection: NWConnection) {
+        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
+        let keyboardNavigationActive = OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
+        let directoryVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
+        let swipePredictionsVisible = SwipeTypingEngine.shared.threadSafeState == .showingPredictions
+        let line = "uiState \(keyboardVisible ? 1 : 0) \(keyboardNavigationActive ? 1 : 0) \(directoryVisible ? 1 : 0) \(swipePredictionsVisible ? 1 : 0)\n"
+        guard let data = line.data(using: .utf8) else { return }
+        connection.send(content: data, completion: .contentProcessed { error in
+            if let error {
+                NSLog("[UCMouseRelay] Could not send UI state: %@", String(describing: error))
             }
         })
     }

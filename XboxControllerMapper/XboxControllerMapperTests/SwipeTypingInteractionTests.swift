@@ -105,6 +105,20 @@ final class SwipeTypingOrchestrationTests: XCTestCase {
     // If the model is not loaded in tests, endSwipe returns empty predictions
     // and state goes to .active instead — those tests are skipped via guard.
 
+    func testRemoteShowingPredictions_DPadRight_NavigatesPrediction() {
+        let outcome = ButtonPressOrchestrationPolicy.resolve(
+            button: .dpadRight,
+            mapping: nil,
+            keyboardVisible: true,
+            navigationModeActive: true,
+            directoryNavigatorVisible: false,
+            remoteSwipePredictionsVisible: true,
+            isChordPart: false,
+            lastTap: nil
+        )
+        XCTAssertEqual(outcome, .interceptSwipePredictionNavigation)
+    }
+
     func testShowingPredictions_AButton_ConfirmsSelection() {
         guard setSwipeStateShowingPredictions() else { return }
 
