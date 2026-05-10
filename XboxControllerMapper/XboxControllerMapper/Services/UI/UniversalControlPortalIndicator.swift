@@ -9,9 +9,13 @@ final class UniversalControlPortalIndicator {
     private var panel: NSPanel?
     private var hostingView: NSHostingView<EdgePortalView>?
     private var hideTimer: Timer?
+    private var cursorPanel: NSPanel?
+    private var cursorHostingView: NSHostingView<CursorTeleportView>?
+    private var cursorHideTimer: Timer?
 
     private let pulseDuration: TimeInterval = 0.55
     private let fadeDuration: TimeInterval = 0.18
+    private let cursorSize: CGFloat = 46
 
     private init() {}
 
@@ -47,6 +51,7 @@ final class UniversalControlPortalIndicator {
             persistentEdge: returnEdge,
             pulseActive: true
         )
+        flashActiveCursor()
 
         hideTimer?.invalidate()
         hideTimer = Timer.scheduledTimer(withTimeInterval: pulseDuration, repeats: false) { [weak self] _ in
@@ -62,10 +67,37 @@ final class UniversalControlPortalIndicator {
         }
     }
 
+    func showInactiveCursor(at cgPoint: CGPoint, displayID: CGDirectDisplayID) {
+        guard let screen = screen(displayID: displayID) ?? NSScreen.main else { return }
+        let displayBounds = CGDisplayBounds(displayID)
+        let point = NSPoint(
+            x: screen.frame.minX + cgPoint.x - displayBounds.minX,
+            y: screen.frame.maxY - (cgPoint.y - displayBounds.minY)
+        )
+        showCursor(at: point, state: .inactive, persistent: true)
+    }
+
+    func flashActiveCursor() {
+        showCursor(at: NSEvent.mouseLocation, state: .active, persistent: false)
+        cursorHideTimer?.invalidate()
+        cursorHideTimer = Timer.scheduledTimer(withTimeInterval: 0.9, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.hideCursor()
+            }
+        }
+    }
+
     func clearRemoteReturnHint() {
         hideTimer?.invalidate()
         hideTimer = nil
         hide()
+        clearCursorState()
+    }
+
+    func clearCursorState() {
+        cursorHideTimer?.invalidate()
+        cursorHideTimer = nil
+        hideCursor()
     }
 
     private func show(
@@ -84,6 +116,22 @@ final class UniversalControlPortalIndicator {
         panel?.orderFrontRegardless()
     }
 
+    private func showCursor(at point: NSPoint, state: CursorTeleportState, persistent: Bool) {
+        ensureCursorPanel()
+        cursorHostingView?.rootView = CursorTeleportView(state: state)
+        cursorPanel?.alphaValue = 1
+        cursorPanel?.setFrameOrigin(NSPoint(
+            x: point.x - cursorSize / 2,
+            y: point.y - cursorSize / 2
+        ))
+        cursorPanel?.orderFrontRegardless()
+
+        if persistent {
+            cursorHideTimer?.invalidate()
+            cursorHideTimer = nil
+        }
+    }
+
     private func hide() {
         guard let panel else { return }
         NSAnimationContext.runAnimationGroup { context in
@@ -91,6 +139,16 @@ final class UniversalControlPortalIndicator {
             panel.animator().alphaValue = 0
         } completionHandler: { [weak self] in
             self?.panel?.orderOut(nil)
+        }
+    }
+
+    private func hideCursor() {
+        guard let cursorPanel else { return }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = fadeDuration
+            cursorPanel.animator().alphaValue = 0
+        } completionHandler: { [weak self] in
+            self?.cursorPanel?.orderOut(nil)
         }
     }
 
@@ -120,6 +178,34 @@ final class UniversalControlPortalIndicator {
 
         self.panel = panel
         self.hostingView = hostingView
+    }
+
+    private func ensureCursorPanel() {
+        if cursorPanel != nil {
+            return
+        }
+
+        let rootView = CursorTeleportView(state: .inactive)
+        let hostingView = NSHostingView(rootView: rootView)
+        hostingView.frame = NSRect(x: 0, y: 0, width: cursorSize, height: cursorSize)
+
+        let panel = NSPanel(
+            contentRect: hostingView.frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.level = .screenSaver
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        panel.hidesOnDeactivate = false
+        panel.contentView = hostingView
+
+        self.cursorPanel = panel
+        self.cursorHostingView = hostingView
     }
 
     private func screen(displayID: CGDirectDisplayID?) -> NSScreen? {
@@ -254,5 +340,67 @@ private struct EdgePortalView: View {
         case .top: return .top
         case .bottom: return .bottom
         }
+    }
+}
+
+private enum CursorTeleportState: Equatable {
+    case active
+    case inactive
+
+    var color: Color {
+        switch self {
+        case .active:
+            return Color(red: 0.18, green: 0.88, blue: 1.0)
+        case .inactive:
+            return Color(red: 0.55, green: 0.68, blue: 0.74)
+        }
+    }
+
+    var opacity: Double {
+        switch self {
+        case .active: return 0.92
+        case .inactive: return 0.62
+        }
+    }
+}
+
+private struct CursorTeleportView: View {
+    let state: CursorTeleportState
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(state.color.opacity(state.opacity), lineWidth: 2.5)
+                .frame(width: 30, height: 30)
+                .shadow(color: state.color.opacity(state.opacity), radius: 6)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            state.color.opacity(state == .active ? 0.44 : 0.22),
+                            state.color.opacity(0.08),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: 2,
+                        endRadius: 23
+                    )
+                )
+                .frame(width: 46, height: 46)
+
+            if state == .inactive {
+                Rectangle()
+                    .fill(state.color.opacity(0.78))
+                    .frame(width: 24, height: 2)
+                    .rotationEffect(.degrees(-45))
+            } else {
+                Circle()
+                    .fill(Color.white.opacity(0.85))
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .frame(width: 46, height: 46)
+        .allowsHitTesting(false)
     }
 }

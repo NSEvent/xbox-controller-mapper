@@ -132,12 +132,19 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 edge: decision.zone.localEdge,
                 displayID: decision.localDisplayID
             )
+            UniversalControlPortalIndicator.shared.showInactiveCursor(
+                at: decision.localEdgePoint,
+                displayID: decision.localDisplayID
+            )
         }
         _ = sendLine("portal \(decision.zone.remoteEntryEdge.rawValue) \(decision.zone.remoteReturnEdge.rawValue)")
     }
 
     func endRemoteSession() {
         _ = sendLine("portalEnd")
+        Task { @MainActor in
+            UniversalControlPortalIndicator.shared.clearCursorState()
+        }
         setRemoteSessionActive(false)
     }
 
