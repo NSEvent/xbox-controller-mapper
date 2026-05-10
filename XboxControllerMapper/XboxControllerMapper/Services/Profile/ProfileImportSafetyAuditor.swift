@@ -77,13 +77,23 @@ enum ProfileImportSafetyAuditor {
                          into: &commands)
         }
 
-        // Layers carry their own per-button mappings (no Edge / long-hold
-        // variants on layer mappings as of today, so the simpler walk is fine).
+        // Layer mappings use the same `KeyMapping` struct as the base profile,
+        // so they can carry `longHoldMapping` and `doubleTapMapping` variants
+        // too — and `MappingEngine` executes them. Earlier versions of this
+        // function only walked `mapping.systemCommand`, leaving the long-hold
+        // and double-tap shell payloads as a bypass surface for malicious
+        // profiles.
         for layer in profile.layers {
+            let layerName = layer.name.isEmpty ? "(unnamed)" : layer.name
             for (button, mapping) in layer.buttonMappings {
-                let layerName = layer.name.isEmpty ? "(unnamed)" : layer.name
                 collectShell(from: mapping.systemCommand,
                              context: "Layer '\(layerName)' Button \(button.shortLabel)",
+                             into: &commands)
+                collectShell(from: mapping.longHoldMapping?.systemCommand,
+                             context: "Layer '\(layerName)' Button \(button.shortLabel) (long hold)",
+                             into: &commands)
+                collectShell(from: mapping.doubleTapMapping?.systemCommand,
+                             context: "Layer '\(layerName)' Button \(button.shortLabel) (double tap)",
                              into: &commands)
             }
         }
@@ -115,15 +125,16 @@ enum ProfileImportSafetyAuditor {
 
         // Legacy v1 touchpad-region mappings (drained at load via
         // ProfileConfigurationMigrationService, but a freshly imported profile
-        // can still carry them prior to migration).
+        // can still carry them prior to migration). Route through collectShell
+        // so .httpRequest webhook follow-ups (onSuccess/onError) here are
+        // surfaced too — earlier versions used a direct `if case` that only
+        // caught .shellCommand.
         for region in profile.touchpadRegionMappings {
-            if case let .shellCommand(command, inTerminal)? = region.systemCommand {
-                commands.append(.init(
-                    context: "Touchpad region \(region.region.rawValue) (\(region.triggerMode.rawValue))",
-                    command: command,
-                    inTerminal: inTerminal
-                ))
-            }
+            collectShell(
+                from: region.systemCommand,
+                context: "Touchpad region \(region.region.rawValue) (\(region.triggerMode.rawValue))",
+                into: &commands
+            )
         }
 
         // On-screen-keyboard quick texts with `isTerminalCommand == true` run

@@ -43,7 +43,10 @@ func emit(_ json: String) {
 
 // MARK: - HID Setup
 
-let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+guard let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone)) else {
+    emit("{\"type\":\"error\",\"message\":\"IOHIDManagerCreate returned nil\"}")
+    exit(1)
+}
 
 // Match Microsoft controllers
 let matching = [kIOHIDVendorIDKey: 0x045E] as CFDictionary
@@ -79,7 +82,10 @@ let inputCallback: IOHIDValueCallback = { _, _, _, value in
         ]
         for (bit, paddle) in mapping {
             let pressed = (mask & (1 << bit)) != 0
-            if pressed != paddleState[paddle]! {
+            // Default to false on missing key — keeps the script alive if a
+            // future paddle is added to the mapping above without being added
+            // to paddleState below.
+            if pressed != (paddleState[paddle] ?? false) {
                 paddleState[paddle] = pressed
                 emit("{\"type\":\"paddle\",\"index\":\(paddle),\"pressed\":\(pressed)}")
             }

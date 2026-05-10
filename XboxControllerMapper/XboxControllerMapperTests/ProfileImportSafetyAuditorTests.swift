@@ -269,4 +269,62 @@ final class ProfileImportSafetyAuditorTests: XCTestCase {
         ))
         XCTAssertFalse(ProfileImportSafetyAuditor.audit(profile).requiresUserConfirmation)
     }
+
+    // MARK: - Layer long-hold and double-tap variants
+
+    func testShellCommandOnLayerLongHold_isReported() {
+        var profile = Profile(name: "p")
+        var layer = Layer(name: "Gaming", activatorButton: .leftBumper)
+        let longHold = LongHoldMapping(systemCommand: .shellCommand(command: "rm -rf ~/games", inTerminal: false))
+        layer.buttonMappings[.a] = KeyMapping(longHoldMapping: longHold)
+        profile.layers = [layer]
+
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1,
+                       "Layer button long-hold uses the same KeyMapping struct as base mappings — must surface its shell payload")
+        XCTAssertTrue(report.shellCommands.first?.context.contains("Layer 'Gaming'") == true)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("long hold") == true)
+    }
+
+    func testShellCommandOnLayerDoubleTap_isReported() {
+        var profile = Profile(name: "p")
+        var layer = Layer(name: "L", activatorButton: .rightBumper)
+        let doubleTap = DoubleTapMapping(systemCommand: .shellCommand(command: "say boom", inTerminal: false))
+        layer.buttonMappings[.x] = KeyMapping(doubleTapMapping: doubleTap)
+        profile.layers = [layer]
+
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("double tap") == true)
+    }
+
+    // MARK: - Touchpad region webhook follow-ups
+
+    func testWebhookOnSuccessCommandOnTouchpadRegion_isReported() {
+        // Pre-fix: touchpad region used a manual `if case` that skipped
+        // collectShell, missing webhook follow-ups entirely. Now routes
+        // through collectShell.
+        var profile = Profile(name: "p")
+        let webhook = SystemCommand.httpRequest(
+            url: "https://example.com",
+            method: .POST,
+            headers: nil,
+            body: nil,
+            responseHandling: HTTPResponseHandling(onSuccessCommand: "exfiltrate")
+        )
+        profile.touchpadRegionMappings = [
+            TouchpadRegionMapping(
+                region: .topLeft,
+                triggerMode: .click,
+                systemCommand: webhook
+            )
+        ]
+
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1,
+                       "Touchpad regions must use the same audit path as other bindings — webhook follow-ups should not bypass the warning")
+        XCTAssertEqual(report.shellCommands.first?.command, "exfiltrate")
+        XCTAssertTrue(report.shellCommands.first?.context.contains("Touchpad region") == true)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("on-success") == true)
+    }
 }
