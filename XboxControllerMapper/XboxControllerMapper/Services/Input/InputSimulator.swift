@@ -590,8 +590,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// True after controller movement crosses a local edge and is being relayed
     /// to the Mac Studio.
     private var universalControlRelayActive = false
-    /// Direction of the local edge used to enter remote relay.
-    private var universalControlRelayEdgeDirection = CGPoint.zero
+    /// Local edge point where the current remote relay session started.
+    private var universalControlRelayEdgePoint: CGPoint?
 
     private func shouldRelayUniversalControlAction() -> Bool {
         stateLock.lock()
@@ -793,63 +793,40 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             let newPoint = CGPoint(x: eventX, y: clampedY)
 
             if !zoomActive && !isDrag && UniversalControlMouseRelay.shared.canSendToRemote {
-                let edgeDirection: CGPoint
-                if newX >= bounds.maxX - 1 && moveX > 0 {
-                    edgeDirection = CGPoint(x: 1, y: 0)
-                } else if newX <= bounds.minX && moveX < 0 {
-                    edgeDirection = CGPoint(x: -1, y: 0)
-                } else if newY >= bounds.maxY - 1 && moveY > 0 {
-                    edgeDirection = CGPoint(x: 0, y: 1)
-                } else if newY <= bounds.minY && moveY < 0 {
-                    edgeDirection = CGPoint(x: 0, y: -1)
-                } else {
-                    edgeDirection = .zero
-                }
-                let movingPastLocalEdge = edgeDirection != .zero
+                let handoffDecision = UniversalControlMouseRelay.shared.handoffDecision(
+                    current: currentCGPoint,
+                    proposed: CGPoint(x: newX, y: newY),
+                    delta: CGPoint(x: moveX, y: moveY)
+                )
+                let movingPastLocalEdge = handoffDecision != nil
                 let keepRelaying = self.universalControlRelayActive
 
                 if movingPastLocalEdge || keepRelaying {
-                    if !self.universalControlRelayActive {
-                        self.universalControlRelayEdgeDirection = edgeDirection
+                    if !self.universalControlRelayActive, let handoffDecision {
+                        self.universalControlRelayEdgePoint = handoffDecision.localEdgePoint
+                        UniversalControlMouseRelay.shared.beginRemoteSession(zone: handoffDecision.zone)
                     }
                     if keepRelaying,
                        UniversalControlMouseRelay.shared.shouldReturnFromRemote(
                            dx: Int(moveX),
-                           dy: Int(moveY),
-                           entryEdgeDirection: self.universalControlRelayEdgeDirection
+                           dy: Int(moveY)
                        ) {
                         self.universalControlRelayActive = false
-                        self.universalControlRelayEdgeDirection = .zero
+                        self.universalControlRelayEdgePoint = nil
                         UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
                     } else {
-                    self.universalControlRelayActive = true
-                    if UniversalControlMouseRelay.shared.sendMove(dx: Int(moveX), dy: Int(moveY)) {
-                        let edgeX: CGFloat
-                        if self.universalControlRelayEdgeDirection.x > 0 {
-                            edgeX = bounds.maxX - 1
-                        } else if self.universalControlRelayEdgeDirection.x < 0 {
-                            edgeX = bounds.minX
-                        } else {
-                            edgeX = clampedX
+                        self.universalControlRelayActive = true
+                        if UniversalControlMouseRelay.shared.sendMove(dx: Int(moveX), dy: Int(moveY)) {
+                            let edgePoint = self.universalControlRelayEdgePoint ?? CGPoint(x: clampedX, y: clampedY)
+                            self.stateLock.lock()
+                            self.trackedCursorPosition = edgePoint
+                            self.stateLock.unlock()
+                            Self.updateSharedTrackedPosition(
+                                edgePoint,
+                                delta: CGPoint(x: moveX, y: moveY)
+                            )
+                            return
                         }
-                        let edgeY: CGFloat
-                        if self.universalControlRelayEdgeDirection.y > 0 {
-                            edgeY = bounds.maxY - 1
-                        } else if self.universalControlRelayEdgeDirection.y < 0 {
-                            edgeY = bounds.minY
-                        } else {
-                            edgeY = clampedY
-                        }
-                        let edgePoint = CGPoint(x: edgeX, y: edgeY)
-                        self.stateLock.lock()
-                        self.trackedCursorPosition = edgePoint
-                        self.stateLock.unlock()
-                        Self.updateSharedTrackedPosition(
-                            edgePoint,
-                            delta: CGPoint(x: moveX, y: moveY)
-                        )
-                        return
-                    }
                     }
                 }
             }

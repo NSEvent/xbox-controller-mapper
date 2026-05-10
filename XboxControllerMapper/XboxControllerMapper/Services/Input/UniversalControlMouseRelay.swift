@@ -6,9 +6,56 @@ import CoreGraphics
 final class UniversalControlMouseRelay: @unchecked Sendable {
     static let shared = UniversalControlMouseRelay()
 
+    enum HandoffEdge: String, Codable {
+        case left
+        case right
+        case top
+        case bottom
+
+        var opposite: HandoffEdge {
+            switch self {
+            case .left: return .right
+            case .right: return .left
+            case .top: return .bottom
+            case .bottom: return .top
+            }
+        }
+
+        var outwardDelta: CGPoint {
+            switch self {
+            case .left: return CGPoint(x: -1, y: 0)
+            case .right: return CGPoint(x: 1, y: 0)
+            case .top: return CGPoint(x: 0, y: -1)
+            case .bottom: return CGPoint(x: 0, y: 1)
+            }
+        }
+    }
+
+    struct HandoffZone: Codable {
+        var localDisplayID: UInt32?
+        var localEdge: HandoffEdge
+        /// Display-local axis range. For left/right edges this is y; for top/bottom this is x.
+        var localRangeMin: CGFloat?
+        var localRangeMax: CGFloat?
+        var remoteHost: String
+        var remotePort: UInt16
+        var remoteEntryEdge: HandoffEdge
+        var remoteReturnEdge: HandoffEdge
+    }
+
+    struct HandoffDecision {
+        let zone: HandoffZone
+        let localEdgePoint: CGPoint
+    }
+
+    private struct LocalDisplay {
+        let id: CGDirectDisplayID
+        let bounds: CGRect
+    }
+
     private struct RemoteCursorStatus {
         let point: CGPoint
-        let bounds: CGRect
+        let displays: [CGRect]
     }
 
     private let queue = DispatchQueue(label: "com.controllerkeys.uc-relay", qos: .userInteractive)
@@ -24,6 +71,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var clientHost: String?
     private var clientReceiveBuffer = ""
     private var remoteCursorStatus: RemoteCursorStatus?
+    private var activeHandoffZone: HandoffZone?
     private var isRelayTarget = false
     private var isRemoteSessionActive = false
     private var remoteMouseButtonsHeld: Set<CGMouseButton> = []
@@ -55,27 +103,60 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         isRemoteSessionActive = active
         if !active {
             remoteCursorStatus = nil
+            activeHandoffZone = nil
         }
         lock.unlock()
     }
 
-    func shouldReturnFromRemote(dx: Int, dy: Int, entryEdgeDirection: CGPoint) -> Bool {
+    func beginRemoteSession(zone: HandoffZone) {
+        lock.lock()
+        activeHandoffZone = zone
+        isRemoteSessionActive = true
+        lock.unlock()
+    }
+
+    func shouldReturnFromRemote(dx: Int, dy: Int) -> Bool {
         lock.lock()
         let status = remoteCursorStatus
+        let zone = activeHandoffZone
         lock.unlock()
-        guard let status else { return false }
+        guard let status, let zone else { return false }
 
-        let exitDirection = CGPoint(x: -entryEdgeDirection.x, y: -entryEdgeDirection.y)
-        if exitDirection.x > 0 {
-            return dx > 0 && status.point.x >= status.bounds.maxX - 1
-        } else if exitDirection.x < 0 {
-            return dx < 0 && status.point.x <= status.bounds.minX
-        } else if exitDirection.y > 0 {
-            return dy > 0 && status.point.y >= status.bounds.maxY - 1
-        } else if exitDirection.y < 0 {
-            return dy < 0 && status.point.y <= status.bounds.minY
+        guard isMovingOutward(dx: dx, dy: dy, through: zone.remoteReturnEdge) else {
+            return false
         }
-        return false
+
+        return status.displays.contains { display in
+            isPoint(status.point, on: zone.remoteReturnEdge, of: display)
+        }
+    }
+
+    func handoffDecision(current: CGPoint, proposed: CGPoint, delta: CGPoint) -> HandoffDecision? {
+        guard canSendToRemote else { return nil }
+
+        let dx = Int(delta.x)
+        let dy = Int(delta.y)
+        let displays = localDisplays()
+        let unionBounds = displays.reduce(CGRect.null) { result, display in
+            result.union(display.bounds)
+        }
+        for zone in configuredHandoffZones() where isMovingOutward(dx: dx, dy: dy, through: zone.localEdge) {
+            for display in displays where zone.localDisplayID == nil || zone.localDisplayID == display.id {
+                if zone.localDisplayID == nil && !isOuterDesktopEdge(zone.localEdge, displayBounds: display.bounds, unionBounds: unionBounds) {
+                    continue
+                }
+                guard crosses(edge: zone.localEdge, from: current, to: proposed, in: display.bounds),
+                      axisPosition(for: current, edge: zone.localEdge, displayBounds: display.bounds, zone: zone) != nil else {
+                    continue
+                }
+                return HandoffDecision(
+                    zone: zone,
+                    localEdgePoint: edgePoint(for: current, edge: zone.localEdge, displayBounds: display.bounds)
+                )
+            }
+        }
+
+        return nil
     }
 
     private var defaultRemoteHost: String {
@@ -139,7 +220,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
         let message = "m \(dx) \(dy)\n"
         guard let data = message.data(using: .utf8) else { return false }
-        let connection = ensureClient()
+        let connection = ensureClientForActiveZone()
 
         connection.send(content: data, completion: .contentProcessed { [weak self] error in
             guard let error else { return }
@@ -229,7 +310,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private func sendLine(_ line: String) -> Bool {
         guard canSendToRemote else { return false }
         guard let data = "\(line)\n".data(using: .utf8) else { return false }
-        let connection = ensureClient()
+        let connection = ensureClientForActiveZone()
         connection.send(content: data, completion: .contentProcessed { [weak self] error in
             guard let error else { return }
             self?.logSendFailureOnce(error)
@@ -237,9 +318,16 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         return true
     }
 
-    private func ensureClient() -> NWConnection {
-        let host = defaultRemoteHost
-        let remotePort = defaultRemotePort
+    private func ensureClientForActiveZone() -> NWConnection {
+        lock.lock()
+        let zone = activeHandoffZone
+        lock.unlock()
+        let host = zone?.remoteHost ?? defaultRemoteHost
+        let remotePort = zone.flatMap { NWEndpoint.Port(rawValue: $0.remotePort) } ?? defaultRemotePort
+        return ensureClient(host: host, port: remotePort)
+    }
+
+    private func ensureClient(host: String, port remotePort: NWEndpoint.Port) -> NWConnection {
         let clientKey = "\(host):\(remotePort.rawValue)"
 
         lock.lock()
@@ -543,32 +631,43 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     private func handleClient(line: String) {
         let parts = line.split(separator: " ")
-        guard parts.count == 7,
+        guard parts.count >= 4,
               parts[0] == "pos",
               let x = Double(parts[1]),
               let y = Double(parts[2]),
-              let minX = Double(parts[3]),
-              let maxX = Double(parts[4]),
-              let minY = Double(parts[5]),
-              let maxY = Double(parts[6]) else { return }
+              let displayCount = Int(parts[3]),
+              parts.count == 4 + displayCount * 4 else { return }
 
-        lock.lock()
-        remoteCursorStatus = RemoteCursorStatus(
-            point: CGPoint(x: x, y: y),
-            bounds: CGRect(
+        var displays: [CGRect] = []
+        for index in 0..<displayCount {
+            let offset = 4 + index * 4
+            guard let minX = Double(parts[offset]),
+                  let maxX = Double(parts[offset + 1]),
+                  let minY = Double(parts[offset + 2]),
+                  let maxY = Double(parts[offset + 3]) else { return }
+            displays.append(CGRect(
                 x: minX,
                 y: minY,
                 width: max(0, maxX - minX),
                 height: max(0, maxY - minY)
-            )
+            ))
+        }
+
+        lock.lock()
+        remoteCursorStatus = RemoteCursorStatus(
+            point: CGPoint(x: x, y: y),
+            displays: displays
         )
         lock.unlock()
     }
 
     private func sendRemoteCursorStatus(on connection: NWConnection) {
         let point = currentRemoteCGPoint()
-        let bounds = remoteScreenBounds()
-        let line = "pos \(Double(point.x)) \(Double(point.y)) \(Double(bounds.minX)) \(Double(bounds.maxX)) \(Double(bounds.minY)) \(Double(bounds.maxY))\n"
+        let displays = remoteDisplayBounds()
+        let displayPayload = displays.map {
+            "\(Double($0.minX)) \(Double($0.maxX)) \(Double($0.minY)) \(Double($0.maxY))"
+        }.joined(separator: " ")
+        let line = "pos \(Double(point.x)) \(Double(point.y)) \(displays.count) \(displayPayload)\n"
         guard let data = line.data(using: .utf8) else { return }
         connection.send(content: data, completion: .contentProcessed { error in
             if let error {
@@ -720,18 +819,178 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func remoteScreenBounds() -> CGRect {
-        var displayCount: UInt32 = 0
-        CGGetActiveDisplayList(0, nil, &displayCount)
-        var displays = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
-        CGGetActiveDisplayList(displayCount, &displays, &displayCount)
-
+        let displays = remoteDisplayBounds()
         let bounds = displays.reduce(CGRect.null) { result, display in
-            result.union(CGDisplayBounds(display))
+            result.union(display)
         }
         if !bounds.isNull {
             return bounds
         }
         return NSScreen.main?.frame ?? .zero
+    }
+
+    private func remoteDisplayBounds() -> [CGRect] {
+        var displayCount: UInt32 = 0
+        CGGetActiveDisplayList(0, nil, &displayCount)
+        var displays = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
+        CGGetActiveDisplayList(displayCount, &displays, &displayCount)
+
+        let bounds = displays.map { CGDisplayBounds($0) }
+        if !bounds.isEmpty {
+            return bounds
+        }
+        return NSScreen.screens.map(\.frame)
+    }
+
+    private func configuredHandoffZones() -> [HandoffZone] {
+        if let data = UserDefaults.standard.data(forKey: "universalControlRelayHandoffZones"),
+           let zones = try? JSONDecoder().decode([HandoffZone].self, from: data),
+           !zones.isEmpty {
+            return zones
+        }
+        if let json = UserDefaults.standard.string(forKey: "universalControlRelayHandoffZones"),
+           let data = json.data(using: .utf8),
+           let zones = try? JSONDecoder().decode([HandoffZone].self, from: data),
+           !zones.isEmpty {
+            return zones
+        }
+
+        let localEdgeRaw = UserDefaults.standard.string(forKey: "universalControlRelayLocalEdge") ?? HandoffEdge.left.rawValue
+        let localEdge = HandoffEdge(rawValue: localEdgeRaw) ?? .left
+        let remoteEntryRaw = UserDefaults.standard.string(forKey: "universalControlRelayRemoteEntryEdge")
+        let remoteReturnRaw = UserDefaults.standard.string(forKey: "universalControlRelayRemoteReturnEdge")
+        let remoteEntryEdge = remoteEntryRaw.flatMap(HandoffEdge.init(rawValue:)) ?? localEdge.opposite
+        let remoteReturnEdge = remoteReturnRaw.flatMap(HandoffEdge.init(rawValue:)) ?? remoteEntryEdge
+        let remotePort = UInt16(defaultRemotePort.rawValue)
+
+        return [
+            HandoffZone(
+                localDisplayID: nil,
+                localEdge: localEdge,
+                localRangeMin: nil,
+                localRangeMax: nil,
+                remoteHost: defaultRemoteHost,
+                remotePort: remotePort,
+                remoteEntryEdge: remoteEntryEdge,
+                remoteReturnEdge: remoteReturnEdge
+            )
+        ]
+    }
+
+    private func localDisplays() -> [LocalDisplay] {
+        var displayCount: UInt32 = 0
+        CGGetActiveDisplayList(0, nil, &displayCount)
+        var displayIDs = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
+        CGGetActiveDisplayList(displayCount, &displayIDs, &displayCount)
+        return displayIDs.map { LocalDisplay(id: $0, bounds: CGDisplayBounds($0)) }
+    }
+
+    private func isMovingOutward(dx: Int, dy: Int, through edge: HandoffEdge) -> Bool {
+        switch edge {
+        case .left: return dx < 0
+        case .right: return dx > 0
+        case .top: return dy < 0
+        case .bottom: return dy > 0
+        }
+    }
+
+    private func crosses(edge: HandoffEdge, from current: CGPoint, to proposed: CGPoint, in bounds: CGRect) -> Bool {
+        switch edge {
+        case .left:
+            return current.x >= bounds.minX && proposed.x <= bounds.minX
+        case .right:
+            return current.x <= bounds.maxX - 1 && proposed.x >= bounds.maxX - 1
+        case .top:
+            return current.y >= bounds.minY && proposed.y <= bounds.minY
+        case .bottom:
+            return current.y <= bounds.maxY - 1 && proposed.y >= bounds.maxY - 1
+        }
+    }
+
+    private func isOuterDesktopEdge(_ edge: HandoffEdge, displayBounds: CGRect, unionBounds: CGRect) -> Bool {
+        let tolerance: CGFloat = 0.5
+        switch edge {
+        case .left:
+            return abs(displayBounds.minX - unionBounds.minX) <= tolerance
+        case .right:
+            return abs(displayBounds.maxX - unionBounds.maxX) <= tolerance
+        case .top:
+            return abs(displayBounds.minY - unionBounds.minY) <= tolerance
+        case .bottom:
+            return abs(displayBounds.maxY - unionBounds.maxY) <= tolerance
+        }
+    }
+
+    private func axisPosition(
+        for point: CGPoint,
+        edge: HandoffEdge,
+        displayBounds: CGRect,
+        zone: HandoffZone
+    ) -> CGFloat? {
+        let axis: CGFloat
+        let maxAxis: CGFloat
+        switch edge {
+        case .left, .right:
+            guard point.y >= displayBounds.minY, point.y < displayBounds.maxY else { return nil }
+            axis = point.y - displayBounds.minY
+            maxAxis = displayBounds.height
+        case .top, .bottom:
+            guard point.x >= displayBounds.minX, point.x < displayBounds.maxX else { return nil }
+            axis = point.x - displayBounds.minX
+            maxAxis = displayBounds.width
+        }
+
+        let minRange = zone.localRangeMin ?? 0
+        let maxRange = zone.localRangeMax ?? maxAxis
+        guard axis >= minRange, axis <= maxRange else { return nil }
+        return axis
+    }
+
+    private func edgePoint(for point: CGPoint, edge: HandoffEdge, displayBounds: CGRect) -> CGPoint {
+        switch edge {
+        case .left:
+            return CGPoint(
+                x: displayBounds.minX,
+                y: max(displayBounds.minY, min(displayBounds.maxY - 1, point.y))
+            )
+        case .right:
+            return CGPoint(
+                x: displayBounds.maxX - 1,
+                y: max(displayBounds.minY, min(displayBounds.maxY - 1, point.y))
+            )
+        case .top:
+            return CGPoint(
+                x: max(displayBounds.minX, min(displayBounds.maxX - 1, point.x)),
+                y: displayBounds.minY
+            )
+        case .bottom:
+            return CGPoint(
+                x: max(displayBounds.minX, min(displayBounds.maxX - 1, point.x)),
+                y: displayBounds.maxY - 1
+            )
+        }
+    }
+
+    private func isPoint(_ point: CGPoint, on edge: HandoffEdge, of display: CGRect) -> Bool {
+        let tolerance: CGFloat = 1.5
+        switch edge {
+        case .left:
+            return abs(point.x - display.minX) <= tolerance
+                && point.y >= display.minY
+                && point.y < display.maxY
+        case .right:
+            return abs(point.x - (display.maxX - 1)) <= tolerance
+                && point.y >= display.minY
+                && point.y < display.maxY
+        case .top:
+            return abs(point.y - display.minY) <= tolerance
+                && point.x >= display.minX
+                && point.x < display.maxX
+        case .bottom:
+            return abs(point.y - (display.maxY - 1)) <= tolerance
+                && point.x >= display.minX
+                && point.x < display.maxX
+        }
     }
 
     private func logSendFailureOnce(_ error: NWError) {
