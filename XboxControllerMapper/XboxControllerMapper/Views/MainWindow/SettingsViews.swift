@@ -1083,6 +1083,7 @@ struct SettingsSheet: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("hideFromDock") private var hideFromDock = false
     @AppStorage(MainWindowSection.hiddenDefaultsKey) private var hiddenSectionTags = ""
+    @AppStorage(ButtonMappingsTabSection.hiddenDefaultsKey) private var hiddenButtonSectionTags = ""
 
     @State private var isRefreshingDatabase = false
     @State private var databaseStatus: String?
@@ -1158,6 +1159,21 @@ struct SettingsSheet: View {
                     }
                 } header: {
                     Text("Visible Sections")
+                }
+
+                Section {
+                    ForEach(ButtonMappingsTabSection.allCases) { section in
+                        Toggle(isOn: visibleButtonSectionBinding(for: section)) {
+                            Text(section.label)
+                        }
+                        .disabled(isLastVisibleButtonSection(section))
+                    }
+
+                    Button("Show All Button Sections") {
+                        hiddenButtonSectionTags = ""
+                    }
+                } header: {
+                    Text("Buttons Tab Sections")
                 }
 
                 Section {
@@ -1254,6 +1270,28 @@ struct SettingsSheet: View {
             isDualSense: controllerService.threadSafeIsDualSense
         )
         return visibleSections.count == 1 && visibleSections.first == section
+    }
+
+    private func visibleButtonSectionBinding(for section: ButtonMappingsTabSection) -> Binding<Bool> {
+        Binding(
+            get: {
+                !ButtonMappingsTabSection.hiddenSections(from: hiddenButtonSectionTags).contains(section)
+            },
+            set: { isVisible in
+                var hiddenSections = ButtonMappingsTabSection.hiddenSections(from: hiddenButtonSectionTags)
+                if isVisible {
+                    hiddenSections.remove(section)
+                } else if !isLastVisibleButtonSection(section) {
+                    hiddenSections.insert(section)
+                }
+                hiddenButtonSectionTags = ButtonMappingsTabSection.encodedHiddenSections(hiddenSections)
+            }
+        )
+    }
+
+    private func isLastVisibleButtonSection(_ section: ButtonMappingsTabSection) -> Bool {
+        let hiddenSections = ButtonMappingsTabSection.hiddenSections(from: hiddenButtonSectionTags)
+        return ButtonMappingsTabSection.allCases.filter { !hiddenSections.contains($0) } == [section]
     }
 
     private func unavailableReason(for section: MainWindowSection) -> String {
