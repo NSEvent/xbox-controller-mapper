@@ -56,7 +56,28 @@ struct SnapshotService {
         return ProfileSnapshot(id: stem, timestamp: now, reason: reason, fileURL: fileURL)
     }
 
-    /// All available snapshots, newest first.
+    /// Lightweight projection used for listing snapshots without paying the
+    /// cost of decoding the full ProfileConfiguration tree (which can include
+    /// many profiles × many mappings × many macros). JSONDecoder ignores keys
+    /// not present here, so reading from a SnapshotPayload-shaped file works.
+    private struct SnapshotMetadata: Decodable {
+        let reason: String
+        let createdAt: Date
+
+        private enum CodingKeys: String, CodingKey {
+            case reason, createdAt
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            reason = try c.decode(.reason, default: "")
+            createdAt = try c.decode(.createdAt, default: Date())
+        }
+    }
+
+    /// All available snapshots, newest first. Reads only the `reason` and
+    /// `createdAt` metadata from each file — the heavy `ProfileConfiguration`
+    /// payload is loaded lazily by `loadConfiguration(from:)` only on restore.
     func listSnapshots() -> [ProfileSnapshot] {
         guard let urls = try? fileManager.contentsOfDirectory(
             at: snapshotsDirectory,
@@ -72,12 +93,12 @@ struct SnapshotService {
             .filter { $0.pathExtension == "json" && $0.lastPathComponent.hasPrefix("snapshot_") }
             .compactMap { url -> ProfileSnapshot? in
                 guard let data = try? Data(contentsOf: url),
-                      let payload = try? decoder.decode(SnapshotPayload.self, from: data) else {
+                      let metadata = try? decoder.decode(SnapshotMetadata.self, from: data) else {
                     NSLog("[Snapshot] Skipping unreadable snapshot file %@", url.lastPathComponent)
                     return nil
                 }
                 let stem = url.deletingPathExtension().lastPathComponent
-                return ProfileSnapshot(id: stem, timestamp: payload.createdAt, reason: payload.reason, fileURL: url)
+                return ProfileSnapshot(id: stem, timestamp: metadata.createdAt, reason: metadata.reason, fileURL: url)
             }
             .sorted { $0.timestamp > $1.timestamp }
     }

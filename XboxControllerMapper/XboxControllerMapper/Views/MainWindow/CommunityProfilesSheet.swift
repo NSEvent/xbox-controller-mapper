@@ -209,6 +209,10 @@ struct CommunityProfilesSheet: View {
         // Check profile cache
         if let cached = previewCache[profileInfo.id] {
             previewedProfile = cached
+            // Clear the spinner left over from any in-flight load triggered by
+            // a previous selection — without this, switching from a loading
+            // profile to a cached one leaves the spinner visible forever.
+            isLoadingPreview = false
             return
         }
 
@@ -555,7 +559,7 @@ struct SetupGuideSection: View {
 private struct CodeBlockView: View {
     let text: String
     @State private var didCopy = false
-    @State private var resetWorkItem: DispatchWorkItem?
+    @State private var revertTask: Task<Void, Never>?
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -593,11 +597,14 @@ private struct CodeBlockView: View {
 
         // Brief visual confirmation, then revert. Cancel any prior pending
         // revert so rapid double-clicks don't snap back early.
-        resetWorkItem?.cancel()
+        revertTask?.cancel()
         didCopy = true
-        let work = DispatchWorkItem { didCopy = false }
-        resetWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
+        revertTask = Task {
+            try? await Task.sleep(for: .milliseconds(1500))
+            if !Task.isCancelled {
+                didCopy = false
+            }
+        }
     }
 }
 
