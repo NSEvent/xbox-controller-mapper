@@ -44,7 +44,7 @@ class FaviconCache {
     /// two writers wins cleanly.
     func saveFavicon(_ data: Data, for websiteURL: String) {
         let url = cacheURL(for: websiteURL)
-        try? data.write(to: url, options: .atomic)
+        try? data.write(to: url.resolvingSymlinksInPath(), options: .atomic)
     }
 
     /// Delete cached favicon

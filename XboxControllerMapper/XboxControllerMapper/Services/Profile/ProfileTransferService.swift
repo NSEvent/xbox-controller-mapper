@@ -9,7 +9,7 @@ enum ProfileTransferService {
         let data = try encoder.encode(profile)
         // .atomic writes via temp-file-then-rename so a crash or power loss
         // mid-write can never leave a half-written profile on disk.
-        try data.write(to: url, options: .atomic)
+        try data.write(to: url.resolvingSymlinksInPath(), options: .atomic)
     }
 
     static func importProfile(from url: URL) throws -> Profile {

@@ -79,6 +79,42 @@ final class ProfileConfigurationSaveServiceTests: XCTestCase {
         XCTAssertFalse(backups.isEmpty)
     }
 
+    func testSavePreservesConfigSymlinkAndCreatesRealBackup() throws {
+        let targetDirectory = tempDirectory.appendingPathComponent("target", isDirectory: true)
+        try fileManager.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
+
+        let realConfigURL = targetDirectory.appendingPathComponent("config.json")
+        let symlinkConfigURL = tempDirectory.appendingPathComponent("config.json")
+        let originalConfig = #"{"profiles":[],"activeProfileId":null}"#
+        try Data(originalConfig.utf8).write(to: realConfigURL)
+        try fileManager.createSymbolicLink(
+            atPath: symlinkConfigURL.path,
+            withDestinationPath: realConfigURL.path
+        )
+
+        let service = makeSynchronousService()
+        let profile = Profile(id: UUID(), name: "Symlink Saved")
+        let config = ProfileConfiguration(
+            profiles: [profile],
+            activeProfileId: profile.id,
+            uiScale: 1.4
+        )
+
+        service.save(config, to: symlinkConfigURL)
+
+        XCTAssertEqual(try fileManager.destinationOfSymbolicLink(atPath: symlinkConfigURL.path), realConfigURL.path)
+
+        let decoded = try ProfileConfigurationCodec.decode(from: Data(contentsOf: realConfigURL))
+        XCTAssertEqual(decoded.profiles.first?.id, profile.id)
+        XCTAssertEqual(decoded.uiScale ?? 0, 1.4, accuracy: 0.0001)
+
+        let backupDirectory = tempDirectory.appendingPathComponent("backups", isDirectory: true)
+        let backups = try fileManager.contentsOfDirectory(at: backupDirectory, includingPropertiesForKeys: nil)
+        let backup = try XCTUnwrap(backups.first)
+        XCTAssertThrowsError(try fileManager.destinationOfSymbolicLink(atPath: backup.path))
+        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), originalConfig)
+    }
+
     func testSaveLogsFailureWhenWriteFails() {
         guard let configURL = tempDirectory else {
             XCTFail("tempDirectory should be set in setUp")

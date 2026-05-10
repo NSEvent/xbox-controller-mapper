@@ -45,7 +45,7 @@ struct SnapshotService {
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(payload)
-            try data.write(to: fileURL, options: .atomic)
+            try data.write(to: fileURL.resolvingSymlinksInPath(), options: .atomic)
         } catch {
             NSLog("[Snapshot] Failed to write snapshot %@: %@", fileURL.lastPathComponent, error.localizedDescription)
             return nil
