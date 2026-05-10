@@ -12,6 +12,20 @@ struct StreamDeckImportSheet: View {
     @State private var isParsing = true
     @State private var parseError: String?
 
+    // Safety approval (shell commands / scripts in imported profile)
+    @State private var pendingSafetyApproval: SafetyApprovalRequest?
+
+    private final class SafetyApprovalRequest: Identifiable {
+        let id = UUID()
+        let profile: Profile
+        let report: ProfileImportSafetyReport
+
+        init(profile: Profile, report: ProfileImportSafetyReport) {
+            self.profile = profile
+            self.report = report
+        }
+    }
+
     private var supportedCount: Int {
         mappedActions.filter { $0.isSupported && $0.assignedButton != nil }.count
     }
@@ -45,6 +59,16 @@ struct StreamDeckImportSheet: View {
         .frame(width: 750, height: 550)
         .onAppear {
             parseFile()
+        }
+        .sheet(item: $pendingSafetyApproval) { request in
+            ProfileImportSafetySheet(
+                profileName: request.profile.name,
+                report: request.report,
+                onApprove: {
+                    installAndDismiss(request.profile)
+                },
+                onCancel: {}
+            )
         }
     }
 
@@ -226,6 +250,15 @@ struct StreamDeckImportSheet: View {
             name: profileName,
             mappedActions: mappedActions
         )
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        if report.requiresUserConfirmation {
+            pendingSafetyApproval = SafetyApprovalRequest(profile: profile, report: report)
+        } else {
+            installAndDismiss(profile)
+        }
+    }
+
+    private func installAndDismiss(_ profile: Profile) {
         let imported = profileManager.importStreamDeckProfile(profile)
         profileManager.setActiveProfile(imported)
         dismiss()

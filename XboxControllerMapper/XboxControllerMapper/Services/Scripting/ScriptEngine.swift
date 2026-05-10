@@ -367,9 +367,11 @@ class ScriptEngine {
                 return "(test mode - shell not executed)"
             }
 
-            // Validate against dangerous pattern blocklist
-            if let rejection = SystemCommandExecutor.validateShellCommand(command) {
-                self.logMessage("[Script Shell] Rejected (\(rejection)): \(command)")
+            // Skip empty commands; no other pre-execution screening (a shell
+            // pattern blocklist is trivially bypassable — see
+            // SystemCommandExecutor.executeSilently for the same rationale).
+            guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                self.logMessage("[Script Shell] Skipping empty command")
                 return ""
             }
 
@@ -443,9 +445,8 @@ class ScriptEngine {
                 return
             }
 
-            // Validate against dangerous pattern blocklist
-            if let rejection = SystemCommandExecutor.validateShellCommand(command) {
-                self.logMessage("[Script ShellAsync] Rejected (\(rejection)): \(command)")
+            guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                self.logMessage("[Script ShellAsync] Skipping empty command")
                 return
             }
 

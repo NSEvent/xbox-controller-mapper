@@ -20,6 +20,22 @@ struct ProfileSidebar: View {
     @State private var profileToLink: Profile?
     @State private var showingCommunityProfiles = false
 
+    // Safety approval (shell commands / scripts in imported profile)
+    @State private var pendingSafetyApproval: SafetyApprovalRequest?
+
+    private final class SafetyApprovalRequest: Identifiable {
+        let id = UUID()
+        let profile: Profile
+        let report: ProfileImportSafetyReport
+        let displayName: String
+
+        init(profile: Profile, report: ProfileImportSafetyReport, displayName: String) {
+            self.profile = profile
+            self.report = report
+            self.displayName = displayName
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -151,8 +167,20 @@ struct ProfileSidebar: View {
                 switch importType {
                 case .json:
                     do {
-                        let profile = try profileManager.importProfile(from: url)
-                        profileManager.setActiveProfile(profile)
+                        // Parse first so we can audit, then either install
+                        // immediately or route through the safety sheet.
+                        let candidate = try ProfileTransferService.importProfile(from: url)
+                        let report = ProfileImportSafetyAuditor.audit(candidate)
+                        if report.requiresUserConfirmation {
+                            pendingSafetyApproval = SafetyApprovalRequest(
+                                profile: candidate,
+                                report: report,
+                                displayName: candidate.name
+                            )
+                        } else {
+                            let imported = profileManager.importFetchedProfile(candidate)
+                            profileManager.setActiveProfile(imported)
+                        }
                     } catch {
                         // Import failed, profile not loaded
                     }
@@ -183,6 +211,17 @@ struct ProfileSidebar: View {
         }
         .sheet(isPresented: $showingCommunityProfiles) {
             CommunityProfilesSheet()
+        }
+        .sheet(item: $pendingSafetyApproval) { request in
+            ProfileImportSafetySheet(
+                profileName: request.displayName,
+                report: request.report,
+                onApprove: {
+                    let imported = profileManager.importFetchedProfile(request.profile)
+                    profileManager.setActiveProfile(imported)
+                },
+                onCancel: {}
+            )
         }
     }
 }

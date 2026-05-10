@@ -1,0 +1,153 @@
+import XCTest
+@testable import ControllerKeys
+
+final class ProfileImportSafetyAuditorTests: XCTestCase {
+
+    // MARK: - No-warning paths
+
+    func testEmptyProfile_doesNotRequireConfirmation() {
+        let report = ProfileImportSafetyAuditor.audit(Profile(name: "empty"))
+        XCTAssertFalse(report.requiresUserConfirmation)
+        XCTAssertTrue(report.shellCommands.isEmpty)
+        XCTAssertTrue(report.scripts.isEmpty)
+    }
+
+    func testProfileWithOnlyKeyPresses_doesNotRequireConfirmation() {
+        var profile = Profile(name: "p")
+        profile.buttonMappings[.a] = KeyMapping(keyCode: 0)
+        profile.chordMappings = [ChordMapping(buttons: [.a, .b], keyCode: 0)]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertFalse(report.requiresUserConfirmation)
+    }
+
+    func testProfileWithLaunchAppOrOpenLink_doesNotRequireConfirmation() {
+        // Other SystemCommand cases are out of scope for the warning sheet —
+        // they're risks but get separate treatment.
+        var profile = Profile(name: "p")
+        profile.buttonMappings[.a] = KeyMapping(systemCommand: .launchApp(bundleIdentifier: "com.apple.calculator"))
+        profile.buttonMappings[.b] = KeyMapping(systemCommand: .openLink(url: "https://example.com"))
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertFalse(report.requiresUserConfirmation)
+    }
+
+    // MARK: - Shell command discovery
+
+    func testShellCommandOnButton_isReported() {
+        var profile = Profile(name: "p")
+        profile.buttonMappings[.a] = KeyMapping(systemCommand: .shellCommand(command: "echo hi", inTerminal: false))
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertEqual(report.shellCommands.first?.command, "echo hi")
+        XCTAssertFalse(report.shellCommands.first?.inTerminal == true)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("Button") == true)
+    }
+
+    func testShellCommandOnLongHold_isReported() {
+        let longHold = LongHoldMapping(systemCommand: .shellCommand(command: "rm -rf ~/Documents", inTerminal: true))
+        let mapping = KeyMapping(longHoldMapping: longHold)
+        var profile = Profile(name: "p")
+        profile.buttonMappings[.x] = mapping
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("long hold") == true,
+                      "Context should distinguish long-hold from primary mapping")
+        XCTAssertTrue(report.shellCommands.first?.inTerminal == true)
+    }
+
+    func testShellCommandOnDoubleTap_isReported() {
+        let doubleTap = DoubleTapMapping(systemCommand: .shellCommand(command: "say hi", inTerminal: false))
+        var profile = Profile(name: "p")
+        profile.buttonMappings[.y] = KeyMapping(doubleTapMapping: doubleTap)
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("double tap") == true)
+    }
+
+    func testShellCommandOnChord_isReported() {
+        var profile = Profile(name: "p")
+        profile.chordMappings = [
+            ChordMapping(buttons: [.a, .b], systemCommand: .shellCommand(command: "ls", inTerminal: false))
+        ]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.starts(with: "Chord") == true)
+    }
+
+    func testShellCommandOnSequence_isReported() {
+        var profile = Profile(name: "p")
+        profile.sequenceMappings = [
+            SequenceMapping(steps: [.a, .b, .x], systemCommand: .shellCommand(command: "ls", inTerminal: false))
+        ]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.starts(with: "Sequence") == true)
+    }
+
+    func testShellCommandOnGesture_isReported() {
+        var profile = Profile(name: "p")
+        profile.gestureMappings = [
+            GestureMapping(gestureType: .tiltBack, systemCommand: .shellCommand(command: "ls", inTerminal: false))
+        ]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.starts(with: "Gesture") == true)
+    }
+
+    func testShellCommandInLayer_isReported() {
+        var profile = Profile(name: "p")
+        var layer = Layer(name: "Layer1", activatorButton: .leftBumper)
+        layer.buttonMappings[.a] = KeyMapping(systemCommand: .shellCommand(command: "uptime", inTerminal: false))
+        profile.layers = [layer]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("Layer 'Layer1'") == true)
+    }
+
+    func testShellStepInMacro_isReported() {
+        var profile = Profile(name: "p")
+        let macro = Macro(name: "MyMacro", steps: [
+            .delay(0.1),
+            .shellCommand(command: "open .", inTerminal: false),
+            .delay(0.1),
+        ])
+        profile.macros = [macro]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 1)
+        XCTAssertTrue(report.shellCommands.first?.context.contains("Macro 'MyMacro' step 2") == true,
+                      "Step number should be 1-indexed and reflect actual position in steps array")
+    }
+
+    func testMultipleShellCommands_areAllReported() {
+        var profile = Profile(name: "p")
+        profile.buttonMappings[.a] = KeyMapping(systemCommand: .shellCommand(command: "cmd1", inTerminal: false))
+        profile.buttonMappings[.b] = KeyMapping(systemCommand: .shellCommand(command: "cmd2", inTerminal: false))
+        profile.chordMappings = [ChordMapping(buttons: [.x, .y], systemCommand: .shellCommand(command: "cmd3", inTerminal: false))]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.shellCommands.count, 3)
+    }
+
+    // MARK: - Scripts
+
+    func testProfileWithScript_isReported() {
+        var profile = Profile(name: "p")
+        profile.scripts = [Script(name: "MyScript", source: "console.log('hi');\nshell('whoami');")]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.scripts.count, 1)
+        XCTAssertEqual(report.scripts.first?.name, "MyScript")
+        XCTAssertEqual(report.scripts.first?.lineCount, 2)
+    }
+
+    func testEmptyScriptName_getsPlaceholder() {
+        var profile = Profile(name: "p")
+        profile.scripts = [Script(name: "", source: "x")]
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        XCTAssertEqual(report.scripts.first?.name, "(unnamed script)")
+    }
+
+    func testProfileWithScript_requiresConfirmation() {
+        var profile = Profile(name: "p")
+        profile.scripts = [Script(name: "ok", source: "/* harmless */")]
+        XCTAssertTrue(ProfileImportSafetyAuditor.audit(profile).requiresUserConfirmation,
+                      "Any script — regardless of content — must trigger the import warning")
+    }
+}

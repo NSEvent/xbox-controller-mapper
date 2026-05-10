@@ -24,6 +24,25 @@ struct CommunityProfilesSheet: View {
     @State private var previewedSetupGuide: String?
     @State private var setupGuideCache: [String: String?] = [:]
 
+    // Safety approval (shell commands / scripts in imported profile)
+    @State private var pendingSafetyApproval: SafetyApprovalRequest?
+
+    /// Bridges the synchronous SwiftUI sheet flow with the async download
+    /// loop: the loop awaits a continuation that fires when the user clicks
+    /// Import or Cancel on the safety sheet.
+    private final class SafetyApprovalRequest: Identifiable {
+        let id = UUID()
+        let profileName: String
+        let report: ProfileImportSafetyReport
+        let continuation: CheckedContinuation<Bool, Never>
+
+        init(profileName: String, report: ProfileImportSafetyReport, continuation: CheckedContinuation<Bool, Never>) {
+            self.profileName = profileName
+            self.report = report
+            self.continuation = continuation
+        }
+    }
+
     // Count of new profiles to import (excludes already imported)
     private var newProfilesToImportCount: Int {
         selectedProfiles.subtracting(alreadyImportedProfiles).count
@@ -162,6 +181,31 @@ struct CommunityProfilesSheet: View {
         .onAppear {
             loadProfiles()
         }
+        .sheet(item: $pendingSafetyApproval) { request in
+            ProfileImportSafetySheet(
+                profileName: request.profileName,
+                report: request.report,
+                onApprove: { request.continuation.resume(returning: true) },
+                onCancel: { request.continuation.resume(returning: false) }
+            )
+        }
+    }
+
+    /// Audit the profile and, if it carries shell commands or scripts, present
+    /// the safety sheet and await the user's choice. Returns true on approve
+    /// or no-warning-needed; false on cancel.
+    private func requestSafetyApproval(for profile: Profile, displayName: String) async -> Bool {
+        let report = ProfileImportSafetyAuditor.audit(profile)
+        guard report.requiresUserConfirmation else { return true }
+        return await withCheckedContinuation { continuation in
+            Task { @MainActor in
+                self.pendingSafetyApproval = SafetyApprovalRequest(
+                    profileName: displayName,
+                    report: report,
+                    continuation: continuation
+                )
+            }
+        }
     }
 
     private func loadProfiles() {
@@ -264,16 +308,23 @@ struct CommunityProfilesSheet: View {
 
             for profileInfo in profilesToDownload {
                 do {
-                    // Use cached profile if available, otherwise download
-                    let profile: Profile
+                    // Resolve the to-be-imported Profile data first (cache hit
+                    // or network) so we can audit its bindings before deciding
+                    // whether to install it.
+                    let candidate: Profile
                     if let cached = previewCache[profileInfo.id] {
-                        profile = await MainActor.run {
-                            profileManager.importFetchedProfile(cached)
-                        }
+                        candidate = cached
                     } else {
-                        profile = try await profileManager.downloadProfile(from: profileInfo.downloadURL)
+                        candidate = try await profileManager.fetchProfileForPreview(from: profileInfo.downloadURL)
                     }
-                    lastImportedProfile = profile
+
+                    let approved = await requestSafetyApproval(for: candidate, displayName: profileInfo.displayName)
+                    guard approved else { continue }
+
+                    let imported = await MainActor.run {
+                        profileManager.importFetchedProfile(candidate)
+                    }
+                    lastImportedProfile = imported
                     await MainActor.run {
                         downloadedCount += 1
                     }

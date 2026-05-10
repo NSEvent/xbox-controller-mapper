@@ -151,81 +151,17 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     // MARK: - Shell Command (Silent)
 
-    /// Patterns that indicate potentially dangerous shell command injection.
-    /// These are blocked to prevent config-based attacks where a malicious config
-    /// could exfiltrate data or download/execute arbitrary code.
-    private static let dangerousShellPatterns: [String] = [
-        "`",           // backtick command substitution
-        "$(",          // $() command substitution
-        "${",          // shell variable expansion
-        "<<",          // heredoc
-        "/dev/tcp/",   // bash network pseudodevice
-        "/dev/udp/",   // bash network pseudodevice
-        "| sh",        // pipe to shell
-        "| bash",      // pipe to bash
-        "| zsh",       // pipe to zsh
-        "|sh",         // pipe to shell (no space)
-        "|bash",       // pipe to bash (no space)
-        "|zsh",        // pipe to zsh (no space)
-        "| /bin/sh",   // pipe to absolute shell path
-        "| /bin/bash", // pipe to absolute bash path
-        "| /bin/zsh",  // pipe to absolute zsh path
-        "| /usr/bin/sh",   // pipe to /usr/bin shell path
-        "| /usr/bin/bash", // pipe to /usr/bin bash path
-        "| /usr/bin/zsh",  // pipe to /usr/bin zsh path
-        "| perl",      // pipe to perl interpreter
-        "|perl",       // pipe to perl (no space)
-        "| python",    // pipe to python interpreter
-        "|python",     // pipe to python (no space)
-        "| ruby",      // pipe to ruby interpreter
-        "|ruby",       // pipe to ruby (no space)
-        "| node",      // pipe to node interpreter
-        "|node",       // pipe to node (no space)
-        "| lua",       // pipe to lua interpreter
-        "|lua",        // pipe to lua (no space)
-        "| swift",     // pipe to swift interpreter
-        "|swift",      // pipe to swift (no space)
-        "| osascript", // pipe to AppleScript interpreter
-        "|osascript",  // pipe to osascript (no space)
-        "; curl ",     // chained curl (data exfiltration)
-        "; wget ",     // chained wget
-        "&& curl ",    // conditional curl
-        "&& wget ",    // conditional wget
-        "|| curl ",    // fallback curl
-        "|| wget ",    // fallback wget
-        "; /usr/bin/curl ",  // chained absolute curl path
-        "; /usr/bin/wget ",  // chained absolute wget path
-        "&& /usr/bin/curl ", // conditional absolute curl path
-        "&& /usr/bin/wget ", // conditional absolute wget path
-    ]
-
-    /// Validates a shell command against the dangerous pattern blocklist.
-    /// Returns nil if the command is safe, or an error message if rejected.
-    /// Shared by SystemCommandExecutor and ScriptEngine.
-    static func validateShellCommand(_ command: String) -> String? {
-        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return "empty command"
-        }
-
-        // Normalize whitespace (tabs, etc.) to spaces so patterns can't be bypassed
-        // by using alternate whitespace characters that shells treat equivalently.
-        let normalized = trimmed.lowercased()
-            .replacingOccurrences(of: "\t", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-            .replacingOccurrences(of: "\n", with: " ")
-        for pattern in dangerousShellPatterns {
-            if normalized.contains(pattern) {
-                return "dangerous pattern detected"
-            }
-        }
-
-        return nil
-    }
-
     private func executeSilently(_ command: String) {
-        if let rejection = Self.validateShellCommand(command) {
-            NSLog("[SystemCommand] Shell command rejected — %@: %@", rejection, command)
+        // Reject only empty commands. We deliberately do NOT screen for
+        // "dangerous" patterns: shell commands a profile binds run as the
+        // user with the user's full permissions, and any blocklist of shell
+        // syntax is trivially bypassable (process substitution, eval, IFS=,
+        // hex escapes, sourcing a downloaded file, etc.). The earlier
+        // pattern list gave a false sense of safety. Real protection lives
+        // at the import boundary (CommunityProfileImportPolicy) which warns
+        // the user before binding any shell command from an external source.
+        guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            NSLog("[SystemCommand] Skipping empty shell command")
             return
         }
 
