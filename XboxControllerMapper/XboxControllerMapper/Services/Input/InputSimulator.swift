@@ -805,6 +805,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     if !self.universalControlRelayActive, let handoffDecision {
                         self.universalControlRelayEdgePoint = handoffDecision.localEdgePoint
                         UniversalControlMouseRelay.shared.beginRemoteSession(zone: handoffDecision.zone)
+                        UniversalControlMouseRelay.shared.showLocalHandoffPortal(for: handoffDecision)
                     }
                     if keepRelaying,
                        UniversalControlMouseRelay.shared.shouldReturnFromRemote(
@@ -813,7 +814,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                        ) {
                         self.universalControlRelayActive = false
                         self.universalControlRelayEdgePoint = nil
-                        UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
+                        UniversalControlMouseRelay.shared.endRemoteSession()
                     } else {
                         self.universalControlRelayActive = true
                         if UniversalControlMouseRelay.shared.sendMove(dx: Int(moveX), dy: Int(moveY)) {

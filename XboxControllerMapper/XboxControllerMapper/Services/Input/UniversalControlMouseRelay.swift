@@ -45,6 +45,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     struct HandoffDecision {
         let zone: HandoffZone
+        let localDisplayID: CGDirectDisplayID
         let localEdgePoint: CGPoint
     }
 
@@ -106,6 +107,9 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             activeHandoffZone = nil
         }
         lock.unlock()
+        if !active {
+            NSLog("[UCMouseRelay] Handoff ended")
+        }
     }
 
     func beginRemoteSession(zone: HandoffZone) {
@@ -113,6 +117,28 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         activeHandoffZone = zone
         isRemoteSessionActive = true
         lock.unlock()
+        NSLog(
+            "[UCMouseRelay] Handoff started localEdge=%@ remote=%@:%d returnEdge=%@",
+            zone.localEdge.rawValue,
+            zone.remoteHost,
+            zone.remotePort,
+            zone.remoteReturnEdge.rawValue
+        )
+    }
+
+    func showLocalHandoffPortal(for decision: HandoffDecision) {
+        Task { @MainActor in
+            UniversalControlPortalIndicator.shared.flash(
+                edge: decision.zone.localEdge,
+                displayID: decision.localDisplayID
+            )
+        }
+        _ = sendLine("portal \(decision.zone.remoteEntryEdge.rawValue) \(decision.zone.remoteReturnEdge.rawValue)")
+    }
+
+    func endRemoteSession() {
+        _ = sendLine("portalEnd")
+        setRemoteSessionActive(false)
     }
 
     func shouldReturnFromRemote(dx: Int, dy: Int) -> Bool {
@@ -151,6 +177,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 }
                 return HandoffDecision(
                     zone: zone,
+                    localDisplayID: display.id,
                     localEdgePoint: edgePoint(for: current, edge: zone.localEdge, displayBounds: display.bounds)
                 )
             }
@@ -624,6 +651,22 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 ActionFeedbackIndicator.shared.dismissHeld(action: action)
             }
             logFirstReceive("dismiss feedback")
+        case "portal":
+            guard parts.count == 3,
+                  let entryEdge = HandoffEdge(rawValue: String(parts[1])),
+                  let returnEdge = HandoffEdge(rawValue: String(parts[2])) else { return }
+            Task { @MainActor in
+                UniversalControlPortalIndicator.shared.showRemoteEntry(
+                    entryEdge: entryEdge,
+                    returnEdge: returnEdge
+                )
+            }
+            logFirstReceive("portal")
+        case "portalEnd":
+            Task { @MainActor in
+                UniversalControlPortalIndicator.shared.clearRemoteReturnHint()
+            }
+            logFirstReceive("portal end")
         default:
             return
         }
@@ -855,16 +898,15 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             return zones
         }
 
-        let localEdgeRaw = UserDefaults.standard.string(forKey: "universalControlRelayLocalEdge") ?? HandoffEdge.left.rawValue
-        let localEdge = HandoffEdge(rawValue: localEdgeRaw) ?? .left
+        let configuredLocalEdge = UserDefaults.standard.string(forKey: "universalControlRelayLocalEdge")
         let remoteEntryRaw = UserDefaults.standard.string(forKey: "universalControlRelayRemoteEntryEdge")
         let remoteReturnRaw = UserDefaults.standard.string(forKey: "universalControlRelayRemoteReturnEdge")
-        let remoteEntryEdge = remoteEntryRaw.flatMap(HandoffEdge.init(rawValue:)) ?? localEdge.opposite
-        let remoteReturnEdge = remoteReturnRaw.flatMap(HandoffEdge.init(rawValue:)) ?? remoteEntryEdge
         let remotePort = UInt16(defaultRemotePort.rawValue)
 
-        return [
-            HandoffZone(
+        func defaultZone(for localEdge: HandoffEdge) -> HandoffZone {
+            let remoteEntryEdge = remoteEntryRaw.flatMap(HandoffEdge.init(rawValue:)) ?? localEdge.opposite
+            let remoteReturnEdge = remoteReturnRaw.flatMap(HandoffEdge.init(rawValue:)) ?? remoteEntryEdge
+            return HandoffZone(
                 localDisplayID: nil,
                 localEdge: localEdge,
                 localRangeMin: nil,
@@ -874,6 +916,16 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 remoteEntryEdge: remoteEntryEdge,
                 remoteReturnEdge: remoteReturnEdge
             )
+        }
+
+        if let configuredLocalEdge,
+           let localEdge = HandoffEdge(rawValue: configuredLocalEdge) {
+            return [defaultZone(for: localEdge)]
+        }
+
+        return [
+            defaultZone(for: .left),
+            defaultZone(for: .right)
         ]
     }
 
