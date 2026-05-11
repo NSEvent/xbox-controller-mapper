@@ -2635,17 +2635,8 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             )
         }
 
-        if let configuredLocalEdge,
-           let localEdge = HandoffEdge(rawValue: configuredLocalEdge) {
-            return [defaultZone(for: localEdge)]
-        }
-
-        return [
-            defaultZone(for: .left),
-            defaultZone(for: .right),
-            defaultZone(for: .top),
-            defaultZone(for: .bottom)
-        ]
+		return UniversalControlHandoffEdgeDefaults.localEdges(configuredRawValue: configuredLocalEdge)
+			.map(defaultZone)
     }
 
     private func localDisplays() -> [LocalDisplay] {
@@ -2794,4 +2785,16 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             NSLog("[UCMouseRelay] Sent first move dx=%d dy=%d", dx, dy)
         }
     }
+}
+
+struct UniversalControlHandoffEdgeDefaults {
+	static let fallbackLocalEdges: [UniversalControlMouseRelay.HandoffEdge] = [.left, .right]
+
+	static func localEdges(configuredRawValue: String?) -> [UniversalControlMouseRelay.HandoffEdge] {
+		if let configuredRawValue,
+		   let edge = UniversalControlMouseRelay.HandoffEdge(rawValue: configuredRawValue) {
+			return [edge]
+		}
+		return fallbackLocalEdges
+	}
 }

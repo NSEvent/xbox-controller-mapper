@@ -198,4 +198,19 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
             remoteNonce: "bbb"
         ))
     }
+
+	func testDefaultHandoffEdgesAreHorizontalOnly() {
+		XCTAssertEqual(
+			UniversalControlHandoffEdgeDefaults.localEdges(configuredRawValue: nil),
+			[.left, .right]
+		)
+		XCTAssertEqual(
+			UniversalControlHandoffEdgeDefaults.localEdges(configuredRawValue: "bogus"),
+			[.left, .right]
+		)
+		XCTAssertEqual(
+			UniversalControlHandoffEdgeDefaults.localEdges(configuredRawValue: "left"),
+			[.left]
+		)
+	}
 }
