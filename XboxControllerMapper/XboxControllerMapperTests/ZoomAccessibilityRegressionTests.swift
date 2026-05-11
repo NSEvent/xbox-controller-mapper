@@ -466,6 +466,64 @@ final class ZoomEventDeliveryConsistencyTests: XCTestCase {
     }
 }
 
+final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
+    func testPlainMoveWithoutRelayUsesProposedPointPastEdge() {
+		let proposed = CGPoint(x: 1928, y: 500)
+		let clamped = CGPoint(x: 1919, y: 500)
+
+		let result = UniversalControlRelayLocalMousePolicy.eventPoint(
+			proposed: proposed,
+			clamped: clamped,
+			zoomActive: false,
+			isDrag: false,
+			relayCanHandleEdge: false
+		)
+
+		XCTAssertEqual(result, proposed)
+    }
+
+    func testRelayAvailableKeepsLocalCursorPinned() {
+		let proposed = CGPoint(x: 1928, y: 500)
+		let clamped = CGPoint(x: 1919, y: 500)
+
+		let result = UniversalControlRelayLocalMousePolicy.eventPoint(
+			proposed: proposed,
+			clamped: clamped,
+			zoomActive: false,
+			isDrag: false,
+			relayCanHandleEdge: true
+		)
+
+		XCTAssertEqual(result, clamped)
+    }
+
+    func testZoomOrDragKeepsLocalCursorClamped() {
+		let proposed = CGPoint(x: 1928, y: 500)
+		let clamped = CGPoint(x: 1919, y: 500)
+
+		XCTAssertEqual(
+			UniversalControlRelayLocalMousePolicy.eventPoint(
+				proposed: proposed,
+				clamped: clamped,
+				zoomActive: true,
+				isDrag: false,
+				relayCanHandleEdge: false
+			),
+			clamped
+		)
+		XCTAssertEqual(
+			UniversalControlRelayLocalMousePolicy.eventPoint(
+				proposed: proposed,
+				clamped: clamped,
+				zoomActive: false,
+				isDrag: true,
+				relayCanHandleEdge: false
+			),
+			clamped
+		)
+    }
+}
+
 // MARK: - Regression: UAZoomEnabled vs isZoomCurrentlyActive
 
 final class ZoomDetectionMethodTests: XCTestCase {

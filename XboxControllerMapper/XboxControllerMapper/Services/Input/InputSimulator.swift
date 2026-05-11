@@ -782,33 +782,45 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             let clampedX = max(bounds.minX, min(bounds.maxX - 1, newX))
             let clampedY = max(bounds.minY, min(bounds.maxY - 1, newY))
             let isDrag = eventType != .mouseMoved
-            let newPoint = CGPoint(x: clampedX, y: clampedY)
-
-            let canStartRemoteHandoff = UniversalControlMouseRelay.shared.canStartRemoteHandoff
-            self.logUniversalControlRelayCandidateIfNeeded(
-                current: currentCGPoint,
-                proposed: CGPoint(x: newX, y: newY),
-                delta: CGPoint(x: moveX, y: moveY),
-                zoomActive: zoomActive,
-                isDrag: isDrag,
-                canSendToRemote: canStartRemoteHandoff
-            )
+			let proposedPoint = CGPoint(x: newX, y: newY)
+			let clampedPoint = CGPoint(x: clampedX, y: clampedY)
 
             let relayConfirmationTimedOut = self.universalControlRelayActive
                 && !UniversalControlMouseRelay.shared.hasRecentRemoteCursorStatus
-                && self.universalControlRelayStartedAt.map { now - $0 > 1.0 } == true
+				&& self.universalControlRelayStartedAt.map { now - $0 > 1.5 } == true
 
-            if (zoomActive || isDrag || !canStartRemoteHandoff || relayConfirmationTimedOut), self.universalControlRelayActive {
+			let canContinueRemoteHandoff = UniversalControlMouseRelay.shared.canStartRemoteHandoff
+			if (zoomActive || isDrag || !canContinueRemoteHandoff || relayConfirmationTimedOut), self.universalControlRelayActive {
                 self.universalControlRelayActive = false
                 self.universalControlRelayEdgePoint = nil
                 self.universalControlRelayStartedAt = nil
+				if relayConfirmationTimedOut {
+					UniversalControlMouseRelay.shared.suppressRemoteHandoff(reason: "no authenticated cursor status")
+				}
                 UniversalControlMouseRelay.shared.cancelUnconfirmedRemoteSession()
             }
+
+			let canStartRemoteHandoff = UniversalControlMouseRelay.shared.canStartRemoteHandoff
+			let newPoint = UniversalControlRelayLocalMousePolicy.eventPoint(
+				proposed: proposedPoint,
+				clamped: clampedPoint,
+				zoomActive: zoomActive,
+				isDrag: isDrag,
+				relayCanHandleEdge: canStartRemoteHandoff || self.universalControlRelayActive
+			)
+			self.logUniversalControlRelayCandidateIfNeeded(
+				current: currentCGPoint,
+				proposed: proposedPoint,
+				delta: CGPoint(x: moveX, y: moveY),
+				zoomActive: zoomActive,
+				isDrag: isDrag,
+				canSendToRemote: canStartRemoteHandoff
+			)
 
             if !zoomActive && !isDrag && canStartRemoteHandoff {
                 let handoffDecision = UniversalControlMouseRelay.shared.handoffDecision(
                     current: currentCGPoint,
-                    proposed: CGPoint(x: newX, y: newY),
+					proposed: proposedPoint,
                     delta: CGPoint(x: moveX, y: moveY)
                 )
                 let movingPastLocalEdge = handoffDecision != nil

@@ -73,6 +73,11 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "com.controllerkeys.uc-relay", qos: .userInteractive)
     private let port: NWEndpoint.Port = 38383
+	private let remoteMouseEventSource: CGEventSource? = {
+		let source = CGEventSource(stateID: .hidSystemState)
+		source?.localEventsSuppressionInterval = 0.0
+		return source
+	}()
     private let lock = NSLock()
     private let maxIncomingConnections = 4
     private let maxLineLength = 16 * 1024
@@ -123,7 +128,11 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     private struct IncomingPairingPrompt {
         let peerID: String
+		let remotePublicKeyBase64: String
+		let remoteNonce: String
         let code: String
+		let keyData: Data
+		let responseLine: String
         let expiresAt: Date
     }
 
@@ -138,6 +147,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var authenticator: UniversalControlRelayAuthenticator?
     private var pendingRelayPings: [String: (Bool, String) -> Void] = [:]
     private var pendingOutgoingCodePairing: OutgoingCodePairing?
+    private var pendingOutgoingPairingFinalizers: [ObjectIdentifier: NWConnection] = [:]
     private var pendingIncomingCodePairings: [ObjectIdentifier: IncomingCodePairing] = [:]
     private var activeIncomingPairingPrompt: IncomingPairingPrompt?
     private var activeCodePairingSearchID: String?
@@ -169,6 +179,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var didLogFirstSend = false
     private var didLogFirstReceive = false
     private var lastHandoffSkipLog = Date.distantPast
+    private var remoteHandoffSuppressedUntil = Date.distantPast
 
     var canSendToRemote: Bool {
         lock.lock()
@@ -179,7 +190,9 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     var canStartRemoteHandoff: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return !isRelayTarget && hasConfiguredRelayTargetLocked()
+		return !isRelayTarget
+			&& hasConfiguredRelayTargetLocked()
+			&& Date() >= remoteHandoffSuppressedUntil
     }
 
     var hasRecentRemoteCursorStatus: Bool {
@@ -261,6 +274,16 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         remoteFocusModeSent = nil
         outgoingRemoteMouseButtonsHeld.removeAll()
         lock.unlock()
+    }
+
+    func suppressRemoteHandoff(reason: String, duration: TimeInterval = 5.0) {
+		let until = Date().addingTimeInterval(duration)
+		lock.lock()
+		if until > remoteHandoffSuppressedUntil {
+			remoteHandoffSuppressedUntil = until
+		}
+		lock.unlock()
+		NSLog("[UCMouseRelay] Remote handoff suppressed for %.1fs: %@", duration, reason)
     }
 
     func beginRemoteSession(zone: HandoffZone) {
@@ -484,15 +507,39 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             return
         }
         pendingOutgoingCodePairing = nil
+		pendingOutgoingPairingFinalizers[ObjectIdentifier(pending.connection)] = pending.connection
         lock.unlock()
 
-        storeRelaySharedSecret(pending.keyData)
-        storeRelayTarget(pending.target)
-        _ = sendAuthenticatedLine("pairFinish \(localRelayPeerID())", secretData: pending.keyData, on: pending.connection)
-        pending.connection.cancel()
+		let buffer = RelayPairingCheckBuffer()
+		receivePairingFinalizeResponse(
+			on: pending.connection,
+			target: pending.target,
+			keyData: pending.keyData,
+			buffer: buffer,
+			completion: completion
+		)
 
-        DispatchQueue.main.async {
-            completion(true, "Paired with \(pending.target.label). Future connections will not need a code.")
+		guard sendAuthenticatedLine("pairFinish \(localRelayPeerID())", secretData: pending.keyData, on: pending.connection) else {
+			finishOutgoingPairing(
+				connectionKey: ObjectIdentifier(pending.connection),
+				target: pending.target,
+				keyData: nil,
+				success: false,
+				message: "Could not send pairing confirmation to \(pending.target.label). Start pairing again.",
+				completion: completion
+			)
+			return
+		}
+
+		queue.asyncAfter(deadline: .now() + 6.0) { [weak self] in
+			self?.finishOutgoingPairing(
+				connectionKey: ObjectIdentifier(pending.connection),
+				target: pending.target,
+				keyData: nil,
+				success: false,
+				message: "\(pending.target.label) did not confirm pairing. Start pairing again.",
+				completion: completion
+			)
         }
     }
 
@@ -506,11 +553,14 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         )
         lock.lock()
         pendingOutgoingCodePairing = nil
+		pendingOutgoingPairingFinalizers.values.forEach { $0.cancel() }
+		pendingOutgoingPairingFinalizers.removeAll()
         activeCodePairingSearchID = nil
         pendingIncomingCodePairings.removeAll()
         activeIncomingPairingPrompt = nil
         pairedRemoteEndpoint = nil
         pairedRemoteEndpointKey = nil
+		remoteHandoffSuppressedUntil = .distantPast
         lock.unlock()
         resetAuthenticator(secretData: relaySharedSecretData())
     }
@@ -1455,6 +1505,96 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         }
     }
 
+    private func receivePairingFinalizeResponse(
+		on connection: NWConnection,
+		target: RelayPingTarget,
+		keyData: Data,
+		buffer: RelayPairingCheckBuffer,
+		completion: @escaping (Bool, String) -> Void
+    ) {
+		connection.receive(minimumIncompleteLength: 1, maximumLength: 1024) { [weak self, weak connection] data, _, isComplete, error in
+			guard let self, let connection else { return }
+			if let error {
+				NSLog("[UCMouseRelay] Pairing finalization receive failed: %@", String(describing: error))
+				finishOutgoingPairing(
+					connectionKey: ObjectIdentifier(connection),
+					target: target,
+					keyData: nil,
+					success: false,
+					message: "Pairing confirmation failed for \(target.label). Start pairing again.",
+					completion: completion
+				)
+				return
+			}
+			if let data, !data.isEmpty, let text = String(data: data, encoding: .utf8) {
+				buffer.text += text
+				if buffer.text.count > maxLineLength {
+					finishOutgoingPairing(
+						connectionKey: ObjectIdentifier(connection),
+						target: target,
+						keyData: nil,
+						success: false,
+						message: "Pairing confirmation from \(target.label) was invalid. Start pairing again.",
+						completion: completion
+					)
+					return
+				}
+				while let newline = buffer.text.firstIndex(of: "\n") {
+					let line = String(buffer.text[..<newline])
+					buffer.text.removeSubrange(...newline)
+					guard let payload = openIncomingLine(line, secretData: keyData) else {
+						NSLog("[UCMouseRelay] Pairing finalization received unauthenticated response from %@", target.label)
+						continue
+					}
+					let parts = payload.split(separator: " ")
+					guard parts.count == 2, parts[0] == "pairDone" else { continue }
+					finishOutgoingPairing(
+						connectionKey: ObjectIdentifier(connection),
+						target: target,
+						keyData: keyData,
+						success: true,
+						message: "Paired with \(target.label). Future connections will not need a code.",
+						completion: completion
+					)
+					NSLog("[UCMouseRelay] Pairing confirmed by %@", String(parts[1]))
+					return
+				}
+			}
+			if !isComplete {
+				receivePairingFinalizeResponse(
+					on: connection,
+					target: target,
+					keyData: keyData,
+					buffer: buffer,
+					completion: completion
+				)
+			}
+		}
+    }
+
+    private func finishOutgoingPairing(
+		connectionKey: ObjectIdentifier,
+		target: RelayPingTarget,
+		keyData: Data?,
+		success: Bool,
+		message: String,
+		completion: @escaping (Bool, String) -> Void
+    ) {
+		lock.lock()
+		let connection = pendingOutgoingPairingFinalizers.removeValue(forKey: connectionKey)
+		lock.unlock()
+		guard let connection else { return }
+
+		if success, let keyData {
+			storeRelaySharedSecret(keyData)
+			storeRelayTarget(target)
+		}
+		connection.cancel()
+		DispatchQueue.main.async {
+			completion(success, message)
+		}
+    }
+
     private func receiveNextFromClient(on connection: NWConnection) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 1024) { [weak self, weak connection] data, _, isComplete, error in
             guard let self, let connection else { return }
@@ -1649,7 +1789,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                   let dx = Int(parts[1]),
                   let dy = Int(parts[2]) else { return }
             if relayTarget && !hasMouseButtonHeld {
-                warpRemoteMouse(dx: dx, dy: dy)
+				postRemoteMouseMove(dx: dx, dy: dy)
             } else if relayTarget {
                 postRemoteMouseDrag(dx: dx, dy: dy)
             } else {
@@ -1977,46 +2117,63 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         from connection: NWConnection
     ) {
         let session = UniversalControlRelayPairingSession(localPeerID: localRelayPeerID())
-        guard let response = session.responseLine(
+		guard let generatedResponse = session.responseLine(
             remotePeerID: hello.peerID,
             remotePublicKeyBase64: hello.publicKeyBase64,
             remoteNonce: hello.nonce
         ),
-              let result = session.derive(
+				let generatedResult = session.derive(
                 remotePeerID: hello.peerID,
                 remotePublicKeyBase64: hello.publicKeyBase64,
                 remoteNonce: hello.nonce,
                 localIsFirst: false
-              ),
-              let data = "\(response)\n".data(using: .utf8) else {
+				) else {
             return
         }
 
-        let expiresAt = Date().addingTimeInterval(60)
+		let now = Date()
+		var responseLine = generatedResponse
+		var code = generatedResult.code
+		var keyData = generatedResult.keyData
+		var expiresAt = now.addingTimeInterval(60)
         var shouldShowPrompt = true
         lock.lock()
-        pendingIncomingCodePairings[ObjectIdentifier(connection)] = IncomingCodePairing(
-            peerID: hello.peerID,
-            keyData: result.keyData,
-            expiresAt: expiresAt,
-            attempts: 0
-        )
         if let prompt = activeIncomingPairingPrompt,
            prompt.peerID == hello.peerID,
-           prompt.code == result.code,
-           prompt.expiresAt > Date() {
+			prompt.remotePublicKeyBase64 == hello.publicKeyBase64,
+			prompt.remoteNonce == hello.nonce,
+			prompt.expiresAt > now {
+			responseLine = prompt.responseLine
+			code = prompt.code
+			keyData = prompt.keyData
+			expiresAt = prompt.expiresAt
             shouldShowPrompt = false
         } else {
             activeIncomingPairingPrompt = IncomingPairingPrompt(
                 peerID: hello.peerID,
-                code: result.code,
+				remotePublicKeyBase64: hello.publicKeyBase64,
+				remoteNonce: hello.nonce,
+				code: generatedResult.code,
+				keyData: generatedResult.keyData,
+				responseLine: generatedResponse,
                 expiresAt: expiresAt
             )
         }
+		pendingIncomingCodePairings[ObjectIdentifier(connection)] = IncomingCodePairing(
+			peerID: hello.peerID,
+			keyData: keyData,
+			expiresAt: expiresAt,
+			attempts: 0
+		)
         lock.unlock()
 
         if shouldShowPrompt {
-            showPairingCode(result.code, peerID: hello.peerID)
+			showPairingCode(code, peerID: hello.peerID)
+		} else {
+			NSLog("[UCMouseRelay] Reused active pairing code for %@", hello.peerID)
+		}
+		guard let data = "\(responseLine)\n".data(using: .utf8) else {
+			return
         }
         connection.send(content: data, completion: .contentProcessed { error in
             if let error {
@@ -2215,13 +2372,29 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         }
     }
 
-    private func warpRemoteMouse(dx: Int, dy: Int) {
+    private func postRemoteMouseMove(dx: Int, dy: Int) {
         let next = clampedRemotePoint(dx: dx, dy: dy)
-        CGWarpMouseCursorPosition(next)
         CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+		exitRemoteKeyboardNavigationIfNeeded()
+
+		guard let event = CGEvent(
+			mouseEventSource: remoteMouseEventSource,
+			mouseType: .mouseMoved,
+			mouseCursorPosition: next,
+			mouseButton: .left
+		) else {
+			NSLog("[UCMouseRelay] Could not create remote mouse move event")
+			CGWarpMouseCursorPosition(next)
+			return
+		}
+		event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
+		event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
+		event.post(tap: .cghidEventTap)
     }
 
     private func postRemoteMouseButton(keyCode: CGKeyCode, down: Bool) {
+		exitRemoteKeyboardNavigationIfNeeded()
+
         let (type, button) = mouseEventType(for: keyCode, down: down)
         let location = currentRemoteCGPoint()
         let clickCount: Int64
@@ -2267,6 +2440,8 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func postRemoteMouseDrag(dx: Int, dy: Int) {
+		exitRemoteKeyboardNavigationIfNeeded()
+
         lock.lock()
         let button = remoteMouseButtonsHeld.first ?? .left
         let eventNumber = remoteMouseEventNumber
@@ -2298,6 +2473,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         event.setDoubleValueField(.mouseEventPressure, value: 1.0)
         event.post(tap: .cghidEventTap)
         CGWarpMouseCursorPosition(next)
+    }
+
+    private func exitRemoteKeyboardNavigationIfNeeded() {
+		guard OnScreenKeyboardManager.shared.threadSafeNavigationModeActive else { return }
+		Task { @MainActor in
+			OnScreenKeyboardManager.shared.exitNavigationMode()
+		}
     }
 
     private func currentRemoteCGPoint() -> CGPoint {
@@ -2599,6 +2781,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         lock.unlock()
 
         NSLog("[UCMouseRelay] Send failed: %@", String(describing: error))
+		suppressRemoteHandoff(reason: "send failed")
     }
 
     private func logFirstSend(dx: Int, dy: Int) {

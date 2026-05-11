@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// Pure policy that determines how mouse events should be posted.
 ///
@@ -36,5 +37,20 @@ struct ZoomMouseEventPolicy {
         case .drag, .buttonDown, .buttonUp:
             return true
         }
+    }
+}
+
+struct UniversalControlRelayLocalMousePolicy {
+    static func eventPoint(
+		proposed: CGPoint,
+		clamped: CGPoint,
+		zoomActive: Bool,
+		isDrag: Bool,
+		relayCanHandleEdge: Bool
+    ) -> CGPoint {
+		guard !zoomActive, !isDrag, !relayCanHandleEdge else {
+			return clamped
+		}
+		return proposed
     }
 }
