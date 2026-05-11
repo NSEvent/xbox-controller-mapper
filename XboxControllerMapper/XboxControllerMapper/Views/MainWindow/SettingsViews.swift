@@ -1235,52 +1235,73 @@ struct SettingsSheet: View {
                 }
 
                 Section {
-                    HStack {
-                        Button("Start Pairing") {
-                            isCheckingRelaySecret = true
-                            relayPairingCodeInput = ""
-                            setRelaySecretStatus("Searching for ControllerKeys on LAN and tailnet...", isError: false, showAlert: false)
-                            UniversalControlMouseRelay.shared.startRelayCodePairing { success, message in
-                                isCheckingRelaySecret = false
-                                setRelaySecretStatus(message, isError: !success)
-                            }
-                        }
-                        .disabled(isCheckingRelaySecret)
+					VStack(alignment: .leading, spacing: 12) {
+						HStack(alignment: .top, spacing: 12) {
+							VStack(alignment: .leading, spacing: 3) {
+								Text("Pair a Remote Mac")
+									.font(.body)
+								Text("Start pairing, then enter the six-digit code shown on the other Mac.")
+									.font(.caption)
+									.foregroundStyle(.secondary)
+									.fixedSize(horizontal: false, vertical: true)
+							}
 
-                        TextField("6-digit code", text: Binding(
-                            get: { relayPairingCodeInput },
-                            set: { relayPairingCodeInput = String($0.filter { $0.isNumber }.prefix(6)) }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 104)
+							Spacer(minLength: 12)
 
-                        Button("Confirm") {
-                            isCheckingRelaySecret = true
-                            UniversalControlMouseRelay.shared.completeRelayCodePairing(code: relayPairingCodeInput) { success, message in
-                                isCheckingRelaySecret = false
-                                if success {
-                                    relayPairingCodeInput = ""
-                                }
-                                setRelaySecretStatus(message, isError: !success)
-                            }
-                        }
-                        .disabled(isCheckingRelaySecret || relayPairingCodeInput.count != 6)
+							Button {
+								startRelayPairing()
+							} label: {
+								Label("Start", systemImage: "link")
+							}
+							.disabled(isCheckingRelaySecret)
+						}
 
-                        if isCheckingRelaySecret {
-                            ProgressView()
-                                .controlSize(.small)
-                        }
+						HStack(alignment: .bottom, spacing: 8) {
+							VStack(alignment: .leading, spacing: 4) {
+								Text("Code")
+									.font(.caption)
+									.foregroundStyle(.secondary)
 
-                        Button("Reset") {
-                            UniversalControlMouseRelay.shared.resetRelayPairingSecret()
-                            relayPairingCodeInput = ""
-                            setRelaySecretStatus(
-                                "Reset. Pair again before using remote mouse.",
-                                isError: false
-                            )
-                        }
-                        .disabled(isCheckingRelaySecret)
-                    }
+								ZStack {
+									RoundedRectangle(cornerRadius: 5)
+										.fill(Color(nsColor: .controlBackgroundColor))
+									RoundedRectangle(cornerRadius: 5)
+										.stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+
+									TextField("", text: relayPairingCodeBinding)
+										.font(.system(size: 13, weight: .semibold, design: .monospaced))
+										.multilineTextAlignment(.center)
+										.textFieldStyle(.plain)
+										.lineLimit(1)
+										.frame(width: 68, height: 18)
+										.clipped()
+										.accessibilityLabel("Six-digit pairing code")
+								}
+								.frame(width: 88, height: 24)
+							}
+
+							Button {
+								confirmRelayPairing()
+							} label: {
+								Label("Confirm", systemImage: "checkmark")
+							}
+							.disabled(isCheckingRelaySecret || relayPairingCodeInput.count != 6)
+
+							if isCheckingRelaySecret {
+								ProgressView()
+									.controlSize(.small)
+							}
+
+							Spacer(minLength: 8)
+
+							Button {
+								resetRelayPairing()
+							} label: {
+								Label("Reset", systemImage: "arrow.counterclockwise")
+							}
+							.disabled(isCheckingRelaySecret)
+						}
+					}
 
                     DisclosureGroup("Advanced") {
                         VStack(alignment: .leading, spacing: 6) {
@@ -1307,6 +1328,7 @@ struct SettingsSheet: View {
                         )
                             .font(.caption)
                             .foregroundStyle(relaySecretStatusIsError ? .red : .secondary)
+							.fixedSize(horizontal: false, vertical: true)
                     }
                 } header: {
                     Text("Remote Mouse Pairing")
@@ -1341,6 +1363,43 @@ struct SettingsSheet: View {
         relaySecretAlertMessage = message
         showingRelaySecretAlert = showAlert
     }
+
+	private var relayPairingCodeBinding: Binding<String> {
+		Binding(
+			get: { relayPairingCodeInput },
+			set: { relayPairingCodeInput = String($0.filter { $0.isNumber }.prefix(6)) }
+		)
+	}
+
+	private func startRelayPairing() {
+		isCheckingRelaySecret = true
+		relayPairingCodeInput = ""
+		setRelaySecretStatus("Searching for ControllerKeys on LAN and tailnet...", isError: false, showAlert: false)
+		UniversalControlMouseRelay.shared.startRelayCodePairing { success, message in
+			isCheckingRelaySecret = false
+			setRelaySecretStatus(message, isError: !success)
+		}
+	}
+
+	private func confirmRelayPairing() {
+		isCheckingRelaySecret = true
+		UniversalControlMouseRelay.shared.completeRelayCodePairing(code: relayPairingCodeInput) { success, message in
+			isCheckingRelaySecret = false
+			if success {
+				relayPairingCodeInput = ""
+			}
+			setRelaySecretStatus(message, isError: !success)
+		}
+	}
+
+	private func resetRelayPairing() {
+		UniversalControlMouseRelay.shared.resetRelayPairingSecret()
+		relayPairingCodeInput = ""
+		setRelaySecretStatus(
+			"Reset. Pair again before using remote mouse.",
+			isError: false
+		)
+	}
 
     private func visibleSectionBinding(for section: MainWindowSection) -> Binding<Bool> {
         Binding(
