@@ -15,6 +15,7 @@ enum KeyboardNavigationItem: Hashable {
 @MainActor
 class OnScreenKeyboardManager: ObservableObject {
     static let shared = OnScreenKeyboardManager()
+    private static let cursorHiddenDefaultsKey = "onScreenKeyboardCursorHidden"
 
     @Published private(set) var isVisible = false
     @Published private(set) var typingBuffer: String = ""
@@ -134,6 +135,7 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private var cursorHidden = false
+    private var didRepairPotentialStaleCursorHide = false
     private var mouseMovementMonitor: Any?
     private var localMouseMovementMonitor: Any?
 
@@ -323,6 +325,7 @@ class OnScreenKeyboardManager: ObservableObject {
     private var panelMovedObserver: NSObjectProtocol?
     private var inputSimulator: InputSimulatorProtocol?
     private var usageStatsService: UsageStatsService?
+
     private var quickTexts: [QuickText] = []
     private var defaultTerminalApp: String = "Terminal"
     private var typingDelay: Double = 0.03
@@ -357,7 +360,9 @@ class OnScreenKeyboardManager: ObservableObject {
     /// does not block shared GCD worker threads.
     private nonisolated(unsafe) let typingQueue = DispatchQueue(label: "com.controllerkeys.typing", qos: .userInitiated)
 
-    private init() {}
+    private init() {
+		repairPersistedCursorHideIfNeeded()
+    }
 
     /// Sets the input simulator to use for sending key presses
     func setInputSimulator(_ simulator: InputSimulatorProtocol) {
@@ -763,6 +768,7 @@ class OnScreenKeyboardManager: ObservableObject {
         if !cursorHidden {
             NSCursor.hide()
             cursorHidden = true
+			UserDefaults.standard.set(true, forKey: Self.cursorHiddenDefaultsKey)
         }
 
         // Start monitoring mouse movement to exit navigation mode
@@ -771,7 +777,7 @@ class OnScreenKeyboardManager: ObservableObject {
 
     /// Exit navigation mode - show cursor and clear highlight
     func exitNavigationMode() {
-        guard navigationModeActive else { return }
+		let wasNavigationModeActive = navigationModeActive
         navigationModeActive = false
         highlightedItem = nil
         updateThreadSafeState()
@@ -780,10 +786,38 @@ class OnScreenKeyboardManager: ObservableObject {
         if cursorHidden {
             NSCursor.unhide()
             cursorHidden = false
+			UserDefaults.standard.removeObject(forKey: Self.cursorHiddenDefaultsKey)
         }
 
         // Stop mouse movement monitor
-        stopMouseMovementMonitor()
+		if wasNavigationModeActive {
+			stopMouseMovementMonitor()
+		}
+    }
+
+    /// Remote mouse movement is synthetic, so it may not wake macOS' cursor after
+    /// keyboard/controller-only idle. Make the real cursor visible before posting
+    /// remote mouse events.
+    func restoreCursorVisibilityForRemotePointer() {
+		exitNavigationMode()
+		NSCursor.setHiddenUntilMouseMoves(false)
+		_ = CGDisplayShowCursor(CGMainDisplayID())
+		let repairedPersistedHide = repairPersistedCursorHideIfNeeded()
+
+		if !repairedPersistedHide, !didRepairPotentialStaleCursorHide {
+			NSCursor.unhide()
+			didRepairPotentialStaleCursorHide = true
+		}
+    }
+
+    @discardableResult
+    private func repairPersistedCursorHideIfNeeded() -> Bool {
+		guard UserDefaults.standard.bool(forKey: Self.cursorHiddenDefaultsKey) else { return false }
+		NSCursor.unhide()
+		UserDefaults.standard.removeObject(forKey: Self.cursorHiddenDefaultsKey)
+		cursorHidden = false
+		didRepairPotentialStaleCursorHide = true
+		return true
     }
 
     // MARK: - Navigation Helpers

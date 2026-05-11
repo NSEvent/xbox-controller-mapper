@@ -181,6 +181,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var didLogFirstReceive = false
     private var lastHandoffSkipLog = Date.distantPast
     private var remoteHandoffSuppressedUntil = Date.distantPast
+    private var lastRemoteCursorVisibilityRestore = Date.distantPast
 
     var canSendToRemote: Bool {
         lock.lock()
@@ -2393,7 +2394,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		guard movement.shouldPostEvent else { return }
 
 		CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
-		exitRemoteKeyboardNavigationIfNeeded()
+		restoreRemoteCursorVisibilityIfNeeded()
 
 		guard let event = CGEvent(
 			mouseEventSource: remoteMouseEventSource,
@@ -2411,7 +2412,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func postRemoteMouseButton(keyCode: CGKeyCode, down: Bool) {
-		exitRemoteKeyboardNavigationIfNeeded()
+		restoreRemoteCursorVisibilityIfNeeded()
 
         let (type, button) = mouseEventType(for: keyCode, down: down)
         let location = currentRemoteCGPoint()
@@ -2458,7 +2459,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func postRemoteMouseDrag(dx: Int, dy: Int) {
-		exitRemoteKeyboardNavigationIfNeeded()
+		restoreRemoteCursorVisibilityIfNeeded()
 
         lock.lock()
         let button = remoteMouseButtonsHeld.first ?? .left
@@ -2495,10 +2496,18 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		CGWarpMouseCursorPosition(movement.point)
     }
 
-    private func exitRemoteKeyboardNavigationIfNeeded() {
-		guard OnScreenKeyboardManager.shared.threadSafeNavigationModeActive else { return }
+    private func restoreRemoteCursorVisibilityIfNeeded() {
+		let now = Date()
+		lock.lock()
+		guard now.timeIntervalSince(lastRemoteCursorVisibilityRestore) > 0.25 else {
+			lock.unlock()
+			return
+		}
+		lastRemoteCursorVisibilityRestore = now
+		lock.unlock()
+
 		Task { @MainActor in
-			OnScreenKeyboardManager.shared.exitNavigationMode()
+			OnScreenKeyboardManager.shared.restoreCursorVisibilityForRemotePointer()
 		}
     }
 
