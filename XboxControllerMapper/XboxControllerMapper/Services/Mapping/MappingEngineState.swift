@@ -42,6 +42,8 @@ extension MappingEngine {
         var onScreenKeyboardHoldMode: Bool = false
         var laserPointerButton: ControllerButton? = nil
         var laserPointerHoldMode: Bool = false
+        var penOverlayButton: ControllerButton? = nil
+        var penOverlayHoldMode: Bool = false
         var directoryNavigatorButton: ControllerButton? = nil
         var directoryNavigatorHoldMode: Bool = false
         var commandWheelButton: ControllerButton? = nil
@@ -161,6 +163,8 @@ extension MappingEngine {
             onScreenKeyboardHoldMode = false
             laserPointerButton = nil
             laserPointerHoldMode = false
+            penOverlayButton = nil
+            penOverlayHoldMode = false
             directoryNavigatorButton = nil
             directoryNavigatorHoldMode = false
             commandWheelButton = nil

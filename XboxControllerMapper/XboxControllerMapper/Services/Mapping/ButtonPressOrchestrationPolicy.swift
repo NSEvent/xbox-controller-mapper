@@ -13,6 +13,7 @@ enum ButtonPressOrchestrationPolicy {
         case interceptKeyboardActivation
         case interceptOnScreenKeyboard(holdMode: Bool)
         case interceptLaserPointer(holdMode: Bool)
+        case interceptPenOverlay(holdMode: Bool)
         case interceptControllerLock
         case interceptDirectoryNavigator(holdMode: Bool)
         case interceptCommandWheel(holdMode: Bool)
@@ -100,6 +101,10 @@ enum ButtonPressOrchestrationPolicy {
 
         if mapping.keyCode == KeyCodeMapping.showLaserPointer {
             return .interceptLaserPointer(holdMode: mapping.isHoldModifier)
+        }
+
+        if mapping.keyCode == KeyCodeMapping.showPenOverlay {
+            return .interceptPenOverlay(holdMode: mapping.isHoldModifier)
         }
 
         if mapping.keyCode == KeyCodeMapping.controllerLock {

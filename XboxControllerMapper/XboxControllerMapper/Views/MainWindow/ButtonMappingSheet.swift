@@ -379,9 +379,10 @@ struct ButtonMappingSheet: View {
 
                 if let code = newValue, KeyCodeMapping.isMouseButton(code) || KeyCodeMapping.isSpecialAction(code) {
                     // Mouse clicks and special actions: auto-enable hold and disable long hold/double tap/repeat
-                    // Exception: laser pointer defaults to toggle mode (isHoldModifier = false)
+                    // Exception: visual tools default to toggle mode (isHoldModifier = false)
                     if !userHasInteractedWithHold {
                         isHoldModifier = code != KeyCodeMapping.showLaserPointer
+                            && code != KeyCodeMapping.showPenOverlay
                     }
                     // Clear long hold, double tap, and repeat
                     enableLongHold = false

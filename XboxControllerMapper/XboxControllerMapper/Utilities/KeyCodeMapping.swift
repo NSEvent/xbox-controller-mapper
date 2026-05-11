@@ -130,6 +130,9 @@ enum KeyCodeMapping {
     /// Shows standalone command wheel while button is held
     static let showCommandWheel: CGKeyCode = 0xF014
 
+    /// Shows pen overlay for drawing annotations
+    static let showPenOverlay: CGKeyCode = 0xF015
+
     // MARK: - Media Key Markers
 
     // Playback controls
@@ -271,6 +274,7 @@ enum KeyCodeMapping {
         case 0xF012: return "Controller Lock"
         case 0xF013: return "Directory Navigator"
         case 0xF014: return "Command Wheel"
+        case 0xF015: return "Pen"
 
         // Media keys - Playback
         case 0xF020: return "Play/Pause"
@@ -369,6 +373,7 @@ enum KeyCodeMapping {
         options.append(("Laser Pointer", showLaserPointer))
         options.append(("Controller Lock", controllerLock))
         options.append(("Directory Navigator", showDirectoryNavigator))
+        options.append(("Pen", showPenOverlay))
 
         // Media keys - Playback
         options.append(("Play/Pause", mediaPlayPause))
@@ -401,7 +406,7 @@ enum KeyCodeMapping {
 
     /// Checks if a key code represents a special action (on-screen keyboard, etc.)
     static func isSpecialAction(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock || keyCode == showDirectoryNavigator || keyCode == showCommandWheel
+        keyCode == showOnScreenKeyboard || keyCode == showLaserPointer || keyCode == controllerLock || keyCode == showDirectoryNavigator || keyCode == showCommandWheel || keyCode == showPenOverlay
     }
 
     /// Checks if a key code represents a media key
