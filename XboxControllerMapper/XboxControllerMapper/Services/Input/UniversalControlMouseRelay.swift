@@ -2278,7 +2278,10 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func sendRemoteCursorStatus(on connection: NWConnection) {
-        let point = currentRemoteCGPoint()
+		let point = UniversalControlRemoteMouseMovementPolicy.statusPoint(
+			current: currentRemoteCGPoint(),
+			bounds: remoteScreenBounds()
+		)
         let displays = remoteDisplayBounds()
         let displayPayload = displays.map {
             "\(Double($0.minX)) \(Double($0.maxX)) \(Double($0.minY)) \(Double($0.maxY))"
@@ -2373,22 +2376,24 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func postRemoteMouseMove(dx: Int, dy: Int) {
-        let next = clampedRemotePoint(dx: dx, dy: dy)
-        CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
+		let movement = boundedRemoteMovement(dx: dx, dy: dy)
+		guard movement.shouldPostEvent else { return }
+
+		CGAssociateMouseAndMouseCursorPosition(boolean_t(1))
 		exitRemoteKeyboardNavigationIfNeeded()
 
 		guard let event = CGEvent(
 			mouseEventSource: remoteMouseEventSource,
 			mouseType: .mouseMoved,
-			mouseCursorPosition: next,
+			mouseCursorPosition: movement.point,
 			mouseButton: .left
 		) else {
 			NSLog("[UCMouseRelay] Could not create remote mouse move event")
-			CGWarpMouseCursorPosition(next)
+			CGWarpMouseCursorPosition(movement.point)
 			return
 		}
-		event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
-		event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
+		event.setIntegerValueField(.mouseEventDeltaX, value: Int64(movement.dx))
+		event.setIntegerValueField(.mouseEventDeltaY, value: Int64(movement.dy))
 		event.post(tap: .cghidEventTap)
     }
 
@@ -2457,22 +2462,24 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             type = .leftMouseDragged
         }
 
-        let next = clampedRemotePoint(dx: dx, dy: dy)
-        guard let event = CGEvent(
-            mouseEventSource: nil,
-            mouseType: type,
-            mouseCursorPosition: next,
-            mouseButton: button
-        ) else {
-            NSLog("[UCMouseRelay] Could not create remote mouse drag event")
-            return
-        }
-        event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
-        event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
-        event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
-        event.setDoubleValueField(.mouseEventPressure, value: 1.0)
-        event.post(tap: .cghidEventTap)
-        CGWarpMouseCursorPosition(next)
+		let movement = boundedRemoteMovement(dx: dx, dy: dy)
+		guard movement.shouldPostEvent else { return }
+
+		guard let event = CGEvent(
+			mouseEventSource: nil,
+			mouseType: type,
+			mouseCursorPosition: movement.point,
+			mouseButton: button
+		) else {
+			NSLog("[UCMouseRelay] Could not create remote mouse drag event")
+			return
+		}
+		event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
+		event.setIntegerValueField(.mouseEventDeltaX, value: Int64(movement.dx))
+		event.setIntegerValueField(.mouseEventDeltaY, value: Int64(movement.dy))
+		event.setDoubleValueField(.mouseEventPressure, value: 1.0)
+		event.post(tap: .cghidEventTap)
+		CGWarpMouseCursorPosition(movement.point)
     }
 
     private func exitRemoteKeyboardNavigationIfNeeded() {
@@ -2495,13 +2502,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         return CGPoint(x: current.x, y: screenHeight - current.y)
     }
 
-    private func clampedRemotePoint(dx: Int, dy: Int) -> CGPoint {
-        let bounds = remoteScreenBounds()
-        let current = currentRemoteCGPoint()
-        return CGPoint(
-            x: max(bounds.minX, min(bounds.maxX - 1, current.x + CGFloat(dx))),
-            y: max(bounds.minY, min(bounds.maxY - 1, current.y + CGFloat(dy)))
-        )
+    private func boundedRemoteMovement(dx: Int, dy: Int) -> UniversalControlRemoteMouseMovementPolicy.Movement {
+		UniversalControlRemoteMouseMovementPolicy.boundedMovement(
+			current: currentRemoteCGPoint(),
+			requestedDX: dx,
+			requestedDY: dy,
+			bounds: remoteScreenBounds()
+		)
     }
 
     private func remoteScreenBounds() -> CGRect {
@@ -2796,5 +2803,68 @@ struct UniversalControlHandoffEdgeDefaults {
 			return [edge]
 		}
 		return fallbackLocalEdges
+	}
+}
+
+struct UniversalControlRemoteMouseMovementPolicy {
+	struct Movement: Equatable {
+		let point: CGPoint
+		let dx: Int
+		let dy: Int
+
+		var shouldPostEvent: Bool {
+			dx != 0 || dy != 0
+		}
+	}
+
+	static func boundedMovement(
+		current: CGPoint,
+		requestedDX: Int,
+		requestedDY: Int,
+		bounds: CGRect
+	) -> Movement {
+		guard isUsable(bounds), contains(current, in: bounds) else {
+			return Movement(
+				point: statusPoint(current: current, bounds: bounds),
+				dx: 0,
+				dy: 0
+			)
+		}
+
+		let next = clampedPoint(
+			CGPoint(
+				x: current.x + CGFloat(requestedDX),
+				y: current.y + CGFloat(requestedDY)
+			),
+			to: bounds
+		)
+		return Movement(
+			point: next,
+			dx: Int((next.x - current.x).rounded()),
+			dy: Int((next.y - current.y).rounded())
+		)
+	}
+
+	static func statusPoint(current: CGPoint, bounds: CGRect) -> CGPoint {
+		guard isUsable(bounds) else { return current }
+		return clampedPoint(current, to: bounds)
+	}
+
+	private static func contains(_ point: CGPoint, in bounds: CGRect) -> Bool {
+		point.x >= bounds.minX
+			&& point.x <= bounds.maxX - 1
+			&& point.y >= bounds.minY
+			&& point.y <= bounds.maxY - 1
+	}
+
+	private static func clampedPoint(_ point: CGPoint, to bounds: CGRect) -> CGPoint {
+		CGPoint(
+			x: max(bounds.minX, min(bounds.maxX - 1, point.x)),
+			y: max(bounds.minY, min(bounds.maxY - 1, point.y))
+		)
+	}
+
+	private static func isUsable(_ bounds: CGRect) -> Bool {
+		!bounds.isNull && !bounds.isInfinite && bounds.width >= 1 && bounds.height >= 1
 	}
 }

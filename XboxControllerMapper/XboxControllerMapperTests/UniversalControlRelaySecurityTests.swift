@@ -1,6 +1,7 @@
 import XCTest
 import Foundation
 import Network
+import CoreGraphics
 @testable import ControllerKeys
 
 final class UniversalControlRelaySecurityTests: XCTestCase {
@@ -211,6 +212,61 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
 		XCTAssertEqual(
 			UniversalControlHandoffEdgeDefaults.localEdges(configuredRawValue: "left"),
 			[.left]
+		)
+	}
+
+	func testRemoteMouseMovementClampsOutwardDeltaAtEdge() {
+		let bounds = CGRect(x: 0, y: 0, width: 100, height: 100)
+
+		let movement = UniversalControlRemoteMouseMovementPolicy.boundedMovement(
+			current: CGPoint(x: 99, y: 50),
+			requestedDX: 8,
+			requestedDY: 3,
+			bounds: bounds
+		)
+
+		XCTAssertEqual(movement.point, CGPoint(x: 99, y: 53))
+		XCTAssertEqual(movement.dx, 0)
+		XCTAssertEqual(movement.dy, 3)
+		XCTAssertTrue(movement.shouldPostEvent)
+	}
+
+	func testRemoteMouseMovementDropsPureOutwardEdgeMove() {
+		let bounds = CGRect(x: 0, y: 0, width: 100, height: 100)
+
+		let movement = UniversalControlRemoteMouseMovementPolicy.boundedMovement(
+			current: CGPoint(x: 0, y: 50),
+			requestedDX: -8,
+			requestedDY: 0,
+			bounds: bounds
+		)
+
+		XCTAssertEqual(movement.point, CGPoint(x: 0, y: 50))
+		XCTAssertEqual(movement.dx, 0)
+		XCTAssertEqual(movement.dy, 0)
+		XCTAssertFalse(movement.shouldPostEvent)
+	}
+
+	func testRemoteMouseMovementDoesNotPostWhenCursorAlreadyLeftRemoteBounds() {
+		let bounds = CGRect(x: 0, y: 0, width: 100, height: 100)
+
+		let movement = UniversalControlRemoteMouseMovementPolicy.boundedMovement(
+			current: CGPoint(x: 140, y: 42),
+			requestedDX: -8,
+			requestedDY: 0,
+			bounds: bounds
+		)
+
+		XCTAssertEqual(movement.point, CGPoint(x: 99, y: 42))
+		XCTAssertEqual(movement.dx, 0)
+		XCTAssertEqual(movement.dy, 0)
+		XCTAssertFalse(movement.shouldPostEvent)
+		XCTAssertEqual(
+			UniversalControlRemoteMouseMovementPolicy.statusPoint(
+				current: CGPoint(x: 140, y: 42),
+				bounds: bounds
+			),
+			CGPoint(x: 99, y: 42)
 		)
 	}
 }
