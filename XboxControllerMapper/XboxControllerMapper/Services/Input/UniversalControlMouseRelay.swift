@@ -152,6 +152,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var activeIncomingPairingPrompt: IncomingPairingPrompt?
     private var activeCodePairingSearchID: String?
     private var remoteCursorStatus: RemoteCursorStatus?
+	private var remoteSessionReceivedCursorStatus = false
     private var activeHandoffZone: HandoffZone?
     private var pendingHandoffPortal: HandoffDecision?
     private var remoteFocusModeSent: Bool?
@@ -202,6 +203,12 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         return Date().timeIntervalSince(remoteCursorStatus.receivedAt) < 2.0
     }
 
+	var hasReceivedRemoteCursorStatus: Bool {
+		lock.lock()
+		defer { lock.unlock() }
+		return remoteSessionReceivedCursorStatus
+	}
+
     var hasActiveRemoteSession: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -244,6 +251,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         isRemoteSessionActive = active
         if !active {
             remoteCursorStatus = nil
+			remoteSessionReceivedCursorStatus = false
             activeHandoffZone = nil
             pendingHandoffPortal = nil
             remoteFocusModeSent = nil
@@ -269,6 +277,8 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     func cancelUnconfirmedRemoteSession() {
         lock.lock()
         isRemoteSessionActive = false
+		remoteCursorStatus = nil
+		remoteSessionReceivedCursorStatus = false
         activeHandoffZone = nil
         pendingHandoffPortal = nil
         remoteFocusModeSent = nil
@@ -289,6 +299,8 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     func beginRemoteSession(zone: HandoffZone) {
         lock.lock()
         activeHandoffZone = zone
+		remoteCursorStatus = nil
+		remoteSessionReceivedCursorStatus = false
         isRemoteSessionActive = true
         lock.unlock()
         NSLog(
@@ -2268,6 +2280,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             displays: displays,
             receivedAt: Date()
         )
+		remoteSessionReceivedCursorStatus = true
         let pendingPortal = pendingHandoffPortal
         pendingHandoffPortal = nil
         lock.unlock()

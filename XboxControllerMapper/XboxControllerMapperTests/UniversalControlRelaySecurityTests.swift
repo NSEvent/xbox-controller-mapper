@@ -269,4 +269,23 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
 			CGPoint(x: 99, y: 42)
 		)
 	}
+
+	func testRemoteSessionOnlyTimesOutBeforeFirstCursorStatus() {
+		XCTAssertTrue(
+			UniversalControlRelaySessionPolicy.shouldCancelForMissingInitialCursorStatus(
+				sessionActive: true,
+				hasReceivedCursorStatus: false,
+				elapsedSinceStart: UniversalControlRelaySessionPolicy.confirmationTimeout + 0.1
+			)
+		)
+
+		XCTAssertFalse(
+			UniversalControlRelaySessionPolicy.shouldCancelForMissingInitialCursorStatus(
+				sessionActive: true,
+				hasReceivedCursorStatus: true,
+				elapsedSinceStart: 60
+			),
+			"Confirmed remote sessions must survive idle periods with stale cursor status."
+		)
+	}
 }

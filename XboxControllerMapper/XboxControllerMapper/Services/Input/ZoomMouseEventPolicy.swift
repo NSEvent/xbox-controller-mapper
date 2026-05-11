@@ -54,3 +54,18 @@ struct UniversalControlRelayLocalMousePolicy {
 		return proposed
     }
 }
+
+struct UniversalControlRelaySessionPolicy {
+	static let confirmationTimeout: CFTimeInterval = 1.5
+
+	static func shouldCancelForMissingInitialCursorStatus(
+		sessionActive: Bool,
+		hasReceivedCursorStatus: Bool,
+		elapsedSinceStart: CFTimeInterval?
+	) -> Bool {
+		guard sessionActive, !hasReceivedCursorStatus, let elapsedSinceStart else {
+			return false
+		}
+		return elapsedSinceStart > confirmationTimeout
+	}
+}

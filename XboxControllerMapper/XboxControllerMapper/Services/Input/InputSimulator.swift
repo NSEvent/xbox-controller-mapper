@@ -785,9 +785,11 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 			let proposedPoint = CGPoint(x: newX, y: newY)
 			let clampedPoint = CGPoint(x: clampedX, y: clampedY)
 
-            let relayConfirmationTimedOut = self.universalControlRelayActive
-                && !UniversalControlMouseRelay.shared.hasRecentRemoteCursorStatus
-				&& self.universalControlRelayStartedAt.map { now - $0 > 1.5 } == true
+			let relayConfirmationTimedOut = UniversalControlRelaySessionPolicy.shouldCancelForMissingInitialCursorStatus(
+				sessionActive: self.universalControlRelayActive,
+				hasReceivedCursorStatus: UniversalControlMouseRelay.shared.hasReceivedRemoteCursorStatus,
+				elapsedSinceStart: self.universalControlRelayStartedAt.map { now - $0 }
+			)
 
 			let canContinueRemoteHandoff = UniversalControlMouseRelay.shared.canStartRemoteHandoff
 			if (zoomActive || isDrag || !canContinueRemoteHandoff || relayConfirmationTimedOut), self.universalControlRelayActive {
