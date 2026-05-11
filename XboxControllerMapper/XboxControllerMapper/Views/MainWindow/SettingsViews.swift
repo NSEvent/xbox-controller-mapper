@@ -1084,9 +1084,17 @@ struct SettingsSheet: View {
     @AppStorage("hideFromDock") private var hideFromDock = false
     @AppStorage(MainWindowSection.hiddenDefaultsKey) private var hiddenSectionTags = ""
     @AppStorage(ButtonMappingsTabSection.hiddenDefaultsKey) private var hiddenButtonSectionTags = ""
+    @AppStorage("universalControlRelayHost") private var relayRemoteHost = "kmacstudio"
+    @AppStorage("universalControlRelayPort") private var relayRemotePort = 38383
 
     @State private var isRefreshingDatabase = false
     @State private var databaseStatus: String?
+    @State private var relayPairingCodeInput = ""
+    @State private var relaySecretStatus: String?
+    @State private var relaySecretStatusIsError = false
+    @State private var relaySecretAlertMessage = ""
+    @State private var showingRelaySecretAlert = false
+    @State private var isCheckingRelaySecret = false
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -1225,8 +1233,91 @@ struct SettingsSheet: View {
                 } header: {
                     Text("Bluetooth")
                 }
+
+                Section {
+                    HStack {
+                        Button("Start Pairing") {
+                            isCheckingRelaySecret = true
+                            relayPairingCodeInput = ""
+                            setRelaySecretStatus("Searching for ControllerKeys on LAN and tailnet...", isError: false, showAlert: false)
+                            UniversalControlMouseRelay.shared.startRelayCodePairing { success, message in
+                                isCheckingRelaySecret = false
+                                setRelaySecretStatus(message, isError: !success)
+                            }
+                        }
+                        .disabled(isCheckingRelaySecret)
+
+                        TextField("6-digit code", text: Binding(
+                            get: { relayPairingCodeInput },
+                            set: { relayPairingCodeInput = String($0.filter { $0.isNumber }.prefix(6)) }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 104)
+
+                        Button("Confirm") {
+                            isCheckingRelaySecret = true
+                            UniversalControlMouseRelay.shared.completeRelayCodePairing(code: relayPairingCodeInput) { success, message in
+                                isCheckingRelaySecret = false
+                                if success {
+                                    relayPairingCodeInput = ""
+                                }
+                                setRelaySecretStatus(message, isError: !success)
+                            }
+                        }
+                        .disabled(isCheckingRelaySecret || relayPairingCodeInput.count != 6)
+
+                        if isCheckingRelaySecret {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+
+                        Button("Reset") {
+                            UniversalControlMouseRelay.shared.resetRelayPairingSecret()
+                            relayPairingCodeInput = ""
+                            setRelaySecretStatus(
+                                "Reset. Pair again before using remote mouse.",
+                                isError: false
+                            )
+                        }
+                        .disabled(isCheckingRelaySecret)
+                    }
+
+                    DisclosureGroup("Advanced") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Remote Mac host")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            HStack {
+                                TextField("Optional hostname or Tailscale IP", text: $relayRemoteHost)
+                                    .textFieldStyle(.roundedBorder)
+                                    .disableAutocorrection(true)
+
+                                TextField("Port", value: $relayRemotePort, format: .number)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 84)
+                            }
+                        }
+                    }
+
+                    if let relaySecretStatus {
+                        Label(
+                            relaySecretStatus,
+                            systemImage: relaySecretStatusIsError ? "xmark.circle.fill" : "checkmark.circle.fill"
+                        )
+                            .font(.caption)
+                            .foregroundStyle(relaySecretStatusIsError ? .red : .secondary)
+                    }
+                } header: {
+                    Text("Remote Mouse Pairing")
+                }
             }
             .formStyle(.grouped)
+            .alert("Remote Mouse Pairing", isPresented: $showingRelaySecretAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(relaySecretAlertMessage)
+            }
 
             Text("\u{00A9} 2026 Kevin Tang. All rights reserved.")
                 .font(.caption2)
@@ -1241,7 +1332,14 @@ struct SettingsSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 420, height: 640)
+        .frame(width: 440, height: 740)
+    }
+
+    private func setRelaySecretStatus(_ message: String, isError: Bool, showAlert: Bool = true) {
+        relaySecretStatus = message
+        relaySecretStatusIsError = isError
+        relaySecretAlertMessage = message
+        showingRelaySecretAlert = showAlert
     }
 
     private func visibleSectionBinding(for section: MainWindowSection) -> Binding<Bool> {

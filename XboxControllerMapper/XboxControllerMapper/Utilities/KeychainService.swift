@@ -9,15 +9,15 @@ enum KeychainService {
     /// Stores a password in the Keychain under the given key.
     /// Returns the key on success, nil on failure.
     @discardableResult
-    static func storePassword(_ password: String, key: String) -> String? {
+    static func storePassword(_ password: String, key: String, service: String = serviceName) -> String? {
         guard let data = password.data(using: .utf8) else { return nil }
 
         // Delete any existing item first
-        deletePassword(key: key)
+        deletePassword(key: key, service: service)
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
@@ -34,10 +34,10 @@ enum KeychainService {
 
     /// Retrieves a password from the Keychain for the given key.
     /// Returns nil if not found.
-    static func retrievePassword(key: String) -> String? {
+    static func retrievePassword(key: String, service: String = serviceName) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
@@ -54,10 +54,10 @@ enum KeychainService {
     }
 
     /// Deletes a password from the Keychain.
-    static func deletePassword(key: String) {
+    static func deletePassword(key: String, service: String = serviceName) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
         SecItemDelete(query as CFDictionary)

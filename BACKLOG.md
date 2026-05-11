@@ -233,3 +233,28 @@ Fix idea: have ProfileSurfaceVisitor pass the originating trigger context when v
 Not a security bypass — the script CONTENT is still surfaced and the user can read it. UX improvement only.
 
 Estimated 1-2 hours. Add tests pinning that a macroId/scriptId referenced from a button shows the trigger button in the report.
+
+
+Pen Tool Overlay
+
+A drawing overlay that lets you annotate the screen with the controller — strokes follow the right stick (or touchpad), face button starts/ends a stroke, triggers modulate stroke width via analog pressure. Color and width selectable from a small palette HUD. Strokes persist until dismissed.
+
+Mirror the existing `LaserPointerOverlay` / `OnScreenKeyboardManager` pattern: dedicated overlay window + manager singleton + intercept case in `MappingEngine.handleButtonPressed`. Use a transparent NSWindow above all apps, render strokes into a CALayer.
+
+Open questions:
+- Should the pen coexist with laser pointer (both visible at once, controller switches between them) or be mutually exclusive? Mutually exclusive is simpler and matches today's intercept model.
+- Pressure → width: triggers are 0.0–1.0 floats already exposed via `onLeftTriggerChanged` / `onRightTriggerChanged`. DualSense adaptive triggers could give physical resistance feedback at width transitions.
+- How does the user dismiss strokes? Long-press the same activation button? Chord? A "clear canvas" mapping?
+
+If a second drawing tool (Disappearing Pen) ships in parallel, the two together are the trigger to revisit the input-consumer chain refactor — see notes from the visitor-pattern discussion. With one drawing tool, copying the laser pointer pattern is fine.
+
+
+Disappearing Pen Tool Overlay
+
+Like Pen Tool, but strokes fade after a configurable interval (default 2-3 seconds). Useful for live presentations where you want to point at something briefly without leaving permanent marks — the visual equivalent of a laser pointer that leaves a brief trail.
+
+Implementation builds on Pen Tool. Each stroke records its draw timestamp; a CADisplayLink-driven timer reduces alpha over the fade interval and removes fully-faded strokes from the layer. Fade curve should be ease-out (sharp at first, then slow) so the stroke stays readable while you're still pointing at the thing.
+
+Tradeoff to decide: separate mode entirely (toggle pen ↔ disappearing-pen via chord/long-hold) vs. a per-stroke modifier (hold trigger while drawing = permanent, release = disappearing). The latter is more powerful but harder to discover.
+
+Both pen tools sharing infrastructure is the natural moment to introduce a `DrawingTool` protocol inside the overlay layer (not the outer intercept layer) — stroke begin/extend/end, color/width state, render. Keeps tool-specific code self-contained without restructuring `MappingEngine`.

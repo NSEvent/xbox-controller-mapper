@@ -35,9 +35,23 @@ ControllerKeys requires macOS Accessibility permissions to function. This permis
 
 **The app does NOT:**
 - Log or record your keystrokes
-- Transmit any data over the network
-- Access files outside its sandbox
 - Run any background processes when quit
+
+### Remote Mouse Relay
+
+ControllerKeys includes an optional same-network remote mouse relay for controlling another Mac running ControllerKeys. The relay:
+
+- Listens on TCP port 38383 for ControllerKeys relay frames
+- Accepts connections only from local/private network ranges, link-local ranges, IPv6 ULA ranges, localhost, or Tailscale/CGNAT `100.64.0.0/10`
+- Requires every protocol frame to be authenticated with an HMAC-SHA256 shared secret
+- Rejects plaintext, tampered, replayed, oversized, or rate-limited frames
+- Does not accept remote shell/system-command execution
+
+The relay secret is stored in Keychain. A manually supplied shared secret can be configured with the `universalControlRelaySharedSecret` user default when pairing machines.
+
+### System Access
+
+ControllerKeys is not sandboxed because system-wide controller remapping requires Accessibility event posting, app launching, optional Apple Events automation, and user-configured shell/webhook actions.
 
 ### Why Open Source?
 

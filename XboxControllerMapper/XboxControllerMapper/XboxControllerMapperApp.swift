@@ -41,8 +41,7 @@ final class ServiceContainer {
             usageStatsService: usageStatsService
         )
         UniversalControlMouseRelay.shared.startListening(
-            inputSimulator: self.mappingEngine.inputSimulator,
-            systemCommandExecutor: self.mappingEngine.mappingExecutor.systemCommandExecutor
+            inputSimulator: self.mappingEngine.inputSimulator
         )
 
         let batteryNotificationManager = BatteryNotificationManager()
