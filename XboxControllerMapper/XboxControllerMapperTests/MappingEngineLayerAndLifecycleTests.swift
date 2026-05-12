@@ -82,7 +82,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.a: .key(10)],
                 layers: [layer]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -116,7 +116,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.a: .key(10)],
                 layers: [layer]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -160,7 +160,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.b: .key(22)],
                 layers: [layer]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -197,7 +197,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.x: .key(33)],
                 layers: [layer]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -237,9 +237,13 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         XCTAssertEqual(layerCount, 0, "Layer mapping should not fire after deactivation")
     }
 
-    /// Test 5: When multiple layers are active, the most recently activated layer wins.
-    func testMultipleLayers_lastActivatedWins() async throws {
-        let layer1 = Layer(name: "First", activatorButton: .leftBumper, buttonMappings: [.a: .key(61)])
+    /// Test 5: When a layer is active, another layer activator is available for remapping.
+    func testLayerActivator_whenDifferentLayerActive_usesActiveLayerMapping() async throws {
+        let layer1 = Layer(
+            name: "First",
+            activatorButton: .leftBumper,
+            buttonMappings: [.a: .key(61), .rightBumper: .key(63)]
+        )
         let layer2 = Layer(name: "Second", activatorButton: .rightBumper, buttonMappings: [.a: .key(62)])
         await MainActor.run {
             let profile = Profile(
@@ -247,22 +251,30 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.a: .key(60)],
                 layers: [layer1, layer2]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
-        // Activate layer1 first, then layer2
+        // Activate layer1, then press layer2's activator while layer1 is still active.
         await MainActor.run {
             controllerService.buttonPressed(.leftBumper)
         }
         await waitForTasks(0.1)
         await MainActor.run {
             controllerService.buttonPressed(.rightBumper)
+            controllerService.buttonReleased(.rightBumper)
         }
         await waitForTasks(0.1)
 
-        // Press A — layer2 (most recent) should win
+        let remappedActivatorCount = mockInputSimulator.events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == 63 }
+            return false
+        }.count
+        XCTAssertEqual(remappedActivatorCount, 1, "Other layer activators should be remappable inside the active layer")
+
+        // Press A — layer1 should still be active; layer2 should not have stolen priority.
         await MainActor.run {
+            mockInputSimulator.clearEvents()
             controllerService.buttonPressed(.a)
             controllerService.buttonReleased(.a)
         }
@@ -277,8 +289,8 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
             if case .pressKey(let keyCode, _) = $0 { return keyCode == 61 }
             return false
         }.count
-        XCTAssertEqual(layer2Count, 1, "Most recently activated layer (layer2) should win")
-        XCTAssertEqual(layer1Count, 0, "Earlier layer should not fire when newer layer is active")
+        XCTAssertEqual(layer1Count, 1, "The original active layer should remain active")
+        XCTAssertEqual(layer2Count, 0, "A second layer activator should not activate while a different layer is active")
     }
 
     /// Test 6: The layer activator button itself does not emit its own key mapping.
@@ -290,7 +302,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.leftBumper: .key(99), .a: .key(10)],
                 layers: [layer]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -321,7 +333,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 name: "DisableTest",
                 buttonMappings: [.a: KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -361,7 +373,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 longHoldMapping: LongHoldMapping(keyCode: 4, threshold: 0.3)
             )
             let profile = Profile(name: "TimerCancel", buttonMappings: [.a: mapping])
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -395,7 +407,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 name: "ReEnable",
                 buttonMappings: [.a: .key(1)]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -436,7 +448,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 name: "ModRelease",
                 buttonMappings: [.leftBumper: .holdModifier(.command)]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -466,7 +478,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 name: "P1",
                 buttonMappings: [.leftBumper: .holdModifier(.command)]
             )
-            profileManager.setActiveProfile(profile1)
+            installActiveProfile(profile1)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -498,7 +510,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 longHoldMapping: LongHoldMapping(keyCode: 4, threshold: 0.4)
             )
             let profile1 = Profile(name: "P1", buttonMappings: [.a: mapping])
-            profileManager.setActiveProfile(profile1)
+            installActiveProfile(profile1)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -512,7 +524,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         await MainActor.run {
             mockInputSimulator.clearEvents()
             let profile2 = Profile(name: "P2", buttonMappings: [.a: .key(5)])
-            profileManager.setActiveProfile(profile2)
+            installActiveProfile(profile2)
         }
         // Allow Combine to deliver profile change to MappingEngine
         try? await Task.sleep(nanoseconds: 10_000_000)
@@ -537,7 +549,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
             var profile = Profile(name: "WASD", buttonMappings: [:])
             profile.joystickSettings.leftStickMode = .wasdKeys
             profile.joystickSettings.mouseDeadzone = 0.05
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
             controllerService.isConnected = true
         }
         await waitForTasks(0.15)
@@ -570,7 +582,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.a: .key(1), .b: .key(2)],
                 chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 3)]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -619,7 +631,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.a: .key(1), .b: .key(2)],
                 chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 99)]
             )
-            profileManager.setActiveProfile(profile)
+            installActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 50_000_000)
 
@@ -735,14 +747,14 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
     func testButtonPress_afterProfileSwitch_usesNewMapping() async throws {
         await MainActor.run {
             let profile1 = Profile(name: "Old", buttonMappings: [.a: .key(10)])
-            profileManager.setActiveProfile(profile1)
+            installActiveProfile(profile1)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         // Switch to new profile
         await MainActor.run {
             let profile2 = Profile(name: "New", buttonMappings: [.a: .key(20)])
-            profileManager.setActiveProfile(profile2)
+            installActiveProfile(profile2)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -774,7 +786,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 name: "Old",
                 buttonMappings: [.a: KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)]
             )
-            profileManager.setActiveProfile(profile1)
+            installActiveProfile(profile1)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -794,7 +806,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         // Switch profile
         await MainActor.run {
             let profile2 = Profile(name: "New", buttonMappings: [.a: .key(20)])
-            profileManager.setActiveProfile(profile2)
+            installActiveProfile(profile2)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -820,7 +832,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.a: .key(1), .b: .key(2)],
                 chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 30)]
             )
-            profileManager.setActiveProfile(profile1)
+            installActiveProfile(profile1)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -831,7 +843,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 buttonMappings: [.a: .key(5), .b: .key(6)],
                 chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 40)]
             )
-            profileManager.setActiveProfile(profile2)
+            installActiveProfile(profile2)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -869,7 +881,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 doubleTapMapping: DoubleTapMapping(keyCode: 2, threshold: 0.05)
             )
             let profile1 = Profile(name: "ShortThreshold", buttonMappings: [.a: mapping1])
-            profileManager.setActiveProfile(profile1)
+            installActiveProfile(profile1)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -880,7 +892,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
                 doubleTapMapping: DoubleTapMapping(keyCode: 4, threshold: 0.5)
             )
             let profile2 = Profile(name: "LongThreshold", buttonMappings: [.a: mapping2])
-            profileManager.setActiveProfile(profile2)
+            installActiveProfile(profile2)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
