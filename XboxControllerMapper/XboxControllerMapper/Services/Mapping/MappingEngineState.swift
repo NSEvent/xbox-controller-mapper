@@ -132,11 +132,9 @@ extension MappingEngine {
             reset()
         }
 
-        /// Resets all transient state. Caller MUST already hold `lock`.
-        func reset() {
-            chordParticipantButtons.removeAll()
-            sequenceParticipantButtons.removeAll()
-            chordLookup.removeAll()
+        /// Resets input/session state that should not survive a routing boundary.
+        /// Caller MUST already hold `lock`.
+        func resetTransientInputState() {
             heldButtons.removeAll()
             activeChordButtons.removeAll()
             lastTapTime.removeAll()
@@ -231,6 +229,14 @@ extension MappingEngine {
             gyroFilterX.reset()
             gyroFilterY.reset()
             lastGyroTime = 0
+        }
+
+        /// Resets all transient state. Caller MUST already hold `lock`.
+        func reset() {
+            chordParticipantButtons.removeAll()
+            sequenceParticipantButtons.removeAll()
+            chordLookup.removeAll()
+            resetTransientInputState()
         }
     }
 }

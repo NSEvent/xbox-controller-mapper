@@ -560,6 +560,11 @@ class MappingEngine: ObservableObject {
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleButtonPressed(_ button: ControllerButton) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
+        if UniversalControlMouseRelay.shared.hasActiveRemoteSession {
+            _ = UniversalControlMouseRelay.shared.sendControllerButtonPressed(button)
+            return
+        }
+
         // If a region mapping (or other special action) consumed this press,
         // skip normal handling. Don't remove yet — the release handler removes.
         let isConsumed = state.lock.withLock { state.pressConsumedByAction.contains(button) }
@@ -1081,6 +1086,23 @@ class MappingEngine: ObservableObject {
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
+        if UniversalControlMouseRelay.shared.hasActiveRemoteSession {
+            let hasLocalButtonState = state.lock.withLock {
+                state.heldButtons[button] != nil
+                    || state.pendingSingleTap[button] != nil
+                    || state.pendingReleaseActions[button] != nil
+                    || state.longHoldTimers[button] != nil
+                    || state.repeatTimers[button] != nil
+                    || state.holdRepeatTimers[button] != nil
+                    || state.buttonsActingAsLayerActivators.contains(button)
+                    || state.pressConsumedByAction.contains(button)
+            }
+            if !hasLocalButtonState {
+                _ = UniversalControlMouseRelay.shared.sendControllerButtonReleased(button, holdDuration: holdDuration)
+                return
+            }
+        }
+
         stopRepeatTimer(for: button)
 
         let penControlWasConsumed = state.lock.withLock { state.pressConsumedByAction.contains(button) }
@@ -1386,6 +1408,11 @@ class MappingEngine: ObservableObject {
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
+        if UniversalControlMouseRelay.shared.hasActiveRemoteSession {
+            _ = UniversalControlMouseRelay.shared.sendControllerChord(buttons)
+            return
+        }
+
         guard let (profile, chordButtons) = state.lock.withLock({ () -> (Profile, Set<ControllerButton>)? in
             guard state.isEnabled, let profile = state.activeProfile else {
                 #if DEBUG
@@ -1493,5 +1520,46 @@ class MappingEngine: ObservableObject {
 
     func toggle() {
         isEnabled.toggle()
+    }
+
+    // MARK: - Remote Controller Relay
+
+    nonisolated func handleRemoteControllerButtonPressed(_ button: ControllerButton) {
+        inputQueue.async { [weak self] in
+            self?.handleButtonPressed(button)
+        }
+    }
+
+    nonisolated func handleRemoteControllerButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
+        inputQueue.async { [weak self] in
+            self?.handleButtonReleased(button, holdDuration: holdDuration)
+        }
+    }
+
+    nonisolated func handleRemoteControllerChord(_ buttons: Set<ControllerButton>) {
+        inputQueue.async { [weak self] in
+            self?.handleChord(buttons)
+        }
+    }
+
+    nonisolated func resetRemoteControllerInputState() {
+        let cleanup = state.lock.withLock { () -> (heldMappings: [KeyMapping], leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>) in
+            let heldMappings = Array(state.heldButtons.values)
+            let leftKeys = state.leftStickHeldKeys
+            let rightKeys = state.rightStickHeldKeys
+            state.resetTransientInputState()
+            return (heldMappings, leftKeys, rightKeys)
+        }
+
+        for mapping in cleanup.heldMappings {
+            inputSimulator.stopHoldMapping(mapping)
+        }
+        for key in cleanup.leftKeys {
+            inputSimulator.keyUp(key)
+        }
+        for key in cleanup.rightKeys {
+            inputSimulator.keyUp(key)
+        }
+        inputSimulator.releaseAllModifiers()
     }
 }

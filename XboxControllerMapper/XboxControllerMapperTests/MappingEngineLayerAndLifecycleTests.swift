@@ -65,6 +65,12 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         await Task.yield()
     }
 
+    @MainActor
+    private func installActiveProfile(_ profile: Profile) {
+        profileManager.profiles = [profile]
+        profileManager.setActiveProfile(profile)
+    }
+
     // MARK: - Layer Tests
 
     /// Test 1: Activating a layer by pressing its activator button adds the layer's ID to the active set.
@@ -896,5 +902,144 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
             return false
         }.count
         XCTAssertEqual(doubleTapCount, 1, "Double-tap should use new profile's threshold (0.5s), detecting the 200ms-gap double tap")
+    }
+
+    // MARK: - Remote Profile Routing
+
+    func testRemoteControllerButton_usesReceiverActiveProfile() async throws {
+        UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
+
+        await MainActor.run {
+            installActiveProfile(Profile(name: "Remote", buttonMappings: [.a: .key(22)]))
+            mockInputSimulator.clearEvents()
+
+            mappingEngine.handleRemoteControllerButtonPressed(.a)
+            mappingEngine.handleRemoteControllerButtonReleased(.a, holdDuration: 0.05)
+        }
+        await waitForTasks()
+
+        let remoteKeyCount = mockInputSimulator.events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == 22 }
+            return false
+        }.count
+        XCTAssertEqual(remoteKeyCount, 1, "Remote button events should resolve against the receiver's active profile")
+    }
+
+    func testRemoteControllerChord_usesReceiverActiveProfile() async throws {
+        UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
+
+        await MainActor.run {
+            let profile = Profile(
+                name: "RemoteChord",
+                buttonMappings: [.a: .key(10), .b: .key(11)],
+                chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 44)]
+            )
+            installActiveProfile(profile)
+            mockInputSimulator.clearEvents()
+
+            mappingEngine.handleRemoteControllerButtonPressed(.a)
+            mappingEngine.handleRemoteControllerButtonPressed(.b)
+            mappingEngine.handleRemoteControllerChord([.a, .b])
+            mappingEngine.handleRemoteControllerButtonReleased(.a, holdDuration: 0.05)
+            mappingEngine.handleRemoteControllerButtonReleased(.b, holdDuration: 0.05)
+        }
+        await waitForTasks()
+
+        let events = mockInputSimulator.events
+        let chordCount = events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == 44 }
+            return false
+        }.count
+        let baseCount = events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == 10 || keyCode == 11 }
+            return false
+        }.count
+        XCTAssertEqual(chordCount, 1, "Remote chord should fire the receiver's chord mapping")
+        XCTAssertEqual(baseCount, 0, "Remote chord should cancel receiver-side pending single button mappings")
+    }
+
+    func testRemoteControllerReset_releasesHeldStateWithoutClearingProfileCaches() async throws {
+        UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
+
+        await MainActor.run {
+            let profile = Profile(
+                name: "RemoteReset",
+                buttonMappings: [.leftBumper: .holdModifier(.command)],
+                chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 88)]
+            )
+            installActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        let lookupBefore = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.chordLookup.count }
+        }
+
+        await MainActor.run {
+            mappingEngine.handleRemoteControllerButtonPressed(.leftBumper)
+        }
+        await waitForTasks(0.2)
+        XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand), "Remote hold mapping should start before reset")
+
+        await MainActor.run {
+            mockInputSimulator.clearEvents()
+            mappingEngine.resetRemoteControllerInputState()
+        }
+
+        XCTAssertFalse(mockInputSimulator.heldModifiers.contains(.maskCommand), "Remote reset should release held mappings")
+        let stopCount = mockInputSimulator.events.filter {
+            if case .stopHoldMapping = $0 { return true }
+            return false
+        }.count
+        XCTAssertEqual(stopCount, 1, "Remote reset should stop the held mapping")
+
+        let lookupAfter = await MainActor.run {
+            mappingEngine.state.lock.withLock { mappingEngine.state.chordLookup.count }
+        }
+        XCTAssertEqual(lookupAfter, lookupBefore, "Remote reset should preserve profile-derived chord lookup cache")
+
+        await MainActor.run {
+            mockInputSimulator.clearEvents()
+            mappingEngine.handleRemoteControllerChord([.a, .b])
+        }
+        await waitForTasks()
+
+        let chordCount = mockInputSimulator.events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == 88 }
+            return false
+        }.count
+        XCTAssertEqual(chordCount, 1, "Remote reset should not break receiver chord routing")
+    }
+
+    func testLocalControllerButton_doesNotExecuteHomeMappingDuringRemoteSession() async throws {
+        await MainActor.run {
+            installActiveProfile(Profile(name: "Home", buttonMappings: [.a: .key(10)]))
+            mockInputSimulator.clearEvents()
+        }
+
+        let zone = UniversalControlMouseRelay.HandoffZone(
+            localDisplayID: nil,
+            localEdge: .right,
+            localRangeMin: nil,
+            localRangeMax: nil,
+            remoteHost: "127.0.0.1",
+            remotePort: 65530,
+            remoteEntryEdge: .left,
+            remoteReturnEdge: .left
+        )
+        UniversalControlMouseRelay.shared.beginRemoteSession(zone: zone)
+        defer { UniversalControlMouseRelay.shared.setRemoteSessionActive(false) }
+
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+
+        let homeKeyCount = mockInputSimulator.events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == 10 }
+            return false
+        }.count
+        XCTAssertEqual(homeKeyCount, 0, "Source profile mapping should not execute while controller input is routed to remote")
     }
 }

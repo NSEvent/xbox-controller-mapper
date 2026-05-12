@@ -337,6 +337,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     func endRemoteSession() {
+        _ = sendControllerInputReset()
         _ = sendFocusMode(active: false)
         if let returnEdge = activeRemoteReturnEdge() {
             _ = sendLine("portalExit \(returnEdge.rawValue)")
@@ -655,6 +656,31 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     func sendKeyPress(_ keyCode: CGKeyCode, modifiers: CGEventFlags) -> Bool {
         sendLine("kp \(keyCode) \(modifiers.rawValue)")
+    }
+
+    func sendControllerButtonPressed(_ button: ControllerButton) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendLine("bp \(button.rawValue)")
+    }
+
+    func sendControllerButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendLine("br \(button.rawValue) \(holdDuration)")
+    }
+
+    func sendControllerChord(_ buttons: Set<ControllerButton>) -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        let payload = buttons
+            .map(\.rawValue)
+            .sorted()
+            .joined(separator: " ")
+        guard !payload.isEmpty else { return false }
+        return sendLine("bc \(payload)")
+    }
+
+    func sendControllerInputReset() -> Bool {
+        guard hasActiveRemoteSession else { return false }
+        return sendLine("bclear")
     }
 
     func sendKeyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags) -> Bool {
@@ -1815,6 +1841,41 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 sendRemoteCursorStatus(on: connection)
             }
             logFirstReceive("move dx=\(dx) dy=\(dy)")
+        case "bp":
+            guard relayTarget,
+                  parts.count == 2,
+                  let button = ControllerButton(rawValue: String(parts[1])) else { return }
+            Task { @MainActor in
+                ServiceContainer.shared.mappingEngine.handleRemoteControllerButtonPressed(button)
+            }
+            logFirstReceive("button press \(button.rawValue)")
+        case "br":
+            guard relayTarget,
+                  parts.count == 3,
+                  let button = ControllerButton(rawValue: String(parts[1])),
+                  let holdDuration = TimeInterval(String(parts[2])) else { return }
+            Task { @MainActor in
+                ServiceContainer.shared.mappingEngine.handleRemoteControllerButtonReleased(button, holdDuration: holdDuration)
+            }
+            logFirstReceive("button release \(button.rawValue)")
+        case "bc":
+            guard relayTarget, parts.count >= 3 else { return }
+            var buttons = Set<ControllerButton>()
+            for rawButton in parts.dropFirst() {
+                guard let button = ControllerButton(rawValue: String(rawButton)) else { return }
+                buttons.insert(button)
+            }
+            guard buttons.count == parts.count - 1 else { return }
+            Task { @MainActor in
+                ServiceContainer.shared.mappingEngine.handleRemoteControllerChord(buttons)
+            }
+            logFirstReceive("button chord")
+        case "bclear":
+            guard relayTarget, parts.count == 1 else { return }
+            Task { @MainActor in
+                ServiceContainer.shared.mappingEngine.resetRemoteControllerInputState()
+            }
+            logFirstReceive("button clear")
         case "kp":
             guard parts.count == 3,
                   let keyCode = UInt16(parts[1]),
