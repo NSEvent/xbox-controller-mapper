@@ -288,4 +288,72 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
 			"Confirmed remote sessions must survive idle periods with stale cursor status."
 		)
 	}
+
+	func testRemoteSessionSurvivesLongControllerIdleAfterCursorStatus() {
+		XCTAssertFalse(
+			UniversalControlRelaySessionPolicy.shouldCancelForMissingInitialCursorStatus(
+				sessionActive: true,
+				hasReceivedCursorStatus: true,
+				elapsedSinceStart: UniversalControlRelaySessionPolicy.confirmationTimeout + 600
+			)
+		)
+
+		XCTAssertFalse(
+			UniversalControlRelaySessionPolicy.shouldCancelForMissingInitialCursorStatus(
+				sessionActive: false,
+				hasReceivedCursorStatus: false,
+				elapsedSinceStart: UniversalControlRelaySessionPolicy.confirmationTimeout + 600
+			)
+		)
+	}
+
+	func testRemoteCursorVisibilityRepairRunsAgainAfterReconnectIdleGap() {
+		let first = RemoteCursorVisibilityRestorePolicy.decision(
+			now: 100,
+			lastRestoreAt: nil
+		)
+		XCTAssertEqual(
+			first,
+			RemoteCursorVisibilityRestorePolicy.Decision(
+				shouldRestore: true,
+				shouldRepairPotentialStaleHide: true
+			)
+		)
+
+		let throttled = RemoteCursorVisibilityRestorePolicy.decision(
+			now: 100 + RemoteCursorVisibilityRestorePolicy.restoreThrottleInterval / 2,
+			lastRestoreAt: 100
+		)
+		XCTAssertEqual(
+			throttled,
+			RemoteCursorVisibilityRestorePolicy.Decision(
+				shouldRestore: false,
+				shouldRepairPotentialStaleHide: false
+			)
+		)
+
+		let sameRemoteBurst = RemoteCursorVisibilityRestorePolicy.decision(
+			now: 100 + RemoteCursorVisibilityRestorePolicy.restoreThrottleInterval + 0.1,
+			lastRestoreAt: 100
+		)
+		XCTAssertEqual(
+			sameRemoteBurst,
+			RemoteCursorVisibilityRestorePolicy.Decision(
+				shouldRestore: true,
+				shouldRepairPotentialStaleHide: false
+			)
+		)
+
+		let afterReconnectIdle = RemoteCursorVisibilityRestorePolicy.decision(
+			now: 100 + RemoteCursorVisibilityRestorePolicy.reconnectIdleRepairInterval + 0.1,
+			lastRestoreAt: 100
+		)
+		XCTAssertEqual(
+			afterReconnectIdle,
+			RemoteCursorVisibilityRestorePolicy.Decision(
+				shouldRestore: true,
+				shouldRepairPotentialStaleHide: true
+			)
+		)
+	}
 }

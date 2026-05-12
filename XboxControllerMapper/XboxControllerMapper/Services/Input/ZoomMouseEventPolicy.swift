@@ -69,3 +69,32 @@ struct UniversalControlRelaySessionPolicy {
 		return elapsedSinceStart > confirmationTimeout
 	}
 }
+
+struct RemoteCursorVisibilityRestorePolicy {
+	static let restoreThrottleInterval: CFTimeInterval = 0.25
+	static let reconnectIdleRepairInterval: CFTimeInterval = 5.0
+
+	struct Decision: Equatable {
+		let shouldRestore: Bool
+		let shouldRepairPotentialStaleHide: Bool
+	}
+
+	static func decision(
+		now: CFTimeInterval,
+		lastRestoreAt: CFTimeInterval?
+	) -> Decision {
+		guard let lastRestoreAt else {
+			return Decision(shouldRestore: true, shouldRepairPotentialStaleHide: true)
+		}
+
+		let elapsed = now - lastRestoreAt
+		if elapsed <= restoreThrottleInterval {
+			return Decision(shouldRestore: false, shouldRepairPotentialStaleHide: false)
+		}
+
+		return Decision(
+			shouldRestore: true,
+			shouldRepairPotentialStaleHide: elapsed > reconnectIdleRepairInterval
+		)
+	}
+}

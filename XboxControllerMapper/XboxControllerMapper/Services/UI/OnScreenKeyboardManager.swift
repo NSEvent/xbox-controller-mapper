@@ -135,7 +135,6 @@ class OnScreenKeyboardManager: ObservableObject {
     }
 
     private var cursorHidden = false
-    private var didRepairPotentialStaleCursorHide = false
     private var mouseMovementMonitor: Any?
     private var localMouseMovementMonitor: Any?
 
@@ -798,15 +797,14 @@ class OnScreenKeyboardManager: ObservableObject {
     /// Remote mouse movement is synthetic, so it may not wake macOS' cursor after
     /// keyboard/controller-only idle. Make the real cursor visible before posting
     /// remote mouse events.
-    func restoreCursorVisibilityForRemotePointer() {
+    func restoreCursorVisibilityForRemotePointer(repairPotentialStaleHide: Bool = true) {
 		exitNavigationMode()
 		NSCursor.setHiddenUntilMouseMoves(false)
 		_ = CGDisplayShowCursor(CGMainDisplayID())
 		let repairedPersistedHide = repairPersistedCursorHideIfNeeded()
 
-		if !repairedPersistedHide, !didRepairPotentialStaleCursorHide {
+		if !repairedPersistedHide, repairPotentialStaleHide {
 			NSCursor.unhide()
-			didRepairPotentialStaleCursorHide = true
 		}
     }
 
@@ -816,7 +814,6 @@ class OnScreenKeyboardManager: ObservableObject {
 		NSCursor.unhide()
 		UserDefaults.standard.removeObject(forKey: Self.cursorHiddenDefaultsKey)
 		cursorHidden = false
-		didRepairPotentialStaleCursorHide = true
 		return true
     }
 

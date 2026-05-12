@@ -181,7 +181,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var didLogFirstReceive = false
     private var lastHandoffSkipLog = Date.distantPast
     private var remoteHandoffSuppressedUntil = Date.distantPast
-    private var lastRemoteCursorVisibilityRestore = Date.distantPast
+    private var lastRemoteCursorVisibilityRestoreAt: CFTimeInterval?
 
     var canSendToRemote: Bool {
         lock.lock()
@@ -256,6 +256,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             activeHandoffZone = nil
             pendingHandoffPortal = nil
             remoteFocusModeSent = nil
+			resetRemoteCursorVisibilityRestoreStateLocked()
             outgoingRemoteMouseButtonsHeld.removeAll()
             remoteKeyboardVisible = false
             remoteKeyboardNavigationModeActive = false
@@ -283,6 +284,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         activeHandoffZone = nil
         pendingHandoffPortal = nil
         remoteFocusModeSent = nil
+		resetRemoteCursorVisibilityRestoreStateLocked()
         outgoingRemoteMouseButtonsHeld.removeAll()
         lock.unlock()
     }
@@ -302,6 +304,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         activeHandoffZone = zone
 		remoteCursorStatus = nil
 		remoteSessionReceivedCursorStatus = false
+		resetRemoteCursorVisibilityRestoreStateLocked()
         isRemoteSessionActive = true
         lock.unlock()
         NSLog(
@@ -2497,18 +2500,28 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func restoreRemoteCursorVisibilityIfNeeded() {
-		let now = Date()
+		let now = CFAbsoluteTimeGetCurrent()
 		lock.lock()
-		guard now.timeIntervalSince(lastRemoteCursorVisibilityRestore) > 0.25 else {
+		let decision = RemoteCursorVisibilityRestorePolicy.decision(
+			now: now,
+			lastRestoreAt: lastRemoteCursorVisibilityRestoreAt
+		)
+		guard decision.shouldRestore else {
 			lock.unlock()
 			return
 		}
-		lastRemoteCursorVisibilityRestore = now
+		lastRemoteCursorVisibilityRestoreAt = now
 		lock.unlock()
 
 		Task { @MainActor in
-			OnScreenKeyboardManager.shared.restoreCursorVisibilityForRemotePointer()
+			OnScreenKeyboardManager.shared.restoreCursorVisibilityForRemotePointer(
+				repairPotentialStaleHide: decision.shouldRepairPotentialStaleHide
+			)
 		}
+    }
+
+    private func resetRemoteCursorVisibilityRestoreStateLocked() {
+		lastRemoteCursorVisibilityRestoreAt = nil
     }
 
     private func currentRemoteCGPoint() -> CGPoint {
