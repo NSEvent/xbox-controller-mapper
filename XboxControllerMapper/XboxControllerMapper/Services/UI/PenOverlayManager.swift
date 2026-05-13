@@ -6,10 +6,17 @@ private enum PenStrokeMode {
     case fade
     case permanent
 
+    var opposite: PenStrokeMode {
+        switch self {
+        case .fade: return .permanent
+        case .permanent: return .fade
+        }
+    }
+
     var label: String {
         switch self {
         case .fade: return "Fade 3s"
-        case .permanent: return "Permanent"
+        case .permanent: return "Keep"
         }
     }
 }
@@ -42,6 +49,7 @@ final class PenOverlayManager: ObservableObject {
     @Published fileprivate private(set) var controlsVisible = false
     @Published fileprivate private(set) var activeVisibleRect: CGRect = .zero
     @Published fileprivate private(set) var isShowing = false
+    @Published fileprivate private(set) var cursorIsKeepMode = false
 
     private static let palette: [PenPaletteColor] = [
         PenPaletteColor(name: "Blue", color: Color(red: 0.14, green: 0.64, blue: 1.0)),
@@ -61,10 +69,14 @@ final class PenOverlayManager: ObservableObject {
     private var fallbackTimer: DispatchSourceTimer?
     private var hudHideWorkItem: DispatchWorkItem?
     private var controlsHideWorkItem: DispatchWorkItem?
+    private var clearHoldWorkItem: DispatchWorkItem?
     private var currentMode: PenStrokeMode = .fade
     private var colorIndex = 0
     private var lineWidth: CGFloat = 7
     private var panelFrame: CGRect = .zero
+    private var aButtonDown = false
+    private var aPressUsedAsModifier = false
+    private var clearHoldDidFire = false
 
     nonisolated var threadSafeIsVisible: Bool {
         stateLock.lock()
@@ -74,7 +86,10 @@ final class PenOverlayManager: ObservableObject {
 
     nonisolated static func isControllerControl(_ button: ControllerButton) -> Bool {
         switch button {
-        case .rightTrigger, .b, .x, .y, .menu, .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
+        case .a, .b, .x, .y,
+             .leftBumper, .rightBumper,
+             .rightTrigger, .menu,
+             .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
             return true
         default:
             return false
@@ -97,6 +112,7 @@ final class PenOverlayManager: ObservableObject {
         panel?.alphaValue = 0
         panel?.orderFrontRegardless()
         updateCursorPosition()
+        updateCursorMode()
         showHUD("Pen - \(currentMode.label)")
         showControls()
 
@@ -116,6 +132,10 @@ final class PenOverlayManager: ObservableObject {
         stopTracking()
         strokes.removeAll()
         currentStroke = nil
+        aButtonDown = false
+        aPressUsedAsModifier = false
+        cancelClearHold()
+        updateCursorMode()
 
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.14
@@ -137,14 +157,25 @@ final class PenOverlayManager: ObservableObject {
     func handleButtonPress(_ button: ControllerButton) -> Bool {
         guard isShowing else { return false }
         switch button {
+        case .a:
+            aButtonDown = true
+            aPressUsedAsModifier = currentStroke != nil
+            updateCursorMode()
         case .rightTrigger:
-            beginStroke()
+            if aButtonDown {
+                aPressUsedAsModifier = true
+            }
+            beginStroke(mode: aButtonDown ? currentMode.opposite : currentMode)
         case .b:
             undoLastStroke()
         case .x:
-            clear()
+            scheduleClearHold()
         case .y:
-            toggleMode()
+            cycleColor(by: 1)
+        case .leftBumper:
+            adjustLineWidth(by: -1)
+        case .rightBumper:
+            adjustLineWidth(by: 1)
         case .dpadLeft:
             adjustLineWidth(by: -1)
         case .dpadRight:
@@ -163,23 +194,41 @@ final class PenOverlayManager: ObservableObject {
 
     @discardableResult
     func handleButtonRelease(_ button: ControllerButton) -> Bool {
-        guard button == .rightTrigger else { return false }
-        endStroke()
+        switch button {
+        case .a:
+            if aButtonDown, !aPressUsedAsModifier {
+                toggleMode()
+            }
+            aButtonDown = false
+            aPressUsedAsModifier = false
+            updateCursorMode()
+        case .rightTrigger:
+            endStroke()
+        case .x:
+            cancelClearHold()
+        default:
+            return false
+        }
         return true
     }
 
-    func beginStroke() {
+    private func beginStroke(mode: PenStrokeMode? = nil) {
         guard isShowing, currentStroke == nil else { return }
         updateCursorPosition()
         let uptime = ProcessInfo.processInfo.systemUptime
+        let strokeMode = mode ?? currentMode
         currentStroke = PenStroke(
             points: [cursorPosition],
             color: Self.palette[colorIndex].color,
             lineWidth: lineWidth,
-            mode: currentMode,
+            mode: strokeMode,
             createdAt: uptime,
             endedAt: nil
         )
+        updateCursorMode()
+        if strokeMode != currentMode {
+            showHUD(strokeMode.label)
+        }
     }
 
     func endStroke() {
@@ -188,6 +237,7 @@ final class PenOverlayManager: ObservableObject {
         strokes.append(stroke)
         currentStroke = nil
         pruneExpiredStrokes()
+        updateCursorMode()
     }
 
     private func ensurePanel() {
@@ -257,6 +307,7 @@ final class PenOverlayManager: ObservableObject {
         hudHideWorkItem = nil
         controlsHideWorkItem?.cancel()
         controlsHideWorkItem = nil
+        cancelClearHold()
     }
 
     private func tick() {
@@ -298,12 +349,14 @@ final class PenOverlayManager: ObservableObject {
     private func clear() {
         strokes.removeAll()
         currentStroke = nil
-        showHUD("Clear")
+        showHUD("Cleared")
+        updateCursorMode()
     }
 
     private func toggleMode() {
         currentMode = currentMode == .fade ? .permanent : .fade
-        showHUD("Pen - \(currentMode.label)")
+        showHUD(currentMode == .fade ? "Fade drawings" : "Keep drawings")
+        updateCursorMode()
     }
 
     private func adjustLineWidth(by delta: CGFloat) {
@@ -315,6 +368,33 @@ final class PenOverlayManager: ObservableObject {
         let count = Self.palette.count
         colorIndex = (colorIndex + delta + count) % count
         showHUD(Self.palette[colorIndex].name)
+    }
+
+    private func scheduleClearHold() {
+        clearHoldWorkItem?.cancel()
+        clearHoldDidFire = false
+        showHUD("Hold X to Clear")
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.clearHoldDidFire = true
+            self.clear()
+        }
+        clearHoldWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65, execute: workItem)
+    }
+
+    private func cancelClearHold() {
+        clearHoldWorkItem?.cancel()
+        clearHoldWorkItem = nil
+        if clearHoldDidFire {
+            clearHoldDidFire = false
+        }
+    }
+
+    private func updateCursorMode() {
+        let pendingMode = aButtonDown && currentStroke == nil ? currentMode.opposite : currentMode
+        cursorIsKeepMode = (currentStroke?.mode ?? pendingMode) == .permanent
     }
 
     private func pruneExpiredStrokes() {
@@ -422,11 +502,11 @@ private struct PenOverlayView: View {
     private var controlsStrip: some View {
         HStack(spacing: 10) {
             hint([.rightTrigger], "Draw")
-            hint([.y], "Mode")
-            hint([.dpadUp, .dpadDown], "Color")
-            hint([.dpadLeft, .dpadRight], "Width")
+            hint([.a], "Mode")
+            hint([.y], "Color")
+            hint([.leftBumper, .rightBumper], "Width")
             hint([.b], "Undo")
-            hint([.x], "Clear")
+            hint([.x], "Hold Clear")
             hint([.menu], "Close")
         }
         .padding(.horizontal, 12)
@@ -472,27 +552,52 @@ private struct PenOverlayView: View {
     }
 
     private var cursorMarker: some View {
-        ZStack {
+        let accentColor = manager.cursorIsKeepMode
+            ? Color(red: 1.0, green: 0.86, blue: 0.18)
+            : Color(red: 0.14, green: 0.64, blue: 1.0)
+
+        return ZStack {
             Circle()
                 .stroke(Color.white.opacity(0.8), lineWidth: 2)
                 .frame(width: 22, height: 22)
             Circle()
-                .stroke(Color(red: 0.14, green: 0.64, blue: 1.0).opacity(0.9), lineWidth: 2)
+                .stroke(accentColor.opacity(0.9), lineWidth: 2)
                 .frame(width: 30, height: 30)
             Circle()
                 .fill(Color.white)
                 .frame(width: 4, height: 4)
+
+            if manager.cursorIsKeepMode {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(width: 14, height: 14)
+                    .background(accentColor, in: Circle())
+                    .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
+                    .offset(x: 14, y: -14)
+            }
         }
-        .shadow(color: Color(red: 0.14, green: 0.64, blue: 1.0).opacity(0.7), radius: 10)
+        .shadow(color: accentColor.opacity(0.7), radius: 10)
         .position(manager.cursorPosition)
     }
 
     private func draw(_ stroke: PenStroke, in context: inout GraphicsContext, opacity: Double) {
         guard let first = stroke.points.first else { return }
+        let isKept = stroke.mode == .permanent
 
         if stroke.points.count == 1 {
             let radius = stroke.lineWidth / 2
             let rect = CGRect(x: first.x - radius, y: first.y - radius, width: stroke.lineWidth, height: stroke.lineWidth)
+            if isKept {
+                let outlineRadius = radius + 2
+                let outlineRect = CGRect(
+                    x: first.x - outlineRadius,
+                    y: first.y - outlineRadius,
+                    width: outlineRadius * 2,
+                    height: outlineRadius * 2
+                )
+                context.fill(Path(ellipseIn: outlineRect), with: .color(.white.opacity(0.45 * opacity)))
+            }
             context.fill(Path(ellipseIn: rect), with: .color(stroke.color.opacity(opacity)))
             return
         }
@@ -501,6 +606,13 @@ private struct PenOverlayView: View {
         path.move(to: first)
         for point in stroke.points.dropFirst() {
             path.addLine(to: point)
+        }
+        if isKept {
+            context.stroke(
+                path,
+                with: .color(.white.opacity(0.36 * opacity)),
+                style: StrokeStyle(lineWidth: stroke.lineWidth + 4, lineCap: .round, lineJoin: .round)
+            )
         }
         context.stroke(
             path,
