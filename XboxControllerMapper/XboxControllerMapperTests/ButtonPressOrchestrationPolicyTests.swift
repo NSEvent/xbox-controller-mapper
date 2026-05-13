@@ -58,20 +58,6 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
         XCTAssertEqual(outcome, .interceptOnScreenKeyboard(holdMode: true))
     }
 
-    func testResolveInterceptsPenOverlayAction() {
-        let outcome = ButtonPressOrchestrationPolicy.resolve(
-            button: .a,
-            mapping: KeyMapping(keyCode: KeyCodeMapping.showPenOverlay, isHoldModifier: false),
-            keyboardVisible: false,
-            navigationModeActive: false,
-            directoryNavigatorVisible: false,
-            isChordPart: false,
-            lastTap: nil
-        )
-
-        XCTAssertEqual(outcome, .interceptPenOverlay(holdMode: false))
-    }
-
     func testResolveCreatesMappingContextWithHoldPath() {
         let lastTap = CFAbsoluteTimeGetCurrent()
         let mapping = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick)

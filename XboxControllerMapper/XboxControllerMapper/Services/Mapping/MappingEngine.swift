@@ -452,14 +452,6 @@ class MappingEngine: ObservableObject {
             inputLogService?.log(buttons: buttons, type: logType, action: "Laser Pointer")
             return true
         }
-        if keyCode == KeyCodeMapping.showPenOverlay {
-            if UniversalControlMouseRelay.shared.sendUIEvent("penPress", button: buttons.first ?? .a) {
-                return true
-            }
-            DispatchQueue.main.async { PenOverlayManager.shared.toggle() }
-            inputLogService?.log(buttons: buttons, type: logType, action: "Pen")
-            return true
-        }
         if keyCode == KeyCodeMapping.showOnScreenKeyboard {
             if UniversalControlMouseRelay.shared.sendUIEvent("oskPress", button: buttons.first ?? .a) {
                 return true
@@ -583,16 +575,6 @@ class MappingEngine: ObservableObject {
         let isConsumed = state.lock.withLock { state.pressConsumedByAction.contains(button) }
         if isConsumed { return }
 
-        let penVisible = PenOverlayManager.shared.threadSafeIsVisible
-            || UniversalControlMouseRelay.shared.remoteOverlayState().penVisible
-        if penVisible, PenOverlayManager.isControllerControl(button) {
-            state.lock.withLock { state.pressConsumedByAction.insert(button) }
-            if handlePenControlPressed(button) {
-                return
-            }
-            state.lock.withLock { state.pressConsumedByAction.remove(button) }
-        }
-
         switch beginButtonPress(button) {
         case .blocked:
             return
@@ -712,10 +694,6 @@ class MappingEngine: ObservableObject {
 
             case .interceptLaserPointer(let holdMode):
                 handleLaserPointerPressed(button, holdMode: holdMode)
-                return
-
-            case .interceptPenOverlay(let holdMode):
-                handlePenOverlayPressed(button, holdMode: holdMode)
                 return
 
             case .interceptControllerLock:
@@ -964,8 +942,6 @@ class MappingEngine: ObservableObject {
             state.onScreenKeyboardHoldMode = false
             state.laserPointerButton = nil
             state.laserPointerHoldMode = false
-            state.penOverlayButton = nil
-            state.penOverlayHoldMode = false
             state.directoryNavigatorButton = nil
             state.directoryNavigatorHoldMode = false
             state.commandWheelActive = false
@@ -992,7 +968,6 @@ class MappingEngine: ObservableObject {
 
             DispatchQueue.main.async {
                 LaserPointerOverlay.shared.hide()
-                PenOverlayManager.shared.hide()
                 OnScreenKeyboardManager.shared.hide()
                 DirectoryNavigatorManager.shared.hide()
             }
@@ -1172,17 +1147,6 @@ class MappingEngine: ObservableObject {
 
         stopRepeatTimer(for: button)
 
-        let penControlWasConsumed = state.lock.withLock { state.pressConsumedByAction.contains(button) }
-            && PenOverlayManager.isControllerControl(button)
-        if penControlWasConsumed {
-            state.lock.withLock {
-                state.pressConsumedByAction.remove(button)
-                if let timer = state.longHoldTimers.removeValue(forKey: button) { timer.cancel() }
-            }
-            _ = handlePenControlReleased(button)
-            return
-        }
-
         // If the press was consumed by a special action (e.g., double-tap unlock),
         // skip all release handling so the regular single-tap doesn't fire.
         // Don't clear lastTapTime here — double-tap detection needs that timestamp
@@ -1245,7 +1209,6 @@ class MappingEngine: ObservableObject {
 
         handleOnScreenKeyboardReleased(button)
         handleLaserPointerReleased(button)
-        handlePenOverlayReleased(button)
         handleDirectoryNavigatorReleased(button)
         handleCommandWheelReleased(button)
 

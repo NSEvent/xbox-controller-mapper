@@ -14,7 +14,6 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.mouseLeftClick), "Left Click")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.scrollUp), "Scroll Up")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.scrollDown), "Scroll Down")
-        XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.showPenOverlay), "Pen")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.mediaPlayPause), "Play/Pause")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.brightnessDown), "Brightness Down")
     }
@@ -29,7 +28,6 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
 
         XCTAssertFalse(options.isEmpty)
         XCTAssertTrue(options.contains(where: { $0.name == "On-Screen Keyboard" }))
-        XCTAssertTrue(options.contains(where: { $0.name == "Pen" }))
         XCTAssertTrue(options.contains(where: { $0.name == "Scroll Up" }))
         XCTAssertTrue(options.contains(where: { $0.name == "Scroll Down" }))
 

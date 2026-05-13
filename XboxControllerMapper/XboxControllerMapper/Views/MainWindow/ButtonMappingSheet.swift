@@ -386,7 +386,6 @@ struct ButtonMappingSheet: View {
                     // Exception: visual tools default to toggle mode (isHoldModifier = false)
                     if !userHasInteractedWithHold {
                         isHoldModifier = code != KeyCodeMapping.showLaserPointer
-                            && code != KeyCodeMapping.showPenOverlay
                     }
                     // Clear long hold, double tap, and repeat
                     enableLongHold = false

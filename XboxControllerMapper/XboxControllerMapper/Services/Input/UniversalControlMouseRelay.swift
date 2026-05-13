@@ -68,7 +68,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         let keyboardNavigationModeActive: Bool
         let directoryNavigatorVisible: Bool
         let swipePredictionsVisible: Bool
-        let penVisible: Bool
     }
 
     private let queue = DispatchQueue(label: "com.controllerkeys.uc-relay", qos: .userInteractive)
@@ -164,9 +163,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var remoteDirectoryNavigatorButton: ControllerButton?
     private var remoteDirectoryNavigatorHoldMode = false
     private var remoteSwipePredictionsVisible = false
-    private var remotePenVisible = false
-    private var remotePenButton: ControllerButton?
-    private var remotePenHoldMode = false
     private var isRelayTarget = false
     private var pairedRemoteEndpoint: NWEndpoint?
     private var pairedRemoteEndpointKey: String?
@@ -234,16 +230,14 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 keyboardVisible: false,
                 keyboardNavigationModeActive: false,
                 directoryNavigatorVisible: false,
-                swipePredictionsVisible: false,
-                penVisible: false
+                swipePredictionsVisible: false
             )
         }
         return RemoteOverlayState(
             keyboardVisible: remoteKeyboardVisible,
             keyboardNavigationModeActive: remoteKeyboardNavigationModeActive,
             directoryNavigatorVisible: remoteDirectoryNavigatorVisible,
-            swipePredictionsVisible: remoteSwipePredictionsVisible,
-            penVisible: remotePenVisible
+            swipePredictionsVisible: remoteSwipePredictionsVisible
         )
     }
 
@@ -266,9 +260,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             remoteDirectoryNavigatorButton = nil
             remoteDirectoryNavigatorHoldMode = false
             remoteSwipePredictionsVisible = false
-            remotePenVisible = false
-            remotePenButton = nil
-            remotePenHoldMode = false
         }
         lock.unlock()
         if !active {
@@ -919,9 +910,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             remoteDirectoryNavigatorVisible = false
             remoteDirectoryNavigatorButton = nil
             remoteDirectoryNavigatorHoldMode = false
-            remotePenVisible = false
-            remotePenButton = nil
-            remotePenHoldMode = false
             remoteKeyboardButton = button
             remoteKeyboardHoldMode = holdMode
             if holdMode {
@@ -949,9 +937,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             remoteKeyboardButton = nil
             remoteKeyboardHoldMode = false
             remoteSwipePredictionsVisible = false
-            remotePenVisible = false
-            remotePenButton = nil
-            remotePenHoldMode = false
             remoteDirectoryNavigatorButton = button
             remoteDirectoryNavigatorHoldMode = holdMode
             if holdMode {
@@ -973,38 +958,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             remoteDirectoryNavigatorVisible = false
             remoteDirectoryNavigatorButton = nil
             remoteDirectoryNavigatorHoldMode = false
-        case "penPress":
-            remoteKeyboardVisible = false
-            remoteKeyboardNavigationModeActive = false
-            remoteKeyboardButton = nil
-            remoteKeyboardHoldMode = false
-            remoteSwipePredictionsVisible = false
-            remoteDirectoryNavigatorVisible = false
-            remoteDirectoryNavigatorButton = nil
-            remoteDirectoryNavigatorHoldMode = false
-            remotePenButton = button
-            remotePenHoldMode = holdMode
-            if holdMode {
-                remotePenVisible = true
-            } else {
-                remotePenVisible.toggle()
-            }
-            if !remotePenVisible {
-                remotePenButton = nil
-                remotePenHoldMode = false
-            }
-        case "penRelease":
-            if remotePenButton == button, remotePenHoldMode {
-                remotePenVisible = false
-                remotePenButton = nil
-                remotePenHoldMode = false
-            }
-        case "penControlPress":
-            if button == .menu {
-                remotePenVisible = false
-                remotePenButton = nil
-                remotePenHoldMode = false
-            }
         default:
             break
         }
@@ -1982,14 +1935,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                     engine.handleLaserPointerPressed(button, holdMode: holdMode)
                 case "laserRelease":
                     engine.handleLaserPointerReleased(button)
-                case "penPress":
-                    engine.handlePenOverlayPressed(button, holdMode: holdMode)
-                case "penRelease":
-                    engine.handlePenOverlayReleased(button)
-                case "penControlPress":
-                    PenOverlayManager.shared.handleButtonPress(button)
-                case "penControlRelease":
-                    PenOverlayManager.shared.handleButtonRelease(button)
                 case "navPress":
                     engine.handleDirectoryNavigatorPressed(button, holdMode: holdMode)
                 case "navRelease":
@@ -2294,13 +2239,11 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                   let navigationRaw = Int(parts[2]),
                   let directoryRaw = Int(parts[3]),
                   let swipeRaw = Int(parts[4]) else { return }
-            let penRaw = parts.count == 6 ? Int(parts[5]) ?? 0 : 0
             lock.lock()
             remoteKeyboardVisible = keyboardRaw != 0
             remoteKeyboardNavigationModeActive = navigationRaw != 0
             remoteDirectoryNavigatorVisible = directoryRaw != 0
             remoteSwipePredictionsVisible = swipeRaw != 0
-            remotePenVisible = penRaw != 0
             if !remoteKeyboardVisible {
                 remoteKeyboardButton = nil
                 remoteKeyboardHoldMode = false
@@ -2308,10 +2251,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             if !remoteDirectoryNavigatorVisible {
                 remoteDirectoryNavigatorButton = nil
                 remoteDirectoryNavigatorHoldMode = false
-            }
-            if !remotePenVisible {
-                remotePenButton = nil
-                remotePenHoldMode = false
             }
             lock.unlock()
             return
@@ -2378,8 +2317,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         let keyboardNavigationActive = OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
         let directoryVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
         let swipePredictionsVisible = SwipeTypingEngine.shared.threadSafeState == .showingPredictions
-        let penVisible = PenOverlayManager.shared.threadSafeIsVisible
-        guard let sealed = sealOutgoingLine("uiState \(keyboardVisible ? 1 : 0) \(keyboardNavigationActive ? 1 : 0) \(directoryVisible ? 1 : 0) \(swipePredictionsVisible ? 1 : 0) \(penVisible ? 1 : 0)"),
+        guard let sealed = sealOutgoingLine("uiState \(keyboardVisible ? 1 : 0) \(keyboardNavigationActive ? 1 : 0) \(directoryVisible ? 1 : 0) \(swipePredictionsVisible ? 1 : 0)"),
               let data = "\(sealed)\n".data(using: .utf8) else { return }
         connection.send(content: data, completion: .contentProcessed { error in
             if let error {
