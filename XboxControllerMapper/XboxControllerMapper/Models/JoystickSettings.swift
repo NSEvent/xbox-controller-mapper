@@ -9,6 +9,12 @@ enum StickMode: String, Codable, CaseIterable {
     case arrowKeys = "arrowKeys"
     case custom = "custom"
 
+    static let visibleModes: [StickMode] = [.none, .mouse, .scroll, .custom]
+
+    var isVisibleInUI: Bool {
+        Self.visibleModes.contains(self)
+    }
+
     var displayName: String {
         switch self {
         case .none: return "None"

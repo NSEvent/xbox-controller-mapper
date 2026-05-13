@@ -17,7 +17,7 @@ struct JoystickSettingsView: View {
                     get: { settings.leftStickMode },
                     set: { updateSettings(\.leftStickMode, $0) }
                 )) {
-                    ForEach(StickMode.allCases, id: \.self) { mode in
+                    ForEach(StickMode.visibleModes, id: \.self) { mode in
                         Text(LocalizedStringKey(mode.displayName)).tag(mode)
                     }
                 }
@@ -95,9 +95,7 @@ struct JoystickSettingsView: View {
                             set: { updateSettings(\.mouseDeadzone, $0) }
                         ),
                         range: 0...0.5,
-                        description: settings.leftStickMode == .wasdKeys || settings.leftStickMode == .arrowKeys
-                            ? "Activation threshold for keys"
-                            : "Ignore small movements"
+                        description: "Ignore small movements"
                     )
 
                     Toggle("Invert Y Axis", isOn: Binding(
@@ -178,7 +176,7 @@ struct JoystickSettingsView: View {
                     get: { settings.rightStickMode },
                     set: { updateSettings(\.rightStickMode, $0) }
                 )) {
-                    ForEach(StickMode.allCases, id: \.self) { mode in
+                    ForEach(StickMode.visibleModes, id: \.self) { mode in
                         Text(LocalizedStringKey(mode.displayName)).tag(mode)
                     }
                 }
@@ -266,9 +264,7 @@ struct JoystickSettingsView: View {
                             set: { updateSettings(\.scrollDeadzone, $0) }
                         ),
                         range: 0...0.5,
-                        description: settings.rightStickMode == .wasdKeys || settings.rightStickMode == .arrowKeys
-                            ? "Activation threshold for keys"
-                            : "Ignore small movements"
+                        description: "Ignore small movements"
                     )
 
                     Toggle("Invert Y Axis", isOn: Binding(

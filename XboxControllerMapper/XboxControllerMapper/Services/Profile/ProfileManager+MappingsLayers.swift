@@ -46,6 +46,25 @@ extension ProfileManager {
         updateProfile(targetProfile)
     }
 
+    func setStickDirectionPreset(_ preset: StickDirectionPreset, side: JoystickSide, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        preset.apply(to: &targetProfile.buttonMappings, side: side)
+        switch side {
+        case .left:
+            targetProfile.joystickSettings.leftStickMode = .custom
+        case .right:
+            targetProfile.joystickSettings.rightStickMode = .custom
+        }
+        updateProfile(targetProfile)
+    }
+
+    func stickDirectionPreset(side: JoystickSide, in profile: Profile? = nil) -> StickDirectionPreset? {
+        let targetProfile = profile ?? activeProfile
+        guard let mappings = targetProfile?.buttonMappings else { return nil }
+        return StickDirectionPreset.resolved(from: mappings, side: side)
+    }
+
     /// Swaps all mappings between two buttons (base layer only, does not affect chords)
     func swapMappings(button1: ControllerButton, button2: ControllerButton, in profile: Profile? = nil) {
         guard var targetProfile = profile ?? activeProfile else { return }

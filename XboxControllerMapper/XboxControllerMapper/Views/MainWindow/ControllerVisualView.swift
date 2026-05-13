@@ -228,11 +228,7 @@ struct ControllerVisualView: View {
             // Left Column: Shoulder and Left-side inputs
             VStack(alignment: .trailing, spacing: 16) {
                 referenceGroup(title: "Shoulder", buttons: [.leftTrigger, .leftBumper])
-                if leftStickDirectionButtons.isEmpty {
-                    referenceGroup(title: "Left Stick Press", buttons: [.leftThumbstick])
-                } else {
-                    stickDirectionCluster(title: "Left Stick", side: .left, center: .leftThumbstick)
-                }
+                stickModeSection(title: "Left Stick", side: .left, center: .leftThumbstick)
                 dpadDirectionCluster
             }
             .frame(width: 220)
@@ -353,11 +349,7 @@ struct ControllerVisualView: View {
             VStack(alignment: .leading, spacing: 16) {
                 referenceGroup(title: "Shoulder", buttons: [.rightTrigger, .rightBumper])
                 referenceGroup(title: "Actions", buttons: [.y, .b, .a, .x])
-                if rightStickDirectionButtons.isEmpty {
-                    referenceGroup(title: "Right Stick Press", buttons: [.rightThumbstick])
-                } else {
-                    stickDirectionCluster(title: "Right Stick", side: .right, center: .rightThumbstick)
-                }
+                stickModeSection(title: "Right Stick", side: .right, center: .rightThumbstick)
             }
             .frame(width: 220)
             .padding(.leading, 20)
@@ -580,24 +572,46 @@ struct ControllerVisualView: View {
     }
 
     @ViewBuilder
-    private func stickDirectionCluster(title: String, side: JoystickSide, center: ControllerButton) -> some View {
+    private func stickModeSection(title: String, side: JoystickSide, center: ControllerButton) -> some View {
+        let mode = stickMode(side: side)
         let buttons = Set(side == .left ? leftStickDirectionButtons : rightStickDirectionButtons)
-        directionCluster(
-            title: title,
-            up: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .up))
-                ? ControllerButton.joystickDirectionButton(side: side, direction: .up)
-                : nil,
-            left: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .left))
-                ? ControllerButton.joystickDirectionButton(side: side, direction: .left)
-                : nil,
-            center: .button(center),
-            right: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .right))
-                ? ControllerButton.joystickDirectionButton(side: side, direction: .right)
-                : nil,
-            down: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .down))
-                ? ControllerButton.joystickDirectionButton(side: side, direction: .down)
-                : nil
-        )
+
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text(LocalizedStringKey(title))
+                    .textCase(.uppercase)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+
+                Spacer(minLength: 4)
+                stickModeMenu(side: side)
+                if mode.exposesJoystickDirections {
+                    stickPresetMenu(side: side)
+                }
+            }
+            .padding(.horizontal, 4)
+
+            if mode.exposesJoystickDirections {
+                directionClusterGrid(
+                    up: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .up))
+                        ? ControllerButton.joystickDirectionButton(side: side, direction: .up)
+                        : nil,
+                    left: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .left))
+                        ? ControllerButton.joystickDirectionButton(side: side, direction: .left)
+                        : nil,
+                    center: .button(center),
+                    right: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .right))
+                        ? ControllerButton.joystickDirectionButton(side: side, direction: .right)
+                        : nil,
+                    down: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .down))
+                        ? ControllerButton.joystickDirectionButton(side: side, direction: .down)
+                        : nil
+                )
+            } else {
+                referenceRow(for: center)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var dpadDirectionCluster: some View {
@@ -609,6 +623,118 @@ struct ControllerVisualView: View {
             right: .dpadRight,
             down: .dpadDown
         )
+    }
+
+    private func stickMode(side: JoystickSide) -> StickMode {
+        switch side {
+        case .left:
+            return joystickSettings.leftStickMode
+        case .right:
+            return joystickSettings.rightStickMode
+        }
+    }
+
+    private func setStickMode(_ mode: StickMode, side: JoystickSide) {
+        guard mode.isVisibleInUI else { return }
+        var settings = joystickSettings
+        switch side {
+        case .left:
+            settings.leftStickMode = mode
+        case .right:
+            settings.rightStickMode = mode
+        }
+        profileManager.updateJoystickSettings(settings)
+    }
+
+    private func stickModeMenu(side: JoystickSide) -> some View {
+        let selectedMode = stickMode(side: side)
+
+        return Menu {
+            ForEach(StickMode.visibleModes, id: \.self) { mode in
+                Button {
+                    setStickMode(mode, side: side)
+                } label: {
+                    if mode == selectedMode {
+                        Label {
+                            Text(LocalizedStringKey(mode.displayName))
+                        } icon: {
+                            Image(systemName: "checkmark")
+                        }
+                    } else {
+                        Text(LocalizedStringKey(mode.displayName))
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(LocalizedStringKey(selectedMode.displayName))
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 7, weight: .bold))
+                    .opacity(0.7)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .frame(height: 20)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Set joystick mode")
+    }
+
+    private func stickPresetMenu(side: JoystickSide) -> some View {
+        let selectedPreset = profileManager.stickDirectionPreset(side: side)
+
+        return Menu {
+            ForEach(StickDirectionPreset.allCases) { preset in
+                Button {
+                    profileManager.setStickDirectionPreset(preset, side: side)
+                } label: {
+                    if preset == selectedPreset {
+                        Label {
+                            Text(LocalizedStringKey(preset.displayName))
+                        } icon: {
+                            Image(systemName: "checkmark")
+                        }
+                    } else {
+                        Text(LocalizedStringKey(preset.displayName))
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 8, weight: .bold))
+                Text(LocalizedStringKey(selectedPreset?.shortLabel ?? "Keys"))
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .frame(height: 20)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Set custom direction keys")
     }
 
     private func directionCluster(
@@ -626,28 +752,38 @@ struct ControllerVisualView: View {
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)
 
-            Grid(horizontalSpacing: 4, verticalSpacing: 6) {
-                GridRow {
-                    compactClusterSpacer()
-                    compactDirectionCell(up)
-                    compactClusterSpacer()
-                }
-
-                GridRow {
-                    compactDirectionCell(left)
-                    compactCenterCell(center)
-                    compactDirectionCell(right)
-                }
-
-                GridRow {
-                    compactClusterSpacer()
-                    compactDirectionCell(down)
-                    compactClusterSpacer()
-                }
-            }
-            .frame(width: 212)
+            directionClusterGrid(up: up, left: left, center: center, right: right, down: down)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func directionClusterGrid(
+        up: ControllerButton?,
+        left: ControllerButton?,
+        center: DirectionClusterCenter,
+        right: ControllerButton?,
+        down: ControllerButton?
+    ) -> some View {
+        Grid(horizontalSpacing: 4, verticalSpacing: 6) {
+            GridRow {
+                compactClusterSpacer()
+                compactDirectionCell(up)
+                compactClusterSpacer()
+            }
+
+            GridRow {
+                compactDirectionCell(left)
+                compactCenterCell(center)
+                compactDirectionCell(right)
+            }
+
+            GridRow {
+                compactClusterSpacer()
+                compactDirectionCell(down)
+                compactClusterSpacer()
+            }
+        }
+        .frame(width: 212)
     }
 
     @ViewBuilder

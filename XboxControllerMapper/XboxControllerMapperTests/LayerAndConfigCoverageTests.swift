@@ -1,4 +1,5 @@
 import XCTest
+import CoreGraphics
 @testable import ControllerKeys
 
 final class LayerAndConfigCoverageTests: XCTestCase {
@@ -76,6 +77,83 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         mappings[.dpadLeft] = KeyMapping(keyCode: KeyCodeMapping.tab)
 
         XCTAssertEqual(DPadPreset.resolved(from: mappings), .custom)
+    }
+
+    func testStickDirectionPresetAppliesHeldPrimaryActionsWithoutDroppingAlternates() {
+        var mappings: [ControllerButton: KeyMapping] = [
+            .leftStickUp: KeyMapping(
+                keyCode: KeyCodeMapping.keyQ,
+                longHoldMapping: LongHoldMapping(keyCode: KeyCodeMapping.space),
+                repeatMapping: RepeatMapping(enabled: true, interval: 0.1)
+            )
+        ]
+
+        StickDirectionPreset.arrows.apply(to: &mappings, side: .left)
+
+        assertStickMapping(mappings[.leftStickUp], keyCode: KeyCodeMapping.upArrow)
+        assertStickMapping(mappings[.leftStickLeft], keyCode: KeyCodeMapping.leftArrow)
+        assertStickMapping(mappings[.leftStickRight], keyCode: KeyCodeMapping.rightArrow)
+        assertStickMapping(mappings[.leftStickDown], keyCode: KeyCodeMapping.downArrow)
+        XCTAssertNil(mappings[.leftStickUp]?.repeatMapping)
+        XCTAssertEqual(mappings[.leftStickUp]?.longHoldMapping?.keyCode, KeyCodeMapping.space)
+        XCTAssertEqual(StickDirectionPreset.resolved(from: mappings, side: .left), .arrows)
+    }
+
+    func testStickDirectionPresetResolvesCustomWhenUserOverridesOneDirection() {
+        var mappings: [ControllerButton: KeyMapping] = [:]
+        StickDirectionPreset.wasd.apply(to: &mappings, side: .right)
+        mappings[.rightStickLeft]?.keyCode = KeyCodeMapping.tab
+
+        XCTAssertNil(StickDirectionPreset.resolved(from: mappings, side: .right))
+    }
+
+    func testLegacyStickKeyModesDecodeAsCustomVirtualMappings() throws {
+        var legacy = Profile(name: "Legacy Stick Modes")
+        legacy.joystickSettings.leftStickMode = .wasdKeys
+        legacy.joystickSettings.rightStickMode = .arrowKeys
+        legacy.joystickSettings.mouseDeadzone = 0.27
+        legacy.joystickSettings.scrollDeadzone = 0.31
+
+        let data = try JSONEncoder().encode(legacy)
+        let decoded = try JSONDecoder().decode(Profile.self, from: data)
+
+        XCTAssertEqual(decoded.joystickSettings.leftStickMode, .custom)
+        XCTAssertEqual(decoded.joystickSettings.rightStickMode, .custom)
+        XCTAssertEqual(decoded.joystickSettings.leftStickCustomDeadzone, 0.27, accuracy: 0.0001)
+        XCTAssertEqual(decoded.joystickSettings.rightStickCustomDeadzone, 0.31, accuracy: 0.0001)
+
+        assertStickMapping(decoded.buttonMappings[.leftStickUp], keyCode: KeyCodeMapping.keyW)
+        assertStickMapping(decoded.buttonMappings[.leftStickLeft], keyCode: KeyCodeMapping.keyA)
+        assertStickMapping(decoded.buttonMappings[.leftStickRight], keyCode: KeyCodeMapping.keyD)
+        assertStickMapping(decoded.buttonMappings[.leftStickDown], keyCode: KeyCodeMapping.keyS)
+
+        assertStickMapping(decoded.buttonMappings[.rightStickUp], keyCode: KeyCodeMapping.upArrow)
+        assertStickMapping(decoded.buttonMappings[.rightStickLeft], keyCode: KeyCodeMapping.leftArrow)
+        assertStickMapping(decoded.buttonMappings[.rightStickRight], keyCode: KeyCodeMapping.rightArrow)
+        assertStickMapping(decoded.buttonMappings[.rightStickDown], keyCode: KeyCodeMapping.downArrow)
+    }
+
+    func testLegacyStickKeyModeMigrationDoesNotOverwriteExistingVirtualMapping() throws {
+        var legacy = Profile(name: "Legacy Stick Custom")
+        legacy.joystickSettings.leftStickMode = .wasdKeys
+        legacy.buttonMappings[.leftStickUp] = KeyMapping(
+            keyCode: KeyCodeMapping.keyQ,
+            longHoldMapping: LongHoldMapping(keyCode: KeyCodeMapping.space)
+        )
+
+        let data = try JSONEncoder().encode(legacy)
+        let decoded = try JSONDecoder().decode(Profile.self, from: data)
+
+        XCTAssertEqual(decoded.joystickSettings.leftStickMode, .custom)
+        XCTAssertEqual(decoded.buttonMappings[.leftStickUp]?.keyCode, KeyCodeMapping.keyQ)
+        XCTAssertEqual(decoded.buttonMappings[.leftStickUp]?.longHoldMapping?.keyCode, KeyCodeMapping.space)
+        assertStickMapping(decoded.buttonMappings[.leftStickLeft], keyCode: KeyCodeMapping.keyA)
+    }
+
+    func testJoystickSettingsVisibleModesHideLegacyKeyModes() {
+        XCTAssertEqual(StickMode.visibleModes, [.none, .mouse, .scroll, .custom])
+        XCTAssertFalse(StickMode.wasdKeys.isVisibleInUI)
+        XCTAssertFalse(StickMode.arrowKeys.isVisibleInUI)
     }
 
     func testConfigDerivedValues() {
@@ -223,5 +301,17 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertNotNil(ButtonColors.playStation(.x))
         XCTAssertNotNil(ButtonColors.playStation(.y))
         XCTAssertNil(ButtonColors.playStation(.rightTrigger))
+    }
+
+    private func assertStickMapping(
+        _ mapping: KeyMapping?,
+        keyCode: CGKeyCode,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(mapping?.keyCode, keyCode, file: file, line: line)
+        XCTAssertTrue(mapping?.isHoldModifier ?? false, file: file, line: line)
+        XCTAssertTrue(mapping?.holdRepeatEnabled ?? false, file: file, line: line)
+        XCTAssertEqual(mapping?.holdRepeatInterval ?? 0, 0.05, accuracy: 0.0001, file: file, line: line)
     }
 }

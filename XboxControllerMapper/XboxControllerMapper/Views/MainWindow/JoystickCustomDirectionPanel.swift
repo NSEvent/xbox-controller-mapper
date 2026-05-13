@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct JoystickCustomDirectionPanel: View {
+    @EnvironmentObject private var profileManager: ProfileManager
+
     let side: JoystickSide
     @Binding var horizontalSliceSize: Double
     @Binding var verticalSliceSize: Double
@@ -46,6 +48,8 @@ struct JoystickCustomDirectionPanel: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 12) {
+            presetMenu
+
             JoystickTuningSlider(
                 label: "Horizontal Slice Width",
                 systemImage: "arrow.left.and.right.circle",
@@ -71,6 +75,42 @@ struct JoystickCustomDirectionPanel: View {
                 .toggleStyle(.switch)
         }
         .frame(minWidth: 260, maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var presetMenu: some View {
+        let preset = profileManager.stickDirectionPreset(side: side)
+
+        return HStack(spacing: 8) {
+            Image(systemName: "keyboard")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+
+            Text("Direction Keys")
+                .font(.callout)
+
+            Spacer()
+
+            Menu {
+                Button("WASD") {
+                    profileManager.setStickDirectionPreset(.wasd, side: side)
+                }
+                Button("Arrow Keys") {
+                    profileManager.setStickDirectionPreset(.arrows, side: side)
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Text(preset?.shortLabel ?? "Custom")
+                        .font(.caption.weight(.semibold))
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .opacity(0.7)
+                }
+                .frame(minWidth: 68)
+            }
+            .menuStyle(.borderlessButton)
+            .help("Set all four custom stick directions")
+        }
     }
 }
 

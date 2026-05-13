@@ -188,6 +188,91 @@ enum DPadPreset: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Quick preset for the four custom virtual stick direction primary actions.
+/// These are not stick modes; they only seed the mappings used by `.custom`.
+enum StickDirectionPreset: String, Codable, CaseIterable, Identifiable {
+    case wasd
+    case arrows
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .wasd: return "WASD"
+        case .arrows: return "Arrow Keys"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .wasd: return "WASD"
+        case .arrows: return "Arrows"
+        }
+    }
+
+    static let directions: [JoystickDirection] = [.up, .left, .right, .down]
+
+    func primaryKeyCode(for direction: JoystickDirection) -> CGKeyCode? {
+        switch (self, direction) {
+        case (.wasd, .up): return KeyCodeMapping.keyW
+        case (.wasd, .down): return KeyCodeMapping.keyS
+        case (.wasd, .left): return KeyCodeMapping.keyA
+        case (.wasd, .right): return KeyCodeMapping.keyD
+        case (.arrows, .up): return KeyCodeMapping.upArrow
+        case (.arrows, .down): return KeyCodeMapping.downArrow
+        case (.arrows, .left): return KeyCodeMapping.leftArrow
+        case (.arrows, .right): return KeyCodeMapping.rightArrow
+        default: return nil
+        }
+    }
+
+    func apply(to mappings: inout [ControllerButton: KeyMapping], side: JoystickSide) {
+        for direction in Self.directions {
+            guard let keyCode = primaryKeyCode(for: direction) else { continue }
+            let button = ControllerButton.joystickDirectionButton(side: side, direction: direction)
+            var mapping = mappings[button] ?? KeyMapping()
+            mapping.keyCode = keyCode
+            mapping.modifiers = ModifierFlags()
+            mapping.macroId = nil
+            mapping.scriptId = nil
+            mapping.systemCommand = nil
+            mapping.hint = nil
+            mapping.isHoldModifier = true
+            mapping.holdRepeatEnabled = true
+            mapping.holdRepeatInterval = 0.05
+            mapping.repeatMapping = nil
+            mappings[button] = mapping
+        }
+    }
+
+    static func resolved(from mappings: [ControllerButton: KeyMapping], side: JoystickSide) -> StickDirectionPreset? {
+        if matches(.wasd, mappings: mappings, side: side) { return .wasd }
+        if matches(.arrows, mappings: mappings, side: side) { return .arrows }
+        return nil
+    }
+
+    private static func matches(
+        _ preset: StickDirectionPreset,
+        mappings: [ControllerButton: KeyMapping],
+        side: JoystickSide
+    ) -> Bool {
+        directions.allSatisfy { direction in
+            let button = ControllerButton.joystickDirectionButton(side: side, direction: direction)
+            guard let expected = preset.primaryKeyCode(for: direction),
+                  let mapping = mappings[button] else {
+                return false
+            }
+            return mapping.keyCode == expected &&
+                   mapping.modifiers == ModifierFlags() &&
+                   mapping.macroId == nil &&
+                   mapping.scriptId == nil &&
+                   mapping.systemCommand == nil &&
+                   mapping.isHoldModifier &&
+                   mapping.holdRepeatEnabled
+        }
+    }
+}
+
 /// A complete mapping profile
 struct Profile: Codable, Identifiable, Equatable {
     var id: UUID
@@ -563,6 +648,8 @@ extension Profile {
             touchpadInputMode = (hasQuadrantData || hasLegacyV1Data) ? .quadrants : .wholePad
         }
         commandWheelActions = try container.decode(.commandWheelActions, default: [])
+
+        migrateLegacyStickKeyModes()
     }
 
     /// Mutates `stringKeyedMappings` in place, rewriting the four schema-v2
@@ -634,6 +721,60 @@ extension Profile {
 // MARK: - Custom Equatable (excludes timestamps)
 
 extension Profile {
+    private mutating func migrateLegacyStickKeyModes() {
+        migrateLegacyStickKeyMode(side: .left)
+        migrateLegacyStickKeyMode(side: .right)
+    }
+
+    private mutating func migrateLegacyStickKeyMode(side: JoystickSide) {
+        let mode: StickMode
+        switch side {
+        case .left:
+            mode = joystickSettings.leftStickMode
+        case .right:
+            mode = joystickSettings.rightStickMode
+        }
+
+        guard mode == .wasdKeys || mode == .arrowKeys else { return }
+
+        switch side {
+        case .left:
+            joystickSettings.leftStickMode = .custom
+            joystickSettings.leftStickCustomDeadzone = joystickSettings.mouseDeadzone
+        case .right:
+            joystickSettings.rightStickMode = .custom
+            joystickSettings.rightStickCustomDeadzone = joystickSettings.scrollDeadzone
+        }
+
+        let preset: StickDirectionPreset = mode == .wasdKeys ? .wasd : .arrows
+
+        for direction in StickDirectionPreset.directions {
+            let button = ControllerButton.joystickDirectionButton(side: side, direction: direction)
+            guard let keyCode = preset.primaryKeyCode(for: direction) else { continue }
+            guard shouldSeedLegacyStickMapping(for: button) else { continue }
+            buttonMappings[button] = legacyStickKeyMapping(keyCode: keyCode)
+        }
+    }
+
+    private func shouldSeedLegacyStickMapping(for button: ControllerButton) -> Bool {
+        guard let existing = buttonMappings[button] else { return true }
+        return existing.isEmpty &&
+               (existing.longHoldMapping?.isEmpty ?? true) &&
+               (existing.doubleTapMapping?.isEmpty ?? true) &&
+               !(existing.repeatMapping?.enabled ?? false) &&
+               !existing.holdRepeatEnabled &&
+               existing.hapticStyle == nil
+    }
+
+    private func legacyStickKeyMapping(keyCode: CGKeyCode) -> KeyMapping {
+        KeyMapping(
+            keyCode: keyCode,
+            isHoldModifier: true,
+            holdRepeatEnabled: true,
+            holdRepeatInterval: 0.05
+        )
+    }
+
     mutating func updateDPadPresetIfNeeded(afterChanging button: ControllerButton) {
         guard DPadPreset.buttons.contains(button) else { return }
         dpadPreset = DPadPreset.resolved(from: buttonMappings)
