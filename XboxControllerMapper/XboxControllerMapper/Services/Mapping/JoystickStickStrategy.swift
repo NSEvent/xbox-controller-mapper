@@ -43,6 +43,7 @@ extension StickMode {
         case .scroll:    return ScrollStickStrategy.shared
         case .wasdKeys:  return DirectionKeyStickStrategy.wasd
         case .arrowKeys: return DirectionKeyStickStrategy.arrows
+        case .custom:    return CustomDirectionStickStrategy.shared
         }
     }
 }

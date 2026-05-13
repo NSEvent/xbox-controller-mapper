@@ -105,3 +105,28 @@ struct DirectionKeyStickStrategy: JoystickStickStrategy {
         }
     }
 }
+
+// MARK: - Custom Direction Buttons
+
+struct CustomDirectionStickStrategy: JoystickStickStrategy {
+    static let shared = CustomDirectionStickStrategy()
+
+    func process(_ input: JoystickStickInput, on engine: MappingEngine) {
+        let state = engine.state
+        if input.side == .left {
+            engine.processCustomDirectionButtons(
+                stick: input.stick,
+                side: input.side,
+                settings: input.settings,
+                heldButtons: &state.leftStickHeldDirectionButtons
+            )
+        } else {
+            engine.processCustomDirectionButtons(
+                stick: input.stick,
+                side: input.side,
+                settings: input.settings,
+                heldButtons: &state.rightStickHeldDirectionButtons
+            )
+        }
+    }
+}

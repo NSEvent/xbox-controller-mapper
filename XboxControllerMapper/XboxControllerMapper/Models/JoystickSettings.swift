@@ -7,6 +7,7 @@ enum StickMode: String, Codable, CaseIterable {
     case scroll = "scroll"
     case wasdKeys = "wasdKeys"
     case arrowKeys = "arrowKeys"
+    case custom = "custom"
 
     var displayName: String {
         switch self {
@@ -15,6 +16,7 @@ enum StickMode: String, Codable, CaseIterable {
         case .scroll: return "Scroll"
         case .wasdKeys: return "WASD"
         case .arrowKeys: return "Arrows"
+        case .custom: return "Custom"
         }
     }
 }
@@ -93,6 +95,18 @@ struct JoystickSettings: Codable, Equatable {
     /// Mode for right stick (default: scroll)
     var rightStickMode: StickMode = .scroll
 
+    /// Width of the custom left-stick horizontal direction slices.
+    var leftStickCustomHorizontalSliceSize: Double = 13.0 / 15.0
+
+    /// Width of the custom left-stick vertical direction slices.
+    var leftStickCustomVerticalSliceSize: Double = 13.0 / 15.0
+
+    /// Width of the custom right-stick horizontal direction slices.
+    var rightStickCustomHorizontalSliceSize: Double = 13.0 / 15.0
+
+    /// Width of the custom right-stick vertical direction slices.
+    var rightStickCustomVerticalSliceSize: Double = 13.0 / 15.0
+
     /// Whether gyroscope aiming is enabled during focus mode (DualSense only)
     var gyroAimingEnabled: Bool = false
 
@@ -164,6 +178,10 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(scrollAcceleration) &&
                (1.0...4.0).contains(scrollBoostMultiplier) &&
                range.contains(focusModeSensitivity) &&
+               range.contains(leftStickCustomHorizontalSliceSize) &&
+               range.contains(leftStickCustomVerticalSliceSize) &&
+               range.contains(rightStickCustomHorizontalSliceSize) &&
+               range.contains(rightStickCustomVerticalSliceSize) &&
                range.contains(gyroAimingSensitivity) &&
                range.contains(gyroAimingDeadzone) &&
                range.contains(gestureSensitivity) &&
@@ -256,6 +274,18 @@ extension JoystickSettings {
         case focusModeModifier
         case leftStickMode
         case rightStickMode
+        case leftStickCustomHorizontalSliceSize
+        case leftStickCustomVerticalSliceSize
+        case rightStickCustomHorizontalSliceSize
+        case rightStickCustomVerticalSliceSize
+        case leftStickCustomSliceDeadzone // Legacy shared neutral gap.
+        case rightStickCustomSliceDeadzone // Legacy shared neutral gap.
+        case leftStickCustomEightWay // Legacy, ignored after 4-way-only custom mode.
+        case rightStickCustomEightWay // Legacy, ignored after 4-way-only custom mode.
+        case leftStickHorizontalAxisRange // Legacy axis UI, migrated as horizontal slice size.
+        case leftStickVerticalAxisRange // Legacy axis UI, migrated as vertical slice size.
+        case rightStickHorizontalAxisRange // Legacy axis UI, migrated as horizontal slice size.
+        case rightStickVerticalAxisRange // Legacy axis UI, migrated as vertical slice size.
         case gyroAimingEnabled
         case gyroAimingSensitivity
         case gyroAimingDeadzone
@@ -288,6 +318,56 @@ extension JoystickSettings {
         focusModeModifier = try container.decode(.focusModeModifier, default: .command)
         leftStickMode = try container.decode(.leftStickMode, default: .mouse)
         rightStickMode = try container.decode(.rightStickMode, default: .scroll)
+        let leftLegacySharedSize = Self.sliceSize(fromLegacyDeadzone: try container.decode(
+            .leftStickCustomSliceDeadzone,
+            default: 0.2,
+            clampedTo: unit
+        ))
+        let rightLegacySharedSize = Self.sliceSize(fromLegacyDeadzone: try container.decode(
+            .rightStickCustomSliceDeadzone,
+            default: 0.2,
+            clampedTo: unit
+        ))
+        let leftLegacyHorizontalSize = try container.decode(
+            .leftStickHorizontalAxisRange,
+            default: leftLegacySharedSize,
+            clampedTo: unit
+        )
+        let leftLegacyVerticalSize = try container.decode(
+            .leftStickVerticalAxisRange,
+            default: leftLegacySharedSize,
+            clampedTo: unit
+        )
+        let rightLegacyHorizontalSize = try container.decode(
+            .rightStickHorizontalAxisRange,
+            default: rightLegacySharedSize,
+            clampedTo: unit
+        )
+        let rightLegacyVerticalSize = try container.decode(
+            .rightStickVerticalAxisRange,
+            default: rightLegacySharedSize,
+            clampedTo: unit
+        )
+        leftStickCustomHorizontalSliceSize = try container.decode(
+            .leftStickCustomHorizontalSliceSize,
+            default: leftLegacyHorizontalSize,
+            clampedTo: unit
+        )
+        leftStickCustomVerticalSliceSize = try container.decode(
+            .leftStickCustomVerticalSliceSize,
+            default: leftLegacyVerticalSize,
+            clampedTo: unit
+        )
+        rightStickCustomHorizontalSliceSize = try container.decode(
+            .rightStickCustomHorizontalSliceSize,
+            default: rightLegacyHorizontalSize,
+            clampedTo: unit
+        )
+        rightStickCustomVerticalSliceSize = try container.decode(
+            .rightStickCustomVerticalSliceSize,
+            default: rightLegacyVerticalSize,
+            clampedTo: unit
+        )
         gyroAimingEnabled = try container.decode(.gyroAimingEnabled, default: false)
         gyroAimingSensitivity = try container.decode(.gyroAimingSensitivity, default: 0.3, clampedTo: unit)
         gyroAimingDeadzone = try container.decode(.gyroAimingDeadzone, default: 0.3, clampedTo: unit)
@@ -319,10 +399,19 @@ extension JoystickSettings {
         try container.encode(focusModeModifier, forKey: .focusModeModifier)
         try container.encode(leftStickMode, forKey: .leftStickMode)
         try container.encode(rightStickMode, forKey: .rightStickMode)
+        try container.encode(leftStickCustomHorizontalSliceSize, forKey: .leftStickCustomHorizontalSliceSize)
+        try container.encode(leftStickCustomVerticalSliceSize, forKey: .leftStickCustomVerticalSliceSize)
+        try container.encode(rightStickCustomHorizontalSliceSize, forKey: .rightStickCustomHorizontalSliceSize)
+        try container.encode(rightStickCustomVerticalSliceSize, forKey: .rightStickCustomVerticalSliceSize)
         try container.encode(gyroAimingEnabled, forKey: .gyroAimingEnabled)
         try container.encode(gyroAimingSensitivity, forKey: .gyroAimingSensitivity)
         try container.encode(gyroAimingDeadzone, forKey: .gyroAimingDeadzone)
         try container.encode(gestureSensitivity, forKey: .gestureSensitivity)
         try container.encode(gestureCooldown, forKey: .gestureCooldown)
+    }
+
+    private static func sliceSize(fromLegacyDeadzone deadzone: Double) -> Double {
+        let clampedDeadzone = min(1.0, max(0.0, deadzone))
+        return 1.0 - clampedDeadzone * (2.0 / 3.0)
     }
 }

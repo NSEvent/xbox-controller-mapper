@@ -232,7 +232,11 @@ class MappingEngine: ObservableObject {
         profileManager.$activeProfile
             .sink { [weak self] profile in
                 guard let self = self else { return }
-                self.state.lock.withLock {
+                let directionButtonsToRelease = self.state.lock.withLock { () -> Set<ControllerButton> in
+                    let heldDirections = self.state.leftStickHeldDirectionButtons
+                        .union(self.state.rightStickHeldDirectionButtons)
+                    self.state.leftStickHeldDirectionButtons.removeAll()
+                    self.state.rightStickHeldDirectionButtons.removeAll()
                     self.state.activeProfile = profile
                     self.state.joystickSettings = profile?.joystickSettings
                     let osk = profile?.onScreenKeyboardSettings
@@ -248,6 +252,10 @@ class MappingEngine: ObservableObject {
                     self.state.chordParticipantButtons = Set(chords.flatMap { $0.buttons })
                     self.state.sequenceParticipantButtons = Set((profile?.sequenceMappings ?? []).flatMap { $0.steps })
                     self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
+                    return heldDirections
+                }
+                for button in directionButtonsToRelease {
+                    self.controllerService.handleButton(button, pressed: false)
                 }
                 self.syncGestureSettings(from: profile?.joystickSettings)
                 self.syncTouchpadSettings(from: profile)
@@ -371,7 +379,7 @@ class MappingEngine: ObservableObject {
         $isEnabled
             .sink { [weak self] enabled in
                 guard let self = self else { return }
-                let keysToRelease: (left: Set<CGKeyCode>, right: Set<CGKeyCode>)? = self.state.lock.withLock {
+                let cleanup: (leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)? = self.state.lock.withLock {
                     self.state.isEnabled = enabled
                     if enabled {
                         // Rebuild precomputed lookup caches that were cleared by reset()
@@ -386,16 +394,21 @@ class MappingEngine: ObservableObject {
                     }
                     let leftKeys = self.state.leftStickHeldKeys
                     let rightKeys = self.state.rightStickHeldKeys
+                    let directionButtons = self.state.leftStickHeldDirectionButtons
+                        .union(self.state.rightStickHeldDirectionButtons)
                     self.state.reset()
-                    return (leftKeys, rightKeys)
+                    return (leftKeys, rightKeys, directionButtons)
                 }
-                if let keysToRelease {
+                if let cleanup {
                     self.inputSimulator.releaseAllModifiers()
-                    for key in keysToRelease.left {
+                    for key in cleanup.leftKeys {
                         self.inputSimulator.keyUp(key)
                     }
-                    for key in keysToRelease.right {
+                    for key in cleanup.rightKeys {
                         self.inputSimulator.keyUp(key)
+                    }
+                    for button in cleanup.directionButtons {
+                        self.controllerService.handleButton(button, pressed: false)
                     }
                 }
             }
@@ -854,7 +867,7 @@ class MappingEngine: ObservableObject {
 
     /// Toggles the controller lock state
     nonisolated func performLockToggle() -> Bool {
-        let keysToRelease: (left: Set<CGKeyCode>, right: Set<CGKeyCode>)?
+        let cleanup: (leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)?
         let nowLocked: Bool
 
         state.lock.lock()
@@ -865,6 +878,7 @@ class MappingEngine: ObservableObject {
         if nowLocked {
             let leftKeys = state.leftStickHeldKeys
             let rightKeys = state.rightStickHeldKeys
+            let directionButtons = state.leftStickHeldDirectionButtons.union(state.rightStickHeldDirectionButtons)
 
             state.heldButtons.removeAll()
             state.activeChordButtons.removeAll()
@@ -890,6 +904,8 @@ class MappingEngine: ObservableObject {
             state.smoothedRightStick = .zero
             state.leftStickHeldKeys.removeAll()
             state.rightStickHeldKeys.removeAll()
+            state.leftStickHeldDirectionButtons.removeAll()
+            state.rightStickHeldDirectionButtons.removeAll()
 
             state.smoothedTouchpadDelta = .zero
             state.lastTouchpadSampleTime = 0
@@ -906,20 +922,23 @@ class MappingEngine: ObservableObject {
             state.directoryNavigatorHoldMode = false
             state.commandWheelActive = false
 
-            keysToRelease = (leftKeys, rightKeys)
+            cleanup = (leftKeys, rightKeys, directionButtons)
         } else {
-            keysToRelease = nil
+            cleanup = nil
         }
         state.lock.unlock()
 
         if nowLocked {
             inputSimulator.releaseAllModifiers()
-            if let keysToRelease {
-                for key in keysToRelease.left {
+            if let cleanup {
+                for key in cleanup.leftKeys {
                     inputSimulator.keyUp(key)
                 }
-                for key in keysToRelease.right {
+                for key in cleanup.rightKeys {
                     inputSimulator.keyUp(key)
+                }
+                for button in cleanup.directionButtons {
+                    controllerService.handleButton(button, pressed: false)
                 }
             }
 
@@ -1514,8 +1533,8 @@ class MappingEngine: ObservableObject {
     }
 
     func disable() {
-        isEnabled = false
         releaseAllDirectionKeys()
+        isEnabled = false
     }
 
     func toggle() {
@@ -1543,12 +1562,13 @@ class MappingEngine: ObservableObject {
     }
 
     nonisolated func resetRemoteControllerInputState() {
-        let cleanup = state.lock.withLock { () -> (heldMappings: [KeyMapping], leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>) in
+        let cleanup = state.lock.withLock { () -> (heldMappings: [KeyMapping], leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>) in
             let heldMappings = Array(state.heldButtons.values)
             let leftKeys = state.leftStickHeldKeys
             let rightKeys = state.rightStickHeldKeys
+            let directionButtons = state.leftStickHeldDirectionButtons.union(state.rightStickHeldDirectionButtons)
             state.resetTransientInputState()
-            return (heldMappings, leftKeys, rightKeys)
+            return (heldMappings, leftKeys, rightKeys, directionButtons)
         }
 
         for mapping in cleanup.heldMappings {
@@ -1559,6 +1579,9 @@ class MappingEngine: ObservableObject {
         }
         for key in cleanup.rightKeys {
             inputSimulator.keyUp(key)
+        }
+        for button in cleanup.directionButtons {
+            controllerService.handleButton(button, pressed: false)
         }
         inputSimulator.releaseAllModifiers()
     }

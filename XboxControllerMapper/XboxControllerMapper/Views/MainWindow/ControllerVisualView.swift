@@ -140,11 +140,32 @@ struct ControllerVisualView: View {
         controllerService.threadSafeIsNintendo
     }
 
+    private var joystickSettings: JoystickSettings {
+        profileManager.activeProfile?.joystickSettings ?? .default
+    }
+
+    private var leftStickCustomDirectionButtons: [ControllerButton] {
+        ControllerButton.joystickDirectionButtons(side: .left)
+    }
+
+    private var rightStickCustomDirectionButtons: [ControllerButton] {
+        ControllerButton.joystickDirectionButtons(side: .right)
+    }
+
     /// Returns the currently selected layer, if any
     private var selectedLayer: Layer? {
         guard let layerId = selectedLayerId,
               let profile = profileManager.activeProfile else { return nil }
         return profile.layers.first(where: { $0.id == layerId })
+    }
+
+    private var connectorEmphasisButtons: Set<ControllerButton> {
+        Set(ControllerButton.allCases.filter { button in
+            if layerForButton(button) != nil && !isEditingDifferentLayer(button) {
+                return true
+            }
+            return mapping(for: button) != nil
+        })
     }
 
     /// Checks if a button is a layer activator
@@ -195,6 +216,13 @@ struct ControllerVisualView: View {
             VStack(alignment: .trailing, spacing: 16) {
                 referenceGroup(title: "Shoulder", buttons: [.leftTrigger, .leftBumper])
                 referenceGroup(title: "Movement", buttons: [.leftThumbstick])
+                if joystickSettings.leftStickMode == .custom {
+                    joystickDirectionReferenceGroup(
+                        title: "Left Stick Directions",
+                        side: .left,
+                        buttons: leftStickCustomDirectionButtons
+                    )
+                }
                 referenceGroup(title: "D-Pad", buttons: [.dpadLeft, .dpadRight, .dpadUp, .dpadDown])
             }
             .frame(width: 220)
@@ -316,6 +344,13 @@ struct ControllerVisualView: View {
                 referenceGroup(title: "Shoulder", buttons: [.rightTrigger, .rightBumper])
                 referenceGroup(title: "Actions", buttons: [.y, .b, .a, .x])
                 referenceGroup(title: "Camera", buttons: [.rightThumbstick])
+                if joystickSettings.rightStickMode == .custom {
+                    joystickDirectionReferenceGroup(
+                        title: "Right Stick Directions",
+                        side: .right,
+                        buttons: rightStickCustomDirectionButtons
+                    )
+                }
             }
             .frame(width: 220)
             .padding(.leading, 20)
@@ -326,7 +361,8 @@ struct ControllerVisualView: View {
                 ConnectorLayer(
                     endpoints: endpoints,
                     proxy: proxy,
-                    hoveredButton: hoveredButton
+                    hoveredButton: hoveredButton,
+                    emphasizedButtons: connectorEmphasisButtons
                 )
             }
         }
@@ -535,8 +571,263 @@ struct ControllerVisualView: View {
         }
     }
 
+    private func joystickDirectionReferenceGroup(
+        title: String,
+        side: JoystickSide,
+        buttons: [ControllerButton]
+    ) -> some View {
+        let visibleButtons = Set(buttons)
+        let alignment: HorizontalAlignment = side == .left ? .trailing : .leading
+
+        return VStack(alignment: alignment, spacing: 8) {
+            Text(LocalizedStringKey(title))
+                .textCase(.uppercase)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
+
+            Grid(horizontalSpacing: 6, verticalSpacing: 6) {
+                GridRow {
+                    joystickDirectionCell(.upLeft, side: side, visibleButtons: visibleButtons)
+                    joystickDirectionCell(.up, side: side, visibleButtons: visibleButtons)
+                    joystickDirectionCell(.upRight, side: side, visibleButtons: visibleButtons)
+                }
+
+                GridRow {
+                    joystickDirectionCell(.left, side: side, visibleButtons: visibleButtons)
+                    joystickDirectionHub(side: side)
+                    joystickDirectionCell(.right, side: side, visibleButtons: visibleButtons)
+                }
+
+                GridRow {
+                    joystickDirectionCell(.downLeft, side: side, visibleButtons: visibleButtons)
+                    joystickDirectionCell(.down, side: side, visibleButtons: visibleButtons)
+                    joystickDirectionCell(.downRight, side: side, visibleButtons: visibleButtons)
+                }
+            }
+            .frame(width: 216)
+        }
+    }
+
+    @ViewBuilder
+    private func joystickDirectionCell(
+        _ direction: JoystickDirection,
+        side: JoystickSide,
+        visibleButtons: Set<ControllerButton>
+    ) -> some View {
+        let button = ControllerButton.joystickDirectionButton(side: side, direction: direction)
+
+        if visibleButtons.contains(button) {
+            joystickDirectionTile(for: button)
+        } else {
+            Color.clear
+                .frame(width: 68, height: 52)
+        }
+    }
+
+    private func joystickDirectionHub(side: JoystickSide) -> some View {
+        let button: ControllerButton = side == .left ? .leftThumbstick : .rightThumbstick
+        let active = isPressed(button)
+
+        return Circle()
+            .fill(active ? Color.accentColor.opacity(0.75) : Color.primary.opacity(0.10))
+            .overlay(
+                Circle()
+                    .stroke(Color.primary.opacity(active ? 0.05 : 0.18), lineWidth: 1)
+            )
+            .overlay(
+                Image(systemName: "circle.grid.cross")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(active ? .white : .secondary)
+            )
+            .frame(width: 42, height: 42)
+            .frame(width: 68, height: 52)
+    }
+
+    private func joystickDirectionTile(for button: ControllerButton) -> some View {
+        let layerActivator = layerForButton(button)
+        let showsLayerActivator = layerActivator != nil && !isEditingDifferentLayer(button)
+        let currentMapping = mapping(for: button)
+        let isUnmapped = !showsLayerActivator && currentMapping == nil
+        let tileActive = selectedButton == button || isPressed(button)
+
+        return HoverableGlassContainer(
+            isActive: tileActive,
+            isMuted: isUnmapped || isBaseFallthrough(for: button)
+        ) {
+            VStack(spacing: 4) {
+                HStack(spacing: 4) {
+                    Text(button.joystickDirection?.arrowLabel ?? "")
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .foregroundStyle(tileActive ? .white : .primary)
+
+                    if let layer = layerActivator, showsLayerActivator {
+                        Text("L")
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(layerColor(layer))
+                            .cornerRadius(3)
+                    }
+                }
+
+                Text(joystickDirectionTileLabel(
+                    mapping: currentMapping,
+                    layer: layerActivator,
+                    showsLayer: showsLayerActivator
+                ))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(tileActive ? .white.opacity(0.92) : .secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .frame(width: 68, height: 52)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.orange, lineWidth: 3)
+                .opacity(swapFirstButton == button ? 1 : 0)
+        )
+        .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)
+        .contentShape(Rectangle())
+        .controllerAnchor(button, role: .label)
+        .onTapGesture { onButtonTap(button) }
+        .contextMenu {
+            Button {
+                onButtonTap(button)
+            } label: {
+                Label("Edit Mapping", systemImage: "pencil")
+            }
+
+            if mapping(for: button) != nil {
+                Button {
+                    if let layer = selectedLayer {
+                        profileManager.removeLayerMapping(for: button, from: layer)
+                    } else {
+                        profileManager.removeMapping(for: button)
+                    }
+                } label: {
+                    Label("Clear Mapping", systemImage: "xmark.circle")
+                }
+            }
+        }
+        .onHover { hovering in
+            handleButtonHover(button, hovering)
+        }
+        .swappable(button, onSwap: performSwap)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))
+        .accessibilityHint("Double-tap to configure")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func joystickDirectionTileLabel(
+        mapping: KeyMapping?,
+        layer: Layer?,
+        showsLayer: Bool
+    ) -> String {
+        if let layer, showsLayer {
+            return layer.name
+        }
+
+        guard let mapping else {
+            return "Map"
+        }
+
+        if let hint = mapping.hint, !hint.isEmpty {
+            return hint
+        }
+
+        if let systemCommand = mapping.systemCommand {
+            return systemCommand.displayName
+        }
+
+        if let macroId = mapping.macroId,
+           let profile = profileManager.activeProfile,
+           let macro = profile.macros.first(where: { $0.id == macroId }) {
+            return macro.name
+        }
+
+        if !mapping.isEmpty {
+            return mapping.displayString
+        }
+
+        if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
+            return "Hold \(mappingLabelText(for: longHold))"
+        }
+
+        if let doubleTap = mapping.doubleTapMapping, !doubleTap.isEmpty {
+            return "2x \(mappingLabelText(for: doubleTap))"
+        }
+
+        return "Map"
+    }
+
+    private func mappingLabelText(for mapping: KeyMapping) -> String {
+        if let hint = mapping.hint, !hint.isEmpty {
+            return hint
+        }
+
+        if let systemCommand = mapping.systemCommand {
+            return systemCommand.displayName
+        }
+
+        if let macroId = mapping.macroId,
+           let profile = profileManager.activeProfile,
+           let macro = profile.macros.first(where: { $0.id == macroId }) {
+            return macro.name
+        }
+
+        return mapping.displayString
+    }
+
+    private func mappingLabelText(for mapping: LongHoldMapping) -> String {
+        if let hint = mapping.hint, !hint.isEmpty {
+            return hint
+        }
+
+        if let systemCommand = mapping.systemCommand {
+            return systemCommand.displayName
+        }
+
+        if let macroId = mapping.macroId,
+           let profile = profileManager.activeProfile,
+           let macro = profile.macros.first(where: { $0.id == macroId }) {
+            return macro.name
+        }
+
+        return mapping.displayString
+    }
+
+    private func mappingLabelText(for mapping: DoubleTapMapping) -> String {
+        if let hint = mapping.hint, !hint.isEmpty {
+            return hint
+        }
+
+        if let systemCommand = mapping.systemCommand {
+            return systemCommand.displayName
+        }
+
+        if let macroId = mapping.macroId,
+           let profile = profileManager.activeProfile,
+           let macro = profile.macros.first(where: { $0.id == macroId }) {
+            return macro.name
+        }
+
+        return mapping.displayString
+    }
+
     @ViewBuilder
     private func referenceRow(for button: ControllerButton) -> some View {
+        let layerActivator = layerForButton(button)
+        let showsLayerActivator = layerActivator != nil && !isEditingDifferentLayer(button)
+        let currentMapping = mapping(for: button)
+        let isUnmapped = !showsLayerActivator && currentMapping == nil
+
         HStack(spacing: 12) {
             // Button Indicator (adapts to Xbox or PlayStation styling)
             // Fixed width container ensures mapping labels align across different button sizes
@@ -545,7 +836,7 @@ struct ControllerVisualView: View {
 
                 // Layer activator badge — hidden when viewing a different layer,
                 // since other layers' activators are inert in that context.
-                if let layer = layerForButton(button), !isEditingDifferentLayer(button) {
+                if let layer = layerActivator, showsLayerActivator {
                     Text("L")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundColor(.white)
@@ -558,9 +849,12 @@ struct ControllerVisualView: View {
             .frame(width: 50)  // Fixed width for consistent label alignment
 
             // Shortcut Labels Container
-            HoverableGlassContainer(isActive: selectedButton == button) {
+            HoverableGlassContainer(
+                isActive: selectedButton == button,
+                isMuted: isUnmapped || isBaseFallthrough(for: button)
+            ) {
                 HStack {
-                    if let layer = layerForButton(button), !isEditingDifferentLayer(button) {
+                    if let layer = layerActivator, showsLayerActivator {
                         // This button is a layer activator (only show when on base or its own layer)
                         HStack(spacing: 6) {
                             Text("L")
@@ -584,16 +878,19 @@ struct ControllerVisualView: View {
                             RoundedRectangle(cornerRadius: 4)
                                 .stroke(Color.primary.opacity(0.15), lineWidth: 1)
                         )
-                    } else if let mapping = mapping(for: button) {
+                    } else if let mapping = currentMapping {
                         MappingLabelView(
                             mapping: mapping,
                             font: .system(size: 15, weight: .semibold, design: .rounded)
                         )
                     } else {
-                        Text("Unmapped")
-                            .font(.system(size: 12))
-                            .foregroundColor(.white.opacity(0.5))
-                            .italic()
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus.circle")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Add mapping")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(.white.opacity(0.34))
                     }
                     Spacer()
                 }
@@ -1019,7 +1316,7 @@ struct ControllerAnalogOverlay: View {
     /// Subtle dashed cross dividing the touchpad into four quadrants. Visual
     /// only — no hit testing.
     private func quadrantDividers(width: CGFloat, height: CGFloat) -> some View {
-        ZStack {
+        return ZStack {
             // Vertical divider at horizontal center
             Path { path in
                 path.move(to: CGPoint(x: width / 2, y: 4))
@@ -1184,7 +1481,12 @@ struct ControllerAnalogOverlay: View {
     }
 
     private func miniStick(_ button: ControllerButton, pos: CGPoint) -> some View {
-        ZStack {
+        let directionButtons = button == .leftThumbstick
+            ? ControllerButton.joystickDirectionButtons(side: .left)
+            : ControllerButton.joystickDirectionButtons(side: .right)
+        let isStickActive = isPressed(button) || directionButtons.contains(where: isPressed)
+
+        return ZStack {
             // Base well
             Circle()
                 .fill(
@@ -1195,16 +1497,16 @@ struct ControllerAnalogOverlay: View {
                 .overlay(Circle().stroke(Color.black.opacity(0.5), lineWidth: 1))
 
             // Stick Cap
-            let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
+            let color = isStickActive ? Color.accentColor : Color(white: 0.3)
             Circle()
-                .fill(jewelGradient(color, pressed: isPressed(button)))
+                .fill(jewelGradient(color, pressed: isStickActive))
                 .overlay(glassOverlay.clipShape(Circle()))
                 .frame(width: 20, height: 20)
                 .offset(x: pos.x * 5, y: -pos.y * 5)
                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
         }
         .onTapGesture { onButtonTap(button) }
-        .controllerAnchor(button, role: .controller)
+        .controllerAnchor([button] + directionButtons, role: .controller)
         .onHover { hovering in onButtonHover?(button, hovering) }
         .swappable(button, onSwap: onSwapRequest)
     }
@@ -1420,6 +1722,7 @@ struct ConnectorLayer: View {
     let endpoints: [ConnectorEndpoint]
     let proxy: GeometryProxy
     let hoveredButton: ControllerButton?
+    let emphasizedButtons: Set<ControllerButton>
 
     private struct Pair {
         let button: ControllerButton
@@ -1445,17 +1748,15 @@ struct ConnectorLayer: View {
 
     var body: some View {
         ZStack {
-            // Only the hovered button's connector is drawn. Resting state shows nothing
-            // — the line acts as an explicit on-demand spatial cue rather than ambient
-            // visual noise.
-            if let hovered = hoveredButton,
-               let pair = pairs.first(where: { $0.button == hovered }) {
+            ForEach(pairs, id: \.button) { pair in
+                let isHovered = pair.button == hoveredButton
+                let isEmphasized = emphasizedButtons.contains(pair.button)
                 let rawControllerRect = proxy[pair.controllerAnchor]
                 let labelRect = proxy[pair.labelAnchor]
                 // For touchpad quadrant buttons, slice the whole-pad anchor
                 // rect down to the corresponding quarter so the connector
                 // terminates at the quadrant edge, not the pad center.
-                let controllerRect = Self.quadrantRect(of: rawControllerRect, for: hovered)
+                let controllerRect = Self.quadrantRect(of: rawControllerRect, for: pair.button)
                 let labelCenter = CGPoint(x: labelRect.midX, y: labelRect.midY)
                 let controllerCenter = CGPoint(x: controllerRect.midX, y: controllerRect.midY)
                 let start = rectEdgePoint(of: controllerRect, towards: labelCenter)
@@ -1463,10 +1764,10 @@ struct ConnectorLayer: View {
 
                 ConnectorPath(start: start, end: end)
                     .stroke(
-                        Color.accentColor,
-                        style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+                        isHovered ? Color.accentColor : Color.white.opacity(0.22),
+                        style: StrokeStyle(lineWidth: isHovered ? 1.6 : 0.8, lineCap: .round)
                     )
-                    .opacity(0.9)
+                    .opacity(isHovered ? 0.9 : (isEmphasized ? 0.18 : 0))
             }
         }
         .animation(.easeOut(duration: 0.15), value: hoveredButton)
@@ -1527,19 +1828,21 @@ struct ConnectorPath: Shape {
 /// A container that applies GlassCardBackground with hover tracking
 struct HoverableGlassContainer<Content: View>: View {
     let isActive: Bool
+    let isMuted: Bool
     let content: Content
 
     @State private var isHovered = false
 
-    init(isActive: Bool, @ViewBuilder content: () -> Content) {
+    init(isActive: Bool, isMuted: Bool = false, @ViewBuilder content: () -> Content) {
         self.isActive = isActive
+        self.isMuted = isMuted
         self.content = content()
     }
 
     var body: some View {
         content
             .contentShape(Rectangle())
-            .background(GlassCardBackground(isActive: isActive, isHovered: isHovered))
+            .background(GlassCardBackground(isActive: isActive, isHovered: isHovered, isMuted: isMuted))
             .onHover { hovering in
                 isHovered = hovering
                 if hovering {

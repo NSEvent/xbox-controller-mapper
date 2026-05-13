@@ -68,6 +68,8 @@ extension MappingEngine {
         var smoothedRightStick: CGPoint = .zero
         var leftStickHeldKeys: Set<CGKeyCode> = []
         var rightStickHeldKeys: Set<CGKeyCode> = []
+        var leftStickHeldDirectionButtons: Set<ControllerButton> = []
+        var rightStickHeldDirectionButtons: Set<ControllerButton> = []
         var lastJoystickSampleTime: TimeInterval = 0
         var smoothedTouchpadDelta: CGPoint = .zero
         var lastTouchpadSampleTime: TimeInterval = 0
@@ -183,6 +185,8 @@ extension MappingEngine {
             smoothedRightStick = .zero
             leftStickHeldKeys.removeAll()
             rightStickHeldKeys.removeAll()
+            leftStickHeldDirectionButtons.removeAll()
+            rightStickHeldDirectionButtons.removeAll()
             lastJoystickSampleTime = 0
             smoothedTouchpadDelta = .zero
             lastTouchpadSampleTime = 0

@@ -32,6 +32,24 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case leftThumbstick
     case rightThumbstick
 
+    // Joystick custom direction bindings (virtual buttons)
+    case leftStickUp
+    case leftStickDown
+    case leftStickLeft
+    case leftStickRight
+    case leftStickUpLeft
+    case leftStickUpRight
+    case leftStickDownLeft
+    case leftStickDownRight
+    case rightStickUp
+    case rightStickDown
+    case rightStickLeft
+    case rightStickRight
+    case rightStickUpLeft
+    case rightStickUpRight
+    case rightStickDownLeft
+    case rightStickDownRight
+
     // DualSense-specific
     case touchpadButton           // Touchpad click (DualSense only)
     case touchpadTwoFingerButton  // Two-finger touchpad click (DualSense only)
@@ -95,6 +113,22 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .xbox: return "Xbox"
         case .leftThumbstick: return "Left Stick"
         case .rightThumbstick: return "Right Stick"
+        case .leftStickUp: return "Left Stick Up"
+        case .leftStickDown: return "Left Stick Down"
+        case .leftStickLeft: return "Left Stick Left"
+        case .leftStickRight: return "Left Stick Right"
+        case .leftStickUpLeft: return "Left Stick Up-Left"
+        case .leftStickUpRight: return "Left Stick Up-Right"
+        case .leftStickDownLeft: return "Left Stick Down-Left"
+        case .leftStickDownRight: return "Left Stick Down-Right"
+        case .rightStickUp: return "Right Stick Up"
+        case .rightStickDown: return "Right Stick Down"
+        case .rightStickLeft: return "Right Stick Left"
+        case .rightStickRight: return "Right Stick Right"
+        case .rightStickUpLeft: return "Right Stick Up-Left"
+        case .rightStickUpRight: return "Right Stick Up-Right"
+        case .rightStickDownLeft: return "Right Stick Down-Left"
+        case .rightStickDownRight: return "Right Stick Down-Right"
         case .touchpadButton: return "Touchpad Press"
         case .touchpadTwoFingerButton: return "Touchpad 2-Finger Press"
         case .touchpadTap: return "Touchpad Tap"
@@ -192,6 +226,22 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .xbox: return "⊗"
         case .leftThumbstick: return "L3"
         case .rightThumbstick: return "R3"
+        case .leftStickUp: return "L↑"
+        case .leftStickDown: return "L↓"
+        case .leftStickLeft: return "L←"
+        case .leftStickRight: return "L→"
+        case .leftStickUpLeft: return "L↖"
+        case .leftStickUpRight: return "L↗"
+        case .leftStickDownLeft: return "L↙"
+        case .leftStickDownRight: return "L↘"
+        case .rightStickUp: return "R↑"
+        case .rightStickDown: return "R↓"
+        case .rightStickLeft: return "R←"
+        case .rightStickRight: return "R→"
+        case .rightStickUpLeft: return "R↖"
+        case .rightStickUpRight: return "R↗"
+        case .rightStickDownLeft: return "R↙"
+        case .rightStickDownRight: return "R↘"
         case .touchpadButton: return "TP"
         case .touchpadTwoFingerButton: return "2P"
         case .touchpadTap: return "1T"
@@ -278,6 +328,14 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .dpadDown: return "arrowtriangle.down.fill"
             case .dpadLeft: return "arrowtriangle.left.fill"
             case .dpadRight: return "arrowtriangle.right.fill"
+            case .leftStickUp, .rightStickUp: return "arrow.up.circle"
+            case .leftStickDown, .rightStickDown: return "arrow.down.circle"
+            case .leftStickLeft, .rightStickLeft: return "arrow.left.circle"
+            case .leftStickRight, .rightStickRight: return "arrow.right.circle"
+            case .leftStickUpLeft, .rightStickUpLeft: return "arrow.up.left.circle"
+            case .leftStickUpRight, .rightStickUpRight: return "arrow.up.right.circle"
+            case .leftStickDownLeft, .rightStickDownLeft: return "arrow.down.left.circle"
+            case .leftStickDownRight, .rightStickDownRight: return "arrow.down.right.circle"
             case .menu: return "line.3.horizontal"
             case .view: return "square.and.arrow.up"  // Create/Share button (upload icon)
             case .share: return "square.and.arrow.up"
@@ -310,6 +368,14 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .dpadDown: return "arrowtriangle.down.fill"
             case .dpadLeft: return "arrowtriangle.left.fill"
             case .dpadRight: return "arrowtriangle.right.fill"
+            case .leftStickUp, .rightStickUp: return "arrow.up.circle"
+            case .leftStickDown, .rightStickDown: return "arrow.down.circle"
+            case .leftStickLeft, .rightStickLeft: return "arrow.left.circle"
+            case .leftStickRight, .rightStickRight: return "arrow.right.circle"
+            case .leftStickUpLeft, .rightStickUpLeft: return "arrow.up.left.circle"
+            case .leftStickUpRight, .rightStickUpRight: return "arrow.up.right.circle"
+            case .leftStickDownLeft, .rightStickDownLeft: return "arrow.down.left.circle"
+            case .leftStickDownRight, .rightStickDownRight: return "arrow.down.right.circle"
             case .menu: return "line.3.horizontal"
             case .view: return "rectangle.on.rectangle"
             case .share: return "square.and.arrow.up"
@@ -345,6 +411,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .menu, .view, .share, .xbox:
             return .special
         case .leftThumbstick, .rightThumbstick:
+            return .thumbstick
+        case .leftStickUp, .leftStickDown, .leftStickLeft, .leftStickRight,
+             .leftStickUpLeft, .leftStickUpRight, .leftStickDownLeft, .leftStickDownRight,
+             .rightStickUp, .rightStickDown, .rightStickLeft, .rightStickRight,
+             .rightStickUpLeft, .rightStickUpRight, .rightStickDownLeft, .rightStickDownRight:
             return .thumbstick
         case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute,
              .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
@@ -468,6 +539,66 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case (.bottomRight, .touch): return .touchpadRegionBottomRightTouch
         case (_, .both): return nil
         }
+    }
+
+    /// Whether this button is one of the virtual joystick direction bindings.
+    var isJoystickDirection: Bool {
+        joystickDirection != nil
+    }
+
+    /// The physical stick side represented by this virtual joystick direction.
+    var joystickSide: JoystickSide? {
+        switch self {
+        case .leftStickUp, .leftStickDown, .leftStickLeft, .leftStickRight,
+             .leftStickUpLeft, .leftStickUpRight, .leftStickDownLeft, .leftStickDownRight:
+            return .left
+        case .rightStickUp, .rightStickDown, .rightStickLeft, .rightStickRight,
+             .rightStickUpLeft, .rightStickUpRight, .rightStickDownLeft, .rightStickDownRight:
+            return .right
+        default:
+            return nil
+        }
+    }
+
+    /// The joystick direction represented by this virtual button.
+    var joystickDirection: JoystickDirection? {
+        switch self {
+        case .leftStickUp, .rightStickUp: return .up
+        case .leftStickDown, .rightStickDown: return .down
+        case .leftStickLeft, .rightStickLeft: return .left
+        case .leftStickRight, .rightStickRight: return .right
+        case .leftStickUpLeft, .rightStickUpLeft: return .upLeft
+        case .leftStickUpRight, .rightStickUpRight: return .upRight
+        case .leftStickDownLeft, .rightStickDownLeft: return .downLeft
+        case .leftStickDownRight, .rightStickDownRight: return .downRight
+        default: return nil
+        }
+    }
+
+    static func joystickDirectionButton(side: JoystickSide, direction: JoystickDirection) -> ControllerButton {
+        switch (side, direction) {
+        case (.left, .up): return .leftStickUp
+        case (.left, .down): return .leftStickDown
+        case (.left, .left): return .leftStickLeft
+        case (.left, .right): return .leftStickRight
+        case (.left, .upLeft): return .leftStickUpLeft
+        case (.left, .upRight): return .leftStickUpRight
+        case (.left, .downLeft): return .leftStickDownLeft
+        case (.left, .downRight): return .leftStickDownRight
+        case (.right, .up): return .rightStickUp
+        case (.right, .down): return .rightStickDown
+        case (.right, .left): return .rightStickLeft
+        case (.right, .right): return .rightStickRight
+        case (.right, .upLeft): return .rightStickUpLeft
+        case (.right, .upRight): return .rightStickUpRight
+        case (.right, .downLeft): return .rightStickDownLeft
+        case (.right, .downRight): return .rightStickDownRight
+        }
+    }
+
+    static func joystickDirectionButtons(side: JoystickSide) -> [ControllerButton] {
+        [.up, .down, .left, .right]
+            .map { joystickDirectionButton(side: side, direction: $0) }
     }
 
     /// Whether this button is a virtual gesture button (not a physical button)

@@ -27,6 +27,10 @@ final class JoystickStickStrategyTests: XCTestCase {
         XCTAssertEqual(strategy.mode, .arrowKeys)
     }
 
+    func testStickMode_custom_returnsCustomDirectionStrategy() {
+        XCTAssertTrue(StickMode.custom.strategy is CustomDirectionStickStrategy)
+    }
+
     func testEveryStickModeMapsToAStrategy() {
         // Defensive: if someone adds a StickMode case without wiring a strategy,
         // this catches it before the dispatch hits a runtime crash.

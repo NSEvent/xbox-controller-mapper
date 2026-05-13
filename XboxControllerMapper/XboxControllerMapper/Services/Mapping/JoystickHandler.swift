@@ -27,6 +27,7 @@ extension MappingEngine {
         joystickTimer?.cancel()
         joystickTimer = nil
 
+        releaseAllDirectionKeys()
         state.lock.withLock {
             state.reset()
         }
@@ -526,6 +527,33 @@ extension MappingEngine {
         heldKeys = targetKeys
     }
 
+    // MARK: - Custom Direction Buttons
+
+    nonisolated func processCustomDirectionButtons(
+        stick: CGPoint,
+        side: JoystickSide,
+        settings: JoystickSettings,
+        heldButtons: inout Set<ControllerButton>
+    ) {
+        let targetButtons = JoystickDirectionResolver.activeButtons(
+            stick: stick,
+            side: side,
+            settings: settings
+        )
+        let releasedButtons = heldButtons.subtracting(targetButtons)
+        let pressedButtons = targetButtons.subtracting(heldButtons)
+
+        heldButtons = targetButtons
+
+        // Release first so moving between directions never leaves a stale held mapping.
+        for button in releasedButtons {
+            controllerService.handleButton(button, pressed: false)
+        }
+        for button in pressedButtons {
+            controllerService.handleButton(button, pressed: true)
+        }
+    }
+
     // MARK: - Focus Mode Haptics
 
     nonisolated func performFocusModeHaptic(entering: Bool) {
@@ -537,12 +565,15 @@ extension MappingEngine {
 
     /// Releases all direction keys for both sticks (called on disable)
     nonisolated func releaseAllDirectionKeys() {
-        let (leftKeys, rightKeys) = state.lock.withLock {
+        let (leftKeys, rightKeys, directionButtons) = state.lock.withLock {
             let left = state.leftStickHeldKeys
             let right = state.rightStickHeldKeys
+            let directions = state.leftStickHeldDirectionButtons.union(state.rightStickHeldDirectionButtons)
             state.leftStickHeldKeys.removeAll()
             state.rightStickHeldKeys.removeAll()
-            return (left, right)
+            state.leftStickHeldDirectionButtons.removeAll()
+            state.rightStickHeldDirectionButtons.removeAll()
+            return (left, right, directions)
         }
 
         for key in leftKeys {
@@ -550,6 +581,9 @@ extension MappingEngine {
         }
         for key in rightKeys {
             inputSimulator.keyUp(key)
+        }
+        for button in directionButtons {
+            controllerService.handleButton(button, pressed: false)
         }
     }
 }

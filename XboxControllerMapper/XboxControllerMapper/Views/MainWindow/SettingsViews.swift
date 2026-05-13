@@ -67,22 +67,44 @@ struct JoystickSettingsView: View {
                     )
                 }
 
-                SliderRow(
-                    label: "Deadzone",
-                    value: Binding(
-                        get: { settings.mouseDeadzone },
-                        set: { updateSettings(\.mouseDeadzone, $0) }
-                    ),
-                    range: 0...0.5,
-                    description: settings.leftStickMode == .wasdKeys || settings.leftStickMode == .arrowKeys
-                        ? "Activation threshold for keys"
-                        : "Ignore small movements"
-                )
+                if settings.leftStickMode == .custom {
+                    JoystickCustomDirectionPanel(
+                        side: .left,
+                        horizontalSliceSize: Binding(
+                            get: { settings.leftStickCustomHorizontalSliceSize },
+                            set: { updateSettings(\.leftStickCustomHorizontalSliceSize, $0) }
+                        ),
+                        verticalSliceSize: Binding(
+                            get: { settings.leftStickCustomVerticalSliceSize },
+                            set: { updateSettings(\.leftStickCustomVerticalSliceSize, $0) }
+                        ),
+                        deadzone: Binding(
+                            get: { settings.mouseDeadzone },
+                            set: { updateSettings(\.mouseDeadzone, $0) }
+                        ),
+                        invertY: Binding(
+                            get: { settings.invertMouseY },
+                            set: { updateSettings(\.invertMouseY, $0) }
+                        )
+                    )
+                } else {
+                    SliderRow(
+                        label: "Deadzone",
+                        value: Binding(
+                            get: { settings.mouseDeadzone },
+                            set: { updateSettings(\.mouseDeadzone, $0) }
+                        ),
+                        range: 0...0.5,
+                        description: settings.leftStickMode == .wasdKeys || settings.leftStickMode == .arrowKeys
+                            ? "Activation threshold for keys"
+                            : "Ignore small movements"
+                    )
 
-                Toggle("Invert Y Axis", isOn: Binding(
-                    get: { settings.invertMouseY },
-                    set: { updateSettings(\.invertMouseY, $0) }
-                ))
+                    Toggle("Invert Y Axis", isOn: Binding(
+                        get: { settings.invertMouseY },
+                        set: { updateSettings(\.invertMouseY, $0) }
+                    ))
+                }
             }
 
             Section("Focus Mode (Precision)") {
@@ -216,22 +238,44 @@ struct JoystickSettingsView: View {
                     )
                 }
 
-                SliderRow(
-                    label: "Deadzone",
-                    value: Binding(
-                        get: { settings.scrollDeadzone },
-                        set: { updateSettings(\.scrollDeadzone, $0) }
-                    ),
-                    range: 0...0.5,
-                    description: settings.rightStickMode == .wasdKeys || settings.rightStickMode == .arrowKeys
-                        ? "Activation threshold for keys"
-                        : "Ignore small movements"
-                )
+                if settings.rightStickMode == .custom {
+                    JoystickCustomDirectionPanel(
+                        side: .right,
+                        horizontalSliceSize: Binding(
+                            get: { settings.rightStickCustomHorizontalSliceSize },
+                            set: { updateSettings(\.rightStickCustomHorizontalSliceSize, $0) }
+                        ),
+                        verticalSliceSize: Binding(
+                            get: { settings.rightStickCustomVerticalSliceSize },
+                            set: { updateSettings(\.rightStickCustomVerticalSliceSize, $0) }
+                        ),
+                        deadzone: Binding(
+                            get: { settings.scrollDeadzone },
+                            set: { updateSettings(\.scrollDeadzone, $0) }
+                        ),
+                        invertY: Binding(
+                            get: { settings.invertScrollY },
+                            set: { updateSettings(\.invertScrollY, $0) }
+                        )
+                    )
+                } else {
+                    SliderRow(
+                        label: "Deadzone",
+                        value: Binding(
+                            get: { settings.scrollDeadzone },
+                            set: { updateSettings(\.scrollDeadzone, $0) }
+                        ),
+                        range: 0...0.5,
+                        description: settings.rightStickMode == .wasdKeys || settings.rightStickMode == .arrowKeys
+                            ? "Activation threshold for keys"
+                            : "Ignore small movements"
+                    )
 
-                Toggle("Invert Y Axis", isOn: Binding(
-                    get: { settings.invertScrollY },
-                    set: { updateSettings(\.invertScrollY, $0) }
-                ))
+                    Toggle("Invert Y Axis", isOn: Binding(
+                        get: { settings.invertScrollY },
+                        set: { updateSettings(\.invertScrollY, $0) }
+                    ))
+                }
             }
         }
         .formStyle(.grouped)

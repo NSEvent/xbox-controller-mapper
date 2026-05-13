@@ -467,6 +467,7 @@ struct GlassVisualEffectView: NSViewRepresentable {
 struct GlassCardBackground: View {
     var isActive: Bool = false
     var isHovered: Bool = false
+    var isMuted: Bool = false
     var cornerRadius: CGFloat = 10
 
     var body: some View {
@@ -475,6 +476,8 @@ struct GlassCardBackground: View {
                 Color.accentColor.opacity(0.2)
             } else if isHovered {
                 Color.accentColor.opacity(0.08)
+            } else if isMuted {
+                Color.black.opacity(0.16)
             } else {
                 Color.black.opacity(0.4)
             }
@@ -483,12 +486,16 @@ struct GlassCardBackground: View {
                 .stroke(borderColor, lineWidth: isActive ? 1.5 : 1)
         }
         .cornerRadius(cornerRadius)
-        .shadow(color: isActive ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.2), radius: isActive ? 8 : 4)
+        .shadow(
+            color: isActive ? Color.accentColor.opacity(0.3) : Color.black.opacity(isMuted ? 0.08 : 0.2),
+            radius: isActive ? 8 : (isMuted ? 1 : 4)
+        )
     }
 
     private var borderColor: Color {
         if isActive { return Color.accentColor.opacity(0.8) }
         if isHovered { return Color.white.opacity(0.3) }
+        if isMuted { return Color.white.opacity(0.06) }
         return Color.white.opacity(0.1)
     }
 }
