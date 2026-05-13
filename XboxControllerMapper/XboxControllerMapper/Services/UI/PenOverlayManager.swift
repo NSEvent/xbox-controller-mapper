@@ -60,7 +60,9 @@ final class PenOverlayManager: ObservableObject {
     ]
 
     private let fadeDuration: TimeInterval = 3.0
-    private let minimumPointDistance: CGFloat = 1.6
+    private let minimumPointDistance: CGFloat = 0.65
+    private let maximumPointSpacing: CGFloat = 3.5
+    private let cursorPublishDistance: CGFloat = 0.2
     private nonisolated(unsafe) let stateLock = NSLock()
     private nonisolated(unsafe) var threadSafeVisible = false
     private var panel: NSPanel?
@@ -282,7 +284,7 @@ final class PenOverlayManager: ObservableObject {
         }
 
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now(), repeating: .milliseconds(16))
+        timer.schedule(deadline: .now(), repeating: .milliseconds(8), leeway: .milliseconds(1))
         timer.setEventHandler { [weak self] in
             MainActor.assumeIsolated {
                 self?.tick()
@@ -326,13 +328,37 @@ final class PenOverlayManager: ObservableObject {
         let mouse = NSEvent.mouseLocation
         updateActiveVisibleRect(for: mouse, panelFrame: frame)
         let point = CGPoint(x: mouse.x - frame.minX, y: frame.maxY - mouse.y)
-        cursorPosition = point
+        if hypot(cursorPosition.x - point.x, cursorPosition.y - point.y) >= cursorPublishDistance {
+            cursorPosition = point
+        }
 
+        appendStrokePoint(point)
+    }
+
+    private func appendStrokePoint(_ point: CGPoint) {
         guard var stroke = currentStroke else { return }
-        if let last = stroke.points.last,
-           hypot(last.x - point.x, last.y - point.y) < minimumPointDistance {
+        guard let last = stroke.points.last else {
+            stroke.points.append(point)
+            currentStroke = stroke
             return
         }
+
+        let distance = hypot(last.x - point.x, last.y - point.y)
+        guard distance >= minimumPointDistance else {
+            return
+        }
+
+        if distance > maximumPointSpacing {
+            let extraPointCount = min(24, Int(distance / maximumPointSpacing))
+            for step in 1...extraPointCount {
+                let progress = CGFloat(step) / CGFloat(extraPointCount + 1)
+                stroke.points.append(CGPoint(
+                    x: last.x + (point.x - last.x) * progress,
+                    y: last.y + (point.y - last.y) * progress
+                ))
+            }
+        }
+
         stroke.points.append(point)
         currentStroke = stroke
     }
@@ -431,12 +457,15 @@ final class PenOverlayManager: ObservableObject {
         }
 
         let visible = screen.visibleFrame.insetBy(dx: 18, dy: 18)
-        activeVisibleRect = CGRect(
+        let rect = CGRect(
             x: visible.minX - panelFrame.minX,
             y: panelFrame.maxY - visible.maxY,
             width: visible.width,
             height: visible.height
         )
+        if activeVisibleRect != rect {
+            activeVisibleRect = rect
+        }
     }
 
     private func overlayFrame() -> CGRect {
@@ -602,11 +631,7 @@ private struct PenOverlayView: View {
             return
         }
 
-        var path = Path()
-        path.move(to: first)
-        for point in stroke.points.dropFirst() {
-            path.addLine(to: point)
-        }
+        let path = smoothedPath(for: stroke.points, startingAt: first)
         if isKept {
             context.stroke(
                 path,
@@ -619,5 +644,33 @@ private struct PenOverlayView: View {
             with: .color(stroke.color.opacity(opacity)),
             style: StrokeStyle(lineWidth: stroke.lineWidth, lineCap: .round, lineJoin: .round)
         )
+    }
+
+    private func smoothedPath(for points: [CGPoint], startingAt first: CGPoint) -> Path {
+        var path = Path()
+        path.move(to: first)
+
+        guard points.count > 2 else {
+            for point in points.dropFirst() {
+                path.addLine(to: point)
+            }
+            return path
+        }
+
+        for index in 1..<points.count {
+            let point = points[index]
+            if index < points.count - 1 {
+                let next = points[index + 1]
+                let midpoint = CGPoint(
+                    x: (point.x + next.x) / 2,
+                    y: (point.y + next.y) / 2
+                )
+                path.addQuadCurve(to: midpoint, control: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+
+        return path
     }
 }
