@@ -459,10 +459,14 @@
 
 /* コントローラービューのグループタイトル */
 "Shoulder" = "ショルダー";
-"Movement" = "移動";
+"Left Stick" = "左スティック";
+"Left Stick Press" = "左スティック押し込み";
+"Left Stick Directions" = "左スティック方向";
 "D-Pad" = "十字キー";
 "Actions" = "アクション";
-"Camera" = "カメラ";
+"Right Stick" = "右スティック";
+"Right Stick Press" = "右スティック押し込み";
+"Right Stick Directions" = "右スティック方向";
 
 /* ステータステキスト */
 "MAPPING ACTIVE" = "マッピング有効";

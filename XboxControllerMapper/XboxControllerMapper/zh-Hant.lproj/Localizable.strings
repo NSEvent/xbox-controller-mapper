@@ -459,10 +459,14 @@
 
 /* 控制器檢視分組標題 */
 "Shoulder" = "肩鍵";
-"Movement" = "移動";
+"Left Stick" = "左搖桿";
+"Left Stick Press" = "左搖桿按下";
+"Left Stick Directions" = "左搖桿方向";
 "D-Pad" = "方向鍵";
 "Actions" = "動作鍵";
-"Camera" = "鏡頭";
+"Right Stick" = "右搖桿";
+"Right Stick Press" = "右搖桿按下";
+"Right Stick Directions" = "右搖桿方向";
 
 /* 狀態文字 */
 "MAPPING ACTIVE" = "對應已啟用";

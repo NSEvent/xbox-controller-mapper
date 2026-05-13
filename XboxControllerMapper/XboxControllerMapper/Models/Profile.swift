@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 // MARK: - Profile Icons
 
@@ -105,6 +106,88 @@ enum ProfileIcon: String, CaseIterable, Identifiable {
     }
 }
 
+/// Quick preset for the four D-pad primary actions. `.custom` means at least
+/// one D-pad direction has been individually edited away from the built-in sets.
+enum DPadPreset: String, Codable, CaseIterable, Identifiable {
+    case arrows
+    case wasd
+    case custom
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .arrows: return "Arrows"
+        case .wasd: return "WASD"
+        case .custom: return "Custom"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .arrows: return "Arrows"
+        case .wasd: return "WASD"
+        case .custom: return "Custom"
+        }
+    }
+
+    static let buttons: [ControllerButton] = [.dpadUp, .dpadLeft, .dpadRight, .dpadDown]
+
+    func primaryKeyCode(for button: ControllerButton) -> CGKeyCode? {
+        switch (self, button) {
+        case (.arrows, .dpadUp): return KeyCodeMapping.upArrow
+        case (.arrows, .dpadDown): return KeyCodeMapping.downArrow
+        case (.arrows, .dpadLeft): return KeyCodeMapping.leftArrow
+        case (.arrows, .dpadRight): return KeyCodeMapping.rightArrow
+        case (.wasd, .dpadUp): return KeyCodeMapping.keyW
+        case (.wasd, .dpadDown): return KeyCodeMapping.keyS
+        case (.wasd, .dpadLeft): return KeyCodeMapping.keyA
+        case (.wasd, .dpadRight): return KeyCodeMapping.keyD
+        case (.custom, _): return nil
+        default: return nil
+        }
+    }
+
+    func apply(to mappings: inout [ControllerButton: KeyMapping]) {
+        guard self != .custom else { return }
+
+        for button in Self.buttons {
+            guard let keyCode = primaryKeyCode(for: button) else { continue }
+            var mapping = mappings[button] ?? KeyMapping()
+            mapping.keyCode = keyCode
+            mapping.modifiers = ModifierFlags()
+            mapping.macroId = nil
+            mapping.scriptId = nil
+            mapping.systemCommand = nil
+            mapping.hint = nil
+            mapping.isHoldModifier = false
+            mapping.repeatMapping = RepeatMapping(enabled: true, interval: 0.05)
+            mappings[button] = mapping
+        }
+    }
+
+    static func resolved(from mappings: [ControllerButton: KeyMapping]) -> DPadPreset {
+        if matches(.arrows, mappings: mappings) { return .arrows }
+        if matches(.wasd, mappings: mappings) { return .wasd }
+        return .custom
+    }
+
+    private static func matches(_ preset: DPadPreset, mappings: [ControllerButton: KeyMapping]) -> Bool {
+        buttons.allSatisfy { button in
+            guard let expected = preset.primaryKeyCode(for: button),
+                  let mapping = mappings[button] else {
+                return false
+            }
+            return mapping.keyCode == expected &&
+                   mapping.modifiers == ModifierFlags() &&
+                   mapping.macroId == nil &&
+                   mapping.scriptId == nil &&
+                   mapping.systemCommand == nil &&
+                   !mapping.isHoldModifier
+        }
+    }
+}
+
 /// A complete mapping profile
 struct Profile: Codable, Identifiable, Equatable {
     var id: UUID
@@ -118,6 +201,9 @@ struct Profile: Codable, Identifiable, Equatable {
 
     /// Button mappings (system-wide defaults)
     var buttonMappings: [ControllerButton: KeyMapping]
+
+    /// Last recognized D-pad quick preset. Individual D-pad edits flip this to `.custom`.
+    var dpadPreset: DPadPreset
 
     /// Chord mappings
     var chordMappings: [ChordMapping]
@@ -179,6 +265,7 @@ struct Profile: Codable, Identifiable, Equatable {
         isDefault: Bool = false,
         icon: String? = nil,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
+        dpadPreset: DPadPreset = .custom,
         chordMappings: [ChordMapping] = [],
         sequenceMappings: [SequenceMapping] = [],
         joystickSettings: JoystickSettings = .default,
@@ -201,6 +288,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.createdAt = Date()
         self.modifiedAt = Date()
         self.buttonMappings = buttonMappings
+        self.dpadPreset = dpadPreset == .custom ? DPadPreset.resolved(from: buttonMappings) : dpadPreset
         self.chordMappings = chordMappings
         self.sequenceMappings = sequenceMappings
         self.joystickSettings = joystickSettings
@@ -394,6 +482,7 @@ struct Profile: Codable, Identifiable, Equatable {
             name: "Default",
             isDefault: true,
             buttonMappings: mappings,
+            dpadPreset: .arrows,
             chordMappings: chords,
             joystickSettings: joystick
         )
@@ -405,7 +494,7 @@ struct Profile: Codable, Identifiable, Equatable {
 extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isDefault, icon, createdAt, modifiedAt
-        case buttonMappings, chordMappings, sequenceMappings, joystickSettings
+        case buttonMappings, dpadPreset, chordMappings, sequenceMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, macros, scripts
         case onScreenKeyboardSettings, gestureMappings, layers, touchpadRegionMappings, commandWheelActions
         case touchpadRegionTriggerModes
@@ -441,6 +530,7 @@ extension Profile {
             }
             return (button, value)
         })
+        dpadPreset = try container.decode(.dpadPreset, default: DPadPreset.resolved(from: buttonMappings))
 
         chordMappings = try container.decode(.chordMappings, default: [])
         sequenceMappings = try container.decode(.sequenceMappings, default: [])
@@ -520,6 +610,7 @@ extension Profile {
         // Encode button mappings as string-keyed dictionary
         let stringKeyedMappings = Dictionary(uniqueKeysWithValues: buttonMappings.map { ($0.key.rawValue, $0.value) })
         try container.encode(stringKeyedMappings, forKey: .buttonMappings)
+        try container.encode(dpadPreset, forKey: .dpadPreset)
 
         try container.encode(chordMappings, forKey: .chordMappings)
         try container.encode(sequenceMappings, forKey: .sequenceMappings)
@@ -543,12 +634,18 @@ extension Profile {
 // MARK: - Custom Equatable (excludes timestamps)
 
 extension Profile {
+    mutating func updateDPadPresetIfNeeded(afterChanging button: ControllerButton) {
+        guard DPadPreset.buttons.contains(button) else { return }
+        dpadPreset = DPadPreset.resolved(from: buttonMappings)
+    }
+
     static func == (lhs: Profile, rhs: Profile) -> Bool {
         lhs.id == rhs.id &&
         lhs.name == rhs.name &&
         lhs.isDefault == rhs.isDefault &&
         lhs.icon == rhs.icon &&
         lhs.buttonMappings == rhs.buttonMappings &&
+        lhs.dpadPreset == rhs.dpadPreset &&
         lhs.chordMappings == rhs.chordMappings &&
         lhs.sequenceMappings == rhs.sequenceMappings &&
         lhs.joystickSettings == rhs.joystickSettings &&

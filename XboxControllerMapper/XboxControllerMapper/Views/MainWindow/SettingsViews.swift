@@ -79,8 +79,8 @@ struct JoystickSettingsView: View {
                             set: { updateSettings(\.leftStickCustomVerticalSliceSize, $0) }
                         ),
                         deadzone: Binding(
-                            get: { settings.mouseDeadzone },
-                            set: { updateSettings(\.mouseDeadzone, $0) }
+                            get: { settings.leftStickCustomDeadzone },
+                            set: { updateSettings(\.leftStickCustomDeadzone, $0) }
                         ),
                         invertY: Binding(
                             get: { settings.invertMouseY },
@@ -250,8 +250,8 @@ struct JoystickSettingsView: View {
                             set: { updateSettings(\.rightStickCustomVerticalSliceSize, $0) }
                         ),
                         deadzone: Binding(
-                            get: { settings.scrollDeadzone },
-                            set: { updateSettings(\.scrollDeadzone, $0) }
+                            get: { settings.rightStickCustomDeadzone },
+                            set: { updateSettings(\.rightStickCustomDeadzone, $0) }
                         ),
                         invertY: Binding(
                             get: { settings.invertScrollY },

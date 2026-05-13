@@ -597,7 +597,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     }
 
     static func joystickDirectionButtons(side: JoystickSide) -> [ControllerButton] {
-        [.up, .down, .left, .right]
+        [.up, .left, .right, .down]
             .map { joystickDirectionButton(side: side, direction: $0) }
     }
 

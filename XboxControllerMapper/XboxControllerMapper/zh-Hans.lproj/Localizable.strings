@@ -459,10 +459,14 @@
 
 /* 控制器视图分组标题 */
 "Shoulder" = "肩键";
-"Movement" = "移动";
+"Left Stick" = "左摇杆";
+"Left Stick Press" = "左摇杆按下";
+"Left Stick Directions" = "左摇杆方向";
 "D-Pad" = "方向键";
 "Actions" = "动作键";
-"Camera" = "镜头";
+"Right Stick" = "右摇杆";
+"Right Stick Press" = "右摇杆按下";
+"Right Stick Directions" = "右摇杆方向";
 
 /* 状态文字 */
 "MAPPING ACTIVE" = "映射已启用";

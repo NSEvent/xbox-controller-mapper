@@ -53,6 +53,31 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertEqual(decoded.buttonMappings[.a]?.keyCode, 1)
     }
 
+    func testDPadPresetAppliesPrimaryActionsWithoutDroppingAlternates() {
+        var mappings: [ControllerButton: KeyMapping] = [
+            .dpadUp: KeyMapping(
+                keyCode: KeyCodeMapping.upArrow,
+                longHoldMapping: LongHoldMapping(keyCode: KeyCodeMapping.space)
+            )
+        ]
+
+        DPadPreset.wasd.apply(to: &mappings)
+
+        XCTAssertEqual(mappings[.dpadUp]?.keyCode, KeyCodeMapping.keyW)
+        XCTAssertEqual(mappings[.dpadLeft]?.keyCode, KeyCodeMapping.keyA)
+        XCTAssertEqual(mappings[.dpadRight]?.keyCode, KeyCodeMapping.keyD)
+        XCTAssertEqual(mappings[.dpadDown]?.keyCode, KeyCodeMapping.keyS)
+        XCTAssertEqual(mappings[.dpadUp]?.longHoldMapping?.keyCode, KeyCodeMapping.space)
+        XCTAssertEqual(DPadPreset.resolved(from: mappings), .wasd)
+    }
+
+    func testDPadPresetResolvesCustomWhenUserOverridesOneDirection() {
+        var mappings = Profile.createDefault().buttonMappings
+        mappings[.dpadLeft] = KeyMapping(keyCode: KeyCodeMapping.tab)
+
+        XCTAssertEqual(DPadPreset.resolved(from: mappings), .custom)
+    }
+
     func testConfigDerivedValues() {
         XCTAssertEqual(Config.joystickPollInterval, 1.0 / Config.joystickPollFrequency, accuracy: 1e-12)
         XCTAssertEqual(Config.displayRefreshInterval, 1.0 / Config.displayRefreshFrequency, accuracy: 1e-12)

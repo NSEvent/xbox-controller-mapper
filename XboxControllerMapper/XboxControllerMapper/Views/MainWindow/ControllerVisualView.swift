@@ -66,6 +66,19 @@ enum ConnectorRole {
     case label
 }
 
+private enum DirectionClusterCenter {
+    case button(ControllerButton)
+    case label(String)
+    case dpadPreset
+}
+
+private struct CompactActionBadge: Identifiable {
+    let label: String
+    let color: Color
+
+    var id: String { label }
+}
+
 struct ConnectorEndpoint {
     let button: ControllerButton
     let role: ConnectorRole
@@ -215,15 +228,12 @@ struct ControllerVisualView: View {
             // Left Column: Shoulder and Left-side inputs
             VStack(alignment: .trailing, spacing: 16) {
                 referenceGroup(title: "Shoulder", buttons: [.leftTrigger, .leftBumper])
-                referenceGroup(title: "Movement", buttons: [.leftThumbstick])
-                if !leftStickDirectionButtons.isEmpty {
-                    joystickDirectionReferenceGroup(
-                        title: "Left Stick Directions",
-                        side: .left,
-                        buttons: leftStickDirectionButtons
-                    )
+                if leftStickDirectionButtons.isEmpty {
+                    referenceGroup(title: "Left Stick Press", buttons: [.leftThumbstick])
+                } else {
+                    stickDirectionCluster(title: "Left Stick", side: .left, center: .leftThumbstick)
                 }
-                referenceGroup(title: "D-Pad", buttons: [.dpadLeft, .dpadRight, .dpadUp, .dpadDown])
+                dpadDirectionCluster
             }
             .frame(width: 220)
             .padding(.trailing, 20)
@@ -343,13 +353,10 @@ struct ControllerVisualView: View {
             VStack(alignment: .leading, spacing: 16) {
                 referenceGroup(title: "Shoulder", buttons: [.rightTrigger, .rightBumper])
                 referenceGroup(title: "Actions", buttons: [.y, .b, .a, .x])
-                referenceGroup(title: "Camera", buttons: [.rightThumbstick])
-                if !rightStickDirectionButtons.isEmpty {
-                    joystickDirectionReferenceGroup(
-                        title: "Right Stick Directions",
-                        side: .right,
-                        buttons: rightStickDirectionButtons
-                    )
+                if rightStickDirectionButtons.isEmpty {
+                    referenceGroup(title: "Right Stick Press", buttons: [.rightThumbstick])
+                } else {
+                    stickDirectionCluster(title: "Right Stick", side: .right, center: .rightThumbstick)
                 }
             }
             .frame(width: 220)
@@ -555,7 +562,7 @@ struct ControllerVisualView: View {
     // MARK: - Reference UI Components
 
     @ViewBuilder
-    private func referenceGroup(title: String, buttons: [ControllerButton]) -> some View {
+    private func referenceGroup(title: String, buttons: [ControllerButton], rowSpacing: CGFloat = 12) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(LocalizedStringKey(title))
                 .textCase(.uppercase)
@@ -563,129 +570,188 @@ struct ControllerVisualView: View {
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)
 
-            VStack(spacing: 12) {
+            VStack(spacing: rowSpacing) {
                 ForEach(buttons) { button in
                     referenceRow(for: button)
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func joystickDirectionReferenceGroup(
-        title: String,
-        side: JoystickSide,
-        buttons: [ControllerButton]
-    ) -> some View {
-        let visibleButtons = Set(buttons)
-        let alignment: HorizontalAlignment = side == .left ? .trailing : .leading
+    @ViewBuilder
+    private func stickDirectionCluster(title: String, side: JoystickSide, center: ControllerButton) -> some View {
+        let buttons = Set(side == .left ? leftStickDirectionButtons : rightStickDirectionButtons)
+        directionCluster(
+            title: title,
+            up: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .up))
+                ? ControllerButton.joystickDirectionButton(side: side, direction: .up)
+                : nil,
+            left: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .left))
+                ? ControllerButton.joystickDirectionButton(side: side, direction: .left)
+                : nil,
+            center: .button(center),
+            right: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .right))
+                ? ControllerButton.joystickDirectionButton(side: side, direction: .right)
+                : nil,
+            down: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .down))
+                ? ControllerButton.joystickDirectionButton(side: side, direction: .down)
+                : nil
+        )
+    }
 
-        return VStack(alignment: alignment, spacing: 8) {
+    private var dpadDirectionCluster: some View {
+        directionCluster(
+            title: "D-Pad",
+            up: .dpadUp,
+            left: .dpadLeft,
+            center: .dpadPreset,
+            right: .dpadRight,
+            down: .dpadDown
+        )
+    }
+
+    private func directionCluster(
+        title: String,
+        up: ControllerButton?,
+        left: ControllerButton?,
+        center: DirectionClusterCenter,
+        right: ControllerButton?,
+        down: ControllerButton?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text(LocalizedStringKey(title))
                 .textCase(.uppercase)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.secondary)
                 .padding(.horizontal, 4)
 
-            Grid(horizontalSpacing: 6, verticalSpacing: 6) {
+            Grid(horizontalSpacing: 4, verticalSpacing: 6) {
                 GridRow {
-                    joystickDirectionCell(.upLeft, side: side, visibleButtons: visibleButtons)
-                    joystickDirectionCell(.up, side: side, visibleButtons: visibleButtons)
-                    joystickDirectionCell(.upRight, side: side, visibleButtons: visibleButtons)
+                    compactClusterSpacer()
+                    compactDirectionCell(up)
+                    compactClusterSpacer()
                 }
 
                 GridRow {
-                    joystickDirectionCell(.left, side: side, visibleButtons: visibleButtons)
-                    joystickDirectionHub(side: side)
-                    joystickDirectionCell(.right, side: side, visibleButtons: visibleButtons)
+                    compactDirectionCell(left)
+                    compactCenterCell(center)
+                    compactDirectionCell(right)
                 }
 
                 GridRow {
-                    joystickDirectionCell(.downLeft, side: side, visibleButtons: visibleButtons)
-                    joystickDirectionCell(.down, side: side, visibleButtons: visibleButtons)
-                    joystickDirectionCell(.downRight, side: side, visibleButtons: visibleButtons)
+                    compactClusterSpacer()
+                    compactDirectionCell(down)
+                    compactClusterSpacer()
                 }
             }
-            .frame(width: 216)
+            .frame(width: 212)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func compactDirectionCell(_ button: ControllerButton?) -> some View {
+        if let button {
+            compactActionTile(for: button)
+        } else {
+            compactClusterSpacer()
         }
     }
 
     @ViewBuilder
-    private func joystickDirectionCell(
-        _ direction: JoystickDirection,
-        side: JoystickSide,
-        visibleButtons: Set<ControllerButton>
-    ) -> some View {
-        let button = ControllerButton.joystickDirectionButton(side: side, direction: direction)
-
-        if visibleButtons.contains(button) {
-            joystickDirectionTile(for: button)
-        } else {
-            Color.clear
-                .frame(width: 68, height: 52)
+    private func compactCenterCell(_ center: DirectionClusterCenter) -> some View {
+        switch center {
+        case .button(let button):
+            compactActionTile(for: button)
+        case .label(let label):
+            Text(label)
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .foregroundStyle(.secondary)
+                .frame(width: 68, height: 50)
+                .background(
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(Color.primary.opacity(0.06))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+                )
+                .accessibilityHidden(true)
+        case .dpadPreset:
+            dpadPresetMenu
         }
     }
 
-    private func joystickDirectionHub(side: JoystickSide) -> some View {
-        let button: ControllerButton = side == .left ? .leftThumbstick : .rightThumbstick
-        let active = isPressed(button)
+    private var dpadPresetMenu: some View {
+        let preset = profileManager.activeProfile?.dpadPreset ?? .custom
 
-        return Circle()
-            .fill(active ? Color.accentColor.opacity(0.75) : Color.primary.opacity(0.10))
-            .overlay(
-                Circle()
-                    .stroke(Color.primary.opacity(active ? 0.05 : 0.18), lineWidth: 1)
+        return Menu {
+            Button("Arrow Keys") {
+                profileManager.setDPadPreset(.arrows)
+            }
+            Button("WASD") {
+                profileManager.setDPadPreset(.wasd)
+            }
+        } label: {
+            VStack(spacing: 3) {
+                Text(preset.shortLabel)
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .opacity(0.75)
+            }
+            .foregroundStyle(.secondary)
+            .frame(width: 68, height: 50)
+            .background(
+                RoundedRectangle(cornerRadius: 9)
+                    .fill(Color.primary.opacity(0.06))
             )
             .overlay(
-                Image(systemName: "circle.grid.cross")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(active ? .white : .secondary)
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(Color.primary.opacity(0.10), lineWidth: 1)
             )
-            .frame(width: 42, height: 42)
-            .frame(width: 68, height: 52)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Set D-pad primary actions")
     }
 
-    private func joystickDirectionTile(for button: ControllerButton) -> some View {
+    private func compactClusterSpacer() -> some View {
+        Color.clear.frame(width: 68, height: 50)
+    }
+
+    private func compactActionTile(for button: ControllerButton) -> some View {
         let layerActivator = layerForButton(button)
         let showsLayerActivator = layerActivator != nil && !isEditingDifferentLayer(button)
         let currentMapping = mapping(for: button)
         let isUnmapped = !showsLayerActivator && currentMapping == nil
         let tileActive = selectedButton == button || isPressed(button)
+        var badges = compactBadges(for: currentMapping)
+        if let layer = layerActivator, showsLayerActivator {
+            badges.insert(CompactActionBadge(label: "L", color: layerColor(layer)), at: 0)
+        }
 
         return HoverableGlassContainer(
             isActive: tileActive,
             isMuted: isUnmapped || isBaseFallthrough(for: button)
         ) {
             VStack(spacing: 4) {
-                HStack(spacing: 4) {
-                    Text(button.joystickDirection?.arrowLabel ?? "")
-                        .font(.system(size: 16, weight: .heavy, design: .rounded))
-                        .foregroundStyle(tileActive ? .white : .primary)
-
-                    if let layer = layerActivator, showsLayerActivator {
-                        Text("L")
-                            .font(.system(size: 8, weight: .black))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(layerColor(layer))
-                            .cornerRadius(3)
-                    }
-                }
-
-                Text(joystickDirectionTileLabel(
-                    mapping: currentMapping,
-                    layer: layerActivator,
-                    showsLayer: showsLayerActivator
-                ))
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(tileActive ? .white.opacity(0.92) : .secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
+                compactTileHeader(for: button, badges: badges)
                 .frame(maxWidth: .infinity)
+
+                Text(compactPrimaryText(mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(tileActive ? .white.opacity(0.92) : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 5)
             .padding(.vertical, 5)
-            .frame(width: 68, height: 52)
+            .frame(width: 68, height: 50)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 10)
@@ -695,6 +761,13 @@ struct ControllerVisualView: View {
         .opacity(isBaseFallthrough(for: button) ? 0.4 : 1.0)
         .contentShape(Rectangle())
         .controllerAnchor(button, role: .label)
+        .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
+        .allowsHitTesting(!isLayerActivatorInLayerContext(button))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))
+        .accessibilityHint("Double-tap to configure")
+        .accessibilityAddTraits(.isButton)
+        .help(compactHelpText(for: button, mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
         .onTapGesture { onButtonTap(button) }
         .contextMenu {
             Button {
@@ -702,7 +775,6 @@ struct ControllerVisualView: View {
             } label: {
                 Label("Edit Mapping", systemImage: "pencil")
             }
-
             if mapping(for: button) != nil {
                 Button {
                     if let layer = selectedLayer {
@@ -719,17 +791,107 @@ struct ControllerVisualView: View {
             handleButtonHover(button, hovering)
         }
         .swappable(button, onSwap: performSwap)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))
-        .accessibilityHint("Double-tap to configure")
-        .accessibilityAddTraits(.isButton)
     }
 
-    private func joystickDirectionTileLabel(
-        mapping: KeyMapping?,
-        layer: Layer?,
-        showsLayer: Bool
-    ) -> String {
+    @ViewBuilder
+    private func compactTileHeader(for button: ControllerButton, badges: [CompactActionBadge]) -> some View {
+        let icon = ButtonIconView(
+            button: button,
+            isPressed: isPressed(button),
+            isDualSense: isPlayStation,
+            isNintendo: isNintendo
+        )
+        .scaleEffect(0.72)
+        .frame(width: 22, height: 22)
+
+        if badges.isEmpty {
+            HStack {
+                Spacer(minLength: 0)
+                icon
+                Spacer(minLength: 0)
+            }
+            .frame(height: 22)
+        } else if badges.count <= 2 {
+            HStack(spacing: 3) {
+                Spacer(minLength: 0)
+                icon
+                HStack(spacing: 2) {
+                    ForEach(badges) { badge in
+                        compactBadge(label: badge.label, color: badge.color)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(height: 22)
+        } else {
+            HStack(spacing: 3) {
+                icon
+                Spacer(minLength: 0)
+                compactBadgeTray(badges)
+            }
+            .frame(height: 22)
+        }
+    }
+
+    private func compactBadgeTray(_ badges: [CompactActionBadge]) -> some View {
+        let displayBadges: [CompactActionBadge]
+        if badges.count > 4 {
+            displayBadges = Array(badges.prefix(3)) + [CompactActionBadge(label: "+", color: .secondary)]
+        } else {
+            displayBadges = badges
+        }
+        let rows = stride(from: 0, to: displayBadges.count, by: 2).map {
+            Array(displayBadges[$0..<min($0 + 2, displayBadges.count)])
+        }
+
+        return VStack(alignment: .trailing, spacing: 2) {
+            ForEach(rows.indices, id: \.self) { rowIndex in
+                HStack(spacing: 2) {
+                    ForEach(rows[rowIndex]) { badge in
+                        compactBadge(label: badge.label, color: badge.color)
+                    }
+                }
+            }
+        }
+        .frame(width: 30, height: 22, alignment: .trailing)
+    }
+
+    private func compactBadge(label: String, color: Color) -> some View {
+        Text(label)
+            .font(.system(size: 6.5, weight: .black, design: .rounded))
+            .foregroundColor(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.55)
+            .frame(width: 14, height: 9)
+            .background(color)
+            .cornerRadius(3)
+    }
+
+    private func compactBadges(for mapping: KeyMapping?) -> [CompactActionBadge] {
+        guard let mapping else { return [] }
+        var badges: [CompactActionBadge] = []
+
+        if mapping.systemCommand != nil {
+            badges.append(CompactActionBadge(label: "SYS", color: .green))
+        } else if mapping.macroId != nil {
+            badges.append(CompactActionBadge(label: "▶", color: .purple))
+        } else if mapping.isHoldModifier {
+            badges.append(CompactActionBadge(label: "▼", color: .purple))
+        }
+        if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
+            badges.append(CompactActionBadge(label: "⏱", color: .orange))
+        }
+        if let doubleTap = mapping.doubleTapMapping, !doubleTap.isEmpty {
+            badges.append(CompactActionBadge(label: "2×", color: .cyan))
+        }
+        if let repeatMapping = mapping.repeatMapping, repeatMapping.enabled {
+            badges.append(CompactActionBadge(label: "↻", color: .green))
+        }
+
+        return badges
+    }
+
+    private func compactPrimaryText(mapping: KeyMapping?, layer: Layer?, showsLayer: Bool) -> String {
         if let layer, showsLayer {
             return layer.name
         }
@@ -756,69 +918,24 @@ struct ControllerVisualView: View {
             return mapping.displayString
         }
 
-        if let longHold = mapping.longHoldMapping, !longHold.isEmpty {
-            return "Hold \(mappingLabelText(for: longHold))"
-        }
-
-        if let doubleTap = mapping.doubleTapMapping, !doubleTap.isEmpty {
-            return "2x \(mappingLabelText(for: doubleTap))"
-        }
-
-        return "Map"
+        return "No tap"
     }
 
-    private func mappingLabelText(for mapping: KeyMapping) -> String {
-        if let hint = mapping.hint, !hint.isEmpty {
-            return hint
+    private func compactHelpText(
+        for button: ControllerButton,
+        mapping: KeyMapping?,
+        layer: Layer?,
+        showsLayer: Bool
+    ) -> String {
+        let title = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)
+        if let layer, showsLayer {
+            return "\(title)\nLayer Activator: \(layer.name)"
         }
-
-        if let systemCommand = mapping.systemCommand {
-            return systemCommand.displayName
+        guard let mapping else {
+            return "\(title)\nUnmapped"
         }
-
-        if let macroId = mapping.macroId,
-           let profile = profileManager.activeProfile,
-           let macro = profile.macros.first(where: { $0.id == macroId }) {
-            return macro.name
-        }
-
-        return mapping.displayString
-    }
-
-    private func mappingLabelText(for mapping: LongHoldMapping) -> String {
-        if let hint = mapping.hint, !hint.isEmpty {
-            return hint
-        }
-
-        if let systemCommand = mapping.systemCommand {
-            return systemCommand.displayName
-        }
-
-        if let macroId = mapping.macroId,
-           let profile = profileManager.activeProfile,
-           let macro = profile.macros.first(where: { $0.id == macroId }) {
-            return macro.name
-        }
-
-        return mapping.displayString
-    }
-
-    private func mappingLabelText(for mapping: DoubleTapMapping) -> String {
-        if let hint = mapping.hint, !hint.isEmpty {
-            return hint
-        }
-
-        if let systemCommand = mapping.systemCommand {
-            return systemCommand.displayName
-        }
-
-        if let macroId = mapping.macroId,
-           let profile = profileManager.activeProfile,
-           let macro = profile.macros.first(where: { $0.id == macroId }) {
-            return macro.name
-        }
-
-        return mapping.displayString
+        let details = mapping.compactDescription.isEmpty ? "No tap action" : mapping.compactDescription
+        return "\(title)\n\(details)"
     }
 
     @ViewBuilder

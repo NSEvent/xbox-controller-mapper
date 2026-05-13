@@ -95,14 +95,14 @@ enum JoystickDirectionResolver {
         switch side {
         case .left:
             return (
-                deadzone: settings.mouseDeadzone,
+                deadzone: settings.leftStickCustomDeadzone,
                 horizontalSliceSize: settings.leftStickCustomHorizontalSliceSize,
                 verticalSliceSize: settings.leftStickCustomVerticalSliceSize,
                 invertY: settings.invertMouseY
             )
         case .right:
             return (
-                deadzone: settings.scrollDeadzone,
+                deadzone: settings.rightStickCustomDeadzone,
                 horizontalSliceSize: settings.rightStickCustomHorizontalSliceSize,
                 verticalSliceSize: settings.rightStickCustomVerticalSliceSize,
                 invertY: settings.invertScrollY

@@ -131,25 +131,23 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         XCTAssertEqual(directions, [.down], "Invert Y should flip the virtual direction just like the emitted key")
     }
 
-    func testChordSequenceDirectionButtonsAreAvailableOnlyForCustomWasdAndArrows() {
-        for mode in [StickMode.custom, .wasdKeys, .arrowKeys] {
-            var settings = JoystickSettings.default
-            settings.leftStickMode = mode
-            settings.rightStickMode = mode
+    func testChordSequenceDirectionButtonsAreAvailableOnlyForCustomMode() {
+        var customSettings = JoystickSettings.default
+        customSettings.leftStickMode = .custom
+        customSettings.rightStickMode = .custom
 
-            XCTAssertEqual(
-                settings.chordSequenceJoystickDirectionButtons(side: .left),
-                [.leftStickUp, .leftStickDown, .leftStickLeft, .leftStickRight],
-                "\(mode.displayName) left stick should be selectable in chord/sequence editors"
-            )
-            XCTAssertEqual(
-                settings.chordSequenceJoystickDirectionButtons(side: .right),
-                [.rightStickUp, .rightStickDown, .rightStickLeft, .rightStickRight],
-                "\(mode.displayName) right stick should be selectable in chord/sequence editors"
-            )
-        }
+        XCTAssertEqual(
+            customSettings.chordSequenceJoystickDirectionButtons(side: .left),
+            [.leftStickUp, .leftStickLeft, .leftStickRight, .leftStickDown],
+            "Custom left stick should expose selectable virtual directions in chord/sequence editors"
+        )
+        XCTAssertEqual(
+            customSettings.chordSequenceJoystickDirectionButtons(side: .right),
+            [.rightStickUp, .rightStickLeft, .rightStickRight, .rightStickDown],
+            "Custom right stick should expose selectable virtual directions in chord/sequence editors"
+        )
 
-        for mode in [StickMode.none, .mouse, .scroll] {
+        for mode in [StickMode.none, .mouse, .scroll, .wasdKeys, .arrowKeys] {
             var settings = JoystickSettings.default
             settings.leftStickMode = mode
             settings.rightStickMode = mode
@@ -157,6 +155,57 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
             XCTAssertTrue(settings.chordSequenceJoystickDirectionButtons(side: .left).isEmpty)
             XCTAssertTrue(settings.chordSequenceJoystickDirectionButtons(side: .right).isEmpty)
         }
+    }
+
+    func testDefaultCustomTuningLeavesUsableCardinalSlicesAndDiagonalGaps() {
+        let settings = JoystickSettings.default
+
+        XCTAssertEqual(settings.leftStickCustomHorizontalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStickCustomVerticalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStickCustomDeadzone, 0.22, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStickCustomHorizontalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStickCustomVerticalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStickCustomDeadzone, 0.22, accuracy: 0.0001)
+        XCTAssertEqual(settings.mouseDeadzone, 0.15, accuracy: 0.0001)
+        XCTAssertEqual(settings.scrollDeadzone, 0.15, accuracy: 0.0001)
+
+        XCTAssertEqual(
+            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0, y: 0.9), side: .left, settings: settings),
+            [.leftStickUp],
+            "Default custom tuning should still make clear cardinal input easy"
+        )
+        XCTAssertEqual(
+            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0.8, y: 0.8), side: .left, settings: settings),
+            [],
+            "Default custom tuning should leave a diagonal deadzone between slices"
+        )
+        XCTAssertEqual(
+            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0.18, y: 0), side: .left, settings: settings),
+            [],
+            "Default custom tuning should ignore small center drift"
+        )
+        XCTAssertEqual(
+            JoystickDirectionResolver.activeDirections(
+                stick: CGPoint(x: 0, y: 0.9),
+                deadzone: settings.leftStickCustomDeadzone,
+                horizontalSliceSize: settings.leftStickCustomHorizontalSliceSize,
+                verticalSliceSize: settings.leftStickCustomVerticalSliceSize,
+                invertY: settings.invertMouseY
+            ),
+            [.up],
+            "Default custom tuning should still make clear cardinal input easy"
+        )
+    }
+
+    func testDecodedCustomTuningUsesNewDefaultsWhenFieldsAreMissing() throws {
+        let settings = try JSONDecoder().decode(JoystickSettings.self, from: Data("{}".utf8))
+
+        XCTAssertEqual(settings.leftStickCustomHorizontalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStickCustomVerticalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStickCustomDeadzone, 0.22, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStickCustomHorizontalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStickCustomVerticalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStickCustomDeadzone, 0.22, accuracy: 0.0001)
     }
 
     func testCustomLeftStickDirectionStartsAndStopsHoldMapping() async throws {
@@ -219,7 +268,7 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         XCTAssertEqual(pressKeyCount(for: 42), 1, "Custom stick direction should participate in chords")
     }
 
-    func testWasdLeftStickDirectionCanCompleteChordWhileStillPressingW() async throws {
+    func testWasdLeftStickDoesNotEmitVirtualDirectionButtons() async throws {
         await MainActor.run {
             controllerService.chordWindow = 0.2
             var profile = Profile(
@@ -241,7 +290,7 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         await waitForTasks(0.05)
 
         let upIsActive = await isActiveButton(.leftStickUp)
-        XCTAssertTrue(upIsActive, "WASD mode should expose the left-stick up virtual button")
+        XCTAssertFalse(upIsActive, "WASD mode should emit real keys, not custom virtual direction buttons")
         XCTAssertGreaterThanOrEqual(keyDownCount(for: 13), 1, "WASD mode should keep its existing W key behavior")
 
         await MainActor.run {
@@ -250,10 +299,10 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         }
         await waitForTasks(0.3)
 
-        XCTAssertEqual(pressKeyCount(for: 43), 1, "WASD stick direction should participate in chords")
+        XCTAssertEqual(pressKeyCount(for: 43), 0, "WASD stick movement should not complete virtual direction chords")
     }
 
-    func testArrowRightStickDirectionCanCompleteSequenceWhileStillPressingArrowKey() async throws {
+    func testArrowRightStickDoesNotEmitVirtualDirectionButtons() async throws {
         await MainActor.run {
             var profile = Profile(
                 name: "Arrow Direction Sequence",
@@ -274,7 +323,7 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         await waitForTasks(0.14)
 
         let leftIsActive = await isActiveButton(.rightStickLeft)
-        XCTAssertTrue(leftIsActive, "Arrow mode should expose the right-stick left virtual button")
+        XCTAssertFalse(leftIsActive, "Arrow mode should emit real keys, not custom virtual direction buttons")
         XCTAssertGreaterThanOrEqual(keyDownCount(for: 123), 1, "Arrow mode should keep its existing Left Arrow behavior")
 
         await MainActor.run {
@@ -287,7 +336,7 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         }
         await waitForTasks(0.25)
 
-        XCTAssertEqual(pressKeyCount(for: 44), 1, "Arrow stick direction should participate in sequences")
+        XCTAssertEqual(pressKeyCount(for: 44), 0, "Arrow stick movement should not complete virtual direction sequences")
     }
 
     func testMouseModeDoesNotEmitJoystickDirectionButtonsForChords() async throws {

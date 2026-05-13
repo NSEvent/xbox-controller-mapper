@@ -9,6 +9,7 @@ extension ProfileManager {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         targetProfile.buttonMappings[button] = mapping
+        targetProfile.updateDPadPresetIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
     }
 
@@ -16,6 +17,7 @@ extension ProfileManager {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         targetProfile.buttonMappings.removeValue(forKey: button)
+        targetProfile.updateDPadPresetIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
     }
 
@@ -32,6 +34,15 @@ extension ProfileManager {
         guard var targetProfile = profile ?? activeProfile else { return }
         guard targetProfile.touchpadInputMode != mode else { return }
         targetProfile.touchpadInputMode = mode
+        updateProfile(targetProfile)
+    }
+
+    func setDPadPreset(_ preset: DPadPreset, in profile: Profile? = nil) {
+        guard preset != .custom else { return }
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        preset.apply(to: &targetProfile.buttonMappings)
+        targetProfile.dpadPreset = preset
         updateProfile(targetProfile)
     }
 
@@ -57,6 +68,8 @@ extension ProfileManager {
             targetProfile.buttonMappings.removeValue(forKey: button2)
         }
 
+        targetProfile.updateDPadPresetIfNeeded(afterChanging: button1)
+        targetProfile.updateDPadPresetIfNeeded(afterChanging: button2)
         updateProfile(targetProfile)
     }
 

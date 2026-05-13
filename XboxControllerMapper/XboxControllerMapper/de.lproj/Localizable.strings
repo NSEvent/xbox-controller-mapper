@@ -459,10 +459,14 @@
 
 /* Controller-Ansicht – Gruppentitel */
 "Shoulder" = "Schultertasten";
-"Movement" = "Bewegung";
+"Left Stick" = "Linker Stick";
+"Left Stick Press" = "Linken Stick drücken";
+"Left Stick Directions" = "Linker Stick – Richtungen";
 "D-Pad" = "Steuerkreuz";
 "Actions" = "Aktionstasten";
-"Camera" = "Kamera";
+"Right Stick" = "Rechter Stick";
+"Right Stick Press" = "Rechten Stick drücken";
+"Right Stick Directions" = "Rechter Stick – Richtungen";
 
 /* Statustexte */
 "MAPPING ACTIVE" = "ZUORDNUNG AKTIV";
