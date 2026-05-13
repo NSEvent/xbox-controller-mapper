@@ -12,6 +12,27 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
         XCTAssertEqual(sections, MainWindowSection.displayOrder)
     }
 
+    func testDisplayOrderMatchesNavigationGroups() {
+        let groupedSections = Dictionary(grouping: MainWindowSection.displayOrder, by: \.navGroup)
+
+        XCTAssertEqual(groupedSections[.map], [.buttons, .chords, .sequences, .gestures])
+        XCTAssertEqual(groupedSections[.automate], [.macros, .scripts, .wheel, .keyboard])
+        XCTAssertEqual(groupedSections[.hardware], [.joysticks, .touchpad, .leds, .microphone])
+        XCTAssertEqual(groupedSections[.activity], [.stats, .history])
+    }
+
+    func testTabItemsExposeNavigationMetadata() {
+        let buttonTab = MainWindowSection.buttons.tabItem
+        XCTAssertEqual(buttonTab.group, .map)
+        XCTAssertEqual(buttonTab.systemImage, "gamecontroller.fill")
+        XCTAssertFalse(buttonTab.isGlobal)
+
+        let keyboardTab = MainWindowSection.keyboard.tabItem
+        XCTAssertEqual(keyboardTab.group, .automate)
+        XCTAssertEqual(keyboardTab.systemImage, "keyboard")
+        XCTAssertTrue(keyboardTab.isGlobal)
+    }
+
     func testVisibleSectionsRespectControllerCapabilities() {
         let sections = MainWindowSection.visibleSections(
             hiddenSections: [],

@@ -1141,21 +1141,24 @@ struct SettingsSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            // App icon and info
-            VStack(spacing: 8) {
+        VStack(spacing: 14) {
+            HStack(spacing: 14) {
                 Image(nsImage: NSApp.applicationIconImage)
                     .resizable()
-                    .frame(width: 64, height: 64)
+                    .frame(width: 52, height: 52)
 
-                Text("ControllerKeys")
-                    .font(.title2.bold())
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ControllerKeys")
+                        .font(.title2.bold())
 
-                Text("Version \(appVersion)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text("Version \(appVersion)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
 
             Form {
                 Toggle("Launch at Login", isOn: $launchAtLogin)
@@ -1192,35 +1195,46 @@ struct SettingsSheet: View {
                         hiddenButtonSectionTags = ""
                     }
                 } header: {
-                    Text("Buttons Tab Sections")
+                    Text("Button Map Canvas")
+                }
+
+                ForEach(MainWindowNavGroup.allCases) { group in
+                    Section {
+                        ForEach(mainWindowSections(in: group)) { section in
+                            Toggle(isOn: visibleSectionBinding(for: section)) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: section.systemImage)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 18)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(section.label)
+                                        if !section.isAvailable(
+                                            isPlayStation: controllerService.threadSafeIsPlayStation,
+                                            isDualSense: controllerService.threadSafeIsDualSense
+                                        ) {
+                                            Text(unavailableReason(for: section))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                            .disabled(!section.isAvailable(
+                                isPlayStation: controllerService.threadSafeIsPlayStation,
+                                isDualSense: controllerService.threadSafeIsDualSense
+                            ) || isLastVisibleSection(section))
+                        }
+                    } header: {
+                        Label(group.rawValue, systemImage: group.systemImage)
+                    }
                 }
 
                 Section {
-                    ForEach(MainWindowSection.displayOrder) { section in
-                        Toggle(isOn: visibleSectionBinding(for: section)) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(section.label)
-                                if !section.isAvailable(
-                                    isPlayStation: controllerService.threadSafeIsPlayStation,
-                                    isDualSense: controllerService.threadSafeIsDualSense
-                                ) {
-                                    Text(unavailableReason(for: section))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .disabled(!section.isAvailable(
-                            isPlayStation: controllerService.threadSafeIsPlayStation,
-                            isDualSense: controllerService.threadSafeIsDualSense
-                        ) || isLastVisibleSection(section))
-                    }
-
-                    Button("Show All Sections") {
+                    Button("Show All Main Sections") {
                         hiddenSectionTags = ""
                     }
-                } header: {
-                    Text("Visible Sections")
                 }
 
                 Section {
@@ -1394,7 +1408,11 @@ struct SettingsSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 440, height: 740)
+        .frame(width: 520, height: 720)
+    }
+
+    private func mainWindowSections(in group: MainWindowNavGroup) -> [MainWindowSection] {
+        MainWindowSection.displayOrder.filter { $0.navGroup == group }
     }
 
     private func setRelaySecretStatus(_ message: String, isError: Bool, showAlert: Bool = true) {

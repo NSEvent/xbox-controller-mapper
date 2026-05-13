@@ -34,7 +34,7 @@ struct LayerTabBar: View {
                 HStack(spacing: 6) {
                     Image(systemName: "square.stack.3d.up")
                         .font(.caption)
-                    Text("Base Layer")
+                    Text("Base")
                         .font(.caption)
                         .fontWeight(.medium)
                 }
@@ -210,6 +210,13 @@ struct LayerTabBar: View {
             .buttonStyle(.plain)
             .foregroundColor(streamOverlayEnabled.wrappedValue ? .white : .secondary)
             .hoverableButton()
+        }
+        .padding(6)
+        .background(Color.black.opacity(0.16))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
         }
     }
 }

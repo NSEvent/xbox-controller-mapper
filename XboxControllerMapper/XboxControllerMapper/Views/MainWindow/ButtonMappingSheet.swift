@@ -100,6 +100,10 @@ struct ButtonMappingSheet: View {
         return layer.activatorButton == button
     }
 
+    private var canClearMapping: Bool {
+        mapping != nil || existingLayerId != nil
+    }
+
     /// The layer we're editing, if any
     private var editingLayer: Layer? {
         guard let layerId = selectedLayerId,
@@ -627,6 +631,9 @@ struct ButtonMappingSheet: View {
                 .cornerRadius(8)
             }
         }
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(enableLongHold ? 1.0 : 0.58))
+        .cornerRadius(8)
     }
 
     // MARK: - Double Tap Section
@@ -717,6 +724,9 @@ struct ButtonMappingSheet: View {
                 .cornerRadius(8)
             }
         }
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(enableDoubleTap ? 1.0 : 0.58))
+        .cornerRadius(8)
     }
 
     // MARK: - Repeat Content
@@ -797,6 +807,8 @@ struct ButtonMappingSheet: View {
                     clearMapping()
                 }
                 .foregroundColor(.red)
+                .disabled(!canClearMapping)
+                .help(canClearMapping ? "Clear this button mapping" : "No mapping to clear")
 
                 Spacer()
 

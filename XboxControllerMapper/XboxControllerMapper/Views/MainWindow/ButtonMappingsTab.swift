@@ -29,58 +29,70 @@ struct ButtonMappingsTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            InputLogView()
-                .padding(.top, 8)
+            VStack(spacing: 8) {
+                LayerTabBar(
+                    selectedLayerId: $selectedLayerId,
+                    isSwapMode: $isSwapMode,
+                    swapFirstButton: $swapFirstButton,
+                    showingAddLayerSheet: $showingAddLayerSheet,
+                    editingLayerId: $editingLayerId,
+                    actionFeedbackEnabled: actionFeedbackEnabled,
+                    streamOverlayEnabled: streamOverlayEnabled
+                )
 
-            // Layer Tab Bar
-            LayerTabBar(
-                selectedLayerId: $selectedLayerId,
-                isSwapMode: $isSwapMode,
-                swapFirstButton: $swapFirstButton,
-                showingAddLayerSheet: $showingAddLayerSheet,
-                editingLayerId: $editingLayerId,
-                actionFeedbackEnabled: actionFeedbackEnabled,
-                streamOverlayEnabled: streamOverlayEnabled
-            )
+                InputLogView()
+            }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
 
             GeometryReader { geometry in
-                // Base size of ControllerVisualView content
-                let baseWidth: CGFloat = 920
-                let baseHeight: CGFloat = 580
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.black.opacity(0.13))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                        }
 
-                // Calculate scale to fit available space (allow both up and down scaling)
-                let scaleX = geometry.size.width / baseWidth
-                let scaleY = geometry.size.height / baseHeight
-                let autoScale = min(scaleX, scaleY)
+                    // Base size of ControllerVisualView content
+                    let baseWidth: CGFloat = 920
+                    let baseHeight: CGFloat = 580
 
-                // Combine with user's manual zoom setting
-                let finalScale = autoScale * profileManager.uiScale
+                    // Calculate scale to fit available space (allow both up and down scaling)
+                    let scaleX = geometry.size.width / baseWidth
+                    let scaleY = geometry.size.height / baseHeight
+                    let autoScale = min(scaleX, scaleY)
 
-                ControllerVisualView(
-                    selectedButton: $selectedButton,
-                    selectedLayerId: selectedLayerId,
-                    swapFirstButton: swapFirstButton,
-                    isSwapMode: isSwapMode,
-                    onButtonTap: { button in
-                        // Ignore taps during magnification gestures to prevent accidental triggers
-                        guard !isMagnifying else { return }
-                        // Async dispatch to avoid layout recursion if triggered during layout pass
-                        DispatchQueue.main.async {
-                            if isSwapMode {
-                                handleSwapButtonTap(button)
-                            } else {
-                                selectedButton = button
-                                configuringButton = button
+                    // Combine with user's manual zoom setting
+                    let finalScale = autoScale * profileManager.uiScale
+
+                    ControllerVisualView(
+                        selectedButton: $selectedButton,
+                        selectedLayerId: selectedLayerId,
+                        swapFirstButton: swapFirstButton,
+                        isSwapMode: isSwapMode,
+                        onButtonTap: { button in
+                            // Ignore taps during magnification gestures to prevent accidental triggers
+                            guard !isMagnifying else { return }
+                            // Async dispatch to avoid layout recursion if triggered during layout pass
+                            DispatchQueue.main.async {
+                                if isSwapMode {
+                                    handleSwapButtonTap(button)
+                                } else {
+                                    selectedButton = button
+                                    configuringButton = button
+                                }
                             }
                         }
-                    }
-                )
-                .scaleEffect(finalScale)
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .allowsHitTesting(!isMagnifying)
+                    )
+                    .scaleEffect(finalScale)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .allowsHitTesting(!isMagnifying)
+                }
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
             .clipped()
 
             // Mapped Chords Display

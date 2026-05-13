@@ -246,6 +246,12 @@ struct ContentView: View {
         .onChange(of: hiddenSectionTags) { _, _ in
             selectFirstVisibleTabIfNeeded()
         }
+        .onChange(of: controllerService.threadSafeIsPlayStation) { _, _ in
+            selectFirstVisibleTabIfNeeded()
+        }
+        .onChange(of: controllerService.threadSafeIsDualSense) { _, _ in
+            selectFirstVisibleTabIfNeeded()
+        }
         .onDisappear {
             if let monitor = scrollKeyMonitor {
                 NSEvent.removeMonitor(monitor)
@@ -274,7 +280,10 @@ struct ContentView: View {
 
     private func switchTab(direction: Int) {
         let tags = orderedTabTags
-        guard let currentIndex = tags.firstIndex(of: selectedTab) else { return }
+        guard let currentIndex = tags.firstIndex(of: selectedTab) else {
+            selectFirstVisibleTabIfNeeded()
+            return
+        }
         let nextIndex = (currentIndex + direction + tags.count) % tags.count
         selectedTab = tags[nextIndex]
     }
@@ -593,8 +602,46 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         }
     }
 
+    var navGroup: MainWindowNavGroup {
+        switch self {
+        case .buttons, .chords, .sequences, .gestures:
+            return .map
+        case .macros, .scripts, .wheel, .keyboard:
+            return .automate
+        case .joysticks, .touchpad, .leds, .microphone:
+            return .hardware
+        case .stats, .history:
+            return .activity
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .buttons: return "gamecontroller.fill"
+        case .chords: return "link"
+        case .sequences: return "point.3.connected.trianglepath.dotted"
+        case .gestures: return "gyroscope"
+        case .macros: return "play.rectangle.on.rectangle"
+        case .scripts: return "curlybraces"
+        case .wheel: return "circle.grid.cross"
+        case .keyboard: return "keyboard"
+        case .joysticks: return "circle.circle"
+        case .touchpad: return "rectangle.and.hand.point.up.left"
+        case .leds: return "lightbulb.fill"
+        case .microphone: return "mic.fill"
+        case .stats: return "chart.bar.xaxis"
+        case .history: return "clock.arrow.circlepath"
+        }
+    }
+
     var tabItem: CustomTabItem {
-        CustomTabItem(tag: rawValue, label: label, isGlobal: isGlobal)
+        CustomTabItem(
+            tag: rawValue,
+            label: label,
+            group: navGroup,
+            systemImage: systemImage,
+            isGlobal: isGlobal
+        )
     }
 
     func isAvailable(isPlayStation: Bool, isDualSense: Bool) -> Bool {
@@ -638,9 +685,29 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
 
 // MARK: - Custom Tab Bar
 
+enum MainWindowNavGroup: String, CaseIterable, Identifiable {
+    case map = "Map"
+    case automate = "Automate"
+    case hardware = "Hardware"
+    case activity = "Activity"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .map: return "slider.horizontal.3"
+        case .automate: return "bolt.fill"
+        case .hardware: return "switch.2"
+        case .activity: return "waveform.path.ecg"
+        }
+    }
+}
+
 struct CustomTabItem: Identifiable {
     let tag: Int
     let label: String
+    let group: MainWindowNavGroup
+    let systemImage: String
     var isGlobal: Bool = false
     var id: Int { tag }
 }
@@ -650,35 +717,88 @@ struct CustomTabBar: View {
     let tabs: [CustomTabItem]
 
     var body: some View {
-        HStack(spacing: 4) {
-            // Per-profile tabs
-            HStack(spacing: 1) {
-                ForEach(tabs.filter { !$0.isGlobal }) { tab in
-                    tabButton(tab)
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                ForEach(availableGroups) { group in
+                    groupButton(group)
                 }
+                Spacer(minLength: 0)
             }
-            .background(Color.black.opacity(0.3))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
 
-            // Global tabs
-            HStack(spacing: 1) {
-                ForEach(tabs.filter { $0.isGlobal }) { tab in
+            HStack(spacing: 6) {
+                ForEach(tabsForActiveGroup) { tab in
                     tabButton(tab)
                 }
+                Spacer(minLength: 0)
             }
-            .background(Color.black.opacity(0.2))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
+            .padding(4)
+            .background(Color.black.opacity(0.22))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 8)
+        .background(Color.black.opacity(0.08))
+    }
+
+    private var activeGroup: MainWindowNavGroup? {
+        tabs.first(where: { $0.tag == selectedTab })?.group ?? tabs.first?.group
+    }
+
+    private var availableGroups: [MainWindowNavGroup] {
+        MainWindowNavGroup.allCases.filter { group in
+            tabs.contains { $0.group == group }
+        }
+    }
+
+    private var tabsForActiveGroup: [CustomTabItem] {
+        guard let activeGroup else { return [] }
+        return tabs.filter { $0.group == activeGroup }
+    }
+
+    @ViewBuilder
+    private func groupButton(_ group: MainWindowNavGroup) -> some View {
+        let isSelected = activeGroup == group
+        let count = tabs.filter { $0.group == group }.count
+
+        Button {
+            guard let firstTab = tabs.first(where: { $0.group == group }) else { return }
+            withAnimation(.easeInOut(duration: 0.16)) {
+                selectedTab = firstTab.tag
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: group.systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 15)
+                Text(group.rawValue)
+                    .font(.system(size: 12, weight: .semibold))
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(isSelected ? .white.opacity(0.85) : .white.opacity(0.45))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Color.white.opacity(isSelected ? 0.16 : 0.08))
+                    .clipShape(Capsule())
+            }
+            .foregroundColor(isSelected ? .white : .white.opacity(0.54))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected ? Color.white.opacity(0.11) : Color.clear)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(isSelected ? Color.white.opacity(0.12) : Color.clear, lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -690,18 +810,22 @@ struct CustomTabBar: View {
                 selectedTab = tab.tag
             }
         } label: {
-            Text(tab.label)
+            HStack(spacing: 6) {
+                Image(systemName: tab.systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 14)
+                Text(tab.label)
+            }
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
                 .foregroundColor(isSelected ? .white : .white.opacity(0.5))
-                .padding(.horizontal, 14)
+                .lineLimit(1)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .background(
                     Group {
                         if isSelected {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(tab.isGlobal
-                                    ? Color.white.opacity(0.15)
-                                    : Color.accentColor.opacity(0.5))
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(Color.accentColor.opacity(tab.isGlobal ? 0.28 : 0.62))
                         }
                     }
                 )

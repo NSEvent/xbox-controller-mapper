@@ -14,24 +14,47 @@ struct InputLogView: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 0) {
-                ForEach(inputLogService.entries) { entry in
-                    LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo)
-                }
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "waveform.path")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("Timeline")
+                    .font(.system(size: 11, weight: .semibold))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .foregroundColor(.white.opacity(0.46))
+            .frame(width: 76, alignment: .leading)
+
+            if inputLogService.entries.isEmpty {
+                HStack {
+                    Spacer(minLength: 0)
+                    Text("Waiting for input")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.25))
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, minHeight: 46)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 0) {
+                        ForEach(inputLogService.entries) { entry in
+                            LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo)
+                        }
+                    }
+                    .frame(minHeight: 46)
+                }
+                .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+            }
         }
-        .frame(height: 70)
-        .accessibilityLabel("Recent button presses")
-        .background(Color.black.opacity(0.3))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-        )
         .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity)
+        .frame(height: 62)
+        .accessibilityLabel("Recent button presses")
+        .background(Color.black.opacity(0.22))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        }
     }
 }
 
