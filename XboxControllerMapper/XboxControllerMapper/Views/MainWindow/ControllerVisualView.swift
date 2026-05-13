@@ -144,12 +144,12 @@ struct ControllerVisualView: View {
         profileManager.activeProfile?.joystickSettings ?? .default
     }
 
-    private var leftStickCustomDirectionButtons: [ControllerButton] {
-        ControllerButton.joystickDirectionButtons(side: .left)
+    private var leftStickDirectionButtons: [ControllerButton] {
+        joystickSettings.chordSequenceJoystickDirectionButtons(side: .left)
     }
 
-    private var rightStickCustomDirectionButtons: [ControllerButton] {
-        ControllerButton.joystickDirectionButtons(side: .right)
+    private var rightStickDirectionButtons: [ControllerButton] {
+        joystickSettings.chordSequenceJoystickDirectionButtons(side: .right)
     }
 
     /// Returns the currently selected layer, if any
@@ -216,11 +216,11 @@ struct ControllerVisualView: View {
             VStack(alignment: .trailing, spacing: 16) {
                 referenceGroup(title: "Shoulder", buttons: [.leftTrigger, .leftBumper])
                 referenceGroup(title: "Movement", buttons: [.leftThumbstick])
-                if joystickSettings.leftStickMode == .custom {
+                if !leftStickDirectionButtons.isEmpty {
                     joystickDirectionReferenceGroup(
                         title: "Left Stick Directions",
                         side: .left,
-                        buttons: leftStickCustomDirectionButtons
+                        buttons: leftStickDirectionButtons
                     )
                 }
                 referenceGroup(title: "D-Pad", buttons: [.dpadLeft, .dpadRight, .dpadUp, .dpadDown])
@@ -344,11 +344,11 @@ struct ControllerVisualView: View {
                 referenceGroup(title: "Shoulder", buttons: [.rightTrigger, .rightBumper])
                 referenceGroup(title: "Actions", buttons: [.y, .b, .a, .x])
                 referenceGroup(title: "Camera", buttons: [.rightThumbstick])
-                if joystickSettings.rightStickMode == .custom {
+                if !rightStickDirectionButtons.isEmpty {
                     joystickDirectionReferenceGroup(
                         title: "Right Stick Directions",
                         side: .right,
-                        buttons: rightStickCustomDirectionButtons
+                        buttons: rightStickDirectionButtons
                     )
                 }
             }

@@ -19,6 +19,15 @@ enum StickMode: String, Codable, CaseIterable {
         case .custom: return "Custom"
         }
     }
+
+    var exposesJoystickDirections: Bool {
+        switch self {
+        case .custom, .wasdKeys, .arrowKeys:
+            return true
+        case .none, .mouse, .scroll:
+            return false
+        }
+    }
 }
 
 /// Settings for joystick behavior
@@ -127,6 +136,12 @@ struct JoystickSettings: Codable, Equatable {
     /// Converts 0-1 gyro aiming sensitivity to pixel-scale multiplier (cubic curve)
     var gyroAimingMultiplier: Double {
         return 1.0 + pow(gyroAimingSensitivity, 3.0) * 20.0
+    }
+
+    func chordSequenceJoystickDirectionButtons(side: JoystickSide) -> [ControllerButton] {
+        let mode = side == .left ? leftStickMode : rightStickMode
+        guard mode.exposesJoystickDirections else { return [] }
+        return ControllerButton.joystickDirectionButtons(side: side)
     }
 
     // MARK: - Gesture Detection Computed Properties

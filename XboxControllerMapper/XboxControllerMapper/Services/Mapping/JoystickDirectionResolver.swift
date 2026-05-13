@@ -42,6 +42,50 @@ enum JoystickDirectionResolver {
         return [direction]
     }
 
+    static func activeAxisButtons(
+        stick: CGPoint,
+        side: JoystickSide,
+        deadzone: Double,
+        invertY: Bool,
+        threshold: Double = 0.4
+    ) -> Set<ControllerButton> {
+        activeAxisDirections(
+            stick: stick,
+            deadzone: deadzone,
+            invertY: invertY,
+            threshold: threshold
+        ).map { ControllerButton.joystickDirectionButton(side: side, direction: $0) }
+            .asSet()
+    }
+
+    static func activeAxisDirections(
+        stick: CGPoint,
+        deadzone: Double,
+        invertY: Bool,
+        threshold: Double = 0.4
+    ) -> [JoystickDirection] {
+        let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
+        guard magnitudeSquared > deadzone * deadzone else { return [] }
+
+        let stickX = Double(stick.x)
+        let stickY = Double(stick.y) * (invertY ? -1.0 : 1.0)
+        var directions: [JoystickDirection] = []
+
+        if stickY > threshold {
+            directions.append(.up)
+        } else if stickY < -threshold {
+            directions.append(.down)
+        }
+
+        if stickX > threshold {
+            directions.append(.right)
+        } else if stickX < -threshold {
+            directions.append(.left)
+        }
+
+        return directions
+    }
+
     private static func customConfig(side: JoystickSide, settings: JoystickSettings) -> (
         deadzone: Double,
         horizontalSliceSize: Double,

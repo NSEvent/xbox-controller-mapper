@@ -94,12 +94,26 @@ struct DirectionKeyStickStrategy: JoystickStickStrategy {
                 heldKeys: &state.leftStickHeldKeys,
                 invertY: invertY
             )
+            engine.processAxisDirectionButtons(
+                stick: input.stick,
+                side: input.side,
+                deadzone: deadzone,
+                heldButtons: &state.leftStickHeldDirectionButtons,
+                invertY: invertY
+            )
         } else {
             engine.processDirectionKeys(
                 stick: input.stick,
                 deadzone: deadzone,
                 mode: mode,
                 heldKeys: &state.rightStickHeldKeys,
+                invertY: invertY
+            )
+            engine.processAxisDirectionButtons(
+                stick: input.stick,
+                side: input.side,
+                deadzone: deadzone,
+                heldButtons: &state.rightStickHeldDirectionButtons,
                 invertY: invertY
             )
         }

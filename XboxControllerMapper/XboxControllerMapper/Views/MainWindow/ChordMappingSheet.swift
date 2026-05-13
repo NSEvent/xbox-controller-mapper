@@ -34,6 +34,18 @@ struct ChordMappingSheet: View {
         controllerService.threadSafeIsNintendo
     }
 
+    private var joystickSettings: JoystickSettings {
+        profileManager.activeProfile?.joystickSettings ?? .default
+    }
+
+    private var leftJoystickDirectionButtons: [ControllerButton] {
+        joystickSettings.chordSequenceJoystickDirectionButtons(side: .left)
+    }
+
+    private var rightJoystickDirectionButtons: [ControllerButton] {
+        joystickSettings.chordSequenceJoystickDirectionButtons(side: .right)
+    }
+
     @State private var selectedButtons: Set<ControllerButton> = []
     @State private var keyCode: CGKeyCode?
     @State private var modifiers = ModifierFlags()
@@ -187,6 +199,12 @@ struct ChordMappingSheet: View {
                             }
 
                             toggleButton(.leftThumbstick)
+
+                            if !leftJoystickDirectionButtons.isEmpty {
+                                JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStickMode) { button in
+                                    toggleButton(button)
+                                }
+                            }
                         }
 
                         // Center Column: System Buttons
@@ -223,6 +241,12 @@ struct ChordMappingSheet: View {
                             }
 
                             toggleButton(.rightThumbstick)
+
+                            if !rightJoystickDirectionButtons.isEmpty {
+                                JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStickMode) { button in
+                                    toggleButton(button)
+                                }
+                            }
                         }
                     }
 

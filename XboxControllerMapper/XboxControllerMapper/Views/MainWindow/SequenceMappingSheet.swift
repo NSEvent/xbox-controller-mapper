@@ -33,6 +33,18 @@ struct SequenceMappingSheet: View {
         controllerService.threadSafeIsNintendo
     }
 
+    private var joystickSettings: JoystickSettings {
+        profileManager.activeProfile?.joystickSettings ?? .default
+    }
+
+    private var leftJoystickDirectionButtons: [ControllerButton] {
+        joystickSettings.chordSequenceJoystickDirectionButtons(side: .left)
+    }
+
+    private var rightJoystickDirectionButtons: [ControllerButton] {
+        joystickSettings.chordSequenceJoystickDirectionButtons(side: .right)
+    }
+
     @State private var steps: [ControllerButton] = []
     @State private var stepTimeout: TimeInterval = Config.defaultSequenceStepTimeout
     @State private var keyCode: CGKeyCode?
@@ -446,6 +458,12 @@ struct SequenceMappingSheet: View {
                     }
 
                     addStepButton(.leftThumbstick)
+
+                    if !leftJoystickDirectionButtons.isEmpty {
+                        JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStickMode) { button in
+                            addStepButton(button)
+                        }
+                    }
                 }
 
                 // Center Column: System Buttons
@@ -478,6 +496,12 @@ struct SequenceMappingSheet: View {
                     }
 
                     addStepButton(.rightThumbstick)
+
+                    if !rightJoystickDirectionButtons.isEmpty {
+                        JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStickMode) { button in
+                            addStepButton(button)
+                        }
+                    }
                 }
             }
 

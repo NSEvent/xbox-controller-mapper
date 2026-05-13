@@ -29,7 +29,7 @@ extension MappingEngine {
 
         releaseAllDirectionKeys()
         state.lock.withLock {
-            state.reset()
+            state.resetTransientInputState()
         }
     }
 
@@ -527,6 +527,24 @@ extension MappingEngine {
         heldKeys = targetKeys
     }
 
+    // MARK: - Axis Direction Buttons (WASD / Arrow)
+
+    nonisolated func processAxisDirectionButtons(
+        stick: CGPoint,
+        side: JoystickSide,
+        deadzone: Double,
+        heldButtons: inout Set<ControllerButton>,
+        invertY: Bool
+    ) {
+        let targetButtons = JoystickDirectionResolver.activeAxisButtons(
+            stick: stick,
+            side: side,
+            deadzone: deadzone,
+            invertY: invertY
+        )
+        updateHeldDirectionButtons(targetButtons, heldButtons: &heldButtons)
+    }
+
     // MARK: - Custom Direction Buttons
 
     nonisolated func processCustomDirectionButtons(
@@ -540,6 +558,13 @@ extension MappingEngine {
             side: side,
             settings: settings
         )
+        updateHeldDirectionButtons(targetButtons, heldButtons: &heldButtons)
+    }
+
+    nonisolated private func updateHeldDirectionButtons(
+        _ targetButtons: Set<ControllerButton>,
+        heldButtons: inout Set<ControllerButton>
+    ) {
         let releasedButtons = heldButtons.subtracting(targetButtons)
         let pressedButtons = targetButtons.subtracting(heldButtons)
 

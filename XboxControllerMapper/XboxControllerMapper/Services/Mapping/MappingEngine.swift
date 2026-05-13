@@ -630,6 +630,19 @@ class MappingEngine: ObservableObject {
             return
 
         case .ready(let profile, let lastTap):
+            if let heldDirectionChord = consumeHeldJoystickDirectionChord(for: button) {
+                let chordButtons = heldDirectionChord.buttons.sorted { $0.rawValue < $1.rawValue }
+                let chord = heldDirectionChord.mapping
+                if handleSpecialActionIntercept(keyCode: chord.keyCode, buttons: chordButtons, logType: .chord) {
+                    return
+                }
+                if chord.keyCode == nil, state.lock.withLock({ state.isLocked }) { return }
+
+                mappingExecutor.executeAction(chord, for: chordButtons, profile: profile, logType: .chord)
+                playActionHaptic(style: chord.hapticStyle)
+                return
+            }
+
             if !profile.sequenceMappings.isEmpty {
                 advanceSequenceTracking(button)
             }
@@ -827,6 +840,41 @@ class MappingEngine: ObservableObject {
                     startRepeatTimer(for: button, mapping: context.mapping, interval: repeatConfig.interval)
                 }
             }
+        }
+    }
+
+    private struct HeldJoystickDirectionChord {
+        let mapping: ChordMapping
+        let buttons: Set<ControllerButton>
+    }
+
+    /// Treat held virtual stick directions as chord modifiers. Stick direction
+    /// buttons are generated while the stick stays deflected, so they often
+    /// predate the physical button press by longer than the normal chord window.
+    /// - Precondition: Must be called on inputQueue
+    nonisolated private func consumeHeldJoystickDirectionChord(for button: ControllerButton) -> HeldJoystickDirectionChord? {
+        dispatchPrecondition(condition: .onQueue(inputQueue))
+
+        guard !button.isJoystickDirection else { return nil }
+
+        return state.lock.withLock {
+            let heldDirections = state.leftStickHeldDirectionButtons.union(state.rightStickHeldDirectionButtons)
+            guard !heldDirections.isEmpty else { return nil }
+
+            let chordButtons = heldDirections.union([button])
+            guard let chord = state.chordLookup[chordButtons] else { return nil }
+
+            for chordButton in chordButtons {
+                state.pendingReleaseActions[chordButton]?.cancel()
+                state.pendingReleaseActions.removeValue(forKey: chordButton)
+
+                state.pendingSingleTap[chordButton]?.cancel()
+                state.pendingSingleTap.removeValue(forKey: chordButton)
+                state.lastTapTime.removeValue(forKey: chordButton)
+            }
+
+            state.activeChordButtons = chordButtons
+            return HeldJoystickDirectionChord(mapping: chord, buttons: chordButtons)
         }
     }
 

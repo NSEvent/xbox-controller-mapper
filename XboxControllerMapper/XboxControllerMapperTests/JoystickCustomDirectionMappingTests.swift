@@ -111,6 +111,54 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         XCTAssertEqual(directions, [.up], "Small slices should still allow clear cardinal input near the stick axis")
     }
 
+    func testAxisResolverAllowsIndependentWasdStyleDirections() {
+        let directions = JoystickDirectionResolver.activeAxisDirections(
+            stick: CGPoint(x: 0.9, y: 0.9),
+            deadzone: 0.1,
+            invertY: false
+        )
+
+        XCTAssertEqual(directions, [.up, .right], "WASD/arrows should expose one direction per active axis")
+    }
+
+    func testAxisResolverHonorsInvertY() {
+        let directions = JoystickDirectionResolver.activeAxisDirections(
+            stick: CGPoint(x: 0, y: 0.9),
+            deadzone: 0.1,
+            invertY: true
+        )
+
+        XCTAssertEqual(directions, [.down], "Invert Y should flip the virtual direction just like the emitted key")
+    }
+
+    func testChordSequenceDirectionButtonsAreAvailableOnlyForCustomWasdAndArrows() {
+        for mode in [StickMode.custom, .wasdKeys, .arrowKeys] {
+            var settings = JoystickSettings.default
+            settings.leftStickMode = mode
+            settings.rightStickMode = mode
+
+            XCTAssertEqual(
+                settings.chordSequenceJoystickDirectionButtons(side: .left),
+                [.leftStickUp, .leftStickDown, .leftStickLeft, .leftStickRight],
+                "\(mode.displayName) left stick should be selectable in chord/sequence editors"
+            )
+            XCTAssertEqual(
+                settings.chordSequenceJoystickDirectionButtons(side: .right),
+                [.rightStickUp, .rightStickDown, .rightStickLeft, .rightStickRight],
+                "\(mode.displayName) right stick should be selectable in chord/sequence editors"
+            )
+        }
+
+        for mode in [StickMode.none, .mouse, .scroll] {
+            var settings = JoystickSettings.default
+            settings.leftStickMode = mode
+            settings.rightStickMode = mode
+
+            XCTAssertTrue(settings.chordSequenceJoystickDirectionButtons(side: .left).isEmpty)
+            XCTAssertTrue(settings.chordSequenceJoystickDirectionButtons(side: .right).isEmpty)
+        }
+    }
+
     func testCustomLeftStickDirectionStartsAndStopsHoldMapping() async throws {
         await MainActor.run {
             var profile = Profile(name: "Custom Left Stick", buttonMappings: [
@@ -140,6 +188,137 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         XCTAssertEqual(stopHoldCount(for: 10), 1, "Returning to center should release the mapped virtual button")
         let upCleared = await isActiveButton(.leftStickUp)
         XCTAssertFalse(upCleared, "Virtual direction should clear when centered")
+    }
+
+    func testCustomLeftStickDirectionCanCompleteChord() async throws {
+        await MainActor.run {
+            controllerService.chordWindow = 0.2
+            var profile = Profile(
+                name: "Custom Direction Chord",
+                chordMappings: [
+                    ChordMapping(buttons: [.leftStickUp, .a], keyCode: 42)
+                ]
+            )
+            profile.joystickSettings.leftStickMode = .custom
+            profile.joystickSettings.mouseDeadzone = 0.1
+            installActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        await waitForTasks(0.12)
+
+        await MainActor.run {
+            controllerService.setLeftStickForTesting(CGPoint(x: 0, y: 0.9))
+        }
+        await waitForTasks(0.05)
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.3)
+
+        XCTAssertEqual(pressKeyCount(for: 42), 1, "Custom stick direction should participate in chords")
+    }
+
+    func testWasdLeftStickDirectionCanCompleteChordWhileStillPressingW() async throws {
+        await MainActor.run {
+            controllerService.chordWindow = 0.2
+            var profile = Profile(
+                name: "WASD Direction Chord",
+                chordMappings: [
+                    ChordMapping(buttons: [.leftStickUp, .a], keyCode: 43)
+                ]
+            )
+            profile.joystickSettings.leftStickMode = .wasdKeys
+            profile.joystickSettings.mouseDeadzone = 0.1
+            installActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        await waitForTasks(0.12)
+
+        await MainActor.run {
+            controllerService.setLeftStickForTesting(CGPoint(x: 0, y: 0.9))
+        }
+        await waitForTasks(0.05)
+
+        let upIsActive = await isActiveButton(.leftStickUp)
+        XCTAssertTrue(upIsActive, "WASD mode should expose the left-stick up virtual button")
+        XCTAssertGreaterThanOrEqual(keyDownCount(for: 13), 1, "WASD mode should keep its existing W key behavior")
+
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.3)
+
+        XCTAssertEqual(pressKeyCount(for: 43), 1, "WASD stick direction should participate in chords")
+    }
+
+    func testArrowRightStickDirectionCanCompleteSequenceWhileStillPressingArrowKey() async throws {
+        await MainActor.run {
+            var profile = Profile(
+                name: "Arrow Direction Sequence",
+                sequenceMappings: [
+                    SequenceMapping(steps: [.rightStickLeft, .b], keyCode: 44)
+                ]
+            )
+            profile.joystickSettings.rightStickMode = .arrowKeys
+            profile.joystickSettings.scrollDeadzone = 0.1
+            installActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        await waitForTasks(0.12)
+
+        await MainActor.run {
+            controllerService.setRightStickForTesting(CGPoint(x: -0.9, y: 0))
+        }
+        await waitForTasks(0.14)
+
+        let leftIsActive = await isActiveButton(.rightStickLeft)
+        XCTAssertTrue(leftIsActive, "Arrow mode should expose the right-stick left virtual button")
+        XCTAssertGreaterThanOrEqual(keyDownCount(for: 123), 1, "Arrow mode should keep its existing Left Arrow behavior")
+
+        await MainActor.run {
+            controllerService.setRightStickForTesting(.zero)
+        }
+        await waitForTasks(0.12)
+        await MainActor.run {
+            controllerService.buttonPressed(.b)
+            controllerService.buttonReleased(.b)
+        }
+        await waitForTasks(0.25)
+
+        XCTAssertEqual(pressKeyCount(for: 44), 1, "Arrow stick direction should participate in sequences")
+    }
+
+    func testMouseModeDoesNotEmitJoystickDirectionButtonsForChords() async throws {
+        await MainActor.run {
+            var profile = Profile(
+                name: "Mouse Direction Ignored",
+                chordMappings: [
+                    ChordMapping(buttons: [.leftStickUp, .a], keyCode: 45)
+                ]
+            )
+            profile.joystickSettings.leftStickMode = .mouse
+            profile.joystickSettings.mouseDeadzone = 0.1
+            installActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        await waitForTasks(0.12)
+
+        await MainActor.run {
+            controllerService.setLeftStickForTesting(CGPoint(x: 0, y: 0.9))
+        }
+        await waitForTasks(0.14)
+        let upIsActive = await isActiveButton(.leftStickUp)
+        XCTAssertFalse(upIsActive, "Mouse mode should not expose joystick direction virtual buttons")
+
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks(0.25)
+
+        XCTAssertEqual(pressKeyCount(for: 45), 0, "Mouse stick movement should not complete joystick direction chords")
     }
 
     func testCustomSliceSizesSuppressBetweenSliceInput() async throws {
@@ -354,6 +533,15 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
     private func pressKeyCount(for keyCode: CGKeyCode) -> Int {
         mockInputSimulator.events.filter {
             if case .pressKey(let code, _) = $0 {
+                return code == keyCode
+            }
+            return false
+        }.count
+    }
+
+    private func keyDownCount(for keyCode: CGKeyCode) -> Int {
+        mockInputSimulator.events.filter {
+            if case .keyDown(let code) = $0 {
                 return code == keyCode
             }
             return false

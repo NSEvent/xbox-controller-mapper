@@ -74,6 +74,64 @@ struct JoystickCustomDirectionPanel: View {
     }
 }
 
+struct JoystickDirectionSelectionGrid<ButtonContent: View>: View {
+    let side: JoystickSide
+    let mode: StickMode
+    let buttonContent: (ControllerButton) -> ButtonContent
+
+    init(
+        side: JoystickSide,
+        mode: StickMode,
+        @ViewBuilder buttonContent: @escaping (ControllerButton) -> ButtonContent
+    ) {
+        self.side = side
+        self.mode = mode
+        self.buttonContent = buttonContent
+    }
+
+    private var sideLabel: String {
+        switch side {
+        case .left: return "Left Stick Directions"
+        case .right: return "Right Stick Directions"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 5) {
+                Image(systemName: side == .left ? "l.circle" : "r.circle")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Text(sideLabel)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+
+                Text(mode.displayName)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary.opacity(0.75))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Color.secondary.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+
+            VStack(spacing: 2) {
+                buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: .up))
+
+                HStack(spacing: 25) {
+                    buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: .left))
+                    buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: .right))
+                }
+
+                buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: .down))
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(sideLabel), \(mode.displayName)")
+    }
+}
+
 private struct JoystickTuningSlider: View {
     let label: String
     let systemImage: String
