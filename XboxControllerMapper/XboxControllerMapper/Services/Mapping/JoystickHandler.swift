@@ -172,6 +172,15 @@ extension MappingEngine {
             return
         }
 
+        // Resolve effective per-side modes: active layer override (if any) wins over profile default.
+        // Lock is held for the whole function, so reading state.activeLayerIds + state.activeProfile here is safe.
+        let activeLayer: Layer? = {
+            guard let layerId = state.activeLayerIds.last else { return nil }
+            return state.activeProfile?.layers.first(where: { $0.id == layerId })
+        }()
+        let effectiveLeftMode = activeLayer?.leftStickModeOverride ?? settings.leftStickMode
+        let effectiveRightMode = activeLayer?.rightStickModeOverride ?? settings.rightStickMode
+
         let leftInput = JoystickStickInput(
             stick: leftStick,
             side: .left,
@@ -180,7 +189,7 @@ extension MappingEngine {
             now: now,
             hasMotion: controllerSnapshot.hasMotion
         )
-        settings.leftStickMode.strategy.process(leftInput, on: self)
+        effectiveLeftMode.strategy.process(leftInput, on: self)
 
         let rightStick = controllerSnapshot.rightStick
 
@@ -198,7 +207,7 @@ extension MappingEngine {
                 now: now,
                 hasMotion: controllerSnapshot.hasMotion
             )
-            settings.rightStickMode.strategy.process(rightInput, on: self)
+            effectiveRightMode.strategy.process(rightInput, on: self)
         }
     }
 
