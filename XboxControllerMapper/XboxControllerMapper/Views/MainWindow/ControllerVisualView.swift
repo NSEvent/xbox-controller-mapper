@@ -2319,7 +2319,11 @@ struct BatteryView: View {
     
     // Xbox controllers on macOS often report 0.0 with unknown state when data is unavailable
     private var isUnknown: Bool {
-        level < 0 || (level == 0 && state == .unknown)
+		!ControllerBatteryDisplayPolicy.isKnown(level: level, state: state)
+    }
+
+    private var percentage: Int? {
+		ControllerBatteryDisplayPolicy.percentage(level: level, state: state)
     }
     
     var body: some View {
@@ -2349,7 +2353,7 @@ struct BatteryView: View {
                             .fill(batteryColor)
                             .frame(width: max(2, 28 * CGFloat(level)), height: 12)
                         
-                        Text("\(Int(level * 100))%")
+						Text("\(percentage ?? 0)%")
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(.white)
                             .shadow(color: .black.opacity(0.6), radius: 1, x: 0, y: 0)
@@ -2370,8 +2374,8 @@ struct BatteryView: View {
                 .fill(Color.primary.opacity(0.4))
                 .frame(width: 2, height: 4)
         }
-        .help(isUnknown ? "Battery level unavailable (common macOS limitation for Xbox controllers)" : "Battery: \(Int(level * 100))%")
-        .accessibilityLabel(isUnknown ? "Battery unavailable" : "Battery: \(Int(level * 100)) percent")
+		.help(percentage.map { "Battery: \($0)%" } ?? "Battery level unavailable (common macOS limitation for Xbox controllers)")
+		.accessibilityLabel(percentage.map { "Battery: \($0) percent" } ?? "Battery unavailable")
     }
     
     private var batteryColor: Color {
