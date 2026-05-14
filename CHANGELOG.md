@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.12] - 2026-05-13
+
+### Added
+
+- **Window Background Opacity setting**: New Settings → Appearance slider controls how opaque the main window's dark tint is over the liquid glass background. Addresses the issue where the window picked up too much color from underlying apps, making content harder to read. Defaults to 30% (mostly glass, with enough tint to dampen color bleed-through); drag it to 0% for pure liquid glass or 100% for a fully opaque dark background. The previous `Color.black.opacity(0.92)` tint had been placed behind the visual effect view in the ZStack so it never actually rendered — now layered on top so the opacity is meaningful.
+
 ## [1.7.11] - 2026-05-08
 
 ### Added
