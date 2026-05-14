@@ -92,6 +92,33 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         XCTAssertEqual(controllerService.chordWindow, 0.23, accuracy: 0.000_1)
     }
 
+	func testEliteControllerMetadataUsesActiveControllerNames() {
+		XCTAssertTrue(
+			ControllerService.isEliteControllerMetadata(
+				vendorName: "Xbox Elite Wireless Controller",
+				productCategory: "Xbox Controller"
+			)
+		)
+		XCTAssertTrue(
+			ControllerService.isEliteControllerMetadata(
+				vendorName: nil,
+				productCategory: "Xbox Elite Series 2 Controller"
+			)
+		)
+		XCTAssertFalse(
+			ControllerService.isEliteControllerMetadata(
+				vendorName: "Xbox Wireless Controller",
+				productCategory: "Xbox Controller"
+			)
+		)
+	}
+
+	func testGlobalEliteHIDFallbackOnlyAppliesWhenSingleXboxControllerIsActive() {
+		XCTAssertTrue(ControllerService.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: 0))
+		XCTAssertTrue(ControllerService.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: 1))
+		XCTAssertFalse(ControllerService.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: 2))
+	}
+
 	func testGuideMonitorPaddleButtonRequiresRawHIDSource() {
 		controllerService.writeStorage(\.elitePaddleEventSource, .none)
 

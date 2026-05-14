@@ -42,7 +42,24 @@ APP_PATH := $(TARGET_BUILD_DIR)/$(WRAPPER_NAME)
 PROCESS_NAME := $(basename $(WRAPPER_NAME))
 
 # Check if an Apple Development cert is available for local development signing.
-APPLE_DEVELOPMENT_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development:/ {print $$2; exit}')
+# Restrict to the configured team so a different team's certificate does not force
+# the signed build path before xcodebuild can fall back to ad-hoc signing.
+APPLE_DEVELOPMENT_IDENTITY := $(shell \
+	valid_identities=$$(security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development:/ {printf " %s ", $$2}'); \
+	tmp_dir=$$(mktemp -d 2>/dev/null || mktemp -d -t xcm-cert); \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
+	security find-certificate -a -c "Apple Development" -Z -p 2>/dev/null | \
+	awk -v dir="$$tmp_dir" '/^SHA-1 hash:/ { hash=$$3 } /^-----BEGIN CERTIFICATE-----/ { in_cert=1; cert=$$0 ORS; next } in_cert { cert=cert $$0 ORS } /^-----END CERTIFICATE-----/ && hash != "" { file=dir "/" hash ".pem"; print cert > file; cert=""; in_cert=0; next } /^-----END CERTIFICATE-----/ { cert=""; in_cert=0 }'; \
+	for cert in "$$tmp_dir"/*.pem; do \
+		[ -e "$$cert" ] || continue; \
+		hash=$$(basename "$$cert" .pem); \
+		printf '%s' "$$valid_identities" | grep -Fq " $$hash " || continue; \
+		subject=$$(openssl x509 -in "$$cert" -noout -subject 2>/dev/null); \
+		if printf '%s' "$$subject" | grep -Fq "OU=$(TEAM_ID)" || printf '%s' "$$subject" | grep -Fq "OU = $(TEAM_ID)"; then \
+			echo "$$hash"; \
+			break; \
+		fi; \
+	done)
 HAS_DEV_CERT := $(shell [ -n "$(APPLE_DEVELOPMENT_IDENTITY)" ] && echo 1 || echo 0)
 
 INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist

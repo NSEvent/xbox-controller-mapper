@@ -626,12 +626,13 @@ class ControllerService: ObservableObject {
         }
     }
 
-    func cleanup() {
-        stopDiscovery()
-        batteryMonitor.stopMonitoring()
-        cleanupGenericHIDMonitoring()
-        stopEliteHelper()
-    }
+	func cleanup() {
+		guideMonitor.stop()
+		stopDiscovery()
+		batteryMonitor.stopMonitoring()
+		cleanupGenericHIDMonitoring()
+		stopEliteHelper()
+	}
 
     private func setupNotifications() {
         NotificationCenter.default.publisher(for: .GCControllerDidConnect)
@@ -1240,8 +1241,15 @@ class ControllerService: ObservableObject {
 		let xboxGamepadHasPaddles = xboxGamepad.map {
 			$0.paddleButton1 != nil || $0.paddleButton2 != nil || $0.paddleButton3 != nil || $0.paddleButton4 != nil
 		} ?? false
-		let isXboxEliteByPID = xboxGamepad != nil && (guideMonitor.isEliteControllerConnected || Self.isEliteByHIDEnumeration())
-		let isXboxElite = xboxGamepadHasPaddles || isXboxEliteByPID
+		let isXboxEliteByMetadata = xboxGamepad != nil && Self.isEliteControllerMetadata(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		)
+		let isXboxEliteByHIDFallback = xboxGamepad != nil
+			&& Self.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: Self.connectedXboxControllerCount())
+			&& Self.isEliteByHIDEnumeration()
+		let isXboxEliteByIdentity = isXboxEliteByMetadata || isXboxEliteByHIDFallback
+		let isXboxElite = xboxGamepadHasPaddles || isXboxEliteByIdentity
 
         // Face buttons
         bindButton(gamepad.buttonA, to: .a)
@@ -1348,9 +1356,9 @@ class ControllerService: ObservableObject {
             // 1. Paddle detection (paddles only report when no hardware profile is selected)
             // 2. PID-based detection via HID device enumeration (always works regardless of profile)
 			let hasPaddles = xboxGamepadHasPaddles
-			let isEliteByPID = isXboxEliteByPID
+			let isEliteByIdentity = isXboxEliteByIdentity
 
-            if hasPaddles || isEliteByPID {
+			if hasPaddles || isEliteByIdentity {
 				let paddleEventSource = EliteControllerInputPolicy.paddleEventSource(
 					gameControllerHasPaddles: hasPaddles
 				)
@@ -1455,15 +1463,23 @@ class ControllerService: ObservableObject {
 
     }
 
-    // MARK: - Nintendo Controller Detection
+    // MARK: - Xbox Elite Controller Detection
 
-    /// Detects Nintendo controllers (Joy-Con, Pro Controller) via vendor name and product category.
-    /// Must be called before the extendedGamepad guard since single Joy-Cons only provide physicalInputProfile.
-    ///
-    /// Known productCategory values from GameController framework:
-    ///   "Nintendo Switch Joy-Con (L)", "Nintendo Switch Joy-Con (R)",
+    nonisolated static func isEliteControllerMetadata(vendorName: String?, productCategory: String) -> Bool {
+		let combined = ((vendorName ?? "") + " " + productCategory).lowercased()
+		return combined.contains("elite")
+	}
+
+    nonisolated static func shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: Int) -> Bool {
+		connectedXboxControllerCount <= 1
+	}
+
+    private static func connectedXboxControllerCount() -> Int {
+		GCController.controllers().filter { $0.extendedGamepad is GCXboxGamepad }.count
+	}
+
     /// One-shot HID enumeration to check if an Xbox Elite Series 2 is connected by PID.
-    /// Used as a fallback when the XboxGuideMonitor hasn't processed the device match yet.
+    /// Used only when a single Xbox controller is connected so it cannot classify the wrong active controller.
     private static func isEliteByHIDEnumeration() -> Bool {
         guard let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone)) as IOHIDManager? else {
             return false
@@ -1483,6 +1499,13 @@ class ControllerService: ObservableObject {
         return false
     }
 
+    // MARK: - Nintendo Controller Detection
+
+    /// Detects Nintendo controllers (Joy-Con, Pro Controller) via vendor name and product category.
+    /// Must be called before the extendedGamepad guard since single Joy-Cons only provide physicalInputProfile.
+    ///
+    /// Known productCategory values from GameController framework:
+    ///   "Nintendo Switch Joy-Con (L)", "Nintendo Switch Joy-Con (R)",
     ///   "Nintendo Switch Joy-Con (L/R)", "Switch Pro Controller"
     /// vendorName is the Bluetooth device name: "Joy-Con (L)", "Joy-Con (R)", "Pro Controller"
     private func detectNintendoController(_ controller: GCController) {
