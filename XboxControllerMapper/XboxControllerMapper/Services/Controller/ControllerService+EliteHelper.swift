@@ -116,9 +116,13 @@ extension ControllerService {
         case "guide":
             if let pressed = json["pressed"] as? Bool {
                 guideLog("Elite helper: Guide \(pressed ? "PRESSED" : "RELEASED")")
-                controllerQueue.async { [weak self] in
-                    self?.handleButton(.xbox, pressed: pressed)
-                }
+				let events = eliteHelperGuideButtonEvents(pressed: pressed)
+				guard !events.isEmpty else { return }
+				controllerQueue.async { [weak self] in
+					for event in events {
+						self?.handleButton(event.button, pressed: event.pressed)
+					}
+				}
             }
 
         case "paddle":

@@ -119,6 +119,72 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		XCTAssertFalse(ControllerService.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: 2))
 	}
 
+	func testRawHIDGuideSourcesAreDedupedTogether() {
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 10),
+			[ControllerButtonEvent(button: .xbox, pressed: true)]
+		)
+		XCTAssertEqual(
+			controllerService.eliteHelperGuideButtonEvents(pressed: true, now: 10.1),
+			[],
+			"Same-state helper press should be ignored after guide monitor handled the press."
+		)
+		XCTAssertEqual(
+			controllerService.eliteHelperGuideButtonEvents(pressed: false, now: 10.2),
+			[ControllerButtonEvent(button: .xbox, pressed: false)]
+		)
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: false, now: 10.3),
+			[],
+			"Same-state guide monitor release should be ignored after helper handled the release."
+		)
+	}
+
+	func testRawHIDGuideStalePressRecoversMissingRelease() {
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 20),
+			[ControllerButtonEvent(button: .xbox, pressed: true)]
+		)
+		XCTAssertEqual(
+			controllerService.eliteHelperGuideButtonEvents(pressed: true, now: 21),
+			[],
+			"Near-term duplicate press should stay deduped so duplicate HID interfaces do not double fire."
+		)
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 23),
+			[
+				ControllerButtonEvent(button: .xbox, pressed: false),
+				ControllerButtonEvent(button: .xbox, pressed: true),
+			],
+			"A new press after a missing release should synthesize release then press."
+		)
+	}
+
+	func testRawHIDGuideDoesNotRecoverWhilePressedReportsContinue() {
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 40),
+			[ControllerButtonEvent(button: .xbox, pressed: true)]
+		)
+		XCTAssertEqual(controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 41), [])
+		XCTAssertEqual(controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 42.5), [])
+		XCTAssertEqual(controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 44), [])
+	}
+
+	func testRawHIDGuideReleaseClearsStateForLaterPress() {
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 30),
+			[ControllerButtonEvent(button: .xbox, pressed: true)]
+		)
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: false, now: 30.2),
+			[ControllerButtonEvent(button: .xbox, pressed: false)]
+		)
+		XCTAssertEqual(
+			controllerService.eliteHelperGuideButtonEvents(pressed: true, now: 30.4),
+			[ControllerButtonEvent(button: .xbox, pressed: true)]
+		)
+	}
+
 	func testGuideMonitorPaddleButtonRequiresRawHIDSource() {
 		controllerService.writeStorage(\.elitePaddleEventSource, .none)
 

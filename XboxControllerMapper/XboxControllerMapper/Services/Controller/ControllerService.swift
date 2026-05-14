@@ -9,6 +9,16 @@ import CoreAudio
 import AudioToolbox
 import AVFoundation
 
+struct ControllerButtonEvent: Equatable {
+	let button: ControllerButton
+	let pressed: Bool
+}
+
+private enum RawGuideEventSource: String {
+	case guideMonitor = "guide monitor"
+	case eliteHelper = "elite helper"
+}
+
 // MARK: - Thread-Safe Input State (High Performance)
 
 final class ControllerStorage: @unchecked Sendable {
@@ -86,6 +96,8 @@ final class ControllerStorage: @unchecked Sendable {
 	// visibility differs by Elite 2 firmware/connection mode.
 	var elitePaddleEventSource: ElitePaddleEventSource = .none
 	var eliteRawPaddleState: [Int: Bool] = [:]
+	var rawHIDGuidePressed = false
+	var rawHIDGuideLastEventTime: TimeInterval?
 
     // Chord Detection State
     var pendingButtons: Set<ControllerButton> = []
@@ -148,6 +160,8 @@ final class ControllerStorage: @unchecked Sendable {
 /// Service for managing game controller connection and input
 @MainActor
 class ControllerService: ObservableObject {
+	private static let rawGuideStalePressRecoveryInterval: TimeInterval = 2.0
+
     private static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
@@ -613,9 +627,14 @@ class ControllerService: ObservableObject {
         }
 
         guideMonitor.onGuideButtonAction = { [weak self] isPressed in
-            self?.controllerQueue.async { [weak self] in
-                self?.handleButton(.xbox, pressed: isPressed)
-            }
+			guard let self else { return }
+			let events = self.guideMonitorGuideButtonEvents(pressed: isPressed)
+			guard !events.isEmpty else { return }
+			self.controllerQueue.async { [weak self] in
+				for event in events {
+					self?.handleButton(event.button, pressed: event.pressed)
+				}
+			}
         }
 
         guideMonitor.onPaddleAction = { [weak self] paddleIndex, isPressed in
@@ -632,6 +651,7 @@ class ControllerService: ObservableObject {
 		batteryMonitor.stopMonitoring()
 		cleanupGenericHIDMonitoring()
 		stopEliteHelper()
+		resetRawHIDGuideButtonState()
 	}
 
     private func setupNotifications() {
@@ -767,9 +787,11 @@ class ControllerService: ObservableObject {
         storage.lastLeftPaddleState = false
         storage.lastRightPaddleState = false
         storage.lastLeftFunctionState = false
-        storage.lastRightFunctionState = false
+		storage.lastRightFunctionState = false
 		storage.elitePaddleEventSource = .none
 		storage.eliteRawPaddleState.removeAll()
+		storage.rawHIDGuidePressed = false
+		storage.rawHIDGuideLastEventTime = nil
         storage.lock.unlock()
     }
 
@@ -808,6 +830,20 @@ class ControllerService: ObservableObject {
 		eliteRawHIDPaddleButton(for: paddleIndex, pressed: pressed)
 	}
 
+	nonisolated func guideMonitorGuideButtonEvents(
+		pressed: Bool,
+		now: TimeInterval = CFAbsoluteTimeGetCurrent()
+	) -> [ControllerButtonEvent] {
+		rawHIDGuideButtonEvents(source: .guideMonitor, pressed: pressed, now: now)
+	}
+
+	nonisolated func eliteHelperGuideButtonEvents(
+		pressed: Bool,
+		now: TimeInterval = CFAbsoluteTimeGetCurrent()
+	) -> [ControllerButtonEvent] {
+		rawHIDGuideButtonEvents(source: .eliteHelper, pressed: pressed, now: now)
+	}
+
 	private nonisolated func eliteRawHIDPaddleButton(for paddleIndex: Int, pressed: Bool) -> ControllerButton? {
 		guard let button = Self.xboxElitePaddleButton(for: paddleIndex) else { return nil }
 		storage.lock.lock()
@@ -818,6 +854,57 @@ class ControllerService: ObservableObject {
 		}
 		storage.eliteRawPaddleState[paddleIndex] = pressed
 		return button
+	}
+
+	private nonisolated func rawHIDGuideButtonEvents(
+		source: RawGuideEventSource,
+		pressed: Bool,
+		now: TimeInterval
+	) -> [ControllerButtonEvent] {
+		let result: (events: [ControllerButtonEvent], logMessage: String?)
+
+		storage.lock.lock()
+		if storage.rawHIDGuidePressed == pressed {
+			let eventGap = storage.rawHIDGuideLastEventTime.map { now - $0 }
+			storage.rawHIDGuideLastEventTime = now
+			if pressed,
+			   let eventGap,
+			   eventGap >= Self.rawGuideStalePressRecoveryInterval {
+				let gap = String(format: "%.2f", eventGap)
+				result = (
+					events: [
+						ControllerButtonEvent(button: .xbox, pressed: false),
+						ControllerButtonEvent(button: .xbox, pressed: true),
+					],
+					logMessage: "Raw Guide \(source.rawValue): stale press recovered after \(gap)s quiet gap"
+				)
+			} else {
+				result = (
+					events: [],
+					logMessage: "Raw Guide \(source.rawValue): duplicate \(pressed ? "press" : "release") ignored"
+				)
+			}
+		} else {
+			storage.rawHIDGuidePressed = pressed
+			storage.rawHIDGuideLastEventTime = now
+			result = (
+				events: [ControllerButtonEvent(button: .xbox, pressed: pressed)],
+				logMessage: "Raw Guide \(source.rawValue): \(pressed ? "press" : "release") routed"
+			)
+		}
+		storage.lock.unlock()
+
+		if let logMessage = result.logMessage {
+			guideLog(logMessage)
+		}
+		return result.events
+	}
+
+	private nonisolated func resetRawHIDGuideButtonState() {
+		storage.lock.lock()
+		storage.rawHIDGuidePressed = false
+		storage.rawHIDGuideLastEventTime = nil
+		storage.lock.unlock()
 	}
 
 	nonisolated static func xboxElitePaddleButton(for paddleIndex: Int) -> ControllerButton? {
