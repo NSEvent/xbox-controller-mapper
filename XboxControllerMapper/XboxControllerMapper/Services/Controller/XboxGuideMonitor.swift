@@ -58,6 +58,11 @@ class XboxGuideMonitor {
 	/// On these devices, Button Page usage 17 can be a normal mirrored face button.
 	private var devicesWithACHome = Set<UnsafeMutableRawPointer>()
 
+	/// Elite 2 often appears as multiple HID interfaces. If one interface reveals
+	/// Guide routing traits, apply those traits across the whole Elite session.
+	private var eliteDevicesWithExtendedButtons = Set<UnsafeMutableRawPointer>()
+	private var eliteDevicesWithACHome = Set<UnsafeMutableRawPointer>()
+
     /// Product IDs of currently connected Microsoft controller devices.
     /// Updated on device match/removal. Thread-safe via main queue (HID callbacks run on main).
     private(set) var connectedMicrosoftPIDs: Set<Int> = []
@@ -204,9 +209,24 @@ class XboxGuideMonitor {
         }
     }
 
-	private struct GuideTraits {
+	struct GuideTraits: Equatable {
 		let hasExtendedButtons: Bool
 		let hasACHome: Bool
+
+		static let none = GuideTraits(hasExtendedButtons: false, hasACHome: false)
+
+		func merged(with other: GuideTraits) -> GuideTraits {
+			GuideTraits(
+				hasExtendedButtons: hasExtendedButtons || other.hasExtendedButtons,
+				hasACHome: hasACHome || other.hasACHome
+			)
+		}
+	}
+
+	private static func isEliteDevice(_ device: IOHIDDevice) -> Bool {
+		let vid = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int ?? 0
+		let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int ?? 0
+		return vid == 0x045E && eliteSeries2PIDs.contains(pid)
 	}
 
 	/// Returns the HID guide routing traits for a device by enumerating its elements.
@@ -250,17 +270,31 @@ class XboxGuideMonitor {
 		return false
 	}
 
+	static func effectiveGuideTraits(
+		deviceTraits: GuideTraits,
+		eliteSessionTraits: GuideTraits
+	) -> GuideTraits {
+		deviceTraits.merged(with: eliteSessionTraits)
+	}
+
 	@discardableResult
 	private func cacheGuideTraits(for device: IOHIDDevice, shouldLog: Bool = false) -> GuideTraits {
 		let ptr = Unmanaged.passUnretained(device).toOpaque()
 		if !devicesWithKnownGuideTraits.contains(ptr) {
 			let traits = Self.guideTraits(for: device)
+			let isElite = Self.isEliteDevice(device)
 			devicesWithKnownGuideTraits.insert(ptr)
 			if traits.hasExtendedButtons {
 				devicesWithExtendedButtons.insert(ptr)
+				if isElite {
+					eliteDevicesWithExtendedButtons.insert(ptr)
+				}
 			}
 			if traits.hasACHome {
 				devicesWithACHome.insert(ptr)
+				if isElite {
+					eliteDevicesWithACHome.insert(ptr)
+				}
 			}
 			if shouldLog {
 				guideLog("  hasExtendedButtons=\(traits.hasExtendedButtons) hasACHome=\(traits.hasACHome)")
@@ -270,6 +304,10 @@ class XboxGuideMonitor {
 				if traits.hasACHome {
 					guideLog("  Guide = Consumer Page AC Home (0x0223)")
 				}
+				if isElite {
+					let sessionTraits = eliteSessionGuideTraits()
+					guideLog("  Elite session traits: hasExtendedButtons=\(sessionTraits.hasExtendedButtons) hasACHome=\(sessionTraits.hasACHome)")
+				}
             }
         }
 		return GuideTraits(
@@ -277,6 +315,24 @@ class XboxGuideMonitor {
 			hasACHome: devicesWithACHome.contains(ptr)
 		)
     }
+
+	private func eliteSessionGuideTraits() -> GuideTraits {
+		GuideTraits(
+			hasExtendedButtons: !eliteDevicesWithExtendedButtons.isEmpty,
+			hasACHome: !eliteDevicesWithACHome.isEmpty
+		)
+	}
+
+	private func effectiveGuideTraits(for device: IOHIDDevice) -> GuideTraits {
+		let deviceTraits = cacheGuideTraits(for: device)
+		guard Self.isEliteDevice(device) else {
+			return deviceTraits
+		}
+		return Self.effectiveGuideTraits(
+			deviceTraits: deviceTraits,
+			eliteSessionTraits: eliteSessionGuideTraits()
+		)
+	}
 
     fileprivate func deviceRemoved(_ device: IOHIDDevice) {
         guideLog("Device removed: \"\(getDeviceName(device))\"")
@@ -289,6 +345,8 @@ class XboxGuideMonitor {
 		devicesWithKnownGuideTraits.remove(ptr)
 		devicesWithExtendedButtons.remove(ptr)
 		devicesWithACHome.remove(ptr)
+		eliteDevicesWithExtendedButtons.remove(ptr)
+		eliteDevicesWithACHome.remove(ptr)
     }
 
     // MARK: - Input Value Handler
@@ -300,7 +358,7 @@ class XboxGuideMonitor {
         let intValue = IOHIDValueGetIntegerValue(value)
 
 		let device = IOHIDElementGetDevice(element)
-		let traits = cacheGuideTraits(for: device)
+		let traits = effectiveGuideTraits(for: device)
 		if Self.isGuideEvent(
 			usagePage: usagePage,
 			usage: usage,

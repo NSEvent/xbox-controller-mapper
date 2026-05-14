@@ -71,6 +71,40 @@ final class XboxGuideMonitorTests: XCTestCase {
 		)
 	}
 
+	func testEliteSessionACHomeSuppressesButton17AcrossInterfaces() {
+		let traits = XboxGuideMonitor.effectiveGuideTraits(
+			deviceTraits: XboxGuideMonitor.GuideTraits(hasExtendedButtons: true, hasACHome: false),
+			eliteSessionTraits: XboxGuideMonitor.GuideTraits(hasExtendedButtons: false, hasACHome: true)
+		)
+
+		XCTAssertFalse(
+			XboxGuideMonitor.isGuideEvent(
+				usagePage: UInt32(kHIDPage_Button),
+				usage: 17,
+				hasExtendedButtons: traits.hasExtendedButtons,
+				hasACHome: traits.hasACHome
+			),
+			"Classic Bluetooth can expose Guide on one Consumer interface while B mirrors as Button 17 on another."
+		)
+	}
+
+	func testEliteSessionExtendedButtonsSuppressButton13AcrossInterfaces() {
+		let traits = XboxGuideMonitor.effectiveGuideTraits(
+			deviceTraits: .none,
+			eliteSessionTraits: XboxGuideMonitor.GuideTraits(hasExtendedButtons: true, hasACHome: false)
+		)
+
+		XCTAssertFalse(
+			XboxGuideMonitor.isGuideEvent(
+				usagePage: UInt32(kHIDPage_Button),
+				usage: 13,
+				hasExtendedButtons: traits.hasExtendedButtons,
+				hasACHome: traits.hasACHome
+			),
+			"Extended Elite descriptors use Button 13 for paddle input even if that trait was discovered on another interface."
+		)
+	}
+
 	func testPaddleConsumerUsageIsNotGuide() {
 		XCTAssertFalse(
 			XboxGuideMonitor.isGuideEvent(

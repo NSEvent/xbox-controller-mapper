@@ -98,6 +98,19 @@ func cachedGuideTraits(for device: IOHIDDevice) -> (hasExtendedButtons: Bool, ha
 	return (devicesWithExtendedButtons.contains(ptr), devicesWithACHome.contains(ptr))
 }
 
+func eliteSessionGuideTraits() -> (hasExtendedButtons: Bool, hasACHome: Bool) {
+	(!devicesWithExtendedButtons.isEmpty, !devicesWithACHome.isEmpty)
+}
+
+func effectiveGuideTraits(for device: IOHIDDevice) -> (hasExtendedButtons: Bool, hasACHome: Bool) {
+	let traits = cachedGuideTraits(for: device)
+	let sessionTraits = eliteSessionGuideTraits()
+	return (
+		traits.hasExtendedButtons || sessionTraits.hasExtendedButtons,
+		traits.hasACHome || sessionTraits.hasACHome
+	)
+}
+
 func isGuideEvent(usagePage: UInt32, usage: UInt32, hasExtendedButtons: Bool, hasACHome: Bool) -> Bool {
 	if usagePage == UInt32(kHIDPage_Consumer) && usage == 0x0223 {
 		return true
@@ -123,7 +136,7 @@ let inputCallback: IOHIDValueCallback = { _, _, _, value in
 
 	guard isEliteDevice(device) else { return }
 
-	let traits = cachedGuideTraits(for: device)
+	let traits = effectiveGuideTraits(for: device)
 	if isGuideEvent(
 		usagePage: usagePage,
 		usage: usage,
