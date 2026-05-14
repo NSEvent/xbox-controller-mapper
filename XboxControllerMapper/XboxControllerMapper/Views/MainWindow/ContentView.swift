@@ -465,7 +465,7 @@ struct LegendItem: View {
 
 enum WindowBackgroundDefaults {
     static let opacityKey = "windowBackgroundOpacity"
-    static let defaultOpacity: Double = 0.85
+    static let defaultOpacity: Double = 0.5
 }
 
 /// A view that wraps NSVisualEffectView for SwiftUI
