@@ -584,12 +584,25 @@ struct ControllerVisualView: View {
                     .foregroundColor(.secondary)
 
                 Spacer(minLength: 4)
-                stickModeMenu(side: side)
                 if mode.exposesJoystickDirections {
                     stickPresetMenu(side: side)
                 }
+                stickModeMenu(side: side)
             }
             .padding(.horizontal, 4)
+
+            if hasOrphanedStickDirectionMappings(side: side) {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.orange)
+                    Text("Direction bindings inactive — switch mode to Custom to use them.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 4)
+            }
 
             if mode.exposesJoystickDirections {
                 directionClusterGrid(
@@ -625,7 +638,26 @@ struct ControllerVisualView: View {
         )
     }
 
-    private func stickMode(side: JoystickSide) -> StickMode {
+    /// Returns true when the current editing scope (layer if selected, else profile) has direction
+    /// button mappings for this side, but the effective stick mode won't dispatch them at runtime.
+    /// Used to surface a small "these bindings won't fire" hint next to the stick mode picker so
+    /// users don't get silently confused after switching mode away from Custom.
+    private func hasOrphanedStickDirectionMappings(side: JoystickSide) -> Bool {
+        guard !stickMode(side: side).exposesJoystickDirections else { return false }
+        let directionButtons = Set(ControllerButton.joystickDirectionButtons(side: side))
+
+        // Editing a layer: check that layer's own mappings (not the base).
+        // Editing the base: check the profile-level mappings.
+        let scopedMappings: [ControllerButton: KeyMapping]
+        if let layer = selectedLayer {
+            scopedMappings = layer.buttonMappings
+        } else {
+            scopedMappings = profileManager.activeProfile?.buttonMappings ?? [:]
+        }
+        return scopedMappings.keys.contains { directionButtons.contains($0) }
+    }
+
+    private func profileStickMode(side: JoystickSide) -> StickMode {
         switch side {
         case .left:
             return joystickSettings.leftStickMode
@@ -634,27 +666,64 @@ struct ControllerVisualView: View {
         }
     }
 
-    private func setStickMode(_ mode: StickMode, side: JoystickSide) {
-        guard mode.isVisibleInUI else { return }
-        var settings = joystickSettings
+    private func layerStickModeOverride(side: JoystickSide) -> StickMode? {
+        guard let layer = selectedLayer else { return nil }
         switch side {
         case .left:
-            settings.leftStickMode = mode
+            return layer.leftStickModeOverride
         case .right:
-            settings.rightStickMode = mode
+            return layer.rightStickModeOverride
         }
-        profileManager.updateJoystickSettings(settings)
+    }
+
+    /// Effective mode resolved at the current editing scope: layer override (if any) → profile default.
+    /// Mirrors `JoystickHandler`'s runtime resolution so the picker label and the actual behavior stay aligned.
+    private func stickMode(side: JoystickSide) -> StickMode {
+        layerStickModeOverride(side: side) ?? profileStickMode(side: side)
+    }
+
+    /// True when editing a layer AND that layer has no override for this side, so the displayed
+    /// mode is inherited from the base profile. Used to subtly italicize the picker label.
+    private func isStickModeInherited(side: JoystickSide) -> Bool {
+        selectedLayerId != nil && layerStickModeOverride(side: side) == nil
+    }
+
+    private func setStickMode(_ mode: StickMode, side: JoystickSide) {
+        guard mode.isVisibleInUI else { return }
+        profileManager.setStickMode(mode, side: side, layerId: selectedLayerId)
+    }
+
+    private func clearStickModeOverride(side: JoystickSide) {
+        guard let layerId = selectedLayerId else { return }
+        profileManager.setStickMode(nil, side: side, layerId: layerId)
     }
 
     private func stickModeMenu(side: JoystickSide) -> some View {
         let selectedMode = stickMode(side: side)
+        let inherited = isStickModeInherited(side: side)
+        let editingLayer = selectedLayerId != nil
 
         return Menu {
+            if editingLayer {
+                Button {
+                    clearStickModeOverride(side: side)
+                } label: {
+                    if inherited {
+                        Label("Inherit from Base", systemImage: "checkmark")
+                    } else {
+                        Text("Inherit from Base")
+                    }
+                }
+                Divider()
+            }
             ForEach(StickMode.visibleModes, id: \.self) { mode in
                 Button {
                     setStickMode(mode, side: side)
                 } label: {
-                    if mode == selectedMode {
+                    // Only show a checkmark next to the explicitly-selected mode. If the layer
+                    // is inheriting, the checkmark sits next to "Inherit from Base" instead, so
+                    // the user can distinguish "explicitly set to Mouse" from "inheriting Mouse."
+                    if mode == selectedMode && !inherited {
                         Label {
                             Text(LocalizedStringKey(mode.displayName))
                         } icon: {
@@ -669,6 +738,7 @@ struct ControllerVisualView: View {
             HStack(spacing: 4) {
                 Text(LocalizedStringKey(selectedMode.displayName))
                     .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .italic(inherited)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 Image(systemName: "chevron.up.chevron.down")

@@ -22,6 +22,9 @@ struct JoystickSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                Text("Profile default. Override per-layer from the stick's dropdown in the Buttons tab.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 if settings.leftStickMode == .mouse {
                     SliderRow(
@@ -181,6 +184,9 @@ struct JoystickSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                Text("Profile default. Override per-layer from the stick's dropdown in the Buttons tab.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 if settings.rightStickMode == .mouse {
                     SliderRow(

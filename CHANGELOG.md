@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Per-layer stick mode override**: Each layer can now override the **Mouse / Scroll / WASD / Custom** mode of either stick, independent of the profile-level default. Edit a layer in the Buttons tab and pick a mode from the inline dropdown on the stick — that choice applies only while the layer is active; release the activator and the base mode resumes. A new **Inherit from Base** menu item drops the override; inherited values render in italic so it's obvious which stick is layer-scoped vs. profile-scoped. Addresses [#14](https://github.com/NSEvent/xbox-controller-mapper/issues/14) — previously the inline mode dropdown silently wrote to profile-level state regardless of which layer was being edited, so customers swapping `Mouse`/`Scroll` per layer found the change leaking to all layers. Profile-level mode still lives in the Joysticks tab; the rest of the joystick tuning (sensitivity, deadzone, acceleration) stays profile-level for now and can move per-layer later if anyone asks.
+
+- **Inert direction-binding warning**: When a layer (or the base) has custom stick-direction button mappings but the effective stick mode for that side isn't Custom — i.e. the bindings won't fire — a small orange warning appears next to the stick's mode dropdown explaining that switching to Custom is required. Prevents a silent-no-op confusion that's easy to land in after toggling mode away from Custom.
+
 ## [1.8.0] - 2026-05-13
 
 ### Added

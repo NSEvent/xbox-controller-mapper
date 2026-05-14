@@ -50,24 +50,35 @@ struct Layer: Codable, Identifiable, Equatable {
     /// Optional LED settings applied when this layer is active (nil = inherit profile settings)
     var dualSenseLEDSettings: DualSenseLEDSettings?
 
+    /// Per-stick-mode overrides applied when this layer is active.
+    /// nil = inherit the profile-level `JoystickSettings.leftStickMode` / `rightStickMode`.
+    /// Other joystick tuning (sensitivity, deadzone, acceleration) stays profile-level.
+    var leftStickModeOverride: StickMode?
+    var rightStickModeOverride: StickMode?
+
     init(
         id: UUID = UUID(),
         name: String,
         activatorButton: ControllerButton? = nil,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
-        dualSenseLEDSettings: DualSenseLEDSettings? = nil
+        dualSenseLEDSettings: DualSenseLEDSettings? = nil,
+        leftStickModeOverride: StickMode? = nil,
+        rightStickModeOverride: StickMode? = nil
     ) {
         self.id = id
         self.name = name
         self.activatorButton = activatorButton
         self.buttonMappings = buttonMappings
         self.dualSenseLEDSettings = dualSenseLEDSettings
+        self.leftStickModeOverride = leftStickModeOverride
+        self.rightStickModeOverride = rightStickModeOverride
     }
 
     // MARK: - Custom Codable
 
     private enum CodingKeys: String, CodingKey {
         case id, name, activatorButton, buttonMappings, dualSenseLEDSettings
+        case leftStickModeOverride, rightStickModeOverride
     }
 
     init(from decoder: Decoder) throws {
@@ -86,6 +97,8 @@ struct Layer: Codable, Identifiable, Equatable {
         })
 
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings)
+        leftStickModeOverride = try container.decodeIfPresent(StickMode.self, forKey: .leftStickModeOverride)
+        rightStickModeOverride = try container.decodeIfPresent(StickMode.self, forKey: .rightStickModeOverride)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -100,5 +113,7 @@ struct Layer: Codable, Identifiable, Equatable {
         try container.encode(stringKeyedMappings, forKey: .buttonMappings)
 
         try container.encodeIfPresent(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
+        try container.encodeIfPresent(leftStickModeOverride, forKey: .leftStickModeOverride)
+        try container.encodeIfPresent(rightStickModeOverride, forKey: .rightStickModeOverride)
     }
 }

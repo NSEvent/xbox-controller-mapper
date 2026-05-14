@@ -301,6 +301,35 @@ class ProfileManager: ObservableObject {
         updateProfile(targetProfile)
     }
 
+    /// Sets the stick mode for one side at the given scope.
+    /// - Parameter layerId: When nil, writes the profile-level default (i.e. `JoystickSettings.leftStickMode`/`rightStickMode`).
+    ///   When non-nil, writes that layer's per-side override. Pass `mode = nil` together with a layer id to clear the override
+    ///   so the layer falls back to the profile default.
+    func setStickMode(_ mode: StickMode?, side: JoystickSide, layerId: UUID?, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile else { return }
+
+        if let layerId {
+            guard let layerIndex = targetProfile.layers.firstIndex(where: { $0.id == layerId }) else { return }
+            switch side {
+            case .left:
+                targetProfile.layers[layerIndex].leftStickModeOverride = mode
+            case .right:
+                targetProfile.layers[layerIndex].rightStickModeOverride = mode
+            }
+        } else {
+            // Profile-level write: a nil mode is meaningless here (the profile always has a concrete mode),
+            // so callers must pass a real StickMode for layer-id-less writes.
+            guard let mode else { return }
+            switch side {
+            case .left:
+                targetProfile.joystickSettings.leftStickMode = mode
+            case .right:
+                targetProfile.joystickSettings.rightStickMode = mode
+            }
+        }
+        updateProfile(targetProfile)
+    }
+
     // MARK: - DualSense LED Settings
 
     func updateDualSenseLEDSettings(_ settings: DualSenseLEDSettings, in profile: Profile? = nil) {
