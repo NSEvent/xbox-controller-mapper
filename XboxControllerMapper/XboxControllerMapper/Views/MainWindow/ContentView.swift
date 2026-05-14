@@ -28,6 +28,10 @@ struct ContentView: View {
     @State private var editingGestureType: MotionGestureType?
     @State private var scrollKeyMonitor: Any?
     @AppStorage(MainWindowSection.hiddenDefaultsKey) private var hiddenSectionTags = ""
+    @AppStorage(WindowBackgroundDefaults.opacityKey) private var windowBackgroundOpacity: Double = WindowBackgroundDefaults.defaultOpacity
+    private var clampedWindowBackgroundOpacity: Double {
+        min(max(windowBackgroundOpacity, 0.0), 1.0)
+    }
     private var actionFeedbackEnabled: Binding<Bool> {
         Binding(
             get: { ActionFeedbackIndicator.isEnabled },
@@ -133,10 +137,16 @@ struct ContentView: View {
         }
         .frame(minWidth: 900, minHeight: 650)
         // Global Glass Background
+        //
+        // NSVisualEffectView with `.behindWindow` blending samples desktop/app
+        // content behind the window. To let the user dampen how much of that
+        // bleeds through, layer a dark tint ON TOP of the visual effect — its
+        // opacity is user-configurable. 0.0 = pure liquid glass, 1.0 = fully
+        // opaque dark background.
         .background(
             ZStack {
-                Color.black.opacity(0.92) // Dark tint
                 GlassVisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                Color.black.opacity(clampedWindowBackgroundOpacity)
             }
             .ignoresSafeArea()
         )
@@ -452,6 +462,11 @@ struct LegendItem: View {
 }
 
 // MARK: - Glass Aesthetic Components
+
+enum WindowBackgroundDefaults {
+    static let opacityKey = "windowBackgroundOpacity"
+    static let defaultOpacity: Double = 0.85
+}
 
 /// A view that wraps NSVisualEffectView for SwiftUI
 struct GlassVisualEffectView: NSViewRepresentable {
