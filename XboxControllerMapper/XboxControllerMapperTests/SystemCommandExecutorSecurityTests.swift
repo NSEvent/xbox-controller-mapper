@@ -15,8 +15,7 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
     private var openedURLs: [URL] = []
     private var executor: SystemCommandExecutor!
 
-    /// Sleep duration to let async executeSilently() run on its execution queue
-    private static let executionDelay: UInt64 = 300_000_000 // 300ms
+    private static let markerPollInterval: UInt64 = 20_000_000 // 20ms
 
     override func setUp() async throws {
         try await super.setUp()
@@ -47,6 +46,47 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
     /// Create a unique marker file path for this test
     private func markerPath() -> String {
         "/tmp/controllerkeys-test-\(UUID().uuidString)"
+    }
+
+    private func waitForMarkerFile(
+        atPath path: String,
+        timeout: TimeInterval = 2.0,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if FileManager.default.fileExists(atPath: path) {
+                return
+            }
+            try? await Task.sleep(nanoseconds: Self.markerPollInterval)
+        }
+
+        XCTFail("Timed out waiting for marker file: \(path)", file: file, line: line)
+    }
+
+    private func waitForMarkerContents(
+        atPath path: String,
+        expected expectedContents: String,
+        timeout: TimeInterval = 2.0,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let contents = try? String(contentsOfFile: path, encoding: .utf8),
+               contents == expectedContents {
+                return
+            }
+            try? await Task.sleep(nanoseconds: Self.markerPollInterval)
+        }
+
+        let actualContents = (try? String(contentsOfFile: path, encoding: .utf8)) ?? "<missing>"
+        XCTFail(
+            "Timed out waiting for marker file \(path) to contain \(expectedContents); found \(actualContents)",
+            file: file,
+            line: line
+        )
     }
 
     // MARK: - openLink URL Scheme Validation
@@ -144,10 +184,8 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
     func testShellCommand_SafeCommandExecutes() async {
         let marker = markerPath()
         executor.execute(.shellCommand(command: "touch \(marker)", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
-                       "Safe command should execute and create the marker file")
+        await waitForMarkerFile(atPath: marker)
         try? FileManager.default.removeItem(atPath: marker)
     }
 
@@ -156,10 +194,8 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
         // Since stderr is piped (not /dev/null), the process should complete without hanging.
         let marker = markerPath()
         executor.execute(.shellCommand(command: "echo 'error output' >&2 && touch \(marker)", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
-                       "Command writing to stderr should still execute fully")
+        await waitForMarkerFile(atPath: marker)
         try? FileManager.default.removeItem(atPath: marker)
     }
 
@@ -169,10 +205,8 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
         executor.execute(.shellCommand(command: "/usr/bin/false", inTerminal: false))
         // Follow up with a safe command to verify executor is still functional
         executor.execute(.shellCommand(command: "touch \(marker)", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
-                       "Executor should remain functional after a non-zero exit command")
+        await waitForMarkerFile(atPath: marker)
         try? FileManager.default.removeItem(atPath: marker)
     }
 
@@ -194,30 +228,24 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
     func testShellCommand_AllowsCommandSubstitutionWhenUserConfigured() async {
         let marker = markerPath()
         executor.execute(.shellCommand(command: "value=$(printf ok); test \"$value\" = ok && touch \(marker)", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
-                      "Explicit user shell commands are executed as-is")
+        await waitForMarkerFile(atPath: marker)
         try? FileManager.default.removeItem(atPath: marker)
     }
 
     func testShellCommand_AllowsPipelinesWhenUserConfigured() async {
         let marker = markerPath()
         executor.execute(.shellCommand(command: "printf ok | cat > \(marker)", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        let contents = try? String(contentsOfFile: marker, encoding: .utf8)
-        XCTAssertEqual(contents, "ok")
+        await waitForMarkerContents(atPath: marker, expected: "ok")
         try? FileManager.default.removeItem(atPath: marker)
     }
 
     func testShellCommand_AllowsShellVariablesWhenUserConfigured() async {
         let marker = markerPath()
         executor.execute(.shellCommand(command: "CK_MARKER=\(marker); touch \"$CK_MARKER\"", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
-                      "Explicit user shell commands are executed as-is")
+        await waitForMarkerFile(atPath: marker)
         try? FileManager.default.removeItem(atPath: marker)
     }
 
@@ -226,20 +254,16 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
     func testShellCommand_AllowsSimpleEchoCommand() async {
         let marker = markerPath()
         executor.execute(.shellCommand(command: "echo hello && touch \(marker)", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
-                       "Simple echo command should be allowed to execute")
+        await waitForMarkerFile(atPath: marker)
         try? FileManager.default.removeItem(atPath: marker)
     }
 
     func testShellCommand_AllowsPathWithoutDangerousPatterns() async {
         let marker = markerPath()
         executor.execute(.shellCommand(command: "touch \(marker)", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
-                       "Safe path commands should be allowed to execute")
+        await waitForMarkerFile(atPath: marker)
         try? FileManager.default.removeItem(atPath: marker)
     }
 }
