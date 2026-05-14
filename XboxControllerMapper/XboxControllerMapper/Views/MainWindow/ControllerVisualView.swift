@@ -584,10 +584,10 @@ struct ControllerVisualView: View {
                     .foregroundColor(.secondary)
 
                 Spacer(minLength: 4)
-                stickModeMenu(side: side)
                 if mode.exposesJoystickDirections {
                     stickPresetMenu(side: side)
                 }
+                stickModeMenu(side: side)
             }
             .padding(.horizontal, 4)
 
