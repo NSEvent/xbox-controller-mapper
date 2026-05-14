@@ -2,6 +2,7 @@ import XCTest
 import CoreGraphics
 @testable import ControllerKeys
 
+@MainActor
 final class MappingEngineCharacterizationTests: XCTestCase {
     var controllerService: ControllerService!
     var profileManager: ProfileManager!
@@ -77,7 +78,7 @@ final class MappingEngineCharacterizationTests: XCTestCase {
                     ChordMapping(buttons: [.a, .b], keyCode: 3)
                 ]
             )
-            profileManager.setActiveProfile(profile)
+            profileManager.installTestProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -118,7 +119,7 @@ final class MappingEngineCharacterizationTests: XCTestCase {
                 doubleTapMapping: DoubleTapMapping(keyCode: 2, threshold: 0.2)
             )
             let profile = Profile(name: "DoubleTapCharacterization", buttonMappings: [.a: mapping])
-            profileManager.setActiveProfile(profile)
+            profileManager.installTestProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -154,7 +155,7 @@ final class MappingEngineCharacterizationTests: XCTestCase {
                 longHoldMapping: LongHoldMapping(keyCode: 4, threshold: 0.1)
             )
             let profile = Profile(name: "LongHoldCharacterization", buttonMappings: [.a: mapping])
-            profileManager.setActiveProfile(profile)
+            profileManager.installTestProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -192,7 +193,7 @@ final class MappingEngineCharacterizationTests: XCTestCase {
                 isHoldModifier: true
             )
             let profile = Profile(name: "MouseClickDoubleTapCharacterization", buttonMappings: [.a: mapping])
-            profileManager.setActiveProfile(profile)
+            profileManager.installTestProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
@@ -235,7 +236,7 @@ final class MappingEngineCharacterizationTests: XCTestCase {
                     .a: .key(9)
                 ]
             )
-            profileManager.setActiveProfile(profile)
+            profileManager.installTestProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 

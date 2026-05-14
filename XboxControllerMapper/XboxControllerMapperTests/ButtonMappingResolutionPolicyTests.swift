@@ -56,8 +56,8 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
         XCTAssertEqual(result?.keyCode, 10)
     }
 
-    func testResolveProvidesDefaultTouchpadMappings() {
-        let profile = Profile(name: "Test")
+    func testResolveUsesProfileDefaultTouchpadMappings() {
+        let profile = Profile.createDefault()
 
         let tap = ButtonMappingResolutionPolicy.resolve(
             button: .touchpadTap,

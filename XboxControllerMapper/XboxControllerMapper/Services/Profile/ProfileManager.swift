@@ -251,6 +251,9 @@ class ProfileManager: ObservableObject {
     }
 
     func setActiveProfile(_ profile: Profile) {
+        if !profiles.contains(where: { $0.id == profile.id }) {
+            profiles.append(profile)
+        }
         // Update both properties atomically: set activeProfileId first so that
         // when activeProfile's @Published triggers objectWillChange, any
         // downstream reader that also reads activeProfileId sees the new value.

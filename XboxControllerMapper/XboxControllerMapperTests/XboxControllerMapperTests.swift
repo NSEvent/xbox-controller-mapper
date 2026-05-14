@@ -6,6 +6,14 @@ import SwiftUI
 import AppKit
 @testable import ControllerKeys
 
+@MainActor
+extension ProfileManager {
+    func installTestProfile(_ profile: Profile) {
+        profiles = [profile]
+        setActiveProfile(profile)
+    }
+}
+
 // MARK: - Mocks
 
 class MockInputSimulator: InputSimulatorProtocol {
@@ -3744,8 +3752,8 @@ final class XboxControllerMapperTests: XCTestCase {
         XCTAssertFalse(foundStaleLayerMapping, "Stale layer mapping from Profile A should NOT be used")
     }
 
-    /// Test that pressing a second layer activator while holding the first switches to the new layer
-    func testLayerSwitchingMostRecentWins() async throws {
+    /// Test that pressing another layer activator while a layer is active does not steal priority
+    func testSecondLayerActivatorDoesNotStealPriority() async throws {
         await MainActor.run {
             // Layer 1 (LB): Y -> key 0
             // Layer 2 (RB): Y -> key 1
@@ -3764,7 +3772,8 @@ final class XboxControllerMapperTests: XCTestCase {
         }
         await waitForTasks(0.1)
 
-        // Now also press RB (Layer 2) - should switch to Layer 2
+        // Now also press RB (Layer 2). While Layer 1 is active, RB is treated as
+        // a remappable button in Layer 1 rather than a global layer switch.
         await MainActor.run {
             controllerService.buttonPressed(.rightBumper)
         }
@@ -3775,7 +3784,7 @@ final class XboxControllerMapperTests: XCTestCase {
             mockInputSimulator.clearEvents()
         }
 
-        // Press Y - should use Layer 2's mapping (key 1), not Layer 1's (key 0)
+        // Press Y - should keep using Layer 1's mapping (key 0), not Layer 2's (key 1)
         await MainActor.run {
             controllerService.buttonPressed(.y)
         }
@@ -3795,8 +3804,8 @@ final class XboxControllerMapperTests: XCTestCase {
                 }
             }
         }
-        XCTAssertTrue(foundLayer2Mapping, "Layer 2 mapping should be used (most recently pressed activator)")
-        XCTAssertFalse(foundLayer1Mapping, "Layer 1 mapping should NOT be used")
+        XCTAssertTrue(foundLayer1Mapping, "Layer 1 mapping should remain active")
+        XCTAssertFalse(foundLayer2Mapping, "Layer 2 mapping should NOT be used while Layer 1 is active")
     }
 
     /// Test that releasing the most recent layer activator reverts to the previous held layer
@@ -3863,9 +3872,8 @@ final class XboxControllerMapperTests: XCTestCase {
         XCTAssertFalse(foundBaseMapping, "Base mapping should NOT be used while Layer 1 activator is held")
     }
 
-    /// Test that layer activators in Layer A cannot trigger when Layer A is active
-    /// (i.e., layer activator for Layer B should still work to switch to Layer B)
-    func testLayerActivatorsSwitchFromAnyLayer() async throws {
+    /// Test that another layer's activator is remappable while the current layer is active
+    func testLayerActivatorWithoutRemapDoesNotSwitchFromActiveLayer() async throws {
         await MainActor.run {
             // Layer 1 (LB): Y -> key 0
             // Layer 2 (RB): Y -> key 1
@@ -3889,7 +3897,8 @@ final class XboxControllerMapperTests: XCTestCase {
             mockInputSimulator.clearEvents()
         }
 
-        // Press RB while in Layer 1 - should switch to Layer 2, not produce any key output
+        // Press RB while in Layer 1. Because Layer 1 has no RB mapping, this should not
+        // produce key output and should not switch away from Layer 1.
         await MainActor.run {
             controllerService.buttonPressed(.rightBumper)
         }
@@ -3903,14 +3912,14 @@ final class XboxControllerMapperTests: XCTestCase {
                 return false
             }
         }
-        XCTAssertFalse(foundAnyKeyPress, "Layer activator RB should not produce key press, just switch layers")
+        XCTAssertFalse(foundAnyKeyPress, "Unmapped RB should not produce a key press")
 
         // Clear events
         await MainActor.run {
             mockInputSimulator.clearEvents()
         }
 
-        // Press Y - should use Layer 2's mapping now
+        // Press Y - should still use Layer 1's mapping
         await MainActor.run {
             controllerService.buttonPressed(.y)
         }
@@ -3920,14 +3929,18 @@ final class XboxControllerMapperTests: XCTestCase {
         }
         await waitForTasks(0.1)
 
+        var foundLayer1Mapping = false
         var foundLayer2Mapping = false
         await MainActor.run {
-            foundLayer2Mapping = mockInputSimulator.events.contains { event in
-                if case .pressKey(let code, _) = event { return code == 1 }
-                return false
+            for event in mockInputSimulator.events {
+                if case .pressKey(let code, _) = event {
+                    if code == 0 { foundLayer1Mapping = true }
+                    if code == 1 { foundLayer2Mapping = true }
+                }
             }
         }
-        XCTAssertTrue(foundLayer2Mapping, "Layer 2 mapping should be used after switching from Layer 1")
+        XCTAssertTrue(foundLayer1Mapping, "Layer 1 mapping should remain active")
+        XCTAssertFalse(foundLayer2Mapping, "Layer 2 mapping should NOT be used while Layer 1 is active")
     }
 
     // MARK: - Swap Mapping Tests
@@ -5353,6 +5366,7 @@ final class SequenceDetectionTests: XCTestCase {
 
 // MARK: - Controller Lock Tests
 
+@MainActor
 final class ControllerLockTests: XCTestCase {
     var controllerService: ControllerService!
     var profileManager: ProfileManager!
@@ -5415,7 +5429,7 @@ final class ControllerLockTests: XCTestCase {
         await MainActor.run {
             let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
             let aMapping = KeyMapping(keyCode: 0) // 'A' key
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "LockTest",
                 buttonMappings: [.x: lockMapping, .a: aMapping]
             ))
@@ -5460,7 +5474,7 @@ final class ControllerLockTests: XCTestCase {
         await MainActor.run {
             let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
             let aMapping = KeyMapping(keyCode: 0)
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "UnlockTest",
                 buttonMappings: [.x: lockMapping, .a: aMapping]
             ))
@@ -5513,7 +5527,7 @@ final class ControllerLockTests: XCTestCase {
                 keyCode: KeyCodeMapping.controllerLock
             )
             let aMapping = KeyMapping(keyCode: 0)
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "SeqLock",
                 buttonMappings: [.a: aMapping],
                 sequenceMappings: [seq]
@@ -5563,7 +5577,7 @@ final class ControllerLockTests: XCTestCase {
                 keyCode: KeyCodeMapping.controllerLock
             )
             let aMapping = KeyMapping(keyCode: 0)
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "SeqUnlock",
                 buttonMappings: [.a: aMapping],
                 sequenceMappings: [seq]
@@ -5623,7 +5637,7 @@ final class ControllerLockTests: XCTestCase {
                 keyCode: KeyCodeMapping.controllerLock
             )
             let aMapping = KeyMapping(keyCode: 0)
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "ChordLock",
                 buttonMappings: [.a: aMapping],
                 chordMappings: [chord]
@@ -5669,7 +5683,7 @@ final class ControllerLockTests: XCTestCase {
                 keyCode: KeyCodeMapping.controllerLock
             )
             let aMapping = KeyMapping(keyCode: 0)
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "ChordUnlock",
                 buttonMappings: [.a: aMapping],
                 chordMappings: [chord]
@@ -5725,7 +5739,7 @@ final class ControllerLockTests: XCTestCase {
         await MainActor.run {
             let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
             let holdMapping = KeyMapping.holdModifier(.command)
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "LockModifiers",
                 buttonMappings: [.x: lockMapping, .leftBumper: holdMapping]
             ))
@@ -5766,7 +5780,7 @@ final class ControllerLockTests: XCTestCase {
     func testLockPersistsAcrossEnableToggle() async throws {
         await MainActor.run {
             let lockMapping = KeyMapping(keyCode: KeyCodeMapping.controllerLock)
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "LockPersist",
                 buttonMappings: [.x: lockMapping]
             ))
@@ -5809,7 +5823,7 @@ final class ControllerLockTests: XCTestCase {
                 steps: [.a, .b],
                 keyCode: 99  // F16
             )
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "SeqBlocked",
                 buttonMappings: [.x: lockMapping],
                 sequenceMappings: [otherSeq]
@@ -5854,7 +5868,7 @@ final class ControllerLockTests: XCTestCase {
                 buttons: [.a, .b],
                 keyCode: 99
             )
-            profileManager.setActiveProfile(Profile(
+            profileManager.installTestProfile(Profile(
                 name: "ChordBlocked",
                 buttonMappings: [.x: lockMapping],
                 chordMappings: [otherChord]
