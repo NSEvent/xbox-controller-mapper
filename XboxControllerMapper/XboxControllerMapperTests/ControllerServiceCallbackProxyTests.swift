@@ -91,4 +91,41 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         controllerService.chordWindow = 0.23
         XCTAssertEqual(controllerService.chordWindow, 0.23, accuracy: 0.000_1)
     }
+
+	func testGuideMonitorPaddleButtonRequiresRawHIDSource() {
+		controllerService.writeStorage(\.elitePaddleEventSource, .none)
+
+		XCTAssertNil(
+			controllerService.guideMonitorPaddleButton(for: 1, pressed: true),
+			"Raw HID monitor paddle callbacks must be ignored when it does not own Elite paddles."
+		)
+
+		controllerService.writeStorage(\.elitePaddleEventSource, .rawHID)
+
+		XCTAssertEqual(controllerService.guideMonitorPaddleButton(for: 1, pressed: true), .xboxPaddle1)
+		XCTAssertEqual(controllerService.guideMonitorPaddleButton(for: 2, pressed: true), .xboxPaddle2)
+		XCTAssertNil(controllerService.guideMonitorPaddleButton(for: 99, pressed: true))
+	}
+
+	func testRawHIDPaddleSourcesAreDedupedTogether() {
+		controllerService.writeStorage(\.elitePaddleEventSource, .none)
+
+		XCTAssertNil(
+			controllerService.eliteHelperPaddleButton(for: 1, pressed: true),
+			"Helper paddle callbacks must be ignored unless the helper owns Elite paddles."
+		)
+
+		controllerService.writeStorage(\.elitePaddleEventSource, .rawHID)
+
+		XCTAssertEqual(controllerService.guideMonitorPaddleButton(for: 1, pressed: true), .xboxPaddle1)
+		XCTAssertNil(
+			controllerService.eliteHelperPaddleButton(for: 1, pressed: true),
+			"Same-state helper event should be ignored after guide monitor handled the press."
+		)
+		XCTAssertEqual(controllerService.eliteHelperPaddleButton(for: 1, pressed: false), .xboxPaddle1)
+		XCTAssertNil(
+			controllerService.guideMonitorPaddleButton(for: 1, pressed: false),
+			"Same-state guide monitor event should be ignored after helper handled the release."
+		)
+	}
 }

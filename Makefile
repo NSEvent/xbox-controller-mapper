@@ -41,8 +41,9 @@ WRAPPER_NAME := $(shell $(BUILD_SETTINGS) | awk -F ' = ' '/WRAPPER_NAME/ {print 
 APP_PATH := $(TARGET_BUILD_DIR)/$(WRAPPER_NAME)
 PROCESS_NAME := $(basename $(WRAPPER_NAME))
 
-# Check if Kevin's dev cert is available (team ID 542GXYT5Z2)
-HAS_DEV_CERT := $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q "$(TEAM_ID)" && echo 1 || echo 0)
+# Check if an Apple Development cert is available for local development signing.
+APPLE_DEVELOPMENT_IDENTITY := $(shell security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development:/ {print $$2; exit}')
+HAS_DEV_CERT := $(shell [ -n "$(APPLE_DEVELOPMENT_IDENTITY)" ] && echo 1 || echo 0)
 
 INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 
@@ -106,11 +107,24 @@ endif
 
 install: build elite-helper
 	-pkill -x "$(PROCESS_NAME)" || true
+	-pkill -x "$(HELPER_NAME)" || true
 	@sleep 1
 	/usr/bin/ditto "$(APP_PATH)" "/Applications/$(WRAPPER_NAME)"
 	@# Bundle the Elite helper inside the app
 	@mkdir -p "/Applications/$(WRAPPER_NAME)/Contents/Helpers"
 	@cp "$(TARGET_BUILD_DIR)/$(HELPER_NAME)" "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"
+ifeq ($(HAS_DEV_CERT),1)
+	@CERT_PREFIX="/tmp/xcm-app-signing-cert-$$$$"; \
+	/usr/bin/codesign -d --extract-certificates="$$CERT_PREFIX" "$(APP_PATH)" >/dev/null 2>&1; \
+	SIGNING_IDENTITY="$$(openssl x509 -inform DER -in "$${CERT_PREFIX}0" -noout -fingerprint -sha1 | sed 's/.*=//; s/://g')"; \
+	rm -f "$${CERT_PREFIX}"*; \
+	echo "Signing Elite helper with app identity $$SIGNING_IDENTITY"; \
+	/usr/bin/codesign --force --sign "$$SIGNING_IDENTITY" --timestamp=none "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"; \
+	/usr/bin/codesign --force --sign "$$SIGNING_IDENTITY" --timestamp=none --preserve-metadata=entitlements,requirements,flags "/Applications/$(WRAPPER_NAME)"
+else
+	/usr/bin/codesign --force --sign - --timestamp=none "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"
+	/usr/bin/codesign --force --sign - --timestamp=none --preserve-metadata=entitlements,requirements,flags "/Applications/$(WRAPPER_NAME)"
+endif
 	@echo "Installed to /Applications/$(WRAPPER_NAME)"
 	open "/Applications/$(WRAPPER_NAME)"
 
