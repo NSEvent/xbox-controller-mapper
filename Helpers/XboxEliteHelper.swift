@@ -33,7 +33,9 @@ import IOKit.hid
 // MARK: - State
 
 let shouldEmitPaddles = !CommandLine.arguments.contains("--guide-only")
+let guideDuplicateForwardInterval: TimeInterval = 2.0
 var guidePressed = false
+var guideLastEventTime: TimeInterval?
 var paddleState: [Int: Bool] = [1: false, 2: false, 3: false, 4: false]
 var knownDevices = Set<UnsafeMutableRawPointer>()
 var devicesWithExtendedButtons = Set<UnsafeMutableRawPointer>()
@@ -44,6 +46,23 @@ setbuf(stdout, nil)
 
 func emit(_ json: String) {
     print(json)
+}
+
+func emitGuideEvent(pressed: Bool, now: TimeInterval = CFAbsoluteTimeGetCurrent()) {
+	if pressed != guidePressed {
+		guidePressed = pressed
+		guideLastEventTime = now
+		emit("{\"type\":\"guide\",\"pressed\":\(pressed)}")
+		return
+	}
+
+	let eventGap = guideLastEventTime.map { now - $0 }
+	guideLastEventTime = now
+	// Forward only the stale duplicate press. The app process owns release/press recovery
+	// across all raw Guide sources, which prevents helper + in-app HID from double-firing.
+	if pressed, let eventGap, eventGap >= guideDuplicateForwardInterval {
+		emit("{\"type\":\"guide\",\"pressed\":true}")
+	}
 }
 
 // MARK: - HID Setup
@@ -144,10 +163,7 @@ let inputCallback: IOHIDValueCallback = { _, _, _, value in
 		hasACHome: traits.hasACHome
 	) {
         let pressed = intValue != 0
-        if pressed != guidePressed {
-            guidePressed = pressed
-            emit("{\"type\":\"guide\",\"pressed\":\(pressed)}")
-        }
+		emitGuideEvent(pressed: pressed)
     }
 
     // Paddles: Consumer Page, usage 0x81 (4-bit bitmask)
