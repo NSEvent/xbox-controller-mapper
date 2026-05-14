@@ -33,7 +33,7 @@ import IOKit.hid
 // MARK: - State
 
 let shouldEmitPaddles = !CommandLine.arguments.contains("--guide-only")
-let guideStalePressRecoveryInterval: TimeInterval = 2.0
+let guideDuplicateForwardInterval: TimeInterval = 2.0
 var guidePressed = false
 var guideLastEventTime: TimeInterval?
 var paddleState: [Int: Bool] = [1: false, 2: false, 3: false, 4: false]
@@ -58,10 +58,9 @@ func emitGuideEvent(pressed: Bool, now: TimeInterval = CFAbsoluteTimeGetCurrent(
 
 	let eventGap = guideLastEventTime.map { now - $0 }
 	guideLastEventTime = now
-	if pressed, let eventGap, eventGap >= guideStalePressRecoveryInterval {
-		guidePressed = false
-		emit("{\"type\":\"guide\",\"pressed\":false}")
-		guidePressed = true
+	// Forward only the stale duplicate press. The app process owns release/press recovery
+	// across all raw Guide sources, which prevents helper + in-app HID from double-firing.
+	if pressed, let eventGap, eventGap >= guideDuplicateForwardInterval {
 		emit("{\"type\":\"guide\",\"pressed\":true}")
 	}
 }

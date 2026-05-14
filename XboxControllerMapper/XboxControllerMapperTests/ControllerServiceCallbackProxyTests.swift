@@ -160,6 +160,26 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		)
 	}
 
+	func testRawHIDGuideStaleRecoveryOnlyFiresOnceAcrossSources() {
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 50),
+			[ControllerButtonEvent(button: .xbox, pressed: true)]
+		)
+		XCTAssertEqual(
+			controllerService.eliteHelperGuideButtonEvents(pressed: true, now: 52.1),
+			[
+				ControllerButtonEvent(button: .xbox, pressed: false),
+				ControllerButtonEvent(button: .xbox, pressed: true),
+			],
+			"The first stale duplicate press recovers the missing release."
+		)
+		XCTAssertEqual(
+			controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 52.2),
+			[],
+			"A same-press report from the other raw source should not recover again."
+		)
+	}
+
 	func testRawHIDGuideDoesNotRecoverWhilePressedReportsContinue() {
 		XCTAssertEqual(
 			controllerService.guideMonitorGuideButtonEvents(pressed: true, now: 40),
