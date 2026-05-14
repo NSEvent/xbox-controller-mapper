@@ -93,3 +93,4 @@ xcuserdata/
 # Claude Code transient files
 .claude/skills/
 .claude/worktrees/
+.claude/scheduled_tasks.lock
