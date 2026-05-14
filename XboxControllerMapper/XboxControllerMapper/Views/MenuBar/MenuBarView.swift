@@ -1,4 +1,5 @@
 import Combine
+import GameController
 import SwiftUI
 
 extension Notification.Name {
@@ -117,6 +118,13 @@ struct MenuBarView: View {
                 }
 
                 Spacer()
+
+				if controllerService.isConnected {
+					MenuBarBatteryBadge(
+						level: controllerService.batteryLevel,
+						state: controllerService.batteryState
+					)
+				}
             }
 
             // Accessibility permission status
@@ -268,6 +276,56 @@ struct MenuBarView: View {
 
     private func quitApp() {
         NSApp.terminate(nil)
+    }
+}
+
+private struct MenuBarBatteryBadge: View {
+    let level: Float
+    let state: GCDeviceBattery.State
+
+    private var percentage: Int? {
+		ControllerBatteryDisplayPolicy.percentage(level: level, state: state)
+    }
+
+    private var batterySymbolName: String {
+		guard let percentage else { return "battery.0percent" }
+		if percentage >= 88 { return "battery.100percent" }
+		if percentage >= 63 { return "battery.75percent" }
+		if percentage >= 38 { return "battery.50percent" }
+		if percentage >= 13 { return "battery.25percent" }
+		return "battery.0percent"
+    }
+
+    private var tint: Color {
+		guard let percentage else { return .secondary }
+		if state == .charging { return .green }
+		if percentage > 60 { return .green }
+		if percentage > 20 { return .orange }
+		return .red
+    }
+
+    var body: some View {
+		HStack(spacing: 4) {
+			if state == .charging, percentage != nil {
+				Image(systemName: "bolt.fill")
+					.font(.system(size: 9, weight: .bold))
+					.foregroundColor(.yellow)
+			}
+
+			Image(systemName: batterySymbolName)
+				.font(.system(size: 12, weight: .semibold))
+
+			Text(percentage.map { "\($0)%" } ?? "--")
+				.font(.caption.weight(.semibold))
+				.monospacedDigit()
+		}
+		.foregroundColor(tint)
+		.padding(.horizontal, 7)
+		.padding(.vertical, 4)
+		.background(Color.primary.opacity(0.07))
+		.cornerRadius(6)
+		.help(percentage.map { "Battery: \($0)%" } ?? "Battery unavailable")
+		.accessibilityLabel(percentage.map { "Battery: \($0) percent" } ?? "Battery unavailable")
     }
 }
 

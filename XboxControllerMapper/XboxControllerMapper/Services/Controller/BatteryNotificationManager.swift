@@ -1,50 +1,45 @@
 import Foundation
 import UserNotifications
 import Combine
+import GameController
 
 /// Monitors controller battery level and sends macOS notifications at low thresholds
 @MainActor
 class BatteryNotificationManager {
-    private var cancellables = Set<AnyCancellable>()
-    private var hasNotifiedAt20 = false
-    private var hasNotifiedAt10 = false
-    private var hasRequestedPermission = false
+	private var cancellables = Set<AnyCancellable>()
+	private var hasNotifiedAt20 = false
+	private var hasNotifiedAt10 = false
+	private var hasRequestedPermission = false
 
-    private let warningThreshold: Float = 0.20
-    private let criticalThreshold: Float = 0.10
-    private let resetMargin: Float = 0.05
+	private let warningThreshold: Float = 0.20
+	private let criticalThreshold: Float = 0.10
+	private let resetMargin: Float = 0.05
 
-    func startMonitoring(controllerService: ControllerService) {
-        controllerService.$batteryLevel
-            .removeDuplicates()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] level in
-                self?.handleBatteryUpdate(level: level)
-            }
-            .store(in: &cancellables)
+	func startMonitoring(controllerService: ControllerService) {
+		controllerService.$batteryLevel
+			.combineLatest(controllerService.$batteryState, controllerService.$isConnected)
+			.receive(on: DispatchQueue.main)
+			.sink { [weak self] update in
+				let (level, state, isConnected) = update
+				if isConnected {
+					self?.handleBatteryUpdate(level: level, state: state)
+				} else {
+					self?.reset()
+				}
+			}
+			.store(in: &cancellables)
+	}
 
-        // Reset notification state on disconnect
-        controllerService.$isConnected
-            .removeDuplicates()
-            .filter { $0 == false }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.reset()
-            }
-            .store(in: &cancellables)
-    }
+	private func handleBatteryUpdate(level: Float, state: GCDeviceBattery.State) {
+		guard ControllerBatteryDisplayPolicy.isKnown(level: level, state: state) else { return }
 
-    private func handleBatteryUpdate(level: Float) {
-        // Ignore unknown/invalid battery levels
-        guard level >= 0 && level <= 1.0 else { return }
-
-        // Reset flags when charged above threshold + margin
-        if level > warningThreshold + resetMargin {
-            hasNotifiedAt20 = false
-        }
-        if level > criticalThreshold + resetMargin {
-            hasNotifiedAt10 = false
-        }
+		// Reset flags when charged above threshold + margin
+		if level > warningThreshold + resetMargin {
+			hasNotifiedAt20 = false
+		}
+		if level > criticalThreshold + resetMargin {
+			hasNotifiedAt10 = false
+		}
 
         // Check critical threshold (10%)
         if level <= criticalThreshold && !hasNotifiedAt10 {
