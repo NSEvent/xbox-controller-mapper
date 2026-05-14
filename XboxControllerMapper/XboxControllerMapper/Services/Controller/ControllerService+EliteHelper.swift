@@ -11,9 +11,25 @@ import Foundation
 @MainActor
 extension ControllerService {
 
-    func startEliteHelper() {
-        // Don't start if already running
-        guard eliteHelperProcess == nil else { return }
+	func startEliteHelper(paddleEventSource: ElitePaddleEventSource) {
+		let handlePaddles = EliteControllerInputPolicy.helperHandlesPaddles(
+			paddleEventSource: paddleEventSource
+		)
+		if let process = eliteHelperProcess {
+			if process.isRunning {
+				guard EliteControllerInputPolicy.helperNeedsRestart(
+					currentHandlePaddles: eliteHelperHandlesPaddles,
+					requestedHandlePaddles: handlePaddles
+				) else {
+					return
+				}
+				guideLog("Restarting Elite helper process for paddle mode change")
+				stopEliteHelper()
+			} else {
+				eliteHelperProcess = nil
+				eliteHelperHandlesPaddles = nil
+			}
+		}
 
         let helperPath = Bundle.main.bundlePath + "/Contents/Helpers/XboxEliteHelper"
 
@@ -26,6 +42,9 @@ extension ControllerService {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: helperPath)
+		process.arguments = EliteControllerInputPolicy.helperArguments(
+			paddleEventSource: paddleEventSource
+		)
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -37,8 +56,10 @@ extension ControllerService {
             guard !data.isEmpty else {
                 // EOF — process terminated. Clear the handler to stop repeated calls.
                 handle.readabilityHandler = nil
-                DispatchQueue.main.async { [weak self] in
-                    self?.eliteHelperProcess = nil
+				DispatchQueue.main.async { [weak self, weak process] in
+					guard let self, let process, self.eliteHelperProcess === process else { return }
+					self.eliteHelperProcess = nil
+					self.eliteHelperHandlesPaddles = nil
                     guideLog("Elite helper process terminated (EOF)")
                 }
                 return
@@ -58,6 +79,7 @@ extension ControllerService {
         do {
             try process.run()
             eliteHelperProcess = process
+			eliteHelperHandlesPaddles = handlePaddles
             guideLog("Elite helper process started (pid \(process.processIdentifier))")
         } catch {
             guideLog("Failed to start Elite helper: \(error)")
@@ -67,11 +89,13 @@ extension ControllerService {
     func stopEliteHelper() {
         guard let process = eliteHelperProcess, process.isRunning else {
             eliteHelperProcess = nil
+			eliteHelperHandlesPaddles = nil
             return
         }
         guideLog("Stopping Elite helper process")
         process.terminate()
         eliteHelperProcess = nil
+		eliteHelperHandlesPaddles = nil
     }
 
     private nonisolated func handleEliteHelperLine(_ line: String) {
@@ -99,14 +123,7 @@ extension ControllerService {
 
         case "paddle":
             if let index = json["index"] as? Int, let pressed = json["pressed"] as? Bool {
-                let button: ControllerButton
-                switch index {
-                case 1: button = .xboxPaddle1
-                case 2: button = .xboxPaddle2
-                case 3: button = .xboxPaddle3
-                case 4: button = .xboxPaddle4
-                default: return
-                }
+				guard let button = eliteHelperPaddleButton(for: index, pressed: pressed) else { return }
                 guideLog("Elite helper: Paddle \(index) \(pressed ? "PRESSED" : "RELEASED")")
                 controllerQueue.async { [weak self] in
                     self?.handleButton(button, pressed: pressed)
@@ -117,4 +134,30 @@ extension ControllerService {
             break
         }
     }
+}
+
+enum ElitePaddleEventSource: Equatable, Sendable {
+	case none
+	case rawHID
+}
+
+enum EliteControllerInputPolicy {
+	static func paddleEventSource(gameControllerHasPaddles: Bool) -> ElitePaddleEventSource {
+		gameControllerHasPaddles ? .none : .rawHID
+	}
+
+	static func helperHandlesPaddles(paddleEventSource: ElitePaddleEventSource) -> Bool {
+		paddleEventSource == .rawHID
+	}
+
+	static func helperArguments(paddleEventSource: ElitePaddleEventSource) -> [String] {
+		helperHandlesPaddles(paddleEventSource: paddleEventSource) ? [] : ["--guide-only"]
+	}
+
+	static func helperNeedsRestart(
+		currentHandlePaddles: Bool?,
+		requestedHandlePaddles: Bool
+	) -> Bool {
+		currentHandlePaddles != requestedHandlePaddles
+	}
 }

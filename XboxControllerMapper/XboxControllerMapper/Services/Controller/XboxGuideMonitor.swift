@@ -25,15 +25,15 @@ class XboxGuideMonitor {
 
     private var hidManager: IOHIDManager?
     private var callbackContext: UnsafeMutableRawPointer?
+	private var callbackContextHolder: CallbackContext?
     private(set) var isStarted = false
+	private let enableHardwareMonitoring: Bool
 
     // Paddle state tracking (Consumer Page 0x81 bitmask)
     private var paddleState: [Int: Bool] = [1: false, 2: false, 3: false, 4: false]
-    // Consumer 0x81 bitmask mapping: bit -> paddle index
-    // Matches GCXboxGamepad convention: P1=upper left, P2=upper right, P3=lower left, P4=lower right
-    //   bit 2 = P1 (upper left), bit 0 = P2 (upper right)
-    //   bit 3 = P3 (lower left), bit 1 = P4 (lower right)
-    private static let paddleBitMapping: [(bit: Int, paddle: Int)] = [
+	// Consumer 0x81 bitmask mapping: bit -> paddle index.
+	// Matches GCXboxGamepad convention: P1=upper left, P2=upper right, P3=lower left, P4=lower right.
+	static let paddleBitMapping: [(bit: Int, paddle: Int)] = [
         (2, 1), (0, 2), (3, 3), (1, 4)
     ]
 
@@ -47,10 +47,21 @@ class XboxGuideMonitor {
         0x0B22,  // Elite 2 (Bluetooth Low Energy — new firmware 5.x+)
     ]
 
-    /// Tracks devices where Button Page usage 13 is a paddle (not Guide).
-    /// On USB-style Elite 2 descriptors (>15 Button Page usages), usage 13 is a paddle
-    /// and Guide is at usage 17. On BLE-style descriptors (15 usages), usage 13 IS Guide.
-    private var devicesWhereUsage13IsPaddle = Set<UnsafeMutableRawPointer>()
+	/// Devices whose HID traits have already been inspected.
+	private var devicesWithKnownGuideTraits = Set<UnsafeMutableRawPointer>()
+
+	/// Tracks devices with >15 Button Page usages (USB-style/Classic BT descriptors).
+	/// On these devices, Button Page usage 13 is a paddle, not Guide.
+	private var devicesWithExtendedButtons = Set<UnsafeMutableRawPointer>()
+
+	/// Tracks devices that expose Consumer Page AC Home (0x0223) as Guide.
+	/// On these devices, Button Page usage 17 can be a normal mirrored face button.
+	private var devicesWithACHome = Set<UnsafeMutableRawPointer>()
+
+	/// Elite 2 often appears as multiple HID interfaces. If one interface reveals
+	/// Guide routing traits, apply those traits across the whole Elite session.
+	private var eliteDevicesWithExtendedButtons = Set<UnsafeMutableRawPointer>()
+	private var eliteDevicesWithACHome = Set<UnsafeMutableRawPointer>()
 
     /// Product IDs of currently connected Microsoft controller devices.
     /// Updated on device match/removal. Thread-safe via main queue (HID callbacks run on main).
@@ -69,6 +80,8 @@ class XboxGuideMonitor {
     private final class CallbackContext {
         weak var monitor: XboxGuideMonitor?
         init(monitor: XboxGuideMonitor) { self.monitor = monitor }
+		// Avoid inferred MainActor-isolated teardown for this unmanaged HID callback holder.
+		nonisolated deinit { }
     }
 
     // MARK: - Static Callbacks
@@ -91,9 +104,29 @@ class XboxGuideMonitor {
         holder.monitor?.handleInput(value)
     }
 
+	private func prepareCallbackContext() -> UnsafeMutableRawPointer {
+		if let callbackContext {
+			return callbackContext
+		}
+		let holder = CallbackContext(monitor: self)
+		callbackContextHolder = holder
+		let context = Unmanaged.passUnretained(holder).toOpaque()
+		callbackContext = context
+		return context
+	}
+
+	var hasCallbackContextForTesting: Bool {
+		callbackContext != nil
+	}
+
+	func prepareCallbackContextForTesting() {
+		_ = prepareCallbackContext()
+	}
+
     // MARK: - Lifecycle
 
-    init() {
+	init(enableHardwareMonitoring: Bool = true) {
+		self.enableHardwareMonitoring = enableHardwareMonitoring
         start()
     }
 
@@ -103,6 +136,11 @@ class XboxGuideMonitor {
 
     func start() {
         guard !isStarted else { return }
+
+		guard enableHardwareMonitoring else {
+			isStarted = true
+			return
+		}
 
         hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         guard let hidManager = hidManager else { return }
@@ -126,11 +164,10 @@ class XboxGuideMonitor {
         let criteria = [gamepadMatching, joystickMatching, microsoftMatching] as CFArray
         IOHIDManagerSetDeviceMatchingMultiple(hidManager, criteria)
 
-        let retainedContext = Unmanaged.passRetained(CallbackContext(monitor: self)).toOpaque()
-        callbackContext = retainedContext
-        IOHIDManagerRegisterDeviceMatchingCallback(hidManager, Self.deviceMatchedCallback, retainedContext)
-        IOHIDManagerRegisterDeviceRemovalCallback(hidManager, Self.deviceRemovedCallback, retainedContext)
-        IOHIDManagerRegisterInputValueCallback(hidManager, Self.inputValueCallback, retainedContext)
+		let context = prepareCallbackContext()
+		IOHIDManagerRegisterDeviceMatchingCallback(hidManager, Self.deviceMatchedCallback, context)
+		IOHIDManagerRegisterDeviceRemovalCallback(hidManager, Self.deviceRemovedCallback, context)
+		IOHIDManagerRegisterInputValueCallback(hidManager, Self.inputValueCallback, context)
 
         IOHIDManagerScheduleWithRunLoop(hidManager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         _ = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
@@ -151,10 +188,8 @@ class XboxGuideMonitor {
             }
         }
 
-        if let callbackContext {
-            Unmanaged<CallbackContext>.fromOpaque(callbackContext).release()
-            self.callbackContext = nil
-        }
+		callbackContext = nil
+		callbackContextHolder = nil
 
         isStarted = false
     }
@@ -170,34 +205,134 @@ class XboxGuideMonitor {
         if vid == 0x045E {
             connectedMicrosoftPIDs.insert(pid)
 
-            // Determine if usage 13 is Guide or a paddle on this device.
-            // USB-style Elite 2 descriptors have >15 Button Page usages (buttons + paddles),
-            // where usage 13 is a paddle and Guide is at usage 17.
-            // BLE-style descriptors have exactly 15 Button Page usages, where usage 13 IS Guide.
-            let maxButtonUsage = Self.maxButtonPageUsage(for: device)
-            guideLog("  maxButtonUsage=\(maxButtonUsage)")
-            if maxButtonUsage > 15 {
-                let ptr = Unmanaged.passUnretained(device).toOpaque()
-                devicesWhereUsage13IsPaddle.insert(ptr)
-                guideLog("  usage 13 = paddle (USB-style descriptor), Guide at usage 17")
-            }
+			cacheGuideTraits(for: device, shouldLog: true)
         }
     }
 
-    /// Returns the highest Button Page usage on a device by enumerating its HID elements.
-    private static func maxButtonPageUsage(for device: IOHIDDevice) -> UInt32 {
+	struct GuideTraits: Equatable {
+		let hasExtendedButtons: Bool
+		let hasACHome: Bool
+
+		static let none = GuideTraits(hasExtendedButtons: false, hasACHome: false)
+
+		func merged(with other: GuideTraits) -> GuideTraits {
+			GuideTraits(
+				hasExtendedButtons: hasExtendedButtons || other.hasExtendedButtons,
+				hasACHome: hasACHome || other.hasACHome
+			)
+		}
+	}
+
+	private static func isEliteDevice(_ device: IOHIDDevice) -> Bool {
+		let vid = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int ?? 0
+		let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int ?? 0
+		return vid == 0x045E && eliteSeries2PIDs.contains(pid)
+	}
+
+	/// Returns the HID guide routing traits for a device by enumerating its elements.
+	private static func guideTraits(for device: IOHIDDevice) -> GuideTraits {
         guard let elements = IOHIDDeviceCopyMatchingElements(device, nil, IOOptionBits(kIOHIDOptionsTypeNone)) as? [IOHIDElement] else {
-            return 0
+			return GuideTraits(hasExtendedButtons: false, hasACHome: false)
         }
         var maxUsage: UInt32 = 0
+		var hasACHome = false
         for element in elements {
-            if IOHIDElementGetUsagePage(element) == kHIDPage_Button {
+			let usagePage = IOHIDElementGetUsagePage(element)
+			if usagePage == kHIDPage_Button {
                 let usage = IOHIDElementGetUsage(element)
                 if usage > maxUsage { maxUsage = usage }
+			} else if usagePage == kHIDPage_Consumer && IOHIDElementGetUsage(element) == 0x0223 {
+				hasACHome = true
+			}
+		}
+		return GuideTraits(hasExtendedButtons: maxUsage > 15, hasACHome: hasACHome)
+	}
+
+	/// Pure guide-event routing policy. Kept testable because Elite 2 HID descriptors vary by firmware.
+	static func isGuideEvent(
+		usagePage: UInt32,
+		usage: UInt32,
+		hasExtendedButtons: Bool,
+		hasACHome: Bool
+	) -> Bool {
+		if usagePage == UInt32(kHIDPage_Consumer) && usage == 0x0223 {
+			return true
+		}
+
+		guard usagePage == UInt32(kHIDPage_Button) else { return false }
+
+		if usage == 13 {
+			return !hasExtendedButtons
+		}
+		if usage == 17 {
+			return !hasACHome
+		}
+		return false
+	}
+
+	static func effectiveGuideTraits(
+		deviceTraits: GuideTraits,
+		eliteSessionTraits: GuideTraits
+	) -> GuideTraits {
+		deviceTraits.merged(with: eliteSessionTraits)
+	}
+
+	@discardableResult
+	private func cacheGuideTraits(for device: IOHIDDevice, shouldLog: Bool = false) -> GuideTraits {
+		let ptr = Unmanaged.passUnretained(device).toOpaque()
+		if !devicesWithKnownGuideTraits.contains(ptr) {
+			let traits = Self.guideTraits(for: device)
+			let isElite = Self.isEliteDevice(device)
+			devicesWithKnownGuideTraits.insert(ptr)
+			if traits.hasExtendedButtons {
+				devicesWithExtendedButtons.insert(ptr)
+				if isElite {
+					eliteDevicesWithExtendedButtons.insert(ptr)
+				}
+			}
+			if traits.hasACHome {
+				devicesWithACHome.insert(ptr)
+				if isElite {
+					eliteDevicesWithACHome.insert(ptr)
+				}
+			}
+			if shouldLog {
+				guideLog("  hasExtendedButtons=\(traits.hasExtendedButtons) hasACHome=\(traits.hasACHome)")
+				if traits.hasExtendedButtons {
+					guideLog("  usage 13 = paddle (extended button descriptor)")
+				}
+				if traits.hasACHome {
+					guideLog("  Guide = Consumer Page AC Home (0x0223)")
+				}
+				if isElite {
+					let sessionTraits = eliteSessionGuideTraits()
+					guideLog("  Elite session traits: hasExtendedButtons=\(sessionTraits.hasExtendedButtons) hasACHome=\(sessionTraits.hasACHome)")
+				}
             }
         }
-        return maxUsage
+		return GuideTraits(
+			hasExtendedButtons: devicesWithExtendedButtons.contains(ptr),
+			hasACHome: devicesWithACHome.contains(ptr)
+		)
     }
+
+	private func eliteSessionGuideTraits() -> GuideTraits {
+		GuideTraits(
+			hasExtendedButtons: !eliteDevicesWithExtendedButtons.isEmpty,
+			hasACHome: !eliteDevicesWithACHome.isEmpty
+		)
+	}
+
+	private func effectiveGuideTraits(for device: IOHIDDevice) -> GuideTraits {
+		let deviceTraits = cacheGuideTraits(for: device)
+		guard Self.isEliteDevice(device) else {
+			return deviceTraits
+		}
+		return Self.effectiveGuideTraits(
+			deviceTraits: deviceTraits,
+			eliteSessionTraits: eliteSessionGuideTraits()
+		)
+	}
 
     fileprivate func deviceRemoved(_ device: IOHIDDevice) {
         guideLog("Device removed: \"\(getDeviceName(device))\"")
@@ -206,7 +341,12 @@ class XboxGuideMonitor {
         if vid == 0x045E, let pid = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int {
             connectedMicrosoftPIDs.remove(pid)
         }
-        devicesWhereUsage13IsPaddle.remove(Unmanaged.passUnretained(device).toOpaque())
+		let ptr = Unmanaged.passUnretained(device).toOpaque()
+		devicesWithKnownGuideTraits.remove(ptr)
+		devicesWithExtendedButtons.remove(ptr)
+		devicesWithACHome.remove(ptr)
+		eliteDevicesWithExtendedButtons.remove(ptr)
+		eliteDevicesWithACHome.remove(ptr)
     }
 
     // MARK: - Input Value Handler
@@ -217,25 +357,17 @@ class XboxGuideMonitor {
         let usage = IOHIDElementGetUsage(element)
         let intValue = IOHIDValueGetIntegerValue(value)
 
-        // Guide button: Button Page
-        // - Usage 17: Guide on USB and Classic BT controllers (>15 buttons on Button Page)
-        // - Usage 13: Guide on BLE controllers (exactly 15 buttons on Button Page)
-        //   BUT on USB-style Elite 2 descriptors, usage 13 is a PADDLE — skip it.
-        if usagePage == kHIDPage_Button {
-            if usage == 17 {
-                let isPressed = intValue != 0
-                DispatchQueue.main.async { [weak self] in
-                    self?.onGuideButtonAction?(isPressed)
-                }
-            } else if usage == 13 {
-                let device = IOHIDElementGetDevice(element)
-                let ptr = Unmanaged.passUnretained(device).toOpaque()
-                if !devicesWhereUsage13IsPaddle.contains(ptr) {
-                    let isPressed = intValue != 0
-                    DispatchQueue.main.async { [weak self] in
-                        self?.onGuideButtonAction?(isPressed)
-                    }
-                }
+		let device = IOHIDElementGetDevice(element)
+		let traits = effectiveGuideTraits(for: device)
+		if Self.isGuideEvent(
+			usagePage: usagePage,
+			usage: usage,
+			hasExtendedButtons: traits.hasExtendedButtons,
+			hasACHome: traits.hasACHome
+		) {
+			let isPressed = intValue != 0
+			DispatchQueue.main.async { [weak self] in
+				self?.onGuideButtonAction?(isPressed)
             }
         }
 

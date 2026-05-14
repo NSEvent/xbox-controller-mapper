@@ -41,8 +41,26 @@ WRAPPER_NAME := $(shell $(BUILD_SETTINGS) | awk -F ' = ' '/WRAPPER_NAME/ {print 
 APP_PATH := $(TARGET_BUILD_DIR)/$(WRAPPER_NAME)
 PROCESS_NAME := $(basename $(WRAPPER_NAME))
 
-# Check if Kevin's dev cert is available (team ID 542GXYT5Z2)
-HAS_DEV_CERT := $(shell security find-identity -v -p codesigning 2>/dev/null | grep -q "$(TEAM_ID)" && echo 1 || echo 0)
+# Check if an Apple Development cert is available for local development signing.
+# Restrict to the configured team so a different team's certificate does not force
+# the signed build path before xcodebuild can fall back to ad-hoc signing.
+APPLE_DEVELOPMENT_IDENTITY := $(shell \
+	valid_identities=$$(security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development:/ {printf " %s ", $$2}'); \
+	tmp_dir=$$(mktemp -d 2>/dev/null || mktemp -d -t xcm-cert); \
+	trap 'rm -rf "$$tmp_dir"' EXIT; \
+	security find-certificate -a -c "Apple Development" -Z -p 2>/dev/null | \
+	awk -v dir="$$tmp_dir" '/^SHA-1 hash:/ { hash=$$3 } /^-----BEGIN CERTIFICATE-----/ { in_cert=1; cert=$$0 ORS; next } in_cert { cert=cert $$0 ORS } /^-----END CERTIFICATE-----/ && hash != "" { file=dir "/" hash ".pem"; print cert > file; cert=""; in_cert=0; next } /^-----END CERTIFICATE-----/ { cert=""; in_cert=0 }'; \
+	for cert in "$$tmp_dir"/*.pem; do \
+		[ -e "$$cert" ] || continue; \
+		hash=$$(basename "$$cert" .pem); \
+		printf '%s' "$$valid_identities" | grep -Fq " $$hash " || continue; \
+		subject=$$(openssl x509 -in "$$cert" -noout -subject 2>/dev/null); \
+		if printf '%s' "$$subject" | grep -Fq "OU=$(TEAM_ID)" || printf '%s' "$$subject" | grep -Fq "OU = $(TEAM_ID)"; then \
+			echo "$$hash"; \
+			break; \
+		fi; \
+	done)
+HAS_DEV_CERT := $(shell [ -n "$(APPLE_DEVELOPMENT_IDENTITY)" ] && echo 1 || echo 0)
 
 INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 
@@ -106,11 +124,24 @@ endif
 
 install: build elite-helper
 	-pkill -x "$(PROCESS_NAME)" || true
+	-pkill -x "$(HELPER_NAME)" || true
 	@sleep 1
 	/usr/bin/ditto "$(APP_PATH)" "/Applications/$(WRAPPER_NAME)"
 	@# Bundle the Elite helper inside the app
 	@mkdir -p "/Applications/$(WRAPPER_NAME)/Contents/Helpers"
 	@cp "$(TARGET_BUILD_DIR)/$(HELPER_NAME)" "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"
+ifeq ($(HAS_DEV_CERT),1)
+	@CERT_PREFIX="/tmp/xcm-app-signing-cert-$$$$"; \
+	/usr/bin/codesign -d --extract-certificates="$$CERT_PREFIX" "$(APP_PATH)" >/dev/null 2>&1; \
+	SIGNING_IDENTITY="$$(openssl x509 -inform DER -in "$${CERT_PREFIX}0" -noout -fingerprint -sha1 | sed 's/.*=//; s/://g')"; \
+	rm -f "$${CERT_PREFIX}"*; \
+	echo "Signing Elite helper with app identity $$SIGNING_IDENTITY"; \
+	/usr/bin/codesign --force --sign "$$SIGNING_IDENTITY" --timestamp=none "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"; \
+	/usr/bin/codesign --force --sign "$$SIGNING_IDENTITY" --timestamp=none --preserve-metadata=entitlements,requirements,flags "/Applications/$(WRAPPER_NAME)"
+else
+	/usr/bin/codesign --force --sign - --timestamp=none "/Applications/$(WRAPPER_NAME)/Contents/Helpers/$(HELPER_NAME)"
+	/usr/bin/codesign --force --sign - --timestamp=none --preserve-metadata=entitlements,requirements,flags "/Applications/$(WRAPPER_NAME)"
+endif
 	@echo "Installed to /Applications/$(WRAPPER_NAME)"
 	open "/Applications/$(WRAPPER_NAME)"
 
