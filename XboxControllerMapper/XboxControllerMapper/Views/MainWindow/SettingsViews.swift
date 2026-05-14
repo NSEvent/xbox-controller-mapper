@@ -1126,6 +1126,7 @@ struct SettingsSheet: View {
     @AppStorage(ButtonMappingsTabSection.hiddenDefaultsKey) private var hiddenButtonSectionTags = ""
     @AppStorage("universalControlRelayHost") private var relayRemoteHost = "kmacstudio"
     @AppStorage("universalControlRelayPort") private var relayRemotePort = 38383
+    @AppStorage(WindowBackgroundDefaults.opacityKey) private var windowBackgroundOpacity: Double = WindowBackgroundDefaults.defaultOpacity
 
     @State private var isRefreshingDatabase = false
     @State private var databaseStatus: String?
@@ -1182,6 +1183,32 @@ struct SettingsSheet: View {
                         // icon appears immediately even if no window is key.
                         NSApp.activate(ignoringOtherApps: true)
                     }
+                }
+
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Window Background Opacity")
+                            Spacer()
+                            Text("\(Int(windowBackgroundOpacity * 100))%")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(value: $windowBackgroundOpacity, in: 0.0...1.0)
+                        HStack {
+                            Text("How much the desktop and other apps bleed through the window. Higher is more opaque.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer()
+                            Button("Reset") {
+                                windowBackgroundOpacity = WindowBackgroundDefaults.defaultOpacity
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                } header: {
+                    Text("Appearance")
                 }
 
                 Section {
