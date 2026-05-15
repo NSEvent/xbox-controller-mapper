@@ -7,11 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-05-14
+
 ### Added
 
 - **Per-layer stick mode override**: Each layer can now override the **Mouse / Scroll / WASD / Custom** mode of either stick, independent of the profile-level default. Edit a layer in the Buttons tab and pick a mode from the inline dropdown on the stick — that choice applies only while the layer is active; release the activator and the base mode resumes. A new **Inherit from Base** menu item drops the override; inherited values render in italic so it's obvious which stick is layer-scoped vs. profile-scoped. Addresses [#14](https://github.com/NSEvent/xbox-controller-mapper/issues/14) — previously the inline mode dropdown silently wrote to profile-level state regardless of which layer was being edited, so customers swapping `Mouse`/`Scroll` per layer found the change leaking to all layers. Profile-level mode still lives in the Joysticks tab; the rest of the joystick tuning (sensitivity, deadzone, acceleration) stays profile-level for now and can move per-layer later if anyone asks.
 
 - **Inert direction-binding warning**: When a layer (or the base) has custom stick-direction button mappings but the effective stick mode for that side isn't Custom — i.e. the bindings won't fire — a small orange warning appears next to the stick's mode dropdown explaining that switching to Custom is required. Prevents a silent-no-op confusion that's easy to land in after toggling mode away from Custom.
+
+- **Layer-aware controller minimap**: The controller minimap now shows a compact `BASE` / `LAYER <name>` chip and outlines layer-specific overrides in that layer's color on both the mapping tiles and the physical controller controls. Face buttons, sticks, shoulders, D-pad directions, system buttons, and touchpad regions all pick up the same color language, making it easier to see what the current layer changes at a glance.
+
+- **Menu bar battery badge**: The menu bar popup now shows the connected controller's battery level in the header, matching the main window's known/unknown battery policy.
+
+### Changed
+
+- **Main window tint default**: The main window background tint now uses a softer dark gray with a higher default opacity, improving contrast over the liquid-glass backdrop while avoiding a flat black pane.
+
+### Fixed
+
+- **Xbox battery notification race**: Xbox controllers no longer briefly report an unverified `0%` battery level when they first connect. ControllerKeys now waits for the Bluetooth Battery Service reading before showing battery state or firing low-battery notifications, so the app and notification agree. Closes [#18](https://github.com/NSEvent/xbox-controller-mapper/issues/18).
+
+- **Elite Series 2 stale Guide recovery**: Centralized stale Guide-button recovery across the Elite helper and controller service callback path so missed release callbacks do not leave Guide stuck after routing handoffs.
 
 ## [1.8.0] - 2026-05-13
 
