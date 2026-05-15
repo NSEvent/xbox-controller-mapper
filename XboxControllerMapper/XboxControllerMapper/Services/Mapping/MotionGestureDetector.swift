@@ -12,6 +12,11 @@ final class MotionGestureDetector: GestureDetecting {
     typealias Input = (pitchRate: Double, rollRate: Double)
     typealias Result = MotionGestureType
 
+    /// ControllerStorage owns this detector and is released from MainActor test
+    /// fixtures; keep deinit nonisolated like SequenceDetector to avoid the
+    /// Swift isolated-deinit/libmalloc crash path.
+    nonisolated deinit { }
+
     /// Per-axis gesture detection state.
     struct AxisGestureState {
         enum Phase {

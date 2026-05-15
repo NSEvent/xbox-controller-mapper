@@ -119,9 +119,18 @@ final class OBSWebSocketTests: XCTestCase {
 
         XCTAssertEqual(json["type"] as? String, "obsWebSocket")
         XCTAssertEqual(json["url"] as? String, "ws://127.0.0.1:4455")
-        XCTAssertEqual(json["password"] as? String, "secret")
+        let passwordReference = try XCTUnwrap(json["password"] as? String)
+        XCTAssertNotEqual(passwordReference, "secret")
+        XCTAssertNotNil(UUID(uuidString: passwordReference))
         XCTAssertEqual(json["requestType"] as? String, "SetCurrentProgramScene")
         XCTAssertEqual(json["requestData"] as? String, "{\"sceneName\":\"Live\"}")
+
+        let decoded = try JSONDecoder().decode(SystemCommand.self, from: data)
+        if case .obsWebSocket(_, let password, _, _) = decoded {
+            XCTAssertEqual(password, "secret")
+        } else {
+            XCTFail("Expected OBS WebSocket command")
+        }
     }
 
     func testOBSWebSocketCommand_DecodingWithDefaults() throws {

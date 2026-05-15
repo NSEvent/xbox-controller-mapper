@@ -25,6 +25,10 @@ final class ScriptExamplesTests: XCTestCase {
         ScriptTrigger(button: button)
     }
 
+    private func example(named name: String) throws -> ScriptExample {
+        try XCTUnwrap(ScriptExamplesData.all.first { $0.name == name }, "Missing script example: \(name)")
+    }
+
     // MARK: - All Examples Parse and Execute
 
     func testAllExamplesExecuteWithoutError() {
@@ -39,8 +43,8 @@ final class ScriptExamplesTests: XCTestCase {
 
     // MARK: - Individual Example Tests
 
-    func testAppAwareUndo_ProducesCorrectLogs() {
-        let example = ScriptExamplesData.all.first { $0.name == "App-Aware Undo" }!
+    func testAppAwareUndo_ProducesCorrectLogs() throws {
+        let example = try example(named: "App-Aware Undo")
         let script = Script(name: example.name, source: example.source)
         let (result, logs) = engine.executeTest(script: script, trigger: makeTrigger())
         if case .error(let msg) = result {
@@ -51,8 +55,8 @@ final class ScriptExamplesTests: XCTestCase {
         XCTAssertFalse(pressLogs.isEmpty, "App-Aware Undo should call press()")
     }
 
-    func testToggleMuteZoomMeet_ProducesNotify() {
-        let example = ScriptExamplesData.all.first { $0.name == "Toggle Mute (Zoom/Meet)" }!
+    func testToggleMuteZoomMeet_ProducesNotify() throws {
+        let example = try example(named: "Toggle Mute (Zoom/Meet)")
         let script = Script(name: example.name, source: example.source)
         let (result, logs) = engine.executeTest(script: script, trigger: makeTrigger())
         if case .error(let msg) = result {
@@ -63,19 +67,19 @@ final class ScriptExamplesTests: XCTestCase {
         XCTAssertFalse(notifyLogs.isEmpty, "Toggle Mute should call notify()")
     }
 
-    func testScreenshotToClipboard_UsesShellAsync() {
-        let example = ScriptExamplesData.all.first { $0.name == "Screenshot to Clipboard" }!
+    func testScreenshotWindowToClipboard_UsesScreenshotWindow() throws {
+        let example = try example(named: "Screenshot Window to Clipboard")
         let script = Script(name: example.name, source: example.source)
         let (result, logs) = engine.executeTest(script: script, trigger: makeTrigger())
         if case .error(let msg) = result {
-            XCTFail("Screenshot to Clipboard failed: \(msg)")
+            XCTFail("Screenshot Window to Clipboard failed: \(msg)")
         }
-        let shellLogs = logs.filter { $0.contains("[shellAsync]") }
-        XCTAssertFalse(shellLogs.isEmpty, "Screenshot should call shellAsync()")
+        let screenshotLogs = logs.filter { $0.contains("[screenshotWindow]") }
+        XCTAssertFalse(screenshotLogs.isEmpty, "Screenshot should call screenshotWindow()")
     }
 
-    func testWindowSnap_UsesTriggerButton() {
-        let example = ScriptExamplesData.all.first { $0.name == "Window Snap Left/Right" }!
+    func testWindowSnap_UsesTriggerButton() throws {
+        let example = try example(named: "Window Snap Left/Right")
         let script = Script(name: example.name, source: example.source)
 
         // Test with dpadLeft
@@ -95,8 +99,8 @@ final class ScriptExamplesTests: XCTestCase {
         XCTAssertFalse(pressLogsR.isEmpty, "dpadRight should trigger press()")
     }
 
-    func testSearchSelectedText_UsesClipboardAndOpenURL() {
-        let example = ScriptExamplesData.all.first { $0.name == "Search Selected Text" }!
+    func testSearchSelectedText_UsesClipboardAndOpenURL() throws {
+        let example = try example(named: "Search Selected Text")
         let script = Script(name: example.name, source: example.source)
         let (result, logs) = engine.executeTest(script: script, trigger: makeTrigger())
         if case .error(let msg) = result {
@@ -107,8 +111,8 @@ final class ScriptExamplesTests: XCTestCase {
         XCTAssertFalse(pressLogs.isEmpty, "Should press Cmd+C to copy")
     }
 
-    func testCycleThroughURLs_UsesStateAndOpenURL() {
-        let example = ScriptExamplesData.all.first { $0.name == "Cycle Through URLs" }!
+    func testCycleThroughURLs_UsesStateAndOpenURL() throws {
+        let example = try example(named: "Cycle Through URLs")
         let script = Script(name: example.name, source: example.source)
         let (result, logs) = engine.executeTest(script: script, trigger: makeTrigger())
         if case .error(let msg) = result {
@@ -118,8 +122,8 @@ final class ScriptExamplesTests: XCTestCase {
         XCTAssertFalse(urlLogs.isEmpty, "Should call openURL()")
     }
 
-    func testTypeEmailSignature_UsesPasteAndExpand() {
-        let example = ScriptExamplesData.all.first { $0.name == "Type Email Signature" }!
+    func testTypeEmailSignature_UsesPasteAndExpand() throws {
+        let example = try example(named: "Type Email Signature")
         let script = Script(name: example.name, source: example.source)
         let (result, logs) = engine.executeTest(script: script, trigger: makeTrigger())
         if case .error(let msg) = result {
@@ -129,8 +133,8 @@ final class ScriptExamplesTests: XCTestCase {
         XCTAssertFalse(pasteLogs.isEmpty, "Should call paste()")
     }
 
-    func testQuickNoteWithTimestamp_UsesOpenAppAndPaste() {
-        let example = ScriptExamplesData.all.first { $0.name == "Quick Note with Timestamp" }!
+    func testQuickNoteWithTimestamp_UsesOpenAppAndPaste() throws {
+        let example = try example(named: "Quick Note with Timestamp")
         let script = Script(name: example.name, source: example.source)
         let (result, logs) = engine.executeTest(script: script, trigger: makeTrigger())
         if case .error(let msg) = result {

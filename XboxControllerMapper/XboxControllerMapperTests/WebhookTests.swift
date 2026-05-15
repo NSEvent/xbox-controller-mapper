@@ -740,7 +740,7 @@ final class WebhookTests: XCTestCase {
             executor.execute(command)
         }
 
-        waitForExecution(timeout: 2.0)
+        waitForExecution(timeout: 2.0, expectedRequestCount: requestCount)
 
         // Then - all requests should be made
         let requests = MockURLProtocol.getCapturedRequests()
@@ -764,5 +764,6 @@ final class WebhookTests: XCTestCase {
 
         // Then - execute() should return immediately (< 10ms)
         XCTAssertLessThan(elapsed, 0.01, "execute() should return immediately without blocking")
+        waitForExecution()
     }
 }

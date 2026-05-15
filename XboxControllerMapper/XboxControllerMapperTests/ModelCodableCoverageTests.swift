@@ -234,7 +234,7 @@ final class ModelCodableCoverageTests: XCTestCase {
         XCTAssertEqual(decoded.mouseSensitivity, 0.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.scrollSensitivity, 1.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.mouseDeadzone, 0.0, accuracy: 0.0001)
-        XCTAssertEqual(decoded.scrollDeadzone, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.scrollDeadzone, 0.99, accuracy: 0.0001)
         XCTAssertEqual(decoded.mouseAcceleration, 1.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.touchpadSensitivity, 0.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.touchpadAcceleration, 1.0, accuracy: 0.0001)

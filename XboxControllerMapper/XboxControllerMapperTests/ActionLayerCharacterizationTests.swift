@@ -10,6 +10,7 @@ import CoreGraphics
 // They use MockInputSimulator (from XboxControllerMapperTests.swift) and real
 // MappingExecutor wiring to verify the priority ordering is preserved after refactoring.
 
+@MainActor
 final class ActionPriorityDispatchTests: XCTestCase {
 
     private var mockInputSimulator: MockInputSimulator!
@@ -211,6 +212,7 @@ final class ActionPriorityDispatchTests: XCTestCase {
 
 // MARK: - MacroActionHandler Isolation Tests
 
+@MainActor
 final class MacroActionHandlerIsolationTests: XCTestCase {
 
     private var mockInputSimulator: MockInputSimulator!
@@ -342,6 +344,7 @@ final class MacroActionHandlerIsolationTests: XCTestCase {
 
 // MARK: - OnScreenKeyboard Integration Test
 
+@MainActor
 final class OnScreenKeyboardNotificationTests: XCTestCase {
 
     private var mockInputSimulator: MockInputSimulator!

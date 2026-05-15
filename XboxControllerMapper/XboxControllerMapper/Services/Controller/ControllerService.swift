@@ -22,6 +22,11 @@ private enum RawGuideEventSource: String {
 // MARK: - Thread-Safe Input State (High Performance)
 
 final class ControllerStorage: @unchecked Sendable {
+    /// Matches other nonisolated state holders retained by MainActor services.
+    /// Without this, test teardown can hit Swift's isolated deinit hop and abort
+    /// in libmalloc when nested detector state is released.
+    nonisolated deinit { }
+
     let lock = NSLock()
     var leftStick: CGPoint = .zero
     var rightStick: CGPoint = .zero

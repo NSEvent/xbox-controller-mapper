@@ -137,6 +137,10 @@ class ScriptEngine {
             capturedExceptionMessage = msg
             self?.logMessage("[JS Exception] \(msg)")
         }
+        defer {
+            context.exceptionHandler = nil
+            context.exception = nil
+        }
 
         // Set timeout flag - timer fires on global queue so it can set the flag
         // while the script blocks scriptQueue. Uses AtomicBool for thread-safe access
@@ -148,6 +152,9 @@ class ScriptEngine {
             timedOut.value = true
         }
         timer.resume()
+        defer {
+            timer.cancel()
+        }
 
         // Re-install APIs before each execution to prevent persistent overrides from prior scripts
         installAPI()
@@ -155,7 +162,6 @@ class ScriptEngine {
         // Execute in IIFE to prevent global namespace pollution between scripts
         context.evaluateScript("(function() {\n\(script.source)\n})()")
 
-        timer.cancel()
         let didTimeout = timedOut.value
 
         // Check for errors (captured by the exceptionHandler above)

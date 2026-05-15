@@ -2,6 +2,12 @@ import SwiftUI
 import GameController
 import Combine
 
+enum AppRuntime {
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+}
+
 /// Holds all app services as a shared singleton
 @MainActor
 final class ServiceContainer {
@@ -40,23 +46,29 @@ final class ServiceContainer {
             inputLogService: inputLogService,
             usageStatsService: usageStatsService
         )
-        UniversalControlMouseRelay.shared.startListening(
-            inputSimulator: self.mappingEngine.inputSimulator
-        )
+        if !AppRuntime.isRunningTests {
+            UniversalControlMouseRelay.shared.startListening(
+                inputSimulator: self.mappingEngine.inputSimulator
+            )
+        }
 
         let batteryNotificationManager = BatteryNotificationManager()
         self.batteryNotificationManager = batteryNotificationManager
-        batteryNotificationManager.startMonitoring(controllerService: controllerService)
+        if !AppRuntime.isRunningTests {
+            batteryNotificationManager.startMonitoring(controllerService: controllerService)
+        }
 
         let updateCheckService = UpdateCheckService()
         self.updateCheckService = updateCheckService
-        updateCheckService.checkForUpdates()
+        if !AppRuntime.isRunningTests {
+            updateCheckService.checkForUpdates()
+        }
 
         // Wire up on-screen keyboard quick texts from profile manager
         setupOnScreenKeyboardObserver(profileManager: profileManager)
 
         // Auto-show stream overlay if it was previously enabled
-        if StreamOverlayManager.isEnabled {
+        if !AppRuntime.isRunningTests, StreamOverlayManager.isEnabled {
             StreamOverlayManager.shared.show(
                 controllerService: controllerService,
                 inputLogService: inputLogService
@@ -384,6 +396,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var activityToken: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !AppRuntime.isRunningTests else { return }
+
         // Disable App Nap to ensure controller events are received in background
         disableAppNap()
 
@@ -397,6 +411,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        guard !AppRuntime.isRunningTests else { return }
+
         ServiceContainer.shared.usageStatsService.endSession()
     }
 

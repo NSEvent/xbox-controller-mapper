@@ -100,7 +100,12 @@ struct SnapshotService {
                 let stem = url.deletingPathExtension().lastPathComponent
                 return ProfileSnapshot(id: stem, timestamp: metadata.createdAt, reason: metadata.reason, fileURL: url)
             }
-            .sorted { $0.timestamp > $1.timestamp }
+            .sorted {
+                if $0.timestamp != $1.timestamp {
+                    return $0.timestamp > $1.timestamp
+                }
+                return $0.id > $1.id
+            }
     }
 
     /// Decode the snapshot file and return its captured configuration.
