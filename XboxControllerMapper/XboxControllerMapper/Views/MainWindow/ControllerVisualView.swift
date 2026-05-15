@@ -261,8 +261,17 @@ struct ControllerVisualView: View {
                         touchpadInputMode: touchpadInputMode,
                         onButtonTap: onButtonTap,
                         onButtonHover: handleButtonHover,
-                        onSwapRequest: performSwap
+						onSwapRequest: performSwap,
+						overrideColorForButton: layerOverrideColor(for:)
                     )
+
+					VStack {
+						layerScopeChip
+						Spacer()
+					}
+					.frame(width: 320, height: 220)
+					.padding(.top, 12)
+					.allowsHitTesting(false)
                 }
                 .accessibilityHidden(true)
 
@@ -929,6 +938,41 @@ struct ControllerVisualView: View {
         Color.clear.frame(width: 68, height: 50)
     }
 
+	private var layerScopeChip: some View {
+		let layer = selectedLayer
+		let color = layer.map { layerColor($0) } ?? Color.secondary
+		let layerName = layer?.name
+
+		return HStack(spacing: 6) {
+			Circle()
+				.fill(color)
+				.frame(width: 7, height: 7)
+			Text(layer == nil ? "BASE" : "LAYER")
+				.font(.system(size: 8, weight: .black, design: .rounded))
+				.foregroundStyle(.secondary)
+			if let layerName {
+				Text(layerName)
+					.font(.system(size: 10, weight: .heavy, design: .rounded))
+					.foregroundStyle(.primary)
+					.lineLimit(1)
+					.minimumScaleFactor(0.65)
+					.frame(maxWidth: 112, alignment: .leading)
+			}
+		}
+		.padding(.horizontal, 9)
+		.frame(height: 24)
+		.background(
+			Capsule()
+				.fill(.regularMaterial)
+				.shadow(color: color.opacity(layer == nil ? 0 : 0.24), radius: 7, x: 0, y: 2)
+		)
+		.overlay(
+			Capsule()
+				.stroke(color.opacity(layer == nil ? 0.18 : 0.7), lineWidth: 1)
+		)
+		.help(layerName.map { "Layer: \($0)" } ?? "Base layer")
+	}
+
     private func compactActionTile(for button: ControllerButton) -> some View {
         let layerActivator = layerForButton(button)
         let showsLayerActivator = layerActivator != nil && !isEditingDifferentLayer(button)
@@ -960,6 +1004,9 @@ struct ControllerVisualView: View {
             .frame(width: 68, height: 50)
         }
         .overlay(
+			layerOverrideOutline(for: button, cornerRadius: 10)
+		)
+		.overlay(
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.orange, lineWidth: 3)
                 .opacity(swapFirstButton == button ? 1 : 0)
@@ -1221,6 +1268,9 @@ struct ControllerVisualView: View {
                 .padding(.horizontal, 12)
             }
             .overlay(
+				layerOverrideOutline(for: button, cornerRadius: 10)
+			)
+			.overlay(
                 // Swap mode selection indicator
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.orange, lineWidth: 3)
@@ -1301,6 +1351,23 @@ struct ControllerVisualView: View {
         return mapping
     }
 
+    private func layerOverrideColor(for button: ControllerButton) -> Color? {
+		guard let layer = selectedLayer,
+			  layer.activatorButton != button,
+			  let mapping = layer.buttonMappings[button],
+			  !mapping.isEmpty else { return nil }
+		return layerColor(layer)
+	}
+
+	@ViewBuilder
+	private func layerOverrideOutline(for button: ControllerButton, cornerRadius: CGFloat) -> some View {
+		if let color = layerOverrideColor(for: button) {
+			RoundedRectangle(cornerRadius: cornerRadius)
+				.stroke(color.opacity(0.9), lineWidth: 2)
+				.shadow(color: color.opacity(0.35), radius: 4, x: 0, y: 0)
+		}
+    }
+
     /// Returns true if the mapping shown is from the base layer (fallthrough)
     private func isBaseFallthrough(for button: ControllerButton) -> Bool {
         guard let layer = selectedLayer,
@@ -1337,6 +1404,7 @@ struct ControllerAnalogOverlay: View {
     var onButtonTap: (ControllerButton) -> Void
     var onButtonHover: ((ControllerButton, Bool) -> Void)? = nil
     var onSwapRequest: ((ControllerButton, ControllerButton) -> Void)? = nil
+    var overrideColorForButton: (ControllerButton) -> Color? = { _ in nil }
 
     // Snapshotted analog display values (updated via .onReceive at 15Hz)
     @State private var leftStick: CGPoint = .zero
@@ -1584,6 +1652,8 @@ struct ControllerAnalogOverlay: View {
                     )
             }
 
+			touchpadOverrideOverlay(width: touchpadWidth, height: touchpadHeight, inQuadrantsMode: inQuadrantsMode)
+
             quadrantTapZones(width: touchpadWidth, height: touchpadHeight)
                 .allowsHitTesting(inQuadrantsMode)
         }
@@ -1677,6 +1747,52 @@ struct ControllerAnalogOverlay: View {
     }
 
     @ViewBuilder
+    private func touchpadOverrideOverlay(width: CGFloat, height: CGFloat, inQuadrantsMode: Bool) -> some View {
+		let wholePadButtons: [ControllerButton] = [
+			.touchpadButton,
+			.touchpadTap,
+			.touchpadTwoFingerButton,
+			.touchpadTwoFingerTap
+		]
+
+		if let color = firstOverrideColor(for: wholePadButtons) {
+			RoundedRectangle(cornerRadius: 10)
+				.stroke(color.opacity(0.95), lineWidth: 2)
+				.shadow(color: color.opacity(0.45), radius: 4, x: 0, y: 0)
+				.frame(width: width, height: height)
+		}
+
+		if inQuadrantsMode {
+			ForEach(TouchpadRegion.allCases) { region in
+				touchpadRegionOverrideOutline(region: region, width: width, height: height)
+			}
+		}
+	}
+
+	@ViewBuilder
+	private func touchpadRegionOverrideOutline(region: TouchpadRegion, width: CGFloat, height: CGFloat) -> some View {
+		let buttons = [
+			ControllerButton.from(region: region, trigger: .click),
+			ControllerButton.from(region: region, trigger: .touch)
+		].compactMap { $0 }
+
+		if let color = firstOverrideColor(for: buttons) {
+			let halfW = width / 2
+			let halfH = height / 2
+			let originX: CGFloat = (region == .topLeft || region == .bottomLeft) ? 0 : halfW
+			let originY: CGFloat = (region == .topLeft || region == .topRight) ? 0 : halfH
+
+			RoundedRectangle(cornerRadius: 6)
+				.stroke(color.opacity(0.95), lineWidth: 1.5)
+				.shadow(color: color.opacity(0.45), radius: 4, x: 0, y: 0)
+				.frame(width: halfW - 5, height: halfH - 5)
+				.position(x: originX + halfW / 2, y: originY + halfH / 2)
+				.frame(width: width, height: height)
+				.allowsHitTesting(false)
+		}
+    }
+
+    @ViewBuilder
     private func quadrantTapTarget(region: TouchpadRegion, width: CGFloat, height: CGFloat) -> some View {
         let clickButton = ControllerButton.from(region: region, trigger: .click) ?? .touchpadButton
         let touchButton = ControllerButton.from(region: region, trigger: .touch) ?? .touchpadTap
@@ -1728,6 +1844,38 @@ struct ControllerAnalogOverlay: View {
         activeButtons.contains(button)
     }
 
+    private func firstOverrideColor(for buttons: [ControllerButton]) -> Color? {
+		for button in buttons {
+			if let color = overrideColorForButton(button) {
+				return color
+			}
+		}
+		return nil
+	}
+
+	@ViewBuilder
+	private func miniOverrideOutline<S: InsettableShape>(
+		for button: ControllerButton,
+		shape: S,
+		lineWidth: CGFloat = 2
+	) -> some View {
+		miniOverrideOutline(for: [button], shape: shape, lineWidth: lineWidth)
+	}
+
+	@ViewBuilder
+	private func miniOverrideOutline<S: InsettableShape>(
+		for buttons: [ControllerButton],
+		shape: S,
+		lineWidth: CGFloat = 2
+	) -> some View {
+		if let color = firstOverrideColor(for: buttons) {
+			shape
+				.strokeBorder(color.opacity(0.95), lineWidth: lineWidth)
+				.shadow(color: color.opacity(0.45), radius: 4, x: 0, y: 0)
+				.allowsHitTesting(false)
+		}
+    }
+
     private func miniTrigger(_ button: ControllerButton, label: String, value: Float) -> some View {
         let color = Color(white: 0.2) // Dark grey plastic
         let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
@@ -1753,6 +1901,7 @@ struct ControllerAnalogOverlay: View {
                 .shadow(radius: 1)
         }
         .clipShape(shape)
+		.overlay(miniOverrideOutline(for: button, shape: shape, lineWidth: 2))
         .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
@@ -1774,6 +1923,7 @@ struct ControllerAnalogOverlay: View {
                     .foregroundColor(.white)
                     .shadow(radius: 1)
             )
+			.overlay(miniOverrideOutline(for: button, shape: shape, lineWidth: 1.5))
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
             .onTapGesture { onButtonTap(button) }
             .controllerAnchor(button, role: .controller)
@@ -1796,6 +1946,7 @@ struct ControllerAnalogOverlay: View {
                     .foregroundColor(.white)
                     .shadow(radius: 1)
             )
+			.overlay(miniOverrideOutline(for: button, shape: shape, lineWidth: 1.5))
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
             .onTapGesture { onButtonTap(button) }
             .controllerAnchor(button, role: .controller)
@@ -1828,6 +1979,7 @@ struct ControllerAnalogOverlay: View {
                 .offset(x: pos.x * 5, y: -pos.y * 5)
                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
         }
+		.overlay(miniOverrideOutline(for: [button] + directionButtons, shape: Circle(), lineWidth: 2))
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor([button] + directionButtons, role: .controller)
         .onHover { hovering in onButtonHover?(button, hovering) }
@@ -1857,6 +2009,7 @@ struct ControllerAnalogOverlay: View {
             }
         }
         .frame(width: size, height: size)
+		.overlay(miniOverrideOutline(for: button, shape: Circle(), lineWidth: 1.5))
         .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
@@ -1866,10 +2019,13 @@ struct ControllerAnalogOverlay: View {
 
     private func miniSquare(_ button: ControllerButton, size: CGFloat) -> some View {
         let color = isPressed(button) ? Color.accentColor : Color(white: 0.3)
-        return RoundedRectangle(cornerRadius: size * 0.2)
-            .fill(jewelGradient(color, pressed: isPressed(button)))
-            .overlay(glassOverlay.clipShape(RoundedRectangle(cornerRadius: size * 0.2)))
-            .frame(width: size, height: size)
+		let shape = RoundedRectangle(cornerRadius: size * 0.2)
+
+		return shape
+			.fill(jewelGradient(color, pressed: isPressed(button)))
+			.overlay(glassOverlay.clipShape(shape))
+			.frame(width: size, height: size)
+			.overlay(miniOverrideOutline(for: button, shape: shape, lineWidth: 1.5))
             .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 1)
             .onTapGesture { onButtonTap(button) }
             .controllerAnchor(button, role: .controller)
@@ -1885,6 +2041,7 @@ struct ControllerAnalogOverlay: View {
             .fill(jewelGradient(displayColor, pressed: isPressed(button)))
             .overlay(glassOverlay.clipShape(Circle()))
             .frame(width: 12, height: 12)
+			.overlay(miniOverrideOutline(for: button, shape: Circle(), lineWidth: 1.5))
             .shadow(color: displayColor.opacity(0.4), radius: 2)
             .onTapGesture { onButtonTap(button) }
             .controllerAnchor(button, role: .controller)
@@ -1926,6 +2083,7 @@ struct ControllerAnalogOverlay: View {
                 .foregroundColor(isPressed(button) ? symbolColor.opacity(0.7) : symbolColor)
         }
         .frame(width: 12, height: 12)
+		.overlay(miniOverrideOutline(for: button, shape: Circle(), lineWidth: 1.5))
         .shadow(color: symbolColor.opacity(0.3), radius: 2)
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
@@ -1977,6 +2135,8 @@ struct ControllerAnalogOverlay: View {
             if isPressed(.dpadRight) {
                 RoundedRectangle(cornerRadius: 2).fill(Color.accentColor).frame(width: 10, height: 8).offset(x: 7).blur(radius: 2)
             }
+
+			dpadOverrideOverlay
 
             // Tap zones — `.offset` is render-only and works fine for hit-testing.
             // Anchors are reported separately by the markers below, since `.offset`
@@ -2030,6 +2190,30 @@ struct ControllerAnalogOverlay: View {
             }
         }
         .frame(width: 24, height: 24)
+    }
+
+    private var dpadOverrideOverlay: some View {
+		ZStack {
+			dpadOverrideSegment(.dpadUp, width: 10, height: 12)
+				.offset(y: -6)
+			dpadOverrideSegment(.dpadDown, width: 10, height: 12)
+				.offset(y: 6)
+			dpadOverrideSegment(.dpadLeft, width: 12, height: 10)
+				.offset(x: -6)
+			dpadOverrideSegment(.dpadRight, width: 12, height: 10)
+				.offset(x: 6)
+		}
+		.allowsHitTesting(false)
+	}
+
+	@ViewBuilder
+	private func dpadOverrideSegment(_ button: ControllerButton, width: CGFloat, height: CGFloat) -> some View {
+		if let color = overrideColorForButton(button) {
+			RoundedRectangle(cornerRadius: 2)
+				.stroke(color.opacity(0.95), lineWidth: 1.3)
+				.shadow(color: color.opacity(0.45), radius: 3, x: 0, y: 0)
+				.frame(width: width, height: height)
+		}
     }
 }
 
