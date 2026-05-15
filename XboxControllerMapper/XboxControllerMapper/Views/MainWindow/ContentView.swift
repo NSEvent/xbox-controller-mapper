@@ -146,7 +146,7 @@ struct ContentView: View {
         .background(
             ZStack {
                 GlassVisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                Color.black.opacity(clampedWindowBackgroundOpacity)
+                Color(white: 0.2).opacity(clampedWindowBackgroundOpacity)
             }
             .ignoresSafeArea()
         )
@@ -465,7 +465,7 @@ struct LegendItem: View {
 
 enum WindowBackgroundDefaults {
     static let opacityKey = "windowBackgroundOpacity"
-    static let defaultOpacity: Double = 0.3
+    static let defaultOpacity: Double = 0.6
 }
 
 /// A view that wraps NSVisualEffectView for SwiftUI
