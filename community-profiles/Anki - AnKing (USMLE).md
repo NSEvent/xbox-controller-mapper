@@ -77,6 +77,27 @@ Layer 2 fires `Opt+Shift+0` through `Opt+Shift+8` when you press different butto
 
 ---
 
+## Step 3 — (Optional) Verify your AnKing notetype cloze shortcuts
+
+A few base-layer bindings use **AnKing's built-in cloze controls** (not an addon):
+
+- **D-pad Up** → reveal next cloze (`N`)
+- **L Bumper + D-pad Up** → reveal next word (`Shift+N`)
+- **R thumbstick click** → toggle all clozes (`,`)
+
+These work out of the box on stock AnKing. If you've customized your notetype and they're not firing, check the **Front Template** of AnKing Overhaul for this block and confirm the defaults haven't been changed:
+
+```javascript
+// ##############  CLOZE ONE BY ONE  ##############
+var revealNextShortcut = "N"
+var revealNextWordShortcut = "Shift + N"
+var toggleAllShortcut = ","
+```
+
+(**Tools → Manage Note Types → AnKing Overhaul → Cards → Front Template**, then search for "CLOZE ONE BY ONE".)
+
+---
+
 ## Layer 2 reference — controller buttons → resource sections
 
 While holding **Right Bumper** (lightbar turns green):
@@ -101,5 +122,5 @@ The face button cluster (X/B/A/Y) is mnemonic order for the four most-used resou
 ## Notes
 
 - The lightbar feedback (red on Layer 1, green on Layer 2) works with both **DualSense** (PS5) and **DualShock 4** (PS4) controllers. The profile also works fine on Xbox controllers — you just won't see the colored layer indicator.
-- A few base-layer bindings (D-pad Up/Down/Left, L3/R3, top-left touchpad click) are tied to specific Anki addons that the original contributor uses. If a binding doesn't do anything for you, you're missing the corresponding addon — feel free to remap those buttons to whatever you prefer.
+- Most base-layer bindings work out of the box: face buttons (Again/Hard/Good/Easy), edit, replay audio, and undo are stock Anki, and L3 (Show Decks), D-pad Up / R3 / Shift+N variants (AnKing notetype cloze controls — see Step 3) and D-pad Down (Bury Note) don't need anything extra either. Layer 1 bury/suspend are also stock Anki bindings. Two base-layer bindings — **D-pad Left** and **top-left touchpad click** — are tied to specific Anki addons the original contributor uses; if those don't do anything for you, you're missing the corresponding addon and can remap them to whatever you prefer.
 - If `Opt+Shift+1` (or any other section shortcut) does nothing after pasting the snippet, double-check that the section is enabled to auto-show in the AnKing template config — the script can only scroll to sections that are actually rendered on the page.

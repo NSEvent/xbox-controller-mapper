@@ -20,7 +20,7 @@
       "isHoldModifier" : false,
       "keyCode" : 2,
       "holdRepeatInterval" : 0.033,
-      "hint" : "Custom (Anki addon)"
+      "hint" : "Show Decks"
     },
     "leftBumper" : {
       "holdRepeatInterval" : 0.033,
@@ -45,7 +45,7 @@
       },
       "isHoldModifier" : false,
       "keyCode" : 45,
-      "hint" : "Custom (Anki addon)"
+      "hint" : "Reveal Next Cloze (AnKing)"
     },
     "leftTrigger" : {
       "holdRepeatEnabled" : false,
@@ -206,7 +206,7 @@
       "isHoldModifier" : false,
       "holdRepeatInterval" : 0.033,
       "keyCode" : 43,
-      "hint" : "Custom (Anki addon)"
+      "hint" : "Toggle All Clozes (AnKing)"
     },
     "x" : {
       "holdRepeatEnabled" : false,
@@ -284,7 +284,7 @@
       "isHoldModifier" : false,
       "keyCode" : 24,
       "holdRepeatInterval" : 0.033,
-      "hint" : "Custom (Anki addon)"
+      "hint" : "Bury Note"
     },
     "touchpadTap" : {
       "holdRepeatEnabled" : false,
