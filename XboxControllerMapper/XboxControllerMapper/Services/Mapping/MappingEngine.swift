@@ -149,6 +149,7 @@ class MappingEngine: ObservableObject {
         self.state.sequenceParticipantButtons = Set((profileManager.activeProfile?.sequenceMappings ?? []).flatMap { $0.steps })
         self.state.chordLookup = Dictionary(uniqueKeysWithValues: initialChords.map { ($0.buttons, $0) })
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
+        syncLatencySettings(for: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
         syncTouchpadSettings(from: profileManager.activeProfile)
         syncMotionActivation(for: profileManager.activeProfile)
@@ -171,6 +172,12 @@ class MappingEngine: ObservableObject {
                 state.layerActivatorMap[activatorButton] = layer.id
             }
         }
+    }
+
+    private func syncLatencySettings(for profile: Profile?) {
+        let chordButtons = Set((profile?.chordMappings ?? []).flatMap { $0.buttons })
+        controllerService.chordParticipantButtons = chordButtons
+        controllerService.lowLatencyInputEnabled = profile?.inputLatencyMode == .realtime
     }
 
     /// Pushes effective gesture detection settings from the profile into ControllerStorage
@@ -260,6 +267,7 @@ class MappingEngine: ObservableObject {
                 self.syncGestureSettings(from: profile?.joystickSettings)
                 self.syncTouchpadSettings(from: profile)
                 self.syncMotionActivation(for: profile)
+                self.syncLatencySettings(for: profile)
                 self.scriptEngine.clearState()
             }
             .store(in: &cancellables)
@@ -390,6 +398,7 @@ class MappingEngine: ObservableObject {
                         self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
                         self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                         self.rebuildLayerActivatorMap(profile: profile)
+                        self.syncLatencySettings(for: profile)
                         return nil
                     }
                     let leftKeys = self.state.leftStickHeldKeys
@@ -558,13 +567,15 @@ class MappingEngine: ObservableObject {
             directoryNavigatorVisible: directoryNavigatorVisible,
             remoteSwipePredictionsVisible: remoteOverlayState.swipePredictionsVisible,
             isChordPart: isChordPart,
-            lastTap: lastTap
+            lastTap: lastTap,
+            inputLatencyMode: profile.inputLatencyMode
         )
     }
 
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleButtonPressed(_ button: ControllerButton) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
+        LatencyDiagnostics.mark("engine.press \(button.rawValue)")
         if UniversalControlMouseRelay.shared.hasActiveRemoteSession {
             _ = UniversalControlMouseRelay.shared.sendControllerButtonPressed(button)
             return
@@ -858,6 +869,7 @@ class MappingEngine: ObservableObject {
 
     /// Handles mapping that should be treated as continuously held
     nonisolated private func handleHoldMapping(_ button: ControllerButton, mapping: KeyMapping, lastTap: CFAbsoluteTime?, profile: Profile?) {
+        LatencyDiagnostics.mark("engine.holdStart \(button.rawValue) \(mapping.feedbackString)")
         if let doubleTapMapping = mapping.doubleTapMapping, !doubleTapMapping.isEmpty {
             let now = CFAbsoluteTimeGetCurrent()
             if let lastTap = lastTap, now - lastTap <= doubleTapMapping.threshold {
@@ -1128,6 +1140,7 @@ class MappingEngine: ObservableObject {
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
+        LatencyDiagnostics.mark("engine.release \(button.rawValue)")
         if UniversalControlMouseRelay.shared.hasActiveRemoteSession {
             let hasLocalButtonState = state.lock.withLock {
                 state.heldButtons[button] != nil
@@ -1417,6 +1430,7 @@ class MappingEngine: ObservableObject {
                 self.state.pendingReleaseActions.removeValue(forKey: button)
             }
 
+            LatencyDiagnostics.mark("engine.singleTap \(button.rawValue) \(mapping.feedbackString)")
             self.mappingExecutor.executeAction(mapping, for: button, profile: profile)
             self.playActionHaptic(style: mapping.hapticStyle)
         }
@@ -1431,7 +1445,7 @@ class MappingEngine: ObservableObject {
         if delay > 0 {
             inputQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
         } else {
-            inputQueue.async(execute: workItem)
+            workItem.perform()
         }
     }
 

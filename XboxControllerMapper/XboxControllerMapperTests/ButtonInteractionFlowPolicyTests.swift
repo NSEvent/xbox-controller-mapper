@@ -101,4 +101,29 @@ final class ButtonInteractionFlowPolicyTests: XCTestCase {
             .executeSingleTap
         )
     }
+
+    func testRealtimeHoldPathReturnsTrueForPlainKeyMappingOutsideChord() {
+        let mapping = KeyMapping(keyCode: 4)
+
+        XCTAssertTrue(ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(mapping: mapping, isChordPart: false))
+    }
+
+    func testRealtimeHoldPathReturnsFalseForComplexMappings() {
+        XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+            mapping: KeyMapping(keyCode: 4, doubleTapMapping: DoubleTapMapping(keyCode: 5)),
+            isChordPart: false
+        ))
+        XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+            mapping: KeyMapping(keyCode: 4, longHoldMapping: LongHoldMapping(keyCode: 5)),
+            isChordPart: false
+        ))
+        XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+            mapping: KeyMapping(keyCode: 4, repeatMapping: RepeatMapping(enabled: true)),
+            isChordPart: false
+        ))
+        XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+            mapping: KeyMapping(keyCode: 4),
+            isChordPart: true
+        ))
+    }
 }

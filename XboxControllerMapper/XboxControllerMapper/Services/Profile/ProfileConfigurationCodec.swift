@@ -15,7 +15,8 @@ struct ProfileConfiguration: Codable {
     ///            `Profile.rewriteV2QuadrantKeys` (decode-time, v2 → v3 key
     ///            rewrite) and `ProfileConfigurationMigrationService.migrateTouchpadRegionsToButtons`
     ///            (post-decode, v1 list → v3 buttons + mode flip).
-    static let currentSchemaVersion = 3
+    /// Version 4: Add per-profile controller bindings and input latency mode.
+    static let currentSchemaVersion = 4
 
     var schemaVersion: Int = currentSchemaVersion
     var profiles: [Profile]

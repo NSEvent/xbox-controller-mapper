@@ -92,6 +92,17 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         XCTAssertEqual(controllerService.chordWindow, 0.23, accuracy: 0.000_1)
     }
 
+    func testLowLatencyNonChordButtonBypassesChordWindow() {
+        var pressed: [ControllerButton] = []
+        controllerService.lowLatencyInputEnabled = true
+        controllerService.chordParticipantButtons = [.b]
+        controllerService.onButtonPressed = { pressed.append($0) }
+
+        controllerService.buttonPressed(.a)
+
+        XCTAssertEqual(pressed, [.a])
+    }
+
 	func testEliteControllerMetadataUsesActiveControllerNames() {
 		XCTAssertTrue(
 			ControllerService.isEliteControllerMetadata(

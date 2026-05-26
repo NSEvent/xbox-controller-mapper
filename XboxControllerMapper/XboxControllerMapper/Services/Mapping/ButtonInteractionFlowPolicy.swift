@@ -16,6 +16,18 @@ enum ButtonInteractionFlowPolicy {
         return mapping.isHoldModifier || (isMouseClick && !isChordPart && !hasDoubleTap)
     }
 
+    static func shouldUseRealtimeHoldPath(mapping: KeyMapping, isChordPart: Bool) -> Bool {
+        guard !isChordPart,
+              mapping.effectiveActionType == .keyPress,
+              mapping.keyCode != nil,
+              mapping.longHoldMapping?.isEmpty ?? true,
+              mapping.doubleTapMapping?.isEmpty ?? true,
+              !(mapping.repeatMapping?.enabled ?? false) else {
+            return false
+        }
+        return true
+    }
+
     static func releaseDecision(
         mapping: KeyMapping,
         holdDuration: TimeInterval,

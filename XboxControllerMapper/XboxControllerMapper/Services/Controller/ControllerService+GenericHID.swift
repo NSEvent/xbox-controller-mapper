@@ -126,6 +126,7 @@ extension ControllerService {
 
         controller.start()
         genericHIDController = controller
+        currentControllerIdentity = ControllerIdentityResolver.identity(for: device, fallbackName: mapping.name)
         isConnected = true
         isGenericController = true
         controllerName = mapping.name

@@ -7,6 +7,42 @@ import SwiftUI
 @MainActor
 final class ModelCodableCoverageTests: XCTestCase {
 
+    // MARK: - ControllerIdentity / Profile
+
+    func testControllerIdentityCodableRoundTrips() throws {
+        let identity = ControllerIdentity(
+            stableId: "serial:123",
+            fallbackId: "hid:054c:0ce6:dualsense:usb",
+            vendorId: 0x054c,
+            productId: 0x0ce6,
+            productName: "DualSense",
+            transport: "USB",
+            serialNumber: "123",
+            deviceAddress: nil
+        )
+        let binding = ControllerProfileBinding(displayName: "DualSense", identity: identity)
+
+        let data = try JSONEncoder().encode(binding)
+        let decoded = try JSONDecoder().decode(ControllerProfileBinding.self, from: data)
+
+        XCTAssertEqual(decoded, binding)
+        XCTAssertTrue(decoded.identity.hasStableId)
+    }
+
+    func testProfileDecodingDefaultsNewControllerFields() throws {
+        let json = """
+        {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "name": "Legacy"
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.linkedControllers, [])
+        XCTAssertEqual(decoded.inputLatencyMode, .standard)
+    }
+
     // MARK: - QuickText / OnScreenKeyboardSettings
 
     func testQuickText_ContainsVariablesSupportsNumericVariableNames() {

@@ -109,6 +109,9 @@ struct ContentView: View {
                     case 12:
                         CommandWheelSettingsView()
                             .scrollContentBackground(.hidden)
+                    case 14:
+                        InputSettingsView()
+                            .scrollContentBackground(.hidden)
                     case 2:
                         JoystickSettingsView()
                             .scrollContentBackground(.hidden)
@@ -567,6 +570,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     case gestures = 11
     case wheel = 12
     case history = 13
+    case input = 14
 
     static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
 
@@ -578,6 +582,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         .macros,
         .scripts,
         .wheel,
+        .input,
         .joysticks,
         .touchpad,
         .leds,
@@ -605,6 +610,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .gestures: return "Gestures"
         case .wheel: return "Wheel"
         case .history: return "History"
+        case .input: return "Input"
         }
     }
 
@@ -623,7 +629,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
             return .map
         case .macros, .scripts, .wheel, .keyboard:
             return .automate
-        case .joysticks, .touchpad, .leds, .microphone:
+        case .input, .joysticks, .touchpad, .leds, .microphone:
             return .hardware
         case .stats, .history:
             return .activity
@@ -639,6 +645,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .macros: return "play.rectangle.on.rectangle"
         case .scripts: return "curlybraces"
         case .wheel: return "circle.grid.cross"
+        case .input: return "speedometer"
         case .keyboard: return "keyboard"
         case .joysticks: return "circle.circle"
         case .touchpad: return "rectangle.and.hand.point.up.left"

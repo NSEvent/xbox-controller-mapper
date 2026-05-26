@@ -1,3 +1,58 @@
+# Customer Requests - 2026-05-24
+
+## P1 - Investigate macOS 12 Monterey compatibility / legacy build
+
+Source: Gumroad purchaser via email. Wants to use a PS5 controller for Anki on macOS 12.0 Monterey and does not want to update.
+
+Problem: current docs say macOS 14.0+ is required, and the app target currently resolves `LSMinimumSystemVersion` from `MACOSX_DEPLOYMENT_TARGET` (app target is 14.6). Customer is asking whether ControllerKeys can be "authorized" for macOS 12, but this is a build/deployment target issue, not a license flag.
+
+Tasks:
+- Audit macOS 12 availability across SwiftUI, GameController, CoreBluetooth, local networking, JavaScriptCore/scripting, OBS, and any newer AppKit APIs.
+- Decide whether the main app can lower to macOS 12.0 or whether this needs a separate legacy release channel.
+- If feasible, add availability guards/fallbacks and verify the app launches, detects a DualSense, and maps Anki shortcuts on macOS 12.
+- If infeasible, prepare a support response explaining the blocker and offer a refund / requirements clarification.
+
+Acceptance:
+- Either a macOS 12-compatible build path works for the Anki/DualSense use case, or the technical blocker is documented clearly.
+- Current macOS 14+ release behavior remains unchanged.
+
+## P1 - Reduce button press latency for realtime games
+
+Source: Discord `#support`, Robert, 2026-05-18 and 2026-05-19. DualSense Edge over USB on Mac Studio Ultra; GZDoom sees about 0.5s delay before commands arrive.
+
+Problem: simple button-to-key actions feel too slow for realtime games. Cursor hints can be disabled, but Robert still reports noticeable input latency.
+
+Tasks:
+- Instrument timestamps from controller event receipt through mapping resolution and `CGEvent` post.
+- Compare simple tap mappings vs. mappings with double tap / long hold enabled; verify whether single-tap fallback timers are adding delay.
+- Measure overhead from overlays, action feedback, cursor hints, profile/layer resolution, and dispatch queues.
+- Add a low-latency path or "instant tap" mode for simple mappings if the double-tap/long-hold ambiguity is the cause.
+- Test with USB DualSense/DualSense Edge and a foreground game-like target; document whether ControllerKeys is expected to support realtime games.
+
+Acceptance:
+- Simple button-to-key p95 latency is measured and has a target threshold before implementation.
+- Repro case documents whether GZDoom latency is app-side, OS/game-side, or caused by mapping options.
+- If app-side, simple mappings dispatch without the observed half-second delay.
+
+## P2 - Auto-switch profiles by connected controller
+
+Source: Discord `#feature-requests`, anonrandomdoc, 2026-05-23.
+
+Problem: users with multiple controllers want each controller to load its assigned profile automatically when connected.
+
+Tasks:
+- Add a per-profile linked controller identifier, using stable IDs where available (`SerialNumber`, `DeviceAddress`, or HID vendor/product/name fallback).
+- Add UI to bind/unbind the currently connected controller to a profile.
+- On controller connect, resolve the best matching profile and switch automatically.
+- Define behavior for duplicate/missing IDs, multiple connected controllers, and no matching profile.
+- Persist the binding in profile JSON with migration/backward compatibility.
+
+Acceptance:
+- User can assign a profile to a physical controller and reconnecting that controller loads the profile.
+- Existing per-app profile auto-switching has deterministic precedence with controller-based switching.
+- Existing profiles without controller bindings continue loading normally.
+
+
 Show a heat map of finger fatigue based on button usage data.
 
 

@@ -26,6 +26,7 @@ enum ProfileTransferService {
         var importedProfile = profile
         importedProfile.id = UUID()
         importedProfile.isDefault = false
+        importedProfile.linkedControllers = []
         return importedProfile
     }
 }

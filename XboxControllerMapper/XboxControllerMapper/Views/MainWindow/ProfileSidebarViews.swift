@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct ProfileSidebar: View {
     @EnvironmentObject var profileManager: ProfileManager
+    @EnvironmentObject var controllerService: ControllerService
 
     @State private var showingNewProfileAlert = false
     @State private var newProfileName = ""
@@ -18,6 +19,7 @@ struct ProfileSidebar: View {
     @State private var isExporting = false
     @State private var profileToExport: Profile?
     @State private var profileToLink: Profile?
+    @State private var profileToLinkController: Profile?
     @State private var showingCommunityProfiles = false
 
     // Safety approval (shell commands / scripts in imported profile)
@@ -105,6 +107,9 @@ struct ProfileSidebar: View {
                                     onLinkApps: {
                                         profileToLink = profile
                                     },
+                                    onLinkController: {
+                                        profileToLinkController = profile
+                                    },
                                     onSetIcon: { iconName in
                                         profileManager.setProfileIcon(profile, icon: iconName)
                                     },
@@ -155,6 +160,9 @@ struct ProfileSidebar: View {
         }
         .sheet(item: $profileToLink) { profile in
             LinkedAppsSheet(profile: profile)
+        }
+        .sheet(item: $profileToLinkController) { profile in
+            LinkedControllersSheet(profile: profile)
         }
         .fileImporter(
             isPresented: $isImporting,
@@ -263,14 +271,21 @@ struct ProfileDocument: FileDocument {
 }
 
 struct ProfileListRow: View {
+    @EnvironmentObject var appMonitor: AppMonitor
+
     let profile: Profile
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(profile.name)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
+                HStack(spacing: 6) {
+                    Text(profile.name)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+
+                    LinkedProfileAppIcons(bundleIdentifiers: profile.linkedApps)
+                }
 
                 Text("\(profile.buttonMappings.count) \(String(localized: "mappings"))")
                     .font(.system(size: 11))
@@ -279,18 +294,114 @@ struct ProfileListRow: View {
 
             Spacer()
 
-            if let iconName = profile.icon {
-                Image(systemName: iconName)
-                    .font(.caption)
-                    .foregroundColor(.accentColor)
-            } else if profile.isDefault {
-                Image(systemName: "star.fill")
-                    .font(.caption)
-                    .foregroundColor(.yellow)
+            HStack(spacing: 7) {
+                if let iconName = profile.icon {
+                    ProfileStatusBadge(
+                        systemName: iconName,
+                        color: .accentColor,
+                        helpText: "Profile icon"
+                    )
+                }
+
+                if profile.inputLatencyMode == .realtime {
+                    ProfileStatusBadge(
+                        systemName: "bolt.fill",
+                        color: .orange,
+                        helpText: "Realtime input latency"
+                    )
+                }
+
+                if !profile.linkedControllers.isEmpty {
+                    ProfileStatusBadge(
+                        systemName: "gamecontroller.fill",
+                        color: .accentColor,
+                        helpText: "Linked controller"
+                    )
+                }
+
+                if profile.isDefault {
+                    ProfileStatusBadge(
+                        systemName: "star.fill",
+                        color: .yellow,
+                        helpText: "Default profile"
+                    )
+                }
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+    }
+}
+
+private struct LinkedProfileAppIcons: View {
+    @EnvironmentObject var appMonitor: AppMonitor
+
+    let bundleIdentifiers: [String]
+
+    private var visibleBundleIds: [String] {
+        Array(bundleIdentifiers.prefix(4))
+    }
+
+    private var remainingCount: Int {
+        max(0, bundleIdentifiers.count - visibleBundleIds.count)
+    }
+
+    var body: some View {
+        if !bundleIdentifiers.isEmpty {
+            HStack(spacing: 3) {
+                ForEach(visibleBundleIds, id: \.self) { bundleId in
+                    LinkedProfileAppIcon(appInfo: appMonitor.appInfo(for: bundleId), bundleId: bundleId)
+                }
+
+                if remainingCount > 0 {
+                    Text("+\(remainingCount)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .monospacedDigit()
+                        .help("\(remainingCount) more Linked Apps")
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+}
+
+private struct LinkedProfileAppIcon: View {
+    let appInfo: AppInfo?
+    let bundleId: String
+
+    var body: some View {
+        Group {
+            if let icon = appInfo?.icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Image(systemName: "app")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(.white.opacity(0.7))
+                    .padding(1)
+            }
+        }
+        .frame(width: 14, height: 14)
+        .clipShape(RoundedRectangle(cornerRadius: 3))
+        .help(appInfo?.name ?? bundleId)
+        .accessibilityLabel(appInfo?.name ?? bundleId)
+    }
+}
+
+private struct ProfileStatusBadge: View {
+    let systemName: String
+    let color: Color
+    let helpText: String
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.caption)
+            .foregroundColor(color)
+            .help(helpText)
+            .accessibilityLabel(helpText)
     }
 }
 
@@ -301,6 +412,7 @@ struct ProfileContextMenu: View {
     let onRename: () -> Void
     let onSetDefault: () -> Void
     let onLinkApps: () -> Void
+    let onLinkController: () -> Void
     let onSetIcon: (String?) -> Void
     let onExport: () -> Void
     let onDelete: () -> Void
@@ -314,6 +426,7 @@ struct ProfileContextMenu: View {
             .disabled(profile.isDefault)
 
         Button("Linked Apps...", action: onLinkApps)
+        Button("Linked Controller...", action: onLinkController)
 
         Menu("Set Icon") {
             ForEach(ProfileIcon.grouped, id: \.name) { group in

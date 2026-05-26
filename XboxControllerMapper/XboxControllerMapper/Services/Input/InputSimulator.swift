@@ -196,6 +196,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Simulates a key press with optional modifiers
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags = []) {
+        LatencyDiagnostics.mark("input.pressKey \(keyCode)")
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyPress(keyCode, modifiers: modifiers) {
             return
@@ -312,6 +313,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Holds a key down (for continuous actions)
     func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags = []) {
+        LatencyDiagnostics.mark("input.keyDown \(keyCode)")
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyDown(keyCode, modifiers: modifiers) {
             return
@@ -348,6 +350,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Releases a held key
     func keyUp(_ keyCode: CGKeyCode) {
+        LatencyDiagnostics.mark("input.keyUp \(keyCode)")
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyUp(keyCode) {
             return

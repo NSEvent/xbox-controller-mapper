@@ -66,6 +66,7 @@ final class ServiceContainer {
 
         // Wire up on-screen keyboard quick texts from profile manager
         setupOnScreenKeyboardObserver(profileManager: profileManager)
+        profileManager.setupControllerAutoSwitching(with: controllerService)
 
         // Auto-show stream overlay if it was previously enabled
         if !AppRuntime.isRunningTests, StreamOverlayManager.isEnabled {

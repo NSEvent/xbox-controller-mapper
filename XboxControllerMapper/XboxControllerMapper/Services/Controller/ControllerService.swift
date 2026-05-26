@@ -110,6 +110,8 @@ final class ControllerStorage: @unchecked Sendable {
     var pendingReleases: [ControllerButton: TimeInterval] = [:]
     var chordWorkItem: DispatchWorkItem?
     var chordWindow: TimeInterval = 0.15
+    var chordParticipantButtons: Set<ControllerButton> = []
+    var lowLatencyInputEnabled: Bool = false
 
     // Callbacks
     var onButtonPressed: ((ControllerButton) -> Void)?
@@ -173,6 +175,7 @@ class ControllerService: ObservableObject {
 
     @Published var isConnected = false
     @Published var connectedController: GCController?
+    @Published var currentControllerIdentity: ControllerIdentity?
     @Published var controllerName: String = ""
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
@@ -469,6 +472,16 @@ class ControllerService: ObservableObject {
         set { writeStorage(\.chordWindow, newValue) }
     }
 
+    var chordParticipantButtons: Set<ControllerButton> {
+        get { readStorage(\.chordParticipantButtons) }
+        set { writeStorage(\.chordParticipantButtons, newValue) }
+    }
+
+    var lowLatencyInputEnabled: Bool {
+        get { readStorage(\.lowLatencyInputEnabled) }
+        set { writeStorage(\.lowLatencyInputEnabled, newValue) }
+    }
+
     // MARK: - Throttled UI Display Values (updated at ~15Hz to avoid UI blocking)
     // These use CurrentValueSubject instead of @Published to avoid triggering
     // objectWillChange on ControllerService. Only ControllerAnalogOverlay and
@@ -728,6 +741,10 @@ class ControllerService: ObservableObject {
 
         setupInputHandlers(for: controller)
         setupHaptics(for: controller)
+        currentControllerIdentity = ControllerIdentityResolver.identity(
+            for: controller,
+            preferredDevice: hidDevice
+        )
 
         // Publish connection only after controller-specific handlers have populated
         // storage flags like isDualSense/isXboxElite. MappingEngine reacts to this publisher.
@@ -752,6 +769,7 @@ class ControllerService: ObservableObject {
         connectedController?.motion?.sensorsActive = false
         connectedController = nil
         isConnected = false
+        currentControllerIdentity = nil
         isGenericController = false
         controllerName = ""
         activeButtons.removeAll()
@@ -1763,6 +1781,7 @@ class ControllerService: ObservableObject {
     }
 
     nonisolated func handleButton(_ button: ControllerButton, pressed: Bool) {
+        LatencyDiagnostics.mark("controller.handleButton \(button.rawValue) pressed=\(pressed)")
         if pressed {
             buttonPressed(button)
         } else {
@@ -1788,6 +1807,23 @@ class ControllerService: ObservableObject {
 
         storage.activeButtons.insert(button)
         storage.buttonPressTimestamps[button] = Date()
+        let shouldBypassChordWindow = storage.lowLatencyInputEnabled
+            && !storage.chordParticipantButtons.contains(button)
+            && storage.capturedButtonsInWindow.isEmpty
+        if shouldBypassChordWindow {
+            let callback = storage.onButtonPressed
+            let uiButtons = storage.activeButtons
+            storage.lock.unlock()
+
+            Task { @MainActor in
+                self.activeButtons = uiButtons
+            }
+
+            LatencyDiagnostics.mark("controller.lowLatencyPress \(button.rawValue)")
+            callback?(button)
+            return
+        }
+
         storage.pendingButtons.insert(button)
         storage.capturedButtonsInWindow.insert(button)
 
@@ -1869,8 +1905,10 @@ class ControllerService: ObservableObject {
         // causes the release to fire before any hold state exists, leaving
         // hold-path buttons (mouse clicks) permanently stuck down.
         if captured.count >= 2 {
+            LatencyDiagnostics.mark("controller.chord \(captured.map(\.rawValue).sorted().joined(separator: "+"))")
             chordCallback?(captured)
         } else if let button = captured.first {
+            LatencyDiagnostics.mark("controller.delayedPress \(button.rawValue)")
             pressCallback?(button)
         }
 

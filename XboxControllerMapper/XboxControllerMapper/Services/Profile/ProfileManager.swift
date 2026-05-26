@@ -78,6 +78,7 @@ class ProfileManager: ObservableObject {
     // Track previous app for restoration logic
     private var previousBundleId: String?
     private var profileIdBeforeBackground: UUID?
+    private var currentControllerIdentity: ControllerIdentity?
     
     private var cancellables = Set<AnyCancellable>()
 
@@ -118,6 +119,19 @@ class ProfileManager: ObservableObject {
             }
             .store(in: &cancellables)
     }
+
+    func setupControllerAutoSwitching(with controllerService: ControllerService) {
+        controllerService.$currentControllerIdentity
+            .removeDuplicates()
+            .sink { [weak self] identity in
+                guard let self = self else { return }
+                self.currentControllerIdentity = identity
+                guard identity != nil,
+                      let bundleId = self.previousBundleId else { return }
+                self.handleAppChange(bundleId)
+            }
+            .store(in: &cancellables)
+    }
     
     private func handleAppChange(_ bundleId: String) {
         let appBundleId = Bundle.main.bundleIdentifier
@@ -130,7 +144,8 @@ class ProfileManager: ObservableObject {
             bundleId: bundleId,
             appBundleId: appBundleId,
             profiles: profiles,
-            state: state
+            state: state,
+            controllerIdentity: currentControllerIdentity
         )
 
         previousBundleId = result.previousBundleId
@@ -147,6 +162,8 @@ class ProfileManager: ObservableObject {
             print("🔄 Restoring editing profile: \(profile.name)")
         case .linkedApp(let bundleId):
             print("🔄 Auto-switching to profile: \(profile.name) for app: \(bundleId)")
+        case .linkedController(let displayName):
+            print("🔄 Auto-switching to profile: \(profile.name) for controller: \(displayName)")
         case .defaultProfile(let bundleId):
             print("🔄 Auto-switching to default profile for app: \(bundleId)")
         }

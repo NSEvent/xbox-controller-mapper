@@ -34,7 +34,8 @@ enum ButtonPressOrchestrationPolicy {
         directoryNavigatorVisible: Bool,
         remoteSwipePredictionsVisible: Bool = false,
         isChordPart: Bool,
-        lastTap: CFAbsoluteTime?
+        lastTap: CFAbsoluteTime?,
+        inputLatencyMode: InputLatencyMode = .standard
     ) -> Outcome {
         // Directory navigator interceptions
         if directoryNavigatorVisible {
@@ -121,6 +122,12 @@ enum ButtonPressOrchestrationPolicy {
                 shouldTreatAsHold: ButtonInteractionFlowPolicy.shouldUseHoldPath(
                     mapping: mapping,
                     isChordPart: isChordPart
+                ) || (
+                    inputLatencyMode == .realtime &&
+                    ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+                        mapping: mapping,
+                        isChordPart: isChordPart
+                    )
                 )
             )
         )

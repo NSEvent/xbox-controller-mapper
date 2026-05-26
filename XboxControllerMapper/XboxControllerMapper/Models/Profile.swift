@@ -305,6 +305,12 @@ struct Profile: Codable, Identifiable, Equatable {
     /// App Bundle IDs that trigger this profile automatically
     var linkedApps: [String]
 
+    /// Controllers that trigger this profile automatically when connected
+    var linkedControllers: [ControllerProfileBinding]
+
+    /// Dispatch strategy for simple key mappings
+    var inputLatencyMode: InputLatencyMode
+
     /// Defined macros for this profile
     var macros: [Macro]
 
@@ -356,6 +362,8 @@ struct Profile: Codable, Identifiable, Equatable {
         joystickSettings: JoystickSettings = .default,
         dualSenseLEDSettings: DualSenseLEDSettings = .default,
         linkedApps: [String] = [],
+        linkedControllers: [ControllerProfileBinding] = [],
+        inputLatencyMode: InputLatencyMode = .standard,
         macros: [Macro] = [],
         scripts: [Script] = [],
         onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings(),
@@ -379,6 +387,8 @@ struct Profile: Codable, Identifiable, Equatable {
         self.joystickSettings = joystickSettings
         self.dualSenseLEDSettings = dualSenseLEDSettings
         self.linkedApps = linkedApps
+        self.linkedControllers = linkedControllers
+        self.inputLatencyMode = inputLatencyMode
         self.macros = macros
         self.scripts = scripts
         self.onScreenKeyboardSettings = onScreenKeyboardSettings
@@ -580,7 +590,7 @@ extension Profile {
     enum CodingKeys: String, CodingKey {
         case id, name, isDefault, icon, createdAt, modifiedAt
         case buttonMappings, dpadPreset, chordMappings, sequenceMappings, joystickSettings
-        case dualSenseLEDSettings, linkedApps, macros, scripts
+        case dualSenseLEDSettings, linkedApps, linkedControllers, inputLatencyMode, macros, scripts
         case onScreenKeyboardSettings, gestureMappings, layers, touchpadRegionMappings, commandWheelActions
         case touchpadRegionTriggerModes
         case touchpadInputMode
@@ -622,6 +632,8 @@ extension Profile {
         joystickSettings = try container.decode(.joystickSettings, default: .default)
         dualSenseLEDSettings = try container.decode(.dualSenseLEDSettings, default: .default)
         linkedApps = try container.decode(.linkedApps, default: [])
+        linkedControllers = try container.decode(.linkedControllers, default: [])
+        inputLatencyMode = try container.decode(.inputLatencyMode, default: .standard)
         macros = try container.decode(.macros, default: [])
         scripts = try container.decode(.scripts, default: [])
         onScreenKeyboardSettings = try container.decode(.onScreenKeyboardSettings, default: OnScreenKeyboardSettings())
@@ -704,6 +716,8 @@ extension Profile {
         try container.encode(joystickSettings, forKey: .joystickSettings)
         try container.encode(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
         try container.encode(linkedApps, forKey: .linkedApps)
+        try container.encode(linkedControllers, forKey: .linkedControllers)
+        try container.encode(inputLatencyMode, forKey: .inputLatencyMode)
         try container.encode(macros, forKey: .macros)
         try container.encode(scripts, forKey: .scripts)
         try container.encode(onScreenKeyboardSettings, forKey: .onScreenKeyboardSettings)
@@ -792,6 +806,8 @@ extension Profile {
         lhs.joystickSettings == rhs.joystickSettings &&
         lhs.dualSenseLEDSettings == rhs.dualSenseLEDSettings &&
         lhs.linkedApps == rhs.linkedApps &&
+        lhs.linkedControllers == rhs.linkedControllers &&
+        lhs.inputLatencyMode == rhs.inputLatencyMode &&
         lhs.macros == rhs.macros &&
         lhs.scripts == rhs.scripts &&
         lhs.onScreenKeyboardSettings == rhs.onScreenKeyboardSettings &&

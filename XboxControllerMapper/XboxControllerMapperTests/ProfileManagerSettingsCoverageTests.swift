@@ -106,12 +106,48 @@ final class ProfileManagerSettingsCoverageTests: XCTestCase {
     }
 
     func testImportFetchedProfileAssignsNewIdentity() {
-        let remote = Profile(name: "Remote", isDefault: true)
+        let remote = Profile(
+            name: "Remote",
+            isDefault: true,
+            linkedControllers: [
+                ControllerProfileBinding(
+                    displayName: "DualSense",
+                    identity: makeIdentity(stableId: "serial:remote")
+                )
+            ]
+        )
         let imported = profileManager.importFetchedProfile(remote)
 
         XCTAssertNotEqual(imported.id, remote.id)
         XCTAssertFalse(imported.isDefault)
+        XCTAssertEqual(imported.linkedControllers, [])
         XCTAssertTrue(profileManager.profiles.contains(where: { $0.id == imported.id }))
+    }
+
+    func testBindControllerMovesExistingBindingFromOtherProfiles() {
+        let profileA = Profile(name: "A")
+        let profileB = Profile(name: "B")
+        profileManager.profiles = [profileA, profileB]
+        let identity = makeIdentity(stableId: "serial:abc")
+
+        profileManager.bindController(identity, to: profileA)
+        profileManager.bindController(identity, to: profileB)
+
+        let updatedA = profileManager.profiles.first(where: { $0.id == profileA.id })
+        let updatedB = profileManager.profiles.first(where: { $0.id == profileB.id })
+        XCTAssertEqual(updatedA?.linkedControllers.count, 0)
+        XCTAssertEqual(updatedB?.linkedControllers.count, 1)
+        XCTAssertEqual(updatedB?.linkedControllers.first?.identity, identity)
+    }
+
+    func testSetInputLatencyModeUpdatesActiveProfile() {
+        guard let profile = profileManager.activeProfile else {
+            return XCTFail("Expected active profile")
+        }
+
+        profileManager.setInputLatencyMode(.realtime, for: profile)
+
+        XCTAssertEqual(profileManager.activeProfile?.inputLatencyMode, .realtime)
     }
 
     func testCommunityProfileInfoDecodingDisplayNameAndId() throws {
@@ -156,5 +192,18 @@ final class ProfileManagerSettingsCoverageTests: XCTestCase {
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
+    }
+
+    private func makeIdentity(stableId: String?) -> ControllerIdentity {
+        ControllerIdentity(
+            stableId: stableId,
+            fallbackId: "hid:054c:0ce6:dualsense:usb",
+            vendorId: 0x054c,
+            productId: 0x0ce6,
+            productName: "DualSense",
+            transport: "USB",
+            serialNumber: stableId?.replacingOccurrences(of: "serial:", with: ""),
+            deviceAddress: nil
+        )
     }
 }

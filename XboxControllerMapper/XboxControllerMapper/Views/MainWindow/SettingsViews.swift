@@ -1,5 +1,44 @@
 import SwiftUI
 
+// MARK: - Input Settings View
+
+struct InputSettingsView: View {
+    @EnvironmentObject var profileManager: ProfileManager
+
+    var latencyMode: InputLatencyMode {
+        profileManager.activeProfile?.inputLatencyMode ?? .standard
+    }
+
+    var body: some View {
+        Form {
+            Section("Button Latency") {
+                Picker("Mode", selection: Binding(
+                    get: { latencyMode },
+                    set: { updateLatencyMode($0) }
+                )) {
+                    ForEach(InputLatencyMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(latencyMode == .realtime
+                     ? "Simple key mappings send key-down on press and key-up on release. Double-tap, long-hold, and chord mappings keep standard timing."
+                     : "Standard mode preserves full double-tap, long-hold, chord, and feedback behavior.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private func updateLatencyMode(_ mode: InputLatencyMode) {
+        guard let profile = profileManager.activeProfile else { return }
+        profileManager.setInputLatencyMode(mode, for: profile)
+    }
+}
+
 // MARK: - Joystick Settings View
 
 struct JoystickSettingsView: View {
@@ -289,6 +328,7 @@ struct JoystickSettingsView: View {
         newSettings[keyPath: keyPath] = value
         profileManager.updateJoystickSettings(newSettings)
     }
+
 }
 
 // MARK: - Touchpad Settings View

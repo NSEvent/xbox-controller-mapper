@@ -71,6 +71,12 @@ extension ControllerService {
     func setupHIDDeviceCallback(_ device: IOHIDDevice) {
         hidDevice = device
         detectConnectionType(device: device)
+        if let controller = connectedController {
+            currentControllerIdentity = ControllerIdentityResolver.identity(
+                for: controller,
+                preferredDevice: device
+            )
+        }
 
         // DualSense-specific detection
         let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int

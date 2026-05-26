@@ -9,6 +9,7 @@ struct ProfileAutoSwitchState: Equatable {
 enum ProfileAutoSwitchReason: Equatable {
     case restoreEditingProfile
     case linkedApp(bundleId: String)
+    case linkedController(displayName: String)
     case defaultProfile(bundleId: String)
 }
 
@@ -28,7 +29,8 @@ enum ProfileAutoSwitchResolver {
         bundleId: String,
         appBundleId: String?,
         profiles: [Profile],
-        state: ProfileAutoSwitchState
+        state: ProfileAutoSwitchState,
+        controllerIdentity: ControllerIdentity? = nil
     ) -> ProfileAutoSwitchResult {
         if bundleId == appBundleId {
             return resolveWhenReturningToConfigApp(
@@ -56,6 +58,29 @@ enum ProfileAutoSwitchResolver {
                 action: ProfileAutoSwitchAction(
                     profileId: linkedProfile.id,
                     reason: .linkedApp(bundleId: bundleId)
+                ),
+                previousBundleId: bundleId,
+                profileIdBeforeBackground: profileIdBeforeBackground
+            )
+        }
+
+        if let controllerIdentity,
+           let linkedProfile = resolveControllerProfile(
+                identity: controllerIdentity,
+                profiles: profiles
+           ) {
+            if state.activeProfileId == linkedProfile.profile.id {
+                return ProfileAutoSwitchResult(
+                    action: nil,
+                    previousBundleId: bundleId,
+                    profileIdBeforeBackground: profileIdBeforeBackground
+                )
+            }
+
+            return ProfileAutoSwitchResult(
+                action: ProfileAutoSwitchAction(
+                    profileId: linkedProfile.profile.id,
+                    reason: .linkedController(displayName: linkedProfile.binding.displayName)
                 ),
                 previousBundleId: bundleId,
                 profileIdBeforeBackground: profileIdBeforeBackground
@@ -104,5 +129,35 @@ enum ProfileAutoSwitchResolver {
             previousBundleId: bundleId,
             profileIdBeforeBackground: state.profileIdBeforeBackground
         )
+    }
+
+    private static func resolveControllerProfile(
+        identity: ControllerIdentity,
+        profiles: [Profile]
+    ) -> (profile: Profile, binding: ControllerProfileBinding)? {
+        let exactMatches = profiles.compactMap { profile -> (Profile, ControllerProfileBinding)? in
+            guard let binding = profile.linkedControllers.first(where: {
+                $0.identity.exactMatches(identity)
+            }) else { return nil }
+            return (profile, binding)
+        }
+        if exactMatches.count == 1 {
+            return exactMatches[0]
+        }
+
+        let fallbackMatches = profiles.compactMap { profile -> (Profile, ControllerProfileBinding)? in
+            guard let binding = profile.linkedControllers.first(where: {
+                $0.identity.stableId == nil && $0.identity.fallbackId == identity.fallbackId
+            }) else { return nil }
+            return (profile, binding)
+        }
+        if fallbackMatches.count == 1 {
+            return fallbackMatches[0]
+        }
+
+        if fallbackMatches.count > 1 {
+            NSLog("[ProfileAutoSwitch] Ambiguous controller fallback match for %@", identity.fallbackId)
+        }
+        return nil
     }
 }
