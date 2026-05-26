@@ -223,8 +223,8 @@ class ControllerService: ObservableObject {
 
     // HID monitoring for DualSense mic button (not exposed by GameController framework)
     var hidManager: IOHIDManager?
-    var hidReportBuffer: UnsafeMutablePointer<UInt8>?
     var hidDevice: IOHIDDevice?
+    var psHIDRegistrations: [PlayStationHIDRegistration] = []
     var bluetoothOutputSeq: UInt8 = 0  // Sequence number for Bluetooth output reports (0-15)
     var keepAliveTimer: DispatchSourceTimer?
 
@@ -236,9 +236,6 @@ class ControllerService: ObservableObject {
 
     /// Retained context pointer for generic HID callbacks — released in cleanupGenericHIDMonitoring().
     var genericHIDCallbackContext: UnsafeMutableRawPointer?
-
-    /// Retained context pointer for PlayStation HID report callback — released in cleanupHIDMonitoring().
-    var psHIDCallbackContext: UnsafeMutableRawPointer?
 
     // Nintendo Pro Controller HID monitoring (Home button not exposed by GameController framework)
     var nintendoHIDManager: IOHIDManager?

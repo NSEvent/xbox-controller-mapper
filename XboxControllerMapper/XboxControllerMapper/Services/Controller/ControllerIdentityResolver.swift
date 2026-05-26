@@ -5,28 +5,46 @@ import IOKit.hid
 
 enum ControllerIdentityResolver {
     static func identity(for controller: GCController, preferredDevice: IOHIDDevice? = nil) -> ControllerIdentity {
+        let fallbackName = controller.vendorName ?? controller.productCategory
         if let preferredDevice {
-            return identity(for: preferredDevice, fallbackName: controller.vendorName ?? controller.productCategory)
+            return identity(for: preferredDevice, fallbackName: fallbackName)
         }
 
         let candidates = matchingHIDIdentities(
             vendorName: controller.vendorName,
             productCategory: controller.productCategory
         )
-        if let stable = candidates.first(where: { $0.hasStableId }) {
-            return stable
-        }
-        if candidates.count == 1 {
-            return candidates[0]
+        return resolvedIdentity(candidates: candidates, fallbackName: fallbackName)
+    }
+
+    static func resolvedIdentity(
+        candidates: [ControllerIdentity],
+        fallbackName: String?
+    ) -> ControllerIdentity {
+        let uniqueCandidates = uniquePhysicalIdentities(candidates)
+        if uniqueCandidates.count == 1 {
+            return uniqueCandidates[0]
         }
 
-        let name = controller.vendorName ?? controller.productCategory
+        if let ambiguousFallback = ambiguousFallbackIdentity(
+            from: uniqueCandidates.isEmpty ? candidates : uniqueCandidates,
+            fallbackName: fallbackName
+        ) {
+            return ambiguousFallback
+        }
+
         return fallbackIdentity(
             vendorId: nil,
             productId: nil,
-            productName: name,
+            productName: fallbackName,
             transport: nil
         )
+    }
+
+    static func hasSinglePhysicalIdentity(_ candidates: [ControllerIdentity]) -> Bool {
+        let uniqueCandidates = uniquePhysicalIdentities(candidates)
+        guard uniqueCandidates.count == 1 else { return false }
+        return uniqueCandidates[0].hasStableId || candidates.count == 1
     }
 
     static func identity(for device: IOHIDDevice, fallbackName: String? = nil) -> ControllerIdentity {
@@ -107,6 +125,41 @@ enum ControllerIdentityResolver {
         IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
         defer { IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone)) }
         return (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>).map(Array.init) ?? []
+    }
+
+    private static func uniquePhysicalIdentities(_ candidates: [ControllerIdentity]) -> [ControllerIdentity] {
+        var seenKeys = Set<String>()
+        var uniqueCandidates: [ControllerIdentity] = []
+
+        for candidate in candidates {
+            let key = candidate.stableId.map { "stable:\($0)" } ?? "fallback:\(candidate.fallbackId)"
+            if seenKeys.insert(key).inserted {
+                uniqueCandidates.append(candidate)
+            }
+        }
+
+        return uniqueCandidates
+    }
+
+    private static func ambiguousFallbackIdentity(
+        from candidates: [ControllerIdentity],
+        fallbackName: String?
+    ) -> ControllerIdentity? {
+        guard let first = candidates.first,
+              candidates.allSatisfy({ $0.fallbackId == first.fallbackId }) else {
+            return nil
+        }
+
+        return ControllerIdentity(
+            stableId: nil,
+            fallbackId: first.fallbackId,
+            vendorId: first.vendorId,
+            productId: first.productId,
+            productName: first.productName ?? fallbackName,
+            transport: first.transport,
+            serialNumber: nil,
+            deviceAddress: nil
+        )
     }
 
     private static func fallbackIdentity(

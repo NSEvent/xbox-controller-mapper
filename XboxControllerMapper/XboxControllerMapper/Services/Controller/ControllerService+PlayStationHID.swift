@@ -1,4 +1,5 @@
 import Foundation
+import GameController
 import IOKit
 import IOKit.hid
 
@@ -12,6 +13,12 @@ fileprivate final class PSHIDCallbackContext {
     init(service: ControllerService) { self.service = service }
 }
 
+struct PlayStationHIDRegistration {
+    let device: IOHIDDevice
+    let reportBuffer: UnsafeMutablePointer<UInt8>
+    let callbackContext: UnsafeMutableRawPointer
+}
+
 @MainActor
 extension ControllerService {
 
@@ -21,20 +28,13 @@ extension ControllerService {
     func setupPlayStationHIDMonitoring() {
         // Guard: if already monitoring, clean up first to avoid leaking the old manager/buffer/context.
         // This handles rapid controllerConnected() calls safely.
-        if hidManager != nil {
+        if hidManager != nil || !psHIDRegistrations.isEmpty {
             cleanupHIDMonitoring()
         }
 
-        // Allocate report buffer (must persist for the lifetime of HID callbacks)
-        hidReportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.hidReportBufferSize)
-
         // Create HID manager
         hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-        guard let manager = hidManager else {
-            hidReportBuffer?.deallocate()
-            hidReportBuffer = nil
-            return
-        }
+        guard let manager = hidManager else { return }
 
         // Match all PlayStation controllers
         let dualSenseDict: [String: Any] = [
@@ -60,23 +60,36 @@ extension ControllerService {
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
         IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
 
-        // Get connected devices and set up input report callback on each
-        if let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> {
-            for device in devices {
-                setupHIDDeviceCallback(device)
+        let devices = (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>).map(Array.init) ?? []
+        let fallbackName = connectedController?.vendorName ?? connectedController?.productCategory
+        let identities = devices.map {
+            ControllerIdentityResolver.identity(for: $0, fallbackName: fallbackName)
+        }
+
+        if ControllerIdentityResolver.hasSinglePhysicalIdentity(identities) {
+            hidDevice = devices.first
+        } else {
+            hidDevice = nil
+            if devices.count > 1 {
+                NSLog("[ControllerKeys] Multiple PlayStation HID identities found; using same-model controller identity fallback")
             }
+        }
+
+        if let controller = connectedController {
+            currentControllerIdentity = ControllerIdentityResolver.resolvedIdentity(
+                candidates: identities,
+                fallbackName: controller.vendorName ?? controller.productCategory
+            )
+        }
+
+        // Get connected devices and set up input report callbacks on each.
+        for device in devices {
+            setupHIDDeviceCallback(device)
         }
     }
 
     func setupHIDDeviceCallback(_ device: IOHIDDevice) {
-        hidDevice = device
         detectConnectionType(device: device)
-        if let controller = connectedController {
-            currentControllerIdentity = ControllerIdentityResolver.identity(
-                for: controller,
-                preferredDevice: device
-            )
-        }
 
         // DualSense-specific detection
         let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int
@@ -86,15 +99,16 @@ extension ControllerService {
             detectDualSenseEdge(device: device)
         }
 
-        guard let buffer = hidReportBuffer else { return }
-
-        // Release previous retained context before overwriting (guards against multi-device loop leak)
-        if let existingCtx = psHIDCallbackContext {
-            Unmanaged<PSHIDCallbackContext>.fromOpaque(existingCtx).release()
-        }
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.hidReportBufferSize)
         let ctx = PSHIDCallbackContext(service: self)
         let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
-        psHIDCallbackContext = retainedContext
+        psHIDRegistrations.append(
+            PlayStationHIDRegistration(
+                device: device,
+                reportBuffer: buffer,
+                callbackContext: retainedContext
+            )
+        )
         IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.hidReportBufferSize, { context, result, sender, type, reportID, report, reportLength in
             guard let context = context else { return }
             let holder = Unmanaged<PSHIDCallbackContext>.fromOpaque(context).takeUnretainedValue()
@@ -117,24 +131,34 @@ extension ControllerService {
 
     func cleanupHIDMonitoring() {
         // ORDERING IS CRITICAL for memory safety:
-        //   1. Unregister the input report callback (register nil) — stops IOKit from invoking
+        //   1. Unregister input report callbacks (register nil) — stops IOKit from invoking
         //      the callback, which references both the context pointer and the report buffer.
-        //   2. Unschedule the device from the run loop — prevents any queued events from firing.
+        //   2. Unschedule devices from the run loop — prevents any queued events from firing.
         //   3. Close the HID manager and unschedule it.
-        //   4. Release the callback context (passRetained balanced by release).
-        //   5. Deallocate the report buffer — safe now because no callback can reference it.
+        //   4. Release callback contexts (passRetained balanced by release).
+        //   5. Deallocate report buffers — safe now because no callback can reference them.
         //
         // Violating this order can cause use-after-free: IOKit does NOT retain the buffer
         // or context, so they must outlive all possible callback invocations.
 
-        // Step 1: Unregister callback by passing nil — IOKit will no longer invoke our closure.
-        if let device = hidDevice, let buffer = hidReportBuffer {
-            IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.hidReportBufferSize, nil, nil)
+        // Step 1: Unregister callbacks by passing nil — IOKit will no longer invoke our closure.
+        for registration in psHIDRegistrations {
+            IOHIDDeviceRegisterInputReportCallback(
+                registration.device,
+                registration.reportBuffer,
+                Self.hidReportBufferSize,
+                nil,
+                nil
+            )
         }
 
-        // Step 2: Unschedule device from run loop.
-        if let device = hidDevice {
-            IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        // Step 2: Unschedule devices from run loop.
+        for registration in psHIDRegistrations {
+            IOHIDDeviceUnscheduleFromRunLoop(
+                registration.device,
+                CFRunLoopGetCurrent(),
+                CFRunLoopMode.defaultMode.rawValue
+            )
         }
         hidDevice = nil
 
@@ -145,17 +169,12 @@ extension ControllerService {
         }
         hidManager = nil
 
-        // Step 4: Release callback context (balances passRetained in setupHIDDeviceCallback).
-        if let ctx = psHIDCallbackContext {
-            Unmanaged<PSHIDCallbackContext>.fromOpaque(ctx).release()
-            psHIDCallbackContext = nil
+        // Steps 4/5: Release callback contexts and report buffers.
+        for registration in psHIDRegistrations {
+            Unmanaged<PSHIDCallbackContext>.fromOpaque(registration.callbackContext).release()
+            registration.reportBuffer.deallocate()
         }
-
-        // Step 5: Deallocate report buffer — safe because callback is fully unregistered.
-        if let buffer = hidReportBuffer {
-            buffer.deallocate()
-        }
-        hidReportBuffer = nil
+        psHIDRegistrations.removeAll()
     }
 
     nonisolated func handleHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
