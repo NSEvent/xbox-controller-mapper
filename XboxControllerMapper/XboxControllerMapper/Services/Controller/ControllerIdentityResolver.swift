@@ -58,6 +58,31 @@ enum ControllerIdentityResolver {
         return devices
     }
 
+    static func candidatesMatchingProductIds<Device>(
+        devices: [Device],
+        identities: [ControllerIdentity],
+        productIds: Set<Int>
+    ) -> (devices: [Device], identities: [ControllerIdentity]) {
+        guard devices.count == identities.count else {
+            return ([], [])
+        }
+        guard !productIds.isEmpty else {
+            return (devices, identities)
+        }
+
+        var matchingDevices: [Device] = []
+        var matchingIdentities: [ControllerIdentity] = []
+        for (device, identity) in zip(devices, identities) {
+            guard let productId = identity.productId,
+                  productIds.contains(productId) else {
+                continue
+            }
+            matchingDevices.append(device)
+            matchingIdentities.append(identity)
+        }
+        return (matchingDevices, matchingIdentities)
+    }
+
     static func identity(for device: IOHIDDevice, fallbackName: String? = nil) -> ControllerIdentity {
         let vendorId = intProperty(device, kIOHIDVendorIDKey)
         let productId = intProperty(device, kIOHIDProductIDKey)
@@ -173,7 +198,7 @@ enum ControllerIdentityResolver {
         )
     }
 
-    private static func fallbackIdentity(
+    static func fallbackIdentity(
         vendorId: Int?,
         productId: Int?,
         productName: String?,

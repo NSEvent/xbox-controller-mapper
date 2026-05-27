@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **PlayStation linked-controller ambiguity**: DualSense, DualSense Edge, and DualShock 4 identity matching now avoids binding a profile to the wrong physical controller when multiple PlayStation HID devices are present. When the app cannot prove the matching HID interfaces belong to one physical controller, PlayStation-only HID extras such as PS, mic, and Edge buttons are disabled until the ambiguity clears.
+- **PlayStation linked-controller ambiguity**: DualSense, DualSense Edge, and DualShock 4 identity matching now avoids binding a profile to the wrong physical controller when multiple PlayStation HID devices are present. Mixed DualShock 4 + DualSense setups now filter HID candidates to the active controller model before showing or binding the current controller. When the app cannot prove the matching HID interfaces belong to one physical controller, PlayStation-only HID extras such as PS, mic, and Edge buttons are disabled until the ambiguity clears.
 
 - **Script execution cleanup**: Script runs now clear JavaScriptCore exception state and cancel timeout timers via deferred cleanup, reducing stale-state risk after script errors or timeouts.
 

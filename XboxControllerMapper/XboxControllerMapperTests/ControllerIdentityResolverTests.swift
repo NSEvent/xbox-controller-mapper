@@ -87,6 +87,43 @@ final class ControllerIdentityResolverTests: XCTestCase {
         XCTAssertTrue(devices.isEmpty)
     }
 
+    func testCandidatesMatchingProductIdsKeepsOnlyActiveControllerModel() {
+        let dualShock = makeIdentity(
+            stableId: "serial:ds4",
+            fallbackId: "hid:054c:09cc:dualshock-4:bluetooth",
+            productId: 0x09cc,
+            productName: "DUALSHOCK 4 Wireless Controller"
+        )
+        let dualSense = makeIdentity(
+            stableId: "serial:ds5",
+            fallbackId: "hid:054c:0ce6:dualsense:bluetooth",
+            productId: 0x0ce6,
+            productName: "DualSense Wireless Controller"
+        )
+
+        let candidates = ControllerIdentityResolver.candidatesMatchingProductIds(
+            devices: ["ds4", "ds5"],
+            identities: [dualShock, dualSense],
+            productIds: [0x0ce6, 0x0df2]
+        )
+
+        XCTAssertEqual(candidates.devices, ["ds5"])
+        XCTAssertEqual(candidates.identities, [dualSense])
+    }
+
+    func testCandidatesMatchingProductIdsDropsMismatchedDeviceIdentityPairs() {
+        let identity = makeIdentity(stableId: "serial:alpha")
+
+        let candidates = ControllerIdentityResolver.candidatesMatchingProductIds(
+            devices: ["only-device", "extra-device"],
+            identities: [identity],
+            productIds: [0x0ce6]
+        )
+
+        XCTAssertTrue(candidates.devices.isEmpty)
+        XCTAssertTrue(candidates.identities.isEmpty)
+    }
+
     func testResolvedIdentityUsesGenericFallbackForDifferentAmbiguousModels() {
         let dualSense = makeIdentity(
             stableId: "serial:alpha",

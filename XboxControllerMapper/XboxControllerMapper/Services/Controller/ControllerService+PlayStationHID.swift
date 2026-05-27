@@ -19,6 +19,25 @@ struct PlayStationHIDRegistration {
     let callbackContext: UnsafeMutableRawPointer
 }
 
+private enum PlayStationHIDProduct {
+    static let sonyVendorId = 0x054C
+    static let dualSense = 0x0CE6
+    static let dualSenseEdge = 0x0DF2
+    static let dualShock4V1 = 0x05C4
+    static let dualShock4V2 = 0x09CC
+
+    static let dualSenseFamily: Set<Int> = [dualSense, dualSenseEdge]
+    static let dualShock4Family: Set<Int> = [dualShock4V1, dualShock4V2]
+    static let all: Set<Int> = dualSenseFamily.union(dualShock4Family)
+
+    static func matchingDictionary(productId: Int) -> [String: Any] {
+        [
+            kIOHIDVendorIDKey as String: sonyVendorId,
+            kIOHIDProductIDKey as String: productId,
+        ]
+    }
+}
+
 @MainActor
 extension ControllerService {
 
@@ -36,39 +55,37 @@ extension ControllerService {
         hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         guard let manager = hidManager else { return }
 
-        // Match all PlayStation controllers
-        let dualSenseDict: [String: Any] = [
-            kIOHIDVendorIDKey as String: 0x054C,  // Sony
-            kIOHIDProductIDKey as String: 0x0CE6, // DualSense
-        ]
-        let dualSenseEdgeDict: [String: Any] = [
-            kIOHIDVendorIDKey as String: 0x054C,  // Sony
-            kIOHIDProductIDKey as String: 0x0DF2, // DualSense Edge
-        ]
-        let dualShock4V1Dict: [String: Any] = [
-            kIOHIDVendorIDKey as String: 0x054C,  // Sony
-            kIOHIDProductIDKey as String: 0x05C4, // DualShock 4 v1
-        ]
-        let dualShock4V2Dict: [String: Any] = [
-            kIOHIDVendorIDKey as String: 0x054C,  // Sony
-            kIOHIDProductIDKey as String: 0x09CC, // DualShock 4 v2
-        ]
-        let matchingDicts = [dualSenseDict, dualSenseEdgeDict, dualShock4V1Dict, dualShock4V2Dict] as CFArray
+        // Match all PlayStation controllers, then narrow to the active
+        // GameController model before binding identity or raw HID callbacks.
+        let matchingDicts = PlayStationHIDProduct.all
+            .map { PlayStationHIDProduct.matchingDictionary(productId: $0) } as CFArray
         IOHIDManagerSetDeviceMatchingMultiple(manager, matchingDicts)
 
         // Schedule with run loop first
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
         IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
 
-        let devices = (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>).map(Array.init) ?? []
+        let allDevices = (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>).map(Array.init) ?? []
         let fallbackName = connectedController?.vendorName ?? connectedController?.productCategory
-        let identities = devices.map {
+        let allIdentities = allDevices.map {
             ControllerIdentityResolver.identity(for: $0, fallbackName: fallbackName)
         }
+        let activeProductIds = activePlayStationProductIds()
+        let candidates = ControllerIdentityResolver.candidatesMatchingProductIds(
+            devices: allDevices,
+            identities: allIdentities,
+            productIds: activeProductIds
+        )
+        let devices = candidates.devices
+        let identities = candidates.identities
         let callbackDevices = ControllerIdentityResolver.devicesForSinglePhysicalIdentity(
             devices: devices,
             identities: identities
         )
+
+        if allDevices.count != devices.count {
+            NSLog("[ControllerKeys] Ignoring %d non-active PlayStation HID device(s) while resolving current controller identity", allDevices.count - devices.count)
+        }
 
         if let device = callbackDevices.first {
             hidDevice = device
@@ -80,10 +97,17 @@ extension ControllerService {
         }
 
         if let controller = connectedController {
-            currentControllerIdentity = ControllerIdentityResolver.resolvedIdentity(
-                candidates: identities,
-                fallbackName: controller.vendorName ?? controller.productCategory
-            )
+            if identities.isEmpty {
+                currentControllerIdentity = fallbackPlayStationIdentity(
+                    for: controller,
+                    productIds: activeProductIds
+                )
+            } else {
+                currentControllerIdentity = ControllerIdentityResolver.resolvedIdentity(
+                    candidates: identities,
+                    fallbackName: controller.vendorName ?? controller.productCategory
+                )
+            }
         }
 
         // Device-specific HID reports are safe only when all matching HID
@@ -132,6 +156,46 @@ extension ControllerService {
                 enableMicrophone(device: device)
             }
         }
+    }
+
+    private func activePlayStationProductIds() -> Set<Int> {
+        storage.lock.lock()
+        let isDualSense = storage.isDualSense
+        let isDualShock = storage.isDualShock
+        storage.lock.unlock()
+
+        if isDualSense {
+            return PlayStationHIDProduct.dualSenseFamily
+        }
+        if isDualShock {
+            return PlayStationHIDProduct.dualShock4Family
+        }
+        return PlayStationHIDProduct.all
+    }
+
+    private func fallbackPlayStationIdentity(
+        for controller: GCController,
+        productIds: Set<Int>
+    ) -> ControllerIdentity {
+        let fallbackName = controller.vendorName ?? controller.productCategory
+        let lowercasedName = fallbackName.lowercased()
+        let productId: Int?
+        if lowercasedName.contains("edge") {
+            productId = PlayStationHIDProduct.dualSenseEdge
+        } else if productIds == PlayStationHIDProduct.dualSenseFamily {
+            productId = PlayStationHIDProduct.dualSense
+        } else if productIds.count == 1 {
+            productId = productIds.first
+        } else {
+            productId = nil
+        }
+
+        return ControllerIdentityResolver.fallbackIdentity(
+            vendorId: PlayStationHIDProduct.sonyVendorId,
+            productId: productId,
+            productName: fallbackName,
+            transport: nil
+        )
     }
 
     func cleanupHIDMonitoring() {

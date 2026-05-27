@@ -731,6 +731,7 @@ class ControllerService: ObservableObject {
 
         connectedController = controller
         controllerName = controller.vendorName ?? "Game Controller"
+        currentControllerIdentity = nil
 
         storage.lock.lock()
         resetTouchpadStateLocked()
@@ -738,10 +739,12 @@ class ControllerService: ObservableObject {
 
         setupInputHandlers(for: controller)
         setupHaptics(for: controller)
-        currentControllerIdentity = ControllerIdentityResolver.identity(
-            for: controller,
-            preferredDevice: hidDevice
-        )
+        if currentControllerIdentity == nil {
+            currentControllerIdentity = ControllerIdentityResolver.identity(
+                for: controller,
+                preferredDevice: hidDevice
+            )
+        }
 
         // Publish connection only after controller-specific handlers have populated
         // storage flags like isDualSense/isXboxElite. MappingEngine reacts to this publisher.
