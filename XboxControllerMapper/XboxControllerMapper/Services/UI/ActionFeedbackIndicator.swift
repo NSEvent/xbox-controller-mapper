@@ -24,10 +24,6 @@ class ActionFeedbackIndicator {
     private var trackingTimer: Timer?
     private var isVisible = false
     private var showTime: Date?  // When the indicator was shown
-    /// Last confirmed physical cursor position during zoom (NS coords).
-    /// Used to filter out virtual readings from NSEvent.mouseLocation oscillation.
-    private var lastPhysicalPosition: NSPoint?
-
     /// Currently held actions (maps action string to input type for display)
     private var heldActions: [String: InputEventType] = [:]
 
@@ -223,39 +219,25 @@ class ActionFeedbackIndicator {
 
         let panelSize = panel.frame.size
         let zoomLevel = InputSimulator.getZoomLevel()
-
         let isZoomed = InputSimulator.isZoomCurrentlyActive() && zoomLevel > 1.0
-        let tracked = InputSimulator.getLastTrackedPosition()
+        let trackedSnapshot = InputSimulator.getLastTrackedPositionSnapshot()
+        let tracked = trackedSnapshot.position
         let mouseLocation = NSEvent.mouseLocation
+        let screenFrame = NSScreen.screens.first?.frame ?? NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1728, height: 1117)
 
-        if isZoomed, let tracked = tracked {
-            let screenHeight = NSScreen.screens.first?.frame.height ?? 1329
-            let isVirtualReading = CursorOscillationFilter.isVirtualReading(
-                mouseLocation: mouseLocation,
-                trackedCGPosition: tracked,
-                screenHeight: screenHeight
-            )
+        let cursorPos = OverlayPositionPolicy.cursorScreenPosition(
+            zoomActive: isZoomed,
+            zoomLevel: zoomLevel,
+            trackedCursorPosition: tracked,
+            fallbackCursorLocation: mouseLocation,
+            screenFrame: screenFrame,
+            preferFreshTrackedWhenUnzoomed: true,
+            trackedCursorLastMoveTime: trackedSnapshot.lastMoveTime
+        )
 
-            let cursorPos: NSPoint
-            if isVirtualReading {
-                // Virtual reading — use last known physical position
-                guard let last = lastPhysicalPosition else { return }
-                cursorPos = last
-            } else {
-                // Physical reading — save and use it
-                lastPhysicalPosition = mouseLocation
-                cursorPos = mouseLocation
-            }
-
-            let x = cursorPos.x - panelSize.width / 2
-            let y = cursorPos.y + cursorOffset
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
-        } else {
-            lastPhysicalPosition = nil
-            let x = mouseLocation.x - panelSize.width / 2
-            let y = mouseLocation.y + cursorOffset
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
-        }
+        let x = cursorPos.x - panelSize.width / 2
+        let y = cursorPos.y + cursorOffset
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 }
 
