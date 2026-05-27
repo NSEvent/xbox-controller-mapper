@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-05-27
+
+### Added
+
+- **Realtime input latency mode**: New per-profile Input section under Hardware. Realtime mode sends simple key mappings as key-down on press and key-up on release, bypassing the normal chord window for buttons that are not part of chords. Double-tap, long-hold, repeat, and chord mappings stay on the standard timing path so advanced interactions keep their existing behavior.
+
+- **Linked controllers**: Profiles can now bind to the currently connected controller and auto-activate when that controller connects. Linked Apps keep precedence over Linked Controllers when the frontmost app has its own linked profile, matching the UI copy in the linked-controller sheet.
+
+- **Profile sidebar status indicators**: Profile rows now show small Linked Apps icons next to the profile name, plus compact badges for realtime input mode, linked controllers, custom profile icons, and the default profile.
+
+### Changed
+
+- **AnKing community profile docs**: Clarified which bindings are stock Anki, which are AnKing notetype cloze controls, and which still depend on contributor-specific addons.
+
+- **Monterey compatibility triage**: Added an audit note for macOS 12 support, including known SwiftUI blockers and a legacy-build decision gate.
+
+### Fixed
+
+- **PlayStation linked-controller ambiguity**: DualSense, DualSense Edge, and DualShock 4 identity matching now avoids binding a profile to the wrong physical controller when multiple PlayStation HID devices are present. When the app cannot prove the matching HID interfaces belong to one physical controller, PlayStation-only HID extras such as PS, mic, and Edge buttons are disabled until the ambiguity clears.
+
+- **Script execution cleanup**: Script runs now clear JavaScriptCore exception state and cancel timeout timers via deferred cleanup, reducing stale-state risk after script errors or timeouts.
+
+- **Test-suite side effects**: App startup skips live update checks, battery monitoring, Universal Control relay listening, and stream-overlay restoration while running unit tests.
+
 ## [1.8.1] - 2026-05-14
 
 ### Added
