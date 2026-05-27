@@ -352,6 +352,69 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         }
     }
 
+    func testSteamTouchpadPinchRequiresLargerDistanceToTriggerZoom() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "SteamTouchPinch", buttonMappings: [:])
+            profile.joystickSettings.touchpadUseNativeZoom = false
+            profile.joystickSettings.touchpadSmoothing = 0
+            profileManager.setActiveProfile(profile)
+            controllerService.storage.isSteamController = true
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: .zero,
+                    distanceDelta: Config.touchpadPinchDeadzone + 0.02,
+                    isPrimaryTouching: true,
+                    isSecondaryTouching: true
+                )
+            )
+        }
+        await waitForTasks(0.15)
+
+        await MainActor.run {
+            let plusPressesBeforeThreshold = mockInputSimulator.events.filter { event in
+                if case .pressKey(let keyCode, let flags) = event {
+                    return keyCode == KeyCodeMapping.equal && flags.contains(.maskCommand)
+                }
+                return false
+            }.count
+            XCTAssertEqual(plusPressesBeforeThreshold, 0, "Steam two-pad pinch should ignore small distance changes")
+            mockInputSimulator.clearEvents()
+
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: .zero,
+                    distanceDelta: Config.steamTouchpadPinchDeadzone + 0.02,
+                    isPrimaryTouching: true,
+                    isSecondaryTouching: true
+                )
+            )
+        }
+        await waitForTasks(0.15)
+
+        await MainActor.run {
+            let plusPressesAfterThreshold = mockInputSimulator.events.filter { event in
+                if case .pressKey(let keyCode, let flags) = event {
+                    return keyCode == KeyCodeMapping.equal && flags.contains(.maskCommand)
+                }
+                return false
+            }.count
+            XCTAssertGreaterThan(plusPressesAfterThreshold, 0, "Steam two-pad pinch should trigger after the larger threshold")
+
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: .zero,
+                    distanceDelta: 0,
+                    isPrimaryTouching: false,
+                    isSecondaryTouching: false
+                )
+            )
+        }
+    }
+
     func testTouchpadPanGestureProducesScroll() async throws {
         await MainActor.run {
             var profile = Profile(name: "TouchPan", buttonMappings: [:])

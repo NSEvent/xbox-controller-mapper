@@ -78,7 +78,10 @@ extension MappingEngine {
         if settings.disableTouchpadAsMouse { return }
 
         let magnitude = Double(hypot(smoothedDelta.x, smoothedDelta.y))
-        guard magnitude > settings.touchpadDeadzone else { return }
+        let deadzone = controllerService.threadSafeIsSteamController
+            ? max(settings.touchpadDeadzone, Config.steamTouchpadDeadzoneFloor)
+            : settings.touchpadDeadzone
+        guard magnitude > deadzone else { return }
 
         let sensitivity = Config.touchpadNativeScale * settings.touchpadSensitivityMultiplier
 
@@ -316,8 +319,11 @@ extension MappingEngine {
         let pinchMagnitude = abs(smoothedDistance)
         let panMagnitude = Double(hypot(smoothedCenter.x, smoothedCenter.y))
         let ratio = pinchMagnitude / max(panMagnitude, 0.001)
+        let pinchDeadzone = controllerService.threadSafeIsSteamController
+            ? Config.steamTouchpadPinchDeadzone
+            : Config.touchpadPinchDeadzone
 
-        let isPinchGesture = pinchMagnitude > Config.touchpadPinchDeadzone &&
+        let isPinchGesture = pinchMagnitude > pinchDeadzone &&
             (panMagnitude < Config.touchpadPanDeadzone ||
              ratio > settings.touchpadZoomToPanRatio)
 

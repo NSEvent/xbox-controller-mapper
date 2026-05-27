@@ -564,6 +564,14 @@ extension ControllerService {
     }
 
     nonisolated func updateTouchpadSecondary(x: Float, y: Float) {
+        updateTouchpadSecondary(x: x, y: y, isTouchingOverride: nil)
+    }
+
+    nonisolated func updateTouchpadSecondary(x: Float, y: Float, isTouching: Bool) {
+        updateTouchpadSecondary(x: x, y: y, isTouchingOverride: isTouching)
+    }
+
+    private nonisolated func updateTouchpadSecondary(x: Float, y: Float, isTouchingOverride: Bool?) {
         defer { logTouchpadDebugIfNeeded(source: "secondary") }
         storage.lock.lock()
 
@@ -574,8 +582,8 @@ extension ControllerService {
         let now = CFAbsoluteTimeGetCurrent()
 
         // Detect if finger is on touchpad (non-zero position indicates touch)
-        var isTouching = abs(x) > 0.001 || abs(y) > 0.001
-        if !storage.touchpadSecondaryHasSeenTouch, isTouching {
+        var isTouching = isTouchingOverride ?? (abs(x) > 0.001 || abs(y) > 0.001)
+        if isTouchingOverride == nil, !storage.touchpadSecondaryHasSeenTouch, isTouching {
             if let sentinel = storage.touchpadSecondaryIdleSentinel {
                 let isNearSentinel = abs(newPosition.x - sentinel.x) <= TouchpadIdleSentinelConfig.activationThreshold &&
                     abs(newPosition.y - sentinel.y) <= TouchpadIdleSentinelConfig.activationThreshold

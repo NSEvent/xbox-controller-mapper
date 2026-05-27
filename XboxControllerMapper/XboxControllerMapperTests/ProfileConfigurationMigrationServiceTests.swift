@@ -16,6 +16,7 @@ final class ProfileConfigurationMigrationServiceTests: XCTestCase {
         XCTAssertTrue(didMigrate)
         XCTAssertEqual(profiles[0].joystickSettings.touchpadSensitivity, 0.5)
         XCTAssertEqual(profiles[0].joystickSettings.touchpadAcceleration, 0.5)
+        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
     }
 
     func testMigrateTouchpadSettingsMigratesLegacyDeadzonePreset() {
@@ -30,7 +31,52 @@ final class ProfileConfigurationMigrationServiceTests: XCTestCase {
             .migrateTouchpadSettingsIfNeeded(in: [profile])
 
         XCTAssertTrue(didMigrate)
-        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, 0.0)
+        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
+    }
+
+    func testMigrateTouchpadSettingsPromotesDefaultZeroDeadzone() {
+        var settings = JoystickSettings.default
+        settings.touchpadSensitivity = 0.5
+        settings.touchpadAcceleration = 0.5
+        settings.touchpadDeadzone = 0.0
+        settings.touchpadSmoothing = 0.4
+
+        let profile = Profile(name: "Default Zero Deadzone", joystickSettings: settings)
+        let (profiles, didMigrate) = ProfileConfigurationMigrationService
+            .migrateTouchpadSettingsIfNeeded(in: [profile])
+
+        XCTAssertTrue(didMigrate)
+        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
+    }
+
+    func testMigrateTouchpadSettingsPromotesOldDefaultDeadzone() {
+        var settings = JoystickSettings.default
+        settings.touchpadSensitivity = 0.5
+        settings.touchpadAcceleration = 0.5
+        settings.touchpadDeadzone = 0.001
+        settings.touchpadSmoothing = 0.4
+
+        let profile = Profile(name: "Old Default Deadzone", joystickSettings: settings)
+        let (profiles, didMigrate) = ProfileConfigurationMigrationService
+            .migrateTouchpadSettingsIfNeeded(in: [profile])
+
+        XCTAssertTrue(didMigrate)
+        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
+    }
+
+    func testMigrateTouchpadSettingsPromotesPreviousRaisedDefaultDeadzone() {
+        var settings = JoystickSettings.default
+        settings.touchpadSensitivity = 0.5
+        settings.touchpadAcceleration = 0.5
+        settings.touchpadDeadzone = 0.003
+        settings.touchpadSmoothing = 0.4
+
+        let profile = Profile(name: "Previous Raised Default Deadzone", joystickSettings: settings)
+        let (profiles, didMigrate) = ProfileConfigurationMigrationService
+            .migrateTouchpadSettingsIfNeeded(in: [profile])
+
+        XCTAssertTrue(didMigrate)
+        XCTAssertEqual(profiles[0].joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
     }
 
     func testMigrateTouchpadSettingsLeavesNonLegacySettingsUntouched() {

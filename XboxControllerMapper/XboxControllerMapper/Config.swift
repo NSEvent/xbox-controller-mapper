@@ -167,6 +167,9 @@ struct Config {
     /// This converts to mouse counts that macOS native acceleration can work with.
     /// Value tuned so that default sensitivity feels like a regular Mac trackpad.
     static let touchpadNativeScale: Double = 650.0
+    /// Steam Controller pads report more small idle motion than DualSense.
+    /// Keep a higher movement floor so resting/clicking a thumb does not drag windows.
+    static let steamTouchpadDeadzoneFloor: Double = 0.005
     /// Legacy sensitivity multiplier (kept for non-native code paths)
     static let touchpadSensitivityMultiplier: Double = 15.0
     /// Touchpad delta magnitude used to normalize acceleration curve
@@ -204,6 +207,9 @@ struct Config {
     /// Minimum pinch (distance change) to trigger zoom gesture
     /// Higher = requires more deliberate pinch to trigger zoom
     static let touchpadPinchDeadzone: Double = 0.05
+    /// Steam two-pad pinch should require a more deliberate spread/pinch than
+    /// DualSense so ordinary two-pad resting or small opposing drift does not zoom.
+    static let steamTouchpadPinchDeadzone: Double = 0.12
     /// Brief lock to prevent pinch direction flips on quick releases (prevents snap-back)
     static let touchpadPinchDirectionLockInterval: TimeInterval = 0.1
     /// Sensitivity multiplier for pinch-to-zoom (distance delta -> scroll amount)

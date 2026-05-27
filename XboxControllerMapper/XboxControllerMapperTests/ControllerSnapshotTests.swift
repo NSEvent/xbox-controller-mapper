@@ -105,6 +105,7 @@ final class ControllerSnapshotTests: XCTestCase {
         controllerService.storage.rightStick = CGPoint(x: -0.6, y: 0.7)
         controllerService.storage.leftTrigger = 0.45
         controllerService.storage.rightTrigger = 0.55
+        controllerService.storage.isSteamController = false
         controllerService.storage.isDualSense = true
         controllerService.storage.lock.unlock()
 
@@ -116,6 +117,44 @@ final class ControllerSnapshotTests: XCTestCase {
         XCTAssertEqual(controllerService.threadSafeLeftTrigger, 0.45, accuracy: 0.001)
         XCTAssertEqual(controllerService.threadSafeRightTrigger, 0.55, accuracy: 0.001)
         XCTAssertTrue(controllerService.threadSafeIsDualSense)
+    }
+
+    func testSteamControllerMasksCachedPlayStationAndEliteFlags() {
+        controllerService.storage.lock.lock()
+        controllerService.storage.isSteamController = true
+        controllerService.storage.isDualSense = true
+        controllerService.storage.isDualSenseEdge = true
+        controllerService.storage.isDualShock = true
+        controllerService.storage.isXboxElite = true
+        controllerService.storage.lock.unlock()
+
+        XCTAssertTrue(controllerService.threadSafeIsSteamController)
+        XCTAssertFalse(controllerService.threadSafeIsDualSense)
+        XCTAssertFalse(controllerService.threadSafeIsDualSenseEdge)
+        XCTAssertFalse(controllerService.threadSafeIsDualShock)
+        XCTAssertFalse(controllerService.threadSafeIsPlayStation)
+        XCTAssertFalse(controllerService.threadSafeIsXboxElite)
+    }
+
+    func testSteamTouchpadsUseSharedSurfaceForTwoPadPinch() {
+        var gestures: [TouchpadGesture] = []
+        controllerService.onTouchpadGesture = { gestures.append($0) }
+
+        controllerService.updateSteamTouchpad(side: .left, x: 0, y: 0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0, y: 0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .left, x: 0, y: 0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0, y: 0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .left, x: 0, y: 0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0, y: 0, isTouching: true)
+        gestures.removeAll()
+
+        controllerService.updateSteamTouchpad(side: .left, x: -0.1, y: 0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.1, y: 0, isTouching: true)
+
+        XCTAssertTrue(
+            gestures.contains { $0.isPrimaryTouching && $0.isSecondaryTouching && $0.distanceDelta > 0.05 },
+            "Moving fingers apart across both Steam pads should emit a pinch-out gesture"
+        )
     }
 
     func testSnapshotAndIndividualAccessorsAgree() {

@@ -159,11 +159,10 @@ extension ControllerService {
             self?.updateRightTrigger(value, pressed: pressed)
         }
         controller.onLeftTouchpadChanged = { [weak self] x, y, isTouching in
-            self?.updateSteamTouchpadDisplay(side: .left, x: x, y: y, isTouching: isTouching)
+            self?.updateSteamTouchpad(side: .left, x: x, y: y, isTouching: isTouching)
         }
         controller.onRightTouchpadChanged = { [weak self] x, y, isTouching in
-            self?.updateSteamTouchpadDisplay(side: .right, x: x, y: y, isTouching: isTouching)
-            self?.updateTouchpad(x: x, y: y, isTouching: isTouching)
+            self?.updateSteamTouchpad(side: .right, x: x, y: y, isTouching: isTouching)
         }
         controller.onTouchpadClickChanged = { [weak self] side, state, pressed in
             self?.handleSteamTouchpadClick(side: side, state: state, pressed: pressed)
@@ -220,7 +219,7 @@ extension ControllerService {
 
     func steamControllerActivated(_ controller: SteamControllerHIDController) {
         guard steamHIDControllers.contains(where: { $0 === controller }) else { return }
-        guard !isConnected || steamHIDActiveDevice == controller.device else { return }
+        guard steamHIDActiveDevice == nil || steamHIDActiveDevice == controller.device else { return }
 
         genericHIDFallbackTimer?.cancel()
         genericHIDFallbackTimer = nil
@@ -250,7 +249,7 @@ extension ControllerService {
         storage.isNintendo = false
         storage.isJoyConLeft = false
         storage.isJoyConRight = false
-        storage.isXboxElite = true
+        storage.isXboxElite = false
         storage.isSteamController = true
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
@@ -259,7 +258,7 @@ extension ControllerService {
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
-        UserDefaults.standard.set(true, forKey: Config.lastControllerWasXboxEliteKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
         UserDefaults.standard.set(true, forKey: Config.lastControllerWasSteamControllerKey)
 
         batteryLevel = -1
@@ -282,7 +281,33 @@ extension ControllerService {
         steamHIDActiveDevice = nil
     }
 
-    nonisolated func updateSteamTouchpadDisplay(
+    nonisolated func updateSteamTouchpad(
+        side: SteamTouchpadSide,
+        x: Float,
+        y: Float,
+        isTouching: Bool
+    ) {
+        updateSteamTouchpadDisplay(side: side, x: x, y: y, isTouching: isTouching)
+
+        let virtualPosition = steamTouchpadVirtualPosition(side: side, x: x, y: y, isTouching: isTouching)
+        switch side {
+        case .left:
+            updateTouchpadSecondary(
+                x: Float(virtualPosition.x),
+                y: Float(virtualPosition.y),
+                isTouching: isTouching
+            )
+        case .right:
+            refreshSteamSecondaryTouchIfNeeded()
+            updateTouchpad(
+                x: Float(virtualPosition.x),
+                y: Float(virtualPosition.y),
+                isTouching: isTouching
+            )
+        }
+    }
+
+    private nonisolated func updateSteamTouchpadDisplay(
         side: SteamTouchpadSide,
         x: Float,
         y: Float,
@@ -299,6 +324,28 @@ extension ControllerService {
             storage.isSteamRightTouchpadTouching = isTouching
         }
         storage.lock.unlock()
+    }
+
+    private nonisolated func refreshSteamSecondaryTouchIfNeeded() {
+        storage.lock.lock()
+        if storage.isSteamLeftTouchpadTouching && storage.isTouchpadSecondaryTouching {
+            let now = CFAbsoluteTimeGetCurrent()
+            storage.touchpadSecondaryLastTouchTime = now
+            storage.touchpadSecondaryLastUpdate = now
+        }
+        storage.lock.unlock()
+    }
+
+    private nonisolated func steamTouchpadVirtualPosition(
+        side: SteamTouchpadSide,
+        x: Float,
+        y: Float,
+        isTouching: Bool
+    ) -> CGPoint {
+        guard isTouching else { return .zero }
+        let centerOffset: CGFloat = 1.35
+        let sideOffset = side == .left ? -centerOffset : centerOffset
+        return CGPoint(x: sideOffset + CGFloat(x), y: CGFloat(y))
     }
 
     nonisolated func handleSteamTouchpadClick(

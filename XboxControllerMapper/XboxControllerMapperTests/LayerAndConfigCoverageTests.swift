@@ -246,8 +246,10 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         _ = Config.touchpadTwoFingerTapMaxGestureDistance
         _ = Config.touchpadTwoFingerTapMaxPinchDistance
         _ = Config.touchpadPinchDeadzone
+        _ = Config.steamTouchpadPinchDeadzone
         _ = Config.touchpadPinchDirectionLockInterval
         _ = Config.touchpadPinchSensitivityMultiplier
+        _ = Config.steamTouchpadDeadzoneFloor
         _ = Config.touchpadPinchVsPanRatio
         _ = Config.touchpadTapCooldown
         _ = Config.touchpadPanSensitivityMultiplier

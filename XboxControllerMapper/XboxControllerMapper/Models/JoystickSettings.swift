@@ -40,6 +40,7 @@ enum StickMode: String, Codable, CaseIterable {
 struct JoystickSettings: Codable, Equatable {
     static let defaultCustomSliceSize = 0.75
     static let defaultCustomDeadzone = 0.22
+    static let defaultTouchpadDeadzone = 0.005
 
     /// Mouse movement sensitivity (0.0 - 1.0, where 0.5 is default)
     var mouseSensitivity: Double = 0.5
@@ -68,8 +69,8 @@ struct JoystickSettings: Codable, Equatable {
     /// Touchpad acceleration curve (0.0 = linear, 1.0 = max acceleration)
     var touchpadAcceleration: Double = 0.5
 
-    /// Deadzone for touchpad movement (0.0 - 0.01)
-    var touchpadDeadzone: Double = 0.001
+    /// Deadzone for touchpad movement (0.0 - 0.03)
+    var touchpadDeadzone: Double = Self.defaultTouchpadDeadzone
 
     /// Smoothing amount for touchpad movement (0.0 - 1.0)
     var touchpadSmoothing: Double = 0.4
@@ -201,7 +202,7 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(mouseAcceleration) &&
                range.contains(touchpadSensitivity) &&
                range.contains(touchpadAcceleration) &&
-               (0.0...0.01).contains(touchpadDeadzone) &&
+               (0.0...0.03).contains(touchpadDeadzone) &&
                range.contains(touchpadSmoothing) &&
                range.contains(touchpadPanSensitivity) &&
                (0.5...5.0).contains(touchpadZoomToPanRatio) &&
@@ -339,7 +340,7 @@ extension JoystickSettings {
         mouseAcceleration = try container.decode(.mouseAcceleration, default: 0.5, clampedTo: unit)
         touchpadSensitivity = try container.decode(.touchpadSensitivity, default: 0.5, clampedTo: unit)
         touchpadAcceleration = try container.decode(.touchpadAcceleration, default: 0.5, clampedTo: unit)
-        touchpadDeadzone = try container.decode(.touchpadDeadzone, default: 0.001, clampedTo: 0.0...0.01)
+        touchpadDeadzone = try container.decode(.touchpadDeadzone, default: Self.defaultTouchpadDeadzone, clampedTo: 0.0...0.03)
         touchpadSmoothing = try container.decode(.touchpadSmoothing, default: 0.4, clampedTo: unit)
         requireActiveTouchForRegionClick = try container.decode(.requireActiveTouchForRegionClick, default: true)
         touchpadPanSensitivity = try container.decode(.touchpadPanSensitivity, default: 0.5, clampedTo: unit)

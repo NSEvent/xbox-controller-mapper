@@ -13,6 +13,7 @@ enum ProfileConfigurationMigrationService {
 
     static func migrateTouchpadSettingsIfNeeded(in profiles: [Profile]) -> ([Profile], Bool) {
         var didMigrate = false
+        let defaultTouchpadDeadzone = JoystickSettings.defaultTouchpadDeadzone
         let migratedProfiles = profiles.map { profile in
             var updated = profile
             if approxEqual(updated.joystickSettings.touchpadSensitivity, 0.8) &&
@@ -21,12 +22,31 @@ enum ProfileConfigurationMigrationService {
                 approxEqual(updated.joystickSettings.touchpadSmoothing, 0.4) {
                 updated.joystickSettings.touchpadSensitivity = 0.5
                 updated.joystickSettings.touchpadAcceleration = 0.5
+                updated.joystickSettings.touchpadDeadzone = defaultTouchpadDeadzone
                 didMigrate = true
             } else if approxEqual(updated.joystickSettings.touchpadSensitivity, 0.5) &&
                         approxEqual(updated.joystickSettings.touchpadAcceleration, 0.5) &&
                         approxEqual(updated.joystickSettings.touchpadDeadzone, 0.01) &&
                         approxEqual(updated.joystickSettings.touchpadSmoothing, 0.4) {
-                updated.joystickSettings.touchpadDeadzone = 0.0
+                updated.joystickSettings.touchpadDeadzone = defaultTouchpadDeadzone
+                didMigrate = true
+            } else if approxEqual(updated.joystickSettings.touchpadSensitivity, 0.5) &&
+                        approxEqual(updated.joystickSettings.touchpadAcceleration, 0.5) &&
+                        approxEqual(updated.joystickSettings.touchpadDeadzone, 0.0) &&
+                        approxEqual(updated.joystickSettings.touchpadSmoothing, 0.4) {
+                updated.joystickSettings.touchpadDeadzone = defaultTouchpadDeadzone
+                didMigrate = true
+            } else if approxEqual(updated.joystickSettings.touchpadSensitivity, 0.5) &&
+                        approxEqual(updated.joystickSettings.touchpadAcceleration, 0.5) &&
+                        approxEqual(updated.joystickSettings.touchpadDeadzone, 0.001) &&
+                        approxEqual(updated.joystickSettings.touchpadSmoothing, 0.4) {
+                updated.joystickSettings.touchpadDeadzone = defaultTouchpadDeadzone
+                didMigrate = true
+            } else if approxEqual(updated.joystickSettings.touchpadSensitivity, 0.5) &&
+                        approxEqual(updated.joystickSettings.touchpadAcceleration, 0.5) &&
+                        approxEqual(updated.joystickSettings.touchpadDeadzone, 0.003) &&
+                        approxEqual(updated.joystickSettings.touchpadSmoothing, 0.4) {
+                updated.joystickSettings.touchpadDeadzone = defaultTouchpadDeadzone
                 didMigrate = true
             }
             return updated

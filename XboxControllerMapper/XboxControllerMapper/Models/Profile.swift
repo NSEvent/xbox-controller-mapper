@@ -568,7 +568,7 @@ struct Profile: Codable, Identifiable, Equatable {
             mouseAcceleration: 0.5,
             touchpadSensitivity: 0.5,
             touchpadAcceleration: 0.5,
-            touchpadDeadzone: 0.0,
+            touchpadDeadzone: JoystickSettings.defaultTouchpadDeadzone,
             touchpadSmoothing: 0.4,
             touchpadPanSensitivity: 0.5,
             scrollAcceleration: 0.5,

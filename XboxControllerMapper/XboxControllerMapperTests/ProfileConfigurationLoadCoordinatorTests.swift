@@ -63,7 +63,7 @@ final class ProfileConfigurationLoadCoordinatorTests: XCTestCase {
         let result = try ProfileConfigurationLoadCoordinator.load(data: data)
 
         XCTAssertTrue(result.didMigrate)
-        XCTAssertEqual(result.profiles.first?.joystickSettings.touchpadDeadzone, 0.0)
+        XCTAssertEqual(result.profiles.first?.joystickSettings.touchpadDeadzone, JoystickSettings.defaultTouchpadDeadzone)
     }
 
     func testLoadMigratesLegacyKeyboardSettings() throws {

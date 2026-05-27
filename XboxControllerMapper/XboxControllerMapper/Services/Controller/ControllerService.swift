@@ -382,26 +382,26 @@ class ControllerService: ObservableObject {
     nonisolated var threadSafeIsDualSense: Bool {
         storage.lock.lock()
         defer { storage.lock.unlock() }
-        return storage.isDualSense
+        return !storage.isSteamController && storage.isDualSense
     }
 
     nonisolated var threadSafeIsDualSenseEdge: Bool {
         storage.lock.lock()
         defer { storage.lock.unlock() }
-        return storage.isDualSenseEdge
+        return !storage.isSteamController && storage.isDualSenseEdge
     }
 
     nonisolated var threadSafeIsDualShock: Bool {
         storage.lock.lock()
         defer { storage.lock.unlock() }
-        return storage.isDualShock
+        return !storage.isSteamController && storage.isDualShock
     }
 
     /// Returns true if connected controller is any PlayStation controller (DualSense, DualShock)
     nonisolated var threadSafeIsPlayStation: Bool {
         storage.lock.lock()
         defer { storage.lock.unlock() }
-        return storage.isDualSense || storage.isDualShock
+        return !storage.isSteamController && (storage.isDualSense || storage.isDualShock)
     }
 
     nonisolated var threadSafeIsNintendo: Bool {
@@ -413,7 +413,7 @@ class ControllerService: ObservableObject {
     nonisolated var threadSafeIsXboxElite: Bool {
         storage.lock.lock()
         defer { storage.lock.unlock() }
-        return storage.isXboxElite
+        return !storage.isSteamController && storage.isXboxElite
     }
 
     nonisolated var threadSafeIsSteamController: Bool {
@@ -677,6 +677,12 @@ class ControllerService: ObservableObject {
         storage.isDualShock = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey)
         storage.isXboxElite = UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey)
         storage.isSteamController = UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey)
+        if storage.isSteamController {
+            storage.isDualSense = false
+            storage.isDualSenseEdge = false
+            storage.isDualShock = false
+            storage.isXboxElite = false
+        }
 
         if shouldEnableHardwareMonitoring {
             GCController.shouldMonitorBackgroundEvents = true
@@ -771,6 +777,11 @@ class ControllerService: ObservableObject {
     }
 
     private func controllerConnected(_ controller: GCController) {
+        if steamHIDActiveDevice != nil {
+            NSLog("[ControllerKeys] Ignoring GameController connection while Steam Controller raw HID is active")
+            return
+        }
+
         connectionGeneration += 1
         NSLog("[ControllerKeys] controllerConnected — generation=%llu vendor=%@",
               connectionGeneration, controller.vendorName ?? "(nil)")
@@ -783,10 +794,6 @@ class ControllerService: ObservableObject {
             genericHIDController = nil
             isGenericController = false
         }
-        if steamHIDActiveDevice != nil {
-            stopSteamControllerHIDSessions()
-        }
-
         connectedController = controller
         controllerName = controller.vendorName ?? "Game Controller"
         currentControllerIdentity = nil

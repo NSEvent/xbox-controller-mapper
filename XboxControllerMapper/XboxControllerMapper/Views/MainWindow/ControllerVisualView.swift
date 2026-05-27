@@ -254,7 +254,7 @@ struct ControllerVisualView: View {
                 ZStack {
                     // Controller body - adapts to DualSense or Xbox shape
                     controllerBodyView
-                        .frame(width: 320, height: 220)
+                        .frame(width: controllerPreviewWidth, height: controllerPreviewHeight)
 
                     // Compact Controller Overlay (Just icons, no labels)
                     // Extracted into a separate view to isolate 15Hz analog display
@@ -271,12 +271,13 @@ struct ControllerVisualView: View {
 						onSwapRequest: performSwap,
 						overrideColorForButton: layerOverrideColor(for:)
                     )
+                    .frame(width: controllerPreviewWidth, height: controllerPreviewHeight)
 
 					VStack {
 						layerScopeChip
 						Spacer()
 					}
-					.frame(width: 320, height: 220)
+					.frame(width: controllerPreviewWidth, height: controllerPreviewHeight)
 					.padding(.top, 12)
 					.allowsHitTesting(false)
                 }
@@ -326,7 +327,7 @@ struct ControllerVisualView: View {
                 }
 
                 // Xbox Elite-specific buttons (back paddles)
-                if isXboxElite {
+                if isXboxElite || isSteamController {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES")
                             .font(.system(size: 10, weight: .bold))
@@ -608,9 +609,20 @@ struct ControllerVisualView: View {
 
     // MARK: - Controller Body
 
+    private var controllerPreviewWidth: CGFloat { 320 }
+    private var controllerPreviewHeight: CGFloat { isSteamController ? 250 : 220 }
+
     @ViewBuilder
     private var controllerBodyView: some View {
-        if isPlayStation {
+        if isSteamController {
+            SteamControllerBodyShape()
+                .fill(LinearGradient(
+                    colors: [Color(white: 0.96), Color(white: 0.88)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+        } else if isPlayStation {
             DualSenseBodyShape()  // DualSense/DualShock share similar body shape
                 .fill(LinearGradient(
                     colors: [Color(white: 0.95), Color(white: 0.88)], // PlayStation white/light grey
@@ -626,14 +638,6 @@ struct ControllerVisualView: View {
                     endPoint: .bottom
                 ))
                 .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
-        } else if isSteamController {
-            SteamControllerBodyShape()
-                .fill(LinearGradient(
-                    colors: [Color(white: 0.18), Color(white: 0.10)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
         } else {
             ControllerBodyShape()
                 .fill(LinearGradient(
@@ -1598,51 +1602,50 @@ struct ControllerAnalogOverlay: View {
     // MARK: - Steam Controller Overlay
 
     private var steamOverlay: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 150) {
-                miniTrigger(.leftTrigger, label: "LT", value: leftTrigger)
-                miniTrigger(.rightTrigger, label: "RT", value: rightTrigger)
-            }
+        ZStack {
+            miniTrigger(.leftTrigger, label: "LT", value: leftTrigger)
+                .position(x: 72, y: 22)
+            miniTrigger(.rightTrigger, label: "RT", value: rightTrigger)
+                .position(x: 248, y: 22)
 
-            HStack(spacing: 132) {
-                miniBumper(.leftBumper, label: "LB")
-                miniBumper(.rightBumper, label: "RB")
-            }
-            .offset(y: -3)
+            miniBumper(.leftBumper, label: "LB")
+                .position(x: 82, y: 45)
+            miniBumper(.rightBumper, label: "RB")
+                .position(x: 238, y: 45)
 
-            HStack(spacing: 44) {
-                miniStick(.leftThumbstick, pos: leftStick)
+            VStack(spacing: 4) {
+                miniCircle(.xbox, size: 21)
 
-                VStack(spacing: 5) {
-                    miniCircle(.xbox, size: 21)
-
-                    if isConnected {
-                        BatteryView(level: batteryLevel, state: batteryState)
-                            .frame(width: 40)
-                    }
-
-                    HStack(spacing: 10) {
-                        miniCircle(.view, size: 13)
-                        miniCircle(.menu, size: 13)
-                    }
-                    miniCircle(.share, size: 11)
+                if isConnected {
+                    BatteryView(level: batteryLevel, state: batteryState)
+                        .frame(width: 40)
                 }
-                .frame(width: 54)
 
-                miniStick(.rightThumbstick, pos: rightStick)
+                HStack(spacing: 10) {
+                    miniCircle(.view, size: 13)
+                    miniCircle(.menu, size: 13)
+                }
+                miniCircle(.share, size: 11)
             }
+            .frame(width: 58)
+            .position(x: 160, y: 82)
 
-            HStack(spacing: 82) {
-                miniSteamTouchpad(side: .left)
-                miniSteamTouchpad(side: .right)
-            }
+            miniDPad()
+                .position(x: 74, y: 90)
+            miniFaceButtons()
+                .position(x: 246, y: 90)
 
-            HStack(spacing: 126) {
-                miniDPad()
-                miniFaceButtons()
-            }
-            .offset(y: -2)
+            miniStick(.leftThumbstick, pos: leftStick)
+                .position(x: 100, y: 126)
+            miniStick(.rightThumbstick, pos: rightStick)
+                .position(x: 220, y: 126)
+
+            miniSteamTouchpad(side: .left)
+                .position(x: 100, y: 180)
+            miniSteamTouchpad(side: .right)
+                .position(x: 220, y: 180)
         }
+        .frame(width: 320, height: 228)
     }
 
     // MARK: - Nintendo Pro Controller Overlay
@@ -1773,12 +1776,21 @@ struct ControllerAnalogOverlay: View {
             // accent fill — the click distinction makes a physical press
             // visually distinct from a finger that's just resting on the pad.
             if isTouchpadTouching {
-                quadrantHighlight(
-                    region: TouchpadRegion.from(position: touchpadPosition),
-                    width: touchpadWidth,
-                    height: touchpadHeight,
-                    isClicked: isPressed(.touchpadButton)
-                )
+                if inQuadrantsMode {
+                    quadrantHighlight(
+                        region: TouchpadRegion.from(position: touchpadPosition),
+                        width: touchpadWidth,
+                        height: touchpadHeight,
+                        isClicked: isPressed(.touchpadButton)
+                    )
+                } else {
+                    touchpadWholePadHighlight(
+                        width: touchpadWidth,
+                        height: touchpadHeight,
+                        cornerRadius: 10,
+                        isClicked: isPressed(.touchpadButton)
+                    )
+                }
             }
 
             // Primary touch point
@@ -1807,8 +1819,9 @@ struct ControllerAnalogOverlay: View {
 
 			touchpadOverrideOverlay(width: touchpadWidth, height: touchpadHeight, inQuadrantsMode: inQuadrantsMode)
 
-            quadrantTapZones(width: touchpadWidth, height: touchpadHeight)
-                .allowsHitTesting(inQuadrantsMode)
+            if inQuadrantsMode {
+                quadrantTapZones(width: touchpadWidth, height: touchpadHeight)
+            }
         }
         .frame(width: touchpadWidth, height: touchpadHeight)
         .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
@@ -1857,12 +1870,21 @@ struct ControllerAnalogOverlay: View {
             }
 
             if isTouching {
-                quadrantHighlight(
-                    region: region,
-                    width: padSize,
-                    height: padSize,
-                    isClicked: isClicked
-                )
+                if inQuadrantsMode {
+                    quadrantHighlight(
+                        region: region,
+                        width: padSize,
+                        height: padSize,
+                        isClicked: isClicked
+                    )
+                } else {
+                    touchpadWholePadHighlight(
+                        width: padSize,
+                        height: padSize,
+                        cornerRadius: 8,
+                        isClicked: isClicked
+                    )
+                }
             }
 
             if isTouching {
@@ -1878,8 +1900,9 @@ struct ControllerAnalogOverlay: View {
 
             steamTouchpadOverrideOverlay(side: side, width: padSize, height: padSize, inQuadrantsMode: inQuadrantsMode)
 
-            steamTouchpadTapZones(side: side, width: padSize, height: padSize)
-                .allowsHitTesting(inQuadrantsMode)
+            if inQuadrantsMode {
+                steamTouchpadTapZones(side: side, width: padSize, height: padSize)
+            }
         }
         .frame(width: padSize, height: padSize)
         .shadow(color: isClicked ? Color.accentColor.opacity(0.35) : .black.opacity(0.25), radius: 2, x: 0, y: 1)
@@ -1912,6 +1935,19 @@ struct ControllerAnalogOverlay: View {
             .frame(width: halfW, height: halfH)
             .position(x: originX + halfW / 2, y: originY + halfH / 2)
             .clipShape(RoundedRectangle(cornerRadius: 10))
+            .frame(width: width, height: height)
+            .allowsHitTesting(false)
+            .animation(.easeOut(duration: 0.08), value: isClicked)
+    }
+
+    private func touchpadWholePadHighlight(
+        width: CGFloat,
+        height: CGFloat,
+        cornerRadius: CGFloat,
+        isClicked: Bool
+    ) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.accentColor.opacity(isClicked ? 0.32 : 0.16))
             .frame(width: width, height: height)
             .allowsHitTesting(false)
             .animation(.easeOut(duration: 0.08), value: isClicked)

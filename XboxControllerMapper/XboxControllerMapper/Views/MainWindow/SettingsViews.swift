@@ -342,8 +342,8 @@ struct TouchpadSettingsView: View {
                         get: { settings.touchpadDeadzone },
                         set: { updateSettings(\.touchpadDeadzone, $0) }
                     ),
-                    range: 0...0.005,
-                    description: "Ignore tiny jitter"
+                    range: 0...0.03,
+                    description: "Ignore tap and click jitter"
                 )
 
                 SliderRow(
