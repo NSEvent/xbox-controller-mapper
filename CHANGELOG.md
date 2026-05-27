@@ -17,11 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Input latency mode comparison**: The profile Input section now compares Standard vs Realtime modes more explicitly, including the tradeoff that Realtime is lower-latency for simple held key mappings while Standard keeps the timing window needed for chords, double-tap, long-hold, and Repeat while held behavior.
+
 - **AnKing community profile docs**: Clarified which bindings are stock Anki, which are AnKing notetype cloze controls, and which still depend on contributor-specific addons.
 
 - **Monterey compatibility triage**: Added an audit note for macOS 12 support, including known SwiftUI blockers and a legacy-build decision gate.
 
 ### Fixed
+
+- **Held diagonal movement mappings**: WASD/arrow-key stick presets and D-pad presets now hold independent cardinal keys instead of treating directions as mutually exclusive taps, so diagonal movement works smoothly in games such as Factorio.
 
 - **PlayStation linked-controller ambiguity**: DualSense, DualSense Edge, and DualShock 4 identity matching now avoids binding a profile to the wrong physical controller when multiple PlayStation HID devices are present. Mixed DualShock 4 + DualSense setups now filter HID candidates to the active controller model before showing or binding the current controller. When the app cannot prove the matching HID interfaces belong to one physical controller, PlayStation-only HID extras such as PS, mic, and Edge buttons are disabled until the ambiguity clears.
 

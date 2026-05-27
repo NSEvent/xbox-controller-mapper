@@ -2078,8 +2078,14 @@ final class XboxControllerMapperTests: XCTestCase {
 
             await MainActor.run {
                 XCTAssertTrue(mockInputSimulator.events.contains { event in
-                    if case .pressKey(let code, _) = event { return code == expectedKeyCode }
-                    return false
+                    switch event {
+                    case .pressKey(let code, _):
+                        return code == expectedKeyCode
+                    case .startHoldMapping(let mapping):
+                        return mapping.keyCode == expectedKeyCode
+                    default:
+                        return false
+                    }
                 }, "\(button) should map to arrow key \(expectedKeyCode)")
             }
         }
