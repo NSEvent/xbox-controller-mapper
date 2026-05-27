@@ -85,6 +85,7 @@ final class ControllerStorage: @unchecked Sendable {
     var activeSteamLeftTouchpadClickQuadrant: ControllerButton?
     var activeSteamRightTouchpadClickQuadrant: ControllerButton?
     var steamTwoPadGestureActiveUntil: TimeInterval = 0
+    var steamTwoPadGestureWasActive: Bool = false
 
     // Two-finger tap detection
     var touchpadSecondaryTouchStartTime: TimeInterval = 0
@@ -944,6 +945,7 @@ class ControllerService: ObservableObject {
         storage.activeSteamLeftTouchpadClickQuadrant = nil
         storage.activeSteamRightTouchpadClickQuadrant = nil
         storage.steamTwoPadGestureActiveUntil = 0
+		storage.steamTwoPadGestureWasActive = false
     }
 
 	nonisolated func guideMonitorPaddleButton(for paddleIndex: Int, pressed: Bool) -> ControllerButton? {

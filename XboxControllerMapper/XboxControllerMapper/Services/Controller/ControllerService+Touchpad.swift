@@ -260,10 +260,21 @@ extension ControllerService {
         let bothPadsMoving = bothPadsRecentlyUpdated && primaryMotion > threshold && secondaryMotion > threshold
         if bothPadsMoving {
             storage.steamTwoPadGestureActiveUntil = now + Config.steamTouchpadTwoPadGestureContinuationInterval
-            return true
-        }
+			storage.steamTwoPadGestureWasActive = true
+			return true
+		}
 
-        return bothPadsRecentlyUpdated && now < storage.steamTwoPadGestureActiveUntil
+		return bothPadsRecentlyUpdated && now < storage.steamTwoPadGestureActiveUntil
+	}
+
+	/// Requires storage.lock to be held by the caller.
+	private nonisolated func shouldSendSteamTwoPadGestureEndLocked() -> Bool {
+		guard storage.isSteamController, storage.steamTwoPadGestureWasActive else {
+			return false
+		}
+		storage.steamTwoPadGestureWasActive = false
+		storage.steamTwoPadGestureActiveUntil = 0
+		return true
     }
 
     private nonisolated func inactiveTouchpadGesture(
@@ -498,7 +509,8 @@ extension ControllerService {
 
                 let isSecondaryTouching = storage.isTouchpadSecondaryTouching
                 let shouldAllowSinglePadMovement = !isSecondaryTouching || (storage.isSteamController && !shouldHandleAsGesture)
-                let inactiveGesture = storage.isSteamController && isSecondaryTouching && !shouldHandleAsGesture
+				let shouldSendInactiveGesture = isSecondaryTouching && !shouldHandleAsGesture && shouldSendSteamTwoPadGestureEndLocked()
+				let inactiveGesture = shouldSendInactiveGesture
                     ? inactiveTouchpadGesture(primaryTouching: true, secondaryTouching: false)
                     : nil
                 storage.lock.unlock()
@@ -578,6 +590,7 @@ extension ControllerService {
             storage.touchpadGesturePreviousCenter = .zero
             storage.touchpadGesturePreviousDistance = 0
             storage.steamTwoPadGestureActiveUntil = 0
+			storage.steamTwoPadGestureWasActive = false
             let longTapFired = storage.touchpadLongTapFired
 
             // Check for tap: short touch duration with minimal movement
@@ -801,7 +814,8 @@ extension ControllerService {
             )
             let shouldHandleAsGesture = secondaryFresh && (!storage.isSteamController || steamTwoPadGesture)
             let gesture = computeTwoFingerGestureLocked(secondaryFresh: secondaryFresh)
-            let inactiveGesture = storage.isSteamController && storage.isTouchpadTouching && !shouldHandleAsGesture
+			let shouldSendInactiveGesture = storage.isTouchpadTouching && !shouldHandleAsGesture && shouldSendSteamTwoPadGestureEndLocked()
+			let inactiveGesture = shouldSendInactiveGesture
                 ? inactiveTouchpadGesture(primaryTouching: true, secondaryTouching: false)
                 : nil
             let steamLeftTouchpadDelta = storage.isSteamController && !shouldHandleAsGesture
@@ -828,6 +842,7 @@ extension ControllerService {
             storage.touchpadGesturePreviousCenter = .zero
             storage.touchpadGesturePreviousDistance = 0
             storage.steamTwoPadGestureActiveUntil = 0
+			storage.steamTwoPadGestureWasActive = false
             let isPrimaryTouching = storage.isTouchpadTouching
             let isTwoFinger = isPrimaryTouching && storage.isTouchpadSecondaryTouching
             storage.lock.unlock()

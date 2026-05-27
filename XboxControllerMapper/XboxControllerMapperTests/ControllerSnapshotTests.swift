@@ -214,6 +214,37 @@ final class ControllerSnapshotTests: XCTestCase {
         )
     }
 
+    func testSteamLeftTouchpadJitterDoesNotSuppressRightTouchpadMouse() {
+		var gestures: [TouchpadGesture] = []
+		var movements: [CGPoint] = []
+		controllerService.onTouchpadGesture = { gestures.append($0) }
+		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isSteamController = true
+		}
+
+		for _ in 0..<3 {
+			controllerService.updateSteamTouchpad(side: .left, x: 0, y: 0, isTouching: true)
+			controllerService.updateSteamTouchpad(side: .right, x: 0, y: 0, isTouching: true)
+		}
+		gestures.removeAll()
+		movements.removeAll()
+
+		let jitter = Float(Config.steamTouchpadTwoPadGestureMovementDeadzone * 0.75)
+		controllerService.updateSteamTouchpad(side: .left, x: jitter, y: 0, isTouching: true)
+		controllerService.updateSteamTouchpad(side: .right, x: 0.15, y: 0, isTouching: true)
+		controllerService.updateSteamTouchpad(side: .right, x: 0.25, y: 0, isTouching: true)
+
+		XCTAssertTrue(
+			gestures.isEmpty,
+			"Small left-pad resting jitter should not enqueue inactive two-pad gesture callbacks"
+		)
+		XCTAssertFalse(
+			movements.isEmpty,
+			"Right-pad mouse movement should continue while the left pad only jitters"
+		)
+    }
+
     func testSnapshotAndIndividualAccessorsAgree() {
         controllerService.storage.lock.lock()
         controllerService.storage.leftStick = CGPoint(x: 0.12, y: 0.34)

@@ -222,7 +222,7 @@ struct Config {
     /// virtual surface, so it needs more gain than a single physical touchpad.
     static let steamTouchpadPinchSensitivityMultiplier: Double = 48000.0
     /// Steam two-pad gestures should only take over when both pads are moving.
-    static let steamTouchpadTwoPadGestureMovementDeadzone: Double = 0.005
+    static let steamTouchpadTwoPadGestureMovementDeadzone: Double = 0.015
     /// Keep two-pad gesture suppression alive briefly between alternating
     /// left/right HID reports so cursor movement cannot leak during pinch.
     static let steamTouchpadTwoPadGestureContinuationInterval: TimeInterval = 0.16
