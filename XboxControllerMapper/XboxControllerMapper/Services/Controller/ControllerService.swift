@@ -50,6 +50,7 @@ final class ControllerStorage: @unchecked Sendable {
     var isDualShock: Bool = false  // PS4 DualShock 4 controller
     var isNintendo: Bool = false   // Nintendo controller (Joy-Con, Pro Controller)
     var isXboxElite: Bool = false  // Xbox Elite Series 2 controller
+    var isSteamController: Bool = false
     var isJoyConLeft: Bool = false
     var isJoyConRight: Bool = false
     var isBluetoothConnection: Bool = false
@@ -122,6 +123,7 @@ final class ControllerStorage: @unchecked Sendable {
     var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
     var onTouchpadGesture: ((TouchpadGesture) -> Void)?
     var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
+    var onControllerButtonTap: ((ControllerButton) -> Void)?  // One-shot virtual tap events
     var onTouchpadTwoFingerTap: (() -> Void)?  // Two-finger tap or click (right-click)
     var onTouchpadLongTap: (() -> Void)?  // Long tap (touch held without moving)
     var onTouchpadTwoFingerLongTap: (() -> Void)?  // Two-finger long tap
@@ -237,6 +239,12 @@ class ControllerService: ObservableObject {
     /// Retained context pointer for generic HID callbacks — released in cleanupGenericHIDMonitoring().
     var genericHIDCallbackContext: UnsafeMutableRawPointer?
 
+    // Steam Controller 2026 / Triton raw HID monitoring (works without Steam running)
+    var steamHIDManager: IOHIDManager?
+    var steamHIDControllers: [SteamControllerHIDController] = []
+    var steamHIDActiveDevice: IOHIDDevice?
+    var steamHIDCallbackContext: UnsafeMutableRawPointer?
+
     // Nintendo Pro Controller HID monitoring (Home button not exposed by GameController framework)
     var nintendoHIDManager: IOHIDManager?
     var nintendoHIDDevice: IOHIDDevice?
@@ -278,6 +286,8 @@ class ControllerService: ObservableObject {
         var rightStick: CGPoint = .zero
         var leftTrigger: Float = 0
         var rightTrigger: Float = 0
+        var touchpadPosition: CGPoint = .zero
+        var isTouchpadTouching: Bool = false
         /// True for any controller with gyroscope sensors (DualSense + DS4).
         var hasMotion: Bool = false
     }
@@ -292,6 +302,8 @@ class ControllerService: ObservableObject {
             rightStick: storage.rightStick,
             leftTrigger: storage.leftTrigger,
             rightTrigger: storage.rightTrigger,
+            touchpadPosition: storage.touchpadPosition,
+            isTouchpadTouching: storage.isTouchpadTouching,
             hasMotion: storage.isDualSense || storage.isDualShock
         )
     }
@@ -392,6 +404,12 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isXboxElite
+    }
+
+    nonisolated var threadSafeIsSteamController: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isSteamController
     }
 
     /// Returns true if a single Joy-Con is connected (left or right, not a Pro Controller)
@@ -567,6 +585,10 @@ class ControllerService: ObservableObject {
         get { readStorage(\.onTouchpadTap) }
         set { writeStorage(\.onTouchpadTap, newValue) }
     }
+    var onControllerButtonTap: ((ControllerButton) -> Void)? {
+        get { readStorage(\.onControllerButtonTap) }
+        set { writeStorage(\.onControllerButtonTap, newValue) }
+    }
     var onTouchpadTwoFingerTap: (() -> Void)? {
         get { readStorage(\.onTouchpadTwoFingerTap) }
         set { writeStorage(\.onTouchpadTwoFingerTap, newValue) }
@@ -624,6 +646,7 @@ class ControllerService: ObservableObject {
         storage.isDualSenseEdge = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey)
         storage.isDualShock = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey)
         storage.isXboxElite = UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey)
+        storage.isSteamController = UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey)
 
         if shouldEnableHardwareMonitoring {
             GCController.shouldMonitorBackgroundEvents = true
@@ -638,6 +661,7 @@ class ControllerService: ObservableObject {
                 }
                 .store(in: &cancellables)
 
+            setupSteamControllerHIDMonitoring()
             setupGenericHIDMonitoring()
         }
 
@@ -664,6 +688,7 @@ class ControllerService: ObservableObject {
 		guideMonitor.stop()
 		stopDiscovery()
 		batteryMonitor.stopMonitoring()
+		cleanupSteamControllerHIDMonitoring()
 		cleanupGenericHIDMonitoring()
 		stopEliteHelper()
 		resetRawHIDGuideButtonState()
@@ -727,6 +752,9 @@ class ControllerService: ObservableObject {
             genericHIDController?.stop()
             genericHIDController = nil
             isGenericController = false
+        }
+        if steamHIDActiveDevice != nil {
+            stopSteamControllerHIDSessions()
         }
 
         connectedController = controller
@@ -1140,6 +1168,11 @@ class ControllerService: ObservableObject {
     }
 
     func updateBatteryInfo() {
+        guard steamHIDActiveDevice == nil else {
+            updateBatteryLightBar()
+            return
+        }
+
 		// Xbox battery over GameController is unreliable on macOS and can report
 		// 0%/.unknown before the Bluetooth Battery Service read completes.
 		let isXbox = connectedController?.extendedGamepad is GCXboxGamepad
@@ -1351,6 +1384,9 @@ class ControllerService: ObservableObject {
         }
 
 		let xboxGamepad = gamepad as? GCXboxGamepad
+		if xboxGamepad != nil {
+			guideMonitor.startAsync()
+		}
 		let xboxGamepadHasPaddles = xboxGamepad.map {
 			$0.paddleButton1 != nil || $0.paddleButton2 != nil || $0.paddleButton3 != nil || $0.paddleButton4 != nil
 		} ?? false
@@ -1454,11 +1490,13 @@ class ControllerService: ObservableObject {
             storage.isNintendo = false
             storage.isJoyConLeft = false
             storage.isJoyConRight = false
+            storage.isSteamController = false
             storage.lock.unlock()
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
 
             // Trigger battery monitor refresh for Xbox controller
             batteryMonitor.refreshBatteryLevel()
@@ -1522,11 +1560,13 @@ class ControllerService: ObservableObject {
             storage.isXboxElite = false
             storage.isJoyConLeft = false
             storage.isJoyConRight = false
+            storage.isSteamController = false
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
 
             setupTouchpadHandlers(
                 primary: dualSenseGamepad.touchpadPrimary,
@@ -1553,12 +1593,14 @@ class ControllerService: ObservableObject {
             storage.isXboxElite = false
             storage.isJoyConLeft = false
             storage.isJoyConRight = false
+            storage.isSteamController = false
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
+            UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
 
             setupTouchpadHandlers(
                 primary: dualShockGamepad.touchpadPrimary,
@@ -1651,6 +1693,7 @@ class ControllerService: ObservableObject {
         storage.isDualSenseEdge = false
         storage.isDualShock = false
         storage.isXboxElite = false
+        storage.isSteamController = false
         storage.lock.unlock()
 
         UserDefaults.standard.set(true, forKey: Config.lastControllerWasNintendoKey)
@@ -1658,6 +1701,7 @@ class ControllerService: ObservableObject {
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
     }
 
     // MARK: - PhysicalInputProfile Handlers (Single Joy-Con, etc.)

@@ -57,6 +57,12 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case touchpadTwoFingerTap     // Two-finger tap on touchpad (DualSense only)
     case micMute                  // Mic mute button (DualSense only)
 
+    // Steam Controller-specific touchpads
+    case leftTouchpadButton       // Left touchpad physical click
+    case rightTouchpadButton      // Right touchpad physical click
+    case leftTouchpadTap          // Left touchpad tap
+    case rightTouchpadTap         // Right touchpad tap
+
     // Touchpad region quadrants — first-class buttons. Each quadrant has TWO
     // independent buttons: one that fires on physical click and one that fires
     // on touch contact. This lets users assign different actions to touch vs
@@ -134,6 +140,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .touchpadTap: return "Touchpad Tap"
         case .touchpadTwoFingerTap: return "Touchpad 2-Finger Tap"
         case .micMute: return "Mic Mute"
+        case .leftTouchpadButton: return "Left Pad Press"
+        case .rightTouchpadButton: return "Right Pad Press"
+        case .leftTouchpadTap: return "Left Pad Tap"
+        case .rightTouchpadTap: return "Right Pad Tap"
         case .touchpadRegionTopLeftClick: return "Top-Left Click"
         case .touchpadRegionTopRightClick: return "Top-Right Click"
         case .touchpadRegionBottomLeftClick: return "Bottom-Left Click"
@@ -247,6 +257,10 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .touchpadTap: return "1T"
         case .touchpadTwoFingerTap: return "2"
         case .micMute: return "🎤"
+        case .leftTouchpadButton: return "LP"
+        case .rightTouchpadButton: return "RP"
+        case .leftTouchpadTap: return "LTp"
+        case .rightTouchpadTap: return "RTp"
         // Region buttons fall back to text labels here, but they're rendered
         // by `ButtonIconView` as a custom 2×2 quadrant indicator that's
         // recognizable at a glance (the diagonal-arrow glyphs above looked
@@ -347,6 +361,8 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .touchpadTap: return "hand.tap"
             case .touchpadTwoFingerTap: return "hand.tap"
             case .micMute: return "mic.slash"
+            case .leftTouchpadButton, .rightTouchpadButton: return "hand.point.up.left"
+            case .leftTouchpadTap, .rightTouchpadTap: return "hand.tap"
             case .touchpadRegionTopLeftClick, .touchpadRegionTopLeftTouch,
                  .touchpadRegionTopRightClick, .touchpadRegionTopRightTouch,
                  .touchpadRegionBottomLeftClick, .touchpadRegionBottomLeftTouch,
@@ -387,6 +403,9 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             case .x: return "x.circle"
             case .y: return "y.circle"
             case .touchpadButton: return "hand.point.up.left"
+            case .touchpadTap: return "hand.tap"
+            case .leftTouchpadButton, .rightTouchpadButton: return "hand.point.up.left"
+            case .leftTouchpadTap, .rightTouchpadTap: return "hand.tap"
             case .micMute: return "mic.slash"
             case .xboxPaddle1: return "l.button.roundedbottom.horizontal"
             case .xboxPaddle2: return "r.button.roundedbottom.horizontal"
@@ -418,6 +437,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
              .rightStickUpLeft, .rightStickUpRight, .rightStickDownLeft, .rightStickDownRight:
             return .thumbstick
         case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute,
+             .leftTouchpadButton, .rightTouchpadButton, .leftTouchpadTap, .rightTouchpadTap,
              .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
              .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick,
              .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
@@ -461,6 +481,16 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return true  // Edge-only
         case .gestureTiltBack, .gestureTiltForward, .gestureSteerLeft, .gestureSteerRight:
             return true  // DualSense gyroscope only
+        default:
+            return false
+        }
+    }
+
+    /// Whether this button is only available on Steam Controllers.
+    var isSteamControllerOnly: Bool {
+        switch self {
+        case .leftTouchpadButton, .rightTouchpadButton, .leftTouchpadTap, .rightTouchpadTap:
+            return true
         default:
             return false
         }
@@ -633,7 +663,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
 
     /// Buttons available for Xbox controllers (excludes Elite-only paddles)
     static var xboxButtons: [ControllerButton] {
-        allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly }
+        allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly }
     }
 
     /// Buttons available only on Xbox Elite controllers
@@ -644,18 +674,18 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     /// Buttons available for DualShock 4 controllers (has touchpad, no mic mute or paddles)
     /// Note: DualShock 4's physical Share button maps to .view (buttonOptions), not .share
     static var dualShockButtons: [ControllerButton] {
-        allCases.filter { !$0.isDualSenseOnly && !$0.isXboxEliteOnly && $0 != .share }
+        allCases.filter { !$0.isDualSenseOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && $0 != .share }
     }
 
     /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)
     static var dualSenseButtons: [ControllerButton] {
-        allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton && !$0.isXboxEliteOnly }
+        allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly }
     }
 
     /// Buttons available for Nintendo controllers (Joy-Con, Pro Controller)
     /// Same as Xbox — no touchpad, mic, paddles, or gyro gestures
     static var nintendoButtons: [ControllerButton] {
-        allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly }
+        allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly }
     }
 
     /// SF Symbol name for Nintendo controllers

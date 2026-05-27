@@ -12,6 +12,8 @@ fileprivate final class GenericHIDCallbackContext {
     init(service: ControllerService) { self.service = service }
 }
 
+private let genericHIDSetupQueue = DispatchQueue(label: "com.controllerkeys.generic-hid.setup", qos: .utility)
+
 @MainActor
 extension ControllerService {
 
@@ -19,29 +21,36 @@ extension ControllerService {
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         genericHIDManager = manager
 
-        let gamepadMatching = [
-            kIOHIDDeviceUsagePageKey: kHIDPage_GenericDesktop,
-            kIOHIDDeviceUsageKey: kHIDUsage_GD_GamePad
-        ] as CFDictionary
-
-        let joystickMatching = [
-            kIOHIDDeviceUsagePageKey: kHIDPage_GenericDesktop,
-            kIOHIDDeviceUsageKey: kHIDUsage_GD_Joystick
-        ] as CFDictionary
-
-        let criteria = [gamepadMatching, joystickMatching] as CFArray
-        IOHIDManagerSetDeviceMatchingMultiple(manager, criteria)
-
         let ctx = GenericHIDCallbackContext(service: self)
         let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
         genericHIDCallbackContext = retainedContext
         let context = UnsafeMutableRawPointer(retainedContext)
 
-        IOHIDManagerRegisterDeviceMatchingCallback(manager, genericHIDDeviceMatched, context)
-        IOHIDManagerRegisterDeviceRemovalCallback(manager, genericHIDDeviceRemoved, context)
+        genericHIDSetupQueue.async {
+            let excludedVendors: Set<Int> = [
+                0x045E, // Xbox raw Guide/Elite path
+                0x054C, // PlayStation raw PS button path
+                0x057E, // Nintendo raw Home button path
+                SteamControllerHIDParser.valveVendorID,
+            ]
+            let criteria = GameControllerDatabase.shared
+                .knownVendorProductPairs(excludingVendors: excludedVendors)
+                .map { pair in
+                    [
+                        kIOHIDVendorIDKey as String: pair.vendorID,
+                        kIOHIDProductIDKey as String: pair.productID,
+                    ] as CFDictionary
+                } as CFArray
 
-        IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
-        IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+            guard CFArrayGetCount(criteria) > 0 else { return }
+            IOHIDManagerSetDeviceMatchingMultiple(manager, criteria)
+
+            IOHIDManagerRegisterDeviceMatchingCallback(manager, genericHIDDeviceMatched, context)
+            IOHIDManagerRegisterDeviceRemovalCallback(manager, genericHIDDeviceRemoved, context)
+
+            IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+            IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+        }
     }
 
     func cleanupGenericHIDMonitoring() {

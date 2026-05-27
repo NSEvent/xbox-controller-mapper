@@ -78,71 +78,7 @@ extension ControllerService {
         // We track the active quadrant across press → release so the same
         // button receives both events even if the user's finger drifts.
         button.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard let self = self else { return }
-            let isTwoFingerClick = self.armTouchpadClick(pressed: pressed)
-
-            if pressed {
-                self.storage.lock.lock()
-                let willBeTwoFingerClick = self.storage.touchpadTwoFingerClickArmed
-                let clickPosition = self.storage.touchpadPosition
-                let touchStartPosition = self.storage.touchpadTouchStartPosition
-                let isCurrentlyTouching = self.storage.isTouchpadTouching
-                let requireActiveTouch = self.storage.requireActiveTouchForRegionClick
-                let mode = self.storage.touchpadInputMode
-                self.storage.lock.unlock()
-                let regionPosition = ControllerService.preferredTouchpadRegionPosition(
-                    currentPosition: clickPosition,
-                    touchStartPosition: touchStartPosition
-                )
-
-                if willBeTwoFingerClick {
-                    self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
-                    return
-                }
-
-                switch mode {
-                case .wholePad:
-                    self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
-                case .quadrants:
-                    let canDispatch = ControllerService.shouldFireRegionClick(
-                        willBeTwoFingerClick: false,
-                        clickPosition: regionPosition,
-                        isCurrentlyTouching: isCurrentlyTouching,
-                        requireActiveTouch: requireActiveTouch
-                    )
-                    guard canDispatch,
-                          let regionButton = ControllerButton.from(
-                              region: TouchpadRegion.from(position: regionPosition),
-                              trigger: .click
-                          ) else {
-                        return
-                    }
-                    self.storage.lock.lock()
-                    self.storage.activeTouchpadClickQuadrant = regionButton
-                    self.storage.lock.unlock()
-                    self.controllerQueue.async { self.handleButton(regionButton, pressed: true) }
-                }
-            } else {
-                if isTwoFingerClick {
-                    self.controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: false) }
-                    return
-                }
-
-                self.storage.lock.lock()
-                let mode = self.storage.touchpadInputMode
-                let activeQuadrant = self.storage.activeTouchpadClickQuadrant
-                self.storage.activeTouchpadClickQuadrant = nil
-                self.storage.lock.unlock()
-
-                switch mode {
-                case .wholePad:
-                    self.controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
-                case .quadrants:
-                    if let activeQuadrant {
-                        self.controllerQueue.async { self.handleButton(activeQuadrant, pressed: false) }
-                    }
-                }
-            }
+            self?.updateTouchpadClick(pressed: pressed)
         }
 
         // Touchpad primary finger position (for mouse control)
@@ -153,6 +89,73 @@ extension ControllerService {
         // Touchpad secondary finger position (for gestures)
         secondary.valueChangedHandler = { [weak self] _, xValue, yValue in
             self?.updateTouchpadSecondary(x: xValue, y: yValue)
+        }
+    }
+
+    nonisolated func updateTouchpadClick(pressed: Bool) {
+        let isTwoFingerClick = armTouchpadClick(pressed: pressed)
+
+        if pressed {
+            storage.lock.lock()
+            let willBeTwoFingerClick = storage.touchpadTwoFingerClickArmed
+            let clickPosition = storage.touchpadPosition
+            let touchStartPosition = storage.touchpadTouchStartPosition
+            let isCurrentlyTouching = storage.isTouchpadTouching
+            let requireActiveTouch = storage.requireActiveTouchForRegionClick
+            let mode = storage.touchpadInputMode
+            storage.lock.unlock()
+            let regionPosition = ControllerService.preferredTouchpadRegionPosition(
+                currentPosition: clickPosition,
+                touchStartPosition: touchStartPosition
+            )
+
+            if willBeTwoFingerClick {
+                controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: true) }
+                return
+            }
+
+            switch mode {
+            case .wholePad:
+                controllerQueue.async { self.handleButton(.touchpadButton, pressed: true) }
+            case .quadrants:
+                let canDispatch = ControllerService.shouldFireRegionClick(
+                    willBeTwoFingerClick: false,
+                    clickPosition: regionPosition,
+                    isCurrentlyTouching: isCurrentlyTouching,
+                    requireActiveTouch: requireActiveTouch
+                )
+                guard canDispatch,
+                      let regionButton = ControllerButton.from(
+                          region: TouchpadRegion.from(position: regionPosition),
+                          trigger: .click
+                      ) else {
+                    return
+                }
+                storage.lock.lock()
+                storage.activeTouchpadClickQuadrant = regionButton
+                storage.lock.unlock()
+                controllerQueue.async { self.handleButton(regionButton, pressed: true) }
+            }
+        } else {
+            if isTwoFingerClick {
+                controllerQueue.async { self.handleButton(.touchpadTwoFingerButton, pressed: false) }
+                return
+            }
+
+            storage.lock.lock()
+            let mode = storage.touchpadInputMode
+            let activeQuadrant = storage.activeTouchpadClickQuadrant
+            storage.activeTouchpadClickQuadrant = nil
+            storage.lock.unlock()
+
+            switch mode {
+            case .wholePad:
+                controllerQueue.async { self.handleButton(.touchpadButton, pressed: false) }
+            case .quadrants:
+                if let activeQuadrant {
+                    controllerQueue.async { self.handleButton(activeQuadrant, pressed: false) }
+                }
+            }
         }
     }
 
@@ -219,6 +222,14 @@ extension ControllerService {
     /// 2. Touch Continue: Calculate deltas, detect gestures, handle tap cooldowns
     /// 3. Touch End: Detect taps, cleanup state, fire callbacks
     nonisolated func updateTouchpad(x: Float, y: Float) {
+        updateTouchpad(x: x, y: y, isTouchingOverride: nil)
+    }
+
+    nonisolated func updateTouchpad(x: Float, y: Float, isTouching: Bool) {
+        updateTouchpad(x: x, y: y, isTouchingOverride: isTouching)
+    }
+
+    private nonisolated func updateTouchpad(x: Float, y: Float, isTouchingOverride: Bool?) {
         defer { logTouchpadDebugIfNeeded(source: "primary") }
         storage.lock.lock()
 
@@ -234,8 +245,8 @@ extension ControllerService {
         // MARK: Sentinel-based Touch Detection
         // Detect if finger is on touchpad (non-zero position indicates touch)
         // GCControllerDirectionPad returns 0,0 when no finger is present
-        var isTouching = abs(x) > 0.001 || abs(y) > 0.001
-        if !storage.touchpadHasSeenTouch, isTouching {
+        var isTouching = isTouchingOverride ?? (abs(x) > 0.001 || abs(y) > 0.001)
+        if isTouchingOverride == nil, !storage.touchpadHasSeenTouch, isTouching {
             if let sentinel = storage.touchpadIdleSentinel {
                 let isNearSentinel = abs(newPosition.x - sentinel.x) <= TouchpadIdleSentinelConfig.activationThreshold &&
                     abs(newPosition.y - sentinel.y) <= TouchpadIdleSentinelConfig.activationThreshold
@@ -249,6 +260,9 @@ extension ControllerService {
                 storage.touchpadIdleSentinel = newPosition
                 isTouching = false
             }
+        } else if isTouchingOverride != nil, isTouching {
+            storage.touchpadHasSeenTouch = true
+            storage.touchpadIdleSentinel = nil
         }
         if isTouching {
             storage.touchpadHasSeenTouch = true
@@ -462,6 +476,7 @@ extension ControllerService {
             let touchDistance = storage.touchpadMaxDistanceFromStart
             let wasTwoFingerDuringTouch = storage.touchpadWasTwoFingerDuringTouch
             let clickFiredDuringTouch = storage.touchpadClickFiredDuringTouch
+            let isSteamController = storage.isSteamController
 
             // Single-finger tap: short duration, minimal movement, NOT a two-finger gesture,
             // long tap not fired, and no physical click during this touch.
@@ -478,11 +493,11 @@ extension ControllerService {
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement
             let mode = storage.touchpadInputMode
-            let tapCallback = (isSingleTap && mode == .wholePad) ? storage.onTouchpadTap : nil
+            let tapCallback = (isSingleTap && mode == .wholePad && !isSteamController) ? storage.onTouchpadTap : nil
 
             let regionTapCallback: ((TouchpadRegion) -> Void)?
             let tapRegion: TouchpadRegion?
-            if isSingleTap && mode == .quadrants {
+            if isSingleTap && mode == .quadrants && !isSteamController {
                 regionTapCallback = storage.onTouchpadRegionTap
                 let regionPosition = ControllerService.preferredTouchpadRegionPosition(
                     currentPosition: storage.touchpadPosition,
@@ -511,7 +526,7 @@ extension ControllerService {
                 secondaryTouchDistance < Config.touchpadTwoFingerTapMaxMovement &&
                 gestureDistance < Config.touchpadTwoFingerTapMaxGestureDistance &&
                 pinchDistance < Config.touchpadTwoFingerTapMaxPinchDistance
-            let twoFingerTapCallback = isTwoFingerTap ? storage.onTouchpadTwoFingerTap : nil
+            let twoFingerTapCallback = (isTwoFingerTap && !isSteamController) ? storage.onTouchpadTwoFingerTap : nil
 
             if isSingleTap || isTwoFingerTap {
                 storage.touchpadLastTapTime = now

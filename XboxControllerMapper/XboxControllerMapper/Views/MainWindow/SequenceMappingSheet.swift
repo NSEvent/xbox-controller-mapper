@@ -29,6 +29,10 @@ struct SequenceMappingSheet: View {
         controllerService.threadSafeIsXboxElite
     }
 
+    private var isSteamController: Bool {
+        controllerService.threadSafeIsSteamController
+    }
+
     private var isNintendo: Bool {
         controllerService.threadSafeIsNintendo
     }
@@ -534,7 +538,7 @@ struct SequenceMappingSheet: View {
             // Xbox Elite Controls
             if isXboxElite {
                 VStack(spacing: 12) {
-                    Text("ELITE PADDLES")
+                    Text(isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.secondary)
 
@@ -552,6 +556,29 @@ struct SequenceMappingSheet: View {
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.secondary)
                         addStepButton(.xboxPaddle4)
+                    }
+                }
+                .padding(.top, 20)
+            }
+
+            if isSteamController {
+                VStack(spacing: 12) {
+                    Text("STEAM TOUCHPADS")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 40) {
+                        VStack(spacing: 8) {
+                            addStepButton(.leftTouchpadButton)
+                            addStepButton(.leftTouchpadTap)
+                        }
+                        Text("Pads")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                        VStack(spacing: 8) {
+                            addStepButton(.rightTouchpadButton)
+                            addStepButton(.rightTouchpadTap)
+                        }
                     }
                 }
                 .padding(.top, 20)

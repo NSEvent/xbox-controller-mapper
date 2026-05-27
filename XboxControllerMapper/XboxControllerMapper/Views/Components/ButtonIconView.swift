@@ -90,8 +90,10 @@ struct ButtonIconView: View {
     private var isCircle: Bool {
         // Mic mute and touchpad tap gestures are circular like special buttons
         // Touchpad press buttons use rounded square
-        if button == .micMute || button == .touchpadTap || button == .touchpadTwoFingerTap { return true }
-        if button == .touchpadButton || button == .touchpadTwoFingerButton { return false }
+        if button == .micMute || button == .touchpadTap || button == .touchpadTwoFingerTap ||
+            button == .leftTouchpadTap || button == .rightTouchpadTap { return true }
+        if button == .touchpadButton || button == .touchpadTwoFingerButton ||
+            button == .leftTouchpadButton || button == .rightTouchpadButton { return false }
         // Touchpad region buttons follow the same convention: Touch = circle,
         // Click = rounded square. Distinguishes them at a glance.
         if let trigger = button.touchpadQuadrantTrigger {
@@ -112,6 +114,8 @@ struct ButtonIconView: View {
         if button == .touchpadTwoFingerTap { return 32 }
         // Touchpad press buttons are rounded squares (same size for 1 and 2 finger)
         if button == .touchpadButton || button == .touchpadTwoFingerButton { return 32 }
+        if button == .leftTouchpadButton || button == .rightTouchpadButton { return 34 }
+        if button == .leftTouchpadTap || button == .rightTouchpadTap { return 34 }
         // Touchpad region buttons match the touchpadButton/touchpadTap sizing.
         if let trigger = button.touchpadQuadrantTrigger {
             return trigger == .click ? 32 : 28
@@ -128,7 +132,8 @@ struct ButtonIconView: View {
         // Directional stick icons are circular
         if showDirectionalArrows { return 36 }
         // Touchpad press buttons are square
-        if button == .touchpadButton || button == .touchpadTwoFingerButton { return width }
+        if button == .touchpadButton || button == .touchpadTwoFingerButton ||
+            button == .leftTouchpadButton || button == .rightTouchpadButton { return width }
         // Touchpad region click buttons are square (height == width).
         if button.touchpadQuadrantTrigger == .click { return width }
         return isCircle ? width : 22
@@ -230,6 +235,10 @@ struct ButtonIconView: View {
                         .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
                 }
                 .foregroundColor(.white.opacity(0.95))
+            } else if button == .leftTouchpadButton || button == .rightTouchpadButton {
+                touchpadSideGlyph(icon: "hand.point.up.left")
+            } else if button == .leftTouchpadTap || button == .rightTouchpadTap {
+                touchpadSideGlyph(icon: "hand.tap")
             } else if let region = button.touchpadRegion {
                 // Touchpad region indicator: a small 2×2 grid with the active
                 // quadrant filled. Much more legible at button-tile size than
@@ -253,7 +262,18 @@ struct ButtonIconView: View {
         }
         .font(.system(size: fontSize, weight: .bold))
     }
-    
+
+    @ViewBuilder
+    private func touchpadSideGlyph(icon: String) -> some View {
+        HStack(spacing: 1) {
+            Image(systemName: icon)
+                .font(.system(size: fontSize - 3, weight: .medium))
+            Text(button == .leftTouchpadButton || button == .leftTouchpadTap ? "L" : "R")
+                .font(.system(size: fontSize - 2, weight: .bold, design: .rounded))
+        }
+        .foregroundColor(.white.opacity(0.95))
+    }
+
     private var stickLabel: String {
         switch button {
         case .rightThumbstick: return "R"

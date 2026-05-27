@@ -47,6 +47,7 @@ final class MappingEngineCharacterizationTests: XCTestCase {
             controllerService?.onTouchpadMoved = nil
             controllerService?.onTouchpadGesture = nil
             controllerService?.onTouchpadTap = nil
+            controllerService?.onControllerButtonTap = nil
             controllerService?.onTouchpadTwoFingerTap = nil
             controllerService?.onTouchpadLongTap = nil
             controllerService?.onTouchpadTwoFingerLongTap = nil

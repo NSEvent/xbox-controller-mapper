@@ -30,6 +30,10 @@ struct ChordMappingSheet: View {
         controllerService.threadSafeIsXboxElite
     }
 
+    private var isSteamController: Bool {
+        controllerService.threadSafeIsSteamController
+    }
+
     private var isNintendo: Bool {
         controllerService.threadSafeIsNintendo
     }
@@ -281,7 +285,7 @@ struct ChordMappingSheet: View {
                     // Xbox Elite Controls (back paddles)
                     if isXboxElite {
                         VStack(spacing: 12) {
-                            Text("ELITE PADDLES")
+                            Text(isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.secondary)
 
@@ -299,6 +303,29 @@ struct ChordMappingSheet: View {
                                     .font(.system(size: 10, weight: .medium))
                                     .foregroundColor(.secondary)
                                 toggleButton(.xboxPaddle4)
+                            }
+                        }
+                        .padding(.top, 20)
+                    }
+
+                    if isSteamController {
+                        VStack(spacing: 12) {
+                            Text("STEAM TOUCHPADS")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.secondary)
+
+                            HStack(spacing: 40) {
+                                VStack(spacing: 8) {
+                                    toggleButton(.leftTouchpadButton)
+                                    toggleButton(.leftTouchpadTap)
+                                }
+                                Text("Pads")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                VStack(spacing: 8) {
+                                    toggleButton(.rightTouchpadButton)
+                                    toggleButton(.rightTouchpadTap)
+                                }
                             }
                         }
                         .padding(.top, 20)

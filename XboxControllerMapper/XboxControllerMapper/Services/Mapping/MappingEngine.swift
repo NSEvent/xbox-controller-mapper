@@ -348,6 +348,12 @@ class MappingEngine: ObservableObject {
                 self.processTouchpadTap()
             }
         }
+        controllerService.onControllerButtonTap = { [weak self] button in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.processTapGesture(button)
+            }
+        }
         controllerService.onTouchpadTwoFingerTap = { [weak self] in
             guard let self = self else { return }
             self.pollingQueue.async {

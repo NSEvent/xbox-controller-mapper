@@ -113,6 +113,41 @@ final class GameControllerDatabaseTests: XCTestCase {
 
     }
 
+    func testKnownVendorProductPairs_DecodesDedupesAndExcludesVendors() {
+        let xboxGUID = GameControllerDatabase.constructGUID(
+            vendorID: 0x045e,
+            productID: 0x028e,
+            version: 0,
+            transport: nil
+        )
+        let duplicateXboxGUID = GameControllerDatabase.constructGUID(
+            vendorID: 0x045e,
+            productID: 0x028e,
+            version: 0x0114,
+            transport: nil
+        )
+        let genericGUID = GameControllerDatabase.constructGUID(
+            vendorID: 0x1234,
+            productID: 0xabcd,
+            version: 0,
+            transport: nil
+        )
+        let content = [
+            mappingLine(guid: xboxGUID, name: "Xbox", entries: ["a:b0"]),
+            mappingLine(guid: duplicateXboxGUID, name: "Xbox Duplicate", entries: ["a:b0"]),
+            mappingLine(guid: genericGUID, name: "Generic", entries: ["a:b0"])
+        ].joined(separator: "\n")
+
+        let database = GameControllerDatabase(databaseContentOverride: content)
+
+        let pairs = database.knownVendorProductPairs(excludingVendors: [0x045e])
+        XCTAssertEqual(pairs.count, 1)
+        XCTAssertEqual(pairs.first?.vendorID, 0x1234)
+        XCTAssertEqual(pairs.first?.productID, 0xabcd)
+
+        Self.retainedDatabases.append(database)
+    }
+
     func testDatabaseErrors_ExposeLocalizedDescriptions() {
         XCTAssertEqual(GameControllerDatabase.DatabaseError.downloadFailed.errorDescription,
                        "Failed to download controller database")

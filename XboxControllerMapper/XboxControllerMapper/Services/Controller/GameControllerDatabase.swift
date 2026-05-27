@@ -115,6 +115,40 @@ class GameControllerDatabase {
         return nil
     }
 
+    func knownVendorProductPairs(excludingVendors: Set<Int> = []) -> [(vendorID: Int, productID: Int)] {
+        let pairs = mappings.keys.compactMap { guid -> (vendorID: Int, productID: Int)? in
+            guard let vendorID = Self.le16Value(in: guid, byteOffset: 4),
+                  let productID = Self.le16Value(in: guid, byteOffset: 8),
+                  !excludingVendors.contains(vendorID) else {
+                return nil
+            }
+            return (vendorID, productID)
+        }
+
+        var seen = Set<String>()
+        return pairs
+            .filter { pair in
+                seen.insert("\(pair.vendorID):\(pair.productID)").inserted
+            }
+            .sorted {
+                $0.vendorID == $1.vendorID
+                    ? $0.productID < $1.productID
+                    : $0.vendorID < $1.vendorID
+            }
+    }
+
+    private static func le16Value(in guid: String, byteOffset: Int) -> Int? {
+        let hexOffset = guid.index(guid.startIndex, offsetBy: byteOffset * 2)
+        let nextByteOffset = guid.index(hexOffset, offsetBy: 2)
+        let highByteOffset = guid.index(nextByteOffset, offsetBy: 2)
+        guard highByteOffset <= guid.endIndex,
+              let lowByte = UInt8(guid[hexOffset..<nextByteOffset], radix: 16),
+              let highByte = UInt8(guid[nextByteOffset..<highByteOffset], radix: 16) else {
+            return nil
+        }
+        return Int(lowByte) | (Int(highByte) << 8)
+    }
+
     // MARK: - Database Loading
 
     func loadDatabase() {

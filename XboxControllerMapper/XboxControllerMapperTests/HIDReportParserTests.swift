@@ -275,6 +275,28 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertEqual(touchpad?.isPressed, true)
     }
 
+    func testSteamController_LeftTouchpadStateNormalizesToControllerTouchpadRange() {
+        let bytes = makeReport(length: 29) { p in
+            writeLE32(
+                SteamControllerButtonMask.leftPadTouch | SteamControllerButtonMask.leftPadClick,
+                to: p,
+                offset: 1
+            )
+            writeLE16(UInt16(bitPattern: Int16(-8192)), to: p, offset: 17)
+            writeLE16(0x2000, to: p, offset: 19)
+        }
+
+        let report = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parse(reportID: 0x45, report: buf.baseAddress!, length: buf.count)
+        }
+        let touchpad = report.map(SteamControllerHIDController.leftTouchpadState(from:))
+
+        XCTAssertEqual(touchpad?.x ?? 0, -0.25, accuracy: 0.001)
+        XCTAssertEqual(touchpad?.y ?? 0, 0.25, accuracy: 0.001)
+        XCTAssertEqual(touchpad?.isTouching, true)
+        XCTAssertEqual(touchpad?.isPressed, true)
+    }
+
     func testSteamController_ButtonEventsMapToControllerButtons() {
         let current = SteamControllerButtonMask.qam
             | SteamControllerButtonMask.view
@@ -291,6 +313,8 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertTrue(events.contains(ControllerButtonEvent(button: .xbox, pressed: true)))
         XCTAssertTrue(events.contains(ControllerButtonEvent(button: .xboxPaddle1, pressed: true)))
         XCTAssertTrue(events.contains(ControllerButtonEvent(button: .xboxPaddle4, pressed: true)))
+        XCTAssertFalse(events.contains(ControllerButtonEvent(button: .leftTouchpadButton, pressed: true)))
+        XCTAssertFalse(events.contains(ControllerButtonEvent(button: .rightTouchpadButton, pressed: true)))
     }
 
     private func writeLE16(_ value: UInt16, to p: UnsafeMutablePointer<UInt8>, offset: Int) {

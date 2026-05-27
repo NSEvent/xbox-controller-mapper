@@ -161,8 +161,22 @@ extension ControllerService {
         controller.onRightTouchpadChanged = { [weak self] x, y, isTouching in
             self?.updateTouchpad(x: x, y: y, isTouching: isTouching)
         }
+        controller.onLeftTouchpadClickChanged = { [weak self] pressed in
+            self?.controllerQueue.async {
+                self?.handleButton(.leftTouchpadButton, pressed: pressed)
+            }
+        }
         controller.onRightTouchpadClickChanged = { [weak self] pressed in
-            self?.updateTouchpadClick(pressed: pressed)
+            self?.controllerQueue.async {
+                self?.handleButton(.rightTouchpadButton, pressed: pressed)
+            }
+        }
+        controller.onTouchpadTapAction = { [weak self] button in
+            guard let self else { return }
+            storage.lock.lock()
+            let callback = storage.onControllerButtonTap
+            storage.lock.unlock()
+            callback?(button)
         }
         controller.onBatteryChanged = { [weak self, weak controller] level, state in
             DispatchQueue.main.async { [weak self, weak controller] in

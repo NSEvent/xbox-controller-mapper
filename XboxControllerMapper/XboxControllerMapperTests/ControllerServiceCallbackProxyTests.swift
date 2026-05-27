@@ -28,6 +28,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         controllerService.onTouchpadMoved = { _ in events.append("touchpadMoved") }
         controllerService.onTouchpadGesture = { _ in events.append("touchpadGesture") }
         controllerService.onTouchpadTap = { events.append("touchpadTap") }
+        controllerService.onControllerButtonTap = { _ in events.append("controllerButtonTap") }
         controllerService.onTouchpadTwoFingerTap = { events.append("touchpadTwoFingerTap") }
         controllerService.onTouchpadLongTap = { events.append("touchpadLongTap") }
         controllerService.onTouchpadTwoFingerLongTap = { events.append("touchpadTwoFingerLongTap") }
@@ -47,6 +48,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
             )
         )
         controllerService.onTouchpadTap?()
+        controllerService.onControllerButtonTap?(.rightTouchpadTap)
         controllerService.onTouchpadTwoFingerTap?()
         controllerService.onTouchpadLongTap?()
         controllerService.onTouchpadTwoFingerLongTap?()
@@ -62,6 +64,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
                 "touchpadMoved",
                 "touchpadGesture",
                 "touchpadTap",
+                "controllerButtonTap",
                 "touchpadTwoFingerTap",
                 "touchpadLongTap",
                 "touchpadTwoFingerLongTap",

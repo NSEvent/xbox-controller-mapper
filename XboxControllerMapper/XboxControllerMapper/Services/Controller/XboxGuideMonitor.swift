@@ -28,6 +28,7 @@ class XboxGuideMonitor {
 	private var callbackContextHolder: CallbackContext?
     private(set) var isStarted = false
 	private let enableHardwareMonitoring: Bool
+	private let startQueue = DispatchQueue(label: "com.controllerkeys.xbox-guide-monitor.start", qos: .utility)
 
     // Paddle state tracking (Consumer Page 0x81 bitmask)
     private var paddleState: [Int: Bool] = [1: false, 2: false, 3: false, 4: false]
@@ -127,7 +128,9 @@ class XboxGuideMonitor {
 
 	init(enableHardwareMonitoring: Bool = true) {
 		self.enableHardwareMonitoring = enableHardwareMonitoring
-        start()
+		if !enableHardwareMonitoring {
+			start()
+		}
     }
 
     deinit {
@@ -145,23 +148,13 @@ class XboxGuideMonitor {
         hidManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         guard let hidManager = hidManager else { return }
 
-        // Match broadly: gamepads, joysticks, AND Microsoft VID directly
-        let gamepadMatching = [
-            kIOHIDDeviceUsagePageKey: kHIDPage_GenericDesktop,
-            kIOHIDDeviceUsageKey: kHIDUsage_GD_GamePad
-        ] as CFDictionary
-
-        let joystickMatching = [
-            kIOHIDDeviceUsagePageKey: kHIDPage_GenericDesktop,
-            kIOHIDDeviceUsageKey: kHIDUsage_GD_Joystick
-        ] as CFDictionary
-
-        // Also match by Microsoft VID to catch any interface the framework might not claim
+        // Guide/paddle routing is Xbox-specific. Matching every gamepad can make
+        // Apple's synthetic controller plugin probe unrelated HID devices at launch.
         let microsoftMatching = [
             kIOHIDVendorIDKey: 0x045E
         ] as CFDictionary
 
-        let criteria = [gamepadMatching, joystickMatching, microsoftMatching] as CFArray
+        let criteria = [microsoftMatching] as CFArray
         IOHIDManagerSetDeviceMatchingMultiple(hidManager, criteria)
 
 		let context = prepareCallbackContext()
@@ -173,6 +166,16 @@ class XboxGuideMonitor {
         _ = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
         isStarted = true
     }
+
+	func startAsync() {
+		guard enableHardwareMonitoring else {
+			start()
+			return
+		}
+		startQueue.async { [weak self] in
+			self?.start()
+		}
+	}
 
     func stop() {
         guard isStarted || callbackContext != nil else { return }

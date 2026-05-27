@@ -528,6 +528,10 @@ struct Profile: Codable, Identifiable, Equatable {
         // DualSense touchpad two-finger tap = Mouse right click
         mappings[.touchpadTwoFingerTap] = KeyMapping(keyCode: KeyCodeMapping.mouseRightClick, isHoldModifier: true)
 
+        // Steam Controller right touchpad = Mouse left click by default
+        mappings[.rightTouchpadButton] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
+        mappings[.rightTouchpadTap] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
+
         // Chord mappings
         let chords: [ChordMapping] = [
             // RB + X = Cmd+Delete

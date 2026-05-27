@@ -320,8 +320,9 @@ class SwipeTypingEngine: ObservableObject {
                 s.lastSampleTime = now
                 s.swipePath.append(pos)
                 s.samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
+                return (pos, s.swipePath)
             }
-            return (pos, s.swipePath)
+            return nil
         }
 
         if let result {
@@ -391,8 +392,9 @@ class SwipeTypingEngine: ObservableObject {
                 s.lastSampleTime = now
                 s.swipePath.append(pos)
                 s.samples.append(SwipeSample(x: Double(pos.x), y: Double(pos.y), dt: dt))
+                return (pos, s.swipePath)
             }
-            return (pos, s.swipePath)
+            return nil
         }
 
         if let result {

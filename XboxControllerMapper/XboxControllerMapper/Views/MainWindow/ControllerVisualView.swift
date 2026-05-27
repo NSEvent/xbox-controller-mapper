@@ -149,6 +149,10 @@ struct ControllerVisualView: View {
         controllerService.threadSafeIsXboxElite
     }
 
+    private var isSteamController: Bool {
+        controllerService.threadSafeIsSteamController
+    }
+
     private var isNintendo: Bool {
         controllerService.threadSafeIsNintendo
     }
@@ -241,7 +245,9 @@ struct ControllerVisualView: View {
                 // layout and the 8-button quadrant layout. Two-finger buttons
                 // stay visible in both modes since there's no quadrant
                 // analog for two fingers.
-                if isPlayStation {
+                if isSteamController {
+                    steamTouchpadButtonsSection
+                } else if isPlayStation {
                     touchpadButtonsSection
                 }
 
@@ -258,6 +264,7 @@ struct ControllerVisualView: View {
                         isPlayStation: isPlayStation,
                         isNintendo: isNintendo,
                         isXboxElite: isXboxElite,
+                        isSteamController: isSteamController,
                         touchpadInputMode: touchpadInputMode,
                         onButtonTap: onButtonTap,
                         onButtonHover: handleButtonHover,
@@ -289,7 +296,7 @@ struct ControllerVisualView: View {
                         // DualShock 4's physical Share button maps to .view (buttonOptions), not .share
                         if isDualSense {
                             referenceRow(for: .micMute)
-                        } else if !isDualShock && !isXboxElite {
+                        } else if !isDualShock && (!isXboxElite || isSteamController) {
                             referenceRow(for: .share)
                         }
                     }
@@ -321,7 +328,7 @@ struct ControllerVisualView: View {
                 // Xbox Elite-specific buttons (back paddles)
                 if isXboxElite {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("ELITE PADDLES")
+                        Text(isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 4)
@@ -414,6 +421,29 @@ struct ControllerVisualView: View {
                 wholePadTouchpadRows
             case .quadrants:
                 quadrantTouchpadRows
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var steamTouchpadButtonsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("STEAM TOUCHPADS")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
+
+            HStack(spacing: 20) {
+                VStack(alignment: .trailing) {
+                    referenceRow(for: .leftTouchpadButton)
+                    referenceRow(for: .leftTouchpadTap)
+                }
+                .frame(width: 220)
+                VStack(alignment: .leading) {
+                    referenceRow(for: .rightTouchpadButton)
+                    referenceRow(for: .rightTouchpadTap)
+                }
+                .frame(width: 220)
             }
         }
     }
@@ -1396,6 +1426,7 @@ struct ControllerAnalogOverlay: View {
     let isPlayStation: Bool
     let isNintendo: Bool
     let isXboxElite: Bool
+    let isSteamController: Bool
     /// Whole-pad shows one big click target with a single anchor. Quadrants
     /// shows the dashed divider cross plus four per-quadrant tap zones, each
     /// anchoring its `.touchpadRegion*Click` and `.touchpadRegion*Touch`
@@ -1477,7 +1508,7 @@ struct ControllerAnalogOverlay: View {
                         miniCircle(.view, size: 14)
                         miniCircle(.menu, size: 14)
                     }
-                    if !isXboxElite {
+                    if !isXboxElite || isSteamController {
                         miniCircle(.share, size: 10)
                     }
                 }
