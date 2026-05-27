@@ -684,6 +684,7 @@ extension ControllerService {
         let wasTouching = storage.isTouchpadSecondaryTouching
         let wasTwoFinger = storage.isTouchpadTouching && storage.isTouchpadSecondaryTouching
         let gestureCallback = storage.onTouchpadGesture
+        let steamLeftTouchpadCallback = storage.onSteamLeftTouchpadMoved
         let now = CFAbsoluteTimeGetCurrent()
 
         // Detect if finger is on touchpad (non-zero position indicates touch)
@@ -797,11 +798,19 @@ extension ControllerService {
             let inactiveGesture = storage.isSteamController && storage.isTouchpadTouching && !shouldHandleAsGesture
                 ? inactiveTouchpadGesture(primaryTouching: true, secondaryTouching: false)
                 : nil
+            let steamLeftTouchpadDelta = storage.isSteamController && !shouldHandleAsGesture
+                ? secondaryDeltaForGesture
+                : nil
             storage.lock.unlock()
             if let gesture, shouldHandleAsGesture {
                 gestureCallback?(gesture)
-            } else if let inactiveGesture {
-                gestureCallback?(inactiveGesture)
+            } else {
+                if let inactiveGesture {
+                    gestureCallback?(inactiveGesture)
+                }
+                if let steamLeftTouchpadDelta {
+                    steamLeftTouchpadCallback?(steamLeftTouchpadDelta)
+                }
             }
         } else {
             storage.isTouchpadSecondaryTouching = false

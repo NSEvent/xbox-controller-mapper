@@ -132,6 +132,7 @@ final class ControllerStorage: @unchecked Sendable {
     var onLeftStickMoved: ((CGPoint) -> Void)?
     var onRightStickMoved: ((CGPoint) -> Void)?
     var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
+    var onSteamLeftTouchpadMoved: ((CGPoint) -> Void)?  // Left-pad delta movement for app-owned scroll
     var onTouchpadGesture: ((TouchpadGesture) -> Void)?
     var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
     var onControllerButtonTap: ((ControllerButton) -> Void)?  // One-shot virtual tap events
@@ -620,6 +621,10 @@ class ControllerService: ObservableObject {
     var onTouchpadMoved: ((CGPoint) -> Void)? {
         get { readStorage(\.onTouchpadMoved) }
         set { writeStorage(\.onTouchpadMoved, newValue) }
+    }
+    var onSteamLeftTouchpadMoved: ((CGPoint) -> Void)? {
+        get { readStorage(\.onSteamLeftTouchpadMoved) }
+        set { writeStorage(\.onSteamLeftTouchpadMoved, newValue) }
     }
     var onTouchpadGesture: ((TouchpadGesture) -> Void)? {
         get { readStorage(\.onTouchpadGesture) }

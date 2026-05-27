@@ -239,6 +239,17 @@ struct Config {
     /// Suppress Steam touchpad tap actions right after a physical click on the
     /// same pad. Click wobble can look like a tiny tap/lift after mouseUp.
     static let steamTouchpadPostClickTapSuppressionInterval: TimeInterval = 0.2
+    /// Explicit click tick used when Steam Controller lizard mode is suppressed.
+    static let steamTouchpadClickHapticIntensity: Float = 0.9
+    static let steamTouchpadClickHapticSharpness: Float = 1.0
+    static let steamTouchpadClickHapticDuration: TimeInterval = 0.075
+    /// Light texture ticks while sliding on either Steam Controller pad.
+    static let steamTouchpadMovementHapticIntensity: Float = 0.08
+    static let steamTouchpadMovementHapticSharpness: Float = 1.0
+    static let steamTouchpadMovementHapticDuration: TimeInterval = 0.018
+    static let steamTouchpadMovementHapticDistanceStep: Double = 0.05
+    static let steamTouchpadMovementHapticSampleDeadzone: Double = 0.003
+    static let steamTouchpadMovementHapticMinInterval: TimeInterval = 0.04
     /// Ratio threshold: if pinch/pan ratio exceeds this, treat as pinch gesture
     /// Higher = pinch must be more dominant over pan to trigger zoom
     static let touchpadPinchVsPanRatio: Double = 1.8

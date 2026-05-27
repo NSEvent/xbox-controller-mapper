@@ -142,6 +142,62 @@ struct SteamControllerTouchpadTapGate {
     }
 }
 
+struct SteamControllerTouchpadMovementHapticTracker {
+    private var wasTouching = false
+    private var lastPosition = CGPoint.zero
+    private var lastTickPosition = CGPoint.zero
+    private var lastTickTime: TimeInterval = 0
+
+    mutating func update(state: SteamControllerTouchpadState, now: TimeInterval) -> Bool {
+        let position = CGPoint(x: CGFloat(state.x), y: CGFloat(state.y))
+        guard state.isTouching else {
+            wasTouching = false
+            lastPosition = .zero
+            lastTickPosition = .zero
+            return false
+        }
+
+        guard wasTouching else {
+            wasTouching = true
+            lastPosition = position
+            lastTickPosition = position
+            return false
+        }
+
+        guard !state.isPressed else {
+            lastPosition = position
+            lastTickPosition = position
+            return false
+        }
+
+        let sampleDistance = hypot(Double(position.x - lastPosition.x), Double(position.y - lastPosition.y))
+        guard sampleDistance < 0.3 else {
+            lastPosition = position
+            lastTickPosition = position
+            return false
+        }
+
+        guard sampleDistance >= Config.steamTouchpadMovementHapticSampleDeadzone else {
+            return false
+        }
+
+        lastPosition = position
+
+        let tickDistance = hypot(
+            Double(position.x - lastTickPosition.x),
+            Double(position.y - lastTickPosition.y)
+        )
+        guard tickDistance >= Config.steamTouchpadMovementHapticDistanceStep,
+              now - lastTickTime >= Config.steamTouchpadMovementHapticMinInterval else {
+            return false
+        }
+
+        lastTickPosition = position
+        lastTickTime = now
+        return true
+    }
+}
+
 private struct SteamControllerPendingTouchpadClickRelease {
     let state: SteamControllerTouchpadState
     let deadline: TimeInterval
@@ -359,6 +415,8 @@ final class SteamControllerHIDController {
     private var rightTouchpadTapTracker = SteamControllerTouchpadTapTracker()
     private var touchpadTapGate = SteamControllerTouchpadTapGate()
     private var touchpadTapFlushWorkItem: DispatchWorkItem?
+    private var leftTouchpadHapticTracker = SteamControllerTouchpadMovementHapticTracker()
+    private var rightTouchpadHapticTracker = SteamControllerTouchpadMovementHapticTracker()
     private var hasActivated = false
     private var isStarted = false
     private var reportBuffer: UnsafeMutablePointer<UInt8>?
@@ -584,7 +642,7 @@ final class SteamControllerHIDController {
 
     static func lizardModeFeatureReport(enabled: Bool, includesReportID: Bool) -> [UInt8] {
         let value: UInt8 = enabled ? 1 : 0
-        let count = includesReportID ? 65 : 64
+        let count = 64
         let offset = includesReportID ? 1 : 0
         var report = [UInt8](repeating: 0, count: count)
         if includesReportID {
@@ -599,6 +657,38 @@ final class SteamControllerHIDController {
     }
 
     func playHaptic(intensity: Float, sharpness: Float, duration: TimeInterval, transient: Bool) {
+        playHaptic(
+            actuators: Self.trackpadActuators,
+            intensity: intensity,
+            sharpness: sharpness,
+            duration: duration,
+            transient: transient
+        )
+    }
+
+    func playTouchpadHaptic(
+        side: SteamTouchpadSide,
+        intensity: Float,
+        sharpness: Float,
+        duration: TimeInterval,
+        transient: Bool
+    ) {
+        playHaptic(
+            actuators: [Self.trackpadActuator(for: side)],
+            intensity: intensity,
+            sharpness: sharpness,
+            duration: duration,
+            transient: transient
+        )
+    }
+
+    private func playHaptic(
+        actuators: [UInt8],
+        intensity: Float,
+        sharpness: Float,
+        duration: TimeInterval,
+        transient: Bool
+    ) {
         let clampedIntensity = max(0.05, min(1.0, intensity))
         let clampedSharpness = max(0.0, min(1.0, sharpness))
         let frequency = UInt16(180 + round(clampedSharpness * 360))
@@ -613,7 +703,7 @@ final class SteamControllerHIDController {
 
         hapticOutputQueue.async { [weak self] in
             guard let self else { return }
-            for actuator in Self.trackpadActuators {
+            for actuator in actuators {
                 _ = self.sendHapticTone(
                     actuator: actuator,
                     frequencyHz: frequency,
@@ -624,7 +714,7 @@ final class SteamControllerHIDController {
 
             self.hapticOutputQueue.asyncAfter(deadline: .now() + stopDelay) { [weak self] in
                 guard let self else { return }
-                for actuator in Self.trackpadActuators {
+                for actuator in actuators {
                     _ = self.sendHapticStop(actuator: actuator)
                 }
             }
@@ -719,6 +809,25 @@ final class SteamControllerHIDController {
             now: now
         ) { [weak self] region in
             self?.queueTouchpadTap(side: .right, region: region, now: now)
+        }
+
+        if leftTouchpadHapticTracker.update(state: left, now: now) {
+            playTouchpadHaptic(
+                side: .left,
+                intensity: Config.steamTouchpadMovementHapticIntensity,
+                sharpness: Config.steamTouchpadMovementHapticSharpness,
+                duration: Config.steamTouchpadMovementHapticDuration,
+                transient: true
+            )
+        }
+        if rightTouchpadHapticTracker.update(state: right, now: now) {
+            playTouchpadHaptic(
+                side: .right,
+                intensity: Config.steamTouchpadMovementHapticIntensity,
+                sharpness: Config.steamTouchpadMovementHapticSharpness,
+                duration: Config.steamTouchpadMovementHapticDuration,
+                transient: true
+            )
         }
 
         if shouldDispatchTouchpad(lastLeftTouchpad, current: left) {
@@ -969,6 +1078,15 @@ final class SteamControllerHIDController {
     }
 
     private static let trackpadActuators = [leftTrackpadActuator, rightTrackpadActuator]
+
+    private static func trackpadActuator(for side: SteamTouchpadSide) -> UInt8 {
+        switch side {
+        case .left:
+            return leftTrackpadActuator
+        case .right:
+            return rightTrackpadActuator
+        }
+    }
 
     private static func hapticGain(for intensity: Float) -> Int8 {
         Int8(round(-18.0 + (Double(intensity) * 16.0)))

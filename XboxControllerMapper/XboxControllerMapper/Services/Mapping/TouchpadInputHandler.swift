@@ -96,6 +96,41 @@ extension MappingEngine {
         usageStatsService?.recordTouchpadMouseDistance(dx: dx, dy: dy)
     }
 
+    /// - Precondition: Must be called on pollingQueue
+    nonisolated func processSteamLeftTouchpadScroll(_ delta: CGPoint) {
+        dispatchPrecondition(condition: .onQueue(pollingQueue))
+        guard controllerService.threadSafeIsSteamController,
+              let snapshot = state.lock.withLock({ () -> (settings: JoystickSettings, isGestureActive: Bool)? in
+                  guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil }
+                  return (settings, state.isTouchpadGestureActive)
+              }) else { return }
+
+        guard !snapshot.isGestureActive else { return }
+
+        let magnitude = Double(hypot(delta.x, delta.y))
+        let deadzone = max(
+            snapshot.settings.touchpadDeadzone,
+            Config.steamTouchpadDeadzoneFloor,
+            Config.touchpadPanDeadzone
+        )
+        guard magnitude > deadzone else { return }
+
+        let scale = snapshot.settings.touchpadPanSensitivity * Config.touchpadPanSensitivityMultiplier
+        let dx = Double(delta.x) * scale
+        var dy = -Double(delta.y) * scale
+        dy = snapshot.settings.invertScrollY ? -dy : dy
+
+        inputSimulator.scroll(
+            dx: CGFloat(dx),
+            dy: CGFloat(dy),
+            phase: nil,
+            momentumPhase: nil,
+            isContinuous: false,
+            flags: inputSimulator.getHeldModifiers()
+        )
+        usageStatsService?.recordScrollDistance(dx: dx, dy: dy)
+    }
+
     // MARK: - Touchpad Tap Gestures
 
     /// - Precondition: Must be called on pollingQueue

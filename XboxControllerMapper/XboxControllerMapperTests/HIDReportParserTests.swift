@@ -394,7 +394,7 @@ final class HIDReportParserTests: XCTestCase {
 
         XCTAssertEqual(withoutID.count, 64)
         XCTAssertEqual(Array(withoutID.prefix(5)), [0x87, 0x03, 0x09, 0x00, 0x00])
-        XCTAssertEqual(withID.count, 65)
+        XCTAssertEqual(withID.count, 64)
         XCTAssertEqual(Array(withID.prefix(6)), [0x01, 0x87, 0x03, 0x09, 0x00, 0x00])
     }
 
@@ -443,6 +443,82 @@ final class HIDReportParserTests: XCTestCase {
         ) { taps.append($0) }
 
         XCTAssertEqual(taps.count, 1)
+    }
+
+    func testSteamController_TouchpadMovementHapticTrackerTicksAfterDistanceAndCooldown() {
+        var tracker = SteamControllerTouchpadMovementHapticTracker()
+        let step = Float(Config.steamTouchpadMovementHapticDistanceStep)
+        let interval = Config.steamTouchpadMovementHapticMinInterval
+
+        XCTAssertFalse(tracker.update(
+            state: SteamControllerTouchpadState(x: 0, y: 0, isTouching: true, isPressed: false),
+            now: 1.0
+        ))
+        XCTAssertFalse(tracker.update(
+            state: SteamControllerTouchpadState(x: step * 0.5, y: 0, isTouching: true, isPressed: false),
+            now: 1.0 + interval
+        ))
+        XCTAssertTrue(tracker.update(
+            state: SteamControllerTouchpadState(x: step * 1.1, y: 0, isTouching: true, isPressed: false),
+            now: 1.0 + interval
+        ))
+        XCTAssertFalse(tracker.update(
+            state: SteamControllerTouchpadState(x: step * 2.2, y: 0, isTouching: true, isPressed: false),
+            now: 1.0 + interval + 0.001
+        ))
+        XCTAssertFalse(tracker.update(
+            state: SteamControllerTouchpadState(x: step * 2.2, y: 0, isTouching: true, isPressed: false),
+            now: 1.0 + interval * 2.0 + 0.001
+        ))
+        XCTAssertTrue(tracker.update(
+            state: SteamControllerTouchpadState(x: step * 3.3, y: 0, isTouching: true, isPressed: false),
+            now: 1.0 + interval * 2.0 + 0.001
+        ))
+    }
+
+    func testSteamController_TouchpadMovementHapticTrackerIgnoresRestingJitter() {
+        var tracker = SteamControllerTouchpadMovementHapticTracker()
+        let jitter = Float(Config.steamTouchpadMovementHapticDistanceStep * 0.35)
+
+        XCTAssertFalse(tracker.update(
+            state: SteamControllerTouchpadState(x: 0, y: 0, isTouching: true, isPressed: false),
+            now: 1.0
+        ))
+
+        for index in 1...12 {
+            let sign: Float = index.isMultiple(of: 2) ? 1 : -1
+            XCTAssertFalse(tracker.update(
+                state: SteamControllerTouchpadState(
+                    x: jitter * sign,
+                    y: jitter * -sign,
+                    isTouching: true,
+                    isPressed: false
+                ),
+                now: 1.0 + Double(index) * Config.steamTouchpadMovementHapticMinInterval
+            ))
+        }
+    }
+
+    func testSteamController_TouchpadMovementHapticTrackerSuppressesPressedDrag() {
+        var tracker = SteamControllerTouchpadMovementHapticTracker()
+        let step = Float(Config.steamTouchpadMovementHapticDistanceStep)
+
+        _ = tracker.update(
+            state: SteamControllerTouchpadState(x: 0, y: 0, isTouching: true, isPressed: false),
+            now: 1.0
+        )
+        XCTAssertFalse(tracker.update(
+            state: SteamControllerTouchpadState(x: step * 2.0, y: 0, isTouching: true, isPressed: true),
+            now: 1.1
+        ))
+        XCTAssertFalse(tracker.update(
+            state: SteamControllerTouchpadState(x: step * 2.5, y: 0, isTouching: false, isPressed: false),
+            now: 1.2
+        ))
+        XCTAssertFalse(tracker.update(
+            state: SteamControllerTouchpadState(x: step * 3.0, y: 0, isTouching: true, isPressed: false),
+            now: 1.3
+        ))
     }
 
     private func writeLE16(_ value: UInt16, to p: UnsafeMutablePointer<UInt8>, offset: Int) {

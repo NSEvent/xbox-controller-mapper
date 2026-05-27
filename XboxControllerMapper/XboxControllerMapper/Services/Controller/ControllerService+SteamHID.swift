@@ -373,6 +373,15 @@ extension ControllerService {
         pressed: Bool
     ) {
         updateSteamTouchpadClickMovementGate(side: side, state: state, pressed: pressed)
+        if pressed {
+            playSteamTouchpadHaptic(
+                side: side,
+                intensity: Config.steamTouchpadClickHapticIntensity,
+                sharpness: Config.steamTouchpadClickHapticSharpness,
+                duration: Config.steamTouchpadClickHapticDuration,
+                transient: false
+            )
+        }
 
         let position = CGPoint(x: CGFloat(state.x), y: CGFloat(state.y))
         var buttonToDispatch: ControllerButton?

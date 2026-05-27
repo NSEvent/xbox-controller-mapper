@@ -134,4 +134,26 @@ extension ControllerService {
             }
         }
     }
+
+    nonisolated func playSteamTouchpadHaptic(
+        side: SteamTouchpadSide,
+        intensity: Float,
+        sharpness: Float,
+        duration: TimeInterval,
+        transient: Bool
+    ) {
+        hapticQueue.async { [weak self] in
+            guard let self, self.readStorage(\.isSteamController) else { return }
+            self.steamHIDControllerLock.lock()
+            let steamController = self.activeSteamHIDController
+            self.steamHIDControllerLock.unlock()
+            steamController?.playTouchpadHaptic(
+                side: side,
+                intensity: intensity,
+                sharpness: sharpness,
+                duration: duration,
+                transient: transient
+            )
+        }
+    }
 }

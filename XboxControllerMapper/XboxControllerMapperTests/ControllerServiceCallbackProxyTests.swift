@@ -26,6 +26,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         controllerService.onLeftStickMoved = { _ in events.append("leftStickMoved") }
         controllerService.onRightStickMoved = { _ in events.append("rightStickMoved") }
         controllerService.onTouchpadMoved = { _ in events.append("touchpadMoved") }
+        controllerService.onSteamLeftTouchpadMoved = { _ in events.append("steamLeftTouchpadMoved") }
         controllerService.onTouchpadGesture = { _ in events.append("touchpadGesture") }
         controllerService.onTouchpadTap = { events.append("touchpadTap") }
         controllerService.onControllerButtonTap = { _ in events.append("controllerButtonTap") }
@@ -39,6 +40,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         controllerService.onLeftStickMoved?(CGPoint(x: 0.2, y: -0.1))
         controllerService.onRightStickMoved?(CGPoint(x: -0.4, y: 0.7))
         controllerService.onTouchpadMoved?(CGPoint(x: 0.3, y: 0.2))
+        controllerService.onSteamLeftTouchpadMoved?(CGPoint(x: -0.3, y: 0.2))
         controllerService.onTouchpadGesture?(
             TouchpadGesture(
                 centerDelta: CGPoint(x: 0.05, y: 0.01),
@@ -62,6 +64,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
                 "leftStickMoved",
                 "rightStickMoved",
                 "touchpadMoved",
+                "steamLeftTouchpadMoved",
                 "touchpadGesture",
                 "touchpadTap",
                 "controllerButtonTap",
@@ -115,6 +118,22 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         controllerService.updateSteamTouchpad(side: .right, x: 0.5, y: 0.0, isTouching: true)
 
         XCTAssertTrue(movements.isEmpty, "Right pad movement should stay blocked between alternating two-pad gesture reports")
+    }
+
+    func testSteamLeftTouchpadSinglePadMovementUsesDedicatedCallback() {
+        controllerService.storage.isSteamController = true
+        var leftPadMovements: [CGPoint] = []
+        controllerService.onSteamLeftTouchpadMoved = { leftPadMovements.append($0) }
+
+        controllerService.updateSteamTouchpad(side: .left, x: 0.0, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .left, x: 0.01, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .left, x: 0.02, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .left, x: 0.08, y: 0.0, isTouching: true)
+
+        XCTAssertTrue(
+            leftPadMovements.contains { $0.x > 0 },
+            "Single left-pad Steam movement should produce app-owned scroll deltas when lizard mode is disabled"
+        )
     }
 
     func testChordWindowRoundTripsThroughThreadSafeStorage() {

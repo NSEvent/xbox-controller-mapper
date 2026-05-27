@@ -55,6 +55,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             controllerService?.onLeftStickMoved = nil
             controllerService?.onRightStickMoved = nil
             controllerService?.onTouchpadMoved = nil
+            controllerService?.onSteamLeftTouchpadMoved = nil
             controllerService?.onTouchpadGesture = nil
             controllerService?.onTouchpadTap = nil
             controllerService?.onTouchpadTwoFingerTap = nil
@@ -581,6 +582,39 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                 return false
             }
             XCTAssertFalse(hasMove, "Steam two-pad gestures should suppress touchpad mouse movement")
+        }
+    }
+
+    func testSteamLeftTouchpadMovementProducesScroll() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "SteamLeftPadScroll", buttonMappings: [:])
+            profile.joystickSettings.touchpadDeadzone = 0.00001
+            profile.joystickSettings.touchpadPanSensitivity = 1.0
+            profileManager.setActiveProfile(profile)
+            controllerService.storage.isSteamController = true
+        }
+        await waitForTasks(0.15)
+
+        await MainActor.run {
+            controllerService.onSteamLeftTouchpadMoved?(CGPoint(x: 0.1, y: -0.1))
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let scrollEvents = mockInputSimulator.events.compactMap { event -> (CGFloat, CGFloat)? in
+                if case .scroll(let dx, let dy) = event {
+                    return (dx, dy)
+                }
+                return nil
+            }
+            XCTAssertTrue(
+                scrollEvents.contains { abs($0.0) > 0.1 || abs($0.1) > 0.1 },
+                "Steam left touchpad movement should emit app-owned scroll events"
+            )
+            XCTAssertTrue(
+                scrollEvents.contains { $0.0 > 0 },
+                "Steam left touchpad rightward movement should pan in the direct-manipulation direction"
+            )
         }
     }
 }

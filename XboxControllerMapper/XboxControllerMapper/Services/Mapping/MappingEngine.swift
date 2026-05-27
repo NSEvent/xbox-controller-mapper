@@ -336,6 +336,12 @@ class MappingEngine: ObservableObject {
                 self.processTouchpadMovement(delta)
             }
         }
+        controllerService.onSteamLeftTouchpadMoved = { [weak self] delta in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processSteamLeftTouchpadScroll(delta)
+            }
+        }
         controllerService.onTouchpadGesture = { [weak self] gesture in
             guard let self = self else { return }
             self.pollingQueue.async {
