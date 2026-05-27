@@ -15,9 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Profile sidebar status indicators**: Profile rows now show small Linked Apps icons next to the profile name, plus compact badges for realtime input mode, linked controllers, custom profile icons, and the default profile.
 
+- **Steam Controller support**: ControllerKeys now detects the Steam Controller over raw HID without requiring Steam to run. The app parses Steam Controller buttons, sticks, triggers, grip buttons, battery reports, haptics, gyroscope motion, and both square touchpads directly, while ignoring the duplicate macOS GameController route so inputs are not double-processed.
+
+- **Steam Controller preview and touchpad mapping UI**: The Buttons tab now has a dedicated Steam Controller preview layout with symmetric sticks, physical D-pad/face-button placement, a Steam-logo system button, a three-dot menu/share glyph, and live touch points on both square touchpads. Steam touchpads can run in Whole Pad or Quadrants mode; in Quadrants mode, each pad splits into four independently mappable click/touch regions.
+
+- **Steam Controller gestures and feedback**: Steam Controller touchpads now support two-pad pinch-to-zoom, touchpad haptics, gyro aiming, and gyro gesture mappings through the same mapping and focus-mode systems used by other controller families.
+
 ### Changed
 
 - **Input latency mode comparison**: The profile Input section now compares Standard vs Realtime modes more explicitly, including the tradeoff that Realtime is lower-latency for simple held key mappings while Standard keeps the timing window needed for chords, double-tap, long-hold, and Repeat while held behavior.
+
+- **Steam Controller button presentation**: Steam-specific button icons now render in mapping rows, chord/sequence editors, active lists, the input timeline, and the controller preview instead of falling back to Xbox labels.
+
+- **Steam Controller touchpad feel**: Touchpad movement, click movement thresholds, swipe typing, and two-pad pinch sensitivity were tuned for the Steam Controller's noisier square pads. Swipe typing now uses the normal cursor path by default and only switches to the swipe cursor while the user holds left click.
 
 - **AnKing community profile docs**: Clarified which bindings are stock Anki, which are AnKing notetype cloze controls, and which still depend on contributor-specific addons.
 
@@ -26,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Held diagonal movement mappings**: WASD/arrow-key stick presets and D-pad presets now hold independent cardinal keys instead of treating directions as mutually exclusive taps, so diagonal movement works smoothly in games such as Factorio.
+
+- **Steam Controller detection and default command suppression**: Steam Controller input is now owned by the raw HID path, avoiding the duplicate GameController path and suppressing stray default commands such as the left menu/select button sending Tab alongside its mapped ControllerKeys action.
+
+- **Steam Controller touchpad click/tap reliability**: Physical touchpad clicks now debounce press bounce, delay release through click wobble, suppress nearby tap dispatch, and ignore click-induced thumb drift so one physical click stays one mapped click even when the finger moves slightly.
+
+- **Steam Controller two-pad pinch isolation**: While both pads are actively participating in a pinch gesture, single-pad cursor movement, scrolling, and touchpad actions are latched out. Resting one finger on one pad while using the other pad still works.
+
+- **Steam Controller cursor and gyro behavior**: Steam touchpad deadzones and click thresholds reduce cursor jitter while resting a thumb or holding a window. Gyro aiming now handles horizontal movement more consistently, the purple focus-mode ring follows the gyro-driven cursor, and gyro gestures use the Steam Controller's raw gyro scale so turn left/right and tilt forward/back trigger at usable sensitivity.
 
 - **PlayStation linked-controller ambiguity**: DualSense, DualSense Edge, and DualShock 4 identity matching now avoids binding a profile to the wrong physical controller when multiple PlayStation HID devices are present. Mixed DualShock 4 + DualSense setups now filter HID candidates to the active controller model before showing or binding the current controller. When the app cannot prove the matching HID interfaces belong to one physical controller, PlayStation-only HID extras such as PS, mic, and Edge buttons are disabled until the ambiguity clears.
 
