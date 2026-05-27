@@ -65,13 +65,17 @@ extension ControllerService {
         let identities = devices.map {
             ControllerIdentityResolver.identity(for: $0, fallbackName: fallbackName)
         }
+        let callbackDevices = ControllerIdentityResolver.devicesForSinglePhysicalIdentity(
+            devices: devices,
+            identities: identities
+        )
 
-        if ControllerIdentityResolver.hasSinglePhysicalIdentity(identities) {
-            hidDevice = devices.first
+        if let device = callbackDevices.first {
+            hidDevice = device
         } else {
             hidDevice = nil
             if devices.count > 1 {
-                NSLog("[ControllerKeys] Multiple PlayStation HID identities found; using same-model controller identity fallback")
+                NSLog("[ControllerKeys] Multiple PlayStation HID identities found; disabling PlayStation HID-only buttons until one physical controller is available")
             }
         }
 
@@ -82,8 +86,9 @@ extension ControllerService {
             )
         }
 
-        // Get connected devices and set up input report callbacks on each.
-        for device in devices {
+        // Device-specific HID reports are safe only when all matching HID
+        // interfaces resolve to one physical controller.
+        for device in callbackDevices {
             setupHIDDeviceCallback(device)
         }
     }

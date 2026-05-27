@@ -47,6 +47,17 @@ enum ControllerIdentityResolver {
         return uniqueCandidates[0].hasStableId || candidates.count == 1
     }
 
+    static func devicesForSinglePhysicalIdentity<Device>(
+        devices: [Device],
+        identities: [ControllerIdentity]
+    ) -> [Device] {
+        guard devices.count == identities.count,
+              hasSinglePhysicalIdentity(identities) else {
+            return []
+        }
+        return devices
+    }
+
     static func identity(for device: IOHIDDevice, fallbackName: String? = nil) -> ControllerIdentity {
         let vendorId = intProperty(device, kIOHIDVendorIDKey)
         let productId = intProperty(device, kIOHIDProductIDKey)

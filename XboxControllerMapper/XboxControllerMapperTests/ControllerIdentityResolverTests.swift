@@ -51,6 +51,42 @@ final class ControllerIdentityResolverTests: XCTestCase {
         XCTAssertTrue(ControllerIdentityResolver.hasSinglePhysicalIdentity([first]))
     }
 
+    func testDevicesForSinglePhysicalIdentityKeepsDuplicateInterfacesForSameStableController() {
+        let firstInterface = makeIdentity(stableId: "serial:alpha")
+        let secondInterface = makeIdentity(stableId: "serial:alpha")
+
+        let devices = ControllerIdentityResolver.devicesForSinglePhysicalIdentity(
+            devices: ["input", "output"],
+            identities: [firstInterface, secondInterface]
+        )
+
+        XCTAssertEqual(devices, ["input", "output"])
+    }
+
+    func testDevicesForSinglePhysicalIdentityDropsAmbiguousSameModelControllers() {
+        let firstController = makeIdentity(stableId: "serial:alpha")
+        let secondController = makeIdentity(stableId: "serial:beta")
+
+        let devices = ControllerIdentityResolver.devicesForSinglePhysicalIdentity(
+            devices: ["alpha", "beta"],
+            identities: [firstController, secondController]
+        )
+
+        XCTAssertTrue(devices.isEmpty)
+    }
+
+    func testDevicesForSinglePhysicalIdentityDropsFallbackOnlyDuplicateControllers() {
+        let firstController = makeIdentity(stableId: nil)
+        let secondController = makeIdentity(stableId: nil)
+
+        let devices = ControllerIdentityResolver.devicesForSinglePhysicalIdentity(
+            devices: ["first", "second"],
+            identities: [firstController, secondController]
+        )
+
+        XCTAssertTrue(devices.isEmpty)
+    }
+
     func testResolvedIdentityUsesGenericFallbackForDifferentAmbiguousModels() {
         let dualSense = makeIdentity(
             stableId: "serial:alpha",
