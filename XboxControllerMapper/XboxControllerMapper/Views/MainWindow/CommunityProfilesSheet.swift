@@ -829,7 +829,7 @@ struct PreviewMappingRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ButtonIconView(button: button, isPressed: false, isDualSense: controllerService.threadSafeIsPlayStation, isNintendo: controllerService.threadSafeIsNintendo)
+            ButtonIconView(button: button, isPressed: false, isDualSense: controllerService.threadSafeIsPlayStation, isNintendo: controllerService.threadSafeIsNintendo, isSteamController: controllerService.threadSafeIsSteamController)
                 .frame(width: 28, height: 28)
 
             // Show mappings with hint + actual shortcut side by side
@@ -936,7 +936,7 @@ struct PreviewChordRow: View {
             // Button icons - match main chord list spacing
             HStack(spacing: 4) {
                 ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-                    ButtonIconView(button: button, isPressed: false, isDualSense: controllerService.threadSafeIsPlayStation, isNintendo: controllerService.threadSafeIsNintendo)
+                    ButtonIconView(button: button, isPressed: false, isDualSense: controllerService.threadSafeIsPlayStation, isNintendo: controllerService.threadSafeIsNintendo, isSteamController: controllerService.threadSafeIsSteamController)
                 }
             }
 

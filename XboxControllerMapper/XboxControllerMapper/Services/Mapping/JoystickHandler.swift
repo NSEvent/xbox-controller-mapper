@@ -46,9 +46,14 @@ extension MappingEngine {
         let dt = state.lastJoystickSampleTime > 0 ? now - state.lastJoystickSampleTime : Config.joystickPollInterval
         state.lastJoystickSampleTime = now
 
+        let focusFlags = settings.focusModeModifier.cgEventFlags
+        let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
+        updateFocusModeState(isFocusActive: isFocusActive, settings: settings, now: now)
+
         // Single lock acquisition for all controller input state (cache-friendly snapshot)
         let controllerSnapshot = controllerService.snapshot()
         let leftStick = controllerSnapshot.leftStick
+        processGyroAiming(settings: settings, now: now, isFocusActive: isFocusActive, hasMotion: controllerSnapshot.hasMotion)
 
         // Batch UI singleton reads: one lock per singleton instead of multiple per-property reads.
         // Previously 6 separate lock/unlock cycles across 3 singletons; now 3 total.
@@ -186,8 +191,7 @@ extension MappingEngine {
             side: .left,
             settings: settings,
             dt: dt,
-            now: now,
-            hasMotion: controllerSnapshot.hasMotion
+            now: now
         )
         effectiveLeftMode.strategy.process(leftInput, on: self)
 
@@ -204,8 +208,7 @@ extension MappingEngine {
                 side: .right,
                 settings: settings,
                 dt: dt,
-                now: now,
-                hasMotion: controllerSnapshot.hasMotion
+                now: now
             )
             effectiveRightMode.strategy.process(rightInput, on: self)
         }
@@ -341,10 +344,7 @@ extension MappingEngine {
 
     // MARK: - Mouse Movement (incl. Focus Mode + Gyro Aiming)
 
-    nonisolated func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime, hasMotion: Bool? = nil) {
-        let focusFlags = settings.focusModeModifier.cgEventFlags
-        let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
-
+    nonisolated func updateFocusModeState(isFocusActive: Bool, settings: JoystickSettings, now: CFAbsoluteTime) {
         let wasFocusActive = state.wasFocusActive
 
         if isFocusActive != wasFocusActive {
@@ -376,12 +376,10 @@ extension MappingEngine {
                 }
             }
         }
+    }
 
-        if state.focusExitTime > 0 && (now - state.focusExitTime) < Config.focusExitPauseDuration {
-            return
-        }
-
-        if settings.gyroAimingEnabled && isFocusActive && (hasMotion ?? controllerService.threadSafeHasMotion) {
+    nonisolated func processGyroAiming(settings: JoystickSettings, now: CFAbsoluteTime, isFocusActive: Bool, hasMotion: Bool) {
+        if settings.gyroAimingEnabled && isFocusActive && hasMotion {
             let (pitchRate, rollRate) = controllerService.consumeAverageMotionRates()
 
             // Skip filter update if no new gyro samples arrived this tick
@@ -420,6 +418,15 @@ extension MappingEngine {
                 state.gyroFilterY.reset()
                 state.lastGyroTime = 0
             }
+        }
+    }
+
+    nonisolated func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime) {
+        let focusFlags = settings.focusModeModifier.cgEventFlags
+        let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
+
+        if state.focusExitTime > 0 && (now - state.focusExitTime) < Config.focusExitPauseDuration {
+            return
         }
 
         guard let magnitude = JoystickMath.circularDeadzone(

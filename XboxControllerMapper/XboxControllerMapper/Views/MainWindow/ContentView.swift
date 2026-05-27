@@ -169,6 +169,7 @@ struct ContentView: View {
                 ),
                 isDualSense: controllerService.threadSafeIsPlayStation,
                 isNintendo: controllerService.threadSafeIsNintendo,
+                isSteamController: controllerService.threadSafeIsSteamController,
                 selectedLayerId: selectedLayerId
             )
         }
@@ -265,6 +266,12 @@ struct ContentView: View {
         .onChange(of: controllerService.threadSafeIsDualSense) { _, _ in
             selectFirstVisibleTabIfNeeded()
         }
+        .onChange(of: controllerService.threadSafeIsSteamController) { _, _ in
+            selectFirstVisibleTabIfNeeded()
+        }
+        .onChange(of: controllerService.threadSafeHasMotion) { _, _ in
+            selectFirstVisibleTabIfNeeded()
+        }
         .onDisappear {
             if let monitor = scrollKeyMonitor {
                 NSEvent.removeMonitor(monitor)
@@ -281,7 +288,9 @@ struct ContentView: View {
         return MainWindowSection.visibleSections(
             hiddenSections: hiddenSections,
             isPlayStation: controllerService.threadSafeIsPlayStation,
-            isDualSense: controllerService.threadSafeIsDualSense
+            isDualSense: controllerService.threadSafeIsDualSense,
+            isSteamController: controllerService.threadSafeIsSteamController,
+            hasMotion: controllerService.threadSafeHasMotion
         )
         .map(\.tabItem)
     }
@@ -666,10 +675,19 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         )
     }
 
-    func isAvailable(isPlayStation: Bool, isDualSense: Bool) -> Bool {
+    func isAvailable(
+        isPlayStation: Bool,
+        isDualSense: Bool,
+        isSteamController: Bool,
+        hasMotion: Bool
+    ) -> Bool {
         switch self {
-        case .touchpad, .leds, .gestures:
+        case .touchpad:
+            return isPlayStation || isSteamController
+        case .leds:
             return isPlayStation
+        case .gestures:
+            return hasMotion
         case .microphone:
             return isDualSense
         default:
@@ -696,10 +714,17 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     static func visibleSections(
         hiddenSections: Set<MainWindowSection>,
         isPlayStation: Bool,
-        isDualSense: Bool
+        isDualSense: Bool,
+        isSteamController: Bool,
+        hasMotion: Bool
     ) -> [MainWindowSection] {
         displayOrder.filter { section in
-            section.isAvailable(isPlayStation: isPlayStation, isDualSense: isDualSense)
+            section.isAvailable(
+                isPlayStation: isPlayStation,
+                isDualSense: isDualSense,
+                isSteamController: isSteamController,
+                hasMotion: hasMotion
+            )
                 && !hiddenSections.contains(section)
         }
     }

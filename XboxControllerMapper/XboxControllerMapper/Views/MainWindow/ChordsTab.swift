@@ -21,6 +21,7 @@ struct ChordsTab: View {
                         chords: profile.chordMappings,
                         isDualSense: controllerService.threadSafeIsPlayStation,
                         isNintendo: controllerService.threadSafeIsNintendo,
+                        isSteamController: controllerService.threadSafeIsSteamController,
                         onEdit: { chord in
                             editingChord = chord
                         },

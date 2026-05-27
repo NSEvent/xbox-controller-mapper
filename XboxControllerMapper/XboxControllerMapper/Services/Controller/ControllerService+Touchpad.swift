@@ -335,7 +335,10 @@ extension ControllerService {
                         newPosition.x - storage.touchpadClickStartPosition.x,
                         newPosition.y - storage.touchpadClickStartPosition.y
                     ))
-                    if distance < Config.touchpadClickMovementThreshold {
+                    let clickMovementThreshold = storage.isSteamController
+                        ? Config.steamTouchpadClickMovementThreshold
+                        : Config.touchpadClickMovementThreshold
+                    if distance < clickMovementThreshold {
                         storage.touchpadPosition = newPosition
                         storage.touchpadPreviousPosition = newPosition
                         storage.pendingTouchpadDelta = nil
@@ -408,7 +411,10 @@ extension ControllerService {
                     newPosition.y - storage.touchpadTouchStartPosition.y
                 ))
                 let inSettlePeriod = timeSinceTouchStart < Config.touchpadTouchSettleInterval
-                let belowMovementThreshold = distanceFromStart < Config.touchpadClickMovementThreshold
+                let clickMovementThreshold = storage.isSteamController
+                    ? Config.steamTouchpadClickMovementThreshold
+                    : Config.touchpadClickMovementThreshold
+                let belowMovementThreshold = distanceFromStart < clickMovementThreshold
 
                 if inSettlePeriod && belowMovementThreshold {
                     // Still settling - update position but don't generate movement

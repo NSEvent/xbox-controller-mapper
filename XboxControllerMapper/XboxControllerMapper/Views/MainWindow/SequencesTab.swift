@@ -21,6 +21,7 @@ struct SequencesTab: View {
                         sequences: profile.sequenceMappings,
                         isDualSense: controllerService.threadSafeIsPlayStation,
                         isNintendo: controllerService.threadSafeIsNintendo,
+                        isSteamController: controllerService.threadSafeIsSteamController,
                         onEdit: { sequence in
                             editingSequence = sequence
                         },

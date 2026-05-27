@@ -13,6 +13,10 @@ struct InputLogView: View {
         controllerService.threadSafeIsNintendo
     }
 
+    private var isSteamController: Bool {
+        controllerService.threadSafeIsSteamController
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             HStack(spacing: 6) {
@@ -37,7 +41,7 @@ struct InputLogView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 0) {
                         ForEach(inputLogService.entries) { entry in
-                            LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo)
+                            LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController)
                         }
                     }
                     .frame(minHeight: 46)
@@ -63,9 +67,10 @@ private struct LogEntryView: View, Equatable {
     let isLast: Bool
     let isPlayStation: Bool  // True for DualSense/DualShock - used for PS-style labels
     let isNintendo: Bool
+    let isSteamController: Bool
 
     static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
-        lhs.isLast == rhs.isLast && lhs.entry == rhs.entry && lhs.isPlayStation == rhs.isPlayStation && lhs.isNintendo == rhs.isNintendo
+        lhs.isLast == rhs.isLast && lhs.entry == rhs.entry && lhs.isPlayStation == rhs.isPlayStation && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController
     }
 
     var body: some View {
@@ -74,7 +79,7 @@ private struct LogEntryView: View, Equatable {
                 // Top: Button(s) + Type
                 HStack(spacing: 4) {
                     ForEach(entry.buttons, id: \.self) { button in
-                        ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo)
+                        ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController)
                     }
 
                     if entry.type != .singlePress {

@@ -20,8 +20,7 @@ struct MouseStickStrategy: JoystickStickStrategy {
         engine.processMouseMovement(
             input.stick,
             settings: input.settings,
-            now: input.now,
-            hasMotion: input.hasMotion
+            now: input.now
         )
     }
 }

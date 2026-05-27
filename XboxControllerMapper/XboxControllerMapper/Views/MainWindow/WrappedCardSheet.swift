@@ -17,7 +17,8 @@ struct WrappedCardSheet: View {
             WrappedCardView(
                 stats: usageStatsService.stats,
                 isDualSense: controllerService.threadSafeIsPlayStation,
-                isNintendo: controllerService.threadSafeIsNintendo
+                isNintendo: controllerService.threadSafeIsNintendo,
+                isSteamController: controllerService.threadSafeIsSteamController
             )
             .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
 
@@ -51,7 +52,8 @@ struct WrappedCardSheet: View {
         let card = WrappedCardView(
             stats: usageStatsService.stats,
             isDualSense: controllerService.threadSafeIsPlayStation,
-            isNintendo: controllerService.threadSafeIsNintendo
+            isNintendo: controllerService.threadSafeIsNintendo,
+            isSteamController: controllerService.threadSafeIsSteamController
         )
 
         let renderer = ImageRenderer(content: card)

@@ -7,6 +7,7 @@ struct ButtonMappingSheet: View {
     @Binding var mapping: KeyMapping?
     var isDualSense: Bool = false
     var isNintendo: Bool = false
+    var isSteamController: Bool = false
     var selectedLayerId: UUID? = nil  // nil = editing base layer
 
     @EnvironmentObject var profileManager: ProfileManager
@@ -223,7 +224,7 @@ struct ButtonMappingSheet: View {
 
     private var header: some View {
         HStack {
-            ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo)
+            ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController)
                 .padding(.trailing, 8)
 
             VStack(alignment: .leading, spacing: 4) {

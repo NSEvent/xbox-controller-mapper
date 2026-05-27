@@ -372,6 +372,8 @@ extension ControllerService {
         state: SteamControllerTouchpadState,
         pressed: Bool
     ) {
+        updateSteamTouchpadClickMovementGate(side: side, state: state, pressed: pressed)
+
         let position = CGPoint(x: CGFloat(state.x), y: CGFloat(state.y))
         var buttonToDispatch: ControllerButton?
 
@@ -424,6 +426,31 @@ extension ControllerService {
         controllerQueue.async { [weak self] in
             self?.handleButton(buttonToDispatch, pressed: pressed)
         }
+    }
+
+    private nonisolated func updateSteamTouchpadClickMovementGate(
+        side: SteamTouchpadSide,
+        state: SteamControllerTouchpadState,
+        pressed: Bool
+    ) {
+        guard side == .right else { return }
+        storage.lock.lock()
+        if pressed {
+            let position = steamTouchpadVirtualPosition(
+                side: side,
+                x: state.x,
+                y: state.y,
+                isTouching: true
+            )
+            storage.touchpadClickArmed = true
+            storage.touchpadClickStartPosition = position
+            storage.touchpadClickFiredDuringTouch = true
+            storage.pendingTouchpadDelta = nil
+            storage.touchpadFramesSinceTouch = 0
+        } else {
+            storage.touchpadClickArmed = false
+        }
+        storage.lock.unlock()
     }
 }
 

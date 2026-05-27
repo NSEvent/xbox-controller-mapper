@@ -12,6 +12,7 @@ struct StatsView: View {
     private var stats: UsageStats { usageStatsService.stats }
     private var isDualSense: Bool { controllerService.threadSafeIsPlayStation }
     private var isNintendo: Bool { controllerService.threadSafeIsNintendo }
+    private var isSteamController: Bool { controllerService.threadSafeIsSteamController }
 
     var body: some View {
         ScrollView {
@@ -348,7 +349,7 @@ struct StatsView: View {
 
             ForEach(top, id: \.button) { item in
                 HStack(spacing: 12) {
-                    ButtonIconView(button: item.button, isDualSense: isDualSense, isNintendo: isNintendo)
+                    ButtonIconView(button: item.button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController)
                         .frame(width: ButtonIconView.maxIconWidth)
 
                     Text(item.button.displayName(forDualSense: isDualSense, forNintendo: isNintendo))

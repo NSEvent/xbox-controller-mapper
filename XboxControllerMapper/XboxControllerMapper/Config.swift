@@ -183,6 +183,10 @@ struct Config {
     /// Movement threshold to ignore click-induced touchpad jitter and tap drift
     /// DualSense touchpad has inherent drift of ~0.02-0.03 even when holding still
     static let touchpadClickMovementThreshold: Double = 0.04
+    /// Steam Controller touchpad clicks push the thumb across the pad surface
+    /// more than DualSense. Keep normal click movement quiet until the user
+    /// moves far enough to look like an intentional drag.
+    static let steamTouchpadClickMovementThreshold: Double = 0.10
     /// Time after touch starts before movement is allowed (prevents tap-induced drift)
     /// Increased to 150ms to cover most tap durations
     static let touchpadTouchSettleInterval: TimeInterval = 0.15
@@ -225,8 +229,16 @@ struct Config {
     /// Some Steam Controller touchpad click reports bounce a second press shortly
     /// after release. Ignore that bounce so a single physical click stays single.
     static let steamTouchpadClickDebounceInterval: TimeInterval = 0.08
+    /// Delay every Steam touchpad click release. The pressure switch can
+    /// flicker during click wobble, sometimes even while touch reports briefly
+    /// drop to false, and posting mouseUp immediately turns one physical click
+    /// into two.
+    static let steamTouchpadClickReleaseSettleInterval: TimeInterval = 0.12
     /// Delay tap dispatch briefly so a late physical click packet can cancel it.
     static let steamTouchpadTapClickSuppressionWindow: TimeInterval = 0.09
+    /// Suppress Steam touchpad tap actions right after a physical click on the
+    /// same pad. Click wobble can look like a tiny tap/lift after mouseUp.
+    static let steamTouchpadPostClickTapSuppressionInterval: TimeInterval = 0.2
     /// Ratio threshold: if pinch/pan ratio exceeds this, treat as pinch gesture
     /// Higher = pinch must be more dominant over pan to trigger zoom
     static let touchpadPinchVsPanRatio: Double = 1.8

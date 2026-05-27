@@ -55,6 +55,10 @@ struct SteamControllerTouchpadTapTracker {
     private var maxDistanceFromStart: Double = 0
     private var clickFiredDuringTouch = false
 
+    mutating func markClickFired() {
+        clickFiredDuringTouch = true
+    }
+
     mutating func update(
         state: SteamControllerTouchpadState,
         now: TimeInterval,
@@ -136,6 +140,11 @@ struct SteamControllerTouchpadTapGate {
         }
         return taps
     }
+}
+
+private struct SteamControllerPendingTouchpadClickRelease {
+    let state: SteamControllerTouchpadState
+    let deadline: TimeInterval
 }
 
 enum SteamControllerButtonMask {
@@ -339,8 +348,13 @@ final class SteamControllerHIDController {
     private var lastRightTouchpadClick: Bool?
     private var lastLeftTouchpadClickReleaseTime: TimeInterval = 0
     private var lastRightTouchpadClickReleaseTime: TimeInterval = 0
+    private var lastLeftTouchpadClickActionTime: TimeInterval = 0
+    private var lastRightTouchpadClickActionTime: TimeInterval = 0
     private var suppressedLeftTouchpadClickPress = false
     private var suppressedRightTouchpadClickPress = false
+    private var pendingLeftTouchpadClickRelease: SteamControllerPendingTouchpadClickRelease?
+    private var pendingRightTouchpadClickRelease: SteamControllerPendingTouchpadClickRelease?
+    private var touchpadClickReleaseFlushWorkItem: DispatchWorkItem?
     private var leftTouchpadTapTracker = SteamControllerTouchpadTapTracker()
     private var rightTouchpadTapTracker = SteamControllerTouchpadTapTracker()
     private var touchpadTapGate = SteamControllerTouchpadTapGate()
@@ -449,8 +463,14 @@ final class SteamControllerHIDController {
         lastRightTouchpadClick = nil
         lastLeftTouchpadClickReleaseTime = 0
         lastRightTouchpadClickReleaseTime = 0
+        lastLeftTouchpadClickActionTime = 0
+        lastRightTouchpadClickActionTime = 0
         suppressedLeftTouchpadClickPress = false
         suppressedRightTouchpadClickPress = false
+        pendingLeftTouchpadClickRelease = nil
+        pendingRightTouchpadClickRelease = nil
+        touchpadClickReleaseFlushWorkItem?.cancel()
+        touchpadClickReleaseFlushWorkItem = nil
         leftTouchpadTapTracker = SteamControllerTouchpadTapTracker()
         rightTouchpadTapTracker = SteamControllerTouchpadTapTracker()
         touchpadTapGate = SteamControllerTouchpadTapGate()
@@ -670,7 +690,9 @@ final class SteamControllerHIDController {
             now: now,
             lastClick: &lastLeftTouchpadClick,
             lastReleaseTime: &lastLeftTouchpadClickReleaseTime,
-            suppressedPress: &suppressedLeftTouchpadClickPress
+            lastActionTime: &lastLeftTouchpadClickActionTime,
+            suppressedPress: &suppressedLeftTouchpadClickPress,
+            pendingRelease: &pendingLeftTouchpadClickRelease
         )
 
         dispatchTouchpadClickIfNeeded(
@@ -679,7 +701,9 @@ final class SteamControllerHIDController {
             now: now,
             lastClick: &lastRightTouchpadClick,
             lastReleaseTime: &lastRightTouchpadClickReleaseTime,
-            suppressedPress: &suppressedRightTouchpadClickPress
+            lastActionTime: &lastRightTouchpadClickActionTime,
+            suppressedPress: &suppressedRightTouchpadClickPress,
+            pendingRelease: &pendingRightTouchpadClickRelease
         )
 
         flushPendingTouchpadTaps(now: now)
@@ -718,11 +742,36 @@ final class SteamControllerHIDController {
         now: TimeInterval,
         lastClick: inout Bool?,
         lastReleaseTime: inout TimeInterval,
-        suppressedPress: inout Bool
+        lastActionTime: inout TimeInterval,
+        suppressedPress: inout Bool,
+        pendingRelease: inout SteamControllerPendingTouchpadClickRelease?
     ) {
+        if state.isPressed {
+            pendingRelease = nil
+        } else if let pending = pendingRelease {
+            if now < pending.deadline {
+                return
+            }
+            completePendingTouchpadClickRelease(
+                side: side,
+                pendingRelease: &pendingRelease,
+                now: now,
+                lastClick: &lastClick,
+                lastReleaseTime: &lastReleaseTime,
+                lastActionTime: &lastActionTime,
+                suppressedPress: &suppressedPress
+            )
+            return
+        }
+
         guard lastClick != state.isPressed else { return }
         if lastClick != nil || state.isPressed {
             touchpadTapGate.cancel(side: side)
+        }
+
+        if state.isPressed {
+            markTouchpadClickFired(side: side)
+            lastActionTime = now
         }
 
         if state.isPressed,
@@ -734,12 +783,12 @@ final class SteamControllerHIDController {
         }
 
         if !state.isPressed {
-            lastReleaseTime = now
-            if suppressedPress {
-                suppressedPress = false
-                lastClick = false
-                return
-            }
+            pendingRelease = SteamControllerPendingTouchpadClickRelease(
+                state: state,
+                deadline: now + Config.steamTouchpadClickReleaseSettleInterval
+            )
+            scheduleTouchpadClickReleaseFlush()
+            return
         }
 
         if lastClick != nil || state.isPressed {
@@ -749,8 +798,88 @@ final class SteamControllerHIDController {
     }
 
     private func queueTouchpadTap(side: SteamTouchpadSide, region: TouchpadRegion, now: TimeInterval) {
+        let lastClickAction = side == .left ? lastLeftTouchpadClickActionTime : lastRightTouchpadClickActionTime
+        guard now - lastClickAction >= Config.steamTouchpadPostClickTapSuppressionInterval else { return }
+
         touchpadTapGate.queue(side: side, region: region, now: now)
         scheduleTouchpadTapFlush()
+    }
+
+    private func markTouchpadClickFired(side: SteamTouchpadSide) {
+        switch side {
+        case .left:
+            leftTouchpadTapTracker.markClickFired()
+        case .right:
+            rightTouchpadTapTracker.markClickFired()
+        }
+    }
+
+    private func completePendingTouchpadClickRelease(
+        side: SteamTouchpadSide,
+        pendingRelease: inout SteamControllerPendingTouchpadClickRelease?,
+        now: TimeInterval,
+        lastClick: inout Bool?,
+        lastReleaseTime: inout TimeInterval,
+        lastActionTime: inout TimeInterval,
+        suppressedPress: inout Bool
+    ) {
+        guard let pending = pendingRelease else { return }
+        pendingRelease = nil
+        lastReleaseTime = now
+
+        if suppressedPress {
+            suppressedPress = false
+            lastClick = false
+            return
+        }
+
+        if lastClick != nil {
+            lastActionTime = now
+            onTouchpadClickChanged?(side, pending.state, false)
+        }
+        lastClick = false
+    }
+
+    private func flushPendingTouchpadClickReleases(now: TimeInterval) {
+        if let pending = pendingLeftTouchpadClickRelease, now >= pending.deadline {
+            completePendingTouchpadClickRelease(
+                side: .left,
+                pendingRelease: &pendingLeftTouchpadClickRelease,
+                now: now,
+                lastClick: &lastLeftTouchpadClick,
+                lastReleaseTime: &lastLeftTouchpadClickReleaseTime,
+                lastActionTime: &lastLeftTouchpadClickActionTime,
+                suppressedPress: &suppressedLeftTouchpadClickPress
+            )
+        }
+
+        if let pending = pendingRightTouchpadClickRelease, now >= pending.deadline {
+            completePendingTouchpadClickRelease(
+                side: .right,
+                pendingRelease: &pendingRightTouchpadClickRelease,
+                now: now,
+                lastClick: &lastRightTouchpadClick,
+                lastReleaseTime: &lastRightTouchpadClickReleaseTime,
+                lastActionTime: &lastRightTouchpadClickActionTime,
+                suppressedPress: &suppressedRightTouchpadClickPress
+            )
+        }
+    }
+
+    private func scheduleTouchpadClickReleaseFlush() {
+        touchpadClickReleaseFlushWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, let runLoop = self.scheduledRunLoop else { return }
+            CFRunLoopPerformBlock(runLoop, CFRunLoopMode.defaultMode.rawValue) { [weak self] in
+                self?.flushPendingTouchpadClickReleases(now: CFAbsoluteTimeGetCurrent())
+            }
+            CFRunLoopWakeUp(runLoop)
+        }
+        touchpadClickReleaseFlushWorkItem = workItem
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(
+            deadline: .now() + Config.steamTouchpadClickReleaseSettleInterval,
+            execute: workItem
+        )
     }
 
     private func flushPendingTouchpadTaps(now: TimeInterval) {

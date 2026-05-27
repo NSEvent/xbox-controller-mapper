@@ -17,7 +17,6 @@ struct JoystickStickInput {
     let settings: JoystickSettings
     let dt: TimeInterval
     let now: CFAbsoluteTime
-    let hasMotion: Bool
 }
 
 /// One strategy per `StickMode`. The strategy owns the per-tick logic for

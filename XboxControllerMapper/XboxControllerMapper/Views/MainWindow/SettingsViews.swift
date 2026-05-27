@@ -1246,7 +1246,9 @@ struct SettingsSheet: View {
                                         Text(section.label)
                                         if !section.isAvailable(
                                             isPlayStation: controllerService.threadSafeIsPlayStation,
-                                            isDualSense: controllerService.threadSafeIsDualSense
+                                            isDualSense: controllerService.threadSafeIsDualSense,
+                                            isSteamController: controllerService.threadSafeIsSteamController,
+                                            hasMotion: controllerService.threadSafeHasMotion
                                         ) {
                                             Text(unavailableReason(for: section))
                                                 .font(.caption)
@@ -1257,7 +1259,9 @@ struct SettingsSheet: View {
                             }
                             .disabled(!section.isAvailable(
                                 isPlayStation: controllerService.threadSafeIsPlayStation,
-                                isDualSense: controllerService.threadSafeIsDualSense
+                                isDualSense: controllerService.threadSafeIsDualSense,
+                                isSteamController: controllerService.threadSafeIsSteamController,
+                                hasMotion: controllerService.threadSafeHasMotion
                             ) || isLastVisibleSection(section))
                         }
                     } header: {
@@ -1515,7 +1519,9 @@ struct SettingsSheet: View {
         let visibleSections = MainWindowSection.visibleSections(
             hiddenSections: hiddenSections,
             isPlayStation: controllerService.threadSafeIsPlayStation,
-            isDualSense: controllerService.threadSafeIsDualSense
+            isDualSense: controllerService.threadSafeIsDualSense,
+            isSteamController: controllerService.threadSafeIsSteamController,
+            hasMotion: controllerService.threadSafeHasMotion
         )
         return visibleSections.count == 1 && visibleSections.first == section
     }
@@ -1539,8 +1545,12 @@ struct SettingsSheet: View {
 
     private func unavailableReason(for section: MainWindowSection) -> String {
         switch section {
-        case .touchpad, .leds, .gestures:
+        case .touchpad:
+            return "Requires a PlayStation or Steam Controller"
+        case .leds:
             return "Requires a PlayStation controller"
+        case .gestures:
+            return "Requires a controller with a gyroscope"
         case .microphone:
             return "Requires a DualSense controller"
         default:

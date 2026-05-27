@@ -6,7 +6,9 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
         let sections = MainWindowSection.visibleSections(
             hiddenSections: [],
             isPlayStation: true,
-            isDualSense: true
+            isDualSense: true,
+            isSteamController: false,
+            hasMotion: true
         )
 
         XCTAssertEqual(sections, MainWindowSection.displayOrder)
@@ -37,7 +39,9 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
         let sections = MainWindowSection.visibleSections(
             hiddenSections: [],
             isPlayStation: false,
-            isDualSense: false
+            isDualSense: false,
+            isSteamController: false,
+            hasMotion: false
         )
 
         XCTAssertFalse(sections.contains(.gestures))
@@ -52,7 +56,9 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
         let sections = MainWindowSection.visibleSections(
             hiddenSections: [.chords, .sequences, .macros],
             isPlayStation: true,
-            isDualSense: true
+            isDualSense: true,
+            isSteamController: false,
+            hasMotion: true
         )
 
         XCTAssertFalse(sections.contains(.chords))
@@ -60,6 +66,21 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
         XCTAssertFalse(sections.contains(.macros))
         XCTAssertTrue(sections.contains(.buttons))
         XCTAssertTrue(sections.contains(.touchpad))
+    }
+
+    func testSteamControllerShowsTouchpadAndGesturesSections() {
+        let sections = MainWindowSection.visibleSections(
+            hiddenSections: [],
+            isPlayStation: false,
+            isDualSense: false,
+            isSteamController: true,
+            hasMotion: true
+        )
+
+        XCTAssertTrue(sections.contains(.gestures))
+        XCTAssertTrue(sections.contains(.touchpad))
+        XCTAssertFalse(sections.contains(.leds))
+        XCTAssertFalse(sections.contains(.microphone))
     }
 
     func testHiddenSectionEncodingRoundTripsAndIgnoresInvalidTags() {
