@@ -20,8 +20,6 @@ class FocusModeIndicator {
     private var panel: NSPanel?
     private var trackingTimer: Timer?
     private var isVisible = false
-    /// Last confirmed physical cursor position during zoom (NS coords)
-    private var lastPhysicalPosition: NSPoint?
 
     // Ring appearance settings - matches the app's "jewel" aesthetic
     private let ringSize: CGFloat = 32
@@ -116,28 +114,17 @@ class FocusModeIndicator {
         let mouseLocation = NSEvent.mouseLocation
         let screenFrame = NSScreen.screens.first?.frame ?? NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1728, height: 1117)
 
-        if isZoomed, let tracked = tracked {
-            let screenHeight = screenFrame.height
-            let isVirtualReading = CursorOscillationFilter.isVirtualReading(
-                mouseLocation: mouseLocation,
-                trackedCGPosition: tracked,
-                screenHeight: screenHeight
-            )
+        let cursorPos = OverlayPositionPolicy.cursorScreenPosition(
+            zoomActive: isZoomed,
+            zoomLevel: zoomLevel,
+            trackedCursorPosition: tracked,
+            fallbackCursorLocation: mouseLocation,
+            screenFrame: screenFrame,
+            preferFreshTrackedWhenUnzoomed: true,
+            trackedCursorLastMoveTime: trackedSnapshot.lastMoveTime
+        )
 
-            let cursorPos: NSPoint
-            if isVirtualReading {
-                guard let last = lastPhysicalPosition else { return }
-                cursorPos = last
-            } else {
-                lastPhysicalPosition = mouseLocation
-                cursorPos = mouseLocation
-            }
-
-            panel.setFrameOrigin(NSPoint(x: cursorPos.x - offset, y: cursorPos.y - offset))
-        } else {
-            lastPhysicalPosition = nil
-            panel.setFrameOrigin(NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset))
-        }
+        panel.setFrameOrigin(NSPoint(x: cursorPos.x - offset, y: cursorPos.y - offset))
     }
 }
 

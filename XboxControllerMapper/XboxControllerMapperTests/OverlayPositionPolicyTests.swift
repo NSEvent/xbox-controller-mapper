@@ -211,6 +211,63 @@ final class OverlayPositionPolicyTests: XCTestCase {
         XCTAssertEqual(result, fallback)
     }
 
+    func testZoomNotActive_prefersFreshTrackedPositionWhenRequested() {
+        let tracked = CGPoint(x: 400, y: 200)
+        let fallback = CGPoint(x: 20, y: 30)
+
+        let result = OverlayPositionPolicy.cursorScreenPosition(
+            zoomActive: false,
+            zoomLevel: 1.0,
+            trackedCursorPosition: tracked,
+            fallbackCursorLocation: fallback,
+            screenFrame: screen,
+            preferFreshTrackedWhenUnzoomed: true,
+            trackedCursorLastMoveTime: 10.0,
+            now: 10.05,
+            freshTrackedMaxAge: 0.15
+        )
+
+        XCTAssertEqual(result.x, 400, accuracy: 0.01)
+        XCTAssertEqual(result.y, 880, accuracy: 0.01)
+    }
+
+    func testZoomNotActive_staleTrackedPositionUsesFallback() {
+        let tracked = CGPoint(x: 400, y: 200)
+        let fallback = CGPoint(x: 20, y: 30)
+
+        let result = OverlayPositionPolicy.cursorScreenPosition(
+            zoomActive: false,
+            zoomLevel: 1.0,
+            trackedCursorPosition: tracked,
+            fallbackCursorLocation: fallback,
+            screenFrame: screen,
+            preferFreshTrackedWhenUnzoomed: true,
+            trackedCursorLastMoveTime: 10.0,
+            now: 10.30,
+            freshTrackedMaxAge: 0.15
+        )
+
+        XCTAssertEqual(result, fallback)
+    }
+
+    func testZoomNotActive_requiresOptInToUseTrackedPosition() {
+        let tracked = CGPoint(x: 400, y: 200)
+        let fallback = CGPoint(x: 20, y: 30)
+
+        let result = OverlayPositionPolicy.cursorScreenPosition(
+            zoomActive: false,
+            zoomLevel: 1.0,
+            trackedCursorPosition: tracked,
+            fallbackCursorLocation: fallback,
+            screenFrame: screen,
+            trackedCursorLastMoveTime: 10.0,
+            now: 10.05,
+            freshTrackedMaxAge: 0.15
+        )
+
+        XCTAssertEqual(result, fallback)
+    }
+
     // MARK: - No tracked position during zoom (fallback to center)
 
     func testZoomActive_noTrackedPosition_returnsScreenCenter() {

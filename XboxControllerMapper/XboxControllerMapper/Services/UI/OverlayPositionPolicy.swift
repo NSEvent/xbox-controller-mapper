@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// Computes the cursor's screen position for overlay panel placement.
 ///
@@ -29,10 +30,20 @@ struct OverlayPositionPolicy {
         zoomLevel: CGFloat,
         trackedCursorPosition: CGPoint?,
         fallbackCursorLocation: CGPoint,
-        screenFrame: CGRect
+        screenFrame: CGRect,
+        preferFreshTrackedWhenUnzoomed: Bool = false,
+        trackedCursorLastMoveTime: TimeInterval? = nil,
+        now: TimeInterval = CFAbsoluteTimeGetCurrent(),
+        freshTrackedMaxAge: TimeInterval = 0.15
     ) -> CGPoint {
         // When zoom is not active or effectively 1×, system APIs are reliable
         guard zoomActive, zoomLevel > 1.0 else {
+            if preferFreshTrackedWhenUnzoomed,
+               let tracked = trackedCursorPosition,
+               let trackedCursorLastMoveTime,
+               now - trackedCursorLastMoveTime <= freshTrackedMaxAge {
+                return unzoomedTrackedPosition(tracked, screenFrame: screenFrame)
+            }
             return fallbackCursorLocation
         }
 
@@ -63,6 +74,13 @@ struct OverlayPositionPolicy {
         return CGPoint(
             x: screenFrame.origin.x + physicalX,
             y: screenFrame.origin.y + screenFrame.height - physicalY
+        )
+    }
+
+    private static func unzoomedTrackedPosition(_ tracked: CGPoint, screenFrame: CGRect) -> CGPoint {
+        CGPoint(
+            x: screenFrame.origin.x + tracked.x,
+            y: screenFrame.origin.y + screenFrame.height - tracked.y
         )
     }
 }
