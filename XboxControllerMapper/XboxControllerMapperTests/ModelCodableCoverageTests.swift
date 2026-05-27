@@ -258,6 +258,8 @@ final class ModelCodableCoverageTests: XCTestCase {
             "touchpadDeadzone": 1.0,
             "touchpadSmoothing": -1.0,
             "touchpadPanSensitivity": 3.0,
+            "touchpadInvertScrollX": true,
+            "touchpadInvertScrollY": true,
             "touchpadZoomToPanRatio": -1.0,
             "scrollAcceleration": 2.0,
             "scrollBoostMultiplier": 20.0,
@@ -277,6 +279,8 @@ final class ModelCodableCoverageTests: XCTestCase {
         XCTAssertEqual(decoded.touchpadDeadzone, 0.03, accuracy: 0.0001)
         XCTAssertEqual(decoded.touchpadSmoothing, 0.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.touchpadPanSensitivity, 1.0, accuracy: 0.0001)
+        XCTAssertTrue(decoded.touchpadInvertScrollX)
+        XCTAssertTrue(decoded.touchpadInvertScrollY)
         XCTAssertEqual(decoded.touchpadZoomToPanRatio, 0.5, accuracy: 0.0001)
         XCTAssertEqual(decoded.scrollAcceleration, 1.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.scrollBoostMultiplier, 4.0, accuracy: 0.0001)

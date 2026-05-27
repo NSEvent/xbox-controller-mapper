@@ -116,9 +116,14 @@ extension MappingEngine {
         guard magnitude > deadzone else { return }
 
         let scale = snapshot.settings.touchpadPanSensitivity * Config.touchpadPanSensitivityMultiplier
-        let dx = Double(delta.x) * scale
+        var dx = Double(delta.x) * scale
         var dy = -Double(delta.y) * scale
-        dy = snapshot.settings.invertScrollY ? -dy : dy
+        if snapshot.settings.touchpadInvertScrollX {
+            dx = -dx
+        }
+        if snapshot.settings.touchpadInvertScrollY {
+            dy = -dy
+        }
 
         inputSimulator.scroll(
             dx: CGFloat(dx),
@@ -478,7 +483,12 @@ extension MappingEngine {
         let panScale = settings.touchpadPanSensitivity * Config.touchpadPanSensitivityMultiplier
         var dx = Double(smoothedCenter.x) * panScale
         var dy = -Double(smoothedCenter.y) * panScale
-        dy = settings.invertScrollY ? -dy : dy
+        if settings.touchpadInvertScrollX {
+            dx = -dx
+        }
+        if settings.touchpadInvertScrollY {
+            dy = -dy
+        }
 
         let sampleInterval = lastSampleTime == 0 ? Config.touchpadMomentumMinDeltaTime : (now - lastSampleTime)
         let dt = max(sampleInterval, Config.touchpadMomentumMinDeltaTime)

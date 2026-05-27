@@ -477,6 +477,67 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         await waitForTasks(0.1)
     }
 
+    func testTouchpadPanGestureRespectsScrollInversion() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "TouchPanInverted", buttonMappings: [:])
+            profile.joystickSettings.touchpadUseNativeZoom = false
+            profile.joystickSettings.touchpadSmoothing = 0
+            profile.joystickSettings.touchpadPanSensitivity = 1.0
+            profile.joystickSettings.touchpadZoomToPanRatio = 5.0
+            profile.joystickSettings.touchpadInvertScrollX = true
+            profile.joystickSettings.touchpadInvertScrollY = true
+            profileManager.setActiveProfile(profile)
+            controllerService.isConnected = true
+        }
+        await waitForTasks(0.15)
+
+        await MainActor.run {
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: CGPoint(x: 0.9, y: 0.7),
+                    distanceDelta: 0.0,
+                    isPrimaryTouching: true,
+                    isSecondaryTouching: true
+                )
+            )
+        }
+        await waitForTasks(0.05)
+        await MainActor.run {
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: CGPoint(x: 0.9, y: 0.7),
+                    distanceDelta: 0.0,
+                    isPrimaryTouching: true,
+                    isSecondaryTouching: true
+                )
+            )
+        }
+        await waitForTasks(0.35)
+
+        await MainActor.run {
+            let scrollEvents = mockInputSimulator.events.compactMap { event -> (CGFloat, CGFloat)? in
+                if case .scroll(let dx, let dy) = event, abs(dx) > 0.1 || abs(dy) > 0.1 {
+                    return (dx, dy)
+                }
+                return nil
+            }
+            XCTAssertTrue(
+                scrollEvents.contains { $0.0 < 0 && $0.1 > 0 },
+                "Touchpad pan inversion should reverse both horizontal and vertical scroll"
+            )
+
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: .zero,
+                    distanceDelta: 0,
+                    isPrimaryTouching: false,
+                    isSecondaryTouching: false
+                )
+            )
+        }
+        await waitForTasks(0.1)
+    }
+
     func testSteamTwoPadPanDoesNotScroll() async throws {
         await MainActor.run {
             var profile = Profile(name: "SteamNoPan", buttonMappings: [:])
@@ -614,6 +675,37 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             XCTAssertTrue(
                 scrollEvents.contains { $0.0 > 0 },
                 "Steam left touchpad rightward movement should pan in the direct-manipulation direction"
+            )
+        }
+    }
+
+    func testSteamLeftTouchpadMovementRespectsScrollInversion() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "SteamLeftPadScrollInverted", buttonMappings: [:])
+            profile.joystickSettings.touchpadDeadzone = 0.00001
+            profile.joystickSettings.touchpadPanSensitivity = 1.0
+            profile.joystickSettings.touchpadInvertScrollX = true
+            profile.joystickSettings.touchpadInvertScrollY = true
+            profileManager.setActiveProfile(profile)
+            controllerService.storage.isSteamController = true
+        }
+        await waitForTasks(0.15)
+
+        await MainActor.run {
+            controllerService.onSteamLeftTouchpadMoved?(CGPoint(x: 0.1, y: -0.1))
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let scrollEvents = mockInputSimulator.events.compactMap { event -> (CGFloat, CGFloat)? in
+                if case .scroll(let dx, let dy) = event {
+                    return (dx, dy)
+                }
+                return nil
+            }
+            XCTAssertTrue(
+                scrollEvents.contains { $0.0 < 0 && $0.1 < 0 },
+                "Steam left touchpad inversion should reverse both scroll axes"
             )
         }
     }

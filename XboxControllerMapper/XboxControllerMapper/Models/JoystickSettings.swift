@@ -85,6 +85,12 @@ struct JoystickSettings: Codable, Equatable {
     /// Two-finger pan sensitivity (0.0 - 1.0)
     var touchpadPanSensitivity: Double = 0.5
 
+    /// Reverse horizontal touchpad scrolling / panning.
+    var touchpadInvertScrollX: Bool = false
+
+    /// Reverse vertical touchpad scrolling / panning.
+    var touchpadInvertScrollY: Bool = false
+
     /// Pan to zoom ratio threshold (low = easier to zoom, high = easier to pan)
     var touchpadZoomToPanRatio: Double = 1.95
 
@@ -298,6 +304,8 @@ extension JoystickSettings {
         case touchpadSmoothing
         case requireActiveTouchForRegionClick
         case touchpadPanSensitivity
+        case touchpadInvertScrollX
+        case touchpadInvertScrollY
         case touchpadZoomToPanRatio
         case touchpadUseNativeZoom
         case disableTouchpadAsMouse
@@ -344,6 +352,8 @@ extension JoystickSettings {
         touchpadSmoothing = try container.decode(.touchpadSmoothing, default: 0.4, clampedTo: unit)
         requireActiveTouchForRegionClick = try container.decode(.requireActiveTouchForRegionClick, default: true)
         touchpadPanSensitivity = try container.decode(.touchpadPanSensitivity, default: 0.5, clampedTo: unit)
+        touchpadInvertScrollX = try container.decode(.touchpadInvertScrollX, default: false)
+        touchpadInvertScrollY = try container.decode(.touchpadInvertScrollY, default: invertScrollY)
         touchpadZoomToPanRatio = try container.decode(.touchpadZoomToPanRatio, default: 1.95, clampedTo: 0.5...5.0)
         touchpadUseNativeZoom = try container.decode(.touchpadUseNativeZoom, default: true)
         disableTouchpadAsMouse = try container.decode(.disableTouchpadAsMouse, default: false)
@@ -431,6 +441,8 @@ extension JoystickSettings {
         try container.encode(touchpadSmoothing, forKey: .touchpadSmoothing)
         try container.encode(requireActiveTouchForRegionClick, forKey: .requireActiveTouchForRegionClick)
         try container.encode(touchpadPanSensitivity, forKey: .touchpadPanSensitivity)
+        try container.encode(touchpadInvertScrollX, forKey: .touchpadInvertScrollX)
+        try container.encode(touchpadInvertScrollY, forKey: .touchpadInvertScrollY)
         try container.encode(touchpadZoomToPanRatio, forKey: .touchpadZoomToPanRatio)
         try container.encode(touchpadUseNativeZoom, forKey: .touchpadUseNativeZoom)
         try container.encode(disableTouchpadAsMouse, forKey: .disableTouchpadAsMouse)

@@ -303,14 +303,14 @@ struct TouchpadSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Touchpad (DualSense)") {
+            Section("Touchpad") {
                 Toggle(isOn: Binding(
                     get: { settings.disableTouchpadAsMouse },
                     set: { updateSettings(\.disableTouchpadAsMouse, $0) }
                 )) {
                     VStack(alignment: .leading) {
                         Text("Disable Touchpad as Mouse")
-                        Text("Stop single-finger swipes from moving the cursor. Two-finger gestures, taps, region clicks, and swipe typing still work. Applies to DualSense, DualSense Edge, and DualShock 4.")
+                        Text("Stop single-finger swipes from moving the cursor. Two-finger gestures, taps, region clicks, and swipe typing still work.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -365,6 +365,16 @@ struct TouchpadSettingsView: View {
                     range: 0...1,
                     description: "Scroll speed for two-finger pan"
                 )
+
+                Toggle("Reverse Horizontal Scroll", isOn: Binding(
+                    get: { settings.touchpadInvertScrollX },
+                    set: { updateSettings(\.touchpadInvertScrollX, $0) }
+                ))
+
+                Toggle("Reverse Vertical Scroll", isOn: Binding(
+                    get: { settings.touchpadInvertScrollY },
+                    set: { updateSettings(\.touchpadInvertScrollY, $0) }
+                ))
 
                 SliderRow(
                     label: "Pan to Zoom Ratio",
