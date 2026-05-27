@@ -70,8 +70,6 @@ private final class SteamHIDRunLoop: @unchecked Sendable {
 extension ControllerService {
 
     func setupSteamControllerHIDMonitoring() {
-		setupSteamControllerLizardSuppression()
-
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         steamHIDManager = manager
 
@@ -116,42 +114,6 @@ extension ControllerService {
         }
     }
 
-	private func setupSteamControllerLizardSuppression() {
-		let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-		steamLizardSuppressionManager = manager
-
-		let genericDesktopUsagePage = 0x01
-		let matching = SteamControllerHIDParser.productIDs.flatMap { productID in
-			[
-				[
-					kIOHIDVendorIDKey as String: SteamControllerHIDParser.valveVendorID,
-					kIOHIDProductIDKey as String: productID,
-					kIOHIDDeviceUsagePageKey as String: genericDesktopUsagePage,
-					kIOHIDDeviceUsageKey as String: kHIDUsage_GD_Mouse,
-				] as CFDictionary,
-				[
-					kIOHIDVendorIDKey as String: SteamControllerHIDParser.valveVendorID,
-					kIOHIDProductIDKey as String: productID,
-					kIOHIDDeviceUsagePageKey as String: genericDesktopUsagePage,
-					kIOHIDDeviceUsageKey as String: kHIDUsage_GD_Keyboard,
-				] as CFDictionary,
-			]
-		}
-
-		steamHIDSetupQueue.async {
-			IOHIDManagerSetDeviceMatchingMultiple(manager, matching as CFArray)
-			steamHIDRunLoop.perform {
-				IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-				let openResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
-				if openResult == kIOReturnSuccess {
-					NSLog("[ControllerKeys] Steam Controller lizard HID event interface seized")
-				} else {
-					NSLog("[ControllerKeys] Steam Controller lizard HID seize returned 0x%08X", openResult)
-				}
-			}
-		}
-	}
-
     func cleanupSteamControllerHIDMonitoring() {
         stopSteamControllerHIDSessions()
 
@@ -162,14 +124,6 @@ extension ControllerService {
             }
         }
         steamHIDManager = nil
-
-		if let manager = steamLizardSuppressionManager {
-			steamHIDRunLoop.performAndWait {
-				IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-				IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-			}
-		}
-		steamLizardSuppressionManager = nil
 
         if let ctx = steamHIDCallbackContext {
             Unmanaged<SteamHIDCallbackContext>.fromOpaque(ctx).release()

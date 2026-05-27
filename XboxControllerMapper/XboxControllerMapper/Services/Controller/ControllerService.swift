@@ -260,7 +260,6 @@ class ControllerService: ObservableObject {
 
     // Steam Controller 2026 / Triton raw HID monitoring (works without Steam running)
     var steamHIDManager: IOHIDManager?
-	var steamLizardSuppressionManager: IOHIDManager?
     var steamHIDControllers: [SteamControllerHIDController] = []
     var steamHIDActiveDevice: IOHIDDevice?
     var steamHIDCallbackContext: UnsafeMutableRawPointer?
