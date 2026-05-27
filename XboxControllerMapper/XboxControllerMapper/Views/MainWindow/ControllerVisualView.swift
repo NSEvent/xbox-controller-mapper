@@ -428,22 +428,69 @@ struct ControllerVisualView: View {
     @ViewBuilder
     private var steamTouchpadButtonsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("STEAM TOUCHPADS")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.secondary)
+            HStack(alignment: .center, spacing: 8) {
+                Text("STEAM TOUCHPADS")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                Spacer()
+                touchpadModeTabs
+            }
+            .padding(.horizontal, 4)
+
+            switch touchpadInputMode {
+            case .wholePad:
+                steamWholePadTouchpadRows
+            case .quadrants:
+                steamQuadrantTouchpadRows
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var steamWholePadTouchpadRows: some View {
+        HStack(spacing: 20) {
+            VStack(alignment: .trailing) {
+                referenceRow(for: .leftTouchpadButton)
+                referenceRow(for: .leftTouchpadTap)
+            }
+            .frame(width: 220)
+            VStack(alignment: .leading) {
+                referenceRow(for: .rightTouchpadButton)
+                referenceRow(for: .rightTouchpadTap)
+            }
+            .frame(width: 220)
+        }
+    }
+
+    @ViewBuilder
+    private var steamQuadrantTouchpadRows: some View {
+        HStack(alignment: .top, spacing: 20) {
+            steamQuadrantColumn(side: .left, alignment: .trailing)
+                .frame(width: 220)
+            steamQuadrantColumn(side: .right, alignment: .leading)
+                .frame(width: 220)
+        }
+    }
+
+    @ViewBuilder
+    private func steamQuadrantColumn(side: SteamTouchpadSide, alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 6) {
+            Text("\(side.displayName.uppercased()) PAD")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(.secondary.opacity(0.75))
                 .padding(.horizontal, 4)
 
-            HStack(spacing: 20) {
-                VStack(alignment: .trailing) {
-                    referenceRow(for: .leftTouchpadButton)
-                    referenceRow(for: .leftTouchpadTap)
+            ForEach(TouchpadRegion.allCases) { region in
+                let click = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .click)
+                let touch = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .touch)
+                VStack(alignment: alignment, spacing: 3) {
+                    if let click {
+                        referenceRow(for: click)
+                    }
+                    if let touch {
+                        referenceRow(for: touch)
+                    }
                 }
-                .frame(width: 220)
-                VStack(alignment: .leading) {
-                    referenceRow(for: .rightTouchpadButton)
-                    referenceRow(for: .rightTouchpadTap)
-                }
-                .frame(width: 220)
             }
         }
     }
@@ -579,6 +626,14 @@ struct ControllerVisualView: View {
                     endPoint: .bottom
                 ))
                 .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+        } else if isSteamController {
+            SteamControllerBodyShape()
+                .fill(LinearGradient(
+                    colors: [Color(white: 0.18), Color(white: 0.10)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+                .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
         } else {
             ControllerBodyShape()
                 .fill(LinearGradient(
@@ -1082,7 +1137,8 @@ struct ControllerVisualView: View {
             button: button,
             isPressed: isPressed(button),
             isDualSense: isPlayStation,
-            isNintendo: isNintendo
+            isNintendo: isNintendo,
+            isSteamController: isSteamController
         )
         .scaleEffect(0.72)
         .frame(width: 22, height: 22)
@@ -1232,7 +1288,13 @@ struct ControllerVisualView: View {
             // Button Indicator (adapts to Xbox or PlayStation styling)
             // Fixed width container ensures mapping labels align across different button sizes
             ZStack(alignment: .topTrailing) {
-                ButtonIconView(button: button, isPressed: isPressed(button), isDualSense: isPlayStation, isNintendo: isNintendo)
+                ButtonIconView(
+                    button: button,
+                    isPressed: isPressed(button),
+                    isDualSense: isPlayStation,
+                    isNintendo: isNintendo,
+                    isSteamController: isSteamController
+                )
 
                 // Layer activator badge — hidden when viewing a different layer,
                 // since other layers' activators are inert in that context.
@@ -1446,6 +1508,10 @@ struct ControllerAnalogOverlay: View {
     @State private var touchpadPosition: CGPoint = .zero
     @State private var isTouchpadSecondaryTouching: Bool = false
     @State private var touchpadSecondaryPosition: CGPoint = .zero
+    @State private var isSteamLeftTouchpadTouching: Bool = false
+    @State private var steamLeftTouchpadPosition: CGPoint = .zero
+    @State private var isSteamRightTouchpadTouching: Bool = false
+    @State private var steamRightTouchpadPosition: CGPoint = .zero
     @State private var activeButtons: Set<ControllerButton> = []
     /// Local hover tracking — used by the touchpad quadrant zones to highlight
     /// the targeted region. The parent owns the canonical hover state for
@@ -1457,7 +1523,9 @@ struct ControllerAnalogOverlay: View {
 
     var body: some View {
         Group {
-            if isPlayStation {
+            if isSteamController {
+                steamOverlay
+            } else if isPlayStation {
                 dualSenseOverlay
             } else if isNintendo {
                 nintendoOverlay
@@ -1473,6 +1541,10 @@ struct ControllerAnalogOverlay: View {
         .onReceive(controllerService.displayTouchpadPositionSubject) { touchpadPosition = $0 }
         .onReceive(controllerService.displayIsTouchpadSecondaryTouchingSubject) { isTouchpadSecondaryTouching = $0 }
         .onReceive(controllerService.displayTouchpadSecondaryPositionSubject) { touchpadSecondaryPosition = $0 }
+        .onReceive(controllerService.displayIsSteamLeftTouchpadTouchingSubject) { isSteamLeftTouchpadTouching = $0 }
+        .onReceive(controllerService.displaySteamLeftTouchpadPositionSubject) { steamLeftTouchpadPosition = $0 }
+        .onReceive(controllerService.displayIsSteamRightTouchpadTouchingSubject) { isSteamRightTouchpadTouching = $0 }
+        .onReceive(controllerService.displaySteamRightTouchpadPositionSubject) { steamRightTouchpadPosition = $0 }
         .onReceive(controllerService.$activeButtons) { activeButtons = $0 }
         .onReceive(controllerService.$isConnected) { isConnected = $0 }
         .onReceive(controllerService.$batteryLevel) { batteryLevel = $0 }
@@ -1520,6 +1592,56 @@ struct ControllerAnalogOverlay: View {
                 miniDPad()
                 miniStick(.rightThumbstick, pos: rightStick)
             }
+        }
+    }
+
+    // MARK: - Steam Controller Overlay
+
+    private var steamOverlay: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 150) {
+                miniTrigger(.leftTrigger, label: "LT", value: leftTrigger)
+                miniTrigger(.rightTrigger, label: "RT", value: rightTrigger)
+            }
+
+            HStack(spacing: 132) {
+                miniBumper(.leftBumper, label: "LB")
+                miniBumper(.rightBumper, label: "RB")
+            }
+            .offset(y: -3)
+
+            HStack(spacing: 44) {
+                miniStick(.leftThumbstick, pos: leftStick)
+
+                VStack(spacing: 5) {
+                    miniCircle(.xbox, size: 21)
+
+                    if isConnected {
+                        BatteryView(level: batteryLevel, state: batteryState)
+                            .frame(width: 40)
+                    }
+
+                    HStack(spacing: 10) {
+                        miniCircle(.view, size: 13)
+                        miniCircle(.menu, size: 13)
+                    }
+                    miniCircle(.share, size: 11)
+                }
+                .frame(width: 54)
+
+                miniStick(.rightThumbstick, pos: rightStick)
+            }
+
+            HStack(spacing: 82) {
+                miniSteamTouchpad(side: .left)
+                miniSteamTouchpad(side: .right)
+            }
+
+            HStack(spacing: 126) {
+                miniDPad()
+                miniFaceButtons()
+            }
+            .offset(y: -2)
         }
     }
 
@@ -1709,6 +1831,64 @@ struct ControllerAnalogOverlay: View {
         .swappable(.touchpadButton, onSwap: onSwapRequest)
     }
 
+    private func miniSteamTouchpad(side: SteamTouchpadSide) -> some View {
+        let clickButton = side.wholeClickButton
+        let tapButton = side.wholeTapButton
+        let position = side == .left ? steamLeftTouchpadPosition : steamRightTouchpadPosition
+        let isTouching = side == .left ? isSteamLeftTouchpadTouching : isSteamRightTouchpadTouching
+        let padSize: CGFloat = 48
+        let inQuadrantsMode = touchpadInputMode == .quadrants
+        let region = TouchpadRegion.from(position: position)
+        let activeRegionClick = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .click)
+        let isClicked = isPressed(clickButton) || activeRegionClick.map(isPressed) == true
+        let allButtons = [clickButton, tapButton] + ControllerButton.steamTouchpadRegionButtons(side: side)
+
+        return ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(jewelGradient(isClicked ? Color.accentColor : Color(white: 0.18), pressed: isClicked))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.35), lineWidth: 0.7)
+                )
+                .overlay(glassOverlay.clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous)))
+
+            if inQuadrantsMode {
+                quadrantDividers(width: padSize, height: padSize)
+            }
+
+            if isTouching {
+                quadrantHighlight(
+                    region: region,
+                    width: padSize,
+                    height: padSize,
+                    isClicked: isClicked
+                )
+            }
+
+            if isTouching {
+                Circle()
+                    .fill(Color.white.opacity(0.82))
+                    .frame(width: 9, height: 9)
+                    .shadow(color: .white.opacity(0.45), radius: 3)
+                    .offset(
+                        x: position.x * (padSize / 2 - 5),
+                        y: -position.y * (padSize / 2 - 5)
+                    )
+            }
+
+            steamTouchpadOverrideOverlay(side: side, width: padSize, height: padSize, inQuadrantsMode: inQuadrantsMode)
+
+            steamTouchpadTapZones(side: side, width: padSize, height: padSize)
+                .allowsHitTesting(inQuadrantsMode)
+        }
+        .frame(width: padSize, height: padSize)
+        .shadow(color: isClicked ? Color.accentColor.opacity(0.35) : .black.opacity(0.25), radius: 2, x: 0, y: 1)
+        .onTapGesture { onButtonTap(clickButton) }
+        .controllerAnchor(allButtons, role: .controller)
+        .onHover { hovering in onButtonHover?(clickButton, hovering) }
+        .swappable(clickButton, onSwap: onSwapRequest)
+    }
+
     /// Live highlight on the active quadrant. `isClicked` distinguishes a
     /// physical click (brighter, accent-saturated fill) from a passive touch
     /// (soft, low-opacity wash) so the same overlay communicates two
@@ -1843,6 +2023,99 @@ struct ControllerAnalogOverlay: View {
                 _ = touchButton  // kept in scope so Swift doesn't elide the binding
             }
             .swappable(clickButton, onSwap: onSwapRequest)
+    }
+
+    private func steamTouchpadTapZones(side: SteamTouchpadSide, width: CGFloat, height: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                steamTouchpadTapTarget(side: side, region: .topLeft, width: width / 2, height: height / 2)
+                steamTouchpadTapTarget(side: side, region: .topRight, width: width / 2, height: height / 2)
+            }
+            HStack(spacing: 0) {
+                steamTouchpadTapTarget(side: side, region: .bottomLeft, width: width / 2, height: height / 2)
+                steamTouchpadTapTarget(side: side, region: .bottomRight, width: width / 2, height: height / 2)
+            }
+        }
+        .frame(width: width, height: height)
+    }
+
+    @ViewBuilder
+    private func steamTouchpadTapTarget(
+        side: SteamTouchpadSide,
+        region: TouchpadRegion,
+        width: CGFloat,
+        height: CGFloat
+    ) -> some View {
+        let clickButton = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .click) ?? side.wholeClickButton
+        let touchButton = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .touch) ?? side.wholeTapButton
+        let isHovered = hoveredQuadrant == clickButton || hoveredQuadrant == touchButton
+
+        Rectangle()
+            .fill(Color.white.opacity(isHovered ? 0.12 : 0.001))
+            .frame(width: width, height: height)
+            .contentShape(Rectangle())
+            .onTapGesture { onButtonTap(clickButton) }
+            .onHover { hovering in
+                if hovering {
+                    hoveredQuadrant = clickButton
+                } else if hoveredQuadrant == clickButton || hoveredQuadrant == touchButton {
+                    hoveredQuadrant = nil
+                }
+                onButtonHover?(clickButton, hovering)
+                _ = touchButton
+            }
+            .swappable(clickButton, onSwap: onSwapRequest)
+    }
+
+    @ViewBuilder
+    private func steamTouchpadOverrideOverlay(
+        side: SteamTouchpadSide,
+        width: CGFloat,
+        height: CGFloat,
+        inQuadrantsMode: Bool
+    ) -> some View {
+        let wholePadButtons = [side.wholeClickButton, side.wholeTapButton]
+
+        if let color = firstOverrideColor(for: wholePadButtons) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(color.opacity(0.95), lineWidth: 2)
+                .shadow(color: color.opacity(0.45), radius: 4, x: 0, y: 0)
+                .frame(width: width, height: height)
+        }
+
+        if inQuadrantsMode {
+            ForEach(TouchpadRegion.allCases) { region in
+                steamTouchpadRegionOverrideOutline(side: side, region: region, width: width, height: height)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func steamTouchpadRegionOverrideOutline(
+        side: SteamTouchpadSide,
+        region: TouchpadRegion,
+        width: CGFloat,
+        height: CGFloat
+    ) -> some View {
+        let buttons = [
+            ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .click),
+            ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .touch),
+        ].compactMap { $0 }
+
+        if let color = firstOverrideColor(for: buttons) {
+            let halfW = width / 2
+            let halfH = height / 2
+            let originX: CGFloat = (region == .topLeft || region == .bottomLeft) ? 0 : halfW
+            let originY: CGFloat = (region == .topLeft || region == .topRight) ? 0 : halfH
+
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(color.opacity(0.95), lineWidth: 1.4)
+                .shadow(color: color.opacity(0.45), radius: 4, x: 0, y: 0)
+                .frame(width: halfW - 5, height: halfH - 5)
+                .position(x: originX + halfW / 2, y: originY + halfH / 2)
+                .frame(width: width, height: height)
+                .allowsHitTesting(false)
+        }
     }
 
     // MARK: - Mini Controller Helpers (Jewel/Glass Style)
@@ -2032,11 +2305,19 @@ struct ControllerAnalogOverlay: View {
                 .fill(jewelGradient(color, pressed: isPressed(button)))
                 .overlay(glassOverlay.clipShape(Circle()))
 
-            // Add Xbox or PlayStation logo for the center button
             if button == .xbox {
-                Image(systemName: isPlayStation ? "playstation.logo" : (isNintendo ? "house" : "xbox.logo"))
-                    .font(.system(size: size * 0.45, weight: .medium))
-                    .foregroundColor(isPressed(button) ? .white : Color(white: 0.3))
+                if isSteamController {
+                    SteamLogoMark(foregroundColor: isPressed(button) ? .white : Color(white: 0.25))
+                        .frame(width: size * 0.62, height: size * 0.62)
+                } else {
+                    Image(systemName: isPlayStation ? "playstation.logo" : (isNintendo ? "house" : "xbox.logo"))
+                        .font(.system(size: size * 0.45, weight: .medium))
+                        .foregroundColor(isPressed(button) ? .white : Color(white: 0.3))
+                }
+            } else if isSteamController && button == .share {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: size * 0.55, weight: .heavy))
+                    .foregroundColor(.white.opacity(0.95))
             }
         }
         .frame(width: size, height: size)
@@ -2393,6 +2674,48 @@ struct HoverableGlassContainer<Content: View>: View {
 }
 
 // MARK: - Controller Body Shapes
+
+struct SteamControllerBodyShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.width
+        let height = rect.height
+
+        path.move(to: CGPoint(x: width * 0.18, y: height * 0.13))
+        path.addCurve(
+            to: CGPoint(x: width * 0.82, y: height * 0.13),
+            control1: CGPoint(x: width * 0.34, y: height * 0.03),
+            control2: CGPoint(x: width * 0.66, y: height * 0.03)
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.98, y: height * 0.44),
+            control1: CGPoint(x: width * 0.94, y: height * 0.12),
+            control2: CGPoint(x: width * 0.99, y: height * 0.25)
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.78, y: height * 0.94),
+            control1: CGPoint(x: width * 1.02, y: height * 0.66),
+            control2: CGPoint(x: width * 0.92, y: height * 0.91)
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.22, y: height * 0.94),
+            control1: CGPoint(x: width * 0.62, y: height * 0.78),
+            control2: CGPoint(x: width * 0.38, y: height * 0.78)
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.02, y: height * 0.44),
+            control1: CGPoint(x: width * 0.08, y: height * 0.91),
+            control2: CGPoint(x: width * -0.02, y: height * 0.66)
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.18, y: height * 0.13),
+            control1: CGPoint(x: width * 0.01, y: height * 0.25),
+            control2: CGPoint(x: width * 0.06, y: height * 0.12)
+        )
+        path.closeSubpath()
+        return path
+    }
+}
 
 struct ControllerBodyShape: Shape {
     func path(in rect: CGRect) -> Path {

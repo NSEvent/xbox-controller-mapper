@@ -85,6 +85,30 @@ final class ControllerButtonCoverageTests: XCTestCase {
         XCTAssertTrue(ControllerButton.dualSenseButtons.contains(.a))
     }
 
+    func testSteamTouchpadRegionButtonsAreSteamOnlyAndComplete() {
+        let leftRegionButtons = Set(ControllerButton.steamTouchpadRegionButtons(side: .left))
+        let rightRegionButtons = Set(ControllerButton.steamTouchpadRegionButtons(side: .right))
+        let expectedSteamOnly = Set<ControllerButton>([
+            .leftTouchpadButton,
+            .rightTouchpadButton,
+            .leftTouchpadTap,
+            .rightTouchpadTap,
+        ]).union(leftRegionButtons).union(rightRegionButtons)
+
+        XCTAssertEqual(leftRegionButtons.count, 8)
+        XCTAssertEqual(rightRegionButtons.count, 8)
+        XCTAssertTrue(leftRegionButtons.isDisjoint(with: rightRegionButtons))
+        XCTAssertEqual(Set(ControllerButton.allCases.filter { $0.isSteamControllerOnly }), expectedSteamOnly)
+
+        for side in SteamTouchpadSide.allCases {
+            for region in TouchpadRegion.allCases {
+                XCTAssertNotNil(ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .click))
+                XCTAssertNotNil(ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .touch))
+                XCTAssertNil(ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .both))
+            }
+        }
+    }
+
     func testDualSenseLabelOverrides() {
         XCTAssertEqual(ControllerButton.a.displayName(forDualSense: true), "Cross")
         XCTAssertEqual(ControllerButton.b.displayName(forDualSense: true), "Circle")

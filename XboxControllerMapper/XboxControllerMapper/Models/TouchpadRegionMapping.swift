@@ -3,7 +3,7 @@ import CoreGraphics
 import CoreTransferable
 
 /// Represents a quadrant of the touchpad surface.
-enum TouchpadRegion: String, Codable, CaseIterable, Identifiable {
+enum TouchpadRegion: String, Codable, CaseIterable, Identifiable, Sendable {
     case topLeft, topRight, bottomLeft, bottomRight
 
     var id: String { rawValue }
@@ -36,6 +36,42 @@ enum TouchpadRegion: String, Codable, CaseIterable, Identifiable {
         case (true, true):   return .topRight
         case (false, false): return .bottomLeft
         case (true, false):  return .bottomRight
+        }
+    }
+}
+
+/// Which Steam Controller touchpad an input came from.
+enum SteamTouchpadSide: String, Codable, CaseIterable, Identifiable, Sendable {
+    case left
+    case right
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .left: return "Left"
+        case .right: return "Right"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .left: return "L"
+        case .right: return "R"
+        }
+    }
+
+    var wholeClickButton: ControllerButton {
+        switch self {
+        case .left: return .leftTouchpadButton
+        case .right: return .rightTouchpadButton
+        }
+    }
+
+    var wholeTapButton: ControllerButton {
+        switch self {
+        case .left: return .leftTouchpadTap
+        case .right: return .rightTouchpadTap
         }
     }
 }

@@ -7,13 +7,22 @@ struct ButtonIconView: View {
     let isPressed: Bool
     let isDualSense: Bool
     let isNintendo: Bool
+    let isSteamController: Bool
     let showDirectionalArrows: Bool
 
-    init(button: ControllerButton, isPressed: Bool = false, isDualSense: Bool = false, isNintendo: Bool = false, showDirectionalArrows: Bool = false) {
+    init(
+        button: ControllerButton,
+        isPressed: Bool = false,
+        isDualSense: Bool = false,
+        isNintendo: Bool = false,
+        isSteamController: Bool = false,
+        showDirectionalArrows: Bool = false
+    ) {
         self.button = button
         self.isPressed = isPressed
         self.isDualSense = isDualSense
         self.isNintendo = isNintendo
+        self.isSteamController = isSteamController
         self.showDirectionalArrows = showDirectionalArrows
     }
     
@@ -166,6 +175,14 @@ struct ButtonIconView: View {
             case .leftThumbstick, .rightThumbstick: return Color(white: 0.3)
             default: return Color(white: 0.2) // Bumpers/Triggers
             }
+        } else if isSteamController {
+            switch button {
+            case .xbox: return Color(white: 0.82)
+            case .share: return Color(white: 0.26)
+            case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.2)
+            case .leftThumbstick, .rightThumbstick: return Color(white: 0.24)
+            default: return Color(white: 0.16)
+            }
         } else {
             // Vibrant "Jewel" colors inspired by Xbox 360 controller
             if let xboxColor = ButtonColors.xbox(button) {
@@ -239,6 +256,16 @@ struct ButtonIconView: View {
                 touchpadSideGlyph(icon: "hand.point.up.left")
             } else if button == .leftTouchpadTap || button == .rightTouchpadTap {
                 touchpadSideGlyph(icon: "hand.tap")
+            } else if isSteamController && button == .xbox {
+                SteamLogoMark(foregroundColor: isPressed ? .white : Color(white: 0.25))
+                    .frame(width: 15, height: 15)
+            } else if isSteamController && button == .share {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: fontSize + 1, weight: .heavy))
+                    .foregroundColor(.white.opacity(0.95))
+            } else if let side = button.steamTouchpadSide, let region = button.touchpadRegion {
+                steamQuadrantGlyph(side: side, region: region)
+                    .foregroundColor(.white.opacity(0.95))
             } else if let region = button.touchpadRegion {
                 // Touchpad region indicator: a small 2×2 grid with the active
                 // quadrant filled. Much more legible at button-tile size than
@@ -261,6 +288,15 @@ struct ButtonIconView: View {
             }
         }
         .font(.system(size: fontSize, weight: .bold))
+    }
+
+    @ViewBuilder
+    private func steamQuadrantGlyph(side: SteamTouchpadSide, region: TouchpadRegion) -> some View {
+        HStack(spacing: 2) {
+            Text(side.shortLabel)
+                .font(.system(size: 7, weight: .black, design: .rounded))
+            quadrantGlyph(for: region)
+        }
     }
 
     @ViewBuilder
@@ -318,6 +354,38 @@ struct ButtonIconView: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8)
                 .frame(width: size, height: size)
+        }
+    }
+}
+
+struct SteamLogoMark: View {
+    var foregroundColor: Color = .white
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = min(proxy.size.width, proxy.size.height)
+            let main = size * 0.62
+            let small = size * 0.25
+            let lineWidth = max(1.4, size * 0.11)
+
+            ZStack {
+                Circle()
+                    .stroke(foregroundColor, lineWidth: lineWidth)
+                    .frame(width: main, height: main)
+                    .offset(x: -size * 0.11, y: size * 0.10)
+
+                Path { path in
+                    path.move(to: CGPoint(x: size * 0.48, y: size * 0.39))
+                    path.addLine(to: CGPoint(x: size * 0.68, y: size * 0.24))
+                }
+                .stroke(foregroundColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+
+                Circle()
+                    .stroke(foregroundColor, lineWidth: lineWidth)
+                    .frame(width: small, height: small)
+                    .offset(x: size * 0.22, y: -size * 0.22)
+            }
+            .frame(width: size, height: size)
         }
     }
 }

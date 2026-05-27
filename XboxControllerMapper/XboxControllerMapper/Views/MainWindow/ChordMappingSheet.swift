@@ -764,7 +764,13 @@ struct ChordMappingSheet: View {
                     selectedButtons.insert(button)
                 }
             }) {
-                ButtonIconView(button: button, isPressed: isSelected, isDualSense: isPlayStation, isNintendo: isNintendo)
+                ButtonIconView(
+                    button: button,
+                    isPressed: isSelected,
+                    isDualSense: isPlayStation,
+                    isNintendo: isNintendo,
+                    isSteamController: isSteamController
+                )
                     .scaleEffect(scale)
                     .frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)
                     .opacity(isConflicted ? 0.3 : (isSelected ? 1.0 : 0.7))

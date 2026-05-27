@@ -74,6 +74,16 @@ final class ControllerStorage: @unchecked Sendable {
     var touchpadHasSeenTouch: Bool = false
     var touchpadSecondaryHasSeenTouch: Bool = false
 
+    // Steam Controller touchpad display + quadrant-click tracking. Kept
+    // separate from DualSense secondary-touch state so the left Steam pad
+    // never trips two-finger gesture suppression on the right pad cursor path.
+    var steamLeftTouchpadPosition: CGPoint = .zero
+    var steamRightTouchpadPosition: CGPoint = .zero
+    var isSteamLeftTouchpadTouching: Bool = false
+    var isSteamRightTouchpadTouching: Bool = false
+    var activeSteamLeftTouchpadClickQuadrant: ControllerButton?
+    var activeSteamRightTouchpadClickQuadrant: ControllerButton?
+
     // Two-finger tap detection
     var touchpadSecondaryTouchStartTime: TimeInterval = 0
     var touchpadSecondaryTouchStartPosition: CGPoint = .zero
@@ -542,6 +552,26 @@ class ControllerService: ObservableObject {
         get { displayIsTouchpadSecondaryTouchingSubject.value }
         set { displayIsTouchpadSecondaryTouchingSubject.send(newValue) }
     }
+    let displaySteamLeftTouchpadPositionSubject = CurrentValueSubject<CGPoint, Never>(.zero)
+    var displaySteamLeftTouchpadPosition: CGPoint {
+        get { displaySteamLeftTouchpadPositionSubject.value }
+        set { displaySteamLeftTouchpadPositionSubject.send(newValue) }
+    }
+    let displaySteamRightTouchpadPositionSubject = CurrentValueSubject<CGPoint, Never>(.zero)
+    var displaySteamRightTouchpadPosition: CGPoint {
+        get { displaySteamRightTouchpadPositionSubject.value }
+        set { displaySteamRightTouchpadPositionSubject.send(newValue) }
+    }
+    let displayIsSteamLeftTouchpadTouchingSubject = CurrentValueSubject<Bool, Never>(false)
+    var displayIsSteamLeftTouchpadTouching: Bool {
+        get { displayIsSteamLeftTouchpadTouchingSubject.value }
+        set { displayIsSteamLeftTouchpadTouchingSubject.send(newValue) }
+    }
+    let displayIsSteamRightTouchpadTouchingSubject = CurrentValueSubject<Bool, Never>(false)
+    var displayIsSteamRightTouchpadTouching: Bool {
+        get { displayIsSteamRightTouchpadTouchingSubject.value }
+        set { displayIsSteamRightTouchpadTouchingSubject.send(newValue) }
+    }
     private var displayUpdateTimer: DispatchSourceTimer?
     private var displayTimerSuspended = false
     private var windowVisibilityObservers: [NSObjectProtocol] = []
@@ -871,6 +901,12 @@ class ControllerService: ObservableObject {
         storage.touchpadSecondaryIdleSentinel = nil
         storage.touchpadHasSeenTouch = false
         storage.touchpadSecondaryHasSeenTouch = false
+        storage.steamLeftTouchpadPosition = .zero
+        storage.steamRightTouchpadPosition = .zero
+        storage.isSteamLeftTouchpadTouching = false
+        storage.isSteamRightTouchpadTouching = false
+        storage.activeSteamLeftTouchpadClickQuadrant = nil
+        storage.activeSteamRightTouchpadClickQuadrant = nil
     }
 
 	nonisolated func guideMonitorPaddleButton(for paddleIndex: Int, pressed: Bool) -> ControllerButton? {
@@ -984,6 +1020,10 @@ class ControllerService: ObservableObject {
             let touchSecPos = self.storage.touchpadSecondaryPosition
             let isTouching = self.storage.isTouchpadTouching
             let isSecTouching = self.storage.isTouchpadSecondaryTouching
+            let steamLeftTouchPos = self.storage.steamLeftTouchpadPosition
+            let steamRightTouchPos = self.storage.steamRightTouchpadPosition
+            let isSteamLeftTouching = self.storage.isSteamLeftTouchpadTouching
+            let isSteamRightTouching = self.storage.isSteamRightTouchpadTouching
             self.storage.lock.unlock()
 
             let currentState = ControllerDisplayState(
@@ -998,7 +1038,11 @@ class ControllerService: ObservableObject {
                 displayTouchpadPosition: self.displayTouchpadPosition,
                 displayTouchpadSecondaryPosition: self.displayTouchpadSecondaryPosition,
                 displayIsTouchpadTouching: self.displayIsTouchpadTouching,
-                displayIsTouchpadSecondaryTouching: self.displayIsTouchpadSecondaryTouching
+                displayIsTouchpadSecondaryTouching: self.displayIsTouchpadSecondaryTouching,
+                displaySteamLeftTouchpadPosition: self.displaySteamLeftTouchpadPosition,
+                displaySteamRightTouchpadPosition: self.displaySteamRightTouchpadPosition,
+                displayIsSteamLeftTouchpadTouching: self.displayIsSteamLeftTouchpadTouching,
+                displayIsSteamRightTouchpadTouching: self.displayIsSteamRightTouchpadTouching
             )
             let sample = ControllerDisplaySample(
                 leftStick: self.threadSafeLeftStick,
@@ -1008,7 +1052,11 @@ class ControllerService: ObservableObject {
                 touchpadPosition: touchPos,
                 touchpadSecondaryPosition: touchSecPos,
                 isTouchpadTouching: isTouching,
-                isTouchpadSecondaryTouching: isSecTouching
+                isTouchpadSecondaryTouching: isSecTouching,
+                steamLeftTouchpadPosition: steamLeftTouchPos,
+                steamRightTouchpadPosition: steamRightTouchPos,
+                isSteamLeftTouchpadTouching: isSteamLeftTouching,
+                isSteamRightTouchpadTouching: isSteamRightTouching
             )
             let updatedState = ControllerDisplayUpdatePolicy.resolve(
                 current: currentState,
@@ -1089,7 +1137,11 @@ class ControllerService: ObservableObject {
             displayTouchpadSecondaryPosition = state.displayTouchpadSecondaryPosition
             displayIsTouchpadTouching = state.displayIsTouchpadTouching
             displayIsTouchpadSecondaryTouching = state.displayIsTouchpadSecondaryTouching
-            PerformanceProbe.shared.recordDisplayApply(fieldWrites: 12)
+            displaySteamLeftTouchpadPosition = state.displaySteamLeftTouchpadPosition
+            displaySteamRightTouchpadPosition = state.displaySteamRightTouchpadPosition
+            displayIsSteamLeftTouchpadTouching = state.displayIsSteamLeftTouchpadTouching
+            displayIsSteamRightTouchpadTouching = state.displayIsSteamRightTouchpadTouching
+            PerformanceProbe.shared.recordDisplayApply(fieldWrites: 16)
             return
         }
 
@@ -1142,6 +1194,22 @@ class ControllerService: ObservableObject {
             displayIsTouchpadSecondaryTouching = state.displayIsTouchpadSecondaryTouching
             fieldWrites += 1
         }
+        if displaySteamLeftTouchpadPosition != state.displaySteamLeftTouchpadPosition {
+            displaySteamLeftTouchpadPosition = state.displaySteamLeftTouchpadPosition
+            fieldWrites += 1
+        }
+        if displaySteamRightTouchpadPosition != state.displaySteamRightTouchpadPosition {
+            displaySteamRightTouchpadPosition = state.displaySteamRightTouchpadPosition
+            fieldWrites += 1
+        }
+        if displayIsSteamLeftTouchpadTouching != state.displayIsSteamLeftTouchpadTouching {
+            displayIsSteamLeftTouchpadTouching = state.displayIsSteamLeftTouchpadTouching
+            fieldWrites += 1
+        }
+        if displayIsSteamRightTouchpadTouching != state.displayIsSteamRightTouchpadTouching {
+            displayIsSteamRightTouchpadTouching = state.displayIsSteamRightTouchpadTouching
+            fieldWrites += 1
+        }
 
         if fieldWrites > 0 {
             PerformanceProbe.shared.recordDisplayApply(fieldWrites: fieldWrites)
@@ -1165,6 +1233,10 @@ class ControllerService: ObservableObject {
         displayTouchpadSecondaryPosition = .zero
         displayIsTouchpadTouching = false
         displayIsTouchpadSecondaryTouching = false
+        displaySteamLeftTouchpadPosition = .zero
+        displaySteamRightTouchpadPosition = .zero
+        displayIsSteamLeftTouchpadTouching = false
+        displayIsSteamRightTouchpadTouching = false
     }
 
     func updateBatteryInfo() {

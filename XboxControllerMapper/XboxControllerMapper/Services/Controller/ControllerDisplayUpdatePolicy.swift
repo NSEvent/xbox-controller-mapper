@@ -14,6 +14,10 @@ struct ControllerDisplayState: Equatable {
     var displayTouchpadSecondaryPosition: CGPoint
     var displayIsTouchpadTouching: Bool
     var displayIsTouchpadSecondaryTouching: Bool
+    var displaySteamLeftTouchpadPosition: CGPoint
+    var displaySteamRightTouchpadPosition: CGPoint
+    var displayIsSteamLeftTouchpadTouching: Bool
+    var displayIsSteamRightTouchpadTouching: Bool
 }
 
 struct ControllerDisplaySample: Equatable {
@@ -25,6 +29,10 @@ struct ControllerDisplaySample: Equatable {
     var touchpadSecondaryPosition: CGPoint
     var isTouchpadTouching: Bool
     var isTouchpadSecondaryTouching: Bool
+    var steamLeftTouchpadPosition: CGPoint
+    var steamRightTouchpadPosition: CGPoint
+    var isSteamLeftTouchpadTouching: Bool
+    var isSteamRightTouchpadTouching: Bool
 }
 
 enum ControllerDisplayUpdatePolicy {
@@ -70,6 +78,18 @@ enum ControllerDisplayUpdatePolicy {
         }
         if result.displayIsTouchpadSecondaryTouching != sample.isTouchpadSecondaryTouching {
             result.displayIsTouchpadSecondaryTouching = sample.isTouchpadSecondaryTouching
+        }
+        if result.displaySteamLeftTouchpadPosition != sample.steamLeftTouchpadPosition {
+            result.displaySteamLeftTouchpadPosition = sample.steamLeftTouchpadPosition
+        }
+        if result.displaySteamRightTouchpadPosition != sample.steamRightTouchpadPosition {
+            result.displaySteamRightTouchpadPosition = sample.steamRightTouchpadPosition
+        }
+        if result.displayIsSteamLeftTouchpadTouching != sample.isSteamLeftTouchpadTouching {
+            result.displayIsSteamLeftTouchpadTouching = sample.isSteamLeftTouchpadTouching
+        }
+        if result.displayIsSteamRightTouchpadTouching != sample.isSteamRightTouchpadTouching {
+            result.displayIsSteamRightTouchpadTouching = sample.isSteamRightTouchpadTouching
         }
 
         return result

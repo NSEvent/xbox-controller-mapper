@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents all mappable buttons on Xbox and DualSense controllers
-enum ControllerButton: String, Codable, CaseIterable, Identifiable {
+enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     // Face buttons
     case a
     case b
@@ -62,6 +62,25 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     case rightTouchpadButton      // Right touchpad physical click
     case leftTouchpadTap          // Left touchpad tap
     case rightTouchpadTap         // Right touchpad tap
+
+    // Steam Controller-specific touchpad region quadrants. Each pad can split
+    // into four regions, and each region has independent click/touch buttons.
+    case leftTouchpadRegionTopLeftClick
+    case leftTouchpadRegionTopRightClick
+    case leftTouchpadRegionBottomLeftClick
+    case leftTouchpadRegionBottomRightClick
+    case leftTouchpadRegionTopLeftTouch
+    case leftTouchpadRegionTopRightTouch
+    case leftTouchpadRegionBottomLeftTouch
+    case leftTouchpadRegionBottomRightTouch
+    case rightTouchpadRegionTopLeftClick
+    case rightTouchpadRegionTopRightClick
+    case rightTouchpadRegionBottomLeftClick
+    case rightTouchpadRegionBottomRightClick
+    case rightTouchpadRegionTopLeftTouch
+    case rightTouchpadRegionTopRightTouch
+    case rightTouchpadRegionBottomLeftTouch
+    case rightTouchpadRegionBottomRightTouch
 
     // Touchpad region quadrants — first-class buttons. Each quadrant has TWO
     // independent buttons: one that fires on physical click and one that fires
@@ -144,6 +163,22 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .rightTouchpadButton: return "Right Pad Press"
         case .leftTouchpadTap: return "Left Pad Tap"
         case .rightTouchpadTap: return "Right Pad Tap"
+        case .leftTouchpadRegionTopLeftClick: return "Left Top-Left Click"
+        case .leftTouchpadRegionTopRightClick: return "Left Top-Right Click"
+        case .leftTouchpadRegionBottomLeftClick: return "Left Bottom-Left Click"
+        case .leftTouchpadRegionBottomRightClick: return "Left Bottom-Right Click"
+        case .leftTouchpadRegionTopLeftTouch: return "Left Top-Left Tap"
+        case .leftTouchpadRegionTopRightTouch: return "Left Top-Right Tap"
+        case .leftTouchpadRegionBottomLeftTouch: return "Left Bottom-Left Tap"
+        case .leftTouchpadRegionBottomRightTouch: return "Left Bottom-Right Tap"
+        case .rightTouchpadRegionTopLeftClick: return "Right Top-Left Click"
+        case .rightTouchpadRegionTopRightClick: return "Right Top-Right Click"
+        case .rightTouchpadRegionBottomLeftClick: return "Right Bottom-Left Click"
+        case .rightTouchpadRegionBottomRightClick: return "Right Bottom-Right Click"
+        case .rightTouchpadRegionTopLeftTouch: return "Right Top-Left Tap"
+        case .rightTouchpadRegionTopRightTouch: return "Right Top-Right Tap"
+        case .rightTouchpadRegionBottomLeftTouch: return "Right Bottom-Left Tap"
+        case .rightTouchpadRegionBottomRightTouch: return "Right Bottom-Right Tap"
         case .touchpadRegionTopLeftClick: return "Top-Left Click"
         case .touchpadRegionTopRightClick: return "Top-Right Click"
         case .touchpadRegionBottomLeftClick: return "Bottom-Left Click"
@@ -261,6 +296,22 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .rightTouchpadButton: return "RP"
         case .leftTouchpadTap: return "LTp"
         case .rightTouchpadTap: return "RTp"
+        case .leftTouchpadRegionTopLeftClick: return "LTL"
+        case .leftTouchpadRegionTopRightClick: return "LTR"
+        case .leftTouchpadRegionBottomLeftClick: return "LBL"
+        case .leftTouchpadRegionBottomRightClick: return "LBR"
+        case .leftTouchpadRegionTopLeftTouch: return "LTL"
+        case .leftTouchpadRegionTopRightTouch: return "LTR"
+        case .leftTouchpadRegionBottomLeftTouch: return "LBL"
+        case .leftTouchpadRegionBottomRightTouch: return "LBR"
+        case .rightTouchpadRegionTopLeftClick: return "RTL"
+        case .rightTouchpadRegionTopRightClick: return "RTR"
+        case .rightTouchpadRegionBottomLeftClick: return "RBL"
+        case .rightTouchpadRegionBottomRightClick: return "RBR"
+        case .rightTouchpadRegionTopLeftTouch: return "RTL"
+        case .rightTouchpadRegionTopRightTouch: return "RTR"
+        case .rightTouchpadRegionBottomLeftTouch: return "RBL"
+        case .rightTouchpadRegionBottomRightTouch: return "RBR"
         // Region buttons fall back to text labels here, but they're rendered
         // by `ButtonIconView` as a custom 2×2 quadrant indicator that's
         // recognizable at a glance (the diagonal-arrow glyphs above looked
@@ -438,6 +489,14 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
             return .thumbstick
         case .touchpadButton, .touchpadTwoFingerButton, .touchpadTap, .touchpadTwoFingerTap, .micMute,
              .leftTouchpadButton, .rightTouchpadButton, .leftTouchpadTap, .rightTouchpadTap,
+             .leftTouchpadRegionTopLeftClick, .leftTouchpadRegionTopRightClick,
+             .leftTouchpadRegionBottomLeftClick, .leftTouchpadRegionBottomRightClick,
+             .leftTouchpadRegionTopLeftTouch, .leftTouchpadRegionTopRightTouch,
+             .leftTouchpadRegionBottomLeftTouch, .leftTouchpadRegionBottomRightTouch,
+             .rightTouchpadRegionTopLeftClick, .rightTouchpadRegionTopRightClick,
+             .rightTouchpadRegionBottomLeftClick, .rightTouchpadRegionBottomRightClick,
+             .rightTouchpadRegionTopLeftTouch, .rightTouchpadRegionTopRightTouch,
+             .rightTouchpadRegionBottomLeftTouch, .rightTouchpadRegionBottomRightTouch,
              .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
              .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick,
              .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
@@ -489,7 +548,15 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     /// Whether this button is only available on Steam Controllers.
     var isSteamControllerOnly: Bool {
         switch self {
-        case .leftTouchpadButton, .rightTouchpadButton, .leftTouchpadTap, .rightTouchpadTap:
+        case .leftTouchpadButton, .rightTouchpadButton, .leftTouchpadTap, .rightTouchpadTap,
+             .leftTouchpadRegionTopLeftClick, .leftTouchpadRegionTopRightClick,
+             .leftTouchpadRegionBottomLeftClick, .leftTouchpadRegionBottomRightClick,
+             .leftTouchpadRegionTopLeftTouch, .leftTouchpadRegionTopRightTouch,
+             .leftTouchpadRegionBottomLeftTouch, .leftTouchpadRegionBottomRightTouch,
+             .rightTouchpadRegionTopLeftClick, .rightTouchpadRegionTopRightClick,
+             .rightTouchpadRegionBottomLeftClick, .rightTouchpadRegionBottomRightClick,
+             .rightTouchpadRegionTopLeftTouch, .rightTouchpadRegionTopRightTouch,
+             .rightTouchpadRegionBottomLeftTouch, .rightTouchpadRegionBottomRightTouch:
             return true
         default:
             return false
@@ -507,11 +574,42 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     /// it's not one of the quadrant variants.
     var touchpadRegion: TouchpadRegion? {
         switch self {
-        case .touchpadRegionTopLeftClick, .touchpadRegionTopLeftTouch: return .topLeft
-        case .touchpadRegionTopRightClick, .touchpadRegionTopRightTouch: return .topRight
-        case .touchpadRegionBottomLeftClick, .touchpadRegionBottomLeftTouch: return .bottomLeft
-        case .touchpadRegionBottomRightClick, .touchpadRegionBottomRightTouch: return .bottomRight
+        case .touchpadRegionTopLeftClick, .touchpadRegionTopLeftTouch,
+             .leftTouchpadRegionTopLeftClick, .leftTouchpadRegionTopLeftTouch,
+             .rightTouchpadRegionTopLeftClick, .rightTouchpadRegionTopLeftTouch:
+            return .topLeft
+        case .touchpadRegionTopRightClick, .touchpadRegionTopRightTouch,
+             .leftTouchpadRegionTopRightClick, .leftTouchpadRegionTopRightTouch,
+             .rightTouchpadRegionTopRightClick, .rightTouchpadRegionTopRightTouch:
+            return .topRight
+        case .touchpadRegionBottomLeftClick, .touchpadRegionBottomLeftTouch,
+             .leftTouchpadRegionBottomLeftClick, .leftTouchpadRegionBottomLeftTouch,
+             .rightTouchpadRegionBottomLeftClick, .rightTouchpadRegionBottomLeftTouch:
+            return .bottomLeft
+        case .touchpadRegionBottomRightClick, .touchpadRegionBottomRightTouch,
+             .leftTouchpadRegionBottomRightClick, .leftTouchpadRegionBottomRightTouch,
+             .rightTouchpadRegionBottomRightClick, .rightTouchpadRegionBottomRightTouch:
+            return .bottomRight
         default: return nil
+        }
+    }
+
+    var steamTouchpadSide: SteamTouchpadSide? {
+        switch self {
+        case .leftTouchpadButton, .leftTouchpadTap,
+             .leftTouchpadRegionTopLeftClick, .leftTouchpadRegionTopRightClick,
+             .leftTouchpadRegionBottomLeftClick, .leftTouchpadRegionBottomRightClick,
+             .leftTouchpadRegionTopLeftTouch, .leftTouchpadRegionTopRightTouch,
+             .leftTouchpadRegionBottomLeftTouch, .leftTouchpadRegionBottomRightTouch:
+            return .left
+        case .rightTouchpadButton, .rightTouchpadTap,
+             .rightTouchpadRegionTopLeftClick, .rightTouchpadRegionTopRightClick,
+             .rightTouchpadRegionBottomLeftClick, .rightTouchpadRegionBottomRightClick,
+             .rightTouchpadRegionTopLeftTouch, .rightTouchpadRegionTopRightTouch,
+             .rightTouchpadRegionBottomLeftTouch, .rightTouchpadRegionBottomRightTouch:
+            return .right
+        default:
+            return nil
         }
     }
 
@@ -533,6 +631,18 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
              .touchpadRegionBottomLeftTouch, .touchpadRegionBottomRightTouch:
             return .touchpadTap
+        case .leftTouchpadRegionTopLeftClick, .leftTouchpadRegionTopRightClick,
+             .leftTouchpadRegionBottomLeftClick, .leftTouchpadRegionBottomRightClick:
+            return .leftTouchpadButton
+        case .leftTouchpadRegionTopLeftTouch, .leftTouchpadRegionTopRightTouch,
+             .leftTouchpadRegionBottomLeftTouch, .leftTouchpadRegionBottomRightTouch:
+            return .leftTouchpadTap
+        case .rightTouchpadRegionTopLeftClick, .rightTouchpadRegionTopRightClick,
+             .rightTouchpadRegionBottomLeftClick, .rightTouchpadRegionBottomRightClick:
+            return .rightTouchpadButton
+        case .rightTouchpadRegionTopLeftTouch, .rightTouchpadRegionTopRightTouch,
+             .rightTouchpadRegionBottomLeftTouch, .rightTouchpadRegionBottomRightTouch:
+            return .rightTouchpadTap
         default:
             return nil
         }
@@ -544,10 +654,18 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
     var touchpadQuadrantTrigger: TouchpadTriggerMode? {
         switch self {
         case .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
-             .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick:
+             .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick,
+             .leftTouchpadRegionTopLeftClick, .leftTouchpadRegionTopRightClick,
+             .leftTouchpadRegionBottomLeftClick, .leftTouchpadRegionBottomRightClick,
+             .rightTouchpadRegionTopLeftClick, .rightTouchpadRegionTopRightClick,
+             .rightTouchpadRegionBottomLeftClick, .rightTouchpadRegionBottomRightClick:
             return .click
         case .touchpadRegionTopLeftTouch, .touchpadRegionTopRightTouch,
-             .touchpadRegionBottomLeftTouch, .touchpadRegionBottomRightTouch:
+             .touchpadRegionBottomLeftTouch, .touchpadRegionBottomRightTouch,
+             .leftTouchpadRegionTopLeftTouch, .leftTouchpadRegionTopRightTouch,
+             .leftTouchpadRegionBottomLeftTouch, .leftTouchpadRegionBottomRightTouch,
+             .rightTouchpadRegionTopLeftTouch, .rightTouchpadRegionTopRightTouch,
+             .rightTouchpadRegionBottomLeftTouch, .rightTouchpadRegionBottomRightTouch:
             return .touch
         default:
             return nil
@@ -568,6 +686,41 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable {
         case (.bottomLeft, .touch): return .touchpadRegionBottomLeftTouch
         case (.bottomRight, .touch): return .touchpadRegionBottomRightTouch
         case (_, .both): return nil
+        }
+    }
+
+    static func from(
+        steamTouchpadSide side: SteamTouchpadSide,
+        region: TouchpadRegion,
+        trigger: TouchpadTriggerMode
+    ) -> ControllerButton? {
+        switch (side, region, trigger) {
+        case (.left, .topLeft, .click): return .leftTouchpadRegionTopLeftClick
+        case (.left, .topRight, .click): return .leftTouchpadRegionTopRightClick
+        case (.left, .bottomLeft, .click): return .leftTouchpadRegionBottomLeftClick
+        case (.left, .bottomRight, .click): return .leftTouchpadRegionBottomRightClick
+        case (.left, .topLeft, .touch): return .leftTouchpadRegionTopLeftTouch
+        case (.left, .topRight, .touch): return .leftTouchpadRegionTopRightTouch
+        case (.left, .bottomLeft, .touch): return .leftTouchpadRegionBottomLeftTouch
+        case (.left, .bottomRight, .touch): return .leftTouchpadRegionBottomRightTouch
+        case (.right, .topLeft, .click): return .rightTouchpadRegionTopLeftClick
+        case (.right, .topRight, .click): return .rightTouchpadRegionTopRightClick
+        case (.right, .bottomLeft, .click): return .rightTouchpadRegionBottomLeftClick
+        case (.right, .bottomRight, .click): return .rightTouchpadRegionBottomRightClick
+        case (.right, .topLeft, .touch): return .rightTouchpadRegionTopLeftTouch
+        case (.right, .topRight, .touch): return .rightTouchpadRegionTopRightTouch
+        case (.right, .bottomLeft, .touch): return .rightTouchpadRegionBottomLeftTouch
+        case (.right, .bottomRight, .touch): return .rightTouchpadRegionBottomRightTouch
+        case (_, _, .both): return nil
+        }
+    }
+
+    static func steamTouchpadRegionButtons(side: SteamTouchpadSide) -> [ControllerButton] {
+        TouchpadRegion.allCases.flatMap { region in
+            [
+                from(steamTouchpadSide: side, region: region, trigger: .click),
+                from(steamTouchpadSide: side, region: region, trigger: .touch),
+            ].compactMap { $0 }
         }
     }
 

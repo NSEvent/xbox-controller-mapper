@@ -95,6 +95,27 @@ final class ControllerDisplayUpdatePolicyTests: XCTestCase {
         XCTAssertEqual(result.displayIsTouchpadSecondaryTouching, sample.isTouchpadSecondaryTouching)
     }
 
+    func testResolveUpdatesSteamTouchpadDisplayWhenValuesChange() {
+        let current = makeState()
+        let sample = makeSample(
+            steamLeftTouchpadPosition: CGPoint(x: -0.4, y: 0.6),
+            steamRightTouchpadPosition: CGPoint(x: 0.5, y: -0.2),
+            isSteamLeftTouchpadTouching: true,
+            isSteamRightTouchpadTouching: true
+        )
+
+        let result = ControllerDisplayUpdatePolicy.resolve(
+            current: current,
+            sample: sample,
+            deadzone: 0.15
+        )
+
+        XCTAssertEqual(result.displaySteamLeftTouchpadPosition, sample.steamLeftTouchpadPosition)
+        XCTAssertEqual(result.displaySteamRightTouchpadPosition, sample.steamRightTouchpadPosition)
+        XCTAssertEqual(result.displayIsSteamLeftTouchpadTouching, sample.isSteamLeftTouchpadTouching)
+        XCTAssertEqual(result.displayIsSteamRightTouchpadTouching, sample.isSteamRightTouchpadTouching)
+    }
+
     func testResolveReturnsIdenticalStateWhenIdleSampleMatchesCurrentDisplay() {
         let current = makeState(
             leftStick: .zero,
@@ -108,7 +129,11 @@ final class ControllerDisplayUpdatePolicyTests: XCTestCase {
             displayTouchpadPosition: .zero,
             displayTouchpadSecondaryPosition: .zero,
             displayIsTouchpadTouching: false,
-            displayIsTouchpadSecondaryTouching: false
+            displayIsTouchpadSecondaryTouching: false,
+            displaySteamLeftTouchpadPosition: .zero,
+            displaySteamRightTouchpadPosition: .zero,
+            displayIsSteamLeftTouchpadTouching: false,
+            displayIsSteamRightTouchpadTouching: false
         )
         let sample = makeSample()
 
@@ -133,7 +158,11 @@ final class ControllerDisplayUpdatePolicyTests: XCTestCase {
         displayTouchpadPosition: CGPoint = .zero,
         displayTouchpadSecondaryPosition: CGPoint = .zero,
         displayIsTouchpadTouching: Bool = false,
-        displayIsTouchpadSecondaryTouching: Bool = false
+        displayIsTouchpadSecondaryTouching: Bool = false,
+        displaySteamLeftTouchpadPosition: CGPoint = .zero,
+        displaySteamRightTouchpadPosition: CGPoint = .zero,
+        displayIsSteamLeftTouchpadTouching: Bool = false,
+        displayIsSteamRightTouchpadTouching: Bool = false
     ) -> ControllerDisplayState {
         ControllerDisplayState(
             leftStick: leftStick,
@@ -147,7 +176,11 @@ final class ControllerDisplayUpdatePolicyTests: XCTestCase {
             displayTouchpadPosition: displayTouchpadPosition,
             displayTouchpadSecondaryPosition: displayTouchpadSecondaryPosition,
             displayIsTouchpadTouching: displayIsTouchpadTouching,
-            displayIsTouchpadSecondaryTouching: displayIsTouchpadSecondaryTouching
+            displayIsTouchpadSecondaryTouching: displayIsTouchpadSecondaryTouching,
+            displaySteamLeftTouchpadPosition: displaySteamLeftTouchpadPosition,
+            displaySteamRightTouchpadPosition: displaySteamRightTouchpadPosition,
+            displayIsSteamLeftTouchpadTouching: displayIsSteamLeftTouchpadTouching,
+            displayIsSteamRightTouchpadTouching: displayIsSteamRightTouchpadTouching
         )
     }
 
@@ -159,7 +192,11 @@ final class ControllerDisplayUpdatePolicyTests: XCTestCase {
         touchpadPosition: CGPoint = .zero,
         touchpadSecondaryPosition: CGPoint = .zero,
         isTouchpadTouching: Bool = false,
-        isTouchpadSecondaryTouching: Bool = false
+        isTouchpadSecondaryTouching: Bool = false,
+        steamLeftTouchpadPosition: CGPoint = .zero,
+        steamRightTouchpadPosition: CGPoint = .zero,
+        isSteamLeftTouchpadTouching: Bool = false,
+        isSteamRightTouchpadTouching: Bool = false
     ) -> ControllerDisplaySample {
         ControllerDisplaySample(
             leftStick: leftStick,
@@ -169,7 +206,11 @@ final class ControllerDisplayUpdatePolicyTests: XCTestCase {
             touchpadPosition: touchpadPosition,
             touchpadSecondaryPosition: touchpadSecondaryPosition,
             isTouchpadTouching: isTouchpadTouching,
-            isTouchpadSecondaryTouching: isTouchpadSecondaryTouching
+            isTouchpadSecondaryTouching: isTouchpadSecondaryTouching,
+            steamLeftTouchpadPosition: steamLeftTouchpadPosition,
+            steamRightTouchpadPosition: steamRightTouchpadPosition,
+            isSteamLeftTouchpadTouching: isSteamLeftTouchpadTouching,
+            isSteamRightTouchpadTouching: isSteamRightTouchpadTouching
         )
     }
 }

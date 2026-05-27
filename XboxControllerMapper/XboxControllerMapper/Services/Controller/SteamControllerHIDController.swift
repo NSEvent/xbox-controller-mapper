@@ -29,7 +29,7 @@ struct SteamControllerBatteryReport: Equatable {
     let state: GCDeviceBattery.State
 }
 
-struct SteamControllerTouchpadState: Equatable {
+struct SteamControllerTouchpadState: Equatable, Sendable {
     let x: Float
     let y: Float
     let isTouching: Bool
@@ -40,14 +40,14 @@ private struct SteamControllerTouchpadTapTracker {
     private var wasTouching = false
     private var touchStartTime: TimeInterval = 0
     private var touchStartPosition = CGPoint.zero
+    private var lastTouchPosition = CGPoint.zero
     private var maxDistanceFromStart: Double = 0
     private var clickFiredDuringTouch = false
 
     mutating func update(
         state: SteamControllerTouchpadState,
-        tapButton: ControllerButton,
         now: TimeInterval,
-        onTap: (ControllerButton) -> Void
+        onTap: (TouchpadRegion) -> Void
     ) {
         let position = CGPoint(x: CGFloat(state.x), y: CGFloat(state.y))
 
@@ -55,9 +55,11 @@ private struct SteamControllerTouchpadTapTracker {
             if !wasTouching {
                 touchStartTime = now
                 touchStartPosition = position
+                lastTouchPosition = position
                 maxDistanceFromStart = 0
                 clickFiredDuringTouch = state.isPressed
             } else {
+                lastTouchPosition = position
                 maxDistanceFromStart = max(
                     maxDistanceFromStart,
                     hypot(Double(position.x - touchStartPosition.x), Double(position.y - touchStartPosition.y))
@@ -76,12 +78,13 @@ private struct SteamControllerTouchpadTapTracker {
         if !clickFiredDuringTouch,
            duration < Config.touchpadTapMaxDuration,
            maxDistanceFromStart < Config.touchpadTapMaxMovement {
-            onTap(tapButton)
+            onTap(TouchpadRegion.from(position: lastTouchPosition))
         }
 
         wasTouching = false
         touchStartTime = 0
         touchStartPosition = .zero
+        lastTouchPosition = .zero
         maxDistanceFromStart = 0
         clickFiredDuringTouch = false
     }
@@ -235,10 +238,10 @@ final class SteamControllerHIDController {
     var onRightStickMoved: ((Float, Float) -> Void)?
     var onLeftTriggerChanged: ((Float, Bool) -> Void)?
     var onRightTriggerChanged: ((Float, Bool) -> Void)?
+    var onLeftTouchpadChanged: ((Float, Float, Bool) -> Void)?
     var onRightTouchpadChanged: ((Float, Float, Bool) -> Void)?
-    var onLeftTouchpadClickChanged: ((Bool) -> Void)?
-    var onRightTouchpadClickChanged: ((Bool) -> Void)?
-    var onTouchpadTapAction: ((ControllerButton) -> Void)?
+    var onTouchpadClickChanged: ((SteamTouchpadSide, SteamControllerTouchpadState, Bool) -> Void)?
+    var onTouchpadTapAction: ((SteamTouchpadSide, TouchpadRegion) -> Void)?
     var onBatteryChanged: ((Float, GCDeviceBattery.State) -> Void)?
 
     private static let inputReportBufferSize = 128
@@ -494,20 +497,19 @@ final class SteamControllerHIDController {
 
         leftTouchpadTapTracker.update(
             state: left,
-            tapButton: .leftTouchpadTap,
             now: now
-        ) { [weak self] button in
-            self?.onTouchpadTapAction?(button)
+        ) { [weak self] region in
+            self?.onTouchpadTapAction?(.left, region)
         }
         rightTouchpadTapTracker.update(
             state: right,
-            tapButton: .rightTouchpadTap,
             now: now
-        ) { [weak self] button in
-            self?.onTouchpadTapAction?(button)
+        ) { [weak self] region in
+            self?.onTouchpadTapAction?(.right, region)
         }
 
         if shouldDispatchTouchpad(lastLeftTouchpad, current: left) {
+            onLeftTouchpadChanged?(left.x, left.y, left.isTouching)
             lastLeftTouchpad = left
         } else if lastLeftTouchpad == nil {
             lastLeftTouchpad = left
@@ -515,7 +517,7 @@ final class SteamControllerHIDController {
 
         if lastLeftTouchpadClick != left.isPressed {
             if lastLeftTouchpadClick != nil || left.isPressed {
-                onLeftTouchpadClickChanged?(left.isPressed)
+                onTouchpadClickChanged?(.left, left, left.isPressed)
             }
             lastLeftTouchpadClick = left.isPressed
         }
@@ -529,7 +531,7 @@ final class SteamControllerHIDController {
 
         if lastRightTouchpadClick != right.isPressed {
             if lastRightTouchpadClick != nil || right.isPressed {
-                onRightTouchpadClickChanged?(right.isPressed)
+                onTouchpadClickChanged?(.right, right, right.isPressed)
             }
             lastRightTouchpadClick = right.isPressed
         }
