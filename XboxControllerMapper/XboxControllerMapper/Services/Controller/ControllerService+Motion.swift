@@ -56,15 +56,14 @@ extension ControllerService {
         PerformanceProbe.shared.recordMotionCallback(rawOnly: !shouldProcessMotion)
         guard shouldProcessMotion else { return }
 
-        let scale = (Double.pi / 32768.0) * Config.steamGyroAimingSensitivityMultiplier
-        let rawPitch = Double(motion.gyroX) * scale
-        let rawRoll = Self.steamHorizontalAimRate(gyroY: motion.gyroY, gyroZ: motion.gyroZ) * scale
+        let rawPitchCounts = Double(motion.gyroX)
+        let rawRollCounts = Self.steamHorizontalAimRate(gyroY: motion.gyroY, gyroZ: motion.gyroZ)
 
         let biasCalibrationFrames = 60
-        let (pitch, roll): (Double, Double) = storage.lock.withLock {
+        let (pitchCounts, rollCounts): (Double, Double) = storage.lock.withLock {
             if storage.steamGyroBiasSampleCount < biasCalibrationFrames {
-                storage.steamGyroPitchBiasSum += rawPitch
-                storage.steamGyroRollBiasSum += rawRoll
+                storage.steamGyroPitchBiasSum += rawPitchCounts
+                storage.steamGyroRollBiasSum += rawRollCounts
                 storage.steamGyroBiasSampleCount += 1
                 if storage.steamGyroBiasSampleCount == biasCalibrationFrames {
                     storage.steamGyroPitchBias = storage.steamGyroPitchBiasSum / Double(biasCalibrationFrames)
@@ -72,9 +71,26 @@ extension ControllerService {
                 }
                 return (0, 0)
             }
-            return (rawPitch - storage.steamGyroPitchBias, rawRoll - storage.steamGyroRollBias)
+            return (rawPitchCounts - storage.steamGyroPitchBias, rawRollCounts - storage.steamGyroRollBias)
         }
-        if pitch == 0 && roll == 0 { return }
+        if pitchCounts == 0 && rollCounts == 0 { return }
+
+        let pitch = Self.steamGyroRotationRate(
+            counts: pitchCounts,
+            multiplier: Config.steamGyroAimingSensitivityMultiplier
+        )
+        let roll = Self.steamGyroRotationRate(
+            counts: rollCounts,
+            multiplier: Config.steamGyroAimingSensitivityMultiplier
+        )
+        let gesturePitch = Self.steamGyroRotationRate(
+            counts: pitchCounts,
+            multiplier: Config.steamGyroGestureSensitivityMultiplier
+        )
+        let gestureRoll = Self.steamGyroRotationRate(
+            counts: rollCounts,
+            multiplier: Config.steamGyroGestureSensitivityMultiplier
+        )
 
         storage.lock.lock()
         storage.motionPitchAccum += pitch
@@ -82,7 +98,11 @@ extension ControllerService {
         storage.motionSampleCount += 1
         storage.lock.unlock()
 
-        processMotionUpdate(pitchVelocity: pitch, rollVelocity: roll)
+        processMotionUpdate(pitchVelocity: gesturePitch, rollVelocity: gestureRoll)
+    }
+
+    nonisolated static func steamGyroRotationRate(counts: Double, multiplier: Double) -> Double {
+        counts * (Double.pi / 32768.0) * multiplier
     }
 
     nonisolated static func steamHorizontalAimRate(gyroY: Int16, gyroZ: Int16) -> Double {
