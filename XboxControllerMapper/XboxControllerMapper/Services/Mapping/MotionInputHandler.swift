@@ -1,12 +1,12 @@
 import Foundation
 import CoreGraphics
 
-/// Handles DualSense motion gesture detection and execution (tilt/shake gestures).
+/// Handles motion gesture detection and execution (tilt/shake gestures).
 ///
 /// Extracted from MappingEngine to reduce its responsibilities.
 extension MappingEngine {
 
-    /// Process a completed motion gesture from the DualSense gyroscope
+    /// Process a completed motion gesture from a supported controller gyroscope.
     /// - Precondition: Must be called on inputQueue
     nonisolated func processMotionGesture(_ gestureType: MotionGestureType) {
         dispatchPrecondition(condition: .onQueue(inputQueue))

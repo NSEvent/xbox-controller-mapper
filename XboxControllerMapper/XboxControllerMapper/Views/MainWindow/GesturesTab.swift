@@ -26,7 +26,7 @@ struct GesturesTab: View {
                 }
                 .foregroundColor(.secondary)
             } footer: {
-                Text("Map quick tilt gestures on your DualSense controller to actions. Snap the controller top toward you (Tilt Back) or away from you (Tilt Forward).")
+                Text("Map quick tilt gestures on a supported controller to actions. Snap the controller top toward you (Tilt Back) or away from you (Tilt Forward).")
                     .foregroundColor(.secondary.opacity(0.7))
             }
 
@@ -112,7 +112,7 @@ struct GesturesTab: View {
                 }
                 .foregroundColor(.secondary)
             } footer: {
-                Text("Tilt the controller to move the mouse cursor while in focus mode. Uses the DualSense gyroscope for fine-grained aiming.")
+                Text("Tilt the controller to move the mouse cursor while in focus mode. Uses the controller gyroscope for fine-grained aiming.")
                     .foregroundColor(.secondary.opacity(0.7))
             }
         }

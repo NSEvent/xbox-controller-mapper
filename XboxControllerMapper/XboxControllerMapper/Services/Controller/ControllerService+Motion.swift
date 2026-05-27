@@ -51,8 +51,59 @@ extension ControllerService {
         }
     }
 
+    nonisolated func processSteamMotion(_ motion: SteamControllerMotionReport) {
+        let shouldProcessMotion = storage.lock.withLock { storage.motionInputEnabled }
+        PerformanceProbe.shared.recordMotionCallback(rawOnly: !shouldProcessMotion)
+        guard shouldProcessMotion else { return }
+
+        let scale = (Double.pi / 32768.0) * Config.steamGyroAimingSensitivityMultiplier
+        let rawPitch = Double(motion.gyroX) * scale
+        let rawRoll = -Double(motion.gyroY) * scale
+
+        let biasCalibrationFrames = 60
+        let (pitch, roll): (Double, Double) = storage.lock.withLock {
+            if storage.steamGyroBiasSampleCount < biasCalibrationFrames {
+                storage.steamGyroPitchBiasSum += rawPitch
+                storage.steamGyroRollBiasSum += rawRoll
+                storage.steamGyroBiasSampleCount += 1
+                if storage.steamGyroBiasSampleCount == biasCalibrationFrames {
+                    storage.steamGyroPitchBias = storage.steamGyroPitchBiasSum / Double(biasCalibrationFrames)
+                    storage.steamGyroRollBias = storage.steamGyroRollBiasSum / Double(biasCalibrationFrames)
+                }
+                return (0, 0)
+            }
+            return (rawPitch - storage.steamGyroPitchBias, rawRoll - storage.steamGyroRollBias)
+        }
+        if pitch == 0 && roll == 0 { return }
+
+        storage.lock.lock()
+        storage.motionPitchAccum += pitch
+        storage.motionRollAccum += roll
+        storage.motionSampleCount += 1
+        storage.lock.unlock()
+
+        processMotionUpdate(pitchVelocity: pitch, rollVelocity: roll)
+    }
+
     func setMotionSensorsActive(_ active: Bool) {
-        guard let motion = connectedController?.motion else { return }
+        guard let motion = connectedController?.motion else {
+            guard threadSafeIsSteamController else { return }
+            storage.lock.withLock {
+                storage.motionInputEnabled = active
+                if !active {
+                    resetMotionStateLocked()
+                }
+            }
+            if Config.performanceProbeEnabled {
+                NSLog(
+                    "[PerfProbe] motion_activation scenario=%@ requested=%d actual=%d",
+                    Config.performanceScenarioLabel,
+                    active ? 1 : 0,
+                    active ? 1 : 0
+                )
+            }
+            return
+        }
 
         if motion.sensorsActive != active {
             motion.sensorsActive = active
@@ -90,5 +141,10 @@ extension ControllerService {
         storage.ds4GyroBiasSampleCount = 0
         storage.ds4GyroPitchBias = 0
         storage.ds4GyroRollBias = 0
+        storage.steamGyroPitchBiasSum = 0
+        storage.steamGyroRollBiasSum = 0
+        storage.steamGyroBiasSampleCount = 0
+        storage.steamGyroPitchBias = 0
+        storage.steamGyroRollBias = 0
     }
 }

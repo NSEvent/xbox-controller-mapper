@@ -1,7 +1,7 @@
 import Foundation
 
 enum ControllerMotionActivationPolicy {
-    /// `hasMotion` is true for any controller with gyroscope sensors (DualSense + DS4).
+    /// `hasMotion` is true for any controller with gyroscope sensors.
     static func shouldEnableMotion(profile: Profile?, hasMotion: Bool) -> Bool {
         if Config.performanceForceMotionDisabled {
             return false

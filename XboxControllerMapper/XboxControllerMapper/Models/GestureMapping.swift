@@ -1,7 +1,7 @@
 import Foundation
 import CoreGraphics
 
-/// Types of motion gestures detected from the DualSense gyroscope
+/// Types of motion gestures detected from a supported controller gyroscope.
 enum MotionGestureType: String, Codable, CaseIterable, Identifiable {
     case tiltBack
     case tiltForward

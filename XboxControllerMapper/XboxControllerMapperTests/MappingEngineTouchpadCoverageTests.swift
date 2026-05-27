@@ -19,6 +19,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
             appMonitor = AppMonitor()
             mockInputSimulator = MockInputSimulator()
+            controllerService.storage.isSteamController = false
 
             mappingEngine = MappingEngine(
                 controllerService: controllerService,
@@ -368,7 +369,9 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                     centerDelta: .zero,
                     distanceDelta: Config.touchpadPinchDeadzone + 0.02,
                     isPrimaryTouching: true,
-                    isSecondaryTouching: true
+                    isSecondaryTouching: true,
+                    primaryDelta: CGPoint(x: 0.04, y: 0),
+                    secondaryDelta: CGPoint(x: -0.04, y: 0)
                 )
             )
         }
@@ -389,7 +392,9 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                     centerDelta: .zero,
                     distanceDelta: Config.steamTouchpadPinchDeadzone + 0.02,
                     isPrimaryTouching: true,
-                    isSecondaryTouching: true
+                    isSecondaryTouching: true,
+                    primaryDelta: CGPoint(x: 0.06, y: 0),
+                    secondaryDelta: CGPoint(x: -0.06, y: 0)
                 )
             )
         }
@@ -469,5 +474,113 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             )
         }
         await waitForTasks(0.1)
+    }
+
+    func testSteamTwoPadPanDoesNotScroll() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "SteamNoPan", buttonMappings: [:])
+            profile.joystickSettings.touchpadUseNativeZoom = false
+            profile.joystickSettings.touchpadSmoothing = 0
+            profile.joystickSettings.touchpadPanSensitivity = 1.0
+            profile.joystickSettings.touchpadZoomToPanRatio = 5.0
+            profileManager.setActiveProfile(profile)
+            controllerService.storage.isSteamController = true
+            controllerService.isConnected = true
+        }
+        await waitForTasks(0.15)
+
+        await MainActor.run {
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: CGPoint(x: 0.9, y: 0.7),
+                    distanceDelta: 0,
+                    isPrimaryTouching: true,
+                    isSecondaryTouching: true,
+                    primaryDelta: CGPoint(x: 0.1, y: 0.1),
+                    secondaryDelta: CGPoint(x: 0.1, y: 0.1)
+                )
+            )
+        }
+        await waitForTasks(0.35)
+
+        await MainActor.run {
+            let nonZeroScrollCount = mockInputSimulator.events.filter { event in
+                if case .scroll(let dx, let dy) = event {
+                    return abs(dx) > 0.1 || abs(dy) > 0.1
+                }
+                return false
+            }.count
+            XCTAssertEqual(nonZeroScrollCount, 0, "Steam two-pad motion should not fall through to scroll")
+        }
+    }
+
+    func testSteamOneRestingPadDoesNotSuppressTouchpadMouse() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "SteamRestingPad", buttonMappings: [:])
+            profile.joystickSettings.touchpadDeadzone = 0.00001
+            profile.joystickSettings.touchpadSmoothing = 0
+            profileManager.setActiveProfile(profile)
+            controllerService.storage.isSteamController = true
+        }
+        await waitForTasks(0.15)
+
+        await MainActor.run {
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: CGPoint(x: 0.05, y: 0),
+                    distanceDelta: 0,
+                    isPrimaryTouching: true,
+                    isSecondaryTouching: true,
+                    primaryDelta: CGPoint(x: 0.1, y: 0),
+                    secondaryDelta: .zero
+                )
+            )
+            mockInputSimulator.clearEvents()
+            controllerService.onTouchpadMoved?(CGPoint(x: 0.7, y: 0.7))
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let hasMove = mockInputSimulator.events.contains { event in
+                if case .moveMouse = event { return true }
+                return false
+            }
+            XCTAssertTrue(hasMove, "Steam one-pad movement should continue when the other pad is only resting")
+        }
+    }
+
+    func testSteamTwoMovingPadsSuppressTouchpadMouse() async throws {
+        await MainActor.run {
+            var profile = Profile(name: "SteamMovingPads", buttonMappings: [:])
+            profile.joystickSettings.touchpadDeadzone = 0.00001
+            profile.joystickSettings.touchpadSmoothing = 0
+            profileManager.setActiveProfile(profile)
+            controllerService.storage.isSteamController = true
+        }
+        await waitForTasks(0.15)
+
+        await MainActor.run {
+            controllerService.onTouchpadGesture?(
+                TouchpadGesture(
+                    centerDelta: CGPoint(x: 0.02, y: 0),
+                    distanceDelta: Config.steamTouchpadPinchDeadzone + 0.02,
+                    isPrimaryTouching: true,
+                    isSecondaryTouching: true,
+                    primaryDelta: CGPoint(x: 0.1, y: 0),
+                    secondaryDelta: CGPoint(x: -0.1, y: 0)
+                )
+            )
+            mockInputSimulator.clearEvents()
+            controllerService.onTouchpadMoved?(CGPoint(x: 0.7, y: 0.7))
+        }
+        await waitForTasks(0.2)
+
+        await MainActor.run {
+            let hasMove = mockInputSimulator.events.contains { event in
+                if case .moveMouse = event { return true }
+                return false
+            }
+            XCTAssertFalse(hasMove, "Steam two-pad gestures should suppress touchpad mouse movement")
+        }
     }
 }

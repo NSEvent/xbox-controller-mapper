@@ -297,6 +297,95 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertEqual(touchpad?.isPressed, true)
     }
 
+    func testSteamController_MotionReportParsesIMUFields() {
+        let bytes = makeReport(length: 54) { p in
+            writeLE32(0x12345678, to: p, offset: 29)
+            writeLE16(UInt16(bitPattern: Int16(-100)), to: p, offset: 33)
+            writeLE16(UInt16(bitPattern: Int16(200)), to: p, offset: 35)
+            writeLE16(UInt16(bitPattern: Int16(-300)), to: p, offset: 37)
+            writeLE16(UInt16(bitPattern: Int16(400)), to: p, offset: 39)
+            writeLE16(UInt16(bitPattern: Int16(-500)), to: p, offset: 41)
+            writeLE16(UInt16(bitPattern: Int16(600)), to: p, offset: 43)
+        }
+
+        let report = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parse(reportID: 0x45, report: buf.baseAddress!, length: buf.count)
+        }
+
+        XCTAssertEqual(report?.motion?.timestamp, 0x12345678)
+        XCTAssertEqual(report?.motion?.accelX, -100)
+        XCTAssertEqual(report?.motion?.accelY, 200)
+        XCTAssertEqual(report?.motion?.accelZ, -300)
+        XCTAssertEqual(report?.motion?.gyroX, 400)
+        XCTAssertEqual(report?.motion?.gyroY, -500)
+        XCTAssertEqual(report?.motion?.gyroZ, 600)
+    }
+
+    func testSteamController_HapticTonePayloadMatchesTritonOutputLayout() {
+        let payload = SteamControllerHIDController.hapticTonePayload(
+            actuator: SteamControllerHIDController.leftTrackpadActuator,
+            frequencyHz: 400,
+            gain: -6,
+            count: 6
+        )
+
+        XCTAssertEqual(payload.count, SteamControllerHIDController.hapticOutputPayloadSize)
+        XCTAssertEqual(payload[0], 0)
+        XCTAssertEqual(payload[1], UInt8(bitPattern: Int8(-6)))
+        XCTAssertEqual(payload[2], 0x90)
+        XCTAssertEqual(payload[3], 0x01)
+        XCTAssertEqual(payload[4], 0x06)
+        XCTAssertEqual(payload[5], 0x00)
+    }
+
+    func testSteamController_HapticOutputReportPrefixesReportID() {
+        let payload = SteamControllerHIDController.hapticTonePayload(
+            actuator: SteamControllerHIDController.rightTrackpadActuator,
+            frequencyHz: 400,
+            gain: -6,
+            count: 6
+        )
+        let report = SteamControllerHIDController.hapticOutputReport(
+            reportID: SteamControllerHIDController.hapticToneReportID,
+            payload: payload
+        )
+
+        XCTAssertEqual(report.count, SteamControllerHIDController.hapticOutputReportSize)
+        XCTAssertEqual(report[0], SteamControllerHIDController.hapticToneReportID)
+        XCTAssertEqual(report[1], SteamControllerHIDController.rightTrackpadActuator)
+        XCTAssertEqual(report[2], UInt8(bitPattern: Int8(-6)))
+        XCTAssertEqual(report[3], 0x90)
+        XCTAssertEqual(report[4], 0x01)
+        XCTAssertEqual(report[5], 0x06)
+        XCTAssertEqual(report[6], 0x00)
+    }
+
+    func testSteamController_HapticStopPayloadMatchesTritonOutputLayout() {
+        let payload = SteamControllerHIDController.hapticStopPayload(
+            actuator: SteamControllerHIDController.rightTrackpadActuator
+        )
+
+        XCTAssertEqual(payload.count, SteamControllerHIDController.hapticOutputPayloadSize)
+        XCTAssertEqual(payload[0], 1)
+        XCTAssertTrue(payload.dropFirst().allSatisfy { $0 == 0 })
+    }
+
+    func testSteamController_LizardFeatureReportMatchesTritonLayout() {
+        let withoutID = SteamControllerHIDController.lizardModeFeatureReport(
+            enabled: false,
+            includesReportID: false
+        )
+        let withID = SteamControllerHIDController.lizardModeFeatureReport(
+            enabled: false,
+            includesReportID: true
+        )
+
+        XCTAssertEqual(withoutID.count, 64)
+        XCTAssertEqual(Array(withoutID.prefix(5)), [0x87, 0x03, 0x09, 0x00, 0x00])
+        XCTAssertEqual(withID.count, 65)
+        XCTAssertEqual(Array(withID.prefix(6)), [0x01, 0x87, 0x03, 0x09, 0x00, 0x00])
+    }
+
     func testSteamController_ButtonEventsMapToControllerButtons() {
         let current = SteamControllerButtonMask.qam
             | SteamControllerButtonMask.view
@@ -315,6 +404,33 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertTrue(events.contains(ControllerButtonEvent(button: .xboxPaddle4, pressed: true)))
         XCTAssertFalse(events.contains(ControllerButtonEvent(button: .leftTouchpadButton, pressed: true)))
         XCTAssertFalse(events.contains(ControllerButtonEvent(button: .rightTouchpadButton, pressed: true)))
+    }
+
+    func testSteamController_TouchpadTapGateSuppressesTapWhenClickArrivesAfterTouchDrops() {
+        var gate = SteamControllerTouchpadTapGate()
+        var taps: [TouchpadRegion] = []
+
+        gate.queue(side: .right, region: .topRight, now: 1.0)
+        gate.cancel(side: .right)
+        taps.append(contentsOf: gate.flush(now: 1.0 + Config.steamTouchpadTapClickSuppressionWindow + 0.01).map { $0.1 })
+
+        XCTAssertTrue(taps.isEmpty, "Physical pad clicks should not also dispatch tap actions")
+    }
+
+    func testSteamController_TouchpadTapTrackerStillDispatchesPlainTap() {
+        var tracker = SteamControllerTouchpadTapTracker()
+        var taps: [TouchpadRegion] = []
+
+        tracker.update(
+            state: SteamControllerTouchpadState(x: 0.25, y: 0.25, isTouching: true, isPressed: false),
+            now: 1.0
+        ) { taps.append($0) }
+        tracker.update(
+            state: SteamControllerTouchpadState(x: 0, y: 0, isTouching: false, isPressed: false),
+            now: 1.05
+        ) { taps.append($0) }
+
+        XCTAssertEqual(taps.count, 1)
     }
 
     private func writeLE16(_ value: UInt16, to p: UnsafeMutablePointer<UInt8>, offset: Int) {

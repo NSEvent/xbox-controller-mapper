@@ -20,6 +20,17 @@ struct SteamControllerInputReport: Equatable {
     let rightPadX: Int16
     let rightPadY: Int16
     let rightPadPressure: UInt16
+    let motion: SteamControllerMotionReport?
+}
+
+struct SteamControllerMotionReport: Equatable, Sendable {
+    let timestamp: UInt32
+    let accelX: Int16
+    let accelY: Int16
+    let accelZ: Int16
+    let gyroX: Int16
+    let gyroY: Int16
+    let gyroZ: Int16
 }
 
 struct SteamControllerBatteryReport: Equatable {
@@ -36,7 +47,7 @@ struct SteamControllerTouchpadState: Equatable, Sendable {
     let isPressed: Bool
 }
 
-private struct SteamControllerTouchpadTapTracker {
+struct SteamControllerTouchpadTapTracker {
     private var wasTouching = false
     private var touchStartTime: TimeInterval = 0
     private var touchStartPosition = CGPoint.zero
@@ -50,6 +61,9 @@ private struct SteamControllerTouchpadTapTracker {
         onTap: (TouchpadRegion) -> Void
     ) {
         let position = CGPoint(x: CGFloat(state.x), y: CGFloat(state.y))
+        if state.isPressed {
+            clickFiredDuringTouch = true
+        }
 
         if state.isTouching {
             if !wasTouching {
@@ -64,9 +78,6 @@ private struct SteamControllerTouchpadTapTracker {
                     maxDistanceFromStart,
                     hypot(Double(position.x - touchStartPosition.x), Double(position.y - touchStartPosition.y))
                 )
-                if state.isPressed {
-                    clickFiredDuringTouch = true
-                }
             }
             wasTouching = true
             return
@@ -87,6 +98,43 @@ private struct SteamControllerTouchpadTapTracker {
         lastTouchPosition = .zero
         maxDistanceFromStart = 0
         clickFiredDuringTouch = false
+    }
+}
+
+struct SteamControllerTouchpadTapGate {
+    private var leftPendingTap: (region: TouchpadRegion, deadline: TimeInterval)?
+    private var rightPendingTap: (region: TouchpadRegion, deadline: TimeInterval)?
+
+    mutating func queue(side: SteamTouchpadSide, region: TouchpadRegion, now: TimeInterval) {
+        let pending = (region: region, deadline: now + Config.steamTouchpadTapClickSuppressionWindow)
+        switch side {
+        case .left:
+            leftPendingTap = pending
+        case .right:
+            rightPendingTap = pending
+        }
+    }
+
+    mutating func cancel(side: SteamTouchpadSide) {
+        switch side {
+        case .left:
+            leftPendingTap = nil
+        case .right:
+            rightPendingTap = nil
+        }
+    }
+
+    mutating func flush(now: TimeInterval) -> [(SteamTouchpadSide, TouchpadRegion)] {
+        var taps: [(SteamTouchpadSide, TouchpadRegion)] = []
+        if let pending = leftPendingTap, now >= pending.deadline {
+            taps.append((.left, pending.region))
+            leftPendingTap = nil
+        }
+        if let pending = rightPendingTap, now >= pending.deadline {
+            taps.append((.right, pending.region))
+            rightPendingTap = nil
+        }
+        return taps
     }
 }
 
@@ -153,6 +201,20 @@ struct SteamControllerHIDParser {
         let rightPadX = Self.int16LE(report, offset + 23)
         let rightPadY = Self.int16LE(report, offset + 25)
         let rightPadPressure = Self.uint16LE(report, offset + 27)
+        let motion: SteamControllerMotionReport?
+        if payloadLength >= 45 {
+            motion = SteamControllerMotionReport(
+                timestamp: Self.uint32LE(report, offset + 29),
+                accelX: Self.int16LE(report, offset + 33),
+                accelY: Self.int16LE(report, offset + 35),
+                accelZ: Self.int16LE(report, offset + 37),
+                gyroX: Self.int16LE(report, offset + 39),
+                gyroY: Self.int16LE(report, offset + 41),
+                gyroZ: Self.int16LE(report, offset + 43)
+            )
+        } else {
+            motion = nil
+        }
 
         return SteamControllerInputReport(
             reportID: id,
@@ -169,7 +231,8 @@ struct SteamControllerHIDParser {
             leftPadPressure: leftPadPressure,
             rightPadX: rightPadX,
             rightPadY: rightPadY,
-            rightPadPressure: rightPadPressure
+            rightPadPressure: rightPadPressure,
+            motion: motion
         )
     }
 
@@ -243,6 +306,7 @@ final class SteamControllerHIDController {
     var onTouchpadClickChanged: ((SteamTouchpadSide, SteamControllerTouchpadState, Bool) -> Void)?
     var onTouchpadTapAction: ((SteamTouchpadSide, TouchpadRegion) -> Void)?
     var onBatteryChanged: ((Float, GCDeviceBattery.State) -> Void)?
+    var onMotionChanged: ((SteamControllerMotionReport) -> Void)?
 
     private static let inputReportBufferSize = 128
     private static let triggerPressThreshold: Float = 0.12
@@ -253,8 +317,15 @@ final class SteamControllerHIDController {
     private static let lizardModeReportID: UInt8 = 0x01
     private static let lizardModeCommand: UInt8 = 0x87
     private static let lizardModeSetting: UInt8 = 0x09
+    static let hapticToneReportID: UInt8 = 0x83
+    static let hapticStopReportID: UInt8 = 0x82
+    static let hapticOutputPayloadSize = 64
+    static let hapticOutputReportSize = 65
+    static let leftTrackpadActuator: UInt8 = 0
+    static let rightTrackpadActuator: UInt8 = 1
 
     private let lizardModeQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.lizard-mode", qos: .utility)
+    private let hapticOutputQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.haptics", qos: .userInitiated)
     private let parser = SteamControllerHIDParser()
     private var previousButtons: UInt32 = 0
     private var lastAnalogDispatchNanoseconds: UInt64 = 0
@@ -266,8 +337,14 @@ final class SteamControllerHIDController {
     private var lastRightTouchpad: SteamControllerTouchpadState?
     private var lastLeftTouchpadClick: Bool?
     private var lastRightTouchpadClick: Bool?
+    private var lastLeftTouchpadClickReleaseTime: TimeInterval = 0
+    private var lastRightTouchpadClickReleaseTime: TimeInterval = 0
+    private var suppressedLeftTouchpadClickPress = false
+    private var suppressedRightTouchpadClickPress = false
     private var leftTouchpadTapTracker = SteamControllerTouchpadTapTracker()
     private var rightTouchpadTapTracker = SteamControllerTouchpadTapTracker()
+    private var touchpadTapGate = SteamControllerTouchpadTapGate()
+    private var touchpadTapFlushWorkItem: DispatchWorkItem?
     private var hasActivated = false
     private var isStarted = false
     private var reportBuffer: UnsafeMutablePointer<UInt8>?
@@ -338,6 +415,7 @@ final class SteamControllerHIDController {
         lizardModeTimer = nil
 
         if isStarted && lizardModeDisabled {
+            stopAllHaptics()
             sendLizardMode(enabled: true)
             lizardModeDisabled = false
         }
@@ -369,8 +447,15 @@ final class SteamControllerHIDController {
         lastRightTouchpad = nil
         lastLeftTouchpadClick = nil
         lastRightTouchpadClick = nil
+        lastLeftTouchpadClickReleaseTime = 0
+        lastRightTouchpadClickReleaseTime = 0
+        suppressedLeftTouchpadClickPress = false
+        suppressedRightTouchpadClickPress = false
         leftTouchpadTapTracker = SteamControllerTouchpadTapTracker()
         rightTouchpadTapTracker = SteamControllerTouchpadTapTracker()
+        touchpadTapGate = SteamControllerTouchpadTapGate()
+        touchpadTapFlushWorkItem?.cancel()
+        touchpadTapFlushWorkItem = nil
     }
 
     static func supportsDevice(_ device: IOHIDDevice) -> Bool {
@@ -445,6 +530,87 @@ final class SteamControllerHIDController {
         )
     }
 
+    static func hapticTonePayload(
+        actuator: UInt8,
+        frequencyHz: UInt16,
+        gain: Int8,
+        count: UInt16
+    ) -> [UInt8] {
+        var payload = [UInt8](repeating: 0, count: hapticOutputPayloadSize)
+        payload[0] = actuator
+        payload[1] = UInt8(bitPattern: gain)
+        payload[2] = UInt8(frequencyHz & 0xFF)
+        payload[3] = UInt8((frequencyHz >> 8) & 0xFF)
+        payload[4] = UInt8(count & 0xFF)
+        payload[5] = UInt8((count >> 8) & 0xFF)
+        return payload
+    }
+
+    static func hapticStopPayload(actuator: UInt8) -> [UInt8] {
+        var payload = [UInt8](repeating: 0, count: hapticOutputPayloadSize)
+        payload[0] = actuator
+        return payload
+    }
+
+    static func hapticOutputReport(reportID: UInt8, payload: [UInt8]) -> [UInt8] {
+        var report = [UInt8](repeating: 0, count: hapticOutputReportSize)
+        report[0] = reportID
+        let copyCount = min(payload.count, report.count - 1)
+        for index in 0..<copyCount {
+            report[index + 1] = payload[index]
+        }
+        return report
+    }
+
+    static func lizardModeFeatureReport(enabled: Bool, includesReportID: Bool) -> [UInt8] {
+        let value: UInt8 = enabled ? 1 : 0
+        let count = includesReportID ? 65 : 64
+        let offset = includesReportID ? 1 : 0
+        var report = [UInt8](repeating: 0, count: count)
+        if includesReportID {
+            report[0] = lizardModeReportID
+        }
+        report[offset] = lizardModeCommand
+        report[offset + 1] = 0x03
+        report[offset + 2] = lizardModeSetting
+        report[offset + 3] = value
+        report[offset + 4] = 0x00
+        return report
+    }
+
+    func playHaptic(intensity: Float, sharpness: Float, duration: TimeInterval, transient: Bool) {
+        let clampedIntensity = max(0.05, min(1.0, intensity))
+        let clampedSharpness = max(0.0, min(1.0, sharpness))
+        let frequency = UInt16(180 + round(clampedSharpness * 360))
+        let gain = Self.hapticGain(for: clampedIntensity)
+        let pulseCount: UInt16
+        if transient {
+            pulseCount = 6
+        } else {
+            pulseCount = UInt16(min(0x7FFF, max(8, Int(duration * Double(frequency)))))
+        }
+        let stopDelay = max(duration, transient ? 0.04 : 0.02)
+
+        hapticOutputQueue.async { [weak self] in
+            guard let self else { return }
+            for actuator in Self.trackpadActuators {
+                _ = self.sendHapticTone(
+                    actuator: actuator,
+                    frequencyHz: frequency,
+                    gain: gain,
+                    count: pulseCount
+                )
+            }
+
+            self.hapticOutputQueue.asyncAfter(deadline: .now() + stopDelay) { [weak self] in
+                guard let self else { return }
+                for actuator in Self.trackpadActuators {
+                    _ = self.sendHapticStop(actuator: actuator)
+                }
+            }
+        }
+    }
+
     private static let buttonMap: [(UInt32, ControllerButton)] = [
         (SteamControllerButtonMask.a, .a),
         (SteamControllerButtonMask.b, .b),
@@ -488,6 +654,9 @@ final class SteamControllerHIDController {
 
         dispatchTouchpadChanges(from: parsed)
         dispatchAnalogChanges(from: parsed)
+        if let motion = parsed.motion {
+            onMotionChanged?(motion)
+        }
     }
 
     private func dispatchTouchpadChanges(from parsed: SteamControllerInputReport) {
@@ -495,17 +664,37 @@ final class SteamControllerHIDController {
         let right = Self.rightTouchpadState(from: parsed)
         let now = CFAbsoluteTimeGetCurrent()
 
+        dispatchTouchpadClickIfNeeded(
+            side: .left,
+            state: left,
+            now: now,
+            lastClick: &lastLeftTouchpadClick,
+            lastReleaseTime: &lastLeftTouchpadClickReleaseTime,
+            suppressedPress: &suppressedLeftTouchpadClickPress
+        )
+
+        dispatchTouchpadClickIfNeeded(
+            side: .right,
+            state: right,
+            now: now,
+            lastClick: &lastRightTouchpadClick,
+            lastReleaseTime: &lastRightTouchpadClickReleaseTime,
+            suppressedPress: &suppressedRightTouchpadClickPress
+        )
+
+        flushPendingTouchpadTaps(now: now)
+
         leftTouchpadTapTracker.update(
             state: left,
             now: now
         ) { [weak self] region in
-            self?.onTouchpadTapAction?(.left, region)
+            self?.queueTouchpadTap(side: .left, region: region, now: now)
         }
         rightTouchpadTapTracker.update(
             state: right,
             now: now
         ) { [weak self] region in
-            self?.onTouchpadTapAction?(.right, region)
+            self?.queueTouchpadTap(side: .right, region: region, now: now)
         }
 
         if shouldDispatchTouchpad(lastLeftTouchpad, current: left) {
@@ -515,26 +704,75 @@ final class SteamControllerHIDController {
             lastLeftTouchpad = left
         }
 
-        if lastLeftTouchpadClick != left.isPressed {
-            if lastLeftTouchpadClick != nil || left.isPressed {
-                onTouchpadClickChanged?(.left, left, left.isPressed)
-            }
-            lastLeftTouchpadClick = left.isPressed
-        }
-
         if shouldDispatchTouchpad(lastRightTouchpad, current: right) {
             onRightTouchpadChanged?(right.x, right.y, right.isTouching)
             lastRightTouchpad = right
         } else if lastRightTouchpad == nil {
             lastRightTouchpad = right
         }
+    }
 
-        if lastRightTouchpadClick != right.isPressed {
-            if lastRightTouchpadClick != nil || right.isPressed {
-                onTouchpadClickChanged?(.right, right, right.isPressed)
-            }
-            lastRightTouchpadClick = right.isPressed
+    private func dispatchTouchpadClickIfNeeded(
+        side: SteamTouchpadSide,
+        state: SteamControllerTouchpadState,
+        now: TimeInterval,
+        lastClick: inout Bool?,
+        lastReleaseTime: inout TimeInterval,
+        suppressedPress: inout Bool
+    ) {
+        guard lastClick != state.isPressed else { return }
+        if lastClick != nil || state.isPressed {
+            touchpadTapGate.cancel(side: side)
         }
+
+        if state.isPressed,
+           lastClick != nil,
+           now - lastReleaseTime < Config.steamTouchpadClickDebounceInterval {
+            suppressedPress = true
+            lastClick = true
+            return
+        }
+
+        if !state.isPressed {
+            lastReleaseTime = now
+            if suppressedPress {
+                suppressedPress = false
+                lastClick = false
+                return
+            }
+        }
+
+        if lastClick != nil || state.isPressed {
+            onTouchpadClickChanged?(side, state, state.isPressed)
+        }
+        lastClick = state.isPressed
+    }
+
+    private func queueTouchpadTap(side: SteamTouchpadSide, region: TouchpadRegion, now: TimeInterval) {
+        touchpadTapGate.queue(side: side, region: region, now: now)
+        scheduleTouchpadTapFlush()
+    }
+
+    private func flushPendingTouchpadTaps(now: TimeInterval) {
+        for (side, region) in touchpadTapGate.flush(now: now) {
+            onTouchpadTapAction?(side, region)
+        }
+    }
+
+    private func scheduleTouchpadTapFlush() {
+        touchpadTapFlushWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, let runLoop = self.scheduledRunLoop else { return }
+            CFRunLoopPerformBlock(runLoop, CFRunLoopMode.defaultMode.rawValue) { [weak self] in
+                self?.flushPendingTouchpadTaps(now: CFAbsoluteTimeGetCurrent())
+            }
+            CFRunLoopWakeUp(runLoop)
+        }
+        touchpadTapFlushWorkItem = workItem
+        DispatchQueue.global(qos: .userInteractive).asyncAfter(
+            deadline: .now() + Config.steamTouchpadTapClickSuppressionWindow,
+            execute: workItem
+        )
     }
 
     private func dispatchAnalogChanges(from parsed: SteamControllerInputReport) {
@@ -601,6 +839,78 @@ final class SteamControllerHIDController {
         return max(-1.0, min(1.0, inverted ? -value : value))
     }
 
+    private static let trackpadActuators = [leftTrackpadActuator, rightTrackpadActuator]
+
+    private static func hapticGain(for intensity: Float) -> Int8 {
+        Int8(round(-18.0 + (Double(intensity) * 16.0)))
+    }
+
+    private func stopAllHaptics() {
+        hapticOutputQueue.sync {
+            for actuator in Self.trackpadActuators {
+                _ = sendHapticStop(actuator: actuator)
+            }
+        }
+    }
+
+    @discardableResult
+    private func sendHapticTone(
+        actuator: UInt8,
+        frequencyHz: UInt16,
+        gain: Int8,
+        count: UInt16
+    ) -> Bool {
+        let payload = Self.hapticTonePayload(
+            actuator: actuator,
+            frequencyHz: frequencyHz,
+            gain: gain,
+            count: count
+        )
+        return sendOutputReport(reportID: Self.hapticToneReportID, payload: payload)
+    }
+
+    @discardableResult
+    private func sendHapticStop(actuator: UInt8) -> Bool {
+        sendOutputReport(
+            reportID: Self.hapticStopReportID,
+            payload: Self.hapticStopPayload(actuator: actuator)
+        )
+    }
+
+    @discardableResult
+    private func sendOutputReport(reportID: UInt8, payload: [UInt8]) -> Bool {
+        let reportWithID = Self.hapticOutputReport(reportID: reportID, payload: payload)
+        let fullReportZeroIDResult = setOutputReport(reportID: 0, report: reportWithID)
+        let fullReportResult = setOutputReport(reportID: reportID, report: reportWithID)
+        let strippedPayloadResult = setOutputReport(reportID: reportID, report: payload)
+        if fullReportZeroIDResult == kIOReturnSuccess ||
+            fullReportResult == kIOReturnSuccess ||
+            strippedPayloadResult == kIOReturnSuccess {
+            return true
+        }
+
+        NSLog(
+            "[ControllerKeys] Steam Controller output report 0x%02X failed: zero=0x%08X full=0x%08X stripped=0x%08X",
+            reportID,
+            fullReportZeroIDResult,
+            fullReportResult,
+            strippedPayloadResult
+        )
+        return false
+    }
+
+    private func setOutputReport(reportID: UInt8, report: [UInt8]) -> IOReturn {
+        report.withUnsafeBufferPointer { buffer in
+            IOHIDDeviceSetReport(
+                device,
+                kIOHIDReportTypeOutput,
+                CFIndex(reportID),
+                buffer.baseAddress!,
+                buffer.count
+            )
+        }
+    }
+
     private func startLizardModeTimer() {
         let timer = DispatchSource.makeTimerSource(queue: lizardModeQueue)
         timer.schedule(deadline: .now() + 2.0, repeating: 2.0)
@@ -613,36 +923,40 @@ final class SteamControllerHIDController {
 
     @discardableResult
     private func sendLizardMode(enabled: Bool) -> Bool {
-        let value: UInt8 = enabled ? 1 : 0
-        let withoutReportIDPayload: [UInt8] = [
-            Self.lizardModeCommand,
-            0x03,
-            Self.lizardModeSetting,
-            value,
-            0x00,
+        let attempts: [(reportID: UInt8, report: [UInt8])] = [
+            (Self.lizardModeReportID, Self.lizardModeFeatureReport(enabled: enabled, includesReportID: false)),
+            (Self.lizardModeReportID, Self.lizardModeFeatureReport(enabled: enabled, includesReportID: true)),
+            (0x00, Self.lizardModeFeatureReport(enabled: enabled, includesReportID: true)),
         ]
 
-        var reportWithoutID = [UInt8](repeating: 0, count: 64)
-        reportWithoutID.replaceSubrange(0..<withoutReportIDPayload.count, with: withoutReportIDPayload)
+        var succeeded = false
+        var failures: [String] = []
+        for attempt in attempts {
+            let result = attempt.report.withUnsafeBufferPointer { buffer in
+                IOHIDDeviceSetReport(
+                    device,
+                    kIOHIDReportTypeFeature,
+                    CFIndex(attempt.reportID),
+                    buffer.baseAddress!,
+                    buffer.count
+                )
+            }
 
-        let withoutIDResult = reportWithoutID.withUnsafeBufferPointer { buffer in
-            IOHIDDeviceSetReport(
-                device,
-                kIOHIDReportTypeFeature,
-                CFIndex(Self.lizardModeReportID),
-                buffer.baseAddress!,
-                buffer.count
-            )
+            if result == kIOReturnSuccess {
+                succeeded = true
+            } else {
+                failures.append(String(format: "id=0x%02X len=%d result=0x%08X", attempt.reportID, attempt.report.count, result))
+            }
         }
 
-        if withoutIDResult == kIOReturnSuccess {
+        if succeeded {
             return true
         }
 
         NSLog(
-            "[ControllerKeys] Steam Controller lizard mode %@ failed: 0x%08X",
+            "[ControllerKeys] Steam Controller lizard mode %@ failed: %@",
             enabled ? "enable" : "disable",
-            withoutIDResult
+            failures.joined(separator: ", ")
         )
         return false
     }

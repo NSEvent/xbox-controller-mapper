@@ -132,7 +132,7 @@ struct JoystickSettings: Codable, Equatable {
     /// Center deadzone for custom right-stick direction slices.
     var rightStickCustomDeadzone: Double = 0.22
 
-    /// Whether gyroscope aiming is enabled during focus mode (DualSense only)
+    /// Whether gyroscope aiming is enabled during focus mode.
     var gyroAimingEnabled: Bool = false
 
     /// Sensitivity for gyroscope aiming (0.0 - 1.0)

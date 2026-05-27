@@ -194,6 +194,9 @@ extension ControllerService {
                 self.batteryState = state
             }
         }
+        controller.onMotionChanged = { [weak self] motion in
+            self?.processSteamMotion(motion)
+        }
 
         steamHIDControllers.append(controller)
         steamHIDRunLoop.perform { [weak controller] in
@@ -213,6 +216,11 @@ extension ControllerService {
 
         if wasActive {
             steamHIDActiveDevice = nil
+            steamHIDControllerLock.lock()
+            if activeSteamHIDController === controller {
+                activeSteamHIDController = nil
+            }
+            steamHIDControllerLock.unlock()
             controllerDisconnected()
         }
     }
@@ -230,18 +238,24 @@ extension ControllerService {
         }
 
         steamHIDActiveDevice = controller.device
+        steamHIDControllerLock.lock()
+        activeSteamHIDController = controller
+        steamHIDControllerLock.unlock()
+        if let gameController = connectedController {
+            clearGameControllerHandlers(for: gameController)
+        }
         connectedController = nil
         currentControllerIdentity = ControllerIdentityResolver.identity(
             for: controller.device,
             fallbackName: controller.deviceName
         )
         controllerName = controller.deviceName
-        isConnected = true
         isGenericController = false
 
         detectConnectionType(device: controller.device)
 
         storage.lock.lock()
+        resetMotionStateLocked()
         resetTouchpadStateLocked()
         storage.isDualSense = false
         storage.isDualSenseEdge = false
@@ -253,6 +267,8 @@ extension ControllerService {
         storage.isSteamController = true
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
+
+        isConnected = true
 
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
@@ -279,6 +295,9 @@ extension ControllerService {
         }
         steamHIDControllers.removeAll()
         steamHIDActiveDevice = nil
+        steamHIDControllerLock.lock()
+        activeSteamHIDController = nil
+        steamHIDControllerLock.unlock()
     }
 
     nonisolated func updateSteamTouchpad(

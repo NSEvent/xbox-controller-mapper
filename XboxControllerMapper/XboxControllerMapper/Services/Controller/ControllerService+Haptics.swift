@@ -54,6 +54,18 @@ extension ControllerService {
         hapticQueue.async { [weak self] in
             guard let self = self else { return }
 
+            if self.readStorage(\.isSteamController) {
+                self.steamHIDControllerLock.lock()
+                let steamController = self.activeSteamHIDController
+                self.steamHIDControllerLock.unlock()
+                steamController?.playHaptic(
+                    intensity: intensity,
+                    sharpness: sharpness,
+                    duration: duration,
+                    transient: transient
+                )
+            }
+
             // Snapshot engines under lock
             self.hapticLock.lock()
             let engines = self.hapticEngines

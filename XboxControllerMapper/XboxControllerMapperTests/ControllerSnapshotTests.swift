@@ -47,17 +47,40 @@ final class ControllerSnapshotTests: XCTestCase {
         XCTAssertEqual(snap.rightStick.y, 0.9, accuracy: 0.001)
         XCTAssertEqual(snap.leftTrigger, 0.6, accuracy: 0.001)
         XCTAssertEqual(snap.rightTrigger, 0.85, accuracy: 0.001)
-        XCTAssertTrue(snap.hasMotion)  // hasMotion = isDualSense || isDualShock
+        XCTAssertTrue(snap.hasMotion)
     }
 
     func testSnapshotCapturesHasMotionFalseWhenNeitherFlagSet() {
         controllerService.storage.lock.lock()
         controllerService.storage.isDualSense = false
         controllerService.storage.isDualShock = false
+        controllerService.storage.isSteamController = false
         controllerService.storage.lock.unlock()
 
         let snap = controllerService.snapshot()
         XCTAssertFalse(snap.hasMotion)
+    }
+
+    func testSnapshotReportsSteamControllerHasMotion() {
+        controllerService.storage.lock.lock()
+        controllerService.storage.isSteamController = true
+        controllerService.storage.lock.unlock()
+
+        let snap = controllerService.snapshot()
+        XCTAssertTrue(snap.hasMotion)
+        XCTAssertTrue(controllerService.threadSafeHasMotion)
+    }
+
+    func testSetMotionSensorsActiveSupportsSteamRawHIDController() {
+        controllerService.storage.lock.lock()
+        controllerService.storage.isSteamController = true
+        controllerService.storage.lock.unlock()
+
+        controllerService.setMotionSensorsActive(true)
+        XCTAssertTrue(controllerService.storage.lock.withLock { controllerService.storage.motionInputEnabled })
+
+        controllerService.setMotionSensorsActive(false)
+        XCTAssertFalse(controllerService.storage.lock.withLock { controllerService.storage.motionInputEnabled })
     }
 
     // MARK: - Atomicity (Conceptual)
@@ -164,6 +187,7 @@ final class ControllerSnapshotTests: XCTestCase {
         controllerService.storage.leftTrigger = 0.9
         controllerService.storage.rightTrigger = 0.1
         controllerService.storage.isDualSense = false
+        controllerService.storage.isSteamController = false
         controllerService.storage.lock.unlock()
 
         let snap = controllerService.snapshot()
@@ -174,7 +198,7 @@ final class ControllerSnapshotTests: XCTestCase {
         XCTAssertEqual(snap.rightTrigger, controllerService.threadSafeRightTrigger)
         XCTAssertEqual(
             snap.hasMotion,
-            controllerService.threadSafeIsDualSense || controllerService.threadSafeIsDualShock
+            controllerService.threadSafeHasMotion
         )
     }
 }

@@ -90,6 +90,33 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         XCTAssertNil(controllerService.onTouchpadTap)
     }
 
+    func testSteamTwoPadGestureLatchSuppressesSinglePadMovementBetweenAlternatingReports() {
+        controllerService.storage.isSteamController = true
+        var movements: [CGPoint] = []
+        var gestures: [TouchpadGesture] = []
+        controllerService.onTouchpadMoved = { movements.append($0) }
+        controllerService.onTouchpadGesture = { gestures.append($0) }
+
+        controllerService.updateSteamTouchpad(side: .left, x: 0.0, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.0, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .left, x: -0.1, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.1, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .left, x: -0.2, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.2, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .left, x: -0.3, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.3, y: 0.0, isTouching: true)
+
+        XCTAssertTrue(gestures.contains { $0.isPrimaryTouching && $0.isSecondaryTouching })
+        movements.removeAll()
+        gestures.removeAll()
+
+        controllerService.updateSteamTouchpad(side: .left, x: -0.3, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.4, y: 0.0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.5, y: 0.0, isTouching: true)
+
+        XCTAssertTrue(movements.isEmpty, "Right pad movement should stay blocked between alternating two-pad gesture reports")
+    }
+
     func testChordWindowRoundTripsThroughThreadSafeStorage() {
         controllerService.chordWindow = 0.23
         XCTAssertEqual(controllerService.chordWindow, 0.23, accuracy: 0.000_1)
@@ -126,6 +153,27 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			)
 		)
 	}
+
+    func testSteamControllerMetadataUsesSteamOrValveNames() {
+        XCTAssertTrue(
+            ControllerService.isSteamControllerMetadata(
+                vendorName: "Steam Controller",
+                productCategory: "Game Controller"
+            )
+        )
+        XCTAssertTrue(
+            ControllerService.isSteamControllerMetadata(
+                vendorName: "Valve",
+                productCategory: "Wireless Gamepad"
+            )
+        )
+        XCTAssertFalse(
+            ControllerService.isSteamControllerMetadata(
+                vendorName: "Xbox Wireless Controller",
+                productCategory: "Xbox Controller"
+            )
+        )
+    }
 
 	func testGlobalEliteHIDFallbackOnlyAppliesWhenSingleXboxControllerIsActive() {
 		XCTAssertTrue(ControllerService.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: 0))

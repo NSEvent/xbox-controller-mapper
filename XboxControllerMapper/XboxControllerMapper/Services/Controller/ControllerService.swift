@@ -83,6 +83,7 @@ final class ControllerStorage: @unchecked Sendable {
     var isSteamRightTouchpadTouching: Bool = false
     var activeSteamLeftTouchpadClickQuadrant: ControllerButton?
     var activeSteamRightTouchpadClickQuadrant: ControllerButton?
+    var steamTwoPadGestureActiveUntil: TimeInterval = 0
 
     // Two-finger tap detection
     var touchpadSecondaryTouchStartTime: TimeInterval = 0
@@ -156,7 +157,7 @@ final class ControllerStorage: @unchecked Sendable {
     var touchpadLongTapTimer: DispatchWorkItem?  // Timer for long tap detection
     var touchpadLongTapFired: Bool = false  // Whether long tap already triggered for this touch
 
-    // Motion Gesture State (DualSense gyroscope)
+    // Motion Gesture State (supported controller gyroscope)
     var motionInputEnabled: Bool = false
     var motionGestureDetector = MotionGestureDetector()
     var onMotionGesture: ((MotionGestureType) -> Void)?
@@ -171,6 +172,11 @@ final class ControllerStorage: @unchecked Sendable {
     var ds4GyroBiasSampleCount: Int = 0
     var ds4GyroPitchBias: Double = 0
     var ds4GyroRollBias: Double = 0
+    var steamGyroPitchBiasSum: Double = 0
+    var steamGyroRollBiasSum: Double = 0
+    var steamGyroBiasSampleCount: Int = 0
+    var steamGyroPitchBias: Double = 0
+    var steamGyroRollBias: Double = 0
     var motionPitchAccum: Double = 0
     var motionRollAccum: Double = 0
     var motionSampleCount: Int = 0
@@ -254,6 +260,8 @@ class ControllerService: ObservableObject {
     var steamHIDControllers: [SteamControllerHIDController] = []
     var steamHIDActiveDevice: IOHIDDevice?
     var steamHIDCallbackContext: UnsafeMutableRawPointer?
+    let steamHIDControllerLock = NSLock()
+    var activeSteamHIDController: SteamControllerHIDController?
 
     // Nintendo Pro Controller HID monitoring (Home button not exposed by GameController framework)
     var nintendoHIDManager: IOHIDManager?
@@ -298,7 +306,7 @@ class ControllerService: ObservableObject {
         var rightTrigger: Float = 0
         var touchpadPosition: CGPoint = .zero
         var isTouchpadTouching: Bool = false
-        /// True for any controller with gyroscope sensors (DualSense + DS4).
+        /// True for any controller with gyroscope sensors (DualSense, DS4, Steam Controller).
         var hasMotion: Bool = false
     }
 
@@ -314,7 +322,7 @@ class ControllerService: ObservableObject {
             rightTrigger: storage.rightTrigger,
             touchpadPosition: storage.touchpadPosition,
             isTouchpadTouching: storage.isTouchpadTouching,
-            hasMotion: storage.isDualSense || storage.isDualShock
+            hasMotion: storage.isDualSense || storage.isDualShock || storage.isSteamController
         )
     }
 
@@ -402,6 +410,12 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return !storage.isSteamController && (storage.isDualSense || storage.isDualShock)
+    }
+
+    nonisolated var threadSafeHasMotion: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isDualSense || storage.isDualShock || storage.isSteamController
     }
 
     nonisolated var threadSafeIsNintendo: Bool {
@@ -781,6 +795,13 @@ class ControllerService: ObservableObject {
             NSLog("[ControllerKeys] Ignoring GameController connection while Steam Controller raw HID is active")
             return
         }
+        if Self.isSteamControllerMetadata(
+            vendorName: controller.vendorName,
+            productCategory: controller.productCategory
+        ) {
+            NSLog("[ControllerKeys] Ignoring Steam Controller GameController route; raw HID owns Steam input")
+            return
+        }
 
         connectionGeneration += 1
         NSLog("[ControllerKeys] controllerConnected — generation=%llu vendor=%@",
@@ -914,6 +935,7 @@ class ControllerService: ObservableObject {
         storage.isSteamRightTouchpadTouching = false
         storage.activeSteamLeftTouchpadClickQuadrant = nil
         storage.activeSteamRightTouchpadClickQuadrant = nil
+        storage.steamTwoPadGestureActiveUntil = 0
     }
 
 	nonisolated func guideMonitorPaddleButton(for paddleIndex: Int, pressed: Bool) -> ControllerButton? {
@@ -1437,7 +1459,69 @@ class ControllerService: ObservableObject {
     /// Helper to bind a GCControllerButtonInput to a ControllerButton
     private func bindButton(_ element: GCControllerButtonInput?, to button: ControllerButton) {
         element?.pressedChangedHandler = { [weak self] _, _, pressed in
+            guard self?.shouldAcceptGameControllerInput() == true else { return }
             self?.controllerQueue.async { self?.handleButton(button, pressed: pressed) }
+        }
+    }
+
+    private func shouldAcceptGameControllerInput() -> Bool {
+        if steamHIDActiveDevice != nil {
+            return false
+        }
+        return !storage.lock.withLock { storage.isSteamController }
+    }
+
+    func clearGameControllerHandlers(for controller: GCController) {
+        if let gamepad = controller.extendedGamepad {
+            let buttons: [GCControllerButtonInput?] = [
+                gamepad.buttonA,
+                gamepad.buttonB,
+                gamepad.buttonX,
+                gamepad.buttonY,
+                gamepad.leftShoulder,
+                gamepad.rightShoulder,
+                gamepad.leftTrigger,
+                gamepad.rightTrigger,
+                gamepad.buttonMenu,
+                gamepad.buttonOptions,
+                gamepad.buttonHome,
+                gamepad.leftThumbstickButton,
+                gamepad.rightThumbstickButton,
+            ]
+            buttons.forEach { $0?.pressedChangedHandler = nil }
+            gamepad.leftTrigger.valueChangedHandler = nil
+            gamepad.rightTrigger.valueChangedHandler = nil
+
+            for dpad in [gamepad.dpad, gamepad.leftThumbstick, gamepad.rightThumbstick] {
+                dpad.valueChangedHandler = nil
+                dpad.up.pressedChangedHandler = nil
+                dpad.down.pressedChangedHandler = nil
+                dpad.left.pressedChangedHandler = nil
+                dpad.right.pressedChangedHandler = nil
+            }
+
+            if let xboxGamepad = gamepad as? GCXboxGamepad {
+                let xboxButtons: [GCControllerButtonInput?] = [
+                    xboxGamepad.buttonShare,
+                    xboxGamepad.paddleButton1,
+                    xboxGamepad.paddleButton2,
+                    xboxGamepad.paddleButton3,
+                    xboxGamepad.paddleButton4,
+                ]
+                xboxButtons.forEach { $0?.pressedChangedHandler = nil }
+            }
+        }
+
+        let profile = controller.physicalInputProfile
+        for button in profile.buttons.values {
+            button.pressedChangedHandler = nil
+        }
+        for dpad in profile.dpads.values {
+            dpad.valueChangedHandler = nil
+            dpad.up.pressedChangedHandler = nil
+            dpad.down.pressedChangedHandler = nil
+            dpad.left.pressedChangedHandler = nil
+            dpad.right.pressedChangedHandler = nil
         }
     }
 
@@ -1491,9 +1575,11 @@ class ControllerService: ObservableObject {
 
         // Triggers
         gamepad.leftTrigger.valueChangedHandler = { [weak self] _, value, pressed in
+            guard self?.shouldAcceptGameControllerInput() == true else { return }
             self?.updateLeftTrigger(value, pressed: pressed)
         }
         gamepad.rightTrigger.valueChangedHandler = { [weak self] _, value, pressed in
+            guard self?.shouldAcceptGameControllerInput() == true else { return }
             self?.updateRightTrigger(value, pressed: pressed)
         }
 
@@ -1623,10 +1709,12 @@ class ControllerService: ObservableObject {
         bindButton(gamepad.rightThumbstickButton, to: .rightThumbstick)
 
         gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
+            guard self?.shouldAcceptGameControllerInput() == true else { return }
             self?.updateLeftStick(x: xValue, y: yValue)
         }
 
         gamepad.rightThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
+            guard self?.shouldAcceptGameControllerInput() == true else { return }
             self?.updateRightStick(x: xValue, y: yValue)
         }
 
@@ -1703,6 +1791,11 @@ class ControllerService: ObservableObject {
 		let combined = ((vendorName ?? "") + " " + productCategory).lowercased()
 		return combined.contains("elite")
 	}
+
+    nonisolated static func isSteamControllerMetadata(vendorName: String?, productCategory: String) -> Bool {
+        let combined = ((vendorName ?? "") + " " + productCategory).lowercased()
+        return combined.contains("steam") || combined.contains("valve")
+    }
 
     nonisolated static func shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: Int) -> Bool {
 		connectedXboxControllerCount <= 1

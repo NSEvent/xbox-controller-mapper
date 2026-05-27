@@ -111,11 +111,13 @@ class FocusModeIndicator {
         let offset = ringSize / 2
         let zoomLevel = InputSimulator.getZoomLevel()
         let isZoomed = InputSimulator.isZoomCurrentlyActive() && zoomLevel > 1.0
-        let tracked = InputSimulator.getLastTrackedPosition()
+        let trackedSnapshot = InputSimulator.getLastTrackedPositionSnapshot()
+        let tracked = trackedSnapshot.position
         let mouseLocation = NSEvent.mouseLocation
+        let screenFrame = NSScreen.screens.first?.frame ?? NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1728, height: 1117)
 
         if isZoomed, let tracked = tracked {
-            let screenHeight = NSScreen.screens.first?.frame.height ?? 1329
+            let screenHeight = screenFrame.height
             let isVirtualReading = CursorOscillationFilter.isVirtualReading(
                 mouseLocation: mouseLocation,
                 trackedCGPosition: tracked,
@@ -134,7 +136,16 @@ class FocusModeIndicator {
             panel.setFrameOrigin(NSPoint(x: cursorPos.x - offset, y: cursorPos.y - offset))
         } else {
             lastPhysicalPosition = nil
-            panel.setFrameOrigin(NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset))
+            let now = CFAbsoluteTimeGetCurrent()
+            if let tracked, now - trackedSnapshot.lastMoveTime < 0.25 {
+                let trackedNS = CGPoint(
+                    x: screenFrame.origin.x + tracked.x,
+                    y: screenFrame.origin.y + screenFrame.height - tracked.y
+                )
+                panel.setFrameOrigin(NSPoint(x: trackedNS.x - offset, y: trackedNS.y - offset))
+            } else {
+                panel.setFrameOrigin(NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset))
+            }
         }
     }
 }

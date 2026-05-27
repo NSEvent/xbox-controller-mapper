@@ -381,7 +381,7 @@ extension MappingEngine {
             return
         }
 
-        if settings.gyroAimingEnabled && isFocusActive && (hasMotion ?? controllerService.threadSafeIsPlayStation) {
+        if settings.gyroAimingEnabled && isFocusActive && (hasMotion ?? controllerService.threadSafeHasMotion) {
             let (pitchRate, rollRate) = controllerService.consumeAverageMotionRates()
 
             // Skip filter update if no new gyro samples arrived this tick

@@ -181,6 +181,14 @@ extension ControllerService {
             y: (storage.touchpadPosition.y + storage.touchpadSecondaryPosition.y) * 0.5
         )
         let currentDistance = Double(distance)
+        let primaryDelta = CGPoint(
+            x: storage.touchpadPosition.x - storage.touchpadPreviousPosition.x,
+            y: storage.touchpadPosition.y - storage.touchpadPreviousPosition.y
+        )
+        let secondaryDelta = CGPoint(
+            x: storage.touchpadSecondaryPosition.x - storage.touchpadSecondaryPreviousPosition.x,
+            y: storage.touchpadSecondaryPosition.y - storage.touchpadSecondaryPreviousPosition.y
+        )
 
         if !storage.touchpadGestureHasCenter {
             storage.touchpadGestureHasCenter = true
@@ -190,15 +198,27 @@ extension ControllerService {
                 centerDelta: .zero,
                 distanceDelta: 0,
                 isPrimaryTouching: storage.isTouchpadTouching,
-                isSecondaryTouching: storage.isTouchpadSecondaryTouching
+                isSecondaryTouching: storage.isTouchpadSecondaryTouching,
+                primaryDelta: primaryDelta,
+                secondaryDelta: secondaryDelta
             )
         }
 
-        let previousCenter = storage.touchpadGesturePreviousCenter
-        let previousDistance = storage.touchpadGesturePreviousDistance
         let centerDelta = CGPoint(
-            x: currentCenter.x - previousCenter.x,
-            y: currentCenter.y - previousCenter.y
+            x: (primaryDelta.x + secondaryDelta.x) * 0.5,
+            y: (primaryDelta.y + secondaryDelta.y) * 0.5
+        )
+        let previousPrimary = CGPoint(
+            x: storage.touchpadPosition.x - primaryDelta.x,
+            y: storage.touchpadPosition.y - primaryDelta.y
+        )
+        let previousSecondary = CGPoint(
+            x: storage.touchpadSecondaryPosition.x - secondaryDelta.x,
+            y: storage.touchpadSecondaryPosition.y - secondaryDelta.y
+        )
+        let previousDistance = hypot(
+            previousPrimary.x - previousSecondary.x,
+            previousPrimary.y - previousSecondary.y
         )
         let distanceDelta = currentDistance - previousDistance
 
@@ -211,7 +231,47 @@ extension ControllerService {
             centerDelta: centerDelta,
             distanceDelta: distanceDelta,
             isPrimaryTouching: storage.isTouchpadTouching,
-            isSecondaryTouching: storage.isTouchpadSecondaryTouching
+            isSecondaryTouching: storage.isTouchpadSecondaryTouching,
+            primaryDelta: primaryDelta,
+            secondaryDelta: secondaryDelta
+        )
+    }
+
+    /// Requires storage.lock to be held by the caller.
+    private nonisolated func shouldTreatAsTwoPadSteamGestureLocked(
+        primaryDelta: CGPoint,
+        secondaryDelta: CGPoint,
+        secondaryFresh: Bool
+    ) -> Bool {
+        guard storage.isSteamController,
+              storage.isTouchpadTouching,
+              storage.isTouchpadSecondaryTouching,
+              secondaryFresh else {
+            return false
+        }
+
+        let primaryMotion = hypot(Double(primaryDelta.x), Double(primaryDelta.y))
+        let secondaryMotion = hypot(Double(secondaryDelta.x), Double(secondaryDelta.y))
+        let threshold = Config.steamTouchpadTwoPadGestureMovementDeadzone
+        let now = CFAbsoluteTimeGetCurrent()
+        let bothPadsMoving = primaryMotion > threshold && secondaryMotion > threshold
+        if bothPadsMoving {
+            storage.steamTwoPadGestureActiveUntil = now + Config.steamTouchpadTwoPadGestureContinuationInterval
+            return true
+        }
+
+        return now < storage.steamTwoPadGestureActiveUntil
+    }
+
+    private nonisolated func inactiveTouchpadGesture(
+        primaryTouching: Bool,
+        secondaryTouching: Bool
+    ) -> TouchpadGesture {
+        TouchpadGesture(
+            centerDelta: .zero,
+            distanceDelta: 0,
+            isPrimaryTouching: primaryTouching,
+            isSecondaryTouching: secondaryTouching
         )
     }
 
@@ -291,15 +351,30 @@ extension ControllerService {
                     return
                 }
 
-                if storage.touchpadMovementBlocked || secondaryFresh {
+                let preSettlePrimaryDelta = CGPoint(
+                    x: newPosition.x - storage.touchpadPosition.x,
+                    y: newPosition.y - storage.touchpadPosition.y
+                )
+                let preSettleSecondaryDelta = CGPoint(
+                    x: storage.touchpadSecondaryPosition.x - storage.touchpadSecondaryPreviousPosition.x,
+                    y: storage.touchpadSecondaryPosition.y - storage.touchpadSecondaryPreviousPosition.y
+                )
+                let preSettleSteamTwoPadGesture = shouldTreatAsTwoPadSteamGestureLocked(
+                    primaryDelta: preSettlePrimaryDelta,
+                    secondaryDelta: preSettleSecondaryDelta,
+                    secondaryFresh: secondaryFresh
+                )
+                let shouldHandleAsPreSettleGesture = secondaryFresh && (!storage.isSteamController || preSettleSteamTwoPadGesture)
+
+                if storage.touchpadMovementBlocked || shouldHandleAsPreSettleGesture {
                     storage.pendingTouchpadDelta = nil
-                    if secondaryFresh {
+                    if shouldHandleAsPreSettleGesture {
                         storage.touchpadPreviousPosition = storage.touchpadPosition
                     } else {
                         storage.touchpadPreviousPosition = newPosition
                     }
                     storage.touchpadPosition = newPosition
-                    let gesture = computeTwoFingerGestureLocked(secondaryFresh: secondaryFresh)
+                    let gesture = shouldHandleAsPreSettleGesture ? computeTwoFingerGestureLocked(secondaryFresh: secondaryFresh) : nil
                     let gestureCallback = storage.onTouchpadGesture
                     storage.lock.unlock()
 
@@ -395,15 +470,38 @@ extension ControllerService {
                     storage.pendingTouchpadDelta = nil
                 }
 
+                let primaryDeltaForGesture = CGPoint(
+                    x: storage.touchpadPosition.x - storage.touchpadPreviousPosition.x,
+                    y: storage.touchpadPosition.y - storage.touchpadPreviousPosition.y
+                )
+                let secondaryDeltaForGesture = CGPoint(
+                    x: storage.touchpadSecondaryPosition.x - storage.touchpadSecondaryPreviousPosition.x,
+                    y: storage.touchpadSecondaryPosition.y - storage.touchpadSecondaryPreviousPosition.y
+                )
+                let steamTwoPadGesture = shouldTreatAsTwoPadSteamGestureLocked(
+                    primaryDelta: primaryDeltaForGesture,
+                    secondaryDelta: secondaryDeltaForGesture,
+                    secondaryFresh: secondaryFresh
+                )
+                let shouldHandleAsGesture = secondaryFresh && (!storage.isSteamController || steamTwoPadGesture)
                 let gesture = computeTwoFingerGestureLocked(secondaryFresh: secondaryFresh)
 
                 let isSecondaryTouching = storage.isTouchpadSecondaryTouching
+                let shouldAllowSinglePadMovement = !isSecondaryTouching || (storage.isSteamController && !shouldHandleAsGesture)
+                let inactiveGesture = storage.isSteamController && isSecondaryTouching && !shouldHandleAsGesture
+                    ? inactiveTouchpadGesture(primaryTouching: true, secondaryTouching: false)
+                    : nil
                 storage.lock.unlock()
 
-                if let gesture {
+                if let gesture, shouldHandleAsGesture {
                     gestureCallback?(gesture)
-                } else if let pending = previousPending, !isSecondaryTouching {
-                    callback?(pending)
+                } else {
+                    if let inactiveGesture {
+                        gestureCallback?(inactiveGesture)
+                    }
+                    if let pending = previousPending, shouldAllowSinglePadMovement {
+                        callback?(pending)
+                    }
                 }
             } else {
                 // Finger just touched - initialize position, no delta yet
@@ -468,6 +566,7 @@ extension ControllerService {
             storage.touchpadGestureHasCenter = false
             storage.touchpadGesturePreviousCenter = .zero
             storage.touchpadGesturePreviousDistance = 0
+            storage.steamTwoPadGestureActiveUntil = 0
             let longTapFired = storage.touchpadLongTapFired
 
             // Check for tap: short touch duration with minimal movement
@@ -659,9 +758,10 @@ extension ControllerService {
                     storage.touchpadWasTwoFingerDuringTouch = true
                 }
                 let gestureCallback = storage.onTouchpadGesture
+                let shouldSendInitialGesture = isPrimaryTouching && !storage.isSteamController
                 storage.lock.unlock()
 
-                if isPrimaryTouching {
+                if shouldSendInitialGesture {
                     gestureCallback?(TouchpadGesture(
                         centerDelta: .zero,
                         distanceDelta: 0,
@@ -673,10 +773,29 @@ extension ControllerService {
             }
 
             let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+            let primaryDeltaForGesture = CGPoint(
+                x: storage.touchpadPosition.x - storage.touchpadPreviousPosition.x,
+                y: storage.touchpadPosition.y - storage.touchpadPreviousPosition.y
+            )
+            let secondaryDeltaForGesture = CGPoint(
+                x: storage.touchpadSecondaryPosition.x - storage.touchpadSecondaryPreviousPosition.x,
+                y: storage.touchpadSecondaryPosition.y - storage.touchpadSecondaryPreviousPosition.y
+            )
+            let steamTwoPadGesture = shouldTreatAsTwoPadSteamGestureLocked(
+                primaryDelta: primaryDeltaForGesture,
+                secondaryDelta: secondaryDeltaForGesture,
+                secondaryFresh: secondaryFresh
+            )
+            let shouldHandleAsGesture = secondaryFresh && (!storage.isSteamController || steamTwoPadGesture)
             let gesture = computeTwoFingerGestureLocked(secondaryFresh: secondaryFresh)
+            let inactiveGesture = storage.isSteamController && storage.isTouchpadTouching && !shouldHandleAsGesture
+                ? inactiveTouchpadGesture(primaryTouching: true, secondaryTouching: false)
+                : nil
             storage.lock.unlock()
-            if let gesture {
+            if let gesture, shouldHandleAsGesture {
                 gestureCallback?(gesture)
+            } else if let inactiveGesture {
+                gestureCallback?(inactiveGesture)
             }
         } else {
             storage.isTouchpadSecondaryTouching = false
@@ -687,6 +806,7 @@ extension ControllerService {
             storage.touchpadGestureHasCenter = false
             storage.touchpadGesturePreviousCenter = .zero
             storage.touchpadGesturePreviousDistance = 0
+            storage.steamTwoPadGestureActiveUntil = 0
             let isPrimaryTouching = storage.isTouchpadTouching
             let isTwoFinger = isPrimaryTouching && storage.isTouchpadSecondaryTouching
             storage.lock.unlock()

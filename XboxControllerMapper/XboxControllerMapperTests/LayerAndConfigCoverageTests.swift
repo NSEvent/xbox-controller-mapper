@@ -249,6 +249,11 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         _ = Config.steamTouchpadPinchDeadzone
         _ = Config.touchpadPinchDirectionLockInterval
         _ = Config.touchpadPinchSensitivityMultiplier
+        _ = Config.steamTouchpadPinchSensitivityMultiplier
+        _ = Config.steamTouchpadTwoPadGestureMovementDeadzone
+        _ = Config.steamTouchpadTwoPadGestureContinuationInterval
+        _ = Config.steamTouchpadClickDebounceInterval
+        _ = Config.steamTouchpadTapClickSuppressionWindow
         _ = Config.steamTouchpadDeadzoneFloor
         _ = Config.touchpadPinchVsPanRatio
         _ = Config.touchpadTapCooldown
@@ -281,6 +286,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         _ = Config.legacyConfigDirectory
         _ = Config.configFileName
         _ = Config.batteryUpdateInterval
+        _ = Config.steamGyroAimingSensitivityMultiplier
         _ = ButtonColors.xboxA
         _ = ButtonColors.xboxB
         _ = ButtonColors.xboxX

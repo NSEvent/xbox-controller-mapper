@@ -209,11 +209,24 @@ struct Config {
     static let touchpadPinchDeadzone: Double = 0.05
     /// Steam two-pad pinch should require a more deliberate spread/pinch than
     /// DualSense so ordinary two-pad resting or small opposing drift does not zoom.
-    static let steamTouchpadPinchDeadzone: Double = 0.12
+    static let steamTouchpadPinchDeadzone: Double = 0.075
     /// Brief lock to prevent pinch direction flips on quick releases (prevents snap-back)
     static let touchpadPinchDirectionLockInterval: TimeInterval = 0.1
     /// Sensitivity multiplier for pinch-to-zoom (distance delta -> scroll amount)
     static let touchpadPinchSensitivityMultiplier: Double = 12000.0
+    /// Steam Controller two-pad pinch distance is normalized across a wider
+    /// virtual surface, so it needs more gain than a single physical touchpad.
+    static let steamTouchpadPinchSensitivityMultiplier: Double = 48000.0
+    /// Steam two-pad gestures should only take over when both pads are moving.
+    static let steamTouchpadTwoPadGestureMovementDeadzone: Double = 0.005
+    /// Keep two-pad gesture suppression alive briefly between alternating
+    /// left/right HID reports so cursor movement cannot leak during pinch.
+    static let steamTouchpadTwoPadGestureContinuationInterval: TimeInterval = 0.16
+    /// Some Steam Controller touchpad click reports bounce a second press shortly
+    /// after release. Ignore that bounce so a single physical click stays single.
+    static let steamTouchpadClickDebounceInterval: TimeInterval = 0.08
+    /// Delay tap dispatch briefly so a late physical click packet can cancel it.
+    static let steamTouchpadTapClickSuppressionWindow: TimeInterval = 0.09
     /// Ratio threshold: if pinch/pan ratio exceeds this, treat as pinch gesture
     /// Higher = pinch must be more dominant over pan to trigger zoom
     static let touchpadPinchVsPanRatio: Double = 1.8
@@ -378,6 +391,9 @@ struct Config {
     /// Horizontal (roll) axis boost factor to compensate for lower angular velocity
     /// compared to pitch for the same physical effort.
     static let gyroAimingRollBoost: Double = 2.2
+    /// Steam Controller raw gyro reports use a smaller scale than DS4/DualSense
+    /// in practice for this app's cursor pipeline.
+    static let steamGyroAimingSensitivityMultiplier: Double = 4.0
 
     /// Haptic feedback for gesture detection
     static let gestureHapticIntensity: Float = 0.3

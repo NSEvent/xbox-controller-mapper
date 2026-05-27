@@ -151,6 +151,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         return sharedTrackedPosition
     }
 
+    static func getLastTrackedPositionSnapshot() -> (position: CGPoint?, lastMoveTime: CFAbsoluteTime) {
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return (sharedTrackedPosition, sharedLastMoveTime)
+    }
+
     /// Updates the shared tracked position (called from moveMouse)
     private static func updateSharedTrackedPosition(_ point: CGPoint?, delta: CGPoint = .zero) {
         sharedLock.lock()

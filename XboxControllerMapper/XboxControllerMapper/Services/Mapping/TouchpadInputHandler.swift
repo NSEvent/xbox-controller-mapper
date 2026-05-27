@@ -209,7 +209,10 @@ extension MappingEngine {
     /// - Precondition: Must be called on pollingQueue
     nonisolated func processTouchpadGesture(_ gesture: TouchpadGesture) {
         dispatchPrecondition(condition: .onQueue(pollingQueue))
-        let isActive = gesture.isPrimaryTouching && gesture.isSecondaryTouching
+        let isSteamController = controllerService.threadSafeIsSteamController
+        let steamBothPadsMoving = Self.steamTouchpadGestureHasTwoMovingFingers(gesture)
+        let isActive = gesture.isPrimaryTouching && gesture.isSecondaryTouching &&
+            (!isSteamController || steamBothPadsMoving)
         guard let snapshot = state.lock.withLock({ () -> (settings: JoystickSettings, wasActive: Bool, smoothedCenter: CGPoint, smoothedDistance: Double, lastSampleTime: TimeInterval, smoothedVelocity: CGPoint)? in
             guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil }
             let wasActive = state.isTouchpadGestureActive
@@ -319,7 +322,7 @@ extension MappingEngine {
         let pinchMagnitude = abs(smoothedDistance)
         let panMagnitude = Double(hypot(smoothedCenter.x, smoothedCenter.y))
         let ratio = pinchMagnitude / max(panMagnitude, 0.001)
-        let pinchDeadzone = controllerService.threadSafeIsSteamController
+        let pinchDeadzone = isSteamController
             ? Config.steamTouchpadPinchDeadzone
             : Config.touchpadPinchDeadzone
 
@@ -350,7 +353,10 @@ extension MappingEngine {
                         }
                     }
 
-                    let magnification = pinchDelta * Config.touchpadPinchSensitivityMultiplier / 1000.0
+                    let sensitivity = controllerService.threadSafeIsSteamController
+                        ? Config.steamTouchpadPinchSensitivityMultiplier
+                        : Config.touchpadPinchSensitivityMultiplier
+                    let magnification = pinchDelta * sensitivity / 1000.0
                     let shouldPostMagnify = pinchDelta != 0
                     let shouldBeginMagnify = !state.touchpadMagnifyGestureActive
 
@@ -387,6 +393,23 @@ extension MappingEngine {
                 for _ in 0..<pinchResult.zoomSteps {
                     inputSimulator.pressKey(KeyCodeMapping.minus, modifiers: [.maskCommand])
                 }
+            }
+            return
+        }
+
+        if isSteamController {
+            state.lock.withLock {
+                state.touchpadScrollResidualX = 0
+                state.touchpadScrollResidualY = 0
+                state.touchpadPanActive = false
+                state.smoothedTouchpadPanVelocity = .zero
+                state.touchpadMomentumVelocity = .zero
+                state.touchpadMomentumCandidateVelocity = .zero
+                state.touchpadMomentumCandidateTime = 0
+                state.touchpadMomentumHighVelocityStartTime = 0
+                state.touchpadMomentumHighVelocitySampleCount = 0
+                state.touchpadMomentumPeakVelocity = .zero
+                state.touchpadMomentumPeakMagnitude = 0
             }
             return
         }
@@ -481,6 +504,13 @@ extension MappingEngine {
                 state.touchpadMomentumPeakMagnitude = 0
             }
         }
+    }
+
+    nonisolated private static func steamTouchpadGestureHasTwoMovingFingers(_ gesture: TouchpadGesture) -> Bool {
+        let primaryMotion = hypot(Double(gesture.primaryDelta.x), Double(gesture.primaryDelta.y))
+        let secondaryMotion = hypot(Double(gesture.secondaryDelta.x), Double(gesture.secondaryDelta.y))
+        let threshold = Config.steamTouchpadTwoPadGestureMovementDeadzone
+        return primaryMotion > threshold && secondaryMotion > threshold
     }
 
     // MARK: - Touchpad Momentum Scrolling
