@@ -562,13 +562,36 @@ extension MappingEngine {
         settings: JoystickSettings,
         heldButtons: inout Set<ControllerButton>
     ) {
-        let targetButtons = JoystickDirectionResolver.activeButtons(
-            stick: stick,
-            side: side,
-            settings: settings
-        )
+		let targetButtons = customDirectionMappingsUseAxisMovement(side: side)
+			? JoystickDirectionResolver.activeAxisButtons(
+				stick: stick,
+				side: side,
+				settings: settings
+			)
+			: JoystickDirectionResolver.activeButtons(
+				stick: stick,
+				side: side,
+				settings: settings
+			)
         updateHeldDirectionButtons(targetButtons, heldButtons: &heldButtons)
     }
+
+	nonisolated private func customDirectionMappingsUseAxisMovement(side: JoystickSide) -> Bool {
+		guard let profile = state.activeProfile else { return false }
+
+		return ControllerButton.joystickDirectionButtons(side: side).allSatisfy { button in
+			guard let mapping = ButtonMappingResolutionPolicy.resolve(
+				button: button,
+				profile: profile,
+				activeLayerIds: state.activeLayerIds,
+				layerActivatorMap: state.layerActivatorMap
+			) else {
+				return false
+			}
+
+			return mapping.isJoystickAxisMovementMapping
+		}
+	}
 
     nonisolated private func updateHeldDirectionButtons(
         _ targetButtons: Set<ControllerButton>,
@@ -620,4 +643,15 @@ extension MappingEngine {
             controllerService.handleButton(button, pressed: false)
         }
     }
+}
+
+private extension KeyMapping {
+	var isJoystickAxisMovementMapping: Bool {
+		keyCode != nil
+			&& modifiers == ModifierFlags()
+			&& macroId == nil
+			&& scriptId == nil
+			&& systemCommand == nil
+			&& isHoldModifier
+	}
 }

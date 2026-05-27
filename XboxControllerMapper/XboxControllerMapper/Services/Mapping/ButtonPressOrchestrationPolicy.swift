@@ -34,6 +34,7 @@ enum ButtonPressOrchestrationPolicy {
         directoryNavigatorVisible: Bool,
         remoteSwipePredictionsVisible: Bool = false,
         isChordPart: Bool,
+		isDPadPresetDirection: Bool = false,
         lastTap: CFAbsoluteTime?,
         inputLatencyMode: InputLatencyMode = .standard
     ) -> Outcome {
@@ -120,8 +121,10 @@ enum ButtonPressOrchestrationPolicy {
                 mapping: mapping,
                 lastTap: lastTap,
                 shouldTreatAsHold: ButtonInteractionFlowPolicy.shouldUseHoldPath(
+					button: button,
                     mapping: mapping,
-                    isChordPart: isChordPart
+					isChordPart: isChordPart,
+					isDPadPresetDirection: isDPadPresetDirection
                 ) || (
                     inputLatencyMode == .realtime &&
                     ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(

@@ -2122,6 +2122,53 @@ final class XboxControllerMapperTests: XCTestCase {
         }
     }
 
+	func testDPadPresetDiagonalUsesHeldKeysForMovement() async throws {
+		await MainActor.run {
+			var mappings: [ControllerButton: KeyMapping] = [:]
+			DPadPreset.wasd.apply(to: &mappings)
+			profileManager.setActiveProfile(Profile(name: "DPad WASD", buttonMappings: mappings, dpadPreset: .wasd))
+		}
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.dpadUp)
+			controllerService.buttonPressed(.dpadRight)
+		}
+		await waitForTasks()
+
+		await MainActor.run {
+			let startedW = mockInputSimulator.events.contains { event in
+				if case .startHoldMapping(let mapping) = event { return mapping.keyCode == KeyCodeMapping.keyW }
+				return false
+			}
+			let startedD = mockInputSimulator.events.contains { event in
+				if case .startHoldMapping(let mapping) = event { return mapping.keyCode == KeyCodeMapping.keyD }
+				return false
+			}
+			XCTAssertTrue(startedW, "D-pad Up preset movement should hold W")
+			XCTAssertTrue(startedD, "D-pad Right preset movement should hold D")
+			XCTAssertTrue(mockInputSimulator.heldDirectionKeys.contains(KeyCodeMapping.keyW))
+			XCTAssertTrue(mockInputSimulator.heldDirectionKeys.contains(KeyCodeMapping.keyD))
+
+			controllerService.buttonReleased(.dpadUp)
+			controllerService.buttonReleased(.dpadRight)
+		}
+		await waitForTasks()
+
+		await MainActor.run {
+			let stoppedW = mockInputSimulator.events.contains { event in
+				if case .stopHoldMapping(let mapping) = event { return mapping.keyCode == KeyCodeMapping.keyW }
+				return false
+			}
+			let stoppedD = mockInputSimulator.events.contains { event in
+				if case .stopHoldMapping(let mapping) = event { return mapping.keyCode == KeyCodeMapping.keyD }
+				return false
+			}
+			XCTAssertTrue(stoppedW, "D-pad Up release should release W")
+			XCTAssertTrue(stoppedD, "D-pad Right release should release D")
+		}
+	}
+
     // MARK: - Trigger Button Mapping Tests (High Priority)
 
     /// Tests left trigger as a button (digital, not analog)

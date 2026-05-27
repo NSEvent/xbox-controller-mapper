@@ -552,6 +552,7 @@ class MappingEngine: ObservableObject {
         let keyboardVisible = localKeyboardVisible || remoteOverlayState.keyboardVisible
         let directoryNavigatorVisible = localDirectoryNavigatorVisible || remoteOverlayState.directoryNavigatorVisible
         let mapping = effectiveMapping(for: button, in: profile)
+		let isDPadPresetDirection = profile.dpadPreset.primaryKeyCode(for: button) == mapping?.keyCode
         let navigationModeActive = keyboardVisible
             ? (localKeyboardVisible
                 ? OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
@@ -567,6 +568,7 @@ class MappingEngine: ObservableObject {
             directoryNavigatorVisible: directoryNavigatorVisible,
             remoteSwipePredictionsVisible: remoteOverlayState.swipePredictionsVisible,
             isChordPart: isChordPart,
+			isDPadPresetDirection: isDPadPresetDirection,
             lastTap: lastTap,
             inputLatencyMode: profile.inputLatencyMode
         )

@@ -239,6 +239,32 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         XCTAssertFalse(upCleared, "Virtual direction should clear when centered")
     }
 
+	func testCustomWasdPresetSupportsDiagonalMovement() async throws {
+		await MainActor.run {
+			var mappings: [ControllerButton: KeyMapping] = [:]
+			StickDirectionPreset.wasd.apply(to: &mappings, side: .left)
+
+			var profile = Profile(name: "Custom WASD Movement", buttonMappings: mappings)
+			profile.joystickSettings.leftStickMode = .custom
+			profile.joystickSettings.leftStickCustomDeadzone = 0.1
+			installActiveProfile(profile)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.12)
+
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: 0.9, y: 0.9))
+		}
+		await waitForTasks(0.2)
+
+		XCTAssertEqual(startHoldCount(for: KeyCodeMapping.keyW), 1, "Diagonal up-right should press W")
+		XCTAssertEqual(startHoldCount(for: KeyCodeMapping.keyD), 1, "Diagonal up-right should press D")
+		let upIsActive = await isActiveButton(.leftStickUp)
+		let rightIsActive = await isActiveButton(.leftStickRight)
+		XCTAssertTrue(upIsActive)
+		XCTAssertTrue(rightIsActive)
+	}
+
     func testCustomLeftStickDirectionCanCompleteChord() async throws {
         await MainActor.run {
             controllerService.chordWindow = 0.2

@@ -29,6 +29,43 @@ final class ButtonInteractionFlowPolicyTests: XCTestCase {
         XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseHoldPath(mapping: mapping, isChordPart: false))
     }
 
+	func testShouldUseHoldPathReturnsTrueForDPadPresetMovementMapping() {
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.keyW, repeatMapping: RepeatMapping(enabled: true))
+
+		XCTAssertTrue(ButtonInteractionFlowPolicy.shouldUseHoldPath(
+			button: .dpadUp,
+			mapping: mapping,
+			isChordPart: true,
+			isDPadPresetDirection: true
+		))
+	}
+
+	func testShouldUseHoldPathReturnsFalseForCustomDPadRepeatMapping() {
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.keyW, repeatMapping: RepeatMapping(enabled: true))
+
+		XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseHoldPath(
+			button: .dpadUp,
+			mapping: mapping,
+			isChordPart: false,
+			isDPadPresetDirection: false
+		))
+	}
+
+	func testShouldUseHoldPathReturnsFalseForDPadPresetWithAdvancedTiming() {
+		let mapping = KeyMapping(
+			keyCode: KeyCodeMapping.keyW,
+			doubleTapMapping: DoubleTapMapping(keyCode: KeyCodeMapping.space),
+			repeatMapping: RepeatMapping(enabled: true)
+		)
+
+		XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseHoldPath(
+			button: .dpadUp,
+			mapping: mapping,
+			isChordPart: false,
+			isDPadPresetDirection: true
+		))
+	}
+
     func testReleaseDecisionReturnsSkipForHoldModifier() {
         let mapping = KeyMapping(modifiers: ModifierFlags(command: true), isHoldModifier: true)
 
