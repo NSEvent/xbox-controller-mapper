@@ -903,7 +903,9 @@ class MappingEngine: ObservableObject {
 
         inputSimulator.startHoldMapping(mapping)
 
-        if mapping.holdRepeatEnabled, mapping.keyCode != nil {
+        if mapping.holdRepeatEnabled,
+           let keyCode = mapping.keyCode,
+           !KeyCodeMapping.isMouseButton(keyCode) {
             startHoldRepeatTimer(for: button, mapping: mapping)
         }
 

@@ -321,6 +321,18 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertEqual(report?.motion?.gyroZ, 600)
     }
 
+    func testSteamController_HorizontalGyroUsesYawWhenRollIsSmall() {
+        let result = ControllerService.steamHorizontalAimRate(gyroY: 20, gyroZ: 1000)
+
+        XCTAssertEqual(result, 1000.0 * Config.steamGyroAimingYawBlend, accuracy: 0.001)
+    }
+
+    func testSteamController_HorizontalGyroDoesNotCancelOpposedAxes() {
+        let result = ControllerService.steamHorizontalAimRate(gyroY: -1000, gyroZ: -1000)
+
+        XCTAssertEqual(result, 1000, accuracy: 0.001)
+    }
+
     func testSteamController_HapticTonePayloadMatchesTritonOutputLayout() {
         let payload = SteamControllerHIDController.hapticTonePayload(
             actuator: SteamControllerHIDController.leftTrackpadActuator,

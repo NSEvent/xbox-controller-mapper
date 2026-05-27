@@ -58,7 +58,7 @@ extension ControllerService {
 
         let scale = (Double.pi / 32768.0) * Config.steamGyroAimingSensitivityMultiplier
         let rawPitch = Double(motion.gyroX) * scale
-        let rawRoll = -Double(motion.gyroY) * scale
+        let rawRoll = Self.steamHorizontalAimRate(gyroY: motion.gyroY, gyroZ: motion.gyroZ) * scale
 
         let biasCalibrationFrames = 60
         let (pitch, roll): (Double, Double) = storage.lock.withLock {
@@ -83,6 +83,21 @@ extension ControllerService {
         storage.lock.unlock()
 
         processMotionUpdate(pitchVelocity: pitch, rollVelocity: roll)
+    }
+
+    nonisolated static func steamHorizontalAimRate(gyroY: Int16, gyroZ: Int16) -> Double {
+        let rollAxis = -Double(gyroY)
+        let yawAxis = Double(gyroZ) * Config.steamGyroAimingYawBlend
+
+        guard rollAxis != 0, yawAxis != 0 else {
+            return rollAxis + yawAxis
+        }
+
+        if (rollAxis > 0) == (yawAxis > 0) {
+            return rollAxis + yawAxis
+        }
+
+        return abs(rollAxis) >= abs(yawAxis) ? rollAxis : yawAxis
     }
 
     func setMotionSensorsActive(_ active: Bool) {

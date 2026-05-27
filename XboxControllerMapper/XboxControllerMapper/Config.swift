@@ -406,6 +406,10 @@ struct Config {
     /// Steam Controller raw gyro reports use a smaller scale than DS4/DualSense
     /// in practice for this app's cursor pipeline.
     static let steamGyroAimingSensitivityMultiplier: Double = 4.0
+    /// Steam Controller horizontal aim can land on either the roll or yaw gyro
+    /// axis depending on how the controller is held. Blend yaw in, but avoid
+    /// canceling the current roll axis when signs disagree.
+    static let steamGyroAimingYawBlend: Double = 0.75
 
     /// Haptic feedback for gesture detection
     static let gestureHapticIntensity: Float = 0.3

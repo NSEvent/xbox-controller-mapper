@@ -136,16 +136,7 @@ class FocusModeIndicator {
             panel.setFrameOrigin(NSPoint(x: cursorPos.x - offset, y: cursorPos.y - offset))
         } else {
             lastPhysicalPosition = nil
-            let now = CFAbsoluteTimeGetCurrent()
-            if let tracked, now - trackedSnapshot.lastMoveTime < 0.25 {
-                let trackedNS = CGPoint(
-                    x: screenFrame.origin.x + tracked.x,
-                    y: screenFrame.origin.y + screenFrame.height - tracked.y
-                )
-                panel.setFrameOrigin(NSPoint(x: trackedNS.x - offset, y: trackedNS.y - offset))
-            } else {
-                panel.setFrameOrigin(NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset))
-            }
+            panel.setFrameOrigin(NSPoint(x: mouseLocation.x - offset, y: mouseLocation.y - offset))
         }
     }
 }

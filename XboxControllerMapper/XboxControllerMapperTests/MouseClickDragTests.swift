@@ -152,6 +152,44 @@ final class MouseClickDragTests: XCTestCase {
         }
     }
 
+    func testMouseLeftClick_HoldRepeatDoesNotPostExtraMouseDowns() async throws {
+        await MainActor.run {
+            let mapping = KeyMapping(
+                keyCode: KeyCodeMapping.mouseLeftClick,
+                isHoldModifier: true,
+                holdRepeatEnabled: true,
+                holdRepeatInterval: 0.02
+            )
+            let profile = Profile(name: "MouseHoldRepeat", buttonMappings: [.x: mapping])
+            profileManager.setActiveProfile(profile)
+        }
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        await MainActor.run {
+            controllerService.buttonPressed(.x)
+        }
+        await waitForTasks(0.12)
+
+        let events = mockInputSimulator.events
+        let holdStarts = events.filter {
+            if case .startHoldMapping(let m) = $0 { return m.keyCode == KeyCodeMapping.mouseLeftClick }
+            return false
+        }
+        let mouseDowns = events.filter {
+            if case .keyDown(let keyCode) = $0 { return keyCode == KeyCodeMapping.mouseLeftClick }
+            return false
+        }
+
+        XCTAssertEqual(holdStarts.count, 1, "Mouse hold should start once")
+        XCTAssertEqual(mouseDowns.count, 1, "Hold repeat must not post extra mouseDown events")
+
+        await MainActor.run {
+            controllerService.buttonReleased(.x)
+        }
+        await waitForTasks(0.05)
+        XCTAssertFalse(mockInputSimulator.isLeftMouseButtonHeld)
+    }
+
     // MARK: - Mock Tracks keyDown/keyUp for Mouse Buttons
 
     func testMockInputSimulator_KeyDownTracksMouseHold() {
