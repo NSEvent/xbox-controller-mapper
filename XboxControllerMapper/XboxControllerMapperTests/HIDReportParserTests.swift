@@ -1,4 +1,5 @@
 import XCTest
+import GameController
 @testable import ControllerKeys
 
 /// Hand-crafted byte buffer tests for HID report parsers. Previously, this
@@ -145,5 +146,162 @@ final class HIDReportParserTests: XCTestCase {
         }
         let result = parse(NintendoHIDParser(), reportID: 0x30, bytes: bytes)
         XCTAssertEqual(result?.nintendoHome, false)
+    }
+
+    // MARK: - Steam Controller
+
+    func testSteamController_Report45ParsesButtonsAndAxes() {
+        let bytes = makeReport(length: 29) { p in
+            p[0] = 7  // sequence
+            writeLE32(SteamControllerButtonMask.a | SteamControllerButtonMask.steam | SteamControllerButtonMask.leftUpperGrip, to: p, offset: 1)
+            writeLE16(0x4000, to: p, offset: 5)       // left trigger = 0.5
+            writeLE16(0x7FFF, to: p, offset: 7)       // right trigger = 1.0
+            writeLE16(0x7FFF, to: p, offset: 9)       // left stick x = 1.0
+            writeLE16(UInt16(bitPattern: Int16(-32768)), to: p, offset: 11)
+            writeLE16(UInt16(bitPattern: Int16(-16384)), to: p, offset: 13)
+            writeLE16(0x4000, to: p, offset: 15)
+        }
+
+        let result = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parse(reportID: 0x45, report: buf.baseAddress!, length: buf.count)
+        }
+
+        XCTAssertEqual(result?.reportID, 0x45)
+        XCTAssertEqual(result?.sequence, 7)
+        XCTAssertEqual(result?.buttons, SteamControllerButtonMask.a | SteamControllerButtonMask.steam | SteamControllerButtonMask.leftUpperGrip)
+        XCTAssertEqual(result?.leftTrigger ?? -1, 0.5, accuracy: 0.001)
+        XCTAssertEqual(result?.rightTrigger ?? -1, 1.0, accuracy: 0.001)
+        XCTAssertEqual(result?.leftStickX ?? 0, 1.0, accuracy: 0.001)
+        XCTAssertEqual(result?.leftStickY ?? 0, -1.0, accuracy: 0.001)
+        XCTAssertEqual(result?.rightStickX ?? 0, -0.5, accuracy: 0.001)
+        XCTAssertEqual(result?.rightStickY ?? 0, 0.5, accuracy: 0.001)
+    }
+
+    func testSteamController_ReportWithLeadingIDByteIsAccepted() {
+        let bytes = makeReport(length: 30) { p in
+            p[0] = 0x45
+            p[1] = 9
+            writeLE32(SteamControllerButtonMask.menu, to: p, offset: 2)
+        }
+
+        let result = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parse(reportID: 0x45, report: buf.baseAddress!, length: buf.count)
+        }
+
+        XCTAssertEqual(result?.sequence, 9)
+        XCTAssertEqual(result?.buttons, SteamControllerButtonMask.menu)
+    }
+
+    func testSteamController_BatteryReportParsesLevelAndDischargingState() {
+        let bytes = makeReport(length: 14) { p in
+            p[0] = 1   // discharging
+            p[1] = 87  // 87%
+        }
+
+        let result = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parseBattery(reportID: 0x43, report: buf.baseAddress!, length: buf.count)
+        }
+
+        XCTAssertEqual(result?.reportID, 0x43)
+        XCTAssertEqual(result?.chargeState, 1)
+        XCTAssertEqual(result?.level ?? -1, 0.87, accuracy: 0.001)
+        XCTAssertEqual(result?.state, .discharging)
+    }
+
+    func testSteamController_BatteryReportWithLeadingIDByteParsesChargingState() {
+        let bytes = makeReport(length: 15) { p in
+            p[0] = 0x43
+            p[1] = 2
+            p[2] = 100
+        }
+
+        let result = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parseBattery(reportID: 0x43, report: buf.baseAddress!, length: buf.count)
+        }
+
+        XCTAssertEqual(result?.level ?? -1, 1.0, accuracy: 0.001)
+        XCTAssertEqual(result?.state, .charging)
+    }
+
+    func testSteamController_MacOSCallbackReportUsesDecimalReportIDAndLeadingIDByte() {
+        let bytes = makeReport(length: 46) { p in
+            p[0] = 0x45
+            p[1] = 11
+            writeLE32(SteamControllerButtonMask.a | SteamControllerButtonMask.rightBumper, to: p, offset: 2)
+        }
+
+        let result = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parse(reportID: 69, report: buf.baseAddress!, length: buf.count)
+        }
+
+        XCTAssertEqual(result?.reportID, 0x45)
+        XCTAssertEqual(result?.sequence, 11)
+        XCTAssertEqual(result?.buttons, SteamControllerButtonMask.a | SteamControllerButtonMask.rightBumper)
+    }
+
+    func testSteamController_AcceptsObservedMacOSVendorUsages() {
+        XCTAssertTrue(SteamControllerHIDParser.acceptedVendorUsages.contains(SteamControllerHIDParser.vendorDataUsage))
+        XCTAssertTrue(SteamControllerHIDParser.acceptedVendorUsages.contains(SteamControllerHIDParser.vendorCommandUsage))
+    }
+
+    func testSteamController_UnknownReportIDReturnsNil() {
+        let bytes = makeReport(length: 29) { _ in }
+        let result = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parse(reportID: 0x99, report: buf.baseAddress!, length: buf.count)
+        }
+
+        XCTAssertNil(result)
+    }
+
+    func testSteamController_RightTouchpadStateNormalizesToControllerTouchpadRange() {
+        let bytes = makeReport(length: 29) { p in
+            writeLE32(
+                SteamControllerButtonMask.rightPadTouch | SteamControllerButtonMask.rightPadClick,
+                to: p,
+                offset: 1
+            )
+            writeLE16(0x4000, to: p, offset: 23)
+            writeLE16(UInt16(bitPattern: Int16(-16384)), to: p, offset: 25)
+        }
+
+        let report = bytes.withUnsafeBufferPointer { buf in
+            SteamControllerHIDParser().parse(reportID: 0x45, report: buf.baseAddress!, length: buf.count)
+        }
+        let touchpad = report.map(SteamControllerHIDController.rightTouchpadState(from:))
+
+        XCTAssertEqual(touchpad?.x ?? 0, 0.5, accuracy: 0.001)
+        XCTAssertEqual(touchpad?.y ?? 0, -0.5, accuracy: 0.001)
+        XCTAssertEqual(touchpad?.isTouching, true)
+        XCTAssertEqual(touchpad?.isPressed, true)
+    }
+
+    func testSteamController_ButtonEventsMapToControllerButtons() {
+        let current = SteamControllerButtonMask.qam
+            | SteamControllerButtonMask.view
+            | SteamControllerButtonMask.menu
+            | SteamControllerButtonMask.steam
+            | SteamControllerButtonMask.leftUpperGrip
+            | SteamControllerButtonMask.rightLowerGrip
+
+        let events = SteamControllerHIDController.buttonEvents(previous: 0, current: current)
+
+        XCTAssertTrue(events.contains(ControllerButtonEvent(button: .share, pressed: true)))
+        XCTAssertTrue(events.contains(ControllerButtonEvent(button: .view, pressed: true)))
+        XCTAssertTrue(events.contains(ControllerButtonEvent(button: .menu, pressed: true)))
+        XCTAssertTrue(events.contains(ControllerButtonEvent(button: .xbox, pressed: true)))
+        XCTAssertTrue(events.contains(ControllerButtonEvent(button: .xboxPaddle1, pressed: true)))
+        XCTAssertTrue(events.contains(ControllerButtonEvent(button: .xboxPaddle4, pressed: true)))
+    }
+
+    private func writeLE16(_ value: UInt16, to p: UnsafeMutablePointer<UInt8>, offset: Int) {
+        p[offset] = UInt8(value & 0xFF)
+        p[offset + 1] = UInt8((value >> 8) & 0xFF)
+    }
+
+    private func writeLE32(_ value: UInt32, to p: UnsafeMutablePointer<UInt8>, offset: Int) {
+        p[offset] = UInt8(value & 0xFF)
+        p[offset + 1] = UInt8((value >> 8) & 0xFF)
+        p[offset + 2] = UInt8((value >> 16) & 0xFF)
+        p[offset + 3] = UInt8((value >> 24) & 0xFF)
     }
 }

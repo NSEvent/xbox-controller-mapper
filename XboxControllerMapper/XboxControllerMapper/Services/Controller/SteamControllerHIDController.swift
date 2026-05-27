@@ -1,0 +1,540 @@
+import Foundation
+import GameController
+import IOKit
+import IOKit.hid
+
+struct SteamControllerInputReport: Equatable {
+    let reportID: UInt8
+    let sequence: UInt8
+    let buttons: UInt32
+    let leftTrigger: Float
+    let rightTrigger: Float
+    let leftStickX: Float
+    let leftStickY: Float
+    let rightStickX: Float
+    let rightStickY: Float
+    let leftPadX: Int16
+    let leftPadY: Int16
+    let leftPadPressure: UInt16
+    let rightPadX: Int16
+    let rightPadY: Int16
+    let rightPadPressure: UInt16
+}
+
+struct SteamControllerBatteryReport: Equatable {
+    let reportID: UInt8
+    let chargeState: UInt8
+    let level: Float
+    let state: GCDeviceBattery.State
+}
+
+struct SteamControllerTouchpadState: Equatable {
+    let x: Float
+    let y: Float
+    let isTouching: Bool
+    let isPressed: Bool
+}
+
+enum SteamControllerButtonMask {
+    static let a: UInt32 = 0x00000001
+    static let b: UInt32 = 0x00000002
+    static let x: UInt32 = 0x00000004
+    static let y: UInt32 = 0x00000008
+    static let qam: UInt32 = 0x00000010
+    static let rightThumbstick: UInt32 = 0x00000020
+    static let menu: UInt32 = 0x00000040
+    static let rightUpperGrip: UInt32 = 0x00000080
+    static let rightLowerGrip: UInt32 = 0x00000100
+    static let rightBumper: UInt32 = 0x00000200
+    static let dpadDown: UInt32 = 0x00000400
+    static let dpadRight: UInt32 = 0x00000800
+    static let dpadLeft: UInt32 = 0x00001000
+    static let dpadUp: UInt32 = 0x00002000
+    static let view: UInt32 = 0x00004000
+    static let leftThumbstick: UInt32 = 0x00008000
+    static let steam: UInt32 = 0x00010000
+    static let leftUpperGrip: UInt32 = 0x00020000
+    static let leftLowerGrip: UInt32 = 0x00040000
+    static let leftBumper: UInt32 = 0x00080000
+    static let rightPadTouch: UInt32 = 0x00200000
+    static let rightPadClick: UInt32 = 0x00400000
+    static let rightTriggerClick: UInt32 = 0x00800000
+    static let leftPadTouch: UInt32 = 0x02000000
+    static let leftPadClick: UInt32 = 0x04000000
+    static let leftTriggerClick: UInt32 = 0x08000000
+}
+
+struct SteamControllerHIDParser {
+    static let wiredProductID = 0x1302
+    static let puckProductID = 0x1304
+    static let productIDs = [wiredProductID, puckProductID]
+    static let valveVendorID = 0x28DE
+    static let vendorUsagePage = 0xFF00
+    static let vendorDataUsage = 0x0001
+    static let vendorCommandUsage = 0x0002
+    static let acceptedVendorUsages: Set<Int> = [vendorDataUsage, vendorCommandUsage]
+    static let acceptedInputReportIDs: Set<UInt8> = [0x42, 0x45]
+    static let batteryReportID: UInt8 = 0x43
+
+    func parse(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) -> SteamControllerInputReport? {
+        guard let id = UInt8(exactly: reportID),
+              Self.acceptedInputReportIDs.contains(id) else { return nil }
+
+        let offset = length > 0 && report[0] == id ? 1 : 0
+        let payloadLength = length - offset
+        guard payloadLength >= 29 else { return nil }
+
+        let sequence = report[offset]
+        let buttons = Self.uint32LE(report, offset + 1)
+        let leftTrigger = Self.triggerValue(Self.int16LE(report, offset + 5))
+        let rightTrigger = Self.triggerValue(Self.int16LE(report, offset + 7))
+        let leftStickX = Self.axisValue(Self.int16LE(report, offset + 9))
+        let leftStickY = Self.axisValue(Self.int16LE(report, offset + 11))
+        let rightStickX = Self.axisValue(Self.int16LE(report, offset + 13))
+        let rightStickY = Self.axisValue(Self.int16LE(report, offset + 15))
+        let leftPadX = Self.int16LE(report, offset + 17)
+        let leftPadY = Self.int16LE(report, offset + 19)
+        let leftPadPressure = Self.uint16LE(report, offset + 21)
+        let rightPadX = Self.int16LE(report, offset + 23)
+        let rightPadY = Self.int16LE(report, offset + 25)
+        let rightPadPressure = Self.uint16LE(report, offset + 27)
+
+        return SteamControllerInputReport(
+            reportID: id,
+            sequence: sequence,
+            buttons: buttons,
+            leftTrigger: leftTrigger,
+            rightTrigger: rightTrigger,
+            leftStickX: leftStickX,
+            leftStickY: leftStickY,
+            rightStickX: rightStickX,
+            rightStickY: rightStickY,
+            leftPadX: leftPadX,
+            leftPadY: leftPadY,
+            leftPadPressure: leftPadPressure,
+            rightPadX: rightPadX,
+            rightPadY: rightPadY,
+            rightPadPressure: rightPadPressure
+        )
+    }
+
+    func parseBattery(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) -> SteamControllerBatteryReport? {
+        guard let id = UInt8(exactly: reportID),
+              id == Self.batteryReportID else { return nil }
+
+        let offset = length > 0 && report[0] == id ? 1 : 0
+        let payloadLength = length - offset
+        guard payloadLength >= 14 else { return nil }
+
+        let chargeState = report[offset]
+        let batteryPercent = min(100, max(0, Int(report[offset + 1])))
+        return SteamControllerBatteryReport(
+            reportID: id,
+            chargeState: chargeState,
+            level: Float(batteryPercent) / 100.0,
+            state: Self.batteryState(chargeState: chargeState)
+        )
+    }
+
+    private static func axisValue(_ raw: Int16) -> Float {
+        max(-1.0, min(1.0, Float(raw) / 32767.0))
+    }
+
+    private static func triggerValue(_ raw: Int16) -> Float {
+        max(0.0, min(1.0, Float(max(Int(raw), 0)) / 32767.0))
+    }
+
+    private static func uint16LE(_ report: UnsafePointer<UInt8>, _ offset: Int) -> UInt16 {
+        UInt16(report[offset]) | (UInt16(report[offset + 1]) << 8)
+    }
+
+    private static func int16LE(_ report: UnsafePointer<UInt8>, _ offset: Int) -> Int16 {
+        Int16(bitPattern: uint16LE(report, offset))
+    }
+
+    private static func uint32LE(_ report: UnsafePointer<UInt8>, _ offset: Int) -> UInt32 {
+        UInt32(report[offset])
+            | (UInt32(report[offset + 1]) << 8)
+            | (UInt32(report[offset + 2]) << 16)
+            | (UInt32(report[offset + 3]) << 24)
+    }
+
+    private static func batteryState(chargeState: UInt8) -> GCDeviceBattery.State {
+        switch chargeState {
+        case 1:
+            return .discharging
+        case 2:
+            return .charging
+        case 4:
+            return .full
+        default:
+            return .unknown
+        }
+    }
+}
+
+final class SteamControllerHIDController {
+    let device: IOHIDDevice
+    let deviceName: String
+
+    var onActivated: ((SteamControllerHIDController) -> Void)?
+    var onButtonAction: ((ControllerButton, Bool) -> Void)?
+    var onLeftStickMoved: ((Float, Float) -> Void)?
+    var onRightStickMoved: ((Float, Float) -> Void)?
+    var onLeftTriggerChanged: ((Float, Bool) -> Void)?
+    var onRightTriggerChanged: ((Float, Bool) -> Void)?
+    var onRightTouchpadChanged: ((Float, Float, Bool) -> Void)?
+    var onRightTouchpadClickChanged: ((Bool) -> Void)?
+    var onBatteryChanged: ((Float, GCDeviceBattery.State) -> Void)?
+
+    private static let inputReportBufferSize = 128
+    private static let triggerPressThreshold: Float = 0.12
+    private static let analogDispatchIntervalNanoseconds: UInt64 = 8_000_000
+    private static let stickEpsilon: Float = 0.01
+    private static let triggerEpsilon: Float = 0.01
+    private static let touchpadEpsilon: Float = 0.005
+    private static let lizardModeReportID: UInt8 = 0x01
+    private static let lizardModeCommand: UInt8 = 0x87
+    private static let lizardModeSetting: UInt8 = 0x09
+
+    private let lizardModeQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.lizard-mode", qos: .utility)
+    private let parser = SteamControllerHIDParser()
+    private var previousButtons: UInt32 = 0
+    private var lastAnalogDispatchNanoseconds: UInt64 = 0
+    private var lastLeftStick: (x: Float, y: Float)?
+    private var lastRightStick: (x: Float, y: Float)?
+    private var lastLeftTrigger: (value: Float, pressed: Bool)?
+    private var lastRightTrigger: (value: Float, pressed: Bool)?
+    private var lastRightTouchpad: SteamControllerTouchpadState?
+    private var lastRightTouchpadClick: Bool?
+    private var hasActivated = false
+    private var isStarted = false
+    private var reportBuffer: UnsafeMutablePointer<UInt8>?
+    private var callbackContext: UnsafeMutableRawPointer?
+    private var scheduledRunLoop: CFRunLoop?
+    private var lizardModeTimer: DispatchSourceTimer?
+    private var lizardModeDisabled = false
+
+    private final class CallbackContext {
+        weak var controller: SteamControllerHIDController?
+
+        init(controller: SteamControllerHIDController) {
+            self.controller = controller
+        }
+    }
+
+    private static let inputReportCallback: IOHIDReportCallback = { context, result, _, _, reportID, report, reportLength in
+        guard result == kIOReturnSuccess, let context else { return }
+        let holder = Unmanaged<CallbackContext>.fromOpaque(context).takeUnretainedValue()
+        holder.controller?.handleInputReport(reportID: reportID, report: report, length: Int(reportLength))
+    }
+
+    init(device: IOHIDDevice) {
+        self.device = device
+        self.deviceName = IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String ?? "Steam Controller"
+    }
+
+    deinit {
+        stop()
+    }
+
+    func start() {
+        guard !isStarted else { return }
+
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.inputReportBufferSize)
+        reportBuffer = buffer
+
+        let retainedContext = Unmanaged.passRetained(CallbackContext(controller: self)).toOpaque()
+        callbackContext = retainedContext
+
+        let currentRunLoop = CFRunLoopGetCurrent()!
+        scheduledRunLoop = currentRunLoop
+        IOHIDDeviceScheduleWithRunLoop(device, currentRunLoop, CFRunLoopMode.defaultMode.rawValue)
+
+        IOHIDDeviceRegisterInputReportCallback(
+            device,
+            buffer,
+            Self.inputReportBufferSize,
+            Self.inputReportCallback,
+            retainedContext
+        )
+
+        let openResult = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        if openResult != kIOReturnSuccess {
+            NSLog("[ControllerKeys] Steam Controller HID open returned 0x%08X", openResult)
+        }
+
+        isStarted = true
+        if sendLizardMode(enabled: false) {
+            lizardModeDisabled = true
+            onActivated?(self)
+            startLizardModeTimer()
+        }
+    }
+
+    func stop() {
+        lizardModeTimer?.cancel()
+        lizardModeTimer = nil
+
+        if isStarted && lizardModeDisabled {
+            sendLizardMode(enabled: true)
+            lizardModeDisabled = false
+        }
+
+        if isStarted {
+            IOHIDDeviceClose(device, IOOptionBits(kIOHIDOptionsTypeNone))
+            if let scheduledRunLoop {
+                IOHIDDeviceUnscheduleFromRunLoop(device, scheduledRunLoop, CFRunLoopMode.defaultMode.rawValue)
+            }
+        }
+        scheduledRunLoop = nil
+
+        if let callbackContext {
+            Unmanaged<CallbackContext>.fromOpaque(callbackContext).release()
+            self.callbackContext = nil
+        }
+
+        reportBuffer?.deallocate()
+        reportBuffer = nil
+        isStarted = false
+        hasActivated = false
+        previousButtons = 0
+        lastAnalogDispatchNanoseconds = 0
+        lastLeftStick = nil
+        lastRightStick = nil
+        lastLeftTrigger = nil
+        lastRightTrigger = nil
+        lastRightTouchpad = nil
+        lastRightTouchpadClick = nil
+    }
+
+    static func supportsDevice(_ device: IOHIDDevice) -> Bool {
+        let vendorID = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int
+        let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int
+        guard vendorID == SteamControllerHIDParser.valveVendorID,
+              productID.map({ SteamControllerHIDParser.productIDs.contains($0) }) == true else {
+            return false
+        }
+
+        if let usagePairs = IOHIDDeviceGetProperty(device, "DeviceUsagePairs" as CFString) as? [[String: Any]],
+           usagePairs.contains(where: isAcceptedSteamUsagePair) {
+            return true
+        }
+
+        let usagePage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsagePageKey as CFString) as? Int
+        let usage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsageKey as CFString) as? Int
+        if let usagePage, let usage {
+            return usagePage == SteamControllerHIDParser.vendorUsagePage
+                && SteamControllerHIDParser.acceptedVendorUsages.contains(usage)
+        }
+
+        return false
+    }
+
+    private static func isAcceptedSteamUsagePair(_ pair: [String: Any]) -> Bool {
+        let usagePage = pair[kIOHIDDeviceUsagePageKey as String] as? Int
+            ?? pair["DeviceUsagePage"] as? Int
+        let usage = pair[kIOHIDDeviceUsageKey as String] as? Int
+            ?? pair["DeviceUsage"] as? Int
+
+        return usagePage == SteamControllerHIDParser.vendorUsagePage
+            && usage.map { SteamControllerHIDParser.acceptedVendorUsages.contains($0) } == true
+    }
+
+    static func buttonEvents(previous: UInt32, current: UInt32) -> [ControllerButtonEvent] {
+        buttonMap.compactMap { mask, button in
+            let wasPressed = (previous & mask) != 0
+            let isPressed = (current & mask) != 0
+            guard wasPressed != isPressed else { return nil }
+            return ControllerButtonEvent(button: button, pressed: isPressed)
+        }
+    }
+
+    static func rightTouchpadState(from report: SteamControllerInputReport) -> SteamControllerTouchpadState {
+        let isTouching = (report.buttons & SteamControllerButtonMask.rightPadTouch) != 0
+        let isPressed = (report.buttons & SteamControllerButtonMask.rightPadClick) != 0
+        guard isTouching else {
+            return SteamControllerTouchpadState(x: 0, y: 0, isTouching: false, isPressed: isPressed)
+        }
+
+        return SteamControllerTouchpadState(
+            x: normalizedTouchpadAxis(report.rightPadX),
+            y: normalizedTouchpadAxis(report.rightPadY),
+            isTouching: true,
+            isPressed: isPressed
+        )
+    }
+
+    private static let buttonMap: [(UInt32, ControllerButton)] = [
+        (SteamControllerButtonMask.a, .a),
+        (SteamControllerButtonMask.b, .b),
+        (SteamControllerButtonMask.x, .x),
+        (SteamControllerButtonMask.y, .y),
+        (SteamControllerButtonMask.qam, .share),
+        (SteamControllerButtonMask.rightThumbstick, .rightThumbstick),
+        (SteamControllerButtonMask.menu, .menu),
+        (SteamControllerButtonMask.rightUpperGrip, .xboxPaddle2),
+        (SteamControllerButtonMask.rightLowerGrip, .xboxPaddle4),
+        (SteamControllerButtonMask.rightBumper, .rightBumper),
+        (SteamControllerButtonMask.dpadDown, .dpadDown),
+        (SteamControllerButtonMask.dpadRight, .dpadRight),
+        (SteamControllerButtonMask.dpadLeft, .dpadLeft),
+        (SteamControllerButtonMask.dpadUp, .dpadUp),
+        (SteamControllerButtonMask.view, .view),
+        (SteamControllerButtonMask.leftThumbstick, .leftThumbstick),
+        (SteamControllerButtonMask.steam, .xbox),
+        (SteamControllerButtonMask.leftUpperGrip, .xboxPaddle1),
+        (SteamControllerButtonMask.leftLowerGrip, .xboxPaddle3),
+        (SteamControllerButtonMask.leftBumper, .leftBumper),
+    ]
+
+    private func handleInputReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
+        if let battery = parser.parseBattery(reportID: reportID, report: UnsafePointer(report), length: length) {
+            onBatteryChanged?(battery.level, battery.state)
+            return
+        }
+
+        guard let parsed = parser.parse(reportID: reportID, report: UnsafePointer(report), length: length) else { return }
+
+        if !hasActivated {
+            hasActivated = true
+            onActivated?(self)
+        }
+
+        for event in Self.buttonEvents(previous: previousButtons, current: parsed.buttons) {
+            onButtonAction?(event.button, event.pressed)
+        }
+        previousButtons = parsed.buttons
+
+        dispatchTouchpadChanges(from: parsed)
+        dispatchAnalogChanges(from: parsed)
+    }
+
+    private func dispatchTouchpadChanges(from parsed: SteamControllerInputReport) {
+        let current = Self.rightTouchpadState(from: parsed)
+
+        if shouldDispatchTouchpad(lastRightTouchpad, current: current) {
+            onRightTouchpadChanged?(current.x, current.y, current.isTouching)
+            lastRightTouchpad = current
+        } else if lastRightTouchpad == nil {
+            lastRightTouchpad = current
+        }
+
+        if lastRightTouchpadClick != current.isPressed {
+            if lastRightTouchpadClick != nil || current.isPressed {
+                onRightTouchpadClickChanged?(current.isPressed)
+            }
+            lastRightTouchpadClick = current.isPressed
+        }
+    }
+
+    private func dispatchAnalogChanges(from parsed: SteamControllerInputReport) {
+        let now = DispatchTime.now().uptimeNanoseconds
+        let intervalElapsed = lastAnalogDispatchNanoseconds == 0
+            || now - lastAnalogDispatchNanoseconds >= Self.analogDispatchIntervalNanoseconds
+        let leftTriggerPressed = parsed.leftTrigger > Self.triggerPressThreshold
+        let rightTriggerPressed = parsed.rightTrigger > Self.triggerPressThreshold
+
+        let leftTriggerPressChanged = lastLeftTrigger?.pressed != leftTriggerPressed
+        let rightTriggerPressChanged = lastRightTrigger?.pressed != rightTriggerPressed
+        guard intervalElapsed || leftTriggerPressChanged || rightTriggerPressChanged else { return }
+
+        var dispatched = false
+        if shouldDispatchStick(lastLeftStick, x: parsed.leftStickX, y: parsed.leftStickY) {
+            lastLeftStick = (parsed.leftStickX, parsed.leftStickY)
+            onLeftStickMoved?(parsed.leftStickX, parsed.leftStickY)
+            dispatched = true
+        }
+        if shouldDispatchStick(lastRightStick, x: parsed.rightStickX, y: parsed.rightStickY) {
+            lastRightStick = (parsed.rightStickX, parsed.rightStickY)
+            onRightStickMoved?(parsed.rightStickX, parsed.rightStickY)
+            dispatched = true
+        }
+        if shouldDispatchTrigger(lastLeftTrigger, value: parsed.leftTrigger, pressed: leftTriggerPressed) {
+            lastLeftTrigger = (parsed.leftTrigger, leftTriggerPressed)
+            onLeftTriggerChanged?(parsed.leftTrigger, leftTriggerPressed)
+            dispatched = true
+        }
+        if shouldDispatchTrigger(lastRightTrigger, value: parsed.rightTrigger, pressed: rightTriggerPressed) {
+            lastRightTrigger = (parsed.rightTrigger, rightTriggerPressed)
+            onRightTriggerChanged?(parsed.rightTrigger, rightTriggerPressed)
+            dispatched = true
+        }
+        if dispatched {
+            lastAnalogDispatchNanoseconds = now
+        }
+    }
+
+    private func shouldDispatchTouchpad(_ previous: SteamControllerTouchpadState?, current: SteamControllerTouchpadState) -> Bool {
+        guard let previous else { return current.isTouching || current.isPressed }
+        if previous.isTouching != current.isTouching || previous.isPressed != current.isPressed {
+            return true
+        }
+        guard current.isTouching else { return false }
+        return abs(previous.x - current.x) >= Self.touchpadEpsilon
+            || abs(previous.y - current.y) >= Self.touchpadEpsilon
+    }
+
+    private func shouldDispatchStick(_ previous: (x: Float, y: Float)?, x: Float, y: Float) -> Bool {
+        guard let previous else { return true }
+        return abs(previous.x - x) >= Self.stickEpsilon
+            || abs(previous.y - y) >= Self.stickEpsilon
+    }
+
+    private func shouldDispatchTrigger(_ previous: (value: Float, pressed: Bool)?, value: Float, pressed: Bool) -> Bool {
+        guard let previous else { return true }
+        return previous.pressed != pressed
+            || abs(previous.value - value) >= Self.triggerEpsilon
+    }
+
+    private static func normalizedTouchpadAxis(_ raw: Int16, inverted: Bool = false) -> Float {
+        let value = Float(raw) / 32768.0
+        return max(-1.0, min(1.0, inverted ? -value : value))
+    }
+
+    private func startLizardModeTimer() {
+        let timer = DispatchSource.makeTimerSource(queue: lizardModeQueue)
+        timer.schedule(deadline: .now() + 2.0, repeating: 2.0)
+        timer.setEventHandler { [weak self] in
+            self?.sendLizardMode(enabled: false)
+        }
+        lizardModeTimer = timer
+        timer.resume()
+    }
+
+    @discardableResult
+    private func sendLizardMode(enabled: Bool) -> Bool {
+        let value: UInt8 = enabled ? 1 : 0
+        let withoutReportIDPayload: [UInt8] = [
+            Self.lizardModeCommand,
+            0x03,
+            Self.lizardModeSetting,
+            value,
+            0x00,
+        ]
+
+        var reportWithoutID = [UInt8](repeating: 0, count: 64)
+        reportWithoutID.replaceSubrange(0..<withoutReportIDPayload.count, with: withoutReportIDPayload)
+
+        let withoutIDResult = reportWithoutID.withUnsafeBufferPointer { buffer in
+            IOHIDDeviceSetReport(
+                device,
+                kIOHIDReportTypeFeature,
+                CFIndex(Self.lizardModeReportID),
+                buffer.baseAddress!,
+                buffer.count
+            )
+        }
+
+        if withoutIDResult == kIOReturnSuccess {
+            return true
+        }
+
+        NSLog(
+            "[ControllerKeys] Steam Controller lizard mode %@ failed: 0x%08X",
+            enabled ? "enable" : "disable",
+            withoutIDResult
+        )
+        return false
+    }
+}
