@@ -244,7 +244,7 @@ struct Config {
     static let steamTouchpadClickHapticSharpness: Float = 1.0
     static let steamTouchpadClickHapticDuration: TimeInterval = 0.075
     /// Light texture ticks while sliding on either Steam Controller pad.
-    static let steamTouchpadMovementHapticIntensity: Float = 0.08
+    static let steamTouchpadMovementHapticIntensity: Float = 0.16
     static let steamTouchpadMovementHapticSharpness: Float = 1.0
     static let steamTouchpadMovementHapticDuration: TimeInterval = 0.018
     static let steamTouchpadMovementHapticDistanceStep: Double = 0.05
