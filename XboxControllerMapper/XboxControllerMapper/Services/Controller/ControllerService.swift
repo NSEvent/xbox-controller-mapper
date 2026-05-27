@@ -43,6 +43,7 @@ final class ControllerStorage: @unchecked Sendable {
     var touchpadGestureHasCenter: Bool = false
     var touchpadGesturePreviousCenter: CGPoint = .zero
     var touchpadGesturePreviousDistance: Double = 0
+    var touchpadLastUpdate: TimeInterval = 0
     var touchpadSecondaryLastUpdate: TimeInterval = 0
     var touchpadSecondaryLastTouchTime: TimeInterval = 0
     var isDualSense: Bool = false
@@ -382,8 +383,9 @@ class ControllerService: ObservableObject {
         // creates a race where another thread updates the touch time between
         // our timestamp capture and the lock acquisition.
         let now = CFAbsoluteTimeGetCurrent()
+        let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
         let blocked = storage.touchpadMovementBlocked ||
-            (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+            (!storage.isSteamController && secondaryFresh)
         storage.lock.unlock()
         return blocked
     }
@@ -919,6 +921,7 @@ class ControllerService: ObservableObject {
         storage.touchpadGestureHasCenter = false
         storage.touchpadGesturePreviousCenter = .zero
         storage.touchpadGesturePreviousDistance = 0
+        storage.touchpadLastUpdate = 0
         storage.touchpadSecondaryLastUpdate = 0
         storage.touchpadSecondaryLastTouchTime = 0
         storage.pendingTouchpadDelta = nil

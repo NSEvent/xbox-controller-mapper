@@ -162,6 +162,9 @@ final class ControllerSnapshotTests: XCTestCase {
     func testSteamTouchpadsUseSharedSurfaceForTwoPadPinch() {
         var gestures: [TouchpadGesture] = []
         controllerService.onTouchpadGesture = { gestures.append($0) }
+        controllerService.storage.lock.withLock {
+            controllerService.storage.isSteamController = true
+        }
 
         controllerService.updateSteamTouchpad(side: .left, x: 0, y: 0, isTouching: true)
         controllerService.updateSteamTouchpad(side: .right, x: 0, y: 0, isTouching: true)
@@ -177,6 +180,37 @@ final class ControllerSnapshotTests: XCTestCase {
         XCTAssertTrue(
             gestures.contains { $0.isPrimaryTouching && $0.isSecondaryTouching && $0.distanceDelta > 0.05 },
             "Moving fingers apart across both Steam pads should emit a pinch-out gesture"
+        )
+    }
+
+    func testSteamRestingLeftTouchpadDoesNotSuppressRightTouchpadMouse() {
+        var gestures: [TouchpadGesture] = []
+        var movements: [CGPoint] = []
+        controllerService.onTouchpadGesture = { gestures.append($0) }
+        controllerService.onTouchpadMoved = { movements.append($0) }
+        controllerService.storage.lock.withLock {
+            controllerService.storage.isSteamController = true
+        }
+
+        for _ in 0..<3 {
+            controllerService.updateSteamTouchpad(side: .left, x: 0, y: 0, isTouching: true)
+            controllerService.updateSteamTouchpad(side: .right, x: 0, y: 0, isTouching: true)
+        }
+        gestures.removeAll()
+        movements.removeAll()
+
+        controllerService.updateSteamTouchpad(side: .left, x: -0.15, y: 0, isTouching: true)
+        Thread.sleep(forTimeInterval: Config.touchpadSecondaryStaleInterval + 0.02)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.15, y: 0, isTouching: true)
+        controllerService.updateSteamTouchpad(side: .right, x: 0.25, y: 0, isTouching: true)
+
+        XCTAssertFalse(
+            gestures.contains { $0.isPrimaryTouching && $0.isSecondaryTouching && abs($0.distanceDelta) > 0.01 },
+            "A stale left-pad movement should not be treated as an active two-pad gesture"
+        )
+        XCTAssertFalse(
+            movements.isEmpty,
+            "Right-pad mouse movement should continue while the left finger is only resting"
         )
     }
 

@@ -350,7 +350,6 @@ extension ControllerService {
         if storage.isSteamLeftTouchpadTouching && storage.isTouchpadSecondaryTouching {
             let now = CFAbsoluteTimeGetCurrent()
             storage.touchpadSecondaryLastTouchTime = now
-            storage.touchpadSecondaryLastUpdate = now
         }
         storage.lock.unlock()
     }

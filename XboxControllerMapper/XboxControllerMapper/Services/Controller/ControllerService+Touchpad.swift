@@ -254,13 +254,16 @@ extension ControllerService {
         let secondaryMotion = hypot(Double(secondaryDelta.x), Double(secondaryDelta.y))
         let threshold = Config.steamTouchpadTwoPadGestureMovementDeadzone
         let now = CFAbsoluteTimeGetCurrent()
-        let bothPadsMoving = primaryMotion > threshold && secondaryMotion > threshold
+        let primaryUpdatedRecently = (now - storage.touchpadLastUpdate) < Config.touchpadSecondaryStaleInterval
+        let secondaryUpdatedRecently = (now - storage.touchpadSecondaryLastUpdate) < Config.touchpadSecondaryStaleInterval
+        let bothPadsRecentlyUpdated = primaryUpdatedRecently && secondaryUpdatedRecently
+        let bothPadsMoving = bothPadsRecentlyUpdated && primaryMotion > threshold && secondaryMotion > threshold
         if bothPadsMoving {
             storage.steamTwoPadGestureActiveUntil = now + Config.steamTouchpadTwoPadGestureContinuationInterval
             return true
         }
 
-        return now < storage.steamTwoPadGestureActiveUntil
+        return bothPadsRecentlyUpdated && now < storage.steamTwoPadGestureActiveUntil
     }
 
     private nonisolated func inactiveTouchpadGesture(
@@ -329,6 +332,7 @@ extension ControllerService {
         }
 
         if isTouching {
+            storage.touchpadLastUpdate = now
             if wasTouching {
                 if storage.touchpadClickArmed {
                     let distance = Double(hypot(
@@ -514,6 +518,7 @@ extension ControllerService {
                 storage.touchpadPosition = newPosition
                 storage.touchpadPreviousPosition = newPosition
                 storage.isTouchpadTouching = true
+                storage.touchpadLastUpdate = now
                 storage.touchpadGestureHasCenter = false
                 storage.touchpadGesturePreviousCenter = .zero
                 storage.touchpadGesturePreviousDistance = 0
@@ -640,6 +645,7 @@ extension ControllerService {
             storage.isTouchpadTouching = false
             storage.touchpadPosition = .zero
             storage.touchpadPreviousPosition = .zero
+            storage.touchpadLastUpdate = 0
             storage.touchpadFramesSinceTouch = 0
             storage.pendingTouchpadDelta = nil
             storage.touchpadClickArmed = false

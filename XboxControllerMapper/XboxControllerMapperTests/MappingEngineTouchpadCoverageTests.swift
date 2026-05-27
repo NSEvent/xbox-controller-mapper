@@ -583,6 +583,8 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             profile.joystickSettings.touchpadSmoothing = 0
             profileManager.setActiveProfile(profile)
             controllerService.storage.isSteamController = true
+            controllerService.storage.isTouchpadSecondaryTouching = true
+            controllerService.storage.touchpadSecondaryLastTouchTime = CFAbsoluteTimeGetCurrent() + 10
         }
         await waitForTasks(0.15)
 
