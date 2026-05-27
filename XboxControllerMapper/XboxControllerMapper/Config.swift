@@ -228,7 +228,7 @@ struct Config {
     static let steamTouchpadTwoPadGestureContinuationInterval: TimeInterval = 0.16
     /// Some Steam Controller touchpad click reports bounce a second press shortly
     /// after release. Ignore that bounce so a single physical click stays single.
-    static let steamTouchpadClickDebounceInterval: TimeInterval = 0.08
+    static let steamTouchpadClickDebounceInterval: TimeInterval = 0.035
     /// Delay every Steam touchpad click release. The pressure switch can
     /// flicker during click wobble, sometimes even while touch reports briefly
     /// drop to false, and posting mouseUp immediately turns one physical click
@@ -242,7 +242,7 @@ struct Config {
     /// Explicit click tick used when Steam Controller lizard mode is suppressed.
     static let steamTouchpadClickHapticIntensity: Float = 0.9
     static let steamTouchpadClickHapticSharpness: Float = 1.0
-    static let steamTouchpadClickHapticDuration: TimeInterval = 0.075
+    static let steamTouchpadClickHapticDuration: TimeInterval = 0.03
     /// Light texture ticks while sliding on either Steam Controller pad.
     static let steamTouchpadMovementHapticIntensity: Float = 0.16
     static let steamTouchpadMovementHapticSharpness: Float = 1.0

@@ -296,6 +296,8 @@ struct JoystickSettingsView: View {
 
 struct TouchpadSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
+    @State private var cursorAdvancedExpanded = false
+    @State private var zoomAdvancedExpanded = false
 
     var settings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -303,7 +305,7 @@ struct TouchpadSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Touchpad") {
+            Section("Touchpad Cursor") {
                 Toggle(isOn: Binding(
                     get: { settings.disableTouchpadAsMouse },
                     set: { updateSettings(\.disableTouchpadAsMouse, $0) }
@@ -326,36 +328,40 @@ struct TouchpadSettingsView: View {
                     description: "Touchpad cursor speed"
                 )
 
-                SliderRow(
-                    label: "Acceleration",
-                    value: Binding(
-                        get: { settings.touchpadAcceleration },
-                        set: { updateSettings(\.touchpadAcceleration, $0) }
-                    ),
-                    range: 0...1,
-                    description: "0 = linear, 1 = max curve"
-                )
+                DisclosureGroup("Advanced Cursor Tuning", isExpanded: $cursorAdvancedExpanded) {
+                    SliderRow(
+                        label: "Acceleration",
+                        value: Binding(
+                            get: { settings.touchpadAcceleration },
+                            set: { updateSettings(\.touchpadAcceleration, $0) }
+                        ),
+                        range: 0...1,
+                        description: "0 = linear, 1 = max curve"
+                    )
 
-                SliderRow(
-                    label: "Deadzone",
-                    value: Binding(
-                        get: { settings.touchpadDeadzone },
-                        set: { updateSettings(\.touchpadDeadzone, $0) }
-                    ),
-                    range: 0...0.03,
-                    description: "Ignore tap and click jitter"
-                )
+                    SliderRow(
+                        label: "Deadzone",
+                        value: Binding(
+                            get: { settings.touchpadDeadzone },
+                            set: { updateSettings(\.touchpadDeadzone, $0) }
+                        ),
+                        range: 0...0.03,
+                        description: "Ignore tap and click jitter"
+                    )
 
-                SliderRow(
-                    label: "Smoothing",
-                    value: Binding(
-                        get: { settings.touchpadSmoothing },
-                        set: { updateSettings(\.touchpadSmoothing, $0) }
-                    ),
-                    range: 0...1,
-                    description: "Reduce mouse jitter"
-                )
+                    SliderRow(
+                        label: "Smoothing",
+                        value: Binding(
+                            get: { settings.touchpadSmoothing },
+                            set: { updateSettings(\.touchpadSmoothing, $0) }
+                        ),
+                        range: 0...1,
+                        description: "Reduce mouse jitter"
+                    )
+                }
+            }
 
+            Section("Scroll & Zoom") {
                 SliderRow(
                     label: "Two-Finger Pan",
                     value: Binding(
@@ -376,25 +382,27 @@ struct TouchpadSettingsView: View {
                     set: { updateSettings(\.touchpadInvertScrollY, $0) }
                 ))
 
-                SliderRow(
-                    label: "Pan to Zoom Ratio",
-                    value: Binding(
-                        get: { settings.touchpadZoomToPanRatio },
-                        set: { updateSettings(\.touchpadZoomToPanRatio, $0) }
-                    ),
-                    range: 0.5...5.0,
-                    description: "Low = easier to zoom, High = easier to pan"
-                )
+                DisclosureGroup("Zoom Details", isExpanded: $zoomAdvancedExpanded) {
+                    SliderRow(
+                        label: "Pan to Zoom Ratio",
+                        value: Binding(
+                            get: { settings.touchpadZoomToPanRatio },
+                            set: { updateSettings(\.touchpadZoomToPanRatio, $0) }
+                        ),
+                        range: 0.5...5.0,
+                        description: "Low = easier to zoom, High = easier to pan"
+                    )
 
-                Toggle(isOn: Binding(
-                    get: { settings.touchpadUseNativeZoom },
-                    set: { updateSettings(\.touchpadUseNativeZoom, $0) }
-                )) {
-                    VStack(alignment: .leading) {
-                        Text("Native Zoom Gestures")
-                        Text("Use macOS magnify gestures instead of Cmd+Plus/Minus")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    Toggle(isOn: Binding(
+                        get: { settings.touchpadUseNativeZoom },
+                        set: { updateSettings(\.touchpadUseNativeZoom, $0) }
+                    )) {
+                        VStack(alignment: .leading) {
+                            Text("Native Zoom Gestures")
+                            Text("Use macOS magnify gestures instead of Cmd+Plus/Minus")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }

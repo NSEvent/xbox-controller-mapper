@@ -200,6 +200,7 @@ struct SteamControllerTouchpadMovementHapticTracker {
 
 private struct SteamControllerPendingTouchpadClickRelease {
     let state: SteamControllerTouchpadState
+    let startedAt: TimeInterval
     let deadline: TimeInterval
 }
 
@@ -391,6 +392,7 @@ final class SteamControllerHIDController {
 
     private let lizardModeQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.lizard-mode", qos: .utility)
     private let hapticOutputQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.haptics", qos: .userInitiated)
+    private var hapticActuatorGeneration: [UInt8: UInt64] = [:]
     private let parser = SteamControllerHIDParser()
     private var previousButtons: UInt32 = 0
     private var lastAnalogDispatchNanoseconds: UInt64 = 0
@@ -704,17 +706,19 @@ final class SteamControllerHIDController {
         hapticOutputQueue.async { [weak self] in
             guard let self else { return }
             for actuator in actuators {
+                let generation = self.nextHapticGeneration(for: actuator)
                 _ = self.sendHapticTone(
                     actuator: actuator,
                     frequencyHz: frequency,
                     gain: gain,
                     count: pulseCount
                 )
-            }
 
-            self.hapticOutputQueue.asyncAfter(deadline: .now() + stopDelay) { [weak self] in
-                guard let self else { return }
-                for actuator in actuators {
+                self.hapticOutputQueue.asyncAfter(deadline: .now() + stopDelay) { [weak self] in
+                    guard let self,
+                          self.hapticActuatorGeneration[actuator] == generation else {
+                        return
+                    }
                     _ = self.sendHapticStop(actuator: actuator)
                 }
             }
@@ -855,7 +859,21 @@ final class SteamControllerHIDController {
         suppressedPress: inout Bool,
         pendingRelease: inout SteamControllerPendingTouchpadClickRelease?
     ) {
-        if state.isPressed {
+        if state.isPressed, let pending = pendingRelease {
+            if now - pending.startedAt >= Config.steamTouchpadClickDebounceInterval {
+                completePendingTouchpadClickRelease(
+                    side: side,
+                    pendingRelease: &pendingRelease,
+                    now: pending.startedAt,
+                    lastClick: &lastClick,
+                    lastReleaseTime: &lastReleaseTime,
+                    lastActionTime: &lastActionTime,
+                    suppressedPress: &suppressedPress
+                )
+            } else {
+                return
+            }
+        } else if state.isPressed {
             pendingRelease = nil
         } else if let pending = pendingRelease {
             if now < pending.deadline {
@@ -894,6 +912,7 @@ final class SteamControllerHIDController {
         if !state.isPressed {
             pendingRelease = SteamControllerPendingTouchpadClickRelease(
                 state: state,
+                startedAt: now,
                 deadline: now + Config.steamTouchpadClickReleaseSettleInterval
             )
             scheduleTouchpadClickReleaseFlush()
@@ -1098,6 +1117,12 @@ final class SteamControllerHIDController {
                 _ = sendHapticStop(actuator: actuator)
             }
         }
+    }
+
+    private func nextHapticGeneration(for actuator: UInt8) -> UInt64 {
+        let generation = (hapticActuatorGeneration[actuator] ?? 0) &+ 1
+        hapticActuatorGeneration[actuator] = generation
+        return generation
     }
 
     @discardableResult
