@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.3] - 2026-05-28
+
+### Changed
+
+- **README refresh**: Updated the English and Simplified Chinese READMEs to reflect recent ControllerKeys features, including Steam Controller support, realtime input mode, linked controllers, profile snapshots, Mac-to-Mac relay, grouped navigation, localized UI coverage, and expanded controller support.
+
+### Fixed
+
+- **Mac-to-Mac relay edge stickiness**: Controller-driven local cursor movement now always posts and tracks the clamped in-bounds local cursor point. The off-screen proposed point is still used to decide when Mac-to-Mac handoff should start, but it no longer becomes the local event target or hidden tracked cursor state. This fixes the cursor feeling magnetic at screen edges or appearing to drift off-screen after the Universal Control-style relay feature is enabled.
+
 ## [1.8.2] - 2026-05-27
 
 ### Added

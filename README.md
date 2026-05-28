@@ -8,7 +8,7 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 (formerly Xbox Controller Mapper)
 -->
 
-A native macOS app that remaps game controllers to keyboard shortcuts, mouse input, macros, scripts, webhooks, and system commands — turning any gamepad into a full desktop input device. Supports Xbox Series X|S, Xbox Elite Series 2, PS5 DualSense, PS4 DualShock 4, Nintendo Joy-Con, Switch Pro Controller, and 300+ third-party gamepads. Features DualSense touchpad and gyroscope mouse control, swipe typing, a JavaScript scripting engine, and per-app profile auto-switching.
+A native macOS app that remaps game controllers to keyboard shortcuts, mouse input, macros, scripts, webhooks, and system commands — turning any gamepad into a full desktop input device. Supports Xbox Series X|S, Xbox Elite Series 2, PS5 DualSense, PS4 DualShock 4, Nintendo Joy-Con, Switch Pro Controller, Steam Controller, and 300+ third-party gamepads. Features DualSense and Steam Controller touchpad and gyroscope mouse control, swipe typing, a JavaScript scripting engine, per-app profile auto-switching, a realtime low-latency input mode, and Mac-to-Mac controller handoff over Wi-Fi.
 
 **[Website & Documentation](https://www.kevintang.xyz/apps/xbox-controller-mapper)** | **[Download](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord Community](https://discord.gg/FfX8CxsTQ)**
 
@@ -29,6 +29,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | Feature | ControllerKeys | Joystick Mapper | Enjoyable | Controlly |
 |---------|:--------------:|:---------------:|:---------:|:---------:|
 | DualSense touchpad + quadrant mapping | ✅ | ❌ | ❌ | ❌ |
+| Steam Controller (no Steam required) | ✅ | ❌ | ❌ | ❌ |
 | Multi-touch gestures (tap, pinch, pan) | ✅ | ❌ | ❌ | ❌ |
 | Gyroscope aiming & gesture detection | ✅ | ❌ | ❌ | ❌ |
 | JavaScript scripting engine | ✅ | ❌ | ❌ | ❌ |
@@ -36,11 +37,17 @@ There are other controller mapping apps for macOS, but none offered everything I
 | Chord mappings (button combos) | ✅ | ❌ | ❌ | ✅ |
 | Button sequence combos | ✅ | ❌ | ❌ | ❌ |
 | Layers (alternate mapping sets) | ✅ | ❌ | ❌ | ❌ |
+| Per-layer stick mode override | ✅ | ❌ | ❌ | ❌ |
+| Custom stick direction bindings (WASD, arrows, anything) | ✅ | ❌ | ❌ | ❌ |
 | Per-mapping haptic feedback | ✅ | ❌ | ❌ | ❌ |
 | Macros & system commands | ✅ | ❌ | ❌ | ❌ |
 | HTTP webhooks & OBS control | ✅ | ❌ | ❌ | ❌ |
+| Realtime low-latency key mode | ✅ | ❌ | ❌ | ❌ |
+| Mac-to-Mac controller handoff (Universal Control-style) | ✅ | ❌ | ❌ | ❌ |
+| Linked controllers (auto-switch profile per controller) | ✅ | ❌ | ❌ | ❌ |
+| Profile snapshots & undo (History tab) | ✅ | ❌ | ❌ | ❌ |
 | On-screen keyboard & command wheel | ✅ | ❌ | ❌ | ❌ |
-| Community profiles (25+) | ✅ | ❌ | ❌ | ❌ |
+| Community profiles with setup guides | ✅ | ❌ | ❌ | ❌ |
 | App-specific profile auto-switching | ✅ | ❌ | ❌ | ❌ |
 | Stream overlay for OBS | ✅ | ❌ | ❌ | ❌ |
 | Xbox Elite Series 2 paddles | ✅ | ❌ | ❌ | ❌ |
@@ -50,6 +57,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | DualSense LED & microphone control | ✅ | ❌ | ❌ | ❌ |
 | Drag-and-drop mapping swap | ✅ | ❌ | ❌ | ❌ |
 | Usage stats & Controller Wrapped | ✅ | ❌ | ❌ | ❌ |
+| Localized (EN / 简中 / 繁中 / DE / JA) | ✅ | ❌ | ❌ | ❌ |
 | Third-party controllers (~313) | ✅ | ✅ | ✅ | ✅ |
 | Native Apple Silicon | ✅ | ❌ | ❌ | ✅ |
 | Actively maintained (2026) | ✅ | ❌ | ❌ | ✅ |
@@ -79,6 +87,24 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Fallthrough behavior for unmapped buttons
   - Name your layers (e.g., "Combat Mode", "Navigation")
   - Per-layer lightbar color on DualSense/DualShock 4 (auto-assigned from a 12-color palette)
+  - **Per-layer stick mode override**: each layer can independently set either stick to Mouse / Scroll / WASD / Custom — release the activator and the base mode resumes
+  - **Layer-aware controller minimap**: a `BASE` / `LAYER <name>` chip plus outlines in the layer's color show exactly which buttons, sticks, shoulders, D-pad directions, and touchpad regions the current layer overrides
+
+- **Custom Stick Direction Mappings**: Set either stick's mode to **Custom** and each of its 8 directions (4 cardinal + 4 diagonals) becomes a real button you can bind from the controller graphic
+  - One-click presets for WASD or Arrow Keys
+  - Diagonal movement is properly held (e.g., W+D for forward-right in Factorio)
+  - Stick directions support long-hold, double-tap, chords, and sequences just like physical buttons
+
+- **Realtime Input Latency Mode**: Per-profile Input setting that sends simple key mappings as key-down on press and key-up on release, bypassing the chord-detection window for lower latency
+  - Double-tap, long-hold, repeat, and chord mappings stay on the standard timing path so advanced interactions keep their existing behavior
+
+- **Universal Control-style Mac-to-Mac Relay**: Pair two ControllerKeys-running Macs and push your controller's cursor against a configured screen edge to hand off mouse, keyboard, and *mapped actions* to the second Mac
+  - The receiving Mac runs the actions against its own active profile, so a chord that opens Finder on the host opens Finder on the remote
+  - Local-network only (private/link-local IPv4/IPv6, Tailscale `100.64.0.0/10`, localhost)
+  - HMAC-SHA256 authenticated frames with a Keychain-stored shared secret; oversized, replayed, or tampered frames are dropped
+  - Swipe typing, on-screen overlays, and stuck-button cleanup all relay through the same channel
+
+- **Linked Controllers**: Bind a profile to a specific physical controller so it auto-activates whenever that controller connects (Linked Apps still win when the frontmost app has its own profile)
 
 - **JavaScript Scripting**: Write custom automation scripts powered by JavaScriptCore
   - Full API: `press()`, `hold()`, `click()`, `type()`, `paste()`, `delay()`, `shell()`, `openURL()`, `openApp()`, `notify()`, `haptic()`, and more
@@ -122,12 +148,13 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Per-profile gesture sensitivity and cooldown sliders
   - DualShock 4 gyro parsed from raw HID reports with auto-calibration
 
-- **Touchpad Control** (DualSense/DualShock 4):
+- **Touchpad Control** (DualSense/DualShock 4/Steam Controller):
   - Single-finger tap or click → Left click
   - Two-finger tap or click → Right click
   - Two finger swipe → Scrolling
   - Two finger pinch → Zoom in/out
   - **Quadrant remapping**: Split the touchpad into 4 regions with separate touch and click actions
+  - Per-pad scroll inversion settings for DualSense and Steam pads
 
 - **On-Screen Keyboard, Commands, and Apps**: Use the on-screen keyboard widget to quickly select apps, commands, or keyboard keys
   - Swipe typing: Slide across letters to type words (SHARK2 algorithm)
@@ -165,15 +192,27 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Copy shareable card to clipboard for social media
 
 - **Profile System**: Create and switch between multiple mapping profiles
-  - Community profiles: Browse and import pre-made profiles
+  - Community profiles: Browse and import pre-made profiles, with optional markdown **setup guides** that render inline above the mappings list (copy buttons on every code block)
   - App-specific auto-switching: Link profiles to applications
+  - Linked-controller auto-switching: Bind a profile to a physical controller so it activates on connect
   - Stream Deck V2 profile import
   - Custom profile icons
+  - **Profile sidebar status indicators**: Linked-Apps glyphs and compact badges for realtime mode, linked controllers, custom icons, and the default profile
+
+- **History & Snapshots**: ControllerKeys silently snapshots your full configuration before every destructive operation (delete profile, import profile, restore snapshot) and exposes them in a dedicated **History** tab
+  - Restore any snapshot — the restore itself is snapshotted first, so undo is itself undoable
+  - Snapshots live at `~/.controllerkeys/snapshots/` (capped at 20)
+
+- **Profile-Import Safety Prompts**: Imports that contain shell commands, scripts, or webhook follow-up commands open an explicit consent sheet listing every code-execution surface verbatim — no silent execution from third-party profiles
 
 - **Visual Interface**: Interactive controller-shaped UI for easy configuration
   - Auto-scaling UI based on window size
   - Button mapping swap to quickly exchange mappings between two buttons
   - VoiceOver accessibility support
+  - **Grouped tab navigation**: tabs organized into **Map / Automate / Hardware / Activity** with SF Symbol icons; the input log is a compact "Timeline" strip
+  - **Configurable section visibility**: hide the input log, mapped chords/sequences/gestures lists, or touchpad regions section from the Buttons tab
+  - **Window background opacity slider** (Settings → Appearance) to tune liquid-glass tint over the desktop
+  - Localized in English, Simplified Chinese, Traditional Chinese, German, and Japanese
 
 - **DualSense Support**: Full PlayStation 5 DualSense controller support
   - Full touchpad support with multi-touch gestures and quadrant remapping
@@ -201,6 +240,13 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Guide button works over Bluetooth via IOKit HID
   - Correct controller name and UI regardless of firmware version
   - Works with both Classic BT and BLE firmware variants
+
+- **Steam Controller Support**: Detected over raw HID **without requiring Steam to run**
+  - All buttons, sticks, triggers, grip buttons, and battery reports parsed directly
+  - Both square touchpads work in **Whole Pad** or **Quadrants** mode, with two-pad pinch-to-zoom and per-region click/touch bindings
+  - Gyro aiming and gyro gesture mappings using the Steam Controller's raw gyro scale
+  - Touchpad haptics, dedicated Steam-Controller preview layout, and Steam-logo button icons throughout the UI
+  - The duplicate macOS GameController route is suppressed so inputs aren't double-processed and stray default commands don't fire alongside your mappings
 
 - **Nintendo Controller Support**: Joy-Con and Pro Controller
   - Single Joy-Con, paired Joy-Cons (L+R), and Pro Controller
@@ -274,6 +320,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | **Xbox** | Series X\|S, Xbox One, Xbox 360, Xbox Elite Series 2 (with paddles) |
 | **PlayStation** | DualSense (PS5), DualSense Edge, DualShock 4 v1/v2 (PS4) |
 | **Nintendo** | Switch Pro Controller, Joy-Con (single or paired L+R) |
+| **Valve** | Steam Controller (touchpads, gyro, grips, haptics — no Steam required) |
 | **8BitDo** | Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite, Zero 2, and more |
 | **Logitech** | F310, F510, F710 |
 | **PowerA** | Enhanced Wired, Fusion Pro |

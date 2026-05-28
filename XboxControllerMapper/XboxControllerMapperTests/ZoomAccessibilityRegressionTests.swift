@@ -467,7 +467,7 @@ final class ZoomEventDeliveryConsistencyTests: XCTestCase {
 }
 
 final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
-    func testPlainMoveWithoutRelayUsesProposedPointPastEdge() {
+    func testPlainMoveWithoutRelayKeepsLocalCursorInBounds() {
 		let proposed = CGPoint(x: 1928, y: 500)
 		let clamped = CGPoint(x: 1919, y: 500)
 
@@ -479,7 +479,7 @@ final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
 			relayCanHandleEdge: false
 		)
 
-		XCTAssertEqual(result, proposed)
+		XCTAssertEqual(result, clamped)
     }
 
     func testRelayAvailableKeepsLocalCursorPinned() {
@@ -496,6 +496,18 @@ final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
 
 		XCTAssertEqual(result, clamped)
     }
+
+	func testRelayEdgeClampReportsOnlyAppliedLocalDelta() {
+		let current = CGPoint(x: 1919, y: 500)
+		let eventPoint = CGPoint(x: 1919, y: 503)
+
+		let delta = UniversalControlRelayLocalMousePolicy.appliedDelta(
+			from: current,
+			to: eventPoint
+		)
+
+		XCTAssertEqual(delta, CGPoint(x: 0, y: 3))
+	}
 
     func testZoomOrDragKeepsLocalCursorClamped() {
 		let proposed = CGPoint(x: 1928, y: 500)

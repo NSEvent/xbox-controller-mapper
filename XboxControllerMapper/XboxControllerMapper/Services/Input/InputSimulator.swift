@@ -812,7 +812,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             }
 
 			let canStartRemoteHandoff = UniversalControlMouseRelay.shared.canStartRemoteHandoff
-			let newPoint = UniversalControlRelayLocalMousePolicy.eventPoint(
+			let localEventPoint = UniversalControlRelayLocalMousePolicy.eventPoint(
 				proposed: proposedPoint,
 				clamped: clampedPoint,
 				zoomActive: zoomActive,
@@ -888,19 +888,28 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 self.warpEventSource?.localEventsSuppressionInterval = 0.0
             }
 
-            // Update tracked position to avoid reading back transformed coordinates
+			let localAppliedDelta = UniversalControlRelayLocalMousePolicy.appliedDelta(
+				from: currentCGPoint,
+				to: localEventPoint
+			)
+			let localDeltaX = Int(localAppliedDelta.x.rounded())
+			let localDeltaY = Int(localAppliedDelta.y.rounded())
+
+			// Update tracked position to avoid reading back transformed coordinates.
+			// Track the actual local event point, not the off-screen proposal; otherwise
+			// edge-clamped relay candidates build hidden overshoot and feel sticky.
             self.stateLock.lock()
-            self.trackedCursorPosition = newPoint
+			self.trackedCursorPosition = localEventPoint
             self.stateLock.unlock()
 
             // Update shared position for other services (e.g., ActionFeedbackIndicator)
             // Pass the movement delta for relative positioning during zoom
-            Self.updateSharedTrackedPosition(newPoint, delta: CGPoint(x: moveX, y: moveY))
+			Self.updateSharedTrackedPosition(localEventPoint, delta: localAppliedDelta)
 
             // If Accessibility Zoom is active, tell it to focus on the new cursor position
             // This helps the zoom viewport follow the cursor movement
             if zoomActive {
-                var focusRect = CGRect(x: newPoint.x - 1, y: newPoint.y - 1, width: 2, height: 2)
+				var focusRect = CGRect(x: localEventPoint.x - 1, y: localEventPoint.y - 1, width: 2, height: 2)
                 UAZoomChangeFocus(&focusRect, nil, UAZoomChangeFocusType(kUAZoomFocusTypeOther))
             }
 
@@ -916,10 +925,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 )
                 if isDrag {
                     postedViaHID = self.postMouseDragViaHID(
-                        at: newPoint,
+						at: localEventPoint,
                         button: mouseButton,
-                        dx: Int(moveX),
-                        dy: Int(moveY),
+						dx: localDeltaX,
+						dy: localDeltaY,
                         eventNumber: eventNumber,
                         setCursorPosition: setCursorPosition
                     )
@@ -936,12 +945,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 if let event = CGEvent(
                     mouseEventSource: source,
                     mouseType: eventType,
-                    mouseCursorPosition: newPoint,
+					mouseCursorPosition: localEventPoint,
                     mouseButton: mouseButton
                 ) {
                     // Set delta fields for Accessibility Zoom viewport panning
-                    event.setIntegerValueField(.mouseEventDeltaX, value: Int64(moveX))
-                    event.setIntegerValueField(.mouseEventDeltaY, value: Int64(moveY))
+					event.setIntegerValueField(.mouseEventDeltaX, value: Int64(localDeltaX))
+					event.setIntegerValueField(.mouseEventDeltaY, value: Int64(localDeltaY))
                     // For drag events, set the same event number as the originating mouseDown
                     // and pressure so system tools (screencapture, etc.) recognize the drag
                     // as part of a continuous down-drag-up gesture.

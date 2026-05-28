@@ -48,11 +48,15 @@ struct UniversalControlRelayLocalMousePolicy {
 		isDrag: Bool,
 		relayCanHandleEdge: Bool
     ) -> CGPoint {
-		guard !zoomActive, !isDrag, !relayCanHandleEdge else {
-			return clamped
-		}
-		return proposed
+		clamped
     }
+
+	static func appliedDelta(from current: CGPoint, to eventPoint: CGPoint) -> CGPoint {
+		CGPoint(
+			x: eventPoint.x - current.x,
+			y: eventPoint.y - current.y
+		)
+	}
 }
 
 struct UniversalControlRelaySessionPolicy {
