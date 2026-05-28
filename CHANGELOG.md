@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Steam Controller detection and default command suppression**: Steam Controller input is now owned by the raw HID path, avoiding the duplicate GameController path and suppressing stray default commands such as the left menu/select button sending Tab alongside its mapped ControllerKeys action.
 
+- **Steam Controller scroll direction and lizard-mode handoff**: Touchpad scroll inversion settings now cover PlayStation and Steam touchpads, Steam left-pad horizontal panning follows the expected webpage-pan direction, Steam input is held back until lizard mode is actually disabled, and ControllerKeys keeps macOS' "ignore built-in trackpad when mouse is present" behavior disabled so the Steam Controller puck does not disable the built-in trackpad.
+
 - **Steam Controller touchpad click/tap reliability**: Physical touchpad clicks now debounce press bounce, delay release through click wobble, suppress nearby tap dispatch, and ignore click-induced thumb drift so one physical click stays one mapped click even when the finger moves slightly.
 
 - **Steam Controller two-pad pinch isolation**: While both pads are actively participating in a pinch gesture, single-pad cursor movement, scrolling, and touchpad actions are latched out. Resting one finger on one pad while using the other pad still works.

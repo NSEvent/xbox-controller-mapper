@@ -116,8 +116,8 @@ extension MappingEngine {
         guard magnitude > deadzone else { return }
 
         let scale = snapshot.settings.touchpadPanSensitivity * Config.touchpadPanSensitivityMultiplier
-        var dx = Double(delta.x) * scale
-        var dy = -Double(delta.y) * scale
+        var dx = -Double(delta.x) * scale
+        var dy = Double(delta.y) * scale
         if snapshot.settings.touchpadInvertScrollX {
             dx = -dx
         }

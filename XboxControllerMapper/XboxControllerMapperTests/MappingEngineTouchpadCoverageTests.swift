@@ -675,8 +675,8 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                 "Steam left touchpad movement should emit app-owned scroll events"
             )
             XCTAssertTrue(
-                scrollEvents.contains { $0.0 > 0 },
-                "Steam left touchpad rightward movement should pan in the direct-manipulation direction"
+                scrollEvents.contains { $0.0 < 0 && $0.1 < 0 },
+                "Steam left touchpad movement should use the default natural pan direction"
             )
         }
     }
@@ -706,7 +706,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                 return nil
             }
             XCTAssertTrue(
-                scrollEvents.contains { $0.0 < 0 && $0.1 < 0 },
+                scrollEvents.contains { $0.0 > 0 && $0.1 > 0 },
                 "Steam left touchpad inversion should reverse both scroll axes"
             )
         }

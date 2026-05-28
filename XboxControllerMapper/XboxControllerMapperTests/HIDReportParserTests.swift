@@ -398,6 +398,49 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertEqual(Array(withID.prefix(6)), [0x01, 0x87, 0x03, 0x09, 0x00, 0x00])
     }
 
+    func testSteamController_LizardActivationGateBlocksInputUntilDisabled() {
+        var gate = SteamControllerLizardActivationGate()
+
+        XCTAssertFalse(gate.canDispatchInput)
+        XCTAssertTrue(gate.markDisableSucceeded())
+        XCTAssertTrue(gate.canDispatchInput)
+        XCTAssertFalse(gate.markDisableSucceeded())
+
+        gate.reset()
+        XCTAssertFalse(gate.canDispatchInput)
+    }
+
+    func testSteamController_LizardMouseInterfaceIsSeized() {
+        XCTAssertTrue(
+            SteamControllerHIDController.shouldSeizeLizardMouseInterface(
+                vendorID: SteamControllerHIDParser.valveVendorID,
+                productID: SteamControllerHIDParser.puckProductID,
+                primaryUsagePage: SteamControllerHIDParser.genericDesktopUsagePage,
+                primaryUsage: SteamControllerHIDParser.mouseUsage
+            )
+        )
+        XCTAssertFalse(
+            SteamControllerHIDController.shouldSeizeLizardMouseInterface(
+                vendorID: SteamControllerHIDParser.valveVendorID,
+                productID: SteamControllerHIDParser.puckProductID,
+                primaryUsagePage: SteamControllerHIDParser.vendorUsagePage,
+                primaryUsage: SteamControllerHIDParser.vendorCommandUsage
+            )
+        )
+    }
+
+    func testSteamController_HIDMatchingIncludesLizardMouseInterface() {
+        let dictionaries = SteamControllerHIDParser.matchingDictionaries() as NSArray
+        let expected = [
+            kIOHIDVendorIDKey as String: SteamControllerHIDParser.valveVendorID,
+            kIOHIDProductIDKey as String: SteamControllerHIDParser.puckProductID,
+            kIOHIDDeviceUsagePageKey as String: SteamControllerHIDParser.genericDesktopUsagePage,
+            kIOHIDDeviceUsageKey as String: SteamControllerHIDParser.mouseUsage,
+        ] as NSDictionary
+
+        XCTAssertTrue(dictionaries.contains(expected))
+    }
+
     func testSteamController_ButtonEventsMapToControllerButtons() {
         let current = SteamControllerButtonMask.qam
             | SteamControllerButtonMask.view

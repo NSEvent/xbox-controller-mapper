@@ -414,6 +414,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         guard !AppRuntime.isRunningTests else { return }
 
+        ServiceContainer.shared.controllerService.cleanup()
         ServiceContainer.shared.usageStatsService.endSession()
     }
 

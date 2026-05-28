@@ -13,6 +13,7 @@ fileprivate final class SteamHIDCallbackContext {
 
 private let steamHIDSetupQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.setup", qos: .utility)
 private let steamHIDRunLoop = SteamHIDRunLoop()
+private let steamTrackpadCompatibilityOverride = SteamControllerTrackpadCompatibilityOverride()
 
 private final class SteamHIDRunLoop: @unchecked Sendable {
     private let lock = NSLock()
@@ -66,10 +67,90 @@ private final class SteamHIDRunLoop: @unchecked Sendable {
     }
 }
 
+private final class SteamControllerTrackpadCompatibilityOverride: @unchecked Sendable {
+    private static let domain = "com.apple.AppleMultitouchTrackpad" as CFString
+    private static let key = "USBMouseStopsTrackpad" as CFString
+    private static let activateSettingsPath = "/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings"
+    private static let legacyOverrideKeys = [
+        "steamTrackpadCompatibilityOverrideActive",
+        "steamTrackpadCompatibilityOriginalValue",
+        "steamTrackpadCompatibilityHadOriginalValue"
+    ]
+
+    private let queue = DispatchQueue(label: "com.controllerkeys.steam-trackpad-compatibility", qos: .utility)
+
+    func keepBuiltInTrackpadEnabled() {
+        queue.async { self.keepBuiltInTrackpadEnabledLocked() }
+    }
+
+    private func keepBuiltInTrackpadEnabledLocked() {
+        removeLegacyOverrideState()
+        guard currentPreferenceValue() != false else { return }
+
+        setPreferenceValue(false)
+        activateTrackpadSettings()
+        NSLog("[ControllerKeys] Steam Controller disabled macOS USBMouseStopsTrackpad")
+    }
+
+    private func removeLegacyOverrideState() {
+        let defaults = UserDefaults.standard
+        for key in Self.legacyOverrideKeys {
+            if defaults.object(forKey: key) != nil {
+                defaults.removeObject(forKey: key)
+            }
+        }
+    }
+
+    private func currentPreferenceValue() -> Bool? {
+        guard let value = CFPreferencesCopyValue(
+            Self.key,
+            Self.domain,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesAnyHost
+        ) else {
+            return nil
+        }
+
+        if CFGetTypeID(value) == CFBooleanGetTypeID() {
+            return CFBooleanGetValue((value as! CFBoolean))
+        }
+        if let number = value as? NSNumber {
+            return number.boolValue
+        }
+        return nil
+    }
+
+    private func setPreferenceValue(_ value: Bool) {
+        CFPreferencesSetValue(
+            Self.key,
+            value ? kCFBooleanTrue : kCFBooleanFalse,
+            Self.domain,
+            kCFPreferencesCurrentUser,
+            kCFPreferencesAnyHost
+        )
+        CFPreferencesSynchronize(Self.domain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+    }
+
+    private func activateTrackpadSettings() {
+        guard FileManager.default.isExecutableFile(atPath: Self.activateSettingsPath) else { return }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: Self.activateSettingsPath)
+        process.arguments = ["-u"]
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            NSLog("[ControllerKeys] activateSettings failed after Steam Controller trackpad override: %@", "\(error)")
+        }
+    }
+}
+
 @MainActor
 extension ControllerService {
 
     func setupSteamControllerHIDMonitoring() {
+        steamTrackpadCompatibilityOverride.keepBuiltInTrackpadEnabled()
+
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         steamHIDManager = manager
 
@@ -78,16 +159,7 @@ extension ControllerService {
         steamHIDCallbackContext = retainedContext
 
         steamHIDSetupQueue.async {
-            let matching = SteamControllerHIDParser.productIDs.flatMap { productID in
-                SteamControllerHIDParser.acceptedVendorUsages.sorted().map { usage in
-                    [
-                        kIOHIDVendorIDKey as String: SteamControllerHIDParser.valveVendorID,
-                        kIOHIDProductIDKey as String: productID,
-                        kIOHIDDeviceUsagePageKey as String: SteamControllerHIDParser.vendorUsagePage,
-                        kIOHIDDeviceUsageKey as String: usage,
-                    ] as CFDictionary
-                }
-            }
+            let matching = SteamControllerHIDParser.matchingDictionaries()
 
             IOHIDManagerSetDeviceMatchingMultiple(manager, matching as CFArray)
 
@@ -134,6 +206,7 @@ extension ControllerService {
     func steamControllerDeviceAppeared(_ device: IOHIDDevice) {
         guard SteamControllerHIDController.supportsDevice(device) else { return }
         guard !steamHIDControllers.contains(where: { $0.device == device }) else { return }
+        steamTrackpadCompatibilityOverride.keepBuiltInTrackpadEnabled()
 
         let controller = SteamControllerHIDController(device: device)
         controller.onActivated = { [weak self] controller in

@@ -204,6 +204,27 @@ private struct SteamControllerPendingTouchpadClickRelease {
     let deadline: TimeInterval
 }
 
+struct SteamControllerLizardActivationGate: Equatable {
+    private(set) var isLizardModeDisabled = false
+    private(set) var hasActivated = false
+
+    var canDispatchInput: Bool {
+        isLizardModeDisabled
+    }
+
+    mutating func markDisableSucceeded() -> Bool {
+        isLizardModeDisabled = true
+        guard !hasActivated else { return false }
+        hasActivated = true
+        return true
+    }
+
+    mutating func reset() {
+        isLizardModeDisabled = false
+        hasActivated = false
+    }
+}
+
 enum SteamControllerButtonMask {
     static let a: UInt32 = 0x00000001
     static let b: UInt32 = 0x00000002
@@ -238,12 +259,36 @@ struct SteamControllerHIDParser {
     static let puckProductID = 0x1304
     static let productIDs = [wiredProductID, puckProductID]
     static let valveVendorID = 0x28DE
+    static let genericDesktopUsagePage = 0x01
+    static let mouseUsage = 0x02
     static let vendorUsagePage = 0xFF00
     static let vendorDataUsage = 0x0001
     static let vendorCommandUsage = 0x0002
     static let acceptedVendorUsages: Set<Int> = [vendorDataUsage, vendorCommandUsage]
     static let acceptedInputReportIDs: Set<UInt8> = [0x42, 0x45]
     static let batteryReportID: UInt8 = 0x43
+
+    static func matchingDictionaries() -> [CFDictionary] {
+        productIDs.flatMap { productID -> [CFDictionary] in
+            let vendorUsageMatches = acceptedVendorUsages.sorted().map { usage in
+                [
+                    kIOHIDVendorIDKey as String: valveVendorID,
+                    kIOHIDProductIDKey as String: productID,
+                    kIOHIDDeviceUsagePageKey as String: vendorUsagePage,
+                    kIOHIDDeviceUsageKey as String: usage,
+                ] as CFDictionary
+            }
+
+            let lizardMouseMatch = [
+                kIOHIDVendorIDKey as String: valveVendorID,
+                kIOHIDProductIDKey as String: productID,
+                kIOHIDDeviceUsagePageKey as String: genericDesktopUsagePage,
+                kIOHIDDeviceUsageKey as String: mouseUsage,
+            ] as CFDictionary
+
+            return vendorUsageMatches + [lizardMouseMatch]
+        }
+    }
 
     func parse(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) -> SteamControllerInputReport? {
         guard let id = UInt8(exactly: reportID),
@@ -392,6 +437,8 @@ final class SteamControllerHIDController {
 
     private let lizardModeQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.lizard-mode", qos: .utility)
     private let hapticOutputQueue = DispatchQueue(label: "com.controllerkeys.steam-hid.haptics", qos: .userInitiated)
+    private let activationLock = NSLock()
+    private var activationGate = SteamControllerLizardActivationGate()
     private var hapticActuatorGeneration: [UInt8: UInt64] = [:]
     private let parser = SteamControllerHIDParser()
     private var previousButtons: UInt32 = 0
@@ -419,13 +466,12 @@ final class SteamControllerHIDController {
     private var touchpadTapFlushWorkItem: DispatchWorkItem?
     private var leftTouchpadHapticTracker = SteamControllerTouchpadMovementHapticTracker()
     private var rightTouchpadHapticTracker = SteamControllerTouchpadMovementHapticTracker()
-    private var hasActivated = false
     private var isStarted = false
     private var reportBuffer: UnsafeMutablePointer<UInt8>?
     private var callbackContext: UnsafeMutableRawPointer?
     private var scheduledRunLoop: CFRunLoop?
     private var lizardModeTimer: DispatchSourceTimer?
-    private var lizardModeDisabled = false
+    private var deviceOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
 
     private final class CallbackContext {
         weak var controller: SteamControllerHIDController?
@@ -471,36 +517,47 @@ final class SteamControllerHIDController {
             retainedContext
         )
 
-        let openResult = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        let preferredOpenOptions = openOptionsForDevice()
+        var openResult = IOHIDDeviceOpen(device, preferredOpenOptions)
+        if openResult != kIOReturnSuccess,
+           preferredOpenOptions != IOOptionBits(kIOHIDOptionsTypeNone) {
+            NSLog("[ControllerKeys] Steam Controller HID seize open returned 0x%08X; falling back to shared open", openResult)
+            openResult = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
+            deviceOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
+        } else {
+            deviceOpenOptions = preferredOpenOptions
+        }
         if openResult != kIOReturnSuccess {
             NSLog("[ControllerKeys] Steam Controller HID open returned 0x%08X", openResult)
+        } else if deviceOpenOptions == IOOptionBits(kIOHIDOptionsTypeSeizeDevice) {
+            NSLog("[ControllerKeys] Steam Controller lizard mouse HID interface seized")
         }
 
         isStarted = true
-        if sendLizardMode(enabled: false) {
-            lizardModeDisabled = true
-            onActivated?(self)
-            startLizardModeTimer()
-        }
+        startLizardModeTimer()
+        _ = ensureLizardModeDisabled()
     }
 
     func stop() {
         lizardModeTimer?.cancel()
         lizardModeTimer = nil
 
-        if isStarted && lizardModeDisabled {
+        if isStarted && isLizardModeDisabled() {
             stopAllHaptics()
-            sendLizardMode(enabled: true)
-            lizardModeDisabled = false
+            // Leave lizard mode disabled while the controller stays connected.
+            // Restoring it makes macOS see Steam's mouse emulation again, which
+            // can disable the built-in trackpad when "ignore trackpad if mouse is
+            // present" is enabled.
         }
 
         if isStarted {
-            IOHIDDeviceClose(device, IOOptionBits(kIOHIDOptionsTypeNone))
+            IOHIDDeviceClose(device, deviceOpenOptions)
             if let scheduledRunLoop {
                 IOHIDDeviceUnscheduleFromRunLoop(device, scheduledRunLoop, CFRunLoopMode.defaultMode.rawValue)
             }
         }
         scheduledRunLoop = nil
+        deviceOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
 
         if let callbackContext {
             Unmanaged<CallbackContext>.fromOpaque(callbackContext).release()
@@ -510,7 +567,7 @@ final class SteamControllerHIDController {
         reportBuffer?.deallocate()
         reportBuffer = nil
         isStarted = false
-        hasActivated = false
+        resetActivationGate()
         previousButtons = 0
         lastAnalogDispatchNanoseconds = 0
         lastLeftStick = nil
@@ -554,11 +611,50 @@ final class SteamControllerHIDController {
         let usagePage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsagePageKey as CFString) as? Int
         let usage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsageKey as CFString) as? Int
         if let usagePage, let usage {
+            if shouldSeizeLizardMouseInterface(
+                vendorID: vendorID,
+                productID: productID,
+                primaryUsagePage: usagePage,
+                primaryUsage: usage
+            ) {
+                return true
+            }
+
             return usagePage == SteamControllerHIDParser.vendorUsagePage
                 && SteamControllerHIDParser.acceptedVendorUsages.contains(usage)
         }
 
         return false
+    }
+
+    static func shouldSeizeLizardMouseInterface(
+        vendorID: Int?,
+        productID: Int?,
+        primaryUsagePage: Int?,
+        primaryUsage: Int?
+    ) -> Bool {
+        vendorID == SteamControllerHIDParser.valveVendorID
+            && productID.map({ SteamControllerHIDParser.productIDs.contains($0) }) == true
+            && primaryUsagePage == SteamControllerHIDParser.genericDesktopUsagePage
+            && primaryUsage == SteamControllerHIDParser.mouseUsage
+    }
+
+    private func openOptionsForDevice() -> IOOptionBits {
+        let vendorID = IOHIDDeviceGetProperty(device, kIOHIDVendorIDKey as CFString) as? Int
+        let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int
+        let primaryUsagePage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsagePageKey as CFString) as? Int
+        let primaryUsage = IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsageKey as CFString) as? Int
+
+        if Self.shouldSeizeLizardMouseInterface(
+            vendorID: vendorID,
+            productID: productID,
+            primaryUsagePage: primaryUsagePage,
+            primaryUsage: primaryUsage
+        ) {
+            return IOOptionBits(kIOHIDOptionsTypeSeizeDevice)
+        }
+
+        return IOOptionBits(kIOHIDOptionsTypeNone)
     }
 
     private static func isAcceptedSteamUsagePair(_ pair: [String: Any]) -> Bool {
@@ -756,10 +852,7 @@ final class SteamControllerHIDController {
 
         guard let parsed = parser.parse(reportID: reportID, report: UnsafePointer(report), length: length) else { return }
 
-        if !hasActivated {
-            hasActivated = true
-            onActivated?(self)
-        }
+        guard ensureLizardModeDisabled() else { return }
 
         for event in Self.buttonEvents(previous: previousButtons, current: parsed.buttons) {
             onButtonAction?(event.button, event.pressed)
@@ -1187,10 +1280,49 @@ final class SteamControllerHIDController {
         let timer = DispatchSource.makeTimerSource(queue: lizardModeQueue)
         timer.schedule(deadline: .now() + 2.0, repeating: 2.0)
         timer.setEventHandler { [weak self] in
-            self?.sendLizardMode(enabled: false)
+            self?.reassertLizardModeDisabled()
         }
         lizardModeTimer = timer
         timer.resume()
+    }
+
+    private func isLizardModeDisabled() -> Bool {
+        activationLock.lock()
+        defer { activationLock.unlock() }
+        return activationGate.isLizardModeDisabled
+    }
+
+    private func resetActivationGate() {
+        activationLock.lock()
+        activationGate.reset()
+        activationLock.unlock()
+    }
+
+    @discardableResult
+    private func ensureLizardModeDisabled() -> Bool {
+        activationLock.lock()
+        let alreadyDisabled = activationGate.canDispatchInput
+        activationLock.unlock()
+        guard !alreadyDisabled else { return true }
+
+        guard sendLizardMode(enabled: false) else { return false }
+        markLizardModeDisabledAndActivateIfNeeded()
+        return true
+    }
+
+    private func reassertLizardModeDisabled() {
+        guard isStarted, sendLizardMode(enabled: false) else { return }
+        markLizardModeDisabledAndActivateIfNeeded()
+    }
+
+    private func markLizardModeDisabledAndActivateIfNeeded() {
+        activationLock.lock()
+        let shouldActivate = activationGate.markDisableSucceeded()
+        activationLock.unlock()
+
+        if shouldActivate {
+            onActivated?(self)
+        }
     }
 
     @discardableResult
