@@ -467,7 +467,7 @@ final class ZoomEventDeliveryConsistencyTests: XCTestCase {
 }
 
 final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
-    func testPlainMoveWithoutRelayKeepsLocalCursorInBounds() {
+    func testPlainMoveWithoutRelayCanPostPastEdgeForSystemHandoff() {
 		let proposed = CGPoint(x: 1928, y: 500)
 		let clamped = CGPoint(x: 1919, y: 500)
 
@@ -479,8 +479,18 @@ final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
 			relayCanHandleEdge: false
 		)
 
-		XCTAssertEqual(result, clamped)
+		XCTAssertEqual(result, proposed)
     }
+
+	func testTrackedPointKeepsLocalCursorInBounds() {
+		let clamped = CGPoint(x: 1919, y: 500)
+
+		let result = UniversalControlRelayLocalMousePolicy.trackedPoint(
+			clamped: clamped
+		)
+
+		XCTAssertEqual(result, clamped)
+	}
 
     func testRelayAvailableKeepsLocalCursorPinned() {
 		let proposed = CGPoint(x: 1928, y: 500)

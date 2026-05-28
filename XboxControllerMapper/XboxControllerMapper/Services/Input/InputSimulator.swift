@@ -894,17 +894,24 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 			)
 			let localDeltaX = Int(localAppliedDelta.x.rounded())
 			let localDeltaY = Int(localAppliedDelta.y.rounded())
+			let localTrackedPoint = UniversalControlRelayLocalMousePolicy.trackedPoint(
+				clamped: clampedPoint
+			)
+			let localTrackedDelta = UniversalControlRelayLocalMousePolicy.appliedDelta(
+				from: currentCGPoint,
+				to: localTrackedPoint
+			)
 
 			// Update tracked position to avoid reading back transformed coordinates.
-			// Track the actual local event point, not the off-screen proposal; otherwise
-			// edge-clamped relay candidates build hidden overshoot and feel sticky.
+			// Track the local in-bounds point, even if an off-edge event is posted to
+			// let macOS/remote handoff cross screens.
             self.stateLock.lock()
-			self.trackedCursorPosition = localEventPoint
+			self.trackedCursorPosition = localTrackedPoint
             self.stateLock.unlock()
 
             // Update shared position for other services (e.g., ActionFeedbackIndicator)
             // Pass the movement delta for relative positioning during zoom
-			Self.updateSharedTrackedPosition(localEventPoint, delta: localAppliedDelta)
+			Self.updateSharedTrackedPosition(localTrackedPoint, delta: localTrackedDelta)
 
             // If Accessibility Zoom is active, tell it to focus on the new cursor position
             // This helps the zoom viewport follow the cursor movement

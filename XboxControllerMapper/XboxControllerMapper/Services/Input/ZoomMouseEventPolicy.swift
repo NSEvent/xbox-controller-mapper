@@ -48,8 +48,15 @@ struct UniversalControlRelayLocalMousePolicy {
 		isDrag: Bool,
 		relayCanHandleEdge: Bool
     ) -> CGPoint {
-		clamped
+		guard !zoomActive, !isDrag, !relayCanHandleEdge else {
+			return clamped
+		}
+		return proposed
     }
+
+	static func trackedPoint(clamped: CGPoint) -> CGPoint {
+		clamped
+	}
 
 	static func appliedDelta(from current: CGPoint, to eventPoint: CGPoint) -> CGPoint {
 		CGPoint(
