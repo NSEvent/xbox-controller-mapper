@@ -546,6 +546,35 @@ final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
     }
 }
 
+final class UniversalControlRelayRolePolicyTests: XCTestCase {
+	func testAcceptingRemoteInputDoesNotMakeThisMacReceiverOnly() {
+		XCTAssertTrue(
+			UniversalControlRelayRolePolicy.canSendToRemote(acceptsRemoteInput: true)
+		)
+		XCTAssertTrue(
+			UniversalControlRelayRolePolicy.canStartRemoteHandoff(
+				hasConfiguredRelayTarget: true,
+				remoteHandoffSuppressed: false
+			)
+		)
+	}
+
+	func testRemoteHandoffStillRequiresConfiguredUnsuppressedTarget() {
+		XCTAssertFalse(
+			UniversalControlRelayRolePolicy.canStartRemoteHandoff(
+				hasConfiguredRelayTarget: false,
+				remoteHandoffSuppressed: false
+			)
+		)
+		XCTAssertFalse(
+			UniversalControlRelayRolePolicy.canStartRemoteHandoff(
+				hasConfiguredRelayTarget: true,
+				remoteHandoffSuppressed: true
+			)
+		)
+	}
+}
+
 // MARK: - Regression: UAZoomEnabled vs isZoomCurrentlyActive
 
 final class ZoomDetectionMethodTests: XCTestCase {

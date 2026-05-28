@@ -5,12 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.8.4] - 2026-05-28
-
-### Fixed
-
-- **Remote mouse screen crossing**: Restored the off-edge mouse event target needed for macOS and remote handoff to move the pointer across displays. ControllerKeys still tracks the clamped in-bounds local cursor point internally, so edge movement no longer builds hidden overshoot or feels sticky.
-
 ## [1.8.3] - 2026-05-28
 
 ### Changed
@@ -19,7 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Mac-to-Mac relay edge stickiness**: Controller-driven local cursor movement now always posts and tracks the clamped in-bounds local cursor point. The off-screen proposed point is still used to decide when Mac-to-Mac handoff should start, but it no longer becomes the local event target or hidden tracked cursor state. This fixes the cursor feeling magnetic at screen edges or appearing to drift off-screen after the Universal Control-style relay feature is enabled.
+- **Mac-to-Mac relay edge handling**: Controller-driven local cursor tracking now stays clamped in-bounds at display edges, so edge movement no longer builds hidden overshoot or feels sticky. Plain mouse movement can still post past an edge when no configured relay handles it, preserving normal macOS handoff behavior.
+
+- **Bidirectional Mac-to-Mac handoff**: Removed the Mac Studio receiver-only hostname heuristic. Any paired Mac can now both receive remote pointer input and initiate handoff back to its peer.
+
+- **Remote pairing code entry**: Widened the six-digit pairing-code field so the full code stays visible while entering the final digit.
 
 ## [1.8.2] - 2026-05-27
 

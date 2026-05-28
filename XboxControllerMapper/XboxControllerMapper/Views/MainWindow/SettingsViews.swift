@@ -1383,11 +1383,10 @@ struct SettingsSheet: View {
 										.multilineTextAlignment(.center)
 										.textFieldStyle(.plain)
 										.lineLimit(1)
-										.frame(width: 68, height: 18)
-										.clipped()
+										.frame(width: 96, height: 18)
 										.accessibilityLabel("Six-digit pairing code")
 								}
-								.frame(width: 88, height: 24)
+								.frame(width: 116, height: 24)
 							}
 
 							Button {

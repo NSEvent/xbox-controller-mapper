@@ -66,6 +66,23 @@ struct UniversalControlRelayLocalMousePolicy {
 	}
 }
 
+struct UniversalControlRelayRolePolicy {
+	static func canSendToRemote(acceptsRemoteInput: Bool) -> Bool {
+		true
+	}
+
+	static func canStartRemoteHandoff(
+		hasConfiguredRelayTarget: Bool,
+		remoteHandoffSuppressed: Bool
+	) -> Bool {
+		hasConfiguredRelayTarget && !remoteHandoffSuppressed
+	}
+
+	static func handlesIncomingRemoteInput(acceptsRemoteInput: Bool) -> Bool {
+		acceptsRemoteInput
+	}
+}
+
 struct UniversalControlRelaySessionPolicy {
 	static let confirmationTimeout: CFTimeInterval = 1.5
 

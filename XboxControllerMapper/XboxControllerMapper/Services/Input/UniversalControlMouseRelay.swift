@@ -163,7 +163,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var remoteDirectoryNavigatorButton: ControllerButton?
     private var remoteDirectoryNavigatorHoldMode = false
     private var remoteSwipePredictionsVisible = false
-    private var isRelayTarget = false
+    private var acceptsRemoteInput = false
     private var pairedRemoteEndpoint: NWEndpoint?
     private var pairedRemoteEndpointKey: String?
     private var isRemoteSessionActive = false
@@ -182,15 +182,18 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     var canSendToRemote: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return !isRelayTarget
+		return UniversalControlRelayRolePolicy.canSendToRemote(
+			acceptsRemoteInput: acceptsRemoteInput
+		)
     }
 
     var canStartRemoteHandoff: Bool {
         lock.lock()
         defer { lock.unlock() }
-		return !isRelayTarget
-			&& hasConfiguredRelayTargetLocked()
-			&& Date() >= remoteHandoffSuppressedUntil
+		return UniversalControlRelayRolePolicy.canStartRemoteHandoff(
+			hasConfiguredRelayTarget: hasConfiguredRelayTargetLocked(),
+			remoteHandoffSuppressed: Date() < remoteHandoffSuppressedUntil
+		)
     }
 
     var hasRecentRemoteCursorStatus: Bool {
@@ -209,7 +212,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     var hasActiveRemoteSession: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return isRemoteSessionActive && !isRelayTarget
+		return isRemoteSessionActive
     }
 
     var isRoutingToRemote: Bool {
@@ -225,7 +228,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     func remoteOverlayState() -> RemoteOverlayState {
         lock.lock()
         defer { lock.unlock() }
-        guard isRemoteSessionActive, !isRelayTarget else {
+		guard isRemoteSessionActive else {
             return RemoteOverlayState(
                 keyboardVisible: false,
                 keyboardNavigationModeActive: false,
@@ -586,12 +589,8 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         lock.unlock()
         guard !alreadyListening else { return }
 
-        let hostname = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
-        let relayTarget = hostname.localizedCaseInsensitiveContains("studio")
-            || ProcessInfo.processInfo.hostName.localizedCaseInsensitiveContains("studio")
-
         lock.lock()
-        isRelayTarget = relayTarget
+		acceptsRemoteInput = true
         lock.unlock()
 
         do {
@@ -614,7 +613,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             lock.unlock()
 
             listener.start(queue: queue)
-            NSLog("[UCMouseRelay] Listening on TCP %d; relayTarget=%@", port.rawValue, relayTarget ? "true" : "false")
+			NSLog("[UCMouseRelay] Listening on TCP %d; acceptsRemoteInput=true", port.rawValue)
         } catch {
             NSLog("[UCMouseRelay] Could not listen on TCP %d: %@", port.rawValue, String(describing: error))
         }
@@ -786,7 +785,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     func sendFocusMode(active: Bool) -> Bool {
         lock.lock()
-        guard isRemoteSessionActive && !isRelayTarget else {
+		guard isRemoteSessionActive else {
             lock.unlock()
             return false
         }
@@ -1769,11 +1768,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
         lock.lock()
         let input = receiverInput
-        let relayTarget = isRelayTarget
+		let handlesIncomingRemoteInput = UniversalControlRelayRolePolicy.handlesIncomingRemoteInput(
+			acceptsRemoteInput: acceptsRemoteInput
+		)
         let hasMouseButtonHeld = !remoteMouseButtonsHeld.isEmpty
         lock.unlock()
         defer {
-            if relayTarget {
+			if handlesIncomingRemoteInput {
                 sendRemoteUIState(on: connection)
             }
         }
@@ -1783,19 +1784,19 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             guard parts.count == 3,
                   let dx = Int(parts[1]),
                   let dy = Int(parts[2]) else { return }
-            if relayTarget && !hasMouseButtonHeld {
+			if handlesIncomingRemoteInput && !hasMouseButtonHeld {
 				postRemoteMouseMove(dx: dx, dy: dy)
-            } else if relayTarget {
+			} else if handlesIncomingRemoteInput {
                 postRemoteMouseDrag(dx: dx, dy: dy)
             } else {
                 input?.moveMouseNative(dx: dx, dy: dy)
             }
-            if relayTarget {
+			if handlesIncomingRemoteInput {
                 sendRemoteCursorStatus(on: connection)
             }
             logFirstReceive("move dx=\(dx) dy=\(dy)")
         case "bp":
-            guard relayTarget,
+			guard handlesIncomingRemoteInput,
                   parts.count == 2,
                   let button = ControllerButton(rawValue: String(parts[1])) else { return }
             Task { @MainActor in
@@ -1803,7 +1804,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             }
             logFirstReceive("button press \(button.rawValue)")
         case "br":
-            guard relayTarget,
+			guard handlesIncomingRemoteInput,
                   parts.count == 3,
                   let button = ControllerButton(rawValue: String(parts[1])),
                   let holdDuration = TimeInterval(String(parts[2])) else { return }
@@ -1812,7 +1813,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             }
             logFirstReceive("button release \(button.rawValue)")
         case "bc":
-            guard relayTarget, parts.count >= 3 else { return }
+			guard handlesIncomingRemoteInput, parts.count >= 3 else { return }
             var buttons = Set<ControllerButton>()
             for rawButton in parts.dropFirst() {
                 guard let button = ControllerButton(rawValue: String(rawButton)) else { return }
@@ -1824,7 +1825,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             }
             logFirstReceive("button chord")
         case "bclear":
-            guard relayTarget, parts.count == 1 else { return }
+			guard handlesIncomingRemoteInput, parts.count == 1 else { return }
             Task { @MainActor in
                 ServiceContainer.shared.mappingEngine.resetRemoteControllerInputState()
             }
@@ -1833,7 +1834,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             guard parts.count == 3,
                   let keyCode = UInt16(parts[1]),
                   let flagsRaw = UInt64(parts[2]) else { return }
-            if relayTarget && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
+			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
                 postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: true)
                 postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: false)
             } else {
@@ -1844,7 +1845,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             guard parts.count == 3,
                   let keyCode = UInt16(parts[1]),
                   let flagsRaw = UInt64(parts[2]) else { return }
-            if relayTarget && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
+			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
                 postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: true)
             } else {
                 updateRemoteMouseButtonState(keyCode: CGKeyCode(keyCode), isDown: true)
@@ -1854,7 +1855,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         case "ku":
             guard parts.count == 2,
                   let keyCode = UInt16(parts[1]) else { return }
-            if relayTarget && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
+			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
                 postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: false)
             } else {
                 updateRemoteMouseButtonState(keyCode: CGKeyCode(keyCode), isDown: false)
