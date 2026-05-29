@@ -106,6 +106,8 @@ final class ControllerStorage: @unchecked Sendable {
 	    // Nintendo Pro Controller HID button state
 	    var lastNintendoHomeState: Bool = false
 	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
+	var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
+	var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
 
     // DualSense Edge button state (paddles and function buttons)
     var lastLeftPaddleState: Bool = false
@@ -274,14 +276,19 @@ class ControllerService: ObservableObject {
     var nintendoHIDReportBuffer: UnsafeMutablePointer<UInt8>?
     var nintendoHIDCallbackContext: UnsafeMutableRawPointer?
 
-    // Apple TV/Siri Remote HID monitoring (buttons + touch surface)
-    var appleTVRemoteHIDManager: IOHIDManager?
-    var appleTVRemoteHIDDevice: IOHIDDevice?
-    var appleTVRemoteHIDTouchDevice: IOHIDDevice?
-    var appleTVRemoteHIDTouchReportBuffer: UnsafeMutablePointer<UInt8>?
-    var appleTVRemoteHIDTouchReportBufferSize: Int = 0
-    var appleTVRemoteHIDCallbackContext: UnsafeMutableRawPointer?
-    var appleTVRemoteMultitouchStarted: Bool = false
+	// Apple TV/Siri Remote HID monitoring (buttons + touch surface)
+	var appleTVRemoteHIDManager: IOHIDManager?
+	var appleTVRemoteHIDButtonManager: IOHIDManager?
+	var appleTVRemoteHIDDevice: IOHIDDevice?
+	var appleTVRemoteHIDTouchDevice: IOHIDDevice?
+	var appleTVRemoteHIDTouchReportBuffer: UnsafeMutablePointer<UInt8>?
+	var appleTVRemoteHIDTouchReportBufferSize: Int = 0
+	var appleTVRemoteHIDCallbackContext: UnsafeMutableRawPointer?
+	var appleTVRemoteMultitouchStarted: Bool = false
+	var appleTVRemoteHIDButtonManagerOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
+	var appleTVRemoteSystemEventTap: CFMachPort?
+	var appleTVRemoteSystemEventRunLoopSource: CFRunLoopSource?
+	var appleTVRemoteSystemEventTapContext: UnsafeMutableRawPointer?
 
     /// Xbox Elite Series 2 helper process (separate binary without GameController.framework)
     var eliteHelperProcess: Process?

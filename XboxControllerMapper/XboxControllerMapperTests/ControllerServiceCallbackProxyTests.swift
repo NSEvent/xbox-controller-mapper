@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 import CoreGraphics
 import GameController
 @testable import ControllerKeys
@@ -278,6 +279,51 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			)
 	    }
 
+	func testAppleTVRemoteSystemKeyTypesMapToNXConsumerControls() {
+		XCTAssertEqual(ControllerService.appleTVRemoteSystemKeyType(for: .appleTVRemoteVolumeUp), 0)
+		XCTAssertEqual(ControllerService.appleTVRemoteSystemKeyType(for: .appleTVRemoteVolumeDown), 1)
+		XCTAssertEqual(ControllerService.appleTVRemoteSystemKeyType(for: .appleTVRemotePower), 6)
+		XCTAssertEqual(ControllerService.appleTVRemoteSystemKeyType(for: .appleTVRemoteMute), 7)
+		XCTAssertNil(ControllerService.appleTVRemoteSystemKeyType(for: .menu))
+	}
+
+	func testAppleTVRemoteSystemEventSuppressionHandlesAuxAndPowerSubtypes() {
+		controllerService.storage.isAppleTVRemote = true
+		let systemDefinedType = CGEventType(rawValue: 14)!
+		let volumeUpData1 = (0 << 16) | (0x0A << 8)
+
+		XCTAssertTrue(
+			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
+				systemDefinedEvent(subtype: 8, data1: volumeUpData1),
+				type: systemDefinedType
+			)
+		)
+		XCTAssertTrue(
+			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
+				systemDefinedEvent(subtype: 1),
+				type: systemDefinedType
+			)
+		)
+		XCTAssertFalse(
+			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
+				systemDefinedEvent(
+					subtype: 8,
+					data1: volumeUpData1,
+					userData: Config.controllerKeysSyntheticMediaEventUserData
+				),
+				type: systemDefinedType
+			)
+		)
+
+		controllerService.storage.isAppleTVRemote = false
+		XCTAssertFalse(
+			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
+				systemDefinedEvent(subtype: 8, data1: volumeUpData1),
+				type: systemDefinedType
+			)
+		)
+	}
+
 	func testAppleTVRemoteTouchReportParsesCurrentRemoteTouchPoint() {
 		let report = currentAppleTVRemoteTouchReport(x: 75, y: 52, pressure: 17)
 		let parsed = report.withUnsafeBufferPointer {
@@ -456,6 +502,27 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			"Same-state guide monitor event should be ignored after helper handled the release."
 		)
 	}
+}
+
+private func systemDefinedEvent(subtype: Int16, data1: Int = 0, userData: Int64? = nil) -> CGEvent {
+	let event = NSEvent.otherEvent(
+		with: .systemDefined,
+		location: .zero,
+		modifierFlags: [],
+		timestamp: 0,
+		windowNumber: 0,
+		context: nil,
+		subtype: subtype,
+		data1: data1,
+		data2: -1
+	)
+	guard let cgEvent = event?.cgEvent else {
+		fatalError("Failed to create system-defined test event")
+	}
+	if let userData {
+		cgEvent.setIntegerValueField(.eventSourceUserData, value: userData)
+	}
+	return cgEvent
 }
 
 private func currentAppleTVRemoteTouchReport(x: Int, y: Int, pressure: UInt8) -> [UInt8] {

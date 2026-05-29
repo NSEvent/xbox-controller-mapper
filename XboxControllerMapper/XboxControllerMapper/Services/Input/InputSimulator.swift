@@ -1836,7 +1836,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             return
         }
 
-        event.cgEvent?.post(tap: .cghidEventTap)
+		if let cgEvent = event.cgEvent {
+			cgEvent.setIntegerValueField(.eventSourceUserData, value: Config.controllerKeysSyntheticMediaEventUserData)
+			cgEvent.post(tap: .cghidEventTap)
+		}
     }
 
     // MARK: - Mapping Execution

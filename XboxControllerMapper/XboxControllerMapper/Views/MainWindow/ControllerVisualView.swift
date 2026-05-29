@@ -712,34 +712,38 @@ struct ControllerVisualView: View {
 					)
 					.shadow(color: .black.opacity(0.28), radius: 16, x: 0, y: 8)
 
-					VStack(spacing: 22) {
-						appleTVRemoteClickpad
-							.padding(.top, 46)
+				VStack(spacing: 14) {
+					appleTVRemoteClickpad
+						.padding(.top, 42)
 
-					HStack(spacing: 22) {
+					HStack(spacing: 42) {
 						appleTVRemoteMockIcon(.menu)
-						appleTVRemoteMockIcon(.x)
+						appleTVRemoteMockIcon(.xbox, scale: 1.16)
 					}
 
-					appleTVRemoteMockIcon(.xbox, scale: 1.16)
+					HStack(alignment: .top, spacing: 42) {
+						VStack(spacing: 0) {
+							appleTVRemoteMockIcon(.x)
+							appleTVRemoteMockIcon(.appleTVRemoteMute, scale: 0.92)
+						}
+
+						appleTVRemoteVolumeRocker
+					}
 
 					Spacer(minLength: 0)
 				}
-					.frame(maxWidth: .infinity, maxHeight: .infinity)
+				.frame(maxWidth: .infinity, maxHeight: .infinity)
 
-					appleTVRemoteMockIcon(.appleTVRemotePower, scale: 0.86)
-						.padding(.top, 16)
-						.padding(.trailing, 16)
+				appleTVRemoteMockIcon(.appleTVRemotePower, scale: 0.86)
+					.padding(.top, 16)
+					.padding(.trailing, 16)
 
-					appleTVRemoteSiriSideButton
-						.offset(x: 16, y: 120)
+				appleTVRemoteSiriSideButton
+					.offset(x: 10, y: 112)
 
-					appleTVRemoteVolumeSideButtons
-						.offset(x: 18, y: 212)
-
-					VStack {
-						layerScopeChip
-						Spacer()
+				VStack {
+					layerScopeChip
+					Spacer()
 				}
 				.frame(maxWidth: .infinity, maxHeight: .infinity)
 				.padding(.top, 12)
@@ -778,12 +782,35 @@ struct ControllerVisualView: View {
 					.help("Siri")
 		    }
 
-			private var appleTVRemoteVolumeSideButtons: some View {
-				VStack(spacing: 8) {
-					appleTVRemoteMockIcon(.appleTVRemoteVolumeUp, scale: 0.78)
-					appleTVRemoteMockIcon(.appleTVRemoteVolumeDown, scale: 0.78)
-					appleTVRemoteMockIcon(.appleTVRemoteMute, scale: 0.78)
+			private var appleTVRemoteVolumeRocker: some View {
+				VStack(spacing: 0) {
+					appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeUp, systemImage: "plus")
+					Rectangle()
+						.fill(Color.white.opacity(0.12))
+						.frame(height: 1)
+						.padding(.horizontal, 4)
+					appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeDown, systemImage: "minus")
 				}
+				.frame(width: 32, height: 78)
+				.background(
+					Capsule()
+						.fill(isPressed(.appleTVRemoteVolumeUp) || isPressed(.appleTVRemoteVolumeDown) ? Color.accentColor.opacity(0.9) : Color(white: 0.27))
+				)
+				.overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
+		    }
+
+			private func appleTVRemoteVolumeRockerSegment(_ button: ControllerButton, systemImage: String) -> some View {
+				Image(systemName: systemImage)
+					.font(.system(size: 10, weight: .bold))
+					.foregroundStyle(.white.opacity(0.85))
+					.frame(width: 32, height: 38)
+					.background(isPressed(button) ? Color.accentColor : Color.clear)
+					.contentShape(Rectangle())
+					.controllerAnchor(button, role: .controller)
+					.onTapGesture { onButtonTap(button) }
+					.onHover { hovering in handleButtonHover(button, hovering) }
+					.swappable(button, onSwap: performSwap)
+					.help(button.displayName(forAppleTVRemote: true))
 		    }
 
 		    private func appleTVRemoteMockIcon(_ button: ControllerButton, scale: CGFloat = 1.06) -> some View {

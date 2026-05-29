@@ -3,6 +3,9 @@ import Foundation
 /// Global configuration constants for ControllerKeys
 struct Config {
 
+	// MARK: - Event Tagging
+	static let controllerKeysSyntheticMediaEventUserData: Int64 = 0x434B4D45444941
+
     // MARK: - Chord Detection
     /// Time window for detecting simultaneous button presses as a chord (seconds)
     static let chordDetectionWindow: TimeInterval = 0.15

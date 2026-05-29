@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import CoreGraphics
 import IOKit
 import IOKit.hid
@@ -6,6 +7,11 @@ import IOKit.hid
 // MARK: - Apple TV/Siri Remote HID Monitoring (buttons + touch surface)
 
 fileprivate final class AppleTVRemoteHIDCallbackContext {
+	weak var service: ControllerService?
+	init(service: ControllerService) { self.service = service }
+}
+
+fileprivate final class AppleTVRemoteSystemEventTapContext: @unchecked Sendable {
 	weak var service: ControllerService?
 	init(service: ControllerService) { self.service = service }
 }
@@ -32,7 +38,6 @@ private enum AppleTVRemoteHID {
 	static let digitizerUsagePage: UInt32 = 0x0D
 	static let digitizerUsage: UInt32 = 0x01
 	static let consumerUsagePage: UInt32 = 0x0C
-	static let consumerControlUsage: UInt32 = 0x01
 	static let microphoneUsage: UInt32 = 0x04
 	static let powerUsage: UInt32 = 0x30
 	static let menuUsage: UInt32 = 0x40
@@ -53,6 +58,14 @@ private enum AppleTVRemoteHID {
 		static let voiceCommandUsage: UInt32 = 0x00CF
 		static let systemAppMenuUsage: UInt32 = 0x86
 		static let touchReleaseDelay: TimeInterval = 0.15
+		static let systemEventSuppressionWindow: TimeInterval = 0.50
+		static let cgEventTypeSystemDefinedRawValue: UInt32 = 14
+		static let powerButtonSubtype: Int16 = 1
+		static let auxControlButtonSubtype: Int16 = 8
+		static let nxKeyTypeSoundUp = 0
+		static let nxKeyTypeSoundDown = 1
+		static let nxKeyTypePower = 6
+		static let nxKeyTypeMute = 7
 	static let defaultTouchReportBufferSize = 256
 	static let currentRemoteTouchReportLength = 11
 	static let firstGenerationOneFingerTouchReportLength = 13
@@ -66,18 +79,20 @@ private enum AppleTVRemoteHID {
 extension ControllerService {
 
 	func setupAppleTVRemoteHIDMonitoring() {
-		if appleTVRemoteHIDManager != nil {
+		if appleTVRemoteHIDManager != nil || appleTVRemoteHIDButtonManager != nil {
 			cleanupAppleTVRemoteHIDMonitoring()
 		}
-
-		let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-		appleTVRemoteHIDManager = manager
 
 		let ctx = AppleTVRemoteHIDCallbackContext(service: self)
 		let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
 		appleTVRemoteHIDCallbackContext = retainedContext
 
-		let matching = Self.appleTVRemoteHIDMatchingCriteria()
+		setupAppleTVRemoteButtonHIDManager(context: retainedContext)
+
+		let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+		appleTVRemoteHIDManager = manager
+
+		let matching = Self.appleTVRemoteTouchHIDMatchingCriteria()
 		IOHIDManagerSetDeviceMatchingMultiple(manager, matching)
 		IOHIDManagerRegisterDeviceMatchingCallback(manager, appleTVRemoteHIDDeviceMatchedCallback, retainedContext)
 		IOHIDManagerRegisterDeviceRemovalCallback(manager, appleTVRemoteHIDDeviceRemovedCallback, retainedContext)
@@ -100,16 +115,51 @@ extension ControllerService {
 		_ = setupAppleTVRemoteMultitouchMonitoring()
 	}
 
+	private func setupAppleTVRemoteButtonHIDManager(context: UnsafeMutableRawPointer) {
+		let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+		appleTVRemoteHIDButtonManager = manager
+
+		IOHIDManagerSetDeviceMatchingMultiple(manager, Self.appleTVRemoteButtonHIDMatchingCriteria())
+		IOHIDManagerRegisterDeviceMatchingCallback(manager, appleTVRemoteHIDDeviceMatchedCallback, context)
+		IOHIDManagerRegisterDeviceRemovalCallback(manager, appleTVRemoteHIDDeviceRemovedCallback, context)
+		IOHIDManagerRegisterInputValueCallback(manager, appleTVRemoteHIDInputValueCallback, context)
+		IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+
+		let seizeOptions = IOOptionBits(kIOHIDOptionsTypeSeizeDevice)
+		let seizeResult = IOHIDManagerOpen(manager, seizeOptions)
+		if seizeResult == kIOReturnSuccess {
+			appleTVRemoteHIDButtonManagerOpenOptions = seizeOptions
+			NSLog("[ControllerKeys] Apple TV Remote consumer-control HID manager seized")
+		} else {
+			NSLog("[ControllerKeys] Apple TV Remote consumer-control HID manager seize returned 0x%08X; using event suppression fallback", seizeResult)
+			let fallbackResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+			if fallbackResult != kIOReturnSuccess {
+				NSLog("[ControllerKeys] Apple TV Remote consumer-control HID manager open returned 0x%08X", fallbackResult)
+			}
+			appleTVRemoteHIDButtonManagerOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
+		}
+
+		if let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> {
+			for device in devices {
+				appleTVRemoteHIDDeviceAppeared(device)
+			}
+		}
+	}
+
 	func cleanupAppleTVRemoteHIDMonitoring() {
 		storage.lock.lock()
 		storage.appleTVRemoteTouchReleaseWorkItem?.cancel()
 		storage.appleTVRemoteTouchReleaseWorkItem = nil
+		storage.appleTVRemoteActiveSystemKeyTypes.removeAll()
+		storage.appleTVRemoteSystemKeyTypeSuppressUntil.removeAll()
 		storage.lock.unlock()
 
 		if appleTVRemoteMultitouchStarted || CKAppleTVRemoteMultitouchIsRunning() {
 			CKAppleTVRemoteMultitouchStop()
 			appleTVRemoteMultitouchStarted = false
 		}
+
+		stopAppleTVRemoteSystemEventSuppression()
 
 		if let device = appleTVRemoteHIDTouchDevice,
 		   let buffer = appleTVRemoteHIDTouchReportBuffer {
@@ -124,16 +174,25 @@ extension ControllerService {
 		}
 		appleTVRemoteHIDTouchDevice = nil
 
-		if let manager = appleTVRemoteHIDManager {
-			IOHIDManagerRegisterDeviceMatchingCallback(manager, nil, nil)
-			IOHIDManagerRegisterDeviceRemovalCallback(manager, nil, nil)
-			IOHIDManagerRegisterInputValueCallback(manager, nil, nil)
-			IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-			IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-		}
-		appleTVRemoteHIDManager = nil
-		appleTVRemoteHIDDevice = nil
-		appleTVRemoteHIDTouchReportBuffer?.deallocate()
+			if let manager = appleTVRemoteHIDManager {
+				IOHIDManagerRegisterDeviceMatchingCallback(manager, nil, nil)
+				IOHIDManagerRegisterDeviceRemovalCallback(manager, nil, nil)
+				IOHIDManagerRegisterInputValueCallback(manager, nil, nil)
+				IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+				IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+			}
+			if let manager = appleTVRemoteHIDButtonManager {
+				IOHIDManagerRegisterDeviceMatchingCallback(manager, nil, nil)
+				IOHIDManagerRegisterDeviceRemovalCallback(manager, nil, nil)
+				IOHIDManagerRegisterInputValueCallback(manager, nil, nil)
+				IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+				IOHIDManagerClose(manager, appleTVRemoteHIDButtonManagerOpenOptions)
+			}
+			appleTVRemoteHIDManager = nil
+			appleTVRemoteHIDButtonManager = nil
+			appleTVRemoteHIDDevice = nil
+			appleTVRemoteHIDButtonManagerOpenOptions = IOOptionBits(kIOHIDOptionsTypeNone)
+			appleTVRemoteHIDTouchReportBuffer?.deallocate()
 		appleTVRemoteHIDTouchReportBuffer = nil
 		appleTVRemoteHIDTouchReportBufferSize = 0
 
@@ -146,6 +205,7 @@ extension ControllerService {
 	func appleTVRemoteHIDDeviceAppeared(_ device: IOHIDDevice) {
 		if Self.isAppleTVRemoteHIDDevice(device) {
 			appleTVRemoteHIDDevice = device
+			startAppleTVRemoteSystemEventSuppression()
 			NSLog("[ControllerKeys] Apple TV Remote HID monitoring started for buttons: %@",
 				  Self.appleTVRemoteHIDDeviceName(device))
 			activateAppleTVRemoteHIDSessionIfNeeded(device)
@@ -253,6 +313,58 @@ extension ControllerService {
 			  Self.appleTVRemoteHIDDeviceName(device))
 	}
 
+	private func startAppleTVRemoteSystemEventSuppression() {
+		guard appleTVRemoteSystemEventTap == nil else { return }
+
+		let context = AppleTVRemoteSystemEventTapContext(service: self)
+		let retainedContext = Unmanaged.passRetained(context).toOpaque()
+		let eventMask = CGEventMask(1 << AppleTVRemoteHID.cgEventTypeSystemDefinedRawValue)
+
+		guard let tap = CGEvent.tapCreate(
+			tap: .cghidEventTap,
+			place: .headInsertEventTap,
+			options: .defaultTap,
+			eventsOfInterest: eventMask,
+			callback: appleTVRemoteSystemEventTapCallback,
+			userInfo: retainedContext
+		) else {
+			Unmanaged<AppleTVRemoteSystemEventTapContext>.fromOpaque(retainedContext).release()
+			NSLog("[ControllerKeys] Apple TV Remote system event suppression tap could not be created")
+			return
+		}
+
+		let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), source, CFRunLoopMode.commonModes)
+		CGEvent.tapEnable(tap: tap, enable: true)
+
+		appleTVRemoteSystemEventTap = tap
+		appleTVRemoteSystemEventRunLoopSource = source
+		appleTVRemoteSystemEventTapContext = retainedContext
+		NSLog("[ControllerKeys] Apple TV Remote system event suppression started")
+	}
+
+	private func stopAppleTVRemoteSystemEventSuppression() {
+		if let tap = appleTVRemoteSystemEventTap {
+			CGEvent.tapEnable(tap: tap, enable: false)
+		}
+		if let source = appleTVRemoteSystemEventRunLoopSource {
+			CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, CFRunLoopMode.commonModes)
+		}
+		appleTVRemoteSystemEventTap = nil
+		appleTVRemoteSystemEventRunLoopSource = nil
+		if let context = appleTVRemoteSystemEventTapContext {
+			Unmanaged<AppleTVRemoteSystemEventTapContext>.fromOpaque(context).release()
+			appleTVRemoteSystemEventTapContext = nil
+		}
+	}
+
+	nonisolated func reenableAppleTVRemoteSystemEventSuppressionIfNeeded() {
+		Task { @MainActor [weak self] in
+			guard let tap = self?.appleTVRemoteSystemEventTap else { return }
+			CGEvent.tapEnable(tap: tap, enable: true)
+		}
+	}
+
 	nonisolated static func appleTVRemoteButtonForHIDUsage(usagePage: UInt32, usage: UInt32) -> ControllerButton? {
 		if usagePage == AppleTVRemoteHID.genericDesktopUsagePage {
 			if usage == AppleTVRemoteHID.systemAppMenuUsage {
@@ -307,14 +419,79 @@ extension ControllerService {
 			guard let button = Self.appleTVRemoteButtonForHIDUsage(usagePage: usagePage, usage: usage) else { return }
 
 			let isPressed = IOHIDValueGetIntegerValue(value) != 0
+			let now = CFAbsoluteTimeGetCurrent()
 			storage.lock.lock()
-			storage.lastInputTime = CFAbsoluteTimeGetCurrent()
+			storage.lastInputTime = now
+			if let systemKeyType = Self.appleTVRemoteSystemKeyType(for: button) {
+				if isPressed {
+					storage.appleTVRemoteActiveSystemKeyTypes.insert(systemKeyType)
+				} else {
+					storage.appleTVRemoteActiveSystemKeyTypes.remove(systemKeyType)
+				}
+				storage.appleTVRemoteSystemKeyTypeSuppressUntil[systemKeyType] = now + AppleTVRemoteHID.systemEventSuppressionWindow
+			}
 			storage.lock.unlock()
 
 			controllerQueue.async { [weak self] in
 				self?.handleButton(button, pressed: isPressed)
 			}
 		}
+
+	nonisolated static func appleTVRemoteSystemKeyType(for button: ControllerButton) -> Int? {
+		switch button {
+		case .appleTVRemoteVolumeUp:
+			return AppleTVRemoteHID.nxKeyTypeSoundUp
+		case .appleTVRemoteVolumeDown:
+			return AppleTVRemoteHID.nxKeyTypeSoundDown
+		case .appleTVRemotePower:
+			return AppleTVRemoteHID.nxKeyTypePower
+		case .appleTVRemoteMute:
+			return AppleTVRemoteHID.nxKeyTypeMute
+		default:
+			return nil
+		}
+	}
+
+	nonisolated func shouldSuppressAppleTVRemoteSystemEvent(_ event: CGEvent, type: CGEventType) -> Bool {
+		guard type.rawValue == AppleTVRemoteHID.cgEventTypeSystemDefinedRawValue,
+			  event.getIntegerValueField(.eventSourceUserData) != Config.controllerKeysSyntheticMediaEventUserData,
+			  let nsEvent = NSEvent(cgEvent: event) else {
+			return false
+		}
+
+		let keyType: Int
+		switch nsEvent.subtype.rawValue {
+		case AppleTVRemoteHID.powerButtonSubtype:
+			keyType = AppleTVRemoteHID.nxKeyTypePower
+		case AppleTVRemoteHID.auxControlButtonSubtype:
+			keyType = (nsEvent.data1 >> 16) & 0xFFFF
+			guard [
+				AppleTVRemoteHID.nxKeyTypeSoundUp,
+				AppleTVRemoteHID.nxKeyTypeSoundDown,
+				AppleTVRemoteHID.nxKeyTypePower,
+				AppleTVRemoteHID.nxKeyTypeMute
+			].contains(keyType) else {
+				return false
+			}
+		default:
+			return false
+		}
+
+		let now = CFAbsoluteTimeGetCurrent()
+		storage.lock.lock()
+		let shouldSuppress = storage.isAppleTVRemote &&
+			(storage.appleTVRemoteActiveSystemKeyTypes.contains(keyType) ||
+			 (storage.appleTVRemoteSystemKeyTypeSuppressUntil[keyType] ?? 0) > now ||
+			 keyType == AppleTVRemoteHID.nxKeyTypeSoundUp ||
+			 keyType == AppleTVRemoteHID.nxKeyTypeSoundDown ||
+			 keyType == AppleTVRemoteHID.nxKeyTypePower ||
+			 keyType == AppleTVRemoteHID.nxKeyTypeMute)
+		if !shouldSuppress {
+			storage.appleTVRemoteSystemKeyTypeSuppressUntil = storage.appleTVRemoteSystemKeyTypeSuppressUntil.filter { $0.value > now }
+		}
+		storage.lock.unlock()
+		return shouldSuppress
+	}
 
 	nonisolated func handleAppleTVRemoteTouchReport(
 		reportID: UInt32,
@@ -412,6 +589,11 @@ extension ControllerService {
 	}
 
 		nonisolated func releaseAppleTVRemoteButtonsIfNeeded() {
+			storage.lock.lock()
+			storage.appleTVRemoteActiveSystemKeyTypes.removeAll()
+			storage.appleTVRemoteSystemKeyTypeSuppressUntil.removeAll()
+			storage.lock.unlock()
+
 			for button in ControllerButton.appleTVRemoteButtons {
 				handleButton(button, pressed: false)
 			}
@@ -493,17 +675,23 @@ extension ControllerService {
 		return (value / maxValue) * 2.0 - 1.0
 	}
 
-	private static func appleTVRemoteHIDMatchingCriteria() -> CFArray {
-		let appleUSBRemote = [
-			kIOHIDVendorIDKey as String: AppleTVRemoteHID.appleVendorID,
-		] as CFDictionary
+	private static func appleTVRemoteButtonHIDMatchingCriteria() -> CFArray {
+		appleTVRemoteBluetoothMatchingCriteria(usagePage: AppleTVRemoteHID.consumerUsagePage)
+	}
+
+	private static func appleTVRemoteTouchHIDMatchingCriteria() -> CFArray {
+		appleTVRemoteBluetoothMatchingCriteria(usagePage: AppleTVRemoteHID.digitizerUsagePage)
+	}
+
+	private static func appleTVRemoteBluetoothMatchingCriteria(usagePage: UInt32) -> CFArray {
 		let bluetoothRemotes = AppleTVRemoteHID.knownBluetoothRemoteProductIDs.map { productID in
 			[
 				kIOHIDVendorIDKey as String: AppleTVRemoteHID.appleBluetoothCompanyID,
 				kIOHIDProductIDKey as String: productID,
+				kIOHIDDeviceUsagePageKey as String: usagePage,
 			] as CFDictionary
 		}
-		return ([appleUSBRemote] + bluetoothRemotes) as CFArray
+		return bluetoothRemotes as CFArray
 	}
 
 	private func activateAppleTVRemoteHIDSessionIfNeeded(_ device: IOHIDDevice) {
@@ -548,9 +736,7 @@ extension ControllerService {
 		guard isAppleTVRemoteBaseHIDDevice(device) else { return false }
 
 		let primaryUsagePage = IOHIDDeviceGetProperty(device, "PrimaryUsagePage" as CFString) as? Int
-		let primaryUsage = IOHIDDeviceGetProperty(device, "PrimaryUsage" as CFString) as? Int
 		return primaryUsagePage == Int(AppleTVRemoteHID.consumerUsagePage)
-			&& primaryUsage == Int(AppleTVRemoteHID.consumerControlUsage)
 	}
 
 	nonisolated private static func isAppleTVRemoteTouchHIDDevice(_ device: IOHIDDevice) -> Bool {
@@ -660,4 +846,28 @@ private nonisolated func appleTVRemoteMultitouchCallback(
 	guard let context else { return }
 	let holder = Unmanaged<AppleTVRemoteHIDCallbackContext>.fromOpaque(context).takeUnretainedValue()
 	holder.service?.handleAppleTVRemoteMultitouch(x: x, y: y, isTouching: touching)
+}
+
+private nonisolated func appleTVRemoteSystemEventTapCallback(
+	proxy: CGEventTapProxy,
+	type: CGEventType,
+	event: CGEvent,
+	userInfo: UnsafeMutableRawPointer?
+) -> Unmanaged<CGEvent>? {
+	guard let userInfo else {
+		return Unmanaged.passUnretained(event)
+	}
+
+	if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+		let holder = Unmanaged<AppleTVRemoteSystemEventTapContext>.fromOpaque(userInfo).takeUnretainedValue()
+		holder.service?.reenableAppleTVRemoteSystemEventSuppressionIfNeeded()
+		return Unmanaged.passUnretained(event)
+	}
+
+	let holder = Unmanaged<AppleTVRemoteSystemEventTapContext>.fromOpaque(userInfo).takeUnretainedValue()
+	if holder.service?.shouldSuppressAppleTVRemoteSystemEvent(event, type: type) == true {
+		return nil
+	}
+
+	return Unmanaged.passUnretained(event)
 }
