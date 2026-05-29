@@ -2,6 +2,7 @@ import XCTest
 import Foundation
 import Network
 import CoreGraphics
+import AppKit
 @testable import ControllerKeys
 
 final class UniversalControlRelaySecurityTests: XCTestCase {
@@ -245,6 +246,14 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
 		XCTAssertEqual(movement.dx, 0)
 		XCTAssertEqual(movement.dy, 0)
 		XCTAssertFalse(movement.shouldPostEvent)
+	}
+
+	func testPortalOverlayWindowLevelStaysBelowScreenSaverLevel() {
+		XCTAssertEqual(UniversalControlPortalOverlayPolicy.windowLevel, .popUpMenu)
+		XCTAssertLessThan(
+			UniversalControlPortalOverlayPolicy.windowLevel.rawValue,
+			NSWindow.Level.screenSaver.rawValue
+		)
 	}
 
 	func testRemoteMouseMovementDoesNotPostWhenCursorAlreadyLeftRemoteBounds() {

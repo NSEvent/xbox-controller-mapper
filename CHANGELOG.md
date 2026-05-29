@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Remote pairing code entry**: Widened the six-digit pairing-code field so the full code stays visible while entering the final digit.
 
+- **Remote handoff cursor visibility**: Remote pointer handoff now avoids over-balancing cursor show/hide repairs after on-screen keyboard navigation and keeps portal overlays below screen-saver level, preventing an invisible-but-hovering cursor during bidirectional controller sessions.
+
 ## [1.8.2] - 2026-05-27
 
 ### Added

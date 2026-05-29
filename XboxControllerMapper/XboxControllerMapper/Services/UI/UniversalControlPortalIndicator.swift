@@ -213,7 +213,7 @@ final class UniversalControlPortalIndicator {
         )
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.level = .screenSaver
+		panel.level = UniversalControlPortalOverlayPolicy.windowLevel
         panel.hasShadow = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
@@ -241,7 +241,7 @@ final class UniversalControlPortalIndicator {
         )
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.level = .screenSaver
+		panel.level = UniversalControlPortalOverlayPolicy.windowLevel
         panel.hasShadow = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
@@ -263,6 +263,10 @@ final class UniversalControlPortalIndicator {
     private func screen(containing point: NSPoint) -> NSScreen? {
         NSScreen.screens.first { $0.frame.contains(point) }
     }
+}
+
+enum UniversalControlPortalOverlayPolicy {
+    static let windowLevel: NSWindow.Level = .popUpMenu
 }
 
 private struct EdgePortalView: View {
