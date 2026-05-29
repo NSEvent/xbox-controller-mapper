@@ -8,6 +8,7 @@ struct ButtonIconView: View {
     let isDualSense: Bool
     let isNintendo: Bool
     let isSteamController: Bool
+    let isAppleTVRemote: Bool
     let showDirectionalArrows: Bool
 
     init(
@@ -16,6 +17,7 @@ struct ButtonIconView: View {
         isDualSense: Bool = false,
         isNintendo: Bool = false,
         isSteamController: Bool = false,
+		isAppleTVRemote: Bool = false,
         showDirectionalArrows: Bool = false
     ) {
         self.button = button
@@ -23,6 +25,7 @@ struct ButtonIconView: View {
         self.isDualSense = isDualSense
         self.isNintendo = isNintendo
         self.isSteamController = isSteamController
+		self.isAppleTVRemote = isAppleTVRemote
         self.showDirectionalArrows = showDirectionalArrows
     }
     
@@ -165,7 +168,15 @@ struct ButtonIconView: View {
     
     private var baseColor: Color {
         // Use PlayStation style for DualSense face buttons (dark background), standard colors for others
-        if isDualSense {
+		if isAppleTVRemote {
+			switch button {
+			case .a: return Color(white: 0.18)
+			case .x: return Color(red: 0.12, green: 0.36, blue: 0.55)
+			case .menu, .xbox, .siri: return Color(white: 0.28)
+			case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.22)
+			default: return Color(white: 0.2)
+			}
+		} else if isDualSense {
             switch button {
             // PlayStation face buttons: dark/black background (symbols are colored)
             case .a, .b, .x, .y: return Color(white: 0.12)
@@ -273,6 +284,24 @@ struct ButtonIconView: View {
                 // four quarters."
                 quadrantGlyph(for: region)
                     .foregroundColor(.white.opacity(0.95))
+				} else if isAppleTVRemote {
+					if button == .siri {
+						Image(systemName: "mic.fill")
+							.font(.system(size: fontSize, weight: .bold))
+							.foregroundColor(.white.opacity(0.95))
+					} else if button == .appleTVRemotePower ||
+						button == .appleTVRemoteVolumeUp ||
+						button == .appleTVRemoteVolumeDown ||
+						button == .appleTVRemoteMute,
+						let systemImage = button.systemImageName {
+						Image(systemName: systemImage)
+							.font(.system(size: fontSize, weight: .bold))
+							.foregroundColor(.white.opacity(0.95))
+					} else {
+						Text(button.shortLabel(forAppleTVRemote: true))
+						.font(.system(size: fontSize, weight: .bold, design: .rounded))
+						.foregroundColor(.white.opacity(0.95))
+				}
             } else if button == .leftFunction || button == .rightFunction {
                 // Function buttons: show "LFn" or "RFn" text (similar to L1/R1)
                 Text(button.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo))
@@ -282,7 +311,11 @@ struct ButtonIconView: View {
                 Image(systemName: systemImage)
                     .foregroundColor(.white.opacity(0.95))
             } else {
-                Text(button.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo))
+				Text(button.shortLabel(
+					forDualSense: isDualSense,
+					forNintendo: isNintendo,
+					forAppleTVRemote: isAppleTVRemote
+				))
                     .font(.system(size: fontSize, weight: .bold, design: .rounded))
                     .foregroundColor(.white.opacity(0.95))
             }

@@ -27,6 +27,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     case view        // Two squares button (⧉)
     case share       // Share/Screenshot button
     case xbox        // Xbox button (center)
+    case siri        // Siri/voice button (Apple TV Remote side button)
+    case appleTVRemotePower
+    case appleTVRemoteVolumeUp
+    case appleTVRemoteVolumeDown
+    case appleTVRemoteMute
 
     // Thumbstick clicks
     case leftThumbstick
@@ -136,6 +141,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         case .view: return "View"
         case .share: return "Share"
         case .xbox: return "Xbox"
+		case .siri: return "Siri"
+		case .appleTVRemotePower: return "Power"
+		case .appleTVRemoteVolumeUp: return "Volume Up"
+		case .appleTVRemoteVolumeDown: return "Volume Down"
+		case .appleTVRemoteMute: return "Mute"
         case .leftThumbstick: return "Left Stick"
         case .rightThumbstick: return "Right Stick"
         case .leftStickUp: return "Left Stick Up"
@@ -244,8 +254,30 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Display name for Apple TV/Siri Remote controls.
+    func displayName(forAppleTVRemote isAppleTVRemote: Bool) -> String {
+		guard isAppleTVRemote else { return displayName }
+		switch self {
+		case .a: return "Clickpad"
+		case .x: return "Play/Pause"
+		case .menu: return "Back"
+		case .xbox: return "TV/Home"
+		case .siri: return "Siri"
+		case .appleTVRemotePower: return "Power"
+		case .appleTVRemoteVolumeUp: return "Volume Up"
+		case .appleTVRemoteVolumeDown: return "Volume Down"
+		case .appleTVRemoteMute: return "Mute"
+		default: return displayName
+		}
+    }
+
     /// Display name that adapts to any controller type
-    func displayName(forDualSense isDualSense: Bool, forNintendo isNintendo: Bool) -> String {
+    func displayName(
+		forDualSense isDualSense: Bool,
+		forNintendo isNintendo: Bool,
+		forAppleTVRemote isAppleTVRemote: Bool = false
+    ) -> String {
+		if isAppleTVRemote { return displayName(forAppleTVRemote: true) }
         if isNintendo { return displayName(forNintendo: true) }
         return displayName(forDualSense: isDualSense)
     }
@@ -269,6 +301,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         case .view: return "⧉"
         case .share: return "⬆"
         case .xbox: return "⊗"
+		case .siri: return "Siri"
+		case .appleTVRemotePower: return "PWR"
+		case .appleTVRemoteVolumeUp: return "V+"
+		case .appleTVRemoteVolumeDown: return "V-"
+		case .appleTVRemoteMute: return "Mute"
         case .leftThumbstick: return "L3"
         case .rightThumbstick: return "R3"
         case .leftStickUp: return "L↑"
@@ -374,8 +411,30 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Short label for Apple TV/Siri Remote controls.
+    func shortLabel(forAppleTVRemote isAppleTVRemote: Bool) -> String {
+		guard isAppleTVRemote else { return shortLabel }
+		switch self {
+		case .a: return "OK"
+		case .x: return "▶"
+		case .menu: return "←"
+		case .xbox: return "TV"
+		case .siri: return "Siri"
+		case .appleTVRemotePower: return "PWR"
+		case .appleTVRemoteVolumeUp: return "V+"
+		case .appleTVRemoteVolumeDown: return "V-"
+		case .appleTVRemoteMute: return "Mute"
+		default: return shortLabel
+		}
+    }
+
     /// Short label that adapts to any controller type
-    func shortLabel(forDualSense isDualSense: Bool, forNintendo isNintendo: Bool) -> String {
+    func shortLabel(
+		forDualSense isDualSense: Bool,
+		forNintendo isNintendo: Bool,
+		forAppleTVRemote isAppleTVRemote: Bool = false
+    ) -> String {
+		if isAppleTVRemote { return shortLabel(forAppleTVRemote: true) }
         if isNintendo { return shortLabel(forNintendo: true) }
         return shortLabel(forDualSense: isDualSense)
     }
@@ -447,6 +506,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
             case .view: return "rectangle.on.rectangle"
             case .share: return "square.and.arrow.up"
             case .xbox: return "xbox.logo"
+			case .siri: return "mic.fill"
+			case .appleTVRemotePower: return "power"
+			case .appleTVRemoteVolumeUp: return "speaker.wave.3.fill"
+			case .appleTVRemoteVolumeDown: return "speaker.wave.1.fill"
+			case .appleTVRemoteMute: return "speaker.slash.fill"
             case .leftThumbstick: return "l.circle"
             case .rightThumbstick: return "r.circle"
             case .a: return "a.circle"
@@ -478,7 +542,9 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
             return .trigger
         case .dpadUp, .dpadDown, .dpadLeft, .dpadRight:
             return .dpad
-        case .menu, .view, .share, .xbox:
+		case .menu, .view, .share, .xbox, .siri,
+			 .appleTVRemotePower, .appleTVRemoteVolumeUp,
+			 .appleTVRemoteVolumeDown, .appleTVRemoteMute:
             return .special
         case .leftThumbstick, .rightThumbstick:
             return .thumbstick
@@ -561,6 +627,16 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         default:
             return false
         }
+    }
+
+    /// Whether this button is only available on Apple TV/Siri Remote devices.
+    var isAppleTVRemoteOnly: Bool {
+		switch self {
+		case .siri, .appleTVRemotePower, .appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute:
+			return true
+		default:
+			return false
+		}
     }
 
     /// Whether this button represents one of the eight touchpad quadrant
@@ -816,7 +892,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
 
     /// Buttons available for Xbox controllers (excludes Elite-only paddles)
     static var xboxButtons: [ControllerButton] {
-        allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly }
+		allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && !$0.isAppleTVRemoteOnly }
     }
 
     /// Buttons available only on Xbox Elite controllers
@@ -827,18 +903,28 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Buttons available for DualShock 4 controllers (has touchpad, no mic mute or paddles)
     /// Note: DualShock 4's physical Share button maps to .view (buttonOptions), not .share
     static var dualShockButtons: [ControllerButton] {
-        allCases.filter { !$0.isDualSenseOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && $0 != .share }
+		allCases.filter { !$0.isDualSenseOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && !$0.isAppleTVRemoteOnly && $0 != .share }
     }
 
     /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)
     static var dualSenseButtons: [ControllerButton] {
-        allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly }
+		allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && !$0.isAppleTVRemoteOnly }
     }
 
     /// Buttons available for Nintendo controllers (Joy-Con, Pro Controller)
     /// Same as Xbox — no touchpad, mic, paddles, or gyro gestures
     static var nintendoButtons: [ControllerButton] {
-        allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly }
+		allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && !$0.isAppleTVRemoteOnly }
+    }
+
+    /// Buttons available for Apple TV/Siri Remote devices.
+    static var appleTVRemoteButtons: [ControllerButton] {
+		[
+			.appleTVRemotePower,
+			.dpadUp, .dpadDown, .dpadLeft, .dpadRight,
+			.a, .x, .menu, .xbox, .siri,
+			.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute
+		]
     }
 
     /// SF Symbol name for Nintendo controllers

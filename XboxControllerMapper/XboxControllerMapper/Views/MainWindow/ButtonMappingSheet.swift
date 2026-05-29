@@ -5,10 +5,11 @@ import AppKit
 struct ButtonMappingSheet: View {
     let button: ControllerButton
     @Binding var mapping: KeyMapping?
-    var isDualSense: Bool = false
-    var isNintendo: Bool = false
-    var isSteamController: Bool = false
-    var selectedLayerId: UUID? = nil  // nil = editing base layer
+	    var isDualSense: Bool = false
+	    var isNintendo: Bool = false
+	    var isSteamController: Bool = false
+	    var isAppleTVRemote: Bool = false
+	    var selectedLayerId: UUID? = nil  // nil = editing base layer
 
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var appMonitor: AppMonitor
@@ -224,12 +225,12 @@ struct ButtonMappingSheet: View {
 
     private var header: some View {
         HStack {
-            ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController)
-                .padding(.trailing, 8)
+				ButtonIconView(button: button, isPressed: false, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
+					.padding(.trailing, 8)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Configure \(button.displayName(forDualSense: isDualSense, forNintendo: isNintendo))")
-                    .font(.headline)
+				VStack(alignment: .leading, spacing: 4) {
+					Text("Configure \(button.displayName(forDualSense: isDualSense, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))")
+						.font(.headline)
 
                 if let currentMapping = mapping {
                     HStack(spacing: 4) {

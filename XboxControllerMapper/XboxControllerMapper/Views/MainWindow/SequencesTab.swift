@@ -19,10 +19,11 @@ struct SequencesTab: View {
                 if let profile = profileManager.activeProfile, !profile.sequenceMappings.isEmpty {
                     SequenceListView(
                         sequences: profile.sequenceMappings,
-                        isDualSense: controllerService.threadSafeIsPlayStation,
-                        isNintendo: controllerService.threadSafeIsNintendo,
-                        isSteamController: controllerService.threadSafeIsSteamController,
-                        onEdit: { sequence in
+							isDualSense: controllerService.threadSafeIsPlayStation,
+							isNintendo: controllerService.threadSafeIsNintendo,
+							isSteamController: controllerService.threadSafeIsSteamController,
+							isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
+							onEdit: { sequence in
                             editingSequence = sequence
                         },
                         onDelete: { sequence in

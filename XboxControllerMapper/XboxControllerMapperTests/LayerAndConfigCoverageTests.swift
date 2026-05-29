@@ -275,9 +275,10 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         _ = Config.touchpadMomentumBoostMin
         _ = Config.touchpadMomentumBoostMax
         _ = Config.touchpadMomentumBoostMaxVelocity
-        _ = Config.lastControllerWasDualSenseKey
-        _ = Config.lastControllerWasDualSenseEdgeKey
-        _ = Config.touchpadDebugLoggingKey
+			_ = Config.lastControllerWasDualSenseKey
+			_ = Config.lastControllerWasDualSenseEdgeKey
+			_ = Config.lastControllerWasAppleTVRemoteKey
+			_ = Config.touchpadDebugLoggingKey
         _ = Config.touchpadDebugEnvKey
         _ = Config.touchpadDebugLogInterval
         _ = Config.chordReleaseProcessingDelay

@@ -13,9 +13,13 @@ struct InputLogView: View {
         controllerService.threadSafeIsNintendo
     }
 
-    private var isSteamController: Bool {
-        controllerService.threadSafeIsSteamController
-    }
+	    private var isSteamController: Bool {
+			controllerService.threadSafeIsSteamController
+	    }
+
+	    private var isAppleTVRemote: Bool {
+			controllerService.threadSafeIsAppleTVRemote
+	    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -41,7 +45,7 @@ struct InputLogView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 0) {
                         ForEach(inputLogService.entries) { entry in
-                            LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController)
+								LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
                         }
                     }
                     .frame(minHeight: 46)
@@ -65,12 +69,13 @@ struct InputLogView: View {
 private struct LogEntryView: View, Equatable {
     let entry: InputLogEntry
     let isLast: Bool
-    let isPlayStation: Bool  // True for DualSense/DualShock - used for PS-style labels
-    let isNintendo: Bool
-    let isSteamController: Bool
+	    let isPlayStation: Bool  // True for DualSense/DualShock - used for PS-style labels
+	    let isNintendo: Bool
+	    let isSteamController: Bool
+	    let isAppleTVRemote: Bool
 
-    static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
-        lhs.isLast == rhs.isLast && lhs.entry == rhs.entry && lhs.isPlayStation == rhs.isPlayStation && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController
+	    static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
+			lhs.isLast == rhs.isLast && lhs.entry == rhs.entry && lhs.isPlayStation == rhs.isPlayStation && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController && lhs.isAppleTVRemote == rhs.isAppleTVRemote
     }
 
     var body: some View {
@@ -79,7 +84,7 @@ private struct LogEntryView: View, Equatable {
                 // Top: Button(s) + Type
                 HStack(spacing: 4) {
                     ForEach(entry.buttons, id: \.self) { button in
-                        ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController)
+							ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
                     }
 
                     if entry.type != .singlePress {
@@ -125,7 +130,7 @@ private struct LogEntryView: View, Equatable {
     }
 
     private var accessibilityDescription: String {
-        let buttonNames = entry.buttons.map { $0.displayName(forDualSense: isPlayStation, forNintendo: isNintendo) }.joined(separator: " plus ")
+			let buttonNames = entry.buttons.map { $0.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote) }.joined(separator: " plus ")
         let typeDescription = entry.type == .singlePress ? "" : ", \(entry.type.rawValue)"
         return "\(buttonNames)\(typeDescription): \(entry.actionDescription)"
     }

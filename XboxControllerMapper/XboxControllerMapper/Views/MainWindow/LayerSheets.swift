@@ -17,16 +17,19 @@ struct AddLayerSheet: View {
     }
 
     /// Available activator buttons (exclude already-used ones)
-    private var availableButtons: [ControllerButton] {
-        // Good candidates for layer activators: bumpers, triggers, share, view, menu
-        var candidates: [ControllerButton] = [
-            .leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
-            .share, .view, .menu, .xbox,
-            .leftThumbstick, .rightThumbstick
-        ]
-        // Add Edge-specific buttons when Edge controller is connected
-        if controllerService.threadSafeIsDualSenseEdge {
-            candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
+	    private var availableButtons: [ControllerButton] {
+			// Good candidates for layer activators: bumpers, triggers, share, view, menu
+			var candidates: [ControllerButton] = [
+				.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
+				.share, .view, .menu, .xbox,
+				.leftThumbstick, .rightThumbstick
+			]
+			if controllerService.threadSafeIsAppleTVRemote {
+				candidates = [.menu, .x, .xbox, .siri]
+			}
+			// Add Edge-specific buttons when Edge controller is connected
+			if controllerService.threadSafeIsDualSenseEdge {
+				candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
         }
         return candidates.filter { !usedActivators.contains($0) }
     }
@@ -54,11 +57,11 @@ struct AddLayerSheet: View {
                         .foregroundColor(.secondary)
 
                     Picker("Activator", selection: $selectedActivator) {
-                        Text("None (assign later)").tag(nil as ControllerButton?)
-                        ForEach(availableButtons, id: \.self) { button in
-                            Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo))
-                                .tag(button as ControllerButton?)
-                        }
+							Text("None (assign later)").tag(nil as ControllerButton?)
+							ForEach(availableButtons, id: \.self) { button in
+								Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo, forAppleTVRemote: controllerService.threadSafeIsAppleTVRemote))
+									.tag(button as ControllerButton?)
+							}
                     }
                     .pickerStyle(.menu)
                 }
@@ -140,15 +143,18 @@ struct EditLayerSheet: View {
     }
 
     /// Available activator buttons (exclude already-used ones, but include current)
-    private var availableButtons: [ControllerButton] {
-        var candidates: [ControllerButton] = [
-            .leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
-            .share, .view, .menu, .xbox,
-            .leftThumbstick, .rightThumbstick
-        ]
-        // Add Edge-specific buttons when Edge controller is connected
-        if controllerService.threadSafeIsDualSenseEdge {
-            candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
+	    private var availableButtons: [ControllerButton] {
+			var candidates: [ControllerButton] = [
+				.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
+				.share, .view, .menu, .xbox,
+				.leftThumbstick, .rightThumbstick
+			]
+			if controllerService.threadSafeIsAppleTVRemote {
+				candidates = [.menu, .x, .xbox, .siri]
+			}
+			// Add Edge-specific buttons when Edge controller is connected
+			if controllerService.threadSafeIsDualSenseEdge {
+				candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
         }
         return candidates.filter { !usedActivators.contains($0) }
     }
@@ -173,11 +179,11 @@ struct EditLayerSheet: View {
                         .foregroundColor(.secondary)
 
                     Picker("Activator", selection: $selectedActivator) {
-                        Text("None (assign later)").tag(nil as ControllerButton?)
-                        ForEach(availableButtons, id: \.self) { button in
-                            Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo))
-                                .tag(button as ControllerButton?)
-                        }
+							Text("None (assign later)").tag(nil as ControllerButton?)
+							ForEach(availableButtons, id: \.self) { button in
+								Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo, forAppleTVRemote: controllerService.threadSafeIsAppleTVRemote))
+									.tag(button as ControllerButton?)
+							}
                     }
                     .pickerStyle(.menu)
                 }

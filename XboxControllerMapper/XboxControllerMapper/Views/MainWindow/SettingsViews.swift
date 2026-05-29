@@ -296,6 +296,7 @@ struct JoystickSettingsView: View {
 
 struct TouchpadSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
+	@EnvironmentObject var controllerService: ControllerService
     @State private var cursorAdvancedExpanded = false
     @State private var zoomAdvancedExpanded = false
 
@@ -303,16 +304,20 @@ struct TouchpadSettingsView: View {
         profileManager.activeProfile?.joystickSettings ?? .default
     }
 
+	private var isAppleTVRemote: Bool {
+		controllerService.threadSafeIsAppleTVRemote
+	}
+
     var body: some View {
         Form {
-            Section("Touchpad Cursor") {
+			Section(isAppleTVRemote ? "Touch Surface Cursor" : "Touchpad Cursor") {
                 Toggle(isOn: Binding(
                     get: { settings.disableTouchpadAsMouse },
                     set: { updateSettings(\.disableTouchpadAsMouse, $0) }
                 )) {
                     VStack(alignment: .leading) {
-                        Text("Disable Touchpad as Mouse")
-                        Text("Stop single-finger swipes from moving the cursor. Two-finger gestures, taps, region clicks, and swipe typing still work.")
+						Text(isAppleTVRemote ? "Disable Touch Surface as Mouse" : "Disable Touchpad as Mouse")
+						Text(isAppleTVRemote ? "Stop swipes on the remote touch surface from moving the cursor." : "Stop single-finger swipes from moving the cursor. Two-finger gestures, taps, region clicks, and swipe typing still work.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -361,51 +366,53 @@ struct TouchpadSettingsView: View {
                 }
             }
 
-            Section("Scroll & Zoom") {
-                SliderRow(
-                    label: "Two-Finger Pan",
-                    value: Binding(
-                        get: { settings.touchpadPanSensitivity },
-                        set: { updateSettings(\.touchpadPanSensitivity, $0) }
-                    ),
-                    range: 0...1,
-                    description: "Scroll speed for two-finger pan"
-                )
+			if !isAppleTVRemote {
+				Section("Scroll & Zoom") {
+					SliderRow(
+						label: "Two-Finger Pan",
+						value: Binding(
+							get: { settings.touchpadPanSensitivity },
+							set: { updateSettings(\.touchpadPanSensitivity, $0) }
+						),
+						range: 0...1,
+						description: "Scroll speed for two-finger pan"
+					)
 
-                Toggle("Reverse Horizontal Scroll", isOn: Binding(
-                    get: { settings.touchpadInvertScrollX },
-                    set: { updateSettings(\.touchpadInvertScrollX, $0) }
-                ))
+					Toggle("Reverse Horizontal Scroll", isOn: Binding(
+						get: { settings.touchpadInvertScrollX },
+						set: { updateSettings(\.touchpadInvertScrollX, $0) }
+					))
 
-                Toggle("Reverse Vertical Scroll", isOn: Binding(
-                    get: { settings.touchpadInvertScrollY },
-                    set: { updateSettings(\.touchpadInvertScrollY, $0) }
-                ))
+					Toggle("Reverse Vertical Scroll", isOn: Binding(
+						get: { settings.touchpadInvertScrollY },
+						set: { updateSettings(\.touchpadInvertScrollY, $0) }
+					))
 
-                DisclosureGroup("Zoom Details", isExpanded: $zoomAdvancedExpanded) {
-                    SliderRow(
-                        label: "Pan to Zoom Ratio",
-                        value: Binding(
-                            get: { settings.touchpadZoomToPanRatio },
-                            set: { updateSettings(\.touchpadZoomToPanRatio, $0) }
-                        ),
-                        range: 0.5...5.0,
-                        description: "Low = easier to zoom, High = easier to pan"
-                    )
+					DisclosureGroup("Zoom Details", isExpanded: $zoomAdvancedExpanded) {
+						SliderRow(
+							label: "Pan to Zoom Ratio",
+							value: Binding(
+								get: { settings.touchpadZoomToPanRatio },
+								set: { updateSettings(\.touchpadZoomToPanRatio, $0) }
+							),
+							range: 0.5...5.0,
+							description: "Low = easier to zoom, High = easier to pan"
+						)
 
-                    Toggle(isOn: Binding(
-                        get: { settings.touchpadUseNativeZoom },
-                        set: { updateSettings(\.touchpadUseNativeZoom, $0) }
-                    )) {
-                        VStack(alignment: .leading) {
-                            Text("Native Zoom Gestures")
-                            Text("Use macOS magnify gestures instead of Cmd+Plus/Minus")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            }
+						Toggle(isOn: Binding(
+							get: { settings.touchpadUseNativeZoom },
+							set: { updateSettings(\.touchpadUseNativeZoom, $0) }
+						)) {
+							VStack(alignment: .leading) {
+								Text("Native Zoom Gestures")
+								Text("Use macOS magnify gestures instead of Cmd+Plus/Minus")
+									.font(.caption)
+									.foregroundColor(.secondary)
+							}
+						}
+					}
+				}
+			}
 
             // Region Mappings have been promoted to first-class buttons in the
             // Buttons tab (see the "TOUCHPAD REGIONS" section above the controller
@@ -413,19 +420,21 @@ struct TouchpadSettingsView: View {
             // other controller button. The legacy in-place grid is gone; the
             // toggle below stays here because it's a global touchpad-input
             // policy, not a per-quadrant binding.
-            Section("Region Behavior") {
-                Toggle(isOn: Binding(
-                    get: { settings.requireActiveTouchForRegionClick },
-                    set: { updateSettings(\.requireActiveTouchForRegionClick, $0) }
-                )) {
-                    VStack(alignment: .leading) {
-                        Text("Require Active Touch for Region Clicks")
-                        Text("Only fire region clicks when a finger is on the pad. Prevents stale-position misfires when clicking after lifting off.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
+			if !isAppleTVRemote {
+				Section("Region Behavior") {
+					Toggle(isOn: Binding(
+						get: { settings.requireActiveTouchForRegionClick },
+						set: { updateSettings(\.requireActiveTouchForRegionClick, $0) }
+					)) {
+						VStack(alignment: .leading) {
+							Text("Require Active Touch for Region Clicks")
+							Text("Only fire region clicks when a finger is on the pad. Prevents stale-position misfires when clicking after lifting off.")
+								.font(.caption)
+								.foregroundColor(.secondary)
+						}
+					}
+				}
+			}
         }
         .formStyle(.grouped)
         .padding()
@@ -1266,6 +1275,7 @@ struct SettingsSheet: View {
                                             isPlayStation: controllerService.threadSafeIsPlayStation,
                                             isDualSense: controllerService.threadSafeIsDualSense,
                                             isSteamController: controllerService.threadSafeIsSteamController,
+											isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
                                             hasMotion: controllerService.threadSafeHasMotion
                                         ) {
                                             Text(unavailableReason(for: section))
@@ -1279,6 +1289,7 @@ struct SettingsSheet: View {
                                 isPlayStation: controllerService.threadSafeIsPlayStation,
                                 isDualSense: controllerService.threadSafeIsDualSense,
                                 isSteamController: controllerService.threadSafeIsSteamController,
+								isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
                                 hasMotion: controllerService.threadSafeHasMotion
                             ) || isLastVisibleSection(section))
                         }
@@ -1538,6 +1549,7 @@ struct SettingsSheet: View {
             isPlayStation: controllerService.threadSafeIsPlayStation,
             isDualSense: controllerService.threadSafeIsDualSense,
             isSteamController: controllerService.threadSafeIsSteamController,
+			isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
             hasMotion: controllerService.threadSafeHasMotion
         )
         return visibleSections.count == 1 && visibleSections.first == section
@@ -1563,7 +1575,7 @@ struct SettingsSheet: View {
     private func unavailableReason(for section: MainWindowSection) -> String {
         switch section {
         case .touchpad:
-            return "Requires a PlayStation or Steam Controller"
+			return "Requires a PlayStation, Steam, or Apple TV Remote"
         case .leds:
             return "Requires a PlayStation controller"
         case .gestures:

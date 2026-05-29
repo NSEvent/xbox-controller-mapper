@@ -167,11 +167,12 @@ struct ContentView: View {
                     },
                     set: { _ in } // Read-only: ButtonMappingSheet saves directly via ProfileManager (see saveMapping())
                 ),
-                isDualSense: controllerService.threadSafeIsPlayStation,
-                isNintendo: controllerService.threadSafeIsNintendo,
-                isSteamController: controllerService.threadSafeIsSteamController,
-                selectedLayerId: selectedLayerId
-            )
+					isDualSense: controllerService.threadSafeIsPlayStation,
+					isNintendo: controllerService.threadSafeIsNintendo,
+					isSteamController: controllerService.threadSafeIsSteamController,
+					isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
+					selectedLayerId: selectedLayerId
+				)
         }
         .sheet(isPresented: $showingChordSheet) {
             ChordMappingSheet()
@@ -266,10 +267,13 @@ struct ContentView: View {
         .onChange(of: controllerService.threadSafeIsDualSense) { _, _ in
             selectFirstVisibleTabIfNeeded()
         }
-        .onChange(of: controllerService.threadSafeIsSteamController) { _, _ in
-            selectFirstVisibleTabIfNeeded()
-        }
-        .onChange(of: controllerService.threadSafeHasMotion) { _, _ in
+			.onChange(of: controllerService.threadSafeIsSteamController) { _, _ in
+				selectFirstVisibleTabIfNeeded()
+			}
+			.onChange(of: controllerService.threadSafeIsAppleTVRemote) { _, _ in
+				selectFirstVisibleTabIfNeeded()
+			}
+			.onChange(of: controllerService.threadSafeHasMotion) { _, _ in
             selectFirstVisibleTabIfNeeded()
         }
         .onDisappear {
@@ -290,6 +294,7 @@ struct ContentView: View {
             isPlayStation: controllerService.threadSafeIsPlayStation,
             isDualSense: controllerService.threadSafeIsDualSense,
             isSteamController: controllerService.threadSafeIsSteamController,
+			isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
             hasMotion: controllerService.threadSafeHasMotion
         )
         .map(\.tabItem)
@@ -679,11 +684,12 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         isPlayStation: Bool,
         isDualSense: Bool,
         isSteamController: Bool,
+		isAppleTVRemote: Bool,
         hasMotion: Bool
     ) -> Bool {
         switch self {
         case .touchpad:
-            return isPlayStation || isSteamController
+			return isPlayStation || isSteamController || isAppleTVRemote
         case .leds:
             return isPlayStation
         case .gestures:
@@ -716,6 +722,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         isPlayStation: Bool,
         isDualSense: Bool,
         isSteamController: Bool,
+		isAppleTVRemote: Bool,
         hasMotion: Bool
     ) -> [MainWindowSection] {
         displayOrder.filter { section in
@@ -723,6 +730,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
                 isPlayStation: isPlayStation,
                 isDualSense: isDualSense,
                 isSteamController: isSteamController,
+				isAppleTVRemote: isAppleTVRemote,
                 hasMotion: hasMotion
             )
                 && !hiddenSections.contains(section)

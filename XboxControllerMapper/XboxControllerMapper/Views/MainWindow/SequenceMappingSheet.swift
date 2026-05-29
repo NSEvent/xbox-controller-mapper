@@ -33,9 +33,13 @@ struct SequenceMappingSheet: View {
         controllerService.threadSafeIsSteamController
     }
 
-    private var isNintendo: Bool {
-        controllerService.threadSafeIsNintendo
-    }
+	    private var isNintendo: Bool {
+			controllerService.threadSafeIsNintendo
+	    }
+
+	    private var isAppleTVRemote: Bool {
+			controllerService.threadSafeIsAppleTVRemote
+	    }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -178,13 +182,14 @@ struct SequenceMappingSheet: View {
                                         .accessibilityHidden(true)
                                 }
                                 HStack(spacing: 2) {
-                                    ButtonIconView(
-                                        button: button,
-                                        isDualSense: isPlayStation,
-                                        isNintendo: isNintendo,
-                                        isSteamController: isSteamController
-                                    )
-                                        .accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))")
+										ButtonIconView(
+											button: button,
+											isDualSense: isPlayStation,
+											isNintendo: isNintendo,
+											isSteamController: isSteamController,
+											isAppleTVRemote: isAppleTVRemote
+										)
+											.accessibilityLabel("Step \(index + 1): \(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))")
                                     Button(action: {
                                         steps.remove(at: index)
                                     }) {
@@ -193,7 +198,7 @@ struct SequenceMappingSheet: View {
                                             .foregroundColor(.red.opacity(0.7))
                                     }
                                     .buttonStyle(.borderless)
-                                    .accessibilityLabel("Remove \(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)) from step \(index + 1)")
+										.accessibilityLabel("Remove \(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote)) from step \(index + 1)")
                                 }
                             }
 
@@ -213,7 +218,7 @@ struct SequenceMappingSheet: View {
                         .frame(height: 40)
                         .background(Color.black.opacity(0.2))
                         .cornerRadius(8)
-                        .accessibilityLabel("Current sequence: \(steps.map { $0.displayName(forDualSense: isPlayStation, forNintendo: isNintendo) }.joined(separator: ", then "))")
+							.accessibilityLabel("Current sequence: \(steps.map { $0.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote) }.joined(separator: ", then "))")
                     }
 
                     if sequenceAlreadyExists {
@@ -440,18 +445,20 @@ struct SequenceMappingSheet: View {
     @ViewBuilder
     private var sequenceButtonGrid: some View {
         VStack(spacing: 10) {
-            // Top Row: Triggers & Bumpers
-            HStack(spacing: 120) {
-                VStack(spacing: 8) {
-                    addStepButton(.leftTrigger)
-                    addStepButton(.leftBumper)
-                }
+				// Top Row: Triggers & Bumpers
+				if !isAppleTVRemote {
+					HStack(spacing: 120) {
+						VStack(spacing: 8) {
+							addStepButton(.leftTrigger)
+							addStepButton(.leftBumper)
+						}
 
-                VStack(spacing: 8) {
-                    addStepButton(.rightTrigger)
-                    addStepButton(.rightBumper)
-                }
-            }
+						VStack(spacing: 8) {
+							addStepButton(.rightTrigger)
+							addStepButton(.rightBumper)
+						}
+					}
+				}
 
             // Middle Row: D-Pad, System, Face Buttons, Sticks
             HStack(alignment: .top, spacing: 40) {
@@ -466,50 +473,68 @@ struct SequenceMappingSheet: View {
                         addStepButton(.dpadDown)
                     }
 
-                    addStepButton(.leftThumbstick)
+						if !isAppleTVRemote {
+							addStepButton(.leftThumbstick)
+						}
 
-                    if !leftJoystickDirectionButtons.isEmpty {
-                        JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStickMode) { button in
-                            addStepButton(button)
-                        }
+						if !isAppleTVRemote && !leftJoystickDirectionButtons.isEmpty {
+							JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStickMode) { button in
+								addStepButton(button)
+							}
                     }
                 }
 
-                // Center Column: System Buttons
-                VStack(spacing: 15) {
-                    addStepButton(.xbox)
-                    HStack(spacing: 25) {
-                        addStepButton(.view)
-                        addStepButton(.menu)
-                    }
-                    if isDualSense {
-                        addStepButton(.micMute)
-                    } else if !isDualShock {
-                        addStepButton(.share)
-                    }
-                    if isPlayStation {
-                        addStepButton(.touchpadButton)
-                    }
-                }
-                .padding(.top, 15)
+					// Center Column: System Buttons
+					VStack(spacing: 15) {
+						addStepButton(.xbox)
+						if isAppleTVRemote {
+							HStack(spacing: 25) {
+								addStepButton(.menu)
+								addStepButton(.siri)
+							}
+						} else {
+							HStack(spacing: 25) {
+								addStepButton(.view)
+								addStepButton(.menu)
+							}
+							if isDualSense {
+								addStepButton(.micMute)
+							} else if !isDualShock {
+								addStepButton(.share)
+							}
+							if isPlayStation {
+								addStepButton(.touchpadButton)
+							}
+						}
+					}
+					.padding(.top, 15)
 
                 // Right Column: Face Buttons & Stick
                 VStack(spacing: 25) {
-                    VStack(spacing: 2) {
-                        addStepButton(.y)
-                        HStack(spacing: 25) {
-                            addStepButton(.x)
-                            addStepButton(.b)
-                        }
-                        addStepButton(.a)
-                    }
+						if isAppleTVRemote {
+							VStack(spacing: 12) {
+								addStepButton(.x)
+								addStepButton(.a)
+							}
+						} else {
+							VStack(spacing: 2) {
+								addStepButton(.y)
+								HStack(spacing: 25) {
+									addStepButton(.x)
+									addStepButton(.b)
+								}
+								addStepButton(.a)
+							}
+						}
 
-                    addStepButton(.rightThumbstick)
+						if !isAppleTVRemote {
+							addStepButton(.rightThumbstick)
+						}
 
-                    if !rightJoystickDirectionButtons.isEmpty {
-                        JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStickMode) { button in
-                            addStepButton(button)
-                        }
+						if !isAppleTVRemote && !rightJoystickDirectionButtons.isEmpty {
+							JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStickMode) { button in
+								addStepButton(button)
+							}
                     }
                 }
             }
@@ -596,7 +621,7 @@ struct SequenceMappingSheet: View {
     @ViewBuilder
     private func addStepButton(_ button: ControllerButton) -> some View {
         let scale: CGFloat = 1.3
-        let buttonName = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)
+			let buttonName = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote)
 
         Button(action: {
             if steps.count < Config.maxSequenceSteps {
@@ -605,11 +630,12 @@ struct SequenceMappingSheet: View {
         }) {
             ButtonIconView(
                 button: button,
-                isPressed: false,
-                isDualSense: isPlayStation,
-                isNintendo: isNintendo,
-                isSteamController: isSteamController
-            )
+					isPressed: false,
+					isDualSense: isPlayStation,
+					isNintendo: isNintendo,
+					isSteamController: isSteamController,
+					isAppleTVRemote: isAppleTVRemote
+				)
                 .scaleEffect(scale)
         }
         .buttonStyle(.borderless)

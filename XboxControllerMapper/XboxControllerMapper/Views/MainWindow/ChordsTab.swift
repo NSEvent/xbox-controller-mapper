@@ -19,10 +19,11 @@ struct ChordsTab: View {
                 if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
                     ChordListView(
                         chords: profile.chordMappings,
-                        isDualSense: controllerService.threadSafeIsPlayStation,
-                        isNintendo: controllerService.threadSafeIsNintendo,
-                        isSteamController: controllerService.threadSafeIsSteamController,
-                        onEdit: { chord in
+							isDualSense: controllerService.threadSafeIsPlayStation,
+							isNintendo: controllerService.threadSafeIsNintendo,
+							isSteamController: controllerService.threadSafeIsSteamController,
+							isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
+							onEdit: { chord in
                             editingChord = chord
                         },
                         onDelete: { chord in

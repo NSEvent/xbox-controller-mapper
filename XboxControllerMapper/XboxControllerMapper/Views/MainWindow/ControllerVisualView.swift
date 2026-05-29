@@ -153,9 +153,13 @@ struct ControllerVisualView: View {
         controllerService.threadSafeIsSteamController
     }
 
-    private var isNintendo: Bool {
-        controllerService.threadSafeIsNintendo
-    }
+	    private var isNintendo: Bool {
+			controllerService.threadSafeIsNintendo
+	    }
+
+	    private var isAppleTVRemote: Bool {
+			controllerService.threadSafeIsAppleTVRemote
+	    }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -227,8 +231,29 @@ struct ControllerVisualView: View {
         return Color.purple
     }
 
-    var body: some View {
-        HStack(alignment: .center, spacing: 0) {
+	    var body: some View {
+			Group {
+				if isAppleTVRemote {
+					appleTVRemoteLayout
+				} else {
+					standardControllerLayout
+				}
+			}
+			.overlayPreferenceValue(ControllerButtonAnchorPreferenceKey.self) { endpoints in
+				GeometryReader { proxy in
+					ConnectorLayer(
+						endpoints: endpoints,
+						proxy: proxy,
+						hoveredButton: hoveredButton,
+						emphasizedButtons: connectorEmphasisButtons
+					)
+				}
+			}
+	    }
+
+	    @ViewBuilder
+	    private var standardControllerLayout: some View {
+			HStack(alignment: .center, spacing: 0) {
             // Left Column: Shoulder and Left-side inputs
             VStack(alignment: .trailing, spacing: 16) {
                 referenceGroup(title: "Shoulder", buttons: [.leftTrigger, .leftBumper])
@@ -370,19 +395,41 @@ struct ControllerVisualView: View {
             }
             .frame(width: 220)
             .padding(.leading, 20)
-        }
-        .padding(20)
-        .overlayPreferenceValue(ControllerButtonAnchorPreferenceKey.self) { endpoints in
-            GeometryReader { proxy in
-                ConnectorLayer(
-                    endpoints: endpoints,
-                    proxy: proxy,
-                    hoveredButton: hoveredButton,
-                    emphasizedButtons: connectorEmphasisButtons
-                )
-            }
-        }
-    }
+			}
+			.padding(20)
+	    }
+
+	    @ViewBuilder
+	    private var appleTVRemoteLayout: some View {
+			HStack(alignment: .center, spacing: 26) {
+				VStack(alignment: .trailing, spacing: 16) {
+					directionCluster(
+						title: "Clickpad",
+						up: .dpadUp,
+						left: .dpadLeft,
+						center: .button(.a),
+						right: .dpadRight,
+						down: .dpadDown
+					)
+				}
+				.frame(width: 250)
+
+				appleTVRemoteBodyView
+					.frame(width: 210, height: 380)
+					.accessibilityHidden(true)
+
+					VStack(alignment: .leading, spacing: 16) {
+						referenceGroup(title: "Playback", buttons: [.x, .menu])
+						referenceGroup(title: "System", buttons: [.xbox, .siri])
+						referenceGroup(
+							title: "Controls",
+							buttons: [.appleTVRemotePower, .appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute]
+						)
+					}
+					.frame(width: 250)
+			}
+			.padding(28)
+	    }
 
     private func handleButtonHover(_ button: ControllerButton, _ hovering: Bool) {
         if hovering {
@@ -613,9 +660,9 @@ struct ControllerVisualView: View {
     private var controllerPreviewHeight: CGFloat { isSteamController ? 250 : 220 }
 
     @ViewBuilder
-    private var controllerBodyView: some View {
-        if isSteamController {
-            SteamControllerBodyShape()
+	    private var controllerBodyView: some View {
+			if isSteamController {
+				SteamControllerBodyShape()
                 .fill(LinearGradient(
                     colors: [Color(white: 0.96), Color(white: 0.88)],
                     startPoint: .top,
@@ -646,10 +693,116 @@ struct ControllerVisualView: View {
                     endPoint: .bottom
                 ))
                 .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-        }
-    }
+			}
+	    }
 
-    // MARK: - Reference UI Components
+	    private var appleTVRemoteBodyView: some View {
+			ZStack(alignment: .topTrailing) {
+				RoundedRectangle(cornerRadius: 28, style: .continuous)
+					.fill(
+						LinearGradient(
+							colors: [Color(white: 0.16), Color(white: 0.07)],
+							startPoint: .topLeading,
+							endPoint: .bottomTrailing
+						)
+					)
+					.overlay(
+						RoundedRectangle(cornerRadius: 28, style: .continuous)
+							.stroke(Color.white.opacity(0.10), lineWidth: 1)
+					)
+					.shadow(color: .black.opacity(0.28), radius: 16, x: 0, y: 8)
+
+					VStack(spacing: 22) {
+						appleTVRemoteClickpad
+							.padding(.top, 46)
+
+					HStack(spacing: 22) {
+						appleTVRemoteMockIcon(.menu)
+						appleTVRemoteMockIcon(.x)
+					}
+
+					appleTVRemoteMockIcon(.xbox, scale: 1.16)
+
+					Spacer(minLength: 0)
+				}
+					.frame(maxWidth: .infinity, maxHeight: .infinity)
+
+					appleTVRemoteMockIcon(.appleTVRemotePower, scale: 0.86)
+						.padding(.top, 16)
+						.padding(.trailing, 16)
+
+					appleTVRemoteSiriSideButton
+						.offset(x: 16, y: 120)
+
+					appleTVRemoteVolumeSideButtons
+						.offset(x: 18, y: 212)
+
+					VStack {
+						layerScopeChip
+						Spacer()
+				}
+				.frame(maxWidth: .infinity, maxHeight: .infinity)
+				.padding(.top, 12)
+				.allowsHitTesting(false)
+			}
+	    }
+
+	    private var appleTVRemoteClickpad: some View {
+			ZStack {
+				Circle()
+					.fill(Color(white: 0.23))
+					.overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+				Circle()
+					.strokeBorder(Color.white.opacity(0.10), lineWidth: 18)
+				Text("OK")
+					.font(.system(size: 18, weight: .black, design: .rounded))
+					.foregroundStyle(.white.opacity(0.82))
+			}
+			.frame(width: 118, height: 118)
+			.controllerAnchor([.dpadUp, .dpadDown, .dpadLeft, .dpadRight, .a], role: .controller)
+			.contentShape(Circle())
+			.onTapGesture { onButtonTap(.a) }
+			.onHover { hovering in handleButtonHover(.a, hovering) }
+			.help("Clickpad")
+	    }
+
+	    private var appleTVRemoteSiriSideButton: some View {
+			Capsule()
+				.fill(isPressed(.siri) ? Color.accentColor : Color(white: 0.27))
+				.frame(width: 12, height: 62)
+				.overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
+				.controllerAnchor(.siri, role: .controller)
+				.contentShape(Rectangle())
+				.onTapGesture { onButtonTap(.siri) }
+				.onHover { hovering in handleButtonHover(.siri, hovering) }
+					.help("Siri")
+		    }
+
+			private var appleTVRemoteVolumeSideButtons: some View {
+				VStack(spacing: 8) {
+					appleTVRemoteMockIcon(.appleTVRemoteVolumeUp, scale: 0.78)
+					appleTVRemoteMockIcon(.appleTVRemoteVolumeDown, scale: 0.78)
+					appleTVRemoteMockIcon(.appleTVRemoteMute, scale: 0.78)
+				}
+		    }
+
+		    private func appleTVRemoteMockIcon(_ button: ControllerButton, scale: CGFloat = 1.06) -> some View {
+			ButtonIconView(
+				button: button,
+				isPressed: isPressed(button),
+				isAppleTVRemote: true
+			)
+			.scaleEffect(scale)
+			.frame(width: 40, height: 40)
+			.controllerAnchor(button, role: .controller)
+			.contentShape(Rectangle())
+			.onTapGesture { onButtonTap(button) }
+			.onHover { hovering in handleButtonHover(button, hovering) }
+			.swappable(button, onSwap: performSwap)
+			.help(button.displayName(forAppleTVRemote: true))
+	    }
+
+	    // MARK: - Reference UI Components
 
     @ViewBuilder
     private func referenceGroup(title: String, buttons: [ControllerButton], rowSpacing: CGFloat = 12) -> some View {
@@ -1106,7 +1259,7 @@ struct ControllerVisualView: View {
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
         .allowsHitTesting(!isLayerActivatorInLayerContext(button))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))
+			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))
         .accessibilityHint("Double-tap to configure")
         .accessibilityAddTraits(.isButton)
         .help(compactHelpText(for: button, mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
@@ -1139,11 +1292,12 @@ struct ControllerVisualView: View {
     private func compactTileHeader(for button: ControllerButton, badges: [CompactActionBadge]) -> some View {
         let icon = ButtonIconView(
             button: button,
-            isPressed: isPressed(button),
-            isDualSense: isPlayStation,
-            isNintendo: isNintendo,
-            isSteamController: isSteamController
-        )
+				isPressed: isPressed(button),
+				isDualSense: isPlayStation,
+				isNintendo: isNintendo,
+				isSteamController: isSteamController,
+				isAppleTVRemote: isAppleTVRemote
+			)
         .scaleEffect(0.72)
         .frame(width: 22, height: 22)
 
@@ -1270,7 +1424,7 @@ struct ControllerVisualView: View {
         layer: Layer?,
         showsLayer: Bool
     ) -> String {
-        let title = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)
+			let title = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote)
         if let layer, showsLayer {
             return "\(title)\nLayer Activator: \(layer.name)"
         }
@@ -1294,11 +1448,12 @@ struct ControllerVisualView: View {
             ZStack(alignment: .topTrailing) {
                 ButtonIconView(
                     button: button,
-                    isPressed: isPressed(button),
-                    isDualSense: isPlayStation,
-                    isNintendo: isNintendo,
-                    isSteamController: isSteamController
-                )
+						isPressed: isPressed(button),
+						isDualSense: isPlayStation,
+						isNintendo: isNintendo,
+						isSteamController: isSteamController,
+						isAppleTVRemote: isAppleTVRemote
+					)
 
                 // Layer activator badge — hidden when viewing a different layer,
                 // since other layers' activators are inert in that context.
@@ -1382,7 +1537,7 @@ struct ControllerVisualView: View {
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
         .allowsHitTesting(!isLayerActivatorInLayerContext(button))  // Disable clicks on layer activators when in layer context
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))
+			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))
         .accessibilityHint("Double-tap to configure")
         .accessibilityAddTraits(.isButton)
         .onTapGesture { onButtonTap(button) }

@@ -303,6 +303,8 @@ struct Config {
     static let lastControllerWasXboxEliteKey: String = "lastControllerWasXboxElite"
     /// UserDefaults key for remembering if last connected controller was a Steam Controller
     static let lastControllerWasSteamControllerKey: String = "lastControllerWasSteamController"
+    /// UserDefaults key for remembering if last connected controller was an Apple TV/Siri Remote
+    static let lastControllerWasAppleTVRemoteKey: String = "lastControllerWasAppleTVRemote"
     /// UserDefaults key to enable touchpad debug logging
     static let touchpadDebugLoggingKey: String = "touchpad.debug"
     /// Env var to enable touchpad debug logging

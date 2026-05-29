@@ -34,9 +34,13 @@ struct ChordMappingSheet: View {
         controllerService.threadSafeIsSteamController
     }
 
-    private var isNintendo: Bool {
-        controllerService.threadSafeIsNintendo
-    }
+	    private var isNintendo: Bool {
+			controllerService.threadSafeIsNintendo
+	    }
+
+	    private var isAppleTVRemote: Bool {
+			controllerService.threadSafeIsAppleTVRemote
+	    }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -175,18 +179,20 @@ struct ChordMappingSheet: View {
 
                 // Visual Controller Layout
                 VStack(spacing: 10) {
-                    // Top Row: Triggers & Bumpers
-                    HStack(spacing: 120) {
-                        VStack(spacing: 8) {
-                            toggleButton(.leftTrigger)
-                            toggleButton(.leftBumper)
-                        }
+						// Top Row: Triggers & Bumpers
+						if !isAppleTVRemote {
+							HStack(spacing: 120) {
+								VStack(spacing: 8) {
+									toggleButton(.leftTrigger)
+									toggleButton(.leftBumper)
+								}
 
-                        VStack(spacing: 8) {
-                            toggleButton(.rightTrigger)
-                            toggleButton(.rightBumper)
-                        }
-                    }
+								VStack(spacing: 8) {
+									toggleButton(.rightTrigger)
+									toggleButton(.rightBumper)
+								}
+							}
+						}
 
                     // Middle Row: D-Pad, System, Face Buttons, Sticks
                     HStack(alignment: .top, spacing: 40) {
@@ -202,54 +208,82 @@ struct ChordMappingSheet: View {
                                 toggleButton(.dpadDown)
                             }
 
-                            toggleButton(.leftThumbstick)
+								if !isAppleTVRemote {
+									toggleButton(.leftThumbstick)
+								}
 
-                            if !leftJoystickDirectionButtons.isEmpty {
-                                JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStickMode) { button in
-                                    toggleButton(button)
-                                }
+								if !isAppleTVRemote && !leftJoystickDirectionButtons.isEmpty {
+									JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStickMode) { button in
+										toggleButton(button)
+									}
                             }
                         }
 
-                        // Center Column: System Buttons
-                        VStack(spacing: 15) {
-                            toggleButton(.xbox)
-                            HStack(spacing: 25) {
-                                toggleButton(.view)
-                                toggleButton(.menu)
-                            }
-                            // Show mic mute for DualSense, share for Xbox only
-                            // DualShock 4's physical Share button maps to .view (buttonOptions), not .share
-                            if isDualSense {
-                                toggleButton(.micMute)
-                            } else if !isDualShock {
-                                toggleButton(.share)
-                            }
-                            // Touchpad button for PlayStation controllers (DualSense/DualShock)
-                            if isPlayStation {
-                                toggleButton(.touchpadButton)
-                            }
-                        }
-                        .padding(.top, 15)
+							// Center Column: System Buttons
+							VStack(spacing: 15) {
+								toggleButton(.xbox)
+									if isAppleTVRemote {
+										HStack(spacing: 25) {
+											toggleButton(.menu)
+											toggleButton(.siri)
+										}
+										VStack(spacing: 8) {
+											HStack(spacing: 14) {
+												toggleButton(.appleTVRemotePower)
+												toggleButton(.appleTVRemoteVolumeUp)
+											}
+											HStack(spacing: 14) {
+												toggleButton(.appleTVRemoteVolumeDown)
+												toggleButton(.appleTVRemoteMute)
+											}
+										}
+									} else {
+									HStack(spacing: 25) {
+										toggleButton(.view)
+										toggleButton(.menu)
+									}
+									// Show mic mute for DualSense, share for Xbox only
+									// DualShock 4's physical Share button maps to .view (buttonOptions), not .share
+									if isDualSense {
+										toggleButton(.micMute)
+									} else if !isDualShock {
+										toggleButton(.share)
+									}
+									// Touchpad button for PlayStation controllers (DualSense/DualShock)
+									if isPlayStation {
+										toggleButton(.touchpadButton)
+									}
+								}
+							}
+							.padding(.top, 15)
 
-                        // Right Column: Face Buttons & Stick
-                        VStack(spacing: 25) {
-                            // Face Buttons Diamond
-                            VStack(spacing: 2) {
-                                toggleButton(.y)
-                                HStack(spacing: 25) {
-                                    toggleButton(.x)
-                                    toggleButton(.b)
-                                }
-                                toggleButton(.a)
-                            }
+							// Right Column: Face Buttons & Stick
+							VStack(spacing: 25) {
+								// Face Buttons Diamond
+								if isAppleTVRemote {
+									VStack(spacing: 12) {
+										toggleButton(.x)
+										toggleButton(.a)
+									}
+								} else {
+									VStack(spacing: 2) {
+										toggleButton(.y)
+										HStack(spacing: 25) {
+											toggleButton(.x)
+											toggleButton(.b)
+										}
+										toggleButton(.a)
+									}
+								}
 
-                            toggleButton(.rightThumbstick)
+								if !isAppleTVRemote {
+									toggleButton(.rightThumbstick)
+								}
 
-                            if !rightJoystickDirectionButtons.isEmpty {
-                                JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStickMode) { button in
-                                    toggleButton(button)
-                                }
+								if !isAppleTVRemote && !rightJoystickDirectionButtons.isEmpty {
+									JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStickMode) { button in
+										toggleButton(button)
+									}
                             }
                         }
                     }
@@ -754,7 +788,7 @@ struct ChordMappingSheet: View {
         let conflictingChord = buttonConflicts[button]
         let isConflicted = conflictingChord != nil
         let isSelected = selectedButtons.contains(button)
-        let buttonName = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)
+			let buttonName = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote)
 
         VStack(spacing: 2) {
             Button(action: {
@@ -766,11 +800,12 @@ struct ChordMappingSheet: View {
             }) {
                 ButtonIconView(
                     button: button,
-                    isPressed: isSelected,
-                    isDualSense: isPlayStation,
-                    isNintendo: isNintendo,
-                    isSteamController: isSteamController
-                )
+						isPressed: isSelected,
+						isDualSense: isPlayStation,
+						isNintendo: isNintendo,
+						isSteamController: isSteamController,
+						isAppleTVRemote: isAppleTVRemote
+					)
                     .scaleEffect(scale)
                     .frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)
                     .opacity(isConflicted ? 0.3 : (isSelected ? 1.0 : 0.7))

@@ -60,7 +60,7 @@ struct LayerTabBar: View {
                                 .lineLimit(1)
                             // Activator button badge (or "No Activator" if unassigned)
                             if let activator = layer.activatorButton {
-                                Text(activator.shortLabel(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo))
+									Text(activator.shortLabel(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo, forAppleTVRemote: controllerService.threadSafeIsAppleTVRemote))
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 5)

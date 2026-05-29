@@ -1,5 +1,6 @@
 import XCTest
 import CoreGraphics
+import GameController
 @testable import ControllerKeys
 
 @MainActor
@@ -173,7 +174,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		)
 	}
 
-    func testSteamControllerMetadataUsesSteamOrValveNames() {
+	    func testSteamControllerMetadataUsesSteamOrValveNames() {
         XCTAssertTrue(
             ControllerService.isSteamControllerMetadata(
                 vendorName: "Steam Controller",
@@ -192,9 +193,142 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
                 productCategory: "Xbox Controller"
             )
         )
-    }
+	    }
 
-	func testGlobalEliteHIDFallbackOnlyAppliesWhenSingleXboxControllerIsActive() {
+	    func testAppleTVRemoteMetadataMatchesRemoteCategoriesAndNames() {
+			XCTAssertTrue(
+				ControllerService.isAppleTVRemoteMetadata(
+					vendorName: "Apple TV Remote",
+					productCategory: GCProductCategorySiriRemote2ndGen
+				)
+			)
+			XCTAssertTrue(
+				ControllerService.isAppleTVRemoteMetadata(
+					vendorName: "Universal Electronics",
+					productCategory: "Universal Electronics Remote"
+				)
+			)
+			XCTAssertFalse(
+				ControllerService.isAppleTVRemoteMetadata(
+					vendorName: "Apple",
+					productCategory: "Keyboard"
+				)
+			)
+	    }
+
+	    func testAppleTVRemoteHIDUsageMapsRemoteButtons() {
+			XCTAssertEqual(
+				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00CF),
+				.siri
+			)
+			XCTAssertEqual(
+				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0004),
+				.siri
+			)
+			XCTAssertEqual(
+				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00CD),
+				.x
+			)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0080),
+					.a
+				)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0060),
+					.xbox
+				)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0030),
+					.appleTVRemotePower
+				)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00E9),
+					.appleTVRemoteVolumeUp
+				)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00EA),
+					.appleTVRemoteVolumeDown
+				)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00E2),
+					.appleTVRemoteMute
+				)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0042),
+					.dpadUp
+			)
+			XCTAssertEqual(
+				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0043),
+				.dpadDown
+			)
+			XCTAssertEqual(
+				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0044),
+				.dpadLeft
+			)
+			XCTAssertEqual(
+				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0045),
+				.dpadRight
+			)
+			XCTAssertEqual(
+				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x01, usage: 0x0086),
+				.menu
+			)
+			XCTAssertNil(
+				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x01, usage: 0x00CF)
+			)
+	    }
+
+	func testAppleTVRemoteTouchReportParsesCurrentRemoteTouchPoint() {
+		let report = currentAppleTVRemoteTouchReport(x: 75, y: 52, pressure: 17)
+		let parsed = report.withUnsafeBufferPointer {
+			ControllerService.appleTVRemoteTouchReport(
+				reportID: 0xFF,
+				report: $0.baseAddress!,
+				length: $0.count
+			)
+		}
+
+		XCTAssertEqual(parsed?.primary?.pressure, 17)
+		XCTAssertEqual(parsed?.primary?.position.x ?? -2, 0, accuracy: 0.001)
+		XCTAssertEqual(parsed?.primary?.position.y ?? -2, -0.0095, accuracy: 0.001)
+		XCTAssertNil(parsed?.secondary)
+	}
+
+	func testAppleTVRemoteTouchReportTreatsZeroPressureAsLift() {
+		let report = currentAppleTVRemoteTouchReport(x: 75, y: 52, pressure: 0)
+		let parsed = report.withUnsafeBufferPointer {
+			ControllerService.appleTVRemoteTouchReport(
+				reportID: 0xFF,
+				report: $0.baseAddress!,
+				length: $0.count
+			)
+		}
+
+		XCTAssertFalse(parsed?.isTouching ?? true)
+	}
+
+	func testAppleTVRemoteTouchReportsFeedTouchpadMovement() {
+		var movements: [CGPoint] = []
+		controllerService.onTouchpadMoved = { movements.append($0) }
+
+		for x in [75, 82, 90, 100, 112] {
+			let report = currentAppleTVRemoteTouchReport(x: x, y: 52, pressure: 17)
+			report.withUnsafeBufferPointer {
+				controllerService.handleAppleTVRemoteTouchReport(
+					reportID: 0xFF,
+					report: $0.baseAddress!,
+					length: $0.count
+				)
+			}
+		}
+
+		XCTAssertTrue(
+			movements.contains { $0.x > 0 },
+			"Apple TV Remote touch reports should enter the shared touchpad mouse pipeline."
+		)
+	}
+
+		func testGlobalEliteHIDFallbackOnlyAppliesWhenSingleXboxControllerIsActive() {
 		XCTAssertTrue(ControllerService.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: 0))
 		XCTAssertTrue(ControllerService.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: 1))
 		XCTAssertFalse(ControllerService.shouldUseGlobalEliteHIDFallback(connectedXboxControllerCount: 2))
@@ -322,4 +456,26 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			"Same-state guide monitor event should be ignored after helper handled the release."
 		)
 	}
+}
+
+private func currentAppleTVRemoteTouchReport(x: Int, y: Int, pressure: UInt8) -> [UInt8] {
+	let rawX = x * 15 + 230
+	let highX = rawX / 255
+	let lowX = rawX - highX * 255
+	let rawY: Int
+	if y <= 67 {
+		rawY = y + 188
+	} else {
+		rawY = y - 67
+	}
+	return [
+		0, 0, 0, 0,
+		UInt8(lowX),
+		UInt8(highX),
+		UInt8(rawY),
+		0,
+		0,
+		pressure,
+		0,
+	]
 }

@@ -399,6 +399,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !AppRuntime.isRunningTests else { return }
 
+		// Start controller monitoring immediately, even when SwiftUI defers scene content.
+		_ = ServiceContainer.shared
+
         // Disable App Nap to ensure controller events are received in background
         disableAppNap()
 

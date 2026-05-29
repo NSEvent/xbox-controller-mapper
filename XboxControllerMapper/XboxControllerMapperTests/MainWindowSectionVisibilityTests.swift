@@ -8,6 +8,7 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
             isPlayStation: true,
             isDualSense: true,
             isSteamController: false,
+			isAppleTVRemote: false,
             hasMotion: true
         )
 
@@ -41,6 +42,7 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
             isPlayStation: false,
             isDualSense: false,
             isSteamController: false,
+			isAppleTVRemote: false,
             hasMotion: false
         )
 
@@ -58,6 +60,7 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
             isPlayStation: true,
             isDualSense: true,
             isSteamController: false,
+			isAppleTVRemote: false,
             hasMotion: true
         )
 
@@ -74,6 +77,7 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
             isPlayStation: false,
             isDualSense: false,
             isSteamController: true,
+			isAppleTVRemote: false,
             hasMotion: true
         )
 
@@ -82,6 +86,21 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
         XCTAssertFalse(sections.contains(.leds))
         XCTAssertFalse(sections.contains(.microphone))
     }
+
+	func testAppleTVRemoteShowsTouchpadSectionWithoutPlayStationFeatures() {
+		let sections = MainWindowSection.visibleSections(
+			hiddenSections: [],
+			isPlayStation: false,
+			isDualSense: false,
+			isSteamController: false,
+			isAppleTVRemote: true,
+			hasMotion: false
+		)
+
+		XCTAssertTrue(sections.contains(.touchpad))
+		XCTAssertFalse(sections.contains(.leds))
+		XCTAssertFalse(sections.contains(.microphone))
+	}
 
     func testHiddenSectionEncodingRoundTripsAndIgnoresInvalidTags() {
         let encoded = MainWindowSection.encodedHiddenSections([.macros, .buttons, .touchpad])

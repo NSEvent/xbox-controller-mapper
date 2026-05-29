@@ -24,7 +24,17 @@
 			<key>ProfileName</key>
 			<string>ExtendedGamepad</string>
 		</dict>
+		<dict>
+			<key>ProfileName</key>
+			<string>DirectionalGamepad</string>
+		</dict>
+		<dict>
+			<key>ProfileName</key>
+			<string>MicroGamepad</string>
+		</dict>
 	</array>
+	<key>GCSupportsMultipleMicroGamepads</key>
+	<true/>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSUIElement</key>

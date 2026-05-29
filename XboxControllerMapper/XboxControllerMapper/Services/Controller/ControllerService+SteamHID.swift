@@ -311,12 +311,13 @@ extension ControllerService {
         }
 
         steamHIDActiveDevice = controller.device
-        steamHIDControllerLock.lock()
-        activeSteamHIDController = controller
-        steamHIDControllerLock.unlock()
-        if let gameController = connectedController {
-            clearGameControllerHandlers(for: gameController)
-        }
+			steamHIDControllerLock.lock()
+			activeSteamHIDController = controller
+			steamHIDControllerLock.unlock()
+			cleanupAppleTVRemoteHIDMonitoring()
+			if let gameController = connectedController {
+				clearGameControllerHandlers(for: gameController)
+			}
         connectedController = nil
         currentControllerIdentity = ControllerIdentityResolver.identity(
             for: controller.device,
@@ -334,21 +335,23 @@ extension ControllerService {
         storage.isDualSenseEdge = false
         storage.isDualShock = false
         storage.isNintendo = false
-        storage.isJoyConLeft = false
-        storage.isJoyConRight = false
-        storage.isXboxElite = false
-        storage.isSteamController = true
-        storage.elitePaddleEventSource = .none
-        storage.lock.unlock()
+			storage.isJoyConLeft = false
+				storage.isJoyConRight = false
+				storage.isXboxElite = false
+				storage.isAppleTVRemote = false
+				storage.isSteamController = true
+			storage.elitePaddleEventSource = .none
+			storage.lock.unlock()
 
         isConnected = true
 
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
-        UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
-        UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
-        UserDefaults.standard.set(true, forKey: Config.lastControllerWasSteamControllerKey)
+			UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
+			UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
+			UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)
+			UserDefaults.standard.set(true, forKey: Config.lastControllerWasSteamControllerKey)
 
         batteryLevel = -1
         batteryState = .unknown

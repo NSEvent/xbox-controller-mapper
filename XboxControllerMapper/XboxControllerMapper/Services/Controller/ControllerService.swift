@@ -52,6 +52,7 @@ final class ControllerStorage: @unchecked Sendable {
     var isNintendo: Bool = false   // Nintendo controller (Joy-Con, Pro Controller)
     var isXboxElite: Bool = false  // Xbox Elite Series 2 controller
     var isSteamController: Bool = false
+    var isAppleTVRemote: Bool = false
     var isJoyConLeft: Bool = false
     var isJoyConRight: Bool = false
     var isBluetoothConnection: Bool = false
@@ -102,8 +103,9 @@ final class ControllerStorage: @unchecked Sendable {
     var lastMicButtonState: Bool = false
     var lastPSButtonState: Bool = false
 
-    // Nintendo Pro Controller HID button state
-    var lastNintendoHomeState: Bool = false
+	    // Nintendo Pro Controller HID button state
+	    var lastNintendoHomeState: Bool = false
+	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
 
     // DualSense Edge button state (paddles and function buttons)
     var lastLeftPaddleState: Bool = false
@@ -272,6 +274,15 @@ class ControllerService: ObservableObject {
     var nintendoHIDReportBuffer: UnsafeMutablePointer<UInt8>?
     var nintendoHIDCallbackContext: UnsafeMutableRawPointer?
 
+    // Apple TV/Siri Remote HID monitoring (buttons + touch surface)
+    var appleTVRemoteHIDManager: IOHIDManager?
+    var appleTVRemoteHIDDevice: IOHIDDevice?
+    var appleTVRemoteHIDTouchDevice: IOHIDDevice?
+    var appleTVRemoteHIDTouchReportBuffer: UnsafeMutablePointer<UInt8>?
+    var appleTVRemoteHIDTouchReportBufferSize: Int = 0
+    var appleTVRemoteHIDCallbackContext: UnsafeMutableRawPointer?
+    var appleTVRemoteMultitouchStarted: Bool = false
+
     /// Xbox Elite Series 2 helper process (separate binary without GameController.framework)
     var eliteHelperProcess: Process?
 	var eliteHelperHandlesPaddles: Bool?
@@ -438,6 +449,12 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.isSteamController
+    }
+
+    nonisolated var threadSafeIsAppleTVRemote: Bool {
+		storage.lock.lock()
+		defer { storage.lock.unlock() }
+		return storage.isAppleTVRemote
     }
 
     /// Returns true if a single Joy-Con is connected (left or right, not a Pro Controller)
@@ -699,11 +716,19 @@ class ControllerService: ObservableObject {
         storage.isDualShock = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey)
         storage.isXboxElite = UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey)
         storage.isSteamController = UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey)
+		storage.isAppleTVRemote = UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey)
         if storage.isSteamController {
             storage.isDualSense = false
             storage.isDualSenseEdge = false
             storage.isDualShock = false
             storage.isXboxElite = false
+			storage.isAppleTVRemote = false
+		} else if storage.isAppleTVRemote {
+			storage.isDualSense = false
+			storage.isDualSenseEdge = false
+			storage.isDualShock = false
+			storage.isXboxElite = false
+			storage.isNintendo = false
         }
 
         if shouldEnableHardwareMonitoring {
@@ -719,9 +744,10 @@ class ControllerService: ObservableObject {
                 }
                 .store(in: &cancellables)
 
-            setupSteamControllerHIDMonitoring()
-            setupGenericHIDMonitoring()
-        }
+			setupSteamControllerHIDMonitoring()
+			setupGenericHIDMonitoring()
+			setupAppleTVRemoteHIDMonitoring()
+		}
 
         guideMonitor.onGuideButtonAction = { [weak self] isPressed in
 			guard let self else { return }
@@ -748,6 +774,7 @@ class ControllerService: ObservableObject {
 		batteryMonitor.stopMonitoring()
 		cleanupSteamControllerHIDMonitoring()
 		cleanupGenericHIDMonitoring()
+		cleanupAppleTVRemoteHIDMonitoring()
 		stopEliteHelper()
 		resetRawHIDGuideButtonState()
 	}
@@ -879,6 +906,7 @@ class ControllerService: ObservableObject {
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
         cleanupNintendoHIDMonitoring()  // Clean up Nintendo Home button monitoring
+		cleanupAppleTVRemoteHIDMonitoring()  // Clean up Apple TV Remote HID monitoring
         stopEliteHelper()  // Clean up Elite helper process
 
         storage.lock.lock()
@@ -1522,6 +1550,17 @@ class ControllerService: ObservableObject {
             }
         }
 
+		if let microGamepad = controller.microGamepad {
+			microGamepad.buttonA.pressedChangedHandler = nil
+			microGamepad.buttonX.pressedChangedHandler = nil
+			microGamepad.buttonMenu.pressedChangedHandler = nil
+			microGamepad.dpad.valueChangedHandler = nil
+			microGamepad.dpad.up.pressedChangedHandler = nil
+			microGamepad.dpad.down.pressedChangedHandler = nil
+			microGamepad.dpad.left.pressedChangedHandler = nil
+			microGamepad.dpad.right.pressedChangedHandler = nil
+		}
+
         let profile = controller.physicalInputProfile
         for button in profile.buttons.values {
             button.pressedChangedHandler = nil
@@ -1535,7 +1574,7 @@ class ControllerService: ObservableObject {
         }
     }
 
-    private func setupInputHandlers(for controller: GCController) {
+	    private func setupInputHandlers(for controller: GCController) {
         // Log controller info for diagnostics (visible in Console.app)
         NSLog("[ControllerKeys] vendorName=%@  productCategory=%@  extendedGamepad=%@  microGamepad=%@",
               controller.vendorName ?? "(nil)",
@@ -1543,7 +1582,18 @@ class ControllerService: ObservableObject {
               controller.extendedGamepad != nil ? "YES" : "NO",
               controller.microGamepad != nil ? "YES" : "NO")
 
-        // Detect Nintendo controller type before the extendedGamepad guard,
+			if let microGamepad = controller.microGamepad,
+			   Self.isAppleTVRemoteMetadata(
+				vendorName: controller.vendorName,
+				productCategory: controller.productCategory
+			   ) {
+				setupAppleTVRemoteInputHandlers(for: controller, microGamepad: microGamepad)
+				return
+			}
+
+			clearAppleTVRemoteStateForNonRemoteController()
+
+			// Detect Nintendo controller type before the extendedGamepad guard,
         // since single Joy-Cons only provide physicalInputProfile.
         detectNintendoController(controller)
 
@@ -1795,7 +1845,127 @@ class ControllerService: ObservableObject {
 
     }
 
-    // MARK: - Xbox Elite Controller Detection
+    // MARK: - Apple TV Remote Detection
+
+    nonisolated static func isAppleTVRemoteMetadata(vendorName: String?, productCategory: String) -> Bool {
+		let remoteCategories: Set<String> = [
+			GCProductCategorySiriRemote1stGen,
+			GCProductCategorySiriRemote2ndGen,
+			GCProductCategoryControlCenterRemote,
+			GCProductCategoryCoalescedRemote,
+			GCProductCategoryUniversalElectronicsRemote,
+		]
+		if remoteCategories.contains(productCategory) {
+			return true
+		}
+
+		let combined = ((vendorName ?? "") + " " + productCategory).lowercased()
+		return combined.contains("siri remote")
+			|| combined.contains("apple tv remote")
+			|| combined.contains("control center remote")
+			|| (combined.contains("universal electronics") && combined.contains("remote"))
+    }
+
+    private func setupAppleTVRemoteInputHandlers(for controller: GCController, microGamepad: GCMicroGamepad) {
+		storage.lock.lock()
+		storage.isAppleTVRemote = true
+		storage.isDualSense = false
+		storage.isDualSenseEdge = false
+		storage.isDualShock = false
+		storage.isNintendo = false
+		storage.isXboxElite = false
+		storage.isJoyConLeft = false
+		storage.isJoyConRight = false
+		storage.isSteamController = false
+		storage.lock.unlock()
+
+		UserDefaults.standard.set(true, forKey: Config.lastControllerWasAppleTVRemoteKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
+		UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+
+		controllerName = appleTVRemoteDisplayName(for: controller)
+
+		microGamepad.allowsRotation = false
+		microGamepad.reportsAbsoluteDpadValues = false
+
+		bindButton(microGamepad.buttonA, to: .a)
+		bindButton(microGamepad.buttonX, to: .x)
+		bindButton(microGamepad.buttonMenu, to: .menu)
+		bindButton(microGamepad.dpad.up, to: .dpadUp)
+		bindButton(microGamepad.dpad.down, to: .dpadDown)
+		bindButton(microGamepad.dpad.left, to: .dpadLeft)
+		bindButton(microGamepad.dpad.right, to: .dpadRight)
+
+		microGamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
+			guard self?.shouldAcceptGameControllerInput() == true else { return }
+			self?.updateLeftStick(x: xValue, y: yValue)
+		}
+
+		bindAppleTVRemotePhysicalProfileButtons(controller.physicalInputProfile)
+		setupAppleTVRemoteHIDMonitoring()
+
+		NSLog("[ControllerKeys] Apple TV Remote detected — vendorName=%@  productCategory=%@",
+			  controller.vendorName ?? "(nil)", controller.productCategory)
+    }
+
+    private func appleTVRemoteDisplayName(for controller: GCController) -> String {
+		let lowercasedCategory = controller.productCategory.lowercased()
+		if lowercasedCategory.contains("control center") {
+			return "Apple TV Remote"
+		}
+		if lowercasedCategory.contains("universal electronics") {
+			return "Universal Electronics Remote"
+		}
+		return controller.vendorName ?? controller.productCategory
+    }
+
+    private func bindAppleTVRemotePhysicalProfileButtons(_ profile: GCPhysicalInputProfile) {
+		var boundNames: [String] = []
+		for (name, buttonInput) in profile.buttons {
+			guard let controllerButton = appleTVRemoteButton(forPhysicalInputName: name) else {
+				continue
+			}
+			bindButton(buttonInput, to: controllerButton)
+			boundNames.append("\(name)=\(controllerButton.rawValue)")
+		}
+
+		if !boundNames.isEmpty {
+			NSLog("[ControllerKeys] Apple TV Remote physicalInputProfile bindings: %@",
+				  boundNames.sorted().joined(separator: ", "))
+		}
+    }
+
+	    private func appleTVRemoteButton(forPhysicalInputName name: String) -> ControllerButton? {
+		let lowercasedName = name.lowercased()
+		if lowercasedName.contains("siri")
+			|| lowercasedName.contains("voice")
+			|| lowercasedName.contains("dictation")
+			|| lowercasedName.contains("microphone") {
+			return .siri
+		}
+		if name == GCInputButtonHome
+			|| lowercasedName.contains("home")
+			|| lowercasedName.contains("tv") {
+			return .xbox
+		}
+			return nil
+	    }
+
+	    private func clearAppleTVRemoteStateForNonRemoteController() {
+			cleanupAppleTVRemoteHIDMonitoring()
+
+				storage.lock.lock()
+				storage.isAppleTVRemote = false
+				storage.lock.unlock()
+
+			UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)
+	    }
+
+	    // MARK: - Xbox Elite Controller Detection
 
     nonisolated static func isEliteControllerMetadata(vendorName: String?, productCategory: String) -> Bool {
 		let combined = ((vendorName ?? "") + " " + productCategory).lowercased()
