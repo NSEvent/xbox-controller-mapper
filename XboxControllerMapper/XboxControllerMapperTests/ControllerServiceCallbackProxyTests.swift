@@ -464,23 +464,45 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		XCTAssertNil(ControllerService.appleTVRemoteSystemKeyType(for: .menu))
 	}
 
-	func testAppleTVRemoteSystemEventSuppressionHandlesAuxAndPowerSubtypes() {
+	func testAppleTVRemoteSystemEventSuppressionRequiresRemoteHIDCorrelation() {
 		controllerService.storage.isAppleTVRemote = true
 		let systemDefinedType = CGEventType(rawValue: 14)!
 		let volumeUpData1 = (0 << 16) | (0x0A << 8)
 
+		XCTAssertFalse(
+			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
+				systemDefinedEvent(subtype: 8, data1: volumeUpData1),
+				type: systemDefinedType
+			),
+			"Mac keyboard media keys should pass through when no Apple TV Remote HID button was observed"
+		)
+
+		controllerService.storage.appleTVRemoteActiveSystemKeyTypes.insert(0)
 		XCTAssertTrue(
 			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
 				systemDefinedEvent(subtype: 8, data1: volumeUpData1),
 				type: systemDefinedType
 			)
 		)
+		controllerService.storage.appleTVRemoteActiveSystemKeyTypes.removeAll()
+
+		controllerService.storage.appleTVRemoteSystemKeyTypeSuppressUntil[0] = CFAbsoluteTimeGetCurrent() + 1
+		XCTAssertTrue(
+			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
+				systemDefinedEvent(subtype: 8, data1: volumeUpData1),
+				type: systemDefinedType
+			)
+		)
+
+		controllerService.storage.appleTVRemoteSystemKeyTypeSuppressUntil.removeAll()
+		controllerService.storage.appleTVRemoteSystemKeyTypeSuppressUntil[6] = CFAbsoluteTimeGetCurrent() + 1
 		XCTAssertTrue(
 			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
 				systemDefinedEvent(subtype: 1),
 				type: systemDefinedType
 			)
 		)
+
 		XCTAssertFalse(
 			controllerService.shouldSuppressAppleTVRemoteSystemEvent(
 				systemDefinedEvent(

@@ -564,16 +564,10 @@ extension ControllerService {
 
 		let now = CFAbsoluteTimeGetCurrent()
 		storage.lock.lock()
+		storage.appleTVRemoteSystemKeyTypeSuppressUntil = storage.appleTVRemoteSystemKeyTypeSuppressUntil.filter { $0.value > now }
 		let shouldSuppress = storage.isAppleTVRemote &&
 			(storage.appleTVRemoteActiveSystemKeyTypes.contains(keyType) ||
-			 (storage.appleTVRemoteSystemKeyTypeSuppressUntil[keyType] ?? 0) > now ||
-			 keyType == AppleTVRemoteHID.nxKeyTypeSoundUp ||
-			 keyType == AppleTVRemoteHID.nxKeyTypeSoundDown ||
-			 keyType == AppleTVRemoteHID.nxKeyTypePower ||
-			 keyType == AppleTVRemoteHID.nxKeyTypeMute)
-		if !shouldSuppress {
-			storage.appleTVRemoteSystemKeyTypeSuppressUntil = storage.appleTVRemoteSystemKeyTypeSuppressUntil.filter { $0.value > now }
-		}
+			 storage.appleTVRemoteSystemKeyTypeSuppressUntil[keyType] != nil)
 		storage.lock.unlock()
 		return shouldSuppress
 	}
