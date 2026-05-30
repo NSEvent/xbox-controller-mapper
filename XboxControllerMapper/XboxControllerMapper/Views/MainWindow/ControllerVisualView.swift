@@ -299,7 +299,7 @@ struct ControllerVisualView: View {
                     .frame(width: controllerPreviewWidth, height: controllerPreviewHeight)
 
 					VStack {
-						layerScopeChip
+						layerScopeChip()
 						Spacer()
 					}
 					.frame(width: controllerPreviewWidth, height: controllerPreviewHeight)
@@ -403,6 +403,7 @@ struct ControllerVisualView: View {
 	private var appleTVRemoteLayout: some View {
 		HStack(alignment: .center, spacing: 26) {
 			VStack(alignment: .trailing, spacing: 16) {
+				referenceGroup(title: "Clickpad", buttons: [.touchpadButton, .touchpadTap])
 				directionCluster(
 					title: "Clickpad",
 					up: .dpadUp,
@@ -411,8 +412,7 @@ struct ControllerVisualView: View {
 					right: .dpadRight,
 					down: .dpadDown
 				)
-				referenceGroup(title: "Clickpad", buttons: [.touchpadButton, .touchpadTap])
-				referenceGroup(title: "Front Buttons", buttons: [.view, .menu, .appleTVRemoteMute])
+				referenceGroup(title: "System", buttons: [.view, .menu])
 			}
 			.frame(width: 250)
 
@@ -421,8 +421,8 @@ struct ControllerVisualView: View {
 				.accessibilityHidden(true)
 
 			VStack(alignment: .leading, spacing: 16) {
-				referenceGroup(title: "System", buttons: [.appleTVRemotePower, .xbox])
-				referenceGroup(title: "Volume", buttons: [.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown])
+				referenceGroup(title: "System", buttons: [.appleTVRemotePower, .siri, .xbox])
+				referenceGroup(title: "Volume", buttons: [.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute])
 			}
 			.frame(width: 250)
 		}
@@ -757,7 +757,9 @@ struct ControllerVisualView: View {
 
 			VStack {
 				Spacer()
-				layerScopeChip
+				layerScopeChip(nameMaxWidth: 68)
+					.frame(maxWidth: appleTVRemotePreviewWidth - 28)
+					.padding(.horizontal, 14)
 					.padding(.bottom, 14)
 			}
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1309,7 +1311,7 @@ struct ControllerVisualView: View {
         Color.clear.frame(width: 68, height: 50)
     }
 
-	private var layerScopeChip: some View {
+	private func layerScopeChip(nameMaxWidth: CGFloat = 112) -> some View {
 		let layer = selectedLayer
 		let color = layer.map { layerColor($0) } ?? Color.secondary
 		let layerName = layer?.name
@@ -1326,8 +1328,9 @@ struct ControllerVisualView: View {
 					.font(.system(size: 10, weight: .heavy, design: .rounded))
 					.foregroundStyle(.primary)
 					.lineLimit(1)
+					.truncationMode(.tail)
 					.minimumScaleFactor(0.65)
-					.frame(maxWidth: 112, alignment: .leading)
+					.frame(maxWidth: nameMaxWidth, alignment: .leading)
 			}
 		}
 		.padding(.horizontal, 9)

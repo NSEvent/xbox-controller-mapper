@@ -170,8 +170,9 @@ struct ButtonIconView: View {
         // Use PlayStation style for DualSense face buttons (dark background), standard colors for others
 		if isAppleTVRemote {
 			switch button {
+			case .appleTVRemotePower, .siri: return Color(white: 0.72)
 			case .touchpadButton, .touchpadTap: return Color(white: 0.22)
-			case .view, .menu, .xbox, .siri: return Color(white: 0.28)
+			case .view, .menu, .xbox: return Color(white: 0.28)
 			case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.22)
 			default: return Color(white: 0.2)
 			}
@@ -284,14 +285,15 @@ struct ButtonIconView: View {
                 quadrantGlyph(for: region)
                     .foregroundColor(.white.opacity(0.95))
 			} else if isAppleTVRemote {
+				let foregroundColor: Color = (button == .appleTVRemotePower || button == .siri) ? Color.black.opacity(0.82) : Color.white.opacity(0.95)
 				if let systemImage = button.systemImageName(forAppleTVRemote: true) {
 					Image(systemName: systemImage)
 						.font(.system(size: button == .menu ? max(10, fontSize - 4) : fontSize, weight: .bold))
-						.foregroundColor(.white.opacity(0.95))
+						.foregroundColor(foregroundColor)
 				} else {
 					Text(button.shortLabel(forAppleTVRemote: true))
 						.font(.system(size: fontSize, weight: .bold, design: .rounded))
-						.foregroundColor(.white.opacity(0.95))
+						.foregroundColor(foregroundColor)
 				}
             } else if button == .leftFunction || button == .rightFunction {
                 // Function buttons: show "LFn" or "RFn" text (similar to L1/R1)
