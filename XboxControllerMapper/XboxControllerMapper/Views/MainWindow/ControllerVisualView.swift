@@ -697,6 +697,7 @@ struct ControllerVisualView: View {
 	private var appleTVRemotePreviewHeight: CGFloat { 520 }
 	private var appleTVRemoteRoundButtonSize: CGFloat { 46 }
 	private var appleTVRemoteClickpadSize: CGFloat { 126 }
+	private var appleTVRemoteClickpadCenterButtonSize: CGFloat { 88 }
 	private var appleTVRemoteVolumeRockerHeight: CGFloat { appleTVRemoteRoundButtonSize * 2 + 26 }
 
 	@ViewBuilder
@@ -831,7 +832,7 @@ struct ControllerVisualView: View {
 					)
 				)
 				.overlay(Circle().stroke(Color.black.opacity(0.45), lineWidth: 1.2))
-				.frame(width: 68, height: 68)
+				.frame(width: appleTVRemoteClickpadCenterButtonSize, height: appleTVRemoteClickpadCenterButtonSize)
 				.controllerAnchor(.touchpadButton, role: .controller)
 				.contentShape(Circle())
 				.onTapGesture { onButtonTap(.touchpadButton) }
