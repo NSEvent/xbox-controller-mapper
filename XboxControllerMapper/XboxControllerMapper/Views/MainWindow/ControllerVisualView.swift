@@ -415,7 +415,7 @@ struct ControllerVisualView: View {
 				.frame(width: 250)
 
 				appleTVRemoteBodyView
-					.frame(width: 210, height: 380)
+					.frame(width: appleTVRemotePreviewWidth, height: appleTVRemotePreviewHeight)
 					.accessibilityHidden(true)
 
 					VStack(alignment: .leading, spacing: 16) {
@@ -657,179 +657,279 @@ struct ControllerVisualView: View {
     // MARK: - Controller Body
 
     private var controllerPreviewWidth: CGFloat { 320 }
-    private var controllerPreviewHeight: CGFloat { isSteamController ? 250 : 220 }
+	private var controllerPreviewHeight: CGFloat { isSteamController ? 250 : 220 }
+	private var appleTVRemotePreviewWidth: CGFloat { 154 }
+	private var appleTVRemotePreviewHeight: CGFloat { 520 }
+	private var appleTVRemoteRoundButtonSize: CGFloat { 46 }
 
-    @ViewBuilder
-	    private var controllerBodyView: some View {
-			if isSteamController {
-				SteamControllerBodyShape()
-                .fill(LinearGradient(
-                    colors: [Color(white: 0.96), Color(white: 0.88)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-        } else if isPlayStation {
-            DualSenseBodyShape()  // DualSense/DualShock share similar body shape
-                .fill(LinearGradient(
-                    colors: [Color(white: 0.95), Color(white: 0.88)], // PlayStation white/light grey
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-        } else if isNintendo {
-            NintendoProBodyShape()
-                .fill(LinearGradient(
-                    colors: [Color(white: 0.18), Color(white: 0.12)], // Nintendo Pro Controller dark charcoal
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
-        } else {
-            ControllerBodyShape()
-                .fill(LinearGradient(
-                    colors: [Color(white: 0.95), Color(white: 0.9)], // Xbox light theme
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-			}
-	    }
+	@ViewBuilder
+	private var controllerBodyView: some View {
+		if isSteamController {
+			SteamControllerBodyShape()
+				.fill(LinearGradient(
+					colors: [Color(white: 0.96), Color(white: 0.88)],
+					startPoint: .top,
+					endPoint: .bottom
+				))
+				.shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+		} else if isPlayStation {
+			DualSenseBodyShape()  // DualSense/DualShock share similar body shape
+				.fill(LinearGradient(
+					colors: [Color(white: 0.95), Color(white: 0.88)], // PlayStation white/light grey
+					startPoint: .top,
+					endPoint: .bottom
+				))
+				.shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+		} else if isNintendo {
+			NintendoProBodyShape()
+				.fill(LinearGradient(
+					colors: [Color(white: 0.18), Color(white: 0.12)], // Nintendo Pro Controller dark charcoal
+					startPoint: .top,
+					endPoint: .bottom
+				))
+				.shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+		} else {
+			ControllerBodyShape()
+				.fill(LinearGradient(
+					colors: [Color(white: 0.95), Color(white: 0.9)], // Xbox light theme
+					startPoint: .top,
+					endPoint: .bottom
+				))
+				.shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+		}
+	}
 
-	    private var appleTVRemoteBodyView: some View {
-			ZStack(alignment: .topTrailing) {
-				RoundedRectangle(cornerRadius: 28, style: .continuous)
-					.fill(
-						LinearGradient(
-							colors: [Color(white: 0.16), Color(white: 0.07)],
-							startPoint: .topLeading,
-							endPoint: .bottomTrailing
-						)
+	private var appleTVRemoteBodyView: some View {
+		ZStack(alignment: .topTrailing) {
+			RoundedRectangle(cornerRadius: 28, style: .continuous)
+				.fill(
+					LinearGradient(
+						colors: [Color(white: 0.88), Color(white: 0.64)],
+						startPoint: .top,
+						endPoint: .bottom
 					)
-					.overlay(
-						RoundedRectangle(cornerRadius: 28, style: .continuous)
-							.stroke(Color.white.opacity(0.10), lineWidth: 1)
-					)
-					.shadow(color: .black.opacity(0.28), radius: 16, x: 0, y: 8)
-
-				VStack(spacing: 14) {
-					appleTVRemoteClickpad
-						.padding(.top, 42)
-
-					HStack(spacing: 42) {
-						appleTVRemoteMockIcon(.menu)
-						appleTVRemoteMockIcon(.xbox, scale: 1.16)
-					}
-
-					HStack(alignment: .top, spacing: 42) {
-						VStack(spacing: 0) {
-							appleTVRemoteMockIcon(.x)
-							appleTVRemoteMockIcon(.appleTVRemoteMute, scale: 0.92)
-						}
-
-						appleTVRemoteVolumeRocker
-					}
-
-					Spacer(minLength: 0)
-				}
-				.frame(maxWidth: .infinity, maxHeight: .infinity)
-
-				appleTVRemoteMockIcon(.appleTVRemotePower, scale: 0.86)
-					.padding(.top, 16)
-					.padding(.trailing, 16)
-
-				appleTVRemoteSiriSideButton
-					.offset(x: 10, y: 112)
-
-				VStack {
-					layerScopeChip
-					Spacer()
-				}
-				.frame(maxWidth: .infinity, maxHeight: .infinity)
-				.padding(.top, 12)
-				.allowsHitTesting(false)
-			}
-	    }
-
-	    private var appleTVRemoteClickpad: some View {
-			ZStack {
-				Circle()
-					.fill(Color(white: 0.23))
-					.overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
-				Circle()
-					.strokeBorder(Color.white.opacity(0.10), lineWidth: 18)
-				Text("OK")
-					.font(.system(size: 18, weight: .black, design: .rounded))
-					.foregroundStyle(.white.opacity(0.82))
-			}
-			.frame(width: 118, height: 118)
-			.controllerAnchor([.dpadUp, .dpadDown, .dpadLeft, .dpadRight, .a], role: .controller)
-			.contentShape(Circle())
-			.onTapGesture { onButtonTap(.a) }
-			.onHover { hovering in handleButtonHover(.a, hovering) }
-			.help("Clickpad")
-	    }
-
-	    private var appleTVRemoteSiriSideButton: some View {
-			Capsule()
-				.fill(isPressed(.siri) ? Color.accentColor : Color(white: 0.27))
-				.frame(width: 12, height: 62)
-				.overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
-				.controllerAnchor(.siri, role: .controller)
-				.contentShape(Rectangle())
-				.onTapGesture { onButtonTap(.siri) }
-				.onHover { hovering in handleButtonHover(.siri, hovering) }
-					.help("Siri")
-		    }
-
-			private var appleTVRemoteVolumeRocker: some View {
-				VStack(spacing: 0) {
-					appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeUp, systemImage: "plus")
-					Rectangle()
-						.fill(Color.white.opacity(0.12))
-						.frame(height: 1)
-						.padding(.horizontal, 4)
-					appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeDown, systemImage: "minus")
-				}
-				.frame(width: 32, height: 78)
-				.background(
-					Capsule()
-						.fill(isPressed(.appleTVRemoteVolumeUp) || isPressed(.appleTVRemoteVolumeDown) ? Color.accentColor.opacity(0.9) : Color(white: 0.27))
 				)
-				.overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
-		    }
+				.overlay(
+					RoundedRectangle(cornerRadius: 28, style: .continuous)
+						.stroke(Color.white.opacity(0.62), lineWidth: 1)
+				)
+				.shadow(color: .black.opacity(0.18), radius: 14, x: 0, y: 8)
 
-			private func appleTVRemoteVolumeRockerSegment(_ button: ControllerButton, systemImage: String) -> some View {
-				Image(systemName: systemImage)
-					.font(.system(size: 10, weight: .bold))
-					.foregroundStyle(.white.opacity(0.85))
-					.frame(width: 32, height: 38)
-					.background(isPressed(button) ? Color.accentColor : Color.clear)
-					.contentShape(Rectangle())
-					.controllerAnchor(button, role: .controller)
-					.onTapGesture { onButtonTap(button) }
-					.onHover { hovering in handleButtonHover(button, hovering) }
-					.swappable(button, onSwap: performSwap)
-					.help(button.displayName(forAppleTVRemote: true))
-		    }
+			VStack(spacing: 0) {
+				ZStack {
+					Capsule()
+						.fill(Color.black.opacity(0.72))
+						.frame(width: 15, height: 5)
 
-		    private func appleTVRemoteMockIcon(_ button: ControllerButton, scale: CGFloat = 1.06) -> some View {
-			ButtonIconView(
-				button: button,
-				isPressed: isPressed(button),
-				isAppleTVRemote: true
-			)
-			.scaleEffect(scale)
-			.frame(width: 40, height: 40)
-			.controllerAnchor(button, role: .controller)
+					HStack {
+						Spacer()
+						appleTVRemotePowerButton
+							.padding(.trailing, 13)
+					}
+				}
+				.frame(height: 34)
+				.padding(.top, 14)
+
+				appleTVRemoteClickpad
+					.padding(.top, 28)
+
+				HStack(spacing: 26) {
+					appleTVRemoteRoundButton(.menu, systemImage: "chevron.left")
+					appleTVRemoteRoundButton(.xbox, systemImage: "tv.fill")
+				}
+				.padding(.top, 24)
+
+				HStack(alignment: .top, spacing: 26) {
+					VStack(spacing: 26) {
+						appleTVRemoteRoundButton(.x, systemImage: "playpause.fill")
+						appleTVRemoteRoundButton(.appleTVRemoteMute, systemImage: "speaker.slash.fill")
+					}
+
+					appleTVRemoteVolumeRocker
+				}
+				.padding(.top, 24)
+
+				Spacer(minLength: 0)
+			}
+			.frame(maxWidth: .infinity, maxHeight: .infinity)
+
+			appleTVRemoteSiriSideButton
+				.offset(x: 9, y: 112)
+
+			VStack {
+				Spacer()
+				layerScopeChip
+					.padding(.bottom, 14)
+			}
+			.frame(maxWidth: .infinity, maxHeight: .infinity)
+			.allowsHitTesting(false)
+		}
+		.frame(width: appleTVRemotePreviewWidth, height: appleTVRemotePreviewHeight)
+	}
+
+	private var appleTVRemoteClickpad: some View {
+		ZStack {
+			Circle()
+				.fill(
+					LinearGradient(
+						colors: [Color(white: 0.14), Color(white: 0.05)],
+						startPoint: .topLeading,
+						endPoint: .bottomTrailing
+					)
+				)
+				.overlay(Circle().stroke(Color.white.opacity(0.14), lineWidth: 1))
+			Circle()
+				.strokeBorder(Color.white.opacity(0.08), lineWidth: 22)
+			appleTVRemoteClickpadDot(.dpadUp, x: 0, y: -48)
+			appleTVRemoteClickpadDot(.dpadDown, x: 0, y: 48)
+			appleTVRemoteClickpadDot(.dpadLeft, x: -48, y: 0)
+			appleTVRemoteClickpadDot(.dpadRight, x: 48, y: 0)
+			Circle()
+				.fill(
+					appleTVRemoteButtonGradient(
+						isPressed(.a) ? Color.accentColor : Color(white: 0.10),
+						pressed: isPressed(.a)
+					)
+				)
+				.overlay(Circle().stroke(Color.black.opacity(0.45), lineWidth: 1.2))
+				.frame(width: 68, height: 68)
+				.controllerAnchor(.a, role: .controller)
+				.contentShape(Circle())
+				.onTapGesture { onButtonTap(.a) }
+				.onHover { hovering in handleButtonHover(.a, hovering) }
+				.swappable(.a, onSwap: performSwap)
+				.help("Clickpad Center")
+		}
+		.frame(width: 126, height: 126)
+		.help("Clickpad")
+	}
+
+	private func appleTVRemoteClickpadDot(
+		_ button: ControllerButton,
+		x: CGFloat,
+		y: CGFloat
+	) -> some View {
+		ZStack {
+			if isPressed(button) {
+				Circle()
+					.fill(Color.accentColor.opacity(0.86))
+					.frame(width: 30, height: 30)
+			}
+
+			Circle()
+				.fill(Color.white.opacity(0.88))
+				.frame(width: 5.5, height: 5.5)
+		}
+		.frame(width: 38, height: 38)
+		.contentShape(Circle())
+		.controllerAnchor(button, role: .controller)
+		.onTapGesture { onButtonTap(button) }
+		.onHover { hovering in handleButtonHover(button, hovering) }
+		.swappable(button, onSwap: performSwap)
+		.help(button.displayName(forAppleTVRemote: true))
+		.offset(x: x, y: y)
+	}
+
+	private var appleTVRemoteSiriSideButton: some View {
+		Capsule()
+			.fill(isPressed(.siri) ? Color.accentColor : Color(white: 0.72))
+			.frame(width: 10, height: 66)
+			.overlay(Capsule().stroke(Color.black.opacity(0.16), lineWidth: 1))
+			.controllerAnchor(.siri, role: .controller)
 			.contentShape(Rectangle())
+			.onTapGesture { onButtonTap(.siri) }
+			.onHover { hovering in handleButtonHover(.siri, hovering) }
+			.help("Siri")
+	}
+
+	private var appleTVRemoteVolumeRocker: some View {
+		VStack(spacing: 0) {
+			appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeUp, systemImage: "plus")
+			Rectangle()
+				.fill(Color.white.opacity(0.12))
+				.frame(height: 1)
+			appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeDown, systemImage: "minus")
+		}
+		.frame(width: appleTVRemoteRoundButtonSize, height: 98)
+		.background(
+			RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous)
+				.fill(isPressed(.appleTVRemoteVolumeUp) || isPressed(.appleTVRemoteVolumeDown) ? Color.accentColor.opacity(0.9) : Color(white: 0.27))
+		)
+		.clipShape(RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous))
+		.overlay(
+			RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous)
+				.stroke(Color.white.opacity(0.16), lineWidth: 1)
+		)
+	}
+
+	private func appleTVRemoteVolumeRockerSegment(_ button: ControllerButton, systemImage: String) -> some View {
+		Image(systemName: systemImage)
+			.font(.system(size: 18, weight: .bold))
+			.foregroundStyle(.white.opacity(0.85))
+			.frame(width: appleTVRemoteRoundButtonSize, height: 48.5)
+			.background(isPressed(button) ? Color.accentColor : Color.clear)
+			.contentShape(Rectangle())
+			.controllerAnchor(button, role: .controller)
 			.onTapGesture { onButtonTap(button) }
 			.onHover { hovering in handleButtonHover(button, hovering) }
 			.swappable(button, onSwap: performSwap)
 			.help(button.displayName(forAppleTVRemote: true))
-	    }
+	}
 
-	    // MARK: - Reference UI Components
+	private var appleTVRemotePowerButton: some View {
+		Image(systemName: "power")
+			.font(.system(size: 15, weight: .semibold))
+			.foregroundStyle(isPressed(.appleTVRemotePower) ? .white : Color.black.opacity(0.82))
+			.frame(width: 34, height: 34)
+			.background(
+				Circle()
+					.fill(isPressed(.appleTVRemotePower) ? Color.accentColor : Color.clear)
+			)
+			.overlay(Circle().stroke(Color.black.opacity(0.55), lineWidth: 1.2))
+			.contentShape(Circle())
+			.controllerAnchor(.appleTVRemotePower, role: .controller)
+			.onTapGesture { onButtonTap(.appleTVRemotePower) }
+			.onHover { hovering in handleButtonHover(.appleTVRemotePower, hovering) }
+			.swappable(.appleTVRemotePower, onSwap: performSwap)
+			.help("Power")
+	}
+
+	private func appleTVRemoteRoundButton(_ button: ControllerButton, systemImage: String) -> some View {
+		Image(systemName: systemImage)
+			.font(.system(size: button == .x ? 14 : 17, weight: .semibold))
+			.foregroundStyle(.white.opacity(0.9))
+			.frame(width: appleTVRemoteRoundButtonSize, height: appleTVRemoteRoundButtonSize)
+			.background(
+				Circle()
+					.fill(
+						appleTVRemoteButtonGradient(
+							isPressed(button) ? Color.accentColor : Color(white: 0.09),
+							pressed: isPressed(button)
+						)
+					)
+			)
+			.overlay(Circle().stroke(Color.white.opacity(0.14), lineWidth: 1))
+			.shadow(color: .black.opacity(0.22), radius: 3, x: 0, y: 1.5)
+			.contentShape(Circle())
+			.controllerAnchor(button, role: .controller)
+			.onTapGesture { onButtonTap(button) }
+			.onHover { hovering in handleButtonHover(button, hovering) }
+			.swappable(button, onSwap: performSwap)
+			.help(button.displayName(forAppleTVRemote: true))
+	}
+
+	private func appleTVRemoteButtonGradient(_ color: Color, pressed: Bool) -> LinearGradient {
+		LinearGradient(
+			colors: [
+				pressed ? color.opacity(0.82) : color.opacity(1.0),
+				pressed ? color.opacity(0.58) : color.opacity(0.76)
+			],
+			startPoint: .topLeading,
+			endPoint: .bottomTrailing
+		)
+	}
+
+	// MARK: - Reference UI Components
 
     @ViewBuilder
     private func referenceGroup(title: String, buttons: [ControllerButton], rowSpacing: CGFloat = 12) -> some View {

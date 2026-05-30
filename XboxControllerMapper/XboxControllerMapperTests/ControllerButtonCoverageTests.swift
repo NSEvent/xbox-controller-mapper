@@ -140,41 +140,49 @@ final class ControllerButtonCoverageTests: XCTestCase {
         XCTAssertEqual(ControllerButton.b.shortLabel(forDualSense: true), "○")
         XCTAssertEqual(ControllerButton.x.shortLabel(forDualSense: true), "□")
         XCTAssertEqual(ControllerButton.y.shortLabel(forDualSense: true), "△")
-	    }
+	}
 
-	    func testAppleTVRemoteLabelOverrides() {
-			XCTAssertEqual(ControllerButton.a.displayName(forAppleTVRemote: true), "Clickpad")
-			XCTAssertEqual(ControllerButton.x.displayName(forAppleTVRemote: true), "Play/Pause")
-				XCTAssertEqual(ControllerButton.menu.displayName(forAppleTVRemote: true), "Back")
-				XCTAssertEqual(ControllerButton.xbox.displayName(forAppleTVRemote: true), "TV/Home")
-				XCTAssertEqual(ControllerButton.siri.displayName(forAppleTVRemote: true), "Siri")
-				XCTAssertEqual(ControllerButton.appleTVRemotePower.displayName(forAppleTVRemote: true), "Power")
-				XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.displayName(forAppleTVRemote: true), "Volume Up")
-				XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.displayName(forAppleTVRemote: true), "Volume Down")
-				XCTAssertEqual(ControllerButton.appleTVRemoteMute.displayName(forAppleTVRemote: true), "Mute")
+	func testAppleTVRemoteLabelOverrides() {
+		XCTAssertEqual(ControllerButton.a.displayName(forAppleTVRemote: true), "Clickpad")
+		XCTAssertEqual(ControllerButton.x.displayName(forAppleTVRemote: true), "Play/Pause")
+		XCTAssertEqual(ControllerButton.menu.displayName(forAppleTVRemote: true), "Back")
+		XCTAssertEqual(ControllerButton.xbox.displayName(forAppleTVRemote: true), "TV/Home")
+		XCTAssertEqual(ControllerButton.siri.displayName(forAppleTVRemote: true), "Siri")
+		XCTAssertEqual(ControllerButton.appleTVRemotePower.displayName(forAppleTVRemote: true), "Power")
+		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.displayName(forAppleTVRemote: true), "Volume Up")
+		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.displayName(forAppleTVRemote: true), "Volume Down")
+		XCTAssertEqual(ControllerButton.appleTVRemoteMute.displayName(forAppleTVRemote: true), "Mute")
 
-				XCTAssertEqual(ControllerButton.a.shortLabel(forAppleTVRemote: true), "OK")
-				XCTAssertEqual(ControllerButton.x.shortLabel(forAppleTVRemote: true), "▶")
-				XCTAssertEqual(ControllerButton.menu.shortLabel(forAppleTVRemote: true), "←")
-				XCTAssertEqual(ControllerButton.xbox.shortLabel(forAppleTVRemote: true), "TV")
-				XCTAssertEqual(ControllerButton.siri.shortLabel(forAppleTVRemote: true), "Siri")
-				XCTAssertEqual(ControllerButton.appleTVRemotePower.shortLabel(forAppleTVRemote: true), "PWR")
-				XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.shortLabel(forAppleTVRemote: true), "V+")
-				XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.shortLabel(forAppleTVRemote: true), "V-")
-				XCTAssertEqual(ControllerButton.appleTVRemoteMute.shortLabel(forAppleTVRemote: true), "Mute")
-		    }
+		XCTAssertEqual(ControllerButton.a.shortLabel(forAppleTVRemote: true), "OK")
+		XCTAssertEqual(ControllerButton.x.shortLabel(forAppleTVRemote: true), "▶")
+		XCTAssertEqual(ControllerButton.menu.shortLabel(forAppleTVRemote: true), "←")
+		XCTAssertEqual(ControllerButton.xbox.shortLabel(forAppleTVRemote: true), "TV")
+		XCTAssertEqual(ControllerButton.siri.shortLabel(forAppleTVRemote: true), "Siri")
+		XCTAssertEqual(ControllerButton.appleTVRemotePower.shortLabel(forAppleTVRemote: true), "PWR")
+		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.shortLabel(forAppleTVRemote: true), "V+")
+		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.shortLabel(forAppleTVRemote: true), "V-")
+		XCTAssertEqual(ControllerButton.appleTVRemoteMute.shortLabel(forAppleTVRemote: true), "Mute")
+	}
 
-    func testSystemImageNameMappings() {
-        XCTAssertEqual(ControllerButton.xbox.systemImageName(forDualSense: false), "xbox.logo")
-        XCTAssertEqual(ControllerButton.xbox.systemImageName(forDualSense: true), "playstation.logo")
-        XCTAssertEqual(ControllerButton.view.systemImageName(forDualSense: false), "rectangle.on.rectangle")
-        XCTAssertEqual(ControllerButton.view.systemImageName(forDualSense: true), "square.and.arrow.up")
+	func testSystemImageNameMappings() {
+		XCTAssertEqual(ControllerButton.xbox.systemImageName(forDualSense: false), "xbox.logo")
+		XCTAssertEqual(ControllerButton.xbox.systemImageName(forDualSense: true), "playstation.logo")
+		XCTAssertEqual(ControllerButton.view.systemImageName(forDualSense: false), "rectangle.on.rectangle")
+		XCTAssertEqual(ControllerButton.view.systemImageName(forDualSense: true), "square.and.arrow.up")
 		XCTAssertEqual(ControllerButton.appleTVRemotePower.systemImageName(forDualSense: false), "power")
 		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.systemImageName(forDualSense: false), "speaker.wave.3.fill")
-        XCTAssertNil(ControllerButton.a.systemImageName(forDualSense: true), "DualSense face buttons use text symbols")
-    }
+		XCTAssertNil(ControllerButton.a.systemImageName(forDualSense: true), "DualSense face buttons use text symbols")
+	}
 
-    func testCategoryCoverageAndOrdering() {
+	func testAppleTVRemoteSystemImageOverridesAvoidXboxGlyphs() {
+		XCTAssertEqual(ControllerButton.x.systemImageName(forAppleTVRemote: true), "playpause.fill")
+		XCTAssertEqual(ControllerButton.xbox.systemImageName(forAppleTVRemote: true), "tv.fill")
+		XCTAssertEqual(ControllerButton.menu.systemImageName(forAppleTVRemote: true), "chevron.left")
+		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.systemImageName(forAppleTVRemote: true), "plus")
+		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.systemImageName(forAppleTVRemote: true), "minus")
+	}
+
+	func testCategoryCoverageAndOrdering() {
         let categories = Set(ControllerButton.allCases.map(\.category))
         XCTAssertEqual(categories, Set(ButtonCategory.allCases))
 

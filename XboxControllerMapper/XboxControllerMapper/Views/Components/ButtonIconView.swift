@@ -284,21 +284,13 @@ struct ButtonIconView: View {
                 // four quarters."
                 quadrantGlyph(for: region)
                     .foregroundColor(.white.opacity(0.95))
-				} else if isAppleTVRemote {
-					if button == .siri {
-						Image(systemName: "mic.fill")
-							.font(.system(size: fontSize, weight: .bold))
-							.foregroundColor(.white.opacity(0.95))
-					} else if button == .appleTVRemotePower ||
-						button == .appleTVRemoteVolumeUp ||
-						button == .appleTVRemoteVolumeDown ||
-						button == .appleTVRemoteMute,
-						let systemImage = button.systemImageName {
-						Image(systemName: systemImage)
-							.font(.system(size: fontSize, weight: .bold))
-							.foregroundColor(.white.opacity(0.95))
-					} else {
-						Text(button.shortLabel(forAppleTVRemote: true))
+			} else if isAppleTVRemote {
+				if let systemImage = button.systemImageName(forAppleTVRemote: true) {
+					Image(systemName: systemImage)
+						.font(.system(size: button == .x ? max(10, fontSize - 4) : fontSize, weight: .bold))
+						.foregroundColor(.white.opacity(0.95))
+				} else {
+					Text(button.shortLabel(forAppleTVRemote: true))
 						.font(.system(size: fontSize, weight: .bold, design: .rounded))
 						.foregroundColor(.white.opacity(0.95))
 				}

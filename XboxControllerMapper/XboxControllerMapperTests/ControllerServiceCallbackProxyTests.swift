@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 import CoreGraphics
 import GameController
+import IOKit.hid
 @testable import ControllerKeys
 
 @MainActor
@@ -322,6 +323,18 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 				type: systemDefinedType
 			)
 		)
+	}
+
+	func testAppleTVRemoteDisconnectPreservesHIDManagersForWake() {
+		controllerService.storage.isAppleTVRemote = true
+		controllerService.appleTVRemoteHIDManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+		controllerService.appleTVRemoteHIDButtonManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+
+		controllerService.controllerDisconnected()
+
+		XCTAssertFalse(controllerService.isConnected)
+		XCTAssertNotNil(controllerService.appleTVRemoteHIDManager)
+		XCTAssertNotNil(controllerService.appleTVRemoteHIDButtonManager)
 	}
 
 	func testAppleTVRemoteTouchReportParsesCurrentRemoteTouchPoint() {

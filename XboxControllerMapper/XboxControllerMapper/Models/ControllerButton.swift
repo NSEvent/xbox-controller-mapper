@@ -935,6 +935,39 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         default: return systemImageName  // Reuse Xbox SF Symbols for everything else
         }
     }
+
+	/// SF Symbol name for Apple TV/Siri Remote controls.
+	func systemImageName(forAppleTVRemote isAppleTVRemote: Bool) -> String? {
+		guard isAppleTVRemote else { return systemImageName }
+		switch self {
+		case .x:
+			return "playpause.fill"
+		case .menu:
+			return "chevron.left"
+		case .xbox:
+			return "tv.fill"
+		case .siri:
+			return "mic.fill"
+		case .appleTVRemotePower:
+			return "power"
+		case .appleTVRemoteVolumeUp:
+			return "plus"
+		case .appleTVRemoteVolumeDown:
+			return "minus"
+		case .appleTVRemoteMute:
+			return "speaker.slash.fill"
+		case .dpadUp:
+			return "chevron.up"
+		case .dpadDown:
+			return "chevron.down"
+		case .dpadLeft:
+			return "chevron.left"
+		case .dpadRight:
+			return "chevron.right"
+		default:
+			return nil
+		}
+	}
 }
 
 enum ButtonCategory: String, CaseIterable {

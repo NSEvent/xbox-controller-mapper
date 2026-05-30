@@ -893,6 +893,12 @@ class ControllerService: ObservableObject {
     }
 
     func controllerDisconnected() {
+		let wasAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
+		if wasAppleTVRemote {
+			releaseAppleTVRemoteButtonsIfNeeded()
+			releaseAppleTVRemoteTouchIfStillActive()
+		}
+
         // Disable motion sensors before disconnecting
         connectedController?.motion?.sensorsActive = false
         connectedController = nil
@@ -913,7 +919,9 @@ class ControllerService: ObservableObject {
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
         cleanupNintendoHIDMonitoring()  // Clean up Nintendo Home button monitoring
-		cleanupAppleTVRemoteHIDMonitoring()  // Clean up Apple TV Remote HID monitoring
+		if !wasAppleTVRemote {
+			cleanupAppleTVRemoteHIDMonitoring()  // Clean up Apple TV Remote HID monitoring
+		}
         stopEliteHelper()  // Clean up Elite helper process
 
         storage.lock.lock()
