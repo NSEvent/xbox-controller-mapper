@@ -25,7 +25,7 @@ struct AddLayerSheet: View {
 				.leftThumbstick, .rightThumbstick
 			]
 			if controllerService.threadSafeIsAppleTVRemote {
-				candidates = [.menu, .x, .xbox, .siri]
+				candidates = [.view, .menu, .xbox, .siri]
 			}
 			// Add Edge-specific buttons when Edge controller is connected
 			if controllerService.threadSafeIsDualSenseEdge {
@@ -150,7 +150,7 @@ struct EditLayerSheet: View {
 				.leftThumbstick, .rightThumbstick
 			]
 			if controllerService.threadSafeIsAppleTVRemote {
-				candidates = [.menu, .x, .xbox, .siri]
+				candidates = [.view, .menu, .xbox, .siri]
 			}
 			// Add Edge-specific buttons when Edge controller is connected
 			if controllerService.threadSafeIsDualSenseEdge {

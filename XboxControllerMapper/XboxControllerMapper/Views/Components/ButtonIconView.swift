@@ -171,8 +171,8 @@ struct ButtonIconView: View {
 		if isAppleTVRemote {
 			switch button {
 			case .a: return Color(white: 0.18)
-			case .x: return Color(red: 0.12, green: 0.36, blue: 0.55)
-			case .menu, .xbox, .siri: return Color(white: 0.28)
+			case .touchpadTap: return Color(white: 0.22)
+			case .view, .menu, .xbox, .siri: return Color(white: 0.28)
 			case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.22)
 			default: return Color(white: 0.2)
 			}
@@ -287,7 +287,7 @@ struct ButtonIconView: View {
 			} else if isAppleTVRemote {
 				if let systemImage = button.systemImageName(forAppleTVRemote: true) {
 					Image(systemName: systemImage)
-						.font(.system(size: button == .x ? max(10, fontSize - 4) : fontSize, weight: .bold))
+						.font(.system(size: button == .menu ? max(10, fontSize - 4) : fontSize, weight: .bold))
 						.foregroundColor(.white.opacity(0.95))
 				} else {
 					Text(button.shortLabel(forAppleTVRemote: true))

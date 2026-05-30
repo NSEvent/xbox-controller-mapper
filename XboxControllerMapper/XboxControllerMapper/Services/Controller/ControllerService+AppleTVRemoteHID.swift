@@ -368,7 +368,7 @@ extension ControllerService {
 	nonisolated static func appleTVRemoteButtonForHIDUsage(usagePage: UInt32, usage: UInt32) -> ControllerButton? {
 		if usagePage == AppleTVRemoteHID.genericDesktopUsagePage {
 			if usage == AppleTVRemoteHID.systemAppMenuUsage {
-				return .menu
+				return .view
 			}
 			return nil
 		}
@@ -383,21 +383,21 @@ extension ControllerService {
 		case AppleTVRemoteHID.selectionUsage, AppleTVRemoteHID.menuPickUsage:
 			return .a
 		case AppleTVRemoteHID.playUsage, AppleTVRemoteHID.pauseUsage, AppleTVRemoteHID.playPauseUsage:
-			return .x
-			case AppleTVRemoteHID.menuUsage, AppleTVRemoteHID.menuEscapeUsage:
-				return .menu
-			case AppleTVRemoteHID.dataOnScreenUsage:
-				return .xbox
-			case AppleTVRemoteHID.powerUsage:
-				return .appleTVRemotePower
-			case AppleTVRemoteHID.volumeUpUsage:
-				return .appleTVRemoteVolumeUp
-			case AppleTVRemoteHID.volumeDownUsage:
-				return .appleTVRemoteVolumeDown
-			case AppleTVRemoteHID.muteUsage:
-				return .appleTVRemoteMute
-			case AppleTVRemoteHID.menuUpUsage:
-				return .dpadUp
+			return .menu
+		case AppleTVRemoteHID.menuUsage, AppleTVRemoteHID.menuEscapeUsage:
+			return .view
+		case AppleTVRemoteHID.dataOnScreenUsage:
+			return .xbox
+		case AppleTVRemoteHID.powerUsage:
+			return .appleTVRemotePower
+		case AppleTVRemoteHID.volumeUpUsage:
+			return .appleTVRemoteVolumeUp
+		case AppleTVRemoteHID.volumeDownUsage:
+			return .appleTVRemoteVolumeDown
+		case AppleTVRemoteHID.muteUsage:
+			return .appleTVRemoteMute
+		case AppleTVRemoteHID.menuUpUsage:
+			return .dpadUp
 		case AppleTVRemoteHID.menuDownUsage:
 			return .dpadDown
 		case AppleTVRemoteHID.menuLeftUsage:

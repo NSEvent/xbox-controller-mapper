@@ -489,6 +489,7 @@ struct SequenceMappingSheet: View {
 						addStepButton(.xbox)
 						if isAppleTVRemote {
 							HStack(spacing: 25) {
+								addStepButton(.view)
 								addStepButton(.menu)
 								addStepButton(.siri)
 							}
@@ -511,12 +512,12 @@ struct SequenceMappingSheet: View {
 
                 // Right Column: Face Buttons & Stick
                 VStack(spacing: 25) {
-						if isAppleTVRemote {
-							VStack(spacing: 12) {
-								addStepButton(.x)
-								addStepButton(.a)
-							}
-						} else {
+					if isAppleTVRemote {
+						VStack(spacing: 12) {
+							addStepButton(.a)
+							addStepButton(.touchpadTap)
+						}
+					} else {
 							VStack(spacing: 2) {
 								addStepButton(.y)
 								HStack(spacing: 25) {

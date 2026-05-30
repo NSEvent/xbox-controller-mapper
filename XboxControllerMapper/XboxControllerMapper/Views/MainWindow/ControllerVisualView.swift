@@ -399,37 +399,38 @@ struct ControllerVisualView: View {
 			.padding(20)
 	    }
 
-	    @ViewBuilder
-	    private var appleTVRemoteLayout: some View {
-			HStack(alignment: .center, spacing: 26) {
-				VStack(alignment: .trailing, spacing: 16) {
-					directionCluster(
-						title: "Clickpad",
-						up: .dpadUp,
-						left: .dpadLeft,
-						center: .button(.a),
-						right: .dpadRight,
-						down: .dpadDown
-					)
-				}
-				.frame(width: 250)
-
-				appleTVRemoteBodyView
-					.frame(width: appleTVRemotePreviewWidth, height: appleTVRemotePreviewHeight)
-					.accessibilityHidden(true)
-
-					VStack(alignment: .leading, spacing: 16) {
-						referenceGroup(title: "Playback", buttons: [.x, .menu])
-						referenceGroup(title: "System", buttons: [.xbox, .siri])
-						referenceGroup(
-							title: "Controls",
-							buttons: [.appleTVRemotePower, .appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute]
-						)
-					}
-					.frame(width: 250)
+	@ViewBuilder
+	private var appleTVRemoteLayout: some View {
+		HStack(alignment: .center, spacing: 26) {
+			VStack(alignment: .trailing, spacing: 16) {
+				directionCluster(
+					title: "Clickpad",
+					up: .dpadUp,
+					left: .dpadLeft,
+					center: .dpadPreset,
+					right: .dpadRight,
+					down: .dpadDown
+				)
+				referenceGroup(title: "Clickpad", buttons: [.a, .touchpadTap])
 			}
-			.padding(28)
-	    }
+			.frame(width: 250)
+
+			appleTVRemoteBodyView
+				.frame(width: appleTVRemotePreviewWidth, height: appleTVRemotePreviewHeight)
+				.accessibilityHidden(true)
+
+			VStack(alignment: .leading, spacing: 16) {
+				referenceGroup(title: "Playback", buttons: [.menu])
+				referenceGroup(title: "System", buttons: [.view, .xbox, .siri])
+				referenceGroup(
+					title: "Controls",
+					buttons: [.appleTVRemotePower, .appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute]
+				)
+			}
+			.frame(width: 250)
+		}
+		.padding(28)
+	}
 
     private func handleButtonHover(_ button: ControllerButton, _ hovering: Bool) {
         if hovering {
@@ -656,11 +657,12 @@ struct ControllerVisualView: View {
 
     // MARK: - Controller Body
 
-    private var controllerPreviewWidth: CGFloat { 320 }
+	private var controllerPreviewWidth: CGFloat { 320 }
 	private var controllerPreviewHeight: CGFloat { isSteamController ? 250 : 220 }
 	private var appleTVRemotePreviewWidth: CGFloat { 154 }
 	private var appleTVRemotePreviewHeight: CGFloat { 520 }
 	private var appleTVRemoteRoundButtonSize: CGFloat { 46 }
+	private var appleTVRemoteVolumeRockerHeight: CGFloat { appleTVRemoteRoundButtonSize * 2 + 26 }
 
 	@ViewBuilder
 	private var controllerBodyView: some View {
@@ -734,14 +736,14 @@ struct ControllerVisualView: View {
 					.padding(.top, 28)
 
 				HStack(spacing: 26) {
-					appleTVRemoteRoundButton(.menu, systemImage: "chevron.left")
+					appleTVRemoteRoundButton(.view, systemImage: "chevron.left")
 					appleTVRemoteRoundButton(.xbox, systemImage: "tv.fill")
 				}
 				.padding(.top, 24)
 
 				HStack(alignment: .top, spacing: 26) {
 					VStack(spacing: 26) {
-						appleTVRemoteRoundButton(.x, systemImage: "playpause.fill")
+						appleTVRemoteRoundButton(.menu, systemImage: "playpause.fill")
 						appleTVRemoteRoundButton(.appleTVRemoteMute, systemImage: "speaker.slash.fill")
 					}
 
@@ -850,10 +852,10 @@ struct ControllerVisualView: View {
 				.frame(height: 1)
 			appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeDown, systemImage: "minus")
 		}
-		.frame(width: appleTVRemoteRoundButtonSize, height: 98)
+		.frame(width: appleTVRemoteRoundButtonSize, height: appleTVRemoteVolumeRockerHeight)
 		.background(
 			RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous)
-				.fill(isPressed(.appleTVRemoteVolumeUp) || isPressed(.appleTVRemoteVolumeDown) ? Color.accentColor.opacity(0.9) : Color(white: 0.27))
+				.fill(isPressed(.appleTVRemoteVolumeUp) || isPressed(.appleTVRemoteVolumeDown) ? Color.accentColor.opacity(0.9) : Color(white: 0.09))
 		)
 		.clipShape(RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous))
 		.overlay(
@@ -866,7 +868,7 @@ struct ControllerVisualView: View {
 		Image(systemName: systemImage)
 			.font(.system(size: 18, weight: .bold))
 			.foregroundStyle(.white.opacity(0.85))
-			.frame(width: appleTVRemoteRoundButtonSize, height: 48.5)
+			.frame(width: appleTVRemoteRoundButtonSize, height: (appleTVRemoteVolumeRockerHeight - 1) / 2)
 			.background(isPressed(button) ? Color.accentColor : Color.clear)
 			.contentShape(Rectangle())
 			.controllerAnchor(button, role: .controller)
@@ -896,7 +898,7 @@ struct ControllerVisualView: View {
 
 	private func appleTVRemoteRoundButton(_ button: ControllerButton, systemImage: String) -> some View {
 		Image(systemName: systemImage)
-			.font(.system(size: button == .x ? 14 : 17, weight: .semibold))
+			.font(.system(size: button == .menu ? 14 : 17, weight: .semibold))
 			.foregroundStyle(.white.opacity(0.9))
 			.frame(width: appleTVRemoteRoundButtonSize, height: appleTVRemoteRoundButtonSize)
 			.background(
@@ -1267,17 +1269,20 @@ struct ControllerVisualView: View {
         }
     }
 
-    private var dpadPresetMenu: some View {
-        let preset = profileManager.activeProfile?.dpadPreset ?? .custom
+	private var dpadPresetMenu: some View {
+		let preset = profileManager.activeProfile?.dpadPreset ?? .custom
 
-        return Menu {
-            Button("Arrow Keys") {
-                profileManager.setDPadPreset(.arrows)
-            }
-            Button("WASD") {
-                profileManager.setDPadPreset(.wasd)
-            }
-        } label: {
+		return Menu {
+			Button("Arrow Keys") {
+				profileManager.setDPadPreset(.arrows)
+			}
+			Button("WASD") {
+				profileManager.setDPadPreset(.wasd)
+			}
+			Button("Custom") {
+				profileManager.setDPadPreset(.custom)
+			}
+		} label: {
             VStack(spacing: 3) {
                 Text(preset.shortLabel)
                     .font(.system(size: 9, weight: .heavy, design: .rounded))

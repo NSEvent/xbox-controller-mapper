@@ -58,7 +58,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     // DualSense-specific
     case touchpadButton           // Touchpad click (DualSense only)
     case touchpadTwoFingerButton  // Two-finger touchpad click (DualSense only)
-    case touchpadTap              // Single tap on touchpad (DualSense only)
+	case touchpadTap              // Single tap on touchpad/touch surface
     case touchpadTwoFingerTap     // Two-finger tap on touchpad (DualSense only)
     case micMute                  // Mic mute button (DualSense only)
 
@@ -254,13 +254,14 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// Display name for Apple TV/Siri Remote controls.
-    func displayName(forAppleTVRemote isAppleTVRemote: Bool) -> String {
+	/// Display name for Apple TV/Siri Remote controls.
+	func displayName(forAppleTVRemote isAppleTVRemote: Bool) -> String {
 		guard isAppleTVRemote else { return displayName }
 		switch self {
 		case .a: return "Clickpad"
-		case .x: return "Play/Pause"
-		case .menu: return "Back"
+		case .touchpadTap: return "Clickpad Tap"
+		case .menu: return "Play/Pause"
+		case .view: return "Back"
 		case .xbox: return "TV/Home"
 		case .siri: return "Siri"
 		case .appleTVRemotePower: return "Power"
@@ -412,12 +413,13 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 
     /// Short label for Apple TV/Siri Remote controls.
-    func shortLabel(forAppleTVRemote isAppleTVRemote: Bool) -> String {
+	func shortLabel(forAppleTVRemote isAppleTVRemote: Bool) -> String {
 		guard isAppleTVRemote else { return shortLabel }
 		switch self {
 		case .a: return "OK"
-		case .x: return "▶"
-		case .menu: return "←"
+		case .touchpadTap: return "Tap"
+		case .menu: return "▶"
+		case .view: return "←"
 		case .xbox: return "TV"
 		case .siri: return "Siri"
 		case .appleTVRemotePower: return "PWR"
@@ -922,7 +924,7 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
 		[
 			.appleTVRemotePower,
 			.dpadUp, .dpadDown, .dpadLeft, .dpadRight,
-			.a, .x, .menu, .xbox, .siri,
+			.a, .touchpadTap, .view, .menu, .xbox, .siri,
 			.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute
 		]
     }
@@ -940,9 +942,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
 	func systemImageName(forAppleTVRemote isAppleTVRemote: Bool) -> String? {
 		guard isAppleTVRemote else { return systemImageName }
 		switch self {
-		case .x:
-			return "playpause.fill"
+		case .touchpadTap:
+			return "hand.tap"
 		case .menu:
+			return "playpause.fill"
+		case .view:
 			return "chevron.left"
 		case .xbox:
 			return "tv.fill"

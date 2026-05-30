@@ -37,14 +37,15 @@ extension ProfileManager {
         updateProfile(targetProfile)
     }
 
-    func setDPadPreset(_ preset: DPadPreset, in profile: Profile? = nil) {
-        guard preset != .custom else { return }
-        guard var targetProfile = profile ?? activeProfile else { return }
+	func setDPadPreset(_ preset: DPadPreset, in profile: Profile? = nil) {
+		guard var targetProfile = profile ?? activeProfile else { return }
 
-        preset.apply(to: &targetProfile.buttonMappings)
-        targetProfile.dpadPreset = preset
-        updateProfile(targetProfile)
-    }
+		if preset != .custom {
+			preset.apply(to: &targetProfile.buttonMappings)
+		}
+		targetProfile.dpadPreset = preset
+		updateProfile(targetProfile)
+	}
 
     func setStickDirectionPreset(_ preset: StickDirectionPreset, side: JoystickSide, in profile: Profile? = nil) {
         guard var targetProfile = profile ?? activeProfile else { return }

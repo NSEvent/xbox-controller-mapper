@@ -229,7 +229,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			)
 			XCTAssertEqual(
 				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00CD),
-				.x
+				.menu
 			)
 				XCTAssertEqual(
 					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0080),
@@ -238,6 +238,14 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 				XCTAssertEqual(
 					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0060),
 					.xbox
+				)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0040),
+					.view
+				)
+				XCTAssertEqual(
+					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0046),
+					.view
 				)
 				XCTAssertEqual(
 					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0030),
@@ -273,7 +281,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			)
 			XCTAssertEqual(
 				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x01, usage: 0x0086),
-				.menu
+				.view
 			)
 			XCTAssertNil(
 				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x01, usage: 0x00CF)

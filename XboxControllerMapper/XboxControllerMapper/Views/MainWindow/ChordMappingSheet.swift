@@ -222,11 +222,12 @@ struct ChordMappingSheet: View {
 							// Center Column: System Buttons
 							VStack(spacing: 15) {
 								toggleButton(.xbox)
-									if isAppleTVRemote {
-										HStack(spacing: 25) {
-											toggleButton(.menu)
-											toggleButton(.siri)
-										}
+								if isAppleTVRemote {
+									HStack(spacing: 25) {
+										toggleButton(.view)
+										toggleButton(.menu)
+										toggleButton(.siri)
+									}
 										VStack(spacing: 8) {
 											HStack(spacing: 14) {
 												toggleButton(.appleTVRemotePower)
@@ -262,8 +263,8 @@ struct ChordMappingSheet: View {
 								// Face Buttons Diamond
 								if isAppleTVRemote {
 									VStack(spacing: 12) {
-										toggleButton(.x)
 										toggleButton(.a)
+										toggleButton(.touchpadTap)
 									}
 								} else {
 									VStack(spacing: 2) {

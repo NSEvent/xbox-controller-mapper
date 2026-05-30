@@ -97,7 +97,7 @@ final class ControllerButtonCoverageTests: XCTestCase {
 					[
 						.appleTVRemotePower,
 						.dpadUp, .dpadDown, .dpadLeft, .dpadRight,
-						.a, .x, .menu, .xbox, .siri,
+						.a, .touchpadTap, .view, .menu, .xbox, .siri,
 						.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute
 					]
 				)
@@ -144,8 +144,9 @@ final class ControllerButtonCoverageTests: XCTestCase {
 
 	func testAppleTVRemoteLabelOverrides() {
 		XCTAssertEqual(ControllerButton.a.displayName(forAppleTVRemote: true), "Clickpad")
-		XCTAssertEqual(ControllerButton.x.displayName(forAppleTVRemote: true), "Play/Pause")
-		XCTAssertEqual(ControllerButton.menu.displayName(forAppleTVRemote: true), "Back")
+		XCTAssertEqual(ControllerButton.touchpadTap.displayName(forAppleTVRemote: true), "Clickpad Tap")
+		XCTAssertEqual(ControllerButton.menu.displayName(forAppleTVRemote: true), "Play/Pause")
+		XCTAssertEqual(ControllerButton.view.displayName(forAppleTVRemote: true), "Back")
 		XCTAssertEqual(ControllerButton.xbox.displayName(forAppleTVRemote: true), "TV/Home")
 		XCTAssertEqual(ControllerButton.siri.displayName(forAppleTVRemote: true), "Siri")
 		XCTAssertEqual(ControllerButton.appleTVRemotePower.displayName(forAppleTVRemote: true), "Power")
@@ -154,8 +155,9 @@ final class ControllerButtonCoverageTests: XCTestCase {
 		XCTAssertEqual(ControllerButton.appleTVRemoteMute.displayName(forAppleTVRemote: true), "Mute")
 
 		XCTAssertEqual(ControllerButton.a.shortLabel(forAppleTVRemote: true), "OK")
-		XCTAssertEqual(ControllerButton.x.shortLabel(forAppleTVRemote: true), "▶")
-		XCTAssertEqual(ControllerButton.menu.shortLabel(forAppleTVRemote: true), "←")
+		XCTAssertEqual(ControllerButton.touchpadTap.shortLabel(forAppleTVRemote: true), "Tap")
+		XCTAssertEqual(ControllerButton.menu.shortLabel(forAppleTVRemote: true), "▶")
+		XCTAssertEqual(ControllerButton.view.shortLabel(forAppleTVRemote: true), "←")
 		XCTAssertEqual(ControllerButton.xbox.shortLabel(forAppleTVRemote: true), "TV")
 		XCTAssertEqual(ControllerButton.siri.shortLabel(forAppleTVRemote: true), "Siri")
 		XCTAssertEqual(ControllerButton.appleTVRemotePower.shortLabel(forAppleTVRemote: true), "PWR")
@@ -175,9 +177,10 @@ final class ControllerButtonCoverageTests: XCTestCase {
 	}
 
 	func testAppleTVRemoteSystemImageOverridesAvoidXboxGlyphs() {
-		XCTAssertEqual(ControllerButton.x.systemImageName(forAppleTVRemote: true), "playpause.fill")
+		XCTAssertEqual(ControllerButton.touchpadTap.systemImageName(forAppleTVRemote: true), "hand.tap")
+		XCTAssertEqual(ControllerButton.menu.systemImageName(forAppleTVRemote: true), "playpause.fill")
 		XCTAssertEqual(ControllerButton.xbox.systemImageName(forAppleTVRemote: true), "tv.fill")
-		XCTAssertEqual(ControllerButton.menu.systemImageName(forAppleTVRemote: true), "chevron.left")
+		XCTAssertEqual(ControllerButton.view.systemImageName(forAppleTVRemote: true), "chevron.left")
 		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.systemImageName(forAppleTVRemote: true), "plus")
 		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.systemImageName(forAppleTVRemote: true), "minus")
 	}
