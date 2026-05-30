@@ -206,6 +206,23 @@ extension ControllerService {
 		}
 	}
 
+	func refreshAppleTVRemoteHIDMonitoringAfterWake() {
+		let shouldRefresh = storage.lock.withLock {
+			storage.isAppleTVRemote
+		} || appleTVRemoteHIDManager != nil
+			|| appleTVRemoteHIDButtonManager != nil
+			|| appleTVRemoteMultitouchStarted
+			|| CKAppleTVRemoteMultitouchIsRunning()
+
+		guard shouldRefresh else { return }
+
+		NSLog("[ControllerKeys] Refreshing Apple TV Remote HID monitoring after wake")
+		releaseAppleTVRemoteButtonsIfNeeded()
+		releaseAppleTVRemoteTouchIfStillActive()
+		cleanupAppleTVRemoteHIDMonitoring()
+		setupAppleTVRemoteHIDMonitoring()
+	}
+
 	func appleTVRemoteHIDDeviceAppeared(_ device: IOHIDDevice) {
 		if Self.isAppleTVRemoteHIDDevice(device) {
 			appleTVRemoteHIDDevice = device

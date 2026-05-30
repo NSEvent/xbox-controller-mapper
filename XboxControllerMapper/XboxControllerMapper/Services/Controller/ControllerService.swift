@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import GameController
 import Combine
 import CoreHaptics
@@ -818,7 +819,30 @@ class ControllerService: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+		NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
+			.receive(on: DispatchQueue.main)
+			.sink { [weak self] _ in
+				self?.scheduleAppleTVRemoteWakeRefresh()
+			}
+			.store(in: &cancellables)
     }
+
+	private func scheduleAppleTVRemoteWakeRefresh() {
+		let shouldRefresh = storage.lock.withLock {
+			storage.isAppleTVRemote
+		} || appleTVRemoteHIDManager != nil
+			|| appleTVRemoteHIDButtonManager != nil
+			|| appleTVRemoteMultitouchStarted
+			|| CKAppleTVRemoteMultitouchIsRunning()
+
+		guard shouldRefresh else { return }
+
+		reenableAppleTVRemoteSystemEventSuppressionIfNeeded()
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
+			self?.refreshAppleTVRemoteHIDMonitoringAfterWake()
+		}
+	}
 
     private func startDiscovery() {
         GCController.startWirelessControllerDiscovery()

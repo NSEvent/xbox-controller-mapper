@@ -79,6 +79,43 @@ private struct CompactActionBadge: Identifiable {
     var id: String { label }
 }
 
+private struct AppleTVRemoteTouchIndicator: View {
+	let controllerService: ControllerService
+	let clickpadSize: CGFloat
+
+	@State private var isTouching = false
+	@State private var position: CGPoint = .zero
+
+	var body: some View {
+		Group {
+			if isTouching {
+				Circle()
+					.fill(Color.white.opacity(0.82))
+					.frame(width: 10, height: 10)
+					.shadow(color: .white.opacity(0.5), radius: 3)
+					.offset(
+						x: boundedPosition.x * (clickpadSize / 2 - 8),
+						y: -boundedPosition.y * (clickpadSize / 2 - 8)
+					)
+			}
+		}
+		.frame(width: clickpadSize, height: clickpadSize)
+		.allowsHitTesting(false)
+		.onReceive(controllerService.displayIsTouchpadTouchingSubject) { isTouching = $0 }
+		.onReceive(controllerService.displayTouchpadPositionSubject) { position = $0 }
+	}
+
+	private var boundedPosition: CGPoint {
+		let x = min(max(position.x, -1), 1)
+		let y = min(max(position.y, -1), 1)
+		let distance = hypot(x, y)
+		guard distance > 1 else {
+			return CGPoint(x: x, y: y)
+		}
+		return CGPoint(x: x / distance, y: y / distance)
+	}
+}
+
 struct ConnectorEndpoint {
     let button: ControllerButton
     let role: ConnectorRole
@@ -659,6 +696,7 @@ struct ControllerVisualView: View {
 	private var appleTVRemotePreviewWidth: CGFloat { 154 }
 	private var appleTVRemotePreviewHeight: CGFloat { 520 }
 	private var appleTVRemoteRoundButtonSize: CGFloat { 46 }
+	private var appleTVRemoteClickpadSize: CGFloat { 126 }
 	private var appleTVRemoteVolumeRockerHeight: CGFloat { appleTVRemoteRoundButtonSize * 2 + 26 }
 
 	@ViewBuilder
@@ -800,8 +838,13 @@ struct ControllerVisualView: View {
 				.onHover { hovering in handleButtonHover(.touchpadButton, hovering) }
 				.swappable(.touchpadButton, onSwap: performSwap)
 				.help("Clickpad Click")
+			AppleTVRemoteTouchIndicator(
+				controllerService: controllerService,
+				clickpadSize: appleTVRemoteClickpadSize
+			)
 		}
-		.frame(width: 126, height: 126)
+		.frame(width: appleTVRemoteClickpadSize, height: appleTVRemoteClickpadSize)
+		.controllerAnchor(.touchpadTap, role: .controller)
 		.help("Clickpad")
 	}
 
@@ -854,7 +897,7 @@ struct ControllerVisualView: View {
 		.frame(width: appleTVRemoteRoundButtonSize, height: appleTVRemoteVolumeRockerHeight)
 		.background(
 			RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous)
-				.fill(isPressed(.appleTVRemoteVolumeUp) || isPressed(.appleTVRemoteVolumeDown) ? Color.accentColor.opacity(0.9) : Color(white: 0.09))
+				.fill(Color(white: 0.09))
 		)
 		.clipShape(RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous))
 		.overlay(
