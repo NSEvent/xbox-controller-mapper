@@ -7,6 +7,12 @@ import Darwin
 import SwiftUI
 
 @MainActor
+private final class UniversalControlPairingCodePanel: NSPanel {
+	override var canBecomeKey: Bool { true }
+	override var canBecomeMain: Bool { false }
+}
+
+@MainActor
 private final class UniversalControlPairingCodePresenter {
 	static let shared = UniversalControlPairingCodePresenter()
 
@@ -19,7 +25,9 @@ private final class UniversalControlPairingCodePresenter {
 	func show(code: String, peerID: String, duration: TimeInterval = 60) {
 		hideWorkItem?.cancel()
 
-		let view = UniversalControlPairingCodeToast(code: code, peerID: peerID)
+		let view = UniversalControlPairingCodeToast(code: code, peerID: peerID) { [weak self] in
+			self?.hide()
+		}
 		if panel == nil {
 			createPanel(with: view)
 		} else {
@@ -65,7 +73,7 @@ private final class UniversalControlPairingCodePresenter {
 
 	private func createPanel(with view: UniversalControlPairingCodeToast) {
 		let hostingView = NSHostingView(rootView: view)
-		let panel = NSPanel(
+		let panel = UniversalControlPairingCodePanel(
 			contentRect: NSRect(origin: .zero, size: hostingView.fittingSize),
 			styleMask: [.borderless, .nonactivatingPanel],
 			backing: .buffered,
@@ -74,7 +82,7 @@ private final class UniversalControlPairingCodePresenter {
 		panel.isOpaque = false
 		panel.backgroundColor = .clear
 		panel.hasShadow = true
-		panel.ignoresMouseEvents = true
+		panel.ignoresMouseEvents = false
 		panel.level = .floating
 		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 		panel.hidesOnDeactivate = false
@@ -98,11 +106,29 @@ private final class UniversalControlPairingCodePresenter {
 private struct UniversalControlPairingCodeToast: View {
 	let code: String
 	let peerID: String
+	let onDismiss: () -> Void
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 8) {
-			Text("ControllerKeys Pairing Code")
-				.font(.headline)
+			HStack(spacing: 10) {
+				Text("ControllerKeys Pairing Code")
+					.font(.headline)
+
+				Spacer(minLength: 8)
+
+				Button {
+					onDismiss()
+				} label: {
+					Image(systemName: "xmark")
+						.font(.system(size: 11, weight: .bold))
+						.foregroundStyle(.secondary)
+						.frame(width: 24, height: 24)
+						.contentShape(Circle())
+				}
+				.buttonStyle(.plain)
+				.keyboardShortcut(.cancelAction)
+				.accessibilityLabel("Dismiss pairing code")
+			}
 
 			Text(code)
 				.font(.system(size: 34, weight: .bold, design: .monospaced))
@@ -122,7 +148,7 @@ private struct UniversalControlPairingCodeToast: View {
 			RoundedRectangle(cornerRadius: 12, style: .continuous)
 				.stroke(Color(nsColor: .separatorColor), lineWidth: 1)
 		}
-		.accessibilityElement(children: .combine)
+		.accessibilityElement(children: .contain)
 	}
 }
 
