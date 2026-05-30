@@ -1167,8 +1167,6 @@ struct SettingsSheet: View {
     @State private var relayPairingCodeInput = ""
     @State private var relaySecretStatus: String?
     @State private var relaySecretStatusIsError = false
-    @State private var relaySecretAlertMessage = ""
-    @State private var showingRelaySecretAlert = false
     @State private var isCheckingRelaySecret = false
 
     private var appVersion: String {
@@ -1455,11 +1453,6 @@ struct SettingsSheet: View {
                 }
             }
             .formStyle(.grouped)
-            .alert("Remote Mouse Pairing", isPresented: $showingRelaySecretAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(relaySecretAlertMessage)
-            }
 
             Text("\u{00A9} 2026 Kevin Tang. All rights reserved.")
                 .font(.caption2)
@@ -1481,11 +1474,9 @@ struct SettingsSheet: View {
         MainWindowSection.displayOrder.filter { $0.navGroup == group }
     }
 
-    private func setRelaySecretStatus(_ message: String, isError: Bool, showAlert: Bool = true) {
+    private func setRelaySecretStatus(_ message: String, isError: Bool) {
         relaySecretStatus = message
         relaySecretStatusIsError = isError
-        relaySecretAlertMessage = message
-        showingRelaySecretAlert = showAlert
     }
 
 	private var relayPairingCodeBinding: Binding<String> {
@@ -1498,7 +1489,7 @@ struct SettingsSheet: View {
 	private func startRelayPairing() {
 		isCheckingRelaySecret = true
 		relayPairingCodeInput = ""
-		setRelaySecretStatus("Searching for ControllerKeys on LAN and tailnet...", isError: false, showAlert: false)
+		setRelaySecretStatus("Searching for ControllerKeys on LAN and tailnet...", isError: false)
 		UniversalControlMouseRelay.shared.startRelayCodePairing { success, message in
 			isCheckingRelaySecret = false
 			setRelaySecretStatus(message, isError: !success)

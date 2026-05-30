@@ -4,6 +4,127 @@ import AppKit
 import CoreGraphics
 import Security
 import Darwin
+import SwiftUI
+
+@MainActor
+private final class UniversalControlPairingCodePresenter {
+	static let shared = UniversalControlPairingCodePresenter()
+
+	private var panel: NSPanel?
+	private var hostingView: NSHostingView<UniversalControlPairingCodeToast>?
+	private var hideWorkItem: DispatchWorkItem?
+
+	private init() {}
+
+	func show(code: String, peerID: String, duration: TimeInterval = 60) {
+		hideWorkItem?.cancel()
+
+		let view = UniversalControlPairingCodeToast(code: code, peerID: peerID)
+		if panel == nil {
+			createPanel(with: view)
+		} else {
+			hostingView?.rootView = view
+		}
+
+		guard let panel, let hostingView else { return }
+		let size = hostingView.fittingSize
+		hostingView.frame = NSRect(origin: .zero, size: size)
+		panel.setContentSize(size)
+		position(panel)
+
+		if !panel.isVisible {
+			panel.alphaValue = 0
+			panel.orderFrontRegardless()
+		}
+
+		NSAnimationContext.runAnimationGroup { context in
+			context.duration = 0.12
+			panel.animator().alphaValue = 1
+		}
+
+		let workItem = DispatchWorkItem { [weak self] in
+			Task { @MainActor in
+				self?.hide()
+			}
+		}
+		hideWorkItem = workItem
+		DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
+	}
+
+	private func hide() {
+		hideWorkItem?.cancel()
+		hideWorkItem = nil
+		guard let panel, panel.isVisible else { return }
+		NSAnimationContext.runAnimationGroup { context in
+			context.duration = 0.16
+			panel.animator().alphaValue = 0
+		} completionHandler: {
+			panel.orderOut(nil)
+		}
+	}
+
+	private func createPanel(with view: UniversalControlPairingCodeToast) {
+		let hostingView = NSHostingView(rootView: view)
+		let panel = NSPanel(
+			contentRect: NSRect(origin: .zero, size: hostingView.fittingSize),
+			styleMask: [.borderless, .nonactivatingPanel],
+			backing: .buffered,
+			defer: false
+		)
+		panel.isOpaque = false
+		panel.backgroundColor = .clear
+		panel.hasShadow = true
+		panel.ignoresMouseEvents = true
+		panel.level = .floating
+		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+		panel.hidesOnDeactivate = false
+		panel.contentView = hostingView
+
+		self.panel = panel
+		self.hostingView = hostingView
+	}
+
+	private func position(_ panel: NSPanel) {
+		let screenFrame = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame
+			?? CGRect(x: 0, y: 0, width: 1728, height: 1117)
+		let size = panel.frame.size
+		panel.setFrameOrigin(NSPoint(
+			x: screenFrame.midX - size.width * 0.5,
+			y: screenFrame.maxY - size.height - 72
+		))
+	}
+}
+
+private struct UniversalControlPairingCodeToast: View {
+	let code: String
+	let peerID: String
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			Text("ControllerKeys Pairing Code")
+				.font(.headline)
+
+			Text(code)
+				.font(.system(size: 34, weight: .bold, design: .monospaced))
+				.monospacedDigit()
+				.lineLimit(1)
+				.minimumScaleFactor(0.7)
+
+			Text("Enter this code on \(peerID).")
+				.font(.caption)
+				.foregroundStyle(.secondary)
+		}
+		.padding(.horizontal, 18)
+		.padding(.vertical, 14)
+		.frame(width: 320, alignment: .leading)
+		.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+		.overlay {
+			RoundedRectangle(cornerRadius: 12, style: .continuous)
+				.stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+		}
+		.accessibilityElement(children: .combine)
+	}
+}
 
 final class UniversalControlMouseRelay: @unchecked Sendable {
     static let shared = UniversalControlMouseRelay()
@@ -2211,14 +2332,9 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func showPairingCode(_ code: String, peerID: String) {
-        DispatchQueue.main.async {
-            NSApp.activate(ignoringOtherApps: true)
-            let alert = NSAlert()
-            alert.messageText = "ControllerKeys Pairing Code"
-            alert.informativeText = "Enter \(code) on the other Mac to pair with \(peerID)."
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-        }
+		DispatchQueue.main.async {
+			UniversalControlPairingCodePresenter.shared.show(code: code, peerID: peerID)
+		}
     }
 
     private func handleClient(line: String) {

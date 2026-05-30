@@ -38,7 +38,7 @@ Investigation notes:
 
 ## 3. Mac-to-Mac handoff pairing alerts steal controller mouse control
 
-Status: queued
+Status: fixed in local branch
 
 Observed:
 - Pairing flow alerts can interrupt controller mouse control.
@@ -49,5 +49,6 @@ Target:
 - The pairing flow should remain operable from ControllerKeys itself.
 
 Investigation notes:
-- Audit pairing confirmation dialogs and replace blocking modal alerts where possible.
-- Prefer an in-window sheet, nonmodal panel, popover, or app-owned confirmation UI that keeps input routing active.
+- Replaced the blocking `NSAlert.runModal()` pairing-code prompt with a nonactivating floating panel.
+- Removed the settings-sheet pairing result alert; pairing progress and errors now stay inline in the settings UI.
+- The pairing code presenter does not activate ControllerKeys or require an OK click, so controller-driven pointer input can keep routing.
