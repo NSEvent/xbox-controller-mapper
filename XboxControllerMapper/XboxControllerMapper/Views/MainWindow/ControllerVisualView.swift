@@ -412,6 +412,7 @@ struct ControllerVisualView: View {
 					down: .dpadDown
 				)
 				referenceGroup(title: "Clickpad", buttons: [.touchpadButton, .touchpadTap])
+				referenceGroup(title: "Front Buttons", buttons: [.view, .menu, .appleTVRemoteMute])
 			}
 			.frame(width: 250)
 
@@ -420,12 +421,8 @@ struct ControllerVisualView: View {
 				.accessibilityHidden(true)
 
 			VStack(alignment: .leading, spacing: 16) {
-				referenceGroup(title: "Playback", buttons: [.menu])
-				referenceGroup(title: "System", buttons: [.view, .xbox, .siri])
-				referenceGroup(
-					title: "Controls",
-					buttons: [.appleTVRemotePower, .appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute]
-				)
+				referenceGroup(title: "System", buttons: [.appleTVRemotePower, .xbox])
+				referenceGroup(title: "Volume", buttons: [.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown])
 			}
 			.frame(width: 250)
 		}
@@ -782,10 +779,10 @@ struct ControllerVisualView: View {
 				.overlay(Circle().stroke(Color.white.opacity(0.14), lineWidth: 1))
 			Circle()
 				.strokeBorder(Color.white.opacity(0.08), lineWidth: 22)
-			appleTVRemoteClickpadDot(.dpadUp, x: 0, y: -48)
-			appleTVRemoteClickpadDot(.dpadDown, x: 0, y: 48)
-			appleTVRemoteClickpadDot(.dpadLeft, x: -48, y: 0)
-			appleTVRemoteClickpadDot(.dpadRight, x: 48, y: 0)
+			appleTVRemoteClickpadDot(.dpadUp, x: 0, y: -55)
+			appleTVRemoteClickpadDot(.dpadDown, x: 0, y: 55)
+			appleTVRemoteClickpadDot(.dpadLeft, x: -55, y: 0)
+			appleTVRemoteClickpadDot(.dpadRight, x: 55, y: 0)
 			Circle()
 				.fill(
 					appleTVRemoteButtonGradient(
@@ -815,14 +812,14 @@ struct ControllerVisualView: View {
 			if isPressed(button) {
 				Circle()
 					.fill(Color.accentColor.opacity(0.86))
-					.frame(width: 30, height: 30)
+					.frame(width: 18, height: 18)
 			}
 
 			Circle()
 				.fill(Color.white.opacity(0.88))
-				.frame(width: 5.5, height: 5.5)
+				.frame(width: 4, height: 4)
 		}
-		.frame(width: 38, height: 38)
+		.frame(width: 30, height: 30)
 		.contentShape(Circle())
 		.controllerAnchor(button, role: .controller)
 		.onTapGesture { onButtonTap(button) }
