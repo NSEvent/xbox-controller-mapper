@@ -517,24 +517,40 @@ extension ControllerService {
         state: SteamControllerTouchpadState,
         pressed: Bool
     ) {
-        guard side == .right else { return }
-        storage.lock.lock()
-        if pressed {
-            let position = steamTouchpadVirtualPosition(
-                side: side,
-                x: state.x,
-                y: state.y,
-                isTouching: true
-            )
-            storage.touchpadClickArmed = true
-            storage.touchpadClickStartPosition = position
-            storage.touchpadClickFiredDuringTouch = true
-            storage.pendingTouchpadDelta = nil
-            storage.touchpadFramesSinceTouch = 0
-        } else {
-            storage.touchpadClickArmed = false
-        }
-        storage.lock.unlock()
+		switch side {
+		case .left:
+			let position = steamTouchpadVirtualPosition(
+				side: side,
+				x: state.x,
+				y: state.y,
+				isTouching: true
+			)
+			storage.lock.lock()
+			if pressed {
+				storage.steamLeftTouchpadClickArmed = true
+				storage.steamLeftTouchpadClickStartPosition = position
+				storage.touchpadSecondaryFramesSinceTouch = 0
+			} else {
+				storage.steamLeftTouchpadClickArmed = false
+				storage.steamLeftTouchpadClickStartPosition = .zero
+			}
+			storage.lock.unlock()
+		case .right:
+			if pressed {
+				let position = steamTouchpadVirtualPosition(
+					side: side,
+					x: state.x,
+					y: state.y,
+					isTouching: true
+				)
+				_ = armTouchpadClick(pressed: true)
+				storage.lock.lock()
+				storage.touchpadClickStartPosition = position
+				storage.lock.unlock()
+			} else {
+				_ = armTouchpadClick(pressed: false)
+			}
+		}
     }
 }
 

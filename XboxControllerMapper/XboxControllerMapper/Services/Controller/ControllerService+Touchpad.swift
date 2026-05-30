@@ -734,6 +734,26 @@ extension ControllerService {
                 storage.touchpadSecondaryLastUpdate = now
                 storage.touchpadSecondaryLastTouchTime = now
 
+				if storage.isSteamController && storage.steamLeftTouchpadClickArmed {
+					let distance = Double(hypot(
+						newPosition.x - storage.steamLeftTouchpadClickStartPosition.x,
+						newPosition.y - storage.steamLeftTouchpadClickStartPosition.y
+					))
+					if distance < Config.steamTouchpadClickMovementThreshold {
+						storage.touchpadSecondaryPosition = newPosition
+						storage.touchpadSecondaryPreviousPosition = newPosition
+						storage.lock.unlock()
+						return
+					}
+
+					storage.steamLeftTouchpadClickArmed = false
+					storage.steamLeftTouchpadClickStartPosition = .zero
+					storage.touchpadSecondaryPosition = newPosition
+					storage.touchpadSecondaryPreviousPosition = newPosition
+					storage.lock.unlock()
+					return
+				}
+
                 // Skip first 2 frames after touch to let position settle
                 if storage.touchpadSecondaryFramesSinceTouch <= 2 {
                     storage.touchpadSecondaryPosition = newPosition
@@ -838,6 +858,8 @@ extension ControllerService {
             storage.touchpadSecondaryPosition = .zero
             storage.touchpadSecondaryPreviousPosition = .zero
             storage.touchpadSecondaryFramesSinceTouch = 0
+			storage.steamLeftTouchpadClickArmed = false
+			storage.steamLeftTouchpadClickStartPosition = .zero
             storage.touchpadSecondaryLastUpdate = now
             storage.touchpadGestureHasCenter = false
             storage.touchpadGesturePreviousCenter = .zero

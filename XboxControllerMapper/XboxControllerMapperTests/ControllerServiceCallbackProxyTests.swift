@@ -147,6 +147,69 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         )
     }
 
+	func testSteamRightTouchpadClickSuppressesClickInducedTouchJitter() {
+		var movements: [CGPoint] = []
+		controllerService.storage.isSteamController = true
+		controllerService.onTouchpadMoved = { movements.append($0) }
+
+		controllerService.updateSteamTouchpad(side: .right, x: 0.0, y: 0.0, isTouching: true)
+		controllerService.storage.touchpadFramesSinceTouch = 3
+		controllerService.storage.touchpadTouchStartTime = CFAbsoluteTimeGetCurrent() - 1
+		controllerService.storage.touchpadTouchStartPosition = CGPoint(x: 1.35, y: 0.0)
+
+		controllerService.updateSteamTouchpad(side: .right, x: 0.10, y: 0.0, isTouching: true)
+		controllerService.updateSteamTouchpad(side: .right, x: 0.20, y: 0.0, isTouching: true)
+		XCTAssertFalse(movements.isEmpty, "Settled Steam right-pad touch movement should still produce mouse deltas")
+		movements.removeAll()
+
+		controllerService.handleSteamTouchpadClick(
+			side: .right,
+			state: SteamControllerTouchpadState(x: 0.20, y: 0.0, isTouching: true, isPressed: true),
+			pressed: true
+		)
+		XCTAssertTrue(controllerService.storage.touchpadClickArmed)
+		controllerService.updateSteamTouchpad(side: .right, x: 0.21, y: -0.015, isTouching: true)
+		controllerService.updateSteamTouchpad(side: .right, x: 0.22, y: -0.030, isTouching: true)
+
+		XCTAssertTrue(movements.isEmpty, "Steam right-pad click jitter should use the shared touchpad click suppression")
+		controllerService.handleSteamTouchpadClick(
+			side: .right,
+			state: SteamControllerTouchpadState(x: 0.22, y: -0.030, isTouching: true, isPressed: false),
+			pressed: false
+		)
+		XCTAssertFalse(controllerService.storage.touchpadClickArmed)
+	}
+
+	func testSteamLeftTouchpadClickSuppressesClickInducedTouchJitter() {
+		var movements: [CGPoint] = []
+		controllerService.storage.isSteamController = true
+		controllerService.onSteamLeftTouchpadMoved = { movements.append($0) }
+
+		controllerService.updateSteamTouchpad(side: .left, x: 0.0, y: 0.0, isTouching: true)
+		controllerService.storage.touchpadSecondaryFramesSinceTouch = 3
+
+		controllerService.updateSteamTouchpad(side: .left, x: 0.10, y: 0.0, isTouching: true)
+		XCTAssertFalse(movements.isEmpty, "Settled Steam left-pad touch movement should still produce deltas")
+		movements.removeAll()
+
+		controllerService.handleSteamTouchpadClick(
+			side: .left,
+			state: SteamControllerTouchpadState(x: 0.10, y: 0.0, isTouching: true, isPressed: true),
+			pressed: true
+		)
+		XCTAssertTrue(controllerService.storage.steamLeftTouchpadClickArmed)
+		controllerService.updateSteamTouchpad(side: .left, x: 0.11, y: -0.015, isTouching: true)
+		controllerService.updateSteamTouchpad(side: .left, x: 0.12, y: -0.030, isTouching: true)
+
+		XCTAssertTrue(movements.isEmpty, "Steam left-pad click jitter should be suppressed")
+		controllerService.handleSteamTouchpadClick(
+			side: .left,
+			state: SteamControllerTouchpadState(x: 0.12, y: -0.030, isTouching: true, isPressed: false),
+			pressed: false
+		)
+		XCTAssertFalse(controllerService.storage.steamLeftTouchpadClickArmed)
+	}
+
     func testChordWindowRoundTripsThroughThreadSafeStorage() {
         controllerService.chordWindow = 0.23
         XCTAssertEqual(controllerService.chordWindow, 0.23, accuracy: 0.000_1)
@@ -167,6 +230,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		var tapCount = 0
 		var regionTapCount = 0
 		controllerService.storage.isAppleTVRemote = true
+		controllerService.storage.isSteamController = false
 		controllerService.touchpadInputMode = .quadrants
 		controllerService.onTouchpadTap = { tapCount += 1 }
 		controllerService.onTouchpadRegionTap = { _ in regionTapCount += 1 }
@@ -205,6 +269,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 	func testAppleTVRemoteClickpadClickSuppressesClickInducedTouchJitter() {
 		var movements: [CGPoint] = []
 		controllerService.storage.isAppleTVRemote = true
+		controllerService.storage.isSteamController = false
 		controllerService.onTouchpadMoved = { movements.append($0) }
 
 		controllerService.updateTouchpad(x: 0.40, y: 0.40, isTouching: true)
@@ -232,6 +297,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		var tapCount = 0
 		controllerService.lowLatencyInputEnabled = true
 		controllerService.storage.isAppleTVRemote = true
+		controllerService.storage.isSteamController = false
 		controllerService.onButtonPressed = { buttonEvents.append(ControllerButtonEvent(button: $0, pressed: true)) }
 		controllerService.onButtonReleased = { button, _ in buttonEvents.append(ControllerButtonEvent(button: button, pressed: false)) }
 		controllerService.onTouchpadTap = { tapCount += 1 }

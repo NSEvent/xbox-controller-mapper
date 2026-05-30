@@ -84,6 +84,8 @@ final class ControllerStorage: @unchecked Sendable {
     var steamRightTouchpadPosition: CGPoint = .zero
     var isSteamLeftTouchpadTouching: Bool = false
     var isSteamRightTouchpadTouching: Bool = false
+	var steamLeftTouchpadClickArmed: Bool = false
+	var steamLeftTouchpadClickStartPosition: CGPoint = .zero
     var activeSteamLeftTouchpadClickQuadrant: ControllerButton?
     var activeSteamRightTouchpadClickQuadrant: ControllerButton?
     var steamTwoPadGestureActiveUntil: TimeInterval = 0
@@ -1011,6 +1013,8 @@ class ControllerService: ObservableObject {
         storage.steamRightTouchpadPosition = .zero
         storage.isSteamLeftTouchpadTouching = false
         storage.isSteamRightTouchpadTouching = false
+		storage.steamLeftTouchpadClickArmed = false
+		storage.steamLeftTouchpadClickStartPosition = .zero
         storage.activeSteamLeftTouchpadClickQuadrant = nil
         storage.activeSteamRightTouchpadClickQuadrant = nil
         storage.steamTwoPadGestureActiveUntil = 0
