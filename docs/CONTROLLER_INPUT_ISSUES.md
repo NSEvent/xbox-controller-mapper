@@ -21,7 +21,7 @@ Investigation notes:
 
 ## 2. Apple TV Remote circular scroll should keep scroll ownership
 
-Status: queued
+Status: fixed in local branch
 
 Observed:
 - Circular motion on the clickpad perimeter scrolls correctly.
@@ -32,8 +32,9 @@ Target:
 - Center-area touches during the same continuous touch should continue scrolling instead of moving the mouse.
 
 Investigation notes:
-- Add an Apple TV Remote touch-mode latch between scroll and mouse movement.
-- Require a touch-up plus brief timeout before switching from scroll mode back to mouse mode.
+- Circular scroll ownership now stays latched for the full touch session instead of dropping when the finger brushes inward.
+- Touch-up resets the latch so a new touch session can move the mouse again.
+- Added regression coverage for center brushes during active circular scroll.
 
 ## 3. Mac-to-Mac handoff pairing alerts steal controller mouse control
 

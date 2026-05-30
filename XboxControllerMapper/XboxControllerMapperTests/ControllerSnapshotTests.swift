@@ -351,6 +351,42 @@ final class ControllerSnapshotTests: XCTestCase {
 		XCTAssertTrue(movements.isEmpty)
 	}
 
+	func testAppleTVRemoteCircularScrollKeepsOwnershipThroughCenterBrushUntilLift() {
+		var scrollDeltas: [CGFloat] = []
+		var movements: [CGPoint] = []
+		controllerService.onAppleTVRemoteCircularScroll = { scrollDeltas.append($0) }
+		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isAppleTVRemote = true
+		}
+
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.78, y: 0.16, isTouching: true)
+		controllerService.updateTouchpad(x: 0.12, y: 0.04, isTouching: true)
+		controllerService.updateTouchpad(x: 0.14, y: 0.05, isTouching: true)
+		controllerService.updateTouchpad(x: 0.16, y: 0.06, isTouching: true)
+
+		XCTAssertEqual(scrollDeltas.count, 1)
+		XCTAssertTrue(
+			movements.isEmpty,
+			"An active circular scroll gesture should keep ownership through center brushes"
+		)
+
+		controllerService.updateTouchpad(x: 0, y: 0, isTouching: false)
+		controllerService.updateTouchpad(x: 0.10, y: 0.10, isTouching: true)
+		controllerService.updateTouchpad(x: 0.10, y: 0.10, isTouching: true)
+		controllerService.updateTouchpad(x: 0.10, y: 0.10, isTouching: true)
+		controllerService.updateTouchpad(x: 0.24, y: 0.10, isTouching: true)
+		controllerService.updateTouchpad(x: 0.28, y: 0.10, isTouching: true)
+
+		XCTAssertFalse(
+			movements.isEmpty,
+			"Mouse movement should be available again after touch-up starts a new touch session"
+		)
+	}
+
 	func testAppleTVRemoteRadialOuterMovementDoesNotCircularScroll() {
 		let angleDelta = ControllerService.appleTVRemoteCircularScrollAngleDelta(
 			previous: CGPoint(x: 0.65, y: 0.00),

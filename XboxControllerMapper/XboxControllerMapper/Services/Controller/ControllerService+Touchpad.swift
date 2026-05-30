@@ -307,11 +307,7 @@ extension ControllerService {
 		return angleDelta
 	}
 
-	nonisolated static func appleTVRemoteTouchIsOnCircularScrollRing(_ position: CGPoint) -> Bool {
-		hypot(position.x, position.y) >= CGFloat(Config.appleTVRemoteCircularScrollMinRadius)
-	}
-
-    private nonisolated func inactiveTouchpadGesture(
+	    private nonisolated func inactiveTouchpadGesture(
         primaryTouching: Bool,
         secondaryTouching: Bool
     ) -> TouchpadGesture {
@@ -513,20 +509,17 @@ extension ControllerService {
                     }
                 }
 
-				let circularScrollAngleDelta = storage.isAppleTVRemote
-					? Self.appleTVRemoteCircularScrollAngleDelta(
-						previous: storage.touchpadPreviousPosition,
-						current: storage.touchpadPosition
-					)
-					: nil
-				let circularScrollCallback = storage.onAppleTVRemoteCircularScroll
-				let wasCircularScrollActive = storage.appleTVRemoteCircularScrollActive
-				if circularScrollAngleDelta != nil {
-					storage.appleTVRemoteCircularScrollActive = true
-				} else if wasCircularScrollActive && !Self.appleTVRemoteTouchIsOnCircularScrollRing(newPosition) {
-					storage.appleTVRemoteCircularScrollActive = false
-				}
-				let circularScrollActive = circularScrollAngleDelta != nil || storage.appleTVRemoteCircularScrollActive
+					let circularScrollAngleDelta = storage.isAppleTVRemote
+						? Self.appleTVRemoteCircularScrollAngleDelta(
+							previous: storage.touchpadPreviousPosition,
+							current: storage.touchpadPosition
+						)
+						: nil
+					let circularScrollCallback = storage.onAppleTVRemoteCircularScroll
+					if circularScrollAngleDelta != nil {
+						storage.appleTVRemoteCircularScrollActive = true
+					}
+					let circularScrollActive = circularScrollAngleDelta != nil || storage.appleTVRemoteCircularScrollActive
 
 				// Apply the PREVIOUS pending delta (if any), then store current as pending.
 				// This 1-frame delay filters out artifacts right before finger lift.
