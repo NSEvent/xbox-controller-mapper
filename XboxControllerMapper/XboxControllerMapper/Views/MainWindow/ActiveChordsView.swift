@@ -37,17 +37,25 @@ struct ActiveChordsView: View {
                                 .foregroundColor(.green)
                                 .lineLimit(1)
                                 .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
-                        } else if let macroId = chord.macroId,
-                           let macro = profile.macros.first(where: { $0.id == macroId }) {
-                            Text(chord.hint ?? macro.name)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.purple)
-                                .lineLimit(1)
-                                .tooltipIfPresent(chord.hint != nil ? macro.name : nil)
-                        } else {
-                            Text(chord.hint ?? chord.actionDisplayString)
-                                .font(.caption)
+						} else if let macroId = chord.macroId,
+								  let macro = profile.macros.first(where: { $0.id == macroId }) {
+							Text(chord.hint ?? macro.name)
+								.font(.caption)
+								.fontWeight(.medium)
+								.foregroundColor(.purple)
+								.lineLimit(1)
+								.tooltipIfPresent(chord.hint != nil ? macro.name : nil)
+						} else if let scriptId = chord.scriptId,
+								  let script = profile.scripts.first(where: { $0.id == scriptId }) {
+							Text(chord.hint ?? script.name)
+								.font(.caption)
+								.fontWeight(.medium)
+								.foregroundColor(.white)
+								.lineLimit(1)
+								.tooltipIfPresent(chord.hint != nil ? script.name : nil)
+						} else {
+							Text(chord.hint ?? chord.actionDisplayString)
+								.font(.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(.white)
                                 .lineLimit(1)

@@ -958,6 +958,13 @@ struct PreviewChordRow: View {
                     shortcut: chord.hint != nil ? "Macro: \(macro.name)" : nil,
                     color: .purple.opacity(0.9)
                 )
+			} else if let scriptId = chord.scriptId,
+					  let script = profile.scripts.first(where: { $0.id == scriptId }) {
+				chordActionLabel(
+					text: chord.hint ?? script.name,
+					shortcut: chord.hint != nil ? "Script: \(script.name)" : nil,
+					color: .primary
+				)
             } else {
                 chordActionLabel(
                     text: chord.hint ?? chord.actionDisplayString,

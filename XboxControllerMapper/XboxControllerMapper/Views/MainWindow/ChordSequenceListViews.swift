@@ -83,16 +83,23 @@ struct ChordRow: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.green.opacity(0.9))
                         .tooltipIfPresent(chord.hint != nil ? systemCommand.displayName : nil)
-                } else if let macroId = chord.macroId,
-                   let profile = profileManager.activeProfile,
-                   let macro = profile.macros.first(where: { $0.id == macroId }) {
-                    Text(chord.hint ?? macro.name)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.purple.opacity(0.9))
-                        .tooltipIfPresent(chord.hint != nil ? macro.name : nil)
-                } else {
-                    Text(chord.hint ?? chord.actionDisplayString)
-                        .font(.system(size: 13, weight: .medium))
+				} else if let macroId = chord.macroId,
+						  let profile = profileManager.activeProfile,
+						  let macro = profile.macros.first(where: { $0.id == macroId }) {
+					Text(chord.hint ?? macro.name)
+						.font(.system(size: 13, weight: .medium))
+						.foregroundColor(.purple.opacity(0.9))
+						.tooltipIfPresent(chord.hint != nil ? macro.name : nil)
+				} else if let scriptId = chord.scriptId,
+						  let profile = profileManager.activeProfile,
+						  let script = profile.scripts.first(where: { $0.id == scriptId }) {
+					Text(chord.hint ?? script.name)
+						.font(.system(size: 13, weight: .medium))
+						.foregroundColor(.white.opacity(0.9))
+						.tooltipIfPresent(chord.hint != nil ? script.name : nil)
+				} else {
+					Text(chord.hint ?? chord.actionDisplayString)
+						.font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
                         .tooltipIfPresent(chord.hint != nil ? chord.actionDisplayString : nil)
                 }
