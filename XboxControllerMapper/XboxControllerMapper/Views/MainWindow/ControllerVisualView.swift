@@ -401,9 +401,9 @@ struct ControllerVisualView: View {
                                 .foregroundColor(.secondary.opacity(0.7))
                                 .padding(.horizontal, 4)
                             HStack(spacing: 20) {
-                                referenceRow(for: .xboxPaddle1)
+								referenceRow(for: eliteReferenceButton(for: .xboxPaddle1))
                                     .frame(width: 220, alignment: .trailing)
-                                referenceRow(for: .xboxPaddle2)
+								referenceRow(for: eliteReferenceButton(for: .xboxPaddle2))
                                     .frame(width: 220, alignment: .leading)
                             }
                         }
@@ -413,9 +413,9 @@ struct ControllerVisualView: View {
                                 .foregroundColor(.secondary.opacity(0.7))
                                 .padding(.horizontal, 4)
                             HStack(spacing: 20) {
-                                referenceRow(for: .xboxPaddle3)
+								referenceRow(for: eliteReferenceButton(for: .xboxPaddle3))
                                     .frame(width: 220, alignment: .trailing)
-                                referenceRow(for: .xboxPaddle4)
+								referenceRow(for: eliteReferenceButton(for: .xboxPaddle4))
                                     .frame(width: 220, alignment: .leading)
                             }
                         }
@@ -1744,8 +1744,25 @@ struct ControllerVisualView: View {
     // MARK: - Helpers
 
     private func isPressed(_ button: ControllerButton) -> Bool {
-        controllerService.activeButtons.contains(button)
+		controllerService.activeButtons.contains(button) ||
+			button.physicalEquivalentButtons.contains { controllerService.activeButtons.contains($0) }
     }
+
+	private func eliteReferenceButton(for physicalButton: ControllerButton) -> ControllerButton {
+		guard let profile = profileManager.activeProfile else {
+			return physicalButton.logicalEquivalent ?? physicalButton
+		}
+		let layerActivatorMap = Dictionary(uniqueKeysWithValues: profile.layers.compactMap { layer in
+			layer.activatorButton.map { ($0, layer.id) }
+		})
+		let activeLayerIds = selectedLayerId.map { [$0] } ?? []
+		return ButtonMappingResolutionPolicy.resolvedButton(
+			button: physicalButton,
+			profile: profile,
+			activeLayerIds: activeLayerIds,
+			layerActivatorMap: layerActivatorMap
+		)
+	}
 
     private func mapping(for button: ControllerButton) -> KeyMapping? {
         guard let profile = profileManager.activeProfile else { return nil }
@@ -2512,7 +2529,8 @@ struct ControllerAnalogOverlay: View {
     }
 
     private func isPressed(_ button: ControllerButton) -> Bool {
-        activeButtons.contains(button)
+		activeButtons.contains(button) ||
+			button.physicalEquivalentButtons.contains { activeButtons.contains($0) }
     }
 
     private func firstOverrideColor(for buttons: [ControllerButton]) -> Color? {

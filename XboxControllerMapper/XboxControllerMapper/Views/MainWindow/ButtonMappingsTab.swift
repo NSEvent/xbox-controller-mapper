@@ -123,7 +123,8 @@ struct ButtonMappingsTab: View {
 
             // Check if any layer activator is being held
             for layer in profile.layers {
-                if let activator = layer.activatorButton, activeButtons.contains(activator) {
+				if let activator = layer.activatorButton,
+				   activeButtonsContain(activator, in: activeButtons) {
                     selectedLayerId = layer.id
                     return
                 }
@@ -135,6 +136,14 @@ struct ButtonMappingsTab: View {
     }
 
     // MARK: - Swap Mode
+
+	private func activeButtonsContain(
+		_ button: ControllerButton,
+		in activeButtons: Set<ControllerButton>
+	) -> Bool {
+		activeButtons.contains(button) ||
+			button.physicalEquivalentButtons.contains { activeButtons.contains($0) }
+	}
 
     private func handleSwapButtonTap(_ button: ControllerButton) {
         if let firstButton = swapFirstButton {

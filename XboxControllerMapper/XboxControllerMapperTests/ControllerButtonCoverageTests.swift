@@ -187,10 +187,12 @@ final class ControllerButtonCoverageTests: XCTestCase {
 		}
 
 		func testElitePaddleAliasesPointAtDualSenseEdgeControls() {
-			XCTAssertEqual(ControllerButton.xboxPaddle1.mappingFallbackButtons, [.leftPaddle])
-			XCTAssertEqual(ControllerButton.xboxPaddle2.mappingFallbackButtons, [.rightPaddle])
-			XCTAssertEqual(ControllerButton.xboxPaddle3.mappingFallbackButtons, [.leftFunction])
-			XCTAssertEqual(ControllerButton.xboxPaddle4.mappingFallbackButtons, [.rightFunction])
+			XCTAssertEqual(ControllerButton.xboxPaddle1.logicalEquivalent, .leftPaddle)
+			XCTAssertEqual(ControllerButton.xboxPaddle2.logicalEquivalent, .rightPaddle)
+			XCTAssertEqual(ControllerButton.xboxPaddle3.logicalEquivalent, .leftFunction)
+			XCTAssertEqual(ControllerButton.xboxPaddle4.logicalEquivalent, .rightFunction)
+			XCTAssertEqual(ControllerButton.leftPaddle.physicalEquivalentButtons, [.xboxPaddle1])
+			XCTAssertEqual(ControllerButton.leftFunction.physicalEquivalentButtons, [.xboxPaddle3])
 			XCTAssertEqual(ControllerButton.xboxPaddle1.chordSequenceAlias, .leftPaddle)
 			XCTAssertEqual(ControllerButton.xboxPaddle3.chordSequenceAlias, .leftFunction)
 		}

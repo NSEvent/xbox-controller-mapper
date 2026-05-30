@@ -177,7 +177,7 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
         XCTAssertNil(result)
     }
 
-	func testXboxUpperPaddlesFallBackToDualSenseEdgeBackPaddles() {
+	func testXboxUpperPaddlesResolveAsDualSenseEdgeBackPaddles() {
 		let profile = Profile(
 			name: "Test",
 			buttonMappings: [
@@ -201,9 +201,18 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
 
 		XCTAssertEqual(left?.keyCode, 10)
 		XCTAssertEqual(right?.keyCode, 11)
+		XCTAssertEqual(
+			ButtonMappingResolutionPolicy.resolvedButton(
+				button: .xboxPaddle1,
+				profile: profile,
+				activeLayerIds: [],
+				layerActivatorMap: [:]
+			),
+			.leftPaddle
+		)
 	}
 
-	func testXboxLowerPaddlesFallBackToDualSenseEdgeFunctionButtons() {
+	func testXboxLowerPaddlesResolveAsDualSenseEdgeFunctionButtons() {
 		let profile = Profile(
 			name: "Test",
 			buttonMappings: [
@@ -229,7 +238,7 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
 		XCTAssertEqual(right?.keyCode, 21)
 	}
 
-	func testExplicitXboxPaddleMappingWinsOverEdgeFallback() {
+	func testExplicitXboxPaddleMappingPreservesLegacyPhysicalButton() {
 		let profile = Profile(
 			name: "Test",
 			buttonMappings: [
@@ -246,9 +255,18 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
 		)
 
 		XCTAssertEqual(result?.keyCode, 99)
+		XCTAssertEqual(
+			ButtonMappingResolutionPolicy.resolvedButton(
+				button: .xboxPaddle1,
+				profile: profile,
+				activeLayerIds: [],
+				layerActivatorMap: [:]
+			),
+			.xboxPaddle1
+		)
 	}
 
-	func testActiveLayerCanOverrideXboxPaddleThroughEdgeFallback() {
+	func testActiveLayerCanOverrideLegacyBasePaddleThroughLogicalEdgeButton() {
 		let layer = Layer(
 			name: "Layer",
 			activatorButton: .leftBumper,
@@ -273,7 +291,7 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
 		XCTAssertEqual(result?.keyCode, 44)
 	}
 
-	func testEmptyExplicitXboxPaddleMappingBlocksEdgeFallback() {
+	func testEmptyExplicitXboxPaddleMappingPreservesDisabledLegacyButton() {
 		let profile = Profile(
 			name: "Test",
 			buttonMappings: [

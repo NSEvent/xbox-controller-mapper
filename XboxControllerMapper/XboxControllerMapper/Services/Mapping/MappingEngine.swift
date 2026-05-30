@@ -145,8 +145,8 @@ class MappingEngine: ObservableObject {
         self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
         // Build precomputed lookup caches
         let initialChords = profileManager.activeProfile?.chordMappings ?? []
-        self.state.chordParticipantButtons = Set(initialChords.flatMap { $0.buttons })
-        self.state.sequenceParticipantButtons = Set((profileManager.activeProfile?.sequenceMappings ?? []).flatMap { $0.steps })
+		self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: initialChords.flatMap { $0.buttons })
+		self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profileManager.activeProfile?.sequenceMappings ?? []).flatMap { $0.steps })
         self.state.chordLookup = Dictionary(uniqueKeysWithValues: initialChords.map { ($0.buttons, $0) })
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
         syncLatencySettings(for: profileManager.activeProfile)
@@ -175,10 +175,16 @@ class MappingEngine: ObservableObject {
     }
 
     private func syncLatencySettings(for profile: Profile?) {
-        let chordButtons = Set((profile?.chordMappings ?? []).flatMap { $0.buttons })
+		let chordButtons = Self.expandedParticipantButtons(for: (profile?.chordMappings ?? []).flatMap { $0.buttons })
         controllerService.chordParticipantButtons = chordButtons
         controllerService.lowLatencyInputEnabled = profile?.inputLatencyMode == .realtime
     }
+
+	private static func expandedParticipantButtons(for buttons: [ControllerButton]) -> Set<ControllerButton> {
+		Set(buttons.flatMap { button in
+			[button] + button.physicalEquivalentButtons
+		})
+	}
 
     /// Pushes effective gesture detection settings from the profile into ControllerStorage
     /// so the motion callback thread can read them without accessing JoystickSettings.
@@ -256,8 +262,8 @@ class MappingEngine: ObservableObject {
 
                     // Build precomputed lookup caches
                     let chords = profile?.chordMappings ?? []
-                    self.state.chordParticipantButtons = Set(chords.flatMap { $0.buttons })
-                    self.state.sequenceParticipantButtons = Set((profile?.sequenceMappings ?? []).flatMap { $0.steps })
+					self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
+					self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
                     self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
                     return heldDirections
                 }
@@ -411,8 +417,8 @@ class MappingEngine: ObservableObject {
                         // Rebuild precomputed lookup caches that were cleared by reset()
                         let profile = self.state.activeProfile
                         let chords = profile?.chordMappings ?? []
-                        self.state.chordParticipantButtons = Set(chords.flatMap { $0.buttons })
-                        self.state.sequenceParticipantButtons = Set((profile?.sequenceMappings ?? []).flatMap { $0.steps })
+						self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
+						self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
                         self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
                         self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                         self.rebuildLayerActivatorMap(profile: profile)
@@ -451,6 +457,42 @@ class MappingEngine: ObservableObject {
     nonisolated private func isButtonUsedInSequences(_ button: ControllerButton, profile: Profile) -> Bool {
         return state.lock.withLock { state.sequenceParticipantButtons.contains(button) }
     }
+
+	nonisolated private func resolvedInputButton(for button: ControllerButton) -> ControllerButton {
+		state.lock.withLock {
+			guard let profile = state.activeProfile else { return button }
+			return ButtonMappingResolutionPolicy.resolvedButton(
+				button: button,
+				profile: profile,
+				activeLayerIds: state.activeLayerIds,
+				layerActivatorMap: state.layerActivatorMap
+			)
+		}
+	}
+
+	nonisolated private func beginPhysicalButtonResolution(for button: ControllerButton) -> ControllerButton {
+		let resolvedButton = resolvedInputButton(for: button)
+		state.lock.withLock {
+			state.physicalButtonResolutions[button] = resolvedButton
+		}
+		return resolvedButton
+	}
+
+	nonisolated private func peekResolvedReleaseButton(for button: ControllerButton) -> ControllerButton {
+		state.lock.withLock {
+			state.physicalButtonResolutions[button]
+		} ?? resolvedInputButton(for: button)
+	}
+
+	nonisolated private func endPhysicalButtonResolution(for button: ControllerButton) -> ControllerButton {
+		state.lock.withLock {
+			state.physicalButtonResolutions.removeValue(forKey: button)
+		} ?? resolvedInputButton(for: button)
+	}
+
+	nonisolated private func beginPhysicalButtonResolutions(for buttons: Set<ControllerButton>) -> Set<ControllerButton> {
+		Set(buttons.map { beginPhysicalButtonResolution(for: $0) })
+	}
 
     // MARK: - Special Action Intercepts
 
@@ -600,6 +642,7 @@ class MappingEngine: ObservableObject {
             _ = UniversalControlMouseRelay.shared.sendControllerButtonPressed(button)
             return
         }
+		let button = beginPhysicalButtonResolution(for: button)
 
         // If a region mapping (or other special action) consumed this press,
         // skip normal handling. Don't remove yet — the release handler removes.
@@ -1163,22 +1206,24 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.release \(button.rawValue)")
+		let resolvedButtonForState = peekResolvedReleaseButton(for: button)
 		if UniversalControlMouseRelay.shared.isRoutingToRemote {
-            let hasLocalButtonState = state.lock.withLock {
-                state.heldButtons[button] != nil
-                    || state.pendingSingleTap[button] != nil
-                    || state.pendingReleaseActions[button] != nil
-                    || state.longHoldTimers[button] != nil
-                    || state.repeatTimers[button] != nil
-                    || state.holdRepeatTimers[button] != nil
-                    || state.buttonsActingAsLayerActivators.contains(button)
-                    || state.pressConsumedByAction.contains(button)
-            }
+			let hasLocalButtonState = state.lock.withLock {
+				state.heldButtons[resolvedButtonForState] != nil
+					|| state.pendingSingleTap[resolvedButtonForState] != nil
+					|| state.pendingReleaseActions[resolvedButtonForState] != nil
+					|| state.longHoldTimers[resolvedButtonForState] != nil
+					|| state.repeatTimers[resolvedButtonForState] != nil
+					|| state.holdRepeatTimers[resolvedButtonForState] != nil
+					|| state.buttonsActingAsLayerActivators.contains(resolvedButtonForState)
+					|| state.pressConsumedByAction.contains(resolvedButtonForState)
+			}
             if !hasLocalButtonState {
                 _ = UniversalControlMouseRelay.shared.sendControllerButtonReleased(button, holdDuration: holdDuration)
                 return
             }
         }
+		let button = endPhysicalButtonResolution(for: button)
 
         stopRepeatTimer(for: button)
 
@@ -1478,6 +1523,7 @@ class MappingEngine: ObservableObject {
             _ = UniversalControlMouseRelay.shared.sendControllerChord(buttons)
             return
         }
+		let buttons = beginPhysicalButtonResolutions(for: buttons)
 
         guard let (profile, chordButtons) = state.lock.withLock({ () -> (Profile, Set<ControllerButton>)? in
             guard state.isEnabled, let profile = state.activeProfile else {

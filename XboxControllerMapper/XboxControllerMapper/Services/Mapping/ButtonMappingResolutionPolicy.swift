@@ -2,12 +2,47 @@ import Foundation
 
 /// Resolves the effective button mapping for the current profile + layer context.
 enum ButtonMappingResolutionPolicy {
+	static func resolvedButton(
+		button: ControllerButton,
+		profile: Profile,
+		activeLayerIds: [UUID],
+		layerActivatorMap: [ControllerButton: UUID]
+	) -> ControllerButton {
+		guard let logicalButton = button.logicalEquivalent else { return button }
+		let activeLayer = activeLayerIds.last.flatMap { activeLayerId in
+			profile.layers.first(where: { $0.id == activeLayerId })
+		}
+		if activeLayer?.buttonMappings[button] != nil {
+			return button
+		}
+		if activeLayer?.buttonMappings[logicalButton] != nil {
+			return logicalButton
+		}
+		if layerActivatorMap[button] != nil {
+			return button
+		}
+		if layerActivatorMap[logicalButton] != nil {
+			return logicalButton
+		}
+		if shouldPreservePhysicalButton(button, profile: profile) {
+			return button
+		}
+		return logicalButton
+	}
+
     static func resolve(
         button: ControllerButton,
         profile: Profile,
         activeLayerIds: [UUID],
         layerActivatorMap: [ControllerButton: UUID]
     ) -> KeyMapping? {
+		let button = resolvedButton(
+			button: button,
+			profile: profile,
+			activeLayerIds: activeLayerIds,
+			layerActivatorMap: layerActivatorMap
+		)
+
         // Layer activator handling: context-aware.
         if let activatorLayerId = layerActivatorMap[button] {
             // If this button's own layer is currently active (being held), consume it.
@@ -28,21 +63,30 @@ enum ButtonMappingResolutionPolicy {
 			if let mapping = nonEmptyMapping(for: button, in: layer.buttonMappings) {
 				return mapping
 			}
-			if let mapping = firstFallbackMapping(for: button, in: layer.buttonMappings) {
-				return mapping
-			}
 		}
 
 		if let mapping = profile.buttonMappings[button] {
 			return mapping.isEmpty ? nil : mapping
 		}
 
-		if let mapping = firstFallbackMapping(for: button, in: profile.buttonMappings) {
-			return mapping
-		}
-
         return defaultMapping(for: button)
     }
+
+	private static func shouldPreservePhysicalButton(
+		_ button: ControllerButton,
+		profile: Profile
+	) -> Bool {
+		if profile.buttonMappings[button] != nil {
+			return true
+		}
+		if profile.chordMappings.contains(where: { $0.buttons.contains(button) }) {
+			return true
+		}
+		if profile.sequenceMappings.contains(where: { $0.steps.contains(button) }) {
+			return true
+		}
+		return false
+	}
 
 	private static func nonEmptyMapping(
 		for button: ControllerButton,
@@ -50,18 +94,6 @@ enum ButtonMappingResolutionPolicy {
 	) -> KeyMapping? {
 		guard let mapping = mappings[button], !mapping.isEmpty else { return nil }
 		return mapping
-	}
-
-	private static func firstFallbackMapping(
-		for button: ControllerButton,
-		in mappings: [ControllerButton: KeyMapping]
-	) -> KeyMapping? {
-		for fallbackButton in button.mappingFallbackButtons {
-			if let mapping = nonEmptyMapping(for: fallbackButton, in: mappings) {
-				return mapping
-			}
-		}
-		return nil
 	}
 
     /// Hardcoded resolver fallback. Historically returned a "trackpad-like"

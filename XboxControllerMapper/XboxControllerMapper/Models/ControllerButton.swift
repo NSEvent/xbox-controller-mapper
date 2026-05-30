@@ -721,6 +721,15 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
 		case .rightTouchpadRegionTopLeftTouch, .rightTouchpadRegionTopRightTouch,
 		     .rightTouchpadRegionBottomLeftTouch, .rightTouchpadRegionBottomRightTouch:
 			return .rightTouchpadTap
+		case .xboxPaddle1, .xboxPaddle2, .xboxPaddle3, .xboxPaddle4:
+			return logicalEquivalent
+		default:
+			return nil
+		}
+	}
+
+	var logicalEquivalent: ControllerButton? {
+		switch self {
 		case .xboxPaddle1:
 			return .leftPaddle
 		case .xboxPaddle2:
@@ -734,16 +743,16 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
 		}
 	}
 
-	var mappingFallbackButtons: [ControllerButton] {
+	var physicalEquivalentButtons: [ControllerButton] {
 		switch self {
-		case .xboxPaddle1:
-			return [.leftPaddle]
-		case .xboxPaddle2:
-			return [.rightPaddle]
-		case .xboxPaddle3:
-			return [.leftFunction]
-		case .xboxPaddle4:
-			return [.rightFunction]
+		case .leftPaddle:
+			return [.xboxPaddle1]
+		case .rightPaddle:
+			return [.xboxPaddle2]
+		case .leftFunction:
+			return [.xboxPaddle3]
+		case .rightFunction:
+			return [.xboxPaddle4]
 		default:
 			return []
 		}
