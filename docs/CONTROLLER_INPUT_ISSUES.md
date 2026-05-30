@@ -4,7 +4,7 @@ Last updated: 2026-05-30
 
 ## 1. Steam Controller gyro drifts bottom-left
 
-Status: investigating
+Status: fixed in local branch
 
 Observed:
 - With the Steam Controller held steady, entering gyro mouse mode can immediately bias the cursor toward the bottom-left.
@@ -15,8 +15,9 @@ Target:
 - Any persistent sensor offset should be calibrated or filtered before producing mouse movement.
 
 Investigation notes:
-- Check Steam gyro raw input handling, baseline calibration, dead zone, and any conversion sign differences.
-- Add regression coverage around steady gyro samples producing zero or near-zero mouse delta.
+- Root cause found: gyro samples accumulated while gyro aiming/focus was inactive, then stale rates could replay when entering gyro aiming.
+- Steam gyro bias is now reset when gyro aiming activates so the first steady samples in the mode define neutral.
+- Added regression coverage around stale accumulator clearing, Steam bias reset, and steady Steam gyro offsets producing zero motion after calibration.
 
 ## 2. Apple TV Remote circular scroll should keep scroll ownership
 

@@ -101,6 +101,21 @@ extension ControllerService {
         processMotionUpdate(pitchVelocity: gesturePitch, rollVelocity: gestureRoll)
     }
 
+	nonisolated func clearAccumulatedMotionRates() {
+		storage.lock.withLock {
+			clearAccumulatedMotionRatesLocked()
+		}
+	}
+
+	nonisolated func prepareForGyroAimingActivation() {
+		storage.lock.withLock {
+			clearAccumulatedMotionRatesLocked()
+			if storage.isSteamController {
+				resetSteamGyroBiasStateLocked()
+			}
+		}
+	}
+
     nonisolated static func steamGyroRotationRate(counts: Double, multiplier: Double) -> Double {
         counts * (Double.pi / 32768.0) * multiplier
     }
@@ -168,14 +183,22 @@ extension ControllerService {
     func resetMotionStateLocked() {
         storage.motionInputEnabled = false
         storage.motionGestureDetector.reset()
-        storage.motionPitchAccum = 0
-        storage.motionRollAccum = 0
-        storage.motionSampleCount = 0
+		clearAccumulatedMotionRatesLocked()
         storage.ds4GyroPitchBiasSum = 0
         storage.ds4GyroRollBiasSum = 0
         storage.ds4GyroBiasSampleCount = 0
         storage.ds4GyroPitchBias = 0
         storage.ds4GyroRollBias = 0
+		resetSteamGyroBiasStateLocked()
+	}
+
+	nonisolated private func clearAccumulatedMotionRatesLocked() {
+		storage.motionPitchAccum = 0
+		storage.motionRollAccum = 0
+		storage.motionSampleCount = 0
+	}
+
+	nonisolated private func resetSteamGyroBiasStateLocked() {
         storage.steamGyroPitchBiasSum = 0
         storage.steamGyroRollBiasSum = 0
         storage.steamGyroBiasSampleCount = 0

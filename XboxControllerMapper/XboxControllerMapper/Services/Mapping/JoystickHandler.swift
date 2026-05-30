@@ -349,6 +349,12 @@ extension MappingEngine {
 
         if isFocusActive != wasFocusActive {
             state.wasFocusActive = isFocusActive
+			if isFocusActive && settings.gyroAimingEnabled {
+				controllerService.prepareForGyroAimingActivation()
+				state.gyroFilterX.reset()
+				state.gyroFilterY.reset()
+				state.lastGyroTime = 0
+			}
             performFocusModeHaptic(entering: isFocusActive)
 
             if !UniversalControlMouseRelay.shared.sendFocusMode(active: isFocusActive) {
@@ -412,6 +418,9 @@ extension MappingEngine {
                 }
             }
         } else {
+			if hasMotion {
+				controllerService.clearAccumulatedMotionRates()
+			}
             // Reset filter state when gyro is inactive so there's no stale residual on re-entry
             if state.lastGyroTime > 0 {
                 state.gyroFilterX.reset()
