@@ -468,6 +468,8 @@ extension ControllerService {
 		let shouldDispatch: Bool
 		let shouldScheduleFallback: Bool
 		let shouldCancelFallback: Bool
+		let shouldArmTouchpadClick: Bool
+		let shouldDisarmTouchpadClick: Bool
 
 		storage.lock.lock()
 		var activeSources = storage.appleTVRemoteActiveButtonUsages[button] ?? []
@@ -479,12 +481,8 @@ extension ControllerService {
 			shouldDispatch = !wasActive
 			shouldScheduleFallback = button == .touchpadButton
 			shouldCancelFallback = false
-
-			if button == .touchpadButton {
-				storage.touchpadClickFiredDuringTouch = true
-				storage.pendingTouchpadDelta = nil
-				storage.touchpadFramesSinceTouch = 0
-			}
+			shouldArmTouchpadClick = button == .touchpadButton && !wasActive
+			shouldDisarmTouchpadClick = false
 		} else {
 			let removed = activeSources.remove(sourceKey) != nil
 			if activeSources.isEmpty {
@@ -496,8 +494,16 @@ extension ControllerService {
 			shouldDispatch = (removed && !isStillActive) || (!wasActive && storage.activeButtons.contains(button))
 			shouldScheduleFallback = false
 			shouldCancelFallback = button == .touchpadButton && !isStillActive
+			shouldArmTouchpadClick = false
+			shouldDisarmTouchpadClick = button == .touchpadButton && !isStillActive
 		}
 		storage.lock.unlock()
+
+		if shouldArmTouchpadClick {
+			_ = armTouchpadClick(pressed: true)
+		} else if shouldDisarmTouchpadClick {
+			_ = armTouchpadClick(pressed: false)
+		}
 
 		if shouldScheduleFallback {
 			scheduleAppleTVRemoteButtonReleaseFallback(button)
@@ -752,6 +758,10 @@ extension ControllerService {
 		storage.appleTVRemoteButtonReleaseWorkItems.removeValue(forKey: button)
 		let isActiveButton = storage.activeButtons.contains(button)
 		storage.lock.unlock()
+
+		if button == .touchpadButton {
+			_ = armTouchpadClick(pressed: false)
+		}
 
 		if hadTrackedSources || isActiveButton {
 			controllerQueue.async { [weak self] in

@@ -202,6 +202,31 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		)
 	}
 
+	func testAppleTVRemoteClickpadClickSuppressesClickInducedTouchJitter() {
+		var movements: [CGPoint] = []
+		controllerService.storage.isAppleTVRemote = true
+		controllerService.onTouchpadMoved = { movements.append($0) }
+
+		controllerService.updateTouchpad(x: 0.40, y: 0.40, isTouching: true)
+		controllerService.storage.touchpadFramesSinceTouch = 3
+		controllerService.storage.touchpadTouchStartTime = CFAbsoluteTimeGetCurrent() - 1
+		controllerService.storage.touchpadTouchStartPosition = CGPoint(x: 0.40, y: 0.40)
+
+		controllerService.updateTouchpad(x: 0.50, y: 0.40, isTouching: true)
+		controllerService.updateTouchpad(x: 0.60, y: 0.40, isTouching: true)
+		XCTAssertFalse(movements.isEmpty, "Settled Apple TV Remote touch movement should still produce mouse deltas")
+		movements.removeAll()
+
+		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 1, isPressed: true)
+		XCTAssertTrue(controllerService.storage.touchpadClickArmed)
+		controllerService.updateTouchpad(x: 0.61, y: 0.385, isTouching: true)
+		controllerService.updateTouchpad(x: 0.62, y: 0.37, isTouching: true)
+
+		XCTAssertTrue(movements.isEmpty, "Clickpad press jitter should be suppressed like DualSense touchpad click jitter")
+		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 1, isPressed: false)
+		XCTAssertFalse(controllerService.storage.touchpadClickArmed)
+	}
+
 	func testAppleTVRemoteTouchLiftReleasesTrackedClickpadButton() {
 		var buttonEvents: [ControllerButtonEvent] = []
 		var tapCount = 0
