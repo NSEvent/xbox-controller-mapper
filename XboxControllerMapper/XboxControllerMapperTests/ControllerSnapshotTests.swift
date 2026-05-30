@@ -92,10 +92,15 @@ final class ControllerSnapshotTests: XCTestCase {
 			controllerService.storage.motionSampleCount = 30
 			controllerService.storage.steamGyroPitchBiasSum = 120
 			controllerService.storage.steamGyroRollBiasSum = -240
+			controllerService.storage.steamGyroYawBiasSum = 360
 			controllerService.storage.steamGyroBiasSampleCount = 12
 			controllerService.storage.steamGyroPitchBias = 10
 			controllerService.storage.steamGyroRollBias = -20
+			controllerService.storage.steamGyroYawBias = 30
 			controllerService.storage.steamGyroBiasCalibrationNotBefore = 25
+			controllerService.storage.steamGyroLastRawPitch = 1_000
+			controllerService.storage.steamGyroLastRawRoll = -1_000
+			controllerService.storage.steamGyroLastRawYaw = 500
 		}
 
 		controllerService.prepareForGyroAimingActivation()
@@ -107,10 +112,15 @@ final class ControllerSnapshotTests: XCTestCase {
 				sampleCount: controllerService.storage.motionSampleCount,
 				pitchBiasSum: controllerService.storage.steamGyroPitchBiasSum,
 				rollBiasSum: controllerService.storage.steamGyroRollBiasSum,
+				yawBiasSum: controllerService.storage.steamGyroYawBiasSum,
 				biasSampleCount: controllerService.storage.steamGyroBiasSampleCount,
 				pitchBias: controllerService.storage.steamGyroPitchBias,
 				rollBias: controllerService.storage.steamGyroRollBias,
-				calibrationNotBefore: controllerService.storage.steamGyroBiasCalibrationNotBefore
+				yawBias: controllerService.storage.steamGyroYawBias,
+				calibrationNotBefore: controllerService.storage.steamGyroBiasCalibrationNotBefore,
+				lastRawPitch: controllerService.storage.steamGyroLastRawPitch,
+				lastRawRoll: controllerService.storage.steamGyroLastRawRoll,
+				lastRawYaw: controllerService.storage.steamGyroLastRawYaw
 			)
 		}
 
@@ -119,10 +129,79 @@ final class ControllerSnapshotTests: XCTestCase {
 		XCTAssertEqual(snapshot.sampleCount, 0)
 		XCTAssertEqual(snapshot.pitchBiasSum, 0)
 		XCTAssertEqual(snapshot.rollBiasSum, 0)
+		XCTAssertEqual(snapshot.yawBiasSum, 0)
 		XCTAssertEqual(snapshot.biasSampleCount, 0)
 		XCTAssertEqual(snapshot.pitchBias, 0)
 		XCTAssertEqual(snapshot.rollBias, 0)
+		XCTAssertEqual(snapshot.yawBias, 0)
 		XCTAssertEqual(snapshot.calibrationNotBefore, 0)
+		XCTAssertNil(snapshot.lastRawPitch)
+		XCTAssertNil(snapshot.lastRawRoll)
+		XCTAssertNil(snapshot.lastRawYaw)
+	}
+
+	func testGyroAimingActivationPreservesCalibratedSteamBias() {
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isSteamController = true
+			controllerService.storage.motionInputEnabled = true
+			controllerService.storage.motionPitchAccum = 12
+			controllerService.storage.motionRollAccum = -9
+			controllerService.storage.motionSampleCount = 30
+		}
+		controllerService.prepareForGyroAimingActivation()
+
+		let steadyMotion = steamMotion(gyroX: -1_400, gyroY: 900, gyroZ: -600)
+		for _ in 0..<61 {
+			controllerService.processSteamMotion(steadyMotion)
+		}
+
+		let calibrated = controllerService.storage.lock.withLock {
+			(
+				sampleCount: controllerService.storage.steamGyroBiasSampleCount,
+				pitchBias: controllerService.storage.steamGyroPitchBias,
+				rollBias: controllerService.storage.steamGyroRollBias,
+				yawBias: controllerService.storage.steamGyroYawBias,
+				lastRawPitch: controllerService.storage.steamGyroLastRawPitch,
+				lastRawRoll: controllerService.storage.steamGyroLastRawRoll,
+				lastRawYaw: controllerService.storage.steamGyroLastRawYaw
+			)
+		}
+
+		controllerService.storage.lock.withLock {
+			controllerService.storage.motionPitchAccum = 5
+			controllerService.storage.motionRollAccum = -7
+			controllerService.storage.motionSampleCount = 3
+		}
+		controllerService.prepareForGyroAimingActivation(calibrationDelay: 0.25, now: 100)
+
+		let after = controllerService.storage.lock.withLock {
+			(
+				pitchAccum: controllerService.storage.motionPitchAccum,
+				rollAccum: controllerService.storage.motionRollAccum,
+				motionSampleCount: controllerService.storage.motionSampleCount,
+				sampleCount: controllerService.storage.steamGyroBiasSampleCount,
+				pitchBias: controllerService.storage.steamGyroPitchBias,
+				rollBias: controllerService.storage.steamGyroRollBias,
+				yawBias: controllerService.storage.steamGyroYawBias,
+				calibrationNotBefore: controllerService.storage.steamGyroBiasCalibrationNotBefore,
+				lastRawPitch: controllerService.storage.steamGyroLastRawPitch,
+				lastRawRoll: controllerService.storage.steamGyroLastRawRoll,
+				lastRawYaw: controllerService.storage.steamGyroLastRawYaw
+			)
+		}
+
+		XCTAssertEqual(calibrated.sampleCount, 60)
+		XCTAssertEqual(after.pitchAccum, 0)
+		XCTAssertEqual(after.rollAccum, 0)
+		XCTAssertEqual(after.motionSampleCount, 0)
+		XCTAssertEqual(after.sampleCount, calibrated.sampleCount)
+		XCTAssertEqual(after.pitchBias, calibrated.pitchBias, accuracy: 0.0001)
+		XCTAssertEqual(after.rollBias, calibrated.rollBias, accuracy: 0.0001)
+		XCTAssertEqual(after.yawBias, calibrated.yawBias, accuracy: 0.0001)
+		XCTAssertEqual(after.calibrationNotBefore, 100.25, accuracy: 0.0001)
+		XCTAssertEqual(after.lastRawPitch, calibrated.lastRawPitch)
+		XCTAssertEqual(after.lastRawRoll, calibrated.lastRawRoll)
+		XCTAssertEqual(after.lastRawYaw, calibrated.lastRawYaw)
 	}
 
 	func testSteamGyroCalibrationSuppressesSteadyOffset() {
@@ -162,12 +241,14 @@ final class ControllerSnapshotTests: XCTestCase {
 			(
 				sampleCount: controllerService.storage.steamGyroBiasSampleCount,
 				pitchBiasSum: controllerService.storage.steamGyroPitchBiasSum,
-				rollBiasSum: controllerService.storage.steamGyroRollBiasSum
+				rollBiasSum: controllerService.storage.steamGyroRollBiasSum,
+				yawBiasSum: controllerService.storage.steamGyroYawBiasSum
 			)
 		}
 		XCTAssertEqual(calibrationState.sampleCount, 0)
 		XCTAssertEqual(calibrationState.pitchBiasSum, 0)
 		XCTAssertEqual(calibrationState.rollBiasSum, 0)
+		XCTAssertEqual(calibrationState.yawBiasSum, 0)
 
 		let steadyMotion = steamMotion(gyroX: -1_400, gyroY: 900, gyroZ: -600)
 		for _ in 0..<60 {
@@ -180,6 +261,110 @@ final class ControllerSnapshotTests: XCTestCase {
 		let rates = controllerService.consumeAverageMotionRates()
 		XCTAssertEqual(rates.pitch, 0, accuracy: 0.0001)
 		XCTAssertEqual(rates.roll, 0, accuracy: 0.0001)
+	}
+
+	func testSteamGyroCalibrationRejectsMovingStartupFrames() {
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isSteamController = true
+			controllerService.storage.motionInputEnabled = true
+		}
+		controllerService.prepareForGyroAimingActivation()
+
+		let movingMotion = steamMotion(gyroX: -12_000, gyroY: -10_000, gyroZ: 8_000)
+		for _ in 0..<80 {
+			controllerService.processSteamMotion(movingMotion)
+		}
+
+		let calibrationState = controllerService.storage.lock.withLock {
+			(
+				sampleCount: controllerService.storage.steamGyroBiasSampleCount,
+				pitchBiasSum: controllerService.storage.steamGyroPitchBiasSum,
+				rollBiasSum: controllerService.storage.steamGyroRollBiasSum,
+				yawBiasSum: controllerService.storage.steamGyroYawBiasSum
+			)
+		}
+		XCTAssertEqual(calibrationState.sampleCount, 0)
+		XCTAssertEqual(calibrationState.pitchBiasSum, 0)
+		XCTAssertEqual(calibrationState.rollBiasSum, 0)
+		XCTAssertEqual(calibrationState.yawBiasSum, 0)
+
+		let steadyMotion = steamMotion(gyroX: -1_400, gyroY: 900, gyroZ: -600)
+		for _ in 0..<61 {
+			controllerService.processSteamMotion(steadyMotion)
+		}
+		for _ in 0..<10 {
+			controllerService.processSteamMotion(steadyMotion)
+		}
+
+		let rates = controllerService.consumeAverageMotionRates()
+		XCTAssertEqual(rates.pitch, 0, accuracy: 0.0001)
+		XCTAssertEqual(rates.roll, 0, accuracy: 0.0001)
+	}
+
+	func testSteamGyroDoesNotSuppressIntentionalMotionAfterCalibration() {
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isSteamController = true
+			controllerService.storage.motionInputEnabled = true
+		}
+		controllerService.prepareForGyroAimingActivation()
+
+		let steadyMotion = steamMotion(gyroX: -1_400, gyroY: 900, gyroZ: -600)
+		for _ in 0..<61 {
+			controllerService.processSteamMotion(steadyMotion)
+		}
+
+		controllerService.processSteamMotion(steamMotion(gyroX: -3_400, gyroY: 900, gyroZ: -600))
+		var rates = controllerService.consumeAverageMotionRates()
+		XCTAssertLessThan(rates.pitch, 0)
+		XCTAssertEqual(rates.roll, 0, accuracy: 0.0001)
+
+		controllerService.processSteamMotion(steamMotion(gyroX: 600, gyroY: 900, gyroZ: -600))
+		rates = controllerService.consumeAverageMotionRates()
+		XCTAssertGreaterThan(rates.pitch, 0)
+		XCTAssertEqual(rates.roll, 0, accuracy: 0.0001)
+
+		controllerService.processSteamMotion(steamMotion(gyroX: -1_400, gyroY: -1_100, gyroZ: -600))
+		rates = controllerService.consumeAverageMotionRates()
+		XCTAssertEqual(rates.pitch, 0, accuracy: 0.0001)
+		XCTAssertGreaterThan(rates.roll, 0)
+
+		controllerService.processSteamMotion(steamMotion(gyroX: -1_400, gyroY: 2_900, gyroZ: -600))
+		rates = controllerService.consumeAverageMotionRates()
+		XCTAssertEqual(rates.pitch, 0, accuracy: 0.0001)
+		XCTAssertLessThan(rates.roll, 0)
+	}
+
+	func testSteamGyroBiasRecentersStationaryResidualDrift() {
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isSteamController = true
+			controllerService.storage.motionInputEnabled = true
+		}
+		controllerService.prepareForGyroAimingActivation()
+
+		let steadyMotion = steamMotion(gyroX: -1_400, gyroY: 900, gyroZ: -600)
+		for _ in 0..<61 {
+			controllerService.processSteamMotion(steadyMotion)
+		}
+
+		let driftedMotion = steamMotion(gyroX: -1_340, gyroY: 850, gyroZ: -560)
+		for _ in 0..<12 {
+			controllerService.processSteamMotion(driftedMotion)
+		}
+
+		let rates = controllerService.consumeAverageMotionRates()
+		let biasState = controllerService.storage.lock.withLock {
+			(
+				pitchBias: controllerService.storage.steamGyroPitchBias,
+				rollBias: controllerService.storage.steamGyroRollBias,
+				yawBias: controllerService.storage.steamGyroYawBias
+			)
+		}
+
+		XCTAssertEqual(rates.pitch, 0, accuracy: 0.0001)
+		XCTAssertEqual(rates.roll, 0, accuracy: 0.0001)
+		XCTAssertGreaterThan(biasState.pitchBias, -1_400)
+		XCTAssertGreaterThan(biasState.rollBias, -900)
+		XCTAssertGreaterThan(biasState.yawBias, -450)
 	}
 
 	func testClearingAccumulatedMotionRatesDropsInactiveGyroBacklog() {

@@ -188,10 +188,15 @@ final class ControllerStorage: @unchecked Sendable {
     var ds4GyroRollBias: Double = 0
     var steamGyroPitchBiasSum: Double = 0
     var steamGyroRollBiasSum: Double = 0
+    var steamGyroYawBiasSum: Double = 0
     var steamGyroBiasSampleCount: Int = 0
     var steamGyroPitchBias: Double = 0
     var steamGyroRollBias: Double = 0
+    var steamGyroYawBias: Double = 0
     var steamGyroBiasCalibrationNotBefore: TimeInterval = 0
+    var steamGyroLastRawPitch: Double?
+    var steamGyroLastRawRoll: Double?
+    var steamGyroLastRawYaw: Double?
     var motionPitchAccum: Double = 0
     var motionRollAccum: Double = 0
     var motionSampleCount: Int = 0
@@ -337,6 +342,7 @@ class ControllerService: ObservableObject {
         var isTouchpadTouching: Bool = false
         /// True for any controller with gyroscope sensors (DualSense, DS4, Steam Controller).
         var hasMotion: Bool = false
+		var isSteamController: Bool = false
     }
 
     /// Captures a consistent snapshot of all joystick-polling-relevant state in a single lock acquisition.
@@ -351,7 +357,8 @@ class ControllerService: ObservableObject {
             rightTrigger: storage.rightTrigger,
             touchpadPosition: storage.touchpadPosition,
             isTouchpadTouching: storage.isTouchpadTouching,
-            hasMotion: storage.isDualSense || storage.isDualShock || storage.isSteamController
+			hasMotion: storage.isDualSense || storage.isDualShock || storage.isSteamController,
+			isSteamController: storage.isSteamController
         )
     }
 

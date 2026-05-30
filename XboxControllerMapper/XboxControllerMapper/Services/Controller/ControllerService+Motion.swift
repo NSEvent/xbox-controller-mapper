@@ -1,6 +1,15 @@
 import Foundation
 import GameController
 
+private enum SteamGyroBias {
+	static let calibrationFrames = 60
+	static let stableDeltaThresholdCounts = 1_000.0
+	static let calibrationMagnitudeLimitCounts = 8_000.0
+	static let recenterResidualThresholdCounts = 220.0
+	static let outputZeroThresholdCounts = 90.0
+	static let recenterAlpha = 0.02
+}
+
 extension ControllerService {
     /// Enables gyroscope sensors and sets up motion gesture detection.
     /// Called from setupInputHandlers() for PlayStation controllers. For DualSense,
@@ -60,24 +69,69 @@ extension ControllerService {
         guard shouldProcessMotion else { return }
 
         let rawPitchCounts = Double(motion.gyroX)
-        let rawRollCounts = Self.steamHorizontalAimRate(gyroY: motion.gyroY, gyroZ: motion.gyroZ)
+		let rawRollCounts = -Double(motion.gyroY)
+		let rawYawCounts = Double(motion.gyroZ) * Config.steamGyroAimingYawBlend
 
-        let biasCalibrationFrames = 60
         let (pitchCounts, rollCounts): (Double, Double) = storage.lock.withLock {
 			if uptime < storage.steamGyroBiasCalibrationNotBefore {
 				return (0, 0)
 			}
-            if storage.steamGyroBiasSampleCount < biasCalibrationFrames {
-                storage.steamGyroPitchBiasSum += rawPitchCounts
-                storage.steamGyroRollBiasSum += rawRollCounts
-                storage.steamGyroBiasSampleCount += 1
-                if storage.steamGyroBiasSampleCount == biasCalibrationFrames {
-                    storage.steamGyroPitchBias = storage.steamGyroPitchBiasSum / Double(biasCalibrationFrames)
-                    storage.steamGyroRollBias = storage.steamGyroRollBiasSum / Double(biasCalibrationFrames)
-                }
-                return (0, 0)
-            }
-            return (rawPitchCounts - storage.steamGyroPitchBias, rawRollCounts - storage.steamGyroRollBias)
+			guard let lastRawPitch = storage.steamGyroLastRawPitch,
+				  let lastRawRoll = storage.steamGyroLastRawRoll,
+				  let lastRawYaw = storage.steamGyroLastRawYaw else {
+				storage.steamGyroLastRawPitch = rawPitchCounts
+				storage.steamGyroLastRawRoll = rawRollCounts
+				storage.steamGyroLastRawYaw = rawYawCounts
+				return (0, 0)
+			}
+
+			let rawDelta = Self.steamGyroVectorMagnitude(
+				rawPitchCounts - lastRawPitch,
+				rawRollCounts - lastRawRoll,
+				rawYawCounts - lastRawYaw
+			)
+			let rawMagnitude = Self.steamGyroVectorMagnitude(rawPitchCounts, rawRollCounts, rawYawCounts)
+			storage.steamGyroLastRawPitch = rawPitchCounts
+			storage.steamGyroLastRawRoll = rawRollCounts
+			storage.steamGyroLastRawYaw = rawYawCounts
+
+			if storage.steamGyroBiasSampleCount < SteamGyroBias.calibrationFrames {
+				guard rawDelta <= SteamGyroBias.stableDeltaThresholdCounts,
+					  rawMagnitude <= SteamGyroBias.calibrationMagnitudeLimitCounts else {
+					resetSteamGyroBiasCalibrationSamplesLocked()
+					return (0, 0)
+				}
+
+				storage.steamGyroPitchBiasSum += rawPitchCounts
+				storage.steamGyroRollBiasSum += rawRollCounts
+				storage.steamGyroYawBiasSum += rawYawCounts
+				storage.steamGyroBiasSampleCount += 1
+				if storage.steamGyroBiasSampleCount == SteamGyroBias.calibrationFrames {
+					storage.steamGyroPitchBias = storage.steamGyroPitchBiasSum / Double(SteamGyroBias.calibrationFrames)
+					storage.steamGyroRollBias = storage.steamGyroRollBiasSum / Double(SteamGyroBias.calibrationFrames)
+					storage.steamGyroYawBias = storage.steamGyroYawBiasSum / Double(SteamGyroBias.calibrationFrames)
+				}
+				return (0, 0)
+			}
+
+			var correctedPitch = rawPitchCounts - storage.steamGyroPitchBias
+			var correctedRoll = rawRollCounts - storage.steamGyroRollBias
+			var correctedYaw = rawYawCounts - storage.steamGyroYawBias
+			let residualMagnitude = Self.steamGyroVectorMagnitude(correctedPitch, correctedRoll, correctedYaw)
+			if rawDelta <= SteamGyroBias.stableDeltaThresholdCounts,
+			   residualMagnitude <= SteamGyroBias.recenterResidualThresholdCounts {
+				storage.steamGyroPitchBias += correctedPitch * SteamGyroBias.recenterAlpha
+				storage.steamGyroRollBias += correctedRoll * SteamGyroBias.recenterAlpha
+				storage.steamGyroYawBias += correctedYaw * SteamGyroBias.recenterAlpha
+				correctedPitch = rawPitchCounts - storage.steamGyroPitchBias
+				correctedRoll = rawRollCounts - storage.steamGyroRollBias
+				correctedYaw = rawYawCounts - storage.steamGyroYawBias
+			}
+			if Self.steamGyroVectorMagnitude(correctedPitch, correctedRoll, correctedYaw) <= SteamGyroBias.outputZeroThresholdCounts {
+				return (0, 0)
+			}
+
+			return (correctedPitch, Self.steamHorizontalAimRate(rollAxis: correctedRoll, yawAxis: correctedYaw))
         }
         if pitchCounts == 0 && rollCounts == 0 { return }
 
@@ -116,17 +170,19 @@ extension ControllerService {
 	nonisolated func prepareForGyroAimingActivation(
 		calibrationDelay: TimeInterval = 0,
 		now: TimeInterval = ProcessInfo.processInfo.systemUptime
-	) {
-		storage.lock.withLock {
-			clearAccumulatedMotionRatesLocked()
-			if storage.isSteamController {
-				resetSteamGyroBiasStateLocked()
-				storage.steamGyroBiasCalibrationNotBefore = calibrationDelay > 0
-					? now + calibrationDelay
-					: 0
+		) {
+			storage.lock.withLock {
+				clearAccumulatedMotionRatesLocked()
+				if storage.isSteamController {
+					if storage.steamGyroBiasSampleCount < SteamGyroBias.calibrationFrames {
+						resetSteamGyroBiasStateLocked()
+					}
+					storage.steamGyroBiasCalibrationNotBefore = calibrationDelay > 0
+						? now + calibrationDelay
+						: 0
+				}
 			}
 		}
-	}
 
     nonisolated static func steamGyroRotationRate(counts: Double, multiplier: Double) -> Double {
         counts * (Double.pi / 32768.0) * multiplier
@@ -135,7 +191,10 @@ extension ControllerService {
     nonisolated static func steamHorizontalAimRate(gyroY: Int16, gyroZ: Int16) -> Double {
         let rollAxis = -Double(gyroY)
         let yawAxis = Double(gyroZ) * Config.steamGyroAimingYawBlend
+		return steamHorizontalAimRate(rollAxis: rollAxis, yawAxis: yawAxis)
+    }
 
+    nonisolated static func steamHorizontalAimRate(rollAxis: Double, yawAxis: Double) -> Double {
         guard rollAxis != 0, yawAxis != 0 else {
             return rollAxis + yawAxis
         }
@@ -211,11 +270,24 @@ extension ControllerService {
 	}
 
 	nonisolated private func resetSteamGyroBiasStateLocked() {
-        storage.steamGyroPitchBiasSum = 0
-        storage.steamGyroRollBiasSum = 0
-        storage.steamGyroBiasSampleCount = 0
+		resetSteamGyroBiasCalibrationSamplesLocked()
         storage.steamGyroPitchBias = 0
         storage.steamGyroRollBias = 0
+		storage.steamGyroYawBias = 0
 		storage.steamGyroBiasCalibrationNotBefore = 0
+		storage.steamGyroLastRawPitch = nil
+		storage.steamGyroLastRawRoll = nil
+		storage.steamGyroLastRawYaw = nil
     }
+
+	nonisolated private func resetSteamGyroBiasCalibrationSamplesLocked() {
+		storage.steamGyroPitchBiasSum = 0
+		storage.steamGyroRollBiasSum = 0
+		storage.steamGyroYawBiasSum = 0
+		storage.steamGyroBiasSampleCount = 0
+	}
+
+	nonisolated private static func steamGyroVectorMagnitude(_ x: Double, _ y: Double, _ z: Double) -> Double {
+		sqrt(x * x + y * y + z * z)
+	}
 }

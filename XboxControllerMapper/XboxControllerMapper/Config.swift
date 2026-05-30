@@ -429,9 +429,9 @@ struct Config {
     /// Horizontal (roll) axis boost factor to compensate for lower angular velocity
     /// compared to pitch for the same physical effort.
     static let gyroAimingRollBoost: Double = 2.2
-    /// Steam Controller raw gyro reports use a smaller scale than DS4/DualSense
-    /// in practice for this app's cursor pipeline.
-    static let steamGyroAimingSensitivityMultiplier: Double = 4.0
+    /// Steam Controller cursor aiming uses the same raw sensor units as gestures,
+    /// but a lower cursor scale keeps focus-mode aim usable for small UI targets.
+    static let steamGyroAimingSensitivityMultiplier: Double = 2.0
     /// Steam Controller motion gestures should use the controller's raw 2000 deg/s
     /// gyro scale, independent of the lower cursor-aiming scale above.
     static let steamGyroGestureSensitivityMultiplier: Double = 2000.0 / 180.0
@@ -439,6 +439,9 @@ struct Config {
     /// axis depending on how the controller is held. Blend yaw in, but avoid
     /// canceling the current roll axis when signs disagree.
     static let steamGyroAimingYawBlend: Double = 0.75
+    /// Steam already blends roll/yaw before entering the cursor pipeline, so do
+    /// not apply the generic roll boost a second time.
+    static let steamGyroAimingRollBoost: Double = 1.0
 
     /// Haptic feedback for gesture detection
     static let gestureHapticIntensity: Float = 0.3

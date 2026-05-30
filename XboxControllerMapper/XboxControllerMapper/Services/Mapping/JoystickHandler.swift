@@ -53,7 +53,13 @@ extension MappingEngine {
         // Single lock acquisition for all controller input state (cache-friendly snapshot)
         let controllerSnapshot = controllerService.snapshot()
         let leftStick = controllerSnapshot.leftStick
-        processGyroAiming(settings: settings, now: now, isFocusActive: isFocusActive, hasMotion: controllerSnapshot.hasMotion)
+		processGyroAiming(
+			settings: settings,
+			now: now,
+			isFocusActive: isFocusActive,
+			hasMotion: controllerSnapshot.hasMotion,
+			isSteamController: controllerSnapshot.isSteamController
+		)
 
         // Batch UI singleton reads: one lock per singleton instead of multiple per-property reads.
         // Previously 6 separate lock/unlock cycles across 3 singletons; now 3 total.
@@ -387,7 +393,13 @@ extension MappingEngine {
         }
     }
 
-    nonisolated func processGyroAiming(settings: JoystickSettings, now: CFAbsoluteTime, isFocusActive: Bool, hasMotion: Bool) {
+	nonisolated func processGyroAiming(
+		settings: JoystickSettings,
+		now: CFAbsoluteTime,
+		isFocusActive: Bool,
+		hasMotion: Bool,
+		isSteamController: Bool
+	) {
         if settings.gyroAimingEnabled && isFocusActive && hasMotion {
             let (pitchRate, rollRate) = controllerService.consumeAverageMotionRates()
 
@@ -399,22 +411,32 @@ extension MappingEngine {
 
                 // Smooth deadzone ramp: quadratic ease-in over a transition zone
                 // avoids the hard cutoff discontinuity that causes stutter at the boundary
+				let horizontalBoost = isSteamController
+					? Config.steamGyroAimingRollBoost
+					: Config.gyroAimingRollBoost
                 let gyroDx = -smoothDeadzone(abs(rollRate), deadzone: gyroDeadzone)
-                    * (rollRate < 0 ? -1.0 : 1.0) * mult * Config.gyroAimingRollBoost
+					* (rollRate < 0 ? -1.0 : 1.0) * mult * horizontalBoost
                 let gyroDy = -smoothDeadzone(abs(pitchRate), deadzone: gyroDeadzone)
                     * (pitchRate < 0 ? -1.0 : 1.0) * mult
 
-                // 1-Euro filter: adaptive smoothing (heavy at low speed, minimal at high speed)
-                let dt: Double
-                if state.lastGyroTime > 0 {
-                    dt = max(now - state.lastGyroTime, 1.0 / 240.0)
+				let filteredDx: Double
+				let filteredDy: Double
+				if isSteamController {
+					filteredDx = gyroDx
+					filteredDy = gyroDy
                 } else {
-                    dt = Config.joystickPollInterval
-                }
-                state.lastGyroTime = now
+					// 1-Euro filter: adaptive smoothing (heavy at low speed, minimal at high speed)
+					let dt: Double
+					if state.lastGyroTime > 0 {
+						dt = max(now - state.lastGyroTime, 1.0 / 240.0)
+					} else {
+						dt = Config.joystickPollInterval
+					}
+					state.lastGyroTime = now
 
-                let filteredDx = state.gyroFilterX.filter(gyroDx, dt: dt)
-                let filteredDy = state.gyroFilterY.filter(gyroDy, dt: dt)
+					filteredDx = state.gyroFilterX.filter(gyroDx, dt: dt)
+					filteredDy = state.gyroFilterY.filter(gyroDy, dt: dt)
+				}
 
                 if abs(filteredDx) > 0.01 || abs(filteredDy) > 0.01 {
                     inputSimulator.moveMouse(dx: CGFloat(filteredDx), dy: CGFloat(filteredDy))
