@@ -20,6 +20,14 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         super.tearDown()
     }
 
+	private func drainControllerQueue() {
+		let expectation = expectation(description: "controller queue drained")
+		controllerService.controllerQueue.async {
+			expectation.fulfill()
+		}
+		wait(for: [expectation], timeout: 1.0)
+	}
+
     func testCallbackProxiesInvokeStoredHandlers() {
         var events: [String] = []
 
@@ -155,6 +163,71 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         XCTAssertEqual(pressed, [.a])
     }
 
+	func testAppleTVRemoteTapUsesGlobalTouchpadTapInQuadrantsMode() {
+		var tapCount = 0
+		var regionTapCount = 0
+		controllerService.storage.isAppleTVRemote = true
+		controllerService.touchpadInputMode = .quadrants
+		controllerService.onTouchpadTap = { tapCount += 1 }
+		controllerService.onTouchpadRegionTap = { _ in regionTapCount += 1 }
+
+		controllerService.updateTouchpad(x: 0.5, y: 0.5, isTouching: true)
+		controllerService.updateTouchpad(x: 0.5, y: 0.5, isTouching: false)
+
+		XCTAssertEqual(tapCount, 1)
+		XCTAssertEqual(regionTapCount, 0)
+	}
+
+	func testAppleTVRemoteClickpadButtonAggregatesDuplicateHIDSources() {
+		var events: [ControllerButtonEvent] = []
+		controllerService.lowLatencyInputEnabled = true
+		controllerService.onButtonPressed = { events.append(ControllerButtonEvent(button: $0, pressed: true)) }
+		controllerService.onButtonReleased = { button, _ in events.append(ControllerButtonEvent(button: button, pressed: false)) }
+
+		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 1, isPressed: true)
+		drainControllerQueue()
+		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 2, isPressed: true)
+		drainControllerQueue()
+		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 1, isPressed: false)
+		drainControllerQueue()
+		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 2, isPressed: false)
+		drainControllerQueue()
+
+		XCTAssertEqual(
+			events,
+			[
+				ControllerButtonEvent(button: .touchpadButton, pressed: true),
+				ControllerButtonEvent(button: .touchpadButton, pressed: false)
+			]
+		)
+	}
+
+	func testAppleTVRemoteTouchLiftReleasesTrackedClickpadButton() {
+		var buttonEvents: [ControllerButtonEvent] = []
+		var tapCount = 0
+		controllerService.lowLatencyInputEnabled = true
+		controllerService.storage.isAppleTVRemote = true
+		controllerService.onButtonPressed = { buttonEvents.append(ControllerButtonEvent(button: $0, pressed: true)) }
+		controllerService.onButtonReleased = { button, _ in buttonEvents.append(ControllerButtonEvent(button: button, pressed: false)) }
+		controllerService.onTouchpadTap = { tapCount += 1 }
+
+		controllerService.updateTouchpad(x: 0.5, y: 0.5, isTouching: true)
+		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 1, isPressed: true)
+		drainControllerQueue()
+		controllerService.releaseAppleTVRemoteTouchIfStillActive()
+		drainControllerQueue()
+
+		XCTAssertEqual(
+			buttonEvents,
+			[
+				ControllerButtonEvent(button: .touchpadButton, pressed: true),
+				ControllerButtonEvent(button: .touchpadButton, pressed: false)
+			]
+		)
+		XCTAssertEqual(tapCount, 0)
+		XCTAssertFalse(controllerService.storage.activeButtons.contains(.touchpadButton))
+	}
+
 	func testEliteControllerMetadataUsesActiveControllerNames() {
 		XCTAssertTrue(
 			ControllerService.isEliteControllerMetadata(
@@ -218,75 +291,79 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 			)
 	    }
 
-	    func testAppleTVRemoteHIDUsageMapsRemoteButtons() {
-			XCTAssertEqual(
-				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00CF),
-				.siri
-			)
-			XCTAssertEqual(
-				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0004),
-				.siri
-			)
-			XCTAssertEqual(
-				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00CD),
-				.menu
-			)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0080),
-					.a
-				)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0060),
-					.xbox
-				)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0040),
-					.view
-				)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0046),
-					.view
-				)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0030),
-					.appleTVRemotePower
-				)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00E9),
-					.appleTVRemoteVolumeUp
-				)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00EA),
-					.appleTVRemoteVolumeDown
-				)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00E2),
-					.appleTVRemoteMute
-				)
-				XCTAssertEqual(
-					ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0042),
-					.dpadUp
-			)
-			XCTAssertEqual(
-				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0043),
-				.dpadDown
-			)
-			XCTAssertEqual(
-				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0044),
-				.dpadLeft
-			)
-			XCTAssertEqual(
-				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0045),
-				.dpadRight
-			)
-			XCTAssertEqual(
-				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x01, usage: 0x0086),
-				.view
-			)
-			XCTAssertNil(
-				ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x01, usage: 0x00CF)
-			)
-	    }
+	func testAppleTVRemoteHIDUsageMapsRemoteButtons() {
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00CF),
+			.siri
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0004),
+			.siri
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00CD),
+			.menu
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0080),
+			.touchpadButton
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0041),
+			.touchpadButton
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0060),
+			.xbox
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0040),
+			.view
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0046),
+			.view
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0030),
+			.appleTVRemotePower
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00E9),
+			.appleTVRemoteVolumeUp
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00EA),
+			.appleTVRemoteVolumeDown
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x00E2),
+			.appleTVRemoteMute
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0042),
+			.dpadUp
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0043),
+			.dpadDown
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0044),
+			.dpadLeft
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x0C, usage: 0x0045),
+			.dpadRight
+		)
+		XCTAssertEqual(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x01, usage: 0x0086),
+			.view
+		)
+		XCTAssertNil(
+			ControllerService.appleTVRemoteButtonForHIDUsage(usagePage: 0x01, usage: 0x00CF)
+		)
+	}
 
 	func testAppleTVRemoteSystemKeyTypesMapToNXConsumerControls() {
 		XCTAssertEqual(ControllerService.appleTVRemoteSystemKeyType(for: .appleTVRemoteVolumeUp), 0)

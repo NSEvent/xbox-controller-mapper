@@ -411,7 +411,7 @@ struct ControllerVisualView: View {
 					right: .dpadRight,
 					down: .dpadDown
 				)
-				referenceGroup(title: "Clickpad", buttons: [.a, .touchpadTap])
+				referenceGroup(title: "Clickpad", buttons: [.touchpadButton, .touchpadTap])
 			}
 			.frame(width: 250)
 
@@ -789,18 +789,18 @@ struct ControllerVisualView: View {
 			Circle()
 				.fill(
 					appleTVRemoteButtonGradient(
-						isPressed(.a) ? Color.accentColor : Color(white: 0.10),
-						pressed: isPressed(.a)
+						isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.10),
+						pressed: isPressed(.touchpadButton)
 					)
 				)
 				.overlay(Circle().stroke(Color.black.opacity(0.45), lineWidth: 1.2))
 				.frame(width: 68, height: 68)
-				.controllerAnchor(.a, role: .controller)
+				.controllerAnchor(.touchpadButton, role: .controller)
 				.contentShape(Circle())
-				.onTapGesture { onButtonTap(.a) }
-				.onHover { hovering in handleButtonHover(.a, hovering) }
-				.swappable(.a, onSwap: performSwap)
-				.help("Clickpad Center")
+				.onTapGesture { onButtonTap(.touchpadButton) }
+				.onHover { hovering in handleButtonHover(.touchpadButton, hovering) }
+				.swappable(.touchpadButton, onSwap: performSwap)
+				.help("Clickpad Click")
 		}
 		.frame(width: 126, height: 126)
 		.help("Clickpad")

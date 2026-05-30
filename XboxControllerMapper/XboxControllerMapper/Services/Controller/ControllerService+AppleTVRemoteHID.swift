@@ -58,6 +58,7 @@ private enum AppleTVRemoteHID {
 		static let voiceCommandUsage: UInt32 = 0x00CF
 		static let systemAppMenuUsage: UInt32 = 0x86
 		static let touchReleaseDelay: TimeInterval = 0.15
+		static let clickpadButtonReleaseFallbackDelay: TimeInterval = 2.0
 		static let systemEventSuppressionWindow: TimeInterval = 0.50
 		static let cgEventTypeSystemDefinedRawValue: UInt32 = 14
 		static let powerButtonSubtype: Int16 = 1
@@ -150,6 +151,9 @@ extension ControllerService {
 		storage.lock.lock()
 		storage.appleTVRemoteTouchReleaseWorkItem?.cancel()
 		storage.appleTVRemoteTouchReleaseWorkItem = nil
+		storage.appleTVRemoteButtonReleaseWorkItems.values.forEach { $0.cancel() }
+		storage.appleTVRemoteButtonReleaseWorkItems.removeAll()
+		storage.appleTVRemoteActiveButtonUsages.removeAll()
 		storage.appleTVRemoteActiveSystemKeyTypes.removeAll()
 		storage.appleTVRemoteSystemKeyTypeSuppressUntil.removeAll()
 		storage.lock.unlock()
@@ -381,7 +385,7 @@ extension ControllerService {
 		case AppleTVRemoteHID.microphoneUsage, AppleTVRemoteHID.voiceCommandUsage:
 			return .siri
 		case AppleTVRemoteHID.selectionUsage, AppleTVRemoteHID.menuPickUsage:
-			return .a
+			return .touchpadButton
 		case AppleTVRemoteHID.playUsage, AppleTVRemoteHID.pauseUsage, AppleTVRemoteHID.playPauseUsage:
 			return .menu
 		case AppleTVRemoteHID.menuUsage, AppleTVRemoteHID.menuEscapeUsage:
@@ -415,27 +419,85 @@ extension ControllerService {
 		guard Self.isAppleTVRemoteHIDDevice(device) else { return }
 
 		let usagePage = IOHIDElementGetUsagePage(element)
-			let usage = IOHIDElementGetUsage(element)
-			guard let button = Self.appleTVRemoteButtonForHIDUsage(usagePage: usagePage, usage: usage) else { return }
+		let usage = IOHIDElementGetUsage(element)
+		guard let button = Self.appleTVRemoteButtonForHIDUsage(usagePage: usagePage, usage: usage) else { return }
 
-			let isPressed = IOHIDValueGetIntegerValue(value) != 0
-			let now = CFAbsoluteTimeGetCurrent()
-			storage.lock.lock()
-			storage.lastInputTime = now
-			if let systemKeyType = Self.appleTVRemoteSystemKeyType(for: button) {
-				if isPressed {
-					storage.appleTVRemoteActiveSystemKeyTypes.insert(systemKeyType)
-				} else {
-					storage.appleTVRemoteActiveSystemKeyTypes.remove(systemKeyType)
-				}
-				storage.appleTVRemoteSystemKeyTypeSuppressUntil[systemKeyType] = now + AppleTVRemoteHID.systemEventSuppressionWindow
+		let isPressed = IOHIDValueGetIntegerValue(value) != 0
+		let now = CFAbsoluteTimeGetCurrent()
+		storage.lock.lock()
+		storage.lastInputTime = now
+		if let systemKeyType = Self.appleTVRemoteSystemKeyType(for: button) {
+			if isPressed {
+				storage.appleTVRemoteActiveSystemKeyTypes.insert(systemKeyType)
+			} else {
+				storage.appleTVRemoteActiveSystemKeyTypes.remove(systemKeyType)
 			}
-			storage.lock.unlock()
+			storage.appleTVRemoteSystemKeyTypeSuppressUntil[systemKeyType] = now + AppleTVRemoteHID.systemEventSuppressionWindow
+		}
+		storage.lock.unlock()
 
+		dispatchAppleTVRemoteButtonState(
+			button,
+			sourceKey: Self.appleTVRemoteButtonSourceKey(usagePage: usagePage, usage: usage),
+			isPressed: isPressed
+		)
+	}
+
+	nonisolated func dispatchAppleTVRemoteButtonState(
+		_ button: ControllerButton,
+		sourceKey: UInt64,
+		isPressed: Bool
+	) {
+		let shouldDispatch: Bool
+		let shouldScheduleFallback: Bool
+		let shouldCancelFallback: Bool
+
+		storage.lock.lock()
+		var activeSources = storage.appleTVRemoteActiveButtonUsages[button] ?? []
+		let wasActive = !activeSources.isEmpty
+
+		if isPressed {
+			activeSources.insert(sourceKey)
+			storage.appleTVRemoteActiveButtonUsages[button] = activeSources
+			shouldDispatch = !wasActive
+			shouldScheduleFallback = button == .touchpadButton
+			shouldCancelFallback = false
+
+			if button == .touchpadButton {
+				storage.touchpadClickFiredDuringTouch = true
+				storage.pendingTouchpadDelta = nil
+				storage.touchpadFramesSinceTouch = 0
+			}
+		} else {
+			let removed = activeSources.remove(sourceKey) != nil
+			if activeSources.isEmpty {
+				storage.appleTVRemoteActiveButtonUsages.removeValue(forKey: button)
+			} else {
+				storage.appleTVRemoteActiveButtonUsages[button] = activeSources
+			}
+			let isStillActive = !activeSources.isEmpty
+			shouldDispatch = (removed && !isStillActive) || (!wasActive && storage.activeButtons.contains(button))
+			shouldScheduleFallback = false
+			shouldCancelFallback = button == .touchpadButton && !isStillActive
+		}
+		storage.lock.unlock()
+
+		if shouldScheduleFallback {
+			scheduleAppleTVRemoteButtonReleaseFallback(button)
+		} else if shouldCancelFallback {
+			cancelAppleTVRemoteButtonReleaseFallback(button)
+		}
+
+		if shouldDispatch {
 			controllerQueue.async { [weak self] in
 				self?.handleButton(button, pressed: isPressed)
 			}
 		}
+	}
+
+	private nonisolated static func appleTVRemoteButtonSourceKey(usagePage: UInt32, usage: UInt32) -> UInt64 {
+		(UInt64(usagePage) << 32) | UInt64(usage)
+	}
 
 	nonisolated static func appleTVRemoteSystemKeyType(for button: ControllerButton) -> Int? {
 		switch button {
@@ -531,6 +593,7 @@ extension ControllerService {
 		if touchReport.isTouching {
 			scheduleAppleTVRemoteTouchRelease()
 		} else {
+			releaseAppleTVRemoteButtonIfTracked(.touchpadButton)
 			cancelAppleTVRemoteTouchRelease()
 		}
 	}
@@ -588,16 +651,19 @@ extension ControllerService {
 		return nil
 	}
 
-		nonisolated func releaseAppleTVRemoteButtonsIfNeeded() {
-			storage.lock.lock()
-			storage.appleTVRemoteActiveSystemKeyTypes.removeAll()
-			storage.appleTVRemoteSystemKeyTypeSuppressUntil.removeAll()
-			storage.lock.unlock()
+	nonisolated func releaseAppleTVRemoteButtonsIfNeeded() {
+		storage.lock.lock()
+		storage.appleTVRemoteButtonReleaseWorkItems.values.forEach { $0.cancel() }
+		storage.appleTVRemoteButtonReleaseWorkItems.removeAll()
+		storage.appleTVRemoteActiveButtonUsages.removeAll()
+		storage.appleTVRemoteActiveSystemKeyTypes.removeAll()
+		storage.appleTVRemoteSystemKeyTypeSuppressUntil.removeAll()
+		storage.lock.unlock()
 
-			for button in ControllerButton.appleTVRemoteButtons {
-				handleButton(button, pressed: false)
-			}
+		for button in ControllerButton.appleTVRemoteButtons {
+			handleButton(button, pressed: false)
 		}
+	}
 
 	nonisolated func releaseAppleTVRemoteTouchIfStillActive() {
 		storage.lock.lock()
@@ -613,6 +679,7 @@ extension ControllerService {
 		if primaryActive {
 			updateTouchpad(x: 0, y: 0, isTouching: false)
 		}
+		releaseAppleTVRemoteButtonIfTracked(.touchpadButton)
 	}
 
 	private nonisolated func scheduleAppleTVRemoteTouchRelease() {
@@ -636,6 +703,44 @@ extension ControllerService {
 		storage.appleTVRemoteTouchReleaseWorkItem?.cancel()
 		storage.appleTVRemoteTouchReleaseWorkItem = nil
 		storage.lock.unlock()
+	}
+
+	private nonisolated func scheduleAppleTVRemoteButtonReleaseFallback(_ button: ControllerButton) {
+		let workItem = DispatchWorkItem { [weak self] in
+			self?.releaseAppleTVRemoteButtonIfTracked(button)
+		}
+
+		storage.lock.lock()
+		storage.appleTVRemoteButtonReleaseWorkItems[button]?.cancel()
+		storage.appleTVRemoteButtonReleaseWorkItems[button] = workItem
+		storage.lock.unlock()
+
+		controllerQueue.asyncAfter(
+			deadline: .now() + AppleTVRemoteHID.clickpadButtonReleaseFallbackDelay,
+			execute: workItem
+		)
+	}
+
+	private nonisolated func cancelAppleTVRemoteButtonReleaseFallback(_ button: ControllerButton) {
+		storage.lock.lock()
+		storage.appleTVRemoteButtonReleaseWorkItems[button]?.cancel()
+		storage.appleTVRemoteButtonReleaseWorkItems.removeValue(forKey: button)
+		storage.lock.unlock()
+	}
+
+	private nonisolated func releaseAppleTVRemoteButtonIfTracked(_ button: ControllerButton) {
+		storage.lock.lock()
+		let hadTrackedSources = storage.appleTVRemoteActiveButtonUsages.removeValue(forKey: button)?.isEmpty == false
+		storage.appleTVRemoteButtonReleaseWorkItems[button]?.cancel()
+		storage.appleTVRemoteButtonReleaseWorkItems.removeValue(forKey: button)
+		let isActiveButton = storage.activeButtons.contains(button)
+		storage.lock.unlock()
+
+		if hadTrackedSources || isActiveButton {
+			controllerQueue.async { [weak self] in
+				self?.handleButton(button, pressed: false)
+			}
+		}
 	}
 
 	private nonisolated static func appleTVRemoteTouchPoint(

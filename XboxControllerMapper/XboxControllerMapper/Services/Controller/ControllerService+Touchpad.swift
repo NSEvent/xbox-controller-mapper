@@ -102,7 +102,7 @@ extension ControllerService {
             let touchStartPosition = storage.touchpadTouchStartPosition
             let isCurrentlyTouching = storage.isTouchpadTouching
             let requireActiveTouch = storage.requireActiveTouchForRegionClick
-            let mode = storage.touchpadInputMode
+			let mode = storage.isAppleTVRemote ? TouchpadInputMode.wholePad : storage.touchpadInputMode
             storage.lock.unlock()
             let regionPosition = ControllerService.preferredTouchpadRegionPosition(
                 currentPosition: clickPosition,
@@ -143,7 +143,7 @@ extension ControllerService {
             }
 
             storage.lock.lock()
-            let mode = storage.touchpadInputMode
+			let mode = storage.isAppleTVRemote ? TouchpadInputMode.wholePad : storage.touchpadInputMode
             let activeQuadrant = storage.activeTouchpadClickQuadrant
             storage.activeTouchpadClickQuadrant = nil
             storage.lock.unlock()
@@ -615,12 +615,13 @@ extension ControllerService {
                 !clickFiredDuringTouch &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement
-            let mode = storage.touchpadInputMode
+			let isAppleTVRemote = storage.isAppleTVRemote
+			let mode = isAppleTVRemote ? TouchpadInputMode.wholePad : storage.touchpadInputMode
             let tapCallback = (isSingleTap && mode == .wholePad && !isSteamController) ? storage.onTouchpadTap : nil
 
             let regionTapCallback: ((TouchpadRegion) -> Void)?
             let tapRegion: TouchpadRegion?
-            if isSingleTap && mode == .quadrants && !isSteamController {
+			if isSingleTap && mode == .quadrants && !isSteamController && !isAppleTVRemote {
                 regionTapCallback = storage.onTouchpadRegionTap
                 let regionPosition = ControllerService.preferredTouchpadRegionPosition(
                     currentPosition: storage.touchpadPosition,

@@ -108,6 +108,8 @@ final class ControllerStorage: @unchecked Sendable {
 	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
 	var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
 	var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
+	var appleTVRemoteActiveButtonUsages: [ControllerButton: Set<UInt64>] = [:]
+	var appleTVRemoteButtonReleaseWorkItems: [ControllerButton: DispatchWorkItem] = [:]
 
     // DualSense Edge button state (paddles and function buttons)
     var lastLeftPaddleState: Bool = false

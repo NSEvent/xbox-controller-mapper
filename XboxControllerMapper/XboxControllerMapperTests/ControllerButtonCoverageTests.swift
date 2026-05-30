@@ -97,7 +97,7 @@ final class ControllerButtonCoverageTests: XCTestCase {
 					[
 						.appleTVRemotePower,
 						.dpadUp, .dpadDown, .dpadLeft, .dpadRight,
-						.a, .touchpadTap, .view, .menu, .xbox, .siri,
+						.touchpadButton, .touchpadTap, .view, .menu, .xbox, .siri,
 						.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute
 					]
 				)
@@ -143,7 +143,7 @@ final class ControllerButtonCoverageTests: XCTestCase {
 	}
 
 	func testAppleTVRemoteLabelOverrides() {
-		XCTAssertEqual(ControllerButton.a.displayName(forAppleTVRemote: true), "Clickpad")
+		XCTAssertEqual(ControllerButton.touchpadButton.displayName(forAppleTVRemote: true), "Clickpad Click")
 		XCTAssertEqual(ControllerButton.touchpadTap.displayName(forAppleTVRemote: true), "Clickpad Tap")
 		XCTAssertEqual(ControllerButton.menu.displayName(forAppleTVRemote: true), "Play/Pause")
 		XCTAssertEqual(ControllerButton.view.displayName(forAppleTVRemote: true), "Back")
@@ -154,7 +154,7 @@ final class ControllerButtonCoverageTests: XCTestCase {
 		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.displayName(forAppleTVRemote: true), "Volume Down")
 		XCTAssertEqual(ControllerButton.appleTVRemoteMute.displayName(forAppleTVRemote: true), "Mute")
 
-		XCTAssertEqual(ControllerButton.a.shortLabel(forAppleTVRemote: true), "OK")
+		XCTAssertEqual(ControllerButton.touchpadButton.shortLabel(forAppleTVRemote: true), "Click")
 		XCTAssertEqual(ControllerButton.touchpadTap.shortLabel(forAppleTVRemote: true), "Tap")
 		XCTAssertEqual(ControllerButton.menu.shortLabel(forAppleTVRemote: true), "▶")
 		XCTAssertEqual(ControllerButton.view.shortLabel(forAppleTVRemote: true), "←")
@@ -177,6 +177,7 @@ final class ControllerButtonCoverageTests: XCTestCase {
 	}
 
 	func testAppleTVRemoteSystemImageOverridesAvoidXboxGlyphs() {
+		XCTAssertEqual(ControllerButton.touchpadButton.systemImageName(forAppleTVRemote: true), "hand.point.up.left")
 		XCTAssertEqual(ControllerButton.touchpadTap.systemImageName(forAppleTVRemote: true), "hand.tap")
 		XCTAssertEqual(ControllerButton.menu.systemImageName(forAppleTVRemote: true), "playpause.fill")
 		XCTAssertEqual(ControllerButton.xbox.systemImageName(forAppleTVRemote: true), "tv.fill")

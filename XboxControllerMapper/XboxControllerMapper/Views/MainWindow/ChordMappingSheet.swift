@@ -263,7 +263,7 @@ struct ChordMappingSheet: View {
 								// Face Buttons Diamond
 								if isAppleTVRemote {
 									VStack(spacing: 12) {
-										toggleButton(.a)
+										toggleButton(.touchpadButton)
 										toggleButton(.touchpadTap)
 									}
 								} else {

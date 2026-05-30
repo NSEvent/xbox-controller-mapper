@@ -514,7 +514,7 @@ struct SequenceMappingSheet: View {
                 VStack(spacing: 25) {
 					if isAppleTVRemote {
 						VStack(spacing: 12) {
-							addStepButton(.a)
+							addStepButton(.touchpadButton)
 							addStepButton(.touchpadTap)
 						}
 					} else {

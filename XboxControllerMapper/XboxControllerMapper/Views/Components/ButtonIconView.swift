@@ -170,8 +170,7 @@ struct ButtonIconView: View {
         // Use PlayStation style for DualSense face buttons (dark background), standard colors for others
 		if isAppleTVRemote {
 			switch button {
-			case .a: return Color(white: 0.18)
-			case .touchpadTap: return Color(white: 0.22)
+			case .touchpadButton, .touchpadTap: return Color(white: 0.22)
 			case .view, .menu, .xbox, .siri: return Color(white: 0.28)
 			case .dpadUp, .dpadDown, .dpadLeft, .dpadRight: return Color(white: 0.22)
 			default: return Color(white: 0.2)
