@@ -56,6 +56,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             controllerService?.onRightStickMoved = nil
             controllerService?.onTouchpadMoved = nil
             controllerService?.onSteamLeftTouchpadMoved = nil
+			controllerService?.onAppleTVRemoteCircularScroll = nil
             controllerService?.onTouchpadGesture = nil
             controllerService?.onTouchpadTap = nil
             controllerService?.onTouchpadTwoFingerTap = nil
@@ -710,5 +711,62 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                 "Steam left touchpad inversion should reverse both scroll axes"
             )
         }
+    }
+
+    func testAppleTVRemoteCircularScrollProducesVerticalScroll() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "AppleTVRingScroll", buttonMappings: [:])
+			profile.joystickSettings.touchpadPanSensitivity = 1.0
+			profileManager.setActiveProfile(profile)
+			controllerService.storage.isAppleTVRemote = true
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			controllerService.onAppleTVRemoteCircularScroll?(0.12)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			let scrollEvents = mockInputSimulator.events.compactMap { event -> (CGFloat, CGFloat)? in
+				if case .scroll(let dx, let dy) = event {
+					return (dx, dy)
+				}
+				return nil
+			}
+			XCTAssertTrue(
+				scrollEvents.contains { abs($0.0) < 0.001 && $0.1 < -0.1 },
+				"Clockwise ring motion should emit downward vertical scroll"
+			)
+		}
+    }
+
+    func testAppleTVRemoteCircularScrollRespectsTouchpadScrollInversion() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "AppleTVRingScrollInverted", buttonMappings: [:])
+			profile.joystickSettings.touchpadPanSensitivity = 1.0
+			profile.joystickSettings.touchpadInvertScrollY = true
+			profileManager.setActiveProfile(profile)
+			controllerService.storage.isAppleTVRemote = true
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			controllerService.onAppleTVRemoteCircularScroll?(0.12)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			let scrollEvents = mockInputSimulator.events.compactMap { event -> (CGFloat, CGFloat)? in
+				if case .scroll(let dx, let dy) = event {
+					return (dx, dy)
+				}
+				return nil
+			}
+			XCTAssertTrue(
+				scrollEvents.contains { abs($0.0) < 0.001 && $0.1 > 0.1 },
+				"Apple TV ring scroll should respect touchpad vertical scroll inversion"
+			)
+		}
     }
 }

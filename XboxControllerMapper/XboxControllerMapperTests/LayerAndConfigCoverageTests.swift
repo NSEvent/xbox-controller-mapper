@@ -258,6 +258,11 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         _ = Config.touchpadPinchVsPanRatio
         _ = Config.touchpadTapCooldown
         _ = Config.touchpadPanSensitivityMultiplier
+		_ = Config.appleTVRemoteCircularScrollMinRadius
+		_ = Config.appleTVRemoteCircularScrollMinAngleDelta
+		_ = Config.appleTVRemoteCircularScrollMinTangentialTravel
+		_ = Config.appleTVRemoteCircularScrollTangentialDominanceRatio
+		_ = Config.appleTVRemoteCircularScrollSensitivityMultiplier
         _ = Config.touchpadPanDeadzone
         _ = Config.touchpadTwoFingerMinDistance
         _ = Config.touchpadSecondaryStaleInterval

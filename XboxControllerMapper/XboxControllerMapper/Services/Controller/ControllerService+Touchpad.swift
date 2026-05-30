@@ -1,5 +1,6 @@
 import Foundation
 import GameController
+import os.log
 
 // MARK: - Touchpad Handling
 
@@ -268,14 +269,47 @@ extension ControllerService {
 	}
 
 	/// Requires storage.lock to be held by the caller.
-	private nonisolated func shouldSendSteamTwoPadGestureEndLocked() -> Bool {
-		guard storage.isSteamController, storage.steamTwoPadGestureWasActive else {
-			return false
+		private nonisolated func shouldSendSteamTwoPadGestureEndLocked() -> Bool {
+			guard storage.isSteamController, storage.steamTwoPadGestureWasActive else {
+				return false
+			}
+			storage.steamTwoPadGestureWasActive = false
+			storage.steamTwoPadGestureActiveUntil = 0
+			return true
+	    }
+
+	nonisolated static func appleTVRemoteCircularScrollAngleDelta(
+		previous: CGPoint,
+		current: CGPoint
+	) -> CGFloat? {
+		let previousRadius = hypot(previous.x, previous.y)
+		let currentRadius = hypot(current.x, current.y)
+		let minRadius = CGFloat(Config.appleTVRemoteCircularScrollMinRadius)
+		guard previousRadius >= minRadius, currentRadius >= minRadius else { return nil }
+
+		let angleDelta = shortestAngleDelta(
+			from: atan2(previous.y, previous.x),
+			to: atan2(current.y, current.x)
+		)
+		let absoluteAngleDelta = abs(angleDelta)
+		guard absoluteAngleDelta >= CGFloat(Config.appleTVRemoteCircularScrollMinAngleDelta) else {
+			return nil
 		}
-		storage.steamTwoPadGestureWasActive = false
-		storage.steamTwoPadGestureActiveUntil = 0
-		return true
-    }
+
+		let averageRadius = (previousRadius + currentRadius) * 0.5
+		let tangentialTravel = absoluteAngleDelta * averageRadius
+		let radialTravel = abs(currentRadius - previousRadius)
+		guard tangentialTravel >= CGFloat(Config.appleTVRemoteCircularScrollMinTangentialTravel),
+		      tangentialTravel >= radialTravel * CGFloat(Config.appleTVRemoteCircularScrollTangentialDominanceRatio) else {
+			return nil
+		}
+
+		return angleDelta
+	}
+
+	nonisolated static func appleTVRemoteTouchIsOnCircularScrollRing(_ position: CGPoint) -> Bool {
+		hypot(position.x, position.y) >= CGFloat(Config.appleTVRemoteCircularScrollMinRadius)
+	}
 
     private nonisolated func inactiveTouchpadGesture(
         primaryTouching: Bool,
@@ -479,17 +513,34 @@ extension ControllerService {
                     }
                 }
 
-                // Apply the PREVIOUS pending delta (if any), then store current as pending
-                // This 1-frame delay filters out artifacts right before finger lift
-                let previousPending = storage.pendingTouchpadDelta
-                let callback = storage.onTouchpadMoved
+				let circularScrollAngleDelta = storage.isAppleTVRemote
+					? Self.appleTVRemoteCircularScrollAngleDelta(
+						previous: storage.touchpadPreviousPosition,
+						current: storage.touchpadPosition
+					)
+					: nil
+				let circularScrollCallback = storage.onAppleTVRemoteCircularScroll
+				let wasCircularScrollActive = storage.appleTVRemoteCircularScrollActive
+				if circularScrollAngleDelta != nil {
+					storage.appleTVRemoteCircularScrollActive = true
+				} else if wasCircularScrollActive && !Self.appleTVRemoteTouchIsOnCircularScrollRing(newPosition) {
+					storage.appleTVRemoteCircularScrollActive = false
+				}
+				let circularScrollActive = circularScrollAngleDelta != nil || storage.appleTVRemoteCircularScrollActive
 
-                // Store current delta as pending for next frame
-                if abs(delta.x) > 0.001 || abs(delta.y) > 0.001 {
-                    storage.pendingTouchpadDelta = delta
-                } else {
-                    storage.pendingTouchpadDelta = nil
-                }
+				// Apply the PREVIOUS pending delta (if any), then store current as pending.
+				// This 1-frame delay filters out artifacts right before finger lift.
+				let previousPending = circularScrollActive ? nil : storage.pendingTouchpadDelta
+				let callback = storage.onTouchpadMoved
+
+				// Store current delta as pending for next frame unless ring scrolling owns this motion.
+				if circularScrollActive {
+					storage.pendingTouchpadDelta = nil
+				} else if abs(delta.x) > 0.001 || abs(delta.y) > 0.001 {
+					storage.pendingTouchpadDelta = delta
+				} else {
+					storage.pendingTouchpadDelta = nil
+				}
 
                 let primaryDeltaForGesture = CGPoint(
                     x: storage.touchpadPosition.x - storage.touchpadPreviousPosition.x,
@@ -507,24 +558,30 @@ extension ControllerService {
                 let shouldHandleAsGesture = secondaryFresh && (!storage.isSteamController || steamTwoPadGesture)
                 let gesture = computeTwoFingerGestureLocked(secondaryFresh: secondaryFresh)
 
-                let isSecondaryTouching = storage.isTouchpadSecondaryTouching
-                let shouldAllowSinglePadMovement = !isSecondaryTouching || (storage.isSteamController && !shouldHandleAsGesture)
+					let isSecondaryTouching = storage.isTouchpadSecondaryTouching
+					let shouldAllowSinglePadMovement = !circularScrollActive && (!isSecondaryTouching || (storage.isSteamController && !shouldHandleAsGesture))
 				let shouldSendInactiveGesture = isSecondaryTouching && !shouldHandleAsGesture && shouldSendSteamTwoPadGestureEndLocked()
 				let inactiveGesture = shouldSendInactiveGesture
                     ? inactiveTouchpadGesture(primaryTouching: true, secondaryTouching: false)
                     : nil
                 storage.lock.unlock()
 
-                if let gesture, shouldHandleAsGesture {
-                    gestureCallback?(gesture)
-                } else {
-                    if let inactiveGesture {
-                        gestureCallback?(inactiveGesture)
-                    }
-                    if let pending = previousPending, shouldAllowSinglePadMovement {
-                        callback?(pending)
-                    }
-                }
+					if let gesture, shouldHandleAsGesture {
+						gestureCallback?(gesture)
+					if let circularScrollAngleDelta {
+						circularScrollCallback?(circularScrollAngleDelta)
+					}
+					} else {
+						if let inactiveGesture {
+							gestureCallback?(inactiveGesture)
+						}
+					if let circularScrollAngleDelta {
+						circularScrollCallback?(circularScrollAngleDelta)
+					}
+						if let pending = previousPending, shouldAllowSinglePadMovement {
+							callback?(pending)
+						}
+					}
             } else {
                 // Finger just touched - initialize position, no delta yet
                 storage.touchpadPosition = newPosition
@@ -536,10 +593,11 @@ extension ControllerService {
                 storage.touchpadGesturePreviousDistance = 0
                 storage.touchpadFramesSinceTouch = 0
                 storage.pendingTouchpadDelta = nil
-                storage.touchpadTouchStartTime = now
-                storage.touchpadTouchStartPosition = newPosition
-                storage.touchpadMaxDistanceFromStart = 0
-                // Check if secondary is already touching (for two-finger tap detection)
+					storage.touchpadTouchStartTime = now
+					storage.touchpadTouchStartPosition = newPosition
+					storage.touchpadMaxDistanceFromStart = 0
+				storage.appleTVRemoteCircularScrollActive = false
+					// Check if secondary is already touching (for two-finger tap detection)
                 let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
                 storage.touchpadWasTwoFingerDuringTouch = secondaryFresh
                 storage.touchpadTwoFingerGestureDistance = 0  // Reset for new touch session
@@ -663,10 +721,11 @@ extension ControllerService {
             storage.touchpadFramesSinceTouch = 0
             storage.pendingTouchpadDelta = nil
             storage.touchpadClickArmed = false
-            storage.touchpadClickFiredDuringTouch = false
-            storage.touchpadMovementBlocked = false
-            storage.touchpadLongTapFired = false
-            let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+				storage.touchpadClickFiredDuringTouch = false
+				storage.touchpadMovementBlocked = false
+				storage.touchpadLongTapFired = false
+				storage.appleTVRemoteCircularScrollActive = false
+				let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
             let isTwoFinger = storage.isTouchpadTouching && isSecondaryTouching
             storage.lock.unlock()
 
@@ -918,23 +977,61 @@ extension ControllerService {
         let primaryTouching = storage.isTouchpadTouching
         let secondaryTouching = storage.isTouchpadSecondaryTouching
         let blocked = storage.touchpadMovementBlocked
+		let isAppleTVRemote = storage.isAppleTVRemote
+		let previousPrimary = storage.touchpadPreviousPosition
         let distance = hypot(primary.x - secondary.x, primary.y - secondary.y)
         let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
         storage.lock.unlock()
 
-        #if DEBUG
-        print(String(
-            format: "TP[%@] p=(%.3f,%.3f) s=(%.3f,%.3f) touch=%d/%d blocked=%d dist=%.3f fresh=%d",
-            source,
-            primary.x, primary.y,
-            secondary.x, secondary.y,
+		if isAppleTVRemote, primaryTouching {
+			let radius = hypot(primary.x, primary.y)
+			let angle = atan2(primary.y, primary.x)
+			let previousRadius = hypot(previousPrimary.x, previousPrimary.y)
+			let previousAngle = atan2(previousPrimary.y, previousPrimary.x)
+			let angleDelta = Self.shortestAngleDelta(from: previousAngle, to: angle)
+			Self.logTouchpadDebug(String(
+				format: "[ControllerKeys] TP[AppleTV:%@] p=(%.3f,%.3f) prev=(%.3f,%.3f) r=%.3f prevR=%.3f angle=%.3f dAngle=%.3f touch=%d blocked=%d",
+				source,
+				primary.x,
+				primary.y,
+				previousPrimary.x,
+				previousPrimary.y,
+				radius,
+				previousRadius,
+				angle,
+				angleDelta,
+				primaryTouching ? 1 : 0,
+				blocked ? 1 : 0
+			))
+			return
+		}
+
+		Self.logTouchpadDebug(String(
+			format: "[ControllerKeys] TP[%@] p=(%.3f,%.3f) s=(%.3f,%.3f) touch=%d/%d blocked=%d dist=%.3f fresh=%d",
+			source,
+			primary.x, primary.y,
+			secondary.x, secondary.y,
             primaryTouching ? 1 : 0,
             secondaryTouching ? 1 : 0,
-            blocked ? 1 : 0,
-            distance,
-            secondaryFresh ? 1 : 0
-        ))
-        #endif
+			blocked ? 1 : 0,
+			distance,
+			secondaryFresh ? 1 : 0
+		))
+    }
+
+	private nonisolated static func logTouchpadDebug(_ message: String) {
+		os_log("%{public}@", type: .info, message)
+	}
+
+    private nonisolated static func shortestAngleDelta(from previous: CGFloat, to current: CGFloat) -> CGFloat {
+		var delta = current - previous
+		while delta > .pi {
+			delta -= 2 * .pi
+		}
+		while delta < -.pi {
+			delta += 2 * .pi
+		}
+		return delta
     }
 
     /// Arms/disarms touchpad click and detects two-finger clicks.

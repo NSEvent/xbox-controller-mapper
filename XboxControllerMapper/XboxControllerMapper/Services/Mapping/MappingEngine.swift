@@ -342,6 +342,12 @@ class MappingEngine: ObservableObject {
                 self.processSteamLeftTouchpadScroll(delta)
             }
         }
+		controllerService.onAppleTVRemoteCircularScroll = { [weak self] angleDelta in
+			guard let self = self else { return }
+			self.pollingQueue.async {
+				self.processAppleTVRemoteCircularScroll(angleDelta)
+			}
+		}
         controllerService.onTouchpadGesture = { [weak self] gesture in
             guard let self = self else { return }
             self.pollingQueue.async {
@@ -590,7 +596,7 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleButtonPressed(_ button: ControllerButton) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.press \(button.rawValue)")
-        if UniversalControlMouseRelay.shared.hasActiveRemoteSession {
+		if UniversalControlMouseRelay.shared.isRoutingToRemote {
             _ = UniversalControlMouseRelay.shared.sendControllerButtonPressed(button)
             return
         }
@@ -1157,7 +1163,7 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.release \(button.rawValue)")
-        if UniversalControlMouseRelay.shared.hasActiveRemoteSession {
+		if UniversalControlMouseRelay.shared.isRoutingToRemote {
             let hasLocalButtonState = state.lock.withLock {
                 state.heldButtons[button] != nil
                     || state.pendingSingleTap[button] != nil
@@ -1468,7 +1474,7 @@ class MappingEngine: ObservableObject {
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
-        if UniversalControlMouseRelay.shared.hasActiveRemoteSession {
+		if UniversalControlMouseRelay.shared.isRoutingToRemote {
             _ = UniversalControlMouseRelay.shared.sendControllerChord(buttons)
             return
         }

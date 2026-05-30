@@ -467,9 +467,9 @@ final class ZoomEventDeliveryConsistencyTests: XCTestCase {
 }
 
 final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
-    func testPlainMoveWithoutRelayCanPostPastEdgeForSystemHandoff() {
-		let proposed = CGPoint(x: 1928, y: 500)
-		let clamped = CGPoint(x: 1919, y: 500)
+	func testPlainMoveWithoutRelayStaysClampedAtEdge() {
+			let proposed = CGPoint(x: 1928, y: 500)
+			let clamped = CGPoint(x: 1919, y: 500)
 
 		let result = UniversalControlRelayLocalMousePolicy.eventPoint(
 			proposed: proposed,
@@ -479,8 +479,8 @@ final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
 			relayCanHandleEdge: false
 		)
 
-		XCTAssertEqual(result, proposed)
-    }
+			XCTAssertEqual(result, clamped)
+	    }
 
 	func testTrackedPointKeepsLocalCursorInBounds() {
 		let clamped = CGPoint(x: 1919, y: 500)
@@ -507,19 +507,40 @@ final class UniversalControlRelayLocalMousePolicyTests: XCTestCase {
 		XCTAssertEqual(result, clamped)
     }
 
-	func testRelayEdgeClampReportsOnlyAppliedLocalDelta() {
-		let current = CGPoint(x: 1919, y: 500)
-		let eventPoint = CGPoint(x: 1919, y: 503)
+		func testRelayEdgeClampReportsOnlyAppliedLocalDelta() {
+			let current = CGPoint(x: 1919, y: 500)
+			let eventPoint = CGPoint(x: 1919, y: 503)
 
 		let delta = UniversalControlRelayLocalMousePolicy.appliedDelta(
 			from: current,
 			to: eventPoint
 		)
 
-		XCTAssertEqual(delta, CGPoint(x: 0, y: 3))
-	}
+			XCTAssertEqual(delta, CGPoint(x: 0, y: 3))
+		}
 
-    func testZoomOrDragKeepsLocalCursorClamped() {
+		func testOutwardEdgeMoveReportsNoOffscreenDelta() {
+			let current = CGPoint(x: 1919, y: 500)
+			let proposed = CGPoint(x: 1930, y: 500)
+			let clamped = CGPoint(x: 1919, y: 500)
+			let eventPoint = UniversalControlRelayLocalMousePolicy.eventPoint(
+				proposed: proposed,
+				clamped: clamped,
+				zoomActive: false,
+				isDrag: false,
+				relayCanHandleEdge: false
+			)
+
+			let delta = UniversalControlRelayLocalMousePolicy.appliedDelta(
+				from: current,
+				to: eventPoint
+			)
+
+			XCTAssertEqual(eventPoint, clamped)
+			XCTAssertEqual(delta, .zero)
+		}
+
+	    func testZoomOrDragKeepsLocalCursorClamped() {
 		let proposed = CGPoint(x: 1928, y: 500)
 		let clamped = CGPoint(x: 1919, y: 500)
 
@@ -559,9 +580,9 @@ final class UniversalControlRelayRolePolicyTests: XCTestCase {
 		)
 	}
 
-	func testRemoteHandoffStillRequiresConfiguredUnsuppressedTarget() {
-		XCTAssertFalse(
-			UniversalControlRelayRolePolicy.canStartRemoteHandoff(
+		func testRemoteHandoffStillRequiresConfiguredUnsuppressedTarget() {
+			XCTAssertFalse(
+				UniversalControlRelayRolePolicy.canStartRemoteHandoff(
 				hasConfiguredRelayTarget: false,
 				remoteHandoffSuppressed: false
 			)
@@ -572,10 +593,30 @@ final class UniversalControlRelayRolePolicyTests: XCTestCase {
 				remoteHandoffSuppressed: true
 			)
 		)
+		}
 	}
-}
 
-// MARK: - Regression: UAZoomEnabled vs isZoomCurrentlyActive
+	final class UniversalControlRelaySessionPolicyTests: XCTestCase {
+		func testUnconfirmedRemoteSessionDoesNotRouteLocalMovement() {
+			XCTAssertFalse(
+				UniversalControlRelaySessionPolicy.shouldRouteMovementToRemote(
+					sessionActive: true,
+					hasReceivedCursorStatus: false
+				)
+			)
+		}
+
+		func testConfirmedRemoteSessionRoutesMovementToRemote() {
+			XCTAssertTrue(
+				UniversalControlRelaySessionPolicy.shouldRouteMovementToRemote(
+					sessionActive: true,
+					hasReceivedCursorStatus: true
+				)
+			)
+		}
+	}
+
+	// MARK: - Regression: UAZoomEnabled vs isZoomCurrentlyActive
 
 final class ZoomDetectionMethodTests: XCTestCase {
     // UAZoomEnabled() is broken on macOS 26 (returns false during active zoom).

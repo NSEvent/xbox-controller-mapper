@@ -214,7 +214,7 @@ final class ControllerSnapshotTests: XCTestCase {
         )
     }
 
-    func testSteamLeftTouchpadJitterDoesNotSuppressRightTouchpadMouse() {
+	func testSteamLeftTouchpadJitterDoesNotSuppressRightTouchpadMouse() {
 		var gestures: [TouchpadGesture] = []
 		var movements: [CGPoint] = []
 		controllerService.onTouchpadGesture = { gestures.append($0) }
@@ -244,6 +244,48 @@ final class ControllerSnapshotTests: XCTestCase {
 			"Right-pad mouse movement should continue while the left pad only jitters"
 		)
     }
+
+	func testAppleTVRemoteCircularScrollWrapsAcrossNegativePi() {
+		let previous = CGPoint(x: -0.80, y: 0.02)
+		let current = CGPoint(x: -0.80, y: -0.02)
+
+		let angleDelta = ControllerService.appleTVRemoteCircularScrollAngleDelta(
+			previous: previous,
+			current: current
+		)
+
+		XCTAssertNotNil(angleDelta)
+		XCTAssertLessThan(abs(angleDelta ?? 0), 0.1)
+		XCTAssertGreaterThan(angleDelta ?? 0, 0)
+	}
+
+	func testAppleTVRemoteCircularScrollEmitsAngleDeltaAndSuppressesMouseMovement() {
+		var scrollDeltas: [CGFloat] = []
+		var movements: [CGPoint] = []
+		controllerService.onAppleTVRemoteCircularScroll = { scrollDeltas.append($0) }
+		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isAppleTVRemote = true
+		}
+
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.78, y: 0.16, isTouching: true)
+
+		XCTAssertEqual(scrollDeltas.count, 1)
+		XCTAssertGreaterThan(scrollDeltas[0], 0)
+		XCTAssertTrue(movements.isEmpty)
+	}
+
+	func testAppleTVRemoteRadialOuterMovementDoesNotCircularScroll() {
+		let angleDelta = ControllerService.appleTVRemoteCircularScrollAngleDelta(
+			previous: CGPoint(x: 0.65, y: 0.00),
+			current: CGPoint(x: 0.85, y: 0.00)
+		)
+
+		XCTAssertNil(angleDelta)
+	}
 
     func testSnapshotAndIndividualAccessorsAgree() {
         controllerService.storage.lock.lock()

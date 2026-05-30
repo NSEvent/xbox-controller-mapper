@@ -24,17 +24,45 @@ enum ButtonMappingResolutionPolicy {
 
         // Only the most recently activated layer is considered active.
         if let activeLayerId = activeLayerIds.last,
-           let layer = profile.layers.first(where: { $0.id == activeLayerId }),
-           let mapping = layer.buttonMappings[button], !mapping.isEmpty {
-            return mapping
-        }
+		   let layer = profile.layers.first(where: { $0.id == activeLayerId }) {
+			if let mapping = nonEmptyMapping(for: button, in: layer.buttonMappings) {
+				return mapping
+			}
+			if let mapping = firstFallbackMapping(for: button, in: layer.buttonMappings) {
+				return mapping
+			}
+		}
 
-        if let mapping = profile.buttonMappings[button], !mapping.isEmpty {
-            return mapping
-        }
+		if let mapping = profile.buttonMappings[button] {
+			return mapping.isEmpty ? nil : mapping
+		}
+
+		if let mapping = firstFallbackMapping(for: button, in: profile.buttonMappings) {
+			return mapping
+		}
 
         return defaultMapping(for: button)
     }
+
+	private static func nonEmptyMapping(
+		for button: ControllerButton,
+		in mappings: [ControllerButton: KeyMapping]
+	) -> KeyMapping? {
+		guard let mapping = mappings[button], !mapping.isEmpty else { return nil }
+		return mapping
+	}
+
+	private static func firstFallbackMapping(
+		for button: ControllerButton,
+		in mappings: [ControllerButton: KeyMapping]
+	) -> KeyMapping? {
+		for fallbackButton in button.mappingFallbackButtons {
+			if let mapping = nonEmptyMapping(for: fallbackButton, in: mappings) {
+				return mapping
+			}
+		}
+		return nil
+	}
 
     /// Hardcoded resolver fallback. Historically returned a "trackpad-like"
     /// default (left/right mouse click) for touchpad buttons even when the

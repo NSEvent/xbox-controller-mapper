@@ -701,8 +701,8 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     /// a duplicate `.touchpadButton` press. The aliasing is *only* consulted
     /// during chord/sequence detection; individual button mappings remain
     /// distinct.
-    var chordSequenceAlias: ControllerButton? {
-        switch self {
+	var chordSequenceAlias: ControllerButton? {
+		switch self {
         case .touchpadRegionTopLeftClick, .touchpadRegionTopRightClick,
              .touchpadRegionBottomLeftClick, .touchpadRegionBottomRightClick:
             return .touchpadButton
@@ -718,13 +718,36 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         case .rightTouchpadRegionTopLeftClick, .rightTouchpadRegionTopRightClick,
              .rightTouchpadRegionBottomLeftClick, .rightTouchpadRegionBottomRightClick:
             return .rightTouchpadButton
-        case .rightTouchpadRegionTopLeftTouch, .rightTouchpadRegionTopRightTouch,
-             .rightTouchpadRegionBottomLeftTouch, .rightTouchpadRegionBottomRightTouch:
-            return .rightTouchpadTap
-        default:
-            return nil
-        }
-    }
+		case .rightTouchpadRegionTopLeftTouch, .rightTouchpadRegionTopRightTouch,
+		     .rightTouchpadRegionBottomLeftTouch, .rightTouchpadRegionBottomRightTouch:
+			return .rightTouchpadTap
+		case .xboxPaddle1:
+			return .leftPaddle
+		case .xboxPaddle2:
+			return .rightPaddle
+		case .xboxPaddle3:
+			return .leftFunction
+		case .xboxPaddle4:
+			return .rightFunction
+		default:
+			return nil
+		}
+	}
+
+	var mappingFallbackButtons: [ControllerButton] {
+		switch self {
+		case .xboxPaddle1:
+			return [.leftPaddle]
+		case .xboxPaddle2:
+			return [.rightPaddle]
+		case .xboxPaddle3:
+			return [.leftFunction]
+		case .xboxPaddle4:
+			return [.rightFunction]
+		default:
+			return []
+		}
+	}
 
     /// Returns the trigger mode this quadrant button represents, or nil if
     /// it's not a quadrant variant. `.both` is never returned — it's an

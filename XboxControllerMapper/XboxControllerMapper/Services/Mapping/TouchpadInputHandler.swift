@@ -136,6 +136,33 @@ extension MappingEngine {
         usageStatsService?.recordScrollDistance(dx: dx, dy: dy)
     }
 
+    /// - Precondition: Must be called on pollingQueue
+    nonisolated func processAppleTVRemoteCircularScroll(_ angleDelta: CGFloat) {
+		dispatchPrecondition(condition: .onQueue(pollingQueue))
+		guard controllerService.threadSafeIsAppleTVRemote,
+			  let settings = state.lock.withLock({ () -> JoystickSettings? in
+				  guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil }
+				  return settings
+			  }) else { return }
+
+		let scale = settings.touchpadPanSensitivity * Config.appleTVRemoteCircularScrollSensitivityMultiplier
+			var dy = -Double(angleDelta) * scale
+		if settings.touchpadInvertScrollY {
+			dy = -dy
+		}
+		guard abs(dy) > 0.1 else { return }
+
+		inputSimulator.scroll(
+			dx: 0,
+			dy: CGFloat(dy),
+			phase: nil,
+			momentumPhase: nil,
+			isContinuous: false,
+			flags: inputSimulator.getHeldModifiers()
+		)
+		usageStatsService?.recordScrollDistance(dx: 0, dy: dy)
+    }
+
     // MARK: - Touchpad Tap Gestures
 
     /// - Precondition: Must be called on pollingQueue

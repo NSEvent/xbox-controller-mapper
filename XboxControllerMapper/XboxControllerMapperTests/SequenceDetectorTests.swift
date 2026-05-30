@@ -125,4 +125,15 @@ final class SequenceDetectorTests: XCTestCase {
         XCTAssertNotNil(result, "Second sequence should complete with X")
         XCTAssertEqual(result?.keyCode, 20)
     }
+
+	func testXboxPaddleEventsMatchDualSenseEdgeSequenceSteps() {
+		let sequence = SequenceMapping(steps: [.leftPaddle, .leftFunction], stepTimeout: 0.5, keyCode: 40)
+		detector.configure(sequences: [sequence])
+
+		let now = CFAbsoluteTimeGetCurrent()
+		XCTAssertNil(detector.process(.xboxPaddle1, at: now))
+		let result = detector.process(.xboxPaddle3, at: now + 0.1)
+
+		XCTAssertEqual(result?.keyCode, 40)
+	}
 }

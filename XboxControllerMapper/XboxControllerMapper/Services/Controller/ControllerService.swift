@@ -109,10 +109,11 @@ final class ControllerStorage: @unchecked Sendable {
 	    // Nintendo Pro Controller HID button state
 	    var lastNintendoHomeState: Bool = false
 	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
-	var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
-	var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
-	var appleTVRemoteActiveButtonUsages: [ControllerButton: Set<UInt64>] = [:]
-	var appleTVRemoteButtonReleaseWorkItems: [ControllerButton: DispatchWorkItem] = [:]
+    var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
+    var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
+    var appleTVRemoteActiveButtonUsages: [ControllerButton: Set<UInt64>] = [:]
+    var appleTVRemoteButtonReleaseWorkItems: [ControllerButton: DispatchWorkItem] = [:]
+    var appleTVRemoteCircularScrollActive: Bool = false
 
     // DualSense Edge button state (paddles and function buttons)
     var lastLeftPaddleState: Bool = false
@@ -144,6 +145,7 @@ final class ControllerStorage: @unchecked Sendable {
     var onRightStickMoved: ((CGPoint) -> Void)?
     var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
     var onSteamLeftTouchpadMoved: ((CGPoint) -> Void)?  // Left-pad delta movement for app-owned scroll
+    var onAppleTVRemoteCircularScroll: ((CGFloat) -> Void)?
     var onTouchpadGesture: ((TouchpadGesture) -> Void)?
     var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
     var onControllerButtonTap: ((ControllerButton) -> Void)?  // One-shot virtual tap events
@@ -657,6 +659,10 @@ class ControllerService: ObservableObject {
     var onSteamLeftTouchpadMoved: ((CGPoint) -> Void)? {
         get { readStorage(\.onSteamLeftTouchpadMoved) }
         set { writeStorage(\.onSteamLeftTouchpadMoved, newValue) }
+    }
+    var onAppleTVRemoteCircularScroll: ((CGFloat) -> Void)? {
+		get { readStorage(\.onAppleTVRemoteCircularScroll) }
+		set { writeStorage(\.onAppleTVRemoteCircularScroll, newValue) }
     }
     var onTouchpadGesture: ((TouchpadGesture) -> Void)? {
         get { readStorage(\.onTouchpadGesture) }

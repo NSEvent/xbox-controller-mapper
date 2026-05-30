@@ -260,6 +260,16 @@ struct Config {
     static let touchpadTapCooldown: TimeInterval = 0.2
     /// Two-finger pan scaling (normalized delta -> pixel scroll)
     static let touchpadPanSensitivityMultiplier: Double = 3000.0
+    /// Apple TV Remote clickpad outer-ring threshold for circular scrolling.
+    static let appleTVRemoteCircularScrollMinRadius: Double = 0.62
+    /// Minimum per-sample angle change, in radians, to count as circular scroll.
+    static let appleTVRemoteCircularScrollMinAngleDelta: Double = 0.01
+    /// Minimum tangential travel along the ring before circular scroll activates.
+    static let appleTVRemoteCircularScrollMinTangentialTravel: Double = 0.008
+    /// Tangential motion must dominate radial drift by this ratio.
+    static let appleTVRemoteCircularScrollTangentialDominanceRatio: Double = 1.25
+    /// Angle delta to scroll-pixel scale for Apple TV Remote circular scroll.
+    static let appleTVRemoteCircularScrollSensitivityMultiplier: Double = 520.0
     /// Minimum pan movement to start scrolling
     static let touchpadPanDeadzone: Double = 0.002
     /// Minimum distance between fingers to treat as two-finger gesture

@@ -176,17 +176,26 @@ final class ControllerButtonCoverageTests: XCTestCase {
 		XCTAssertNil(ControllerButton.a.systemImageName(forDualSense: true), "DualSense face buttons use text symbols")
 	}
 
-	func testAppleTVRemoteSystemImageOverridesAvoidXboxGlyphs() {
-		XCTAssertEqual(ControllerButton.touchpadButton.systemImageName(forAppleTVRemote: true), "hand.point.up.left")
-		XCTAssertEqual(ControllerButton.touchpadTap.systemImageName(forAppleTVRemote: true), "hand.tap")
+		func testAppleTVRemoteSystemImageOverridesAvoidXboxGlyphs() {
+			XCTAssertEqual(ControllerButton.touchpadButton.systemImageName(forAppleTVRemote: true), "hand.point.up.left")
+			XCTAssertEqual(ControllerButton.touchpadTap.systemImageName(forAppleTVRemote: true), "hand.tap")
 		XCTAssertEqual(ControllerButton.menu.systemImageName(forAppleTVRemote: true), "playpause.fill")
 		XCTAssertEqual(ControllerButton.xbox.systemImageName(forAppleTVRemote: true), "tv.fill")
 		XCTAssertEqual(ControllerButton.view.systemImageName(forAppleTVRemote: true), "chevron.left")
 		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.systemImageName(forAppleTVRemote: true), "plus")
-		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.systemImageName(forAppleTVRemote: true), "minus")
-	}
+			XCTAssertEqual(ControllerButton.appleTVRemoteVolumeDown.systemImageName(forAppleTVRemote: true), "minus")
+		}
 
-	func testCategoryCoverageAndOrdering() {
+		func testElitePaddleAliasesPointAtDualSenseEdgeControls() {
+			XCTAssertEqual(ControllerButton.xboxPaddle1.mappingFallbackButtons, [.leftPaddle])
+			XCTAssertEqual(ControllerButton.xboxPaddle2.mappingFallbackButtons, [.rightPaddle])
+			XCTAssertEqual(ControllerButton.xboxPaddle3.mappingFallbackButtons, [.leftFunction])
+			XCTAssertEqual(ControllerButton.xboxPaddle4.mappingFallbackButtons, [.rightFunction])
+			XCTAssertEqual(ControllerButton.xboxPaddle1.chordSequenceAlias, .leftPaddle)
+			XCTAssertEqual(ControllerButton.xboxPaddle3.chordSequenceAlias, .leftFunction)
+		}
+
+		func testCategoryCoverageAndOrdering() {
         let categories = Set(ControllerButton.allCases.map(\.category))
         XCTAssertEqual(categories, Set(ButtonCategory.allCases))
 

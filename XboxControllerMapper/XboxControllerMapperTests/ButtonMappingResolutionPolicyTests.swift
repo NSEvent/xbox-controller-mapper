@@ -176,4 +176,119 @@ final class ButtonMappingResolutionPolicyTests: XCTestCase {
 
         XCTAssertNil(result)
     }
+
+	func testXboxUpperPaddlesFallBackToDualSenseEdgeBackPaddles() {
+		let profile = Profile(
+			name: "Test",
+			buttonMappings: [
+				.leftPaddle: .key(10),
+				.rightPaddle: .key(11),
+			]
+		)
+
+		let left = ButtonMappingResolutionPolicy.resolve(
+			button: .xboxPaddle1,
+			profile: profile,
+			activeLayerIds: [],
+			layerActivatorMap: [:]
+		)
+		let right = ButtonMappingResolutionPolicy.resolve(
+			button: .xboxPaddle2,
+			profile: profile,
+			activeLayerIds: [],
+			layerActivatorMap: [:]
+		)
+
+		XCTAssertEqual(left?.keyCode, 10)
+		XCTAssertEqual(right?.keyCode, 11)
+	}
+
+	func testXboxLowerPaddlesFallBackToDualSenseEdgeFunctionButtons() {
+		let profile = Profile(
+			name: "Test",
+			buttonMappings: [
+				.leftFunction: .key(20),
+				.rightFunction: .key(21),
+			]
+		)
+
+		let left = ButtonMappingResolutionPolicy.resolve(
+			button: .xboxPaddle3,
+			profile: profile,
+			activeLayerIds: [],
+			layerActivatorMap: [:]
+		)
+		let right = ButtonMappingResolutionPolicy.resolve(
+			button: .xboxPaddle4,
+			profile: profile,
+			activeLayerIds: [],
+			layerActivatorMap: [:]
+		)
+
+		XCTAssertEqual(left?.keyCode, 20)
+		XCTAssertEqual(right?.keyCode, 21)
+	}
+
+	func testExplicitXboxPaddleMappingWinsOverEdgeFallback() {
+		let profile = Profile(
+			name: "Test",
+			buttonMappings: [
+				.leftPaddle: .key(10),
+				.xboxPaddle1: .key(99),
+			]
+		)
+
+		let result = ButtonMappingResolutionPolicy.resolve(
+			button: .xboxPaddle1,
+			profile: profile,
+			activeLayerIds: [],
+			layerActivatorMap: [:]
+		)
+
+		XCTAssertEqual(result?.keyCode, 99)
+	}
+
+	func testActiveLayerCanOverrideXboxPaddleThroughEdgeFallback() {
+		let layer = Layer(
+			name: "Layer",
+			activatorButton: .leftBumper,
+			buttonMappings: [.leftPaddle: .key(44)]
+		)
+		let profile = Profile(
+			name: "Test",
+			buttonMappings: [
+				.leftPaddle: .key(10),
+				.xboxPaddle1: .key(99),
+			],
+			layers: [layer]
+		)
+
+		let result = ButtonMappingResolutionPolicy.resolve(
+			button: .xboxPaddle1,
+			profile: profile,
+			activeLayerIds: [layer.id],
+			layerActivatorMap: [.leftBumper: layer.id]
+		)
+
+		XCTAssertEqual(result?.keyCode, 44)
+	}
+
+	func testEmptyExplicitXboxPaddleMappingBlocksEdgeFallback() {
+		let profile = Profile(
+			name: "Test",
+			buttonMappings: [
+				.leftPaddle: .key(10),
+				.xboxPaddle1: KeyMapping(),
+			]
+		)
+
+		let result = ButtonMappingResolutionPolicy.resolve(
+			button: .xboxPaddle1,
+			profile: profile,
+			activeLayerIds: [],
+			layerActivatorMap: [:]
+		)
+
+		XCTAssertNil(result)
+	}
 }

@@ -6,8 +6,9 @@ import CoreGraphics
 /// During Accessibility Zoom, mouse-down/up/drag events need
 /// kIOHIDSetCursorPosition to keep click targeting correct without the zoom
 /// compositor's software cursor flashing at the virtual/absolute position.
-/// Plain mouse moves stay on the CGEvent path; Universal Control can at least
-/// begin handoff there, while IOHID relative moves stay trapped on the local edge.
+/// Plain mouse moves stay on the CGEvent path. Local edge targets are clamped;
+/// posting off-screen CGEvent positions can trigger WindowServer/Universal Control
+/// edge routing delays that make controller mouse input feel briefly stuck.
 struct ZoomMouseEventPolicy {
     enum MouseEventCategory {
         case move       // .mouseMoved (no button held)
@@ -42,16 +43,13 @@ struct ZoomMouseEventPolicy {
 
 struct UniversalControlRelayLocalMousePolicy {
     static func eventPoint(
-		proposed: CGPoint,
-		clamped: CGPoint,
-		zoomActive: Bool,
-		isDrag: Bool,
-		relayCanHandleEdge: Bool
+			proposed: CGPoint,
+			clamped: CGPoint,
+			zoomActive: Bool,
+			isDrag: Bool,
+			relayCanHandleEdge: Bool
     ) -> CGPoint {
-		guard !zoomActive, !isDrag, !relayCanHandleEdge else {
-			return clamped
-		}
-		return proposed
+			clamped
     }
 
 	static func trackedPoint(clamped: CGPoint) -> CGPoint {
@@ -84,7 +82,14 @@ struct UniversalControlRelayRolePolicy {
 }
 
 struct UniversalControlRelaySessionPolicy {
-	static let confirmationTimeout: CFTimeInterval = 1.5
+    static let confirmationTimeout: CFTimeInterval = 1.5
+
+	static func shouldRouteMovementToRemote(
+		sessionActive: Bool,
+		hasReceivedCursorStatus: Bool
+	) -> Bool {
+		sessionActive && hasReceivedCursorStatus
+	}
 
 	static func shouldCancelForMissingInitialCursorStatus(
 		sessionActive: Bool,

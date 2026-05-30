@@ -608,7 +608,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         let active = universalControlRelayActive
         stateLock.unlock()
-        return active && UniversalControlMouseRelay.shared.canSendToRemote
+		return active
+			&& UniversalControlMouseRelay.shared.canSendToRemote
+			&& UniversalControlMouseRelay.shared.hasReceivedRemoteCursorStatus
     }
 
     /// Cached union of all screen frames
@@ -854,21 +856,26 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                         UniversalControlMouseRelay.shared.endRemoteSession()
                     } else {
                         if UniversalControlMouseRelay.shared.sendMove(dx: Int(moveX), dy: Int(moveY)) {
-                            self.universalControlRelayActive = true
-                            if self.universalControlRelayStartedAt == nil {
-                                self.universalControlRelayStartedAt = now
-                            }
-                            let edgePoint = self.universalControlRelayEdgePoint ?? CGPoint(x: clampedX, y: clampedY)
-                            self.stateLock.lock()
-                            self.trackedCursorPosition = edgePoint
-                            self.stateLock.unlock()
-                            Self.updateSharedTrackedPosition(
-                                edgePoint,
-                                delta: CGPoint(x: moveX, y: moveY)
-                            )
-                            return
-                        } else {
-                            self.universalControlRelayActive = false
+							self.universalControlRelayActive = true
+							if self.universalControlRelayStartedAt == nil {
+								self.universalControlRelayStartedAt = now
+							}
+								if UniversalControlRelaySessionPolicy.shouldRouteMovementToRemote(
+									sessionActive: self.universalControlRelayActive,
+									hasReceivedCursorStatus: UniversalControlMouseRelay.shared.hasReceivedRemoteCursorStatus
+								) {
+									let edgePoint = self.universalControlRelayEdgePoint ?? CGPoint(x: clampedX, y: clampedY)
+									self.stateLock.lock()
+									self.trackedCursorPosition = edgePoint
+									self.stateLock.unlock()
+									Self.updateSharedTrackedPosition(
+										edgePoint,
+										delta: CGPoint(x: moveX, y: moveY)
+									)
+									return
+								}
+						} else {
+							self.universalControlRelayActive = false
                             self.universalControlRelayEdgePoint = nil
                             self.universalControlRelayStartedAt = nil
                             UniversalControlMouseRelay.shared.cancelUnconfirmedRemoteSession()

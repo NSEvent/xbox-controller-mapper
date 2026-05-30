@@ -216,7 +216,12 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     var isRoutingToRemote: Bool {
-        hasActiveRemoteSession
+		lock.lock()
+		defer { lock.unlock() }
+		return UniversalControlRelaySessionPolicy.shouldRouteMovementToRemote(
+			sessionActive: isRemoteSessionActive,
+			hasReceivedCursorStatus: remoteSessionReceivedCursorStatus
+		)
     }
 
     var isOutgoingRemoteLeftMouseButtonHeld: Bool {
