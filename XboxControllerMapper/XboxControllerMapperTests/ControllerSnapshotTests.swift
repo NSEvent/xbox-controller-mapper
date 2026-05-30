@@ -95,6 +95,7 @@ final class ControllerSnapshotTests: XCTestCase {
 			controllerService.storage.steamGyroBiasSampleCount = 12
 			controllerService.storage.steamGyroPitchBias = 10
 			controllerService.storage.steamGyroRollBias = -20
+			controllerService.storage.steamGyroBiasCalibrationNotBefore = 25
 		}
 
 		controllerService.prepareForGyroAimingActivation()
@@ -108,7 +109,8 @@ final class ControllerSnapshotTests: XCTestCase {
 				rollBiasSum: controllerService.storage.steamGyroRollBiasSum,
 				biasSampleCount: controllerService.storage.steamGyroBiasSampleCount,
 				pitchBias: controllerService.storage.steamGyroPitchBias,
-				rollBias: controllerService.storage.steamGyroRollBias
+				rollBias: controllerService.storage.steamGyroRollBias,
+				calibrationNotBefore: controllerService.storage.steamGyroBiasCalibrationNotBefore
 			)
 		}
 
@@ -120,6 +122,7 @@ final class ControllerSnapshotTests: XCTestCase {
 		XCTAssertEqual(snapshot.biasSampleCount, 0)
 		XCTAssertEqual(snapshot.pitchBias, 0)
 		XCTAssertEqual(snapshot.rollBias, 0)
+		XCTAssertEqual(snapshot.calibrationNotBefore, 0)
 	}
 
 	func testSteamGyroCalibrationSuppressesSteadyOffset() {
@@ -135,6 +138,43 @@ final class ControllerSnapshotTests: XCTestCase {
 		}
 		for _ in 0..<10 {
 			controllerService.processSteamMotion(steadyMotion)
+		}
+
+		let rates = controllerService.consumeAverageMotionRates()
+		XCTAssertEqual(rates.pitch, 0, accuracy: 0.0001)
+		XCTAssertEqual(rates.roll, 0, accuracy: 0.0001)
+	}
+
+	func testSteamGyroCalibrationIgnoresFocusEntryHapticWindow() {
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isSteamController = true
+			controllerService.storage.motionInputEnabled = true
+		}
+
+		controllerService.prepareForGyroAimingActivation(calibrationDelay: 0.25, now: 100)
+
+		let hapticContaminatedMotion = steamMotion(gyroX: -12_000, gyroY: -10_000, gyroZ: 8_000)
+		for _ in 0..<30 {
+			controllerService.processSteamMotion(hapticContaminatedMotion, uptime: 100.1)
+		}
+
+		let calibrationState = controllerService.storage.lock.withLock {
+			(
+				sampleCount: controllerService.storage.steamGyroBiasSampleCount,
+				pitchBiasSum: controllerService.storage.steamGyroPitchBiasSum,
+				rollBiasSum: controllerService.storage.steamGyroRollBiasSum
+			)
+		}
+		XCTAssertEqual(calibrationState.sampleCount, 0)
+		XCTAssertEqual(calibrationState.pitchBiasSum, 0)
+		XCTAssertEqual(calibrationState.rollBiasSum, 0)
+
+		let steadyMotion = steamMotion(gyroX: -1_400, gyroY: 900, gyroZ: -600)
+		for _ in 0..<60 {
+			controllerService.processSteamMotion(steadyMotion, uptime: 100.3)
+		}
+		for _ in 0..<10 {
+			controllerService.processSteamMotion(steadyMotion, uptime: 100.5)
 		}
 
 		let rates = controllerService.consumeAverageMotionRates()

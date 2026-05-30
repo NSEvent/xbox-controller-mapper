@@ -51,7 +51,10 @@ extension ControllerService {
         }
     }
 
-    nonisolated func processSteamMotion(_ motion: SteamControllerMotionReport) {
+	nonisolated func processSteamMotion(
+		_ motion: SteamControllerMotionReport,
+		uptime: TimeInterval = ProcessInfo.processInfo.systemUptime
+	) {
         let shouldProcessMotion = storage.lock.withLock { storage.motionInputEnabled }
         PerformanceProbe.shared.recordMotionCallback(rawOnly: !shouldProcessMotion)
         guard shouldProcessMotion else { return }
@@ -61,6 +64,9 @@ extension ControllerService {
 
         let biasCalibrationFrames = 60
         let (pitchCounts, rollCounts): (Double, Double) = storage.lock.withLock {
+			if uptime < storage.steamGyroBiasCalibrationNotBefore {
+				return (0, 0)
+			}
             if storage.steamGyroBiasSampleCount < biasCalibrationFrames {
                 storage.steamGyroPitchBiasSum += rawPitchCounts
                 storage.steamGyroRollBiasSum += rawRollCounts
@@ -107,11 +113,17 @@ extension ControllerService {
 		}
 	}
 
-	nonisolated func prepareForGyroAimingActivation() {
+	nonisolated func prepareForGyroAimingActivation(
+		calibrationDelay: TimeInterval = 0,
+		now: TimeInterval = ProcessInfo.processInfo.systemUptime
+	) {
 		storage.lock.withLock {
 			clearAccumulatedMotionRatesLocked()
 			if storage.isSteamController {
 				resetSteamGyroBiasStateLocked()
+				storage.steamGyroBiasCalibrationNotBefore = calibrationDelay > 0
+					? now + calibrationDelay
+					: 0
 			}
 		}
 	}
@@ -204,5 +216,6 @@ extension ControllerService {
         storage.steamGyroBiasSampleCount = 0
         storage.steamGyroPitchBias = 0
         storage.steamGyroRollBias = 0
+		storage.steamGyroBiasCalibrationNotBefore = 0
     }
 }

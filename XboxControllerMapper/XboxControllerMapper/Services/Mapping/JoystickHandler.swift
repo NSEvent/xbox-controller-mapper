@@ -350,7 +350,10 @@ extension MappingEngine {
         if isFocusActive != wasFocusActive {
             state.wasFocusActive = isFocusActive
 			if isFocusActive && settings.gyroAimingEnabled {
-				controllerService.prepareForGyroAimingActivation()
+				let calibrationDelay = controllerService.threadSafeIsSteamController
+					? Config.focusEntryHapticDuration + 0.08
+					: 0
+				controllerService.prepareForGyroAimingActivation(calibrationDelay: calibrationDelay)
 				state.gyroFilterX.reset()
 				state.gyroFilterY.reset()
 				state.lastGyroTime = 0

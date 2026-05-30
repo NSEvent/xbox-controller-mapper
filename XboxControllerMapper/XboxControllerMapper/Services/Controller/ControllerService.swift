@@ -191,6 +191,7 @@ final class ControllerStorage: @unchecked Sendable {
     var steamGyroBiasSampleCount: Int = 0
     var steamGyroPitchBias: Double = 0
     var steamGyroRollBias: Double = 0
+    var steamGyroBiasCalibrationNotBefore: TimeInterval = 0
     var motionPitchAccum: Double = 0
     var motionRollAccum: Double = 0
     var motionSampleCount: Int = 0
