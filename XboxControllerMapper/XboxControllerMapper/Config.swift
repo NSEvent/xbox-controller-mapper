@@ -431,7 +431,7 @@ struct Config {
     static let gyroAimingRollBoost: Double = 2.2
     /// Steam Controller cursor aiming uses the same raw sensor units as gestures,
     /// but a lower cursor scale keeps focus-mode aim usable for small UI targets.
-    static let steamGyroAimingSensitivityMultiplier: Double = 2.0
+    static let steamGyroAimingSensitivityMultiplier: Double = 2.4
     /// Steam Controller motion gestures should use the controller's raw 2000 deg/s
     /// gyro scale, independent of the lower cursor-aiming scale above.
     static let steamGyroGestureSensitivityMultiplier: Double = 2000.0 / 180.0
