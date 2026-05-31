@@ -151,144 +151,145 @@ enum KeyCodeMapping {
     // MARK: - Display Names
 
     /// Returns a human-readable name for a key code
-    static func displayName(for keyCode: CGKeyCode) -> String {
-        switch Int(keyCode) {
+    private static let displayNames: [Int: String] = [
         // Special keys
-        case kVK_Return: return "Return"
-        case kVK_Tab: return "Tab"
-        case kVK_Space: return "Space"
-        case kVK_Delete: return "Delete"
-        case kVK_Escape: return "Esc"
-        case kVK_ForwardDelete: return "⌦"
+        kVK_Return: "Return",
+        kVK_Tab: "Tab",
+        kVK_Space: "Space",
+        kVK_Delete: "Delete",
+        kVK_Escape: "Esc",
+        kVK_ForwardDelete: "⌦",
 
         // Arrow keys
-        case kVK_LeftArrow: return "←"
-        case kVK_RightArrow: return "→"
-        case kVK_UpArrow: return "↑"
-        case kVK_DownArrow: return "↓"
+        kVK_LeftArrow: "←",
+        kVK_RightArrow: "→",
+        kVK_UpArrow: "↑",
+        kVK_DownArrow: "↓",
 
         // Function keys F1-F12
-        case kVK_F1: return "F1"
-        case kVK_F2: return "F2"
-        case kVK_F3: return "F3"
-        case kVK_F4: return "F4"
-        case kVK_F5: return "F5"
-        case kVK_F6: return "F6"
-        case kVK_F7: return "F7"
-        case kVK_F8: return "F8"
-        case kVK_F9: return "F9"
-        case kVK_F10: return "F10"
-        case kVK_F11: return "F11"
-        case kVK_F12: return "F12"
+        kVK_F1: "F1",
+        kVK_F2: "F2",
+        kVK_F3: "F3",
+        kVK_F4: "F4",
+        kVK_F5: "F5",
+        kVK_F6: "F6",
+        kVK_F7: "F7",
+        kVK_F8: "F8",
+        kVK_F9: "F9",
+        kVK_F10: "F10",
+        kVK_F11: "F11",
+        kVK_F12: "F12",
 
         // Extended function keys F13-F20
-        case kVK_F13: return "F13"
-        case kVK_F14: return "F14"
-        case kVK_F15: return "F15"
-        case kVK_F16: return "F16"
-        case kVK_F17: return "F17"
-        case kVK_F18: return "F18"
-        case kVK_F19: return "F19"
-        case kVK_F20: return "F20"
+        kVK_F13: "F13",
+        kVK_F14: "F14",
+        kVK_F15: "F15",
+        kVK_F16: "F16",
+        kVK_F17: "F17",
+        kVK_F18: "F18",
+        kVK_F19: "F19",
+        kVK_F20: "F20",
 
         // Numbers
-        case kVK_ANSI_0: return "0"
-        case kVK_ANSI_1: return "1"
-        case kVK_ANSI_2: return "2"
-        case kVK_ANSI_3: return "3"
-        case kVK_ANSI_4: return "4"
-        case kVK_ANSI_5: return "5"
-        case kVK_ANSI_6: return "6"
-        case kVK_ANSI_7: return "7"
-        case kVK_ANSI_8: return "8"
-        case kVK_ANSI_9: return "9"
+        kVK_ANSI_0: "0",
+        kVK_ANSI_1: "1",
+        kVK_ANSI_2: "2",
+        kVK_ANSI_3: "3",
+        kVK_ANSI_4: "4",
+        kVK_ANSI_5: "5",
+        kVK_ANSI_6: "6",
+        kVK_ANSI_7: "7",
+        kVK_ANSI_8: "8",
+        kVK_ANSI_9: "9",
 
         // Letters
-        case kVK_ANSI_A: return "A"
-        case kVK_ANSI_B: return "B"
-        case kVK_ANSI_C: return "C"
-        case kVK_ANSI_D: return "D"
-        case kVK_ANSI_E: return "E"
-        case kVK_ANSI_F: return "F"
-        case kVK_ANSI_G: return "G"
-        case kVK_ANSI_H: return "H"
-        case kVK_ANSI_I: return "I"
-        case kVK_ANSI_J: return "J"
-        case kVK_ANSI_K: return "K"
-        case kVK_ANSI_L: return "L"
-        case kVK_ANSI_M: return "M"
-        case kVK_ANSI_N: return "N"
-        case kVK_ANSI_O: return "O"
-        case kVK_ANSI_P: return "P"
-        case kVK_ANSI_Q: return "Q"
-        case kVK_ANSI_R: return "R"
-        case kVK_ANSI_S: return "S"
-        case kVK_ANSI_T: return "T"
-        case kVK_ANSI_U: return "U"
-        case kVK_ANSI_V: return "V"
-        case kVK_ANSI_W: return "W"
-        case kVK_ANSI_X: return "X"
-        case kVK_ANSI_Y: return "Y"
-        case kVK_ANSI_Z: return "Z"
+        kVK_ANSI_A: "A",
+        kVK_ANSI_B: "B",
+        kVK_ANSI_C: "C",
+        kVK_ANSI_D: "D",
+        kVK_ANSI_E: "E",
+        kVK_ANSI_F: "F",
+        kVK_ANSI_G: "G",
+        kVK_ANSI_H: "H",
+        kVK_ANSI_I: "I",
+        kVK_ANSI_J: "J",
+        kVK_ANSI_K: "K",
+        kVK_ANSI_L: "L",
+        kVK_ANSI_M: "M",
+        kVK_ANSI_N: "N",
+        kVK_ANSI_O: "O",
+        kVK_ANSI_P: "P",
+        kVK_ANSI_Q: "Q",
+        kVK_ANSI_R: "R",
+        kVK_ANSI_S: "S",
+        kVK_ANSI_T: "T",
+        kVK_ANSI_U: "U",
+        kVK_ANSI_V: "V",
+        kVK_ANSI_W: "W",
+        kVK_ANSI_X: "X",
+        kVK_ANSI_Y: "Y",
+        kVK_ANSI_Z: "Z",
 
         // Symbols
-        case kVK_ANSI_LeftBracket: return "["
-        case kVK_ANSI_RightBracket: return "]"
-        case kVK_ANSI_Semicolon: return ";"
-        case kVK_ANSI_Quote: return "'"
-        case kVK_ANSI_Comma: return ","
-        case kVK_ANSI_Period: return "."
-        case kVK_ANSI_Slash: return "/"
-        case kVK_ANSI_Backslash: return "\\"
-        case kVK_ANSI_Minus: return "-"
-        case kVK_ANSI_Equal: return "="
-        case kVK_ANSI_Grave: return "`"
+        kVK_ANSI_LeftBracket: "[",
+        kVK_ANSI_RightBracket: "]",
+        kVK_ANSI_Semicolon: ";",
+        kVK_ANSI_Quote: "'",
+        kVK_ANSI_Comma: ",",
+        kVK_ANSI_Period: ".",
+        kVK_ANSI_Slash: "/",
+        kVK_ANSI_Backslash: "\\",
+        kVK_ANSI_Minus: "-",
+        kVK_ANSI_Equal: "=",
+        kVK_ANSI_Grave: "`",
 
         // Modifiers
-        case kVK_Command: return "Command"
-        case kVK_Shift: return "Shift"
-        case kVK_Option: return "Option"
-        case kVK_Control: return "Control"
-        case kVK_CapsLock: return "Caps Lock"
-        case kVK_Function: return "Fn"
+        kVK_Command: "Command",
+        kVK_Shift: "Shift",
+        kVK_Option: "Option",
+        kVK_Control: "Control",
+        kVK_CapsLock: "Caps Lock",
+        kVK_Function: "Fn",
 
         // Navigation
-        case kVK_Home: return "Home"
-        case kVK_End: return "End"
-        case kVK_PageUp: return "Page Up"
-        case kVK_PageDown: return "Page Down"
+        kVK_Home: "Home",
+        kVK_End: "End",
+        kVK_PageUp: "Page Up",
+        kVK_PageDown: "Page Down",
 
         // Mouse buttons
-        case 0xF000: return "Left Click"
-        case 0xF001: return "Right Click"
-        case 0xF002: return "Middle Click"
-        case 0xF003: return "Scroll Up"
-        case 0xF004: return "Scroll Down"
+        0xF000: "Left Click",
+        0xF001: "Right Click",
+        0xF002: "Middle Click",
+        0xF003: "Scroll Up",
+        0xF004: "Scroll Down",
 
         // Special actions
-        case 0xF010: return "On-Screen Keyboard"
-        case 0xF011: return "Laser Pointer"
-        case 0xF012: return "Controller Lock"
-        case 0xF013: return "Directory Navigator"
-        case 0xF014: return "Command Wheel"
+        0xF010: "On-Screen Keyboard",
+        0xF011: "Laser Pointer",
+        0xF012: "Controller Lock",
+        0xF013: "Directory Navigator",
+        0xF014: "Command Wheel",
         // Media keys - Playback
-        case 0xF020: return "Play/Pause"
-        case 0xF021: return "Next Track"
-        case 0xF022: return "Previous Track"
-        case 0xF023: return "Fast Forward"
-        case 0xF024: return "Rewind"
+        0xF020: "Play/Pause",
+        0xF021: "Next Track",
+        0xF022: "Previous Track",
+        0xF023: "Fast Forward",
+        0xF024: "Rewind",
 
         // Media keys - Volume
-        case 0xF030: return "Volume Up"
-        case 0xF031: return "Volume Down"
-        case 0xF032: return "Mute"
+        0xF030: "Volume Up",
+        0xF031: "Volume Down",
+        0xF032: "Mute",
 
         // Media keys - Brightness
-        case 0xF040: return "Brightness Up"
-        case 0xF041: return "Brightness Down"
+        0xF040: "Brightness Up",
+        0xF041: "Brightness Down"
+    ]
 
-        default: return "Key \(keyCode)"
-        }
+    /// Returns a human-readable name for a key code
+    static func displayName(for keyCode: CGKeyCode) -> String {
+        return displayNames[Int(keyCode)] ?? "Key \(keyCode)"
     }
 
     /// Returns all available key codes for picker UI
