@@ -85,6 +85,12 @@ struct JoystickSettings: Codable, Equatable {
     /// Two-finger pan sensitivity (0.0 - 1.0)
     var touchpadPanSensitivity: Double = 0.5
 
+	/// Enables one-finger circular scrolling around the Apple TV remote clickpad edge.
+	var appleTVRemoteCircularScrollEnabled: Bool = true
+
+	/// Apple TV remote circular edge-scroll sensitivity (0.0 - 1.0).
+	var appleTVRemoteCircularScrollSensitivity: Double = 0.5
+
     /// Reverse horizontal touchpad scrolling / panning.
     var touchpadInvertScrollX: Bool = false
 
@@ -211,6 +217,7 @@ struct JoystickSettings: Codable, Equatable {
                (0.0...0.03).contains(touchpadDeadzone) &&
                range.contains(touchpadSmoothing) &&
                range.contains(touchpadPanSensitivity) &&
+			   range.contains(appleTVRemoteCircularScrollSensitivity) &&
                (0.5...5.0).contains(touchpadZoomToPanRatio) &&
                range.contains(scrollAcceleration) &&
                (1.0...4.0).contains(scrollBoostMultiplier) &&
@@ -304,6 +311,8 @@ extension JoystickSettings {
         case touchpadSmoothing
         case requireActiveTouchForRegionClick
         case touchpadPanSensitivity
+		case appleTVRemoteCircularScrollEnabled
+		case appleTVRemoteCircularScrollSensitivity
         case touchpadInvertScrollX
         case touchpadInvertScrollY
         case touchpadZoomToPanRatio
@@ -352,6 +361,12 @@ extension JoystickSettings {
         touchpadSmoothing = try container.decode(.touchpadSmoothing, default: 0.4, clampedTo: unit)
         requireActiveTouchForRegionClick = try container.decode(.requireActiveTouchForRegionClick, default: true)
         touchpadPanSensitivity = try container.decode(.touchpadPanSensitivity, default: 0.5, clampedTo: unit)
+		appleTVRemoteCircularScrollEnabled = try container.decode(.appleTVRemoteCircularScrollEnabled, default: true)
+		appleTVRemoteCircularScrollSensitivity = try container.decode(
+			.appleTVRemoteCircularScrollSensitivity,
+			default: touchpadPanSensitivity,
+			clampedTo: unit
+		)
         touchpadInvertScrollX = try container.decode(.touchpadInvertScrollX, default: false)
         touchpadInvertScrollY = try container.decode(.touchpadInvertScrollY, default: invertScrollY)
         touchpadZoomToPanRatio = try container.decode(.touchpadZoomToPanRatio, default: 1.95, clampedTo: 0.5...5.0)
@@ -441,6 +456,8 @@ extension JoystickSettings {
         try container.encode(touchpadSmoothing, forKey: .touchpadSmoothing)
         try container.encode(requireActiveTouchForRegionClick, forKey: .requireActiveTouchForRegionClick)
         try container.encode(touchpadPanSensitivity, forKey: .touchpadPanSensitivity)
+		try container.encode(appleTVRemoteCircularScrollEnabled, forKey: .appleTVRemoteCircularScrollEnabled)
+		try container.encode(appleTVRemoteCircularScrollSensitivity, forKey: .appleTVRemoteCircularScrollSensitivity)
         try container.encode(touchpadInvertScrollX, forKey: .touchpadInvertScrollX)
         try container.encode(touchpadInvertScrollY, forKey: .touchpadInvertScrollY)
         try container.encode(touchpadZoomToPanRatio, forKey: .touchpadZoomToPanRatio)

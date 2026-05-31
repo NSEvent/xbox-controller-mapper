@@ -197,6 +197,7 @@ class MappingEngine: ObservableObject {
     private func syncTouchpadSettings(from profile: Profile?) {
         let settings = profile?.joystickSettings ?? .default
         controllerService.requireActiveTouchForRegionClick = settings.requireActiveTouchForRegionClick
+		controllerService.appleTVRemoteCircularScrollEnabled = settings.appleTVRemoteCircularScrollEnabled
         controllerService.touchpadInputMode = profile?.touchpadInputMode ?? .wholePad
     }
 
@@ -206,6 +207,7 @@ class MappingEngine: ObservableObject {
         // don't know the active profile here.
         let settings = settings ?? .default
         controllerService.requireActiveTouchForRegionClick = settings.requireActiveTouchForRegionClick
+		controllerService.appleTVRemoteCircularScrollEnabled = settings.appleTVRemoteCircularScrollEnabled
     }
 
     private func syncGestureSettings(from settings: JoystickSettings?) {

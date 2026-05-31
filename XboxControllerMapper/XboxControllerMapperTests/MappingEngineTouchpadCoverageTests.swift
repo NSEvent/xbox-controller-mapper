@@ -716,7 +716,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
     func testAppleTVRemoteCircularScrollProducesVerticalScroll() async throws {
 		await MainActor.run {
 			var profile = Profile(name: "AppleTVRingScroll", buttonMappings: [:])
-			profile.joystickSettings.touchpadPanSensitivity = 1.0
+			profile.joystickSettings.appleTVRemoteCircularScrollSensitivity = 1.0
 			profileManager.setActiveProfile(profile)
 			controllerService.storage.isAppleTVRemote = true
 		}
@@ -744,7 +744,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
     func testAppleTVRemoteCircularScrollRespectsTouchpadScrollInversion() async throws {
 		await MainActor.run {
 			var profile = Profile(name: "AppleTVRingScrollInverted", buttonMappings: [:])
-			profile.joystickSettings.touchpadPanSensitivity = 1.0
+			profile.joystickSettings.appleTVRemoteCircularScrollSensitivity = 1.0
 			profile.joystickSettings.touchpadInvertScrollY = true
 			profileManager.setActiveProfile(profile)
 			controllerService.storage.isAppleTVRemote = true
@@ -769,4 +769,54 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
 			)
 		}
     }
+
+	func testAppleTVRemoteCircularScrollCanBeDisabled() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "AppleTVRingScrollDisabled", buttonMappings: [:])
+			profile.joystickSettings.appleTVRemoteCircularScrollEnabled = false
+			profileManager.setActiveProfile(profile)
+			controllerService.storage.isAppleTVRemote = true
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			controllerService.onAppleTVRemoteCircularScroll?(0.12)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			let hasScroll = mockInputSimulator.events.contains { event in
+				if case .scroll = event { return true }
+				return false
+			}
+			XCTAssertFalse(hasScroll, "Disabled Apple TV edge scroll should ignore circular scroll callbacks")
+		}
+	}
+
+	func testAppleTVRemoteCircularScrollUsesDedicatedSensitivity() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "AppleTVRingScrollSpeed", buttonMappings: [:])
+			profile.joystickSettings.touchpadPanSensitivity = 1.0
+			profile.joystickSettings.appleTVRemoteCircularScrollSensitivity = 0.25
+			profileManager.setActiveProfile(profile)
+			controllerService.storage.isAppleTVRemote = true
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			controllerService.onAppleTVRemoteCircularScroll?(0.12)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			let scrollEvents = mockInputSimulator.events.compactMap { event -> CGFloat? in
+				if case .scroll(_, let dy) = event {
+					return dy
+				}
+				return nil
+			}
+			let expected = CGFloat(-0.12 * 0.25 * Config.appleTVRemoteCircularScrollSensitivityMultiplier)
+			XCTAssertEqual(scrollEvents.last ?? 0, expected, accuracy: 0.001)
+		}
+	}
 }

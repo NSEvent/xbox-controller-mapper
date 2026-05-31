@@ -143,9 +143,10 @@ extension MappingEngine {
 			  let settings = state.lock.withLock({ () -> JoystickSettings? in
 				  guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil }
 				  return settings
-			  }) else { return }
+			  }),
+			  settings.appleTVRemoteCircularScrollEnabled else { return }
 
-		let scale = settings.touchpadPanSensitivity * Config.appleTVRemoteCircularScrollSensitivityMultiplier
+		let scale = settings.appleTVRemoteCircularScrollSensitivity * Config.appleTVRemoteCircularScrollSensitivityMultiplier
 			var dy = -Double(angleDelta) * scale
 		if settings.touchpadInvertScrollY {
 			dy = -dy

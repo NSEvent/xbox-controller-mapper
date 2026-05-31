@@ -302,6 +302,26 @@ final class TouchpadRegionSwapTests: XCTestCase {
         XCTAssertFalse(decoded.requireActiveTouchForRegionClick, "Explicit false must roundtrip")
     }
 
+	func testAppleTVRemoteCircularScrollSettings_DefaultWhenAbsentFromJSON() throws {
+		let legacyJSON = "{}".data(using: .utf8)!
+		let settings = try JSONDecoder().decode(JoystickSettings.self, from: legacyJSON)
+
+		XCTAssertTrue(settings.appleTVRemoteCircularScrollEnabled)
+		XCTAssertEqual(settings.appleTVRemoteCircularScrollSensitivity, settings.touchpadPanSensitivity)
+	}
+
+	func testAppleTVRemoteCircularScrollSettings_Roundtrip() throws {
+		var settings = JoystickSettings.default
+		settings.appleTVRemoteCircularScrollEnabled = false
+		settings.appleTVRemoteCircularScrollSensitivity = 0.25
+
+		let data = try JSONEncoder().encode(settings)
+		let decoded = try JSONDecoder().decode(JoystickSettings.self, from: data)
+
+		XCTAssertFalse(decoded.appleTVRemoteCircularScrollEnabled)
+		XCTAssertEqual(decoded.appleTVRemoteCircularScrollSensitivity, 0.25)
+	}
+
     // MARK: - Helpers
 
     /// Seeds the bootstrap default profile's touchpad region mappings. We mutate the

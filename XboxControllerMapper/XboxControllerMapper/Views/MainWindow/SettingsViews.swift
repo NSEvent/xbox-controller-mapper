@@ -366,6 +366,33 @@ struct TouchpadSettingsView: View {
                 }
             }
 
+			if isAppleTVRemote {
+				Section("Clickpad Edge Scroll") {
+					Toggle(isOn: Binding(
+						get: { settings.appleTVRemoteCircularScrollEnabled },
+						set: { updateSettings(\.appleTVRemoteCircularScrollEnabled, $0) }
+					)) {
+						VStack(alignment: .leading) {
+							Text("Edge Scroll")
+							Text("Drag around the outer clickpad edge to scroll.")
+								.font(.caption)
+								.foregroundColor(.secondary)
+						}
+					}
+
+					SliderRow(
+						label: "Scroll Speed",
+						value: Binding(
+							get: { settings.appleTVRemoteCircularScrollSensitivity },
+							set: { updateSettings(\.appleTVRemoteCircularScrollSensitivity, $0) }
+						),
+						range: 0...1,
+						description: "Speed for circular edge scrolling"
+					)
+					.disabled(!settings.appleTVRemoteCircularScrollEnabled)
+				}
+			}
+
 			if !isAppleTVRemote {
 				Section("Scroll & Zoom") {
 					SliderRow(

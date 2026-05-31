@@ -114,6 +114,7 @@ final class ControllerStorage: @unchecked Sendable {
     var appleTVRemoteActiveButtonUsages: [ControllerButton: Set<UInt64>] = [:]
     var appleTVRemoteButtonReleaseWorkItems: [ControllerButton: DispatchWorkItem] = [:]
     var appleTVRemoteCircularScrollActive: Bool = false
+    var appleTVRemoteCircularScrollStartedInOuterRing: Bool = false
 
     // DualSense Edge button state (paddles and function buttons)
     var lastLeftPaddleState: Bool = false
@@ -157,6 +158,11 @@ final class ControllerStorage: @unchecked Sendable {
     /// the pad. Default true. Mirrors `JoystickSettings.requireActiveTouchForRegionClick`
     /// and is updated by MappingEngine whenever joystick settings change.
     var requireActiveTouchForRegionClick: Bool = true
+
+    /// Mirrors `JoystickSettings.appleTVRemoteCircularScrollEnabled`.
+    /// Read by the Apple TV clickpad classifier before it takes ownership
+    /// of touch movement for circular edge scrolling.
+    var appleTVRemoteCircularScrollEnabled: Bool = true
 
     /// Mirrors `Profile.touchpadInputMode`. Read by the touchpad input pipeline
     /// to decide which button events to fire (whole-pad or quadrant variants).
@@ -704,6 +710,10 @@ class ControllerService: ObservableObject {
         get { readStorage(\.requireActiveTouchForRegionClick) }
         set { writeStorage(\.requireActiveTouchForRegionClick, newValue) }
     }
+    var appleTVRemoteCircularScrollEnabled: Bool {
+		get { readStorage(\.appleTVRemoteCircularScrollEnabled) }
+		set { writeStorage(\.appleTVRemoteCircularScrollEnabled, newValue) }
+    }
     var touchpadInputMode: TouchpadInputMode {
         get { readStorage(\.touchpadInputMode) }
         set { writeStorage(\.touchpadInputMode, newValue) }
@@ -1013,6 +1023,8 @@ class ControllerService: ObservableObject {
         storage.pendingTouchpadDelta = nil
         storage.touchpadFramesSinceTouch = 0
         storage.touchpadSecondaryFramesSinceTouch = 0
+		storage.appleTVRemoteCircularScrollActive = false
+		storage.appleTVRemoteCircularScrollStartedInOuterRing = false
         storage.touchpadClickArmed = false
         storage.touchpadClickStartPosition = .zero
         storage.touchpadClickFiredDuringTouch = false

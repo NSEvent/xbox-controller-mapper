@@ -612,6 +612,57 @@ final class ControllerSnapshotTests: XCTestCase {
 		)
 	}
 
+	func testAppleTVRemoteTouchStartingInsideDoesNotBecomeCircularScrollAfterMovingOutward() {
+		var scrollDeltas: [CGFloat] = []
+		var movements: [CGPoint] = []
+		controllerService.onAppleTVRemoteCircularScroll = { scrollDeltas.append($0) }
+		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isAppleTVRemote = true
+		}
+
+		controllerService.updateTouchpad(x: 0.10, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.10, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.10, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.35, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.60, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.75, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.72, y: 0.20, isTouching: true)
+		controllerService.updateTouchpad(x: 0.66, y: 0.36, isTouching: true)
+
+		XCTAssertTrue(
+			scrollDeltas.isEmpty,
+			"A touch that starts inside the clickpad should not switch to ring scroll after moving outward"
+		)
+		XCTAssertFalse(
+			movements.isEmpty,
+			"The same continuous inside-origin touch should keep controlling mouse movement"
+		)
+	}
+
+	func testAppleTVRemoteCircularScrollDisabledKeepsOuterRingMouseMovement() {
+		var scrollDeltas: [CGFloat] = []
+		var movements: [CGPoint] = []
+		controllerService.onAppleTVRemoteCircularScroll = { scrollDeltas.append($0) }
+		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.storage.lock.withLock {
+			controllerService.storage.isAppleTVRemote = true
+			controllerService.storage.appleTVRemoteCircularScrollEnabled = false
+		}
+
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.80, y: 0.00, isTouching: true)
+		controllerService.updateTouchpad(x: 0.78, y: 0.16, isTouching: true)
+		controllerService.updateTouchpad(x: 0.72, y: 0.30, isTouching: true)
+
+		XCTAssertTrue(scrollDeltas.isEmpty)
+		XCTAssertFalse(
+			movements.isEmpty,
+			"Disabling Apple TV edge scroll should let outer-ring swipes keep moving the mouse"
+		)
+	}
+
 	func testAppleTVRemoteRadialOuterMovementDoesNotCircularScroll() {
 		let angleDelta = ControllerService.appleTVRemoteCircularScrollAngleDelta(
 			previous: CGPoint(x: 0.65, y: 0.00),

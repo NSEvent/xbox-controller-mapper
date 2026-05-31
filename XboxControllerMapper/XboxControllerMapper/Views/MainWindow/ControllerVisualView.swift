@@ -281,6 +281,7 @@ struct ControllerVisualView: View {
 					ConnectorLayer(
 						endpoints: endpoints,
 						proxy: proxy,
+						isAppleTVRemote: isAppleTVRemote,
 						hoveredButton: hoveredButton,
 						emphasizedButtons: connectorEmphasisButtons
 					)
@@ -697,7 +698,7 @@ struct ControllerVisualView: View {
 	private var appleTVRemotePreviewHeight: CGFloat { 520 }
 	private var appleTVRemoteRoundButtonSize: CGFloat { 46 }
 	private var appleTVRemoteClickpadSize: CGFloat { 126 }
-	private var appleTVRemoteClickpadCenterButtonSize: CGFloat { 88 }
+	private var appleTVRemoteClickpadCenterButtonSize: CGFloat { 72 }
 	private var appleTVRemoteVolumeRockerHeight: CGFloat { appleTVRemoteRoundButtonSize * 2 + 26 }
 
 	@ViewBuilder
@@ -833,7 +834,7 @@ struct ControllerVisualView: View {
 				)
 				.overlay(Circle().stroke(Color.black.opacity(0.45), lineWidth: 1.2))
 				.frame(width: appleTVRemoteClickpadCenterButtonSize, height: appleTVRemoteClickpadCenterButtonSize)
-				.controllerAnchor(.touchpadButton, role: .controller)
+				.controllerAnchor([.touchpadButton, .touchpadTap], role: .controller)
 				.contentShape(Circle())
 				.onTapGesture { onButtonTap(.touchpadButton) }
 				.onHover { hovering in handleButtonHover(.touchpadButton, hovering) }
@@ -845,7 +846,6 @@ struct ControllerVisualView: View {
 			)
 		}
 		.frame(width: appleTVRemoteClickpadSize, height: appleTVRemoteClickpadSize)
-		.controllerAnchor(.touchpadTap, role: .controller)
 		.help("Clickpad")
 	}
 
@@ -864,15 +864,15 @@ struct ControllerVisualView: View {
 			Circle()
 				.fill(Color.white.opacity(0.88))
 				.frame(width: 4, height: 4)
+				.controllerAnchor(button, role: .controller)
 		}
 		.frame(width: 30, height: 30)
+		.offset(x: x, y: y)
 		.contentShape(Circle())
-		.controllerAnchor(button, role: .controller)
 		.onTapGesture { onButtonTap(button) }
 		.onHover { hovering in handleButtonHover(button, hovering) }
 		.swappable(button, onSwap: performSwap)
 		.help(button.displayName(forAppleTVRemote: true))
-		.offset(x: x, y: y)
 	}
 
 	private var appleTVRemoteSiriSideButton: some View {
@@ -2925,6 +2925,7 @@ struct ControllerAnalogOverlay: View {
 struct ConnectorLayer: View {
     let endpoints: [ConnectorEndpoint]
     let proxy: GeometryProxy
+	let isAppleTVRemote: Bool
     let hoveredButton: ControllerButton?
     let emphasizedButtons: Set<ControllerButton>
 
@@ -2963,7 +2964,7 @@ struct ConnectorLayer: View {
                 let controllerRect = Self.quadrantRect(of: rawControllerRect, for: pair.button)
                 let labelCenter = CGPoint(x: labelRect.midX, y: labelRect.midY)
                 let controllerCenter = CGPoint(x: controllerRect.midX, y: controllerRect.midY)
-                let start = rectEdgePoint(of: controllerRect, towards: labelCenter)
+				let start = controllerEdgePoint(of: controllerRect, button: pair.button, towards: labelCenter)
                 let end = rectEdgePoint(of: labelRect, towards: controllerCenter)
 
                 ConnectorPath(start: start, end: end)
@@ -2991,6 +2992,38 @@ struct ConnectorLayer: View {
         let originY = (region == .topLeft || region == .topRight) ? padRect.minY : padRect.midY
         return CGRect(x: originX, y: originY, width: halfW, height: halfH)
     }
+
+	private static func usesCircularAppleTVConnector(for button: ControllerButton) -> Bool {
+		switch button {
+		case .touchpadButton, .touchpadTap,
+			 .dpadUp, .dpadDown, .dpadLeft, .dpadRight,
+			 .view, .menu, .xbox, .appleTVRemotePower, .appleTVRemoteMute:
+			return true
+		default:
+			return false
+		}
+	}
+
+	private func controllerEdgePoint(of rect: CGRect, button: ControllerButton, towards target: CGPoint) -> CGPoint {
+		if isAppleTVRemote && Self.usesCircularAppleTVConnector(for: button) {
+			return circleEdgePoint(of: rect, towards: target)
+		}
+		return rectEdgePoint(of: rect, towards: target)
+	}
+
+	private func circleEdgePoint(of rect: CGRect, towards target: CGPoint) -> CGPoint {
+		let center = CGPoint(x: rect.midX, y: rect.midY)
+		let dx = target.x - center.x
+		let dy = target.y - center.y
+		if dx == 0 && dy == 0 { return center }
+
+		let distance = hypot(dx, dy)
+		let radius = min(rect.width, rect.height) / 2
+		return CGPoint(
+			x: center.x + dx / distance * radius,
+			y: center.y + dy / distance * radius
+		)
+	}
 
     /// Projects a ray from the rect's center toward `target` and returns the point where
     /// it intersects the rect's boundary. Used to terminate connector lines at the visual

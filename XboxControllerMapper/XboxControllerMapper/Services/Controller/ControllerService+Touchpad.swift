@@ -282,10 +282,10 @@ extension ControllerService {
 		previous: CGPoint,
 		current: CGPoint
 	) -> CGFloat? {
+		guard appleTVRemoteCircularScrollPositionIsOuterRing(previous),
+		      appleTVRemoteCircularScrollPositionIsOuterRing(current) else { return nil }
 		let previousRadius = hypot(previous.x, previous.y)
 		let currentRadius = hypot(current.x, current.y)
-		let minRadius = CGFloat(Config.appleTVRemoteCircularScrollMinRadius)
-		guard previousRadius >= minRadius, currentRadius >= minRadius else { return nil }
 
 		let angleDelta = shortestAngleDelta(
 			from: atan2(previous.y, previous.x),
@@ -305,6 +305,10 @@ extension ControllerService {
 		}
 
 		return angleDelta
+	}
+
+	nonisolated static func appleTVRemoteCircularScrollPositionIsOuterRing(_ position: CGPoint) -> Bool {
+		hypot(position.x, position.y) >= CGFloat(Config.appleTVRemoteCircularScrollMinRadius)
 	}
 
 	    private nonisolated func inactiveTouchpadGesture(
@@ -484,10 +488,18 @@ extension ControllerService {
                 let isJump = abs(delta.x) > jumpThreshold || abs(delta.y) > jumpThreshold
 
                 if isJump {
-                    // Treat as new touch - reset position, don't apply delta
+					// Active ring scroll keeps ownership through center brushes until finger lift.
+					let keepsCircularScrollOwnership = storage.isAppleTVRemote && storage.appleTVRemoteCircularScrollActive
+					// Treat non-scroll jumps as new touches - reset position, don't apply delta.
                     storage.touchpadPosition = newPosition
                     storage.touchpadPreviousPosition = newPosition
                     storage.pendingTouchpadDelta = nil
+					if !keepsCircularScrollOwnership {
+						storage.appleTVRemoteCircularScrollActive = false
+						storage.appleTVRemoteCircularScrollStartedInOuterRing = storage.isAppleTVRemote &&
+							storage.appleTVRemoteCircularScrollEnabled &&
+							Self.appleTVRemoteCircularScrollPositionIsOuterRing(newPosition)
+					}
                     storage.lock.unlock()
                     return
                 }
@@ -509,7 +521,12 @@ extension ControllerService {
                     }
                 }
 
-					let circularScrollAngleDelta = storage.isAppleTVRemote
+					let circularScrollAllowed = storage.isAppleTVRemote && storage.appleTVRemoteCircularScrollEnabled
+					if !circularScrollAllowed {
+						storage.appleTVRemoteCircularScrollActive = false
+						storage.appleTVRemoteCircularScrollStartedInOuterRing = false
+					}
+					let circularScrollAngleDelta = circularScrollAllowed && storage.appleTVRemoteCircularScrollStartedInOuterRing
 						? Self.appleTVRemoteCircularScrollAngleDelta(
 							previous: storage.touchpadPreviousPosition,
 							current: storage.touchpadPosition
@@ -590,6 +607,9 @@ extension ControllerService {
 					storage.touchpadTouchStartPosition = newPosition
 					storage.touchpadMaxDistanceFromStart = 0
 				storage.appleTVRemoteCircularScrollActive = false
+				storage.appleTVRemoteCircularScrollStartedInOuterRing = storage.isAppleTVRemote &&
+					storage.appleTVRemoteCircularScrollEnabled &&
+					Self.appleTVRemoteCircularScrollPositionIsOuterRing(newPosition)
 					// Check if secondary is already touching (for two-finger tap detection)
                 let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
                 storage.touchpadWasTwoFingerDuringTouch = secondaryFresh
@@ -718,6 +738,7 @@ extension ControllerService {
 				storage.touchpadMovementBlocked = false
 				storage.touchpadLongTapFired = false
 				storage.appleTVRemoteCircularScrollActive = false
+				storage.appleTVRemoteCircularScrollStartedInOuterRing = false
 				let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
             let isTwoFinger = storage.isTouchpadTouching && isSecondaryTouching
             storage.lock.unlock()
