@@ -99,6 +99,8 @@ struct SwipeTypingSection: View {
                                     .foregroundColor(.red)
                             }
                             .buttonStyle(.borderless)
+                            .help("Delete")
+                            .accessibilityLabel("Delete Custom Word")
                         }
                     }
                 }
