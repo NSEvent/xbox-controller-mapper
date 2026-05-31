@@ -4,6 +4,15 @@ import AppKit
 import IOKit.hidsystem
 import ApplicationServices.HIServices
 
+struct ScrollEvent: Sendable, Equatable {
+    var dx: CGFloat
+    var dy: CGFloat
+    var phase: CGScrollPhase? = nil
+    var momentumPhase: CGMomentumScrollPhase? = nil
+    var isContinuous: Bool = false
+    var flags: CGEventFlags = []
+}
+
 protocol InputSimulatorProtocol: Sendable {
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
     func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
@@ -17,14 +26,7 @@ protocol InputSimulatorProtocol: Sendable {
     func moveMouseNative(dx: Int, dy: Int)
     func warpMouseTo(point: CGPoint)
     var isLeftMouseButtonHeld: Bool { get }
-    func scroll(
-        dx: CGFloat,
-        dy: CGFloat,
-        phase: CGScrollPhase?,
-        momentumPhase: CGMomentumScrollPhase?,
-        isContinuous: Bool,
-        flags: CGEventFlags
-    )
+    func scroll(event: ScrollEvent)
     func executeMapping(_ mapping: KeyMapping)
     func startHoldMapping(_ mapping: KeyMapping)
     func stopHoldMapping(_ mapping: KeyMapping)
@@ -33,7 +35,7 @@ protocol InputSimulatorProtocol: Sendable {
 
 extension InputSimulatorProtocol {
     func scroll(dx: CGFloat, dy: CGFloat) {
-        scroll(dx: dx, dy: dy, phase: nil, momentumPhase: nil, isContinuous: false, flags: [])
+        scroll(event: ScrollEvent(dx: dx, dy: dy))
     }
 }
 
@@ -1130,22 +1132,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var hasShownZoomKeyboardShortcutWarning: Bool = false
 
     /// Scrolls by a delta
-    func scroll(
-        dx: CGFloat,
-        dy: CGFloat,
-        phase: CGScrollPhase?,
-        momentumPhase: CGMomentumScrollPhase?,
-        isContinuous: Bool,
-        flags: CGEventFlags
-    ) {
+    func scroll(event scrollEvent: ScrollEvent) {
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendScroll(
-                dx: dx,
-                dy: dy,
-                phase: phase,
-                momentumPhase: momentumPhase,
-                isContinuous: isContinuous,
-                flags: flags
+                dx: scrollEvent.dx,
+                dy: scrollEvent.dy,
+                phase: scrollEvent.phase,
+                momentumPhase: scrollEvent.momentumPhase,
+                isContinuous: scrollEvent.isContinuous,
+                flags: scrollEvent.flags
            ) {
             return
         }
@@ -1153,8 +1148,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         // Check if Control is held - if so, convert to Accessibility Zoom keyboard shortcuts
         // macOS Accessibility Zoom doesn't respond to synthetic Control+scroll events,
         // but does respond to Option+Command+Plus/Minus keyboard shortcuts
-        if flags.contains(.maskControl) && dy != 0 {
-            handleAccessibilityZoom(dy: dy)
+        if scrollEvent.flags.contains(.maskControl) && scrollEvent.dy != 0 {
+            handleAccessibilityZoom(dy: scrollEvent.dy)
             return
         }
 

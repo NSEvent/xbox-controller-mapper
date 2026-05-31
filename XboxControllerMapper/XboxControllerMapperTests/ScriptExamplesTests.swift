@@ -176,7 +176,7 @@ private class StubScriptInputSimulator: InputSimulatorProtocol {
     func moveMouseNative(dx: Int, dy: Int) {}
     func warpMouseTo(point: CGPoint) {}
     var isLeftMouseButtonHeld: Bool { false }
-    func scroll(dx: CGFloat, dy: CGFloat, phase: CGScrollPhase?, momentumPhase: CGMomentumScrollPhase?, isContinuous: Bool, flags: CGEventFlags) {}
+    func scroll(event: ScrollEvent) {}
     func executeMapping(_ mapping: KeyMapping) {}
     func startHoldMapping(_ mapping: KeyMapping) {}
     func stopHoldMapping(_ mapping: KeyMapping) {}

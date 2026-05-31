@@ -2035,14 +2035,14 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                   let momentumRaw = Int32(parts[4]),
                   let continuousRaw = Int(parts[5]),
                   let flagsRaw = UInt64(parts[6]) else { return }
-            input?.scroll(
+            input?.scroll(event: ScrollEvent(
                 dx: CGFloat(dx),
                 dy: CGFloat(dy),
                 phase: phaseRaw >= 0 ? CGScrollPhase(rawValue: UInt32(phaseRaw)) : nil,
                 momentumPhase: momentumRaw >= 0 ? CGMomentumScrollPhase(rawValue: UInt32(momentumRaw)) : nil,
                 isContinuous: continuousRaw != 0,
                 flags: CGEventFlags(rawValue: flagsRaw)
-            )
+            ))
             logFirstReceive("scroll dx=\(dx) dy=\(dy)")
         case "tt":
             guard parts.count == 4,
