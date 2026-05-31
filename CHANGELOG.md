@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-05-31
+
+### Added
+
+- **Apple TV / Siri Remote support**: ControllerKeys now recognizes the 2nd-generation Siri Remote (and other Apple TV remotes paired to your Mac over Bluetooth) as a first-class controller. The clickpad reports both touch and physical click, the surrounding D-pad ring maps to the four cardinal directions, and the side controls — TV/Home, Back, Play/Pause, Siri, Power, Mute, and the volume rocker — all show up as individually mappable buttons with their Apple-Remote labels (Clickpad / OK / ▶ / ← / TV) instead of Xbox names. A dedicated tall remote preview replaces the controller graphic when the remote is active, with the larger center clickpad target everyone keeps trying to tap. Wake from sleep automatically tears down and re-establishes HID monitoring after a short delay so the remote keeps working without a relaunch. The remote runs entirely over raw IOKit HID — no Apple TV or Home app required — and the new mic-research note documents why true Siri-button voice capture stays out of scope for now.
+
+- **Clickpad edge scroll for Apple TV Remote**: New Touchpad settings section (visible only when an Apple TV Remote is connected) exposes an **Edge Scroll** toggle and **Scroll Speed** slider. Dragging your finger around the outer ring of the clickpad scrolls the foreground app in the same iPod-wheel motion the remote already uses on tvOS. Once a circular scroll gesture starts, ownership latches to scroll for the rest of the touch — brushing back through the center no longer flips the gesture back into mouse movement mid-stroke. Lift your finger to release the latch and the next touch can drive the cursor again.
+
+- **Script names on chord rows**: Chords (and their preview rows in community profile imports) bound to a script now show the script's name in the active-chords overlay and the chords list, matching how macros already display. Previously a script-backed chord showed a generic action string, making it hard to identify what a chord actually did at a glance.
+
+### Changed
+
+- **Steam Controller gyro aiming feel**: Reworked focus-mode gyro aiming on the Steam Controller. Horizontal gain now uses a Steam-specific boost so left/right turns feel proportional to vertical tilt, the 1-Euro smoothing filter is bypassed in favor of the raw rate (the Steam Controller's IMU is clean enough that smoothing only added input lag), and the default sensitivity multiplier moved from 2.0 to 2.4 so the cursor actually reaches edges of a 5K display in a single sweep. Pair this with the haptics fix below for a noticeably tighter aim experience.
+
+- **Floating panel for Mac-to-Mac pairing code**: The "show pairing code" flow no longer pops a blocking `NSAlert.runModal()` that activated the app and stole controller-mouse routing for the duration. The pairing code now appears as a nonactivating floating toast panel with a dismiss button (Escape works too), and pairing-result errors are surfaced inline in the Universal Control settings panel instead of as a follow-up alert. Controller-driven pointer input keeps routing the whole time, so you can finish a handoff or hand the pairing code off to a peer without the host Mac going inert.
+
+### Fixed
+
+- **Stuck Steam Controller gyro drift on focus-mode entry**: Entering focus mode while gyro aiming was enabled would re-apply stale accumulated motion samples and a stale 1-Euro filter state, so the cursor lurched in the direction of the last gesture and then drifted until the bias re-converged. Focus-mode entry now clears accumulated rates, resets the smoothing filter, and re-runs the Steam Controller bias calibration. The calibration itself is deferred ~110 ms past the focus-entry haptic so the buzz doesn't contaminate the new zero-rate baseline.
+
+- **Touchpad click-induced cursor jitter on Steam Controller and Apple TV Remote**: A physical clickpad press on either device tended to shift the finger 1–2 mm in the moment the switch actuates, which the cursor would faithfully report as movement. Both pipelines now arm a short suppression window on click-down: tracked finger motion under the click-movement threshold is ignored until the user either lifts the finger or moves far enough to clearly be a drag. One physical click stays one click in place, instead of one click plus a small involuntary nudge.
+
+- **Apple TV Remote volume and Mute keys colliding with Mac keyboard media keys**: The previous Apple TV Remote system-event suppression was overly broad — it dropped Volume Up / Volume Down / Mute / Power even when those events originated from your Mac's keyboard, because the suppression check didn't require correlation with an actual remote HID button report. Suppression is now gated on either an active Apple TV Remote system key or an explicit short-lived correlation timer set when the remote itself fired the key. Keyboard media keys pass through normally, while the remote's volume rocker keeps suppressing the duplicate macOS HID volume event it would otherwise generate.
+
+- **Elite Series 2 paddles in layer activators, mapping resolution, and the controller preview**: P1–P4 paddles are now treated as edges of the same logical control as the equivalent DualSense Edge paddle/function button: layer activators bound to a paddle fire when the physical Xbox paddle is pressed, the controller preview lights up the right paddle slot, mapping lookups fall back through the logical equivalent so a profile authored against `leftPaddle` still works on Xbox Elite, and the swap-mode logic recognizes the held button. Previously paddles could silently fail to trigger their bound action depending on how the binding was authored.
+
+- **Controller mouse motion stuck after edge-handoff handshake**: When the Mac-to-Mac relay was activating, the local cursor would briefly post off-screen `CGEvent` positions to "feel out" the handoff edge, which could trigger WindowServer / Universal Control edge-routing latency and leave the local cursor feeling stuck for a beat. Local mouse posting now always clamps to screen bounds, and movement is only routed to the remote once the remote has confirmed it has the cursor — closing the brief dead zone between handshake start and confirmation.
+
+- **Pairing-code prompt could not be dismissed**: The new floating pairing-code panel didn't accept mouse or keyboard input — it was `ignoresMouseEvents = true` with no close affordance, so the only way to dismiss it was to wait out the 60-second timer. The panel now accepts key focus, has an explicit close button, and binds Escape to dismiss.
+
 ## [1.8.3] - 2026-05-28
 
 ### Changed
