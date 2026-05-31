@@ -7,25 +7,47 @@ extension ProfileManager {
 
     /// Load cached favicons for all website links in all profiles.
     func loadCachedFavicons() {
-        for i in 0..<profiles.count {
-            for j in 0..<profiles[i].onScreenKeyboardSettings.websiteLinks.count {
-                let link = profiles[i].onScreenKeyboardSettings.websiteLinks[j]
-                if link.faviconData == nil {
-                    if let cached = FaviconCache.shared.loadCachedFavicon(for: link.url) {
-                        profiles[i].onScreenKeyboardSettings.websiteLinks[j].faviconData = cached
+        Task { @MainActor in
+            // Extract the IDs and URLs before any `await` suspension point to avoid iterating over mutating array.
+            struct LoadRequest {
+                let profileId: UUID
+                let linkId: UUID
+                let url: String
+            }
+
+            var requests: [LoadRequest] = []
+            for profile in profiles {
+                for link in profile.onScreenKeyboardSettings.websiteLinks where link.faviconData == nil {
+                    requests.append(LoadRequest(profileId: profile.id, linkId: link.id, url: link.url))
+                }
+
+                // Also preload command wheel link favicons into memory cache to prevent UI blocking
+                for action in profile.commandWheelActions {
+                    if case .openLink(let url) = action.systemCommand, action.iconData == nil {
+                        _ = await FaviconCache.shared.loadCachedFavicon(for: url)
                     }
                 }
             }
-        }
 
-        // Update activeProfile reference
-        if let activeId = activeProfileId,
-           let profile = profiles.first(where: { $0.id == activeId }) {
-            activeProfile = profile
-        }
+            for request in requests {
+                if let cached = await FaviconCache.shared.loadCachedFavicon(for: request.url) {
+                    // Look up by ID safely after the suspension
+                    if let profileIndex = profiles.firstIndex(where: { $0.id == request.profileId }),
+                       let linkIndex = profiles[profileIndex].onScreenKeyboardSettings.websiteLinks.firstIndex(where: { $0.id == request.linkId }) {
+                        profiles[profileIndex].onScreenKeyboardSettings.websiteLinks[linkIndex].faviconData = cached
+                    }
+                }
+            }
 
-        // Trigger async refetch for any still-missing favicons
-        refetchMissingFavicons()
+            // Update activeProfile reference
+            if let activeId = activeProfileId,
+               let profile = profiles.first(where: { $0.id == activeId }) {
+                activeProfile = profile
+            }
+
+            // Trigger async refetch for any still-missing favicons
+            refetchMissingFavicons()
+        }
     }
 
     /// Refetch favicons that are missing from cache.
