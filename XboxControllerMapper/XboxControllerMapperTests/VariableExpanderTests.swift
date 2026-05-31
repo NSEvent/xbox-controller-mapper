@@ -118,4 +118,11 @@ final class VariableExpanderTests: XCTestCase {
         XCTAssertEqual(components.count, 2)
         XCTAssertEqual(components[0], components[1])
     }
+
+    func testPerformanceOfTimeIsoExpansion() {
+        let input = String(repeating: "{time.iso} ", count: 100)
+        self.measure {
+            _ = VariableExpander.expand(input)
+        }
+    }
 }
