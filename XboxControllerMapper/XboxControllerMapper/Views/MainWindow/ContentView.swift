@@ -316,8 +316,9 @@ struct ContentView: View {
     }
 
     private func selectFirstVisibleTabIfNeeded() {
-        guard !orderedTabTags.contains(selectedTab),
-              let firstVisibleTag = orderedTabTags.first else {
+        let tabs = customTabs
+        guard !tabs.contains(where: { $0.tag == selectedTab }),
+              let firstVisibleTag = tabs.first?.tag else {
             return
         }
         selectedTab = firstVisibleTag
