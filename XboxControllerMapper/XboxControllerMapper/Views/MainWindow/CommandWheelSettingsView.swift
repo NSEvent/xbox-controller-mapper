@@ -176,7 +176,7 @@ struct CommandWheelActionRow: View {
             .buttonStyle(.plain)
             .foregroundColor(.secondary)
             .help("Edit")
-            .accessibilityLabel("Edit")
+            .accessibilityLabel("Edit Command Wheel Action")
 
             // Delete button
             Button(action: onDelete) {
@@ -186,7 +186,7 @@ struct CommandWheelActionRow: View {
             .buttonStyle(.plain)
             .foregroundColor(.secondary)
             .help("Delete")
-            .accessibilityLabel("Delete")
+            .accessibilityLabel("Delete Command Wheel Action")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 6)
