@@ -83,7 +83,7 @@ struct ScriptActionCommand: ActionCommand {
 /// Executes a key press with optional modifiers
 struct KeyPressActionCommand: ActionCommand {
     let keyCode: CGKeyCode
-    let modifiers: CGEventFlags
+    let modifiers: ModifierFlags
     let inputSimulator: InputSimulatorProtocol
     let action: any ExecutableAction
 
@@ -92,7 +92,7 @@ struct KeyPressActionCommand: ActionCommand {
         if !UniversalControlMouseRelay.shared.isRoutingToRemote {
             // Notify on-screen keyboard of controller key press
             OnScreenKeyboardManager.shared.notifyControllerKeyPress(
-                keyCode: keyCode, modifiers: modifiers
+                keyCode: keyCode, modifiers: modifiers.cgEventFlags
             )
         }
         return action.feedbackString
@@ -178,7 +178,7 @@ struct ActionCommandFactory {
         if let keyCode = action.keyCode {
             return KeyPressActionCommand(
                 keyCode: keyCode,
-                modifiers: action.modifiers.cgEventFlags,
+                modifiers: action.modifiers,
                 inputSimulator: inputSimulator,
                 action: action
             )

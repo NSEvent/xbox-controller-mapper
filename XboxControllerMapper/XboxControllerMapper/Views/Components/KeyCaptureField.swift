@@ -61,10 +61,10 @@ struct KeyCaptureField: View {
     private func updateDisplayText() {
         var parts: [String] = []
 
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
+        if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
+        if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
+        if modifiers.shift { parts.append(ModifierFlags.label(for: modifiers.shiftSide) + "⇧") }
+        if modifiers.control { parts.append(ModifierFlags.label(for: modifiers.controlSide) + "⌃") }
 
         if let keyCode = keyCode {
             parts.append(KeyCodeMapping.displayName(for: keyCode))

@@ -43,10 +43,10 @@ struct KeyboardVisualView: View {
 
     private var modifierRow: some View {
         HStack(spacing: 16) {
-            ModifierToggle(label: "⌘ Command", isOn: $modifiers.command)
-            ModifierToggle(label: "⌥ Option", isOn: $modifiers.option)
-            ModifierToggle(label: "⇧ Shift", isOn: $modifiers.shift)
-            ModifierToggle(label: "⌃ Control", isOn: $modifiers.control)
+            ModifierToggle(label: "⌘ Command", isOn: $modifiers.command, side: $modifiers.commandSide)
+            ModifierToggle(label: "⌥ Option", isOn: $modifiers.option, side: $modifiers.optionSide)
+            ModifierToggle(label: "⇧ Shift", isOn: $modifiers.shift, side: $modifiers.shiftSide)
+            ModifierToggle(label: "⌃ Control", isOn: $modifiers.control, side: $modifiers.controlSide)
 
             Spacer()
 
@@ -161,7 +161,7 @@ struct KeyboardVisualView: View {
 
     private var zxcvRow: some View {
         HStack(spacing: 4) {
-            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift)
+            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift, physicalSide: .left, activeSide: modifiers.shiftSide)
 
             let zxcvKeys = ["Z", "X", "C", "V", "B", "N", "M"]
             let zxcvCodes: [Int] = [kVK_ANSI_Z, kVK_ANSI_X, kVK_ANSI_C, kVK_ANSI_V, kVK_ANSI_B, kVK_ANSI_N, kVK_ANSI_M]
@@ -173,7 +173,7 @@ struct KeyboardVisualView: View {
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Comma), label: ",", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Period), label: ".", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Slash), label: "/", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift)
+            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift, physicalSide: .right, activeSide: modifiers.shiftSide)
         }
     }
 
@@ -191,14 +191,14 @@ struct KeyboardVisualView: View {
                     RoundedRectangle(cornerRadius: 4)
                         .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                 )
-            ModifierKeyButton(label: "⌃", width: 40, isActive: $modifiers.control)
-            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option)
-            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command)
+            ModifierKeyButton(label: "⌃", width: 40, isActive: $modifiers.control, physicalSide: .left, activeSide: modifiers.controlSide)
+            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option, physicalSide: .left, activeSide: modifiers.optionSide)
+            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command, physicalSide: .left, activeSide: modifiers.commandSide)
 
             KeyButton(keyCode: CGKeyCode(kVK_Space), label: "Space", width: 200, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
 
-            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command)
-            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option)
+            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command, physicalSide: .right, activeSide: modifiers.commandSide)
+            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option, physicalSide: .right, activeSide: modifiers.optionSide)
 
             // Arrow keys cluster
             VStack(spacing: 2) {
@@ -327,13 +327,26 @@ struct KeyboardVisualView: View {
 
 // MARK: - Modifier Key Button (toggleable)
 
+/// A modifier key on the keyboard layout. Clicking toggles the modifier mask flag.
+/// Highlighting reflects the selected side: when `activeSide` is nil ("Any"), both
+/// physical positions highlight; when `.left` or `.right` is selected, only the
+/// matching physical position highlights.
 struct ModifierKeyButton: View {
     let label: String
     var width: CGFloat = 40
     var height: CGFloat = 32
     @Binding var isActive: Bool
+    /// Which physical side of the keyboard this button represents
+    let physicalSide: ModifierSide
+    /// Currently selected side for this modifier (nil = Any → highlight both sides)
+    let activeSide: ModifierSide?
 
     @State private var isHovered = false
+
+    /// Whether THIS button should appear highlighted given the side selection.
+    private var isHighlighted: Bool {
+        isActive && (activeSide == nil || activeSide == physicalSide)
+    }
 
     var body: some View {
         Button(action: { isActive.toggle() }) {
@@ -345,7 +358,7 @@ struct ModifierKeyButton: View {
                 .cornerRadius(4)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(borderColor, lineWidth: isActive ? 2 : 1)
+                        .stroke(borderColor, lineWidth: isHighlighted ? 2 : 1)
                 )
         }
         .buttonStyle(.plain)
@@ -364,7 +377,7 @@ struct ModifierKeyButton: View {
     }
 
     private var backgroundColor: Color {
-        if isActive {
+        if isHighlighted {
             return .accentColor
         } else if isHovered {
             return Color.accentColor.opacity(0.3)
@@ -374,11 +387,11 @@ struct ModifierKeyButton: View {
     }
 
     private var foregroundColor: Color {
-        isActive ? .white : .primary
+        isHighlighted ? .white : .primary
     }
 
     private var borderColor: Color {
-        if isActive {
+        if isHighlighted {
             return .accentColor
         } else if isHovered {
             return .accentColor.opacity(0.5)
@@ -530,20 +543,61 @@ struct MediaKeyButton: View {
 
 // MARK: - Modifier Toggle
 
+/// Checkbox-style toggle for a modifier flag, with an inline L/R side picker
+/// that appears once the modifier is active. Side defaults to `nil` (either side
+/// — the simulator presses the Left keycode by default).
 struct ModifierToggle: View {
     let label: String
     @Binding var isOn: Bool
+    @Binding var side: ModifierSide?
 
     var body: some View {
-        Button(action: { isOn.toggle() }) {
-            HStack(spacing: 4) {
-                Image(systemName: isOn ? "checkmark.square.fill" : "square")
-                    .foregroundColor(isOn ? .accentColor : .secondary)
-                Text(label)
-                    .font(.caption)
+        HStack(spacing: 8) {
+            Button(action: {
+                isOn.toggle()
+                if !isOn { side = nil }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: isOn ? "checkmark.square.fill" : "square")
+                        .foregroundColor(isOn ? .accentColor : .secondary)
+                    Text(label)
+                        .font(.caption)
+                        .lineLimit(1)
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isOn {
+                HStack(spacing: 2) {
+                    sideChip(label: "Any", value: nil)
+                    sideChip(label: "L", value: .left)
+                    sideChip(label: "R", value: .right)
+                }
+                .transition(.opacity)
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func sideChip(label: String, value: ModifierSide?) -> some View {
+        let isSelected = side == value
+        return Button(action: { side = value }) {
+            Text(label)
+                .font(.system(size: 9, weight: .semibold))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(isSelected ? Color.accentColor : Color(nsColor: .controlBackgroundColor))
+                .foregroundColor(isSelected ? .white : .secondary)
+                .cornerRadius(3)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 3)
+                        .stroke(isSelected ? Color.accentColor : Color.gray.opacity(0.4), lineWidth: 1)
+                )
+        }
         .buttonStyle(.plain)
+        .help("\(label) \(label == "Any" ? "side" : "side only")")
     }
 }
 

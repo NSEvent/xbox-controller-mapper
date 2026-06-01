@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import Carbon.HIToolbox
 
 // MARK: - KeyBindingRepresentable Protocol
 
@@ -116,10 +117,10 @@ extension KeyBindingRepresentable {
     var displayString: String {
         var parts: [String] = []
 
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
+        if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
+        if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
+        if modifiers.shift { parts.append(ModifierFlags.label(for: modifiers.shiftSide) + "⇧") }
+        if modifiers.control { parts.append(ModifierFlags.label(for: modifiers.controlSide) + "⌃") }
 
         if let keyCode = keyCode {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
@@ -257,10 +258,10 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
 
         var parts: [String] = []
 
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
+        if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
+        if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
+        if modifiers.shift { parts.append(ModifierFlags.label(for: modifiers.shiftSide) + "⇧") }
+        if modifiers.control { parts.append(ModifierFlags.label(for: modifiers.controlSide) + "⌃") }
 
         if let keyCode = keyCode {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
@@ -383,10 +384,10 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
             return "Script"
         }
         var parts: [String] = []
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
+        if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
+        if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
+        if modifiers.shift { parts.append(ModifierFlags.label(for: modifiers.shiftSide) + "⇧") }
+        if modifiers.control { parts.append(ModifierFlags.label(for: modifiers.controlSide) + "⌃") }
         if let keyCode = keyCode {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
         } else if parts.isEmpty {
@@ -470,10 +471,10 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
             return "Script"
         }
         var parts: [String] = []
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
+        if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
+        if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
+        if modifiers.shift { parts.append(ModifierFlags.label(for: modifiers.shiftSide) + "⇧") }
+        if modifiers.control { parts.append(ModifierFlags.label(for: modifiers.controlSide) + "⌃") }
         if let keyCode = keyCode {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
         } else if parts.isEmpty {
@@ -538,6 +539,14 @@ struct RepeatMapping: Codable, Equatable {
     }
 }
 
+/// Identifies which physical side of a modifier key to press.
+/// When nil on `ModifierFlags`, the modifier is treated generically (the OS sees
+/// `.maskCommand` regardless and the simulator pre-presses the Left keycode).
+enum ModifierSide: String, Codable, Equatable {
+    case left
+    case right
+}
+
 /// Represents modifier key flags in a Codable-friendly way
 struct ModifierFlags: Codable, Equatable {
     var command: Bool = false
@@ -545,8 +554,17 @@ struct ModifierFlags: Codable, Equatable {
     var shift: Bool = false
     var control: Bool = false
 
+    /// Optional left/right side for each modifier. nil means "either side" —
+    /// the simulator presses the Left keycode by default. Only meaningful when
+    /// the corresponding modifier flag is true.
+    var commandSide: ModifierSide?
+    var optionSide: ModifierSide?
+    var shiftSide: ModifierSide?
+    var controlSide: ModifierSide?
+
     private enum CodingKeys: String, CodingKey {
         case command, option, shift, control
+        case commandSide, optionSide, shiftSide, controlSide
     }
 
     init(from decoder: Decoder) throws {
@@ -555,20 +573,39 @@ struct ModifierFlags: Codable, Equatable {
         option = try container.decode(.option, default: false)
         shift = try container.decode(.shift, default: false)
         control = try container.decode(.control, default: false)
+        commandSide = try container.decodeIfPresent(ModifierSide.self, forKey: .commandSide)
+        optionSide = try container.decodeIfPresent(ModifierSide.self, forKey: .optionSide)
+        shiftSide = try container.decodeIfPresent(ModifierSide.self, forKey: .shiftSide)
+        controlSide = try container.decodeIfPresent(ModifierSide.self, forKey: .controlSide)
     }
 
-    init(command: Bool = false, option: Bool = false, shift: Bool = false, control: Bool = false) {
+    init(
+        command: Bool = false,
+        option: Bool = false,
+        shift: Bool = false,
+        control: Bool = false,
+        commandSide: ModifierSide? = nil,
+        optionSide: ModifierSide? = nil,
+        shiftSide: ModifierSide? = nil,
+        controlSide: ModifierSide? = nil
+    ) {
         self.command = command
         self.option = option
         self.shift = shift
         self.control = control
+        self.commandSide = commandSide
+        self.optionSide = optionSide
+        self.shiftSide = shiftSide
+        self.controlSide = controlSide
     }
 
     var hasAny: Bool {
         command || option || shift || control
     }
 
-    /// Convert to CGEventFlags
+    /// Convert to CGEventFlags. The mask is the same regardless of side — at the OS
+    /// flag level, Left and Right ⌘ both set `.maskCommand`. Side only affects which
+    /// virtualKey the simulator pre-presses (see `virtualKey(forMask:)`).
     var cgEventFlags: CGEventFlags {
         var flags: CGEventFlags = []
         if command { flags.insert(.maskCommand) }
@@ -578,8 +615,34 @@ struct ModifierFlags: Codable, Equatable {
         return flags
     }
 
+    /// Returns the side-specific virtual keycode for a modifier mask. Defaults to the
+    /// Left variant when no side was selected. Returns nil for non-modifier masks.
+    func virtualKey(forMask mask: CGEventFlags) -> CGKeyCode? {
+        switch mask {
+        case .maskCommand:
+            return CGKeyCode(commandSide == .right ? kVK_RightCommand : kVK_Command)
+        case .maskAlternate:
+            return CGKeyCode(optionSide == .right ? kVK_RightOption : kVK_Option)
+        case .maskShift:
+            return CGKeyCode(shiftSide == .right ? kVK_RightShift : kVK_Shift)
+        case .maskControl:
+            return CGKeyCode(controlSide == .right ? kVK_RightControl : kVK_Control)
+        default:
+            return nil
+        }
+    }
+
     static let command = ModifierFlags(command: true)
     static let option = ModifierFlags(option: true)
     static let shift = ModifierFlags(shift: true)
     static let control = ModifierFlags(control: true)
+
+    /// "L" / "R" prefix string for modifier display, or empty when no side is set.
+    static func label(for side: ModifierSide?) -> String {
+        switch side {
+        case .left: return "L"
+        case .right: return "R"
+        case .none: return ""
+        }
+    }
 }

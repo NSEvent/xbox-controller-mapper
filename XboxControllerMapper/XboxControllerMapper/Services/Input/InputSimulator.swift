@@ -6,6 +6,10 @@ import ApplicationServices.HIServices
 
 protocol InputSimulatorProtocol: Sendable {
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
+    /// Side-aware variant of `pressKey` — the simulator picks the Left/Right
+    /// modifier virtualKey based on `ModifierFlags.{command,option,shift,control}Side`.
+    /// Default implementation falls back to the flag-only path.
+    func pressKey(_ keyCode: CGKeyCode, modifiers: ModifierFlags)
     func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
     func keyUp(_ keyCode: CGKeyCode)
     func holdModifier(_ modifier: CGEventFlags)
@@ -34,6 +38,12 @@ protocol InputSimulatorProtocol: Sendable {
 extension InputSimulatorProtocol {
     func scroll(dx: CGFloat, dy: CGFloat) {
         scroll(dx: dx, dy: dy, phase: nil, momentumPhase: nil, isContinuous: false, flags: [])
+    }
+
+    /// Default implementation — conformers that don't care about L/R side fall back
+    /// to the flag-only path. `InputSimulator` overrides this with a side-aware impl.
+    func pressKey(_ keyCode: CGKeyCode, modifiers: ModifierFlags) {
+        pressKey(keyCode, modifiers: modifiers.cgEventFlags)
     }
 }
 
@@ -202,6 +212,30 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Simulates a key press with optional modifiers
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags = []) {
+        pressKeyInternal(keyCode, modifiers: modifiers, modifierSides: nil)
+    }
+
+    /// Side-aware variant — picks Left/Right modifier virtualKeys per `ModifierFlags`.
+    func pressKey(_ keyCode: CGKeyCode, modifiers: ModifierFlags) {
+        pressKeyInternal(keyCode, modifiers: modifiers.cgEventFlags, modifierSides: modifiers)
+    }
+
+    /// Picks the modifier pre-press keycode for a given mask. Honors `modifierSides`
+    /// when supplied; otherwise defaults to the Left variant (existing behavior).
+    private static func modifierVirtualKey(for mask: CGEventFlags, sides: ModifierFlags?) -> Int {
+        if let sides, let keyCode = sides.virtualKey(forMask: mask) {
+            return Int(keyCode)
+        }
+        switch mask {
+        case .maskCommand: return kVK_Command
+        case .maskAlternate: return kVK_Option
+        case .maskShift: return kVK_Shift
+        case .maskControl: return kVK_Control
+        default: return 0
+        }
+    }
+
+    private func pressKeyInternal(_ keyCode: CGKeyCode, modifiers: CGEventFlags, modifierSides: ModifierFlags?) {
         LatencyDiagnostics.mark("input.pressKey \(keyCode)")
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyPress(keyCode, modifiers: modifiers) {
@@ -249,18 +283,19 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
             var currentFlags = startingFlags
 
-            // Helper to press modifier
-            func pressMod(_ key: Int, flag: CGEventFlags) {
+            // Helper to press modifier (side-aware via modifierSides)
+            func pressMod(flag: CGEventFlags) {
+                let key = InputSimulator.modifierVirtualKey(for: flag, sides: modifierSides)
                 currentFlags.insert(flag)
                 self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: true, flags: currentFlags)
                 usleep(Config.modifierPressDelay)
             }
 
             // Press modifier keys first (Command -> Shift -> Option -> Control)
-            if modifiersToPress.contains(.maskCommand) { pressMod(kVK_Command, flag: .maskCommand) }
-            if modifiersToPress.contains(.maskShift)   { pressMod(kVK_Shift,   flag: .maskShift) }
-            if modifiersToPress.contains(.maskAlternate){ pressMod(kVK_Option,  flag: .maskAlternate) }
-            if modifiersToPress.contains(.maskControl) { pressMod(kVK_Control, flag: .maskControl) }
+            if modifiersToPress.contains(.maskCommand) { pressMod(flag: .maskCommand) }
+            if modifiersToPress.contains(.maskShift)   { pressMod(flag: .maskShift) }
+            if modifiersToPress.contains(.maskAlternate){ pressMod(flag: .maskAlternate) }
+            if modifiersToPress.contains(.maskControl) { pressMod(flag: .maskControl) }
 
             // Small delay after modifiers
             if !modifiersToPress.isEmpty {
@@ -277,18 +312,19 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 usleep(Config.preReleaseDelay)
             }
 
-            // Helper to release modifier
-            func releaseMod(_ key: Int, flag: CGEventFlags) {
+            // Helper to release modifier (side-aware — must match what we pressed)
+            func releaseMod(flag: CGEventFlags) {
+                let key = InputSimulator.modifierVirtualKey(for: flag, sides: modifierSides)
                 currentFlags.remove(flag)
                 self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: false, flags: currentFlags)
                 usleep(Config.modifierPressDelay)
             }
 
             // Release modifier keys (Control -> Option -> Shift -> Command)
-            if modifiersToPress.contains(.maskControl) { releaseMod(kVK_Control, flag: .maskControl) }
-            if modifiersToPress.contains(.maskAlternate){ releaseMod(kVK_Option,  flag: .maskAlternate) }
-            if modifiersToPress.contains(.maskShift)   { releaseMod(kVK_Shift,   flag: .maskShift) }
-            if modifiersToPress.contains(.maskCommand) { releaseMod(kVK_Command, flag: .maskCommand) }
+            if modifiersToPress.contains(.maskControl) { releaseMod(flag: .maskControl) }
+            if modifiersToPress.contains(.maskAlternate){ releaseMod(flag: .maskAlternate) }
+            if modifiersToPress.contains(.maskShift)   { releaseMod(flag: .maskShift) }
+            if modifiersToPress.contains(.maskCommand) { releaseMod(flag: .maskCommand) }
 
             #if DEBUG
             print("  ✅ Key sequence completed")
@@ -1965,8 +2001,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                     self?.releaseModifierKey(keyCode)
                 }
             } else {
-                // For any mapping with a key code, do a full press (handles both regular keys and mouse buttons)
-                pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+                // For any mapping with a key code, do a full press (handles both regular keys and mouse buttons).
+                // Use the side-aware variant so the L/R modifier side selection on the mapping is honored.
+                pressKey(keyCode, modifiers: mapping.modifiers)
             }
         } else if mapping.modifiers.hasAny {
             // Modifier-only mapping - tap the modifiers
