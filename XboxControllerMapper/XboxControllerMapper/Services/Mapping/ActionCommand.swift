@@ -101,15 +101,15 @@ struct KeyPressActionCommand: ActionCommand {
 
 /// Taps a modifier key (hold + delayed release)
 struct ModifierTapActionCommand: ActionCommand {
-    let modifierFlags: CGEventFlags
+    let modifiers: ModifierFlags
     let inputSimulator: InputSimulatorProtocol
     let inputQueue: DispatchQueue
     let action: any ExecutableAction
 
     func execute() -> String {
-        inputSimulator.holdModifier(modifierFlags)
+		inputSimulator.holdModifiers(modifiers)
         inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [inputSimulator] in
-            inputSimulator.releaseModifier(modifierFlags)
+			inputSimulator.releaseModifiers(modifiers)
         }
         return action.feedbackString
     }
@@ -186,7 +186,7 @@ struct ActionCommandFactory {
 
         if action.modifiers.hasAny {
             return ModifierTapActionCommand(
-                modifierFlags: action.modifiers.cgEventFlags,
+				modifiers: action.modifiers,
                 inputSimulator: inputSimulator,
                 inputQueue: inputQueue,
                 action: action

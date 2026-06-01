@@ -88,4 +88,129 @@ final class ModifierFlagsSideTests: XCTestCase {
         let decoded = try JSONDecoder().decode(ModifierFlags.self, from: data)
         XCTAssertEqual(original, decoded)
     }
+
+    func testHoldModifiers_UsesSideAwareKeyCodesInPressAndReleaseOrder() {
+		let simulator = RecordingInputSimulator()
+		let flags = ModifierFlags(
+			command: true,
+			option: true,
+			commandSide: .right,
+			optionSide: .left
+		)
+
+		simulator.holdModifiers(flags)
+		simulator.releaseModifiers(flags)
+
+		XCTAssertEqual(simulator.events, [
+			.holdModifierKey(CGKeyCode(kVK_RightCommand)),
+			.holdModifierKey(CGKeyCode(kVK_Option)),
+			.releaseModifierKey(CGKeyCode(kVK_Option)),
+			.releaseModifierKey(CGKeyCode(kVK_RightCommand))
+		])
+    }
+
+    func testModifierTapActionCommand_PreservesRightSide() {
+		let simulator = RecordingInputSimulator()
+		let queue = DispatchQueue(label: "test.modifierTap.side")
+		let action = KeyMapping(modifiers: ModifierFlags(command: true, commandSide: .right))
+		let command = ModifierTapActionCommand(
+			modifiers: action.modifiers,
+			inputSimulator: simulator,
+			inputQueue: queue,
+			action: action
+		)
+
+		_ = command.execute()
+
+		let releaseFinished = expectation(description: "modifier release")
+		queue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay + 0.02) {
+			releaseFinished.fulfill()
+		}
+		wait(for: [releaseFinished], timeout: 1)
+
+		XCTAssertEqual(simulator.events, [
+			.holdModifierKey(CGKeyCode(kVK_RightCommand)),
+			.releaseModifierKey(CGKeyCode(kVK_RightCommand))
+		])
+    }
+}
+
+private final class RecordingInputSimulator: InputSimulatorProtocol, @unchecked Sendable {
+    enum Event: Equatable {
+		case pressKey(CGKeyCode, CGEventFlags)
+		case pressKeyWithModifierFlags(CGKeyCode, ModifierFlags)
+		case keyDown(CGKeyCode, CGEventFlags)
+		case keyUp(CGKeyCode)
+		case holdModifier(CGEventFlags)
+		case releaseModifier(CGEventFlags)
+		case holdModifierKey(CGKeyCode)
+		case releaseModifierKey(CGKeyCode)
+    }
+
+    private let lock = NSLock()
+    private var recordedEvents: [Event] = []
+
+    var events: [Event] {
+		lock.lock()
+		defer { lock.unlock() }
+		return recordedEvents
+    }
+
+    private func record(_ event: Event) {
+		lock.lock()
+		defer { lock.unlock() }
+		recordedEvents.append(event)
+    }
+
+    func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags) {
+		record(.pressKey(keyCode, modifiers))
+    }
+
+    func pressKey(_ keyCode: CGKeyCode, modifiers: ModifierFlags) {
+		record(.pressKeyWithModifierFlags(keyCode, modifiers))
+    }
+
+    func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags) {
+		record(.keyDown(keyCode, modifiers))
+    }
+
+    func keyUp(_ keyCode: CGKeyCode) {
+		record(.keyUp(keyCode))
+    }
+
+    func holdModifier(_ modifier: CGEventFlags) {
+		record(.holdModifier(modifier))
+    }
+
+    func releaseModifier(_ modifier: CGEventFlags) {
+		record(.releaseModifier(modifier))
+    }
+
+    func holdModifierKey(_ keyCode: CGKeyCode) {
+		record(.holdModifierKey(keyCode))
+    }
+
+    func releaseModifierKey(_ keyCode: CGKeyCode) {
+		record(.releaseModifierKey(keyCode))
+    }
+
+    func releaseAllModifiers() {}
+    func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool { false }
+    func getHeldModifiers() -> CGEventFlags { [] }
+    func moveMouse(dx: CGFloat, dy: CGFloat) {}
+    func moveMouseNative(dx: Int, dy: Int) {}
+    func warpMouseTo(point: CGPoint) {}
+    var isLeftMouseButtonHeld: Bool { false }
+    func scroll(
+		dx: CGFloat,
+		dy: CGFloat,
+		phase: CGScrollPhase?,
+		momentumPhase: CGMomentumScrollPhase?,
+		isContinuous: Bool,
+		flags: CGEventFlags
+    ) {}
+    func executeMapping(_ mapping: KeyMapping) {}
+    func startHoldMapping(_ mapping: KeyMapping) {}
+    func stopHoldMapping(_ mapping: KeyMapping) {}
+    func typeText(_ text: String, speed: Int, pressEnter: Bool) {}
 }

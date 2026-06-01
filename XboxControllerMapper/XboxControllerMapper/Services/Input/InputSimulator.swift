@@ -14,6 +14,8 @@ protocol InputSimulatorProtocol: Sendable {
     func keyUp(_ keyCode: CGKeyCode)
     func holdModifier(_ modifier: CGEventFlags)
     func releaseModifier(_ modifier: CGEventFlags)
+    func holdModifierKey(_ keyCode: CGKeyCode)
+    func releaseModifierKey(_ keyCode: CGKeyCode)
     func releaseAllModifiers()
     func isHoldingModifiers(_ modifier: CGEventFlags) -> Bool
     func getHeldModifiers() -> CGEventFlags
@@ -45,6 +47,30 @@ extension InputSimulatorProtocol {
     func pressKey(_ keyCode: CGKeyCode, modifiers: ModifierFlags) {
         pressKey(keyCode, modifiers: modifiers.cgEventFlags)
     }
+
+    func holdModifierKey(_ keyCode: CGKeyCode) {
+		holdModifier(KeyCodeMapping.modifierFlag(for: keyCode))
+    }
+
+    func releaseModifierKey(_ keyCode: CGKeyCode) {
+		releaseModifier(KeyCodeMapping.modifierFlag(for: keyCode))
+    }
+
+    func holdModifiers(_ modifiers: ModifierFlags) {
+		for mask in ModifierKeyState.modifierPressOrder where modifiers.cgEventFlags.contains(mask) {
+			if let keyCode = modifiers.virtualKey(forMask: mask) {
+				holdModifierKey(keyCode)
+			}
+		}
+    }
+
+    func releaseModifiers(_ modifiers: ModifierFlags) {
+		for mask in ModifierKeyState.modifierReleaseOrder where modifiers.cgEventFlags.contains(mask) {
+			if let keyCode = modifiers.virtualKey(forMask: mask) {
+				releaseModifierKey(keyCode)
+			}
+		}
+    }
 }
 
 // MARK: - Modifier Key Handler
@@ -62,6 +88,14 @@ private class ModifierKeyState {
     /// List of modifier masks in order for iteration
     static let modifierMasks: [CGEventFlags] = [
         .maskCommand, .maskAlternate, .maskShift, .maskControl
+    ]
+
+    static let modifierPressOrder: [CGEventFlags] = [
+		.maskCommand, .maskShift, .maskAlternate, .maskControl
+    ]
+
+    static let modifierReleaseOrder: [CGEventFlags] = [
+		.maskControl, .maskAlternate, .maskShift, .maskCommand
     ]
 }
 
@@ -238,7 +272,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private func pressKeyInternal(_ keyCode: CGKeyCode, modifiers: CGEventFlags, modifierSides: ModifierFlags?) {
         LatencyDiagnostics.mark("input.pressKey \(keyCode)")
         if shouldRelayUniversalControlAction(),
-           UniversalControlMouseRelay.shared.sendKeyPress(keyCode, modifiers: modifiers) {
+		   sendUniversalControlKeyPress(keyCode, modifiers: modifiers, modifierSides: modifierSides) {
             return
         }
 
@@ -330,6 +364,17 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             print("  ✅ Key sequence completed")
             #endif
         }
+    }
+
+    private func sendUniversalControlKeyPress(
+		_ keyCode: CGKeyCode,
+		modifiers: CGEventFlags,
+		modifierSides: ModifierFlags?
+    ) -> Bool {
+		if let modifierSides {
+			return UniversalControlMouseRelay.shared.sendKeyPress(keyCode, modifiers: modifierSides)
+		}
+		return UniversalControlMouseRelay.shared.sendKeyPress(keyCode, modifiers: modifiers)
     }
 
     /// Posts a single key event
@@ -2007,10 +2052,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             }
         } else if mapping.modifiers.hasAny {
             // Modifier-only mapping - tap the modifiers
-            let flags = mapping.modifiers.cgEventFlags
-            holdModifier(flags)
+			holdModifiers(mapping.modifiers)
             DispatchQueue.main.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [weak self] in
-                self?.releaseModifier(flags)
+				self?.releaseModifiers(mapping.modifiers)
             }
         }
     }
@@ -2019,7 +2063,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     func startHoldMapping(_ mapping: KeyMapping) {
         // Hold any modifiers
         if mapping.modifiers.hasAny {
-            holdModifier(mapping.modifiers.cgEventFlags)
+			holdModifiers(mapping.modifiers)
         }
         // Hold the key/mouse button
         if let keyCode = mapping.keyCode {
@@ -2043,7 +2087,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         }
         // Then release modifiers
         if mapping.modifiers.hasAny {
-            releaseModifier(mapping.modifiers.cgEventFlags)
+			releaseModifiers(mapping.modifiers)
         }
     }
 

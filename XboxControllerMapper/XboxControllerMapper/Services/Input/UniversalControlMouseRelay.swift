@@ -800,6 +800,40 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         sendLine("kp \(keyCode) \(modifiers.rawValue)")
     }
 
+    func sendKeyPress(_ keyCode: CGKeyCode, modifiers: ModifierFlags) -> Bool {
+		let hasExplicitSide = modifiers.commandSide != nil ||
+			modifiers.optionSide != nil ||
+			modifiers.shiftSide != nil ||
+			modifiers.controlSide != nil
+		guard hasExplicitSide else {
+			return sendKeyPress(keyCode, modifiers: modifiers.cgEventFlags)
+		}
+
+		return sendLine(
+			"kp2 \(keyCode) \(modifiers.cgEventFlags.rawValue) " +
+			"\(Self.wireValue(for: modifiers.commandSide)) " +
+			"\(Self.wireValue(for: modifiers.optionSide)) " +
+			"\(Self.wireValue(for: modifiers.shiftSide)) " +
+			"\(Self.wireValue(for: modifiers.controlSide))"
+		)
+    }
+
+    private static func wireValue(for side: ModifierSide?) -> Int {
+		switch side {
+		case .left: return 1
+		case .right: return 2
+		case .none: return 0
+		}
+    }
+
+    private static func modifierSide(from wireValue: Substring) -> ModifierSide? {
+		switch Int(wireValue) {
+		case 1: return .left
+		case 2: return .right
+		default: return nil
+		}
+    }
+
     func sendControllerButtonPressed(_ button: ControllerButton) -> Bool {
         guard hasActiveRemoteSession else { return false }
         return sendLine("bp \(button.rawValue)")
@@ -1993,6 +2027,28 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 input?.pressKey(CGKeyCode(keyCode), modifiers: CGEventFlags(rawValue: flagsRaw))
             }
             logFirstReceive("key press \(keyCode)")
+		case "kp2":
+			guard parts.count == 7,
+				  let keyCode = UInt16(parts[1]),
+				  let flagsRaw = UInt64(parts[2]) else { return }
+			let flags = CGEventFlags(rawValue: flagsRaw)
+			let modifiers = ModifierFlags(
+				command: flags.contains(.maskCommand),
+				option: flags.contains(.maskAlternate),
+				shift: flags.contains(.maskShift),
+				control: flags.contains(.maskControl),
+				commandSide: Self.modifierSide(from: parts[3]),
+				optionSide: Self.modifierSide(from: parts[4]),
+				shiftSide: Self.modifierSide(from: parts[5]),
+				controlSide: Self.modifierSide(from: parts[6])
+			)
+			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
+				postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: true)
+				postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: false)
+			} else {
+				input?.pressKey(CGKeyCode(keyCode), modifiers: modifiers)
+			}
+			logFirstReceive("side-aware key press \(keyCode)")
         case "kd":
             guard parts.count == 3,
                   let keyCode = UInt16(parts[1]),
@@ -2000,8 +2056,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
                 postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: true)
             } else {
-                updateRemoteMouseButtonState(keyCode: CGKeyCode(keyCode), isDown: true)
-                input?.keyDown(CGKeyCode(keyCode), modifiers: CGEventFlags(rawValue: flagsRaw))
+				let cgKeyCode = CGKeyCode(keyCode)
+				updateRemoteMouseButtonState(keyCode: cgKeyCode, isDown: true)
+				if KeyCodeMapping.isModifierKey(cgKeyCode) {
+					input?.holdModifierKey(cgKeyCode)
+				} else {
+					input?.keyDown(cgKeyCode, modifiers: CGEventFlags(rawValue: flagsRaw))
+				}
             }
             logFirstReceive("key down \(keyCode)")
         case "ku":
@@ -2010,8 +2071,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
                 postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: false)
             } else {
-                updateRemoteMouseButtonState(keyCode: CGKeyCode(keyCode), isDown: false)
-                input?.keyUp(CGKeyCode(keyCode))
+				let cgKeyCode = CGKeyCode(keyCode)
+				updateRemoteMouseButtonState(keyCode: cgKeyCode, isDown: false)
+				if KeyCodeMapping.isModifierKey(cgKeyCode) {
+					input?.releaseModifierKey(cgKeyCode)
+				} else {
+					input?.keyUp(cgKeyCode)
+				}
             }
             logFirstReceive("key up \(keyCode)")
         case "hm":
