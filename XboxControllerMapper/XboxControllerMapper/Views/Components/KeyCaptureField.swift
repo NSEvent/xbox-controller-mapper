@@ -120,6 +120,9 @@ class KeyCaptureNSView: NSView {
     private var currentModifiers = ModifierFlags()
     private var peakModifiers = ModifierFlags()  // Tracks the maximum set of modifiers held
     private var hasNonModifierKey = false
+    /// Specific modifier key codes (kVK_Command vs kVK_RightCommand, etc.) seen during this capture.
+    /// Lets us preserve left/right identity when the user records just one modifier key on its own.
+    private var capturedModifierKeyCodes: [UInt16] = []
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -130,6 +133,7 @@ class KeyCaptureNSView: NSView {
         currentModifiers = ModifierFlags()
         peakModifiers = ModifierFlags()
         hasNonModifierKey = false
+        capturedModifierKeyCodes = []
 
         let eventMask: NSEvent.EventTypeMask = [
             .keyDown, .flagsChanged,
@@ -177,12 +181,20 @@ class KeyCaptureNSView: NSView {
             ]
 
             if event.type == .flagsChanged {
+                let specificKeyCode = event.keyCode
+
                 // Track current modifier state
                 var mods = ModifierFlags()
                 if event.modifierFlags.contains(.command) { mods.command = true }
                 if event.modifierFlags.contains(.option) { mods.option = true }
                 if event.modifierFlags.contains(.shift) { mods.shift = true }
                 if event.modifierFlags.contains(.control) { mods.control = true }
+
+                // Remember which specific modifier key codes were touched (left vs right).
+                if modifierOnlyKeys.contains(Int(specificKeyCode)) &&
+                   !self.capturedModifierKeyCodes.contains(specificKeyCode) {
+                    self.capturedModifierKeyCodes.append(specificKeyCode)
+                }
 
                 self.currentModifiers = mods
 
@@ -196,7 +208,15 @@ class KeyCaptureNSView: NSView {
                 // If all modifiers are now released and no regular key was pressed,
                 // capture the peak modifiers as a modifier-only shortcut
                 if !mods.hasAny && self.peakModifiers.hasAny && !self.hasNonModifierKey {
-                    self.onKeyCapture?(nil, self.peakModifiers)
+                    // If the user pressed exactly one modifier key on its own, preserve
+                    // the specific left/right key code (e.g. kVK_RightCommand). Otherwise
+                    // fall back to the mask-based modifier-only shortcut.
+                    let sideAwareCodes = self.capturedModifierKeyCodes.filter { Int($0) != kVK_Function }
+                    if sideAwareCodes.count == 1, let code = sideAwareCodes.first {
+                        self.onKeyCapture?(CGKeyCode(code), ModifierFlags())
+                    } else {
+                        self.onKeyCapture?(nil, self.peakModifiers)
+                    }
                     self.stopCapturing()
                 }
 
@@ -230,6 +250,7 @@ class KeyCaptureNSView: NSView {
         currentModifiers = ModifierFlags()
         peakModifiers = ModifierFlags()
         hasNonModifierKey = false
+        capturedModifierKeyCodes = []
     }
 
     deinit {

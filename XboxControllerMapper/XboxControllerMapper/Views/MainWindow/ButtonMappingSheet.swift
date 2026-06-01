@@ -383,7 +383,21 @@ struct ButtonMappingSheet: View {
             .onChange(of: primaryState.keyCode) { _, newValue in
                 guard !isLoading else { return }
 
-                if let code = newValue, KeyCodeMapping.isMouseButton(code) || KeyCodeMapping.isSpecialAction(code) {
+                if let code = newValue, KeyCodeMapping.isModifierKey(code) {
+                    // Modifier keys: auto-enable hold (so the modifier stays pressed while
+                    // the controller button is held) and disable long hold / double tap / repeat
+                    // which don't make sense for a sticky modifier.
+                    if !userHasInteractedWithHold {
+                        isHoldModifier = true
+                    }
+                    enableLongHold = false
+                    enableDoubleTap = false
+                    enableRepeat = false
+                    longHoldState.keyCode = nil
+                    longHoldState.modifiers = ModifierFlags()
+                    doubleTapState.keyCode = nil
+                    doubleTapState.modifiers = ModifierFlags()
+                } else if let code = newValue, KeyCodeMapping.isMouseButton(code) || KeyCodeMapping.isSpecialAction(code) {
                     // Mouse clicks and special actions: auto-enable hold and disable long hold/double tap/repeat
                     // Exception: visual tools default to toggle mode (isHoldModifier = false)
                     if !userHasInteractedWithHold {

@@ -35,12 +35,19 @@ enum KeyCodeMapping {
     static let f11: CGKeyCode = CGKeyCode(kVK_F11)
     static let f12: CGKeyCode = CGKeyCode(kVK_F12)
 
-    // MARK: - Modifier Keys
+    // MARK: - Modifier Keys (Left)
 
     static let command: CGKeyCode = CGKeyCode(kVK_Command)
     static let shift: CGKeyCode = CGKeyCode(kVK_Shift)
     static let option: CGKeyCode = CGKeyCode(kVK_Option)
     static let control: CGKeyCode = CGKeyCode(kVK_Control)
+
+    // MARK: - Modifier Keys (Right)
+
+    static let rightCommand: CGKeyCode = CGKeyCode(kVK_RightCommand)
+    static let rightShift: CGKeyCode = CGKeyCode(kVK_RightShift)
+    static let rightOption: CGKeyCode = CGKeyCode(kVK_RightOption)
+    static let rightControl: CGKeyCode = CGKeyCode(kVK_RightControl)
 
     // MARK: - Number Keys
 
@@ -244,11 +251,17 @@ enum KeyCodeMapping {
         case kVK_ANSI_Equal: return "="
         case kVK_ANSI_Grave: return "`"
 
-        // Modifiers
-        case kVK_Command: return "Command"
-        case kVK_Shift: return "Shift"
-        case kVK_Option: return "Option"
-        case kVK_Control: return "Control"
+        // Modifiers (Left)
+        case kVK_Command: return "Left ⌘"
+        case kVK_Shift: return "Left ⇧"
+        case kVK_Option: return "Left ⌥"
+        case kVK_Control: return "Left ⌃"
+
+        // Modifiers (Right)
+        case kVK_RightCommand: return "Right ⌘"
+        case kVK_RightShift: return "Right ⇧"
+        case kVK_RightOption: return "Right ⌥"
+        case kVK_RightControl: return "Right ⌃"
         case kVK_CapsLock: return "Caps Lock"
         case kVK_Function: return "Fn"
 
@@ -356,6 +369,16 @@ enum KeyCodeMapping {
         options.append(("=", equal))
         options.append(("`", grave))
 
+        // Modifier keys (Left / Right distinction)
+        options.append(("Left ⌘", command))
+        options.append(("Right ⌘", rightCommand))
+        options.append(("Left ⌥", option))
+        options.append(("Right ⌥", rightOption))
+        options.append(("Left ⇧", shift))
+        options.append(("Right ⇧", rightShift))
+        options.append(("Left ⌃", control))
+        options.append(("Right ⌃", rightControl))
+
         // Mouse buttons
         options.append(("Left Click", mouseLeftClick))
         options.append(("Right Click", mouseRightClick))
@@ -413,6 +436,31 @@ enum KeyCodeMapping {
     /// Checks if a key code is a special marker that shouldn't be sent as a key event
     static func isSpecialMarker(_ keyCode: CGKeyCode) -> Bool {
         isMouseButton(keyCode) || isScrollAction(keyCode) || isSpecialAction(keyCode) || isMediaKey(keyCode)
+    }
+
+    /// Checks if a key code represents a modifier key (left or right variant)
+    static func isModifierKey(_ keyCode: CGKeyCode) -> Bool {
+        switch Int(keyCode) {
+        case kVK_Command, kVK_RightCommand,
+             kVK_Shift, kVK_RightShift,
+             kVK_Option, kVK_RightOption,
+             kVK_Control, kVK_RightControl:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Returns the CGEventFlags mask for a modifier key code, or empty if not a modifier.
+    /// Left and right variants share the same mask (e.g. both Commands → .maskCommand).
+    static func modifierFlag(for keyCode: CGKeyCode) -> CGEventFlags {
+        switch Int(keyCode) {
+        case kVK_Command, kVK_RightCommand: return .maskCommand
+        case kVK_Shift, kVK_RightShift: return .maskShift
+        case kVK_Option, kVK_RightOption: return .maskAlternate
+        case kVK_Control, kVK_RightControl: return .maskControl
+        default: return []
+        }
     }
 
     // MARK: - Character to Key Code Mapping
