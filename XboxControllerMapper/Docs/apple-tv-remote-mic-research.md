@@ -235,7 +235,7 @@ The branch now includes an app-side prototype bridge and the first installable v
 - `make install-remote-mic-components BUILD_FROM_SOURCE=1` is the one-admin-prompt install path for the HAL driver and helper.
 - The app prefers the installed helper. If it is missing, it falls back to the old admin `osascript` PacketLogger command.
 - `Scripts/apple_tv_remote_coreaudio_ring.py` publishes decoded PCM into a file-backed mmap ring at `/tmp/controllerkeys-remote-mic.pcm`.
-- `RemoteMic/ControllerKeysRemoteMicRingReader.h` maps that ring from the HAL driver and copies Int16 PCM into the CoreAudio IO callback, returning silence when the helper is idle or unavailable.
+- `RemoteMic/ControllerKeysRemoteMicRingReader.h` maps that ring from the HAL driver and converts Int16 PCM into the Float32 CoreAudio input callback format, returning silence when the helper is idle or unavailable.
 
 2026-06-02 verification:
 
@@ -246,7 +246,8 @@ The branch now includes an app-side prototype bridge and the first installable v
 - Saved PacketLogger replay with `--feed-coreaudio` filled the shared ring with 310,080 decoded 48 kHz mono Int16 samples from `test2.pklg`.
 - A direct C reader using the same ring reader header copied nonzero PCM from the shared ring, confirming the helper-to-driver buffer format.
 - CoreAudio enumeration sees `ControllerKeys Remote Mic` by UID `com.kevintang.ControllerKeys.RemoteMic`.
-- A throwaway CLI AudioQueue recorder received buffers from the virtual input, but those buffers were all zero while running outside the app. That is likely macOS microphone/TCC client gating for the unsigned temporary recorder, not a ring-buffer failure.
+- After switching the HAL stream to 48 kHz mono Float32 and tightening the device owned-object scopes, a throwaway AudioQueue recorder can start and stop the virtual input without wedging `coreaudiod`.
+- Feeding `test2.pklg` into `/tmp/controllerkeys-remote-mic.pcm` in realtime produced nonzero samples from the virtual CoreAudio input: `bytes=385024 nonzero=130410 abssum=255097050`.
 - Focused tests passed: `AppleTVRemoteMicBridgeTests`, `MainWindowSectionVisibilityTests`, and `ControllerServiceCallbackProxyTests` ran 43 tests with 0 failures.
 
 Current limitation: the PCM bridge still depends on Apple's PacketLogger CLI and the Bluetooth logging profile. The virtual mic is therefore a power-user/admin tooling path, not yet a normal distribution-grade capture backend.

@@ -18,7 +18,7 @@ enum {
 #define BOX_UID "com.kevintang.ControllerKeys.RemoteMic.Box"
 #define SAMPLE_RATE ((Float64)CK_REMOTE_MIC_SAMPLE_RATE)
 #define CHANNELS CK_REMOTE_MIC_CHANNELS
-#define BYTES_PER_FRAME CK_REMOTE_MIC_BYTES_PER_FRAME
+#define BYTES_PER_FRAME 4
 #define ZERO_TIMESTAMP_PERIOD 16384
 
 static pthread_mutex_t gStateMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -87,12 +87,12 @@ static AudioStreamBasicDescription streamFormat(void) {
     memset(&format, 0, sizeof(format));
     format.mSampleRate = SAMPLE_RATE;
     format.mFormatID = kAudioFormatLinearPCM;
-    format.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
+    format.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
     format.mBytesPerPacket = BYTES_PER_FRAME;
     format.mFramesPerPacket = 1;
     format.mBytesPerFrame = BYTES_PER_FRAME;
     format.mChannelsPerFrame = CHANNELS;
-    format.mBitsPerChannel = 16;
+    format.mBitsPerChannel = 32;
     return format;
 }
 
@@ -294,7 +294,16 @@ static OSStatus GetDataSize(AudioServerPlugInDriverRef driver, AudioObjectID id,
     case kAudioPlugInPropertyResourceBundle:
         *outSize = sizeof(CFStringRef); return 0;
     case kAudioObjectPropertyOwnedObjects:
-        *outSize = (id == kObjectPlugIn) ? 2 * sizeof(AudioObjectID) : sizeof(AudioObjectID); return 0;
+        if (id == kObjectPlugIn) {
+            *outSize = 2 * sizeof(AudioObjectID); return 0;
+        }
+        if (id == kObjectDevice) {
+            *outSize = (a->mScope == kAudioObjectPropertyScopeOutput) ? 0 : sizeof(AudioObjectID); return 0;
+        }
+        if (id == kObjectBox) {
+            *outSize = sizeof(AudioObjectID); return 0;
+        }
+        *outSize = 0; return 0;
     case kAudioPlugInPropertyDeviceList:
     case kAudioPlugInPropertyBoxList:
     case kAudioBoxPropertyDeviceList:
@@ -397,7 +406,12 @@ static OSStatus GetData(AudioServerPlugInDriverRef driver, AudioObjectID id, pid
         case kAudioObjectPropertyManufacturer: stringValue = CFSTR("Kevin Tang"); return copyOut(dataSize, outSize, outData, &stringValue, sizeof(stringValue));
         case kAudioObjectPropertyOwnedObjects:
         case kAudioDevicePropertyStreams:
-        case kAudioDevicePropertyRelatedDevices: return copyIDList(dataSize, outSize, outData, a->mSelector == kAudioDevicePropertyRelatedDevices ? kObjectDevice : kObjectStreamInput, 1);
+            if (a->mScope == kAudioObjectPropertyScopeOutput) {
+                *outSize = 0;
+                return 0;
+            }
+            return copyIDList(dataSize, outSize, outData, kObjectStreamInput, 1);
+        case kAudioDevicePropertyRelatedDevices: return copyIDList(dataSize, outSize, outData, kObjectDevice, 1);
         case kAudioObjectPropertyControlList: *outSize = 0; return 0;
         case kAudioDevicePropertyDeviceUID: stringValue = CFSTR(DEVICE_UID); return copyOut(dataSize, outSize, outData, &stringValue, sizeof(stringValue));
         case kAudioDevicePropertyModelUID: stringValue = CFSTR(MODEL_UID); return copyOut(dataSize, outSize, outData, &stringValue, sizeof(stringValue));
@@ -491,11 +505,21 @@ static OSStatus StopIO(AudioServerPlugInDriverRef driver, AudioObjectID id, UInt
 static OSStatus GetZeroTimeStamp(AudioServerPlugInDriverRef driver, AudioObjectID id, UInt32 clientID, Float64 *sampleTime, UInt64 *hostTime, UInt64 *seed) {
     (void)clientID;
     if (!validDriver(driver) || id != kObjectDevice) return kAudioHardwareBadObjectError;
+    if (sampleTime == NULL || hostTime == NULL || seed == NULL) return kAudioHardwareIllegalOperationError;
     pthread_mutex_lock(&gIOMutex);
     UInt64 now = mach_absolute_time();
     Float64 periodTicks = gHostTicksPerFrame * ZERO_TIMESTAMP_PERIOD;
-    UInt64 nextHostTime = gAnchorHostTime + (UInt64)((gTimestampCount + 1) * periodTicks);
-    if (nextHostTime <= now) ++gTimestampCount;
+    if (gAnchorHostTime == 0 || periodTicks <= 0) {
+        updateClock();
+        gAnchorHostTime = now;
+        gTimestampCount = 0;
+        periodTicks = gHostTicksPerFrame * ZERO_TIMESTAMP_PERIOD;
+    }
+    if (periodTicks > 0 && now > gAnchorHostTime) {
+        UInt64 elapsed = now - gAnchorHostTime;
+        UInt64 currentPeriod = (UInt64)((Float64)elapsed / periodTicks);
+        if (currentPeriod > gTimestampCount) gTimestampCount = currentPeriod;
+    }
     *sampleTime = gTimestampCount * ZERO_TIMESTAMP_PERIOD;
     *hostTime = gAnchorHostTime + (UInt64)(gTimestampCount * periodTicks);
     *seed = 1;
@@ -521,7 +545,7 @@ static OSStatus DoIO(AudioServerPlugInDriverRef driver, AudioObjectID deviceID, 
     (void)clientID; (void)info; (void)secondaryBuffer;
     if (!validDriver(driver) || deviceID != kObjectDevice || streamID != kObjectStreamInput) return kAudioHardwareBadObjectError;
     if (op == kAudioServerPlugInIOOperationReadInput && mainBuffer != NULL) {
-        CKRemoteMicRingCopyFrames(&gRingReader, (SInt16 *)mainBuffer, frames);
+        CKRemoteMicRingCopyFloatFrames(&gRingReader, (Float32 *)mainBuffer, frames);
     }
     return 0;
 }

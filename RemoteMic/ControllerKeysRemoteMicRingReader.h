@@ -59,7 +59,7 @@ static CKRemoteMicRing *CKRemoteMicRingOpenIfNeeded(CKRemoteMicRingReader *reade
     return ring;
 }
 
-static void CKRemoteMicRingCopyFrames(CKRemoteMicRingReader *reader, SInt16 *out, UInt32 frames) {
+static __attribute__((unused)) void CKRemoteMicRingCopyFrames(CKRemoteMicRingReader *reader, SInt16 *out, UInt32 frames) {
     CKRemoteMicRing *ring = reader->ring;
     if (ring == NULL || !CKRemoteMicRingIsValid(ring)) {
         if (reader->retryCountdown++ % 32 == 0) ring = CKRemoteMicRingOpenIfNeeded(reader);
@@ -72,7 +72,7 @@ static void CKRemoteMicRingCopyFrames(CKRemoteMicRingReader *reader, SInt16 *out
     UInt64 resetCounter = ring->resetCounter;
     UInt64 writeFrame = ring->writeFrame;
     if (resetCounter != reader->lastResetCounter || writeFrame < reader->readFrame) {
-        reader->readFrame = writeFrame;
+        reader->readFrame = writeFrame > CK_REMOTE_MIC_CAPACITY_FRAMES ? writeFrame - CK_REMOTE_MIC_CAPACITY_FRAMES : 0;
         reader->lastResetCounter = resetCounter;
     }
     if (writeFrame > reader->readFrame + CK_REMOTE_MIC_CAPACITY_FRAMES) {
@@ -92,6 +92,44 @@ static void CKRemoteMicRingCopyFrames(CKRemoteMicRingReader *reader, SInt16 *out
     }
     if (copied < frames) {
         memset(out + copied, 0, (frames - copied) * CK_REMOTE_MIC_BYTES_PER_FRAME);
+    }
+}
+
+static void CKRemoteMicRingCopyFloatFrames(CKRemoteMicRingReader *reader, Float32 *out, UInt32 frames) {
+    CKRemoteMicRing *ring = reader->ring;
+    if (ring == NULL || !CKRemoteMicRingIsValid(ring)) {
+        if (reader->retryCountdown++ % 32 == 0) ring = CKRemoteMicRingOpenIfNeeded(reader);
+    }
+    if (ring == NULL) {
+        memset(out, 0, frames * sizeof(Float32));
+        return;
+    }
+
+    UInt64 resetCounter = ring->resetCounter;
+    UInt64 writeFrame = ring->writeFrame;
+    if (resetCounter != reader->lastResetCounter || writeFrame < reader->readFrame) {
+        reader->readFrame = writeFrame > CK_REMOTE_MIC_CAPACITY_FRAMES ? writeFrame - CK_REMOTE_MIC_CAPACITY_FRAMES : 0;
+        reader->lastResetCounter = resetCounter;
+    }
+    if (writeFrame > reader->readFrame + CK_REMOTE_MIC_CAPACITY_FRAMES) {
+        reader->readFrame = writeFrame - CK_REMOTE_MIC_CAPACITY_FRAMES;
+    }
+
+    UInt64 available = writeFrame > reader->readFrame ? writeFrame - reader->readFrame : 0;
+    UInt32 toRead = available < frames ? (UInt32)available : frames;
+    UInt32 copied = 0;
+    while (copied < toRead) {
+        UInt32 ringIndex = (UInt32)(reader->readFrame % CK_REMOTE_MIC_CAPACITY_FRAMES);
+        UInt32 chunk = CK_REMOTE_MIC_CAPACITY_FRAMES - ringIndex;
+        if (chunk > toRead - copied) chunk = toRead - copied;
+        for (UInt32 index = 0; index < chunk; ++index) {
+            out[copied + index] = (Float32)ring->samples[ringIndex + index] / 32768.0f;
+        }
+        copied += chunk;
+        reader->readFrame += chunk;
+    }
+    if (copied < frames) {
+        memset(out + copied, 0, (frames - copied) * sizeof(Float32));
     }
 }
 

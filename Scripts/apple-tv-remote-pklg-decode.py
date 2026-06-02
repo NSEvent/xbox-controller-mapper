@@ -4,7 +4,10 @@ import argparse
 import ctypes
 import ctypes.util
 from pathlib import Path
+import time
 import wave
+
+from apple_tv_remote_coreaudio_ring import CoreAudioRingWriter
 
 
 HCI_ACL = 0x02
@@ -31,6 +34,16 @@ def main() -> int:
         default=None,
         help="Output WAV path. Default: capture basename + .siri-remote-mic.wav",
     )
+    parser.add_argument(
+        "--feed-coreaudio",
+        action="store_true",
+        help="Publish decoded PCM to the ControllerKeys Remote Mic shared ring.",
+    )
+    parser.add_argument(
+        "--feed-realtime",
+        action="store_true",
+        help="When feeding CoreAudio, write PCM in 20 ms chunks.",
+    )
     args = parser.parse_args()
 
     capture = Path(args.capture).expanduser()
@@ -43,6 +56,15 @@ def main() -> int:
         raise DecodeError("no mic packets found")
 
     pcm = decode_opus_packets([packet["opus"] for packet in packets])
+    if args.feed_coreaudio:
+        ring_writer = CoreAudioRingWriter(error_type=DecodeError)
+        try:
+            if args.feed_realtime:
+                feed_pcm_realtime(ring_writer, pcm)
+            else:
+                ring_writer.write_pcm(pcm)
+        finally:
+            ring_writer.close()
     write_wav(output, pcm)
 
     sequences = [packet["seq"] for packet in packets]
@@ -51,6 +73,8 @@ def main() -> int:
     print(f"capture={capture}")
     print(f"packets={len(packets)} firstSeq={sequences[0]} lastSeq={sequences[-1]} sequenceGaps={gaps}")
     print(f"wav={output} duration={duration:.2f}s samples={len(pcm) // 2}")
+    if args.feed_coreaudio:
+        print("fedCoreAudio=true")
     return 0
 
 
@@ -60,6 +84,13 @@ def parse_packetlogger(data: bytes):
     if len(little) > len(big):
         return little
     return big
+
+
+def feed_pcm_realtime(ring_writer: CoreAudioRingWriter, pcm: bytes):
+    bytes_per_packet = FRAME_SAMPLES * CHANNELS * 2
+    for offset in range(0, len(pcm), bytes_per_packet):
+        ring_writer.write_pcm(pcm[offset : offset + bytes_per_packet])
+        time.sleep(FRAME_SAMPLES / SAMPLE_RATE)
 
 
 def parse_packetlogger_endian(data: bytes, endian: str):
