@@ -38,6 +38,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         controllerService.onRightStickMoved = { _ in events.append("rightStickMoved") }
         controllerService.onTouchpadMoved = { _ in events.append("touchpadMoved") }
         controllerService.onSteamLeftTouchpadMoved = { _ in events.append("steamLeftTouchpadMoved") }
+        controllerService.onAppleTVRemoteSiriButtonChanged = { _ in events.append("appleTVRemoteSiri") }
         controllerService.onTouchpadGesture = { _ in events.append("touchpadGesture") }
         controllerService.onTouchpadTap = { events.append("touchpadTap") }
         controllerService.onControllerButtonTap = { _ in events.append("controllerButtonTap") }
@@ -52,6 +53,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         controllerService.onRightStickMoved?(CGPoint(x: -0.4, y: 0.7))
         controllerService.onTouchpadMoved?(CGPoint(x: 0.3, y: 0.2))
         controllerService.onSteamLeftTouchpadMoved?(CGPoint(x: -0.3, y: 0.2))
+        controllerService.onAppleTVRemoteSiriButtonChanged?(true)
         controllerService.onTouchpadGesture?(
             TouchpadGesture(
                 centerDelta: CGPoint(x: 0.05, y: 0.01),
@@ -76,6 +78,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
                 "rightStickMoved",
                 "touchpadMoved",
                 "steamLeftTouchpadMoved",
+                "appleTVRemoteSiri",
                 "touchpadGesture",
                 "touchpadTap",
                 "controllerButtonTap",
@@ -264,6 +267,19 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 				ControllerButtonEvent(button: .touchpadButton, pressed: false)
 			]
 		)
+	}
+
+	func testAppleTVRemoteSiriButtonCallbackAggregatesDuplicateHIDSources() {
+		var states: [Bool] = []
+		controllerService.onAppleTVRemoteSiriButtonChanged = { states.append($0) }
+
+		controllerService.dispatchAppleTVRemoteButtonState(.siri, sourceKey: 1, isPressed: true)
+		controllerService.dispatchAppleTVRemoteButtonState(.siri, sourceKey: 2, isPressed: true)
+		controllerService.dispatchAppleTVRemoteButtonState(.siri, sourceKey: 1, isPressed: false)
+		controllerService.dispatchAppleTVRemoteButtonState(.siri, sourceKey: 2, isPressed: false)
+		drainControllerQueue()
+
+		XCTAssertEqual(states, [true, false])
 	}
 
 	func testAppleTVRemoteClickpadClickSuppressesClickInducedTouchJitter() {

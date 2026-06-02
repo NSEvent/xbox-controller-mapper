@@ -66,8 +66,12 @@ INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 
 HELPER_SRC := Helpers/XboxEliteHelper.swift
 HELPER_NAME := XboxEliteHelper
+REMOTE_MIC_BUILD_DIR := build/remote-mic
+REMOTE_MIC_DRIVER_BUNDLE := $(REMOTE_MIC_BUILD_DIR)/ControllerKeysRemoteMic.driver
+REMOTE_MIC_DRIVER_BIN := $(REMOTE_MIC_DRIVER_BUNDLE)/Contents/MacOS/ControllerKeysRemoteMicDriver
+REMOTE_MIC_HELPER := $(REMOTE_MIC_BUILD_DIR)/controllerkeys-remote-mic-capture
 
-.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full refactor-gate
+.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full refactor-gate remote-mic-components remote-mic-driver remote-mic-capture-helper install-remote-mic-components
 
 help:
 	@echo "ControllerKeys - Build Commands"
@@ -80,6 +84,7 @@ help:
 	@echo "  make test-regressions - Run focused regression suite"
 	@echo "  make test-full - Run full test suite"
 	@echo "  make refactor-gate - Run regression suite + full suite"
+	@echo "  make install-remote-mic-components BUILD_FROM_SOURCE=1 - Install virtual mic driver/helper"
 	@echo ""
 	@echo "Configuration:"
 	@echo "  CONFIG=$(CONFIG) SCHEME=$(SCHEME)"
@@ -149,6 +154,35 @@ elite-helper: check-permissions
 	@echo "Building Xbox Elite helper..."
 	@swiftc -O -o "$(TARGET_BUILD_DIR)/$(HELPER_NAME)" $(HELPER_SRC)
 	@echo "Elite helper built"
+
+remote-mic-components: remote-mic-driver remote-mic-capture-helper
+
+remote-mic-driver: check-permissions
+	@echo "Building ControllerKeys Remote Mic HAL driver..."
+	@mkdir -p "$(REMOTE_MIC_DRIVER_BUNDLE)/Contents/MacOS"
+	@cp RemoteMic/ControllerKeysRemoteMicDriver-Info.plist "$(REMOTE_MIC_DRIVER_BUNDLE)/Contents/Info.plist"
+	@clang -O2 -Wall -Wextra -bundle -framework CoreAudio -framework CoreFoundation \
+		-o "$(REMOTE_MIC_DRIVER_BIN)" RemoteMic/ControllerKeysRemoteMicDriver.c
+ifeq ($(HAS_DEV_CERT),1)
+	@codesign --force --sign "$(APPLE_DEVELOPMENT_IDENTITY)" --timestamp=none "$(REMOTE_MIC_DRIVER_BUNDLE)"
+else
+	@codesign --force --sign - "$(REMOTE_MIC_DRIVER_BUNDLE)" >/dev/null 2>&1 || true
+endif
+	@echo "Remote mic driver built at $(REMOTE_MIC_DRIVER_BUNDLE)"
+
+remote-mic-capture-helper: check-permissions
+	@echo "Building ControllerKeys Remote Mic capture helper..."
+	@mkdir -p "$(REMOTE_MIC_BUILD_DIR)"
+	@clang -O2 -Wall -Wextra -o "$(REMOTE_MIC_HELPER)" RemoteMic/controllerkeys-remote-mic-capture.c
+ifeq ($(HAS_DEV_CERT),1)
+	@codesign --force --sign "$(APPLE_DEVELOPMENT_IDENTITY)" --timestamp=none "$(REMOTE_MIC_HELPER)"
+else
+	@codesign --force --sign - "$(REMOTE_MIC_HELPER)" >/dev/null 2>&1 || true
+endif
+	@echo "Remote mic capture helper built at $(REMOTE_MIC_HELPER)"
+
+install-remote-mic-components: check-permissions remote-mic-components
+	@osascript -e 'do shell script "$(PWD)/Scripts/install-remote-mic-components.sh" with administrator privileges'
 
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean

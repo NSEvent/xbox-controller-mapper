@@ -470,6 +470,7 @@ extension ControllerService {
 		let shouldCancelFallback: Bool
 		let shouldArmTouchpadClick: Bool
 		let shouldDisarmTouchpadClick: Bool
+		let siriButtonChanged: ((Bool) -> Void)?
 
 		storage.lock.lock()
 		var activeSources = storage.appleTVRemoteActiveButtonUsages[button] ?? []
@@ -497,6 +498,7 @@ extension ControllerService {
 			shouldArmTouchpadClick = false
 			shouldDisarmTouchpadClick = button == .touchpadButton && !isStillActive
 		}
+		siriButtonChanged = shouldDispatch && button == .siri ? storage.onAppleTVRemoteSiriButtonChanged : nil
 		storage.lock.unlock()
 
 		if shouldArmTouchpadClick {
@@ -504,6 +506,8 @@ extension ControllerService {
 		} else if shouldDisarmTouchpadClick {
 			_ = armTouchpadClick(pressed: false)
 		}
+
+		siriButtonChanged?(isPressed)
 
 		if shouldScheduleFallback {
 			scheduleAppleTVRemoteButtonReleaseFallback(button)

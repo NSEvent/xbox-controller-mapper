@@ -150,6 +150,7 @@ final class ControllerStorage: @unchecked Sendable {
     var onTouchpadGesture: ((TouchpadGesture) -> Void)?
     var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
     var onControllerButtonTap: ((ControllerButton) -> Void)?  // One-shot virtual tap events
+    var onAppleTVRemoteSiriButtonChanged: ((Bool) -> Void)?
     var onTouchpadTwoFingerTap: (() -> Void)?  // Two-finger tap or click (right-click)
     var onTouchpadLongTap: (() -> Void)?  // Long tap (touch held without moving)
     var onTouchpadTwoFingerLongTap: (() -> Void)?  // Two-finger long tap
@@ -689,6 +690,10 @@ class ControllerService: ObservableObject {
     var onControllerButtonTap: ((ControllerButton) -> Void)? {
         get { readStorage(\.onControllerButtonTap) }
         set { writeStorage(\.onControllerButtonTap, newValue) }
+    }
+    var onAppleTVRemoteSiriButtonChanged: ((Bool) -> Void)? {
+        get { readStorage(\.onAppleTVRemoteSiriButtonChanged) }
+        set { writeStorage(\.onAppleTVRemoteSiriButtonChanged, newValue) }
     }
     var onTouchpadTwoFingerTap: (() -> Void)? {
         get { readStorage(\.onTouchpadTwoFingerTap) }

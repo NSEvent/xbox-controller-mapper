@@ -134,6 +134,7 @@
 				0AB89B5A2F01B1D200C32D31 /* Sources */,
 				0AB89B5B2F01B1D200C32D31 /* Frameworks */,
 				0AB89B5C2F01B1D200C32D31 /* Resources */,
+				0A9D4F402F1F000100DAD001 /* Copy Remote Mic Scripts */,
 			);
 			buildRules = (
 			);
@@ -266,6 +267,33 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		0A9D4F402F1F000100DAD001 /* Copy Remote Mic Scripts */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Scripts/apple-tv-remote-packetlogger-live.py",
+				"$(SRCROOT)/../Scripts/apple-tv-remote-pklg-decode.py",
+				"$(SRCROOT)/../Scripts/apple-tv-remote-mic-probe.swift",
+			);
+			name = "Copy Remote Mic Scripts";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Scripts/apple-tv-remote-packetlogger-live.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Scripts/apple-tv-remote-pklg-decode.py",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Scripts/apple-tv-remote-mic-probe.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nREMOTE_MIC_SCRIPTS_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Scripts\"\nmkdir -p \"$REMOTE_MIC_SCRIPTS_DIR\"\ncp \"$SRCROOT/../Scripts/apple-tv-remote-packetlogger-live.py\" \"$REMOTE_MIC_SCRIPTS_DIR/\"\ncp \"$SRCROOT/../Scripts/apple-tv-remote-pklg-decode.py\" \"$REMOTE_MIC_SCRIPTS_DIR/\"\ncp \"$SRCROOT/../Scripts/apple-tv-remote-mic-probe.swift\" \"$REMOTE_MIC_SCRIPTS_DIR/\"\nchmod 755 \"$REMOTE_MIC_SCRIPTS_DIR/apple-tv-remote-packetlogger-live.py\" \"$REMOTE_MIC_SCRIPTS_DIR/apple-tv-remote-pklg-decode.py\" \"$REMOTE_MIC_SCRIPTS_DIR/apple-tv-remote-mic-probe.swift\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0AB89B5A2F01B1D200C32D31 /* Sources */ = {

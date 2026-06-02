@@ -22,6 +22,7 @@ final class ServiceContainer {
     let usageStatsService: UsageStatsService
     let batteryNotificationManager: BatteryNotificationManager
     let updateCheckService: UpdateCheckService
+    let appleTVRemoteMicBridge: AppleTVRemoteMicBridge
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -32,6 +33,7 @@ final class ServiceContainer {
         let inputMonitor = InputMonitor()
         let inputLogService = InputLogService()
         let usageStatsService = UsageStatsService()
+        let appleTVRemoteMicBridge = AppleTVRemoteMicBridge()
 
         self.controllerService = controllerService
         self.profileManager = profileManager
@@ -39,6 +41,7 @@ final class ServiceContainer {
         self.inputMonitor = inputMonitor
         self.inputLogService = inputLogService
         self.usageStatsService = usageStatsService
+        self.appleTVRemoteMicBridge = appleTVRemoteMicBridge
         self.mappingEngine = MappingEngine(
             controllerService: controllerService,
             profileManager: profileManager,
@@ -46,6 +49,11 @@ final class ServiceContainer {
             inputLogService: inputLogService,
             usageStatsService: usageStatsService
         )
+        controllerService.onAppleTVRemoteSiriButtonChanged = { [weak appleTVRemoteMicBridge] isPressed in
+            Task { @MainActor [weak appleTVRemoteMicBridge] in
+                appleTVRemoteMicBridge?.handleSiriButtonChanged(isPressed: isPressed)
+            }
+        }
         if !AppRuntime.isRunningTests {
             UniversalControlMouseRelay.shared.startListening(
                 inputSimulator: self.mappingEngine.inputSimulator
@@ -370,6 +378,7 @@ struct XboxControllerMapperApp: App {
                 .environmentObject(ServiceContainer.shared.inputMonitor)
                 .environmentObject(ServiceContainer.shared.inputLogService)
                 .environmentObject(ServiceContainer.shared.usageStatsService)
+                .environmentObject(ServiceContainer.shared.appleTVRemoteMicBridge)
         }
         .windowResizability(.contentSize)
 
@@ -380,6 +389,7 @@ struct XboxControllerMapperApp: App {
                 .environmentObject(ServiceContainer.shared.mappingEngine)
                 .environmentObject(ServiceContainer.shared.inputMonitor)
                 .environmentObject(ServiceContainer.shared.inputLogService)
+                .environmentObject(ServiceContainer.shared.appleTVRemoteMicBridge)
         } label: {
             MenuBarLabel(
                 controllerService: ServiceContainer.shared.controllerService,
@@ -418,6 +428,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard !AppRuntime.isRunningTests else { return }
 
         ServiceContainer.shared.controllerService.cleanup()
+        ServiceContainer.shared.appleTVRemoteMicBridge.stop()
         ServiceContainer.shared.usageStatsService.endSession()
     }
 

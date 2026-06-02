@@ -882,11 +882,103 @@ struct LEDSettingsView: View {
 
 struct MicrophoneSettingsView: View {
     @EnvironmentObject var controllerService: ControllerService
+    @EnvironmentObject var appleTVRemoteMicBridge: AppleTVRemoteMicBridge
+
+    private var showsDualSenseMicrophone: Bool {
+        controllerService.threadSafeIsDualSense
+    }
+
+    private var showsAppleTVRemoteMicrophone: Bool {
+        controllerService.threadSafeIsAppleTVRemote
+    }
 
     var body: some View {
         Form {
-            // USB requirement notice (same as LEDs tab)
-            if controllerService.isBluetoothConnection {
+            if showsAppleTVRemoteMicrophone {
+                Section("Apple TV Remote Mic Bridge") {
+                    Toggle("Enable Remote Mic Bridge", isOn: Binding(
+                        get: { appleTVRemoteMicBridge.isEnabled },
+                        set: { appleTVRemoteMicBridge.isEnabled = $0 }
+                    ))
+
+	                    HStack {
+	                        Label(appleTVRemoteMicBridge.state.displayName, systemImage: remoteMicStatusIcon)
+	                            .foregroundColor(remoteMicStatusColor)
+	                        Spacer()
+	                        Text(appleTVRemoteMicBridge.lastStatus)
+                            .font(.caption)
+	                            .foregroundColor(.secondary)
+	                    }
+
+	                    HStack(spacing: 12) {
+	                        Label(
+	                            appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Helper Installed" : "Helper Missing",
+	                            systemImage: appleTVRemoteMicBridge.isCaptureHelperInstalled ? "checkmark.shield.fill" : "exclamationmark.shield.fill"
+	                        )
+	                        .foregroundColor(appleTVRemoteMicBridge.isCaptureHelperInstalled ? .green : .orange)
+
+	                        Label(
+	                            appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? "Virtual Mic Installed" : "Virtual Mic Missing",
+	                            systemImage: appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+	                        )
+	                        .foregroundColor(appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? .green : .orange)
+	                    }
+	                    .font(.caption)
+
+                    HStack {
+                        Button {
+                            appleTVRemoteMicBridge.startPushToTalkCapture()
+                        } label: {
+                            Label("Start Siri Capture", systemImage: "mic.fill")
+                        }
+                        .disabled(!appleTVRemoteMicBridge.isEnabled || appleTVRemoteMicBridge.isRunning)
+
+                        Button {
+                            appleTVRemoteMicBridge.stop()
+                        } label: {
+                            Label("Stop", systemImage: "stop.fill")
+                        }
+                        .disabled(!appleTVRemoteMicBridge.isRunning)
+
+                        if appleTVRemoteMicBridge.lastWavPath != nil {
+                            Button {
+                                appleTVRemoteMicBridge.revealLastWavInFinder()
+                            } label: {
+                                Label("Show WAV", systemImage: "waveform")
+                            }
+                        }
+                    }
+
+                    Text("When enabled, holding Siri starts remote audio capture; release drains a short tail, then capture finishes.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+	                    Text(appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Installed helper avoids repeated administrator prompts. The current virtual mic publishes silence until live PCM feeding is wired." : "Without the installed helper, capture falls back to per-run administrator approval.")
+	                        .font(.caption)
+	                        .foregroundColor(.secondary)
+
+                    if !appleTVRemoteMicBridge.lastTranscript.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Last Transcript")
+                                .font(.caption.bold())
+                                .foregroundColor(.secondary)
+                            Text(appleTVRemoteMicBridge.lastTranscript)
+                                .font(.callout)
+                                .textSelection(.enabled)
+                        }
+                        .padding(.vertical, 4)
+                    }
+
+                    if !appleTVRemoteMicBridge.lastError.isEmpty {
+                        Text(appleTVRemoteMicBridge.lastError)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+
+            if showsDualSenseMicrophone && controllerService.isBluetoothConnection {
                 Section {
                     HStack {
                         Image(systemName: "info.circle.fill")
@@ -899,66 +991,68 @@ struct MicrophoneSettingsView: View {
                 }
             }
 
-            Section("Microphone Control") {
-                Toggle("Mute Microphone", isOn: Binding(
-                    get: { controllerService.isMicMuted },
-                    set: { controllerService.setMicMuted($0) }
-                ))
-                .disabled(controllerService.isBluetoothConnection)
+            if showsDualSenseMicrophone {
+                Section("Microphone Control") {
+                    Toggle("Mute Microphone", isOn: Binding(
+                        get: { controllerService.isMicMuted },
+                        set: { controllerService.setMicMuted($0) }
+                    ))
+                    .disabled(controllerService.isBluetoothConnection)
 
-                Text("Use this to mute or unmute the built-in microphone on your DualSense controller.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Section("Audio Input Test") {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Speak into your controller to test the microphone input level:")
-                        .font(.callout)
+                    Text("Use this to mute or unmute the built-in microphone on your DualSense controller.")
+                        .font(.caption)
                         .foregroundColor(.secondary)
+                }
 
-                    // Audio level meter
-                    AudioLevelMeter(level: controllerService.micAudioLevel)
-                        .frame(height: 24)
+                Section("Audio Input Test") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Speak into your controller to test the microphone input level:")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
 
-                    HStack {
-                        Text("Level:")
+                        AudioLevelMeter(level: controllerService.micAudioLevel)
+                            .frame(height: 24)
+
+                        HStack {
+                            Text("Level:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(Int(controllerService.micAudioLevel * 100))%")
+                                .font(.caption)
+                                .monospacedDigit()
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .disabled(controllerService.isBluetoothConnection || controllerService.isMicMuted)
+                .opacity((controllerService.isBluetoothConnection || controllerService.isMicMuted) ? 0.5 : 1.0)
+
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Tips", systemImage: "lightbulb")
+                            .font(.headline)
+
+                        Text("• The DualSense microphone appears as \"DualSense Wireless Controller\" in System Settings → Sound → Input")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("\(Int(controllerService.micAudioLevel * 100))%")
+
+                        Text("• You can select it as your input device in apps like Discord, Zoom, or FaceTime")
                             .font(.caption)
-                            .monospacedDigit()
+                            .foregroundColor(.secondary)
+
+                        Text("• The mute button on the controller (between the analog sticks) can also toggle mute")
+                            .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
-            }
-            .disabled(controllerService.isBluetoothConnection || controllerService.isMicMuted)
-            .opacity((controllerService.isBluetoothConnection || controllerService.isMicMuted) ? 0.5 : 1.0)
-
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Tips", systemImage: "lightbulb")
-                        .font(.headline)
-
-                    Text("• The DualSense microphone appears as \"DualSense Wireless Controller\" in System Settings → Sound → Input")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Text("• You can select it as your input device in apps like Discord, Zoom, or FaceTime")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Text("• The mute button on the controller (between the analog sticks) can also toggle mute")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.vertical, 4)
             }
         }
         .formStyle(.grouped)
         .padding()
         .onAppear {
+            guard showsDualSenseMicrophone else { return }
             controllerService.refreshMicMuteState()
             if !controllerService.isBluetoothConnection && !controllerService.isMicMuted {
                 controllerService.startMicLevelMonitoring()
@@ -968,11 +1062,32 @@ struct MicrophoneSettingsView: View {
             controllerService.stopMicLevelMonitoring()
         }
         .onChange(of: controllerService.isMicMuted) { _, isMuted in
+            guard showsDualSenseMicrophone else { return }
             if isMuted {
                 controllerService.stopMicLevelMonitoring()
             } else if !controllerService.isBluetoothConnection {
                 controllerService.startMicLevelMonitoring()
             }
+        }
+    }
+
+    private var remoteMicStatusIcon: String {
+        switch appleTVRemoteMicBridge.state {
+        case .idle: return "circle"
+        case .starting: return "hourglass"
+        case .capturing: return "record.circle.fill"
+        case .finished: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var remoteMicStatusColor: Color {
+        switch appleTVRemoteMicBridge.state {
+        case .idle: return .secondary
+        case .starting: return .orange
+        case .capturing: return .red
+        case .finished: return .green
+        case .failed: return .red
         }
     }
 }

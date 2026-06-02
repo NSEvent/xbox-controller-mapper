@@ -98,8 +98,8 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
 		)
 
 		XCTAssertTrue(sections.contains(.touchpad))
+		XCTAssertTrue(sections.contains(.microphone))
 		XCTAssertFalse(sections.contains(.leds))
-		XCTAssertFalse(sections.contains(.microphone))
 	}
 
     func testHiddenSectionEncodingRoundTripsAndIgnoresInvalidTags() {

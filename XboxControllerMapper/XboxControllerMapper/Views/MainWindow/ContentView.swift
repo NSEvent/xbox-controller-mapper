@@ -565,6 +565,7 @@ extension UUID: @retroactive Identifiable {
         .environmentObject(appMonitor)
         .environmentObject(mappingEngine)
         .environmentObject(inputLogService)
+        .environmentObject(AppleTVRemoteMicBridge())
 }
 
 // MARK: - Main Window Sections
@@ -695,7 +696,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .gestures:
             return hasMotion
         case .microphone:
-            return isDualSense
+            return isDualSense || isAppleTVRemote
         default:
             return true
         }
