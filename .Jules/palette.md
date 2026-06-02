@@ -1,0 +1,3 @@
+## 2024-06-02 - Add missing accessibility modifiers to macOS icon-only buttons
+**Learning:** Icon-only buttons (`Button(action:)` with just an `Image(systemName:)`) in SwiftUI macOS applications often miss tooltips and screen reader labels, particularly in list rows and configuration views. This creates a confusing experience for screen reader users and those navigating with mice who rely on hover tooltips to understand icons.
+**Action:** Always add both `.help()` for hover tooltips and `.accessibilityLabel()` for screen readers to icon-only buttons, especially in common components like edit/delete lists.
