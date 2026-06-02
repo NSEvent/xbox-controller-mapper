@@ -925,6 +925,13 @@ struct MicrophoneSettingsView: View {
 	                    }
 	                    .font(.caption)
 
+                    Label(
+                        appleTVRemoteMicBridge.isCoreAudioStreamRunning ? "Virtual Mic Stream Active" : "Virtual Mic Stream Idle",
+                        systemImage: appleTVRemoteMicBridge.isCoreAudioStreamRunning ? "waveform.circle.fill" : "waveform.circle"
+                    )
+                    .font(.caption)
+                    .foregroundColor(appleTVRemoteMicBridge.isCoreAudioStreamRunning ? .green : .secondary)
+
                     HStack {
                         Button {
                             appleTVRemoteMicBridge.startPushToTalkCapture()
@@ -949,11 +956,11 @@ struct MicrophoneSettingsView: View {
                         }
                     }
 
-                    Text("When enabled, holding Siri starts remote audio capture; release drains a short tail, then capture finishes.")
+                    Text("When enabled, ControllerKeys keeps the virtual mic feeder running for apps like VoiceInk. Holding Siri also starts an in-app transcript capture.")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-	                    Text(appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Installed helper avoids repeated administrator prompts. Siri capture feeds the ControllerKeys Remote Mic input device." : "Without the installed helper, capture falls back to per-run administrator approval.")
+	                    Text(appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Installed helper avoids repeated administrator prompts. Select ControllerKeys Remote Mic in your transcription app." : "Without the installed helper, capture falls back to per-run administrator approval.")
 	                        .font(.caption)
 	                        .foregroundColor(.secondary)
 

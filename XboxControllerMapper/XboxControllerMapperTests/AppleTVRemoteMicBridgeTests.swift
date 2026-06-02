@@ -67,4 +67,35 @@ final class AppleTVRemoteMicBridgeTests: XCTestCase {
         XCTAssertTrue(command.shellCommand.contains("--release-grace 0.20"))
         XCTAssertTrue(command.shellCommand.contains("--transcribe"))
     }
+
+    func testInstalledHelperStreamCommandFeedsCoreAudioOnly() {
+        let command = AppleTVRemoteMicStreamCommand(
+            runner: .installedHelper(URL(fileURLWithPath: "/Library/Application Support/ControllerKeys/RemoteMicBridge/controllerkeys-remote-mic-capture")),
+            safetySeconds: 86_400
+        )
+
+        XCTAssertFalse(command.requiresAdministratorPrivileges)
+        XCTAssertTrue(command.shellCommand.contains("controllerkeys-remote-mic-capture'"))
+        XCTAssertTrue(command.shellCommand.contains("--stream-coreaudio"))
+        XCTAssertTrue(command.shellCommand.contains("--seconds 86400"))
+        XCTAssertFalse(command.shellCommand.contains("--transcribe"))
+    }
+
+    func testAdminStreamCommandFeedsCoreAudioOnly() {
+        let command = AppleTVRemoteMicStreamCommand(
+            runner: .adminPython(
+                scriptURL: URL(fileURLWithPath: "/tmp/Project Scripts/apple-tv-remote-packetlogger-live.py"),
+                workingDirectoryURL: URL(fileURLWithPath: "/tmp/Project Scripts")
+            ),
+            safetySeconds: 120
+        )
+
+        XCTAssertTrue(command.requiresAdministratorPrivileges)
+        XCTAssertTrue(command.shellCommand.contains("--capture"))
+        XCTAssertTrue(command.shellCommand.contains("--enable-hid"))
+        XCTAssertTrue(command.shellCommand.contains("--feed-coreaudio"))
+        XCTAssertTrue(command.shellCommand.contains("--coreaudio-only"))
+        XCTAssertTrue(command.shellCommand.contains("--seconds 120"))
+        XCTAssertFalse(command.shellCommand.contains("--stop-on-release"))
+    }
 }

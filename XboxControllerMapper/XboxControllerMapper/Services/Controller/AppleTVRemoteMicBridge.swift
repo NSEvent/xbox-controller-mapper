@@ -80,6 +80,51 @@ struct AppleTVRemoteMicBridgeCommand: Equatable {
     }
 }
 
+struct AppleTVRemoteMicStreamCommand: Equatable {
+    var runner: AppleTVRemoteMicBridgeCommand.Runner
+    var safetySeconds: Int
+
+    var shellCommand: String {
+        var parts: [String]
+        switch runner {
+        case .installedHelper(let helperURL):
+            parts = [
+                AppleTVRemoteMicBridgeCommand.shellQuote(helperURL.path),
+                "--stream-coreaudio",
+                "--seconds",
+                "\(safetySeconds)"
+            ]
+        case .adminPython(let scriptURL, let workingDirectoryURL):
+            parts = [
+                "cd",
+                AppleTVRemoteMicBridgeCommand.shellQuote(workingDirectoryURL.path),
+                "&&",
+                "/usr/bin/python3",
+                AppleTVRemoteMicBridgeCommand.shellQuote(scriptURL.path),
+                "--capture",
+                "--enable-hid",
+                "--feed-coreaudio",
+                "--coreaudio-only",
+                "--seconds",
+                "\(safetySeconds)",
+                "--no-sudo"
+            ]
+        }
+        return parts.joined(separator: " ")
+    }
+
+    var requiresAdministratorPrivileges: Bool {
+        if case .adminPython = runner {
+            return true
+        }
+        return false
+    }
+
+    var appleScript: String {
+        "do shell script \(AppleTVRemoteMicBridgeCommand.appleScriptQuote(shellCommand)) with administrator privileges"
+    }
+}
+
 @MainActor
 final class AppleTVRemoteMicBridge: ObservableObject {
     enum State: String {
@@ -105,8 +150,11 @@ final class AppleTVRemoteMicBridge: ObservableObject {
     @Published var isEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: Self.enabledDefaultsKey)
-            if !isEnabled {
+            if isEnabled {
+                startCoreAudioStream()
+            } else {
                 stop()
+                stopCoreAudioStream()
             }
         }
     }
@@ -118,8 +166,10 @@ final class AppleTVRemoteMicBridge: ObservableObject {
     @Published private(set) var lastRawOutput = ""
     @Published private(set) var lastError = ""
     @Published private(set) var lastRunDate: Date?
+    @Published private(set) var isCoreAudioStreamRunning = false
 
     var safetySeconds: Int = 20
+    var streamSafetySeconds: Int = 86_400
     var releaseGrace: Double = 0.20
 
     private static let installedCaptureHelperPath = "/Library/Application Support/ControllerKeys/RemoteMicBridge/controllerkeys-remote-mic-capture"
@@ -127,10 +177,16 @@ final class AppleTVRemoteMicBridge: ObservableObject {
 
     private let fileManager: FileManager
     private var process: Process?
+    private var streamProcess: Process?
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
         self.isEnabled = UserDefaults.standard.bool(forKey: Self.enabledDefaultsKey)
+        if isEnabled {
+            Task { @MainActor [weak self] in
+                self?.startCoreAudioStream()
+            }
+        }
     }
 
     var isRunning: Bool {
@@ -143,6 +199,7 @@ final class AppleTVRemoteMicBridge: ObservableObject {
             state = .failed
             return
         }
+        startCoreAudioStream()
         guard !isRunning else { return }
 
         guard let command = makeCommand() else {
@@ -200,6 +257,7 @@ final class AppleTVRemoteMicBridge: ObservableObject {
 
     func handleSiriButtonChanged(isPressed: Bool) {
         guard isPressed, isEnabled else { return }
+        startCoreAudioStream()
         startPushToTalkCapture()
     }
 
@@ -207,6 +265,64 @@ final class AppleTVRemoteMicBridge: ObservableObject {
         guard let process, process.isRunning else { return }
         process.terminate()
         lastStatus = "Stopping bridge"
+    }
+
+    func startCoreAudioStream() {
+        guard isEnabled else { return }
+        guard streamProcess?.isRunning != true else {
+            isCoreAudioStreamRunning = true
+            return
+        }
+        guard let command = makeStreamCommand() else { return }
+
+        let process = Process()
+        if command.requiresAdministratorPrivileges {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", command.appleScript]
+        } else {
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = ["-lc", command.shellCommand]
+        }
+
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+        streamProcess = process
+
+        process.terminationHandler = { [weak self] process in
+            let stdout = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let stderr = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            Task { @MainActor [weak self] in
+                guard let self, self.streamProcess === process else { return }
+                self.streamProcess = nil
+                self.isCoreAudioStreamRunning = false
+                if process.terminationStatus != 0, self.isEnabled {
+                    self.lastError = stderr.isEmpty ? stdout : stderr
+                }
+            }
+        }
+
+        do {
+            try process.run()
+            isCoreAudioStreamRunning = true
+        } catch {
+            streamProcess = nil
+            isCoreAudioStreamRunning = false
+            lastError = "Could not start virtual mic stream: \(error.localizedDescription)"
+        }
+    }
+
+    func stopCoreAudioStream() {
+        guard let streamProcess else {
+            isCoreAudioStreamRunning = false
+            return
+        }
+        if streamProcess.isRunning {
+            streamProcess.terminate()
+        }
+        self.streamProcess = nil
+        isCoreAudioStreamRunning = false
     }
 
     func revealLastWavInFinder() {
@@ -252,6 +368,26 @@ final class AppleTVRemoteMicBridge: ObservableObject {
             safetySeconds: safetySeconds,
             releaseGrace: releaseGrace,
             transcribe: true
+        )
+    }
+
+    func makeStreamCommand() -> AppleTVRemoteMicStreamCommand? {
+        let runner: AppleTVRemoteMicBridgeCommand.Runner
+        if let helperURL = locateInstalledCaptureHelper() {
+            runner = .installedHelper(helperURL)
+        } else if let scriptURL = locateBridgeScript() {
+            runner = .adminPython(
+                scriptURL: scriptURL,
+                workingDirectoryURL: scriptURL.deletingLastPathComponent().deletingLastPathComponent()
+            )
+        } else {
+            lastError = "Missing remote mic capture helper and apple-tv-remote-packetlogger-live.py. Run make install-remote-mic-components BUILD_FROM_SOURCE=1."
+            return nil
+        }
+
+        return AppleTVRemoteMicStreamCommand(
+            runner: runner,
+            safetySeconds: streamSafetySeconds
         )
     }
 

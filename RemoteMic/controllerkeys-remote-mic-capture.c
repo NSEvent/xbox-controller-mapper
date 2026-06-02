@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
     const char *output = NULL;
     const char *transcript = NULL;
     int transcribe = 0;
+    int stream_coreaudio = 0;
 
     struct passwd *pw = getpwuid(getuid());
     if (pw == NULL || pw->pw_dir == NULL) {
@@ -60,6 +61,8 @@ int main(int argc, char **argv) {
             transcript = argv[++index];
         } else if (strcmp(argv[index], "--transcribe") == 0) {
             transcribe = 1;
+        } else if (strcmp(argv[index], "--stream-coreaudio") == 0) {
+            stream_coreaudio = 1;
         } else {
             fprintf(stderr, "controllerkeys helper: unsupported argument %s\n", argv[index]);
             return 64;
@@ -70,20 +73,25 @@ int main(int argc, char **argv) {
         fprintf(stderr, "controllerkeys helper: invalid numeric option\n");
         return 64;
     }
-    if (!allowed_output_path(output, pw->pw_dir) || !allowed_output_path(transcript, pw->pw_dir)) {
+    if (!stream_coreaudio && (!allowed_output_path(output, pw->pw_dir) || !allowed_output_path(transcript, pw->pw_dir))) {
         fprintf(stderr, "controllerkeys helper: output paths must stay under ControllerKeys RemoteMic support directory\n");
         return 64;
     }
 
-    char *exec_argv[24];
+    char *exec_argv[28];
     int count = 0;
     exec_argv[count++] = "/usr/bin/python3";
     exec_argv[count++] = SCRIPT;
     exec_argv[count++] = "--capture";
     exec_argv[count++] = "--enable-hid";
-    exec_argv[count++] = "--stop-on-release";
+    if (!stream_coreaudio) {
+        exec_argv[count++] = "--stop-on-release";
+    }
     exec_argv[count++] = "--no-sudo";
     exec_argv[count++] = "--feed-coreaudio";
+    if (stream_coreaudio) {
+        exec_argv[count++] = "--coreaudio-only";
+    }
     exec_argv[count++] = "--hid-probe";
     exec_argv[count++] = HID_PROBE;
     exec_argv[count++] = "--packetlogger";
@@ -92,11 +100,13 @@ int main(int argc, char **argv) {
     exec_argv[count++] = (char *)seconds;
     exec_argv[count++] = "--release-grace";
     exec_argv[count++] = (char *)release_grace;
-    exec_argv[count++] = "-o";
-    exec_argv[count++] = (char *)output;
-    exec_argv[count++] = "--transcript";
-    exec_argv[count++] = (char *)transcript;
-    if (transcribe) {
+    if (!stream_coreaudio) {
+        exec_argv[count++] = "-o";
+        exec_argv[count++] = (char *)output;
+        exec_argv[count++] = "--transcript";
+        exec_argv[count++] = (char *)transcript;
+    }
+    if (transcribe && !stream_coreaudio) {
         exec_argv[count++] = "--transcribe";
     }
     exec_argv[count] = NULL;

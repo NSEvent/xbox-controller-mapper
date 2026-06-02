@@ -71,6 +71,11 @@ def main() -> int:
         help="Publish decoded PCM to the ControllerKeys Remote Mic shared ring.",
     )
     parser.add_argument(
+        "--coreaudio-only",
+        action="store_true",
+        help="Only feed the ControllerKeys Remote Mic ring; do not require packets or write WAV/transcript output.",
+    )
+    parser.add_argument(
         "--enable-hid",
         action="store_true",
         help="Also run the IOHID probe to send the Siri Remote mic enable byte.",
@@ -94,6 +99,8 @@ def main() -> int:
     parser.add_argument("--whisper-bin", default=str(WHISPER_BIN), help="whisper.cpp CLI path.")
     parser.add_argument("--whisper-model", default=str(WHISPER_MODEL), help="whisper.cpp model path.")
     args = parser.parse_args()
+    if args.coreaudio_only and not args.feed_coreaudio:
+        raise LiveError("--coreaudio-only requires --feed-coreaudio")
 
     decoder = load_decoder()
     ring_writer = None
@@ -119,6 +126,11 @@ def main() -> int:
             stream_decoder.close()
         if ring_writer is not None:
             ring_writer.close()
+
+    if args.coreaudio_only:
+        print(f"rawRows={packet_parser.raw_rows} skippedRows={packet_parser.skipped_rows}")
+        print("coreAudioOnly=true")
+        return 0
 
     packets = packet_parser.packets()
     if not packets:
