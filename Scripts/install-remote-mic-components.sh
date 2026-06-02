@@ -33,6 +33,7 @@ mkdir -p "$hal_dir" "$scripts_dir"
 for script in \
 	apple-tv-remote-packetlogger-live.py \
 	apple-tv-remote-pklg-decode.py \
+	apple_tv_remote_coreaudio_ring.py \
 	apple-tv-remote-mic-probe.swift
 do
 	/usr/bin/install -o root -g wheel -m 0755 "$repo_root/Scripts/$script" "$scripts_dir/$script"

@@ -83,6 +83,7 @@ int main(int argc, char **argv) {
     exec_argv[count++] = "--enable-hid";
     exec_argv[count++] = "--stop-on-release";
     exec_argv[count++] = "--no-sudo";
+    exec_argv[count++] = "--feed-coreaudio";
     exec_argv[count++] = "--hid-probe";
     exec_argv[count++] = HID_PROBE;
     exec_argv[count++] = "--packetlogger";

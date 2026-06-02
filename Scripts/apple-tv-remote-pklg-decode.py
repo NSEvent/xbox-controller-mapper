@@ -179,31 +179,46 @@ def parse_mic_payload(value: bytes):
 
 
 def decode_opus_packets(frames):
-    lib = load_opus()
-    error = ctypes.c_int()
-    decoder = lib.opus_decoder_create(SAMPLE_RATE, CHANNELS, ctypes.byref(error))
-    if not decoder or error.value != 0:
-        raise DecodeError(f"opus_decoder_create failed: {error.value}")
-
     output = bytearray()
-    try:
+    with OpusStreamDecoder() as decoder:
         for frame in frames:
-            frame_buffer = (ctypes.c_ubyte * len(frame)).from_buffer_copy(frame)
-            pcm_buffer = (ctypes.c_int16 * (FRAME_SAMPLES * CHANNELS))()
-            decoded = lib.opus_decode(
-                decoder,
-                frame_buffer,
-                len(frame),
-                pcm_buffer,
-                FRAME_SAMPLES,
-                0,
-            )
-            if decoded < 0:
-                raise DecodeError(f"opus_decode failed: {decoded}")
-            output.extend(ctypes.string_at(pcm_buffer, decoded * CHANNELS * 2))
-    finally:
-        lib.opus_decoder_destroy(decoder)
+            output.extend(decoder.decode(frame))
     return bytes(output)
+
+
+class OpusStreamDecoder:
+    def __init__(self):
+        self.lib = load_opus()
+        error = ctypes.c_int()
+        self.decoder = self.lib.opus_decoder_create(SAMPLE_RATE, CHANNELS, ctypes.byref(error))
+        if not self.decoder or error.value != 0:
+            raise DecodeError(f"opus_decoder_create failed: {error.value}")
+
+    def decode(self, frame):
+        frame_buffer = (ctypes.c_ubyte * len(frame)).from_buffer_copy(frame)
+        pcm_buffer = (ctypes.c_int16 * (FRAME_SAMPLES * CHANNELS))()
+        decoded = self.lib.opus_decode(
+            self.decoder,
+            frame_buffer,
+            len(frame),
+            pcm_buffer,
+            FRAME_SAMPLES,
+            0,
+        )
+        if decoded < 0:
+            raise DecodeError(f"opus_decode failed: {decoded}")
+        return ctypes.string_at(pcm_buffer, decoded * CHANNELS * 2)
+
+    def close(self):
+        if self.decoder:
+            self.lib.opus_decoder_destroy(self.decoder)
+            self.decoder = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
 
 
 def load_opus():

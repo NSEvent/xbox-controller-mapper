@@ -40,6 +40,7 @@ struct AppleTVRemoteMicBridgeCommand: Equatable {
                 "--capture",
                 "--enable-hid",
                 "--stop-on-release",
+                "--feed-coreaudio",
                 "--release-grace",
                 String(format: "%.2f", releaseGrace),
                 "--seconds",

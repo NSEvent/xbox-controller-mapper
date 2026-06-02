@@ -11,6 +11,8 @@ import subprocess
 import sys
 import time
 
+from apple_tv_remote_coreaudio_ring import CoreAudioRingWriter
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PACKETLOGGER = "/Applications/PacketLogger.app/Contents/Resources/packetlogger"
@@ -64,6 +66,11 @@ def main() -> int:
     parser.add_argument("--packetlogger", default=PACKETLOGGER, help="PacketLogger CLI path.")
     parser.add_argument("--no-sudo", action="store_true", help="Do not prefix live capture with sudo.")
     parser.add_argument(
+        "--feed-coreaudio",
+        action="store_true",
+        help="Publish decoded PCM to the ControllerKeys Remote Mic shared ring.",
+    )
+    parser.add_argument(
         "--enable-hid",
         action="store_true",
         help="Also run the IOHID probe to send the Siri Remote mic enable byte.",
@@ -89,12 +96,29 @@ def main() -> int:
     args = parser.parse_args()
 
     decoder = load_decoder()
-    packet_parser = PacketLoggerRawParser(decoder)
+    ring_writer = None
+    stream_decoder = None
+    if args.feed_coreaudio:
+        ring_writer = CoreAudioRingWriter(error_type=LiveError)
+        stream_decoder = decoder.OpusStreamDecoder()
 
-    if args.capture:
-        read_live_capture(args, packet_parser)
-    else:
-        read_input(args.input, packet_parser)
+    def feed_coreaudio(packet):
+        if ring_writer is None or stream_decoder is None:
+            return
+        ring_writer.write_pcm(stream_decoder.decode(packet["opus"]))
+
+    packet_parser = PacketLoggerRawParser(decoder, packet_callback=feed_coreaudio)
+
+    try:
+        if args.capture:
+            read_live_capture(args, packet_parser)
+        else:
+            read_input(args.input, packet_parser)
+    finally:
+        if stream_decoder is not None:
+            stream_decoder.close()
+        if ring_writer is not None:
+            ring_writer.close()
 
     packets = packet_parser.packets()
     if not packets:
@@ -130,8 +154,9 @@ def main() -> int:
 
 
 class PacketLoggerRawParser:
-    def __init__(self, decoder):
+    def __init__(self, decoder, packet_callback=None):
         self.decoder = decoder
+        self.packet_callback = packet_callback
         self.raw_rows = 0
         self.skipped_rows = 0
         self._packets_by_seq = OrderedDict()
@@ -151,7 +176,10 @@ class PacketLoggerRawParser:
 
         packet = self._packet_from_converted_acl(raw, sequence)
         if packet is not None:
+            is_new = packet["seq"] not in self._packets_by_seq
             self._packets_by_seq.setdefault(packet["seq"], packet)
+            if is_new and self.packet_callback is not None:
+                self.packet_callback(packet)
             if self.siri_released:
                 self.siri_released_after_mic = True
         self._scan_button_state(raw)

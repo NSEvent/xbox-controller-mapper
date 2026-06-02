@@ -18,6 +18,7 @@ final class AppleTVRemoteMicBridgeTests: XCTestCase {
         XCTAssertTrue(command.shellCommand.contains("--capture"))
         XCTAssertTrue(command.shellCommand.contains("--enable-hid"))
         XCTAssertTrue(command.shellCommand.contains("--stop-on-release"))
+        XCTAssertTrue(command.shellCommand.contains("--feed-coreaudio"))
         XCTAssertTrue(command.shellCommand.contains("--release-grace 0.20"))
         XCTAssertTrue(command.shellCommand.contains("--seconds 20"))
         XCTAssertTrue(command.shellCommand.contains("--no-sudo"))

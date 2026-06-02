@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "ControllerKeysRemoteMicRingReader.h"
+
 enum {
     kObjectPlugIn = kAudioObjectPlugInObject,
     kObjectDevice = 2,
@@ -14,13 +16,14 @@ enum {
 #define DEVICE_UID "com.kevintang.ControllerKeys.RemoteMic"
 #define MODEL_UID "com.kevintang.ControllerKeys.RemoteMic.Model"
 #define BOX_UID "com.kevintang.ControllerKeys.RemoteMic.Box"
-#define SAMPLE_RATE 48000.0
-#define CHANNELS 1
-#define BYTES_PER_FRAME 4
+#define SAMPLE_RATE ((Float64)CK_REMOTE_MIC_SAMPLE_RATE)
+#define CHANNELS CK_REMOTE_MIC_CHANNELS
+#define BYTES_PER_FRAME CK_REMOTE_MIC_BYTES_PER_FRAME
 #define ZERO_TIMESTAMP_PERIOD 16384
 
 static pthread_mutex_t gStateMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t gIOMutex = PTHREAD_MUTEX_INITIALIZER;
+static CKRemoteMicRingReader gRingReader = CK_REMOTE_MIC_RING_READER_INITIALIZER;
 static UInt32 gRefCount = 0;
 static UInt64 gIOCount = 0;
 static UInt64 gTimestampCount = 0;
@@ -84,14 +87,15 @@ static AudioStreamBasicDescription streamFormat(void) {
     memset(&format, 0, sizeof(format));
     format.mSampleRate = SAMPLE_RATE;
     format.mFormatID = kAudioFormatLinearPCM;
-    format.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
+    format.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagsNativeEndian | kAudioFormatFlagIsPacked;
     format.mBytesPerPacket = BYTES_PER_FRAME;
     format.mFramesPerPacket = 1;
     format.mBytesPerFrame = BYTES_PER_FRAME;
     format.mChannelsPerFrame = CHANNELS;
-    format.mBitsPerChannel = 32;
+    format.mBitsPerChannel = 16;
     return format;
 }
+
 
 static void updateClock(void) {
     struct mach_timebase_info timebase;
@@ -469,6 +473,7 @@ static OSStatus StartIO(AudioServerPlugInDriverRef driver, AudioObjectID id, UIn
     if (gIOCount++ == 0) {
         gTimestampCount = 0;
         gAnchorHostTime = mach_absolute_time();
+        CKRemoteMicRingOpenIfNeeded(&gRingReader);
     }
     pthread_mutex_unlock(&gStateMutex);
     return 0;
@@ -516,7 +521,7 @@ static OSStatus DoIO(AudioServerPlugInDriverRef driver, AudioObjectID deviceID, 
     (void)clientID; (void)info; (void)secondaryBuffer;
     if (!validDriver(driver) || deviceID != kObjectDevice || streamID != kObjectStreamInput) return kAudioHardwareBadObjectError;
     if (op == kAudioServerPlugInIOOperationReadInput && mainBuffer != NULL) {
-        memset(mainBuffer, 0, frames * BYTES_PER_FRAME);
+        CKRemoteMicRingCopyFrames(&gRingReader, (SInt16 *)mainBuffer, frames);
     }
     return 0;
 }

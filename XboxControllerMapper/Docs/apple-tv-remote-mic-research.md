@@ -234,6 +234,8 @@ The branch now includes an app-side prototype bridge and the first installable v
   - root-owned PacketLogger bridge scripts under `/Library/Application Support/ControllerKeys/RemoteMicBridge/Scripts`
 - `make install-remote-mic-components BUILD_FROM_SOURCE=1` is the one-admin-prompt install path for the HAL driver and helper.
 - The app prefers the installed helper. If it is missing, it falls back to the old admin `osascript` PacketLogger command.
+- `Scripts/apple_tv_remote_coreaudio_ring.py` publishes decoded PCM into a file-backed mmap ring at `/tmp/controllerkeys-remote-mic.pcm`.
+- `RemoteMic/ControllerKeysRemoteMicRingReader.h` maps that ring from the HAL driver and copies Int16 PCM into the CoreAudio IO callback, returning silence when the helper is idle or unavailable.
 
 2026-06-02 verification:
 
@@ -241,9 +243,13 @@ The branch now includes an app-side prototype bridge and the first installable v
 - The installed driver is signed with Team ID `542GXYT5Z2` and appears in CoreAudio as `ControllerKeys Remote Mic` with one input stream.
 - The installed helper is root-owned and setuid (`root:wheel`, mode `4755`).
 - Direct helper smoke launched PacketLogger without a macOS administrator dialog. It exited with the expected "no mic packets found" error when the Siri/mic button was not held.
+- Saved PacketLogger replay with `--feed-coreaudio` filled the shared ring with 310,080 decoded 48 kHz mono Int16 samples from `test2.pklg`.
+- A direct C reader using the same ring reader header copied nonzero PCM from the shared ring, confirming the helper-to-driver buffer format.
+- CoreAudio enumeration sees `ControllerKeys Remote Mic` by UID `com.kevintang.ControllerKeys.RemoteMic`.
+- A throwaway CLI AudioQueue recorder received buffers from the virtual input, but those buffers were all zero while running outside the app. That is likely macOS microphone/TCC client gating for the unsigned temporary recorder, not a ring-buffer failure.
 - Focused tests passed: `AppleTVRemoteMicBridgeTests`, `MainWindowSectionVisibilityTests`, and `ControllerServiceCallbackProxyTests` ran 43 tests with 0 failures.
 
-Current limitation: the virtual input currently outputs silence. The PacketLogger capture helper can decode remote audio into WAV/transcript artifacts, but the live PCM feed has not yet been connected into the HAL driver's IO callback. The next backend step is a shared-memory, XPC, or local-socket PCM ring buffer from the privileged capture helper into `ControllerKeysRemoteMic.driver`.
+Current limitation: the PCM bridge still depends on Apple's PacketLogger CLI and the Bluetooth logging profile. The virtual mic is therefore a power-user/admin tooling path, not yet a normal distribution-grade capture backend.
 
 Open engineering questions:
 

@@ -953,7 +953,7 @@ struct MicrophoneSettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-	                    Text(appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Installed helper avoids repeated administrator prompts. The current virtual mic publishes silence until live PCM feeding is wired." : "Without the installed helper, capture falls back to per-run administrator approval.")
+	                    Text(appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Installed helper avoids repeated administrator prompts. Siri capture feeds the ControllerKeys Remote Mic input device." : "Without the installed helper, capture falls back to per-run administrator approval.")
 	                        .font(.caption)
 	                        .foregroundColor(.secondary)
 
