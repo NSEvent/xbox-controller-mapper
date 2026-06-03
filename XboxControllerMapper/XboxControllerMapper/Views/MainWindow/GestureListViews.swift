@@ -79,6 +79,7 @@ struct GestureRow: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Edit")
+                .help("Edit")
 
                 if mapping?.hasAction == true {
                     Button(action: onClear) {
@@ -87,6 +88,7 @@ struct GestureRow: View {
                     }
                     .buttonStyle(.borderless)
                     .accessibilityLabel("Clear")
+                    .help("Clear")
                 }
             }
         }

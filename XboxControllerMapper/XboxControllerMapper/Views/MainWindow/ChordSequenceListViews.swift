@@ -116,6 +116,7 @@ struct ChordRow: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Edit")
+                .help("Edit")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -123,6 +124,7 @@ struct ChordRow: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Delete")
+                .help("Delete")
             }
         }
         .padding(.horizontal, 12)
@@ -260,6 +262,7 @@ struct SequenceRow: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Edit")
+                .help("Edit")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -267,6 +270,7 @@ struct SequenceRow: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Delete")
+                .help("Delete")
             }
         }
         .padding(.horizontal, 12)

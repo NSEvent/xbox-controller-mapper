@@ -223,6 +223,7 @@ struct ScriptRow: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Edit")
+                .help("Edit")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -230,6 +231,7 @@ struct ScriptRow: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Delete")
+                .help("Delete")
             }
         }
         .padding(.horizontal, 12)
