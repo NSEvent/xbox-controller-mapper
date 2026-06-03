@@ -237,6 +237,26 @@ The branch now includes an app-side prototype bridge and the first installable v
 - `Scripts/apple_tv_remote_coreaudio_ring.py` publishes decoded PCM into a file-backed mmap ring at `/tmp/controllerkeys-remote-mic.pcm`.
 - `RemoteMic/ControllerKeysRemoteMicRingReader.h` maps that ring from the HAL driver and converts Int16 PCM into the Float32 CoreAudio input callback format, returning silence when the helper is idle or unavailable.
 
+### Proven VoiceInk Technique
+
+2026-06-02 VoiceInk validation succeeded after treating the Siri Remote audio bridge as a real virtual input device instead of an app-local transcription pipeline.
+
+Working pattern:
+
+```text
+Siri Remote button down -> refresh remote mic enable byte -> PacketLogger HCI rows -> live L2CAP reassembly -> Opus decode -> mmap PCM ring -> per-client HAL reader -> VoiceInk
+```
+
+Important implementation details:
+
+- Keep `ControllerKeys Remote Mic` registered continuously. Third-party apps such as VoiceInk open and hold input devices; the HAL device should return silence while the remote is idle, not disappear between captures.
+- Run a long-lived helper while the feature is enabled. It launches `packetlogger convert --stdout --format ir`, runs the IOHID probe beside it, and feeds CoreAudio only (`--feed-coreaudio --coreaudio-only`).
+- Refresh the Apple TV Remote mic enable byte (`0xAF`) on every Siri button press and write it across all visible remote HID child devices. The consumer-control child may report the button, but the enable write can belong to a different child.
+- Reassemble fragmented ACL/L2CAP packets live. The saved `.pklg` decoder worked earlier because it had a fallback packet pass; VoiceInk needed the streaming path to deliver packets immediately.
+- Do not dedupe mic packets by remote sequence number in the long-lived CoreAudio feed. Sequence numbers restart per button session, so global dedupe drops later sessions.
+- Give each CoreAudio client its own ring reader. VoiceInk, Sound settings, and meters may all open the same virtual mic; a global read cursor lets one client consume samples before another client sees them.
+- Flush capture state on each new Siri press. Clear the mmap ring, increment `resetCounter`, reset `writeFrame`, and recreate the Opus decoder. HAL readers should seek to the current `writeFrame` on reset/start so old ring contents are never replayed into the next dictation.
+
 2026-06-02 verification:
 
 - The HAL driver must expose a box object, an empty output stream list, an empty control list, and a mono preferred channel layout before CoreAudio will publish it.
@@ -248,6 +268,8 @@ The branch now includes an app-side prototype bridge and the first installable v
 - CoreAudio enumeration sees `ControllerKeys Remote Mic` by UID `com.kevintang.ControllerKeys.RemoteMic`.
 - After switching the HAL stream to 48 kHz mono Float32 and tightening the device owned-object scopes, a throwaway AudioQueue recorder can start and stop the virtual input without wedging `coreaudiod`.
 - Feeding `test2.pklg` into `/tmp/controllerkeys-remote-mic.pcm` in realtime produced nonzero samples from the virtual CoreAudio input: `bytes=385024 nonzero=130410 abssum=255097050`.
+- Real Siri Remote audio captured through the virtual input with ffmpeg produced nonzero CoreAudio samples: `/tmp/ck-remote-live-fixed.wav`, `rms=3384.7`, `peak=32768`, with helper `micPackets=216`.
+- VoiceInk successfully received current Siri Remote speech from `ControllerKeys Remote Mic` after the ring/decoder flush fix. Without the flush, the next Siri press could replay audio from the previous press.
 - Focused tests passed: `AppleTVRemoteMicBridgeTests`, `MainWindowSectionVisibilityTests`, and `ControllerServiceCallbackProxyTests` ran 43 tests with 0 failures.
 
 Current limitation: the PCM bridge still depends on Apple's PacketLogger CLI and the Bluetooth logging profile. The virtual mic is therefore a power-user/admin tooling path, not yet a normal distribution-grade capture backend.
