@@ -1,6 +1,7 @@
 import XCTest
 import CoreGraphics
 import Carbon.HIToolbox
+import AppKit
 @testable import ControllerKeys
 
 final class ModifierFlagsSideTests: XCTestCase {
@@ -132,6 +133,30 @@ final class ModifierFlagsSideTests: XCTestCase {
 			.holdModifierKey(CGKeyCode(kVK_RightCommand)),
 			.releaseModifierKey(CGKeyCode(kVK_RightCommand))
 		])
+    }
+
+	@MainActor
+	func testKeyCaptureModifierFlags_PreservesSidesForModifierKeyShortcut() {
+		let modifiers = KeyCaptureNSView.modifierFlags(
+			from: [.command, .shift],
+			capturedKeyCodes: [UInt16(kVK_RightCommand), UInt16(kVK_Shift)]
+		)
+
+		XCTAssertTrue(modifiers.command)
+		XCTAssertTrue(modifiers.shift)
+		XCTAssertEqual(modifiers.commandSide, .right)
+		XCTAssertEqual(modifiers.shiftSide, .left)
+    }
+
+	@MainActor
+	func testKeyCaptureModifierFlags_UsesAnyWhenBothSidesWereCaptured() {
+		let modifiers = KeyCaptureNSView.modifierFlags(
+			from: [.command],
+			capturedKeyCodes: [UInt16(kVK_Command), UInt16(kVK_RightCommand)]
+		)
+
+		XCTAssertTrue(modifiers.command)
+		XCTAssertNil(modifiers.commandSide)
     }
 }
 
