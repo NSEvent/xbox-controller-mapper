@@ -78,6 +78,14 @@ static CKRemoteMicRing *CKRemoteMicRingOpenIfNeeded(CKRemoteMicRingReader *reade
     return ring;
 }
 
+static void CKRemoteMicRingReaderFlush(CKRemoteMicRingReader *reader) {
+    if (reader == NULL) return;
+    CKRemoteMicRing *ring = CKRemoteMicRingOpenIfNeeded(reader);
+    if (ring == NULL || !CKRemoteMicRingIsValid(ring)) return;
+    reader->readFrame = ring->writeFrame;
+    reader->lastResetCounter = ring->resetCounter;
+}
+
 static __attribute__((unused)) void CKRemoteMicRingCopyFrames(CKRemoteMicRingReader *reader, SInt16 *out, UInt32 frames) {
     CKRemoteMicRing *ring = reader->ring;
     if (ring == NULL || !CKRemoteMicRingIsValid(ring)) {
@@ -91,7 +99,7 @@ static __attribute__((unused)) void CKRemoteMicRingCopyFrames(CKRemoteMicRingRea
     UInt64 resetCounter = ring->resetCounter;
     UInt64 writeFrame = ring->writeFrame;
     if (resetCounter != reader->lastResetCounter || writeFrame < reader->readFrame) {
-        reader->readFrame = writeFrame > CK_REMOTE_MIC_CAPACITY_FRAMES ? writeFrame - CK_REMOTE_MIC_CAPACITY_FRAMES : 0;
+        reader->readFrame = writeFrame;
         reader->lastResetCounter = resetCounter;
     }
     if (writeFrame > reader->readFrame + CK_REMOTE_MIC_CAPACITY_FRAMES) {
@@ -127,7 +135,7 @@ static void CKRemoteMicRingCopyFloatFrames(CKRemoteMicRingReader *reader, Float3
     UInt64 resetCounter = ring->resetCounter;
     UInt64 writeFrame = ring->writeFrame;
     if (resetCounter != reader->lastResetCounter || writeFrame < reader->readFrame) {
-        reader->readFrame = writeFrame > CK_REMOTE_MIC_CAPACITY_FRAMES ? writeFrame - CK_REMOTE_MIC_CAPACITY_FRAMES : 0;
+        reader->readFrame = writeFrame;
         reader->lastResetCounter = resetCounter;
     }
     if (writeFrame > reader->readFrame + CK_REMOTE_MIC_CAPACITY_FRAMES) {

@@ -17,6 +17,7 @@ WRITE_OFFSET = 24
 RESET_OFFSET = 32
 SAMPLES_OFFSET = HEADER.size
 SIZE = SAMPLES_OFFSET + CAPACITY_FRAMES * BYTES_PER_FRAME
+ZERO_SAMPLES = b"\0" * (CAPACITY_FRAMES * BYTES_PER_FRAME)
 
 
 class CoreAudioRingWriter:
@@ -38,6 +39,8 @@ class CoreAudioRingWriter:
         if self.map[:4] == struct.pack("<I", MAGIC):
             reset_counter = struct.unpack_from("<Q", self.map, RESET_OFFSET)[0]
         self.write_frame = 0
+        self.reset_counter = reset_counter + 1
+        self.map[SAMPLES_OFFSET : SAMPLES_OFFSET + len(ZERO_SAMPLES)] = ZERO_SAMPLES
         HEADER.pack_into(
             self.map,
             0,
@@ -48,8 +51,15 @@ class CoreAudioRingWriter:
             CAPACITY_FRAMES,
             BYTES_PER_FRAME,
             self.write_frame,
-            reset_counter + 1,
+            self.reset_counter,
         )
+
+    def reset(self):
+        self.write_frame = 0
+        self.map[SAMPLES_OFFSET : SAMPLES_OFFSET + len(ZERO_SAMPLES)] = ZERO_SAMPLES
+        struct.pack_into("<Q", self.map, WRITE_OFFSET, self.write_frame)
+        self.reset_counter += 1
+        struct.pack_into("<Q", self.map, RESET_OFFSET, self.reset_counter)
 
     def write_pcm(self, pcm: bytes):
         if not pcm:

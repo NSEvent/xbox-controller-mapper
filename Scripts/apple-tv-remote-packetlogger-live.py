@@ -114,9 +114,18 @@ def main() -> int:
             return
         ring_writer.write_pcm(stream_decoder.decode(packet["opus"]))
 
+    def reset_coreaudio():
+        nonlocal stream_decoder
+        if stream_decoder is not None:
+            stream_decoder.close()
+            stream_decoder = decoder.OpusStreamDecoder()
+        if ring_writer is not None:
+            ring_writer.reset()
+
     packet_parser = PacketLoggerRawParser(
         decoder,
         packet_callback=feed_coreaudio,
+        siri_press_callback=reset_coreaudio,
         store_packets=not args.coreaudio_only,
     )
 
@@ -171,9 +180,10 @@ def main() -> int:
 
 
 class PacketLoggerRawParser:
-    def __init__(self, decoder, packet_callback=None, store_packets=True):
+    def __init__(self, decoder, packet_callback=None, siri_press_callback=None, store_packets=True):
         self.decoder = decoder
         self.packet_callback = packet_callback
+        self.siri_press_callback = siri_press_callback
         self.store_packets = store_packets
         self.raw_rows = 0
         self.skipped_rows = 0
@@ -301,6 +311,8 @@ class PacketLoggerRawParser:
         if is_pressed != self.siri_pressed:
             self.button_events += 1
         if is_pressed:
+            if not self.siri_pressed and self.siri_press_callback is not None:
+                self.siri_press_callback()
             self.siri_pressed = True
             self.siri_released = False
             return

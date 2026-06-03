@@ -541,7 +541,7 @@ static OSStatus StartIO(AudioServerPlugInDriverRef driver, AudioObjectID id, UIn
         gAnchorHostTime = mach_absolute_time();
     }
     pthread_mutex_unlock(&gStateMutex);
-    CKRemoteMicRingOpenIfNeeded(clientRingReaderForID(clientID));
+    CKRemoteMicRingReaderFlush(clientRingReaderForID(clientID));
     return 0;
 }
 
