@@ -20,6 +20,25 @@ typedef struct {
 
 #define CK_REMOTE_MIC_RING_READER_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, NULL, 0, 0, 0 }
 
+static void CKRemoteMicRingReaderInit(CKRemoteMicRingReader *reader) {
+    if (reader == NULL) return;
+    memset(reader, 0, sizeof(*reader));
+    pthread_mutex_init(&reader->mutex, NULL);
+}
+
+static void CKRemoteMicRingReaderClose(CKRemoteMicRingReader *reader) {
+    if (reader == NULL) return;
+    pthread_mutex_lock(&reader->mutex);
+    if (reader->ring != NULL) {
+        munmap(reader->ring, sizeof(CKRemoteMicRing));
+        reader->ring = NULL;
+    }
+    reader->readFrame = 0;
+    reader->lastResetCounter = 0;
+    reader->retryCountdown = 0;
+    pthread_mutex_unlock(&reader->mutex);
+}
+
 static int CKRemoteMicRingIsValid(CKRemoteMicRing *ring) {
     return ring != NULL &&
         ring->magic == CK_REMOTE_MIC_MAGIC &&

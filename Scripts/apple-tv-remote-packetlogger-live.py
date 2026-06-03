@@ -114,7 +114,11 @@ def main() -> int:
             return
         ring_writer.write_pcm(stream_decoder.decode(packet["opus"]))
 
-    packet_parser = PacketLoggerRawParser(decoder, packet_callback=feed_coreaudio)
+    packet_parser = PacketLoggerRawParser(
+        decoder,
+        packet_callback=feed_coreaudio,
+        store_packets=not args.coreaudio_only,
+    )
 
     try:
         if args.capture:
@@ -129,6 +133,7 @@ def main() -> int:
 
     if args.coreaudio_only:
         print(f"rawRows={packet_parser.raw_rows} skippedRows={packet_parser.skipped_rows}")
+        print(f"micPackets={packet_parser.mic_packet_count}")
         print("coreAudioOnly=true")
         return 0
 
@@ -166,13 +171,16 @@ def main() -> int:
 
 
 class PacketLoggerRawParser:
-    def __init__(self, decoder, packet_callback=None):
+    def __init__(self, decoder, packet_callback=None, store_packets=True):
         self.decoder = decoder
         self.packet_callback = packet_callback
+        self.store_packets = store_packets
         self.raw_rows = 0
         self.skipped_rows = 0
         self._packets_by_seq = OrderedDict()
         self._fallback_records = []
+        self._pending_l2cap = {}
+        self.mic_packet_count = 0
         self.button_events = 0
         self.siri_pressed = False
         self.siri_released = False
@@ -186,17 +194,21 @@ class PacketLoggerRawParser:
         self.raw_rows += 1
         sequence = self.raw_rows
 
-        packet = self._packet_from_converted_acl(raw, sequence)
-        if packet is not None:
-            is_new = packet["seq"] not in self._packets_by_seq
-            self._packets_by_seq.setdefault(packet["seq"], packet)
+        packets = self._packets_from_converted_acl(raw, sequence)
+        for packet in packets:
+            self.mic_packet_count += 1
+            if self.store_packets:
+                is_new = packet["seq"] not in self._packets_by_seq
+                self._packets_by_seq.setdefault(packet["seq"], packet)
+            else:
+                is_new = True
             if is_new and self.packet_callback is not None:
                 self.packet_callback(packet)
             if self.siri_released:
                 self.siri_released_after_mic = True
-        self._scan_button_state(raw)
 
-        if raw:
+        self._scan_button_state(raw)
+        if raw and self.store_packets:
             hci_raw = raw if raw[0] == self.decoder.HCI_ACL else bytes([self.decoder.HCI_ACL]) + raw
             self._fallback_records.append({"sequence": sequence, "bytes": hci_raw})
 
@@ -205,28 +217,63 @@ class PacketLoggerRawParser:
             return list(self._packets_by_seq.values())
         return self.decoder.extract_mic_packets(self._fallback_records)
 
-    def _packet_from_converted_acl(self, raw: bytes, sequence: int):
+    def _packets_from_converted_acl(self, raw: bytes, sequence: int):
         if raw and raw[0] == self.decoder.HCI_ACL:
             raw = raw[1:]
-        if len(raw) < 11:
-            return None
+        if len(raw) < 4:
+            return []
 
-        l2cap_length = self.decoder.read_u16le(raw, 4)
-        cid = self.decoder.read_u16le(raw, 6)
-        if cid != L2CAP_ATT_CID or len(raw) < 8 + l2cap_length:
-            return None
+        handle_pb_bc = self.decoder.read_u16le(raw, 0)
+        connection_handle = handle_pb_bc & 0x0FFF
+        pb = (handle_pb_bc >> 12) & 0x03
+        acl_length = self.decoder.read_u16le(raw, 2)
+        if len(raw) < 4 + acl_length:
+            return []
+        acl_payload = raw[4 : 4 + acl_length]
+        if not acl_payload:
+            return []
 
-        att = raw[8 : 8 + l2cap_length]
+        if pb == 0x01:
+            pending = self._pending_l2cap.get(connection_handle)
+            if pending is None:
+                return []
+            pending["payload"] += acl_payload
+            if len(pending["payload"]) < pending["expected_length"]:
+                return []
+            payload = pending["payload"][: pending["expected_length"]]
+            cid = pending["cid"]
+            self._pending_l2cap.pop(connection_handle, None)
+            return self._packets_from_l2cap_payload(cid, payload, sequence)
+
+        if len(acl_payload) < 4:
+            return []
+        l2cap_length = self.decoder.read_u16le(acl_payload, 0)
+        cid = self.decoder.read_u16le(acl_payload, 2)
+        l2cap_payload = acl_payload[4:]
+        if len(l2cap_payload) >= l2cap_length:
+            return self._packets_from_l2cap_payload(cid, l2cap_payload[:l2cap_length], sequence)
+
+        self._pending_l2cap[connection_handle] = {
+            "expected_length": l2cap_length,
+            "cid": cid,
+            "payload": l2cap_payload,
+        }
+        return []
+
+    def _packets_from_l2cap_payload(self, cid: int, payload: bytes, sequence: int):
+        if cid != L2CAP_ATT_CID:
+            return []
+        att = payload
         if len(att) < 3 or att[0] not in (ATT_NOTIFY, ATT_INDICATE):
-            return None
+            return []
 
         handle = self.decoder.read_u16le(att, 1)
         mic = self.decoder.parse_mic_payload(att[3:])
         if mic is None:
-            return None
+            return []
 
         seq, opus = mic
-        return {"seq": seq, "handle": handle, "opus": opus, "record": sequence}
+        return [{"seq": seq, "handle": handle, "opus": opus, "record": sequence}]
 
     def _scan_button_state(self, raw: bytes):
         att = self._att_from_converted_acl(raw)
@@ -259,7 +306,7 @@ class PacketLoggerRawParser:
             return
 
         self.siri_released = True
-        if self._packets_by_seq:
+        if self.mic_packet_count > 0:
             self.siri_released_after_mic = True
         self.siri_pressed = False
 

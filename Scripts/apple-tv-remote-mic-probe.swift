@@ -42,6 +42,7 @@ private final class AppleTVRemoteMicProbe {
     private var otherRemoteReportCount = 0
     private var valueCount = 0
     private var anyReportCount = 0
+    private var lastPressEnableByDeviceKey: [String: Date] = [:]
 
     init(duration: TimeInterval, seize: Bool) {
         self.duration = duration
@@ -201,6 +202,9 @@ private final class AppleTVRemoteMicProbe {
                 length
             ))
         }
+        if usagePage == ProbeConstants.consumerUsagePage && usage == ProbeConstants.microphoneUsage && intValue != 0 {
+            writeInputEnableForPressedMicButton(to: device)
+        }
     }
 
     private func writeInputEnableToAllRemoteChildren() {
@@ -208,6 +212,17 @@ private final class AppleTVRemoteMicProbe {
         for device in enableDevices.values.sorted(by: { Self.deviceKey($0) < Self.deviceKey($1) }) {
             writeInputEnable(to: device)
         }
+    }
+
+    private func writeInputEnableForPressedMicButton(to device: IOHIDDevice) {
+        let key = Self.deviceKey(device)
+        let now = Date()
+        if let last = lastPressEnableByDeviceKey[key], now.timeIntervalSince(last) < 0.75 {
+            return
+        }
+        lastPressEnableByDeviceKey[key] = now
+        log("Siri/mic press detected; refreshing remote mic enable byte on all remote HID children")
+        writeInputEnableToAllRemoteChildren()
     }
 
     private func writeInputEnable(to device: IOHIDDevice) {

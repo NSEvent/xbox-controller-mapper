@@ -178,6 +178,7 @@ final class AppleTVRemoteMicBridge: ObservableObject {
     private let fileManager: FileManager
     private var process: Process?
     private var streamProcess: Process?
+    private var isStoppingCoreAudioStream = false
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
@@ -288,6 +289,7 @@ final class AppleTVRemoteMicBridge: ObservableObject {
         let errorPipe = Pipe()
         process.standardOutput = outputPipe
         process.standardError = errorPipe
+        isStoppingCoreAudioStream = false
         streamProcess = process
 
         process.terminationHandler = { [weak self] process in
@@ -297,8 +299,17 @@ final class AppleTVRemoteMicBridge: ObservableObject {
                 guard let self, self.streamProcess === process else { return }
                 self.streamProcess = nil
                 self.isCoreAudioStreamRunning = false
-                if process.terminationStatus != 0, self.isEnabled {
+                let shouldRestart = self.isEnabled && !self.isStoppingCoreAudioStream
+                self.isStoppingCoreAudioStream = false
+                if process.terminationStatus != 0, shouldRestart {
                     self.lastError = stderr.isEmpty ? stdout : stderr
+                }
+                if shouldRestart {
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        guard let self, self.isEnabled, self.streamProcess == nil else { return }
+                        self.startCoreAudioStream()
+                    }
                 }
             }
         }
@@ -316,8 +327,10 @@ final class AppleTVRemoteMicBridge: ObservableObject {
     func stopCoreAudioStream() {
         guard let streamProcess else {
             isCoreAudioStreamRunning = false
+            isStoppingCoreAudioStream = false
             return
         }
+        isStoppingCoreAudioStream = true
         if streamProcess.isRunning {
             streamProcess.terminate()
         }

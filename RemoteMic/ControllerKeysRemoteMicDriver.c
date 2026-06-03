@@ -20,10 +20,20 @@ enum {
 #define CHANNELS CK_REMOTE_MIC_CHANNELS
 #define BYTES_PER_FRAME 4
 #define ZERO_TIMESTAMP_PERIOD 16384
+#define MAX_CLIENT_READERS 64
+
+typedef struct {
+    UInt32 clientID;
+    UInt32 initialized;
+    UInt32 active;
+    CKRemoteMicRingReader reader;
+} ClientRingReader;
 
 static pthread_mutex_t gStateMutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t gClientMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t gIOMutex = PTHREAD_MUTEX_INITIALIZER;
 static CKRemoteMicRingReader gRingReader = CK_REMOTE_MIC_RING_READER_INITIALIZER;
+static ClientRingReader gClientReaders[MAX_CLIENT_READERS];
 static UInt32 gRefCount = 0;
 static UInt64 gIOCount = 0;
 static UInt64 gTimestampCount = 0;
@@ -63,6 +73,47 @@ static AudioServerPlugInDriverInterface gInterface = {
 };
 static AudioServerPlugInDriverInterface *gInterfacePtr = &gInterface;
 static AudioServerPlugInDriverRef gDriverRef = &gInterfacePtr;
+
+static CKRemoteMicRingReader *clientRingReaderForID(UInt32 clientID) {
+    CKRemoteMicRingReader *reader = NULL;
+    pthread_mutex_lock(&gClientMutex);
+    for (UInt32 index = 0; index < MAX_CLIENT_READERS; ++index) {
+        if (gClientReaders[index].active && gClientReaders[index].clientID == clientID) {
+            reader = &gClientReaders[index].reader;
+            break;
+        }
+    }
+    if (reader == NULL) {
+        for (UInt32 index = 0; index < MAX_CLIENT_READERS; ++index) {
+            if (!gClientReaders[index].active) {
+                if (!gClientReaders[index].initialized) {
+                    CKRemoteMicRingReaderInit(&gClientReaders[index].reader);
+                    gClientReaders[index].initialized = 1;
+                } else {
+                    CKRemoteMicRingReaderClose(&gClientReaders[index].reader);
+                }
+                gClientReaders[index].clientID = clientID;
+                gClientReaders[index].active = 1;
+                reader = &gClientReaders[index].reader;
+                break;
+            }
+        }
+    }
+    pthread_mutex_unlock(&gClientMutex);
+    return reader != NULL ? reader : &gRingReader;
+}
+
+static void removeClientRingReader(UInt32 clientID) {
+    pthread_mutex_lock(&gClientMutex);
+    for (UInt32 index = 0; index < MAX_CLIENT_READERS; ++index) {
+        if (gClientReaders[index].active && gClientReaders[index].clientID == clientID) {
+            gClientReaders[index].active = 0;
+            CKRemoteMicRingReaderClose(&gClientReaders[index].reader);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&gClientMutex);
+}
 
 __attribute__((visibility("default")))
 void *ControllerKeysRemoteMic_Create(CFAllocatorRef allocator, CFUUIDRef requestedTypeUUID) {
@@ -153,13 +204,15 @@ static OSStatus UnsupportedDestroy(AudioServerPlugInDriverRef driver, AudioObjec
 }
 
 static OSStatus AddDeviceClient(AudioServerPlugInDriverRef driver, AudioObjectID id, const AudioServerPlugInClientInfo *client) {
-    (void)client;
-    return validDriver(driver) && id == kObjectDevice ? 0 : kAudioHardwareBadObjectError;
+    if (!validDriver(driver) || id != kObjectDevice) return kAudioHardwareBadObjectError;
+    if (client != NULL) (void)clientRingReaderForID(client->mClientID);
+    return 0;
 }
 
 static OSStatus RemoveDeviceClient(AudioServerPlugInDriverRef driver, AudioObjectID id, const AudioServerPlugInClientInfo *client) {
-    (void)client;
-    return validDriver(driver) && id == kObjectDevice ? 0 : kAudioHardwareBadObjectError;
+    if (!validDriver(driver) || id != kObjectDevice) return kAudioHardwareBadObjectError;
+    if (client != NULL) removeClientRingReader(client->mClientID);
+    return 0;
 }
 
 static OSStatus ConfigChange(AudioServerPlugInDriverRef driver, AudioObjectID id, UInt64 action, void *info) {
@@ -481,15 +534,14 @@ static OSStatus SetData(AudioServerPlugInDriverRef driver, AudioObjectID id, pid
 }
 
 static OSStatus StartIO(AudioServerPlugInDriverRef driver, AudioObjectID id, UInt32 clientID) {
-    (void)clientID;
     if (!validDriver(driver) || id != kObjectDevice) return kAudioHardwareBadObjectError;
     pthread_mutex_lock(&gStateMutex);
     if (gIOCount++ == 0) {
         gTimestampCount = 0;
         gAnchorHostTime = mach_absolute_time();
-        CKRemoteMicRingOpenIfNeeded(&gRingReader);
     }
     pthread_mutex_unlock(&gStateMutex);
+    CKRemoteMicRingOpenIfNeeded(clientRingReaderForID(clientID));
     return 0;
 }
 
@@ -542,10 +594,10 @@ static OSStatus BeginIO(AudioServerPlugInDriverRef driver, AudioObjectID id, UIn
 }
 
 static OSStatus DoIO(AudioServerPlugInDriverRef driver, AudioObjectID deviceID, AudioObjectID streamID, UInt32 clientID, UInt32 op, UInt32 frames, const AudioServerPlugInIOCycleInfo *info, void *mainBuffer, void *secondaryBuffer) {
-    (void)clientID; (void)info; (void)secondaryBuffer;
+    (void)info; (void)secondaryBuffer;
     if (!validDriver(driver) || deviceID != kObjectDevice || streamID != kObjectStreamInput) return kAudioHardwareBadObjectError;
     if (op == kAudioServerPlugInIOOperationReadInput && mainBuffer != NULL) {
-        CKRemoteMicRingCopyFloatFrames(&gRingReader, (Float32 *)mainBuffer, frames);
+        CKRemoteMicRingCopyFloatFrames(clientRingReaderForID(clientID), (Float32 *)mainBuffer, frames);
     }
     return 0;
 }
