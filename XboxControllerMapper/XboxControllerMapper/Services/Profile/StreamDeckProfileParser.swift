@@ -140,6 +140,17 @@ enum StreamDeckProfileParser {
     }
 
     private static func extractAndLoadManifest(from url: URL) throws -> Data {
+        guard url.isFileURL else {
+            throw StreamDeckParseError.extractionFailed("URL must be a file URL")
+        }
+
+        let sourcePath = url.path
+
+        // Ensure it's an absolute path to prevent argument injection
+        guard sourcePath.hasPrefix("/") else {
+            throw StreamDeckParseError.extractionFailed("Invalid file path: must be an absolute path")
+        }
+
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("streamdeck-import-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: tempDir) }
