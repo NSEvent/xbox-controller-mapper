@@ -222,6 +222,7 @@ struct ScriptRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
+                .help("Edit")
                 .accessibilityLabel("Edit")
 
                 Button(action: onDelete) {
@@ -229,6 +230,7 @@ struct ScriptRow: View {
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
+                .help("Delete")
                 .accessibilityLabel("Delete")
             }
         }
