@@ -892,6 +892,13 @@ struct MicrophoneSettingsView: View {
         controllerService.threadSafeIsAppleTVRemote
     }
 
+	private let bluetoothLoggingProfileURL = URL(
+		string: "https://developer.apple.com/feedback-assistant/profiles-and-logs/?name=bluetooth&platform=macos"
+	)!
+	private let packetLoggerURL = URL(
+		string: "https://developer.apple.com/download/all/?q=Additional%20Tools%20for%20Xcode"
+	)!
+
     var body: some View {
         Form {
             if showsAppleTVRemoteMicrophone {
@@ -901,29 +908,29 @@ struct MicrophoneSettingsView: View {
                         set: { appleTVRemoteMicBridge.isEnabled = $0 }
                     ))
 
-	                    HStack {
-	                        Label(appleTVRemoteMicBridge.state.displayName, systemImage: remoteMicStatusIcon)
-	                            .foregroundColor(remoteMicStatusColor)
-	                        Spacer()
-	                        Text(appleTVRemoteMicBridge.lastStatus)
-                            .font(.caption)
-	                            .foregroundColor(.secondary)
-	                    }
+					HStack {
+						Label(appleTVRemoteMicBridge.state.displayName, systemImage: remoteMicStatusIcon)
+							.foregroundColor(remoteMicStatusColor)
+						Spacer()
+						Text(appleTVRemoteMicBridge.lastStatus)
+							.font(.caption)
+							.foregroundColor(.secondary)
+					}
 
-	                    HStack(spacing: 12) {
-	                        Label(
-	                            appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Helper Installed" : "Helper Missing",
-	                            systemImage: appleTVRemoteMicBridge.isCaptureHelperInstalled ? "checkmark.shield.fill" : "exclamationmark.shield.fill"
-	                        )
-	                        .foregroundColor(appleTVRemoteMicBridge.isCaptureHelperInstalled ? .green : .orange)
+					HStack(spacing: 12) {
+						Label(
+							appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Helper Installed" : "Helper Missing",
+							systemImage: appleTVRemoteMicBridge.isCaptureHelperInstalled ? "checkmark.shield.fill" : "exclamationmark.shield.fill"
+						)
+						.foregroundColor(appleTVRemoteMicBridge.isCaptureHelperInstalled ? .green : .orange)
 
-	                        Label(
-	                            appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? "Virtual Mic Installed" : "Virtual Mic Missing",
-	                            systemImage: appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
-	                        )
-	                        .foregroundColor(appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? .green : .orange)
-	                    }
-	                    .font(.caption)
+						Label(
+							appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? "Virtual Mic Installed" : "Virtual Mic Missing",
+							systemImage: appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
+						)
+						.foregroundColor(appleTVRemoteMicBridge.isVirtualMicDriverInstalled ? .green : .orange)
+					}
+					.font(.caption)
 
                     Label(
                         appleTVRemoteMicBridge.isCoreAudioStreamRunning ? "Virtual Mic Stream Active" : "Virtual Mic Stream Idle",
@@ -960,9 +967,32 @@ struct MicrophoneSettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-	                    Text(appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Installed helper avoids repeated administrator prompts. Select ControllerKeys Remote Mic in your transcription app." : "Without the installed helper, capture falls back to per-run administrator approval.")
-	                        .font(.caption)
-	                        .foregroundColor(.secondary)
+					Text(appleTVRemoteMicBridge.isCaptureHelperInstalled ? "Installed helper avoids repeated administrator prompts. Select ControllerKeys Remote Mic in your transcription app." : "Without the installed helper, capture falls back to per-run administrator approval.")
+						.font(.caption)
+						.foregroundColor(.secondary)
+
+					VStack(alignment: .leading, spacing: 6) {
+						Text("Apple setup")
+							.font(.caption.bold())
+							.foregroundColor(.secondary)
+
+						Text("Requires Apple's Bluetooth logging profile and PacketLogger from Additional Tools for Xcode.")
+							.font(.caption)
+							.foregroundColor(.secondary)
+
+						HStack(spacing: 12) {
+							Link(destination: bluetoothLoggingProfileURL) {
+								Label("Bluetooth Profile", systemImage: "slider.horizontal.3")
+							}
+
+							Link(destination: packetLoggerURL) {
+								Label("PacketLogger", systemImage: "arrow.down.circle")
+							}
+						}
+						.font(.caption)
+						.buttonStyle(.link)
+					}
+					.padding(.vertical, 2)
 
                     if !appleTVRemoteMicBridge.lastTranscript.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
