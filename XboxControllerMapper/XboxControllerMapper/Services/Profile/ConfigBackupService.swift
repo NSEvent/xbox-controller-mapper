@@ -3,6 +3,12 @@ import Foundation
 struct ConfigBackupService {
     private let fileManager: FileManager
 
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        return formatter
+    }()
+
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
     }
@@ -21,9 +27,7 @@ struct ConfigBackupService {
             return
         }
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let timestamp = dateFormatter.string(from: Date())
+        let timestamp = Self.dateFormatter.string(from: Date())
         let backupURL = backupDir.appendingPathComponent("config_\(timestamp).json")
 
         do {
