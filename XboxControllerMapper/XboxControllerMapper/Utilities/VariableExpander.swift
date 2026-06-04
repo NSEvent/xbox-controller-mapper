@@ -6,6 +6,8 @@ enum VariableExpander {
 
     // MARK: - Variable Definitions
 
+    private static let isoFormatter = ISO8601DateFormatter()
+
     /// All supported variables with their descriptions and examples
     static let availableVariables: [(name: String, description: String, example: String)] = [
         // Date formats
@@ -201,7 +203,7 @@ enum VariableExpander {
             return formatter.string(from: now)
 
         case "time.iso":
-            return ISO8601DateFormatter().string(from: now)
+            return isoFormatter.string(from: now)
 
         case "unix":
             return String(Int(now.timeIntervalSince1970))
