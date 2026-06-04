@@ -163,4 +163,14 @@ final class ButtonInteractionFlowPolicyTests: XCTestCase {
             isChordPart: true
         ))
     }
+
+	func testRealtimeHoldPathReturnsFalseForOtherLayerActivatorPresses() {
+		let mapping = KeyMapping(keyCode: 4)
+
+		XCTAssertFalse(ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
+			mapping: mapping,
+			isChordPart: false,
+			isOtherLayerActivatorPress: true
+		))
+	}
 }

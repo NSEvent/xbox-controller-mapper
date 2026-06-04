@@ -293,6 +293,96 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         XCTAssertEqual(layer2Count, 0, "A second layer activator should not activate while a different layer is active")
     }
 
+	func testRealtimeOtherLayerActivatorPressUsesTapPathWhenDifferentLayerActive() async throws {
+		let layer1 = Layer(
+			name: "First",
+			activatorButton: .leftBumper,
+			buttonMappings: [.rightBumper: .key(KeyCodeMapping.pageDown)]
+		)
+		let layer2 = Layer(name: "Second", activatorButton: .rightBumper, buttonMappings: [.a: .key(62)])
+		await MainActor.run {
+			let profile = Profile(
+				name: "RealtimeMultiLayer",
+				buttonMappings: [:],
+				inputLatencyMode: .realtime,
+				layers: [layer1, layer2]
+			)
+			installActiveProfile(profile)
+		}
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.leftBumper)
+		}
+		await waitForTasks(0.1)
+		await MainActor.run {
+			mockInputSimulator.clearEvents()
+			controllerService.buttonPressed(.rightBumper)
+			controllerService.buttonReleased(.rightBumper)
+		}
+		await waitForTasks(0.1)
+
+		let events = mockInputSimulator.events
+		let tapCount = events.filter {
+			if case .pressKey(let keyCode, _) = $0 { return keyCode == KeyCodeMapping.pageDown }
+			return false
+		}.count
+		let holdStartCount = events.filter {
+			if case .startHoldMapping(let mapping) = $0 { return mapping.keyCode == KeyCodeMapping.pageDown }
+			return false
+		}.count
+
+		XCTAssertEqual(tapCount, 1, "Remapped layer activator should match standard tap semantics in realtime mode")
+		XCTAssertEqual(holdStartCount, 0, "Remapped layer activator must not enter realtime held-key path")
+	}
+
+	func testRealtimeRegularLayerRemapStillUsesHoldPathWhenLayerActive() async throws {
+		let layer = Layer(
+			name: "First",
+			activatorButton: .leftBumper,
+			buttonMappings: [.a: .key(KeyCodeMapping.pageDown)]
+		)
+		await MainActor.run {
+			let profile = Profile(
+				name: "RealtimeLayer",
+				buttonMappings: [:],
+				inputLatencyMode: .realtime,
+				layers: [layer]
+			)
+			installActiveProfile(profile)
+		}
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.leftBumper)
+		}
+		await waitForTasks(0.1)
+		await MainActor.run {
+			mockInputSimulator.clearEvents()
+			controllerService.buttonPressed(.a)
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks(0.1)
+
+		let events = mockInputSimulator.events
+		let tapCount = events.filter {
+			if case .pressKey(let keyCode, _) = $0 { return keyCode == KeyCodeMapping.pageDown }
+			return false
+		}.count
+		let holdStartCount = events.filter {
+			if case .startHoldMapping(let mapping) = $0 { return mapping.keyCode == KeyCodeMapping.pageDown }
+			return false
+		}.count
+		let holdStopCount = events.filter {
+			if case .stopHoldMapping(let mapping) = $0 { return mapping.keyCode == KeyCodeMapping.pageDown }
+			return false
+		}.count
+
+		XCTAssertEqual(tapCount, 0, "Regular layer remaps should keep realtime held-key semantics")
+		XCTAssertEqual(holdStartCount, 1, "Regular layer remap should enter realtime held-key path")
+		XCTAssertEqual(holdStopCount, 1, "Regular layer remap should leave realtime held-key path on release")
+	}
+
     /// Test 6: The layer activator button itself does not emit its own key mapping.
     func testLayerActivator_buttonDoesNotFireOwnMapping() async throws {
         let layer = Layer(name: "Activator", activatorButton: .leftBumper, buttonMappings: [.a: .key(50)])

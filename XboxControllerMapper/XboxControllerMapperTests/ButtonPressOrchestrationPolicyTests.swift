@@ -106,4 +106,56 @@ final class ButtonPressOrchestrationPolicyTests: XCTestCase {
             )
         )
     }
+
+	func testResolveKeepsOtherLayerActivatorPressesOnStandardPathInRealtimeMode() {
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.pageDown)
+		let outcome = ButtonPressOrchestrationPolicy.resolve(
+			button: .rightBumper,
+			mapping: mapping,
+			keyboardVisible: false,
+			navigationModeActive: false,
+			directoryNavigatorVisible: false,
+			isChordPart: false,
+			isOtherLayerActivatorPress: true,
+			lastTap: nil,
+			inputLatencyMode: .realtime
+		)
+
+		XCTAssertEqual(
+			outcome,
+			.mapping(
+				ButtonPressOrchestrationPolicy.MappingContext(
+					mapping: mapping,
+					lastTap: nil,
+					shouldTreatAsHold: false
+				)
+			)
+		)
+	}
+
+	func testResolveKeepsRegularRealtimeKeyMappingsOnHoldPath() {
+		let mapping = KeyMapping(keyCode: KeyCodeMapping.pageDown)
+		let outcome = ButtonPressOrchestrationPolicy.resolve(
+			button: .a,
+			mapping: mapping,
+			keyboardVisible: false,
+			navigationModeActive: false,
+			directoryNavigatorVisible: false,
+			isChordPart: false,
+			isOtherLayerActivatorPress: false,
+			lastTap: nil,
+			inputLatencyMode: .realtime
+		)
+
+		XCTAssertEqual(
+			outcome,
+			.mapping(
+				ButtonPressOrchestrationPolicy.MappingContext(
+					mapping: mapping,
+					lastTap: nil,
+					shouldTreatAsHold: true
+				)
+			)
+		)
+	}
 }

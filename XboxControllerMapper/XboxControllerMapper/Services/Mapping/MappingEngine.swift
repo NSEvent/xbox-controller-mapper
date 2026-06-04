@@ -615,6 +615,13 @@ class MappingEngine: ObservableObject {
         let directoryNavigatorVisible = localDirectoryNavigatorVisible || remoteOverlayState.directoryNavigatorVisible
         let mapping = effectiveMapping(for: button, in: profile)
 		let isDPadPresetDirection = profile.dpadPreset.primaryKeyCode(for: button) == mapping?.keyCode
+		let isOtherLayerActivatorPress = state.lock.withLock { () -> Bool in
+			guard let activatorLayerId = state.layerActivatorMap[button],
+				  let activeLayerId = state.activeLayerIds.last else {
+				return false
+			}
+			return activeLayerId != activatorLayerId
+		}
         let navigationModeActive = keyboardVisible
             ? (localKeyboardVisible
                 ? OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
@@ -631,6 +638,7 @@ class MappingEngine: ObservableObject {
             remoteSwipePredictionsVisible: remoteOverlayState.swipePredictionsVisible,
             isChordPart: isChordPart,
 			isDPadPresetDirection: isDPadPresetDirection,
+			isOtherLayerActivatorPress: isOtherLayerActivatorPress,
             lastTap: lastTap,
             inputLatencyMode: profile.inputLatencyMode
         )
