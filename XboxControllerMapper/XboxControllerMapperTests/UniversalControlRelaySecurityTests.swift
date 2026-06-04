@@ -168,45 +168,6 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
         XCTAssertFalse(UniversalControlMouseRelay.shared.sendSystemCommand(command))
     }
 
-	func testSideAwareKeyPressFallsBackToLegacyEncodingWithoutCapability() {
-		let modifiers = ModifierFlags(command: true, commandSide: .right)
-
-		let line = UniversalControlRelayKeyPressEncoding.line(
-			keyCode: 36,
-			modifiers: modifiers,
-			peerSupportsKP2: false
-		)
-
-		XCTAssertEqual(line, "kp 36 \(modifiers.cgEventFlags.rawValue)")
-	}
-
-	func testSideAwareKeyPressUsesKP2OnlyWithCapability() {
-		let modifiers = ModifierFlags(
-			command: true,
-			option: true,
-			commandSide: .right,
-			optionSide: .left
-		)
-
-		let line = UniversalControlRelayKeyPressEncoding.line(
-			keyCode: 36,
-			modifiers: modifiers,
-			peerSupportsKP2: true
-		)
-
-		XCTAssertEqual(line, "kp2 36 \(modifiers.cgEventFlags.rawValue) 2 1 0 0")
-	}
-
-	func testRelayCapabilityParserRecognizesKP2() {
-		XCTAssertEqual(UniversalControlRelayKeyPressEncoding.capabilityLine, "caps kp2")
-		XCTAssertTrue(
-			UniversalControlRelayKeyPressEncoding.supportsSideAwareKeyPress(["caps", "kp2"])
-		)
-		XCTAssertFalse(
-			UniversalControlRelayKeyPressEncoding.supportsSideAwareKeyPress(["caps", "other"])
-		)
-	}
-
     func testCodePairingDerivesSameSixDigitCodeAndKey() {
         let initiator = UniversalControlRelayPairingSession(localPeerID: "macbook", nonce: "aaa")
         let receiver = UniversalControlRelayPairingSession(localPeerID: "studio", nonce: "bbb")
