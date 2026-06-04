@@ -4,6 +4,15 @@ import AppKit
 import IOKit.hidsystem
 import ApplicationServices.HIServices
 
+struct ScrollEvent: Sendable, Equatable {
+    var dx: CGFloat
+    var dy: CGFloat
+    var phase: CGScrollPhase? = nil
+    var momentumPhase: CGMomentumScrollPhase? = nil
+    var isContinuous: Bool = false
+    var flags: CGEventFlags = []
+}
+
 protocol InputSimulatorProtocol: Sendable {
     func pressKey(_ keyCode: CGKeyCode, modifiers: CGEventFlags)
     /// Side-aware variant of `pressKey` — the simulator picks the Left/Right
@@ -23,14 +32,7 @@ protocol InputSimulatorProtocol: Sendable {
     func moveMouseNative(dx: Int, dy: Int)
     func warpMouseTo(point: CGPoint)
     var isLeftMouseButtonHeld: Bool { get }
-    func scroll(
-        dx: CGFloat,
-        dy: CGFloat,
-        phase: CGScrollPhase?,
-        momentumPhase: CGMomentumScrollPhase?,
-        isContinuous: Bool,
-        flags: CGEventFlags
-    )
+    func scroll(event: ScrollEvent)
     func executeMapping(_ mapping: KeyMapping)
     func startHoldMapping(_ mapping: KeyMapping)
     func stopHoldMapping(_ mapping: KeyMapping)
@@ -39,7 +41,7 @@ protocol InputSimulatorProtocol: Sendable {
 
 extension InputSimulatorProtocol {
     func scroll(dx: CGFloat, dy: CGFloat) {
-        scroll(dx: dx, dy: dy, phase: nil, momentumPhase: nil, isContinuous: false, flags: [])
+        scroll(event: ScrollEvent(dx: dx, dy: dy))
     }
 
     /// Default implementation — conformers that don't care about L/R side fall back
@@ -1348,14 +1350,14 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var hasShownZoomKeyboardShortcutWarning: Bool = false
 
     /// Scrolls by a delta
-    func scroll(
-        dx: CGFloat,
-        dy: CGFloat,
-        phase: CGScrollPhase?,
-        momentumPhase: CGMomentumScrollPhase?,
-        isContinuous: Bool,
-        flags: CGEventFlags
-    ) {
+    func scroll(event scrollEvent: ScrollEvent) {
+        let dx = scrollEvent.dx
+        let dy = scrollEvent.dy
+        let phase = scrollEvent.phase
+        let momentumPhase = scrollEvent.momentumPhase
+        let isContinuous = scrollEvent.isContinuous
+        let flags = scrollEvent.flags
+
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendScroll(
                 dx: dx,
@@ -1626,7 +1628,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     private func performScrollAction(_ keyCode: CGKeyCode) {
         let dy: CGFloat = keyCode == KeyCodeMapping.scrollUp ? 10 : -10
-        scroll(dx: 0, dy: dy, phase: nil, momentumPhase: nil, isContinuous: false, flags: [])
+        scroll(event: ScrollEvent(dx: 0, dy: dy))
     }
 
     // MARK: - Mouse Button Simulation
