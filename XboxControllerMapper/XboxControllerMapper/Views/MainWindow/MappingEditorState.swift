@@ -70,10 +70,10 @@ struct MappingEditorState {
 
     var mappingDisplayString: String {
         var parts: [String] = []
-        if modifiers.command { parts.append("\u{2318}") }
-        if modifiers.option { parts.append("\u{2325}") }
-        if modifiers.shift { parts.append("\u{21E7}") }
-        if modifiers.control { parts.append("\u{2303}") }
+        if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "\u{2318}") }
+        if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "\u{2325}") }
+        if modifiers.shift { parts.append(ModifierFlags.label(for: modifiers.shiftSide) + "\u{21E7}") }
+        if modifiers.control { parts.append(ModifierFlags.label(for: modifiers.controlSide) + "\u{2303}") }
         if let keyCode = keyCode {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
         }

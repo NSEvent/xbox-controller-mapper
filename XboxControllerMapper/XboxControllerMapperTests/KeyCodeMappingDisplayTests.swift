@@ -94,6 +94,58 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertFalse(KeyCodeMapping.isMouseButton(KeyCodeMapping.scrollDown))
     }
 
+    func testDisplayName_DistinguishesLeftAndRightModifiers() {
+        XCTAssertEqual(KeyCodeMapping.displayName(for: CGKeyCode(kVK_Command)), "Left ⌘")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: CGKeyCode(kVK_RightCommand)), "Right ⌘")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: CGKeyCode(kVK_Option)), "Left ⌥")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: CGKeyCode(kVK_RightOption)), "Right ⌥")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: CGKeyCode(kVK_Shift)), "Left ⇧")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: CGKeyCode(kVK_RightShift)), "Right ⇧")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: CGKeyCode(kVK_Control)), "Left ⌃")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: CGKeyCode(kVK_RightControl)), "Right ⌃")
+    }
+
+    func testIsModifierKey_AcceptsLeftAndRightVariants() {
+        XCTAssertTrue(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_Command)))
+        XCTAssertTrue(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_RightCommand)))
+        XCTAssertTrue(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_Shift)))
+        XCTAssertTrue(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_RightShift)))
+        XCTAssertTrue(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_Option)))
+        XCTAssertTrue(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_RightOption)))
+        XCTAssertTrue(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_Control)))
+        XCTAssertTrue(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_RightControl)))
+
+        XCTAssertFalse(KeyCodeMapping.isModifierKey(KeyCodeMapping.keyA))
+        XCTAssertFalse(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_CapsLock)))
+        XCTAssertFalse(KeyCodeMapping.isModifierKey(CGKeyCode(kVK_Function)))
+        XCTAssertFalse(KeyCodeMapping.isModifierKey(KeyCodeMapping.mouseLeftClick))
+    }
+
+    func testModifierFlag_CollapsesLeftAndRightToSameMask() {
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_Command)), .maskCommand)
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_RightCommand)), .maskCommand)
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_Shift)), .maskShift)
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_RightShift)), .maskShift)
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_Option)), .maskAlternate)
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_RightOption)), .maskAlternate)
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_Control)), .maskControl)
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_RightControl)), .maskControl)
+
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: KeyCodeMapping.keyA), [])
+        XCTAssertEqual(KeyCodeMapping.modifierFlag(for: CGKeyCode(kVK_Function)), [])
+    }
+
+    func testAllKeyOptions_IncludesLeftAndRightModifiers() {
+        let options = KeyCodeMapping.allKeyOptions
+        XCTAssertTrue(options.contains(where: { $0.code == CGKeyCode(kVK_Command) }),
+                      "Picker should expose Left ⌘ as a selectable option")
+        XCTAssertTrue(options.contains(where: { $0.code == CGKeyCode(kVK_RightCommand) }),
+                      "Picker should expose Right ⌘ as a selectable option")
+        XCTAssertTrue(options.contains(where: { $0.code == CGKeyCode(kVK_RightShift) }))
+        XCTAssertTrue(options.contains(where: { $0.code == CGKeyCode(kVK_RightOption) }))
+        XCTAssertTrue(options.contains(where: { $0.code == CGKeyCode(kVK_RightControl) }))
+    }
+
     func testSpecialMarkerClassifiers() {
         XCTAssertTrue(KeyCodeMapping.isMouseButton(KeyCodeMapping.mouseLeftClick))
         XCTAssertTrue(KeyCodeMapping.isMouseButton(KeyCodeMapping.mouseRightClick))

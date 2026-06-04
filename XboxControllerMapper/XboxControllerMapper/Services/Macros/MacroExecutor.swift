@@ -76,12 +76,11 @@ class MacroExecutor: @unchecked Sendable {
 
     private func pressKeyMapping(_ mapping: KeyMapping) {
         if let keyCode = mapping.keyCode {
-            inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+			inputSimulator.pressKey(keyCode, modifiers: mapping.modifiers)
         } else if mapping.modifiers.hasAny {
-            let flags = mapping.modifiers.cgEventFlags
-            inputSimulator.holdModifier(flags)
+			inputSimulator.holdModifiers(mapping.modifiers)
             usleep(Config.keyPressDuration)
-            inputSimulator.releaseModifier(flags)
+			inputSimulator.releaseModifiers(mapping.modifiers)
         }
     }
 
@@ -90,14 +89,27 @@ class MacroExecutor: @unchecked Sendable {
         // community profile can't crash the unsigned conversion to useconds_t.
         let clampedUs = max(0, min(duration * 1_000_000, Double(UInt32.max)))
         if let keyCode = mapping.keyCode {
-            inputSimulator.keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+			if mapping.modifiers.hasAny {
+				inputSimulator.holdModifiers(mapping.modifiers)
+			}
+			if KeyCodeMapping.isModifierKey(keyCode) {
+				inputSimulator.holdModifierKey(keyCode)
+			} else {
+				inputSimulator.keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+			}
             usleep(useconds_t(clampedUs))
-            inputSimulator.keyUp(keyCode)
+			if KeyCodeMapping.isModifierKey(keyCode) {
+				inputSimulator.releaseModifierKey(keyCode)
+			} else {
+				inputSimulator.keyUp(keyCode)
+			}
+			if mapping.modifiers.hasAny {
+				inputSimulator.releaseModifiers(mapping.modifiers)
+			}
         } else if mapping.modifiers.hasAny {
-            let flags = mapping.modifiers.cgEventFlags
-            inputSimulator.holdModifier(flags)
+			inputSimulator.holdModifiers(mapping.modifiers)
             usleep(useconds_t(clampedUs))
-            inputSimulator.releaseModifier(flags)
+			inputSimulator.releaseModifiers(mapping.modifiers)
         }
     }
 

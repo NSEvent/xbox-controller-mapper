@@ -290,6 +290,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var client: NWConnection?
     private var clientHost: String?
     private var clientReceiveBuffer = ""
+    private var peerSupportsKP2 = false
     private var authenticator: UniversalControlRelayAuthenticator?
     private var pendingRelayPings: [String: (Bool, String) -> Void] = [:]
     private var pendingOutgoingCodePairing: OutgoingCodePairing?
@@ -723,6 +724,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         activeIncomingPairingPrompt = nil
         pairedRemoteEndpoint = nil
         pairedRemoteEndpointKey = nil
+		peerSupportsKP2 = false
 		remoteHandoffSuppressedUntil = .distantPast
         lock.unlock()
         resetAuthenticator(secretData: relaySharedSecretData())
@@ -797,7 +799,29 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     func sendKeyPress(_ keyCode: CGKeyCode, modifiers: CGEventFlags) -> Bool {
-        sendLine("kp \(keyCode) \(modifiers.rawValue)")
+		sendLine(UniversalControlRelayKeyPressEncoding.line(keyCode: keyCode, modifiers: modifiers))
+    }
+
+    func sendKeyPress(_ keyCode: CGKeyCode, modifiers: ModifierFlags) -> Bool {
+		lock.lock()
+		let supportsKP2 = peerSupportsKP2
+		lock.unlock()
+
+		return sendLine(
+			UniversalControlRelayKeyPressEncoding.line(
+				keyCode: keyCode,
+				modifiers: modifiers,
+				peerSupportsKP2: supportsKP2
+			)
+		)
+    }
+
+    private static func modifierSide(from wireValue: Substring) -> ModifierSide? {
+		switch Int(wireValue) {
+		case 1: return .left
+		case 2: return .right
+		default: return nil
+		}
     }
 
     func sendControllerButtonPressed(_ button: ControllerButton) -> Bool {
@@ -1166,6 +1190,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         lock.lock()
         client = connection
         clientHost = clientKey
+		peerSupportsKP2 = false
         didLogSendFailure = false
         didLogFirstSend = false
         lock.unlock()
@@ -1749,7 +1774,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 return
             }
             if let data, !data.isEmpty, let text = String(data: data, encoding: .utf8) {
-                appendClientIncoming(text)
+				appendClientIncoming(text, from: connection)
             }
             if !isComplete {
                 receiveNextFromClient(on: connection)
@@ -1757,7 +1782,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         }
     }
 
-    private func appendClientIncoming(_ text: String) {
+    private func appendClientIncoming(_ text: String, from connection: NWConnection) {
         var lines: [String] = []
         lock.lock()
         clientReceiveBuffer += text
@@ -1774,7 +1799,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         lock.unlock()
 
         for line in lines {
-            handleClient(line: line)
+			handleClient(line: line, from: connection)
         }
     }
 
@@ -1810,6 +1835,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         connection.stateUpdateHandler = { [weak self, weak connection] state in
             guard let connection else { return }
             if case .ready = state {
+				self?.sendConnectionCapabilities(on: connection)
                 self?.receiveNext(on: connection)
             } else if case .failed(let error) = state {
                 NSLog("[UCMouseRelay] Receive connection failed: %@", String(describing: error))
@@ -1918,6 +1944,10 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             return
         }
 
+		if command == "caps" {
+			return
+		}
+
         lock.lock()
         let input = receiverInput
 		let handlesIncomingRemoteInput = UniversalControlRelayRolePolicy.handlesIncomingRemoteInput(
@@ -1993,6 +2023,28 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 input?.pressKey(CGKeyCode(keyCode), modifiers: CGEventFlags(rawValue: flagsRaw))
             }
             logFirstReceive("key press \(keyCode)")
+		case "kp2":
+			guard parts.count == 7,
+				  let keyCode = UInt16(parts[1]),
+				  let flagsRaw = UInt64(parts[2]) else { return }
+			let flags = CGEventFlags(rawValue: flagsRaw)
+			let modifiers = ModifierFlags(
+				command: flags.contains(.maskCommand),
+				option: flags.contains(.maskAlternate),
+				shift: flags.contains(.maskShift),
+				control: flags.contains(.maskControl),
+				commandSide: Self.modifierSide(from: parts[3]),
+				optionSide: Self.modifierSide(from: parts[4]),
+				shiftSide: Self.modifierSide(from: parts[5]),
+				controlSide: Self.modifierSide(from: parts[6])
+			)
+			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
+				postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: true)
+				postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: false)
+			} else {
+				input?.pressKey(CGKeyCode(keyCode), modifiers: modifiers)
+			}
+			logFirstReceive("side-aware key press \(keyCode)")
         case "kd":
             guard parts.count == 3,
                   let keyCode = UInt16(parts[1]),
@@ -2000,8 +2052,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
                 postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: true)
             } else {
-                updateRemoteMouseButtonState(keyCode: CGKeyCode(keyCode), isDown: true)
-                input?.keyDown(CGKeyCode(keyCode), modifiers: CGEventFlags(rawValue: flagsRaw))
+				let cgKeyCode = CGKeyCode(keyCode)
+				updateRemoteMouseButtonState(keyCode: cgKeyCode, isDown: true)
+				if KeyCodeMapping.isModifierKey(cgKeyCode) {
+					input?.holdModifierKey(cgKeyCode)
+				} else {
+					input?.keyDown(cgKeyCode, modifiers: CGEventFlags(rawValue: flagsRaw))
+				}
             }
             logFirstReceive("key down \(keyCode)")
         case "ku":
@@ -2010,8 +2067,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 			if handlesIncomingRemoteInput && KeyCodeMapping.isMouseButton(CGKeyCode(keyCode)) {
                 postRemoteMouseButton(keyCode: CGKeyCode(keyCode), down: false)
             } else {
-                updateRemoteMouseButtonState(keyCode: CGKeyCode(keyCode), isDown: false)
-                input?.keyUp(CGKeyCode(keyCode))
+				let cgKeyCode = CGKeyCode(keyCode)
+				updateRemoteMouseButtonState(keyCode: cgKeyCode, isDown: false)
+				if KeyCodeMapping.isModifierKey(cgKeyCode) {
+					input?.releaseModifierKey(cgKeyCode)
+				} else {
+					input?.keyUp(cgKeyCode)
+				}
             }
             logFirstReceive("key up \(keyCode)")
         case "hm":
@@ -2363,13 +2425,18 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		}
     }
 
-    private func handleClient(line: String) {
+    private func handleClient(line: String, from connection: NWConnection) {
         guard let payload = openIncomingLine(line) else {
             NSLog("[UCMouseRelay] Rejected unauthenticated client response")
             return
         }
         let parts = payload.split(separator: " ")
         guard let command = parts.first else { return }
+
+		if command == "caps" {
+			recordPeerCapabilities(from: parts, on: connection)
+			return
+		}
 
         if command == "pong" {
             guard parts.count == 2 else { return }
@@ -2441,6 +2508,21 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             showConfirmedHandoffPortal(for: pendingPortal)
         }
     }
+
+	private func sendConnectionCapabilities(on connection: NWConnection) {
+		_ = sendAuthenticatedLine(UniversalControlRelayKeyPressEncoding.capabilityLine, on: connection)
+	}
+
+	private func recordPeerCapabilities(from parts: [Substring], on connection: NWConnection) {
+		guard UniversalControlRelayKeyPressEncoding.supportsSideAwareKeyPress(parts) else {
+			return
+		}
+		lock.lock()
+		if client === connection {
+			peerSupportsKP2 = true
+		}
+		lock.unlock()
+	}
 
     private func sendRemoteCursorStatus(on connection: NWConnection) {
 		let point = UniversalControlRemoteMouseMovementPolicy.statusPoint(
@@ -2974,6 +3056,51 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             NSLog("[UCMouseRelay] Sent first move dx=%d dy=%d", dx, dy)
         }
     }
+}
+
+struct UniversalControlRelayKeyPressEncoding {
+	static let sideAwareCapability = "kp2"
+	static let capabilityLine = "caps \(sideAwareCapability)"
+
+	static func line(keyCode: CGKeyCode, modifiers: CGEventFlags) -> String {
+		"kp \(keyCode) \(modifiers.rawValue)"
+	}
+
+	static func line(
+		keyCode: CGKeyCode,
+		modifiers: ModifierFlags,
+		peerSupportsKP2: Bool
+	) -> String {
+		guard peerSupportsKP2, hasExplicitSide(modifiers) else {
+			return line(keyCode: keyCode, modifiers: modifiers.cgEventFlags)
+		}
+
+		return "kp2 \(keyCode) \(modifiers.cgEventFlags.rawValue) " +
+			"\(wireValue(for: modifiers.commandSide)) " +
+			"\(wireValue(for: modifiers.optionSide)) " +
+			"\(wireValue(for: modifiers.shiftSide)) " +
+			"\(wireValue(for: modifiers.controlSide))"
+	}
+
+	static func supportsSideAwareKeyPress(_ parts: [Substring]) -> Bool {
+		guard parts.first == "caps" else { return false }
+		return parts.dropFirst().contains { $0 == sideAwareCapability }
+	}
+
+	private static func hasExplicitSide(_ modifiers: ModifierFlags) -> Bool {
+		modifiers.commandSide != nil ||
+			modifiers.optionSide != nil ||
+			modifiers.shiftSide != nil ||
+			modifiers.controlSide != nil
+	}
+
+	private static func wireValue(for side: ModifierSide?) -> Int {
+		switch side {
+		case .left: return 1
+		case .right: return 2
+		case .none: return 0
+		}
+	}
 }
 
 struct UniversalControlHandoffEdgeDefaults {

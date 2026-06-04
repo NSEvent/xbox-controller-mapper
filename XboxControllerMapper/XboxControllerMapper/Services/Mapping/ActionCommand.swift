@@ -83,7 +83,7 @@ struct ScriptActionCommand: ActionCommand {
 /// Executes a key press with optional modifiers
 struct KeyPressActionCommand: ActionCommand {
     let keyCode: CGKeyCode
-    let modifiers: CGEventFlags
+    let modifiers: ModifierFlags
     let inputSimulator: InputSimulatorProtocol
     let action: any ExecutableAction
 
@@ -92,7 +92,7 @@ struct KeyPressActionCommand: ActionCommand {
         if !UniversalControlMouseRelay.shared.isRoutingToRemote {
             // Notify on-screen keyboard of controller key press
             OnScreenKeyboardManager.shared.notifyControllerKeyPress(
-                keyCode: keyCode, modifiers: modifiers
+                keyCode: keyCode, modifiers: modifiers.cgEventFlags
             )
         }
         return action.feedbackString
@@ -101,15 +101,15 @@ struct KeyPressActionCommand: ActionCommand {
 
 /// Taps a modifier key (hold + delayed release)
 struct ModifierTapActionCommand: ActionCommand {
-    let modifierFlags: CGEventFlags
+    let modifiers: ModifierFlags
     let inputSimulator: InputSimulatorProtocol
     let inputQueue: DispatchQueue
     let action: any ExecutableAction
 
     func execute() -> String {
-        inputSimulator.holdModifier(modifierFlags)
+		inputSimulator.holdModifiers(modifiers)
         inputQueue.asyncAfter(deadline: .now() + Config.modifierReleaseCheckDelay) { [inputSimulator] in
-            inputSimulator.releaseModifier(modifierFlags)
+			inputSimulator.releaseModifiers(modifiers)
         }
         return action.feedbackString
     }
@@ -178,7 +178,7 @@ struct ActionCommandFactory {
         if let keyCode = action.keyCode {
             return KeyPressActionCommand(
                 keyCode: keyCode,
-                modifiers: action.modifiers.cgEventFlags,
+                modifiers: action.modifiers,
                 inputSimulator: inputSimulator,
                 action: action
             )
@@ -186,7 +186,7 @@ struct ActionCommandFactory {
 
         if action.modifiers.hasAny {
             return ModifierTapActionCommand(
-                modifierFlags: action.modifiers.cgEventFlags,
+				modifiers: action.modifiers,
                 inputSimulator: inputSimulator,
                 inputQueue: inputQueue,
                 action: action
