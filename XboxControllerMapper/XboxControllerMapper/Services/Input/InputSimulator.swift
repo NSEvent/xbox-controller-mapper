@@ -1133,14 +1133,21 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Scrolls by a delta
     func scroll(event scrollEvent: ScrollEvent) {
+        let dx = scrollEvent.dx
+        let dy = scrollEvent.dy
+        let phase = scrollEvent.phase
+        let momentumPhase = scrollEvent.momentumPhase
+        let isContinuous = scrollEvent.isContinuous
+        let flags = scrollEvent.flags
+
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendScroll(
-                dx: scrollEvent.dx,
-                dy: scrollEvent.dy,
-                phase: scrollEvent.phase,
-                momentumPhase: scrollEvent.momentumPhase,
-                isContinuous: scrollEvent.isContinuous,
-                flags: scrollEvent.flags
+                dx: dx,
+                dy: dy,
+                phase: phase,
+                momentumPhase: momentumPhase,
+                isContinuous: isContinuous,
+                flags: flags
            ) {
             return
         }
@@ -1148,8 +1155,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         // Check if Control is held - if so, convert to Accessibility Zoom keyboard shortcuts
         // macOS Accessibility Zoom doesn't respond to synthetic Control+scroll events,
         // but does respond to Option+Command+Plus/Minus keyboard shortcuts
-        if scrollEvent.flags.contains(.maskControl) && scrollEvent.dy != 0 {
-            handleAccessibilityZoom(dy: scrollEvent.dy)
+        if flags.contains(.maskControl) && dy != 0 {
+            handleAccessibilityZoom(dy: dy)
             return
         }
 
@@ -1403,7 +1410,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     private func performScrollAction(_ keyCode: CGKeyCode) {
         let dy: CGFloat = keyCode == KeyCodeMapping.scrollUp ? 10 : -10
-        scroll(dx: 0, dy: dy, phase: nil, momentumPhase: nil, isContinuous: false, flags: [])
+        scroll(event: ScrollEvent(dx: 0, dy: dy))
     }
 
     // MARK: - Mouse Button Simulation

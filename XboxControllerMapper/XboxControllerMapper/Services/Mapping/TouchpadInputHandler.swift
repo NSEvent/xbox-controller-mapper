@@ -126,15 +126,15 @@ extension MappingEngine {
         }
 
         inputSimulator.scroll(
-                event: ScrollEvent(
-                    dx: CGFloat(dx),
-                    dy: CGFloat(dy),
-                    phase: nil,
-                    momentumPhase: nil,
-                    isContinuous: false,
-                    flags: inputSimulator.getHeldModifiers()
-                )
+            event: ScrollEvent(
+                dx: CGFloat(dx),
+                dy: CGFloat(dy),
+                phase: nil,
+                momentumPhase: nil,
+                isContinuous: false,
+                flags: inputSimulator.getHeldModifiers()
             )
+        )
         usageStatsService?.recordScrollDistance(dx: dx, dy: dy)
     }
 
@@ -155,17 +155,17 @@ extension MappingEngine {
 		}
 		guard abs(dy) > 0.1 else { return }
 
-		inputSimulator.scroll(
-                event: ScrollEvent(
-                    dx: 0,
-                    dy: CGFloat(dy),
-                    phase: nil,
-                    momentumPhase: nil,
-                    isContinuous: false,
-                    flags: inputSimulator.getHeldModifiers()
-                )
+        inputSimulator.scroll(
+            event: ScrollEvent(
+                dx: 0,
+                dy: CGFloat(dy),
+                phase: nil,
+                momentumPhase: nil,
+                isContinuous: false,
+                flags: inputSimulator.getHeldModifiers()
             )
-		usageStatsService?.recordScrollDistance(dx: 0, dy: dy)
+        )
+        usageStatsService?.recordScrollDistance(dx: 0, dy: dy)
     }
 
     // MARK: - Touchpad Tap Gestures
@@ -316,15 +316,15 @@ extension MappingEngine {
 
             if wasActive {
                 inputSimulator.scroll(
-                event: ScrollEvent(
-                    dx: 0,
-                    dy: 0,
-                    phase: .ended,
-                    momentumPhase: nil,
-                    isContinuous: true,
-                    flags: inputSimulator.getHeldModifiers()
+                    event: ScrollEvent(
+                        dx: 0,
+                        dy: 0,
+                        phase: .ended,
+                        momentumPhase: nil,
+                        isContinuous: true,
+                        flags: inputSimulator.getHeldModifiers()
+                    )
                 )
-            )
             }
             state.lock.withLock {
                 // Transfer momentum candidate to active momentum velocity on finger lift.
@@ -633,15 +633,15 @@ extension MappingEngine {
             residualY = combinedDy - sendDy
             if sendDx != 0 || sendDy != 0 {
                 inputSimulator.scroll(
-                event: ScrollEvent(
-                    dx: CGFloat(sendDx),
-                    dy: CGFloat(sendDy),
-                    phase: .changed,
-                    momentumPhase: nil,
-                    isContinuous: true,
-                    flags: inputSimulator.getHeldModifiers()
+                    event: ScrollEvent(
+                        dx: CGFloat(sendDx),
+                        dy: CGFloat(sendDy),
+                        phase: .changed,
+                        momentumPhase: nil,
+                        isContinuous: true,
+                        flags: inputSimulator.getHeldModifiers()
+                    )
                 )
-            )
                 usageStatsService?.recordScrollDistance(dx: sendDx, dy: sendDy)
             }
             state.lock.withLock {
@@ -661,15 +661,15 @@ extension MappingEngine {
         if idleInterval > Config.touchpadMomentumMaxIdleInterval {
             if wasActive {
                 inputSimulator.scroll(
-                event: ScrollEvent(
-                    dx: 0,
-                    dy: 0,
-                    phase: nil,
-                    momentumPhase: .end,
-                    isContinuous: true,
-                    flags: inputSimulator.getHeldModifiers()
+                    event: ScrollEvent(
+                        dx: 0,
+                        dy: 0,
+                        phase: nil,
+                        momentumPhase: .end,
+                        isContinuous: true,
+                        flags: inputSimulator.getHeldModifiers()
+                    )
                 )
-            )
             }
             state.lock.withLock {
                 state.touchpadMomentumVelocity = .zero
@@ -688,15 +688,15 @@ extension MappingEngine {
         if speed < Config.touchpadMomentumStopVelocity {
             if wasActive {
                 inputSimulator.scroll(
-                event: ScrollEvent(
-                    dx: 0,
-                    dy: 0,
-                    phase: nil,
-                    momentumPhase: .end,
-                    isContinuous: true,
-                    flags: inputSimulator.getHeldModifiers()
+                    event: ScrollEvent(
+                        dx: 0,
+                        dy: 0,
+                        phase: nil,
+                        momentumPhase: .end,
+                        isContinuous: true,
+                        flags: inputSimulator.getHeldModifiers()
+                    )
                 )
-            )
             }
             state.lock.withLock {
                 state.touchpadMomentumVelocity = .zero
