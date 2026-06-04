@@ -8,6 +8,7 @@ class FaviconCache {
 
     private let cacheDirectory: URL
     private let fileManager = FileManager.default
+    private let memoryCache = NSCache<NSString, NSData>()
 
     private init() {
         let homeDir = fileManager.homeDirectoryForCurrentUser
@@ -29,10 +30,26 @@ class FaviconCache {
         return cacheDirectory.appendingPathComponent(filename)
     }
 
+    /// Retrieve a favicon instantly if it's already in the memory cache
+    func memoryCachedFavicon(for websiteURL: String) -> Data? {
+        return memoryCache.object(forKey: websiteURL as NSString) as? Data
+    }
+
     /// Load favicon from disk cache
-    func loadCachedFavicon(for websiteURL: String) -> Data? {
+    func loadCachedFavicon(for websiteURL: String) async -> Data? {
+        if let cached = memoryCache.object(forKey: websiteURL as NSString) {
+            return cached as Data
+        }
+
         let url = cacheURL(for: websiteURL)
-        return try? Data(contentsOf: url)
+        let data = await Task.detached(priority: .background) {
+            try? Data(contentsOf: url)
+        }.value
+
+        if let data = data {
+            memoryCache.setObject(data as NSData, forKey: websiteURL as NSString)
+        }
+        return data
     }
 
     /// Save favicon to disk cache.
@@ -43,12 +60,14 @@ class FaviconCache {
     /// rename; the rename is itself atomic so the worst case is one of the
     /// two writers wins cleanly.
     func saveFavicon(_ data: Data, for websiteURL: String) {
+        memoryCache.setObject(data as NSData, forKey: websiteURL as NSString)
         let url = cacheURL(for: websiteURL)
         try? AtomicFileWriter.write(data, to: url)
     }
 
     /// Delete cached favicon
     func deleteCachedFavicon(for websiteURL: String) {
+        memoryCache.removeObject(forKey: websiteURL as NSString)
         let url = cacheURL(for: websiteURL)
         try? fileManager.removeItem(at: url)
     }
@@ -59,7 +78,7 @@ class FaviconCache {
     /// Returns the favicon data, or nil if fetch failed
     func fetchFavicon(for websiteURL: String, forceRefresh: Bool = false) async -> Data? {
         // Check cache first unless forcing refresh
-        if !forceRefresh, let cached = loadCachedFavicon(for: websiteURL) {
+        if !forceRefresh, let cached = await loadCachedFavicon(for: websiteURL) {
             return cached
         }
 
