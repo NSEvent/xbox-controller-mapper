@@ -106,12 +106,16 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                         Image(systemName: "pencil")
                     }
                     .buttonStyle(.borderless)
+                    .help("Edit quick text")
+                    .accessibilityLabel("Edit quick text")
 
                     Button(action: onDelete) {
                         Image(systemName: "trash")
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.borderless)
+                    .help("Delete quick text")
+                    .accessibilityLabel("Delete quick text")
                 }
             }
 
@@ -181,12 +185,16 @@ struct AppBarItemRowView: View {
                 Image(systemName: "pencil")
             }
             .buttonStyle(.borderless)
+            .help("Edit app")
+            .accessibilityLabel("Edit app")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
             .buttonStyle(.borderless)
+            .help("Delete app")
+            .accessibilityLabel("Delete app")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -256,12 +264,16 @@ struct WebsiteLinkRowView: View {
                 Image(systemName: "pencil")
             }
             .buttonStyle(.borderless)
+            .help("Edit link")
+            .accessibilityLabel("Edit link")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .foregroundColor(.red)
             }
             .buttonStyle(.borderless)
+            .help("Delete link")
+            .accessibilityLabel("Delete link")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
