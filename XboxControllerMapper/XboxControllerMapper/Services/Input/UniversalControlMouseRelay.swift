@@ -325,6 +325,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var didLogFirstReceive = false
     private var lastHandoffSkipLog = Date.distantPast
     private var remoteHandoffSuppressedUntil = Date.distantPast
+    private var remoteControllerInputRoutingGraceUntil = Date.distantPast
     private var lastRemoteCursorVisibilityRestoreAt: CFTimeInterval?
 
     var canSendToRemote: Bool {
@@ -372,6 +373,12 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		)
     }
 
+    var shouldRouteControllerInputToRemote: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return isRemoteSessionActive || Date() < remoteControllerInputRoutingGraceUntil
+    }
+
     var isOutgoingRemoteLeftMouseButtonHeld: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -405,6 +412,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 			remoteSessionReceivedCursorStatus = false
             activeHandoffZone = nil
             pendingHandoffPortal = nil
+            remoteControllerInputRoutingGraceUntil = Date.distantPast
             remoteFocusModeSent = nil
 			resetRemoteCursorVisibilityRestoreStateLocked()
             outgoingRemoteMouseButtonsHeld.removeAll()
@@ -451,6 +459,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         activeHandoffZone = zone
 		remoteCursorStatus = nil
 		remoteSessionReceivedCursorStatus = false
+        remoteControllerInputRoutingGraceUntil = Date().addingTimeInterval(UniversalControlRelaySessionPolicy.confirmationTimeout)
 		resetRemoteCursorVisibilityRestoreStateLocked()
         isRemoteSessionActive = true
         lock.unlock()
@@ -2626,6 +2635,10 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             return (down ? .rightMouseDown : .rightMouseUp, .right)
         case KeyCodeMapping.mouseMiddleClick:
             return (down ? .otherMouseDown : .otherMouseUp, .center)
+        case KeyCodeMapping.mouseBackClick:
+            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 3) ?? .center)
+        case KeyCodeMapping.mouseForwardClick:
+            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 4) ?? .center)
         default:
             return (down ? .leftMouseDown : .leftMouseUp, .left)
         }

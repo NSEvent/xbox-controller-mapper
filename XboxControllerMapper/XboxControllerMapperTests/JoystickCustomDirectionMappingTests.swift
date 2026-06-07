@@ -265,6 +265,98 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 		XCTAssertTrue(rightIsActive)
 	}
 
+	func testCustomDirectionScrollRepeatsWhileStickHeldAndStopsAtCenter() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "Custom Scroll Direction", buttonMappings: [
+				.leftStickUp: KeyMapping(keyCode: KeyCodeMapping.scrollUp),
+				.leftStickLeft: KeyMapping(keyCode: KeyCodeMapping.scrollLeft)
+			])
+			profile.joystickSettings.leftStickMode = .custom
+			profile.joystickSettings.leftStickCustomDeadzone = 0.1
+			profile.joystickSettings.scrollAcceleration = 0
+			installActiveProfile(profile)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.12)
+
+		mockInputSimulator.clearEvents()
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: 0, y: 0.9))
+		}
+		await waitForTasks(0.2)
+
+		let verticalScrolls = scrollEvents().filter { $0.dy > 0 && $0.dx == 0 }
+		XCTAssertGreaterThanOrEqual(verticalScrolls.count, 2, "Holding a custom Scroll Up direction should emit continuously")
+
+		mockInputSimulator.clearEvents()
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: -0.9, y: 0))
+		}
+		await waitForTasks(0.2)
+
+		let horizontalScrolls = scrollEvents().filter { $0.dx > 0 && $0.dy == 0 }
+		XCTAssertGreaterThanOrEqual(horizontalScrolls.count, 2, "Holding a custom Scroll Left direction should emit continuously")
+
+		mockInputSimulator.clearEvents()
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(.zero)
+		}
+		await waitForTasks(0.08)
+		mockInputSimulator.clearEvents()
+		await waitForTasks(0.18)
+
+		XCTAssertEqual(scrollEvents().count, 0, "Centering the stick should stop custom direction scrolling")
+	}
+
+	func testCustomDirectionScrollUsesScrollSensitivity() async throws {
+		await MainActor.run {
+			var lowSensitivityProfile = Profile(name: "Low Scroll Sensitivity", buttonMappings: [
+				.leftStickUp: KeyMapping(keyCode: KeyCodeMapping.scrollUp)
+			])
+			lowSensitivityProfile.joystickSettings.leftStickMode = .custom
+			lowSensitivityProfile.joystickSettings.leftStickCustomDeadzone = 0.1
+			lowSensitivityProfile.joystickSettings.scrollSensitivity = 0
+			lowSensitivityProfile.joystickSettings.scrollAcceleration = 0
+			installActiveProfile(lowSensitivityProfile)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.12)
+
+		mockInputSimulator.clearEvents()
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: 0, y: 0.9))
+		}
+		await waitForTasks(0.16)
+		let lowMax = scrollEvents().map(\.dy).max() ?? 0
+
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(.zero)
+		}
+		await waitForTasks(0.12)
+
+		await MainActor.run {
+			var highSensitivityProfile = Profile(name: "High Scroll Sensitivity", buttonMappings: [
+				.leftStickUp: KeyMapping(keyCode: KeyCodeMapping.scrollUp)
+			])
+			highSensitivityProfile.joystickSettings.leftStickMode = .custom
+			highSensitivityProfile.joystickSettings.leftStickCustomDeadzone = 0.1
+			highSensitivityProfile.joystickSettings.scrollSensitivity = 1
+			highSensitivityProfile.joystickSettings.scrollAcceleration = 0
+			installActiveProfile(highSensitivityProfile)
+		}
+		await waitForTasks(0.12)
+
+		mockInputSimulator.clearEvents()
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: 0, y: 0.9))
+		}
+		await waitForTasks(0.16)
+		let highMax = scrollEvents().map(\.dy).max() ?? 0
+
+		XCTAssertGreaterThan(lowMax, 0, "Low sensitivity should still produce scroll output")
+		XCTAssertGreaterThan(highMax, lowMax * 10, "Custom direction scrolling should respect scroll sensitivity")
+	}
+
     func testCustomLeftStickDirectionCanCompleteChord() async throws {
         await MainActor.run {
             controllerService.chordWindow = 0.2
@@ -621,6 +713,15 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
             }
             return false
         }.count
+    }
+
+    private func scrollEvents() -> [(dx: CGFloat, dy: CGFloat)] {
+        mockInputSimulator.events.compactMap {
+            if case .scroll(let dx, let dy) = $0 {
+                return (dx, dy)
+            }
+            return nil
+        }
     }
 
     private func firstStartHoldIndex(for keyCode: CGKeyCode, in events: [MockInputSimulator.Event]) -> Int? {

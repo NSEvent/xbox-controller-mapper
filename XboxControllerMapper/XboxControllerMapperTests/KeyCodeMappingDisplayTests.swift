@@ -14,6 +14,10 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.mouseLeftClick), "Left Click")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.scrollUp), "Scroll Up")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.scrollDown), "Scroll Down")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.scrollLeft), "Scroll Left")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.scrollRight), "Scroll Right")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.mouseBackClick), "Back Button")
+        XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.mouseForwardClick), "Forward Button")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.mediaPlayPause), "Play/Pause")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.brightnessDown), "Brightness Down")
     }
@@ -30,6 +34,10 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertTrue(options.contains(where: { $0.name == "On-Screen Keyboard" }))
         XCTAssertTrue(options.contains(where: { $0.name == "Scroll Up" }))
         XCTAssertTrue(options.contains(where: { $0.name == "Scroll Down" }))
+        XCTAssertTrue(options.contains(where: { $0.name == "Scroll Left" }))
+        XCTAssertTrue(options.contains(where: { $0.name == "Scroll Right" }))
+        XCTAssertTrue(options.contains(where: { $0.name == "Back Button" }))
+        XCTAssertTrue(options.contains(where: { $0.name == "Forward Button" }))
 
         for option in options {
             XCTAssertFalse(option.name.isEmpty)
@@ -84,14 +92,19 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertNotEqual(KeyCodeMapping.scrollUp, KeyCodeMapping.mouseLeftClick)
         XCTAssertNotEqual(KeyCodeMapping.scrollUp, KeyCodeMapping.mouseRightClick)
         XCTAssertNotEqual(KeyCodeMapping.scrollUp, KeyCodeMapping.mouseMiddleClick)
+        XCTAssertNotEqual(KeyCodeMapping.scrollLeft, KeyCodeMapping.mouseBackClick)
+        XCTAssertNotEqual(KeyCodeMapping.scrollRight, KeyCodeMapping.mouseForwardClick)
         XCTAssertNotEqual(KeyCodeMapping.scrollDown, KeyCodeMapping.mouseLeftClick)
         XCTAssertNotEqual(KeyCodeMapping.scrollDown, KeyCodeMapping.mouseRightClick)
         XCTAssertNotEqual(KeyCodeMapping.scrollDown, KeyCodeMapping.mouseMiddleClick)
         XCTAssertNotEqual(KeyCodeMapping.scrollUp, KeyCodeMapping.scrollDown)
+        XCTAssertNotEqual(KeyCodeMapping.scrollLeft, KeyCodeMapping.scrollRight)
 
         // Scroll actions should not be classified as mouse buttons
         XCTAssertFalse(KeyCodeMapping.isMouseButton(KeyCodeMapping.scrollUp))
         XCTAssertFalse(KeyCodeMapping.isMouseButton(KeyCodeMapping.scrollDown))
+        XCTAssertFalse(KeyCodeMapping.isMouseButton(KeyCodeMapping.scrollLeft))
+        XCTAssertFalse(KeyCodeMapping.isMouseButton(KeyCodeMapping.scrollRight))
     }
 
     func testDisplayName_DistinguishesLeftAndRightModifiers() {
@@ -150,10 +163,14 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertTrue(KeyCodeMapping.isMouseButton(KeyCodeMapping.mouseLeftClick))
         XCTAssertTrue(KeyCodeMapping.isMouseButton(KeyCodeMapping.mouseRightClick))
         XCTAssertTrue(KeyCodeMapping.isMouseButton(KeyCodeMapping.mouseMiddleClick))
+        XCTAssertTrue(KeyCodeMapping.isMouseButton(KeyCodeMapping.mouseBackClick))
+        XCTAssertTrue(KeyCodeMapping.isMouseButton(KeyCodeMapping.mouseForwardClick))
         XCTAssertFalse(KeyCodeMapping.isMouseButton(KeyCodeMapping.keyA))
 
         XCTAssertTrue(KeyCodeMapping.isScrollAction(KeyCodeMapping.scrollUp))
         XCTAssertTrue(KeyCodeMapping.isScrollAction(KeyCodeMapping.scrollDown))
+        XCTAssertTrue(KeyCodeMapping.isScrollAction(KeyCodeMapping.scrollLeft))
+        XCTAssertTrue(KeyCodeMapping.isScrollAction(KeyCodeMapping.scrollRight))
         XCTAssertFalse(KeyCodeMapping.isScrollAction(KeyCodeMapping.mouseLeftClick))
         XCTAssertFalse(KeyCodeMapping.isScrollAction(KeyCodeMapping.keyA))
 
@@ -168,8 +185,21 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.mouseLeftClick))
         XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.scrollUp))
         XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.scrollDown))
+        XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.scrollLeft))
+        XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.scrollRight))
+        XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.mouseBackClick))
+        XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.mouseForwardClick))
         XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.showOnScreenKeyboard))
         XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.mediaNext))
         XCTAssertFalse(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.keyA))
+    }
+
+    func testScrollDelta_ForDiscreteScrollActions() {
+        XCTAssertEqual(KeyCodeMapping.scrollDelta(for: KeyCodeMapping.scrollUp, amount: 10).dy, 10)
+        XCTAssertEqual(KeyCodeMapping.scrollDelta(for: KeyCodeMapping.scrollDown, amount: 10).dy, -10)
+        XCTAssertEqual(KeyCodeMapping.scrollDelta(for: KeyCodeMapping.scrollLeft, amount: 10).dx, 10)
+        XCTAssertEqual(KeyCodeMapping.scrollDelta(for: KeyCodeMapping.scrollRight, amount: 10).dx, -10)
+        XCTAssertEqual(KeyCodeMapping.scrollDelta(for: KeyCodeMapping.keyA, amount: 10).dx, 0)
+        XCTAssertEqual(KeyCodeMapping.scrollDelta(for: KeyCodeMapping.keyA, amount: 10).dy, 0)
     }
 }

@@ -617,23 +617,103 @@ extension MappingEngine {
 				settings: settings
 			)
         updateHeldDirectionButtons(targetButtons, heldButtons: &heldButtons)
+		processCustomDirectionScrollActions(targetButtons, stick: stick, side: side, settings: settings)
     }
 
 	nonisolated private func customDirectionMappingsUseAxisMovement(side: JoystickSide) -> Bool {
 		guard let profile = state.activeProfile else { return false }
 
-		return ControllerButton.joystickDirectionButtons(side: side).allSatisfy { button in
+		return StickDirectionPreset.allCases.contains { preset in
+			ControllerButton.joystickDirectionButtons(side: side).allSatisfy { button in
+				guard let direction = button.joystickDirection,
+					  let expectedKeyCode = preset.primaryKeyCode(for: direction),
+					  let mapping = ButtonMappingResolutionPolicy.resolve(
+						button: button,
+						profile: profile,
+						activeLayerIds: state.activeLayerIds,
+						layerActivatorMap: state.layerActivatorMap
+					  ) else {
+					return false
+				}
+
+				return mapping.isJoystickAxisMovementMapping(expectedKeyCode: expectedKeyCode)
+			}
+		}
+	}
+
+	nonisolated private func processCustomDirectionScrollActions(
+		_ targetButtons: Set<ControllerButton>,
+		stick: CGPoint,
+		side: JoystickSide,
+		settings: JoystickSettings
+	) {
+		guard let profile = state.activeProfile else { return }
+
+		for button in targetButtons {
 			guard let mapping = ButtonMappingResolutionPolicy.resolve(
 				button: button,
 				profile: profile,
 				activeLayerIds: state.activeLayerIds,
 				layerActivatorMap: state.layerActivatorMap
-			) else {
-				return false
+			),
+				  mapping.effectiveActionType == .keyPress,
+				  let keyCode = mapping.keyCode,
+				  KeyCodeMapping.isScrollAction(keyCode),
+				  let amount = customDirectionScrollAmount(button: button, stick: stick, side: side, settings: settings)
+			else {
+				continue
 			}
 
-			return mapping.isJoystickAxisMovementMapping
+			let delta = KeyCodeMapping.scrollDelta(for: keyCode, amount: amount)
+			guard delta.dx != 0 || delta.dy != 0 else { continue }
+
+			let flags = inputSimulator.getHeldModifiers().union(mapping.modifiers.cgEventFlags)
+			inputSimulator.scroll(
+				event: ScrollEvent(
+					dx: delta.dx,
+					dy: delta.dy,
+					phase: nil,
+					momentumPhase: nil,
+					isContinuous: true,
+					flags: flags
+				)
+			)
+			usageStatsService?.recordScrollDistance(dx: Double(delta.dx), dy: Double(delta.dy))
 		}
+	}
+
+	nonisolated private func customDirectionScrollAmount(
+		button: ControllerButton,
+		stick: CGPoint,
+		side: JoystickSide,
+		settings: JoystickSettings
+	) -> CGFloat? {
+		guard let direction = button.joystickDirection else { return nil }
+
+		let deadzone: Double
+		switch side {
+		case .left:
+			deadzone = settings.leftStickCustomDeadzone
+		case .right:
+			deadzone = settings.rightStickCustomDeadzone
+		}
+
+		let axisMagnitude: Double
+		switch direction {
+		case .up, .down:
+			axisMagnitude = abs(Double(stick.y))
+		case .left, .right:
+			axisMagnitude = abs(Double(stick.x))
+		case .upLeft, .upRight, .downLeft, .downRight:
+			axisMagnitude = sqrt(Double(stick.x * stick.x + stick.y * stick.y))
+		}
+
+		guard axisMagnitude > deadzone else { return nil }
+		let normalized = min(1.0, max(0.0, JoystickMath.normalizedMagnitude(axisMagnitude, deadzone: deadzone)))
+		let accelerated = pow(normalized, settings.scrollAccelerationExponent)
+		let amount = accelerated * settings.scrollMultiplier
+		guard amount > 0 else { return nil }
+		return CGFloat(amount)
 	}
 
     nonisolated private func updateHeldDirectionButtons(
@@ -689,8 +769,8 @@ extension MappingEngine {
 }
 
 private extension KeyMapping {
-	var isJoystickAxisMovementMapping: Bool {
-		keyCode != nil
+	func isJoystickAxisMovementMapping(expectedKeyCode: CGKeyCode) -> Bool {
+		keyCode == expectedKeyCode
 			&& modifiers == ModifierFlags()
 			&& macroId == nil
 			&& scriptId == nil
