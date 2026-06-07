@@ -349,24 +349,30 @@ struct ButtonMappingSheet: View {
 
     private var primaryMappingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Primary Action")
-                    .font(.headline)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Primary Action")
+                        .font(.headline)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                Spacer()
+                    Spacer()
 
-                Picker("", selection: $primaryState.mappingType) {
-                    Text("Key").tag(MappingEditorState.MappingType.singleKey)
-                    Text("Macro").tag(MappingEditorState.MappingType.macro)
-                    Text("Script").tag(MappingEditorState.MappingType.script)
-                    Text("System").tag(MappingEditorState.MappingType.systemCommand)
+                    Picker("", selection: $primaryState.mappingType) {
+                        Text("Key").tag(MappingEditorState.MappingType.singleKey)
+                        Text("Macro").tag(MappingEditorState.MappingType.macro)
+                        Text("Script").tag(MappingEditorState.MappingType.script)
+                        Text("System").tag(MappingEditorState.MappingType.systemCommand)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 280)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 280)
-                .padding(.trailing, 8)
 
                 if primaryState.mappingType == .singleKey {
-                    visualPickerButtons(for: $primaryState)
+                    HStack {
+                        Spacer()
+                        visualPickerButtons(for: $primaryState, compact: true)
+                    }
                 }
             }
 
@@ -602,6 +608,8 @@ struct ButtonMappingSheet: View {
             HStack {
                 Toggle("Enable Long Hold Action", isOn: $enableLongHold)
                     .font(.headline)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .disabled(longHoldDisabled)
 
                 Spacer()
@@ -697,6 +705,8 @@ struct ButtonMappingSheet: View {
             HStack {
                 Toggle("Enable Double Tap Action", isOn: $enableDoubleTap)
                     .font(.headline)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .disabled(primaryDisablesAdvancedFeatures)
 
                 Spacer()
