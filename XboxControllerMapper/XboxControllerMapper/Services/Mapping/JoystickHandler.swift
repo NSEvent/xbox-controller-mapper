@@ -623,21 +623,17 @@ extension MappingEngine {
 	nonisolated private func customDirectionMappingsUseAxisMovement(side: JoystickSide) -> Bool {
 		guard let profile = state.activeProfile else { return false }
 
-		return StickDirectionPreset.allCases.contains { preset in
-			ControllerButton.joystickDirectionButtons(side: side).allSatisfy { button in
-				guard let direction = button.joystickDirection,
-					  let expectedKeyCode = preset.primaryKeyCode(for: direction),
-					  let mapping = ButtonMappingResolutionPolicy.resolve(
-						button: button,
-						profile: profile,
-						activeLayerIds: state.activeLayerIds,
-						layerActivatorMap: state.layerActivatorMap
-					  ) else {
-					return false
-				}
-
-				return mapping.isJoystickAxisMovementMapping(expectedKeyCode: expectedKeyCode)
+		return ControllerButton.joystickDirectionButtons(side: side).allSatisfy { button in
+			guard let mapping = ButtonMappingResolutionPolicy.resolve(
+				button: button,
+				profile: profile,
+				activeLayerIds: state.activeLayerIds,
+				layerActivatorMap: state.layerActivatorMap
+			) else {
+				return false
 			}
+
+			return mapping.isJoystickAxisMovementMapping
 		}
 	}
 
@@ -769,8 +765,8 @@ extension MappingEngine {
 }
 
 private extension KeyMapping {
-	func isJoystickAxisMovementMapping(expectedKeyCode: CGKeyCode) -> Bool {
-		keyCode == expectedKeyCode
+	var isJoystickAxisMovementMapping: Bool {
+		keyCode != nil
 			&& modifiers == ModifierFlags()
 			&& macroId == nil
 			&& scriptId == nil

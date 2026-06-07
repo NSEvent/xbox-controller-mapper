@@ -265,6 +265,38 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 		XCTAssertTrue(rightIsActive)
 	}
 
+	func testCustomHeldKeyDirectionsSupportDiagonalMovementOutsidePresets() async throws {
+		await MainActor.run {
+			let mappings: [ControllerButton: KeyMapping] = [
+				.leftStickUp: holdMapping(KeyCodeMapping.keyI),
+				.leftStickLeft: holdMapping(KeyCodeMapping.keyJ),
+				.leftStickDown: holdMapping(KeyCodeMapping.keyK),
+				.leftStickRight: holdMapping(KeyCodeMapping.keyL)
+			]
+
+			var profile = Profile(name: "Custom IJKL Movement", buttonMappings: mappings)
+			profile.joystickSettings.leftStickMode = .custom
+			profile.joystickSettings.leftStickCustomDeadzone = 0.1
+			installActiveProfile(profile)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.12)
+
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: 0.9, y: 0.9))
+		}
+		await waitForTasks(0.2)
+
+		XCTAssertEqual(startHoldCount(for: KeyCodeMapping.keyI), 1, "Diagonal up-right should press the custom Up key")
+		XCTAssertEqual(startHoldCount(for: KeyCodeMapping.keyL), 1, "Diagonal up-right should press the custom Right key")
+		XCTAssertEqual(startHoldCount(for: KeyCodeMapping.keyJ), 0, "Diagonal up-right should not press Left")
+		XCTAssertEqual(startHoldCount(for: KeyCodeMapping.keyK), 0, "Diagonal up-right should not press Down")
+		let upIsActive = await isActiveButton(.leftStickUp)
+		let rightIsActive = await isActiveButton(.leftStickRight)
+		XCTAssertTrue(upIsActive)
+		XCTAssertTrue(rightIsActive)
+	}
+
 	func testCustomDirectionScrollRepeatsWhileStickHeldAndStopsAtCenter() async throws {
 		await MainActor.run {
 			var profile = Profile(name: "Custom Scroll Direction", buttonMappings: [
