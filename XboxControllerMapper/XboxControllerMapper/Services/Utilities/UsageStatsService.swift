@@ -28,6 +28,11 @@ class UsageStatsService: ObservableObject {
     private var publishWorkItem: DispatchWorkItem?
     private var sessionStartDate: Date?
 
+	private struct LoadedStats {
+		let stats: UsageStats
+		let migratedFromLegacy: Bool
+	}
+
     private static let statsDirectory: URL = {
 	let url = URL(fileURLWithPath: Config.configDirectory, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -38,21 +43,33 @@ class UsageStatsService: ObservableObject {
         statsDirectory.appendingPathComponent("stats.json")
     }()
 
+	private static let defaultLegacyStatsFileURLs: [URL] = [
+		URL(fileURLWithPath: Config.previousConfigDirectory, isDirectory: true)
+			.appendingPathComponent("stats.json"),
+		URL(fileURLWithPath: Config.legacyConfigDirectory, isDirectory: true)
+			.appendingPathComponent("stats.json")
+	]
+
     init(
         statsFileURL: URL? = nil,
         timing: Timing = .default,
         backgroundQueue: DispatchQueue = DispatchQueue.global(qos: .utility),
-        now: @escaping () -> Date = Date.init
+		now: @escaping () -> Date = Date.init,
+		legacyStatsFileURLs: [URL]? = nil
     ) {
         self.statsFileURL = statsFileURL ?? Self.defaultStatsFileURL
         self.timing = timing
         self.backgroundQueue = backgroundQueue
         self.now = now
 
-        let loaded = Self.loadFromDisk(at: self.statsFileURL)
-        self.stats = loaded
-        self.workingStats = loaded
+		let fallbackURLs = legacyStatsFileURLs ?? (statsFileURL == nil ? Self.defaultLegacyStatsFileURLs : [])
+		let loaded = Self.loadFromDisk(at: self.statsFileURL, fallbackURLs: fallbackURLs)
+		self.stats = loaded.stats
+		self.workingStats = loaded.stats
         startSession()
+		if loaded.migratedFromLegacy {
+			try? Self.persist(workingStats, to: self.statsFileURL)
+		}
     }
 
     // MARK: - Recording (called from background inputQueue)
@@ -283,11 +300,7 @@ class UsageStatsService: ObservableObject {
         }
 
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(snapshot)
-            try AtomicFileWriter.write(data, to: statsFileURL)
+			try Self.persist(snapshot, to: statsFileURL)
         } catch {
             // Silently fail - stats are non-critical
         }
@@ -298,16 +311,40 @@ class UsageStatsService: ObservableObject {
         }
     }
 
-    private static func loadFromDisk(at fileURL: URL) -> UsageStats {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return UsageStats() }
-        do {
-            let data = try Data(contentsOf: fileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode(UsageStats.self, from: data)
-        } catch {
-            // Start fresh on decode failure
-            return UsageStats()
-        }
-    }
+	private static func persist(_ stats: UsageStats, to fileURL: URL) throws {
+		let encoder = JSONEncoder()
+		encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+		encoder.dateEncodingStrategy = .iso8601
+		let data = try encoder.encode(stats)
+		try AtomicFileWriter.write(data, to: fileURL)
+	}
+
+	private static func loadFromDisk(at fileURL: URL, fallbackURLs: [URL]) -> LoadedStats {
+		if FileManager.default.fileExists(atPath: fileURL.path) {
+			return LoadedStats(
+				stats: decodeStats(at: fileURL) ?? UsageStats(),
+				migratedFromLegacy: false
+			)
+		}
+
+		for fallbackURL in fallbackURLs {
+			if let stats = decodeStats(at: fallbackURL) {
+				return LoadedStats(stats: stats, migratedFromLegacy: true)
+			}
+		}
+
+		return LoadedStats(stats: UsageStats(), migratedFromLegacy: false)
+	}
+
+	private static func decodeStats(at fileURL: URL) -> UsageStats? {
+		guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+		do {
+			let data = try Data(contentsOf: fileURL)
+			let decoder = JSONDecoder()
+			decoder.dateDecodingStrategy = .iso8601
+			return try decoder.decode(UsageStats.self, from: data)
+		} catch {
+			return nil
+		}
+	}
 }

@@ -205,6 +205,37 @@ final class UsageStatsServiceTests: XCTestCase {
         XCTAssertTrue(service.stats.actionDetailCounts.isEmpty, "Should default to empty for old configs")
     }
 
+	func testLoadsLegacyStatsWhenCurrentStatsFileIsMissingAndPersistsCurrentFile() async throws {
+		let legacyStatsFileURL = testDirectory
+			.appendingPathComponent("legacy", isDirectory: true)
+			.appendingPathComponent("stats.json")
+		try FileManager.default.createDirectory(
+			at: legacyStatsFileURL.deletingLastPathComponent(),
+			withIntermediateDirectories: true
+		)
+		var legacyStats = UsageStats()
+		legacyStats.keyPresses = 42
+		legacyStats.totalSessions = 3
+		try writeStats(legacyStats, to: legacyStatsFileURL)
+
+		let service = UsageStatsService(
+			statsFileURL: statsFileURL,
+			timing: timing,
+			backgroundQueue: backgroundQueue,
+			now: { Date(timeIntervalSince1970: 1_700_000_000) },
+			legacyStatsFileURLs: [legacyStatsFileURL]
+		)
+
+		XCTAssertEqual(service.stats.keyPresses, 42)
+		XCTAssertTrue(FileManager.default.fileExists(atPath: statsFileURL.path))
+
+		let migratedStats = try readStats(from: statsFileURL)
+		XCTAssertEqual(migratedStats.keyPresses, 42)
+		XCTAssertEqual(migratedStats.totalSessions, 4)
+
+		await waitForAsyncWork(0.08)
+	}
+
     private func makeService(now: @escaping () -> Date = Date.init) -> UsageStatsService {
         UsageStatsService(
             statsFileURL: statsFileURL,
@@ -217,4 +248,17 @@ final class UsageStatsServiceTests: XCTestCase {
     private func waitForAsyncWork(_ delay: TimeInterval) async {
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
     }
+
+	private func writeStats(_ stats: UsageStats, to fileURL: URL) throws {
+		let encoder = JSONEncoder()
+		encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+		encoder.dateEncodingStrategy = .iso8601
+		try encoder.encode(stats).write(to: fileURL)
+	}
+
+	private func readStats(from fileURL: URL) throws -> UsageStats {
+		let decoder = JSONDecoder()
+		decoder.dateDecodingStrategy = .iso8601
+		return try decoder.decode(UsageStats.self, from: Data(contentsOf: fileURL))
+	}
 }

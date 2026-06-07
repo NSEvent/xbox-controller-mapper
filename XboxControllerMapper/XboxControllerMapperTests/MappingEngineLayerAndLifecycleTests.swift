@@ -1130,6 +1130,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
             remoteReturnEdge: .left
         )
         UniversalControlMouseRelay.shared.beginRemoteSession(zone: zone)
+		UniversalControlMouseRelay.shared.confirmRemoteSessionForTesting()
         defer { UniversalControlMouseRelay.shared.setRemoteSessionActive(false) }
 
         await MainActor.run {

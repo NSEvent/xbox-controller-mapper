@@ -463,6 +463,22 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         )
     }
 
+	#if DEBUG
+	func confirmRemoteSessionForTesting(
+		point: CGPoint = .zero,
+		displays: [CGRect] = [CGRect(x: 0, y: 0, width: 100, height: 100)]
+	) {
+		lock.lock()
+		remoteCursorStatus = RemoteCursorStatus(
+			point: point,
+			displays: displays,
+			receivedAt: Date()
+		)
+		remoteSessionReceivedCursorStatus = true
+		lock.unlock()
+	}
+	#endif
+
     func showLocalHandoffPortal(for decision: HandoffDecision) {
         lock.lock()
         pendingHandoffPortal = decision
