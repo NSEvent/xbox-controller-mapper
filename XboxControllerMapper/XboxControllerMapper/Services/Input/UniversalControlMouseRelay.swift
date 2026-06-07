@@ -2807,6 +2807,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
                 key: relaySecretKey,
                 service: relaySecretKeychainService
             )
+            UserDefaults.standard.removeObject(forKey: relaySharedSecretDefaultsKey)
             return data
         }
 
@@ -2830,7 +2831,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     private func storeRelaySharedSecret(_ data: Data) {
         let normalized = data.base64EncodedString()
-        UserDefaults.standard.set(normalized, forKey: relaySharedSecretDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: relaySharedSecretDefaultsKey)
         _ = KeychainService.storePassword(
             normalized,
             key: relaySecretKey,
