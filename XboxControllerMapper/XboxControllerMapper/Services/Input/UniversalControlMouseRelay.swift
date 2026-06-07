@@ -438,6 +438,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		remoteSessionReceivedCursorStatus = false
         activeHandoffZone = nil
         pendingHandoffPortal = nil
+        remoteControllerInputRoutingGraceUntil = Date.distantPast
         remoteFocusModeSent = nil
 		resetRemoteCursorVisibilityRestoreStateLocked()
         outgoingRemoteMouseButtonsHeld.removeAll()
