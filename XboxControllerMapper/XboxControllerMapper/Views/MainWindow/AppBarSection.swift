@@ -21,7 +21,7 @@ struct AppBarSection: View {
     @State private var cachedInstalledApps: [AppInfo] = []
 
     private var appBarItems: [AppBarItem] {
-        profileManager.activeProfile?.onScreenKeyboardSettings.appBarItems ?? []
+	profileManager.onScreenKeyboardSettings.appBarItems
     }
 
     private var filteredInstalledApps: [AppInfo] {

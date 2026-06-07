@@ -9,6 +9,15 @@ struct OnScreenKeyboardSettingsView: View {
 
     var body: some View {
         Form {
+	    if let source = profileManager.activeOnScreenKeyboardSourceProfile {
+		Section {
+		    Label("Using shared keyboard settings from \(source.name)", systemImage: "keyboard")
+			.foregroundStyle(.secondary)
+		} footer: {
+		    Text("Changes in this tab update the shared source profile.")
+		}
+	    }
+
             // How to show keyboard info + toggle shortcut
             OSKInfoSection()
 

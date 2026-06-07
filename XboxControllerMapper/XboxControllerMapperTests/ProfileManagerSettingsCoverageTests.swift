@@ -77,6 +77,111 @@ final class ProfileManagerSettingsCoverageTests: XCTestCase {
         XCTAssertEqual(profileManager.activeProfile?.onScreenKeyboardSettings.websiteLinks.map(\.id), [secondId])
     }
 
+    func testOnScreenKeyboardSettingsCanBeInheritedFromAnotherProfile() {
+	let baseQuickText = QuickText(text: "shared")
+	var base = Profile(
+	    name: "Base",
+	    onScreenKeyboardSettings: OnScreenKeyboardSettings(quickTexts: [baseQuickText])
+	)
+	base.createdAt = Date(timeIntervalSince1970: 1)
+
+	var child = Profile(
+	    name: "Child",
+	    inheritedOnScreenKeyboardProfileId: base.id,
+	    onScreenKeyboardSettings: OnScreenKeyboardSettings(quickTexts: [QuickText(text: "local")])
+	)
+	child.createdAt = Date(timeIntervalSince1970: 2)
+
+	profileManager.profiles = [base, child]
+	profileManager.setActiveProfile(child)
+
+	XCTAssertEqual(profileManager.onScreenKeyboardSettings.quickTexts.map(\.text), ["shared"])
+	XCTAssertEqual(profileManager.activeProfile?.onScreenKeyboardSettings.quickTexts.map(\.text), ["local"])
+	XCTAssertEqual(profileManager.activeOnScreenKeyboardSourceProfile?.id, base.id)
+    }
+
+    func testOnScreenKeyboardEditsThroughInheritedProfileUpdateSourceProfile() {
+	var base = Profile(
+	    name: "Base",
+	    onScreenKeyboardSettings: OnScreenKeyboardSettings(quickTexts: [QuickText(text: "shared")])
+	)
+	base.createdAt = Date(timeIntervalSince1970: 1)
+
+	var child = Profile(
+	    name: "Child",
+	    inheritedOnScreenKeyboardProfileId: base.id,
+	    onScreenKeyboardSettings: OnScreenKeyboardSettings(quickTexts: [QuickText(text: "local")])
+	)
+	child.createdAt = Date(timeIntervalSince1970: 2)
+
+	profileManager.profiles = [base, child]
+	profileManager.setActiveProfile(child)
+
+	profileManager.addQuickText(QuickText(text: "added"))
+
+	let updatedBase = profileManager.profiles.first { $0.id == base.id }
+	let updatedChild = profileManager.profiles.first { $0.id == child.id }
+	XCTAssertEqual(updatedBase?.onScreenKeyboardSettings.quickTexts.map(\.text), ["shared", "added"])
+	XCTAssertEqual(updatedChild?.onScreenKeyboardSettings.quickTexts.map(\.text), ["local"])
+	XCTAssertEqual(profileManager.onScreenKeyboardSettings.quickTexts.map(\.text), ["shared", "added"])
+    }
+
+    func testOnScreenKeyboardInheritanceResolvesThroughChains() {
+	var base = Profile(
+	    name: "Base",
+	    onScreenKeyboardSettings: OnScreenKeyboardSettings(quickTexts: [QuickText(text: "base")])
+	)
+	base.createdAt = Date(timeIntervalSince1970: 1)
+
+	var middle = Profile(
+	    name: "Middle",
+	    inheritedOnScreenKeyboardProfileId: base.id,
+	    onScreenKeyboardSettings: OnScreenKeyboardSettings(quickTexts: [QuickText(text: "middle")])
+	)
+	middle.createdAt = Date(timeIntervalSince1970: 2)
+
+	var child = Profile(
+	    name: "Child",
+	    inheritedOnScreenKeyboardProfileId: middle.id,
+	    onScreenKeyboardSettings: OnScreenKeyboardSettings(quickTexts: [QuickText(text: "child")])
+	)
+	child.createdAt = Date(timeIntervalSince1970: 3)
+
+	profileManager.profiles = [base, middle, child]
+	profileManager.setActiveProfile(child)
+
+	XCTAssertEqual(profileManager.onScreenKeyboardSettings.quickTexts.map(\.text), ["base"])
+	XCTAssertEqual(profileManager.activeOnScreenKeyboardSourceProfile?.id, base.id)
+
+	profileManager.addQuickText(QuickText(text: "added"))
+
+	let updatedBase = profileManager.profiles.first { $0.id == base.id }
+	let updatedMiddle = profileManager.profiles.first { $0.id == middle.id }
+	let updatedChild = profileManager.profiles.first { $0.id == child.id }
+	XCTAssertEqual(updatedBase?.onScreenKeyboardSettings.quickTexts.map(\.text), ["base", "added"])
+	XCTAssertEqual(updatedMiddle?.onScreenKeyboardSettings.quickTexts.map(\.text), ["middle"])
+	XCTAssertEqual(updatedChild?.onScreenKeyboardSettings.quickTexts.map(\.text), ["child"])
+    }
+
+    func testOnScreenKeyboardInheritanceCandidatesPreventCycles() {
+	var base = Profile(name: "Base")
+	base.createdAt = Date(timeIntervalSince1970: 1)
+	var child = Profile(name: "Child", inheritedOnScreenKeyboardProfileId: base.id)
+	child.createdAt = Date(timeIntervalSince1970: 2)
+
+	profileManager.profiles = [base, child]
+
+	XCTAssertFalse(profileManager.onScreenKeyboardInheritanceCandidates(for: base).contains { $0.id == child.id })
+
+	profileManager.setOnScreenKeyboardInheritance(for: base, sourceProfileId: child.id)
+	let updatedBase = profileManager.profiles.first { $0.id == base.id }
+	XCTAssertNil(updatedBase?.inheritedOnScreenKeyboardProfileId)
+
+	profileManager.setOnScreenKeyboardInheritance(for: base, sourceProfileId: UUID())
+	let baseAfterMissingSource = profileManager.profiles.first { $0.id == base.id }
+	XCTAssertNil(baseAfterMissingSource?.inheritedOnScreenKeyboardProfileId)
+    }
+
     func testMoveMacrosReordersInActiveProfile() {
         let macroA = Macro(name: "A", steps: [.delay(0.01)])
         let macroB = Macro(name: "B", steps: [.delay(0.01)])

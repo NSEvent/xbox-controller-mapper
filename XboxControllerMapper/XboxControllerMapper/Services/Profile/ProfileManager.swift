@@ -63,7 +63,8 @@ class ProfileManager: ObservableObject {
     @Published private(set) var snapshotsRevision: Int = 0
 
     var onScreenKeyboardSettings: OnScreenKeyboardSettings {
-        activeProfile?.onScreenKeyboardSettings ?? OnScreenKeyboardSettings()
+	guard let activeProfile else { return OnScreenKeyboardSettings() }
+	return resolvedOnScreenKeyboardSettings(for: activeProfile)
     }
 
     private let fileManager = FileManager.default
@@ -223,7 +224,7 @@ class ProfileManager: ObservableObject {
         } else {
             newProfile = Profile(
                 name: name,
-                onScreenKeyboardSettings: activeProfile?.onScreenKeyboardSettings ?? OnScreenKeyboardSettings()
+		onScreenKeyboardSettings: onScreenKeyboardSettings
             )
         }
 

@@ -18,6 +18,7 @@ final class ProfileEqualityTests: XCTestCase {
         joystickSettings: JoystickSettings = .default,
         dualSenseLEDSettings: DualSenseLEDSettings = .default,
         linkedApps: [String] = [],
+	inheritedOnScreenKeyboardProfileId: UUID? = nil,
         macros: [Macro] = [],
         scripts: [Script] = [],
         onScreenKeyboardSettings: OnScreenKeyboardSettings = OnScreenKeyboardSettings(),
@@ -34,6 +35,7 @@ final class ProfileEqualityTests: XCTestCase {
             joystickSettings: joystickSettings,
             dualSenseLEDSettings: dualSenseLEDSettings,
             linkedApps: linkedApps,
+	    inheritedOnScreenKeyboardProfileId: inheritedOnScreenKeyboardProfileId,
             macros: macros,
             scripts: scripts,
             onScreenKeyboardSettings: onScreenKeyboardSettings,
@@ -143,6 +145,13 @@ final class ProfileEqualityTests: XCTestCase {
         let a = makeProfile(linkedApps: ["com.example.app"])
         let b = makeProfile(linkedApps: [])
         XCTAssertNotEqual(a, b)
+    }
+
+    func testProfilesWithDifferentInheritedOnScreenKeyboardProfileIdsAreNotEqual() {
+	let sourceId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+	let a = makeProfile(inheritedOnScreenKeyboardProfileId: sourceId)
+	let b = makeProfile(inheritedOnScreenKeyboardProfileId: nil)
+	XCTAssertNotEqual(a, b)
     }
 
     func testProfilesWithDifferentMacrosAreNotEqual() {

@@ -30,11 +30,11 @@ struct TerminalCommandsSection: View {
     @State private var editSuggestionIndex = 0
 
     private var textSnippets: [QuickText] {
-        (profileManager.activeProfile?.onScreenKeyboardSettings.quickTexts ?? []).filter { !$0.isTerminalCommand }
+	profileManager.onScreenKeyboardSettings.quickTexts.filter { !$0.isTerminalCommand }
     }
 
     private var terminalCommands: [QuickText] {
-        (profileManager.activeProfile?.onScreenKeyboardSettings.quickTexts ?? []).filter { $0.isTerminalCommand }
+	profileManager.onScreenKeyboardSettings.quickTexts.filter { $0.isTerminalCommand }
     }
 
     private var commandSuggestionCount: Int {

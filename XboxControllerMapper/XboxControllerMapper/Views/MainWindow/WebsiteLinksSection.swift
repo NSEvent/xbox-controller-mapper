@@ -21,7 +21,7 @@ struct WebsiteLinksSection: View {
     @State private var draggedWebsiteLink: WebsiteLink?
 
     private var websiteLinks: [WebsiteLink] {
-        profileManager.activeProfile?.onScreenKeyboardSettings.websiteLinks ?? []
+	profileManager.onScreenKeyboardSettings.websiteLinks
     }
 
     var body: some View {

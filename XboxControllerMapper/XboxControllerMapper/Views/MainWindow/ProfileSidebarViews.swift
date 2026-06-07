@@ -110,6 +110,13 @@ struct ProfileSidebar: View {
                                     onLinkController: {
                                         profileToLinkController = profile
                                     },
+				    keyboardSourceProfiles: profileManager.onScreenKeyboardInheritanceCandidates(for: profile),
+				    onSetOnScreenKeyboardSource: { sourceProfileId in
+					profileManager.setOnScreenKeyboardInheritance(
+					    for: profile,
+					    sourceProfileId: sourceProfileId
+					)
+				    },
                                     onSetIcon: { iconName in
                                         profileManager.setProfileIcon(profile, icon: iconName)
                                     },
@@ -319,6 +326,14 @@ struct ProfileListRow: View {
                     )
                 }
 
+		if profile.inheritedOnScreenKeyboardProfileId != nil {
+		    ProfileStatusBadge(
+			systemName: "keyboard",
+			color: .accentColor,
+			helpText: "Shared keyboard settings"
+		    )
+		}
+
                 if profile.isDefault {
                     ProfileStatusBadge(
                         systemName: "star.fill",
@@ -413,6 +428,8 @@ struct ProfileContextMenu: View {
     let onSetDefault: () -> Void
     let onLinkApps: () -> Void
     let onLinkController: () -> Void
+    let keyboardSourceProfiles: [Profile]
+    let onSetOnScreenKeyboardSource: (UUID?) -> Void
     let onSetIcon: (String?) -> Void
     let onExport: () -> Void
     let onDelete: () -> Void
@@ -427,6 +444,33 @@ struct ProfileContextMenu: View {
 
         Button("Linked Apps...", action: onLinkApps)
         Button("Linked Controller...", action: onLinkController)
+
+	Menu("Shared Keyboard Settings") {
+	    Button("Do Not Inherit") {
+		onSetOnScreenKeyboardSource(nil)
+	    }
+	    .disabled(profile.inheritedOnScreenKeyboardProfileId == nil)
+
+	    Divider()
+
+	    if keyboardSourceProfiles.isEmpty {
+		Button("No available profiles") {}
+		    .disabled(true)
+	    } else {
+		ForEach(keyboardSourceProfiles) { sourceProfile in
+		    Button {
+			onSetOnScreenKeyboardSource(sourceProfile.id)
+		    } label: {
+			Label(
+			    sourceProfile.name,
+			    systemImage: profile.inheritedOnScreenKeyboardProfileId == sourceProfile.id
+				? "checkmark"
+				: "keyboard"
+			)
+		    }
+		}
+	    }
+	}
 
         Menu("Set Icon") {
             ForEach(ProfileIcon.grouped, id: \.name) { group in

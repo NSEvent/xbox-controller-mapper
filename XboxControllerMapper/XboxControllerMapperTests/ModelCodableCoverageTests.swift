@@ -41,6 +41,17 @@ final class ModelCodableCoverageTests: XCTestCase {
 
         XCTAssertEqual(decoded.linkedControllers, [])
         XCTAssertEqual(decoded.inputLatencyMode, .standard)
+	XCTAssertNil(decoded.inheritedOnScreenKeyboardProfileId)
+    }
+
+    func testProfileCodableRoundTripsInheritedOnScreenKeyboardProfileId() throws {
+	let sourceId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+	let profile = Profile(name: "Child", inheritedOnScreenKeyboardProfileId: sourceId)
+
+	let data = try JSONEncoder().encode(profile)
+	let decoded = try JSONDecoder().decode(Profile.self, from: data)
+
+	XCTAssertEqual(decoded.inheritedOnScreenKeyboardProfileId, sourceId)
     }
 
     // MARK: - QuickText / OnScreenKeyboardSettings

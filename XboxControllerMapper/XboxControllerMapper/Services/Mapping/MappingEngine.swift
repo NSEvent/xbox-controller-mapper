@@ -138,9 +138,9 @@ class MappingEngine: ObservableObject {
         // Initial state sync
         self.state.activeProfile = profileManager.activeProfile
         self.state.joystickSettings = profileManager.activeProfile?.joystickSettings
-        let oskSettings = profileManager.activeProfile?.onScreenKeyboardSettings
-        self.state.swipeTypingEnabled = oskSettings?.swipeTypingEnabled ?? false
-        self.state.swipeTypingSensitivity = oskSettings?.swipeTypingSensitivity ?? 0.5
+	let oskSettings = profileManager.onScreenKeyboardSettings
+	self.state.swipeTypingEnabled = oskSettings.swipeTypingEnabled
+	self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
         self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
         // Build precomputed lookup caches
@@ -254,9 +254,9 @@ class MappingEngine: ObservableObject {
                     self.state.rightStickHeldDirectionButtons.removeAll()
                     self.state.activeProfile = profile
                     self.state.joystickSettings = profile?.joystickSettings
-                    let osk = profile?.onScreenKeyboardSettings
-                    self.state.swipeTypingEnabled = osk?.swipeTypingEnabled ?? false
-                    self.state.swipeTypingSensitivity = osk?.swipeTypingSensitivity ?? 0.5
+		    let osk = self.profileManager.onScreenKeyboardSettings
+		    self.state.swipeTypingEnabled = osk.swipeTypingEnabled
+		    self.state.swipeTypingSensitivity = osk.swipeTypingSensitivity
                     self.state.activeLayerIds.removeAll()
                     self.state.buttonsActingAsLayerActivators.removeAll()
                     self.rebuildLayerActivatorMap(profile: profile)
