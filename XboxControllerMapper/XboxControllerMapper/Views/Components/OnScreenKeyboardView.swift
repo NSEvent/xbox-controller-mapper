@@ -849,7 +849,7 @@ struct OnScreenKeyboardView: View {
         .onHover { hovering in
             hoveredKey = hovering ? keyCode : nil
             if hovering {
-                if let row = keyboardRow, let col = column {
+                if let row = layout.keyboardRow, let col = layout.column {
                     keyboardManager.setMouseHoveredKeyPosition(row: row, column: col)
                 } else {
                     keyboardManager.setMouseHoveredKey(keyCode)
