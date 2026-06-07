@@ -22,6 +22,7 @@ struct KeyCaptureField: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
+                .help("Clear shortcut")
                 .accessibilityLabel("Clear shortcut")
             }
         }

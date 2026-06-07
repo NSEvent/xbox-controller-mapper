@@ -274,6 +274,8 @@ struct ButtonMappingSheet: View {
                     .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
+            .help("Close")
+            .accessibilityLabel("Close")
         }
         .padding(16)
     }

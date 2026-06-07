@@ -46,6 +46,8 @@ struct BookmarkPickerSheet: View {
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .help("Clear search")
+                    .accessibilityLabel("Clear search")
                 }
             }
             .padding(8)
