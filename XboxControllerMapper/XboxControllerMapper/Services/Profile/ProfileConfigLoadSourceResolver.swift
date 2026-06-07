@@ -6,12 +6,12 @@ struct ProfileConfigLoadSource: Equatable {
 }
 
 enum ProfileConfigLoadSourceResolver {
-    static func resolve(fileManager: FileManager, configURL: URL, legacyConfigURL: URL) -> ProfileConfigLoadSource? {
+    static func resolve(fileManager: FileManager, configURL: URL, legacyConfigURLs: [URL]) -> ProfileConfigLoadSource? {
         if fileManager.fileExists(atPath: configURL.path) {
             return ProfileConfigLoadSource(url: configURL, migratingFromLegacy: false)
         }
 
-        if fileManager.fileExists(atPath: legacyConfigURL.path) {
+	if let legacyConfigURL = legacyConfigURLs.first(where: { fileManager.fileExists(atPath: $0.path) }) {
             return ProfileConfigLoadSource(url: legacyConfigURL, migratingFromLegacy: true)
         }
 

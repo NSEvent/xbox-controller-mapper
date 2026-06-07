@@ -21,12 +21,12 @@ Hard requirements (tests skip/fail without these):
 - Websocket auth enabled with a password
 - Websocket port set (default: `4455`)
 - Live test sentinel enabled:
-  - `~/.controllerkeys/obs_live_tests_enabled`
+  - `~/.config/controllerkeys/obs_live_tests_enabled`
 
 Output lifecycle tests require:
 
 - Output mutation sentinel enabled:
-  - `~/.controllerkeys/obs_live_tests_allow_output_mutations`
+  - `~/.config/controllerkeys/obs_live_tests_allow_output_mutations`
 
 Settings that reduce skips:
 
@@ -49,7 +49,7 @@ Scripts/setup-obs-live-tests.sh apply
 Scripts/setup-obs-live-tests.sh restore
 
 # Or restore from a specific backup folder
-Scripts/setup-obs-live-tests.sh restore ~/.controllerkeys/obs-live-test-backups/<timestamp>
+Scripts/setup-obs-live-tests.sh restore ~/.config/controllerkeys/obs-live-test-backups/<timestamp>
 ```
 
 Environment overrides:
@@ -61,8 +61,8 @@ What `apply` changes:
 
 - `~/Library/Application Support/obs-studio/plugin_config/obs-websocket/config.json`
   - Enables websocket server/auth, sets port/password
-- `~/.controllerkeys/obs_live_tests_enabled`
-- `~/.controllerkeys/obs_live_tests_allow_output_mutations`
+- `~/.config/controllerkeys/obs_live_tests_enabled`
+- `~/.config/controllerkeys/obs_live_tests_allow_output_mutations`
 - Each OBS profile `basic.ini` under:
   - `~/Library/Application Support/obs-studio/basic/profiles/*/basic.ini`
   - Sets output mode + replay buffer/split-record keys used by tests

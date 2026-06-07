@@ -94,16 +94,21 @@ class SwipeTypingModel {
                 NSLog("[SwipeTypingModel] Added %d shell aliases/functions to dictionary", shellAdded)
             }
 
-            // Load user custom dictionaries from ~/.controllerkeys/dictionaries/
-            let existingWordsAfterShell = Set(wordFreqs.map { $0.0 })
-            let userDictDir = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(".controllerkeys/dictionaries")
+	    // Load user custom dictionaries from current and previous config directories.
+	    var existingWordsAfterShell = Set(wordFreqs.map { $0.0 })
+	    let userDictDir = URL(fileURLWithPath: Config.configDirectory, isDirectory: true)
+		.appendingPathComponent("dictionaries", isDirectory: true)
+	    let previousUserDictDir = URL(fileURLWithPath: Config.previousConfigDirectory, isDirectory: true)
+		.appendingPathComponent("dictionaries", isDirectory: true)
 
             // Create directory if it doesn't exist so users can find it
             try? FileManager.default.createDirectory(at: userDictDir, withIntermediateDirectories: true)
 
             var userDictAdded = 0
-            if let enumerator = FileManager.default.enumerator(at: userDictDir, includingPropertiesForKeys: nil) {
+	    for dictionaryDir in [userDictDir, previousUserDictDir] {
+		guard let enumerator = FileManager.default.enumerator(at: dictionaryDir, includingPropertiesForKeys: nil) else {
+		    continue
+		}
                 let defaultUserFreq = 8000
                 for case let fileURL as URL in enumerator where fileURL.pathExtension == "txt" {
                     guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
@@ -123,6 +128,7 @@ class SwipeTypingModel {
                         guard word.count >= 2, word.count <= 12, word.allSatisfy({ $0.isLetter }) else { continue }
                         if !existingWordsAfterShell.contains(word) {
                             wordFreqs.append((word, freq))
+			    existingWordsAfterShell.insert(word)
                             userDictAdded += 1
                         }
                         maxFreq = max(maxFreq, freq)

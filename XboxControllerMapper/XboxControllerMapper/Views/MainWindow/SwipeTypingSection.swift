@@ -108,8 +108,7 @@ struct SwipeTypingSection: View {
                 Divider()
 
                 Button {
-                    let dirURL = FileManager.default.homeDirectoryForCurrentUser
-                        .appendingPathComponent(".controllerkeys/dictionaries")
+		    let dirURL = dictionariesDirectoryURL
                     try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
                     NSWorkspace.shared.open(dirURL)
                 } label: {
@@ -127,13 +126,24 @@ struct SwipeTypingSection: View {
 
     // MARK: - Custom Words Helpers
 
+    private var dictionariesDirectoryURL: URL {
+	URL(fileURLWithPath: Config.configDirectory, isDirectory: true)
+	    .appendingPathComponent("dictionaries", isDirectory: true)
+    }
+
     private var customWordsFileURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".controllerkeys/dictionaries/_custom.txt")
+	dictionariesDirectoryURL.appendingPathComponent("_custom.txt")
+    }
+
+    private var previousCustomWordsFileURL: URL {
+	URL(fileURLWithPath: Config.previousConfigDirectory, isDirectory: true)
+	    .appendingPathComponent("dictionaries", isDirectory: true)
+	    .appendingPathComponent("_custom.txt")
     }
 
     private func loadCustomWords() {
-        let url = customWordsFileURL
+	let currentURL = customWordsFileURL
+	let url = FileManager.default.fileExists(atPath: currentURL.path) ? currentURL : previousCustomWordsFileURL
         guard let content = try? String(contentsOf: url, encoding: .utf8) else {
             customWords = []
             return

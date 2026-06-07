@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 
 /// Manages favicon caching for website links
-/// Favicons are stored in ~/.controllerkeys/favicons/ using URL hash as filename
+/// Favicons are stored in the ControllerKeys config directory using URL hash as filename.
 class FaviconCache {
     static let shared = FaviconCache()
 
@@ -11,9 +11,7 @@ class FaviconCache {
     private let memoryCache = NSCache<NSString, NSData>()
 
     private init() {
-        let homeDir = fileManager.homeDirectoryForCurrentUser
-        cacheDirectory = homeDir
-            .appendingPathComponent(".controllerkeys", isDirectory: true)
+	cacheDirectory = URL(fileURLWithPath: Config.configDirectory, isDirectory: true)
             .appendingPathComponent("favicons", isDirectory: true)
 
         // Create cache directory if needed

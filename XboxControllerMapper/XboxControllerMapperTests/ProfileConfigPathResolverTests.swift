@@ -11,18 +11,24 @@ final class ProfileConfigPathResolverTests: XCTestCase {
 
         XCTAssertEqual(paths.configDirectory, overrideDirectory)
         XCTAssertEqual(paths.configURL, overrideDirectory.appendingPathComponent("config.json"))
-        XCTAssertEqual(paths.legacyConfigURL, overrideDirectory.appendingPathComponent("config.json"))
+	XCTAssertEqual(paths.legacyConfigURLs, [overrideDirectory.appendingPathComponent("config.json")])
     }
 
     func testResolveUsesDefaultControllerKeysAndLegacyPathsWithoutOverride() {
         let home = FileManager.default.homeDirectoryForCurrentUser
+	let configDirectory = home
+	    .appendingPathComponent(".config", isDirectory: true)
+	    .appendingPathComponent("controllerkeys", isDirectory: true)
         let paths = ProfileConfigPathResolver.resolve(
             fileManager: .default,
             configDirectoryOverride: nil
         )
 
-        XCTAssertEqual(paths.configDirectory, home.appendingPathComponent(".controllerkeys", isDirectory: true))
-        XCTAssertEqual(paths.configURL, home.appendingPathComponent(".controllerkeys/config.json"))
-        XCTAssertEqual(paths.legacyConfigURL, home.appendingPathComponent(".xbox-controller-mapper/config.json"))
+	XCTAssertEqual(paths.configDirectory, configDirectory)
+	XCTAssertEqual(paths.configURL, configDirectory.appendingPathComponent("config.json"))
+	XCTAssertEqual(paths.legacyConfigURLs, [
+	    home.appendingPathComponent(".controllerkeys/config.json"),
+	    home.appendingPathComponent(".xbox-controller-mapper/config.json")
+	])
     }
 }

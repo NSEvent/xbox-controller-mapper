@@ -1,6 +1,6 @@
 import Foundation
 
-/// Persists user-meaningful profile checkpoints to `~/.controllerkeys/snapshots/`.
+/// Persists user-meaningful profile checkpoints under the ControllerKeys config directory.
 /// Separate from `ConfigBackupService` auto-backups: this store is reason-tagged,
 /// retained longer (20-deep), and surfaced in the Settings UI.
 struct SnapshotService {

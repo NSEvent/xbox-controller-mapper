@@ -48,8 +48,9 @@ private struct OBSLiveIntegrationConfig {
     static func load() throws -> OBSLiveIntegrationConfig {
         let env = ProcessInfo.processInfo.environment
         let home = NSHomeDirectory()
-        let liveEnabledSentinel = "\(home)/.controllerkeys/obs_live_tests_enabled"
-        let outputMutationSentinel = "\(home)/.controllerkeys/obs_live_tests_allow_output_mutations"
+	let configHome = env["XDG_CONFIG_HOME"] ?? "\(home)/.config"
+	let liveEnabledSentinel = "\(configHome)/controllerkeys/obs_live_tests_enabled"
+	let outputMutationSentinel = "\(configHome)/controllerkeys/obs_live_tests_allow_output_mutations"
         let liveEnabled = (env["OBS_LIVE_TESTS"] == "1") || FileManager.default.fileExists(atPath: liveEnabledSentinel)
         guard liveEnabled else {
             throw XCTSkip("Enable live OBS tests with OBS_LIVE_TESTS=1 or create \(liveEnabledSentinel)")

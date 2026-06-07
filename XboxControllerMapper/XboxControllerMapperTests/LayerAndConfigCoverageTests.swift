@@ -161,6 +161,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertEqual(Config.displayRefreshInterval, 1.0 / Config.displayRefreshFrequency, accuracy: 1e-12)
         XCTAssertEqual(Config.displayUpdateThrottleMs, Int(1000.0 / Config.displayRefreshFrequency))
         XCTAssertTrue(Config.configFilePath.hasSuffix(Config.configFileName))
+	XCTAssertTrue(Config.previousConfigFilePath.hasSuffix(Config.configFileName))
         XCTAssertTrue(Config.legacyConfigFilePath.hasSuffix(Config.configFileName))
     }
 
@@ -289,6 +290,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         _ = Config.chordReleaseProcessingDelay
         _ = Config.modifierReleaseCheckDelay
         _ = Config.configDirectory
+	_ = Config.previousConfigDirectory
         _ = Config.legacyConfigDirectory
         _ = Config.configFileName
         _ = Config.batteryUpdateInterval

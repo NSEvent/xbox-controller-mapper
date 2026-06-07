@@ -354,9 +354,15 @@ struct Config {
     static let modifierReleaseCheckDelay: TimeInterval = 0.05
 
     // MARK: - Profile Management
-    /// New configuration directory (preferred)
+    /// Configuration directory (preferred)
     static let configDirectory: String = {
         let homeDir = NSHomeDirectory()
+	return (homeDir as NSString).appendingPathComponent(".config/controllerkeys")
+    }()
+
+    /// Previous ControllerKeys configuration directory (for migration)
+    static let previousConfigDirectory: String = {
+	let homeDir = NSHomeDirectory()
         return (homeDir as NSString).appendingPathComponent(".controllerkeys")
     }()
 
@@ -375,6 +381,10 @@ struct Config {
 
     static var legacyConfigFilePath: String {
         (legacyConfigDirectory as NSString).appendingPathComponent(configFileName)
+    }
+
+    static var previousConfigFilePath: String {
+	(previousConfigDirectory as NSString).appendingPathComponent(configFileName)
     }
 
     // MARK: - Scripting

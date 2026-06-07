@@ -3,7 +3,7 @@ import Foundation
 struct ProfileConfigPaths: Equatable {
     let configDirectory: URL
     let configURL: URL
-    let legacyConfigURL: URL
+    let legacyConfigURLs: [URL]
 }
 
 enum ProfileConfigPathResolver {
@@ -13,19 +13,25 @@ enum ProfileConfigPathResolver {
             return ProfileConfigPaths(
                 configDirectory: configDirectoryOverride,
                 configURL: configURL,
-                legacyConfigURL: configURL
+		legacyConfigURLs: [configURL]
             )
         }
 
         let home = fileManager.homeDirectoryForCurrentUser
-        let configDirectory = home.appendingPathComponent(".controllerkeys", isDirectory: true)
+	let configDirectory = home
+	    .appendingPathComponent(".config", isDirectory: true)
+	    .appendingPathComponent("controllerkeys", isDirectory: true)
         let configURL = configDirectory.appendingPathComponent("config.json")
-        let legacyConfigDirectory = home.appendingPathComponent(".xbox-controller-mapper", isDirectory: true)
-        let legacyConfigURL = legacyConfigDirectory.appendingPathComponent("config.json")
+	let previousConfigURL = home
+	    .appendingPathComponent(".controllerkeys", isDirectory: true)
+	    .appendingPathComponent("config.json")
+	let legacyConfigURL = home
+	    .appendingPathComponent(".xbox-controller-mapper", isDirectory: true)
+	    .appendingPathComponent("config.json")
         return ProfileConfigPaths(
             configDirectory: configDirectory,
             configURL: configURL,
-            legacyConfigURL: legacyConfigURL
+	    legacyConfigURLs: [previousConfigURL, legacyConfigURL]
         )
     }
 }

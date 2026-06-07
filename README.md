@@ -201,7 +201,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 
 - **History & Snapshots**: ControllerKeys silently snapshots your full configuration before every destructive operation (delete profile, import profile, restore snapshot) and exposes them in a dedicated **History** tab
   - Restore any snapshot — the restore itself is snapshotted first, so undo is itself undoable
-  - Snapshots live at `~/.controllerkeys/snapshots/` (capped at 20)
+  - Snapshots live at `~/.config/controllerkeys/snapshots/` (capped at 20)
 
 - **Profile-Import Safety Prompts**: Imports that contain shell commands, scripts, or webhook follow-up commands open an explicit consent sheet listing every code-execution surface verbatim — no silent execution from third-party profiles
 

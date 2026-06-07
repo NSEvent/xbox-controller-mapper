@@ -31,7 +31,7 @@ final class ProfileConfigLoadSourceResolverTests: XCTestCase {
         let source = ProfileConfigLoadSourceResolver.resolve(
             fileManager: fileManager,
             configURL: configURL,
-            legacyConfigURL: legacyURL
+	    legacyConfigURLs: [legacyURL]
         )
 
         XCTAssertNil(source)
@@ -46,7 +46,7 @@ final class ProfileConfigLoadSourceResolverTests: XCTestCase {
         let source = ProfileConfigLoadSourceResolver.resolve(
             fileManager: fileManager,
             configURL: configURL,
-            legacyConfigURL: legacyURL
+	    legacyConfigURLs: [legacyURL]
         )
 
         XCTAssertEqual(
@@ -63,12 +63,31 @@ final class ProfileConfigLoadSourceResolverTests: XCTestCase {
         let source = ProfileConfigLoadSourceResolver.resolve(
             fileManager: fileManager,
             configURL: configURL,
-            legacyConfigURL: legacyURL
+	    legacyConfigURLs: [legacyURL]
         )
 
         XCTAssertEqual(
             source,
             ProfileConfigLoadSource(url: legacyURL, migratingFromLegacy: true)
         )
+    }
+
+    func testResolveUsesFirstExistingLegacyConfigWhenCurrentMissing() throws {
+	let configURL = tempDirectory.appendingPathComponent("config.json")
+	let firstLegacyURL = tempDirectory.appendingPathComponent("first-legacy-config.json")
+	let secondLegacyURL = tempDirectory.appendingPathComponent("second-legacy-config.json")
+	try Data("{}".utf8).write(to: firstLegacyURL)
+	try Data("{}".utf8).write(to: secondLegacyURL)
+
+	let source = ProfileConfigLoadSourceResolver.resolve(
+	    fileManager: fileManager,
+	    configURL: configURL,
+	    legacyConfigURLs: [firstLegacyURL, secondLegacyURL]
+	)
+
+	XCTAssertEqual(
+	    source,
+	    ProfileConfigLoadSource(url: firstLegacyURL, migratingFromLegacy: true)
+	)
     }
 }

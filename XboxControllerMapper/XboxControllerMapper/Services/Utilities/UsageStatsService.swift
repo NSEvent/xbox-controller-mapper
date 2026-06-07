@@ -29,8 +29,7 @@ class UsageStatsService: ObservableObject {
     private var sessionStartDate: Date?
 
     private static let statsDirectory: URL = {
-        let url = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".controllerkeys")
+	let url = URL(fileURLWithPath: Config.configDirectory, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }()

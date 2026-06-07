@@ -80,7 +80,7 @@ Create multiple profiles for different use cases:
 - Click the profile dropdown in the menu bar to switch
 - Create new profiles in Settings
 - Each profile stores its own button mappings, chords, and joystick settings
-- Profiles are saved to `~/.xbox-controller-mapper/config.json`
+- Profiles are saved to `~/.config/controllerkeys/config.json`
 
 ---
 
@@ -109,7 +109,7 @@ Create multiple profiles for different use cases:
 ### App Won't Launch / Crashes
 
 1. **Check macOS version**: Requires macOS 14.0 or later
-2. **Reset configuration**: Delete `~/.xbox-controller-mapper/config.json` and relaunch
+2. **Reset configuration**: Delete `~/.config/controllerkeys/config.json` and relaunch
 3. **Check Console.app**: Look for crash logs under "Crash Reports"
 
 ### Stuck Modifier Keys
@@ -187,7 +187,7 @@ A: Some apps handle scroll events differently. Try adjusting scroll sensitivity 
 
 **Q: Where are my profiles stored?**
 
-A: Profiles are saved to `~/.xbox-controller-mapper/config.json`. This is a human-readable JSON file.
+A: Profiles are saved to `~/.config/controllerkeys/config.json`. This is a human-readable JSON file.
 
 **Q: Can I share profiles with others?**
 
@@ -195,7 +195,7 @@ A: Yes. You can copy the config.json file or use the export feature to share ind
 
 **Q: I lost my settings. Can I recover them?**
 
-A: If you have Time Machine backups, you can restore `~/.xbox-controller-mapper/config.json` from a backup.
+A: If you have Time Machine backups, you can restore `~/.config/controllerkeys/config.json` from a backup.
 
 ### Technical Questions
 

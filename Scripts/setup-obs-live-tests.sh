@@ -7,7 +7,8 @@ OBS_CONFIG_ROOT="${HOME}/Library/Application Support/obs-studio"
 OBS_WS_CONFIG="${OBS_CONFIG_ROOT}/plugin_config/obs-websocket/config.json"
 OBS_PROFILES_ROOT="${OBS_CONFIG_ROOT}/basic/profiles"
 
-SENTINEL_ROOT="${HOME}/.controllerkeys"
+CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME}/.config}"
+SENTINEL_ROOT="${CONFIG_HOME}/controllerkeys"
 LIVE_SENTINEL="${SENTINEL_ROOT}/obs_live_tests_enabled"
 MUTATION_SENTINEL="${SENTINEL_ROOT}/obs_live_tests_allow_output_mutations"
 

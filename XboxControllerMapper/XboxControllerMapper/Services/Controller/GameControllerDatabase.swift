@@ -62,6 +62,14 @@ class GameControllerDatabase {
         (Config.configDirectory as NSString).appendingPathComponent("gamecontrollerdb.txt")
     }
 
+    private static var previousUserDatabasePath: String {
+	(Config.previousConfigDirectory as NSString).appendingPathComponent("gamecontrollerdb.txt")
+    }
+
+    private static var legacyUserDatabasePath: String {
+	(Config.legacyConfigDirectory as NSString).appendingPathComponent("gamecontrollerdb.txt")
+    }
+
     init(databaseContentOverride: String? = nil) {
         if let databaseContentOverride {
             parseDatabase(databaseContentOverride)
@@ -154,11 +162,15 @@ class GameControllerDatabase {
     func loadDatabase() {
         mappings.removeAll()
 
-        let userPath = Self.userDatabasePath
+	let userPaths = [
+	    Self.userDatabasePath,
+	    Self.previousUserDatabasePath,
+	    Self.legacyUserDatabasePath
+	]
         let bundledPath = Bundle.main.path(forResource: "gamecontrollerdb", ofType: "txt")
 
         let path: String
-        if FileManager.default.fileExists(atPath: userPath) {
+	if let userPath = userPaths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
             path = userPath
         } else if let bp = bundledPath {
             path = bp

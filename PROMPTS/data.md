@@ -42,7 +42,7 @@ init(from decoder: Decoder) throws {
 
 ## Config file location and migration
 
-Config lives at `~/.controllerkeys/config.json`. Legacy path `~/.xbox-controller-mapper/config.json` is auto-migrated on first launch. Backups are kept at `~/.controllerkeys/backups/` (last 5).
+Config lives at `~/.config/controllerkeys/config.json`. Previous path `~/.controllerkeys/config.json` and legacy path `~/.xbox-controller-mapper/config.json` are auto-migrated on first launch. Backups are kept at `~/.config/controllerkeys/backups/` (last 5).
 
 The config is pretty-printed JSON with ISO8601 dates.
 

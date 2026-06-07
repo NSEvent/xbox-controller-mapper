@@ -70,7 +70,7 @@ class ProfileManager: ObservableObject {
     private let configurationSaveService: ProfileConfigurationSaveService
     private let snapshotService: SnapshotService
     private let configURL: URL
-    private let legacyConfigURL: URL
+    private let legacyConfigURLs: [URL]
     /// Tracks if config load succeeded to prevent clobbering on save.
     /// Thread-safe: only accessed from @MainActor context (all callers are @MainActor-isolated).
     private var loadSucceeded = false
@@ -93,7 +93,7 @@ class ProfileManager: ObservableObject {
             fileManager: fileManager
         )
         configURL = configPaths.configURL
-        legacyConfigURL = configPaths.legacyConfigURL
+	legacyConfigURLs = configPaths.legacyConfigURLs
         createDirectoryIfNeeded(at: configPaths.configDirectory)
 
         loadConfiguration()
@@ -373,7 +373,7 @@ class ProfileManager: ObservableObject {
         guard let loadSource = ProfileConfigLoadSourceResolver.resolve(
             fileManager: fileManager,
             configURL: configURL,
-            legacyConfigURL: legacyConfigURL
+	    legacyConfigURLs: legacyConfigURLs
         ) else {
             return
         }
@@ -382,7 +382,7 @@ class ProfileManager: ObservableObject {
         let migratingFromLegacy = loadSource.migratingFromLegacy
         if let preLoadLog = ProfileConfigurationPostLoadPolicy.preLoadLogMessage(
             migratingFromLegacy: migratingFromLegacy,
-            legacyConfigURL: legacyConfigURL
+	    legacyConfigURL: urlToLoad
         ) {
             NSLog("%@", preLoadLog)
         }

@@ -78,5 +78,5 @@ Backlog audited May 10, 2026 against git history and current source.
 
 - Build with `make install BUILD_FROM_SOURCE=1` (not `make install` alone — that path is for packaged users).
 - For NSLog visibility on Release builds, run `log show --predicate 'process == "ControllerKeys"' --last 5m --info --debug` (note: many logs show as `<private>` — use format strings with `%{public}@` if needed).
-- Config lives at `~/.controllerkeys/config.json` — inspect with `python3 -m json.tool` to verify mappings persist correctly.
+- Config lives at `~/.config/controllerkeys/config.json` — inspect with `python3 -m json.tool` to verify mappings persist correctly.
 - Tests: `xcodebuild -project XboxControllerMapper/XboxControllerMapper.xcodeproj -scheme XboxControllerMapper -configuration Debug test`.
