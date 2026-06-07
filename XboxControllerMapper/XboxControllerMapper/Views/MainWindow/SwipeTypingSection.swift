@@ -7,7 +7,7 @@ struct SwipeTypingSection: View {
 
     // Custom words state
     @State private var newCustomWord = ""
-    @State private var customWords: [String] = []
+    @State private var customWords: Set<String> = []
 
     var body: some View {
         Section("Swipe Typing") {
@@ -87,7 +87,7 @@ struct SwipeTypingSection: View {
                 }
 
                 if !customWords.isEmpty {
-                    ForEach(customWords, id: \.self) { word in
+                    ForEach(Array(customWords).sorted(), id: \.self) { word in
                         HStack {
                             Text(word)
                                 .font(.body.monospaced())
@@ -99,6 +99,8 @@ struct SwipeTypingSection: View {
                                     .foregroundColor(.red)
                             }
                             .buttonStyle(.borderless)
+                            .help("Delete")
+                            .accessibilityLabel("Delete Custom Word")
                         }
                     }
                 }
@@ -136,9 +138,10 @@ struct SwipeTypingSection: View {
             customWords = []
             return
         }
-        customWords = content.components(separatedBy: .newlines)
+        let words = content.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
+        customWords = Set(words)
     }
 
     private func addCustomWord() {
@@ -148,14 +151,14 @@ struct SwipeTypingSection: View {
             newCustomWord = ""
             return
         }
-        customWords.append(word)
+        customWords.insert(word)
         saveCustomWords()
         newCustomWord = ""
         reloadSwipeModel()
     }
 
     private func removeCustomWord(_ word: String) {
-        customWords.removeAll { $0 == word }
+        customWords.remove(word)
         saveCustomWords()
         reloadSwipeModel()
     }
@@ -164,7 +167,7 @@ struct SwipeTypingSection: View {
         let url = customWordsFileURL
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? AtomicFileWriter.write(customWords.joined(separator: "\n"), to: url)
+        try? AtomicFileWriter.write(Array(customWords).sorted().joined(separator: "\n"), to: url)
     }
 
     private func reloadSwipeModel() {

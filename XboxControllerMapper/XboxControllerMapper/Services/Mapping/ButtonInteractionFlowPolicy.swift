@@ -51,17 +51,24 @@ enum ButtonInteractionFlowPolicy {
 		return true
 	}
 
-    static func shouldUseRealtimeHoldPath(mapping: KeyMapping, isChordPart: Bool) -> Bool {
-        guard !isChordPart,
-              mapping.effectiveActionType == .keyPress,
-              mapping.keyCode != nil,
-              mapping.longHoldMapping?.isEmpty ?? true,
-              mapping.doubleTapMapping?.isEmpty ?? true,
-              !(mapping.repeatMapping?.enabled ?? false) else {
-            return false
-        }
-        return true
-    }
+	static func shouldUseRealtimeHoldPath(
+		mapping: KeyMapping,
+		isChordPart: Bool,
+		isOtherLayerActivatorPress: Bool = false
+	) -> Bool {
+		// When a different layer is active, its remap of another layer's
+		// activator should keep tap semantics instead of becoming a held key.
+		guard !isChordPart,
+			  !isOtherLayerActivatorPress,
+			  mapping.effectiveActionType == .keyPress,
+			  mapping.keyCode != nil,
+			  mapping.longHoldMapping?.isEmpty ?? true,
+			  mapping.doubleTapMapping?.isEmpty ?? true,
+			  !(mapping.repeatMapping?.enabled ?? false) else {
+			return false
+		}
+		return true
+	}
 
     static func releaseDecision(
         mapping: KeyMapping,

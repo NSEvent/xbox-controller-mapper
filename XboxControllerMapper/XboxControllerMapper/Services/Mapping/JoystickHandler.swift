@@ -515,12 +515,14 @@ extension MappingEngine {
         }
 
         inputSimulator.scroll(
-            dx: dx,
-            dy: dy,
-            phase: nil,
-            momentumPhase: nil,
-            isContinuous: false,
-            flags: inputSimulator.getHeldModifiers()
+            event: ScrollEvent(
+                dx: dx,
+                dy: dy,
+                phase: nil,
+                momentumPhase: nil,
+                isContinuous: false,
+                flags: inputSimulator.getHeldModifiers()
+            )
         )
         usageStatsService?.recordScrollDistance(dx: Double(dx), dy: Double(dy))
     }

@@ -22,6 +22,7 @@ struct KeyCaptureField: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
+                .help("Clear shortcut")
                 .accessibilityLabel("Clear shortcut")
             }
         }
@@ -61,10 +62,10 @@ struct KeyCaptureField: View {
     private func updateDisplayText() {
         var parts: [String] = []
 
-        if modifiers.command { parts.append("⌘") }
-        if modifiers.option { parts.append("⌥") }
-        if modifiers.shift { parts.append("⇧") }
-        if modifiers.control { parts.append("⌃") }
+        if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
+        if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
+        if modifiers.shift { parts.append(ModifierFlags.label(for: modifiers.shiftSide) + "⇧") }
+        if modifiers.control { parts.append(ModifierFlags.label(for: modifiers.controlSide) + "⌃") }
 
         if let keyCode = keyCode {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
@@ -120,6 +121,9 @@ class KeyCaptureNSView: NSView {
     private var currentModifiers = ModifierFlags()
     private var peakModifiers = ModifierFlags()  // Tracks the maximum set of modifiers held
     private var hasNonModifierKey = false
+    /// Specific modifier key codes (kVK_Command vs kVK_RightCommand, etc.) seen during this capture.
+    /// Lets us preserve left/right identity when the user records just one modifier key on its own.
+    private var capturedModifierKeyCodes: [UInt16] = []
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -130,6 +134,7 @@ class KeyCaptureNSView: NSView {
         currentModifiers = ModifierFlags()
         peakModifiers = ModifierFlags()
         hasNonModifierKey = false
+        capturedModifierKeyCodes = []
 
         let eventMask: NSEvent.EventTypeMask = [
             .keyDown, .flagsChanged,
@@ -143,7 +148,7 @@ class KeyCaptureNSView: NSView {
             // (activation click happens via onTapGesture before monitor starts)
             if event.type == .leftMouseDown || event.type == .rightMouseDown || event.type == .otherMouseDown {
                 // Check if click is within our bounds; if outside, stop capturing and pass through
-                if let window = self.window {
+				if self.window != nil {
                     let locationInView = self.convert(event.locationInWindow, from: nil)
                     if !self.bounds.contains(locationInView) {
                         self.stopCapturing()
@@ -177,26 +182,53 @@ class KeyCaptureNSView: NSView {
             ]
 
             if event.type == .flagsChanged {
-                // Track current modifier state
-                var mods = ModifierFlags()
-                if event.modifierFlags.contains(.command) { mods.command = true }
-                if event.modifierFlags.contains(.option) { mods.option = true }
-                if event.modifierFlags.contains(.shift) { mods.shift = true }
-                if event.modifierFlags.contains(.control) { mods.control = true }
+                let specificKeyCode = event.keyCode
 
+                // Remember which specific modifier key codes were touched (left vs right).
+                if modifierOnlyKeys.contains(Int(specificKeyCode)) &&
+                   !self.capturedModifierKeyCodes.contains(specificKeyCode) {
+                    self.capturedModifierKeyCodes.append(specificKeyCode)
+                }
+
+				// Track current modifier state, preserving side when exactly one side of
+				// a modifier has been involved in this capture.
+				let mods = Self.modifierFlags(
+					from: event.modifierFlags,
+					capturedKeyCodes: self.capturedModifierKeyCodes
+				)
                 self.currentModifiers = mods
 
                 // Track the peak (maximum) modifiers held during this capture session
                 // This ensures Command+Shift captures both even if released one at a time
-                if mods.command { self.peakModifiers.command = true }
-                if mods.option { self.peakModifiers.option = true }
-                if mods.shift { self.peakModifiers.shift = true }
-                if mods.control { self.peakModifiers.control = true }
+				if mods.command {
+					self.peakModifiers.command = true
+					self.peakModifiers.commandSide = mods.commandSide
+				}
+				if mods.option {
+					self.peakModifiers.option = true
+					self.peakModifiers.optionSide = mods.optionSide
+				}
+				if mods.shift {
+					self.peakModifiers.shift = true
+					self.peakModifiers.shiftSide = mods.shiftSide
+				}
+				if mods.control {
+					self.peakModifiers.control = true
+					self.peakModifiers.controlSide = mods.controlSide
+				}
 
                 // If all modifiers are now released and no regular key was pressed,
                 // capture the peak modifiers as a modifier-only shortcut
                 if !mods.hasAny && self.peakModifiers.hasAny && !self.hasNonModifierKey {
-                    self.onKeyCapture?(nil, self.peakModifiers)
+                    // If the user pressed exactly one modifier key on its own, preserve
+                    // the specific left/right key code (e.g. kVK_RightCommand). Otherwise
+                    // fall back to the mask-based modifier-only shortcut.
+                    let sideAwareCodes = self.capturedModifierKeyCodes.filter { Int($0) != kVK_Function }
+                    if sideAwareCodes.count == 1, let code = sideAwareCodes.first {
+                        self.onKeyCapture?(CGKeyCode(code), ModifierFlags())
+                    } else {
+                        self.onKeyCapture?(nil, self.peakModifiers)
+                    }
                     self.stopCapturing()
                 }
 
@@ -222,6 +254,64 @@ class KeyCaptureNSView: NSView {
         }
     }
 
+	static func modifierFlags(
+		from eventFlags: NSEvent.ModifierFlags,
+		capturedKeyCodes: [UInt16]
+    ) -> ModifierFlags {
+		var modifiers = ModifierFlags(
+			command: eventFlags.contains(.command),
+			option: eventFlags.contains(.option),
+			shift: eventFlags.contains(.shift),
+			control: eventFlags.contains(.control)
+		)
+
+		if modifiers.command {
+			modifiers.commandSide = capturedSide(
+				leftKey: kVK_Command,
+				rightKey: kVK_RightCommand,
+				capturedKeyCodes: capturedKeyCodes
+			)
+		}
+		if modifiers.option {
+			modifiers.optionSide = capturedSide(
+				leftKey: kVK_Option,
+				rightKey: kVK_RightOption,
+				capturedKeyCodes: capturedKeyCodes
+			)
+		}
+		if modifiers.shift {
+			modifiers.shiftSide = capturedSide(
+				leftKey: kVK_Shift,
+				rightKey: kVK_RightShift,
+				capturedKeyCodes: capturedKeyCodes
+			)
+		}
+		if modifiers.control {
+			modifiers.controlSide = capturedSide(
+				leftKey: kVK_Control,
+				rightKey: kVK_RightControl,
+				capturedKeyCodes: capturedKeyCodes
+			)
+		}
+
+		return modifiers
+    }
+
+	private static func capturedSide(
+		leftKey: Int,
+		rightKey: Int,
+		capturedKeyCodes: [UInt16]
+    ) -> ModifierSide? {
+		let hasLeft = capturedKeyCodes.contains(UInt16(leftKey))
+		let hasRight = capturedKeyCodes.contains(UInt16(rightKey))
+
+		switch (hasLeft, hasRight) {
+		case (true, false): return .left
+		case (false, true): return .right
+		default: return nil
+		}
+    }
+
     func stopCapturing() {
         if let monitor = localMonitor {
             NSEvent.removeMonitor(monitor)
@@ -230,6 +320,7 @@ class KeyCaptureNSView: NSView {
         currentModifiers = ModifierFlags()
         peakModifiers = ModifierFlags()
         hasNonModifierKey = false
+        capturedModifierKeyCodes = []
     }
 
     deinit {

@@ -271,6 +271,7 @@ struct BindingAnalysis {
 
 func analyzeBindings(
     actionDetailCounts: [String: Int],
+    profile: Profile,
     effectiveAlphabetSize: Double = 80
 ) -> [BindingAnalysis] {
     let total = actionDetailCounts.values.reduce(0, +)
@@ -280,6 +281,7 @@ func analyzeBindings(
         let p = Double(count) / Double(total)
         let optimalCost = -log2(p) / log2(effectiveAlphabetSize)
         let actualCost = inputCost(for: key)
+        let hint = BindingAnalysisEngine.descriptionForActionKey(key, profile: profile)
         return BindingAnalysis(
             key: key,
             count: count,
@@ -287,7 +289,7 @@ func analyzeBindings(
             actualCost: actualCost,
             optimalCost: optimalCost,
             waste: optimalCost - actualCost,
-            hint: nil  // TODO: look up from profile
+            hint: hint
         )
     }
     .sorted { $0.waste < $1.waste }  // most negative (most wasted effort) first

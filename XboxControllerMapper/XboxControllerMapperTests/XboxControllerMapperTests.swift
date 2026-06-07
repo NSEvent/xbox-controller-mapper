@@ -167,17 +167,10 @@ class MockInputSimulator: InputSimulatorProtocol {
         lastWarpPoint = point
     }
 
-    func scroll(
-        dx: CGFloat,
-        dy: CGFloat,
-        phase: CGScrollPhase?,
-        momentumPhase: CGMomentumScrollPhase?,
-        isContinuous: Bool,
-        flags: CGEventFlags
-    ) {
+    func scroll(event scrollEvent: ScrollEvent) {
         lock.lock()
         defer { lock.unlock() }
-        _events.append(.scroll(dx, dy))
+        _events.append(.scroll(scrollEvent.dx, scrollEvent.dy))
     }
     
     func executeMapping(_ mapping: KeyMapping) {
@@ -1394,7 +1387,7 @@ final class XboxControllerMapperTests: XCTestCase {
         // For now, verify scroll mock exists and events can be recorded
         await MainActor.run {
             // The mock should be able to receive scroll events
-            mockInputSimulator.scroll(dx: 1.0, dy: 2.0, phase: nil, momentumPhase: nil, isContinuous: false, flags: [])
+            mockInputSimulator.scroll(event: ScrollEvent(dx: 1.0, dy: 2.0, phase: nil, momentumPhase: nil, isContinuous: false, flags: []))
         }
 
         await MainActor.run {

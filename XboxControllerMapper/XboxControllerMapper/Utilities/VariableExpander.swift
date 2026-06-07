@@ -6,6 +6,8 @@ enum VariableExpander {
 
     // MARK: - Variable Definitions
 
+    private static let isoFormatter = ISO8601DateFormatter()
+
     /// All supported variables with their descriptions and examples
     static let availableVariables: [(name: String, description: String, example: String)] = [
         // Date formats
@@ -80,6 +82,8 @@ enum VariableExpander {
         // Find all matches (process in reverse to preserve indices)
         let matches = regex.matches(in: text, options: [], range: NSRange(text.startIndex..., in: text))
 
+        let formatter = DateFormatter()
+
         for match in matches.reversed() {
             guard let fullRange = Range(match.range, in: result),
                   let varNameRange = Range(match.range(at: 1), in: result) else {
@@ -88,7 +92,7 @@ enum VariableExpander {
 
             let variableName = String(result[varNameRange])
 
-            if let value = resolveVariable(variableName) {
+            if let value = resolveVariable(variableName, formatter: formatter) {
                 result.replaceSubrange(fullRange, with: value)
             }
             // If variable cannot be resolved, leave it unchanged
@@ -100,9 +104,8 @@ enum VariableExpander {
     // MARK: - Variable Resolution
 
     /// Resolves a single variable name to its value
-    private static func resolveVariable(_ name: String) -> String? {
+    private static func resolveVariable(_ name: String, formatter: DateFormatter) -> String? {
         let now = Date()
-        let formatter = DateFormatter()
 
         switch name {
         // Date formats
@@ -201,7 +204,7 @@ enum VariableExpander {
             return formatter.string(from: now)
 
         case "time.iso":
-            return ISO8601DateFormatter().string(from: now)
+            return isoFormatter.string(from: now)
 
         case "unix":
             return String(Int(now.timeIntervalSince1970))

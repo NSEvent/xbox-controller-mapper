@@ -286,6 +286,7 @@ struct MacroStepRow: View {
             }
             .buttonStyle(.plain)
             .help("Duplicate step")
+            .accessibilityLabel("Duplicate step")
 
             Button {
                 onDelete()
@@ -296,6 +297,7 @@ struct MacroStepRow: View {
             }
             .buttonStyle(.plain)
             .help("Delete step")
+            .accessibilityLabel("Delete step")
 
             Image(systemName: "chevron.right")
                 .font(.caption)
@@ -645,7 +647,10 @@ struct MacroStepEditorSheet: View {
                                 Text(webhookHeaders[key] ?? "").font(.caption).foregroundColor(.secondary)
                                 Button { webhookHeaders.removeValue(forKey: key) } label: {
                                     Image(systemName: "minus.circle.fill").foregroundColor(.red)
-                                }.buttonStyle(.plain)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Remove header")
+                                .accessibilityLabel("Remove header")
                             }
                         }
                         HStack {
@@ -663,6 +668,8 @@ struct MacroStepEditorSheet: View {
                                 Image(systemName: "plus.circle.fill").foregroundColor(.green)
                             }
                             .buttonStyle(.plain)
+                            .help("Add header")
+                            .accessibilityLabel("Add header")
                             .disabled(newWebhookHeaderKey.isEmpty)
                         }
                     }

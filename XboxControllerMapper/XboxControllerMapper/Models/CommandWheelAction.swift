@@ -146,7 +146,7 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
                     return NSWorkspace.shared.icon(forFile: url.path)
                 }
             case .openLink(let url):
-                if let data = FaviconCache.shared.loadCachedFavicon(for: url) {
+                if let data = FaviconCache.shared.memoryCachedFavicon(for: url) {
                     return NSImage(data: data)
                 }
             default:

@@ -245,12 +245,12 @@ final class ZoomAccumulatorThreadSafetyTests: XCTestCase {
         DispatchQueue.concurrentPerform(iterations: iterations) { i in
             let dy = CGFloat(i % 2 == 0 ? 5 : -5)
             // The Control flag triggers the handleAccessibilityZoom path
-            simulator.scroll(
+            simulator.scroll(event: ScrollEvent(
                 dx: 0, dy: dy,
                 phase: nil, momentumPhase: nil,
                 isContinuous: false,
                 flags: .maskControl
-            )
+            ))
         }
 
         // No crash = success. The accumulator should be in a valid state.
@@ -265,11 +265,11 @@ final class ZoomAccumulatorThreadSafetyTests: XCTestCase {
 
         DispatchQueue.concurrentPerform(iterations: iterations) { i in
             if i % 3 == 0 {
-                simulator.scroll(dx: 0, dy: 5, phase: nil, momentumPhase: nil,
-                    isContinuous: false, flags: .maskControl)
+                simulator.scroll(event: ScrollEvent(dx: 0, dy: 5, phase: nil, momentumPhase: nil,
+                    isContinuous: false, flags: .maskControl))
             } else {
-                simulator.scroll(dx: 0, dy: 3, phase: nil, momentumPhase: nil,
-                    isContinuous: false, flags: [])
+                simulator.scroll(event: ScrollEvent(dx: 0, dy: 3, phase: nil, momentumPhase: nil,
+                    isContinuous: false, flags: []))
             }
         }
 
@@ -306,12 +306,12 @@ final class ZoomWarningStateMachineTests: XCTestCase {
         // Simulate many control+scroll calls (each increments zoomAttemptCount)
         // After 5 attempts, warning would be shown and shortcuts stop being sent.
         for _ in 0..<20 {
-            simulator.scroll(
+            simulator.scroll(event: ScrollEvent(
                 dx: 0, dy: 15, // Above threshold to trigger zoom step
                 phase: nil, momentumPhase: nil,
                 isContinuous: false,
                 flags: .maskControl
-            )
+            ))
             // Small delay to pass rate limiting
             usleep(60_000) // 60ms > 50ms minimum interval
         }

@@ -56,6 +56,8 @@ struct LinkedControllersSheet: View {
                                     .foregroundColor(.red)
                             }
                             .buttonStyle(.borderless)
+                            .help("Remove")
+                            .accessibilityLabel("Remove Linked Controller")
                         }
                         .padding(.vertical, 4)
                     }

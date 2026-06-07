@@ -35,6 +35,7 @@ enum ButtonPressOrchestrationPolicy {
         remoteSwipePredictionsVisible: Bool = false,
         isChordPart: Bool,
 		isDPadPresetDirection: Bool = false,
+		isOtherLayerActivatorPress: Bool = false,
         lastTap: CFAbsoluteTime?,
         inputLatencyMode: InputLatencyMode = .standard
     ) -> Outcome {
@@ -129,7 +130,8 @@ enum ButtonPressOrchestrationPolicy {
                     inputLatencyMode == .realtime &&
                     ButtonInteractionFlowPolicy.shouldUseRealtimeHoldPath(
                         mapping: mapping,
-                        isChordPart: isChordPart
+						isChordPart: isChordPart,
+						isOtherLayerActivatorPress: isOtherLayerActivatorPress
                     )
                 )
             )
