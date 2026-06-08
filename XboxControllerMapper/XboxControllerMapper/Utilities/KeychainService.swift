@@ -6,30 +6,68 @@ import Security
 enum KeychainService {
     private static let serviceName = "com.controllerkeys.obs-passwords"
 
+    struct SecItemClient {
+        var add: (CFDictionary) -> OSStatus
+        var update: (CFDictionary, CFDictionary) -> OSStatus
+
+        static let live = SecItemClient(
+            add: { SecItemAdd($0, nil) },
+            update: { SecItemUpdate($0, $1) }
+        )
+    }
+
     /// Stores a password in the Keychain under the given key.
     /// Returns the key on success, nil on failure.
     @discardableResult
-    static func storePassword(_ password: String, key: String, service: String = serviceName) -> String? {
+    static func storePassword(
+        _ password: String,
+        key: String,
+        service: String = serviceName,
+        client: SecItemClient = .live
+    ) -> String? {
         guard let data = password.data(using: .utf8) else { return nil }
-
-        // Delete any existing item first
-        deletePassword(key: key, service: service)
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
         ]
 
-        let status = SecItemAdd(query as CFDictionary, nil)
-        if status == errSecSuccess {
+        let updateAttributes: [String: Any] = [
+            kSecValueData as String: data,
+        ]
+
+        let updateStatus = client.update(query as CFDictionary, updateAttributes as CFDictionary)
+        switch updateStatus {
+        case errSecSuccess:
             return key
-        } else {
-            NSLog("[KeychainService] Failed to store password for key %@: %d", key, status)
+        case errSecItemNotFound:
+            break
+        default:
+            NSLog("[KeychainService] Failed to update password for key %@: %d", key, updateStatus)
             return nil
         }
+
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+
+        let addStatus = client.add(addQuery as CFDictionary)
+        if addStatus == errSecSuccess {
+            return key
+        }
+
+        if addStatus == errSecDuplicateItem {
+            let retryStatus = client.update(query as CFDictionary, updateAttributes as CFDictionary)
+            if retryStatus == errSecSuccess {
+                return key
+            }
+            NSLog("[KeychainService] Failed to update duplicate password for key %@: %d", key, retryStatus)
+            return nil
+        }
+
+        NSLog("[KeychainService] Failed to store password for key %@: %d", key, addStatus)
+        return nil
     }
 
     /// Retrieves a password from the Keychain for the given key.

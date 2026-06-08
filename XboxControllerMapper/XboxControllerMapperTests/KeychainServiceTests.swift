@@ -1,4 +1,5 @@
 import XCTest
+import Security
 @testable import ControllerKeys
 
 final class KeychainServiceTests: XCTestCase {
@@ -54,6 +55,75 @@ final class KeychainServiceTests: XCTestCase {
         XCTAssertEqual(retrieved, "updated")
     }
 
+    func testStorePasswordUpdatesExistingItemWithoutAdd() {
+        let key = makeTestKey()
+        var addWasCalled = false
+        var updatedPassword: String?
+        let client = KeychainService.SecItemClient(
+            add: { _ in
+                addWasCalled = true
+                return errSecSuccess
+            },
+            update: { _, attributes in
+                updatedPassword = Self.passwordString(from: attributes)
+                return errSecSuccess
+            }
+        )
+
+        let result = KeychainService.storePassword("updated", key: key, client: client)
+
+        XCTAssertEqual(result, key)
+        XCTAssertFalse(addWasCalled)
+        XCTAssertEqual(updatedPassword, "updated")
+    }
+
+    func testStorePasswordDoesNotAddWhenExistingUpdateFails() {
+        let key = makeTestKey()
+        var storedPassword = "original"
+        var addWasCalled = false
+        let client = KeychainService.SecItemClient(
+            add: { query in
+                addWasCalled = true
+                storedPassword = Self.passwordString(from: query) ?? storedPassword
+                return errSecSuccess
+            },
+            update: { _, _ in
+                errSecInteractionNotAllowed
+            }
+        )
+
+        let result = KeychainService.storePassword("updated", key: key, client: client)
+
+        XCTAssertNil(result)
+        XCTAssertFalse(addWasCalled)
+        XCTAssertEqual(storedPassword, "original")
+    }
+
+    func testStorePasswordRetriesUpdateWhenAddFindsDuplicate() {
+        let key = makeTestKey()
+        var updateCount = 0
+        var updatedPassword: String?
+        let client = KeychainService.SecItemClient(
+            add: { _ in
+                errSecDuplicateItem
+            },
+            update: { _, attributes in
+                updateCount += 1
+                guard updateCount > 1 else {
+                    return errSecItemNotFound
+                }
+                updatedPassword = Self.passwordString(from: attributes)
+                return errSecSuccess
+            }
+        )
+
+        let result = KeychainService.storePassword("updated", key: key, client: client)
+
+        XCTAssertEqual(result, key)
+        XCTAssertEqual(updateCount, 2)
+        XCTAssertEqual(updatedPassword, "updated")
+    }
+
     func testIsKeychainReferenceWithUUID() {
         XCTAssertTrue(KeychainService.isKeychainReference("550e8400-e29b-41d4-a716-446655440000"))
         XCTAssertTrue(KeychainService.isKeychainReference(UUID().uuidString))
@@ -63,5 +133,10 @@ final class KeychainServiceTests: XCTestCase {
         XCTAssertFalse(KeychainService.isKeychainReference("my-password"))
         XCTAssertFalse(KeychainService.isKeychainReference(""))
         XCTAssertFalse(KeychainService.isKeychainReference("not-a-uuid-at-all"))
+    }
+
+    private static func passwordString(from dictionary: CFDictionary) -> String? {
+        let data = (dictionary as NSDictionary)[kSecValueData as String] as? Data
+        return data.flatMap { String(data: $0, encoding: .utf8) }
     }
 }
