@@ -52,6 +52,10 @@ class GenericHIDController {
     private static let triggerPressThreshold: Float = 0.12
     private static let axisChangeThreshold: Double = 0.01
 
+	static func axisButtonPressed(_ value: Double, inverted: Bool) -> Bool {
+		inverted ? value < -0.5 : value > 0.5
+	}
+
     /// Holds a weak controller reference so callback dispatch remains safe
     /// even if HID callbacks race controller teardown.
     private final class CallbackContext {
@@ -288,11 +292,11 @@ class GenericHIDController {
 
         // Process button mappings that reference axes (e.g., dpup:+a1)
         for (sdlName, ref) in mapping.buttonMap {
-            if case .axis(let idx, _) = ref, idx == axisIndex {
-                guard let button = SDLControllerMapping.sdlToControllerButton[sdlName] else { continue }
-                let pressed = abs(clampedFull) > 0.5
-                onButtonAction?(button, pressed)
-            }
+			if case .axis(let idx, let inverted) = ref, idx == axisIndex {
+				guard let button = SDLControllerMapping.sdlToControllerButton[sdlName] else { continue }
+				let pressed = Self.axisButtonPressed(clampedFull, inverted: inverted)
+				onButtonAction?(button, pressed)
+			}
         }
     }
 

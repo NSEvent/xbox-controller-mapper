@@ -139,6 +139,47 @@ final class GameControllerDatabaseTests: XCTestCase {
 		Self.retainedDatabases.append(database)
 	}
 
+	func testParsing_PreservesAxisButtonPolarity() {
+		let guid = GameControllerDatabase.constructGUID(
+			vendorID: 0x1234,
+			productID: 0xabcd,
+			version: 0,
+			transport: nil
+		)
+		let content = mappingLine(
+			guid: guid,
+			name: "Axis DPad Controller",
+			entries: [
+				"dpup:-a1",
+				"dpdown:+a1",
+				"lefty:~a1"
+			]
+		)
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let mapping = database.lookup(guid: guid)
+
+		if case let .axis(index, inverted)? = mapping?.buttonMap["dpup"] {
+			XCTAssertEqual(index, 1)
+			XCTAssertTrue(inverted)
+		} else {
+			XCTFail("Expected negative axis button mapping for dpup")
+		}
+		if case let .axis(index, inverted)? = mapping?.buttonMap["dpdown"] {
+			XCTAssertEqual(index, 1)
+			XCTAssertFalse(inverted)
+		} else {
+			XCTFail("Expected positive axis button mapping for dpdown")
+		}
+		if case let .axis(index, inverted)? = mapping?.axisMap["lefty"] {
+			XCTAssertEqual(index, 1)
+			XCTAssertTrue(inverted)
+		} else {
+			XCTFail("Expected inverted stick axis mapping for lefty")
+		}
+
+		Self.retainedDatabases.append(database)
+	}
+
     func testParsing_IgnoresCommentsNonMacEntriesAndInvalidGUIDs() {
         let validGUID = "030000005e0400008e02000000000000"
         let content = [
@@ -267,6 +308,16 @@ final class GameControllerDatabaseTests: XCTestCase {
 		XCTAssertEqual(GenericHIDController.hatValueToBits(2, logicalMin: 0, logicalMax: 4), 2)
 		XCTAssertEqual(GenericHIDController.hatValueToBits(3, logicalMin: 0, logicalMax: 4), 4)
 		XCTAssertEqual(GenericHIDController.hatValueToBits(4, logicalMin: 0, logicalMax: 4), 8)
+	}
+
+	func testGenericHIDAxisButtons_UseAxisPolarity() {
+		XCTAssertTrue(GenericHIDController.axisButtonPressed(-0.75, inverted: true))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(0.75, inverted: true))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(-0.25, inverted: true))
+
+		XCTAssertTrue(GenericHIDController.axisButtonPressed(0.75, inverted: false))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(-0.75, inverted: false))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(0.25, inverted: false))
 	}
 
     private func mappingLine(guid: String, name: String, entries: [String], platform: String = "Mac OS X") -> String {

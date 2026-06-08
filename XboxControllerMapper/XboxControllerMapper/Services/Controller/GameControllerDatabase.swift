@@ -326,12 +326,12 @@ class GameControllerDatabase {
         // Axis: a0, +a1, -a2, ~a3
         var axisStr = s
         var inverted = false
-        if s.hasPrefix("~") {
-            inverted = true
-            axisStr = String(s.dropFirst())
-        } else if s.hasPrefix("+") || s.hasPrefix("-") {
-            axisStr = String(s.dropFirst())
-        }
+		if s.hasPrefix("~") || s.hasPrefix("-") {
+			inverted = true
+			axisStr = String(s.dropFirst())
+		} else if s.hasPrefix("+") {
+			axisStr = String(s.dropFirst())
+		}
 
         if axisStr.hasPrefix("a"), let idx = Int(String(axisStr.dropFirst())) {
             return .axis(idx, inverted: inverted)
