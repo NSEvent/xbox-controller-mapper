@@ -323,6 +323,43 @@ final class GameControllerDatabaseTests: XCTestCase {
         Self.retainedDatabases.append(database)
     }
 
+	func testKnownVendorProductPairs_IgnoresNonDevicePropertyGUIDs() {
+		let malformedGUIDWithCollidingVIDPID = "03000000341241417856424200004343"
+		let validWindowsGUID = GameControllerDatabase.constructGUID(
+			vendorID: 0x9abc,
+			productID: 0xdef0,
+			version: 0,
+			transport: nil
+		)
+		let content = [
+			mappingLine(
+				guid: malformedGUIDWithCollidingVIDPID,
+				name: "Text GUID Collision",
+				entries: ["a:b0"],
+				platform: "Android"
+			),
+			mappingLine(
+				guid: validWindowsGUID,
+				name: "Valid Windows HID GUID",
+				entries: ["a:b1"],
+				platform: "Windows"
+			)
+		].joined(separator: "\n")
+		let database = GameControllerDatabase(databaseContentOverride: content)
+
+		let pairs = database.knownVendorProductPairs()
+		XCTAssertFalse(pairs.contains { $0.vendorID == 0x1234 && $0.productID == 0x5678 })
+		XCTAssertTrue(pairs.contains { $0.vendorID == 0x9abc && $0.productID == 0xdef0 })
+		XCTAssertNil(database.lookup(
+			vendorID: 0x1234,
+			productID: 0x5678,
+			version: 0,
+			transport: nil
+		))
+
+		Self.retainedDatabases.append(database)
+	}
+
     func testDatabaseErrors_ExposeLocalizedDescriptions() {
         XCTAssertEqual(GameControllerDatabase.DatabaseError.downloadFailed.errorDescription,
                        "Failed to download controller database")

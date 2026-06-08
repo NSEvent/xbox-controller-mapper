@@ -75,6 +75,12 @@ class GameControllerDatabase {
 
     private var mappings: [String: SDLControllerMapping] = [:]
 	private var allPlatformMappings: [String: SDLControllerMapping] = [:]
+	private struct GUIDDeviceProperties {
+		let bus: Int
+		let vendorID: Int
+		let productID: Int
+		let version: Int
+	}
 
     private static var userDatabasePath: String {
         (Config.configDirectory as NSString).appendingPathComponent("gamecontrollerdb.txt")
@@ -150,12 +156,11 @@ class GameControllerDatabase {
 
     func knownVendorProductPairs(excludingVendors: Set<Int> = []) -> [(vendorID: Int, productID: Int)] {
 	let pairs = allPlatformMappings.keys.compactMap { guid -> (vendorID: Int, productID: Int)? in
-            guard let vendorID = Self.le16Value(in: guid, byteOffset: 4),
-                  let productID = Self.le16Value(in: guid, byteOffset: 8),
-                  !excludingVendors.contains(vendorID) else {
+		guard let properties = Self.deviceProperties(in: guid),
+		      !excludingVendors.contains(properties.vendorID) else {
                 return nil
             }
-            return (vendorID, productID)
+		return (properties.vendorID, properties.productID)
         }
 
         var seen = Set<String>()
@@ -172,11 +177,10 @@ class GameControllerDatabase {
 
 	func hasKnownVendorProduct(vendorID: Int, productID: Int) -> Bool {
 		allPlatformMappings.keys.contains { guid in
-			guard let knownVendorID = Self.le16Value(in: guid, byteOffset: 4),
-			      let knownProductID = Self.le16Value(in: guid, byteOffset: 8) else {
+			guard let properties = Self.deviceProperties(in: guid) else {
 				return false
 			}
-			return knownVendorID == vendorID && knownProductID == productID
+			return properties.vendorID == vendorID && properties.productID == productID
 		}
 	}
 
@@ -188,22 +192,19 @@ class GameControllerDatabase {
 	) -> SDLControllerMapping? {
 		let preferredBus = Self.busValue(transport: transport)
 		let candidates = allPlatformMappings.compactMap { guid, mapping -> (score: Int, guid: String, mapping: SDLControllerMapping)? in
-			guard let candidateVendorID = Self.le16Value(in: guid, byteOffset: 4),
-			      let candidateProductID = Self.le16Value(in: guid, byteOffset: 8),
-			      candidateVendorID == vendorID,
-			      candidateProductID == productID else {
+			guard let properties = Self.deviceProperties(in: guid),
+			      properties.vendorID == vendorID,
+			      properties.productID == productID else {
 				return nil
 			}
 
-			let candidateBus = Self.le16Value(in: guid, byteOffset: 0)
-			let candidateVersion = Self.le16Value(in: guid, byteOffset: 12)
 			let isMacMapping = mappings[guid] != nil
 			var score = 0
 			if isMacMapping { score -= 1_000 }
-			if candidateBus == preferredBus { score -= 100 }
-			if candidateVersion == version {
+			if properties.bus == preferredBus { score -= 100 }
+			if properties.version == version {
 				score -= 20
-			} else if candidateVersion == 0 {
+			} else if properties.version == 0 {
 				score -= 10
 			}
 			return (score: score, guid: guid, mapping: mappings[guid] ?? mapping)
@@ -216,6 +217,21 @@ class GameControllerDatabase {
 
 	private static func busValue(transport: String?) -> Int {
 		transport?.lowercased().contains("bluetooth") == true ? 0x0005 : 0x0003
+	}
+
+	private static func deviceProperties(in guid: String) -> GUIDDeviceProperties? {
+		guard guid.count == 32,
+		      le16Value(in: guid, byteOffset: 2) == 0,
+		      le16Value(in: guid, byteOffset: 6) == 0,
+		      le16Value(in: guid, byteOffset: 10) == 0,
+		      le16Value(in: guid, byteOffset: 14) == 0,
+		      let bus = le16Value(in: guid, byteOffset: 0),
+		      let vendorID = le16Value(in: guid, byteOffset: 4),
+		      let productID = le16Value(in: guid, byteOffset: 8),
+		      let version = le16Value(in: guid, byteOffset: 12) else {
+			return nil
+		}
+		return GUIDDeviceProperties(bus: bus, vendorID: vendorID, productID: productID, version: version)
 	}
 
     private static func le16Value(in guid: String, byteOffset: Int) -> Int? {
