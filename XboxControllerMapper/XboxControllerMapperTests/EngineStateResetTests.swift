@@ -79,6 +79,8 @@ final class EngineStateResetTests: XCTestCase {
         state.longHoldTriggered = [dummyButton]
         state.repeatTimers = [dummyButton: dummyTimer]
         state.holdRepeatTimers = [dummyButton: dummyTimer]
+		state.smoothScrollMappings = [dummyButton: dummyMapping]
+		state.smoothScrollTimers = [dummyButton: dummyTimer]
 
         state.sequenceDetector.configure(sequences: [
             SequenceMapping(steps: [.a, .b])
@@ -178,6 +180,8 @@ final class EngineStateResetTests: XCTestCase {
         XCTAssertTrue(state.longHoldTriggered.isEmpty, "[\(label)] longHoldTriggered")
         XCTAssertTrue(state.repeatTimers.isEmpty, "[\(label)] repeatTimers — key repeat would continue post-reset")
         XCTAssertTrue(state.holdRepeatTimers.isEmpty, "[\(label)] holdRepeatTimers")
+		XCTAssertTrue(state.smoothScrollMappings.isEmpty, "[\(label)] smoothScrollMappings")
+		XCTAssertTrue(state.smoothScrollTimers.isEmpty, "[\(label)] smoothScrollTimers — scroll would continue post-reset")
 
         XCTAssertTrue(state.sequenceDetector.activeSequences.isEmpty, "[\(label)] sequenceDetector — partial sequences could complete spuriously")
 

@@ -10,6 +10,7 @@ struct MappingEditorState {
     // MARK: - Key press fields
     var keyCode: CGKeyCode?
     var modifiers = ModifierFlags()
+    var scrollActionSettings: ScrollActionSettings?
 
     // MARK: - Macro / Script
     var selectedMacroId: UUID?
@@ -79,6 +80,25 @@ struct MappingEditorState {
             parts.append(KeyCodeMapping.displayName(for: keyCode))
         }
         return parts.isEmpty ? "None" : parts.joined(separator: " + ")
+    }
+
+    var isScrollAction: Bool {
+		guard let keyCode else { return false }
+		return KeyCodeMapping.isScrollAction(keyCode)
+    }
+
+    var savedScrollActionSettings: ScrollActionSettings? {
+		isScrollAction ? (scrollActionSettings ?? ScrollActionSettings()) : nil
+    }
+
+    mutating func syncScrollActionSettingsForKeyCode() {
+		if isScrollAction {
+			if scrollActionSettings == nil {
+				scrollActionSettings = ScrollActionSettings()
+			}
+		} else {
+			scrollActionSettings = nil
+		}
     }
 
     // MARK: - System command builders

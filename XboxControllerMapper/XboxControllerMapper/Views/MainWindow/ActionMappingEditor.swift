@@ -8,6 +8,7 @@ struct ActionMappingEditor: View {
 
     /// Which variant is being edited (controls which features are available)
     let variant: Variant
+    var showsScrollActionSettings = false
 
     enum Variant {
         case primary
@@ -59,6 +60,7 @@ struct ActionMappingEditor: View {
                 Button("Clear") {
                     state.keyCode = nil
                     state.modifiers = ModifierFlags()
+					state.scrollActionSettings = nil
                 }
                 .font(.caption)
                 .foregroundColor(.red)
@@ -79,6 +81,11 @@ struct ActionMappingEditor: View {
                 .foregroundColor(.secondary)
         }
 
+		if variant == .primary && showsScrollActionSettings && state.isScrollAction {
+			ScrollActionSettingsEditor(settings: scrollActionSettingsBinding)
+				.padding(.top, 4)
+		}
+
         // Hint field (only for primary; long hold/double tap have their own hint in ButtonMappingSheet)
         if variant == .primary {
             HStack {
@@ -93,6 +100,13 @@ struct ActionMappingEditor: View {
 
             HapticStylePicker(hapticStyle: $state.hapticStyle)
         }
+    }
+
+    private var scrollActionSettingsBinding: Binding<ScrollActionSettings> {
+		Binding(
+			get: { state.scrollActionSettings ?? ScrollActionSettings() },
+			set: { state.scrollActionSettings = $0 }
+		)
     }
 
     // MARK: - Macro
@@ -485,5 +499,30 @@ struct ActionMappingEditor: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+}
+
+private struct ScrollActionSettingsEditor: View {
+    @Binding var settings: ScrollActionSettings
+
+    var body: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			Divider()
+				.padding(.vertical, 2)
+
+			SliderRow(
+				label: "Scroll Speed",
+				value: $settings.speed,
+				range: 0...1,
+				description: "How fast this scroll action moves while held"
+			)
+
+			SliderRow(
+				label: "Acceleration",
+				value: $settings.acceleration,
+				range: 0...1,
+				description: "0 = linear, 1 = max curve"
+			)
+		}
     }
 }

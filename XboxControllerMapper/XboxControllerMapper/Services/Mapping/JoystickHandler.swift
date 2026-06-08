@@ -652,10 +652,16 @@ extension MappingEngine {
 				activeLayerIds: state.activeLayerIds,
 				layerActivatorMap: state.layerActivatorMap
 			),
-				  mapping.effectiveActionType == .keyPress,
-				  let keyCode = mapping.keyCode,
-				  KeyCodeMapping.isScrollAction(keyCode),
-				  let amount = customDirectionScrollAmount(button: button, stick: stick, side: side, settings: settings)
+				mapping.effectiveActionType == .keyPress,
+				let keyCode = mapping.keyCode,
+				KeyCodeMapping.isScrollAction(keyCode),
+				let amount = customDirectionScrollAmount(
+					button: button,
+					stick: stick,
+					side: side,
+					settings: settings,
+					scrollActionSettings: mapping.scrollActionSettings
+				)
 			else {
 				continue
 			}
@@ -682,7 +688,8 @@ extension MappingEngine {
 		button: ControllerButton,
 		stick: CGPoint,
 		side: JoystickSide,
-		settings: JoystickSettings
+		settings: JoystickSettings,
+		scrollActionSettings: ScrollActionSettings?
 	) -> CGFloat? {
 		guard let direction = button.joystickDirection else { return nil }
 
@@ -706,8 +713,10 @@ extension MappingEngine {
 
 		guard axisMagnitude > deadzone else { return nil }
 		let normalized = min(1.0, max(0.0, JoystickMath.normalizedMagnitude(axisMagnitude, deadzone: deadzone)))
-		let accelerated = pow(normalized, settings.scrollAccelerationExponent)
-		let amount = accelerated * settings.scrollMultiplier
+		let accelerationExponent = scrollActionSettings?.accelerationExponent ?? settings.scrollAccelerationExponent
+		let multiplier = scrollActionSettings?.scrollMultiplier ?? settings.scrollMultiplier
+		let accelerated = pow(normalized, accelerationExponent)
+		let amount = accelerated * multiplier
 		guard amount > 0 else { return nil }
 		return CGFloat(amount)
 	}

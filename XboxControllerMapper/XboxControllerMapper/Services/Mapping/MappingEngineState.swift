@@ -35,6 +35,8 @@ extension MappingEngine {
         var longHoldTriggered: Set<ControllerButton> = []
         var repeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
         var holdRepeatTimers: [ControllerButton: DispatchSourceTimer] = [:]
+		var smoothScrollMappings: [ControllerButton: KeyMapping] = [:]
+		var smoothScrollTimers: [ControllerButton: DispatchSourceTimer] = [:]
 		var physicalButtonResolutions: [ControllerButton: ControllerButton] = [:]
         // Sequence detection (passive tracking, zero-latency)
         let sequenceDetector = SequenceDetector()
@@ -155,6 +157,10 @@ extension MappingEngine {
 
             holdRepeatTimers.values.forEach { $0.cancel() }
             holdRepeatTimers.removeAll()
+
+			smoothScrollTimers.values.forEach { $0.cancel() }
+			smoothScrollTimers.removeAll()
+			smoothScrollMappings.removeAll()
 			physicalButtonResolutions.removeAll()
 
             sequenceDetector.reset()

@@ -1398,6 +1398,91 @@ final class XboxControllerMapperTests: XCTestCase {
         }
     }
 
+    func testScrollButtonWithoutPerActionSettingsRemainsOneShot() async throws {
+		await MainActor.run {
+			let mapping = KeyMapping(keyCode: KeyCodeMapping.scrollUp)
+			profileManager.setActiveProfile(Profile(name: "Legacy Scroll", buttonMappings: [.a: mapping]))
+		}
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.a)
+		}
+		await waitForTasks(0.12)
+
+		await MainActor.run {
+			XCTAssertFalse(mockInputSimulator.events.contains { event in
+				if case .scroll = event { return true }
+				return false
+			}, "Legacy scroll action should not start continuous scrolling while held")
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks(0.12)
+
+		await MainActor.run {
+			let legacyPresses = mockInputSimulator.events.filter { event in
+				if case .pressKey(let keyCode, _) = event {
+					return keyCode == KeyCodeMapping.scrollUp
+				}
+				return false
+			}
+			XCTAssertEqual(legacyPresses.count, 1, "Legacy scroll action should execute once on release")
+		}
+    }
+
+    func testScrollButtonWithPerActionSettingsScrollsContinuouslyUntilRelease() async throws {
+		await MainActor.run {
+			let mapping = KeyMapping(
+				keyCode: KeyCodeMapping.scrollUp,
+				scrollActionSettings: ScrollActionSettings(speed: 0.5, acceleration: 0)
+			)
+			profileManager.setActiveProfile(Profile(name: "Smooth Scroll", buttonMappings: [.a: mapping]))
+		}
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.buttonPressed(.a)
+		}
+		await waitForTasks(0.12)
+
+		let scrollCountWhileHeld = await MainActor.run {
+			mockInputSimulator.events.filter { event in
+				if case .scroll(_, let dy) = event {
+					return dy > 0
+				}
+				return false
+			}.count
+		}
+		XCTAssertGreaterThanOrEqual(scrollCountWhileHeld, 2, "Smooth scroll should emit repeated scroll events while held")
+
+		await MainActor.run {
+			XCTAssertFalse(mockInputSimulator.events.contains { event in
+				if case .pressKey(let keyCode, _) = event {
+					return keyCode == KeyCodeMapping.scrollUp
+				}
+				return false
+			}, "Smooth scroll should not fall through to the legacy key press path")
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks(0.08)
+
+		let countAfterRelease = await MainActor.run {
+			mockInputSimulator.events.filter { event in
+				if case .scroll = event { return true }
+				return false
+			}.count
+		}
+		await waitForTasks(0.08)
+
+		await MainActor.run {
+			let finalCount = mockInputSimulator.events.filter { event in
+				if case .scroll = event { return true }
+				return false
+			}.count
+			XCTAssertEqual(finalCount, countAfterRelease, "Smooth scroll timer should stop after release")
+		}
+    }
+
     // MARK: - Mouse Button Mapping Tests (High Priority)
 
     /// Tests that mouse left click mapping works

@@ -47,6 +47,49 @@ enum ActionType: String, Equatable, CaseIterable {
     case none
 }
 
+// MARK: - Scroll Action Settings
+
+/// Per-action tuning for scroll marker mappings.
+struct ScrollActionSettings: Codable, Equatable {
+    private static let unitRange = 0.0...1.0
+
+    /// 0...1 speed slider value.
+    var speed: Double
+
+    /// 0...1 acceleration slider value.
+    var acceleration: Double
+
+    init(speed: Double = 0.5, acceleration: Double = 0.5) {
+		self.speed = Self.clampedUnit(speed)
+		self.acceleration = Self.clampedUnit(acceleration)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+		case speed, acceleration
+    }
+
+    init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		speed = try container.decode(.speed, default: 0.5, clampedTo: Self.unitRange)
+		acceleration = try container.decode(.acceleration, default: 0.5, clampedTo: Self.unitRange)
+    }
+
+    /// Matches the global joystick scroll sensitivity curve.
+    var scrollMultiplier: Double {
+		1.0 + pow(speed, 1.5) * 29.0
+    }
+
+    /// Matches the global joystick scroll acceleration curve.
+    var accelerationExponent: Double {
+		1.0 + acceleration * 1.5
+    }
+
+    private static func clampedUnit(_ value: Double) -> Double {
+		guard value.isFinite else { return 0.5 }
+		return min(1.0, max(0.0, value))
+    }
+}
+
 // MARK: - Action Conflict Validation
 
 extension ExecutableAction {
@@ -154,6 +197,9 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     /// Optional repeat configuration for holding the button
     var repeatMapping: RepeatMapping?
 
+    /// Optional per-action tuning for scroll marker mappings.
+    var scrollActionSettings: ScrollActionSettings?
+
     /// Whether this mapping acts as a held modifier (released when button released)
     var isHoldModifier: Bool
 
@@ -184,6 +230,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         longHoldMapping: LongHoldMapping? = nil,
         doubleTapMapping: DoubleTapMapping? = nil,
         repeatMapping: RepeatMapping? = nil,
+		scrollActionSettings: ScrollActionSettings? = nil,
         isHoldModifier: Bool = false,
         holdRepeatEnabled: Bool = false,
         holdRepeatInterval: TimeInterval = 0.033,
@@ -198,6 +245,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         self.longHoldMapping = longHoldMapping
         self.doubleTapMapping = doubleTapMapping
         self.repeatMapping = repeatMapping
+		self.scrollActionSettings = scrollActionSettings
         self.isHoldModifier = isHoldModifier
         self.holdRepeatEnabled = holdRepeatEnabled
         self.holdRepeatInterval = holdRepeatInterval
@@ -209,7 +257,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, isHoldModifier, holdRepeatEnabled, holdRepeatInterval, macroId, scriptId, systemCommand, hint, hapticStyle
+		case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, scrollActionSettings, isHoldModifier, holdRepeatEnabled, holdRepeatInterval, macroId, scriptId, systemCommand, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -219,6 +267,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         longHoldMapping = try container.decodeIfPresent(LongHoldMapping.self, forKey: .longHoldMapping)
         doubleTapMapping = try container.decodeIfPresent(DoubleTapMapping.self, forKey: .doubleTapMapping)
         repeatMapping = try container.decodeIfPresent(RepeatMapping.self, forKey: .repeatMapping)
+		scrollActionSettings = try container.decodeIfPresent(ScrollActionSettings.self, forKey: .scrollActionSettings)
         isHoldModifier = try container.decode(.isHoldModifier, default: false)
         holdRepeatEnabled = try container.decode(.holdRepeatEnabled, default: false)
         holdRepeatInterval = try container.decode(.holdRepeatInterval, default: 0.033)
@@ -297,10 +346,19 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
             parts.append("↻ \(Int(repeatConfig.ratePerSecond))/s")
         }
 
+		if isSmoothScrollAction {
+			parts.append("Scroll \(Int((scrollActionSettings?.speed ?? 0.5) * 100))%")
+		}
+
         return parts.joined(separator: "\n")
     }
 
     // Note: isEmpty is provided by KeyBindingRepresentable protocol extension
+
+    var isSmoothScrollAction: Bool {
+		guard let keyCode, KeyCodeMapping.isScrollAction(keyCode) else { return false }
+		return scrollActionSettings != nil
+    }
 
     // MARK: - Conflict Resolution
 
@@ -314,6 +372,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         if actionType != .keyPress {
             copy.keyCode = nil
             copy.modifiers = ModifierFlags()
+			copy.scrollActionSettings = nil
         }
         if actionType != .macro {
             copy.macroId = nil

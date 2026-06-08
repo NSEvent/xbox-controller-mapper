@@ -68,9 +68,14 @@ struct ButtonMappingSheet: View {
         return KeyCodeMapping.isSpecialAction(code)
     }
 
-    /// Check if the primary action disables advanced features (mouse click or special action)
+    /// Check if the primary action is a continuous scroll action.
+    private var primaryIsSmoothScrollAction: Bool {
+		primaryState.isScrollAction
+    }
+
+    /// Check if the primary action disables advanced features (mouse click, special action, or smooth scroll)
     private var primaryDisablesAdvancedFeatures: Bool {
-        primaryIsMouseClick || primaryIsOnScreenKeyboard
+		primaryIsMouseClick || primaryIsOnScreenKeyboard || primaryIsSmoothScrollAction
     }
 
     /// Whether this button is already a layer activator
@@ -378,71 +383,92 @@ struct ButtonMappingSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 if primaryState.mappingType == .singleKey {
-                    ActionMappingEditor(state: $primaryState, variant: .primary)
+					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true)
 
                     // Show hold option if any mapping is configured
                     if primaryState.keyCode != nil || primaryState.modifiers.hasAny {
                         Divider()
 
-                        Toggle("Hold action while button is held", isOn: Binding(
-                            get: { isHoldModifier },
-                            set: { newValue in
-                                isHoldModifier = newValue
-                                userHasInteractedWithHold = true
-                                // Disable repeat and long hold when enabling hold modifier (mutually exclusive)
-                                if newValue {
-                                    enableRepeat = false
-                                    enableLongHold = false
-                                    longHoldState.keyCode = nil
-                                    longHoldState.modifiers = ModifierFlags()
-                                } else {
-                                    enableHoldRepeat = false
-                                }
+						if primaryIsSmoothScrollAction {
+							HStack(spacing: 8) {
+								Image(systemName: "info.circle")
+									.foregroundColor(.secondary)
+								Text("Scroll actions run continuously while the button is held.")
+									.font(.caption)
+									.foregroundColor(.secondary)
                             }
-                        ))
-                        .font(.caption)
-                        .disabled(enableRepeat)
-
-                        Text(holdDescription)
+						} else {
+							Toggle("Hold action while button is held", isOn: Binding(
+								get: { isHoldModifier },
+								set: { newValue in
+									isHoldModifier = newValue
+									userHasInteractedWithHold = true
+									// Disable repeat and long hold when enabling hold modifier (mutually exclusive)
+									if newValue {
+										enableRepeat = false
+										enableLongHold = false
+										longHoldState.keyCode = nil
+										longHoldState.modifiers = ModifierFlags()
+									} else {
+										enableHoldRepeat = false
+									}
+								}
+							))
                             .font(.caption)
-                            .foregroundColor(.secondary)
+							.disabled(enableRepeat)
 
-                        if isHoldModifier && primaryState.keyCode != nil && !primaryIsMouseClick && !primaryIsOnScreenKeyboard {
-                            Toggle("Simulate key repeat while held", isOn: $enableHoldRepeat)
+							Text(holdDescription)
                                 .font(.caption)
+								.foregroundColor(.secondary)
 
-                            if enableHoldRepeat {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        Text("Repeat Rate:")
+							if isHoldModifier && primaryState.keyCode != nil && !primaryIsMouseClick && !primaryIsOnScreenKeyboard {
+								Toggle("Simulate key repeat while held", isOn: $enableHoldRepeat)
+									.font(.caption)
+
+								if enableHoldRepeat {
+									VStack(alignment: .leading, spacing: 8) {
+										HStack {
+											Text("Repeat Rate:")
+												.font(.caption)
+
+											Slider(value: $holdRepeatRate, in: 10...60, step: 1)
+
+											Text("\(Int(holdRepeatRate))/s")
+												.font(.caption)
+												.monospacedDigit()
+												.frame(width: 35)
+										}
+
+										Text("Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input.")
                                             .font(.caption)
-
-                                        Slider(value: $holdRepeatRate, in: 10...60, step: 1)
-
-                                        Text("\(Int(holdRepeatRate))/s")
-                                            .font(.caption)
-                                            .monospacedDigit()
-                                            .frame(width: 35)
+											.foregroundColor(.secondary)
                                     }
-
-                                    Text("Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input.")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
                                 }
                             }
-                        }
 
-                        // Repeat section (moved inside Primary Action)
-                        repeatContent
+							// Repeat section (moved inside Primary Action)
+							repeatContent
+						}
                     }
                 } else {
-                    ActionMappingEditor(state: $primaryState, variant: .primary)
+					ActionMappingEditor(state: $primaryState, variant: .primary, showsScrollActionSettings: true)
                 }
             }
             .onChange(of: primaryState.keyCode) { _, newValue in
                 guard !isLoading else { return }
+				primaryState.syncScrollActionSettingsForKeyCode()
 
-                if let code = newValue, KeyCodeMapping.isModifierKey(code) {
+				if let code = newValue, KeyCodeMapping.isScrollAction(code) {
+					isHoldModifier = false
+					enableHoldRepeat = false
+					enableLongHold = false
+					enableDoubleTap = false
+					enableRepeat = false
+					longHoldState.keyCode = nil
+					longHoldState.modifiers = ModifierFlags()
+					doubleTapState.keyCode = nil
+					doubleTapState.modifiers = ModifierFlags()
+				} else if let code = newValue, KeyCodeMapping.isModifierKey(code) {
                     // Modifier keys: auto-enable hold (so the modifier stays pressed while
                     // the controller button is held) and disable long hold / double tap / repeat
                     // which don't make sense for a sticky modifier.
@@ -503,6 +529,22 @@ struct ButtonMappingSheet: View {
         } else {
             return "When enabled, the key action stays active while the button is held"
         }
+    }
+
+    private var primaryDisabledActionDescription: String {
+		if primaryIsMouseClick { return "mouse clicks" }
+		if primaryIsSmoothScrollAction { return "scroll actions" }
+		return "special actions"
+    }
+
+    private var doubleTapDisabledDescription: String {
+		if primaryIsMouseClick {
+			return "Double tap is not available when the primary action is a mouse click. Press the button twice quickly to double-click, or three times for triple-click."
+		}
+		if primaryIsSmoothScrollAction {
+			return "Double tap is not available for scroll actions."
+		}
+		return "Double tap is not available for special actions."
     }
 
     // MARK: - Layer Activator Section
@@ -623,7 +665,7 @@ struct ButtonMappingSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
-                    Text("Long hold is not available for \(primaryIsMouseClick ? "mouse clicks" : "special actions").")
+					Text("Long hold is not available for \(primaryDisabledActionDescription).")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -720,9 +762,7 @@ struct ButtonMappingSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
-                    Text(primaryIsMouseClick
-                         ? "Double tap is not available when the primary action is a mouse click. Press the button twice quickly to double-click, or three times for triple-click."
-                         : "Double tap is not available for special actions.")
+					Text(doubleTapDisabledDescription)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -807,7 +847,7 @@ struct ButtonMappingSheet: View {
             HStack(spacing: 8) {
                 Image(systemName: "info.circle")
                     .foregroundColor(.secondary)
-                Text("Repeat is not available for \(primaryIsMouseClick ? "mouse clicks" : "special actions").")
+				Text("Repeat is not available for \(primaryDisabledActionDescription).")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -919,6 +959,7 @@ struct ButtonMappingSheet: View {
                 primaryState.mappingType = .singleKey
                 primaryState.keyCode = existingMapping.keyCode
                 primaryState.modifiers = existingMapping.modifiers
+				primaryState.scrollActionSettings = existingMapping.scrollActionSettings
                 isHoldModifier = existingMapping.isHoldModifier
                 enableHoldRepeat = existingMapping.holdRepeatEnabled
                 if existingMapping.holdRepeatInterval > 0 {
@@ -1014,14 +1055,15 @@ struct ButtonMappingSheet: View {
             newMapping = KeyMapping(
                 keyCode: primaryState.keyCode,
                 modifiers: primaryState.modifiers,
-                isHoldModifier: isHoldModifier,
-                holdRepeatEnabled: isHoldModifier && enableHoldRepeat,
-                holdRepeatInterval: enableHoldRepeat ? 1.0 / holdRepeatRate : 0.033,
+				scrollActionSettings: primaryState.savedScrollActionSettings,
+				isHoldModifier: primaryIsSmoothScrollAction ? false : isHoldModifier,
+				holdRepeatEnabled: primaryIsSmoothScrollAction ? false : isHoldModifier && enableHoldRepeat,
+				holdRepeatInterval: (!primaryIsSmoothScrollAction && enableHoldRepeat) ? 1.0 / holdRepeatRate : 0.033,
                 hint: primaryState.hint.isEmpty ? nil : primaryState.hint,
                 hapticStyle: primaryState.hapticStyle
             )
 
-            if enableRepeat {
+			if enableRepeat && !primaryIsSmoothScrollAction {
                 newMapping.repeatMapping = RepeatMapping(
                     enabled: true,
                     interval: 1.0 / repeatRate

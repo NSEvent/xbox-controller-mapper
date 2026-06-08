@@ -389,6 +389,33 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 		XCTAssertGreaterThan(highMax, lowMax * 10, "Custom direction scrolling should respect scroll sensitivity")
 	}
 
+	func testCustomDirectionScrollUsesPerActionSettingsWhenPresent() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "Per-Action Scroll Sensitivity", buttonMappings: [
+				.leftStickUp: KeyMapping(
+					keyCode: KeyCodeMapping.scrollUp,
+					scrollActionSettings: ScrollActionSettings(speed: 1, acceleration: 0)
+				)
+			])
+			profile.joystickSettings.leftStickMode = .custom
+			profile.joystickSettings.leftStickCustomDeadzone = 0.1
+			profile.joystickSettings.scrollSensitivity = 0
+			profile.joystickSettings.scrollAcceleration = 0
+			installActiveProfile(profile)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.12)
+
+		mockInputSimulator.clearEvents()
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: 0, y: 0.9))
+		}
+		await waitForTasks(0.16)
+
+		let maxScroll = scrollEvents().map(\.dy).max() ?? 0
+		XCTAssertGreaterThan(maxScroll, 10, "Per-action scroll speed should override the profile's low global scroll sensitivity")
+	}
+
     func testCustomLeftStickDirectionCanCompleteChord() async throws {
         await MainActor.run {
             controllerService.chordWindow = 0.2

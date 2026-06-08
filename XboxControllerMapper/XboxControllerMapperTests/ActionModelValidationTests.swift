@@ -54,6 +54,29 @@ final class ActionModelValidationTests: XCTestCase {
         XCTAssertEqual(mapping.effectiveActionType, .systemCommand)
     }
 
+    func testKeyMapping_scrollActionSettingsRoundTrip() throws {
+		let mapping = KeyMapping(
+			keyCode: KeyCodeMapping.scrollDown,
+			scrollActionSettings: ScrollActionSettings(speed: 0.25, acceleration: 0.75)
+		)
+
+		let data = try JSONEncoder().encode(mapping)
+		let decoded = try JSONDecoder().decode(KeyMapping.self, from: data)
+
+		XCTAssertEqual(decoded.keyCode, KeyCodeMapping.scrollDown)
+		XCTAssertEqual(decoded.scrollActionSettings, ScrollActionSettings(speed: 0.25, acceleration: 0.75))
+		XCTAssertTrue(decoded.isSmoothScrollAction)
+    }
+
+    func testKeyMapping_legacyScrollActionWithoutSettingsIsNotSmoothScroll() throws {
+		let json = #"{"keyCode":\#(KeyCodeMapping.scrollUp)}"#
+		let decoded = try JSONDecoder().decode(KeyMapping.self, from: Data(json.utf8))
+
+		XCTAssertEqual(decoded.keyCode, KeyCodeMapping.scrollUp)
+		XCTAssertNil(decoded.scrollActionSettings)
+		XCTAssertFalse(decoded.isSmoothScrollAction)
+    }
+
     func testKeyMapping_empty_hasNoConflicts() {
         let mapping = KeyMapping()
         XCTAssertFalse(mapping.hasConflictingActions)

@@ -889,6 +889,17 @@ class MappingEngine: ObservableObject {
                 return
 
             case .mapping(let context):
+				if context.mapping.isSmoothScrollAction {
+					if button.isJoystickDirection {
+						state.lock.withLock {
+							state.pressConsumedByAction.insert(button)
+						}
+						return
+					}
+					handleSmoothScrollMapping(button, mapping: context.mapping)
+					return
+				}
+
                 if context.shouldTreatAsHold {
                     handleHoldMapping(button, mapping: context.mapping, lastTap: context.lastTap, profile: profile)
                     return
@@ -978,6 +989,74 @@ class MappingEngine: ObservableObject {
         inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString, isHeld: true)
     }
 
+    /// Starts continuous smooth scrolling for scroll marker mappings that have per-action tuning.
+    /// - Precondition: Must be called on inputQueue.
+    nonisolated private func handleSmoothScrollMapping(_ button: ControllerButton, mapping: KeyMapping) {
+		dispatchPrecondition(condition: .onQueue(inputQueue))
+		guard let keyCode = mapping.keyCode,
+			  KeyCodeMapping.isScrollAction(keyCode),
+			  let settings = mapping.scrollActionSettings else {
+			return
+		}
+
+		stopSmoothScrollTimer(for: button)
+
+		let startTime = CFAbsoluteTimeGetCurrent()
+		let timer = DispatchSource.makeTimerSource(queue: inputQueue)
+		timer.schedule(deadline: .now(), repeating: 1.0 / 60.0)
+		timer.setEventHandler { [weak self] in
+			guard let self else { return }
+			let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+			let amount = self.smoothScrollAmount(settings: settings, elapsed: elapsed)
+			let delta = KeyCodeMapping.scrollDelta(for: keyCode, amount: amount)
+			guard delta.dx != 0 || delta.dy != 0 else { return }
+
+			let flags = self.inputSimulator.getHeldModifiers().union(mapping.modifiers.cgEventFlags)
+			self.inputSimulator.scroll(
+				event: ScrollEvent(
+					dx: delta.dx,
+					dy: delta.dy,
+					phase: nil,
+					momentumPhase: nil,
+					isContinuous: true,
+					flags: flags
+				)
+			)
+			self.usageStatsService?.recordScrollDistance(dx: Double(delta.dx), dy: Double(delta.dy))
+		}
+
+		state.lock.withLock {
+			state.smoothScrollMappings[button] = mapping
+			state.smoothScrollTimers[button] = timer
+		}
+		timer.resume()
+
+		playActionHaptic(style: mapping.hapticStyle)
+		inputLogService?.log(buttons: [button], type: .singlePress, action: mapping.feedbackString, isHeld: true)
+    }
+
+    nonisolated private func stopSmoothScrollTimer(for button: ControllerButton) {
+		state.lock.withLock {
+			if let timer = state.smoothScrollTimers.removeValue(forKey: button) {
+				timer.cancel()
+			}
+			state.smoothScrollMappings.removeValue(forKey: button)
+		}
+    }
+
+    nonisolated private func smoothScrollAmount(settings: ScrollActionSettings, elapsed: TimeInterval) -> CGFloat {
+		guard settings.scrollMultiplier > 0 else { return 0 }
+
+		if settings.acceleration <= 0.001 {
+			return CGFloat(settings.scrollMultiplier)
+		}
+
+		let rampDuration = 0.15 + settings.acceleration * 0.85
+		let normalized = min(1.0, max(0.0, elapsed / rampDuration))
+		let ramp = 0.2 + 0.8 * pow(normalized, settings.accelerationExponent)
+		return CGFloat(settings.scrollMultiplier * ramp)
+    }
+
     /// Toggles the controller lock state
     nonisolated func performLockToggle() -> Bool {
         let cleanup: (leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)?
@@ -1007,6 +1086,9 @@ class MappingEngine: ObservableObject {
             state.repeatTimers.removeAll()
             state.holdRepeatTimers.values.forEach { $0.cancel() }
             state.holdRepeatTimers.removeAll()
+			state.smoothScrollTimers.values.forEach { $0.cancel() }
+			state.smoothScrollTimers.removeAll()
+			state.smoothScrollMappings.removeAll()
             state.dpadNavigationTimer?.cancel()
             state.dpadNavigationTimer = nil
             state.dpadNavigationButton = nil
@@ -1219,15 +1301,17 @@ class MappingEngine: ObservableObject {
 		let resolvedButtonForState = peekResolvedReleaseButton(for: button)
 		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
 			let hasLocalButtonState = state.lock.withLock {
-				state.heldButtons[resolvedButtonForState] != nil
-					|| state.pendingSingleTap[resolvedButtonForState] != nil
-					|| state.pendingReleaseActions[resolvedButtonForState] != nil
-					|| state.longHoldTimers[resolvedButtonForState] != nil
-					|| state.repeatTimers[resolvedButtonForState] != nil
-					|| state.holdRepeatTimers[resolvedButtonForState] != nil
-					|| state.buttonsActingAsLayerActivators.contains(resolvedButtonForState)
-					|| state.pressConsumedByAction.contains(resolvedButtonForState)
-			}
+					state.heldButtons[resolvedButtonForState] != nil
+						|| state.pendingSingleTap[resolvedButtonForState] != nil
+						|| state.pendingReleaseActions[resolvedButtonForState] != nil
+						|| state.longHoldTimers[resolvedButtonForState] != nil
+						|| state.repeatTimers[resolvedButtonForState] != nil
+						|| state.holdRepeatTimers[resolvedButtonForState] != nil
+						|| state.smoothScrollMappings[resolvedButtonForState] != nil
+						|| state.smoothScrollTimers[resolvedButtonForState] != nil
+						|| state.buttonsActingAsLayerActivators.contains(resolvedButtonForState)
+						|| state.pressConsumedByAction.contains(resolvedButtonForState)
+				}
             if !hasLocalButtonState {
                 _ = UniversalControlMouseRelay.shared.sendControllerButtonReleased(button, holdDuration: holdDuration)
                 return
@@ -1302,6 +1386,14 @@ class MappingEngine: ObservableObject {
         handleDirectoryNavigatorReleased(button)
         handleCommandWheelReleased(button)
 
+		if state.lock.withLock({ state.smoothScrollMappings[button] != nil }),
+		   let releaseResult = cleanupReleaseTimers(for: button) {
+			if case .smoothScrollMapping(let scrollMapping) = releaseResult {
+				inputLogService?.dismissHeldFeedback(action: scrollMapping.feedbackString)
+			}
+			return
+		}
+
         let remoteOverlayState = UniversalControlMouseRelay.shared.remoteOverlayState()
         let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
             || remoteOverlayState.keyboardVisible
@@ -1318,9 +1410,14 @@ class MappingEngine: ObservableObject {
         }
 
         if let releaseResult = cleanupReleaseTimers(for: button) {
-            if case .heldMapping(let heldMapping) = releaseResult {
+			switch releaseResult {
+			case .heldMapping(let heldMapping):
                 inputSimulator.stopHoldMapping(heldMapping)
                 inputLogService?.dismissHeldFeedback(action: heldMapping.feedbackString)
+			case .smoothScrollMapping(let scrollMapping):
+				inputLogService?.dismissHeldFeedback(action: scrollMapping.feedbackString)
+			case .chordButton:
+				break
             }
             return
         }
@@ -1362,6 +1459,7 @@ class MappingEngine: ObservableObject {
 
     enum ReleaseCleanupResult {
         case heldMapping(KeyMapping)
+		case smoothScrollMapping(KeyMapping)
         case chordButton
     }
 
@@ -1373,6 +1471,14 @@ class MappingEngine: ObservableObject {
             timer.cancel()
             state.longHoldTimers.removeValue(forKey: button)
         }
+
+		if let scrollMapping = state.smoothScrollMappings.removeValue(forKey: button) {
+			if let timer = state.smoothScrollTimers.removeValue(forKey: button) {
+				timer.cancel()
+			}
+			state.activeChordButtons.remove(button)
+			return .smoothScrollMapping(scrollMapping)
+		}
 
         guard state.isEnabled, state.activeProfile != nil else { return nil }
 
