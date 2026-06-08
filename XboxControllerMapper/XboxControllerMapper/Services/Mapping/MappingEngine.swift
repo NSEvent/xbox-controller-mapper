@@ -648,7 +648,7 @@ class MappingEngine: ObservableObject {
     nonisolated private func handleButtonPressed(_ button: ControllerButton) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.press \(button.rawValue)")
-		if UniversalControlMouseRelay.shared.isRoutingToRemote {
+		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
             _ = UniversalControlMouseRelay.shared.sendControllerButtonPressed(button)
             return
         }
@@ -1217,7 +1217,7 @@ class MappingEngine: ObservableObject {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.release \(button.rawValue)")
 		let resolvedButtonForState = peekResolvedReleaseButton(for: button)
-		if UniversalControlMouseRelay.shared.isRoutingToRemote {
+		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
 			let hasLocalButtonState = state.lock.withLock {
 				state.heldButtons[resolvedButtonForState] != nil
 					|| state.pendingSingleTap[resolvedButtonForState] != nil
@@ -1529,7 +1529,7 @@ class MappingEngine: ObservableObject {
     /// - Precondition: Must be called on inputQueue
     nonisolated private func handleChord(_ buttons: Set<ControllerButton>) {
         dispatchPrecondition(condition: .onQueue(inputQueue))
-		if UniversalControlMouseRelay.shared.isRoutingToRemote {
+		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
             _ = UniversalControlMouseRelay.shared.sendControllerChord(buttons)
             return
         }

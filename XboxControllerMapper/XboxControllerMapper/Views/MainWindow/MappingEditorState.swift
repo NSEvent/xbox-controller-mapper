@@ -53,6 +53,7 @@ struct MappingEditorState {
 
     // MARK: - UI state
     var showingKeyboard: Bool = false
+    var showingMouse: Bool = false
     var showingAppPicker: Bool = false
     var showingBookmarkPicker: Bool = false
     var showingMacroCreation: Bool = false

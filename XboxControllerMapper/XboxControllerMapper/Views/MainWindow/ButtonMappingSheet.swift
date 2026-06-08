@@ -52,6 +52,10 @@ struct ButtonMappingSheet: View {
         primaryState.showingKeyboard || longHoldState.showingKeyboard || doubleTapState.showingKeyboard
     }
 
+    private var showingAnyMouse: Bool {
+        primaryState.showingMouse || longHoldState.showingMouse || doubleTapState.showingMouse
+    }
+
     /// Check if the primary action is a mouse click - disables double tap/long hold
     private var primaryIsMouseClick: Bool {
         guard let code = primaryState.keyCode else { return false }
@@ -183,10 +187,13 @@ struct ButtonMappingSheet: View {
             footer
         }
         .onSubmit { saveMapping() }
-        .frame(width: showingAnyKeyboard ? 850 : (primaryState.mappingType == .systemCommand ? 640 : 600), height: showingAnyKeyboard ? 700 : 550)
+        .frame(width: sheetWidth, height: sheetHeight)
         .animation(.easeInOut(duration: 0.2), value: primaryState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: longHoldState.showingKeyboard)
         .animation(.easeInOut(duration: 0.2), value: doubleTapState.showingKeyboard)
+        .animation(.easeInOut(duration: 0.2), value: primaryState.showingMouse)
+        .animation(.easeInOut(duration: 0.2), value: longHoldState.showingMouse)
+        .animation(.easeInOut(duration: 0.2), value: doubleTapState.showingMouse)
         .animation(.easeInOut(duration: 0.2), value: primaryState.mappingType)
         .onAppear {
             loadCurrentMapping()
@@ -219,6 +226,64 @@ struct ButtonMappingSheet: View {
                 primaryState.selectedScriptId = newScript.id
             })
         }
+    }
+
+    private var sheetWidth: CGFloat {
+        if showingAnyKeyboard { return 850 }
+        if showingAnyMouse { return 760 }
+        return primaryState.mappingType == .systemCommand ? 640 : 600
+    }
+
+    private var sheetHeight: CGFloat {
+        if showingAnyKeyboard { return 700 }
+        if showingAnyMouse { return 620 }
+        return 550
+    }
+
+    private func visualPickerButtons(for state: Binding<MappingEditorState>, compact: Bool = false) -> some View {
+        HStack(spacing: 8) {
+            visualPickerButton(
+                title: state.wrappedValue.showingKeyboard
+                    ? (compact ? "Hide" : "Hide Keyboard")
+                    : (compact ? "Keyboard" : "Show Keyboard"),
+                systemImage: state.wrappedValue.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard"
+            ) {
+                state.wrappedValue.showingKeyboard.toggle()
+                if state.wrappedValue.showingKeyboard {
+                    state.wrappedValue.showingMouse = false
+                }
+            }
+
+            visualPickerButton(
+                title: state.wrappedValue.showingMouse
+                    ? (compact ? "Hide" : "Hide Mouse")
+                    : (compact ? "Mouse" : "Show Mouse"),
+                systemImage: state.wrappedValue.showingMouse ? "computermouse.fill" : "computermouse"
+            ) {
+                state.wrappedValue.showingMouse.toggle()
+                if state.wrappedValue.showingMouse {
+                    state.wrappedValue.showingKeyboard = false
+                }
+            }
+        }
+    }
+
+    private func visualPickerButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                Text(title)
+                    .lineLimit(1)
+            }
+            .font(.callout)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.accentColor.opacity(0.1))
+            .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(.accentColor)
+        .fixedSize()
     }
 
     // MARK: - Header
@@ -284,38 +349,30 @@ struct ButtonMappingSheet: View {
 
     private var primaryMappingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Primary Action")
-                    .font(.headline)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Primary Action")
+                        .font(.headline)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                Spacer()
+                    Spacer()
 
-                Picker("", selection: $primaryState.mappingType) {
-                    Text("Key").tag(MappingEditorState.MappingType.singleKey)
-                    Text("Macro").tag(MappingEditorState.MappingType.macro)
-                    Text("Script").tag(MappingEditorState.MappingType.script)
-                    Text("System").tag(MappingEditorState.MappingType.systemCommand)
+                    Picker("", selection: $primaryState.mappingType) {
+                        Text("Key").tag(MappingEditorState.MappingType.singleKey)
+                        Text("Macro").tag(MappingEditorState.MappingType.macro)
+                        Text("Script").tag(MappingEditorState.MappingType.script)
+                        Text("System").tag(MappingEditorState.MappingType.systemCommand)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 280)
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 280)
-                .padding(.trailing, 8)
 
                 if primaryState.mappingType == .singleKey {
-                    Button(action: { primaryState.showingKeyboard.toggle() }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: primaryState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
-                            Text(primaryState.showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
-                                .lineLimit(1)
-                        }
-                        .font(.callout)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.accentColor.opacity(0.1))
-                        .cornerRadius(6)
+                    HStack {
+                        Spacer()
+                        visualPickerButtons(for: $primaryState, compact: true)
                     }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.accentColor)
-                    .fixedSize()
                 }
             }
 
@@ -551,26 +608,14 @@ struct ButtonMappingSheet: View {
             HStack {
                 Toggle("Enable Long Hold Action", isOn: $enableLongHold)
                     .font(.headline)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .disabled(longHoldDisabled)
 
                 Spacer()
 
                 if enableLongHold && !longHoldDisabled && longHoldState.mappingType == .singleKey {
-                    Button(action: { longHoldState.showingKeyboard.toggle() }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: longHoldState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
-                            Text(longHoldState.showingKeyboard ? "Hide" : "Show Keyboard")
-                                .lineLimit(1)
-                        }
-                        .font(.callout)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.accentColor.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.accentColor)
-                    .fixedSize()
+                    visualPickerButtons(for: $longHoldState, compact: true)
                 }
             }
 
@@ -660,26 +705,14 @@ struct ButtonMappingSheet: View {
             HStack {
                 Toggle("Enable Double Tap Action", isOn: $enableDoubleTap)
                     .font(.headline)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .disabled(primaryDisablesAdvancedFeatures)
 
                 Spacer()
 
                 if enableDoubleTap && !primaryDisablesAdvancedFeatures && doubleTapState.mappingType == .singleKey {
-                    Button(action: { doubleTapState.showingKeyboard.toggle() }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: doubleTapState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
-                            Text(doubleTapState.showingKeyboard ? "Hide" : "Show Keyboard")
-                                .lineLimit(1)
-                        }
-                        .font(.callout)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.accentColor.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(.accentColor)
-                    .fixedSize()
+                    visualPickerButtons(for: $doubleTapState, compact: true)
                 }
             }
 

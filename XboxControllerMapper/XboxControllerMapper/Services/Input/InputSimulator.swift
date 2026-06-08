@@ -292,7 +292,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         // Handle scroll action "key codes"
         if KeyCodeMapping.isScrollAction(keyCode) {
-            performScrollAction(keyCode)
+            performScrollAction(keyCode, modifiers: modifiers)
             return
         }
 
@@ -430,7 +430,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         }
 
         if KeyCodeMapping.isScrollAction(keyCode) {
-            performScrollAction(keyCode)
+            performScrollAction(keyCode, modifiers: modifiers)
             return
         }
 
@@ -1626,9 +1626,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     // MARK: - Scroll Action Simulation
 
-    private func performScrollAction(_ keyCode: CGKeyCode) {
-        let dy: CGFloat = keyCode == KeyCodeMapping.scrollUp ? 10 : -10
-        scroll(event: ScrollEvent(dx: 0, dy: dy))
+    private func performScrollAction(_ keyCode: CGKeyCode, modifiers: CGEventFlags = []) {
+        let amount: CGFloat = 10
+        let delta = KeyCodeMapping.scrollDelta(for: keyCode, amount: amount)
+        scroll(event: ScrollEvent(dx: delta.dx, dy: delta.dy, flags: modifiers))
     }
 
     // MARK: - Mouse Button Simulation
@@ -1973,6 +1974,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             return (down ? .rightMouseDown : .rightMouseUp, .right)
         case KeyCodeMapping.mouseMiddleClick:
             return (down ? .otherMouseDown : .otherMouseUp, .center)
+        case KeyCodeMapping.mouseBackClick:
+            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 3) ?? .center)
+        case KeyCodeMapping.mouseForwardClick:
+            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 4) ?? .center)
         default:
             return (down ? .leftMouseDown : .leftMouseUp, .left)
         }
