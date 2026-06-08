@@ -202,13 +202,13 @@ final class GameControllerDatabaseTests: XCTestCase {
     }
 
 	func testGenericHIDInferredMapping_RequiresControllerShape() {
-		XCTNil(GenericHIDController.inferredMapping(
+		XCTAssertNil(GenericHIDController.inferredMapping(
 			buttonCount: 3,
 			axisCount: 2,
 			hasHat: false,
 			name: "Keyboard-ish HID"
 		))
-		XCTNil(GenericHIDController.inferredMapping(
+		XCTAssertNil(GenericHIDController.inferredMapping(
 			buttonCount: 4,
 			axisCount: 2,
 			hasHat: false,
@@ -242,6 +242,31 @@ final class GameControllerDatabaseTests: XCTestCase {
 		} else {
 			XCTFail("Expected inferred d-pad hat mapping")
 		}
+	}
+
+	func testGenericHIDHatTranslation_SupportsCommonEncodings() {
+		XCTAssertEqual(GenericHIDController.hatValueToBits(0, logicalMin: 0, logicalMax: 7), 1)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(2, logicalMin: 0, logicalMax: 7), 2)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(4, logicalMin: 0, logicalMax: 7), 4)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(6, logicalMin: 0, logicalMax: 7), 8)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(8, logicalMin: 0, logicalMax: 7), -1)
+
+		XCTAssertEqual(GenericHIDController.hatValueToBits(0, logicalMin: 0, logicalMax: 8), -1)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(1, logicalMin: 0, logicalMax: 8), 1)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(3, logicalMin: 0, logicalMax: 8), 2)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(5, logicalMin: 0, logicalMax: 8), 4)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(7, logicalMin: 0, logicalMax: 8), 8)
+
+		XCTAssertEqual(GenericHIDController.hatValueToBits(0, logicalMin: 0, logicalMax: 3), 1)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(1, logicalMin: 0, logicalMax: 3), 2)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(2, logicalMin: 0, logicalMax: 3), 4)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(3, logicalMin: 0, logicalMax: 3), 8)
+
+		XCTAssertEqual(GenericHIDController.hatValueToBits(0, logicalMin: 0, logicalMax: 4), -1)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(1, logicalMin: 0, logicalMax: 4), 1)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(2, logicalMin: 0, logicalMax: 4), 2)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(3, logicalMin: 0, logicalMax: 4), 4)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(4, logicalMin: 0, logicalMax: 4), 8)
 	}
 
     private func mappingLine(guid: String, name: String, entries: [String], platform: String = "Mac OS X") -> String {
