@@ -1060,6 +1060,66 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         XCTAssertEqual(baseCount, 0, "Remote chord should cancel receiver-side pending single button mappings")
     }
 
+	func testRemoteControllerChord_cancelsRunningSmoothScroll() async throws {
+		UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
+
+		await MainActor.run {
+			let profile = Profile(
+				name: "RemoteScrollChord",
+				buttonMappings: [
+					.a: KeyMapping(
+						keyCode: KeyCodeMapping.scrollUp,
+						scrollActionSettings: ScrollActionSettings(speed: 0.5, acceleration: 0)
+					),
+					.b: .key(11)
+				],
+				chordMappings: [ChordMapping(buttons: [.a, .b], keyCode: 44)]
+			)
+			installActiveProfile(profile)
+			mockInputSimulator.clearEvents()
+
+			mappingEngine.handleRemoteControllerButtonPressed(.a)
+		}
+		await waitForTasks(0.08)
+
+		let scrollCountBeforeChord = mockInputSimulator.events.filter {
+			if case .scroll = $0 { return true }
+			return false
+		}.count
+		XCTAssertGreaterThan(scrollCountBeforeChord, 0, "Pre-chord smooth scroll should be running")
+
+		await MainActor.run {
+			mappingEngine.handleRemoteControllerButtonPressed(.b)
+			mappingEngine.handleRemoteControllerChord([.a, .b])
+		}
+		await waitForTasks(0.08)
+
+		let eventsAfterChord = mockInputSimulator.events
+		let chordCount = eventsAfterChord.filter {
+			if case .pressKey(let keyCode, _) = $0 { return keyCode == 44 }
+			return false
+		}.count
+		let scrollCountAfterChord = eventsAfterChord.filter {
+			if case .scroll = $0 { return true }
+			return false
+		}.count
+
+		await waitForTasks(0.08)
+
+		let finalScrollCount = mockInputSimulator.events.filter {
+			if case .scroll = $0 { return true }
+			return false
+		}.count
+
+		await MainActor.run {
+			mappingEngine.handleRemoteControllerButtonReleased(.a, holdDuration: 0.2)
+			mappingEngine.handleRemoteControllerButtonReleased(.b, holdDuration: 0.2)
+		}
+
+		XCTAssertEqual(chordCount, 1, "Remote chord should still fire")
+		XCTAssertEqual(finalScrollCount, scrollCountAfterChord, "Smooth scroll should stop once the chord resolves, not continue until release")
+	}
+
     func testRemoteControllerReset_releasesHeldStateWithoutClearingProfileCaches() async throws {
         UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
 

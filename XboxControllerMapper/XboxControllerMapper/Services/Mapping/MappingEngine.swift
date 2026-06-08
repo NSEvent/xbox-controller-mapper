@@ -1680,6 +1680,11 @@ class MappingEngine: ObservableObject {
                 state.pendingSingleTap[button]?.cancel()
                 state.pendingSingleTap.removeValue(forKey: button)
                 state.lastTapTime.removeValue(forKey: button)
+
+				if let timer = state.smoothScrollTimers.removeValue(forKey: button) {
+					timer.cancel()
+				}
+				state.smoothScrollMappings.removeValue(forKey: button)
             }
 
             return (profile, chordButtons)
