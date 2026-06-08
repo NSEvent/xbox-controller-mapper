@@ -73,6 +73,7 @@ struct ProfileSidebar: View {
                 }
                 .menuStyle(.borderlessButton)
                 .accessibilityLabel("Add profile")
+                .help("Add profile")
                 .fixedSize()
                 .hoverableIconButton()
             }
