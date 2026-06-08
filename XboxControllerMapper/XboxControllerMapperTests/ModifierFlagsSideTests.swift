@@ -158,6 +158,40 @@ final class ModifierFlagsSideTests: XCTestCase {
 		XCTAssertTrue(modifiers.command)
 		XCTAssertNil(modifiers.commandSide)
     }
+
+	func testVisualModifierButton_SelectsPhysicalSideAndTogglesSelectedSideOff() {
+		let rightFromInactive = ModifierKeyButton.toggledState(
+			isActive: false,
+			activeSide: nil,
+			physicalSide: .right
+		)
+		XCTAssertTrue(rightFromInactive.isActive)
+		XCTAssertEqual(rightFromInactive.activeSide, .right)
+
+		let leftFromAny = ModifierKeyButton.toggledState(
+			isActive: true,
+			activeSide: nil,
+			physicalSide: .left
+		)
+		XCTAssertTrue(leftFromAny.isActive)
+		XCTAssertEqual(leftFromAny.activeSide, .left)
+
+		let rightFromLeft = ModifierKeyButton.toggledState(
+			isActive: true,
+			activeSide: .left,
+			physicalSide: .right
+		)
+		XCTAssertTrue(rightFromLeft.isActive)
+		XCTAssertEqual(rightFromLeft.activeSide, .right)
+
+		let offFromRight = ModifierKeyButton.toggledState(
+			isActive: true,
+			activeSide: .right,
+			physicalSide: .right
+		)
+		XCTAssertFalse(offFromRight.isActive)
+		XCTAssertNil(offFromRight.activeSide)
+    }
 }
 
 private final class RecordingInputSimulator: InputSimulatorProtocol, @unchecked Sendable {

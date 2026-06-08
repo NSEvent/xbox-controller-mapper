@@ -238,14 +238,27 @@ class ProfileManager: ObservableObject {
         guard profiles.count > 1 else { return }
 
         snapshotCurrentState(reason: "Before deleting '\(profile.name)'")
-        profiles.removeAll { $0.id == profile.id }
+        let deletedProfileId = profile.id
+        profiles.removeAll { $0.id == deletedProfileId }
+        clearOnScreenKeyboardInheritanceReferences(to: deletedProfileId)
         saveConfiguration()
 
         // If we deleted the active profile, switch to another
-        if activeProfileId == profile.id {
+        if activeProfileId == deletedProfileId {
             if let firstProfile = profiles.first {
                 setActiveProfile(firstProfile)
             }
+        } else if let activeId = activeProfileId,
+                  let updatedActiveProfile = profiles.first(where: { $0.id == activeId }) {
+            activeProfile = updatedActiveProfile
+        }
+    }
+
+    private func clearOnScreenKeyboardInheritanceReferences(to deletedProfileId: UUID) {
+        let now = Date()
+        for index in profiles.indices where profiles[index].inheritedOnScreenKeyboardProfileId == deletedProfileId {
+            profiles[index].inheritedOnScreenKeyboardProfileId = nil
+            profiles[index].modifiedAt = now
         }
     }
 

@@ -182,6 +182,23 @@ final class ProfileManagerSettingsCoverageTests: XCTestCase {
 	XCTAssertNil(baseAfterMissingSource?.inheritedOnScreenKeyboardProfileId)
     }
 
+    func testDeleteProfileClearsKeyboardInheritanceReferencesToDeletedSource() {
+	var base = Profile(name: "Base")
+	base.createdAt = Date(timeIntervalSince1970: 1)
+	var child = Profile(name: "Child", inheritedOnScreenKeyboardProfileId: base.id)
+	child.createdAt = Date(timeIntervalSince1970: 2)
+
+	profileManager.profiles = [base, child]
+	profileManager.setActiveProfile(child)
+
+	profileManager.deleteProfile(base)
+
+	let updatedChild = profileManager.profiles.first { $0.id == child.id }
+	XCTAssertNil(updatedChild?.inheritedOnScreenKeyboardProfileId)
+	XCTAssertNil(profileManager.activeProfile?.inheritedOnScreenKeyboardProfileId)
+	XCTAssertNil(profileManager.activeOnScreenKeyboardSourceProfile)
+    }
+
     func testMoveMacrosReordersInActiveProfile() {
         let macroA = Macro(name: "A", steps: [.delay(0.01)])
         let macroB = Macro(name: "B", steps: [.delay(0.01)])

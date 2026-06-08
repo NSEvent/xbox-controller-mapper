@@ -161,7 +161,7 @@ struct KeyboardVisualView: View {
 
     private var zxcvRow: some View {
         HStack(spacing: 4) {
-            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift, physicalSide: .left, activeSide: modifiers.shiftSide)
+            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift, physicalSide: .left, activeSide: $modifiers.shiftSide)
 
             let zxcvKeys = ["Z", "X", "C", "V", "B", "N", "M"]
             let zxcvCodes: [Int] = [kVK_ANSI_Z, kVK_ANSI_X, kVK_ANSI_C, kVK_ANSI_V, kVK_ANSI_B, kVK_ANSI_N, kVK_ANSI_M]
@@ -173,7 +173,7 @@ struct KeyboardVisualView: View {
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Comma), label: ",", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Period), label: ".", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
             KeyButton(keyCode: CGKeyCode(kVK_ANSI_Slash), label: "/", selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
-            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift, physicalSide: .right, activeSide: modifiers.shiftSide)
+            ModifierKeyButton(label: "⇧ Shift", width: 80, isActive: $modifiers.shift, physicalSide: .right, activeSide: $modifiers.shiftSide)
         }
     }
 
@@ -191,14 +191,14 @@ struct KeyboardVisualView: View {
                     RoundedRectangle(cornerRadius: 4)
                         .stroke(Color.gray.opacity(0.3), lineWidth: 1)
                 )
-            ModifierKeyButton(label: "⌃", width: 40, isActive: $modifiers.control, physicalSide: .left, activeSide: modifiers.controlSide)
-            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option, physicalSide: .left, activeSide: modifiers.optionSide)
-            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command, physicalSide: .left, activeSide: modifiers.commandSide)
+            ModifierKeyButton(label: "⌃", width: 40, isActive: $modifiers.control, physicalSide: .left, activeSide: $modifiers.controlSide)
+            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option, physicalSide: .left, activeSide: $modifiers.optionSide)
+            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command, physicalSide: .left, activeSide: $modifiers.commandSide)
 
             KeyButton(keyCode: CGKeyCode(kVK_Space), label: "Space", width: 200, selectedKeyCode: $selectedKeyCode, hoveredKey: $hoveredKey)
 
-            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command, physicalSide: .right, activeSide: modifiers.commandSide)
-            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option, physicalSide: .right, activeSide: modifiers.optionSide)
+            ModifierKeyButton(label: "⌘", width: 50, isActive: $modifiers.command, physicalSide: .right, activeSide: $modifiers.commandSide)
+            ModifierKeyButton(label: "⌥", width: 40, isActive: $modifiers.option, physicalSide: .right, activeSide: $modifiers.optionSide)
 
             // Arrow keys cluster
             VStack(spacing: 2) {
@@ -338,8 +338,8 @@ struct ModifierKeyButton: View {
     @Binding var isActive: Bool
     /// Which physical side of the keyboard this button represents
     let physicalSide: ModifierSide
-    /// Currently selected side for this modifier (nil = Any → highlight both sides)
-    let activeSide: ModifierSide?
+    /// Currently selected side for this modifier (nil = Any -> highlight both sides)
+    @Binding var activeSide: ModifierSide?
 
     @State private var isHovered = false
 
@@ -349,7 +349,7 @@ struct ModifierKeyButton: View {
     }
 
     var body: some View {
-        Button(action: { isActive.toggle() }) {
+        Button(action: togglePhysicalSide) {
             Text(label)
                 .font(.system(size: fontSize, weight: .medium))
                 .frame(width: width, height: height)
@@ -365,6 +365,23 @@ struct ModifierKeyButton: View {
         .onHover { hovering in
             isHovered = hovering
         }
+    }
+
+    static func toggledState(isActive: Bool, activeSide: ModifierSide?, physicalSide: ModifierSide) -> (isActive: Bool, activeSide: ModifierSide?) {
+        if isActive && activeSide == physicalSide {
+            return (false, nil)
+        }
+        return (true, physicalSide)
+    }
+
+    private func togglePhysicalSide() {
+        let next = Self.toggledState(
+            isActive: isActive,
+            activeSide: activeSide,
+            physicalSide: physicalSide
+        )
+        isActive = next.isActive
+        activeSide = next.activeSide
     }
 
     private var fontSize: CGFloat {
