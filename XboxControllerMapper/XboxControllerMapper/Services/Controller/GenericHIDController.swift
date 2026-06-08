@@ -73,6 +73,16 @@ class GenericHIDController {
 		"lefttrigger",
 		"righttrigger",
 	]
+	private static let controllerTopLevelUsages: Set<Int> = [
+		kHIDUsage_GD_Joystick,
+		kHIDUsage_GD_GamePad,
+		kHIDUsage_GD_MultiAxisController,
+	]
+	private static let ignoredTopLevelUsages: Set<Int> = [
+		kHIDUsage_GD_Pointer,
+		kHIDUsage_GD_Mouse,
+		kHIDUsage_GD_Keyboard,
+	]
 
     /// Holds a weak controller reference so callback dispatch remains safe
     /// even if HID callbacks race controller teardown.
@@ -199,17 +209,58 @@ class GenericHIDController {
 	}
 
 	private static func hasKeyboardOrPointerTopLevelUsage(_ device: IOHIDDevice) -> Bool {
-		guard let usagePage = IOHIDDeviceGetProperty(device, kIOHIDDeviceUsagePageKey as CFString) as? Int,
-		      let usage = IOHIDDeviceGetProperty(device, kIOHIDDeviceUsageKey as CFString) as? Int else {
+		let usagePairs = topLevelUsagePairs(for: device)
+		if usagePairs.contains(where: { isControllerTopLevelUsage(usagePage: $0.usagePage, usage: $0.usage) }) {
 			return false
 		}
-		guard usagePage == kHIDPage_GenericDesktop else { return false }
-		switch usage {
-		case kHIDUsage_GD_Pointer, kHIDUsage_GD_Mouse, kHIDUsage_GD_Keyboard:
+		if usagePairs.contains(where: { isIgnoredTopLevelUsage(usagePage: $0.usagePage, usage: $0.usage) }) {
 			return true
-		default:
+		}
+
+		guard let usagePage = intValue(IOHIDDeviceGetProperty(device, kIOHIDDeviceUsagePageKey as CFString)),
+		      let usage = intValue(IOHIDDeviceGetProperty(device, kIOHIDDeviceUsageKey as CFString)) else {
+			return hasIgnoredPrimaryUsage(device)
+		}
+		return isIgnoredTopLevelUsage(usagePage: usagePage, usage: usage)
+	}
+
+	private static func topLevelUsagePairs(for device: IOHIDDevice) -> [(usagePage: Int, usage: Int)] {
+		guard let pairs = IOHIDDeviceGetProperty(device, kIOHIDDeviceUsagePairsKey as CFString) as? [[String: Any]] else {
+			return []
+		}
+		return pairs.compactMap { pair in
+			guard let usagePage = intValue(pair[kIOHIDDeviceUsagePageKey as String]),
+			      let usage = intValue(pair[kIOHIDDeviceUsageKey as String]) else {
+				return nil
+			}
+			return (usagePage: usagePage, usage: usage)
+		}
+	}
+
+	private static func hasIgnoredPrimaryUsage(_ device: IOHIDDevice) -> Bool {
+		guard let usagePage = intValue(IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsagePageKey as CFString)),
+		      let usage = intValue(IOHIDDeviceGetProperty(device, kIOHIDPrimaryUsageKey as CFString)) else {
 			return false
 		}
+		return isIgnoredTopLevelUsage(usagePage: usagePage, usage: usage)
+	}
+
+	private static func isControllerTopLevelUsage(usagePage: Int, usage: Int) -> Bool {
+		usagePage == kHIDPage_GenericDesktop && controllerTopLevelUsages.contains(usage)
+	}
+
+	private static func isIgnoredTopLevelUsage(usagePage: Int, usage: Int) -> Bool {
+		usagePage == kHIDPage_GenericDesktop && ignoredTopLevelUsages.contains(usage)
+	}
+
+	private static func intValue(_ value: Any?) -> Int? {
+		if let value = value as? Int {
+			return value
+		}
+		if let value = value as? NSNumber {
+			return value.intValue
+		}
+		return nil
 	}
 
     deinit {
