@@ -57,6 +57,7 @@ class GameControllerDatabase {
     static let shared = GameControllerDatabase()
 
     private var mappings: [String: SDLControllerMapping] = [:]
+	private var allPlatformMappings: [String: SDLControllerMapping] = [:]
 
     private static var userDatabasePath: String {
         (Config.configDirectory as NSString).appendingPathComponent("gamecontrollerdb.txt")
@@ -83,7 +84,7 @@ class GameControllerDatabase {
     /// Constructs an SDL-format GUID from IOKit HID device properties.
     /// Format: [bus_le16][0000][vendor_le16][0000][product_le16][0000][version_le16][0000]
     static func constructGUID(vendorID: Int, productID: Int, version: Int, transport: String?) -> String {
-        let bus: UInt16 = (transport?.lowercased() == "bluetooth") ? 0x0005 : 0x0003
+	let bus = Self.busValue(transport: transport)
 
         func le16hex(_ value: UInt16) -> String {
             let lo = value & 0xFF
@@ -91,7 +92,7 @@ class GameControllerDatabase {
             return String(format: "%02x%02x", lo, hi)
         }
 
-        let busHex = le16hex(bus)
+	let busHex = le16hex(UInt16(bus & 0xFFFF))
         let vendorHex = le16hex(UInt16(vendorID & 0xFFFF))
         let productHex = le16hex(UInt16(productID & 0xFFFF))
         let versionHex = le16hex(UInt16(version & 0xFFFF))
@@ -107,7 +108,7 @@ class GameControllerDatabase {
     }
 
     /// Look up a controller mapping by device properties. Tries exact version match first,
-    /// then falls back to version 0.
+    /// then falls back to version 0 and non-macOS mappings for the same VID/PID.
     func lookup(vendorID: Int, productID: Int, version: Int, transport: String?) -> SDLControllerMapping? {
         let guid = Self.constructGUID(vendorID: vendorID, productID: productID,
                                        version: version, transport: transport)
@@ -118,13 +119,20 @@ class GameControllerDatabase {
         if version != 0 {
             let fallbackGuid = Self.constructGUID(vendorID: vendorID, productID: productID,
                                                    version: 0, transport: transport)
-            return mappings[fallbackGuid.lowercased()]
+	    if let mapping = mappings[fallbackGuid.lowercased()] {
+		return mapping
+	    }
         }
-        return nil
+	return platformFallbackMapping(
+		vendorID: vendorID,
+		productID: productID,
+		version: version,
+		transport: transport
+	)
     }
 
     func knownVendorProductPairs(excludingVendors: Set<Int> = []) -> [(vendorID: Int, productID: Int)] {
-        let pairs = mappings.keys.compactMap { guid -> (vendorID: Int, productID: Int)? in
+	let pairs = allPlatformMappings.keys.compactMap { guid -> (vendorID: Int, productID: Int)? in
             guard let vendorID = Self.le16Value(in: guid, byteOffset: 4),
                   let productID = Self.le16Value(in: guid, byteOffset: 8),
                   !excludingVendors.contains(vendorID) else {
@@ -145,6 +153,54 @@ class GameControllerDatabase {
             }
     }
 
+	func hasKnownVendorProduct(vendorID: Int, productID: Int) -> Bool {
+		allPlatformMappings.keys.contains { guid in
+			guard let knownVendorID = Self.le16Value(in: guid, byteOffset: 4),
+			      let knownProductID = Self.le16Value(in: guid, byteOffset: 8) else {
+				return false
+			}
+			return knownVendorID == vendorID && knownProductID == productID
+		}
+	}
+
+	private func platformFallbackMapping(
+		vendorID: Int,
+		productID: Int,
+		version: Int,
+		transport: String?
+	) -> SDLControllerMapping? {
+		let preferredBus = Self.busValue(transport: transport)
+		let candidates = allPlatformMappings.compactMap { guid, mapping -> (score: Int, guid: String, mapping: SDLControllerMapping)? in
+			guard let candidateVendorID = Self.le16Value(in: guid, byteOffset: 4),
+			      let candidateProductID = Self.le16Value(in: guid, byteOffset: 8),
+			      candidateVendorID == vendorID,
+			      candidateProductID == productID else {
+				return nil
+			}
+
+			let candidateBus = Self.le16Value(in: guid, byteOffset: 0)
+			let candidateVersion = Self.le16Value(in: guid, byteOffset: 12)
+			let isMacMapping = mappings[guid] != nil
+			var score = 0
+			if isMacMapping { score -= 1_000 }
+			if candidateBus == preferredBus { score -= 100 }
+			if candidateVersion == version {
+				score -= 20
+			} else if candidateVersion == 0 {
+				score -= 10
+			}
+			return (score: score, guid: guid, mapping: mapping)
+		}
+
+		return candidates.sorted {
+			$0.score == $1.score ? $0.guid < $1.guid : $0.score < $1.score
+		}.first?.mapping
+	}
+
+	private static func busValue(transport: String?) -> Int {
+		transport?.lowercased().contains("bluetooth") == true ? 0x0005 : 0x0003
+	}
+
     private static func le16Value(in guid: String, byteOffset: Int) -> Int? {
         let hexOffset = guid.index(guid.startIndex, offsetBy: byteOffset * 2)
         let nextByteOffset = guid.index(hexOffset, offsetBy: 2)
@@ -161,6 +217,7 @@ class GameControllerDatabase {
 
     func loadDatabase() {
         mappings.removeAll()
+	allPlatformMappings.removeAll()
 
 	let userPaths = [
 	    Self.userDatabasePath,
@@ -168,27 +225,27 @@ class GameControllerDatabase {
 	    Self.legacyUserDatabasePath
 	]
         let bundledPath = Bundle.main.path(forResource: "gamecontrollerdb", ofType: "txt")
+	var loadedAnyDatabase = false
 
-        let path: String
-	if let userPath = userPaths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
-            path = userPath
-        } else if let bp = bundledPath {
-            path = bp
-        } else {
+	if let bundledPath,
+	   let content = try? String(contentsOfFile: bundledPath, encoding: .utf8) {
+		parseDatabase(content)
+		loadedAnyDatabase = true
+	}
+
+	if let userPath = userPaths.first(where: { FileManager.default.fileExists(atPath: $0) }),
+	   let content = try? String(contentsOfFile: userPath, encoding: .utf8) {
+		parseDatabase(content)
+		loadedAnyDatabase = true
+	}
+
+	guard loadedAnyDatabase else {
             #if DEBUG
-            print("[GameControllerDB] No database file found")
+		print("[GameControllerDB] No database file found")
             #endif
             return
         }
 
-        guard let content = try? String(contentsOfFile: path, encoding: .utf8) else {
-            #if DEBUG
-            print("[GameControllerDB] Failed to read database at \(path)")
-            #endif
-            return
-        }
-
-        parseDatabase(content)
         #if DEBUG
         print("[GameControllerDB] Loaded \(mappings.count) macOS controller mappings")
         #endif
@@ -202,10 +259,12 @@ class GameControllerDatabase {
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
-            guard trimmed.contains("platform:Mac OS X") else { continue }
 
             if let mapping = parseLine(trimmed) {
-                mappings[mapping.guid.lowercased()] = mapping
+		allPlatformMappings[mapping.guid.lowercased()] = mapping
+		if trimmed.contains("platform:Mac OS X") {
+			mappings[mapping.guid.lowercased()] = mapping
+		}
             }
         }
     }

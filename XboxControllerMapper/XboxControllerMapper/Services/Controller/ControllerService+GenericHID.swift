@@ -33,14 +33,37 @@ extension ControllerService {
                 0x057E, // Nintendo raw Home button path
                 SteamControllerHIDParser.valveVendorID,
             ]
-            let criteria = GameControllerDatabase.shared
+	    let knownMappingCriteria = GameControllerDatabase.shared
                 .knownVendorProductPairs(excludingVendors: excludedVendors)
                 .map { pair in
                     [
                         kIOHIDVendorIDKey as String: pair.vendorID,
                         kIOHIDProductIDKey as String: pair.productID,
                     ] as CFDictionary
-                } as CFArray
+		}
+	    let standardControllerCriteria = [
+		[
+		    kIOHIDDeviceUsagePageKey as String: kHIDPage_GenericDesktop,
+		    kIOHIDDeviceUsageKey as String: kHIDUsage_GD_Joystick,
+		],
+		[
+		    kIOHIDDeviceUsagePageKey as String: kHIDPage_GenericDesktop,
+		    kIOHIDDeviceUsageKey as String: kHIDUsage_GD_GamePad,
+		],
+		[
+		    kIOHIDDeviceUsagePageKey as String: kHIDPage_GenericDesktop,
+		    kIOHIDDeviceUsageKey as String: kHIDUsage_GD_MultiAxisController,
+		],
+	    ].map { $0 as CFDictionary }
+	    let bluetoothLECriteria = [
+		[kIOHIDTransportKey as String: "BluetoothLowEnergy"],
+		[kIOHIDTransportKey as String: "Bluetooth Low Energy"],
+	    ].map { $0 as CFDictionary }
+	    let criteria = (
+		knownMappingCriteria +
+		standardControllerCriteria +
+		bluetoothLECriteria
+	    ) as CFArray
 
             guard CFArrayGetCount(criteria) > 0 else { return }
             IOHIDManagerSetDeviceMatchingMultiple(manager, criteria)
@@ -78,6 +101,11 @@ extension ControllerService {
         let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int ?? 0
         let version = IOHIDDeviceGetProperty(device, kIOHIDVersionNumberKey as CFString) as? Int ?? 0
         let transport = IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String
+	let hasKnownMapping = GameControllerDatabase.shared.hasKnownVendorProduct(
+	    vendorID: vendorID,
+	    productID: productID
+	)
+	guard hasKnownMapping || GenericHIDController.canInferMapping(from: device) else { return }
 
         // Wait 1 second to give GameController framework priority
         genericHIDFallbackTimer?.cancel()
@@ -95,13 +123,23 @@ extension ControllerService {
         // Don't activate if GameController framework connected in the meantime
         guard !isConnected else { return }
 
+	let guid = GameControllerDatabase.constructGUID(
+		vendorID: vendorID,
+		productID: productID,
+		version: version,
+		transport: transport
+	)
+	let productName = IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String
+	let fallbackName = productName?.isEmpty == false ? productName! : "Generic HID Controller"
         guard let mapping = GameControllerDatabase.shared.lookup(
             vendorID: vendorID, productID: productID,
             version: version, transport: transport
+	) ?? GenericHIDController.inferredMapping(
+	    for: device,
+	    fallbackName: fallbackName,
+	    guid: guid
         ) else {
             #if DEBUG
-            let guid = GameControllerDatabase.constructGUID(vendorID: vendorID, productID: productID,
-                                                             version: version, transport: transport)
             print("[GenericHID] No mapping found for GUID: \(guid) (vendor=0x\(String(vendorID, radix: 16)), product=0x\(String(productID, radix: 16)))")
             #endif
             return

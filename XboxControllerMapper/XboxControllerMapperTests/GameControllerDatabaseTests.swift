@@ -33,9 +33,16 @@ final class GameControllerDatabaseTests: XCTestCase {
             version: 0x0114,
             transport: "bluetooth"
         )
+	let bluetoothLowEnergyGUID = GameControllerDatabase.constructGUID(
+		vendorID: 0x045e,
+		productID: 0x028e,
+		version: 0x0114,
+		transport: "Bluetooth Low Energy"
+	)
 
         XCTAssertEqual(usbGUID, "030000005e0400008e02000014010000")
         XCTAssertEqual(bluetoothGUID, "050000005e0400008e02000014010000")
+	XCTAssertEqual(bluetoothLowEnergyGUID, "050000005e0400008e02000014010000")
     }
 
     func testLookupByDeviceProperties_FallsBackToVersionZeroMapping() {
@@ -95,6 +102,43 @@ final class GameControllerDatabaseTests: XCTestCase {
 
     }
 
+	func testLookupByDeviceProperties_FallsBackToNonMacMappingForSameVendorProduct() {
+		let windowsGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x248a,
+			productID: 0x8266,
+			version: 0,
+			transport: nil
+		)
+		let content = mappingLine(
+			guid: windowsGuid,
+			name: "R1 Mobile Controller",
+			entries: [
+				"a:b3",
+				"b:b1",
+				"leftx:a0",
+				"lefty:a1"
+			],
+			platform: "Windows"
+		)
+		let database = GameControllerDatabase(databaseContentOverride: content)
+
+		let mapping = database.lookup(
+			vendorID: 0x248a,
+			productID: 0x8266,
+			version: 12,
+			transport: "Bluetooth Low Energy"
+		)
+
+		XCTAssertEqual(mapping?.name, "R1 Mobile Controller")
+		if case let .button(index)? = mapping?.buttonMap["a"] {
+			XCTAssertEqual(index, 3)
+		} else {
+			XCTFail("Expected Windows fallback button mapping for R1")
+		}
+
+		Self.retainedDatabases.append(database)
+	}
+
     func testParsing_IgnoresCommentsNonMacEntriesAndInvalidGUIDs() {
         let validGUID = "030000005e0400008e02000000000000"
         let content = [
@@ -135,7 +179,7 @@ final class GameControllerDatabaseTests: XCTestCase {
         let content = [
             mappingLine(guid: xboxGUID, name: "Xbox", entries: ["a:b0"]),
             mappingLine(guid: duplicateXboxGUID, name: "Xbox Duplicate", entries: ["a:b0"]),
-            mappingLine(guid: genericGUID, name: "Generic", entries: ["a:b0"])
+	    mappingLine(guid: genericGUID, name: "Generic", entries: ["a:b0"], platform: "Windows")
         ].joined(separator: "\n")
 
         let database = GameControllerDatabase(databaseContentOverride: content)
@@ -157,8 +201,51 @@ final class GameControllerDatabaseTests: XCTestCase {
                        "No macOS controller entries found in database")
     }
 
-    private func mappingLine(guid: String, name: String, entries: [String]) -> String {
+	func testGenericHIDInferredMapping_RequiresControllerShape() {
+		XCTNil(GenericHIDController.inferredMapping(
+			buttonCount: 3,
+			axisCount: 2,
+			hasHat: false,
+			name: "Keyboard-ish HID"
+		))
+		XCTNil(GenericHIDController.inferredMapping(
+			buttonCount: 4,
+			axisCount: 2,
+			hasHat: false,
+			name: "Mouse-ish HID"
+		))
+	}
+
+	func testGenericHIDInferredMapping_ProvidesUsableDefaultLayout() {
+		let mapping = GenericHIDController.inferredMapping(
+			buttonCount: 8,
+			axisCount: 4,
+			hasHat: true,
+			name: "Unknown Gamepad"
+		)
+
+		XCTAssertEqual(mapping?.name, "Unknown Gamepad")
+		if case let .button(index)? = mapping?.buttonMap["a"] {
+			XCTAssertEqual(index, 0)
+		} else {
+			XCTFail("Expected inferred A button")
+		}
+		if case let .axis(index, inverted)? = mapping?.axisMap["righty"] {
+			XCTAssertEqual(index, 3)
+			XCTAssertFalse(inverted)
+		} else {
+			XCTFail("Expected inferred right stick Y axis")
+		}
+		if case let .hat(index, direction)? = mapping?.buttonMap["dpup"] {
+			XCTAssertEqual(index, 0)
+			XCTAssertEqual(direction, .up)
+		} else {
+			XCTFail("Expected inferred d-pad hat mapping")
+		}
+	}
+
+    private func mappingLine(guid: String, name: String, entries: [String], platform: String = "Mac OS X") -> String {
         let body = entries.joined(separator: ",")
-        return "\(guid),\(name),\(body),platform:Mac OS X,"
+	return "\(guid),\(name),\(body),platform:\(platform),"
     }
 }
