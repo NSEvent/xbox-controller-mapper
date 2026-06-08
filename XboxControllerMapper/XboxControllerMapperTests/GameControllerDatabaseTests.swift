@@ -141,6 +141,51 @@ final class GameControllerDatabaseTests: XCTestCase {
 		Self.retainedDatabases.append(database)
 	}
 
+	func testLookupByDeviceProperties_PrefersMacMappingWhenDuplicateGuidFallbackExists() {
+		let duplicateGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x1915,
+			productID: 0x7856,
+			version: 0x0110,
+			transport: nil
+		)
+		let content = [
+			mappingLine(
+				guid: duplicateGuid,
+				name: "Mac Layout",
+				entries: [
+					"a:b3",
+					"leftx:a1"
+				]
+			),
+			mappingLine(
+				guid: duplicateGuid,
+				name: "Linux Layout",
+				entries: [
+					"a:b0",
+					"leftx:a0"
+				],
+				platform: "Linux"
+			)
+		].joined(separator: "\n")
+		let database = GameControllerDatabase(databaseContentOverride: content)
+
+		let mapping = database.lookup(
+			vendorID: 0x1915,
+			productID: 0x7856,
+			version: 0x9999,
+			transport: nil
+		)
+
+		XCTAssertEqual(mapping?.name, "Mac Layout")
+		if case let .button(index)? = mapping?.buttonMap["a"] {
+			XCTAssertEqual(index, 3)
+		} else {
+			XCTFail("Expected duplicate GUID fallback to use the macOS button layout")
+		}
+
+		Self.retainedDatabases.append(database)
+	}
+
 	func testParsing_PreservesAxisButtonPolarity() {
 		let guid = GameControllerDatabase.constructGUID(
 			vendorID: 0x1234,

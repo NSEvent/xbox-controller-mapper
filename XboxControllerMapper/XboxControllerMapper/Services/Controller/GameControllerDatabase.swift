@@ -206,7 +206,7 @@ class GameControllerDatabase {
 			} else if candidateVersion == 0 {
 				score -= 10
 			}
-			return (score: score, guid: guid, mapping: mapping)
+			return (score: score, guid: guid, mapping: mappings[guid] ?? mapping)
 		}
 
 		return candidates.sorted {
