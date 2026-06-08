@@ -52,8 +52,61 @@ class GenericHIDController {
     private static let triggerPressThreshold: Float = 0.12
     private static let axisChangeThreshold: Double = 0.01
 
-	static func axisButtonPressed(_ value: Double, inverted: Bool) -> Bool {
-		inverted ? value < -0.5 : value > 0.5
+	static func stickAxisValue(_ value: Double, inverted: Bool, polarity: SDLElementRef.AxisPolarity) -> Double {
+		let adjusted = inverted ? -value : value
+		switch polarity {
+		case .full:
+			return adjusted
+		case .positive:
+			return max(0.0, adjusted)
+		case .negative:
+			return min(0.0, adjusted)
+		}
+	}
+
+	static func outputStickAxisValue(
+		_ value: Double,
+		sourcePolarity: SDLElementRef.AxisPolarity,
+		outputPolarity: SDLElementRef.AxisPolarity
+	) -> Double {
+		switch outputPolarity {
+		case .full:
+			return value
+		case .positive:
+			return sourcePolarity == .negative ? abs(value) : max(0.0, value)
+		case .negative:
+			return sourcePolarity == .positive ? -abs(value) : min(0.0, value)
+		}
+	}
+
+	static func triggerAxisValue(
+		minBasedValue: Float,
+		centeredValue: Double,
+		inverted: Bool,
+		polarity: SDLElementRef.AxisPolarity
+	) -> Float {
+		switch polarity {
+		case .full:
+			return inverted ? 1.0 - minBasedValue : minBasedValue
+		case .positive:
+			let adjusted = inverted ? -centeredValue : centeredValue
+			return Float(max(0.0, min(1.0, adjusted)))
+		case .negative:
+			let adjusted = inverted ? centeredValue : -centeredValue
+			return Float(max(0.0, min(1.0, adjusted)))
+		}
+	}
+
+	static func axisButtonPressed(_ value: Double, inverted: Bool, polarity: SDLElementRef.AxisPolarity) -> Bool {
+		let adjusted = inverted ? -value : value
+		switch polarity {
+		case .full:
+			return abs(adjusted) > 0.5
+		case .positive:
+			return adjusted > 0.5
+		case .negative:
+			return adjusted < -0.5
+		}
 	}
 
     /// Holds a weak controller reference so callback dispatch remains safe
@@ -249,37 +302,31 @@ class GenericHIDController {
         previousAxisValues[axisIndex] = clampedFull
 
         // Process stick axes
-        for (sdlName, ref) in mapping.axisMap {
-            guard SDLControllerMapping.sdlStickAxes.contains(sdlName) else { continue }
-            if case .axis(let idx, let inverted) = ref, idx == axisIndex {
-                let v = Float(inverted ? -clampedFull : clampedFull)
-                switch sdlName {
-                case "leftx":
-                    cachedLeftX = v
-                    onLeftStickMoved?(cachedLeftX, cachedLeftY)
-                case "lefty":
-                    cachedLeftY = v
-                    onLeftStickMoved?(cachedLeftX, cachedLeftY)
-                case "rightx":
-                    cachedRightX = v
-                    onRightStickMoved?(cachedRightX, cachedRightY)
-                case "righty":
-                    cachedRightY = v
-                    onRightStickMoved?(cachedRightX, cachedRightY)
-                default:
-                    break
-                }
-            }
-        }
+		var changedStickAxes = Set<String>()
+		for (sdlName, ref) in mapping.axisMap {
+			guard let targetAxis = SDLControllerMapping.normalizedAxisName(sdlName),
+			      SDLControllerMapping.sdlStickAxes.contains(targetAxis.name),
+			      case .axis(let idx, _, _) = ref,
+			      idx == axisIndex else { continue }
+			changedStickAxes.insert(targetAxis.name)
+		}
+		for sdlName in changedStickAxes {
+			emitStickAxis(sdlName, value: composedStickAxisValue(for: sdlName))
+		}
 
         // Process trigger axes
         for (sdlName, ref) in mapping.axisMap {
             guard SDLControllerMapping.sdlTriggerAxes.contains(sdlName) else { continue }
-            if case .axis(let idx, let inverted) = ref, idx == axisIndex {
+	    if case .axis(let idx, let inverted, let polarity) = ref, idx == axisIndex {
                 // Triggers use 0..1 range (min-based, not center-based)
                 var normalized = Float((Double(value) - Double(cal.logicalMin)) / cal.range)
                 normalized = max(0, min(1, normalized))
-                if inverted { normalized = 1.0 - normalized }
+				normalized = Self.triggerAxisValue(
+					minBasedValue: normalized,
+					centeredValue: clampedFull,
+					inverted: inverted,
+					polarity: polarity
+				)
                 let pressed = normalized > Self.triggerPressThreshold
 
                 if sdlName == "lefttrigger" {
@@ -292,13 +339,54 @@ class GenericHIDController {
 
         // Process button mappings that reference axes (e.g., dpup:+a1)
         for (sdlName, ref) in mapping.buttonMap {
-			if case .axis(let idx, let inverted) = ref, idx == axisIndex {
+			if case .axis(let idx, let inverted, let polarity) = ref, idx == axisIndex {
 				guard let button = SDLControllerMapping.sdlToControllerButton[sdlName] else { continue }
-				let pressed = Self.axisButtonPressed(clampedFull, inverted: inverted)
+				let pressed = Self.axisButtonPressed(clampedFull, inverted: inverted, polarity: polarity)
 				onButtonAction?(button, pressed)
 			}
         }
     }
+
+	private func composedStickAxisValue(for sdlAxisName: String) -> Float {
+		var value = 0.0
+		for (mappedName, ref) in mapping.axisMap {
+			guard let targetAxis = SDLControllerMapping.normalizedAxisName(mappedName),
+			      targetAxis.name == sdlAxisName,
+			      SDLControllerMapping.sdlStickAxes.contains(targetAxis.name),
+			      case .axis(let idx, let inverted, let polarity) = ref,
+			      idx < previousAxisValues.count else { continue }
+			let sourceValue = Self.stickAxisValue(
+				previousAxisValues[idx],
+				inverted: inverted,
+				polarity: polarity
+			)
+			value += Self.outputStickAxisValue(
+				sourceValue,
+				sourcePolarity: polarity,
+				outputPolarity: targetAxis.polarity
+			)
+		}
+		return Float(max(-1.0, min(1.0, value)))
+	}
+
+	private func emitStickAxis(_ sdlName: String, value: Float) {
+		switch sdlName {
+		case "leftx":
+			cachedLeftX = value
+			onLeftStickMoved?(cachedLeftX, cachedLeftY)
+		case "lefty":
+			cachedLeftY = value
+			onLeftStickMoved?(cachedLeftX, cachedLeftY)
+		case "rightx":
+			cachedRightX = value
+			onRightStickMoved?(cachedRightX, cachedRightY)
+		case "righty":
+			cachedRightY = value
+			onRightStickMoved?(cachedRightX, cachedRightY)
+		default:
+			break
+		}
+	}
 
     // MARK: - Hat Switch Translation
 

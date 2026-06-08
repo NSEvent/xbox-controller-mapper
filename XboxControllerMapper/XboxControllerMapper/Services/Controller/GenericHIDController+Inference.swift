@@ -47,6 +47,10 @@ extension GenericHIDController {
 		) != nil
 	}
 
+	static func canUseKnownMapping(from device: IOHIDDevice) -> Bool {
+		!hasKeyboardOrPointerTopLevelUsage(device)
+	}
+
 	static func inferredMapping(
 		for device: IOHIDDevice,
 		fallbackName: String,
@@ -85,7 +89,7 @@ extension GenericHIDController {
 
 		var axisMap: [String: SDLElementRef] = [:]
 		for (index, axisName) in fallbackAxisNames.prefix(axisCount).enumerated() {
-			axisMap[axisName] = .axis(index, inverted: false)
+			axisMap[axisName] = .axis(index, inverted: false, polarity: .full)
 		}
 
 		return SDLControllerMapping(

@@ -60,7 +60,7 @@ final class GameControllerDatabaseTests: XCTestCase {
                 "b:b1",
                 "leftx:a0",
                 "lefty:~a1",
-                "rightx:+a2",
+		"rightx:a2",
                 "dpup:h0.1"
             ])
         ].joined(separator: "\n")
@@ -77,16 +77,18 @@ final class GameControllerDatabaseTests: XCTestCase {
             XCTFail("Expected button mapping for SDL button a")
         }
 
-        if case let .axis(index, inverted)? = mapping?.axisMap["lefty"] {
+	if case let .axis(index, inverted, polarity)? = mapping?.axisMap["lefty"] {
             XCTAssertEqual(index, 1)
             XCTAssertTrue(inverted)
+	    XCTAssertEqual(polarity, .full)
         } else {
             XCTFail("Expected inverted axis mapping for lefty")
         }
 
-        if case let .axis(index, inverted)? = mapping?.axisMap["rightx"] {
+	if case let .axis(index, inverted, polarity)? = mapping?.axisMap["rightx"] {
             XCTAssertEqual(index, 2)
             XCTAssertFalse(inverted)
+	    XCTAssertEqual(polarity, .full)
         } else {
             XCTFail("Expected axis mapping for rightx")
         }
@@ -152,29 +154,72 @@ final class GameControllerDatabaseTests: XCTestCase {
 			entries: [
 				"dpup:-a1",
 				"dpdown:+a1",
-				"lefty:~a1"
+				"lefttrigger:+a2",
+				"righttrigger:-a2",
+				"lefty:~a1",
+				"righty:a3~",
+				"+rightx:+a3",
+				"-rightx:-a4"
 			]
 		)
 		let database = GameControllerDatabase(databaseContentOverride: content)
 		let mapping = database.lookup(guid: guid)
 
-		if case let .axis(index, inverted)? = mapping?.buttonMap["dpup"] {
+		if case let .axis(index, inverted, polarity)? = mapping?.buttonMap["dpup"] {
 			XCTAssertEqual(index, 1)
-			XCTAssertTrue(inverted)
+			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .negative)
 		} else {
 			XCTFail("Expected negative axis button mapping for dpup")
 		}
-		if case let .axis(index, inverted)? = mapping?.buttonMap["dpdown"] {
+		if case let .axis(index, inverted, polarity)? = mapping?.buttonMap["dpdown"] {
 			XCTAssertEqual(index, 1)
 			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .positive)
 		} else {
 			XCTFail("Expected positive axis button mapping for dpdown")
 		}
-		if case let .axis(index, inverted)? = mapping?.axisMap["lefty"] {
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["lefttrigger"] {
+			XCTAssertEqual(index, 2)
+			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .positive)
+		} else {
+			XCTFail("Expected positive half-axis trigger mapping for lefttrigger")
+		}
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["righttrigger"] {
+			XCTAssertEqual(index, 2)
+			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .negative)
+		} else {
+			XCTFail("Expected negative half-axis trigger mapping for righttrigger")
+		}
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["lefty"] {
 			XCTAssertEqual(index, 1)
 			XCTAssertTrue(inverted)
+			XCTAssertEqual(polarity, .full)
 		} else {
 			XCTFail("Expected inverted stick axis mapping for lefty")
+		}
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["righty"] {
+			XCTAssertEqual(index, 3)
+			XCTAssertTrue(inverted)
+			XCTAssertEqual(polarity, .full)
+		} else {
+			XCTFail("Expected suffix-inverted stick axis mapping for righty")
+		}
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["+rightx"] {
+			XCTAssertEqual(index, 3)
+			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .positive)
+		} else {
+			XCTFail("Expected positive split-output stick axis mapping for rightx")
+		}
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["-rightx"] {
+			XCTAssertEqual(index, 4)
+			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .negative)
+		} else {
+			XCTFail("Expected negative split-output stick axis mapping for rightx")
 		}
 
 		Self.retainedDatabases.append(database)
@@ -271,9 +316,10 @@ final class GameControllerDatabaseTests: XCTestCase {
 		} else {
 			XCTFail("Expected inferred A button")
 		}
-		if case let .axis(index, inverted)? = mapping?.axisMap["righty"] {
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["righty"] {
 			XCTAssertEqual(index, 3)
 			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .full)
 		} else {
 			XCTFail("Expected inferred right stick Y axis")
 		}
@@ -308,16 +354,103 @@ final class GameControllerDatabaseTests: XCTestCase {
 		XCTAssertEqual(GenericHIDController.hatValueToBits(2, logicalMin: 0, logicalMax: 4), 2)
 		XCTAssertEqual(GenericHIDController.hatValueToBits(3, logicalMin: 0, logicalMax: 4), 4)
 		XCTAssertEqual(GenericHIDController.hatValueToBits(4, logicalMin: 0, logicalMax: 4), 8)
+
+		XCTAssertEqual(GenericHIDController.hatValueToBits(1, logicalMin: 1, logicalMax: 8), 1)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(3, logicalMin: 1, logicalMax: 8), 2)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(5, logicalMin: 1, logicalMax: 8), 4)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(7, logicalMin: 1, logicalMax: 8), 8)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(0, logicalMin: 1, logicalMax: 8), -1)
+
+		XCTAssertEqual(GenericHIDController.hatValueToBits(1, logicalMin: 1, logicalMax: 4), 1)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(2, logicalMin: 1, logicalMax: 4), 2)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(3, logicalMin: 1, logicalMax: 4), 4)
+		XCTAssertEqual(GenericHIDController.hatValueToBits(4, logicalMin: 1, logicalMax: 4), 8)
 	}
 
 	func testGenericHIDAxisButtons_UseAxisPolarity() {
-		XCTAssertTrue(GenericHIDController.axisButtonPressed(-0.75, inverted: true))
-		XCTAssertFalse(GenericHIDController.axisButtonPressed(0.75, inverted: true))
-		XCTAssertFalse(GenericHIDController.axisButtonPressed(-0.25, inverted: true))
+		XCTAssertTrue(GenericHIDController.axisButtonPressed(-0.75, inverted: false, polarity: .negative))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(0.75, inverted: false, polarity: .negative))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(-0.25, inverted: false, polarity: .negative))
 
-		XCTAssertTrue(GenericHIDController.axisButtonPressed(0.75, inverted: false))
-		XCTAssertFalse(GenericHIDController.axisButtonPressed(-0.75, inverted: false))
-		XCTAssertFalse(GenericHIDController.axisButtonPressed(0.25, inverted: false))
+		XCTAssertTrue(GenericHIDController.axisButtonPressed(0.75, inverted: false, polarity: .positive))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(-0.75, inverted: false, polarity: .positive))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(0.25, inverted: false, polarity: .positive))
+
+		XCTAssertTrue(GenericHIDController.axisButtonPressed(0.75, inverted: false, polarity: .full))
+		XCTAssertTrue(GenericHIDController.axisButtonPressed(-0.75, inverted: false, polarity: .full))
+		XCTAssertFalse(GenericHIDController.axisButtonPressed(0.25, inverted: false, polarity: .full))
+	}
+
+	func testGenericHIDStickAxes_UseOutputPolarity() {
+		XCTAssertEqual(GenericHIDController.outputStickAxisValue(
+			0.75,
+			sourcePolarity: .positive,
+			outputPolarity: .positive
+		), 0.75)
+		XCTAssertEqual(GenericHIDController.outputStickAxisValue(
+			-0.75,
+			sourcePolarity: .negative,
+			outputPolarity: .positive
+		), 0.75)
+		XCTAssertEqual(GenericHIDController.outputStickAxisValue(
+			0.75,
+			sourcePolarity: .positive,
+			outputPolarity: .negative
+		), -0.75)
+		XCTAssertEqual(GenericHIDController.outputStickAxisValue(
+			-0.75,
+			sourcePolarity: .negative,
+			outputPolarity: .negative
+		), -0.75)
+		XCTAssertEqual(GenericHIDController.outputStickAxisValue(
+			-0.75,
+			sourcePolarity: .full,
+			outputPolarity: .positive
+		), 0.0)
+		XCTAssertEqual(GenericHIDController.outputStickAxisValue(
+			-0.75,
+			sourcePolarity: .full,
+			outputPolarity: .full
+		), -0.75)
+	}
+
+	func testGenericHIDTriggerAxes_UseHalfAxisPolarity() {
+		XCTAssertEqual(GenericHIDController.triggerAxisValue(
+			minBasedValue: 0.5,
+			centeredValue: 0.0,
+			inverted: false,
+			polarity: .positive
+		), 0.0)
+		XCTAssertEqual(GenericHIDController.triggerAxisValue(
+			minBasedValue: 0.5,
+			centeredValue: 0.0,
+			inverted: false,
+			polarity: .negative
+		), 0.0)
+		XCTAssertEqual(GenericHIDController.triggerAxisValue(
+			minBasedValue: 0.875,
+			centeredValue: 0.75,
+			inverted: false,
+			polarity: .positive
+		), 0.75)
+		XCTAssertEqual(GenericHIDController.triggerAxisValue(
+			minBasedValue: 0.125,
+			centeredValue: -0.75,
+			inverted: false,
+			polarity: .negative
+		), 0.75)
+		XCTAssertEqual(GenericHIDController.triggerAxisValue(
+			minBasedValue: 0.6,
+			centeredValue: 0.2,
+			inverted: false,
+			polarity: .full
+		), 0.6)
+		XCTAssertEqual(GenericHIDController.triggerAxisValue(
+			minBasedValue: 0.6,
+			centeredValue: 0.2,
+			inverted: true,
+			polarity: .full
+		), 0.4, accuracy: 0.0001)
 	}
 
     private func mappingLine(guid: String, name: String, entries: [String], platform: String = "Mac OS X") -> String {

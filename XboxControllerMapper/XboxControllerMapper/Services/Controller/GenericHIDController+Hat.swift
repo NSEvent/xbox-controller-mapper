@@ -15,6 +15,10 @@ extension GenericHIDController {
 		case (0, 4):
 			guard value != 0 else { return -1 }
 			return fourWayHatValueToBits(value - 1)
+		case (1, 8):
+			return eightWayHatValueToBits(value - 1)
+		case (1, 4):
+			return fourWayHatValueToBits(value - 1)
 		default:
 			return -1
 		}

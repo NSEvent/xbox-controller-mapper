@@ -101,11 +101,12 @@ extension ControllerService {
         let productID = IOHIDDeviceGetProperty(device, kIOHIDProductIDKey as CFString) as? Int ?? 0
         let version = IOHIDDeviceGetProperty(device, kIOHIDVersionNumberKey as CFString) as? Int ?? 0
         let transport = IOHIDDeviceGetProperty(device, kIOHIDTransportKey as CFString) as? String
-	let hasKnownMapping = GameControllerDatabase.shared.hasKnownVendorProduct(
-	    vendorID: vendorID,
-	    productID: productID
-	)
-	guard hasKnownMapping || GenericHIDController.canInferMapping(from: device) else { return }
+		let hasKnownMapping = GameControllerDatabase.shared.hasKnownVendorProduct(
+		    vendorID: vendorID,
+		    productID: productID
+		)
+		let canUseKnownMapping = hasKnownMapping && GenericHIDController.canUseKnownMapping(from: device)
+		guard canUseKnownMapping || GenericHIDController.canInferMapping(from: device) else { return }
 
         // Wait 1 second to give GameController framework priority
         genericHIDFallbackTimer?.cancel()

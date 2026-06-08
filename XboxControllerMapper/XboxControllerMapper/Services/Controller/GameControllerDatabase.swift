@@ -5,8 +5,14 @@ import Foundation
 /// Reference to a HID element in SDL gamecontrollerdb format
 enum SDLElementRef: Equatable {
     case button(Int)
-    case axis(Int, inverted: Bool)
+    case axis(Int, inverted: Bool, polarity: AxisPolarity)
     case hat(Int, direction: HatDirection)
+
+    enum AxisPolarity: Equatable {
+	case full
+	case positive
+	case negative
+    }
 
     enum HatDirection: Int {
         case up = 1
@@ -48,6 +54,17 @@ struct SDLControllerMapping {
 
     /// SDL axis names for triggers
     static let sdlTriggerAxes: Set<String> = ["lefttrigger", "righttrigger"]
+
+	static func normalizedAxisName(_ sdlName: String) -> (name: String, polarity: SDLElementRef.AxisPolarity)? {
+		if sdlStickAxes.contains(sdlName) || sdlTriggerAxes.contains(sdlName) {
+			return (sdlName, .full)
+		}
+
+		guard let prefix = sdlName.first, prefix == "+" || prefix == "-" else { return nil }
+		let baseName = String(sdlName.dropFirst())
+		guard sdlStickAxes.contains(baseName) || sdlTriggerAxes.contains(baseName) else { return nil }
+		return (baseName, prefix == "+" ? .positive : .negative)
+	}
 }
 
 // MARK: - GameControllerDatabase
@@ -291,12 +308,11 @@ class GameControllerDatabase {
             let elementStr = kv[1]
             guard let ref = parseElementRef(elementStr) else { continue }
 
-            if SDLControllerMapping.sdlStickAxes.contains(sdlName) ||
-               SDLControllerMapping.sdlTriggerAxes.contains(sdlName) {
-                axisMap[sdlName] = ref
-            } else {
-                buttonMap[sdlName] = ref
-            }
+	    if SDLControllerMapping.normalizedAxisName(sdlName) != nil {
+		axisMap[sdlName] = ref
+	    } else {
+		buttonMap[sdlName] = ref
+	    }
         }
 
         return SDLControllerMapping(guid: guid, name: name,
@@ -326,15 +342,24 @@ class GameControllerDatabase {
         // Axis: a0, +a1, -a2, ~a3
         var axisStr = s
         var inverted = false
-		if s.hasPrefix("~") || s.hasPrefix("-") {
+		var polarity: SDLElementRef.AxisPolarity = .full
+		if axisStr.hasSuffix("~") {
 			inverted = true
-			axisStr = String(s.dropFirst())
-		} else if s.hasPrefix("+") {
-			axisStr = String(s.dropFirst())
+			axisStr = String(axisStr.dropLast())
+		}
+		if axisStr.hasPrefix("~") {
+			inverted = true
+			axisStr = String(axisStr.dropFirst())
+		} else if axisStr.hasPrefix("+") {
+			polarity = .positive
+			axisStr = String(axisStr.dropFirst())
+		} else if axisStr.hasPrefix("-") {
+			polarity = .negative
+			axisStr = String(axisStr.dropFirst())
 		}
 
         if axisStr.hasPrefix("a"), let idx = Int(String(axisStr.dropFirst())) {
-            return .axis(idx, inverted: inverted)
+	    return .axis(idx, inverted: inverted, polarity: polarity)
         }
 
         return nil
