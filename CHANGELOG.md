@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-06-08
+
+### Added
+
+- **Per-action scroll tuning**: Scroll Up / Down / Left / Right actions now carry their own speed and acceleration settings. Ordinary buttons, D-pad directions, and custom stick-direction mappings can all scroll smoothly while held, without relying on the global stick scroll settings.
+
+- **Left/right modifier mapping support**: Modifier mappings can distinguish left and right Command, Option, Shift, and Control keys. Capture, keyboard visual selection, profile storage, macro execution, and Universal Control relay frames now preserve the selected physical side instead of collapsing everything to "any" modifier.
+
+- **Shared keyboard profile settings**: On-screen keyboard profile settings now round-trip through profile storage, making keyboard-related profile choices visible and persistent alongside the rest of the active profile configuration.
+
+### Changed
+
+- **ControllerKeys config path now follows XDG-style storage**: The default config file moved to `~/.config/controllerkeys/config.json`, while legacy `~/.controllerkeys/config.json` and `~/.xbox-controller-mapper/config.json` remain readable for existing installs.
+
+- **Scroll event plumbing cleanup**: Scroll delivery now routes through a typed `ScrollEvent` path, which keeps joystick, touchpad, button, relay, and zoom-related scroll behavior consistent.
+
+- **UI accessibility and performance polish**: Added missing tooltips/accessibility labels to icon-only controls across mapping, keyboard, macro/script, command wheel, linked app/controller, and swipe typing surfaces. Date/ISO formatter use, favicon reads, visible-tab selection, and swipe custom-word checks were tightened to reduce avoidable work.
+
+### Fixed
+
+- **Universal Control shared-secret storage**: The relay shared secret now stays in Keychain instead of insecure local storage. Relay setup also handles Keychain persistence failures, gates key-event encoding more defensively, and clears remote-input grace state when a handoff is cancelled.
+
+- **Custom scroll mappings**: Mouse-style scroll actions are available as first-class mappings, custom stick-direction scroll bindings repeat while held, diagonal custom direction keys are preserved, and smooth-scroll timers are cancelled when a chord resolves so a scroll button does not leak scroll events into its chord action.
+
+- **Keyboard modifier side persistence**: Side-specific keyboard modifier selections now survive save/load and relaunch, including profile settings and keyboard visual state.
+
+- **Mapping editor header wrapping**: Primary action section titles such as "Primary Action" no longer wrap into multiple lines when keyboard/mouse panels are collapsed.
+
+- **Stream Deck import safety**: Stream Deck profile import now validates unzip process arguments to prevent argument injection through crafted archive paths.
+
 ## [1.9.0] - 2026-05-31
 
 ### Added
