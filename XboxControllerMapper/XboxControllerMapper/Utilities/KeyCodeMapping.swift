@@ -119,6 +119,10 @@ enum KeyCodeMapping {
     static let mouseMiddleClick: CGKeyCode = 0xF002
     static let scrollUp: CGKeyCode = 0xF003
     static let scrollDown: CGKeyCode = 0xF004
+    static let scrollLeft: CGKeyCode = 0xF005
+    static let scrollRight: CGKeyCode = 0xF006
+    static let mouseBackClick: CGKeyCode = 0xF007
+    static let mouseForwardClick: CGKeyCode = 0xF008
 
     // MARK: - Special Action Markers
 
@@ -277,6 +281,10 @@ enum KeyCodeMapping {
         case 0xF002: return "Middle Click"
         case 0xF003: return "Scroll Up"
         case 0xF004: return "Scroll Down"
+        case 0xF005: return "Scroll Left"
+        case 0xF006: return "Scroll Right"
+        case 0xF007: return "Back Button"
+        case 0xF008: return "Forward Button"
 
         // Special actions
         case 0xF010: return "On-Screen Keyboard"
@@ -385,6 +393,10 @@ enum KeyCodeMapping {
         options.append(("Middle Click", mouseMiddleClick))
         options.append(("Scroll Up", scrollUp))
         options.append(("Scroll Down", scrollDown))
+        options.append(("Scroll Left", scrollLeft))
+        options.append(("Scroll Right", scrollRight))
+        options.append(("Back Button", mouseBackClick))
+        options.append(("Forward Button", mouseForwardClick))
 
         // Special actions
         options.append(("On-Screen Keyboard", showOnScreenKeyboard))
@@ -413,12 +425,34 @@ enum KeyCodeMapping {
 
     /// Checks if a key code represents a mouse button
     static func isMouseButton(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == mouseLeftClick || keyCode == mouseRightClick || keyCode == mouseMiddleClick
+        keyCode == mouseLeftClick ||
+        keyCode == mouseRightClick ||
+        keyCode == mouseMiddleClick ||
+        keyCode == mouseBackClick ||
+        keyCode == mouseForwardClick
     }
 
     /// Checks if a key code represents a scroll action
     static func isScrollAction(_ keyCode: CGKeyCode) -> Bool {
-        keyCode == scrollUp || keyCode == scrollDown
+        keyCode == scrollUp ||
+        keyCode == scrollDown ||
+        keyCode == scrollLeft ||
+        keyCode == scrollRight
+    }
+
+    static func scrollDelta(for keyCode: CGKeyCode, amount: CGFloat) -> (dx: CGFloat, dy: CGFloat) {
+        switch keyCode {
+        case scrollUp:
+            return (0, amount)
+        case scrollDown:
+            return (0, -amount)
+        case scrollLeft:
+            return (amount, 0)
+        case scrollRight:
+            return (-amount, 0)
+        default:
+            return (0, 0)
+        }
     }
 
     /// Checks if a key code represents a special action (on-screen keyboard, etc.)

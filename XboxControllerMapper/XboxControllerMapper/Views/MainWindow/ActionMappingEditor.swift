@@ -65,13 +65,15 @@ struct ActionMappingEditor: View {
             }
         }
 
-        if state.showingKeyboard {
+        if state.showingMouse {
+            MouseVisualView(selectedKeyCode: $state.keyCode, modifiers: $state.modifiers)
+        } else if state.showingKeyboard {
             KeyboardVisualView(selectedKeyCode: $state.keyCode, modifiers: $state.modifiers)
         } else {
             KeyCaptureField(keyCode: $state.keyCode, modifiers: $state.modifiers)
         }
 
-        if variant == .primary && !state.showingKeyboard {
+        if variant == .primary && !state.showingKeyboard && !state.showingMouse {
             Text("Click to type a shortcut, or show keyboard to select visually")
                 .font(.caption)
                 .foregroundColor(.secondary)

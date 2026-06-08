@@ -325,6 +325,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var didLogFirstReceive = false
     private var lastHandoffSkipLog = Date.distantPast
     private var remoteHandoffSuppressedUntil = Date.distantPast
+    private var remoteControllerInputRoutingGraceUntil = Date.distantPast
     private var lastRemoteCursorVisibilityRestoreAt: CFTimeInterval?
 
     var canSendToRemote: Bool {
@@ -372,6 +373,12 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		)
     }
 
+    var shouldRouteControllerInputToRemote: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return isRemoteSessionActive || Date() < remoteControllerInputRoutingGraceUntil
+    }
+
     var isOutgoingRemoteLeftMouseButtonHeld: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -405,6 +412,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 			remoteSessionReceivedCursorStatus = false
             activeHandoffZone = nil
             pendingHandoffPortal = nil
+            remoteControllerInputRoutingGraceUntil = Date.distantPast
             remoteFocusModeSent = nil
 			resetRemoteCursorVisibilityRestoreStateLocked()
             outgoingRemoteMouseButtonsHeld.removeAll()
@@ -430,6 +438,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		remoteSessionReceivedCursorStatus = false
         activeHandoffZone = nil
         pendingHandoffPortal = nil
+        remoteControllerInputRoutingGraceUntil = Date.distantPast
         remoteFocusModeSent = nil
 		resetRemoteCursorVisibilityRestoreStateLocked()
         outgoingRemoteMouseButtonsHeld.removeAll()
@@ -451,6 +460,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         activeHandoffZone = zone
 		remoteCursorStatus = nil
 		remoteSessionReceivedCursorStatus = false
+        remoteControllerInputRoutingGraceUntil = Date().addingTimeInterval(UniversalControlRelaySessionPolicy.confirmationTimeout)
 		resetRemoteCursorVisibilityRestoreStateLocked()
         isRemoteSessionActive = true
         lock.unlock()
@@ -607,20 +617,25 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     @discardableResult
     func configureRelayPairingSecret(_ secret: String) -> Bool {
         guard let data = Self.decodeRelaySecret(secret) else { return false }
-        storeRelaySharedSecret(data)
-        return true
+		return storeRelaySharedSecret(data)
     }
 
     func configureRelayPairingSecretAndCheck(
         _ secret: String,
         completion: @escaping (Bool, String) -> Void
     ) {
-        guard configureRelayPairingSecret(secret) else {
+		guard let data = Self.decodeRelaySecret(secret) else {
             DispatchQueue.main.async {
                 completion(false, "Invalid secret. Paste the full base64 or hex secret from the other Mac.")
             }
             return
         }
+		guard storeRelaySharedSecret(data) else {
+			DispatchQueue.main.async {
+				completion(false, "Could not save pairing secret to Keychain. Check Keychain access and try again.")
+			}
+			return
+		}
 
         pingConfiguredRemote(completion: completion)
     }
@@ -1773,7 +1788,13 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 		guard let connection else { return }
 
 		if success, let keyData {
-			storeRelaySharedSecret(keyData)
+			guard storeRelaySharedSecret(keyData) else {
+				connection.cancel()
+				DispatchQueue.main.async {
+					completion(false, "Could not save pairing secret to Keychain. Start pairing again.")
+				}
+				return
+			}
 			storeRelayTarget(target)
 		}
 		connection.cancel()
@@ -2343,7 +2364,16 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         let parts = payload.split(separator: " ")
         guard parts.count == 2, parts[0] == "pairFinish" else { return true }
 
-        storeRelaySharedSecret(pending.keyData)
+		guard storeRelaySharedSecret(pending.keyData) else {
+			lock.lock()
+			pendingIncomingCodePairings.removeValue(forKey: key)
+			if activeIncomingPairingPrompt?.peerID == pending.peerID {
+				activeIncomingPairingPrompt = nil
+			}
+			lock.unlock()
+			connection.cancel()
+			return true
+		}
         lock.lock()
         pendingIncomingCodePairings.removeValue(forKey: key)
         if activeIncomingPairingPrompt?.peerID == pending.peerID {
@@ -2622,6 +2652,10 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             return (down ? .rightMouseDown : .rightMouseUp, .right)
         case KeyCodeMapping.mouseMiddleClick:
             return (down ? .otherMouseDown : .otherMouseUp, .center)
+        case KeyCodeMapping.mouseBackClick:
+            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 3) ?? .center)
+        case KeyCodeMapping.mouseForwardClick:
+            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 4) ?? .center)
         default:
             return (down ? .leftMouseDown : .leftMouseUp, .left)
         }
@@ -2818,11 +2852,16 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private func relaySharedSecretData() -> Data {
         if let configured = UserDefaults.standard.string(forKey: relaySharedSecretDefaultsKey),
            let data = Self.decodeRelaySecret(configured) {
-            _ = KeychainService.storePassword(
-                data.base64EncodedString(),
+			let normalized = data.base64EncodedString()
+			if KeychainService.storePassword(
+				normalized,
                 key: relaySecretKey,
                 service: relaySecretKeychainService
-            )
+			) != nil {
+				UserDefaults.standard.removeObject(forKey: relaySharedSecretDefaultsKey)
+			} else {
+				NSLog("[UCMouseRelay] Failed to migrate relay secret to Keychain")
+			}
             return data
         }
 
@@ -2836,23 +2875,30 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         var bytes = [UInt8](repeating: 0, count: 32)
         _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
         let data = Data(bytes)
-        _ = KeychainService.storePassword(
+		if KeychainService.storePassword(
             data.base64EncodedString(),
             key: relaySecretKey,
             service: relaySecretKeychainService
-        )
+		) == nil {
+			NSLog("[UCMouseRelay] Failed to persist generated relay secret to Keychain")
+		}
         return data
     }
 
-    private func storeRelaySharedSecret(_ data: Data) {
+    @discardableResult
+    private func storeRelaySharedSecret(_ data: Data) -> Bool {
         let normalized = data.base64EncodedString()
-        UserDefaults.standard.set(normalized, forKey: relaySharedSecretDefaultsKey)
-        _ = KeychainService.storePassword(
+		guard KeychainService.storePassword(
             normalized,
             key: relaySecretKey,
             service: relaySecretKeychainService
-        )
+		) != nil else {
+			NSLog("[UCMouseRelay] Failed to persist relay secret to Keychain")
+			return false
+		}
+		UserDefaults.standard.removeObject(forKey: relaySharedSecretDefaultsKey)
         resetAuthenticator(secretData: data)
+		return true
     }
 
     private func relaySharedSecretBase64() -> String {

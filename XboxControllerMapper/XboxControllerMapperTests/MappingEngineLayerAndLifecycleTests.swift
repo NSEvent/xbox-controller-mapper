@@ -1145,4 +1145,37 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         }.count
         XCTAssertEqual(homeKeyCount, 0, "Source profile mapping should not execute while controller input is routed to remote")
     }
+
+    func testLocalControllerButton_executesImmediatelyAfterUnconfirmedRemoteSessionCancels() async throws {
+        await MainActor.run {
+            installActiveProfile(Profile(name: "Home After Cancel", buttonMappings: [.a: .key(10)]))
+            mockInputSimulator.clearEvents()
+        }
+
+        let zone = UniversalControlMouseRelay.HandoffZone(
+            localDisplayID: nil,
+            localEdge: .right,
+            localRangeMin: nil,
+            localRangeMax: nil,
+            remoteHost: "127.0.0.1",
+            remotePort: 65530,
+            remoteEntryEdge: .left,
+            remoteReturnEdge: .left
+        )
+        UniversalControlMouseRelay.shared.beginRemoteSession(zone: zone)
+        UniversalControlMouseRelay.shared.cancelUnconfirmedRemoteSession()
+        defer { UniversalControlMouseRelay.shared.setRemoteSessionActive(false) }
+
+        await MainActor.run {
+            controllerService.buttonPressed(.a)
+            controllerService.buttonReleased(.a)
+        }
+        await waitForTasks()
+
+        let homeKeyCount = mockInputSimulator.events.filter {
+            if case .pressKey(let keyCode, _) = $0 { return keyCode == 10 }
+            return false
+        }.count
+        XCTAssertEqual(homeKeyCount, 1, "Canceling an unconfirmed handoff should immediately restore local controller routing")
+    }
 }
