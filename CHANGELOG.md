@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.2] - 2026-06-08
+
+### Fixed
+
+- **Off-brand controller detection**: ControllerKeys now falls back to raw HID for controller-shaped devices that are missing from macOS GameController, including generic Bluetooth Low Energy gamepads and devices with known SDL vendor/product mappings. This lets many inexpensive third-party controllers appear as mappable controllers instead of showing "No controller."
+
+- **Generic HID mapping coverage**: Fallback controllers now handle common D-pad hat encodings, version-zero and all-platform SDL controller database matches, trigger axis polarity, and axis-backed button polarity so more nonstandard controllers map their sticks, triggers, buttons, and D-pad correctly.
+
+- **Generic HID false-positive guards**: The fallback path avoids inferring mouse-style HID devices as controllers, ignores non-HID controller database GUID rows when building vendor/product matches, and prefers macOS mappings when duplicate SDL GUIDs exist.
+
 ## [1.9.1] - 2026-06-08
 
 ### Added
