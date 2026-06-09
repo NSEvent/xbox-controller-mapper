@@ -369,6 +369,106 @@ This app requires **Accessibility permissions** to simulate keyboard and mouse i
 
 The app uses Apple's `CGEvent` API to generate these input events. This is the same API used by accessibility tools, automation software, and other input remapping utilities.
 
+## Architecture
+
+Architecture overview — useful for security review and contributors. The complete source is open for transparency; please support the project by [purchasing on Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper).
+
+```mermaid
+flowchart LR
+
+subgraph group_app["macOS app"]
+  node_app_entry["App entry<br/>SwiftUI app"]
+  node_main_window["Main window<br/>SwiftUI shell<br/>[ContentView.swift]"]
+  node_menu_bar["Menu bar<br/>popover UI<br/>[MenuBarView.swift]"]
+  node_controller_service["Controller service<br/>input boundary"]
+  node_hid_parsing["HID parsing<br/>controller IO"]
+  node_motion_touch["Motion & touch<br/>controller adapters"]
+  node_mapping_engine["Mapping engine<br/>decision core"]
+  node_gesture_seq["Gestures & chords<br/>input semantics"]
+  node_action_exec["Action executor<br/>output boundary"]
+  node_input_sim["Input simulator<br/>accessibility output"]
+  node_profile_manager["Profile manager<br/>config lifecycle"]
+  node_profile_load["Profile load<br/>config pipeline"]
+  node_app_monitor["App monitor<br/>context service<br/>[AppMonitor.swift]"]
+  node_ui_services["UI services<br/>overlay utilities"]
+  node_macro_script["Macros & scripts<br/>[MacroExecutor.swift]"]
+  node_integration["Integrations<br/>OBS · webhooks"]
+  node_security["Security guards<br/>safety boundary"]
+  node_swipe_runtime["Swipe typing<br/>runtime model"]
+end
+
+subgraph group_pipeline["ML pipeline"]
+  node_swipe_pipeline["Swipe training<br/>ML pipeline<br/>[train.py]"]
+end
+
+node_community_profiles["Community profiles<br/>profile library"]
+
+node_app_entry -->|"launches"| node_main_window
+node_app_entry -->|"shows"| node_menu_bar
+node_main_window -->|"observes"| node_controller_service
+node_main_window -->|"edits"| node_profile_manager
+node_main_window -->|"drives"| node_ui_services
+node_menu_bar -->|"uses"| node_app_monitor
+node_controller_service -->|"parses"| node_hid_parsing
+node_controller_service -->|"adapts"| node_motion_touch
+node_controller_service -->|"feeds"| node_mapping_engine
+node_hid_parsing -->|"normalizes"| node_mapping_engine
+node_motion_touch -->|"specializes"| node_gesture_seq
+node_mapping_engine -->|"resolves"| node_gesture_seq
+node_mapping_engine -->|"emits"| node_action_exec
+node_profile_manager -->|"loads"| node_profile_load
+node_profile_manager -->|"configures"| node_mapping_engine
+node_profile_manager -->|"imports"| node_community_profiles
+node_app_monitor -->|"switches"| node_profile_manager
+node_action_exec -->|"synthesizes"| node_input_sim
+node_action_exec -->|"invokes"| node_macro_script
+node_action_exec -->|"controls"| node_integration
+node_action_exec -->|"updates"| node_ui_services
+node_macro_script -->|"consults"| node_security
+node_security -->|"guards"| node_integration
+node_security -->|"audits"| node_profile_load
+node_swipe_pipeline -->|"exports"| node_swipe_runtime
+node_swipe_runtime -->|"feeds"| node_action_exec
+
+click node_app_entry "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/XboxControllerMapperApp.swift"
+click node_main_window "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Views/MainWindow/ContentView.swift"
+click node_menu_bar "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Views/MenuBar/MenuBarView.swift"
+click node_controller_service "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Controller/ControllerService.swift"
+click node_hid_parsing "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Controller/HIDReportParser.swift"
+click node_motion_touch "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Controller/ControllerService+Touchpad.swift"
+click node_mapping_engine "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Mapping/MappingEngine.swift"
+click node_gesture_seq "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Mapping/GestureDetector.swift"
+click node_action_exec "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Mapping/MappingActionExecutor.swift"
+click node_input_sim "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Input/InputSimulator.swift"
+click node_profile_manager "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Profile/ProfileManager.swift"
+click node_profile_load "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Profile/ProfileConfigurationLoadCoordinator.swift"
+click node_app_monitor "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/UI/AppMonitor.swift"
+click node_ui_services "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/UI/CommandWheelManager.swift"
+click node_macro_script "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Macros/MacroExecutor.swift"
+click node_integration "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Integration/OBSWebSocketClient.swift"
+click node_security "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Input/UniversalControlRelaySecurity.swift"
+click node_swipe_runtime "https://github.com/NSEvent/xbox-controller-mapper/blob/main/XboxControllerMapper/XboxControllerMapper/Services/Input/SwipeTypingEngine.swift"
+click node_swipe_pipeline "https://github.com/NSEvent/xbox-controller-mapper/blob/main/SwipeModel/train.py"
+click node_community_profiles "https://github.com/NSEvent/xbox-controller-mapper/blob/main/community-profiles/OBS%20Live%20Streaming.json"
+
+classDef toneLavender fill:#ede9fe,stroke:#7c3aed,stroke-width:1.5px,color:#2e1065
+classDef toneBlue fill:#bfdbfe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+classDef toneTeal fill:#99f6e4,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+classDef toneIndigo fill:#c7d2fe,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+classDef toneNeutral fill:#f1f5f9,stroke:#94a3b8,stroke-width:1.5px,color:#334155
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+class node_app_entry,node_main_window,node_menu_bar toneLavender
+class node_controller_service,node_hid_parsing,node_motion_touch toneBlue
+class node_profile_manager,node_profile_load,node_app_monitor,node_community_profiles toneTeal
+class node_mapping_engine,node_gesture_seq,node_action_exec toneIndigo
+class node_input_sim,node_ui_services,node_macro_script,node_integration,node_swipe_runtime toneNeutral
+class node_security toneRose
+class node_swipe_pipeline toneAmber
+```
+
+For a deeper technical walkthrough of each component — service responsibilities, threading model, the SDL HID fallback, performance profile — see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Project Structure
 
 ```
