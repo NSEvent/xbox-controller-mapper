@@ -24,6 +24,7 @@ extension MappingEngine {
         var chordParticipantButtons: Set<ControllerButton> = []
         var sequenceParticipantButtons: Set<ControllerButton> = []
         var chordLookup: [Set<ControllerButton>: ChordMapping] = [:]
+        var layersById: [UUID: Layer] = [:]
 
         // Button State
         var heldButtons: [ControllerButton: KeyMapping] = [:]
@@ -244,6 +245,7 @@ extension MappingEngine {
             chordParticipantButtons.removeAll()
             sequenceParticipantButtons.removeAll()
             chordLookup.removeAll()
+            layersById.removeAll()
             resetTransientInputState()
         }
     }

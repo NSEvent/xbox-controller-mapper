@@ -213,11 +213,8 @@ extension MappingEngine {
         }
 
         // Resolve effective per-side modes: active layer override (if any) wins over profile default.
-        // Lock is held for the whole function, so reading state.activeLayerIds + state.activeProfile here is safe.
-        let activeLayer: Layer? = {
-            guard let layerId = state.activeLayerIds.last else { return nil }
-            return state.activeProfile?.layers.first(where: { $0.id == layerId })
-        }()
+        // Lock is held for the whole function, so reading state.activeLayerIds + state.layersById here is safe.
+        let activeLayer = state.activeLayerIds.last.flatMap { state.layersById[$0] }
         let effectiveLeftMode = activeLayer?.leftStickModeOverride ?? settings.leftStickMode
         let effectiveRightMode = activeLayer?.rightStickModeOverride ?? settings.rightStickMode
 

@@ -148,6 +148,7 @@ class MappingEngine: ObservableObject {
 		self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: initialChords.flatMap { $0.buttons })
 		self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profileManager.activeProfile?.sequenceMappings ?? []).flatMap { $0.steps })
         self.state.chordLookup = Dictionary(uniqueKeysWithValues: initialChords.map { ($0.buttons, $0) })
+        self.state.layersById = Self.layersById(for: profileManager.activeProfile)
         rebuildLayerActivatorMap(profile: profileManager.activeProfile)
         syncLatencySettings(for: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
@@ -184,6 +185,12 @@ class MappingEngine: ObservableObject {
 		Set(buttons.flatMap { button in
 			[button] + button.physicalEquivalentButtons
 		})
+	}
+
+	/// O(1) layer lookup cache for the 120Hz joystick poll. Tolerates duplicate
+	/// layer IDs in hand-edited configs by keeping the first occurrence.
+	private static func layersById(for profile: Profile?) -> [UUID: Layer] {
+		Dictionary((profile?.layers ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 	}
 
     /// Pushes effective gesture detection settings from the profile into ControllerStorage
@@ -267,6 +274,7 @@ class MappingEngine: ObservableObject {
 					self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
 					self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
                     self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
+                    self.state.layersById = Self.layersById(for: profile)
                     return heldDirections
                 }
                 for button in directionButtonsToRelease {
@@ -422,6 +430,7 @@ class MappingEngine: ObservableObject {
 						self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
 						self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
                         self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
+                        self.state.layersById = Self.layersById(for: profile)
                         self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                         self.rebuildLayerActivatorMap(profile: profile)
                         self.syncLatencySettings(for: profile)

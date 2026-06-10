@@ -8,10 +8,21 @@ enum ButtonMappingResolutionPolicy {
 		activeLayerIds: [UUID],
 		layerActivatorMap: [ControllerButton: UUID]
 	) -> ControllerButton {
+		resolvedButton(
+			button: button,
+			profile: profile,
+			activeLayer: activeLayer(in: profile, activeLayerIds: activeLayerIds),
+			layerActivatorMap: layerActivatorMap
+		)
+	}
+
+	private static func resolvedButton(
+		button: ControllerButton,
+		profile: Profile,
+		activeLayer: Layer?,
+		layerActivatorMap: [ControllerButton: UUID]
+	) -> ControllerButton {
 		guard let logicalButton = button.logicalEquivalent else { return button }
-		let activeLayer = activeLayerIds.last.flatMap { activeLayerId in
-			profile.layers.first(where: { $0.id == activeLayerId })
-		}
 		if activeLayer?.buttonMappings[button] != nil {
 			return button
 		}
@@ -36,10 +47,11 @@ enum ButtonMappingResolutionPolicy {
         activeLayerIds: [UUID],
         layerActivatorMap: [ControllerButton: UUID]
     ) -> KeyMapping? {
+		let activeLayer = activeLayer(in: profile, activeLayerIds: activeLayerIds)
 		let button = resolvedButton(
 			button: button,
 			profile: profile,
-			activeLayerIds: activeLayerIds,
+			activeLayer: activeLayer,
 			layerActivatorMap: layerActivatorMap
 		)
 
@@ -58,11 +70,9 @@ enum ButtonMappingResolutionPolicy {
         }
 
         // Only the most recently activated layer is considered active.
-        if let activeLayerId = activeLayerIds.last,
-		   let layer = profile.layers.first(where: { $0.id == activeLayerId }) {
-			if let mapping = nonEmptyMapping(for: button, in: layer.buttonMappings) {
-				return mapping
-			}
+        if let layer = activeLayer,
+		   let mapping = nonEmptyMapping(for: button, in: layer.buttonMappings) {
+			return mapping
 		}
 
 		if let mapping = profile.buttonMappings[button] {
@@ -71,6 +81,13 @@ enum ButtonMappingResolutionPolicy {
 
         return defaultMapping(for: button)
     }
+
+	/// Only the most recently activated layer is considered active.
+	private static func activeLayer(in profile: Profile, activeLayerIds: [UUID]) -> Layer? {
+		activeLayerIds.last.flatMap { activeLayerId in
+			profile.layers.first(where: { $0.id == activeLayerId })
+		}
+	}
 
 	private static func shouldPreservePhysicalButton(
 		_ button: ControllerButton,
