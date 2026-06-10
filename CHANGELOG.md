@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.3] - 2026-06-09
+
+### Added
+
+- **Magicsee R1 controller mapping**: Generic HID fallback now recognizes the Magicsee R1 on macOS and maps its face buttons, triggers, sticks, Back, and Start controls through the SDL controller database.
+
+### Fixed
+
+- **Raw HID controller reliability**: ControllerKeys now filters generic HID input to controller collections when available, ignores stale fallback timers after disconnect, handles device-open failures without phantom controllers, resets stale controller-type flags between detections, and normalizes CRC-bearing SDL GUIDs so more database mappings resolve correctly.
+
+- **Universal Control relay and input-state hardening**: Relay sends now recover from terminal connection failures, bound replay protection per peer, avoid redundant 120 Hz UI-state echoes, and keep hot-path handoff settings cached. Joystick ticks no longer hold mapping locks across network sends, haptics, or re-entrant button handling.
+
+- **Text input and persistence edge cases**: Text typing now preserves full UTF-16 sequences such as emoji, pasteboard writes happen synchronously to avoid stale clipboard races, and queued profile/config saves flush during app termination.
+
+### Changed
+
+- **Test and CI coverage**: Added a GitHub Actions macOS test workflow, split the large test file into focused suites, added Magicsee R1 regression coverage, and made benchmark tests opt-in.
+
 ## [1.9.2] - 2026-06-08
 
 ### Fixed
