@@ -12,13 +12,13 @@ concurrency:
 jobs:
   test:
     name: Unit tests (macOS)
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode 26.2
-        run: sudo xcode-select -s /Applications/Xcode_26.2.app
+      - name: Select Xcode 26.5
+        run: sudo xcode-select -s /Applications/Xcode_26.5.app
 
       - name: Show toolchain
         run: xcodebuild -version
@@ -29,11 +29,11 @@ jobs:
           xcodebuild test \
             -project XboxControllerMapper/XboxControllerMapper.xcodeproj \
             -scheme XboxControllerMapper \
-            -destination 'platform=macOS' \
+            -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath DerivedData \
             CODE_SIGN_IDENTITY=- \
             CODE_SIGNING_REQUIRED=NO \
-            | tee xcodebuild.log | grep -vE '^\s*$' | tail -200
+            2>&1 | tee xcodebuild.log | grep -vE '^\s*$' | tail -200
 
       - name: Upload log on failure
         if: failure()
