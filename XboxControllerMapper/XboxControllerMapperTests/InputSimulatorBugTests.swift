@@ -48,11 +48,11 @@ final class ModifierRefCountConsistencyTests: XCTestCase {
 
     var simulator: InputSimulator!
 
-    override func setUp() {
-        super.setUp()
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         simulator = InputSimulator()
         // Skip if Accessibility is not available
-        try? XCTSkipUnless(AXIsProcessTrusted(),
+        try XCTSkipUnless(AXIsProcessTrusted(),
             "Modifier ref counting tests require Accessibility permissions")
     }
 
