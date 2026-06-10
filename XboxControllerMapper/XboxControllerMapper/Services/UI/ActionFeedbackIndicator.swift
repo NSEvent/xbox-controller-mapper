@@ -201,12 +201,13 @@ class ActionFeedbackIndicator {
     }
 
     private func startTracking() {
-        trackingTimer = Timer.scheduledTimer(withTimeInterval: 1.0/30.0, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0/30.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.updatePosition()
             }
         }
-        RunLoop.main.add(trackingTimer!, forMode: .common)
+        trackingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     private func stopTracking() {

@@ -90,12 +90,13 @@ class FocusModeIndicator {
 
     private func startTracking() {
         // Update position at 60fps for smooth tracking
-        trackingTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.updatePosition()
             }
         }
-        RunLoop.main.add(trackingTimer!, forMode: .common)
+        trackingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     private func stopTracking() {

@@ -1821,8 +1821,7 @@ struct ControllerVisualView: View {
         if layer.activatorButton == button { return false }
 
         // It's a fallthrough if the layer doesn't have a mapping for this button
-        let layerMapping = layer.buttonMappings[button]
-        let hasLayerMapping = layerMapping != nil && !layerMapping!.isEmpty
+        let hasLayerMapping = layer.buttonMappings[button]?.isEmpty == false
         let hasBaseMapping = profile.buttonMappings[button] != nil
 
         return !hasLayerMapping && hasBaseMapping

@@ -212,8 +212,8 @@ class SwipeTypingModel {
 
             // Endpoint score: how precisely the gesture starts/ends on the word's keys
             // Uses exponential decay for sharper discrimination between adjacent keys
-            let firstKey = SwipeKeyboardLayout.key(for: template.firstChar)!.center
-            let lastKey = SwipeKeyboardLayout.key(for: template.lastChar)!.center
+            guard let firstKey = SwipeKeyboardLayout.key(for: template.firstChar)?.center,
+                  let lastKey = SwipeKeyboardLayout.key(for: template.lastChar)?.center else { continue }
             let startDist = hypot(Double(startPoint.x - firstKey.x), Double(startPoint.y - firstKey.y))
             let endDist = hypot(Double(endPoint.x - lastKey.x), Double(endPoint.y - lastKey.y))
             let endpointScore = exp(-(startDist + endDist) * 10.0)
@@ -233,19 +233,20 @@ class SwipeTypingModel {
             SwipeTypingPrediction(word: $0.word, confidence: $0.score)
         }
 
-        // Debug log
+        #if DEBUG
         let debugURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("swipe_debug.log")
         let startKeysStr = String(startKeys.sorted())
         let endKeysStr = String(endKeys.sorted())
         let top5 = predictions.map { "\($0.word)(\(String(format: "%.3f", $0.confidence)))" }.joined(separator: ", ")
         let msg = "[SHARK2] startKeys=\(startKeysStr), endKeys=\(endKeysStr), candidates=\(candidates.count), top5: \(top5)\n"
-        if let h = try? FileHandle(forWritingTo: debugURL) {
+        if let h = try? FileHandle(forWritingTo: debugURL), let data = msg.data(using: .utf8) {
             h.seekToEndOfFile()
-            h.write(msg.data(using: .utf8)!)
+            h.write(data)
             h.closeFile()
         } else {
             try? AtomicFileWriter.write(msg, to: debugURL)
         }
+        #endif
 
         return Array(predictions)
     }
