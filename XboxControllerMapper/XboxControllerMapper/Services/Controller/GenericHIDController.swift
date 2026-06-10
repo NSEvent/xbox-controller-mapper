@@ -21,6 +21,7 @@ class GenericHIDController {
     /// alias-safe (elements with duplicate usages still have distinct cookies).
     private var buttonIndexByCookie: [IOHIDElementCookie: Int] = [:]
     private var axisIndexByCookie: [IOHIDElementCookie: Int] = [:]
+	private var hatElementCookie: IOHIDElementCookie?
 
     /// Axis calibration from HID element descriptors
     private struct AxisCalibration {
@@ -56,6 +57,11 @@ class GenericHIDController {
 
     private static let triggerPressThreshold: Float = 0.12
     private static let axisChangeThreshold: Double = 0.01
+	nonisolated private static let controllerCollectionUsages: Set<Int> = [
+		kHIDUsage_GD_Joystick,
+		kHIDUsage_GD_GamePad,
+		kHIDUsage_GD_MultiAxisController,
+	]
 
 	static func stickAxisValue(_ value: Double, inverted: Bool, polarity: SDLElementRef.AxisPolarity) -> Double {
 		let adjusted = inverted ? -value : value
@@ -155,17 +161,17 @@ class GenericHIDController {
             return false
         }
 
-        var buttons: [(usage: Int, element: IOHIDElement)] = []
-        var axes: [(usage: Int, element: IOHIDElement)] = []
+		let inputElements = elements.filter(Self.isSupportedInputElement)
+		let hasControllerCollection = inputElements.contains(where: Self.isInControllerCollection)
+		var buttons: [(usage: Int, element: IOHIDElement)] = []
+		var axes: [(usage: Int, element: IOHIDElement)] = []
 
-        for element in elements {
-            let type = IOHIDElementGetType(element)
+		for element in inputElements {
+			if hasControllerCollection && !Self.isInControllerCollection(element) {
+				continue
+			}
             let usagePage = IOHIDElementGetUsagePage(element)
             let usage = Int(IOHIDElementGetUsage(element))
-
-            guard type == kIOHIDElementTypeInput_Button ||
-                  type == kIOHIDElementTypeInput_Misc ||
-                  type == kIOHIDElementTypeInput_Axis else { continue }
 
             if usagePage == UInt32(kHIDPage_Button) {
                 buttons.append((usage: usage, element: element))
@@ -176,6 +182,7 @@ class GenericHIDController {
                     axes.append((usage: usage, element: element))
                 case kHIDUsage_GD_Hatswitch:
                     hatElement = element
+					hatElementCookie = IOHIDElementGetCookie(element)
                 default:
                     break
                 }
@@ -216,6 +223,27 @@ class GenericHIDController {
         }
         return map
     }
+
+	nonisolated private static func isSupportedInputElement(_ element: IOHIDElement) -> Bool {
+		let type = IOHIDElementGetType(element)
+		return type == kIOHIDElementTypeInput_Button ||
+			   type == kIOHIDElementTypeInput_Misc ||
+			   type == kIOHIDElementTypeInput_Axis
+	}
+
+	nonisolated private static func isInControllerCollection(_ element: IOHIDElement) -> Bool {
+		var current = IOHIDElementGetParent(element)
+		while let parent = current {
+			let usagePage = IOHIDElementGetUsagePage(parent)
+			let usage = Int(IOHIDElementGetUsage(parent))
+			if usagePage == UInt32(kHIDPage_GenericDesktop),
+			   controllerCollectionUsages.contains(usage) {
+				return true
+			}
+			current = IOHIDElementGetParent(parent)
+		}
+		return false
+	}
 
     // MARK: - Lifecycle
 
@@ -269,7 +297,7 @@ class GenericHIDController {
             handleButtonInput(cookie: cookie, value: intValue)
         } else if usagePage == UInt32(kHIDPage_GenericDesktop) {
             if usage == kHIDUsage_GD_Hatswitch {
-                handleHatInput(value: intValue)
+				handleHatInput(cookie: cookie, value: intValue)
             } else {
                 handleAxisInput(cookie: cookie, value: intValue)
             }
@@ -416,9 +444,10 @@ class GenericHIDController {
 
     // MARK: - Hat Switch Translation
 
-    private func handleHatInput(value: Int) {
-		let logicalMin = hatElement.map { Int(IOHIDElementGetLogicalMin($0)) } ?? 0
-		let logicalMax = hatElement.map { Int(IOHIDElementGetLogicalMax($0)) } ?? 7
+	private func handleHatInput(cookie: IOHIDElementCookie, value: Int) {
+		guard let hatElement, let hatElementCookie, hatElementCookie == cookie else { return }
+		let logicalMin = Int(IOHIDElementGetLogicalMin(hatElement))
+		let logicalMax = Int(IOHIDElementGetLogicalMax(hatElement))
 		let hatBits = Self.hatValueToBits(value, logicalMin: logicalMin, logicalMax: logicalMax)
         guard hatBits != previousHatBits else { return }
         let oldBits = previousHatBits

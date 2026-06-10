@@ -141,6 +141,110 @@ final class GameControllerDatabaseTests: XCTestCase {
 		Self.retainedDatabases.append(database)
 	}
 
+	func testLookupByDeviceProperties_PrefersMagicseeR1MacBLEMapping() {
+		let macGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x248a,
+			productID: 0x8266,
+			version: 0,
+			transport: "Bluetooth Low Energy"
+		)
+		let windowsGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x248a,
+			productID: 0x8266,
+			version: 0,
+			transport: nil
+		)
+		let content = [
+			mappingLine(
+				guid: windowsGuid,
+				name: "R1 Mobile Controller",
+				entries: [
+					"a:b3",
+					"b:b1",
+					"back:b7",
+					"leftx:a0",
+					"lefty:a1",
+					"start:b6",
+					"x:b4",
+					"y:b0"
+				],
+				platform: "Windows"
+			),
+			mappingLine(
+				guid: macGuid,
+				name: "Magicsee R1",
+				entries: [
+					"a:b0",
+					"b:b1",
+					"back:b8",
+					"lefttrigger:b6",
+					"leftx:a0",
+					"lefty:a1",
+					"righttrigger:b7",
+					"start:b9"
+				]
+			)
+		].joined(separator: "\n")
+		let database = GameControllerDatabase(databaseContentOverride: content)
+
+		let mapping = database.lookup(
+			vendorID: 0x248a,
+			productID: 0x8266,
+			version: 0x3634,
+			transport: "Bluetooth Low Energy"
+		)
+
+		XCTAssertEqual(mapping?.name, "Magicsee R1")
+		if case let .button(index)? = mapping?.buttonMap["a"] {
+			XCTAssertEqual(index, 0)
+		} else {
+			XCTFail("Expected physical A to map from button usage 1")
+		}
+		if case let .button(index)? = mapping?.buttonMap["b"] {
+			XCTAssertEqual(index, 1)
+		} else {
+			XCTFail("Expected physical B to map from button usage 2")
+		}
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["leftx"] {
+			XCTAssertEqual(index, 0)
+			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .full)
+		} else {
+			XCTFail("Expected R1 X axis to map to left stick X")
+		}
+		if case let .axis(index, inverted, polarity)? = mapping?.axisMap["lefty"] {
+			XCTAssertEqual(index, 1)
+			XCTAssertFalse(inverted)
+			XCTAssertEqual(polarity, .full)
+		} else {
+			XCTFail("Expected R1 Y axis to map to left stick Y")
+		}
+		if case let .button(index)? = mapping?.axisMap["lefttrigger"] {
+			XCTAssertEqual(index, 6)
+		} else {
+			XCTFail("Expected left trigger to map from button usage 7")
+		}
+		if case let .button(index)? = mapping?.axisMap["righttrigger"] {
+			XCTAssertEqual(index, 7)
+		} else {
+			XCTFail("Expected right trigger to map from button usage 8")
+		}
+		if case let .button(index)? = mapping?.buttonMap["back"] {
+			XCTAssertEqual(index, 8)
+		} else {
+			XCTFail("Expected select/back to use one bit from the duplicate pair")
+		}
+		if case let .button(index)? = mapping?.buttonMap["start"] {
+			XCTAssertEqual(index, 9)
+		} else {
+			XCTFail("Expected start/menu to use one bit from the duplicate pair")
+		}
+		XCTAssertNil(mapping?.buttonMap["y"])
+		XCTAssertNil(mapping?.buttonMap["leftshoulder"])
+
+		Self.retainedDatabases.append(database)
+	}
+
 	func testLookupByDeviceProperties_PrefersMacMappingWhenDuplicateGuidFallbackExists() {
 		let duplicateGuid = GameControllerDatabase.constructGUID(
 			vendorID: 0x1915,
