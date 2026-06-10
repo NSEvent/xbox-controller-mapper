@@ -24,6 +24,7 @@ struct ContentView: View {
     @State private var editingLayerId: UUID? = nil
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
+	@State private var controllerPreviewLayout: ControllerPreviewLayout = .active
     @State private var showingGestureSheet = false
     @State private var editingGestureType: MotionGestureType?
     @State private var scrollKeyMonitor: Any?
@@ -80,6 +81,7 @@ struct ContentView: View {
                             selectedLayerId: $selectedLayerId,
                             isSwapMode: $isSwapMode,
                             swapFirstButton: $swapFirstButton,
+							controllerPreviewLayout: $controllerPreviewLayout,
                             showingAddLayerSheet: $showingAddLayerSheet,
                             editingLayerId: $editingLayerId,
                             editingChord: $editingChord,
@@ -167,10 +169,10 @@ struct ContentView: View {
                     },
                     set: { _ in } // Read-only: ButtonMappingSheet saves directly via ProfileManager (see saveMapping())
                 ),
-					isDualSense: controllerService.threadSafeIsPlayStation,
-					isNintendo: controllerService.threadSafeIsNintendo,
-					isSteamController: controllerService.threadSafeIsSteamController,
-					isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
+					isDualSense: controllerPreviewLayout.isPlayStation(using: controllerService),
+					isNintendo: controllerPreviewLayout.isNintendo(using: controllerService),
+					isSteamController: controllerPreviewLayout.isSteamController(using: controllerService),
+					isAppleTVRemote: controllerPreviewLayout.isAppleTVRemote(using: controllerService),
 					selectedLayerId: selectedLayerId
 				)
         }

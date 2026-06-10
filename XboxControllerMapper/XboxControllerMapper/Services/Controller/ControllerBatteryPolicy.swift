@@ -20,13 +20,13 @@ enum ControllerBatteryDisplayPolicy {
 
 enum ControllerBatteryReadingResolver {
 	static func resolve(
-		isXbox: Bool,
+		prefersBluetoothBattery: Bool,
 		bluetoothLevel: Int?,
 		bluetoothIsCharging: Bool,
 		controllerBatteryLevel: Float?,
 		controllerBatteryState: GCDeviceBattery.State?
 	) -> ControllerBatteryReading? {
-		if isXbox {
+		if prefersBluetoothBattery {
 			guard let bluetoothLevel else { return nil }
 			let clampedLevel = min(100, max(0, bluetoothLevel))
 			return ControllerBatteryReading(

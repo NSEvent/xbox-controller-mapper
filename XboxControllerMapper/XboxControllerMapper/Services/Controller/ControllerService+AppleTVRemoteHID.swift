@@ -1,6 +1,8 @@
 import Foundation
 import AppKit
+import Combine
 import CoreGraphics
+import GameController
 import IOKit
 import IOKit.hid
 
@@ -276,8 +278,17 @@ extension ControllerService {
 			releaseAppleTVRemoteTouchIfStillActive()
 		}
 
-		if removedRemoteDevice, connectedController == nil {
-			controllerDisconnected()
+		if removedRemoteDevice {
+			objectWillChange.send()
+		}
+
+		let wasActiveRemote = storage.lock.withLock { storage.isAppleTVRemote }
+		if removedRemoteDevice, wasActiveRemote {
+			if let nextController = GCController.controllers().first {
+				activateGameController(nextController, reason: "apple tv remote removed")
+			} else {
+				controllerDisconnected()
+			}
 		}
 	}
 
@@ -440,6 +451,11 @@ extension ControllerService {
 		guard let button = Self.appleTVRemoteButtonForHIDUsage(usagePage: usagePage, usage: usage) else { return }
 
 		let isPressed = IOHIDValueGetIntegerValue(value) != 0
+		if isPressed {
+			Task { @MainActor [weak self] in
+				self?.activateAppleTVRemoteHIDSessionIfNeeded(device, allowSwitch: true)
+			}
+		}
 		let now = CFAbsoluteTimeGetCurrent()
 		storage.lock.lock()
 		storage.lastInputTime = now
@@ -583,6 +599,15 @@ extension ControllerService {
 			length: length
 		) else { return }
 
+		if touchReport.isTouching, !storage.lock.withLock({ storage.isAppleTVRemote }) {
+			Task { @MainActor [weak self] in
+				guard let self,
+					  let device = self.appleTVRemoteHIDTouchDevice ?? self.appleTVRemoteHIDDevice else { return }
+				self.activateAppleTVRemoteHIDSessionIfNeeded(device, allowSwitch: true)
+			}
+			return
+		}
+
 		storage.lock.lock()
 		storage.lastInputTime = CFAbsoluteTimeGetCurrent()
 		storage.lock.unlock()
@@ -616,6 +641,15 @@ extension ControllerService {
 	}
 
 	nonisolated func handleAppleTVRemoteMultitouch(x: Float, y: Float, isTouching: Bool) {
+		if isTouching, !storage.lock.withLock({ storage.isAppleTVRemote }) {
+			Task { @MainActor [weak self] in
+				guard let self,
+					  let device = self.appleTVRemoteHIDTouchDevice ?? self.appleTVRemoteHIDDevice else { return }
+				self.activateAppleTVRemoteHIDSessionIfNeeded(device, allowSwitch: true)
+			}
+			return
+		}
+
 		storage.lock.lock()
 		storage.lastInputTime = CFAbsoluteTimeGetCurrent()
 		storage.lock.unlock()
@@ -820,8 +854,20 @@ extension ControllerService {
 		return bluetoothRemotes as CFArray
 	}
 
-	private func activateAppleTVRemoteHIDSessionIfNeeded(_ device: IOHIDDevice) {
-		guard connectedController == nil else { return }
+	func activateAppleTVRemoteHIDSessionIfNeeded(
+		_ device: IOHIDDevice,
+		allowSwitch: Bool = false
+	) {
+		let isAlreadyActiveAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
+			&& connectedController == nil
+		if isAlreadyActiveAppleTVRemote,
+		   isConnected,
+		   !controllerName.isEmpty {
+			return
+		}
+		guard allowSwitch || !isConnected || connectedController == nil else { return }
+
+		prepareForActiveControllerSwitch()
 
 		genericHIDFallbackTimer?.cancel()
 		genericHIDFallbackTimer = nil
@@ -851,10 +897,13 @@ extension ControllerService {
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
 
+		connectedController = nil
 		currentControllerIdentity = ControllerIdentityResolver.identity(for: device, fallbackName: "Apple TV Remote")
 		controllerName = "Apple TV Remote"
 		isGenericController = false
 		isConnected = true
+		batteryMonitor.refreshBatteryLevel()
+		updateBatteryInfo()
 		startDisplayUpdateTimer()
 	}
 

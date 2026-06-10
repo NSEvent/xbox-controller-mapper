@@ -79,6 +79,106 @@ private struct CompactActionBadge: Identifiable {
     var id: String { label }
 }
 
+enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
+	case active
+	case xbox
+	case xboxElite
+	case dualSense
+	case dualSenseEdge
+	case nintendo
+	case steam
+	case appleTVRemote
+
+	var id: String { rawValue }
+
+	var displayName: String {
+		switch self {
+		case .active: return "Active Controller"
+		case .xbox: return "Xbox"
+		case .xboxElite: return "Xbox Elite"
+		case .dualSense: return "DualSense"
+		case .dualSenseEdge: return "DualSense Edge"
+		case .nintendo: return "Nintendo"
+		case .steam: return "Steam"
+		case .appleTVRemote: return "Apple TV Remote"
+		}
+	}
+
+	var systemImage: String {
+		switch self {
+		case .active: return "dot.radiowaves.left.and.right"
+		case .xbox, .xboxElite: return "xbox.logo"
+		case .dualSense, .dualSenseEdge: return "playstation.logo"
+		case .nintendo: return "house"
+		case .steam: return "gamecontroller"
+		case .appleTVRemote: return "appletvremote.gen3"
+		}
+	}
+
+	func isPlayStation(using service: ControllerService) -> Bool {
+		switch self {
+		case .active: return service.threadSafeIsPlayStation
+		case .dualSense, .dualSenseEdge: return true
+		default: return false
+		}
+	}
+
+	func isDualSense(using service: ControllerService) -> Bool {
+		switch self {
+		case .active: return service.threadSafeIsDualSense
+		case .dualSense, .dualSenseEdge: return true
+		default: return false
+		}
+	}
+
+	func isDualSenseEdge(using service: ControllerService) -> Bool {
+		switch self {
+		case .active: return service.threadSafeIsDualSenseEdge
+		case .dualSenseEdge: return true
+		default: return false
+		}
+	}
+
+	func isDualShock(using service: ControllerService) -> Bool {
+		switch self {
+		case .active: return service.threadSafeIsDualShock
+		default: return false
+		}
+	}
+
+	func isXboxElite(using service: ControllerService) -> Bool {
+		switch self {
+		case .active: return service.threadSafeIsXboxElite
+		case .xboxElite: return true
+		default: return false
+		}
+	}
+
+	func isSteamController(using service: ControllerService) -> Bool {
+		switch self {
+		case .active: return service.threadSafeIsSteamController
+		case .steam: return true
+		default: return false
+		}
+	}
+
+	func isNintendo(using service: ControllerService) -> Bool {
+		switch self {
+		case .active: return service.threadSafeIsNintendo
+		case .nintendo: return true
+		default: return false
+		}
+	}
+
+	func isAppleTVRemote(using service: ControllerService) -> Bool {
+		switch self {
+		case .active: return service.threadSafeIsAppleTVRemote
+		case .appleTVRemote: return true
+		default: return false
+		}
+	}
+}
+
 private struct AppleTVRemoteTouchIndicator: View {
 	let controllerService: ControllerService
 	let clickpadSize: CGFloat
@@ -154,6 +254,8 @@ extension View {
 /// Interactive visual representation of a controller with a professional Reference Page layout
 /// Automatically adapts to show Xbox or DualSense layouts based on connected controller
 struct ControllerVisualView: View, ControllerTypeProviding {
+	private static let mappingPasteboardType = NSPasteboard.PasteboardType("com.kevintang.ControllerKeys.keyMapping")
+
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
 
@@ -161,9 +263,19 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     var selectedLayerId: UUID? = nil  // nil = base layer
     var swapFirstButton: ControllerButton? = nil  // First button selected in swap mode
     var isSwapMode: Bool = false
+	var previewLayout: ControllerPreviewLayout = .active
     var onButtonTap: (ControllerButton) -> Void
 
     @State private var hoveredButton: ControllerButton?
+
+	var isPlayStation: Bool { previewLayout.isPlayStation(using: controllerService) }
+	var isDualSense: Bool { previewLayout.isDualSense(using: controllerService) }
+	var isDualSenseEdge: Bool { previewLayout.isDualSenseEdge(using: controllerService) }
+	var isDualShock: Bool { previewLayout.isDualShock(using: controllerService) }
+	var isXboxElite: Bool { previewLayout.isXboxElite(using: controllerService) }
+	var isSteamController: Bool { previewLayout.isSteamController(using: controllerService) }
+	var isNintendo: Bool { previewLayout.isNintendo(using: controllerService) }
+	var isAppleTVRemote: Bool { previewLayout.isAppleTVRemote(using: controllerService) }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -1400,19 +1512,46 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         .contentShape(Rectangle())
         .controllerAnchor(button, role: .label)
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
-        .allowsHitTesting(!isLayerActivatorInLayerContext(button))
         .accessibilityElement(children: .combine)
 			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))
-        .accessibilityHint("Double-tap to configure")
+		.accessibilityHint(showsLayerActivator ? "Double-tap to open layer" : "Double-tap to configure")
         .accessibilityAddTraits(.isButton)
         .help(compactHelpText(for: button, mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
         .onTapGesture { onButtonTap(button) }
         .contextMenu {
-            Button {
-                onButtonTap(button)
-            } label: {
-                Label("Edit Mapping", systemImage: "pencil")
-            }
+			if let layer = layerActivator, showsLayerActivator {
+				Button {
+					onButtonTap(button)
+				} label: {
+					Label("Open Layer", systemImage: "square.stack.3d.up")
+				}
+				Button {
+					_ = profileManager.setLayerActivator(layer, button: nil)
+				} label: {
+					Label("Remove Layer Activator", systemImage: "link.badge.minus")
+				}
+				Divider()
+			} else {
+				Button {
+					onButtonTap(button)
+				} label: {
+					Label("Edit Mapping", systemImage: "pencil")
+				}
+			}
+			if !showsLayerActivator, currentMapping != nil {
+				Button {
+					copyMapping(for: button)
+				} label: {
+					Label("Copy Mapping", systemImage: "doc.on.doc")
+				}
+			}
+			if !showsLayerActivator, canPasteMapping {
+				Button {
+					pasteMapping(to: button)
+				} label: {
+					Label("Paste Mapping", systemImage: "doc.on.clipboard")
+				}
+			}
             if mapping(for: button) != nil {
                 Button {
                     if let layer = selectedLayer {
@@ -1598,8 +1737,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 						isAppleTVRemote: isAppleTVRemote
 					)
 
-                // Layer activator badge — hidden when viewing a different layer,
-                // since other layers' activators are inert in that context.
+				// Layer activator badge — hidden when viewing a different layer
+				// so that context can still map the same physical button.
                 if let layer = layerActivator, showsLayerActivator {
                     Text("L")
                         .font(.system(size: 8, weight: .bold))
@@ -1678,19 +1817,46 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         }
         .contentShape(Rectangle())
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
-        .allowsHitTesting(!isLayerActivatorInLayerContext(button))  // Disable clicks on layer activators when in layer context
         .accessibilityElement(children: .combine)
 			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))
-        .accessibilityHint("Double-tap to configure")
+		.accessibilityHint(showsLayerActivator ? "Double-tap to open layer" : "Double-tap to configure")
         .accessibilityAddTraits(.isButton)
         .onTapGesture { onButtonTap(button) }
         .contextMenu {
-            Button {
-                onButtonTap(button)
-            } label: {
-                Label("Edit Mapping", systemImage: "pencil")
-            }
-            if mapping(for: button) != nil {
+			if let layer = layerActivator, showsLayerActivator {
+				Button {
+					onButtonTap(button)
+				} label: {
+					Label("Open Layer", systemImage: "square.stack.3d.up")
+				}
+				Button {
+					_ = profileManager.setLayerActivator(layer, button: nil)
+				} label: {
+					Label("Remove Layer Activator", systemImage: "link.badge.minus")
+				}
+				Divider()
+			} else {
+				Button {
+					onButtonTap(button)
+				} label: {
+					Label("Edit Mapping", systemImage: "pencil")
+				}
+			}
+			if !showsLayerActivator, currentMapping != nil {
+				Button {
+					copyMapping(for: button)
+				} label: {
+					Label("Copy Mapping", systemImage: "doc.on.doc")
+				}
+			}
+			if !showsLayerActivator, canPasteMapping {
+				Button {
+					pasteMapping(to: button)
+				} label: {
+					Label("Paste Mapping", systemImage: "doc.on.clipboard")
+				}
+			}
+			if currentMapping != nil {
                 Button {
                     if let layer = selectedLayer {
                         profileManager.removeLayerMapping(for: button, from: layer)
@@ -1761,6 +1927,33 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
         return mapping
     }
+
+	private var canPasteMapping: Bool {
+		pasteboardMapping() != nil
+	}
+
+	private func copyMapping(for button: ControllerButton) {
+		guard let mapping = mapping(for: button),
+			  let data = try? JSONEncoder().encode(mapping) else { return }
+		let pasteboard = NSPasteboard.general
+		pasteboard.clearContents()
+		pasteboard.setData(data, forType: Self.mappingPasteboardType)
+		pasteboard.setString(mapping.compactDescription, forType: .string)
+	}
+
+	private func pasteMapping(to button: ControllerButton) {
+		guard let mapping = pasteboardMapping() else { return }
+		if let layer = selectedLayer {
+			profileManager.setLayerMapping(mapping, for: button, in: layer)
+		} else {
+			profileManager.setMapping(mapping, for: button)
+		}
+	}
+
+	private func pasteboardMapping() -> KeyMapping? {
+		guard let data = NSPasteboard.general.data(forType: Self.mappingPasteboardType) else { return nil }
+		return try? JSONDecoder().decode(KeyMapping.self, from: data)
+	}
 
     private func layerOverrideColor(for button: ControllerButton) -> Color? {
 		guard let layer = selectedLayer,

@@ -14,6 +14,13 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     
     private let batteryServiceUUID = CBUUID(string: "180F")
     private let batteryLevelUUID = CBUUID(string: "2A19")
+	private let targetNameFragments = [
+		"xbox",
+		"apple tv remote",
+		"siri remote",
+		"control center remote",
+		"universal electronics"
+	]
     
     override init() {
         super.init()
@@ -60,7 +67,7 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
         // First, check for already connected devices (common for controllers)
         let connected = centralManager.retrieveConnectedPeripherals(withServices: [batteryServiceUUID])
 
-        if let controller = connected.first(where: { $0.name?.localizedCaseInsensitiveContains("Xbox") == true }) {
+		if let controller = connected.first(where: isTargetControllerPeripheral) {
             connect(to: controller)
         } else {
             // Scan for new devices
@@ -88,12 +95,16 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     }
     
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber) {
-        // Check if it's likely an Xbox controller
-        if let name = peripheral.name, name.localizedCaseInsensitiveContains("Xbox") {
+		if isTargetControllerPeripheral(peripheral) {
             centralManager.stopScan()
             connect(to: peripheral)
         }
     }
+
+	private func isTargetControllerPeripheral(_ peripheral: CBPeripheral) -> Bool {
+		guard let name = peripheral.name?.lowercased(), !name.isEmpty else { return false }
+		return targetNameFragments.contains { name.contains($0) }
+	}
     
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         peripheral.discoverServices([batteryServiceUUID])

@@ -5,7 +5,7 @@ import GameController
 final class ControllerBatteryPolicyTests: XCTestCase {
 	func testXboxWaitsForBluetoothBatteryInsteadOfTrustingInitialGameControllerZero() {
 		let reading = ControllerBatteryReadingResolver.resolve(
-			isXbox: true,
+			prefersBluetoothBattery: true,
 			bluetoothLevel: nil,
 			bluetoothIsCharging: false,
 			controllerBatteryLevel: 0,
@@ -17,7 +17,7 @@ final class ControllerBatteryPolicyTests: XCTestCase {
 
 	func testXboxUsesBluetoothBatteryWhenAvailable() {
 		let reading = ControllerBatteryReadingResolver.resolve(
-			isXbox: true,
+			prefersBluetoothBattery: true,
 			bluetoothLevel: 82,
 			bluetoothIsCharging: false,
 			controllerBatteryLevel: 0,
@@ -31,7 +31,7 @@ final class ControllerBatteryPolicyTests: XCTestCase {
 
 	func testXboxBluetoothBatteryIsClamped() {
 		let reading = ControllerBatteryReadingResolver.resolve(
-			isXbox: true,
+			prefersBluetoothBattery: true,
 			bluetoothLevel: 125,
 			bluetoothIsCharging: true,
 			controllerBatteryLevel: nil,
@@ -45,7 +45,7 @@ final class ControllerBatteryPolicyTests: XCTestCase {
 
 	func testNonXboxUsesKnownGameControllerBattery() {
 		let reading = ControllerBatteryReadingResolver.resolve(
-			isXbox: false,
+			prefersBluetoothBattery: false,
 			bluetoothLevel: nil,
 			bluetoothIsCharging: false,
 			controllerBatteryLevel: 0.19,

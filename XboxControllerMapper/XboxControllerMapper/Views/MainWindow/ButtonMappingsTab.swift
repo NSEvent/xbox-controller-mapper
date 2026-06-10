@@ -1,4 +1,5 @@
 import SwiftUI
+import GameController
 
 /// The main controller visual tab showing the button mapping diagram, layer bar,
 /// and active chords/sequences.
@@ -10,6 +11,7 @@ struct ButtonMappingsTab: View {
     @Binding var selectedLayerId: UUID?
     @Binding var isSwapMode: Bool
     @Binding var swapFirstButton: ControllerButton?
+	@Binding var controllerPreviewLayout: ControllerPreviewLayout
     @Binding var showingAddLayerSheet: Bool
     @Binding var editingLayerId: UUID?
     @Binding var editingChord: ChordMapping?
@@ -39,6 +41,8 @@ struct ButtonMappingsTab: View {
                     actionFeedbackEnabled: actionFeedbackEnabled,
                     streamOverlayEnabled: streamOverlayEnabled
                 )
+
+				layoutPreviewMenu
 
                 InputLogView()
             }
@@ -72,17 +76,13 @@ struct ButtonMappingsTab: View {
                         selectedLayerId: selectedLayerId,
                         swapFirstButton: swapFirstButton,
                         isSwapMode: isSwapMode,
+						previewLayout: controllerPreviewLayout,
                         onButtonTap: { button in
                             // Ignore taps during magnification gestures to prevent accidental triggers
                             guard !isMagnifying else { return }
                             // Async dispatch to avoid layout recursion if triggered during layout pass
                             DispatchQueue.main.async {
-                                if isSwapMode {
-                                    handleSwapButtonTap(button)
-                                } else {
-                                    selectedButton = button
-                                    configuringButton = button
-                                }
+								handleButtonTap(button)
                             }
                         }
                     )
@@ -135,7 +135,205 @@ struct ButtonMappingsTab: View {
         }
     }
 
+	private var layoutPreviewMenu: some View {
+		HStack {
+			Menu {
+				ForEach(ControllerPreviewLayout.allCases) { layout in
+					Button {
+						controllerPreviewLayout = layout
+					} label: {
+						if controllerPreviewLayout == layout {
+							Label(layoutMenuTitle(for: layout), systemImage: "checkmark")
+						} else if isLayoutCurrentlyConnected(layout) {
+							Label(layoutMenuTitle(for: layout), systemImage: "circle.fill")
+						} else {
+							Label(layout.displayName, systemImage: layout.systemImage)
+						}
+					}
+				}
+			} label: {
+				Label(controllerPreviewLayout.displayName, systemImage: controllerPreviewLayout.systemImage)
+					.font(.system(size: 11, weight: .semibold))
+					.padding(.horizontal, 10)
+					.frame(height: 26)
+					.background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+					.overlay(
+						RoundedRectangle(cornerRadius: 7, style: .continuous)
+							.stroke(Color.white.opacity(0.08), lineWidth: 1)
+					)
+			}
+			.menuStyle(.borderlessButton)
+			.help("Preview controller layout")
+
+			if let note = layoutPreviewMismatchNote {
+				Label(note, systemImage: "exclamationmark.triangle.fill")
+					.font(.system(size: 11, weight: .medium))
+					.foregroundStyle(Color.yellow.opacity(0.9))
+					.lineLimit(1)
+					.truncationMode(.tail)
+					.help(note)
+			}
+
+			Spacer(minLength: 0)
+		}
+	}
+
+	private var layoutPreviewMismatchNote: String? {
+		guard controllerPreviewLayout != .active else { return nil }
+
+		let connectedLayouts = connectedControllerPreviewLayouts
+		let compatibleLayouts = compatiblePreviewLayouts(for: controllerPreviewLayout)
+		guard connectedLayouts.isDisjoint(with: compatibleLayouts) else { return nil }
+
+		if connectedLayouts.isEmpty {
+			return "No connected controller matches \(controllerPreviewLayout.displayName)"
+		}
+
+		let connectedNames = connectedLayouts
+			.map(\.displayName)
+			.sorted()
+			.joined(separator: ", ")
+		return "Connected: \(connectedNames); previewing \(controllerPreviewLayout.displayName)"
+	}
+
+	private func layoutMenuTitle(for layout: ControllerPreviewLayout) -> String {
+		guard isLayoutCurrentlyConnected(layout) else { return layout.displayName }
+		return "\(layout.displayName)  Connected"
+	}
+
+	private func isLayoutCurrentlyConnected(_ layout: ControllerPreviewLayout) -> Bool {
+		guard layout != .active else { return false }
+		return !connectedControllerPreviewLayouts.isDisjoint(with: compatiblePreviewLayouts(for: layout))
+	}
+
+	private var connectedControllerPreviewLayouts: Set<ControllerPreviewLayout> {
+		var layouts = Set<ControllerPreviewLayout>()
+
+		for controller in GCController.controllers() {
+			layouts.formUnion(previewLayouts(for: controller))
+		}
+
+		if controllerService.isConnected {
+			if controllerService.threadSafeIsAppleTVRemote {
+				layouts.insert(.appleTVRemote)
+			}
+			if controllerService.threadSafeIsSteamController {
+				layouts.insert(.steam)
+			}
+			if controllerService.threadSafeIsNintendo {
+				layouts.insert(.nintendo)
+			}
+			if controllerService.threadSafeIsXboxElite {
+				layouts.formUnion([.xbox, .xboxElite])
+			}
+			if controllerService.threadSafeIsDualSenseEdge {
+				layouts.formUnion([.dualSense, .dualSenseEdge])
+			} else if controllerService.threadSafeIsDualSense {
+				layouts.insert(.dualSense)
+			}
+			if controllerService.connectedController?.extendedGamepad is GCXboxGamepad {
+				layouts.insert(.xbox)
+			}
+		}
+
+		if controllerService.appleTVRemoteHIDDevice != nil || controllerService.appleTVRemoteHIDTouchDevice != nil {
+			layouts.insert(.appleTVRemote)
+		}
+
+		return layouts
+	}
+
+	private func compatiblePreviewLayouts(for layout: ControllerPreviewLayout) -> Set<ControllerPreviewLayout> {
+		switch layout {
+		case .active:
+			return []
+		case .xbox:
+			return [.xbox, .xboxElite]
+		case .dualSense:
+			return [.dualSense, .dualSenseEdge]
+		default:
+			return [layout]
+		}
+	}
+
+	private func previewLayouts(for controller: GCController) -> Set<ControllerPreviewLayout> {
+		if ControllerService.isAppleTVRemoteMetadata(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		) {
+			return [.appleTVRemote]
+		}
+		if ControllerService.isSteamControllerMetadata(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		) {
+			return [.steam]
+		}
+		if isNintendoMetadata(controller) {
+			return [.nintendo]
+		}
+		if controller.extendedGamepad is GCXboxGamepad {
+			if ControllerService.isEliteControllerMetadata(
+				vendorName: controller.vendorName,
+				productCategory: controller.productCategory
+			) {
+				return [.xbox, .xboxElite]
+			}
+			return [.xbox]
+		}
+		if controller.extendedGamepad is GCDualSenseGamepad {
+			if isDualSenseEdgeMetadata(controller) {
+				return [.dualSense, .dualSenseEdge]
+			}
+			return [.dualSense]
+		}
+		return []
+	}
+
+	private func isDualSenseEdgeMetadata(_ controller: GCController) -> Bool {
+		let combined = metadataString(for: controller)
+		return combined.contains("dualsense edge") || combined.contains("edge")
+	}
+
+	private func isNintendoMetadata(_ controller: GCController) -> Bool {
+		let combined = metadataString(for: controller)
+		return combined.contains("joy-con")
+			|| combined.contains("joycon")
+			|| combined.contains("pro controller")
+			|| combined.contains("nintendo")
+	}
+
+	private func metadataString(for controller: GCController) -> String {
+		"\(controller.vendorName ?? "") \(controller.productCategory)".lowercased()
+	}
+
     // MARK: - Swap Mode
+
+	private func handleButtonTap(_ button: ControllerButton) {
+		if isSwapMode {
+			handleSwapButtonTap(button)
+			return
+		}
+
+		if let layer = layerToOpen(for: button) {
+			selectedLayerId = layer.id
+			selectedButton = nil
+			configuringButton = nil
+			return
+		}
+
+		selectedButton = button
+		configuringButton = button
+	}
+
+	private func layerToOpen(for button: ControllerButton) -> Layer? {
+		guard let profile = profileManager.activeProfile,
+			  let layer = profile.layers.first(where: { $0.activatorButton == button }),
+			  selectedLayerId == nil || selectedLayerId == layer.id else {
+			return nil
+		}
+		return layer
+	}
 
 	private func activeButtonsContain(
 		_ button: ControllerButton,

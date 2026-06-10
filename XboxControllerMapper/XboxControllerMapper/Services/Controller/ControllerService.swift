@@ -264,6 +264,8 @@ class ControllerService: ObservableObject {
     /// Incremented each time `controllerConnected(_:)` runs. Used in diagnostic
     /// logs to correlate connect/disconnect events during Bluetooth reconnection.
     private var connectionGeneration: UInt64 = 0
+	private var configuredGameControllerIDs: Set<ObjectIdentifier> = []
+	private let inactiveControllerAnalogActivationDeadzone: Float = 0.18
 
     /// Generation token for the battery polling chain. `updateBatteryInfo()` bumps
     /// it so previously scheduled polls cancel themselves — otherwise every external
@@ -736,7 +738,7 @@ class ControllerService: ObservableObject {
 	private let guideMonitor: XboxGuideMonitor
 
     // Low-level monitor for Battery (Bluetooth Workaround for macOS/Xbox issue)
-    private let batteryMonitor = BluetoothBatteryMonitor()
+    let batteryMonitor = BluetoothBatteryMonitor()
 
     // Haptic engines for controller feedback (try multiple localities)
     // Protected by hapticLock — accessed from both @MainActor (setup/stop) and hapticQueue (play)
@@ -814,6 +816,10 @@ class ControllerService: ObservableObject {
 	func cleanup() {
 		guideMonitor.stop()
 		stopDiscovery()
+		for controller in GCController.controllers() {
+			clearGameControllerHandlers(for: controller)
+		}
+		configuredGameControllerIDs.removeAll()
 		batteryMonitor.stopMonitoring()
 		cleanupSteamControllerHIDMonitoring()
 		cleanupGenericHIDMonitoring()
@@ -836,8 +842,7 @@ class ControllerService: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] notification in
                 guard let self = self else { return }
-                if let controller = notification.object as? GCController,
-                   controller == self.connectedController {
+				if let controller = notification.object as? GCController {
                     // Guard against late/out-of-order disconnect notifications.
                     // During Bluetooth reconnect macOS may reuse the same GCController
                     // object and deliver didDisconnect AFTER didConnect. Check the
@@ -847,8 +852,14 @@ class ControllerService: ObservableObject {
                               self.connectionGeneration)
                         return
                     }
-                    NSLog("[ControllerKeys] controllerDisconnected — generation=%llu", self.connectionGeneration)
-                    self.controllerDisconnected()
+					if controller == self.connectedController {
+						NSLog("[ControllerKeys] controllerDisconnected — generation=%llu", self.connectionGeneration)
+						self.activeGameControllerDisconnected(controller)
+					} else {
+						self.clearGameControllerHandlers(for: controller)
+						self.configuredGameControllerIDs.remove(ObjectIdentifier(controller))
+						self.objectWillChange.send()
+					}
                 }
             }
             .store(in: &cancellables)
@@ -886,8 +897,12 @@ class ControllerService: ObservableObject {
     }
 
     private func checkConnectedControllers() {
-        if let controller = GCController.controllers().first {
-            controllerConnected(controller)
+		let controllers = GCController.controllers()
+		for controller in controllers {
+			installGameControllerHandlersIfNeeded(for: controller)
+		}
+		if let controller = controllers.first {
+			activateGameController(controller, reason: "startup")
         }
     }
 
@@ -904,15 +919,39 @@ class ControllerService: ObservableObject {
             return
         }
 
-        connectionGeneration += 1
-        NSLog("[ControllerKeys] controllerConnected — generation=%llu vendor=%@",
-              connectionGeneration, controller.vendorName ?? "(nil)")
+		installGameControllerHandlersIfNeeded(for: controller)
+		activateGameController(controller, reason: "connect")
+    }
 
-        // Detach the previous pad's handlers before adopting the new one;
-        // otherwise both physical controllers keep feeding this state machine.
-        if let previous = connectedController, previous !== controller {
-            clearGameControllerHandlers(for: previous)
-        }
+	private func installGameControllerHandlersIfNeeded(for controller: GCController) {
+		let controllerID = ObjectIdentifier(controller)
+		guard !configuredGameControllerIDs.contains(controllerID) else { return }
+		setupInputHandlers(for: controller)
+		configuredGameControllerIDs.insert(controllerID)
+	}
+
+	func activateGameController(_ controller: GCController, reason: String) {
+		if steamHIDActiveDevice != nil {
+			NSLog("[ControllerKeys] Ignoring GameController activation while Steam Controller raw HID is active")
+			return
+		}
+		if Self.isSteamControllerMetadata(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		) {
+			NSLog("[ControllerKeys] Ignoring Steam Controller GameController activation; raw HID owns Steam input")
+			return
+		}
+		if connectedController === controller,
+		   storage.lock.withLock({ !storage.isAppleTVRemote }) {
+			return
+		}
+
+        connectionGeneration += 1
+		NSLog("[ControllerKeys] controllerActivated — generation=%llu reason=%@ vendor=%@",
+			  connectionGeneration, reason, controller.vendorName ?? "(nil)")
+
+		prepareForActiveControllerSwitch()
 
         // Cancel generic HID fallback if GameController framework claimed this device
         genericHIDFallbackTimer?.cancel()
@@ -932,6 +971,7 @@ class ControllerService: ObservableObject {
         storage.lock.unlock()
 
         setupInputHandlers(for: controller)
+		configuredGameControllerIDs.insert(ObjectIdentifier(controller))
         setupHaptics(for: controller)
         if currentControllerIdentity == nil {
             currentControllerIdentity = ControllerIdentityResolver.identity(
@@ -958,6 +998,72 @@ class ControllerService: ObservableObject {
         startDisplayUpdateTimer()
     }
 
+	private func activeGameControllerDisconnected(_ controller: GCController) {
+		clearGameControllerHandlers(for: controller)
+		configuredGameControllerIDs.remove(ObjectIdentifier(controller))
+		if let nextController = GCController.controllers().first(where: { $0 !== controller }) {
+			activateGameController(nextController, reason: "active disconnect")
+		} else {
+			controllerDisconnected()
+		}
+	}
+
+	func prepareForActiveControllerSwitch() {
+		let wasAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
+		if wasAppleTVRemote {
+			releaseAppleTVRemoteButtonsIfNeeded()
+			releaseAppleTVRemoteTouchIfStillActive()
+		}
+
+		let buttonsToRelease = storage.lock.withLock { Array(storage.activeButtons) }
+		for button in buttonsToRelease {
+			handleButton(button, pressed: false)
+		}
+
+		connectedController?.motion?.sensorsActive = false
+		stopKeepAliveTimer()
+		stopBatteryBlink()
+		stopChargingAnim()
+		stopHaptics()
+		cleanupHIDMonitoring()
+		cleanupNintendoHIDMonitoring()
+		stopEliteHelper()
+
+		activeButtons.removeAll()
+		leftStick = .zero
+		rightStick = .zero
+		leftTriggerValue = 0
+		rightTriggerValue = 0
+
+		storage.lock.lock()
+		storage.activeButtons.removeAll()
+		storage.buttonPressTimestamps.removeAll()
+		storage.pendingButtons.removeAll()
+		storage.capturedButtonsInWindow.removeAll()
+		storage.pendingReleases.removeAll()
+		storage.chordWorkItem?.cancel()
+		storage.leftStick = .zero
+		storage.rightStick = .zero
+		storage.leftTrigger = 0
+		storage.rightTrigger = 0
+		storage.lastInputTime = 0
+		resetTouchpadStateLocked()
+		resetMotionStateLocked()
+		storage.lastMicButtonState = false
+		storage.lastPSButtonState = false
+		storage.lastNintendoHomeState = false
+		storage.lastHIDBatteryCharging = nil
+		storage.lastLeftPaddleState = false
+		storage.lastRightPaddleState = false
+		storage.lastLeftFunctionState = false
+		storage.lastRightFunctionState = false
+		storage.elitePaddleEventSource = .none
+		storage.eliteRawPaddleState.removeAll()
+		storage.rawHIDGuidePressed = false
+		storage.rawHIDGuideLastEventTime = nil
+		storage.lock.unlock()
+	}
+
     func controllerDisconnected() {
 		let wasAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
 		if wasAppleTVRemote {
@@ -968,6 +1074,7 @@ class ControllerService: ObservableObject {
         // Disable motion sensors before disconnecting
         connectedController?.motion?.sensorsActive = false
         connectedController = nil
+		configuredGameControllerIDs.removeAll()
         isConnected = false
         currentControllerIdentity = nil
         isGenericController = false
@@ -985,9 +1092,6 @@ class ControllerService: ObservableObject {
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
         cleanupNintendoHIDMonitoring()  // Clean up Nintendo Home button monitoring
-		if !wasAppleTVRemote {
-			cleanupAppleTVRemoteHIDMonitoring()  // Clean up Apple TV Remote HID monitoring
-		}
         stopEliteHelper()  // Clean up Elite helper process
 
         storage.lock.lock()
@@ -1411,10 +1515,13 @@ class ControllerService: ObservableObject {
 
 		// Xbox battery over GameController is unreliable on macOS and can report
 		// 0%/.unknown before the Bluetooth Battery Service read completes.
-		let isXbox = connectedController?.extendedGamepad is GCXboxGamepad
-		let controllerBattery = connectedController?.battery
+		let isAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
+		let batteryController = connectedController ?? (isAppleTVRemote ? Self.connectedAppleTVRemoteController() : nil)
+		let isXbox = batteryController?.extendedGamepad is GCXboxGamepad
+		let prefersBluetoothBattery = isXbox || (isAppleTVRemote && batteryMonitor.batteryLevel != nil)
+		let controllerBattery = batteryController?.battery
 		if let reading = ControllerBatteryReadingResolver.resolve(
-			isXbox: isXbox,
+			prefersBluetoothBattery: prefersBluetoothBattery,
 			bluetoothLevel: batteryMonitor.batteryLevel,
 			bluetoothIsCharging: batteryMonitor.isCharging,
 			controllerBatteryLevel: controllerBattery?.batteryLevel,
@@ -1436,6 +1543,15 @@ class ControllerService: ObservableObject {
             }
         }
     }
+
+	private static func connectedAppleTVRemoteController() -> GCController? {
+		GCController.controllers().first {
+			isAppleTVRemoteMetadata(
+				vendorName: $0.vendorName,
+				productCategory: $0.productCategory
+			)
+		}
+	}
 
     /// Updates the light bar color to reflect battery level when battery light bar mode is enabled.
     /// Red (0%) → Yellow (50%) → Green (100%). Blinks red at 5% or below.
@@ -1592,12 +1708,62 @@ class ControllerService: ObservableObject {
     // MARK: - Input Handlers
 
     /// Helper to bind a GCControllerButtonInput to a ControllerButton
-    private func bindButton(_ element: GCControllerButtonInput?, to button: ControllerButton) {
-        element?.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard self?.shouldAcceptGameControllerInput() == true else { return }
-            self?.controllerQueue.async { self?.handleButton(button, pressed: pressed) }
+	private func bindButton(_ element: GCControllerButtonInput?, to button: ControllerButton, from controller: GCController) {
+		element?.pressedChangedHandler = { [weak self, weak controller] _, _, pressed in
+			guard let controller else { return }
+			self?.routeGameControllerButtonInput(from: controller, button: button, pressed: pressed)
         }
     }
+
+	private func routeGameControllerButtonInput(from controller: GCController, button: ControllerButton, pressed: Bool) {
+		Task { @MainActor [weak self, weak controller] in
+			guard let self, let controller else { return }
+			guard self.prepareGameControllerInput(from: controller, meaningful: pressed) else { return }
+			self.controllerQueue.async { [weak self] in
+				self?.handleButton(button, pressed: pressed)
+			}
+		}
+	}
+
+	private func routeGameControllerStickInput(
+		from controller: GCController,
+		x: Float,
+		y: Float,
+		update: @escaping (ControllerService, Float, Float) -> Void
+	) {
+		let meaningful = hypotf(x, y) >= inactiveControllerAnalogActivationDeadzone
+		Task { @MainActor [weak self, weak controller] in
+			guard let self, let controller else { return }
+			guard self.prepareGameControllerInput(from: controller, meaningful: meaningful) else { return }
+			update(self, x, y)
+		}
+	}
+
+	private func routeGameControllerTriggerInput(
+		from controller: GCController,
+		value: Float,
+		pressed: Bool,
+		update: @escaping (ControllerService, Float, Bool) -> Void
+	) {
+		let meaningful = pressed || value >= inactiveControllerAnalogActivationDeadzone
+		Task { @MainActor [weak self, weak controller] in
+			guard let self, let controller else { return }
+			guard self.prepareGameControllerInput(from: controller, meaningful: meaningful) else { return }
+			update(self, value, pressed)
+		}
+	}
+
+	func routeGameControllerTouchpadInput(
+		from controller: GCController,
+		meaningful: Bool,
+		update: @escaping (ControllerService) -> Void
+	) {
+		Task { @MainActor [weak self, weak controller] in
+			guard let self, let controller else { return }
+			guard self.prepareGameControllerInput(from: controller, meaningful: meaningful) else { return }
+			update(self)
+		}
+	}
 
     private func shouldAcceptGameControllerInput() -> Bool {
         if steamHIDActiveDevice != nil {
@@ -1605,6 +1771,17 @@ class ControllerService: ObservableObject {
         }
         return !storage.lock.withLock { storage.isSteamController }
     }
+
+	private func prepareGameControllerInput(from controller: GCController, meaningful: Bool) -> Bool {
+		if steamHIDActiveDevice != nil {
+			return false
+		}
+		if connectedController !== controller {
+			guard meaningful else { return false }
+			activateGameController(controller, reason: "input")
+		}
+		return shouldAcceptGameControllerInput()
+	}
 
     func clearGameControllerHandlers(for controller: GCController) {
         if let gamepad = controller.extendedGamepad {
@@ -1732,7 +1909,7 @@ class ControllerService: ObservableObject {
             // Single Joy-Cons don't expose extendedGamepad or microGamepad — they only
             // provide physicalInputProfile. Use it to dynamically bind available elements.
             NSLog("[ControllerKeys] No extendedGamepad — using physicalInputProfile fallback")
-            setupPhysicalInputProfileHandlers(controller.physicalInputProfile)
+			setupPhysicalInputProfileHandlers(controller.physicalInputProfile, from: controller)
             return
         }
 
@@ -1754,36 +1931,40 @@ class ControllerService: ObservableObject {
 		let isXboxElite = xboxGamepadHasPaddles || isXboxEliteByIdentity
 
         // Face buttons
-        bindButton(gamepad.buttonA, to: .a)
-        bindButton(gamepad.buttonB, to: .b)
-        bindButton(gamepad.buttonX, to: .x)
-        bindButton(gamepad.buttonY, to: .y)
+		bindButton(gamepad.buttonA, to: .a, from: controller)
+		bindButton(gamepad.buttonB, to: .b, from: controller)
+		bindButton(gamepad.buttonX, to: .x, from: controller)
+		bindButton(gamepad.buttonY, to: .y, from: controller)
 
         // Bumpers
-        bindButton(gamepad.leftShoulder, to: .leftBumper)
-        bindButton(gamepad.rightShoulder, to: .rightBumper)
+		bindButton(gamepad.leftShoulder, to: .leftBumper, from: controller)
+		bindButton(gamepad.rightShoulder, to: .rightBumper, from: controller)
 
         // Triggers
-        gamepad.leftTrigger.valueChangedHandler = { [weak self] _, value, pressed in
-            guard self?.shouldAcceptGameControllerInput() == true else { return }
-            self?.updateLeftTrigger(value, pressed: pressed)
+		gamepad.leftTrigger.valueChangedHandler = { [weak self, weak controller] _, value, pressed in
+			guard let self, let controller else { return }
+			self.routeGameControllerTriggerInput(from: controller, value: value, pressed: pressed) { service, routedValue, routedPressed in
+				service.updateLeftTrigger(routedValue, pressed: routedPressed)
+			}
         }
-        gamepad.rightTrigger.valueChangedHandler = { [weak self] _, value, pressed in
-            guard self?.shouldAcceptGameControllerInput() == true else { return }
-            self?.updateRightTrigger(value, pressed: pressed)
+		gamepad.rightTrigger.valueChangedHandler = { [weak self, weak controller] _, value, pressed in
+			guard let self, let controller else { return }
+			self.routeGameControllerTriggerInput(from: controller, value: value, pressed: pressed) { service, routedValue, routedPressed in
+				service.updateRightTrigger(routedValue, pressed: routedPressed)
+			}
         }
 
         // D-pad
-        bindButton(gamepad.dpad.up, to: .dpadUp)
-        bindButton(gamepad.dpad.down, to: .dpadDown)
-        bindButton(gamepad.dpad.left, to: .dpadLeft)
-        bindButton(gamepad.dpad.right, to: .dpadRight)
+		bindButton(gamepad.dpad.up, to: .dpadUp, from: controller)
+		bindButton(gamepad.dpad.down, to: .dpadDown, from: controller)
+		bindButton(gamepad.dpad.left, to: .dpadLeft, from: controller)
+		bindButton(gamepad.dpad.right, to: .dpadRight, from: controller)
 
         // Special buttons
-        bindButton(gamepad.buttonMenu, to: .menu)
-        bindButton(gamepad.buttonOptions, to: .view)
+		bindButton(gamepad.buttonMenu, to: .menu, from: controller)
+		bindButton(gamepad.buttonOptions, to: .view, from: controller)
 		if !isXboxElite {
-			bindButton(gamepad.buttonHome, to: .xbox)
+			bindButton(gamepad.buttonHome, to: .xbox, from: controller)
 		}
 
         // Log available elements for diagnostics (helps debug Joy-Con/third-party controllers)
@@ -1823,14 +2004,14 @@ class ControllerService: ObservableObject {
 
             // Capture (screenshot) button
             if let captureButton = controller.physicalInputProfile.buttons["Button Share"] {
-                bindButton(captureButton, to: .share)
+				bindButton(captureButton, to: .share, from: controller)
                 NSLog("[ControllerKeys] Nintendo capture button bound via physicalInputProfile (Button Share)")
             } else {
                 // Fallback: scan for any unmapped button that might be the capture button
                 let extendedKnown = knownNames.union([GCInputButtonHome])
                 for (name, button) in controller.physicalInputProfile.buttons where !extendedKnown.contains(name) {
                     NSLog("[ControllerKeys] Nintendo unknown button found: %@", name)
-                    bindButton(button, to: .share)
+					bindButton(button, to: .share, from: controller)
                     NSLog("[ControllerKeys] Nintendo capture button bound via unknown element: %@", name)
                     break
                 }
@@ -1856,7 +2037,7 @@ class ControllerService: ObservableObject {
             // Trigger battery monitor refresh for Xbox controller
             batteryMonitor.refreshBatteryLevel()
 
-            bindButton(xboxGamepad.buttonShare, to: .share)
+			bindButton(xboxGamepad.buttonShare, to: .share, from: controller)
 
             // Xbox Elite Series 2 detection:
             // 1. Paddle detection (paddles only report when no hardware profile is selected)
@@ -1876,10 +2057,10 @@ class ControllerService: ObservableObject {
                 controllerName = "Xbox Elite Series 2 Controller"
 
                 if hasPaddles {
-                    bindButton(xboxGamepad.paddleButton1, to: .xboxPaddle1)
-                    bindButton(xboxGamepad.paddleButton2, to: .xboxPaddle2)
-                    bindButton(xboxGamepad.paddleButton3, to: .xboxPaddle3)
-                    bindButton(xboxGamepad.paddleButton4, to: .xboxPaddle4)
+					bindButton(xboxGamepad.paddleButton1, to: .xboxPaddle1, from: controller)
+					bindButton(xboxGamepad.paddleButton2, to: .xboxPaddle2, from: controller)
+					bindButton(xboxGamepad.paddleButton3, to: .xboxPaddle3, from: controller)
+					bindButton(xboxGamepad.paddleButton4, to: .xboxPaddle4, from: controller)
                 }
 
 				// Launch helper process for Guide button and, when needed, paddle detection via raw HID.
@@ -1895,17 +2076,21 @@ class ControllerService: ObservableObject {
             }
         }
 
-        bindButton(gamepad.leftThumbstickButton, to: .leftThumbstick)
-        bindButton(gamepad.rightThumbstickButton, to: .rightThumbstick)
+		bindButton(gamepad.leftThumbstickButton, to: .leftThumbstick, from: controller)
+		bindButton(gamepad.rightThumbstickButton, to: .rightThumbstick, from: controller)
 
-        gamepad.leftThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
-            guard self?.shouldAcceptGameControllerInput() == true else { return }
-            self?.updateLeftStick(x: xValue, y: yValue)
+		gamepad.leftThumbstick.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
+			guard let self, let controller else { return }
+			self.routeGameControllerStickInput(from: controller, x: xValue, y: yValue) { service, x, y in
+				service.updateLeftStick(x: x, y: y)
+			}
         }
 
-        gamepad.rightThumbstick.valueChangedHandler = { [weak self] _, xValue, yValue in
-            guard self?.shouldAcceptGameControllerInput() == true else { return }
-            self?.updateRightStick(x: xValue, y: yValue)
+		gamepad.rightThumbstick.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
+			guard let self, let controller else { return }
+			self.routeGameControllerStickInput(from: controller, x: xValue, y: yValue) { service, x, y in
+				service.updateRightStick(x: x, y: y)
+			}
         }
 
         // DualSense-specific: Touchpad support
@@ -1926,6 +2111,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
 
             setupTouchpadHandlers(
+				for: controller,
                 primary: dualSenseGamepad.touchpadPrimary,
                 secondary: dualSenseGamepad.touchpadSecondary,
                 button: dualSenseGamepad.touchpadButton
@@ -1960,6 +2146,7 @@ class ControllerService: ObservableObject {
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
 
             setupTouchpadHandlers(
+				for: controller,
                 primary: dualShockGamepad.touchpadPrimary,
                 secondary: dualShockGamepad.touchpadSecondary,
                 button: dualShockGamepad.touchpadButton
@@ -2022,20 +2209,22 @@ class ControllerService: ObservableObject {
 		microGamepad.allowsRotation = false
 		microGamepad.reportsAbsoluteDpadValues = false
 
-		bindButton(microGamepad.buttonA, to: .a)
-		bindButton(microGamepad.buttonX, to: .x)
-		bindButton(microGamepad.buttonMenu, to: .menu)
-		bindButton(microGamepad.dpad.up, to: .dpadUp)
-		bindButton(microGamepad.dpad.down, to: .dpadDown)
-		bindButton(microGamepad.dpad.left, to: .dpadLeft)
-		bindButton(microGamepad.dpad.right, to: .dpadRight)
+		bindButton(microGamepad.buttonA, to: .a, from: controller)
+		bindButton(microGamepad.buttonX, to: .x, from: controller)
+		bindButton(microGamepad.buttonMenu, to: .menu, from: controller)
+		bindButton(microGamepad.dpad.up, to: .dpadUp, from: controller)
+		bindButton(microGamepad.dpad.down, to: .dpadDown, from: controller)
+		bindButton(microGamepad.dpad.left, to: .dpadLeft, from: controller)
+		bindButton(microGamepad.dpad.right, to: .dpadRight, from: controller)
 
-		microGamepad.dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
-			guard self?.shouldAcceptGameControllerInput() == true else { return }
-			self?.updateLeftStick(x: xValue, y: yValue)
+		microGamepad.dpad.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
+			guard let self, let controller else { return }
+			self.routeGameControllerStickInput(from: controller, x: xValue, y: yValue) { service, x, y in
+				service.updateLeftStick(x: x, y: y)
+			}
 		}
 
-		bindAppleTVRemotePhysicalProfileButtons(controller.physicalInputProfile)
+		bindAppleTVRemotePhysicalProfileButtons(controller.physicalInputProfile, from: controller)
 		setupAppleTVRemoteHIDMonitoring()
 
 		NSLog("[ControllerKeys] Apple TV Remote detected — vendorName=%@  productCategory=%@",
@@ -2053,13 +2242,13 @@ class ControllerService: ObservableObject {
 		return controller.vendorName ?? controller.productCategory
     }
 
-    private func bindAppleTVRemotePhysicalProfileButtons(_ profile: GCPhysicalInputProfile) {
+    private func bindAppleTVRemotePhysicalProfileButtons(_ profile: GCPhysicalInputProfile, from controller: GCController) {
 		var boundNames: [String] = []
 		for (name, buttonInput) in profile.buttons {
 			guard let controllerButton = appleTVRemoteButton(forPhysicalInputName: name) else {
 				continue
 			}
-			bindButton(buttonInput, to: controllerButton)
+			bindButton(buttonInput, to: controllerButton, from: controller)
 			boundNames.append("\(name)=\(controllerButton.rawValue)")
 		}
 
@@ -2086,7 +2275,8 @@ class ControllerService: ObservableObject {
 	    }
 
 	    private func clearAppleTVRemoteStateForNonRemoteController() {
-			cleanupAppleTVRemoteHIDMonitoring()
+			releaseAppleTVRemoteButtonsIfNeeded()
+			releaseAppleTVRemoteTouchIfStillActive()
 
 				storage.lock.lock()
 				storage.isAppleTVRemote = false
@@ -2191,7 +2381,7 @@ class ControllerService: ObservableObject {
     /// Sets up input handlers by dynamically enumerating the controller's physicalInputProfile.
     /// Single Joy-Cons don't expose extendedGamepad or microGamepad — they only provide
     /// physicalInputProfile with a dynamic set of buttons, axes, and dpads.
-    private func setupPhysicalInputProfileHandlers(_ profile: GCPhysicalInputProfile) {
+    private func setupPhysicalInputProfileHandlers(_ profile: GCPhysicalInputProfile, from controller: GCController) {
         // Map known GCInput element names to ControllerButton cases
         let buttonMap: [(String, ControllerButton)] = [
             (GCInputButtonA, .a),
@@ -2212,37 +2402,46 @@ class ControllerService: ObservableObject {
         var boundCount = 0
         for (inputName, controllerButton) in buttonMap {
             if let element = profile.buttons[inputName] {
-                bindButton(element, to: controllerButton)
+				bindButton(element, to: controllerButton, from: controller)
                 boundCount += 1
             }
         }
 
         // D-pad
         if let dpad = profile.dpads[GCInputDirectionPad] {
-            bindButton(dpad.up, to: .dpadUp)
-            bindButton(dpad.down, to: .dpadDown)
-            bindButton(dpad.left, to: .dpadLeft)
-            bindButton(dpad.right, to: .dpadRight)
+			bindButton(dpad.up, to: .dpadUp, from: controller)
+			bindButton(dpad.down, to: .dpadDown, from: controller)
+			bindButton(dpad.left, to: .dpadLeft, from: controller)
+			bindButton(dpad.right, to: .dpadRight, from: controller)
             boundCount += 4
         }
 
         // Left thumbstick (analog) — use for mouse movement
         if let leftStick = profile.dpads[GCInputLeftThumbstick] {
-            leftStick.valueChangedHandler = { [weak self] _, xValue, yValue in
-                self?.updateLeftStick(x: xValue, y: yValue)
+			leftStick.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
+				guard let self, let controller else { return }
+				self.routeGameControllerStickInput(from: controller, x: xValue, y: yValue) { service, x, y in
+					service.updateLeftStick(x: x, y: y)
+				}
             }
         } else if let dpad = profile.dpads[GCInputDirectionPad] {
             // Fallback: Joy-Con stick may be exposed as a D-pad rather than a thumbstick.
             // Use it for mouse movement so the user gets analog-like cursor control.
-            dpad.valueChangedHandler = { [weak self] _, xValue, yValue in
-                self?.updateLeftStick(x: xValue, y: yValue)
+			dpad.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
+				guard let self, let controller else { return }
+				self.routeGameControllerStickInput(from: controller, x: xValue, y: yValue) { service, x, y in
+					service.updateLeftStick(x: x, y: y)
+				}
             }
         }
 
         // Right thumbstick (analog)
         if let rightStick = profile.dpads[GCInputRightThumbstick] {
-            rightStick.valueChangedHandler = { [weak self] _, xValue, yValue in
-                self?.updateRightStick(x: xValue, y: yValue)
+			rightStick.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
+				guard let self, let controller else { return }
+				self.routeGameControllerStickInput(from: controller, x: xValue, y: yValue) { service, x, y in
+					service.updateRightStick(x: x, y: y)
+				}
             }
         }
 

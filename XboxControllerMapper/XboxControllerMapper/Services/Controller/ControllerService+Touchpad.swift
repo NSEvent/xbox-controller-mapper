@@ -55,6 +55,7 @@ extension ControllerService {
 
     /// Configures touchpad handlers shared by DualSense and DualShock controllers.
     func setupTouchpadHandlers(
+		for controller: GCController,
         primary: GCControllerDirectionPad,
         secondary: GCControllerDirectionPad,
         button: GCControllerButtonInput
@@ -78,18 +79,29 @@ extension ControllerService {
         //   second individual action.
         // We track the active quadrant across press → release so the same
         // button receives both events even if the user's finger drifts.
-        button.pressedChangedHandler = { [weak self] _, _, pressed in
-            self?.updateTouchpadClick(pressed: pressed)
+		button.pressedChangedHandler = { [weak self, weak controller] _, _, pressed in
+			guard let controller else { return }
+			self?.routeGameControllerTouchpadInput(from: controller, meaningful: pressed) { service in
+				service.updateTouchpadClick(pressed: pressed)
+			}
         }
 
         // Touchpad primary finger position (for mouse control)
-        primary.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.updateTouchpad(x: xValue, y: yValue)
+		primary.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
+			guard let controller else { return }
+			let meaningful = hypotf(xValue, yValue) >= 0.03
+			self?.routeGameControllerTouchpadInput(from: controller, meaningful: meaningful) { service in
+				service.updateTouchpad(x: xValue, y: yValue)
+			}
         }
 
         // Touchpad secondary finger position (for gestures)
-        secondary.valueChangedHandler = { [weak self] _, xValue, yValue in
-            self?.updateTouchpadSecondary(x: xValue, y: yValue)
+		secondary.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
+			guard let controller else { return }
+			let meaningful = hypotf(xValue, yValue) >= 0.03
+			self?.routeGameControllerTouchpadInput(from: controller, meaningful: meaningful) { service in
+				service.updateTouchpadSecondary(x: xValue, y: yValue)
+			}
         }
     }
 
