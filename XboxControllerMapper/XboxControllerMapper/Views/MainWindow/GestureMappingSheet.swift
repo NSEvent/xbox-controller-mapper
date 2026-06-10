@@ -9,59 +9,28 @@ struct GestureMappingSheet: View {
     let gestureType: MotionGestureType
     let existingMapping: GestureMapping?
 
-    enum MappingType: Int {
-        case singleKey = 0
-        case macro = 1
-        case script = 2
-        case systemCommand = 3
-    }
-
-    @State private var mappingType: MappingType = .singleKey
-    @State private var keyCode: CGKeyCode?
-    @State private var modifiers = ModifierFlags()
-    @State private var selectedMacroId: UUID?
-    @State private var selectedScriptId: UUID?
-    @State private var hint: String = ""
-    @State private var showingKeyboard = false
-    @State private var showingMacroCreation = false
-    @State private var showingScriptCreation = false
-
-    // System command state
-    @State private var systemCommandCategory: SystemCommandCategory = .app
-    @State private var appBundleIdentifier: String = ""
-    @State private var appNewWindow: Bool = false
-    @State private var shellCommandText: String = ""
-    @State private var shellRunInTerminal: Bool = false
-    @State private var linkURL: String = ""
-    @State private var webhookURL: String = ""
-    @State private var webhookMethod: HTTPMethod = .GET
-    @State private var webhookHeaders: [String: String] = [:]
-    @State private var webhookBody: String = ""
-    @State private var webhookShowNotification: Bool = false
-    @State private var webhookMaxRetries: Int = 0
-    @State private var webhookRetryDelay: Double = 1.0
-    @State private var webhookOnSuccessCommand: String = ""
-    @State private var webhookOnErrorCommand: String = ""
-    @State private var webhookTimeout: Double = 10
-    @State private var obsWebSocketURL: String = "ws://localhost:4455"
-    @State private var obsWebSocketPassword: String = ""
-    @State private var obsRequestType: String = ""
-    @State private var obsRequestData: String = ""
-    @State private var showingAppPicker = false
-    @State private var showingBookmarkPicker = false
+    @State private var editorState: MappingEditorState = {
+        // Gesture-specific defaults that differ from MappingEditorState's
+        var state = MappingEditorState()
+        state.systemCommandCategory = .app
+        state.shellRunInTerminal = false
+        state.webhookMethod = .GET
+        state.obsWebSocketURL = "ws://localhost:4455"
+        return state
+    }()
 
     private var isEditing: Bool { existingMapping != nil }
 
     private var canSave: Bool {
-        switch mappingType {
+        switch editorState.mappingType {
         case .singleKey:
-            return keyCode != nil || modifiers.hasAny
+            return editorState.keyCode != nil || editorState.modifiers.hasAny
         case .macro:
-            return selectedMacroId != nil
+            return editorState.selectedMacroId != nil
         case .script:
-            return selectedScriptId != nil
+            return editorState.selectedScriptId != nil
         case .systemCommand:
-            return buildSystemCommand() != nil
+            return editorState.buildSystemCommand() != nil
         }
     }
 
@@ -96,22 +65,22 @@ struct GestureMappingSheet: View {
 
                         Spacer()
 
-                        Picker("Action type", selection: $mappingType) {
-                            Text("Key").tag(MappingType.singleKey)
-                            Text("Macro").tag(MappingType.macro)
-                            Text("Script").tag(MappingType.script)
-                            Text("System").tag(MappingType.systemCommand)
+                        Picker("Action type", selection: $editorState.mappingType) {
+                            Text("Key").tag(MappingEditorState.MappingType.singleKey)
+                            Text("Macro").tag(MappingEditorState.MappingType.macro)
+                            Text("Script").tag(MappingEditorState.MappingType.script)
+                            Text("System").tag(MappingEditorState.MappingType.systemCommand)
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
                         .frame(width: 280)
                         .padding(.trailing, 8)
 
-                        if mappingType == .singleKey {
-                            Button(action: { showingKeyboard.toggle() }) {
+                        if editorState.mappingType == .singleKey {
+                            Button(action: { editorState.showingKeyboard.toggle() }) {
                                 HStack(spacing: 6) {
-                                    Image(systemName: showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
-                                    Text(showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
+                                    Image(systemName: editorState.showingKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
+                                    Text(editorState.showingKeyboard ? "Hide Keyboard" : "Show Keyboard")
                                 }
                                 .font(.callout)
                                 .padding(.horizontal, 10)
@@ -124,19 +93,19 @@ struct GestureMappingSheet: View {
                         }
                     }
 
-                    if mappingType == .singleKey {
-                        if showingKeyboard {
-                            KeyboardVisualView(selectedKeyCode: $keyCode, modifiers: $modifiers)
+                    if editorState.mappingType == .singleKey {
+                        if editorState.showingKeyboard {
+                            KeyboardVisualView(selectedKeyCode: $editorState.keyCode, modifiers: $editorState.modifiers)
                         } else {
-                            KeyCaptureField(keyCode: $keyCode, modifiers: $modifiers)
+                            KeyCaptureField(keyCode: $editorState.keyCode, modifiers: $editorState.modifiers)
 
                             Text("Click to type a shortcut, or show keyboard to select visually")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                    } else if mappingType == .macro {
+                    } else if editorState.mappingType == .macro {
                         macroContent
-                    } else if mappingType == .script {
+                    } else if editorState.mappingType == .script {
                         scriptContent
                     } else {
                         systemCommandContent
@@ -148,7 +117,7 @@ struct GestureMappingSheet: View {
                             .font(.subheadline)
                             .foregroundColor(.secondary)
 
-                        TextField("e.g. Quick Save, Screenshot...", text: $hint)
+                        TextField("e.g. Quick Save, Screenshot...", text: $editorState.hint)
                             .textFieldStyle(.roundedBorder)
                             .font(.subheadline)
                     }
@@ -175,32 +144,32 @@ struct GestureMappingSheet: View {
         .frame(width: 850)
         .onAppear {
             if let mapping = existingMapping {
-                keyCode = mapping.keyCode
-                modifiers = mapping.modifiers
-                hint = mapping.hint ?? ""
+                editorState.keyCode = mapping.keyCode
+                editorState.modifiers = mapping.modifiers
+                editorState.hint = mapping.hint ?? ""
 
                 if let systemCommand = mapping.systemCommand {
-                    mappingType = .systemCommand
-                    loadSystemCommandState(systemCommand)
+                    editorState.mappingType = .systemCommand
+                    editorState.loadSystemCommand(systemCommand)
                 } else if let macroId = mapping.macroId {
-                    mappingType = .macro
-                    selectedMacroId = macroId
+                    editorState.mappingType = .macro
+                    editorState.selectedMacroId = macroId
                 } else if let scriptId = mapping.scriptId {
-                    mappingType = .script
-                    selectedScriptId = scriptId
+                    editorState.mappingType = .script
+                    editorState.selectedScriptId = scriptId
                 } else {
-                    mappingType = .singleKey
+                    editorState.mappingType = .singleKey
                 }
             }
         }
-        .sheet(isPresented: $showingMacroCreation) {
+        .sheet(isPresented: $editorState.showingMacroCreation) {
             MacroEditorSheet(macro: nil, onSave: { newMacro in
-                selectedMacroId = newMacro.id
+                editorState.selectedMacroId = newMacro.id
             })
         }
-        .sheet(isPresented: $showingScriptCreation) {
+        .sheet(isPresented: $editorState.showingScriptCreation) {
             ScriptEditorSheet(script: nil, onSave: { newScript in
-                selectedScriptId = newScript.id
+                editorState.selectedScriptId = newScript.id
             })
         }
     }
@@ -210,7 +179,7 @@ struct GestureMappingSheet: View {
     @ViewBuilder
     private var macroContent: some View {
         if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
-            Picker("Select Macro", selection: $selectedMacroId) {
+            Picker("Select Macro", selection: $editorState.selectedMacroId) {
                 Text("Select a Macro...").tag(nil as UUID?)
                 ForEach(profile.macros) { macro in
                     Text(macro.name).tag(macro.id as UUID?)
@@ -219,7 +188,7 @@ struct GestureMappingSheet: View {
             .labelsHidden()
             .frame(maxWidth: .infinity)
 
-            Button { showingMacroCreation = true } label: {
+            Button { editorState.showingMacroCreation = true } label: {
                 Label("Create New Macro...", systemImage: "plus.circle")
                     .font(.subheadline)
             }
@@ -229,7 +198,7 @@ struct GestureMappingSheet: View {
                     .foregroundColor(.secondary)
                     .italic()
 
-                Button { showingMacroCreation = true } label: {
+                Button { editorState.showingMacroCreation = true } label: {
                     Label("Create New Macro...", systemImage: "plus.circle")
                         .font(.subheadline)
                 }
@@ -246,7 +215,7 @@ struct GestureMappingSheet: View {
     @ViewBuilder
     private var scriptContent: some View {
         if let profile = profileManager.activeProfile, !profile.scripts.isEmpty {
-            Picker("Select Script", selection: $selectedScriptId) {
+            Picker("Select Script", selection: $editorState.selectedScriptId) {
                 Text("Select a Script...").tag(nil as UUID?)
                 ForEach(profile.scripts) { script in
                     Text(script.name).tag(script.id as UUID?)
@@ -255,7 +224,7 @@ struct GestureMappingSheet: View {
             .labelsHidden()
             .frame(maxWidth: .infinity)
 
-            Button { showingScriptCreation = true } label: {
+            Button { editorState.showingScriptCreation = true } label: {
                 Label("Create New Script...", systemImage: "plus.circle")
                     .font(.subheadline)
             }
@@ -265,7 +234,7 @@ struct GestureMappingSheet: View {
                     .foregroundColor(.secondary)
                     .italic()
 
-                Button { showingScriptCreation = true } label: {
+                Button { editorState.showingScriptCreation = true } label: {
                     Label("Create New Script...", systemImage: "plus.circle")
                         .font(.subheadline)
                 }
@@ -282,63 +251,63 @@ struct GestureMappingSheet: View {
     @ViewBuilder
     private var systemCommandContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Picker("Category", selection: $systemCommandCategory) {
+            Picker("Category", selection: $editorState.systemCommandCategory) {
                 ForEach(SystemCommandCategory.allCases, id: \.self) { category in
                     Text(category.rawValue).tag(category)
                 }
             }
             .pickerStyle(.segmented)
 
-            switch systemCommandCategory {
+            switch editorState.systemCommandCategory {
             case .app:
-                AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingAppPicker)
-                    .sheet(isPresented: $showingAppPicker) {
+                AppSelectionButton(bundleId: editorState.appBundleIdentifier, showingPicker: $editorState.showingAppPicker)
+                    .sheet(isPresented: $editorState.showingAppPicker) {
                         SystemActionAppPickerSheet(
-                            currentBundleIdentifier: appBundleIdentifier.isEmpty ? nil : appBundleIdentifier
+                            currentBundleIdentifier: editorState.appBundleIdentifier.isEmpty ? nil : editorState.appBundleIdentifier
                         ) { app in
-                            appBundleIdentifier = app.bundleIdentifier
+                            editorState.appBundleIdentifier = app.bundleIdentifier
                         }
                     }
-                Toggle("Open in new window (Cmd+N)", isOn: $appNewWindow)
+                Toggle("Open in new window (Cmd+N)", isOn: $editorState.appNewWindow)
                     .font(.caption)
             case .shell:
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("Command (e.g. say \"Hello\")", text: $shellCommandText)
+                    TextField("Command (e.g. say \"Hello\")", text: $editorState.shellCommandText)
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
 
                     Toggle("Run silently (no terminal window)", isOn: Binding(
-                        get: { !shellRunInTerminal },
-                        set: { shellRunInTerminal = !$0 }
+                        get: { !editorState.shellRunInTerminal },
+                        set: { editorState.shellRunInTerminal = !$0 }
                     ))
                         .font(.caption)
 
-                    Text(shellRunInTerminal
+                    Text(editorState.shellRunInTerminal
                         ? "Opens a terminal window and executes the command"
                         : "Runs silently in the background (no visible output)")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    if shellRunInTerminal {
+                    if editorState.shellRunInTerminal {
                         Divider()
                         TerminalAppPickerRow()
                     }
                 }
             case .link:
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("URL (e.g. https://google.com)", text: $linkURL)
+                    TextField("URL (e.g. https://google.com)", text: $editorState.linkURL)
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
 
                     Button {
-                        showingBookmarkPicker = true
+                        editorState.showingBookmarkPicker = true
                     } label: {
                         Label("Browse Bookmarks", systemImage: "book")
                             .font(.subheadline)
                     }
-                    .sheet(isPresented: $showingBookmarkPicker) {
+                    .sheet(isPresented: $editorState.showingBookmarkPicker) {
                         BookmarkPickerSheet { url in
-                            linkURL = url
+                            editorState.linkURL = url
                         }
                     }
 
@@ -348,19 +317,19 @@ struct GestureMappingSheet: View {
                 }
             case .webhook:
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
+                    TextField("URL (e.g. https://api.example.com/webhook)", text: $editorState.webhookURL)
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
 
-                    Picker("Method", selection: $webhookMethod) {
+                    Picker("Method", selection: $editorState.webhookMethod) {
                         ForEach(HTTPMethod.allCases) { method in
                             Text(method.rawValue).tag(method)
                         }
                     }
                     .pickerStyle(.segmented)
 
-                    if [.POST, .PUT, .PATCH].contains(webhookMethod) {
-                        TextField("Body (JSON)", text: $webhookBody, axis: .vertical)
+                    if [.POST, .PUT, .PATCH].contains(editorState.webhookMethod) {
+                        TextField("Body (JSON)", text: $editorState.webhookBody, axis: .vertical)
                             .textFieldStyle(.roundedBorder)
                             .font(.subheadline)
                             .lineLimit(3...6)
@@ -372,16 +341,16 @@ struct GestureMappingSheet: View {
                 }
             case .obs:
                 VStack(alignment: .leading, spacing: 8) {
-                    TextField("WebSocket URL", text: $obsWebSocketURL)
+                    TextField("WebSocket URL", text: $editorState.obsWebSocketURL)
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
-                    TextField("Password (optional)", text: $obsWebSocketPassword)
+                    TextField("Password (optional)", text: $editorState.obsWebSocketPassword)
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
-                    TextField("Request Type", text: $obsRequestType)
+                    TextField("Request Type", text: $editorState.obsRequestType)
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
-                    TextField("Request Data (JSON, optional)", text: $obsRequestData, axis: .vertical)
+                    TextField("Request Data (JSON, optional)", text: $editorState.obsRequestData, axis: .vertical)
                         .textFieldStyle(.roundedBorder)
                         .font(.subheadline)
                         .lineLimit(2...4)
@@ -396,23 +365,23 @@ struct GestureMappingSheet: View {
         var gesture = existingMapping ?? GestureMapping(gestureType: gestureType)
         gesture.gestureType = gestureType
 
-        switch mappingType {
+        switch editorState.mappingType {
         case .singleKey:
             gesture = gesture.clearingConflicts(keeping: .keyPress)
-            gesture.keyCode = keyCode
-            gesture.modifiers = modifiers
+            gesture.keyCode = editorState.keyCode
+            gesture.modifiers = editorState.modifiers
         case .macro:
             gesture = gesture.clearingConflicts(keeping: .macro)
-            gesture.macroId = selectedMacroId
+            gesture.macroId = editorState.selectedMacroId
         case .script:
             gesture = gesture.clearingConflicts(keeping: .script)
-            gesture.scriptId = selectedScriptId
+            gesture.scriptId = editorState.selectedScriptId
         case .systemCommand:
             gesture = gesture.clearingConflicts(keeping: .systemCommand)
-            gesture.systemCommand = buildSystemCommand()
+            gesture.systemCommand = editorState.buildSystemCommand()
         }
 
-        gesture.hint = hint.isEmpty ? nil : hint
+        gesture.hint = editorState.hint.isEmpty ? nil : editorState.hint
 
         if isEditing {
             profileManager.updateGesture(gesture)
@@ -421,77 +390,5 @@ struct GestureMappingSheet: View {
         }
 
         dismiss()
-    }
-
-    // MARK: - System Command Helpers
-
-    private func buildSystemCommand() -> SystemCommand? {
-        switch systemCommandCategory {
-        case .app:
-            guard !appBundleIdentifier.isEmpty else { return nil }
-            return .launchApp(bundleIdentifier: appBundleIdentifier, newWindow: appNewWindow)
-        case .shell:
-            guard !shellCommandText.isEmpty else { return nil }
-            return .shellCommand(command: shellCommandText, inTerminal: shellRunInTerminal)
-        case .link:
-            guard !linkURL.isEmpty else { return nil }
-            return .openLink(url: linkURL)
-        case .webhook:
-            guard !webhookURL.isEmpty else { return nil }
-            let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
-            let body = webhookBody.isEmpty ? nil : webhookBody
-            let rh = HTTPResponseHandling(
-                showNotification: webhookShowNotification,
-                maxRetries: webhookMaxRetries,
-                retryDelay: webhookRetryDelay,
-                onSuccessCommand: webhookOnSuccessCommand.isEmpty ? nil : webhookOnSuccessCommand,
-                onErrorCommand: webhookOnErrorCommand.isEmpty ? nil : webhookOnErrorCommand,
-                timeout: webhookTimeout
-            )
-            return .httpRequest(url: webhookURL, method: webhookMethod, headers: headers, body: body, responseHandling: rh.hasConfiguration ? rh : nil)
-        case .obs:
-            guard !obsWebSocketURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-            guard !obsRequestType.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-            let password = obsWebSocketPassword.trimmingCharacters(in: .whitespacesAndNewlines)
-            let requestData = obsRequestData.trimmingCharacters(in: .whitespacesAndNewlines)
-            return .obsWebSocket(
-                url: obsWebSocketURL,
-                password: password.isEmpty ? nil : password,
-                requestType: obsRequestType,
-                requestData: requestData.isEmpty ? nil : requestData
-            )
-        }
-    }
-
-    private func loadSystemCommandState(_ command: SystemCommand) {
-        systemCommandCategory = command.category
-        switch command {
-        case .launchApp(let bundleId, let newWindow):
-            appBundleIdentifier = bundleId
-            appNewWindow = newWindow
-        case .shellCommand(let cmd, let inTerminal):
-            shellCommandText = cmd
-            shellRunInTerminal = inTerminal
-        case .openLink(let url):
-            linkURL = url
-        case .httpRequest(let url, let method, let headers, let body, let responseHandling):
-            webhookURL = url
-            webhookMethod = method
-            webhookHeaders = headers ?? [:]
-            webhookBody = body ?? ""
-            if let rh = responseHandling {
-                webhookShowNotification = rh.showNotification
-                webhookMaxRetries = rh.maxRetries
-                webhookRetryDelay = rh.retryDelay
-                webhookOnSuccessCommand = rh.onSuccessCommand ?? ""
-                webhookOnErrorCommand = rh.onErrorCommand ?? ""
-                webhookTimeout = rh.timeout
-            }
-        case .obsWebSocket(let url, let password, let requestType, let requestData):
-            obsWebSocketURL = url
-            obsWebSocketPassword = password ?? ""
-            self.obsRequestType = requestType
-            self.obsRequestData = requestData ?? ""
-        }
     }
 }
