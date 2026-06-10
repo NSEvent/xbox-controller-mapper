@@ -58,9 +58,15 @@ extension ControllerVisualView {
 			}
 			.frame(width: 250)
 
-			appleTVRemoteBodyView
-				.frame(width: appleTVRemotePreviewWidth, height: appleTVRemotePreviewHeight)
-				.accessibilityHidden(true)
+			VStack(spacing: 12) {
+				appleTVRemoteBodyView
+					.frame(width: appleTVRemotePreviewWidth, height: appleTVRemotePreviewHeight)
+					.accessibilityHidden(true)
+
+				if controllerService.isConnected {
+					BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
+				}
+			}
 
 			VStack(alignment: .leading, spacing: 16) {
 				referenceGroup(title: "System", buttons: [.appleTVRemotePower, .siri, .xbox])

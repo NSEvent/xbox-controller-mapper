@@ -1086,6 +1086,7 @@ class ControllerService: ObservableObject {
         batteryLevel = -1
         batteryState = .unknown
         batteryMonitor.resetBatteryLevel()  // Clear stale battery reading
+        batteryMonitor.allowsSerialNamedPeripherals = false
         stopDisplayUpdateTimer()
         stopKeepAliveTimer()
         stopBatteryBlink()
@@ -1761,6 +1762,13 @@ class ControllerService: ObservableObject {
 		UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
 
 		controllerName = appleTVRemoteDisplayName(for: controller)
+
+		// The remote's GATT battery service is readable, but its Bluetooth name
+		// is a bare serial number, so the monitor needs the serial-name allowance
+		// and a fresh connected-peripherals check (a connected remote never
+		// advertises, so passive scanning would never find it).
+		batteryMonitor.allowsSerialNamedPeripherals = true
+		batteryMonitor.refreshBatteryLevel()
 
 		microGamepad.allowsRotation = false
 		microGamepad.reportsAbsoluteDpadValues = false

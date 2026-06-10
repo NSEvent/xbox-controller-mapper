@@ -21,6 +21,13 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
 		"control center remote",
 		"universal electronics"
 	]
+
+	/// The Siri Remote's Bluetooth name is its serial number (e.g. "C08QMZ6M2330"),
+	/// so name-fragment matching can never identify it. When ControllerService
+	/// detects an Apple TV remote as the active controller, it sets this flag so
+	/// the monitor also accepts connected peripherals whose name looks like a
+	/// bare serial number.
+	var allowsSerialNamedPeripherals = false
     
     override init() {
         super.init()
@@ -103,7 +110,20 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
 
 	private func isTargetControllerPeripheral(_ peripheral: CBPeripheral) -> Bool {
 		guard let name = peripheral.name?.lowercased(), !name.isEmpty else { return false }
-		return targetNameFragments.contains { name.contains($0) }
+		if targetNameFragments.contains(where: { name.contains($0) }) {
+			return true
+		}
+		return allowsSerialNamedPeripherals && Self.isSerialLikeName(name)
+	}
+
+	/// True for names that look like a bare device serial number: one run of
+	/// 8-20 alphanumerics with at least one digit and no spaces (the Siri
+	/// Remote advertises e.g. "C08QMZ6M2330"). Names like "Magic Keyboard" or
+	/// "Xbox Wireless Controller" never match.
+	static func isSerialLikeName(_ name: String) -> Bool {
+		guard name.count >= 8, name.count <= 20 else { return false }
+		guard name.allSatisfy({ $0.isLetter || $0.isNumber }) else { return false }
+		return name.contains { $0.isNumber }
 	}
     
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {

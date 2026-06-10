@@ -32,11 +32,12 @@ extension ControllerService {
 		let isAppleTVRemote = storage.lock.withLock { storage.isAppleTVRemote }
 		let batteryController = connectedController ?? (isAppleTVRemote ? Self.connectedAppleTVRemoteController() : nil)
 		let isXbox = batteryController?.extendedGamepad is GCXboxGamepad
-		let prefersBluetoothBattery = isXbox || (isAppleTVRemote && batteryMonitor.batteryLevel != nil)
+		let bluetoothLevel = batteryMonitor.batteryLevel
+		let prefersBluetoothBattery = isXbox || (isAppleTVRemote && bluetoothLevel != nil)
 		let controllerBattery = batteryController?.battery
 		if let reading = ControllerBatteryReadingResolver.resolve(
 			prefersBluetoothBattery: prefersBluetoothBattery,
-			bluetoothLevel: batteryMonitor.batteryLevel,
+			bluetoothLevel: bluetoothLevel,
 			bluetoothIsCharging: batteryMonitor.isCharging,
 			controllerBatteryLevel: controllerBattery?.batteryLevel,
 			controllerBatteryState: controllerBattery?.batteryState
