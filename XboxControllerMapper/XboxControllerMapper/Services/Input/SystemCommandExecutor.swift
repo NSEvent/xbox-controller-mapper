@@ -66,10 +66,6 @@ class SystemCommandExecutor: @unchecked Sendable {
     }
 
     func execute(_ command: SystemCommand) {
-        if UniversalControlMouseRelay.shared.sendSystemCommand(command) {
-            return
-        }
-
         switch command {
         case .launchApp(let bundleIdentifier, let newWindow):
             launchApplication(bundleIdentifier: bundleIdentifier, newWindow: newWindow)

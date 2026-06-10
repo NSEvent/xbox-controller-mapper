@@ -32,6 +32,10 @@ import XCTest
 /// for chord and sequence membership tests and chord matching.
 final class PrecomputedLookupBenchmarkTests: XCTestCase {
 
+    override func setUpWithError() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_BENCHMARKS"] == "1", "Benchmarks run only with RUN_BENCHMARKS=1")
+    }
+
     // Realistic test data: 8 chords, 10 sequences, simulating a well-configured profile
     static let allButtons: [ControllerButton] = [.a, .b, .x, .y, .leftBumper, .rightBumper, .dpadUp, .dpadDown, .dpadLeft, .dpadRight, .leftTrigger, .rightTrigger, .menu, .view, .leftThumbstick, .rightThumbstick]
 
@@ -172,6 +176,10 @@ final class PrecomputedLookupBenchmarkTests: XCTestCase {
 
 /// Compares multiple individual lock acquisitions vs a single snapshot read.
 final class ControllerSnapshotBenchmarkTests: XCTestCase {
+
+    override func setUpWithError() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_BENCHMARKS"] == "1", "Benchmarks run only with RUN_BENCHMARKS=1")
+    }
 
     func testBenchmark_controllerRead_OLD_individualLocks() {
         let storage = ControllerStorage()

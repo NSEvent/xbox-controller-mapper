@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit tests (macOS)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      - name: Run tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project XboxControllerMapper/XboxControllerMapper.xcodeproj \
+            -scheme XboxControllerMapper \
+            -destination 'platform=macOS' \
+            -derivedDataPath DerivedData \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_REQUIRED=NO \
+            | tee xcodebuild.log | grep -vE '^\s*$' | tail -200
+
+      - name: Upload log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: xcodebuild.log

@@ -456,10 +456,6 @@ class MappingEngine: ObservableObject {
         return state.lock.withLock { state.chordParticipantButtons.contains(button) }
     }
 
-    nonisolated private func isButtonUsedInSequences(_ button: ControllerButton, profile: Profile) -> Bool {
-        return state.lock.withLock { state.sequenceParticipantButtons.contains(button) }
-    }
-
 	nonisolated private func resolvedInputButton(for button: ControllerButton) -> ControllerButton {
 		state.lock.withLock {
 			guard let profile = state.activeProfile else { return button }

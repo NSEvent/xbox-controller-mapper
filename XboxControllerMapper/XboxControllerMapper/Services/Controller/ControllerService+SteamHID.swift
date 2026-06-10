@@ -25,13 +25,16 @@ private final class SteamHIDRunLoop: @unchecked Sendable {
         CFRunLoopWakeUp(runLoop)
     }
 
-    func performAndWait(_ work: @escaping @Sendable () -> Void) {
+    /// Returns false when the wait timed out — the work may still be running
+    /// (or queued) on the HID run loop, so callers must not free resources it uses.
+    @discardableResult
+    func performAndWait(_ work: @escaping @Sendable () -> Void) -> Bool {
         let semaphore = DispatchSemaphore(value: 0)
         perform {
             work()
             semaphore.signal()
         }
-        _ = semaphore.wait(timeout: .now() + 1.0)
+        return semaphore.wait(timeout: .now() + 1.0) == .success
     }
 
     private func startIfNeeded() -> CFRunLoop {
@@ -190,9 +193,16 @@ extension ControllerService {
         stopSteamControllerHIDSessions()
 
         if let manager = steamHIDManager {
-            steamHIDRunLoop.performAndWait {
+            let completed = steamHIDRunLoop.performAndWait {
                 IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
                 IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+            }
+            guard completed else {
+                // The run loop may still be tearing the manager down and can
+                // invoke the matching/removal callbacks with our context. Keep
+                // the ivars and leak — a leak is safer than a use-after-free.
+                NSLog("[ControllerKeys] Steam HID manager teardown timed out; leaking manager and callback context to avoid use-after-free")
+                return
             }
         }
         steamHIDManager = nil
@@ -304,6 +314,7 @@ extension ControllerService {
 
         genericHIDFallbackTimer?.cancel()
         genericHIDFallbackTimer = nil
+        genericHIDPendingFallbackDevice = nil
         if genericHIDController != nil {
             genericHIDController?.stop()
             genericHIDController = nil

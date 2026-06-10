@@ -824,6 +824,18 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var universalControlRelayStartedAt: CFAbsoluteTime?
     private var lastUniversalControlRelayDebugLog: CFAbsoluteTime = 0
 
+    /// Clears the relay-session fields under stateLock. Writes happen on
+    /// mouseQueue, but shouldRelayUniversalControlAction() reads
+    /// universalControlRelayActive from other queues, so unsynchronized
+    /// writes would be a data race.
+    private func deactivateUniversalControlRelaySession() {
+        stateLock.lock()
+        universalControlRelayActive = false
+        universalControlRelayEdgePoint = nil
+        universalControlRelayStartedAt = nil
+        stateLock.unlock()
+    }
+
     private func shouldRelayUniversalControlAction() -> Bool {
         stateLock.lock()
         let active = universalControlRelayActive
@@ -875,8 +887,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         }
     }
 
-    /// Check if we can post events (using cached state)
+    /// Check if we can post events (using cached state).
+    /// Locked: called from keyboardQueue, mouseQueue, and callers' threads.
+    /// Safe to lock here — every caller invokes this before taking stateLock.
     private func checkAccessibility() -> Bool {
+        stateLock.lock()
+        defer { stateLock.unlock() }
         if !isAccessibilityTrusted {
             // Re-check just in case user granted it recently
             isAccessibilityTrusted = AXIsProcessTrusted()
@@ -1024,9 +1040,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
 			let canContinueRemoteHandoff = UniversalControlMouseRelay.shared.canStartRemoteHandoff
 			if (zoomActive || isDrag || !canContinueRemoteHandoff || relayConfirmationTimedOut), self.universalControlRelayActive {
-                self.universalControlRelayActive = false
-                self.universalControlRelayEdgePoint = nil
-                self.universalControlRelayStartedAt = nil
+                self.deactivateUniversalControlRelaySession()
 				if relayConfirmationTimedOut {
 					UniversalControlMouseRelay.shared.suppressRemoteHandoff(reason: "no authenticated cursor status")
 				}
@@ -1070,16 +1084,16 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                            dx: Int(moveX),
                            dy: Int(moveY)
                        ) {
-                        self.universalControlRelayActive = false
-                        self.universalControlRelayEdgePoint = nil
-                        self.universalControlRelayStartedAt = nil
+                        self.deactivateUniversalControlRelaySession()
                         UniversalControlMouseRelay.shared.endRemoteSession()
                     } else {
                         if UniversalControlMouseRelay.shared.sendMove(dx: Int(moveX), dy: Int(moveY)) {
+							self.stateLock.lock()
 							self.universalControlRelayActive = true
 							if self.universalControlRelayStartedAt == nil {
 								self.universalControlRelayStartedAt = now
 							}
+							self.stateLock.unlock()
 								if UniversalControlRelaySessionPolicy.shouldRouteMovementToRemote(
 									sessionActive: self.universalControlRelayActive,
 									hasReceivedCursorStatus: UniversalControlMouseRelay.shared.hasReceivedRemoteCursorStatus
@@ -1095,9 +1109,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 									return
 								}
 						} else {
-							self.universalControlRelayActive = false
-                            self.universalControlRelayEdgePoint = nil
-                            self.universalControlRelayStartedAt = nil
+							self.deactivateUniversalControlRelaySession()
                             UniversalControlMouseRelay.shared.cancelUnconfirmedRemoteSession()
                         }
                     }
@@ -1967,20 +1979,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     }
 
     private func mouseEventType(for keyCode: CGKeyCode, down: Bool) -> (CGEventType, CGMouseButton) {
-        switch keyCode {
-        case KeyCodeMapping.mouseLeftClick:
-            return (down ? .leftMouseDown : .leftMouseUp, .left)
-        case KeyCodeMapping.mouseRightClick:
-            return (down ? .rightMouseDown : .rightMouseUp, .right)
-        case KeyCodeMapping.mouseMiddleClick:
-            return (down ? .otherMouseDown : .otherMouseUp, .center)
-        case KeyCodeMapping.mouseBackClick:
-            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 3) ?? .center)
-        case KeyCodeMapping.mouseForwardClick:
-            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 4) ?? .center)
-        default:
-            return (down ? .leftMouseDown : .leftMouseUp, .left)
-        }
+        KeyCodeMapping.mouseEventType(for: keyCode, down: down)
     }
 
     /// Resolves click location while `stateLock` is held.
@@ -2173,11 +2172,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let charDelayUs = useconds_t((60.0 / Double(speed)) * 1_000_000)
 
         for char in text {
-            guard let firstUTF16 = String(char).utf16.first else { continue }
-            var chars = [UniChar(firstUTF16)]
+            // Full UTF-16 unit array: non-BMP characters (emoji, etc.) need a
+            // surrogate pair; posting only the first unit emits garbage.
+            var chars = Array(String(char).utf16)
+            guard !chars.isEmpty else { continue }
 
             if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
-                event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &chars)
+                event.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
                 event.flags = []
                 event.post(tap: .cghidEventTap)
             }
@@ -2185,7 +2186,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             usleep(Config.keyPressDuration)
 
             if let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) {
-                event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &chars)
+                event.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
                 event.flags = []
                 event.post(tap: .cghidEventTap)
             }
@@ -2195,12 +2196,13 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     }
 
     private func pasteString(_ text: String) {
-        DispatchQueue.main.async {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(text, forType: .string)
-        }
-        usleep(50000) // 50ms
+        // Write synchronously: NSPasteboard is safe off the main thread, and
+        // dispatching to main raced the fixed delay below — a busy main thread
+        // meant Cmd+V pasted the previous clipboard contents.
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        usleep(50000) // 50ms for the pasteboard server to propagate
         pressKey(CGKeyCode(kVK_ANSI_V), modifiers: .maskCommand)
     }
 }

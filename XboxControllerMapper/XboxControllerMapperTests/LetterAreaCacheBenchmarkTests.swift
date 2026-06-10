@@ -17,6 +17,10 @@ import XCTest
 
 final class LetterAreaCacheBenchmarkTests: XCTestCase {
 
+    override func setUpWithError() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_BENCHMARKS"] == "1", "Benchmarks run only with RUN_BENCHMARKS=1")
+    }
+
     // Realistic overlay and panel frames (simulating a centered keyboard on a 1920x1080 screen)
     static let overlayFrame = CGRect(x: 20, y: 10, width: 1100, height: 380)
     static let panelFrame = CGRect(x: 410, y: 120, width: 1100, height: 400)

@@ -27,7 +27,7 @@ SCHEME ?= XboxControllerMapper
 CONFIG ?= Release
 TEAM_ID ?= 542GXYT5Z2
 PROJECT := XboxControllerMapper/XboxControllerMapper.xcodeproj
-TEST_DERIVED_DATA := /tmp/xcm-derived-data-$(shell date +%s)-$(shell echo $$PPID)
+TEST_DERIVED_DATA := /tmp/xcm-derived-data
 
 # Load version from version.env
 include version.env
@@ -67,7 +67,7 @@ INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 HELPER_SRC := Helpers/XboxEliteHelper.swift
 HELPER_NAME := XboxEliteHelper
 
-.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full refactor-gate
+.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-clean refactor-gate
 
 help:
 	@echo "ControllerKeys - Build Commands"
@@ -79,7 +79,8 @@ help:
 	@echo "  make app-path  - Show the built app path"
 	@echo "  make test-regressions - Run focused regression suite"
 	@echo "  make test-full - Run full test suite"
-	@echo "  make refactor-gate - Run regression suite + full suite"
+	@echo "  make test-clean - Remove cached test derived data"
+	@echo "  make refactor-gate - Run full suite (gate for refactors)"
 	@echo ""
 	@echo "Configuration:"
 	@echo "  CONFIG=$(CONFIG) SCHEME=$(SCHEME)"
@@ -164,14 +165,18 @@ app-path:
 	@echo "$(APP_PATH)"
 
 test-regressions:
-	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(TEST_DERIVED_DATA)-regressions -destination 'platform=macOS' \
+	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(TEST_DERIVED_DATA) -destination 'platform=macOS' \
 		-only-testing:XboxControllerMapperTests/ProfileAutoSwitchResolverTests \
 		-only-testing:XboxControllerMapperTests/MouseClickLocationPolicyTests \
-		-only-testing:XboxControllerMapperTests/XboxControllerMapperTests/testTouchpadTapGesture \
-		-only-testing:XboxControllerMapperTests/XboxControllerMapperTests/testTouchpadTwoFingerTap \
-		-only-testing:XboxControllerMapperTests/XboxControllerMapperTests/testJoystickMouseMovement
+		-only-testing:XboxControllerMapperTests/TouchpadGestureTests/testTouchpadTapGesture \
+		-only-testing:XboxControllerMapperTests/TouchpadGestureTests/testTouchpadTwoFingerTap \
+		-only-testing:XboxControllerMapperTests/JoystickAndMouseMappingTests/testJoystickMouseMovement
 
 test-full:
-	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(TEST_DERIVED_DATA)-full -destination 'platform=macOS'
+	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(TEST_DERIVED_DATA) -destination 'platform=macOS'
 
-refactor-gate: test-regressions test-full
+test-clean:
+	rm -rf $(TEST_DERIVED_DATA)*
+
+# test-full is a superset of test-regressions; running both would build twice.
+refactor-gate: test-full

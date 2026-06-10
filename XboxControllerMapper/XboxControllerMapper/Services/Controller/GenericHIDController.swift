@@ -17,6 +17,11 @@ class GenericHIDController {
     private var axisElements: [IOHIDElement] = []
     private var hatElement: IOHIDElement?
 
+    /// SDL index lookups keyed by element cookie — O(1) per input event and
+    /// alias-safe (elements with duplicate usages still have distinct cookies).
+    private var buttonIndexByCookie: [IOHIDElementCookie: Int] = [:]
+    private var axisIndexByCookie: [IOHIDElementCookie: Int] = [:]
+
     /// Axis calibration from HID element descriptors
     private struct AxisCalibration {
         let logicalMin: Int
@@ -180,9 +185,11 @@ class GenericHIDController {
         // Sort by usage to match SDL's indexing
         buttons.sort { $0.usage < $1.usage }
         buttonElements = buttons.map { $0.element }
+        buttonIndexByCookie = Self.indexByCookie(for: buttonElements)
 
         axes.sort { $0.usage < $1.usage }
         axisElements = axes.map { $0.element }
+        axisIndexByCookie = Self.indexByCookie(for: axisElements)
 
         // Build calibration data
         axisCalibrations = axisElements.map { element in
@@ -197,17 +204,40 @@ class GenericHIDController {
         return !buttonElements.isEmpty || !axisElements.isEmpty || hatElement != nil
     }
 
+    private static func indexByCookie(for elements: [IOHIDElement]) -> [IOHIDElementCookie: Int] {
+        var map: [IOHIDElementCookie: Int] = [:]
+        for (index, element) in elements.enumerated() {
+            let cookie = IOHIDElementGetCookie(element)
+            // Keep the first index on (unlikely) duplicate cookies to match
+            // the previous firstIndex(where:) semantics.
+            if map[cookie] == nil {
+                map[cookie] = index
+            }
+        }
+        return map
+    }
+
     // MARK: - Lifecycle
 
-    func start() {
-        guard !isStarted else { return }
+    /// Opens the device and registers for input values. Returns false (without
+    /// registering anything) when IOHIDDeviceOpen fails, so callers can avoid
+    /// presenting a phantom controller that will never deliver input.
+    @discardableResult
+    func start() -> Bool {
+        guard !isStarted else { return true }
+
+        let openResult = IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
+        guard openResult == kIOReturnSuccess else {
+            NSLog("[ControllerKeys] Generic HID device open returned 0x%08X for %@", openResult, deviceName)
+            return false
+        }
 
         let retainedContext = Unmanaged.passRetained(CallbackContext(controller: self)).toOpaque()
         callbackContext = retainedContext
         IOHIDDeviceRegisterInputValueCallback(device, Self.inputValueCallback, retainedContext)
         IOHIDDeviceScheduleWithRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
-        IOHIDDeviceOpen(device, IOOptionBits(kIOHIDOptionsTypeNone))
         isStarted = true
+        return true
     }
 
     func stop() {
@@ -233,25 +263,23 @@ class GenericHIDController {
         let usagePage = IOHIDElementGetUsagePage(element)
         let usage = Int(IOHIDElementGetUsage(element))
         let intValue = Int(IOHIDValueGetIntegerValue(value))
+        let cookie = IOHIDElementGetCookie(element)
 
         if usagePage == UInt32(kHIDPage_Button) {
-            handleButtonInput(usage: usage, value: intValue)
+            handleButtonInput(cookie: cookie, value: intValue)
         } else if usagePage == UInt32(kHIDPage_GenericDesktop) {
             if usage == kHIDUsage_GD_Hatswitch {
                 handleHatInput(value: intValue)
             } else {
-                handleAxisInput(usage: usage, value: intValue)
+                handleAxisInput(cookie: cookie, value: intValue)
             }
         }
     }
 
     // MARK: - Button Translation
 
-    private func handleButtonInput(usage: Int, value: Int) {
-        // Find button index: buttons sorted by usage, so index = position in sorted array
-        guard let buttonIndex = buttonElements.firstIndex(where: {
-            Int(IOHIDElementGetUsage($0)) == usage
-        }) else { return }
+    private func handleButtonInput(cookie: IOHIDElementCookie, value: Int) {
+        guard let buttonIndex = buttonIndexByCookie[cookie] else { return }
 
         let pressed = value != 0
         guard buttonIndex < previousButtonStates.count,
@@ -284,10 +312,8 @@ class GenericHIDController {
 
     // MARK: - Axis Translation
 
-    private func handleAxisInput(usage: Int, value: Int) {
-        guard let axisIndex = axisElements.firstIndex(where: {
-            Int(IOHIDElementGetUsage($0)) == usage
-        }) else { return }
+    private func handleAxisInput(cookie: IOHIDElementCookie, value: Int) {
+        guard let axisIndex = axisIndexByCookie[cookie] else { return }
 
         guard axisIndex < axisCalibrations.count else { return }
         let cal = axisCalibrations[axisIndex]

@@ -265,6 +265,12 @@ class ControllerService: ObservableObject {
     /// logs to correlate connect/disconnect events during Bluetooth reconnection.
     private var connectionGeneration: UInt64 = 0
 
+    /// Generation token for the battery polling chain. `updateBatteryInfo()` bumps
+    /// it so previously scheduled polls cancel themselves — otherwise every external
+    /// trigger (connect, BLE battery publish, charging transition) would spawn
+    /// another immortal `asyncAfter` chain. Internal for test visibility.
+    private(set) var batteryPollGeneration: UInt64 = 0
+
     // HID monitoring for DualSense mic button (not exposed by GameController framework)
     var hidManager: IOHIDManager?
     var hidDevice: IOHIDDevice?
@@ -276,6 +282,9 @@ class ControllerService: ObservableObject {
     var genericHIDManager: IOHIDManager?
     var genericHIDController: GenericHIDController?
     var genericHIDFallbackTimer: DispatchWorkItem?
+    /// Device the pending `genericHIDFallbackTimer` was armed for, so removal of
+    /// that device can cancel the timer before it promotes a vanished device.
+    var genericHIDPendingFallbackDevice: IOHIDDevice?
     @Published var isGenericController = false
 
     /// Retained context pointer for generic HID callbacks — released in cleanupGenericHIDMonitoring().
@@ -291,9 +300,7 @@ class ControllerService: ObservableObject {
 
     // Nintendo Pro Controller HID monitoring (Home button not exposed by GameController framework)
     var nintendoHIDManager: IOHIDManager?
-    var nintendoHIDDevice: IOHIDDevice?
-    var nintendoHIDReportBuffer: UnsafeMutablePointer<UInt8>?
-    var nintendoHIDCallbackContext: UnsafeMutableRawPointer?
+    var nintendoHIDRegistrations: [NintendoHIDRegistration] = []
 
 	// Apple TV/Siri Remote HID monitoring (buttons + touch surface)
 	var appleTVRemoteHIDManager: IOHIDManager?
@@ -901,9 +908,16 @@ class ControllerService: ObservableObject {
         NSLog("[ControllerKeys] controllerConnected — generation=%llu vendor=%@",
               connectionGeneration, controller.vendorName ?? "(nil)")
 
+        // Detach the previous pad's handlers before adopting the new one;
+        // otherwise both physical controllers keep feeding this state machine.
+        if let previous = connectedController, previous !== controller {
+            clearGameControllerHandlers(for: previous)
+        }
+
         // Cancel generic HID fallback if GameController framework claimed this device
         genericHIDFallbackTimer?.cancel()
         genericHIDFallbackTimer = nil
+        genericHIDPendingFallbackDevice = nil
         if genericHIDController != nil {
             genericHIDController?.stop()
             genericHIDController = nil
@@ -1377,7 +1391,19 @@ class ControllerService: ObservableObject {
         displayIsSteamRightTouchpadTouching = false
     }
 
+    /// (Re)starts battery polling. Bumping the generation token invalidates any
+    /// previously scheduled poll chain, so repeated triggers (connect, BLE battery
+    /// publishes, charging transitions) never multiply the 10s polling chains.
     func updateBatteryInfo() {
+        batteryPollGeneration &+= 1
+        pollBatteryInfo(generation: batteryPollGeneration)
+    }
+
+    /// Runs one battery poll and reschedules itself while connected. Bails when
+    /// `generation` no longer matches `batteryPollGeneration` (a newer chain
+    /// superseded this one). Internal for test visibility.
+    func pollBatteryInfo(generation: UInt64) {
+        guard generation == batteryPollGeneration else { return }
         guard steamHIDActiveDevice == nil else {
             updateBatteryLightBar()
             return
@@ -1406,7 +1432,7 @@ class ControllerService: ObservableObject {
 
         if isConnected {
             DispatchQueue.main.asyncAfter(deadline: .now() + Config.batteryUpdateInterval) { [weak self] in
-                self?.updateBatteryInfo()
+                self?.pollBatteryInfo(generation: generation)
             }
         }
     }
@@ -1645,6 +1671,34 @@ class ControllerService: ObservableObject {
         }
     }
 
+    /// Clears every controller-type flag (and the matching UserDefaults keys) so
+    /// detection branches only ever have to set their own type. Without this, a
+    /// controller matching none of the branches keeps stale flags loaded in init.
+    /// Note: Apple TV Remote HID *cleanup* stays owned by
+    /// clearAppleTVRemoteStateForNonRemoteController — only the flag resets here.
+    func resetControllerTypeState() {
+        storage.lock.lock()
+        storage.isDualSense = false
+        storage.isDualSenseEdge = false
+        storage.isDualShock = false
+        storage.isNintendo = false
+        storage.isJoyConLeft = false
+        storage.isJoyConRight = false
+        storage.isXboxElite = false
+        storage.isSteamController = false
+        storage.isAppleTVRemote = false
+        storage.elitePaddleEventSource = .none
+        storage.lock.unlock()
+
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasNintendoKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasSteamControllerKey)
+        UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)
+    }
+
 	    private func setupInputHandlers(for controller: GCController) {
         // Log controller info for diagnostics (visible in Console.app)
         NSLog("[ControllerKeys] vendorName=%@  productCategory=%@  extendedGamepad=%@  microGamepad=%@",
@@ -1652,6 +1706,11 @@ class ControllerService: ObservableObject {
               controller.productCategory,
               controller.extendedGamepad != nil ? "YES" : "NO",
               controller.microGamepad != nil ? "YES" : "NO")
+
+        // Reset all controller-type flags before detection. A controller that
+        // matches none of the branches below (a plain MFi pad like Backbone or
+        // Nimbus) would otherwise keep the flags loaded from UserDefaults in init.
+        resetControllerTypeState()
 
 			if let microGamepad = controller.microGamepad,
 			   Self.isAppleTVRemoteMetadata(

@@ -218,6 +218,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private let queue = DispatchQueue(label: "com.controllerkeys.uc-relay", qos: .userInteractive)
+    private let subprocessQueue = DispatchQueue(label: "com.controllerkeys.uc-relay-subprocess", qos: .utility)
     private let port: NWEndpoint.Port = 38383
 	private let remoteMouseEventSource: CGEventSource? = {
 		let source = CGEventSource(stateID: .hidSystemState)
@@ -237,6 +238,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         var buffer = ""
         var commandWindowStart = Date()
         var commandCount = 0
+        var lastUIStatePayload: String?
     }
 
     private struct RelayPingTarget {
@@ -327,6 +329,48 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var remoteHandoffSuppressedUntil = Date.distantPast
     private var remoteControllerInputRoutingGraceUntil = Date.distantPast
     private var lastRemoteCursorVisibilityRestoreAt: CFTimeInterval?
+
+    // Hot-path caches for the 120 Hz mouse path. Guarded by cacheLock (never
+    // taken while cacheLock is already held; lock -> cacheLock ordering only).
+    private let cacheLock = NSLock()
+    private var cachedHandoffZones: [HandoffZone]?
+    private var cachedLocalDisplays: [LocalDisplay]?
+    private var cachedDefaultRemoteHost: String?
+    private var cachedDefaultRemotePort: NWEndpoint.Port?
+    private var cachedRelayTargetDefaultsConfigured: Bool?
+    private var cacheInvalidationObservers: [NSObjectProtocol] = []
+
+    private init() {
+        cacheInvalidationObservers.append(NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.invalidateDefaultsBackedCaches()
+        })
+        cacheInvalidationObservers.append(NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.invalidateLocalDisplayCache()
+        })
+    }
+
+    private func invalidateDefaultsBackedCaches() {
+        cacheLock.lock()
+        cachedHandoffZones = nil
+        cachedDefaultRemoteHost = nil
+        cachedDefaultRemotePort = nil
+        cachedRelayTargetDefaultsConfigured = nil
+        cacheLock.unlock()
+    }
+
+    private func invalidateLocalDisplayCache() {
+        cacheLock.lock()
+        cachedLocalDisplays = nil
+        cacheLock.unlock()
+    }
 
     var canSendToRemote: Bool {
         lock.lock()
@@ -598,16 +642,40 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private var defaultRemoteHost: String {
-        UserDefaults.standard.string(forKey: "universalControlRelayHost") ?? "kmacstudio"
+        cacheLock.lock()
+        if let cachedDefaultRemoteHost {
+            cacheLock.unlock()
+            return cachedDefaultRemoteHost
+        }
+        cacheLock.unlock()
+
+        let host = UserDefaults.standard.string(forKey: "universalControlRelayHost") ?? "kmacstudio"
+        cacheLock.lock()
+        cachedDefaultRemoteHost = host
+        cacheLock.unlock()
+        return host
     }
 
     private var defaultRemotePort: NWEndpoint.Port {
-        let rawValue = UserDefaults.standard.integer(forKey: "universalControlRelayPort")
-        guard rawValue > 0, rawValue <= Int(UInt16.max),
-              let port = NWEndpoint.Port(rawValue: UInt16(rawValue)) else {
-            return self.port
+        cacheLock.lock()
+        if let cachedDefaultRemotePort {
+            cacheLock.unlock()
+            return cachedDefaultRemotePort
         }
-        return port
+        cacheLock.unlock()
+
+        let rawValue = UserDefaults.standard.integer(forKey: "universalControlRelayPort")
+        let resolved: NWEndpoint.Port
+        if rawValue > 0, rawValue <= Int(UInt16.max),
+           let port = NWEndpoint.Port(rawValue: UInt16(rawValue)) {
+            resolved = port
+        } else {
+            resolved = self.port
+        }
+        cacheLock.lock()
+        cachedDefaultRemotePort = resolved
+        cacheLock.unlock()
+        return resolved
     }
 
     var relayPairingSecret: String {
@@ -908,11 +976,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         sendLine("ra")
     }
 
-    func sendSystemCommand(_ command: SystemCommand) -> Bool {
-        _ = command
-        return false
-    }
-
     func sendUIEvent(_ name: String, button: ControllerButton, holdMode: Bool = false) -> Bool {
         guard hasActiveRemoteSession else { return false }
         updateRemoteOverlayStateForSentUIEvent(name, button: button, holdMode: holdMode)
@@ -1207,27 +1270,50 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
             lock.unlock()
             return client
         }
-        lock.unlock()
 
+        let staleClient = client
         let connection = NWConnection(to: endpoint, using: .tcp)
-        connection.stateUpdateHandler = { state in
-            if case .failed(let error) = state {
-                NSLog("[UCMouseRelay] Client failed: %@", String(describing: error))
-            }
-        }
-        connection.start(queue: queue)
-        receiveNextFromClient(on: connection)
-
-        lock.lock()
         client = connection
         clientHost = clientKey
 		peerSupportsKP2 = false
         didLogSendFailure = false
         didLogFirstSend = false
+        clientReceiveBuffer = ""
         lock.unlock()
+
+        staleClient?.cancel()
+
+        connection.stateUpdateHandler = { [weak self, weak connection] state in
+            guard let connection else { return }
+            switch state {
+            case .failed(let error):
+                NSLog("[UCMouseRelay] Client failed: %@", String(describing: error))
+                self?.clearClient(ifCurrent: connection)
+            case .cancelled:
+                self?.clearClient(ifCurrent: connection)
+            default:
+                break
+            }
+        }
+        connection.start(queue: queue)
+        receiveNextFromClient(on: connection)
 
         NSLog("[UCMouseRelay] Sending to %@:%d", host, remotePort.rawValue)
         return connection
+    }
+
+    private func clearClient(ifCurrent connection: NWConnection) {
+        lock.lock()
+        guard client === connection else {
+            lock.unlock()
+            return
+        }
+        client = nil
+        clientHost = nil
+        peerSupportsKP2 = false
+        clientReceiveBuffer = ""
+        lock.unlock()
+        connection.cancel()
     }
 
     private func pingConfiguredRemote(completion: @escaping (Bool, String) -> Void) {
@@ -1265,13 +1351,19 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func discoverRelayPingTargets(completion: @escaping ([RelayPingTarget]) -> Void) {
-        queue.async { [weak self] in
+        // The tailscale CLI subprocess blocks; keep it off the queue that
+        // services the listener and live connections.
+        subprocessQueue.async { [weak self] in
             guard let self else { return }
-            var targets = self.configuredRelayPingTargets()
-            targets.append(contentsOf: self.tailscaleRelayPingTargets())
-            self.discoverBonjourRelayPingTargets(timeout: 1.5) { bonjourTargets in
-                targets.append(contentsOf: bonjourTargets)
-                completion(self.deduplicateRelayPingTargets(targets))
+            let tailscaleTargets = self.tailscaleRelayPingTargets()
+            self.queue.async { [weak self] in
+                guard let self else { return }
+                var targets = self.configuredRelayPingTargets()
+                targets.append(contentsOf: tailscaleTargets)
+                self.discoverBonjourRelayPingTargets(timeout: 1.5) { bonjourTargets in
+                    targets.append(contentsOf: bonjourTargets)
+                    completion(self.deduplicateRelayPingTargets(targets))
+                }
             }
         }
     }
@@ -1390,9 +1482,21 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func hasConfiguredRelayTargetLocked() -> Bool {
-        pairedRemoteEndpointKey != nil
-            || UserDefaults.standard.object(forKey: "universalControlRelayHost") != nil
+        if pairedRemoteEndpointKey != nil { return true }
+
+        cacheLock.lock()
+        if let cachedRelayTargetDefaultsConfigured {
+            cacheLock.unlock()
+            return cachedRelayTargetDefaultsConfigured
+        }
+        cacheLock.unlock()
+
+        let configured = UserDefaults.standard.object(forKey: "universalControlRelayHost") != nil
             || UserDefaults.standard.object(forKey: "universalControlRelayPort") != nil
+        cacheLock.lock()
+        cachedRelayTargetDefaultsConfigured = configured
+        cacheLock.unlock()
+        return configured
     }
 
     private func tailscalePeerHosts() -> [String] {
@@ -1940,6 +2044,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         lock.lock()
         incomingConnections.removeAll { $0 === connection }
         incomingStates.removeValue(forKey: key)
+        pendingIncomingCodePairings.removeValue(forKey: key)
         lock.unlock()
     }
 
@@ -2589,11 +2694,29 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func sendRemoteUIState(on connection: NWConnection) {
-        let keyboardVisible = OnScreenKeyboardManager.shared.threadSafeIsVisible
-        let keyboardNavigationActive = OnScreenKeyboardManager.shared.threadSafeNavigationModeActive
-        let directoryVisible = DirectoryNavigatorManager.shared.threadSafeIsVisible
-        let swipePredictionsVisible = SwipeTypingEngine.shared.threadSafeState == .showingPredictions
-        guard let sealed = sealOutgoingLine("uiState \(keyboardVisible ? 1 : 0) \(keyboardNavigationActive ? 1 : 0) \(directoryVisible ? 1 : 0) \(swipePredictionsVisible ? 1 : 0)"),
+        let payload = UniversalControlRelayUIStateEchoPolicy.payload(
+            keyboardVisible: OnScreenKeyboardManager.shared.threadSafeIsVisible,
+            keyboardNavigationActive: OnScreenKeyboardManager.shared.threadSafeNavigationModeActive,
+            directoryNavigatorVisible: DirectoryNavigatorManager.shared.threadSafeIsVisible,
+            swipePredictionsVisible: SwipeTypingEngine.shared.threadSafeState == .showingPredictions
+        )
+
+        let key = ObjectIdentifier(connection)
+        lock.lock()
+        guard UniversalControlRelayUIStateEchoPolicy.shouldSend(
+            payload: payload,
+            lastSentPayload: incomingStates[key]?.lastUIStatePayload
+        ) else {
+            lock.unlock()
+            return
+        }
+        if var state = incomingStates[key] {
+            state.lastUIStatePayload = payload
+            incomingStates[key] = state
+        }
+        lock.unlock()
+
+        guard let sealed = sealOutgoingLine(payload),
               let data = "\(sealed)\n".data(using: .utf8) else { return }
         connection.send(content: data, completion: .contentProcessed { error in
             if let error {
@@ -2645,20 +2768,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func mouseEventType(for keyCode: CGKeyCode, down: Bool) -> (CGEventType, CGMouseButton) {
-        switch keyCode {
-        case KeyCodeMapping.mouseLeftClick:
-            return (down ? .leftMouseDown : .leftMouseUp, .left)
-        case KeyCodeMapping.mouseRightClick:
-            return (down ? .rightMouseDown : .rightMouseUp, .right)
-        case KeyCodeMapping.mouseMiddleClick:
-            return (down ? .otherMouseDown : .otherMouseUp, .center)
-        case KeyCodeMapping.mouseBackClick:
-            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 3) ?? .center)
-        case KeyCodeMapping.mouseForwardClick:
-            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 4) ?? .center)
-        default:
-            return (down ? .leftMouseDown : .leftMouseUp, .left)
-        }
+        KeyCodeMapping.mouseEventType(for: keyCode, down: down)
     }
 
     private func logFirstReceive(_ description: String) {
@@ -2936,6 +3046,21 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func configuredHandoffZones() -> [HandoffZone] {
+        cacheLock.lock()
+        if let cachedHandoffZones {
+            cacheLock.unlock()
+            return cachedHandoffZones
+        }
+        cacheLock.unlock()
+
+        let zones = loadConfiguredHandoffZones()
+        cacheLock.lock()
+        cachedHandoffZones = zones
+        cacheLock.unlock()
+        return zones
+    }
+
+    private func loadConfiguredHandoffZones() -> [HandoffZone] {
         if let data = UserDefaults.standard.data(forKey: "universalControlRelayHandoffZones"),
            let zones = try? JSONDecoder().decode([HandoffZone].self, from: data),
            !zones.isEmpty {
@@ -2973,11 +3098,22 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     }
 
     private func localDisplays() -> [LocalDisplay] {
+        cacheLock.lock()
+        if let cachedLocalDisplays {
+            cacheLock.unlock()
+            return cachedLocalDisplays
+        }
+        cacheLock.unlock()
+
         var displayCount: UInt32 = 0
         CGGetActiveDisplayList(0, nil, &displayCount)
         var displayIDs = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
         CGGetActiveDisplayList(displayCount, &displayIDs, &displayCount)
-        return displayIDs.map { LocalDisplay(id: $0, bounds: CGDisplayBounds($0)) }
+        let displays = displayIDs.map { LocalDisplay(id: $0, bounds: CGDisplayBounds($0)) }
+        cacheLock.lock()
+        cachedLocalDisplays = displays
+        cacheLock.unlock()
+        return displays
     }
 
     private func isMovingOutward(dx: Int, dy: Int, through edge: HandoffEdge) -> Bool {
@@ -3162,6 +3298,21 @@ struct UniversalControlRelayKeyPressEncoding {
 		case .right: return 2
 		case .none: return 0
 		}
+	}
+}
+
+struct UniversalControlRelayUIStateEchoPolicy {
+	static func payload(
+		keyboardVisible: Bool,
+		keyboardNavigationActive: Bool,
+		directoryNavigatorVisible: Bool,
+		swipePredictionsVisible: Bool
+	) -> String {
+		"uiState \(keyboardVisible ? 1 : 0) \(keyboardNavigationActive ? 1 : 0) \(directoryNavigatorVisible ? 1 : 0) \(swipePredictionsVisible ? 1 : 0)"
+	}
+
+	static func shouldSend(payload: String, lastSentPayload: String?) -> Bool {
+		payload != lastSentPayload
 	}
 }
 

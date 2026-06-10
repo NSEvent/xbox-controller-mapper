@@ -475,6 +475,13 @@ class ProfileManager: ObservableObject {
         configurationSaveService.save(config, to: configURL)
     }
 
+    /// Blocks until all queued configuration saves have hit disk. Called from
+    /// applicationWillTerminate — saves are async on a utility queue, so an
+    /// edit made just before quitting would otherwise be silently dropped.
+    func flushPendingSaves() {
+        configurationSaveService.flushPendingWrites()
+    }
+
     /// Current in-memory state encoded as `ProfileConfiguration`. Used by both
     /// the save path and the snapshot path so they capture the same shape.
     private func currentConfiguration() -> ProfileConfiguration {

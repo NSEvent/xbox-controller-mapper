@@ -427,6 +427,25 @@ enum KeyCodeMapping {
         keyCode == mouseForwardClick
     }
 
+    /// Maps a mouse-button marker key code to the CGEvent type and button for
+    /// a down or up event. Unknown codes fall back to the left button.
+    static func mouseEventType(for keyCode: CGKeyCode, down: Bool) -> (CGEventType, CGMouseButton) {
+        switch keyCode {
+        case mouseLeftClick:
+            return (down ? .leftMouseDown : .leftMouseUp, .left)
+        case mouseRightClick:
+            return (down ? .rightMouseDown : .rightMouseUp, .right)
+        case mouseMiddleClick:
+            return (down ? .otherMouseDown : .otherMouseUp, .center)
+        case mouseBackClick:
+            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 3) ?? .center)
+        case mouseForwardClick:
+            return (down ? .otherMouseDown : .otherMouseUp, CGMouseButton(rawValue: 4) ?? .center)
+        default:
+            return (down ? .leftMouseDown : .leftMouseUp, .left)
+        }
+    }
+
     /// Checks if a key code represents a scroll action
     static func isScrollAction(_ keyCode: CGKeyCode) -> Bool {
         keyCode == scrollUp ||

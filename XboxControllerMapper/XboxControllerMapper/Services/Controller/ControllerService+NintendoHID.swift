@@ -33,6 +33,14 @@ fileprivate final class NintendoHIDCallbackContext {
     init(service: ControllerService) { self.service = service }
 }
 
+/// Per-device registration state. Mirrors PlayStationHIDRegistration: each
+/// matched device gets its own report buffer and callback context so multiple
+/// devices never share a buffer, and cleanup can unregister every registration.
+struct NintendoHIDRegistration {
+    let device: IOHIDDevice
+    let reportBuffer: UnsafeMutablePointer<UInt8>
+    let callbackContext: UnsafeMutableRawPointer
+}
 
 @MainActor
 extension ControllerService {
@@ -45,18 +53,12 @@ extension ControllerService {
 
     func setupNintendoHIDMonitoring() {
         // Clean up any previous monitoring
-        if nintendoHIDManager != nil {
+        if nintendoHIDManager != nil || !nintendoHIDRegistrations.isEmpty {
             cleanupNintendoHIDMonitoring()
         }
 
-        nintendoHIDReportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.nintendoHIDReportBufferSize)
-
         nintendoHIDManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-        guard let manager = nintendoHIDManager else {
-            nintendoHIDReportBuffer?.deallocate()
-            nintendoHIDReportBuffer = nil
-            return
-        }
+        guard let manager = nintendoHIDManager else { return }
 
         // Match Nintendo Pro Controller
         let proControllerDict: [String: Any] = [
@@ -76,18 +78,16 @@ extension ControllerService {
     }
 
     private func setupNintendoHIDDeviceCallback(_ device: IOHIDDevice) {
-        nintendoHIDDevice = device
-
-        guard let buffer = nintendoHIDReportBuffer else { return }
-
-        // Release previous context if any
-        if let existingCtx = nintendoHIDCallbackContext {
-            Unmanaged<NintendoHIDCallbackContext>.fromOpaque(existingCtx).release()
-        }
-
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.nintendoHIDReportBufferSize)
         let ctx = NintendoHIDCallbackContext(service: self)
         let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
-        nintendoHIDCallbackContext = retainedContext
+        nintendoHIDRegistrations.append(
+            NintendoHIDRegistration(
+                device: device,
+                reportBuffer: buffer,
+                callbackContext: retainedContext
+            )
+        )
 
         IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.nintendoHIDReportBufferSize, { context, result, sender, type, reportID, report, reportLength in
             guard let context = context else { return }
@@ -101,16 +101,27 @@ extension ControllerService {
     }
 
     func cleanupNintendoHIDMonitoring() {
-        // Same ordering as cleanupHIDMonitoring — unregister callback first, then release resources
+        // Same ordering as cleanupHIDMonitoring — unregister callbacks first,
+        // then unschedule, close the manager, and only then release contexts
+        // and deallocate buffers.
 
-        if let device = nintendoHIDDevice, let buffer = nintendoHIDReportBuffer {
-            IOHIDDeviceRegisterInputReportCallback(device, buffer, Self.nintendoHIDReportBufferSize, nil, nil)
+        for registration in nintendoHIDRegistrations {
+            IOHIDDeviceRegisterInputReportCallback(
+                registration.device,
+                registration.reportBuffer,
+                Self.nintendoHIDReportBufferSize,
+                nil,
+                nil
+            )
         }
 
-        if let device = nintendoHIDDevice {
-            IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+        for registration in nintendoHIDRegistrations {
+            IOHIDDeviceUnscheduleFromRunLoop(
+                registration.device,
+                CFRunLoopGetCurrent(),
+                CFRunLoopMode.defaultMode.rawValue
+            )
         }
-        nintendoHIDDevice = nil
 
         if let manager = nintendoHIDManager {
             IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
@@ -118,15 +129,11 @@ extension ControllerService {
         }
         nintendoHIDManager = nil
 
-        if let ctx = nintendoHIDCallbackContext {
-            Unmanaged<NintendoHIDCallbackContext>.fromOpaque(ctx).release()
-            nintendoHIDCallbackContext = nil
+        for registration in nintendoHIDRegistrations {
+            Unmanaged<NintendoHIDCallbackContext>.fromOpaque(registration.callbackContext).release()
+            registration.reportBuffer.deallocate()
         }
-
-        if let buffer = nintendoHIDReportBuffer {
-            buffer.deallocate()
-        }
-        nintendoHIDReportBuffer = nil
+        nintendoHIDRegistrations.removeAll()
     }
 
     /// Parse Nintendo Pro Controller HID input reports for the Home button.

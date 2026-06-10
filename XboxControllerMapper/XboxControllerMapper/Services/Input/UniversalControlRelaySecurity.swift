@@ -86,7 +86,7 @@ struct UniversalControlRelayAuthenticator {
     private let secret: SymmetricKey
     private let peerID: String
     private var outgoingCounter: UInt64
-    private var seenIncomingFrames: Set<String> = []
+    private(set) var highestSeenIncomingCounters: [String: UInt64] = [:]
 
     init(secretData: Data, peerID: String, counterSeed: UInt64 = UInt64.random(in: 1...(UInt64.max / 2))) {
         self.secret = SymmetricKey(data: secretData)
@@ -118,8 +118,9 @@ struct UniversalControlRelayAuthenticator {
         }
 
         let sender = parts[1]
-        let frameID = "\(sender):\(counter)"
-        guard !seenIncomingFrames.contains(frameID) else { return nil }
+        if let highestSeen = highestSeenIncomingCounters[sender], counter <= highestSeen {
+            return nil
+        }
 
         let expected = Self.macHex(
             secret: secret,
@@ -134,7 +135,7 @@ struct UniversalControlRelayAuthenticator {
             return nil
         }
 
-        seenIncomingFrames.insert(frameID)
+        highestSeenIncomingCounters[sender] = counter
         return payload
     }
 

@@ -79,17 +79,33 @@ extension ControllerService {
     func cleanupGenericHIDMonitoring() {
         genericHIDFallbackTimer?.cancel()
         genericHIDFallbackTimer = nil
+        genericHIDPendingFallbackDevice = nil
         genericHIDController?.stop()
         genericHIDController = nil
-        if let manager = genericHIDManager {
-            IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-            IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
-        }
-        genericHIDManager = nil
 
-        if let ctx = genericHIDCallbackContext {
-            Unmanaged<GenericHIDCallbackContext>.fromOpaque(ctx).release()
-            genericHIDCallbackContext = nil
+        let manager = genericHIDManager
+        let context = genericHIDCallbackContext
+        genericHIDManager = nil
+        genericHIDCallbackContext = nil
+
+        // Tear down on the same serial queue used by setup so cleanup can never
+        // overtake an in-flight registration (which would unregister/release a
+        // context IOKit is about to retain). Order: unregister → unschedule → close.
+        genericHIDSetupQueue.async {
+            if let manager {
+                IOHIDManagerRegisterDeviceMatchingCallback(manager, nil, nil)
+                IOHIDManagerRegisterDeviceRemovalCallback(manager, nil, nil)
+                IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+                IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+            }
+            if let context {
+                // Release on the main queue: callbacks fire on the main run loop,
+                // so any callback already executing when we unscheduled has
+                // finished by the time this block runs.
+                DispatchQueue.main.async {
+                    Unmanaged<GenericHIDCallbackContext>.fromOpaque(context).release()
+                }
+            }
         }
     }
 
@@ -116,11 +132,14 @@ extension ControllerService {
                                          transport: transport)
         }
         genericHIDFallbackTimer = timer
+        genericHIDPendingFallbackDevice = device
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: timer)
     }
 
     func attemptGenericFallback(device: IOHIDDevice, vendorID: Int, productID: Int,
                                          version: Int, transport: String?) {
+        genericHIDPendingFallbackDevice = nil
+
         // Don't activate if GameController framework connected in the meantime
         guard !isConnected else { return }
 
@@ -172,8 +191,14 @@ extension ControllerService {
             self?.updateRightTrigger(value, pressed: pressed)
         }
 
-        controller.start()
+        guard controller.start() else {
+            #if DEBUG
+            print("[GenericHID] Failed to open device for: \(mapping.name)")
+            #endif
+            return
+        }
         genericHIDController = controller
+        resetControllerTypeState()
         currentControllerIdentity = ControllerIdentityResolver.identity(for: device, fallbackName: mapping.name)
         isConnected = true
         isGenericController = true
@@ -186,6 +211,14 @@ extension ControllerService {
     }
 
     func genericDeviceRemoved(_ device: IOHIDDevice) {
+        // Cancel a pending fallback armed for this device — otherwise the timer
+        // could later promote a device that is already gone.
+        if genericHIDPendingFallbackDevice == device {
+            genericHIDFallbackTimer?.cancel()
+            genericHIDFallbackTimer = nil
+            genericHIDPendingFallbackDevice = nil
+        }
+
         // Only handle if this is our active generic controller's device
         guard let controller = genericHIDController, controller.device == device else { return }
         controller.stop()

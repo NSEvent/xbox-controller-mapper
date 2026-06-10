@@ -38,6 +38,19 @@ extension MappingEngine {
     /// - Precondition: Must be called on pollingQueue
     nonisolated func processJoysticks(now: CFAbsoluteTime) {
         dispatchPrecondition(condition: .onQueue(pollingQueue))
+
+        // Relay sends, haptics, SwipeTypingEngine calls, and handleButton
+        // re-entry must not run while state.lock is held: button events on
+        // inputQueue contend with this lock, and nesting it over relay/storage
+        // locks risks an ordering inversion (see MappingEngine.setupBindings,
+        // which deliberately releases the lock before calling handleButton).
+        // State transitions are computed under the lock; side effects are
+        // queued here and drained after unlock. Defers run LIFO, so declaring
+        // the drain BEFORE the unlock guarantees it executes outside the lock
+        // on every exit path, including early returns.
+        var deferredIO: [() -> Void] = []
+        defer { for action in deferredIO { action() } }
+
         state.lock.lock()
         defer { state.lock.unlock() }
 
@@ -48,7 +61,7 @@ extension MappingEngine {
 
         let focusFlags = settings.focusModeModifier.cgEventFlags
         let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
-        updateFocusModeState(isFocusActive: isFocusActive, settings: settings, now: now)
+        updateFocusModeState(isFocusActive: isFocusActive, settings: settings, now: now, deferring: &deferredIO)
 
         // Single lock acquisition for all controller input state (cache-friendly snapshot)
         let controllerSnapshot = controllerService.snapshot()
@@ -82,14 +95,18 @@ extension MappingEngine {
             if !wasSwipeActive && leftTrigger > Config.swipeTriggerThreshold {
                 state.swipeTypingActive = true
                 state.wasTouchpadTouching = isSwipeClickHeld
-                if !remoteKeyboardVisible || !UniversalControlMouseRelay.shared.sendSwipeMode(active: true) {
-                    SwipeTypingEngine.shared.activateMode()
+                deferredIO.append {
+                    if !remoteKeyboardVisible || !UniversalControlMouseRelay.shared.sendSwipeMode(active: true) {
+                        SwipeTypingEngine.shared.activateMode()
+                    }
                 }
             } else if wasSwipeActive && leftTrigger < Config.swipeTriggerReleaseThreshold {
                 state.swipeTypingActive = false
                 state.wasTouchpadTouching = false
-                if !remoteKeyboardVisible || !UniversalControlMouseRelay.shared.sendSwipeMode(active: false) {
-                    SwipeTypingEngine.shared.deactivateMode()
+                deferredIO.append {
+                    if !remoteKeyboardVisible || !UniversalControlMouseRelay.shared.sendSwipeMode(active: false) {
+                        SwipeTypingEngine.shared.deactivateMode()
+                    }
                 }
             }
 
@@ -98,51 +115,55 @@ extension MappingEngine {
                 let wasClicking = state.wasTouchpadTouching
                 if isClicking && !wasClicking {
                     state.swipeClickReleaseFrames = 0
-                    let beganRemotely = remoteKeyboardVisible
-                        && UniversalControlMouseRelay.shared.sendSwipeBegin()
-                    if !beganRemotely, letterArea.width > 0 && letterArea.height > 0,
-                       let mouseEvent = CGEvent(source: nil) {
-                        let quartz = mouseEvent.location
-                        let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
-                        let cocoaX = quartz.x
-                        let cocoaY = screenHeight - quartz.y
-                        let normalized = CGPoint(
-                            x: (cocoaX - letterArea.origin.x) / letterArea.width,
-                            y: 1.0 - (cocoaY - letterArea.origin.y) / letterArea.height
+                    deferredIO.append { [controllerService] in
+                        let beganRemotely = remoteKeyboardVisible
+                            && UniversalControlMouseRelay.shared.sendSwipeBegin()
+                        if !beganRemotely, letterArea.width > 0 && letterArea.height > 0,
+                           let mouseEvent = CGEvent(source: nil) {
+                            let quartz = mouseEvent.location
+                            let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
+                            let cocoaX = quartz.x
+                            let cocoaY = screenHeight - quartz.y
+                            let normalized = CGPoint(
+                                x: (cocoaX - letterArea.origin.x) / letterArea.width,
+                                y: 1.0 - (cocoaY - letterArea.origin.y) / letterArea.height
+                            )
+                            SwipeTypingEngine.shared.setCursorPosition(normalized)
+                            SwipeTypingEngine.shared.beginSwipe()
+                        } else if !beganRemotely {
+                            SwipeTypingEngine.shared.beginSwipe()
+                        }
+                        controllerService.playHaptic(
+                            intensity: Config.swipeBeginHapticIntensity,
+                            sharpness: Config.swipeBeginHapticSharpness,
+                            duration: Config.swipeBeginHapticDuration,
+                            transient: true
                         )
-                        SwipeTypingEngine.shared.setCursorPosition(normalized)
-                        SwipeTypingEngine.shared.beginSwipe()
-                    } else if !beganRemotely {
-                        SwipeTypingEngine.shared.beginSwipe()
                     }
-                    controllerService.playHaptic(
-                        intensity: Config.swipeBeginHapticIntensity,
-                        sharpness: Config.swipeBeginHapticSharpness,
-                        duration: Config.swipeBeginHapticDuration,
-                        transient: true
-                    )
                 } else if !isClicking && wasClicking {
                     state.swipeClickReleaseFrames += 1
                     if state.swipeClickReleaseFrames >= 3 {
                         let swipeCursorPos = swipeSnapshot.cursorPosition
-                        let endedRemotely = remoteKeyboardVisible
-                            && UniversalControlMouseRelay.shared.sendSwipeEnd()
-                        if !endedRemotely {
-                            SwipeTypingEngine.shared.endSwipe()
-                        }
-                        controllerService.playHaptic(
-                            intensity: Config.swipeEndHapticIntensity,
-                            sharpness: Config.swipeEndHapticSharpness,
-                            duration: Config.swipeEndHapticDuration,
-                            transient: true
-                        )
                         state.swipeClickReleaseFrames = 0
-                        if letterArea.width > 0 && letterArea.height > 0 {
-                            let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
-                            let cocoaX = swipeCursorPos.x * letterArea.width + letterArea.origin.x
-                            let cocoaY = (1.0 - swipeCursorPos.y) * letterArea.height + letterArea.origin.y
-                            let quartzY = screenHeight - cocoaY
-                            inputSimulator.warpMouseTo(point: CGPoint(x: cocoaX, y: quartzY))
+                        deferredIO.append { [controllerService, inputSimulator] in
+                            let endedRemotely = remoteKeyboardVisible
+                                && UniversalControlMouseRelay.shared.sendSwipeEnd()
+                            if !endedRemotely {
+                                SwipeTypingEngine.shared.endSwipe()
+                            }
+                            controllerService.playHaptic(
+                                intensity: Config.swipeEndHapticIntensity,
+                                sharpness: Config.swipeEndHapticSharpness,
+                                duration: Config.swipeEndHapticDuration,
+                                transient: true
+                            )
+                            if letterArea.width > 0 && letterArea.height > 0 {
+                                let screenHeight = CGFloat(CGDisplayPixelsHigh(CGMainDisplayID()))
+                                let cocoaX = swipeCursorPos.x * letterArea.width + letterArea.origin.x
+                                let cocoaY = (1.0 - swipeCursorPos.y) * letterArea.height + letterArea.origin.y
+                                let quartzY = screenHeight - cocoaY
+                                inputSimulator.warpMouseTo(point: CGPoint(x: cocoaX, y: quartzY))
+                            }
                         }
                     }
                 } else if isClicking {
@@ -153,24 +174,32 @@ extension MappingEngine {
                 }
 
                 if remoteKeyboardVisible, isClicking {
-                    _ = UniversalControlMouseRelay.shared.sendSwipeJoystick(
-                        x: Double(leftStick.x),
-                        y: Double(-leftStick.y),
-                        sensitivity: state.swipeTypingSensitivity
-                    )
+                    let sensitivity = state.swipeTypingSensitivity
+                    deferredIO.append {
+                        _ = UniversalControlMouseRelay.shared.sendSwipeJoystick(
+                            x: Double(leftStick.x),
+                            y: Double(-leftStick.y),
+                            sensitivity: sensitivity
+                        )
+                    }
                 } else if swipeSnapshot.state == .swiping {
-                    SwipeTypingEngine.shared.updateCursorFromJoystick(
-                        x: Double(leftStick.x),
-                        y: Double(-leftStick.y),
-                        sensitivity: state.swipeTypingSensitivity
-                    )
+                    let sensitivity = state.swipeTypingSensitivity
+                    deferredIO.append {
+                        SwipeTypingEngine.shared.updateCursorFromJoystick(
+                            x: Double(leftStick.x),
+                            y: Double(-leftStick.y),
+                            sensitivity: sensitivity
+                        )
+                    }
                 }
             }
         } else if state.swipeTypingActive {
             state.swipeTypingActive = false
             state.wasTouchpadTouching = false
-            if !UniversalControlMouseRelay.shared.sendSwipeMode(active: false) {
-                SwipeTypingEngine.shared.deactivateMode()
+            deferredIO.append {
+                if !UniversalControlMouseRelay.shared.sendSwipeMode(active: false) {
+                    SwipeTypingEngine.shared.deactivateMode()
+                }
             }
         }
 
@@ -178,7 +207,7 @@ extension MappingEngine {
             && (swipeSnapshot.state == .swiping || (remoteKeyboardVisible && inputSimulator.isLeftMouseButtonHeld))
         guard !swipeBlocksLeftStick else {
             if state.commandWheelActive {
-                updateCommandWheel(rightStick: controllerSnapshot.rightStick)
+                updateCommandWheel(rightStick: controllerSnapshot.rightStick, deferring: &deferredIO)
             }
             return
         }
@@ -205,9 +234,9 @@ extension MappingEngine {
 
         // Right stick navigates directory navigator when visible
         if navigatorVisible {
-            processDirectoryNavigatorStick(rightStick, now: now)
+            processDirectoryNavigatorStick(rightStick, now: now, deferring: &deferredIO)
         } else if state.commandWheelActive {
-            updateCommandWheel(rightStick: rightStick)
+            updateCommandWheel(rightStick: rightStick, deferring: &deferredIO)
         } else {
             let rightInput = JoystickStickInput(
                 stick: rightStick,
@@ -225,7 +254,7 @@ extension MappingEngine {
     /// Converts right stick input into directory navigator navigation commands.
     /// Uses a deadzone + throttle approach: the first deflection triggers immediately,
     /// then repeats at the D-pad repeat interval while held.
-    nonisolated func processDirectoryNavigatorStick(_ stick: CGPoint, now: CFAbsoluteTime) {
+    nonisolated func processDirectoryNavigatorStick(_ stick: CGPoint, now: CFAbsoluteTime, deferring deferredIO: inout [() -> Void]) {
         let deadzone: Double = state.joystickSettings?.mouseDeadzone ?? 0.4
         let magnitude = sqrt(Double(stick.x * stick.x + stick.y * stick.y))
 
@@ -248,21 +277,22 @@ extension MappingEngine {
         if justEntered {
             // First deflection — move immediately
             state.directoryNavLastMoveTime = now
-            if UniversalControlMouseRelay.shared.sendDirectoryNavigation(button) {
-                return
-            }
-            Task { @MainActor in
-                DirectoryNavigatorManager.shared.handleDPadNavigation(button)
-            }
+            deferredIO.append { Self.dispatchDirectoryNavigation(button) }
         } else if now - state.directoryNavLastMoveTime >= Config.dpadRepeatInterval {
             // Repeat at dpad interval
             state.directoryNavLastMoveTime = now
-            if UniversalControlMouseRelay.shared.sendDirectoryNavigation(button) {
-                return
-            }
-            Task { @MainActor in
-                DirectoryNavigatorManager.shared.handleDPadNavigation(button)
-            }
+            deferredIO.append { Self.dispatchDirectoryNavigation(button) }
+        }
+    }
+
+    /// Relay-or-local dispatch for a directory navigator move. Runs outside
+    /// state.lock (network send + MainActor hop).
+    private nonisolated static func dispatchDirectoryNavigation(_ button: ControllerButton) {
+        if UniversalControlMouseRelay.shared.sendDirectoryNavigation(button) {
+            return
+        }
+        Task { @MainActor in
+            DirectoryNavigatorManager.shared.handleDPadNavigation(button)
         }
     }
 
@@ -270,23 +300,25 @@ extension MappingEngine {
 
     /// Updates the command wheel selection from the right stick input.
     /// Called from processJoysticks() when the command wheel is active.
-    nonisolated func updateCommandWheel(rightStick: CGPoint) {
+    nonisolated func updateCommandWheel(rightStick: CGPoint, deferring deferredIO: inout [() -> Void]) {
         let altMods = state.wheelAlternateModifiers
-        let alternateHeld: Bool = {
-            guard altMods.command || altMods.option || altMods.shift || altMods.control else { return false }
-            let flags = CGEventSource.flagsState(.combinedSessionState)
-            if altMods.command && !flags.contains(.maskCommand) { return false }
-            if altMods.option && !flags.contains(.maskAlternate) { return false }
-            if altMods.shift && !flags.contains(.maskShift) { return false }
-            if altMods.control && !flags.contains(.maskControl) { return false }
-            return true
-        }()
-        if UniversalControlMouseRelay.shared.sendCommandWheelUpdate(stick: rightStick, alternateHeld: alternateHeld) {
-            return
-        }
-        DispatchQueue.main.async {
-            CommandWheelManager.shared.setShowingAlternate(alternateHeld)
-            CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
+        deferredIO.append {
+            let alternateHeld: Bool = {
+                guard altMods.command || altMods.option || altMods.shift || altMods.control else { return false }
+                let flags = CGEventSource.flagsState(.combinedSessionState)
+                if altMods.command && !flags.contains(.maskCommand) { return false }
+                if altMods.option && !flags.contains(.maskAlternate) { return false }
+                if altMods.shift && !flags.contains(.maskShift) { return false }
+                if altMods.control && !flags.contains(.maskControl) { return false }
+                return true
+            }()
+            if UniversalControlMouseRelay.shared.sendCommandWheelUpdate(stick: rightStick, alternateHeld: alternateHeld) {
+                return
+            }
+            DispatchQueue.main.async {
+                CommandWheelManager.shared.setShowingAlternate(alternateHeld)
+                CommandWheelManager.shared.updateSelection(stickX: rightStick.x, stickY: rightStick.y)
+            }
         }
     }
 
@@ -350,7 +382,7 @@ extension MappingEngine {
 
     // MARK: - Mouse Movement (incl. Focus Mode + Gyro Aiming)
 
-    nonisolated func updateFocusModeState(isFocusActive: Bool, settings: JoystickSettings, now: CFAbsoluteTime) {
+    nonisolated func updateFocusModeState(isFocusActive: Bool, settings: JoystickSettings, now: CFAbsoluteTime, deferring deferredIO: inout [() -> Void]) {
         let wasFocusActive = state.wasFocusActive
 
         if isFocusActive != wasFocusActive {
@@ -364,14 +396,16 @@ extension MappingEngine {
 				state.gyroFilterY.reset()
 				state.lastGyroTime = 0
 			}
-            performFocusModeHaptic(entering: isFocusActive)
+            deferredIO.append { [self] in
+                performFocusModeHaptic(entering: isFocusActive)
 
-            if !UniversalControlMouseRelay.shared.sendFocusMode(active: isFocusActive) {
-                Task { @MainActor in
-                    if isFocusActive {
-                        FocusModeIndicator.shared.show()
-                    } else {
-                        FocusModeIndicator.shared.hide()
+                if !UniversalControlMouseRelay.shared.sendFocusMode(active: isFocusActive) {
+                    Task { @MainActor in
+                        if isFocusActive {
+                            FocusModeIndicator.shared.show()
+                        } else {
+                            FocusModeIndicator.shared.hide()
+                        }
                     }
                 }
             }
@@ -381,13 +415,15 @@ extension MappingEngine {
                 state.currentMultiplier = settings.focusMultiplier
             }
         } else if isFocusActive {
-            if UniversalControlMouseRelay.shared.sendFocusMode(active: true) {
-                Task { @MainActor in
-                    FocusModeIndicator.shared.hide()
-                }
-            } else {
-                Task { @MainActor in
-                    FocusModeIndicator.shared.show()
+            deferredIO.append {
+                if UniversalControlMouseRelay.shared.sendFocusMode(active: true) {
+                    Task { @MainActor in
+                        FocusModeIndicator.shared.hide()
+                    }
+                } else {
+                    Task { @MainActor in
+                        FocusModeIndicator.shared.show()
+                    }
                 }
             }
         }
@@ -730,12 +766,21 @@ extension MappingEngine {
 
         heldButtons = targetButtons
 
-        // Release first so moving between directions never leaves a stale held mapping.
-        for button in releasedButtons {
-            controllerService.handleButton(button, pressed: false)
-        }
-        for button in pressedButtons {
-            controllerService.handleButton(button, pressed: true)
+        guard !releasedButtons.isEmpty || !pressedButtons.isEmpty else { return }
+
+        // Called from stick strategies with state.lock held. handleButton takes
+        // storage.lock and can run the chord pipeline, so escape the lock by
+        // re-enqueueing on pollingQueue (serial — runs after the current tick
+        // releases the lock, preserving event order).
+        pollingQueue.async { [weak self] in
+            guard let self else { return }
+            // Release first so moving between directions never leaves a stale held mapping.
+            for button in releasedButtons {
+                self.controllerService.handleButton(button, pressed: false)
+            }
+            for button in pressedButtons {
+                self.controllerService.handleButton(button, pressed: true)
+            }
         }
     }
 

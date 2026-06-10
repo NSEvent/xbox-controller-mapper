@@ -4,6 +4,7 @@ struct ProfileConfigurationSaveService {
     private let fileManager: FileManager
     private let backupService: ConfigBackupService
     private let scheduleWrite: (@escaping () -> Void) -> Void
+    private let waitForPendingWrites: () -> Void
     private let logSaveFailure: (String) -> Void
 
     /// Private serial queue to prevent concurrent save interleaving.
@@ -16,6 +17,9 @@ struct ProfileConfigurationSaveService {
         scheduleWrite: @escaping (@escaping () -> Void) -> Void = { work in
             ProfileConfigurationSaveService.saveQueue.async(execute: work)
         },
+        waitForPendingWrites: @escaping () -> Void = {
+            ProfileConfigurationSaveService.saveQueue.sync {}
+        },
         logSaveFailure: @escaping (String) -> Void = { message in
             NSLog("%@", message)
         }
@@ -23,7 +27,14 @@ struct ProfileConfigurationSaveService {
         self.fileManager = fileManager
         self.backupService = backupService ?? ConfigBackupService(fileManager: fileManager)
         self.scheduleWrite = scheduleWrite
+        self.waitForPendingWrites = waitForPendingWrites
         self.logSaveFailure = logSaveFailure
+    }
+
+    /// Blocks until every save scheduled so far has been written to disk.
+    /// Called at app termination so a save queued just before quit isn't dropped.
+    func flushPendingWrites() {
+        waitForPendingWrites()
     }
 
     func shouldSave(loadSucceeded: Bool, configURL: URL) -> Bool {

@@ -360,6 +360,97 @@ final class GameControllerDatabaseTests: XCTestCase {
 		Self.retainedDatabases.append(database)
 	}
 
+	func testLookup_MatchesDatabaseEntryWithEmbeddedNameCRC() {
+		// SDL embeds a CRC16 of the controller name in bytes 2-3 (chars 4-7) of
+		// HID GUIDs. Lookups construct zero-CRC GUIDs, so the database key must
+		// be normalized at parse time or such entries can never match.
+		let zeroCRCGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x045e,
+			productID: 0x0b13,
+			version: 0x0509,
+			transport: nil
+		)
+		var crcGuid = zeroCRCGuid
+		let crcStart = crcGuid.index(crcGuid.startIndex, offsetBy: 4)
+		let crcEnd = crcGuid.index(crcGuid.startIndex, offsetBy: 8)
+		crcGuid.replaceSubrange(crcStart..<crcEnd, with: "8db0")
+
+		XCTAssertEqual(GameControllerDatabase.normalizedDatabaseGUID(crcGuid), zeroCRCGuid)
+
+		let content = mappingLine(guid: crcGuid, name: "Xbox Series X CRC", entries: ["a:b0"])
+		let database = GameControllerDatabase(databaseContentOverride: content)
+
+		let mapping = database.lookup(
+			vendorID: 0x045e,
+			productID: 0x0b13,
+			version: 0x0509,
+			transport: nil
+		)
+		XCTAssertEqual(mapping?.name, "Xbox Series X CRC")
+		XCTAssertNotNil(database.lookup(guid: zeroCRCGuid))
+		XCTAssertTrue(database.hasKnownVendorProduct(vendorID: 0x045e, productID: 0x0b13))
+		XCTAssertTrue(database.knownVendorProductPairs().contains {
+			$0.vendorID == 0x045e && $0.productID == 0x0b13
+		})
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testGUIDNormalization_LeavesNonHIDGUIDsAlone() {
+		// "xinput"-style text GUID: the fixed fields at bytes 6-7/10-11/14-15
+		// happen to be zero, but the bus field is ASCII rather than a recognized
+		// HID bus. Zeroing its "CRC" would decode the ASCII bytes into a bogus
+		// vendor/product pair (0x7475/0x0000), regressing the non-HID GUID
+		// exclusion from commit e83efd0.
+		let textGuid = "78696e70757400000000000000000000"
+		XCTAssertEqual(GameControllerDatabase.normalizedDatabaseGUID(textGuid), textGuid)
+
+		let content = mappingLine(
+			guid: textGuid,
+			name: "XInput Text GUID",
+			entries: ["a:b0"],
+			platform: "Windows"
+		)
+		let database = GameControllerDatabase(databaseContentOverride: content)
+
+		XCTAssertFalse(database.knownVendorProductPairs().contains { $0.vendorID == 0x7475 })
+		XCTAssertFalse(database.hasKnownVendorProduct(vendorID: 0x7475, productID: 0x0000))
+		XCTAssertNil(database.lookup(vendorID: 0x7475, productID: 0x0000, version: 0, transport: nil))
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testConcurrentLookupsDuringReload_NoCrash() {
+		let guid = GameControllerDatabase.constructGUID(
+			vendorID: 0x045e,
+			productID: 0x028e,
+			version: 0,
+			transport: nil
+		)
+		let content = mappingLine(guid: guid, name: "Xbox", entries: ["a:b0"])
+		let database = GameControllerDatabase(databaseContentOverride: content)
+
+		// Mix readers with full reloads (which rebuild and swap both mapping
+		// dictionaries). Without locking, the dictionary swap races the readers.
+		DispatchQueue.concurrentPerform(iterations: 200) { i in
+			switch i % 5 {
+			case 0:
+				database.loadDatabase()
+			case 1:
+				_ = database.lookup(guid: guid)
+			case 2:
+				_ = database.lookup(vendorID: 0x045e, productID: 0x028e, version: 0x0114, transport: "bluetooth")
+			case 3:
+				_ = database.knownVendorProductPairs()
+			default:
+				_ = database.hasKnownVendorProduct(vendorID: 0x045e, productID: 0x028e)
+			}
+		}
+
+		// No crash = success.
+		Self.retainedDatabases.append(database)
+	}
+
     func testDatabaseErrors_ExposeLocalizedDescriptions() {
         XCTAssertEqual(GameControllerDatabase.DatabaseError.downloadFailed.errorDescription,
                        "Failed to download controller database")

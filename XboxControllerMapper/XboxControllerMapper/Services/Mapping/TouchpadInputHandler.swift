@@ -267,7 +267,10 @@ extension MappingEngine {
             return state.activeProfile
         }) else { return }
 
-        guard let mapping = profile.buttonMappings[button],
+        // Layer-aware lookup, matching processTapGesture: a long-hold mapping
+        // defined in a layer must fire, and a base-layer one must not when a
+        // layer overrides the button.
+        guard let mapping = effectiveMapping(for: button, in: profile),
               let longHoldMapping = mapping.longHoldMapping,
               !longHoldMapping.isEmpty else {
             return

@@ -419,6 +419,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         ServiceContainer.shared.controllerService.cleanup()
         ServiceContainer.shared.usageStatsService.endSession()
+        ServiceContainer.shared.profileManager.flushPendingSaves()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

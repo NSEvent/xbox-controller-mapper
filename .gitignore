@@ -75,6 +75,16 @@ playground.xcworkspace
 *.swp
 *.swo
 
+# Coverage artifacts
+*.profraw
+
+# Python
+__pycache__/
+*.pyc
+
+# Accident guard: scripts that fail to expand $HOME literally
+$HOME/
+
 # Build artifacts
 build/
 release/

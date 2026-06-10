@@ -73,6 +73,12 @@ struct SDLControllerMapping {
 class GameControllerDatabase {
     static let shared = GameControllerDatabase()
 
+    /// Guards `mappings` and `allPlatformMappings`. `refreshFromGitHub()` can
+    /// rebuild the dictionaries on a background thread while lookups run from
+    /// the main thread / generic HID setup queue, so every read and the swap-in
+    /// write must take this lock. Replacement dictionaries are built locally
+    /// first to keep lock hold times minimal.
+    private let mappingsLock = NSLock()
     private var mappings: [String: SDLControllerMapping] = [:]
 	private var allPlatformMappings: [String: SDLControllerMapping] = [:]
 	private struct GUIDDeviceProperties {
@@ -96,7 +102,10 @@ class GameControllerDatabase {
 
     init(databaseContentOverride: String? = nil) {
         if let databaseContentOverride {
-            parseDatabase(databaseContentOverride)
+            var macMappings: [String: SDLControllerMapping] = [:]
+            var platformMappings: [String: SDLControllerMapping] = [:]
+            parseDatabase(databaseContentOverride, macMappings: &macMappings, platformMappings: &platformMappings)
+            installMappings(macMappings: macMappings, platformMappings: platformMappings)
         } else {
             loadDatabase()
         }
@@ -127,6 +136,8 @@ class GameControllerDatabase {
 
     /// Look up a controller mapping by GUID string.
     func lookup(guid: String) -> SDLControllerMapping? {
+        mappingsLock.lock()
+        defer { mappingsLock.unlock() }
         return mappings[guid.lowercased()]
     }
 
@@ -135,6 +146,8 @@ class GameControllerDatabase {
     func lookup(vendorID: Int, productID: Int, version: Int, transport: String?) -> SDLControllerMapping? {
         let guid = Self.constructGUID(vendorID: vendorID, productID: productID,
                                        version: version, transport: transport)
+        mappingsLock.lock()
+        defer { mappingsLock.unlock() }
         if let mapping = mappings[guid.lowercased()] {
             return mapping
         }
@@ -146,7 +159,7 @@ class GameControllerDatabase {
 		return mapping
 	    }
         }
-	return platformFallbackMapping(
+	return platformFallbackMappingLocked(
 		vendorID: vendorID,
 		productID: productID,
 		version: version,
@@ -155,7 +168,8 @@ class GameControllerDatabase {
     }
 
     func knownVendorProductPairs(excludingVendors: Set<Int> = []) -> [(vendorID: Int, productID: Int)] {
-	let pairs = allPlatformMappings.keys.compactMap { guid -> (vendorID: Int, productID: Int)? in
+	let guids = mappingsLock.withLock { Array(allPlatformMappings.keys) }
+	let pairs = guids.compactMap { guid -> (vendorID: Int, productID: Int)? in
 		guard let properties = Self.deviceProperties(in: guid),
 		      !excludingVendors.contains(properties.vendorID) else {
                 return nil
@@ -176,7 +190,9 @@ class GameControllerDatabase {
     }
 
 	func hasKnownVendorProduct(vendorID: Int, productID: Int) -> Bool {
-		allPlatformMappings.keys.contains { guid in
+		mappingsLock.lock()
+		defer { mappingsLock.unlock() }
+		return allPlatformMappings.keys.contains { guid in
 			guard let properties = Self.deviceProperties(in: guid) else {
 				return false
 			}
@@ -184,7 +200,8 @@ class GameControllerDatabase {
 		}
 	}
 
-	private func platformFallbackMapping(
+	/// Caller must hold `mappingsLock`.
+	private func platformFallbackMappingLocked(
 		vendorID: Int,
 		productID: Int,
 		version: Int,
@@ -234,6 +251,37 @@ class GameControllerDatabase {
 		return GUIDDeviceProperties(bus: bus, vendorID: vendorID, productID: productID, version: version)
 	}
 
+	/// Recognized SDL bus types for HID device GUIDs (USB, Bluetooth, BLE).
+	private static let hidGUIDBusValues: Set<Int> = [0x0003, 0x0005, 0x0006]
+
+	/// SDL embeds a CRC16 of the controller name in bytes 2-3 of HID device
+	/// GUIDs. Our lookups always construct zero-CRC GUIDs, so database keys must
+	/// be normalized the way SDL matches without CRC: zero out the CRC field.
+	/// Non-HID GUIDs (e.g. "xinput"-style text GUIDs) are returned unchanged so
+	/// their ASCII bytes never decode into bogus vendor/product pairs.
+	static func normalizedDatabaseGUID(_ guid: String) -> String {
+		let lowercased = guid.lowercased()
+		guard hasHIDDeviceGUIDShape(lowercased) else { return lowercased }
+		let crcStart = lowercased.index(lowercased.startIndex, offsetBy: 4)
+		let crcEnd = lowercased.index(crcStart, offsetBy: 4)
+		return lowercased.replacingCharacters(in: crcStart..<crcEnd, with: "0000")
+	}
+
+	/// True when the GUID has the fixed zero fields of an IOKit/SDL HID device
+	/// GUID (bytes 6-7, 10-11, 14-15) and a recognized bus type. Bytes 2-3 (the
+	/// CRC field) are deliberately not checked here.
+	private static func hasHIDDeviceGUIDShape(_ guid: String) -> Bool {
+		guard guid.count == 32,
+		      le16Value(in: guid, byteOffset: 6) == 0,
+		      le16Value(in: guid, byteOffset: 10) == 0,
+		      le16Value(in: guid, byteOffset: 14) == 0,
+		      let bus = le16Value(in: guid, byteOffset: 0),
+		      hidGUIDBusValues.contains(bus) else {
+			return false
+		}
+		return true
+	}
+
     private static func le16Value(in guid: String, byteOffset: Int) -> Int? {
         let hexOffset = guid.index(guid.startIndex, offsetBy: byteOffset * 2)
         let nextByteOffset = guid.index(hexOffset, offsetBy: 2)
@@ -249,8 +297,8 @@ class GameControllerDatabase {
     // MARK: - Database Loading
 
     func loadDatabase() {
-        mappings.removeAll()
-	allPlatformMappings.removeAll()
+	var macMappings: [String: SDLControllerMapping] = [:]
+	var platformMappings: [String: SDLControllerMapping] = [:]
 
 	let userPaths = [
 	    Self.userDatabasePath,
@@ -262,15 +310,17 @@ class GameControllerDatabase {
 
 	if let bundledPath,
 	   let content = try? String(contentsOfFile: bundledPath, encoding: .utf8) {
-		parseDatabase(content)
+		parseDatabase(content, macMappings: &macMappings, platformMappings: &platformMappings)
 		loadedAnyDatabase = true
 	}
 
 	if let userPath = userPaths.first(where: { FileManager.default.fileExists(atPath: $0) }),
 	   let content = try? String(contentsOfFile: userPath, encoding: .utf8) {
-		parseDatabase(content)
+		parseDatabase(content, macMappings: &macMappings, platformMappings: &platformMappings)
 		loadedAnyDatabase = true
 	}
+
+	installMappings(macMappings: macMappings, platformMappings: platformMappings)
 
 	guard loadedAnyDatabase else {
             #if DEBUG
@@ -280,13 +330,30 @@ class GameControllerDatabase {
         }
 
         #if DEBUG
-        print("[GameControllerDB] Loaded \(mappings.count) macOS controller mappings")
+        print("[GameControllerDB] Loaded \(macMappings.count) macOS controller mappings")
         #endif
+    }
+
+    /// Swaps freshly built replacement dictionaries in under the lock.
+    private func installMappings(
+        macMappings: [String: SDLControllerMapping],
+        platformMappings: [String: SDLControllerMapping]
+    ) {
+        mappingsLock.lock()
+        mappings = macMappings
+        allPlatformMappings = platformMappings
+        mappingsLock.unlock()
     }
 
     // MARK: - Parsing
 
-    private func parseDatabase(_ content: String) {
+    /// Parses database content into the caller-provided dictionaries so callers
+    /// can build full replacements before swapping them in under the lock.
+    private func parseDatabase(
+        _ content: String,
+        macMappings: inout [String: SDLControllerMapping],
+        platformMappings: inout [String: SDLControllerMapping]
+    ) {
         let lines = content.components(separatedBy: .newlines)
 
         for line in lines {
@@ -294,9 +361,10 @@ class GameControllerDatabase {
             guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
 
             if let mapping = parseLine(trimmed) {
-		allPlatformMappings[mapping.guid.lowercased()] = mapping
+		let key = Self.normalizedDatabaseGUID(mapping.guid)
+		platformMappings[key] = mapping
 		if trimmed.contains("platform:Mac OS X") {
-			mappings[mapping.guid.lowercased()] = mapping
+			macMappings[key] = mapping
 		}
             }
         }
@@ -414,7 +482,7 @@ class GameControllerDatabase {
 
         try content.write(toFile: Self.userDatabasePath, atomically: true, encoding: .utf8)
         loadDatabase()
-        return mappings.count
+        return mappingsLock.withLock { mappings.count }
     }
 
     enum DatabaseError: LocalizedError {

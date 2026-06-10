@@ -17,6 +17,10 @@ import XCTest
 
 final class KeyboardSnapshotBenchmarkTests: XCTestCase {
 
+    override func setUpWithError() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_BENCHMARKS"] == "1", "Benchmarks run only with RUN_BENCHMARKS=1")
+    }
+
     /// OLD pattern: two separate lock acquisitions for visibility + letter area
     func testBenchmark_keyboard_OLD_separateReads() {
         let manager = OnScreenKeyboardManager.shared
@@ -44,6 +48,10 @@ final class KeyboardSnapshotBenchmarkTests: XCTestCase {
 // MARK: - Benchmark: SwipeTypingEngine Snapshot
 
 final class SwipeSnapshotBenchmarkTests: XCTestCase {
+
+    override func setUpWithError() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["RUN_BENCHMARKS"] == "1", "Benchmarks run only with RUN_BENCHMARKS=1")
+    }
 
     /// OLD pattern: two separate lock acquisitions for state + cursor position
     func testBenchmark_swipe_OLD_separateReads() {

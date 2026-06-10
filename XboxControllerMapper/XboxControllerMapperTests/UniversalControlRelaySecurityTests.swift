@@ -70,7 +70,7 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
         XCTAssertNil(receiver.open(sealed ?? ""))
     }
 
-    func testOutOfOrderAuthenticatedFramesAreAccepted() {
+    func testOlderCounterIsRejectedAfterNewerFrame() {
         var sender = UniversalControlRelayAuthenticator(
             secretData: secret,
             peerID: "sender",
@@ -84,10 +84,56 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
 
         let older = sender.seal("pong abc") ?? ""
         let newer = sender.seal("uiState 0 0 0 0 0") ?? ""
+        let newest = sender.seal("m 1 1") ?? ""
 
         XCTAssertEqual(receiver.open(newer), "uiState 0 0 0 0 0")
-        XCTAssertEqual(receiver.open(older), "pong abc")
-        XCTAssertNil(receiver.open(older))
+        XCTAssertNil(receiver.open(older), "Counters at or below the highest seen must be rejected")
+        XCTAssertEqual(receiver.open(newest), "m 1 1")
+    }
+
+    func testReplayStateKeepsOneEntryPerPeer() {
+        var sender = UniversalControlRelayAuthenticator(
+            secretData: secret,
+            peerID: "sender",
+            counterSeed: 1
+        )
+        var otherSender = UniversalControlRelayAuthenticator(
+            secretData: secret,
+            peerID: "other",
+            counterSeed: 1
+        )
+        var receiver = UniversalControlRelayAuthenticator(
+            secretData: secret,
+            peerID: "receiver",
+            counterSeed: 0
+        )
+
+        for index in 0..<100 {
+            XCTAssertNotNil(receiver.open(sender.seal("m \(index) 0") ?? ""))
+        }
+        XCTAssertNotNil(receiver.open(otherSender.seal("m 0 0") ?? ""))
+
+        XCTAssertEqual(receiver.highestSeenIncomingCounters.count, 2)
+        XCTAssertEqual(receiver.highestSeenIncomingCounters["sender"], 101)
+    }
+
+    func testUnverifiedHighCounterDoesNotAdvanceReplayState() {
+        var sender = UniversalControlRelayAuthenticator(
+            secretData: secret,
+            peerID: "sender",
+            counterSeed: 10
+        )
+        var receiver = UniversalControlRelayAuthenticator(
+            secretData: secret,
+            peerID: "receiver",
+            counterSeed: 0
+        )
+
+        let sealed = sender.seal("m 1 1") ?? ""
+        let forged = "\(UniversalControlRelayAuthenticator.version) sender 999999 bSAxIDE= 0000"
+
+        XCTAssertNil(receiver.open(forged))
+        XCTAssertEqual(receiver.open(sealed), "m 1 1", "A forged counter must not block authentic frames")
     }
 
     func testTamperedPayloadIsRejected() {
@@ -160,12 +206,6 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
 
     func testNetworkPolicyRejectsPublicIPv6() {
         XCTAssertFalse(UniversalControlRelayNetworkPolicy.isAllowed(host: "2606:4700:4700::1111"))
-    }
-
-    func testSystemCommandsAreNeverRelayed() {
-        let command = SystemCommand.shellCommand(command: "touch /tmp/controllerkeys-should-not-run", inTerminal: false)
-
-        XCTAssertFalse(UniversalControlMouseRelay.shared.sendSystemCommand(command))
     }
 
 	func testSideAwareKeyPressFallsBackToLegacyEncodingWithoutCapability() {
@@ -401,6 +441,50 @@ final class UniversalControlRelaySecurityTests: XCTestCase {
 			RemoteCursorVisibilityRestorePolicy.Decision(
 				shouldRestore: true,
 				shouldRepairPotentialStaleHide: true
+			)
+		)
+	}
+
+	func testUIStateEchoPayloadMatchesWireFormat() {
+		XCTAssertEqual(
+			UniversalControlRelayUIStateEchoPolicy.payload(
+				keyboardVisible: true,
+				keyboardNavigationActive: false,
+				directoryNavigatorVisible: true,
+				swipePredictionsVisible: false
+			),
+			"uiState 1 0 1 0"
+		)
+		XCTAssertEqual(
+			UniversalControlRelayUIStateEchoPolicy.payload(
+				keyboardVisible: false,
+				keyboardNavigationActive: false,
+				directoryNavigatorVisible: false,
+				swipePredictionsVisible: false
+			),
+			"uiState 0 0 0 0"
+		)
+	}
+
+	func testUIStateEchoOnlySendsWhenPayloadChanges() {
+		XCTAssertTrue(
+			UniversalControlRelayUIStateEchoPolicy.shouldSend(
+				payload: "uiState 0 0 0 0",
+				lastSentPayload: nil
+			),
+			"First echo on a connection must always send"
+		)
+		XCTAssertFalse(
+			UniversalControlRelayUIStateEchoPolicy.shouldSend(
+				payload: "uiState 0 0 0 0",
+				lastSentPayload: "uiState 0 0 0 0"
+			),
+			"Unchanged UI state must not be re-echoed per inbound command"
+		)
+		XCTAssertTrue(
+			UniversalControlRelayUIStateEchoPolicy.shouldSend(
+				payload: "uiState 1 0 0 0",
+				lastSentPayload: "uiState 0 0 0 0"
 			)
 		)
 	}
