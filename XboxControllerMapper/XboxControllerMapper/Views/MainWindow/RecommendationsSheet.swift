@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct RecommendationsSheet: View {
+struct RecommendationsSheet: View, ControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
@@ -9,10 +9,6 @@ struct RecommendationsSheet: View {
 
     @State private var selectedIds: Set<UUID> = []
     @State private var applied = false
-
-    private var isDualSense: Bool { controllerService.threadSafeIsPlayStation }
-    private var isNintendo: Bool { controllerService.threadSafeIsNintendo }
-    private var isSteamController: Bool { controllerService.threadSafeIsSteamController }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -238,17 +234,17 @@ struct RecommendationsSheet: View {
     // MARK: - Button Display Helpers
 
     private func buttonName(_ button: ControllerButton) -> String {
-        button.displayName(forDualSense: isDualSense, forNintendo: isNintendo)
+        button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)
     }
 
     private func chordButtonNames(_ buttons: Set<ControllerButton>) -> String {
         buttons.sorted { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }
-            .map { $0.shortLabel(forDualSense: isDualSense, forNintendo: isNintendo) }
+            .map { $0.shortLabel(forDualSense: isPlayStation, forNintendo: isNintendo) }
             .joined(separator: "+")
     }
 
     private func buttonIcon(_ button: ControllerButton) -> some View {
-        ButtonIconView(button: button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController)
+        ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController)
             .scaleEffect(0.7)
             .frame(width: 22, height: 22)
     }

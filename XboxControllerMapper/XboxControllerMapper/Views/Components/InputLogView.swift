@@ -1,25 +1,8 @@
 import SwiftUI
 
-struct InputLogView: View {
+struct InputLogView: View, ControllerTypeProviding {
     @EnvironmentObject var inputLogService: InputLogService
     @EnvironmentObject var controllerService: ControllerService
-
-    /// True for any PlayStation controller (DualSense or DualShock) - used for PS-style labels
-    private var isPlayStation: Bool {
-        controllerService.threadSafeIsPlayStation
-    }
-
-    private var isNintendo: Bool {
-        controllerService.threadSafeIsNintendo
-    }
-
-	    private var isSteamController: Bool {
-			controllerService.threadSafeIsSteamController
-	    }
-
-	    private var isAppleTVRemote: Bool {
-			controllerService.threadSafeIsAppleTVRemote
-	    }
 
     var body: some View {
         HStack(spacing: 10) {

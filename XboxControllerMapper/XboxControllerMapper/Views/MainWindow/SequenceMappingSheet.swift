@@ -2,44 +2,12 @@ import SwiftUI
 
 // MARK: - Sequence Mapping Sheet
 
-struct SequenceMappingSheet: View {
+struct SequenceMappingSheet: View, ControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
 
     var editingSequence: SequenceMapping?
-
-    private var isDualSense: Bool {
-        controllerService.threadSafeIsDualSense
-    }
-
-    private var isDualShock: Bool {
-        controllerService.threadSafeIsDualShock
-    }
-
-    private var isPlayStation: Bool {
-        controllerService.threadSafeIsPlayStation
-    }
-
-    private var isDualSenseEdge: Bool {
-        controllerService.threadSafeIsDualSenseEdge
-    }
-
-    private var isXboxElite: Bool {
-        controllerService.threadSafeIsXboxElite
-    }
-
-    private var isSteamController: Bool {
-        controllerService.threadSafeIsSteamController
-    }
-
-	    private var isNintendo: Bool {
-			controllerService.threadSafeIsNintendo
-	    }
-
-	    private var isAppleTVRemote: Bool {
-			controllerService.threadSafeIsAppleTVRemote
-	    }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default

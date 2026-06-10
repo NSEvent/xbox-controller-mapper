@@ -153,7 +153,7 @@ extension View {
 
 /// Interactive visual representation of a controller with a professional Reference Page layout
 /// Automatically adapts to show Xbox or DualSense layouts based on connected controller
-struct ControllerVisualView: View {
+struct ControllerVisualView: View, ControllerTypeProviding {
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
 
@@ -164,39 +164,6 @@ struct ControllerVisualView: View {
     var onButtonTap: (ControllerButton) -> Void
 
     @State private var hoveredButton: ControllerButton?
-
-    private var isDualSense: Bool {
-        controllerService.threadSafeIsDualSense
-    }
-
-    private var isDualShock: Bool {
-        controllerService.threadSafeIsDualShock
-    }
-
-    /// True for any PlayStation controller (DualSense or DualShock) - used for PS-style labels and touchpad UI
-    private var isPlayStation: Bool {
-        controllerService.threadSafeIsPlayStation
-    }
-
-    private var isDualSenseEdge: Bool {
-        controllerService.threadSafeIsDualSenseEdge
-    }
-
-    private var isXboxElite: Bool {
-        controllerService.threadSafeIsXboxElite
-    }
-
-    private var isSteamController: Bool {
-        controllerService.threadSafeIsSteamController
-    }
-
-	    private var isNintendo: Bool {
-			controllerService.threadSafeIsNintendo
-	    }
-
-	    private var isAppleTVRemote: Bool {
-			controllerService.threadSafeIsAppleTVRemote
-	    }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default

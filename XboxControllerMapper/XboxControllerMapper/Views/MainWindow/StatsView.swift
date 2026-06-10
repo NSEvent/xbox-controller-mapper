@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Stats dashboard tab showing usage statistics and controller personality
-struct StatsView: View {
+struct StatsView: View, ControllerTypeProviding {
     @EnvironmentObject var usageStatsService: UsageStatsService
     @EnvironmentObject var controllerService: ControllerService
     @EnvironmentObject var profileManager: ProfileManager
@@ -10,9 +10,6 @@ struct StatsView: View {
     @State private var analysisResult: BindingAnalysisResult?
 
     private var stats: UsageStats { usageStatsService.stats }
-    private var isDualSense: Bool { controllerService.threadSafeIsPlayStation }
-    private var isNintendo: Bool { controllerService.threadSafeIsNintendo }
-    private var isSteamController: Bool { controllerService.threadSafeIsSteamController }
 
     var body: some View {
         ScrollView {
@@ -349,10 +346,10 @@ struct StatsView: View {
 
             ForEach(top, id: \.button) { item in
                 HStack(spacing: 12) {
-                    ButtonIconView(button: item.button, isDualSense: isDualSense, isNintendo: isNintendo, isSteamController: isSteamController)
+                    ButtonIconView(button: item.button, isDualSense: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController)
                         .frame(width: ButtonIconView.maxIconWidth)
 
-                    Text(item.button.displayName(forDualSense: isDualSense, forNintendo: isNintendo))
+                    Text(item.button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white)
                         .frame(width: 90, alignment: .leading)

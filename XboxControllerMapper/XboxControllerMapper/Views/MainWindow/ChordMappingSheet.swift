@@ -2,45 +2,12 @@ import SwiftUI
 
 // MARK: - Chord Mapping Sheet
 
-struct ChordMappingSheet: View {
+struct ChordMappingSheet: View, ControllerTypeProviding {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
     @Environment(\.dismiss) private var dismiss
 
     var editingChord: ChordMapping?
-
-    private var isDualSense: Bool {
-        controllerService.threadSafeIsDualSense
-    }
-
-    private var isDualShock: Bool {
-        controllerService.threadSafeIsDualShock
-    }
-
-    /// True for any PlayStation controller (DualSense or DualShock) - used for PS-style labels and touchpad
-    private var isPlayStation: Bool {
-        controllerService.threadSafeIsPlayStation
-    }
-
-    private var isDualSenseEdge: Bool {
-        controllerService.threadSafeIsDualSenseEdge
-    }
-
-    private var isXboxElite: Bool {
-        controllerService.threadSafeIsXboxElite
-    }
-
-    private var isSteamController: Bool {
-        controllerService.threadSafeIsSteamController
-    }
-
-	    private var isNintendo: Bool {
-			controllerService.threadSafeIsNintendo
-	    }
-
-	    private var isAppleTVRemote: Bool {
-			controllerService.threadSafeIsAppleTVRemote
-	    }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
