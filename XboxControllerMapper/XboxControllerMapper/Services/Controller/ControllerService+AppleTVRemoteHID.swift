@@ -158,6 +158,7 @@ extension ControllerService {
 		storage.appleTVRemoteActiveButtonUsages.removeAll()
 		storage.appleTVRemoteActiveSystemKeyTypes.removeAll()
 		storage.appleTVRemoteSystemKeyTypeSuppressUntil.removeAll()
+		storage.hasAppleTVRemoteHIDActivationDevice = false
 		storage.lock.unlock()
 
 		if appleTVRemoteMultitouchStarted || CKAppleTVRemoteMultitouchIsRunning() {
@@ -228,6 +229,9 @@ extension ControllerService {
 	func appleTVRemoteHIDDeviceAppeared(_ device: IOHIDDevice) {
 		if Self.isAppleTVRemoteHIDDevice(device) {
 			appleTVRemoteHIDDevice = device
+			storage.lock.withLock {
+				storage.hasAppleTVRemoteHIDActivationDevice = true
+			}
 			startAppleTVRemoteSystemEventSuppression()
 			NSLog("[ControllerKeys] Apple TV Remote HID monitoring started for buttons: %@",
 				  Self.appleTVRemoteHIDDeviceName(device))
@@ -235,6 +239,9 @@ extension ControllerService {
 		}
 
 		if Self.isAppleTVRemoteTouchHIDDevice(device) {
+			storage.lock.withLock {
+				storage.hasAppleTVRemoteHIDActivationDevice = true
+			}
 			if !setupAppleTVRemoteMultitouchMonitoring() {
 				setupAppleTVRemoteTouchReportCallback(device)
 			}
@@ -279,6 +286,9 @@ extension ControllerService {
 		}
 
 		if removedRemoteDevice {
+			storage.lock.withLock {
+				storage.hasAppleTVRemoteHIDActivationDevice = appleTVRemoteHIDDevice != nil || appleTVRemoteHIDTouchDevice != nil
+			}
 			objectWillChange.send()
 		}
 
@@ -599,7 +609,9 @@ extension ControllerService {
 			length: length
 		) else { return }
 
-		if touchReport.isTouching, !storage.lock.withLock({ storage.isAppleTVRemote }) {
+		if touchReport.isTouching,
+		   !storage.lock.withLock({ storage.isAppleTVRemote }),
+		   storage.lock.withLock({ storage.hasAppleTVRemoteHIDActivationDevice }) {
 			Task { @MainActor [weak self] in
 				guard let self,
 					  let device = self.appleTVRemoteHIDTouchDevice ?? self.appleTVRemoteHIDDevice else { return }
@@ -641,7 +653,9 @@ extension ControllerService {
 	}
 
 	nonisolated func handleAppleTVRemoteMultitouch(x: Float, y: Float, isTouching: Bool) {
-		if isTouching, !storage.lock.withLock({ storage.isAppleTVRemote }) {
+		if isTouching,
+		   !storage.lock.withLock({ storage.isAppleTVRemote }),
+		   storage.lock.withLock({ storage.hasAppleTVRemoteHIDActivationDevice }) {
 			Task { @MainActor [weak self] in
 				guard let self,
 					  let device = self.appleTVRemoteHIDTouchDevice ?? self.appleTVRemoteHIDDevice else { return }

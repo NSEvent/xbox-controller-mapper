@@ -144,10 +144,8 @@ struct ButtonMappingsTab: View {
 					} label: {
 						if controllerPreviewLayout == layout {
 							Label(layoutMenuTitle(for: layout), systemImage: "checkmark")
-						} else if isLayoutCurrentlyConnected(layout) {
-							Label(layoutMenuTitle(for: layout), systemImage: "circle.fill")
 						} else {
-							Label(layout.displayName, systemImage: layout.systemImage)
+							Label(layoutMenuTitle(for: layout), systemImage: layout.systemImage)
 						}
 					}
 				}
@@ -182,8 +180,7 @@ struct ButtonMappingsTab: View {
 		guard controllerPreviewLayout != .active else { return nil }
 
 		let connectedLayouts = connectedControllerPreviewLayouts
-		let compatibleLayouts = compatiblePreviewLayouts(for: controllerPreviewLayout)
-		guard connectedLayouts.isDisjoint(with: compatibleLayouts) else { return nil }
+		guard !connectedLayouts.contains(controllerPreviewLayout) else { return nil }
 
 		if connectedLayouts.isEmpty {
 			return "No connected controller matches \(controllerPreviewLayout.displayName)"
@@ -198,12 +195,12 @@ struct ButtonMappingsTab: View {
 
 	private func layoutMenuTitle(for layout: ControllerPreviewLayout) -> String {
 		guard isLayoutCurrentlyConnected(layout) else { return layout.displayName }
-		return "\(layout.displayName)  Connected"
+		return "\(layout.displayName) 🟢"
 	}
 
 	private func isLayoutCurrentlyConnected(_ layout: ControllerPreviewLayout) -> Bool {
 		guard layout != .active else { return false }
-		return !connectedControllerPreviewLayouts.isDisjoint(with: compatiblePreviewLayouts(for: layout))
+		return connectedControllerPreviewLayouts.contains(layout)
 	}
 
 	private var connectedControllerPreviewLayouts: Set<ControllerPreviewLayout> {
@@ -224,15 +221,14 @@ struct ButtonMappingsTab: View {
 				layouts.insert(.nintendo)
 			}
 			if controllerService.threadSafeIsXboxElite {
-				layouts.formUnion([.xbox, .xboxElite])
+				layouts.insert(.xboxElite)
+			} else if controllerService.connectedController?.extendedGamepad is GCXboxGamepad {
+				layouts.insert(.xbox)
 			}
 			if controllerService.threadSafeIsDualSenseEdge {
-				layouts.formUnion([.dualSense, .dualSenseEdge])
+				layouts.insert(.dualSenseEdge)
 			} else if controllerService.threadSafeIsDualSense {
 				layouts.insert(.dualSense)
-			}
-			if controllerService.connectedController?.extendedGamepad is GCXboxGamepad {
-				layouts.insert(.xbox)
 			}
 		}
 
@@ -241,19 +237,6 @@ struct ButtonMappingsTab: View {
 		}
 
 		return layouts
-	}
-
-	private func compatiblePreviewLayouts(for layout: ControllerPreviewLayout) -> Set<ControllerPreviewLayout> {
-		switch layout {
-		case .active:
-			return []
-		case .xbox:
-			return [.xbox, .xboxElite]
-		case .dualSense:
-			return [.dualSense, .dualSenseEdge]
-		default:
-			return [layout]
-		}
 	}
 
 	private func previewLayouts(for controller: GCController) -> Set<ControllerPreviewLayout> {
@@ -277,13 +260,13 @@ struct ButtonMappingsTab: View {
 				vendorName: controller.vendorName,
 				productCategory: controller.productCategory
 			) {
-				return [.xbox, .xboxElite]
+				return [.xboxElite]
 			}
 			return [.xbox]
 		}
 		if controller.extendedGamepad is GCDualSenseGamepad {
 			if isDualSenseEdgeMetadata(controller) {
-				return [.dualSense, .dualSenseEdge]
+				return [.dualSenseEdge]
 			}
 			return [.dualSense]
 		}

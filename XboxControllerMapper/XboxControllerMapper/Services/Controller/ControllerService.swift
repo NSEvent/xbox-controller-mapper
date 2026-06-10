@@ -113,6 +113,7 @@ final class ControllerStorage: @unchecked Sendable {
     var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
     var appleTVRemoteActiveButtonUsages: [ControllerButton: Set<UInt64>] = [:]
     var appleTVRemoteButtonReleaseWorkItems: [ControllerButton: DispatchWorkItem] = [:]
+	var hasAppleTVRemoteHIDActivationDevice: Bool = false
     var appleTVRemoteCircularScrollActive: Bool = false
     var appleTVRemoteCircularScrollStartedInOuterRing: Bool = false
 
