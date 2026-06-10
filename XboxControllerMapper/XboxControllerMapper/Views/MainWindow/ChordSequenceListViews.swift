@@ -115,6 +115,7 @@ struct ChordRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
+                .help("Edit")
                 .accessibilityLabel("Edit")
 
                 Button(action: onDelete) {
@@ -122,6 +123,7 @@ struct ChordRow: View {
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
+                .help("Delete")
                 .accessibilityLabel("Delete")
             }
         }
@@ -259,6 +261,7 @@ struct SequenceRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
+                .help("Edit")
                 .accessibilityLabel("Edit")
 
                 Button(action: onDelete) {
@@ -266,6 +269,7 @@ struct SequenceRow: View {
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
+                .help("Delete")
                 .accessibilityLabel("Delete")
             }
         }
