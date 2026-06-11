@@ -67,7 +67,7 @@ INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 HELPER_SRC := Helpers/XboxEliteHelper.swift
 HELPER_NAME := XboxEliteHelper
 
-.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-clean refactor-gate
+.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-clean refactor-gate screenshots
 
 help:
 	@echo "ControllerKeys - Build Commands"
@@ -81,6 +81,7 @@ help:
 	@echo "  make test-full - Run full test suite"
 	@echo "  make test-clean - Remove cached test derived data"
 	@echo "  make refactor-gate - Run full suite (gate for refactors)"
+	@echo "  make screenshots - Capture marketing screenshots (all variants)"
 	@echo ""
 	@echo "Configuration:"
 	@echo "  CONFIG=$(CONFIG) SCHEME=$(SCHEME)"
@@ -180,3 +181,9 @@ test-clean:
 
 # test-full is a superset of test-regressions; running both would build twice.
 refactor-gate: test-full
+
+# Capture marketing/README screenshots for all controller variants.
+# Requires Accessibility + Screen Recording permission for the terminal.
+# Disconnect physical controllers first. See Scripts/capture-screenshots.sh.
+screenshots:
+	./Scripts/capture-screenshots.sh dualsense xbox steam appletv
