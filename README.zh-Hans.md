@@ -1,4 +1,4 @@
-[English](README.md) | [简体中文](README.zh-Hans.md)
+[English](README.md) | [简体中文](README.zh-Hans.md) | [Deutsch](README.de.md) | [日本語](README.ja.md)
 
 # ControllerKeys for macOS
 
@@ -10,7 +10,7 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 
 一款原生 macOS 应用程序，可将 Xbox、Xbox Elite Series 2、DualSense（PS5）、DualShock 4（PS4）、Nintendo Joy-Con、Switch Pro 手柄、Steam Controller、Apple TV Siri Remote 以及 300+ 款第三方手柄的输入映射为键盘快捷键、鼠标移动、滚动/缩放/平移操作、宏、脚本、Webhook 和系统命令。支持带滑动输入的屏幕键盘、DualSense 与 Steam Controller 触摸板和陀螺仪、JavaScript 脚本引擎、按应用自动切换配置文件、实时低延迟输入模式，以及通过 Wi-Fi 在两台 Mac 之间无缝传递手柄控制权。
 
-**[官方网站与文档](https://www.kevintang.xyz/apps/xbox-controller-mapper)** | **[下载购买](https://thekevintang.gumroad.com/l/xbox-controller-mapper)**
+**[官方网站与文档](https://www.kevintang.xyz/apps/controller-keys)** | **[下载购买](https://thekevintang.gumroad.com/l/xbox-controller-mapper)**
 
 ![ControllerKeys - 按键映射](screenshots/xbox-series-xs/01-buttons.png)
 
@@ -206,7 +206,7 @@ ControllerKeys 是唯一一款完整支持 DualSense 触摸板的选择，非常
 
 - **历史与快照**：在任何破坏性操作（删除配置、导入配置、恢复快照）前自动静默生成完整配置快照，并在专用的**历史**标签中展示
   - 可恢复任意快照——恢复本身也会先生成快照，所以撤销操作也可撤销
-  - 快照保存在 `~/.controllerkeys/snapshots/`（最多保留 20 个）
+  - 快照保存在 `~/.config/controllerkeys/snapshots/`（最多保留 20 个）
 
 - **导入安全提示**：当导入的配置包含 Shell 命令、脚本或带 Shell 跟进的 Webhook 时，会弹出明确的同意面板，逐条列出所有可执行代码的入口——杜绝第三方配置静默执行
 
@@ -300,6 +300,8 @@ ControllerKeys 是唯一一款完整支持 DualSense 触摸板的选择，非常
 ## 安装
 
 **[下载 ControllerKeys](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** - 获取最新的签名公证版本。
+
+想先了解一下？[官方网站](https://www.kevintang.xyz/apps/controller-keys)提供演示视频、完整功能介绍和 FAQ。
 
 1. 从 Gumroad 购买并下载 DMG 文件
 2. 打开 DMG，将应用拖入 `/Applications`

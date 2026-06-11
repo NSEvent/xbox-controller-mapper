@@ -1,4 +1,4 @@
-[English](README.md) | [简体中文](README.zh-Hans.md)
+[English](README.md) | [简体中文](README.zh-Hans.md) | [Deutsch](README.de.md) | [日本語](README.ja.md)
 
 # ControllerKeys — Gamepad-to-Keyboard Remapper for macOS
 
@@ -10,7 +10,7 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 
 A native macOS app that remaps game controllers to keyboard shortcuts, mouse input, macros, scripts, webhooks, and system commands — turning any gamepad into a full desktop input device. Supports Xbox Series X|S, Xbox Elite Series 2, PS5 DualSense, PS4 DualShock 4, Nintendo Joy-Con, Switch Pro Controller, Steam Controller, the Apple TV Siri Remote, and 300+ third-party gamepads. Features DualSense and Steam Controller touchpad and gyroscope mouse control, swipe typing, a JavaScript scripting engine, per-app profile auto-switching, a realtime low-latency input mode, and Mac-to-Mac controller handoff over Wi-Fi.
 
-**[Website & Documentation](https://www.kevintang.xyz/apps/xbox-controller-mapper)** | **[Download](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord Community](https://discord.gg/WsZJkRsPPg)**
+**[Website & Documentation](https://www.kevintang.xyz/apps/controller-keys)** | **[Download](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord Community](https://discord.gg/WsZJkRsPPg)**
 
 ![ControllerKeys - Button Mappings](screenshots/xbox-series-xs/01-buttons.png)
 
@@ -334,6 +334,8 @@ Any controller recognized by macOS's GameController framework works out of the b
 ## Installation
 
 **[Download ControllerKeys](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** - Get the latest signed and notarized build.
+
+Want a tour first? The [website](https://www.kevintang.xyz/apps/controller-keys) has demo videos, the full feature breakdown, and an FAQ.
 
 1. Purchase and download the DMG from Gumroad
 2. Open the DMG and drag the app to `/Applications`

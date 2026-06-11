@@ -263,6 +263,10 @@ try container.encodeIfPresent(newField, forKey: .newField)
 
 ---
 
+## README Localization
+
+`README.md` (English) is canonical. `README.zh-Hans.md`, `README.de.md`, and `README.ja.md` are translations, batch-updated at release time. When editing `README.md`, either mirror the change in all four files or leave the translations for the next release-time sync — do not let them silently diverge in structure (same sections, same images, same tables).
+
 ## Architecture Reference
 
 See `ARCHITECTURE.md` in the project root for detailed technical documentation including:
