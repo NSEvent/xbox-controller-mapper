@@ -165,32 +165,32 @@ enum DualSenseMinimapLayout {
 // MARK: - DualShock 4
 
 enum DualShockMinimapLayout {
-    static let touchpad = CGPoint(x: 0.50, y: 0.185)
-    static let touchpadSize = CGSize(width: 0.30, height: 0.20)
+    static let touchpad = CGPoint(x: 0.50, y: 0.145)
+    static let touchpadSize = CGSize(width: 0.23, height: 0.25)
 
-    static let share = CGPoint(x: 0.305, y: 0.10)
-    static let options = CGPoint(x: 0.695, y: 0.10)
-    static let shareOptionsSize: CGFloat = 0.028
+    static let share = CGPoint(x: 0.355, y: 0.075)
+    static let options = CGPoint(x: 0.645, y: 0.075)
+    static let shareOptionsSize: CGFloat = 0.026
 
-    static let dpad = CGPoint(x: 0.165, y: 0.225)
-    static let dpadSize: CGFloat = 0.135
+    static let dpad = CGPoint(x: 0.205, y: 0.21)
+    static let dpadSize: CGFloat = 0.125
 
-    static let faceCluster = CGPoint(x: 0.835, y: 0.225)
-    static let faceButtonOffset: CGFloat = 0.050
-    static let faceButtonSize: CGFloat = 0.050
+    static let faceCluster = CGPoint(x: 0.795, y: 0.21)
+    static let faceButtonOffset: CGFloat = 0.060
+    static let faceButtonSize: CGFloat = 0.052
 
-    static let leftStick = CGPoint(x: 0.36, y: 0.43)
-    static let rightStick = CGPoint(x: 0.64, y: 0.43)
-    static let stickWellSize: CGFloat = 0.15
+    static let leftStick = CGPoint(x: 0.355, y: 0.39)
+    static let rightStick = CGPoint(x: 0.645, y: 0.39)
+    static let stickWellSize: CGFloat = 0.155
 
-    static let speakerGrille = CGPoint(x: 0.50, y: 0.345)
-    static let psButton = CGPoint(x: 0.50, y: 0.50)
-    static let psButtonSize: CGFloat = 0.052
+    static let speakerGrille = CGPoint(x: 0.50, y: 0.275)
+    static let psButton = CGPoint(x: 0.50, y: 0.405)
+    static let psButtonSize: CGFloat = 0.048
 
-    static let leftBumper = CGPoint(x: 0.135, y: 0.045)
-    static let rightBumper = CGPoint(x: 0.865, y: 0.045)
-    static let leftTrigger = CGPoint(x: 0.115, y: 0.008)
-    static let rightTrigger = CGPoint(x: 0.885, y: 0.008)
+    static let leftBumper = CGPoint(x: 0.155, y: 0.052)
+    static let rightBumper = CGPoint(x: 0.845, y: 0.052)
+    static let leftTrigger = CGPoint(x: 0.155, y: 0.008)
+    static let rightTrigger = CGPoint(x: 0.845, y: 0.008)
 
     static let battery = CGPoint(x: 0.50, y: 0.88)
 }
@@ -253,12 +253,13 @@ enum SteamMinimapLayout {
     static let share = CGPoint(x: 0.50, y: 0.555)
     static let shareSize: CGFloat = 0.036
 
-    // The Steam Controller's top corners slope down steeply; the shoulder
-    // elements ride that slope, overlapping the silhouette's corner.
-    static let leftBumper = CGPoint(x: 0.13, y: 0.105)
-    static let rightBumper = CGPoint(x: 0.87, y: 0.105)
-    static let leftTrigger = CGPoint(x: 0.092, y: 0.062)
-    static let rightTrigger = CGPoint(x: 0.908, y: 0.062)
+    // Bumpers hug the flat top edge just inboard of the rounded corner
+    // (body edge is at y ≈ 0.02 for x ≥ 0.18); triggers peek over the
+    // corner itself, outboard of and above the d-pad / face clusters.
+    static let leftBumper = CGPoint(x: 0.19, y: 0.032)
+    static let rightBumper = CGPoint(x: 0.81, y: 0.032)
+    static let leftTrigger = CGPoint(x: 0.12, y: 0.022)
+    static let rightTrigger = CGPoint(x: 0.88, y: 0.022)
 
     // Rear grip buttons peeking under the bottom arches beside the
     // center cusp.

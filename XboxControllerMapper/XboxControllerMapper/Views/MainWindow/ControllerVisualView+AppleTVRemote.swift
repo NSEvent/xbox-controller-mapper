@@ -40,51 +40,25 @@ private struct AppleTVRemoteTouchIndicator: View {
 	}
 }
 
-extension ControllerVisualView {
-	@ViewBuilder
-	var appleTVRemoteLayout: some View {
-		HStack(alignment: .center, spacing: 26) {
-			VStack(alignment: .trailing, spacing: 16) {
-				referenceGroup(title: "Clickpad", buttons: [.touchpadButton, .touchpadTap])
-				directionCluster(
-					title: "Clickpad",
-					up: .dpadUp,
-					left: .dpadLeft,
-					center: .dpadPreset,
-					right: .dpadRight,
-					down: .dpadDown
-				)
-				referenceGroup(title: "System", buttons: [.view, .menu])
-			}
-			.frame(width: 250)
+/// Product-accurate Siri Remote visual with live button/touch state.
+/// Used full-size in the Buttons tab and scaled down by the stream
+/// overlay, so both always show the same remote.
+struct AppleTVRemoteMinimapView: View {
+	static let previewSize = CGSize(width: 154, height: 520)
 
-			VStack(spacing: 12) {
-				appleTVRemoteBodyView
-					.frame(width: appleTVRemotePreviewWidth, height: appleTVRemotePreviewHeight)
-					.accessibilityHidden(true)
+	let controllerService: ControllerService
+	var onButtonTap: (ControllerButton) -> Void = { _ in }
+	var onButtonHover: (ControllerButton, Bool) -> Void = { _, _ in }
+	var onSwapRequest: ((ControllerButton, ControllerButton) -> Void)? = nil
 
-				if controllerService.isConnected {
-					BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
-				}
-			}
+	@State private var activeButtons: Set<ControllerButton> = []
 
-			VStack(alignment: .leading, spacing: 16) {
-				referenceGroup(title: "System", buttons: [.appleTVRemotePower, .siri, .xbox])
-				referenceGroup(title: "Volume", buttons: [.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute])
-			}
-			.frame(width: 250)
-		}
-		.padding(28)
-	}
+	private var roundButtonSize: CGFloat { 46 }
+	private var clickpadSize: CGFloat { 126 }
+	private var clickpadCenterButtonSize: CGFloat { 72 }
+	private var volumeRockerHeight: CGFloat { roundButtonSize * 2 + 26 }
 
-	private var appleTVRemotePreviewWidth: CGFloat { 154 }
-	private var appleTVRemotePreviewHeight: CGFloat { 520 }
-	private var appleTVRemoteRoundButtonSize: CGFloat { 46 }
-	private var appleTVRemoteClickpadSize: CGFloat { 126 }
-	private var appleTVRemoteClickpadCenterButtonSize: CGFloat { 72 }
-	private var appleTVRemoteVolumeRockerHeight: CGFloat { appleTVRemoteRoundButtonSize * 2 + 26 }
-
-	private var appleTVRemoteBodyView: some View {
+	var body: some View {
 		ZStack(alignment: .topTrailing) {
 			RoundedRectangle(cornerRadius: 28, style: .continuous)
 				.fill(
@@ -108,29 +82,29 @@ extension ControllerVisualView {
 
 					HStack {
 						Spacer()
-						appleTVRemotePowerButton
+						powerButton
 							.padding(.trailing, 13)
 					}
 				}
 				.frame(height: 34)
 				.padding(.top, 14)
 
-				appleTVRemoteClickpad
+				clickpad
 					.padding(.top, 28)
 
 				HStack(spacing: 26) {
-					appleTVRemoteRoundButton(.view, systemImage: "chevron.left")
-					appleTVRemoteRoundButton(.xbox, systemImage: "tv.fill")
+					roundButton(.view, systemImage: "chevron.left")
+					roundButton(.xbox, systemImage: "tv.fill")
 				}
 				.padding(.top, 24)
 
 				HStack(alignment: .top, spacing: 26) {
 					VStack(spacing: 26) {
-						appleTVRemoteRoundButton(.menu, systemImage: "playpause.fill")
-						appleTVRemoteRoundButton(.appleTVRemoteMute, systemImage: "speaker.slash.fill")
+						roundButton(.menu, systemImage: "playpause.fill")
+						roundButton(.appleTVRemoteMute, systemImage: "speaker.slash.fill")
 					}
 
-					appleTVRemoteVolumeRocker
+					volumeRocker
 				}
 				.padding(.top, 24)
 
@@ -138,23 +112,19 @@ extension ControllerVisualView {
 			}
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
 
-			appleTVRemoteSiriSideButton
+			siriSideButton
 				.offset(x: 9, y: 112)
-
-			VStack {
-				Spacer()
-				layerScopeChip(nameMaxWidth: 68)
-					.frame(maxWidth: appleTVRemotePreviewWidth - 28)
-					.padding(.horizontal, 14)
-					.padding(.bottom, 14)
-			}
-			.frame(maxWidth: .infinity, maxHeight: .infinity)
-			.allowsHitTesting(false)
 		}
-		.frame(width: appleTVRemotePreviewWidth, height: appleTVRemotePreviewHeight)
+		.frame(width: Self.previewSize.width, height: Self.previewSize.height)
+		.onReceive(controllerService.$activeButtons) { activeButtons = $0 }
 	}
 
-	private var appleTVRemoteClickpad: some View {
+	private func isPressed(_ button: ControllerButton) -> Bool {
+		activeButtons.contains(button) ||
+			button.physicalEquivalentButtons.contains { activeButtons.contains($0) }
+	}
+
+	private var clickpad: some View {
 		ZStack {
 			Circle()
 				.fill(
@@ -167,35 +137,35 @@ extension ControllerVisualView {
 				.overlay(Circle().stroke(Color.white.opacity(0.14), lineWidth: 1))
 			Circle()
 				.strokeBorder(Color.white.opacity(0.08), lineWidth: 22)
-			appleTVRemoteClickpadDot(.dpadUp, x: 0, y: -55)
-			appleTVRemoteClickpadDot(.dpadDown, x: 0, y: 55)
-			appleTVRemoteClickpadDot(.dpadLeft, x: -55, y: 0)
-			appleTVRemoteClickpadDot(.dpadRight, x: 55, y: 0)
+			clickpadDot(.dpadUp, x: 0, y: -55)
+			clickpadDot(.dpadDown, x: 0, y: 55)
+			clickpadDot(.dpadLeft, x: -55, y: 0)
+			clickpadDot(.dpadRight, x: 55, y: 0)
 			Circle()
 				.fill(
-					appleTVRemoteButtonGradient(
+					buttonGradient(
 						isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.10),
 						pressed: isPressed(.touchpadButton)
 					)
 				)
 				.overlay(Circle().stroke(Color.black.opacity(0.45), lineWidth: 1.2))
-				.frame(width: appleTVRemoteClickpadCenterButtonSize, height: appleTVRemoteClickpadCenterButtonSize)
+				.frame(width: clickpadCenterButtonSize, height: clickpadCenterButtonSize)
 				.controllerAnchor([.touchpadButton, .touchpadTap], role: .controller)
 				.contentShape(Circle())
 				.onTapGesture { onButtonTap(.touchpadButton) }
-				.onHover { hovering in handleButtonHover(.touchpadButton, hovering) }
-				.swappable(.touchpadButton, onSwap: performSwap)
+				.onHover { hovering in onButtonHover(.touchpadButton, hovering) }
+				.swappable(.touchpadButton, onSwap: onSwapRequest)
 				.help("Clickpad Click")
 			AppleTVRemoteTouchIndicator(
 				controllerService: controllerService,
-				clickpadSize: appleTVRemoteClickpadSize
+				clickpadSize: clickpadSize
 			)
 		}
-		.frame(width: appleTVRemoteClickpadSize, height: appleTVRemoteClickpadSize)
+		.frame(width: clickpadSize, height: clickpadSize)
 		.help("Clickpad")
 	}
 
-	private func appleTVRemoteClickpadDot(
+	private func clickpadDot(
 		_ button: ControllerButton,
 		x: CGFloat,
 		y: CGFloat
@@ -216,12 +186,12 @@ extension ControllerVisualView {
 		.offset(x: x, y: y)
 		.contentShape(Circle())
 		.onTapGesture { onButtonTap(button) }
-		.onHover { hovering in handleButtonHover(button, hovering) }
-		.swappable(button, onSwap: performSwap)
+		.onHover { hovering in onButtonHover(button, hovering) }
+		.swappable(button, onSwap: onSwapRequest)
 		.help(button.displayName(forAppleTVRemote: true))
 	}
 
-	private var appleTVRemoteSiriSideButton: some View {
+	private var siriSideButton: some View {
 		Capsule()
 			.fill(isPressed(.siri) ? Color.accentColor : Color(white: 0.72))
 			.frame(width: 10, height: 66)
@@ -229,45 +199,45 @@ extension ControllerVisualView {
 			.controllerAnchor(.siri, role: .controller)
 			.contentShape(Rectangle())
 			.onTapGesture { onButtonTap(.siri) }
-			.onHover { hovering in handleButtonHover(.siri, hovering) }
+			.onHover { hovering in onButtonHover(.siri, hovering) }
 			.help("Siri")
 	}
 
-	private var appleTVRemoteVolumeRocker: some View {
+	private var volumeRocker: some View {
 		VStack(spacing: 0) {
-			appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeUp, systemImage: "plus")
+			volumeRockerSegment(.appleTVRemoteVolumeUp, systemImage: "plus")
 			Rectangle()
 				.fill(Color.white.opacity(0.12))
 				.frame(height: 1)
-			appleTVRemoteVolumeRockerSegment(.appleTVRemoteVolumeDown, systemImage: "minus")
+			volumeRockerSegment(.appleTVRemoteVolumeDown, systemImage: "minus")
 		}
-		.frame(width: appleTVRemoteRoundButtonSize, height: appleTVRemoteVolumeRockerHeight)
+		.frame(width: roundButtonSize, height: volumeRockerHeight)
 		.background(
-			RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous)
+			RoundedRectangle(cornerRadius: roundButtonSize / 2, style: .continuous)
 				.fill(Color(white: 0.09))
 		)
-		.clipShape(RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous))
+		.clipShape(RoundedRectangle(cornerRadius: roundButtonSize / 2, style: .continuous))
 		.overlay(
-			RoundedRectangle(cornerRadius: appleTVRemoteRoundButtonSize / 2, style: .continuous)
+			RoundedRectangle(cornerRadius: roundButtonSize / 2, style: .continuous)
 				.stroke(Color.white.opacity(0.16), lineWidth: 1)
 		)
 	}
 
-	private func appleTVRemoteVolumeRockerSegment(_ button: ControllerButton, systemImage: String) -> some View {
+	private func volumeRockerSegment(_ button: ControllerButton, systemImage: String) -> some View {
 		Image(systemName: systemImage)
 			.font(.system(size: 18, weight: .bold))
 			.foregroundStyle(.white.opacity(0.85))
-			.frame(width: appleTVRemoteRoundButtonSize, height: (appleTVRemoteVolumeRockerHeight - 1) / 2)
+			.frame(width: roundButtonSize, height: (volumeRockerHeight - 1) / 2)
 			.background(isPressed(button) ? Color.accentColor : Color.clear)
 			.contentShape(Rectangle())
 			.controllerAnchor(button, role: .controller)
 			.onTapGesture { onButtonTap(button) }
-			.onHover { hovering in handleButtonHover(button, hovering) }
-			.swappable(button, onSwap: performSwap)
+			.onHover { hovering in onButtonHover(button, hovering) }
+			.swappable(button, onSwap: onSwapRequest)
 			.help(button.displayName(forAppleTVRemote: true))
 	}
 
-	private var appleTVRemotePowerButton: some View {
+	private var powerButton: some View {
 		Image(systemName: "power")
 			.font(.system(size: 15, weight: .semibold))
 			.foregroundStyle(isPressed(.appleTVRemotePower) ? .white : Color.black.opacity(0.82))
@@ -280,20 +250,20 @@ extension ControllerVisualView {
 			.contentShape(Circle())
 			.controllerAnchor(.appleTVRemotePower, role: .controller)
 			.onTapGesture { onButtonTap(.appleTVRemotePower) }
-			.onHover { hovering in handleButtonHover(.appleTVRemotePower, hovering) }
-			.swappable(.appleTVRemotePower, onSwap: performSwap)
+			.onHover { hovering in onButtonHover(.appleTVRemotePower, hovering) }
+			.swappable(.appleTVRemotePower, onSwap: onSwapRequest)
 			.help("Power")
 	}
 
-	private func appleTVRemoteRoundButton(_ button: ControllerButton, systemImage: String) -> some View {
+	private func roundButton(_ button: ControllerButton, systemImage: String) -> some View {
 		Image(systemName: systemImage)
 			.font(.system(size: button == .menu ? 14 : 17, weight: .semibold))
 			.foregroundStyle(.white.opacity(0.9))
-			.frame(width: appleTVRemoteRoundButtonSize, height: appleTVRemoteRoundButtonSize)
+			.frame(width: roundButtonSize, height: roundButtonSize)
 			.background(
 				Circle()
 					.fill(
-						appleTVRemoteButtonGradient(
+						buttonGradient(
 							isPressed(button) ? Color.accentColor : Color(white: 0.09),
 							pressed: isPressed(button)
 						)
@@ -304,12 +274,12 @@ extension ControllerVisualView {
 			.contentShape(Circle())
 			.controllerAnchor(button, role: .controller)
 			.onTapGesture { onButtonTap(button) }
-			.onHover { hovering in handleButtonHover(button, hovering) }
-			.swappable(button, onSwap: performSwap)
+			.onHover { hovering in onButtonHover(button, hovering) }
+			.swappable(button, onSwap: onSwapRequest)
 			.help(button.displayName(forAppleTVRemote: true))
 	}
 
-	private func appleTVRemoteButtonGradient(_ color: Color, pressed: Bool) -> LinearGradient {
+	private func buttonGradient(_ color: Color, pressed: Bool) -> LinearGradient {
 		LinearGradient(
 			colors: [
 				pressed ? color.opacity(0.82) : color.opacity(1.0),
@@ -318,5 +288,54 @@ extension ControllerVisualView {
 			startPoint: .topLeading,
 			endPoint: .bottomTrailing
 		)
+	}
+}
+
+extension ControllerVisualView {
+	@ViewBuilder
+	var appleTVRemoteLayout: some View {
+		HStack(alignment: .center, spacing: 26) {
+			VStack(alignment: .trailing, spacing: 16) {
+				referenceGroup(title: "Clickpad", buttons: [.touchpadButton, .touchpadTap])
+				directionCluster(
+					title: "Clickpad",
+					up: .dpadUp,
+					left: .dpadLeft,
+					center: .dpadPreset,
+					right: .dpadRight,
+					down: .dpadDown
+				)
+				referenceGroup(title: "System", buttons: [.view, .menu])
+			}
+			.frame(width: 250)
+
+			VStack(spacing: 12) {
+				AppleTVRemoteMinimapView(
+					controllerService: controllerService,
+					onButtonTap: onButtonTap,
+					onButtonHover: handleButtonHover,
+					onSwapRequest: performSwap
+				)
+				.overlay(alignment: .bottom) {
+					layerScopeChip(nameMaxWidth: 68)
+						.frame(maxWidth: AppleTVRemoteMinimapView.previewSize.width - 28)
+						.padding(.horizontal, 14)
+						.padding(.bottom, 14)
+						.allowsHitTesting(false)
+				}
+				.accessibilityHidden(true)
+
+				if controllerService.isConnected {
+					BatteryView(level: controllerService.batteryLevel, state: controllerService.batteryState)
+				}
+			}
+
+			VStack(alignment: .leading, spacing: 16) {
+				referenceGroup(title: "System", buttons: [.appleTVRemotePower, .siri, .xbox])
+				referenceGroup(title: "Volume", buttons: [.appleTVRemoteVolumeUp, .appleTVRemoteVolumeDown, .appleTVRemoteMute])
+			}
+			.frame(width: 250)
+		}
+		.padding(28)
 	}
 }

@@ -226,13 +226,13 @@ struct ControllerAnalogOverlay: View {
         let layout = SteamMinimapLayout.self
 
         return ZStack {
-            miniTrigger(.leftTrigger, label: "LT", value: leftTrigger, width: w * 0.07, tilt: -30)
+            miniTrigger(.leftTrigger, label: "LT", value: leftTrigger, width: w * 0.065, tilt: -18)
                 .minimapPosition(layout.leftTrigger, in: size)
-            miniTrigger(.rightTrigger, label: "RT", value: rightTrigger, width: w * 0.07, tilt: 30)
+            miniTrigger(.rightTrigger, label: "RT", value: rightTrigger, width: w * 0.065, tilt: 18)
                 .minimapPosition(layout.rightTrigger, in: size)
-            miniBumper(.leftBumper, label: "LB", width: w * 0.10, tilt: -26)
+            miniBumper(.leftBumper, label: "LB", width: w * 0.105, tilt: -8)
                 .minimapPosition(layout.leftBumper, in: size)
-            miniBumper(.rightBumper, label: "RB", width: w * 0.10, tilt: 26)
+            miniBumper(.rightBumper, label: "RB", width: w * 0.105, tilt: 8)
                 .minimapPosition(layout.rightBumper, in: size)
 
             miniDPad(span: w * layout.dpadSize, style: .cross)
@@ -418,10 +418,10 @@ struct ControllerAnalogOverlay: View {
             miniBumper(.rightBumper, label: "R1", width: w * 0.12, tilt: 6)
                 .minimapPosition(layout.rightBumper, in: size)
 
-            // Share / Options: small pills flanking the touchpad
-            miniPill(.view, size: w * layout.shareOptionsSize, tilt: 0)
+            // Share / Options: vertical pills in the dips beside the touchpad
+            miniPill(.view, size: w * layout.shareOptionsSize, tilt: 90)
                 .minimapPosition(layout.share, in: size)
-            miniPill(.menu, size: w * layout.shareOptionsSize, tilt: 0)
+            miniPill(.menu, size: w * layout.shareOptionsSize, tilt: 90)
                 .minimapPosition(layout.options, in: size)
 
             miniTouchpad(
@@ -496,8 +496,8 @@ struct ControllerAnalogOverlay: View {
                             startPoint: .leading, endPoint: .trailing
                         )
                     )
-                    .frame(width: touchpadWidth * 0.55, height: 3)
-                    .offset(y: -touchpadHeight / 2 + 2.5)
+                    .frame(width: touchpadWidth * 0.85, height: 3.5)
+                    .offset(y: -touchpadHeight / 2 + 3)
                     .shadow(color: Color(red: 0.2, green: 0.45, blue: 1.0).opacity(0.7), radius: 3)
                     .allowsHitTesting(false)
             }

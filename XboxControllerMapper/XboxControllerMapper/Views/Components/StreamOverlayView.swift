@@ -12,6 +12,7 @@ struct StreamOverlayView: View {
     @State private var lastActionText: String = ""
     @State private var lastActionOpacity: Double = 0
     @State private var hideTimer: Timer?
+    @State private var isHoveringPanel = false
 
     /// Width the controller graphic is scaled to fit in the overlay panel.
     private let graphicWidth: CGFloat = 200
@@ -56,6 +57,23 @@ struct StreamOverlayView: View {
         }
         .padding(10)
         .background(overlayBackground)
+        .overlay(alignment: .topTrailing) {
+            // Close button, shown while the pointer is over the panel so
+            // OBS captures stay clean.
+            if isHoveringPanel {
+                Button {
+                    StreamOverlayManager.shared.hide()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color.white.opacity(0.9), Color.black.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+                .padding(5)
+                .help("Close stream overlay")
+            }
+        }
+        .onHover { isHoveringPanel = $0 }
         .onChange(of: inputLogService.entries) { _, entries in
             if let latest = entries.first {
                 showAction(latest)
@@ -112,125 +130,16 @@ struct StreamOverlayView: View {
 
     // MARK: - Apple TV Remote Graphic
 
-    /// Compact Siri Remote mirroring the main minimap's layout: power at
-    /// top right, clickpad, back/TV row, play-pause and mute on the left
-    /// with the volume rocker on the right, and the Siri side button.
+    /// The exact same Siri Remote minimap as the Buttons tab, scaled down.
     private var appleTVRemoteGraphic: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color(white: 0.88), Color(white: 0.64)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.5), lineWidth: 0.8)
-                )
-                .frame(width: 48, height: 152)
+        let size = AppleTVRemoteMinimapView.previewSize
+        let height: CGFloat = 165
+        let scale = height / size.height
 
-            VStack(spacing: 6) {
-                // Top strip: speaker slit + power button at the right
-                ZStack {
-                    Capsule()
-                        .fill(Color.black.opacity(0.7))
-                        .frame(width: 7, height: 2.5)
-
-                    HStack {
-                        Spacer()
-                        remotePowerButton
-                    }
-                    .padding(.trailing, 4)
-                }
-                .frame(width: 48, height: 12)
-
-                // Clickpad with live touch indicator
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color(white: 0.14), Color(white: 0.05)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 36, height: 36)
-
-                    if isPressed(.touchpadButton) {
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.65))
-                            .frame(width: 21, height: 21)
-                    }
-
-                    if controllerService.displayIsTouchpadTouching {
-                        let pos = boundedTouchPosition
-                        Circle()
-                            .fill(Color.white.opacity(0.85))
-                            .frame(width: 5, height: 5)
-                            .offset(x: pos.x * 13, y: -pos.y * 13)
-                    }
-                }
-
-                HStack(spacing: 6) {
-                    remoteDot(.view, systemImage: "chevron.left")
-                    remoteDot(.xbox, systemImage: "tv.fill")
-                }
-
-                // Play-pause and mute on the left, volume rocker on the right
-                HStack(alignment: .top, spacing: 6) {
-                    VStack(spacing: 6) {
-                        remoteDot(.menu, systemImage: "playpause.fill")
-                        remoteDot(.appleTVRemoteMute, systemImage: "speaker.slash.fill")
-                    }
-                    VStack(spacing: 1) {
-                        remoteDot(.appleTVRemoteVolumeUp, systemImage: "plus", capsuleHalf: true)
-                        remoteDot(.appleTVRemoteVolumeDown, systemImage: "minus", capsuleHalf: true)
-                    }
-                }
-
-                Spacer(minLength: 0)
-            }
-            .frame(height: 152)
-
-            // Siri side button on the right edge
-            Capsule()
-                .fill(isPressed(.siri) ? Color.accentColor : Color(white: 0.72))
-                .overlay(Capsule().stroke(Color.black.opacity(0.2), lineWidth: 0.6))
-                .frame(width: 3.5, height: 22)
-                .offset(x: 25, y: -28)
-        }
-        .frame(width: graphicWidth, height: 160)
-    }
-
-    private var remotePowerButton: some View {
-        let pressed = isPressed(.appleTVRemotePower)
-
-        return Image(systemName: "power")
-            .font(.system(size: 5.5, weight: .semibold))
-            .foregroundStyle(pressed ? Color.white : Color.black.opacity(0.8))
-            .frame(width: 10, height: 10)
-            .background(Circle().fill(pressed ? Color.accentColor : Color.clear))
-            .overlay(Circle().stroke(Color.black.opacity(0.5), lineWidth: 0.7))
-    }
-
-    private func remoteDot(_ button: ControllerButton, systemImage: String, capsuleHalf: Bool = false) -> some View {
-        let pressed = isPressed(button)
-        let shape = RoundedRectangle(cornerRadius: capsuleHalf ? 4 : 7.5, style: .continuous)
-
-        return Image(systemName: systemImage)
-            .font(.system(size: 6.5, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.9))
-            .frame(width: 15, height: capsuleHalf ? 13.5 : 15)
-            .background(shape.fill(pressed ? Color.accentColor : Color(white: 0.10)))
-    }
-
-    private var boundedTouchPosition: CGPoint {
-        let raw = controllerService.displayTouchpadPosition
-        let x = min(max(raw.x, -1), 1)
-        let y = min(max(raw.y, -1), 1)
-        let distance = hypot(x, y)
-        guard distance > 1 else { return CGPoint(x: x, y: y) }
-        return CGPoint(x: x / distance, y: y / distance)
+        return AppleTVRemoteMinimapView(controllerService: controllerService)
+            .frame(width: size.width, height: size.height)
+            .scaleEffect(scale)
+            .frame(width: graphicWidth, height: height)
     }
 
     // MARK: - Display Logic
@@ -257,10 +166,6 @@ struct StreamOverlayView: View {
     }
 
     // MARK: - Helpers
-
-    private func isPressed(_ button: ControllerButton) -> Bool {
-        controllerService.activeButtons.contains(button)
-    }
 
     private func showAction(_ entry: InputLogEntry) {
         hideTimer?.invalidate()
