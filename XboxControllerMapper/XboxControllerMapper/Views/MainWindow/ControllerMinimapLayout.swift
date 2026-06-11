@@ -109,7 +109,14 @@ enum XboxEliteMinimapLayout {
     static let leftTrigger = CGPoint(x: 0.235, y: 0.01)
     static let rightTrigger = CGPoint(x: 0.765, y: 0.01)
 
-    static let battery = CGPoint(x: 0.50, y: 0.88)
+    // Back paddles peeking into the valley between the grips (the body's
+    // bottom arch sits at y ≈ 0.726).
+    static let paddleUpperLeft = CGPoint(x: 0.435, y: 0.775)
+    static let paddleUpperRight = CGPoint(x: 0.565, y: 0.775)
+    static let paddleLowerLeft = CGPoint(x: 0.47, y: 0.885)
+    static let paddleLowerRight = CGPoint(x: 0.53, y: 0.885)
+
+    static let battery = CGPoint(x: 0.50, y: 0.97)
 }
 
 // MARK: - DualSense / DualSense Edge
@@ -141,6 +148,11 @@ enum DualSenseMinimapLayout {
     /// Edge-only: Fn pills below the sticks.
     static let leftFunction = CGPoint(x: 0.40, y: 0.60)
     static let rightFunction = CGPoint(x: 0.60, y: 0.60)
+
+    /// Edge-only: back paddles peeking under the bottom V notch
+    /// (the body's bottom arch sits at y ≈ 0.655).
+    static let leftPaddle = CGPoint(x: 0.43, y: 0.735)
+    static let rightPaddle = CGPoint(x: 0.57, y: 0.735)
 
     static let leftBumper = CGPoint(x: 0.20, y: 0.045)
     static let rightBumper = CGPoint(x: 0.80, y: 0.045)
@@ -241,10 +253,19 @@ enum SteamMinimapLayout {
     static let share = CGPoint(x: 0.50, y: 0.555)
     static let shareSize: CGFloat = 0.036
 
-    static let leftBumper = CGPoint(x: 0.115, y: 0.035)
-    static let rightBumper = CGPoint(x: 0.885, y: 0.035)
-    static let leftTrigger = CGPoint(x: 0.075, y: 0.012)
-    static let rightTrigger = CGPoint(x: 0.925, y: 0.012)
+    // The Steam Controller's top corners slope down steeply; the shoulder
+    // elements ride that slope, overlapping the silhouette's corner.
+    static let leftBumper = CGPoint(x: 0.13, y: 0.105)
+    static let rightBumper = CGPoint(x: 0.87, y: 0.105)
+    static let leftTrigger = CGPoint(x: 0.092, y: 0.062)
+    static let rightTrigger = CGPoint(x: 0.908, y: 0.062)
+
+    // Rear grip buttons peeking under the bottom arches beside the
+    // center cusp.
+    static let gripUpperLeft = CGPoint(x: 0.32, y: 0.845)
+    static let gripUpperRight = CGPoint(x: 0.68, y: 0.845)
+    static let gripLowerLeft = CGPoint(x: 0.40, y: 0.925)
+    static let gripLowerRight = CGPoint(x: 0.60, y: 0.925)
 
     static let battery = CGPoint(x: 0.50, y: 0.90)
 }

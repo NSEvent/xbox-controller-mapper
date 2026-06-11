@@ -85,6 +85,7 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 	case xboxElite
 	case dualSense
 	case dualSenseEdge
+	case dualShock
 	case nintendo
 	case steam
 	case appleTVRemote
@@ -98,6 +99,7 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 		case .xboxElite: return "Xbox Elite"
 		case .dualSense: return "DualSense"
 		case .dualSenseEdge: return "DualSense Edge"
+		case .dualShock: return "DualShock 4"
 		case .nintendo: return "Nintendo"
 		case .steam: return "Steam"
 		case .appleTVRemote: return "Apple TV Remote"
@@ -108,7 +110,7 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 		switch self {
 		case .active: return "dot.radiowaves.left.and.right"
 		case .xbox, .xboxElite: return "xbox.logo"
-		case .dualSense, .dualSenseEdge: return "playstation.logo"
+		case .dualSense, .dualSenseEdge, .dualShock: return "playstation.logo"
 		case .nintendo: return "house"
 		case .steam: return "gamecontroller"
 		case .appleTVRemote: return "appletvremote.gen3"
@@ -118,7 +120,7 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 	func isPlayStation(using service: ControllerService) -> Bool {
 		switch self {
 		case .active: return service.threadSafeIsPlayStation
-		case .dualSense, .dualSenseEdge: return true
+		case .dualSense, .dualSenseEdge, .dualShock: return true
 		default: return false
 		}
 	}
@@ -142,6 +144,7 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 	func isDualShock(using service: ControllerService) -> Bool {
 		switch self {
 		case .active: return service.threadSafeIsDualShock
+		case .dualShock: return true
 		default: return false
 		}
 	}
@@ -376,6 +379,12 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                         isSteamController: isSteamController,
                         isDualShock: isDualShock,
                         isDualSenseEdge: isDualSenseEdge,
+                        elitePaddleButtons: [
+                            eliteReferenceButton(for: .xboxPaddle1),
+                            eliteReferenceButton(for: .xboxPaddle2),
+                            eliteReferenceButton(for: .xboxPaddle3),
+                            eliteReferenceButton(for: .xboxPaddle4)
+                        ],
                         touchpadInputMode: touchpadInputMode,
                         onButtonTap: onButtonTap,
                         onButtonHover: handleButtonHover,

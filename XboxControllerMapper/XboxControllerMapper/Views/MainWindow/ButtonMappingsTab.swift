@@ -230,6 +230,9 @@ struct ButtonMappingsTab: View {
 			} else if controllerService.threadSafeIsDualSense {
 				layouts.insert(.dualSense)
 			}
+			if controllerService.threadSafeIsDualShock {
+				layouts.insert(.dualShock)
+			}
 		}
 
 		if controllerService.appleTVRemoteHIDDevice != nil || controllerService.appleTVRemoteHIDTouchDevice != nil {
@@ -269,6 +272,9 @@ struct ButtonMappingsTab: View {
 				return [.dualSenseEdge]
 			}
 			return [.dualSense]
+		}
+		if controller.extendedGamepad is GCDualShockGamepad {
+			return [.dualShock]
 		}
 		return []
 	}

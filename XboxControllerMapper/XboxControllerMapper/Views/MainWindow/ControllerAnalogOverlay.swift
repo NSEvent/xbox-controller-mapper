@@ -16,6 +16,11 @@ struct ControllerAnalogOverlay: View {
     let isSteamController: Bool
     var isDualShock: Bool = false
     var isDualSenseEdge: Bool = false
+    /// Buttons the Elite/Steam back paddles currently resolve to (paddles
+    /// can be hardware-assigned to act as another button; connector lines
+    /// must anchor whatever the reference rows resolve to). Order:
+    /// upper-left, upper-right, lower-left, lower-right.
+    var elitePaddleButtons: [ControllerButton] = [.xboxPaddle1, .xboxPaddle2, .xboxPaddle3, .xboxPaddle4]
     /// Whole-pad shows one big click target with a single anchor. Quadrants
     /// shows the dashed divider cross plus four per-quadrant tap zones, each
     /// anchoring its `.touchpadRegion*Click` and `.touchpadRegion*Touch`
@@ -195,6 +200,18 @@ struct ControllerAnalogOverlay: View {
         miniDPad(span: w * layout.dpadSize, style: .eliteDisc)
             .minimapPosition(layout.dpad, in: size)
 
+        // Back paddles peeking into the valley between the grips
+        if elitePaddleButtons.count == 4 {
+            miniPaddle(elitePaddleButtons[0], width: w * 0.022, height: w * 0.055, tilt: -10, metallic: true)
+                .minimapPosition(layout.paddleUpperLeft, in: size)
+            miniPaddle(elitePaddleButtons[1], width: w * 0.022, height: w * 0.055, tilt: 10, metallic: true)
+                .minimapPosition(layout.paddleUpperRight, in: size)
+            miniPaddle(elitePaddleButtons[2], width: w * 0.019, height: w * 0.043, tilt: -6, metallic: true)
+                .minimapPosition(layout.paddleLowerLeft, in: size)
+            miniPaddle(elitePaddleButtons[3], width: w * 0.019, height: w * 0.043, tilt: 6, metallic: true)
+                .minimapPosition(layout.paddleLowerRight, in: size)
+        }
+
         if isConnected {
             BatteryView(level: batteryLevel, state: batteryState)
                 .minimapPosition(layout.battery, in: size)
@@ -209,13 +226,13 @@ struct ControllerAnalogOverlay: View {
         let layout = SteamMinimapLayout.self
 
         return ZStack {
-            miniTrigger(.leftTrigger, label: "LT", value: leftTrigger, width: w * 0.07)
+            miniTrigger(.leftTrigger, label: "LT", value: leftTrigger, width: w * 0.07, tilt: -30)
                 .minimapPosition(layout.leftTrigger, in: size)
-            miniTrigger(.rightTrigger, label: "RT", value: rightTrigger, width: w * 0.07)
+            miniTrigger(.rightTrigger, label: "RT", value: rightTrigger, width: w * 0.07, tilt: 30)
                 .minimapPosition(layout.rightTrigger, in: size)
-            miniBumper(.leftBumper, label: "LB", width: w * 0.10, tilt: -5)
+            miniBumper(.leftBumper, label: "LB", width: w * 0.10, tilt: -26)
                 .minimapPosition(layout.leftBumper, in: size)
-            miniBumper(.rightBumper, label: "RB", width: w * 0.10, tilt: 5)
+            miniBumper(.rightBumper, label: "RB", width: w * 0.10, tilt: 26)
                 .minimapPosition(layout.rightBumper, in: size)
 
             miniDPad(span: w * layout.dpadSize, style: .cross)
@@ -246,6 +263,18 @@ struct ControllerAnalogOverlay: View {
 
             miniCircle(.share, size: w * layout.shareSize)
                 .minimapPosition(layout.share, in: size)
+
+            // Rear grip buttons peeking under the bottom arches
+            if elitePaddleButtons.count == 4 {
+                miniPaddle(elitePaddleButtons[0], width: w * 0.020, height: w * 0.046, tilt: -14)
+                    .minimapPosition(layout.gripUpperLeft, in: size)
+                miniPaddle(elitePaddleButtons[1], width: w * 0.020, height: w * 0.046, tilt: 14)
+                    .minimapPosition(layout.gripUpperRight, in: size)
+                miniPaddle(elitePaddleButtons[2], width: w * 0.018, height: w * 0.038, tilt: -8)
+                    .minimapPosition(layout.gripLowerLeft, in: size)
+                miniPaddle(elitePaddleButtons[3], width: w * 0.018, height: w * 0.038, tilt: 8)
+                    .minimapPosition(layout.gripLowerRight, in: size)
+            }
 
             if isConnected {
                 BatteryView(level: batteryLevel, state: batteryState)
@@ -352,12 +381,16 @@ struct ControllerAnalogOverlay: View {
             miniBumperWithIcon(.micMute, icon: "mic.slash", width: w * 0.05)
                 .minimapPosition(layout.micMute, in: size)
 
-            // Edge-only Fn pills below the sticks
+            // Edge-only Fn pills below the sticks + back paddles under the V notch
             if isDualSenseEdge {
                 miniPill(.leftFunction, size: w * 0.026, tilt: 0)
                     .minimapPosition(layout.leftFunction, in: size)
                 miniPill(.rightFunction, size: w * 0.026, tilt: 0)
                     .minimapPosition(layout.rightFunction, in: size)
+                miniPaddle(.leftPaddle, width: w * 0.022, height: w * 0.05, tilt: -12)
+                    .minimapPosition(layout.leftPaddle, in: size)
+                miniPaddle(.rightPaddle, width: w * 0.022, height: w * 0.05, tilt: 12)
+                    .minimapPosition(layout.rightPaddle, in: size)
             }
 
             if isConnected {
@@ -926,8 +959,9 @@ struct ControllerAnalogOverlay: View {
     }
 
     /// Analog trigger drawn as a rounded tab peeking over the body's top
-    /// edge, with an accent fill that rises with pull pressure.
-    private func miniTrigger(_ button: ControllerButton, label: String, value: Float, width: CGFloat = 34) -> some View {
+    /// edge, with an accent fill that rises with pull pressure. `tilt`
+    /// follows the local slope of the body's shoulder.
+    private func miniTrigger(_ button: ControllerButton, label: String, value: Float, width: CGFloat = 34, tilt: Double = 0) -> some View {
         let height = width * 0.66
         let shape = TriggerTabShape()
 
@@ -952,6 +986,7 @@ struct ControllerAnalogOverlay: View {
         }
         .clipShape(shape)
         .overlay(miniOverrideOutline(for: button, shape: RoundedRectangle(cornerRadius: 5, style: .continuous), lineWidth: 2))
+        .rotationEffect(.degrees(tilt))
         .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.4) : .black.opacity(0.2), radius: 2)
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
@@ -1051,6 +1086,40 @@ struct ControllerAnalogOverlay: View {
             .controllerAnchor(.xbox, role: .controller)
             .onHover { hovering in onButtonHover?(.xbox, hovering) }
             .swappable(.xbox, onSwap: onSwapRequest)
+    }
+
+    /// Back paddle / rear grip button peeking from behind the body into the
+    /// valley between the grips. `metallic` renders the Elite's stainless
+    /// blades; plain dark plastic otherwise (Edge, Steam grips).
+    private func miniPaddle(
+        _ button: ControllerButton,
+        width: CGFloat,
+        height: CGFloat,
+        tilt: Double,
+        metallic: Bool = false
+    ) -> some View {
+        let pressed = isPressed(button)
+        let shape = Capsule(style: .continuous)
+        let colors: [Color] = pressed
+            ? [Color.accentColor, Color.accentColor.opacity(0.7)]
+            : (metallic ? [Color(white: 0.74), Color(white: 0.36)] : [Color(white: 0.30), Color(white: 0.14)])
+
+        return shape
+            .fill(LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom))
+            .overlay(
+                shape.strokeBorder(
+                    metallic && !pressed ? Color.black.opacity(0.4) : Color.white.opacity(0.16),
+                    lineWidth: 0.8
+                )
+            )
+            .frame(width: width, height: height)
+            .overlay(miniOverrideOutline(for: button, shape: shape, lineWidth: 1.5))
+            .rotationEffect(.degrees(tilt))
+            .shadow(color: pressed ? Color.accentColor.opacity(0.4) : .black.opacity(0.35), radius: 2, x: 0, y: 1)
+            .onTapGesture { onButtonTap(button) }
+            .controllerAnchor(button, role: .controller)
+            .onHover { hovering in onButtonHover?(button, hovering) }
+            .swappable(button, onSwap: onSwapRequest)
     }
 
     /// Thumbstick: recessed well + domed cap with a concave dish, following
