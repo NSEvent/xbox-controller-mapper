@@ -68,8 +68,9 @@ struct ButtonMappingsTab: View {
                     let scaleY = geometry.size.height / baseHeight
                     let autoScale = min(scaleX, scaleY)
 
-                    // Combine with user's manual zoom setting
-                    let finalScale = autoScale * profileManager.uiScale
+                    // Combine with user's manual zoom setting (and the
+                    // per-variant zoom override in screenshot mode)
+                    let finalScale = autoScale * profileManager.uiScale * (AppRuntime.screenshotZoom ?? 1)
 
                     ControllerVisualView(
                         selectedButton: $selectedButton,

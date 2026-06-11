@@ -41,16 +41,35 @@ command -v ffmpeg >/dev/null || { echo "ffmpeg is required: brew install ffmpeg"
 VARIANTS=("$@")
 [[ ${#VARIANTS[@]} -gt 0 ]] || VARIANTS=(xbox dualsense steam appletv)
 
+# Keep in sync with zoom_for in capture-screenshots.sh — the recordings use
+# the same per-variant magnification as the stills.
+zoom_for() {
+    case "$1" in
+        xbox|nintendo|dualshock) echo "1.25" ;;
+        dualsense)               echo "1.12" ;;
+        dualsense-edge)          echo "1.05" ;;
+        xbox-elite)              echo "1.05" ;;
+        steam)                   echo "1.05" ;;
+        appletv)                 echo "1.12" ;;
+        *)                       echo "1.0" ;;
+    esac
+}
+
 # Screen region (x,y,w,h in points) holding the Buttons-tab minimap when the
-# window sits at WIN_X/WIN_Y with size WIN_W/WIN_H and the staged config's
-# default zoom. Margins absorb the per-variant frame differences.
+# window sits at WIN_X/WIN_Y with size WIN_W/WIN_H, the staged config, and
+# the zoom_for magnification. Derived from the battery indicator's position
+# in the corresponding still captures; re-derive if layouts or zooms change.
 region_for() {
     case "$1" in
-        appletv) echo "925,445,210,490" ;;
-        # PlayStation layouts show the touchpad section above the preview,
-        # which pushes the minimap down a bit.
-        dualsense|dualsense-edge|dualshock) echo "795,570,365,290" ;;
-        *)       echo "820,485,320,250" ;;
+        xbox)           echo "847,530,354,250" ;;
+        nintendo)       echo "847,529,354,254" ;;
+        dualshock)      echo "847,640,354,228" ;;
+        dualsense)      echo "864,648,321,223" ;;
+        dualsense-edge) echo "874,543,302,211" ;;
+        xbox-elite)     echo "874,446,302,214" ;;
+        steam)          echo "874,507,302,217" ;;
+        appletv)        echo "910,390,220,580" ;;
+        *)              echo "820,485,360,280" ;;
     esac
 }
 
@@ -61,8 +80,8 @@ quit_app() {
 
 position_window() {
     osascript \
-        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of window 1 to {$WIN_X, $WIN_Y}" \
-        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of window 1 to {$WIN_W, $WIN_H}" >/dev/null
+        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of (first window whose name is \"$APP_NAME\") to {$WIN_X, $WIN_Y}" \
+        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of (first window whose name is \"$APP_NAME\") to {$WIN_W, $WIN_H}" >/dev/null
 }
 
 overlay_frame() {
@@ -113,7 +132,7 @@ record_variant() {
 
     echo "── GIF: $variant"
     quit_app
-    open -a "$APP_NAME" --args --screenshot-variant "$variant" --screenshot-animate
+    open -a "$APP_NAME" --args --screenshot-variant "$variant" --screenshot-animate --screenshot-zoom "$(zoom_for "$variant")"
     sleep "$LAUNCH_WAIT"
     osascript -e "tell application \"$APP_NAME\" to activate" >/dev/null
     sleep 0.5

@@ -27,6 +27,19 @@ enum AppRuntime {
     static var screenshotAnimate: Bool {
         ProcessInfo.processInfo.arguments.contains("--screenshot-animate")
     }
+
+    /// Per-variant zoom for the Buttons-tab preview in screenshot mode
+    /// (`--screenshot-zoom 1.2`). Controllers with extra sections (Elite
+    /// paddles, Steam grips) need less zoom than sparse layouts like Xbox.
+    static var screenshotZoom: CGFloat? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let flagIndex = args.firstIndex(of: "--screenshot-zoom"),
+              args.index(after: flagIndex) < args.endIndex,
+              let value = Double(args[args.index(after: flagIndex)]) else {
+            return nil
+        }
+        return CGFloat(value)
+    }
 }
 
 /// Holds all app services as a shared singleton

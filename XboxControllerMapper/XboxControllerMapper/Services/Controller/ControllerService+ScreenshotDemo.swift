@@ -38,6 +38,14 @@ extension ControllerService {
         RunLoop.main.add(timer, forMode: .common)
     }
 
+    /// The Konami code, tapped with natural press/release timing, then a
+    /// beat of rest before looping: ↑ ↑ ↓ ↓ ← → ← → B A.
+    private static let konamiCode: [ControllerButton] = [
+        .dpadUp, .dpadUp, .dpadDown, .dpadDown,
+        .dpadLeft, .dpadRight, .dpadLeft, .dpadRight,
+        .b, .a
+    ]
+
     private func screenshotDemoTick(_ t: Double) {
         // Left stick sweeps a slow circle; right stick wobbles gently.
         displayLeftStick = CGPoint(x: cos(t * 1.5) * 0.72, y: sin(t * 1.5) * 0.72)
@@ -47,26 +55,61 @@ extension ControllerService {
         displayRightTrigger = Float(max(0, sin(t * 1.2))) * 0.9
         displayLeftTrigger = Float(max(0, sin(t * 1.2 + .pi))) * 0.9
 
-        // Face buttons tap in sequence; d-pad taps on a slower, offset cadence.
+        // Buttons enter the Konami code: quick taps, short gaps, then a
+        // pause before the sequence repeats.
+        let tapSlot = 0.38      // seconds per input
+        let tapHold = 0.20      // press duration within a slot
+        let restAfter = 1.2     // pause before looping
+        let cycle = Double(Self.konamiCode.count) * tapSlot + restAfter
+        let tc = t.truncatingRemainder(dividingBy: cycle)
+        let slot = Int(tc / tapSlot)
         var pressed = Set<ControllerButton>()
-        let faceSlot = Int(t / 0.8) % 4
-        if t.truncatingRemainder(dividingBy: 0.8) < 0.4 {
-            pressed.insert([ControllerButton.a, .b, .y, .x][faceSlot])
-        }
-        let dpadSlot = Int((t + 0.4) / 1.3) % 4
-        if (t + 0.4).truncatingRemainder(dividingBy: 1.3) < 0.55 {
-            pressed.insert([ControllerButton.dpadUp, .dpadRight, .dpadDown, .dpadLeft][dpadSlot])
+        if slot < Self.konamiCode.count, tc.truncatingRemainder(dividingBy: tapSlot) < tapHold {
+            pressed.insert(Self.konamiCode[slot])
         }
         if activeButtons != pressed {
             activeButtons = pressed
         }
 
-        // A finger drifting on the touch surfaces.
-        displayIsTouchpadTouching = true
-        displayTouchpadPosition = CGPoint(x: sin(t * 0.8) * 0.55, y: cos(t * 0.6) * 0.4)
-        displayIsSteamLeftTouchpadTouching = true
-        displaySteamLeftTouchpadPosition = CGPoint(x: sin(t * 0.7) * 0.5, y: cos(t * 0.9) * 0.45)
-        displayIsSteamRightTouchpadTouching = true
-        displaySteamRightTouchpadPosition = CGPoint(x: cos(t * 0.8) * 0.5, y: sin(t * 0.65) * 0.45)
+        // Touch surfaces: discrete swipe gestures — finger lands, sweeps
+        // across with easing, lifts, then lands somewhere else.
+        let (touching, position) = Self.swipeState(at: t)
+        displayIsTouchpadTouching = touching
+        if touching { displayTouchpadPosition = position }
+
+        let (lTouching, lPosition) = Self.swipeState(at: t + 0.55)
+        displayIsSteamLeftTouchpadTouching = lTouching
+        if lTouching { displaySteamLeftTouchpadPosition = lPosition }
+
+        let (rTouching, rPosition) = Self.swipeState(at: t + 1.15)
+        displayIsSteamRightTouchpadTouching = rTouching
+        if rTouching { displaySteamRightTouchpadPosition = rPosition }
+    }
+
+    /// Cycle of four swipes. Each segment: 0.55 s of eased contact travel,
+    /// then 0.35 s lifted before the next swipe begins.
+    private static func swipeState(at t: Double) -> (touching: Bool, position: CGPoint) {
+        let swipes: [(from: CGPoint, to: CGPoint)] = [
+            (CGPoint(x: -0.65, y: -0.20), CGPoint(x: 0.60, y: 0.15)),
+            (CGPoint(x: 0.55, y: 0.35), CGPoint(x: -0.50, y: -0.30)),
+            (CGPoint(x: -0.25, y: 0.50), CGPoint(x: 0.30, y: -0.45)),
+            (CGPoint(x: 0.60, y: -0.10), CGPoint(x: -0.60, y: 0.25)),
+        ]
+        let segment = 0.9
+        let contact = 0.55
+        let cycle = segment * Double(swipes.count)
+        let tc = t.truncatingRemainder(dividingBy: cycle)
+        let index = Int(tc / segment)
+        let local = tc - Double(index) * segment
+
+        guard local < contact else { return (false, .zero) }
+
+        let progress = local / contact
+        let eased = progress * progress * (3 - 2 * progress) // smoothstep
+        let swipe = swipes[index]
+        return (true, CGPoint(
+            x: swipe.from.x + (swipe.to.x - swipe.from.x) * eased,
+            y: swipe.from.y + (swipe.to.y - swipe.from.y) * eased
+        ))
     }
 }

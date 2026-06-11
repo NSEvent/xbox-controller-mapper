@@ -68,6 +68,22 @@ tabs_for_exact() {
     echo "$tabs"
 }
 
+# Buttons-tab preview zoom per controller. Sparse layouts (Xbox, Nintendo,
+# DualShock) can afford more magnification; controllers with extra sections
+# below the minimap (Elite paddles, Steam grips, Edge controls) need less so
+# nothing clips.
+zoom_for() {
+    case "$1" in
+        xbox|nintendo|dualshock) echo "1.25" ;;
+        dualsense)               echo "1.12" ;;
+        dualsense-edge)          echo "1.05" ;;
+        xbox-elite)              echo "1.05" ;;
+        steam)                   echo "1.05" ;;
+        appletv)                 echo "1.12" ;;
+        *)                       echo "1.0" ;;
+    esac
+}
+
 dir_for() {
     case "$1" in
         dualsense)      echo "dualsense" ;;
@@ -263,8 +279,8 @@ PY
 
 position_window() {
     osascript \
-        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of window 1 to {$WIN_X, $WIN_Y}" \
-        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of window 1 to {$WIN_W, $WIN_H}"
+        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of (first window whose name is \"$APP_NAME\") to {$WIN_X, $WIN_Y}" \
+        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of (first window whose name is \"$APP_NAME\") to {$WIN_W, $WIN_H}"
 }
 
 # Prints "id width" for every on-screen window owned by the app (any layer,
@@ -393,7 +409,7 @@ capture_variant() {
 
     echo "── Variant: $variant -> $dir"
     quit_app
-    open -a "$APP_NAME" --args --screenshot-variant "$variant"
+    open -a "$APP_NAME" --args --screenshot-variant "$variant" --screenshot-zoom "$(zoom_for "$variant")"
     sleep "$LAUNCH_WAIT"
     osascript -e "tell application \"$APP_NAME\" to activate"
     sleep 1
