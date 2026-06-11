@@ -356,8 +356,12 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                     touchpadButtonsSection
                 }
 
+                // Layer scope chip sits above the controller so it never
+                // covers the controls drawn at the body's top edge.
+                layerScopeChip()
+
                 ZStack {
-                    // Controller body - adapts to DualSense or Xbox shape
+                    // Controller body - styled per controller model
                     controllerBodyView
                         .frame(width: controllerPreviewWidth, height: controllerPreviewHeight)
 
@@ -370,6 +374,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                         isNintendo: isNintendo,
                         isXboxElite: isXboxElite,
                         isSteamController: isSteamController,
+                        isDualShock: isDualShock,
+                        isDualSenseEdge: isDualSenseEdge,
                         touchpadInputMode: touchpadInputMode,
                         onButtonTap: onButtonTap,
                         onButtonHover: handleButtonHover,
@@ -377,14 +383,6 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 						overrideColorForButton: layerOverrideColor(for:)
                     )
                     .frame(width: controllerPreviewWidth, height: controllerPreviewHeight)
-
-					VStack {
-						layerScopeChip()
-						Spacer()
-					}
-					.frame(width: controllerPreviewWidth, height: controllerPreviewHeight)
-					.padding(.top, 12)
-					.allowsHitTesting(false)
                 }
                 .accessibilityHidden(true)
 
@@ -704,44 +702,22 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
     // MARK: - Controller Body
 
-	private var controllerPreviewWidth: CGFloat { 320 }
-	private var controllerPreviewHeight: CGFloat { isSteamController ? 250 : 220 }
+	/// Resolved minimap style for the previewed controller.
+	var minimapStyle: ControllerMinimapStyle {
+		if isSteamController { return .steam }
+		if isDualShock { return .dualShock }
+		if isDualSenseEdge { return .dualSenseEdge }
+		if isPlayStation { return .dualSense }
+		if isNintendo { return .nintendo }
+		if isXboxElite { return .xboxElite }
+		return .xbox
+	}
 
-	@ViewBuilder
+	private var controllerPreviewWidth: CGFloat { minimapStyle.previewSize.width }
+	private var controllerPreviewHeight: CGFloat { minimapStyle.previewSize.height }
+
 	private var controllerBodyView: some View {
-		if isSteamController {
-			SteamControllerBodyShape()
-				.fill(LinearGradient(
-					colors: [Color(white: 0.96), Color(white: 0.88)],
-					startPoint: .top,
-					endPoint: .bottom
-				))
-				.shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-		} else if isPlayStation {
-			DualSenseBodyShape()  // DualSense/DualShock share similar body shape
-				.fill(LinearGradient(
-					colors: [Color(white: 0.95), Color(white: 0.88)], // PlayStation white/light grey
-					startPoint: .top,
-					endPoint: .bottom
-				))
-				.shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-		} else if isNintendo {
-			NintendoProBodyShape()
-				.fill(LinearGradient(
-					colors: [Color(white: 0.18), Color(white: 0.12)], // Nintendo Pro Controller dark charcoal
-					startPoint: .top,
-					endPoint: .bottom
-				))
-				.shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
-		} else {
-			ControllerBodyShape()
-				.fill(LinearGradient(
-					colors: [Color(white: 0.95), Color(white: 0.9)], // Xbox light theme
-					startPoint: .top,
-					endPoint: .bottom
-				))
-				.shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
-		}
+		ControllerBodyView(style: minimapStyle)
 	}
 
 	// MARK: - Reference UI Components

@@ -70,7 +70,7 @@ class StreamOverlayManager {
             inputLogService: inputLogService
         )
         let hosting = NSHostingView(rootView: overlayView)
-        let contentSize = NSSize(width: 220, height: 190)
+        let contentSize = NSSize(width: 220, height: 200)
         hosting.frame = NSRect(origin: .zero, size: contentSize)
 
         let panel = NSPanel(

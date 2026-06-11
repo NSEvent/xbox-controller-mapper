@@ -1,8 +1,10 @@
 import SwiftUI
 import Combine
 
-/// Compact controller overlay for OBS/streaming capture
-/// Shows real-time button presses on a mini controller silhouette with last action text
+/// Compact controller overlay for OBS/streaming capture.
+/// Renders the same product-accurate minimap as the Buttons tab (body
+/// silhouette + live button/stick/touchpad state) for whichever controller
+/// is actually connected, plus a last-action text line.
 struct StreamOverlayView: View {
     @ObservedObject var controllerService: ControllerService
     @ObservedObject var inputLogService: InputLogService
@@ -11,25 +13,37 @@ struct StreamOverlayView: View {
     @State private var lastActionOpacity: Double = 0
     @State private var hideTimer: Timer?
 
-    private var isPlayStation: Bool {
-        controllerService.threadSafeIsPlayStation
+    /// Width the controller graphic is scaled to fit in the overlay panel.
+    private let graphicWidth: CGFloat = 200
+
+    private var isAppleTVRemote: Bool {
+        controllerService.threadSafeIsAppleTVRemote
+    }
+
+    /// Resolved from the connected controller so the overlay always matches
+    /// the active hardware (previously this was hardcoded to Xbox vs
+    /// PlayStation only).
+    private var minimapStyle: ControllerMinimapStyle {
+        if controllerService.threadSafeIsSteamController { return .steam }
+        if controllerService.threadSafeIsDualShock { return .dualShock }
+        if controllerService.threadSafeIsDualSenseEdge { return .dualSenseEdge }
+        if controllerService.threadSafeIsPlayStation { return .dualSense }
+        if controllerService.threadSafeIsNintendo { return .nintendo }
+        if controllerService.threadSafeIsXboxElite { return .xboxElite }
+        return .xbox
     }
 
     var body: some View {
         VStack(spacing: 4) {
-            ZStack {
-                // Controller body silhouette
-                controllerBody
-                    .frame(width: 200, height: 140)
-
-                // Button overlays
-                if isPlayStation {
-                    dualSenseButtons
+            Group {
+                if isAppleTVRemote {
+                    appleTVRemoteGraphic
                 } else {
-                    xboxButtons
+                    controllerGraphic
                 }
             }
-            .frame(width: 200, height: 140)
+            // Display-only: let clicks anywhere drag the panel
+            .allowsHitTesting(false)
 
             // Last action line — shows held actions while held, otherwise last single action
             Text(displayActionText)
@@ -68,298 +82,116 @@ struct StreamOverlayView: View {
         }
     }
 
-    // MARK: - Controller Body
+    // MARK: - Controller Graphic
 
-    @ViewBuilder
-    private var controllerBody: some View {
-        if isPlayStation {
-            DualSenseBodyShape()
-                .fill(LinearGradient(
-                    colors: [Color(white: 0.15), Color(white: 0.08)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .overlay(
-                    DualSenseBodyShape()
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        } else {
-            ControllerBodyShape()
-                .fill(LinearGradient(
-                    colors: [Color(white: 0.15), Color(white: 0.08)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .overlay(
-                    ControllerBodyShape()
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
+    private var controllerGraphic: some View {
+        let style = minimapStyle
+        let size = style.previewSize
+        let scale = graphicWidth / size.width
+
+        return ZStack {
+            ControllerBodyView(style: style)
+                .frame(width: size.width, height: size.height)
+
+            ControllerAnalogOverlay(
+                controllerService: controllerService,
+                isPlayStation: controllerService.threadSafeIsPlayStation,
+                isNintendo: controllerService.threadSafeIsNintendo,
+                isXboxElite: controllerService.threadSafeIsXboxElite,
+                isSteamController: controllerService.threadSafeIsSteamController,
+                isDualShock: controllerService.threadSafeIsDualShock,
+                isDualSenseEdge: controllerService.threadSafeIsDualSenseEdge,
+                onButtonTap: { _ in }
+            )
+            .frame(width: size.width, height: size.height)
         }
+        .frame(width: size.width, height: size.height)
+        .scaleEffect(scale)
+        .frame(width: graphicWidth, height: (size.height * scale).rounded())
     }
 
-    // MARK: - Xbox Button Layout
+    // MARK: - Apple TV Remote Graphic
 
-    private var xboxButtons: some View {
-        VStack(spacing: 12) {
-            // Triggers
-            HStack(spacing: 90) {
-                overlayTrigger(.leftTrigger, label: "LT", value: controllerService.displayLeftTrigger)
-                overlayTrigger(.rightTrigger, label: "RT", value: controllerService.displayRightTrigger)
-            }
+    /// Compact Siri Remote: aluminum body, live clickpad, system buttons.
+    private var appleTVRemoteGraphic: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(white: 0.88), Color(white: 0.64)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.5), lineWidth: 0.8)
+                )
+                .frame(width: 48, height: 148)
 
-            // Bumpers
-            HStack(spacing: 76) {
-                overlayBumper(.leftBumper, label: "LB")
-                overlayBumper(.rightBumper, label: "RB")
-            }
-            .offset(y: -4)
+            VStack(spacing: 7) {
+                // Clickpad with live touch indicator
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(white: 0.14), Color(white: 0.05)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 38, height: 38)
 
-            // Middle row: sticks + center + face
-            HStack(spacing: 20) {
-                overlayStick(.leftThumbstick, pos: controllerService.displayLeftStick)
+                    if isPressed(.touchpadButton) {
+                        Circle()
+                            .fill(Color.accentColor.opacity(0.65))
+                            .frame(width: 22, height: 22)
+                    }
 
-                VStack(spacing: 4) {
-                    overlayCircle(.xbox, size: 14)
-                    HStack(spacing: 8) {
-                        overlayCircle(.view, size: 9)
-                        overlayCircle(.menu, size: 9)
+                    if controllerService.displayIsTouchpadTouching {
+                        let pos = boundedTouchPosition
+                        Circle()
+                            .fill(Color.white.opacity(0.85))
+                            .frame(width: 5, height: 5)
+                            .offset(x: pos.x * 14, y: -pos.y * 14)
                     }
                 }
 
-                overlayFaceButtons()
-            }
+                HStack(spacing: 7) {
+                    remoteDot(.view, systemImage: "chevron.left")
+                    remoteDot(.xbox, systemImage: "tv.fill")
+                }
+                HStack(spacing: 7) {
+                    remoteDot(.menu, systemImage: "playpause.fill")
+                    remoteDot(.appleTVRemoteMute, systemImage: "speaker.slash.fill")
+                }
 
-            // Bottom: dpad + right stick
-            HStack(spacing: 50) {
-                overlayDPad()
-                overlayStick(.rightThumbstick, pos: controllerService.displayRightStick)
-            }
-        }
-    }
-
-    // MARK: - DualSense Button Layout
-
-    private var dualSenseButtons: some View {
-        VStack(spacing: 3) {
-            // Triggers
-            HStack(spacing: 96) {
-                overlayTrigger(.leftTrigger, label: "L2", value: controllerService.displayLeftTrigger)
-                overlayTrigger(.rightTrigger, label: "R2", value: controllerService.displayRightTrigger)
-            }
-
-            // Bumpers
-            HStack(spacing: 84) {
-                overlayBumper(.leftBumper, label: "L1")
-                overlayBumper(.rightBumper, label: "R1")
-            }
-
-            // Touchpad + Create/Options
-            HStack(alignment: .center, spacing: 4) {
-                overlayCircle(.view, size: 8)
-                overlayTouchpad()
-                overlayCircle(.menu, size: 8)
-            }
-
-            // D-pad + PS button + face
-            HStack(spacing: 14) {
-                overlayDPad()
-
-                overlayCircle(.xbox, size: 12)
-
-                overlayFaceButtons()
-            }
-
-            // Sticks
-            HStack(spacing: 30) {
-                overlayStick(.leftThumbstick, pos: controllerService.displayLeftStick)
-                overlayStick(.rightThumbstick, pos: controllerService.displayRightStick)
+                // Volume rocker
+                VStack(spacing: 1) {
+                    remoteDot(.appleTVRemoteVolumeUp, systemImage: "plus", capsuleHalf: true)
+                    remoteDot(.appleTVRemoteVolumeDown, systemImage: "minus", capsuleHalf: true)
+                }
             }
         }
+        .frame(width: graphicWidth, height: 156)
     }
 
-    // MARK: - Mini Button Components
+    private func remoteDot(_ button: ControllerButton, systemImage: String, capsuleHalf: Bool = false) -> some View {
+        let pressed = isPressed(button)
+        let shape = RoundedRectangle(cornerRadius: capsuleHalf ? 4 : 7.5, style: .continuous)
 
-    private func overlayTrigger(_ button: ControllerButton, label: String, value: Float) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
-
-        return ZStack(alignment: .bottom) {
-            shape
-                .fill(Color(white: 0.35))
-                .frame(width: 24, height: 12)
-
-            if value > 0 {
-                shape
-                    .fill(Color.accentColor)
-                    .frame(width: 24, height: 12 * CGFloat(value))
-            }
-
-            Text(label)
-                .font(.system(size: 5, weight: .bold))
-                .foregroundColor(.white.opacity(0.9))
-        }
-        .clipShape(shape)
-        .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.5) : .clear, radius: 3)
+        return Image(systemName: systemImage)
+            .font(.system(size: 6.5, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.9))
+            .frame(width: 15, height: capsuleHalf ? 13 : 15)
+            .background(shape.fill(pressed ? Color.accentColor : Color(white: 0.10)))
     }
 
-    private func overlayBumper(_ button: ControllerButton, label: String) -> some View {
-        let color = isPressed(button) ? Color.accentColor : Color(white: 0.4)
-        let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
-
-        return shape
-            .fill(color)
-            .frame(width: 28, height: 7)
-            .overlay(
-                Text(label)
-                    .font(.system(size: 5, weight: .bold))
-                    .foregroundColor(.white.opacity(0.9))
-            )
-            .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.5) : .clear, radius: 3)
-    }
-
-    private func overlayStick(_ button: ControllerButton, pos: CGPoint) -> some View {
-        ZStack {
-            // Well
-            Circle()
-                .fill(Color(white: 0.2))
-                .frame(width: 20, height: 20)
-                .overlay(Circle().stroke(Color(white: 0.4), lineWidth: 0.5))
-
-            // Cap
-            let color = isPressed(button) ? Color.accentColor : Color(white: 0.45)
-            Circle()
-                .fill(color)
-                .frame(width: 13, height: 13)
-                .offset(x: pos.x * 3, y: -pos.y * 3)
-                .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.5) : .clear, radius: 2)
-        }
-    }
-
-    private func overlayCircle(_ button: ControllerButton, size: CGFloat) -> some View {
-        let baseColor: Color = button == .xbox ? Color(white: 0.75) : Color(white: 0.45)
-        let color = isPressed(button) ? Color.accentColor : baseColor
-
-        return Circle()
-            .fill(color)
-            .frame(width: size, height: size)
-            .shadow(color: isPressed(button) ? Color.accentColor.opacity(0.5) : .clear, radius: 2)
-    }
-
-    private func overlayFaceButtons() -> some View {
-        ZStack {
-            if isPlayStation {
-                overlayPSFaceButton(.y, symbolColor: ButtonColors.psTriangle).offset(y: -9)
-                overlayPSFaceButton(.a, symbolColor: ButtonColors.psCross).offset(y: 9)
-                overlayPSFaceButton(.x, symbolColor: ButtonColors.psSquare).offset(x: -9)
-                overlayPSFaceButton(.b, symbolColor: ButtonColors.psCircle).offset(x: 9)
-            } else {
-                overlayXboxFaceButton(.y, color: ButtonColors.xboxY).offset(y: -9)
-                overlayXboxFaceButton(.a, color: ButtonColors.xboxA).offset(y: 9)
-                overlayXboxFaceButton(.x, color: ButtonColors.xboxX).offset(x: -9)
-                overlayXboxFaceButton(.b, color: ButtonColors.xboxB).offset(x: 9)
-            }
-        }
-        .frame(width: 30, height: 30)
-    }
-
-    private func overlayXboxFaceButton(_ button: ControllerButton, color: Color) -> some View {
-        let displayColor = isPressed(button) ? color.opacity(0.9) : color
-        return Circle()
-            .fill(displayColor)
-            .frame(width: 9, height: 9)
-            .shadow(color: isPressed(button) ? displayColor.opacity(0.6) : displayColor.opacity(0.3), radius: 2)
-    }
-
-    private func overlayPSFaceButton(_ button: ControllerButton, symbolColor: Color) -> some View {
-        let bgColor = Color(white: 0.3)
-        let symbol: String = {
-            switch button {
-            case .a: return "✕"
-            case .b: return "○"
-            case .x: return "□"
-            case .y: return "△"
-            default: return ""
-            }
-        }()
-
-        return ZStack {
-            Circle()
-                .fill(isPressed(button) ? bgColor.opacity(0.9) : bgColor)
-
-            Text(symbol)
-                .font(.system(size: 5, weight: .bold))
-                .foregroundColor(isPressed(button) ? symbolColor.opacity(0.8) : symbolColor)
-        }
-        .frame(width: 9, height: 9)
-        .shadow(color: isPressed(button) ? symbolColor.opacity(0.5) : symbolColor.opacity(0.2), radius: 2)
-    }
-
-    private func overlayTouchpad() -> some View {
-        let color = isPressed(.touchpadButton) ? Color.accentColor : Color(white: 0.35)
-        let touchpadWidth: CGFloat = 60
-        let touchpadHeight: CGFloat = 28
-
-        return ZStack {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(color)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
-                )
-
-            // Primary touch point
-            if controllerService.displayIsTouchpadTouching {
-                Circle()
-                    .fill(Color.white.opacity(0.8))
-                    .frame(width: 6, height: 6)
-                    .shadow(color: .white.opacity(0.5), radius: 2)
-                    .offset(
-                        x: controllerService.displayTouchpadPosition.x * (touchpadWidth / 2 - 3),
-                        y: -controllerService.displayTouchpadPosition.y * (touchpadHeight / 2 - 3)
-                    )
-            }
-
-            // Secondary touch point
-            if controllerService.displayIsTouchpadSecondaryTouching {
-                Circle()
-                    .fill(Color.white.opacity(0.6))
-                    .frame(width: 5, height: 5)
-                    .shadow(color: .white.opacity(0.4), radius: 1.5)
-                    .offset(
-                        x: controllerService.displayTouchpadSecondaryPosition.x * (touchpadWidth / 2 - 3),
-                        y: -controllerService.displayTouchpadSecondaryPosition.y * (touchpadHeight / 2 - 3)
-                    )
-            }
-        }
-        .frame(width: touchpadWidth, height: touchpadHeight)
-        .shadow(color: isPressed(.touchpadButton) ? Color.accentColor.opacity(0.5) : .clear, radius: 3)
-    }
-
-    private func overlayDPad() -> some View {
-        let color = Color(white: 0.4)
-
-        return ZStack {
-            // Cross shape
-            Group {
-                RoundedRectangle(cornerRadius: 1.5).frame(width: 6, height: 18)
-                RoundedRectangle(cornerRadius: 1.5).frame(width: 18, height: 6)
-            }
-            .foregroundColor(color)
-
-            // Active highlights
-            if isPressed(.dpadUp) {
-                RoundedRectangle(cornerRadius: 1.5).fill(Color.accentColor).frame(width: 6, height: 7).offset(y: -5.5).blur(radius: 1.5)
-            }
-            if isPressed(.dpadDown) {
-                RoundedRectangle(cornerRadius: 1.5).fill(Color.accentColor).frame(width: 6, height: 7).offset(y: 5.5).blur(radius: 1.5)
-            }
-            if isPressed(.dpadLeft) {
-                RoundedRectangle(cornerRadius: 1.5).fill(Color.accentColor).frame(width: 7, height: 6).offset(x: -5.5).blur(radius: 1.5)
-            }
-            if isPressed(.dpadRight) {
-                RoundedRectangle(cornerRadius: 1.5).fill(Color.accentColor).frame(width: 7, height: 6).offset(x: 5.5).blur(radius: 1.5)
-            }
-        }
-        .frame(width: 24, height: 24)
+    private var boundedTouchPosition: CGPoint {
+        let raw = controllerService.displayTouchpadPosition
+        let x = min(max(raw.x, -1), 1)
+        let y = min(max(raw.y, -1), 1)
+        let distance = hypot(x, y)
+        guard distance > 1 else { return CGPoint(x: x, y: y) }
+        return CGPoint(x: x / distance, y: y / distance)
     }
 
     // MARK: - Display Logic
