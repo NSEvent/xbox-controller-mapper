@@ -1,6 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATED: the live marketing page moved to
+# ~/projects/kevintang.xyz/apps/controller-keys/ and is edited there directly.
+# The old target (apps/xbox-controller-mapper/) is now a redirect page —
+# running this script would overwrite that redirect with the stale docs/ copy.
+echo "DEPRECATED: edit ~/projects/kevintang.xyz/apps/controller-keys/ directly." >&2
+echo "apps/xbox-controller-mapper/ is a redirect now; this script must not overwrite it." >&2
+exit 1
+
 # Deploy ControllerKeys website to kevintang.xyz
 # Usage: ./Scripts/deploy-website.sh
 
