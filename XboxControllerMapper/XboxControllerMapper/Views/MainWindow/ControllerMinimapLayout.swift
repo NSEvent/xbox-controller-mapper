@@ -122,12 +122,16 @@ enum XboxEliteMinimapLayout {
 // MARK: - DualSense / DualSense Edge
 
 enum DualSenseMinimapLayout {
-    static let touchpad = CGPoint(x: 0.50, y: 0.20)
-    static let touchpadSize = CGSize(width: 0.28, height: 0.19)
+    // The DualSense touchpad is large and subtly trapezoidal (top edge a
+    // touch longer than the bottom). Width here is the TOP edge.
+    static let touchpad = CGPoint(x: 0.50, y: 0.205)
+    static let touchpadSize = CGSize(width: 0.33, height: 0.26)
+    /// How far each bottom corner tucks inward (fraction of width).
+    static let touchpadBottomTaper: CGFloat = 0.014
 
-    static let create = CGPoint(x: 0.305, y: 0.085)
-    static let options = CGPoint(x: 0.695, y: 0.085)
-    static let createOptionsSize: CGFloat = 0.030
+    static let create = CGPoint(x: 0.295, y: 0.12)
+    static let options = CGPoint(x: 0.705, y: 0.12)
+    static let createOptionsSize: CGFloat = 0.020
 
     static let dpad = CGPoint(x: 0.195, y: 0.265)
     static let dpadSize: CGFloat = 0.145
@@ -165,12 +169,12 @@ enum DualSenseMinimapLayout {
 // MARK: - DualShock 4
 
 enum DualShockMinimapLayout {
-    static let touchpad = CGPoint(x: 0.50, y: 0.145)
-    static let touchpadSize = CGSize(width: 0.23, height: 0.25)
+    static let touchpad = CGPoint(x: 0.50, y: 0.15)
+    static let touchpadSize = CGSize(width: 0.32, height: 0.26)
 
-    static let share = CGPoint(x: 0.355, y: 0.075)
-    static let options = CGPoint(x: 0.645, y: 0.075)
-    static let shareOptionsSize: CGFloat = 0.026
+    static let share = CGPoint(x: 0.28, y: 0.055)
+    static let options = CGPoint(x: 0.72, y: 0.055)
+    static let shareOptionsSize: CGFloat = 0.028
 
     static let dpad = CGPoint(x: 0.205, y: 0.21)
     static let dpadSize: CGFloat = 0.125
@@ -183,7 +187,7 @@ enum DualShockMinimapLayout {
     static let rightStick = CGPoint(x: 0.645, y: 0.39)
     static let stickWellSize: CGFloat = 0.155
 
-    static let speakerGrille = CGPoint(x: 0.50, y: 0.275)
+    static let speakerGrille = CGPoint(x: 0.50, y: 0.315)
     static let psButton = CGPoint(x: 0.50, y: 0.405)
     static let psButtonSize: CGFloat = 0.048
 
@@ -228,17 +232,17 @@ enum NintendoProMinimapLayout {
 // MARK: - Steam Controller
 
 enum SteamMinimapLayout {
-    static let dpad = CGPoint(x: 0.20, y: 0.145)
+    static let dpad = CGPoint(x: 0.20, y: 0.155)
     static let dpadSize: CGFloat = 0.115
 
-    static let view = CGPoint(x: 0.345, y: 0.095)
-    static let menu = CGPoint(x: 0.655, y: 0.095)
+    static let view = CGPoint(x: 0.345, y: 0.10)
+    static let menu = CGPoint(x: 0.655, y: 0.10)
     static let viewMenuSize: CGFloat = 0.040
 
-    static let guide = CGPoint(x: 0.50, y: 0.135)
+    static let guide = CGPoint(x: 0.50, y: 0.14)
     static let guideSize: CGFloat = 0.062
 
-    static let faceCluster = CGPoint(x: 0.80, y: 0.145)
+    static let faceCluster = CGPoint(x: 0.80, y: 0.155)
     static let faceButtonOffset: CGFloat = 0.044
     static let faceButtonSize: CGFloat = 0.044
 
@@ -256,10 +260,10 @@ enum SteamMinimapLayout {
     // Bumpers hug the flat top edge just inboard of the rounded corner
     // (body edge is at y ≈ 0.02 for x ≥ 0.18); triggers peek over the
     // corner itself, outboard of and above the d-pad / face clusters.
-    static let leftBumper = CGPoint(x: 0.19, y: 0.032)
-    static let rightBumper = CGPoint(x: 0.81, y: 0.032)
-    static let leftTrigger = CGPoint(x: 0.12, y: 0.022)
-    static let rightTrigger = CGPoint(x: 0.88, y: 0.022)
+    static let leftBumper = CGPoint(x: 0.19, y: 0.020)
+    static let rightBumper = CGPoint(x: 0.81, y: 0.020)
+    static let leftTrigger = CGPoint(x: 0.12, y: 0.014)
+    static let rightTrigger = CGPoint(x: 0.88, y: 0.014)
 
     // Rear grip buttons peeking under the bottom arches beside the
     // center cusp.

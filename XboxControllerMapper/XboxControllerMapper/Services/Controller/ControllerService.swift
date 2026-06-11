@@ -804,6 +804,9 @@ class ControllerService: ObservableObject {
             storage.isAppleTVRemote = (variant == "appletv")
             isConnected = true
             controllerName = Self.screenshotControllerName(for: variant)
+            // A believable battery reading instead of the "?" unknown pill
+            batteryLevel = 0.85
+            batteryState = .discharging
         }
 
         if shouldEnableHardwareMonitoring {

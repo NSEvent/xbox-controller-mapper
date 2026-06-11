@@ -294,17 +294,17 @@ struct DualSenseLightBarShape: Shape {
 
         func x(_ v: CGFloat) -> CGFloat { leftSide ? w * v : w * (1 - v) }
 
-        // Slanted strip hugging the touchpad's side edge, flaring outward
-        // toward the bottom like the real light bar.
-        p.move(to: CGPoint(x: x(0.408), y: h * 0.108))
+        // Strip hugging the touchpad's near-vertical side edge, widening
+        // slightly toward the bottom like the real light bar.
+        p.move(to: CGPoint(x: x(0.330), y: h * 0.085))
         p.addQuadCurve(
-            to: CGPoint(x: x(0.352), y: h * 0.30),
-            control: CGPoint(x: x(0.368), y: h * 0.19)
+            to: CGPoint(x: x(0.338), y: h * 0.335),
+            control: CGPoint(x: x(0.330), y: h * 0.21)
         )
-        p.addLine(to: CGPoint(x: x(0.374), y: h * 0.31))
+        p.addLine(to: CGPoint(x: x(0.358), y: h * 0.33))
         p.addQuadCurve(
-            to: CGPoint(x: x(0.428), y: h * 0.118),
-            control: CGPoint(x: x(0.39), y: h * 0.20)
+            to: CGPoint(x: x(0.342), y: h * 0.09),
+            control: CGPoint(x: x(0.342), y: h * 0.21)
         )
         p.closeSubpath()
         return p

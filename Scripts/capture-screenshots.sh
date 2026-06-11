@@ -114,6 +114,59 @@ if not staged:
     sys.exit("None of KEEP_PROFILES matched — aborting instead of writing an empty config.")
 config["profiles"] = staged
 config["activeProfileId"] = staged[0]["id"]
+# Normalize the user's pinch-zoom so tall layouts aren't clipped in captures.
+config.pop("uiScale", None)
+
+# Populate the command wheel so the Wheel tab shows a representative set
+# of actions instead of an empty circle.
+def _mods(command=False, option=False, shift=False, control=False):
+    return {"command": command, "option": option, "shift": shift, "control": control}
+
+staged[0]["commandWheelActions"] = [
+    {"id": "5C0FFEE5-0000-4000-8000-000000000001", "displayName": "Copy",
+     "iconName": "doc.on.doc", "keyCode": 8, "modifiers": _mods(command=True)},
+    {"id": "5C0FFEE5-0000-4000-8000-000000000002", "displayName": "Paste",
+     "iconName": "doc.on.clipboard", "keyCode": 9, "modifiers": _mods(command=True)},
+    {"id": "5C0FFEE5-0000-4000-8000-000000000003", "displayName": "Screenshot",
+     "iconName": "camera.viewfinder", "keyCode": 21, "modifiers": _mods(command=True, shift=True)},
+    {"id": "5C0FFEE5-0000-4000-8000-000000000004", "displayName": "Spotlight",
+     "iconName": "magnifyingglass", "keyCode": 49, "modifiers": _mods(command=True)},
+    {"id": "5C0FFEE5-0000-4000-8000-000000000005", "displayName": "Safari", "modifiers": _mods(),
+     "systemCommand": {"type": "launchApp", "bundleIdentifier": "com.apple.Safari", "newWindow": False}},
+    {"id": "5C0FFEE5-0000-4000-8000-000000000006", "displayName": "Terminal", "modifiers": _mods(),
+     "systemCommand": {"type": "launchApp", "bundleIdentifier": "com.apple.Terminal", "newWindow": False}},
+    {"id": "5C0FFEE5-0000-4000-8000-000000000007", "displayName": "Music", "modifiers": _mods(),
+     "systemCommand": {"type": "launchApp", "bundleIdentifier": "com.apple.Music", "newWindow": False}},
+    {"id": "5C0FFEE5-0000-4000-8000-000000000008", "displayName": "Undo",
+     "iconName": "arrow.uturn.backward", "keyCode": 6, "modifiers": _mods(command=True)},
+]
+
+# Round out the Scripts tab with a few of the app's bundled examples so the
+# capture shows the breadth of the scripting API (app-aware logic, state,
+# clipboard, window management) rather than just the two screenshot scripts.
+_now = "2026-06-01T12:00:00Z"
+_example_scripts = [
+    {"name": "App-Aware Undo",
+     "description": "Sends Cmd+Z in most apps, but Cmd+Shift+Z in Photoshop (which uses Cmd+Z for toggle undo/redo).",
+     "source": 'if (app.is("com.adobe.Photoshop")) {\n    press(6, {command: true, shift: true});\n} else {\n    press(6, {command: true});\n}'},
+    {"name": "Toggle Mute (Zoom/Meet)",
+     "description": "Mutes/unmutes in Zoom or Google Meet with the right shortcut for each app.",
+     "source": 'if (app.is("us.zoom.xos")) {\n    press(0, {command: true, shift: true});\n    var muted = state.toggle("zoom_muted");\n    notify(muted ? "Muted" : "Unmuted");\n}'},
+    {"name": "Window Snap Left/Right",
+     "description": "Snaps the current window left on D-pad Left, right on D-pad Right using Rectangle or similar window manager.",
+     "source": 'if (trigger.button === "dpadLeft") {\n    press(123, {control: true, option: true});\n} else if (trigger.button === "dpadRight") {\n    press(124, {control: true, option: true});\n}'},
+    {"name": "Search Selected Text",
+     "description": "Copies the selected text and searches for it in your default browser.",
+     "source": 'var before = clipboard.get();\npress(8, {command: true});\ndelay(0.5);\nvar after = clipboard.get();\nif (after !== before) {\n    openURL("https://www.google.com/search?q=" + encodeURIComponent(after));\n}'},
+]
+existing_script_names = {s.get("name") for s in staged[0].get("scripts", [])}
+for i, s in enumerate(_example_scripts):
+    if s["name"] not in existing_script_names:
+        staged[0].setdefault("scripts", []).append({
+            "id": f"5C0FFEE5-1111-4000-8000-00000000000{i+1}",
+            "name": s["name"], "description": s["description"], "source": s["source"],
+            "createdAt": _now, "modifiedAt": _now,
+        })
 
 # Replace personal quick texts / terminal commands with demo content so the
 # on-screen keyboard captures are safe to publish.
@@ -127,6 +180,30 @@ staged[0].setdefault("onScreenKeyboardSettings", {})["quickTexts"] = [
     {"text": "make install", "isTerminalCommand": True},
     {"text": "npm run dev", "isTerminalCommand": True},
 ]
+# The on-screen keyboard's app bar and website links are personal; swap in
+# stock apps and well-known sites (favicons resolve at runtime).
+osk = staged[0].setdefault("onScreenKeyboardSettings", {})
+osk["appBarItems"] = [
+    {"id": f"5C0FFEE5-2222-4000-8000-00000000000{i}", "bundleIdentifier": b, "displayName": n}
+    for i, (b, n) in enumerate([
+        ("com.apple.Safari", "Safari"),
+        ("com.apple.Notes", "Notes"),
+        ("com.apple.Music", "Music"),
+        ("com.apple.MobileSMS", "Messages"),
+        ("com.apple.Terminal", "Terminal"),
+        ("com.apple.Photos", "Photos"),
+    ], start=1)
+]
+osk["websiteLinks"] = [
+    {"id": f"5C0FFEE5-3333-4000-8000-00000000000{i}", "url": u, "displayName": n}
+    for i, (u, n) in enumerate([
+        ("https://github.com", "GitHub"),
+        ("https://news.ycombinator.com", "Hacker News"),
+        ("https://www.youtube.com", "YouTube"),
+        ("https://en.wikipedia.org", "Wikipedia"),
+    ], start=1)
+]
+
 with open(dst, "w") as f:
     json.dump(config, f, indent=2)
 print(f"Staged config with {len(staged)} profiles (active: {staged[0]['name']})")

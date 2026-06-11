@@ -349,16 +349,18 @@ struct ControllerAnalogOverlay: View {
             miniBumper(.rightBumper, label: "R1", width: w * 0.12, tilt: 6)
                 .minimapPosition(layout.rightBumper, in: size)
 
-            // Create / Options: small angled pills beside the touchpad
-            miniPill(.view, size: w * layout.createOptionsSize, tilt: 28)
+            // Create / Options: near-vertical pills beside the touchpad's
+            // top corners, tops leaning slightly outward like the hardware
+            miniPill(.view, size: w * layout.createOptionsSize, tilt: 80)
                 .minimapPosition(layout.create, in: size)
-            miniPill(.menu, size: w * layout.createOptionsSize, tilt: -28)
+            miniPill(.menu, size: w * layout.createOptionsSize, tilt: 100)
                 .minimapPosition(layout.options, in: size)
 
             miniTouchpad(
                 width: w * layout.touchpadSize.width,
                 height: size.height * layout.touchpadSize.height,
-                lightStyle: !isDualSenseEdge
+                lightStyle: !isDualSenseEdge,
+                bottomTaper: w * layout.touchpadBottomTaper
             )
             .minimapPosition(layout.touchpad, in: size)
 
@@ -467,19 +469,21 @@ struct ControllerAnalogOverlay: View {
         width touchpadWidth: CGFloat,
         height touchpadHeight: CGFloat,
         lightStyle: Bool,
-        showLightBar: Bool = false
+        showLightBar: Bool = false,
+        bottomTaper: CGFloat = 0
     ) -> some View {
         let pressed = isPressed(.touchpadButton)
         let baseColor: Color = lightStyle ? Color(white: 0.93) : Color(white: 0.16)
         let color = pressed ? Color.accentColor : baseColor
         let inQuadrantsMode = touchpadInputMode == .quadrants
+        let padShape = RoundedTrapezoidShape(bottomInset: bottomTaper, cornerRadius: 10)
 
         return ZStack {
             // Base touchpad shape
-            RoundedRectangle(cornerRadius: 10)
+            padShape
                 .fill(jewelGradient(color, pressed: pressed))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
+                    padShape
                         .strokeBorder(
                             lightStyle ? Color.black.opacity(0.18) : Color.white.opacity(0.12),
                             lineWidth: 0.8
@@ -523,12 +527,10 @@ struct ControllerAnalogOverlay: View {
                         isClicked: isPressed(.touchpadButton)
                     )
                 } else {
-                    touchpadWholePadHighlight(
-                        width: touchpadWidth,
-                        height: touchpadHeight,
-                        cornerRadius: 10,
-                        isClicked: isPressed(.touchpadButton)
-                    )
+                    padShape
+                        .fill(Color.accentColor.opacity(isPressed(.touchpadButton) ? 0.32 : 0.16))
+                        .allowsHitTesting(false)
+                        .animation(.easeOut(duration: 0.08), value: isPressed(.touchpadButton))
                 }
             }
 
@@ -1602,6 +1604,39 @@ private struct DPadCrossShape: Shape {
         p.addLine(to: CGPoint(x: cx - s, y: cy - h + r))
         p.addQuadCurve(to: CGPoint(x: cx - s + r, y: cy - h), control: CGPoint(x: cx - s, y: cy - h))
         p.addLine(to: CGPoint(x: cx - h, y: cy - h))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Rounded rectangle whose bottom edge is slightly narrower than the top
+/// (the DualSense touchpad's subtle trapezoid). `bottomInset` is how far
+/// each bottom corner moves inward; 0 yields a plain rounded rect.
+struct RoundedTrapezoidShape: InsettableShape {
+    var bottomInset: CGFloat
+    var cornerRadius: CGFloat
+    var insetAmount: CGFloat = 0
+
+    func inset(by amount: CGFloat) -> RoundedTrapezoidShape {
+        var copy = self
+        copy.insetAmount += amount
+        return copy
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let r = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        let radius = max(0, cornerRadius - insetAmount)
+        let topLeft = CGPoint(x: r.minX, y: r.minY)
+        let topRight = CGPoint(x: r.maxX, y: r.minY)
+        let bottomRight = CGPoint(x: r.maxX - bottomInset, y: r.maxY)
+        let bottomLeft = CGPoint(x: r.minX + bottomInset, y: r.maxY)
+
+        var p = Path()
+        p.move(to: CGPoint(x: r.midX, y: r.minY))
+        p.addArc(tangent1End: topRight, tangent2End: bottomRight, radius: radius)
+        p.addArc(tangent1End: bottomRight, tangent2End: bottomLeft, radius: radius)
+        p.addArc(tangent1End: bottomLeft, tangent2End: topLeft, radius: radius)
+        p.addArc(tangent1End: topLeft, tangent2End: topRight, radius: radius)
         p.closeSubpath()
         return p
     }
