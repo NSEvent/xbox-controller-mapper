@@ -380,6 +380,8 @@ struct ActionMappingEditor: View {
                                 .foregroundColor(.red)
                         }
                         .buttonStyle(.plain)
+                        .help("Remove header")
+                        .accessibilityLabel("Remove header")
                     }
                 }
 
@@ -401,6 +403,8 @@ struct ActionMappingEditor: View {
                             .foregroundColor(.green)
                     }
                     .buttonStyle(.plain)
+                    .help("Add header")
+                    .accessibilityLabel("Add header")
                     .disabled(state.newWebhookHeaderKey.isEmpty)
                 }
             }

@@ -624,6 +624,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                                         .foregroundColor(.red)
                                 }
                                 .buttonStyle(.plain)
+                                .help("Remove header")
+                                .accessibilityLabel("Remove header")
                             }
                         }
 
@@ -645,6 +647,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                                     .foregroundColor(.green)
                             }
                             .buttonStyle(.plain)
+                            .help("Add header")
+                            .accessibilityLabel("Add header")
                             .disabled(newWebhookHeaderKey.isEmpty)
                         }
                     }
