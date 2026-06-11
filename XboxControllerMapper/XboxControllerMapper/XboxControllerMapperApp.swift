@@ -20,6 +20,13 @@ enum AppRuntime {
         }
         return args[args.index(after: flagIndex)]
     }
+
+    /// With `--screenshot-variant`, additionally runs a scripted input loop
+    /// (sweeping sticks, tapping buttons) for GIF/video recordings. See
+    /// Scripts/capture-demo-gifs.sh.
+    static var screenshotAnimate: Bool {
+        ProcessInfo.processInfo.arguments.contains("--screenshot-animate")
+    }
 }
 
 /// Holds all app services as a shared singleton
@@ -87,12 +94,19 @@ final class ServiceContainer {
         setupOnScreenKeyboardObserver(profileManager: profileManager)
         profileManager.setupControllerAutoSwitching(with: controllerService)
 
-        // Auto-show stream overlay if it was previously enabled
+        // Auto-show stream overlay if it was previously enabled. Deferred:
+        // creating the panel during App init (before NSApp finishes
+        // launching) leaves it ordered out — orderFrontRegardless is a
+        // no-op that early.
         if !AppRuntime.isRunningTests, StreamOverlayManager.isEnabled {
-            StreamOverlayManager.shared.show(
-                controllerService: controllerService,
-                inputLogService: inputLogService
-            )
+            let controllerService = controllerService
+            let inputLogService = inputLogService
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                StreamOverlayManager.shared.show(
+                    controllerService: controllerService,
+                    inputLogService: inputLogService
+                )
+            }
         }
     }
 

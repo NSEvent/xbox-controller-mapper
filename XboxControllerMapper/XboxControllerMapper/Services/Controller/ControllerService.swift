@@ -807,6 +807,13 @@ class ControllerService: ObservableObject {
             // A believable battery reading instead of the "?" unknown pill
             batteryLevel = 0.85
             batteryState = .discharging
+            // Show the controller "in use" (lit button, deflected stick,
+            // pulled trigger); --screenshot-animate runs a scripted input
+            // loop on top for GIF/video recordings.
+            applyScreenshotDemoPose()
+            if AppRuntime.screenshotAnimate {
+                startScreenshotDemoAnimation()
+            }
         }
 
         if shouldEnableHardwareMonitoring {

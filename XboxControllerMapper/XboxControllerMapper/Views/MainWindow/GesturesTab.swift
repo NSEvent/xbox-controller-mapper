@@ -20,11 +20,8 @@ struct GesturesTab: View {
                     }
                 )
             } header: {
-                HStack(spacing: 6) {
-                    Text("Motion Gestures")
-                    betaBadge
-                }
-                .foregroundColor(.secondary)
+                Text("Motion Gestures")
+                    .foregroundColor(.secondary)
             } footer: {
                 Text("Map quick tilt gestures on a supported controller to actions. Snap the controller top toward you (Tilt Back) or away from you (Tilt Forward).")
                     .foregroundColor(.secondary.opacity(0.7))
@@ -108,7 +105,6 @@ struct GesturesTab: View {
             } header: {
                 HStack(spacing: 6) {
                     Text("Gyro Aiming")
-                    betaBadge
                 }
                 .foregroundColor(.secondary)
             } footer: {
@@ -121,14 +117,4 @@ struct GesturesTab: View {
         .padding()
     }
 
-    private var betaBadge: some View {
-        Text("Beta")
-            .font(.caption2)
-            .fontWeight(.semibold)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(.blue.opacity(0.2))
-            .foregroundColor(.blue)
-            .clipShape(RoundedRectangle(cornerRadius: 3))
-    }
 }

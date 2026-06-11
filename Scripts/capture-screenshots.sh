@@ -180,6 +180,19 @@ staged[0].setdefault("onScreenKeyboardSettings", {})["quickTexts"] = [
     {"text": "make install", "isTerminalCommand": True},
     {"text": "npm run dev", "isTerminalCommand": True},
 ]
+# Audience-neutral names for rows that read as test data in captures.
+_sequence_renames = {"bye": "Sleep Display", "iTerm": "Open Terminal"}
+for seq in staged[0].get("sequenceMappings", []):
+    if seq.get("hint") in _sequence_renames:
+        seq["hint"] = _sequence_renames[seq["hint"]]
+_macro_renames = {"Check NVDA news": "Morning News Routine", "Rearview Mirror": "Toggle Rear View"}
+for macro in staged[0].get("macros", []):
+    if macro.get("name") in _macro_renames:
+        macro["name"] = _macro_renames[macro["name"]]
+
+# Light the P1 player LED so the LEDs tab doesn't show five empty dots.
+staged[0].setdefault("dualSenseLEDSettings", {}).setdefault("playerLEDs", {})["led3"] = True
+
 # The on-screen keyboard's app bar and website links are personal; swap in
 # stock apps and well-known sites (favicons resolve at runtime).
 osk = staged[0].setdefault("onScreenKeyboardSettings", {})
@@ -207,6 +220,21 @@ osk["websiteLinks"] = [
 with open(dst, "w") as f:
     json.dump(config, f, indent=2)
 print(f"Staged config with {len(staged)} profiles (active: {staged[0]['name']})")
+
+# Seed a few history snapshots so the History tab isn't an empty state.
+# Cleaned up by restore_config (they all carry the staged- filename marker).
+import os
+snap_dir = os.path.join(os.path.dirname(dst), "snapshots")
+os.makedirs(snap_dir, exist_ok=True)
+seeds = [
+    ("snapshot_2026-06-02_09-14-05-000-staged", "2026-06-02T09:14:05Z", "Before deleting profile “Old Setup”"),
+    ("snapshot_2026-06-05_18-40-22-000-staged", "2026-06-05T18:40:22Z", "Before importing “Racing.controllerkeys”"),
+    ("snapshot_2026-06-09_21-03-47-000-staged", "2026-06-09T21:03:47Z", "Before restoring snapshot from Jun 5, 2026"),
+]
+for stem, created, reason in seeds:
+    with open(os.path.join(snap_dir, f"{stem}.json"), "w") as f:
+        json.dump({"reason": reason, "createdAt": created, "configuration": config}, f)
+print(f"Seeded {len(seeds)} history snapshots")
 PY
 }
 
@@ -215,6 +243,8 @@ restore_config() {
         mv -f "$CONFIG_BACKUP" "$CONFIG_PATH"
         echo "Restored original config."
     fi
+    # Remove the seeded history snapshots (marked with -staged in the stem).
+    rm -f "$HOME/.config/controllerkeys/snapshots/"snapshot_*-staged.json
 }
 
 window_id() {
@@ -276,6 +306,83 @@ next_tab() {
     osascript -e 'tell application "System Events" to key code 124 using {command down}'
 }
 
+# Prints "x,y,w,h" of the floating stream overlay panel (found via the
+# accessibility API — borderless panels don't show up in CGWindowList).
+overlay_frame() {
+    osascript <<'EOS'
+tell application "System Events"
+    tell process "ControllerKeys"
+        repeat with w in windows
+            if name of w is "ControllerKeys Overlay" then
+                set p to position of w
+                set s to size of w
+                return ((item 1 of p) as string) & "," & ((item 2 of p) as string) & "," & ((item 1 of s) as string) & "," & ((item 2 of s) as string)
+            end if
+        end repeat
+    end tell
+end tell
+EOS
+}
+
+# Variants worth a standalone stream-overlay capture (the panel renders the
+# same minimap as the Buttons tab, scaled down).
+overlay_wanted() {
+    case "$1" in
+        xbox|dualsense|steam|appletv) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Park the panel over the main window's uniform dark canvas so the
+# semi-transparent backdrop reads clean, and keep the pointer away so the
+# hover close button stays hidden.
+position_overlay_panel() {
+    osascript <<EOS
+tell application "System Events"
+    tell process "ControllerKeys"
+        repeat with w in windows
+            if name of w is "ControllerKeys Overlay" then
+                set position of w to {$1, $2}
+            end if
+        end repeat
+    end tell
+end tell
+EOS
+}
+
+capture_stream_overlay() {
+    local variant="$1"
+    local out_dir="$OUT_ROOT/stream-overlay"
+    mkdir -p "$out_dir"
+
+    quit_app
+    defaults write KevinTang.XboxControllerMapper streamOverlayEnabled -bool true
+    defaults delete KevinTang.XboxControllerMapper streamOverlayPositions 2>/dev/null || true
+
+    open -a "$APP_NAME" --args --screenshot-variant "$variant"
+    sleep "$LAUNCH_WAIT"
+    osascript -e "tell application \"$APP_NAME\" to activate" >/dev/null
+    sleep 0.5
+    position_window
+    # Pointer well away from the panel so the close button stays hidden
+    /usr/bin/python3 -c 'import Quartz; Quartz.CGWarpMouseCursorPosition((1650, 980))' 2>/dev/null || true
+    # The sidebar's lower half is uniformly dark in every variant
+    position_overlay_panel 115 640
+    sleep 1
+
+    local frame
+    frame="$(overlay_frame)"
+    if [[ -z "$frame" ]]; then
+        echo "   WARN: stream overlay panel not found for $variant" >&2
+    else
+        screencapture -x -R "$frame" "$out_dir/$variant.png"
+        echo "   stream-overlay/$variant.png"
+    fi
+
+    quit_app
+    defaults write KevinTang.XboxControllerMapper streamOverlayEnabled -bool false
+}
+
 capture_variant() {
     local variant="$1"
     local dir tabs wid n=1
@@ -320,11 +427,18 @@ capture_variant() {
 
 BUILD=0
 STAGE=1
+TABS=1
 VARIANTS=()
 for arg in "$@"; do
     case "$arg" in
         --build) BUILD=1 ;;
         --no-stage) STAGE=0 ;;
+        # Skip the per-tab walks and only capture the stream overlay panels.
+        --overlays-only) TABS=0 ;;
+        # Stage/restore the config and exit — used by capture-demo-gifs.sh
+        # to share the same curated sidebar and demo content.
+        --stage-only) quit_app; stage_config; exit 0 ;;
+        --restore-only) quit_app; restore_config; exit 0 ;;
         *) VARIANTS+=("$arg") ;;
     esac
 done
@@ -341,8 +455,19 @@ if [[ "$STAGE" == "1" ]]; then
     trap 'quit_app; restore_config' EXIT
 fi
 
+if [[ "$TABS" == "1" ]]; then
+    for v in "${VARIANTS[@]}"; do
+        capture_variant "$v"
+    done
+fi
+
+# Standalone captures of the floating stream overlay panel for the
+# representative variants.
+echo "── Stream overlay captures"
 for v in "${VARIANTS[@]}"; do
-    capture_variant "$v"
+    if overlay_wanted "$v"; then
+        capture_stream_overlay "$v"
+    fi
 done
 
 quit_app
