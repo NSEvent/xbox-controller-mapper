@@ -8,11 +8,20 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 (formerly Xbox Controller Mapper)
 -->
 
-A native macOS app that remaps game controllers to keyboard shortcuts, mouse input, macros, scripts, webhooks, and system commands — turning any gamepad into a full desktop input device. Supports Xbox Series X|S, Xbox Elite Series 2, PS5 DualSense, PS4 DualShock 4, Nintendo Joy-Con, Switch Pro Controller, Steam Controller, and 300+ third-party gamepads. Features DualSense and Steam Controller touchpad and gyroscope mouse control, swipe typing, a JavaScript scripting engine, per-app profile auto-switching, a realtime low-latency input mode, and Mac-to-Mac controller handoff over Wi-Fi.
+A native macOS app that remaps game controllers to keyboard shortcuts, mouse input, macros, scripts, webhooks, and system commands — turning any gamepad into a full desktop input device. Supports Xbox Series X|S, Xbox Elite Series 2, PS5 DualSense, PS4 DualShock 4, Nintendo Joy-Con, Switch Pro Controller, Steam Controller, the Apple TV Siri Remote, and 300+ third-party gamepads. Features DualSense and Steam Controller touchpad and gyroscope mouse control, swipe typing, a JavaScript scripting engine, per-app profile auto-switching, a realtime low-latency input mode, and Mac-to-Mac controller handoff over Wi-Fi.
 
 **[Website & Documentation](https://www.kevintang.xyz/apps/xbox-controller-mapper)** | **[Download](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord Community](https://discord.gg/WsZJkRsPPg)**
 
-![ControllerKeys - Button Mappings](screenshots/xbox-series-xs/1-buttons.png)
+![ControllerKeys - Button Mappings](screenshots/xbox-series-xs/01-buttons.png)
+
+<p>
+  <img src="screenshots/dualsense/01-buttons.png" width="49%" alt="DualSense button mappings with touchpad regions"/>
+  <img src="screenshots/apple-tv-remote/01-buttons.png" width="49%" alt="Apple TV Siri Remote as a mappable controller"/>
+</p>
+<p>
+  <img src="screenshots/steam-controller/01-buttons.png" width="49%" alt="Steam Controller with dual touchpads — no Steam required"/>
+  <img src="screenshots/dualsense/14-stats.png" width="49%" alt="Usage stats and Controller Wrapped"/>
+</p>
 
 ### Use Cases
 
@@ -52,6 +61,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | Stream overlay for OBS | ✅ | ❌ | ❌ | ❌ |
 | Xbox Elite Series 2 paddles | ✅ | ❌ | ❌ | ❌ |
 | Nintendo Joy-Con & Pro Controller | ✅ | ❌ | ❌ | ❌ |
+| Apple TV Siri Remote as a controller | ✅ | ❌ | ❌ | ❌ |
 | DualSense Edge (Pro) support | ✅ | ❌ | ❌ | ❌ |
 | DualShock 4 (PS4) touchpad & gyro | ✅ | ❌ | ❌ | ❌ |
 | DualSense LED & microphone control | ✅ | ❌ | ❌ | ❌ |
@@ -63,7 +73,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | Actively maintained (2026) | ✅ | ❌ | ❌ | ✅ |
 | Open source | ✅ | ❌ | ✅ | ❌ |
 
-**Joystick Mapper** hasn't been updated in years and lacks modern controller support. **Enjoyable** is abandoned since 2014. **Controlly** is solid but doesn't support touchpad gestures, on-screen keyboard, or scripting. **Steam's controller mapping** only works within Steam games, not system-wide.
+**Joystick Mapper** hasn't been updated since November 2019 and lacks modern controller support. **Enjoyable** is abandoned since 2014. **Controlly** is solid but doesn't support touchpad gestures, on-screen keyboard, or scripting. **Steam's controller mapping** only works within Steam games, not system-wide.
 
 ## Features
 
@@ -253,6 +263,12 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Correct Nintendo button labels (L/R, ZL/ZR, +/−, Capture, Home)
   - Single Joy-Con input via physical input profile enumeration
 
+- **Apple TV Siri Remote Support**: Pair the 2nd-generation Siri Remote to your Mac over Bluetooth and use it as a controller
+  - Clickpad reports both touch (cursor) and physical click; D-pad ring maps to the four cardinal directions
+  - Side controls — TV/Home, Back, Play/Pause, Siri, Power, Mute, volume rocker — all individually mappable with Apple-Remote labels
+  - **Edge Scroll**: drag a finger around the outer clickpad ring for iPod-wheel-style scrolling, with configurable speed
+  - Dedicated tall remote preview in the UI; runs entirely over raw IOKit HID — no Apple TV required
+
 - **Third-Party Controller Support**: ~313 controllers supported via SDL database
   - 8BitDo, Logitech, PowerA, Hori, and more
   - No manual configuration needed
@@ -268,48 +284,26 @@ There are other controller mapping apps for macOS, but none offered everything I
 <details open>
 <summary>More Screenshots</summary>
 
-### Xbox Series X|S
+### On-Screen Keyboard with Swipe Typing
+![On-Screen Keyboard](screenshots/on-screen-keyboard.png)
 
-#### Chord Mappings
-![Xbox Chord Mappings](screenshots/xbox-series-xs/2-chords.png)
+### JavaScript Scripting
+![JavaScript Scripting](screenshots/dualsense/06-scripts.png)
 
-#### Joystick Settings
-![Xbox Joystick Settings](screenshots/xbox-series-xs/3-joysticks.png)
+### Macros
+![Macros](screenshots/dualsense/05-macros.png)
 
-#### On Screen Keyboard Widget
-![On Screen Keyboard Widget](screenshots/xbox-series-xs/4-keyboard.png)
+### Chord Mappings
+![Chord Mappings](screenshots/dualsense/02-chords.png)
 
-#### On-Screen Keyboard
-![Xbox On-Screen Keyboard](screenshots/xbox-series-xs/5-on-screen-keyboard.png)
+### DualSense Touchpad
+![DualSense Touchpad Settings](screenshots/dualsense/10-touchpad.png)
 
-### DualSense (PS5)
+### DualSense LED Customization
+![DualSense LEDs](screenshots/dualsense/11-leds.png)
 
-#### Button Mappings
-![DualSense Button Mappings](screenshots/dualsense/1-buttons.png)
-
-#### Chord Mappings
-![DualSense Chord Mappings](screenshots/dualsense/2-chords.png)
-
-#### Joystick Settings
-![DualSense Joystick Settings](screenshots/dualsense/3-joysticks.png)
-
-#### On Screen Keyboard Widget
-![DualSense On Screen Keyboard Widget](screenshots/dualsense/4-keyboard.png)
-
-#### Touchpad Settings
-![DualSense Touchpad Settings](screenshots/dualsense/5-touchpad.png)
-
-#### Multi-touch Touchpad
-![DualSense Multi-touch](screenshots/dualsense/9-multitouch-touchpad-support.png)
-
-#### LED Customization
-![DualSense LEDs](screenshots/dualsense/6-leds.png)
-
-#### Microphone Settings
-![DualSense Microphone Settings](screenshots/dualsense/7-microphone.png)
-
-#### On-Screen Keyboard
-![DualSense On-Screen Keyboard](screenshots/dualsense/8-on-screen-keyboard.png)
+### Keyboard Widget Settings
+![On-Screen Keyboard Settings](screenshots/dualsense/13-keyboard.png)
 
 </details>
 
@@ -321,6 +315,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | **PlayStation** | DualSense (PS5), DualSense Edge, DualShock 4 v1/v2 (PS4) |
 | **Nintendo** | Switch Pro Controller, Joy-Con (single or paired L+R) |
 | **Valve** | Steam Controller (touchpads, gyro, grips, haptics — no Steam required) |
+| **Apple** | Siri Remote / Apple TV Remote 2nd gen (clickpad cursor, edge scroll, mappable side buttons) |
 | **8BitDo** | Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite, Zero 2, and more |
 | **Logitech** | F310, F510, F710 |
 | **PowerA** | Enhanced Wired, Fusion Pro |
@@ -331,7 +326,7 @@ Any controller recognized by macOS's GameController framework works out of the b
 
 ## Requirements
 
-- macOS 14.0 or later
+- macOS 14.6 or later
 - A supported controller (see above) connected via Bluetooth or USB
 - Accessibility permissions (for input simulation)
 - Automation permissions (for launching Terminal app with commands)
@@ -472,58 +467,48 @@ For a deeper technical walkthrough of each component — service responsibilitie
 ## Project Structure
 
 ```
-XboxControllerMapper/
-├── XboxControllerMapperApp.swift      # App entry point
-├── Info.plist                          # App configuration
-├── XboxControllerMapper.entitlements   # Sandbox/permissions
-│
-├── Models/
-│   ├── ControllerButton.swift          # Xbox button enum
-│   ├── KeyMapping.swift                # Mapping configuration
-│   ├── Profile.swift                   # Profile with overrides
-│   ├── ChordMapping.swift              # Multi-button chords
-│   └── JoystickSettings.swift          # Joystick configuration
-│
+XboxControllerMapper/XboxControllerMapper/
+├── XboxControllerMapperApp.swift  # App entry point & service container
+├── Config.swift                   # Constants & UserDefaults keys
+├── Models/                        # Profiles, mappings, chords, sequences, gestures, LED settings
 ├── Services/
-│   ├── ControllerService.swift         # Controller connection
-│   ├── InputSimulator.swift            # Key/mouse simulation
-│   ├── ProfileManager.swift            # Profile persistence
-│   ├── AppMonitor.swift                # Frontmost app detection
-│   └── MappingEngine.swift             # Mapping coordination
-│
+│   ├── Controller/                # GameController + raw HID input (PlayStation, Steam, Apple TV Remote, Elite, SDL fallback)
+│   ├── Mapping/                   # Mapping engine, chord/sequence/gesture detection, action execution
+│   ├── Input/                     # CGEvent input simulation, swipe typing, Mac-to-Mac relay
+│   ├── Profile/                   # Config persistence, snapshots, community profile import
+│   ├── Scripting/                 # JavaScriptCore script engine
+│   ├── Macros/                    # Macro execution
+│   ├── Integration/               # OBS WebSocket, webhooks
+│   └── UI/                        # Overlays: command wheel, on-screen keyboard, cursor hints, stream overlay
 ├── Views/
-│   ├── MainWindow/
-│   │   ├── ContentView.swift           # Main window
-│   │   ├── ControllerVisualView.swift  # Controller visualization
-│   │   └── ButtonMappingSheet.swift    # Button configuration
-│   ├── MenuBar/
-│   │   └── MenuBarView.swift           # Menu bar popover
-│   └── Components/
-│       └── KeyCaptureField.swift       # Shortcut capture
-│
-└── Utilities/
-    └── KeyCodeMapping.swift            # Key code constants
+│   ├── MainWindow/                # Main window tabs & mapping sheets
+│   ├── MenuBar/                   # Menu bar popover
+│   └── Components/                # Shared SwiftUI components
+└── Resources/                     # SDL controller database, swipe-typing model
 ```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for service responsibilities, the input pipeline, and the threading model.
 
 ## Default Mappings
 
 | Button | Default Action |
 |--------|---------------|
-| A | Return/Enter |
-| B | Escape |
-| X | Space |
-| Y | Tab |
-| LB | ⌘ (hold) |
-| RB | ⌥ (hold) |
-| LT | ⇧ (hold) |
-| RT | ⌃ (hold) |
-| D-pad | Arrow keys |
-| Menu | ⌘ + Tab |
-| View | Mission Control |
-| Xbox | Launchpad |
-| L-Stick Click | Left Click |
-| R-Stick Click | Right Click |
-| Left Joystick | Mouse |
+| A | Left mouse click (hold to drag) |
+| B | Return — long-hold: ⌘Return |
+| X | Delete (repeats while held) |
+| Y | Escape |
+| LB | ⌥ (hold) |
+| RB | ⌃ (hold) |
+| LT | F13 |
+| RT | ⌘ (hold) |
+| D-pad | Arrow keys (repeat while held) |
+| Menu | ⌘V — double-tap: ⇧⌘V, long-hold: ⌘L |
+| View | ⌘C — double-tap: ⌘A |
+| Xbox | Space |
+| Share | ⌘⌥ (hold) |
+| L-Stick Click | ⌥A — long-hold: ⌘Tab |
+| R-Stick Click | ⌃C — double-tap: ⌘W |
+| Left Joystick | Mouse movement |
 | Right Joystick | Scroll |
 
 ## Usage
@@ -536,12 +521,12 @@ XboxControllerMapper/
 
 ## Contributing
 
-Contributions are welcome! If you'd like to contribute code:
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide. To get started:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Test thoroughly with both Xbox and DualSense controllers if possible and applicable
+4. Run `make test-regressions`, and test with a physical controller when your change touches input handling
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
@@ -569,7 +554,7 @@ Found a bug? Please help by reporting it:
 1. **Check existing issues** to avoid duplicates
 2. **Open a new issue** with:
    - macOS version
-   - Controller model (Xbox Series X|S, Xbox One, DualSense, etc.)
+   - Controller model (Xbox Series X|S, DualSense, Steam Controller, Apple TV Remote, third-party, etc.)
    - Connection method (Bluetooth or USB)
    - Steps to reproduce the issue
    - Expected vs actual behavior

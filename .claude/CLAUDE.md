@@ -60,7 +60,7 @@ This ensures the app is built from source and installed to /Applications.
 
 ### Overview
 
-Config is stored at `~/.controllerkeys/config.json` (legacy: `~/.xbox-controller-mapper/config.json`, auto-migrated). JSON format, pretty-printed, ISO8601 dates. Backups kept at `~/.controllerkeys/backups/` (last 5).
+Config is stored at `~/.config/controllerkeys/config.json` (legacy: `~/.controllerkeys/config.json` and `~/.xbox-controller-mapper/config.json`, both auto-migrated; moved to XDG path in 1.9.1). JSON format, pretty-printed, ISO8601 dates. Backups kept at `~/.config/controllerkeys/backups/` (last 5); profile snapshots at `~/.config/controllerkeys/snapshots/` (capped at 20).
 
 ProfileManager has a safety mechanism: if loading fails (`loadSucceeded = false`), it will NOT save/overwrite the file. This prevents data loss from schema errors.
 
