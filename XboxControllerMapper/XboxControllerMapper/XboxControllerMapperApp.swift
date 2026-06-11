@@ -6,6 +6,20 @@ enum AppRuntime {
     static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
+
+    /// Screenshot capture mode, set via `--screenshot-variant <name>` by
+    /// Scripts/capture-screenshots.sh. Valid names: dualsense, dualsense-edge,
+    /// dualshock, xbox, xbox-elite, nintendo, steam, appletv. When set, hardware
+    /// monitoring is disabled and the controller preview is forced to the given
+    /// variant, so captures are deterministic regardless of paired hardware.
+    static var screenshotVariant: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let flagIndex = args.firstIndex(of: "--screenshot-variant"),
+              args.index(after: flagIndex) < args.endIndex else {
+            return nil
+        }
+        return args[args.index(after: flagIndex)]
+    }
 }
 
 /// Holds all app services as a shared singleton
@@ -26,7 +40,11 @@ final class ServiceContainer {
     private var cancellables = Set<AnyCancellable>()
 
     init() {
-        let controllerService = ControllerService()
+        // Screenshot mode disables hardware monitoring so a live controller
+        // can't override the forced preview variant mid-capture.
+        let controllerService = ControllerService(
+            enableHardwareMonitoring: AppRuntime.screenshotVariant == nil
+        )
         let appMonitor = AppMonitor()
         let profileManager = ProfileManager(appMonitor: appMonitor)
         let inputMonitor = InputMonitor()
@@ -60,7 +78,8 @@ final class ServiceContainer {
 
         let updateCheckService = UpdateCheckService()
         self.updateCheckService = updateCheckService
-        if !AppRuntime.isRunningTests {
+        // Skip in screenshot mode too — an update alert would land mid-capture.
+        if !AppRuntime.isRunningTests, AppRuntime.screenshotVariant == nil {
             updateCheckService.checkForUpdates()
         }
 

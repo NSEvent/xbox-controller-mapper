@@ -752,6 +752,20 @@ class ControllerService: ObservableObject {
     }
     var activeHapticPlayers: [ActiveHapticPlayer] = []
 
+    /// Display name shown in the toolbar pill for `--screenshot-variant` captures.
+    static func screenshotControllerName(for variant: String) -> String {
+        switch variant {
+        case "dualsense": return "DualSense Wireless Controller"
+        case "dualsense-edge": return "DualSense Edge Wireless Controller"
+        case "dualshock": return "DUALSHOCK 4 Wireless Controller"
+        case "xbox-elite": return "Xbox Elite Wireless Controller"
+        case "nintendo": return "Pro Controller"
+        case "steam": return "Steam Controller"
+        case "appletv": return "Apple TV Remote"
+        default: return "Xbox Wireless Controller"
+        }
+    }
+
     init(enableHardwareMonitoring: Bool = true) {
         let shouldEnableHardwareMonitoring = enableHardwareMonitoring && !Self.isRunningTests
 		self.guideMonitor = XboxGuideMonitor(enableHardwareMonitoring: shouldEnableHardwareMonitoring)
@@ -775,6 +789,21 @@ class ControllerService: ObservableObject {
 			storage.isDualShock = false
 			storage.isXboxElite = false
 			storage.isNintendo = false
+        }
+
+        // Screenshot mode: force the preview to the requested variant and
+        // present as connected. Hardware monitoring is off in this mode (see
+        // ServiceContainer), so nothing can override these between captures.
+        if let variant = AppRuntime.screenshotVariant {
+            storage.isDualSense = (variant == "dualsense" || variant == "dualsense-edge")
+            storage.isDualSenseEdge = (variant == "dualsense-edge")
+            storage.isDualShock = (variant == "dualshock")
+            storage.isNintendo = (variant == "nintendo")
+            storage.isXboxElite = (variant == "xbox-elite")
+            storage.isSteamController = (variant == "steam")
+            storage.isAppleTVRemote = (variant == "appletv")
+            isConnected = true
+            controllerName = Self.screenshotControllerName(for: variant)
         }
 
         if shouldEnableHardwareMonitoring {
