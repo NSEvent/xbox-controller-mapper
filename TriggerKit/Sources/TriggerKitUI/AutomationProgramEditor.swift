@@ -1,0 +1,922 @@
+import SwiftUI
+import TriggerKitCore
+
+public struct AutomationProgramEditor: View {
+	@Binding private var program: AutomationProgram
+	private let showsNameField: Bool
+	private let capabilities: AutomationCapabilities
+	@State private var expandedStepIndexes: Set<Int> = []
+
+	public init(
+		program: Binding<AutomationProgram>,
+		showsNameField: Bool = true,
+		capabilities: AutomationCapabilities = .all
+	) {
+		self._program = program
+		self.showsNameField = showsNameField
+		self.capabilities = capabilities
+	}
+
+	public var body: some View {
+		VStack(alignment: .leading, spacing: 12) {
+			if showsNameField {
+				TextField("Action name", text: $program.name)
+					.textFieldStyle(.roundedBorder)
+			}
+
+			stepList
+		}
+		.onAppear {
+			normalizeExpandedSteps()
+		}
+		.onChange(of: program.steps.count) { _, _ in
+			normalizeExpandedSteps()
+		}
+		.onChange(of: program.steps.map(\.kind)) { _, _ in
+			normalizeExpandedSteps()
+		}
+		.onChange(of: capabilities) { _, _ in
+			normalizeExpandedSteps()
+		}
+	}
+
+	private var stepList: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			HStack {
+				Text("Steps")
+					.font(.caption.weight(.bold))
+					.textCase(.uppercase)
+					.foregroundStyle(.secondary)
+
+				Spacer()
+
+				Menu {
+					if capabilities.allows(.typeText) {
+						addStepButton("Type Text", systemImage: "text.cursor", kind: .typeText)
+					}
+					if capabilities.allows(.keyPress) {
+						addStepButton("Key Shortcut", systemImage: "keyboard", kind: .keyPress)
+					}
+					if capabilities.allows(.keyDown) {
+						addStepButton("Key Down", systemImage: "arrow.down.square", kind: .keyDown)
+					}
+					if capabilities.allows(.keyUp) {
+						addStepButton("Key Up", systemImage: "arrow.up.square", kind: .keyUp)
+					}
+					if allowsAny([.typeText, .keyPress, .keyDown, .keyUp]), allowsAny([.mouseClick, .mouseDown, .mouseUp, .mouseMove, .mouseScroll]) {
+						Divider()
+					}
+					if capabilities.allows(.mouseClick) {
+						addStepButton("Mouse Click", systemImage: "cursorarrow.click", kind: .mouseClick)
+					}
+					if capabilities.allows(.mouseDown) {
+						addStepButton("Mouse Down", systemImage: "cursorarrow", kind: .mouseDown)
+					}
+					if capabilities.allows(.mouseUp) {
+						addStepButton("Mouse Up", systemImage: "cursorarrow.rays", kind: .mouseUp)
+					}
+					if capabilities.allows(.mouseMove) {
+						addStepButton("Mouse Move", systemImage: "move.3d", kind: .mouseMove)
+					}
+					if capabilities.allows(.mouseScroll) {
+						addStepButton("Mouse Scroll", systemImage: "arrow.up.and.down", kind: .mouseScroll)
+					}
+					if allowsAny([.mouseClick, .mouseDown, .mouseUp, .mouseMove, .mouseScroll]), allowsAny([.delay, .openApp, .openURL, .shellCommand]) {
+						Divider()
+					}
+					if capabilities.allows(.delay) {
+						addStepButton("Delay", systemImage: "timer", kind: .delay)
+					}
+					if capabilities.allows(.openApp) {
+						addStepButton("Open App", systemImage: "app", kind: .openApp)
+					}
+					if capabilities.allows(.openURL) {
+						addStepButton("Open URL", systemImage: "safari", kind: .openURL)
+					}
+					if capabilities.allows(.shellCommand) {
+						addStepButton("Shell Command", systemImage: "terminal", kind: .shellCommand)
+					}
+				} label: {
+					Label("Add", systemImage: "plus")
+				}
+				.disabled(capabilities.allowedStepKinds.isEmpty)
+			}
+
+			if program.steps.isEmpty {
+				Text("No steps")
+					.font(.callout)
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity, minHeight: 52)
+					.background(Color(nsColor: .controlBackgroundColor).opacity(0.45))
+					.clipShape(RoundedRectangle(cornerRadius: 8))
+			} else {
+				VStack(spacing: 6) {
+					ForEach(Array(program.steps.enumerated()), id: \.offset) { index, step in
+						stepRow(step, at: index)
+					}
+				}
+			}
+		}
+	}
+
+	private func stepRow(_ step: AutomationStep, at index: Int) -> some View {
+		let allowed = capabilities.allows(step.kind)
+		let expanded = allowed && expandedStepIndexes.contains(index)
+
+		return VStack(alignment: .leading, spacing: 6) {
+			HStack(spacing: 8) {
+				Button {
+					if allowed {
+						toggleExpanded(index)
+					}
+				} label: {
+					Image(systemName: expanded ? "chevron.down" : "chevron.right")
+						.frame(width: 16)
+				}
+				.disabled(!allowed)
+				.help(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
+
+				HStack(spacing: 8) {
+					Image(systemName: iconName(for: step.kind))
+						.frame(width: 18)
+						.foregroundStyle(allowed ? Color.accentColor : Color.secondary)
+
+					Text(step.displaySummary)
+						.font(.callout.weight(.semibold))
+						.lineLimit(1)
+						.frame(maxWidth: .infinity, alignment: .leading)
+				}
+				.contentShape(Rectangle())
+				.onTapGesture {
+					if allowed {
+						toggleExpanded(index)
+					}
+				}
+
+				Button {
+					moveStep(from: index, by: -1)
+				} label: {
+					Image(systemName: "chevron.up")
+				}
+				.disabled(index == 0)
+				.help("Move up")
+
+				Button {
+					moveStep(from: index, by: 1)
+				} label: {
+					Image(systemName: "chevron.down")
+				}
+				.disabled(index == program.steps.count - 1)
+				.help("Move down")
+
+				Button(role: .destructive) {
+					deleteStep(at: index)
+				} label: {
+					Image(systemName: "trash")
+				}
+				.help("Delete")
+			}
+			.buttonStyle(.plain)
+
+			if !allowed {
+				Label("\(step.kind.displayName) is unavailable in this host", systemImage: "exclamationmark.triangle")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+					.padding(.leading, 24)
+			}
+
+			if expanded {
+				AutomationStepEditor(step: stepBinding(at: index))
+					.padding(.leading, 24)
+			}
+		}
+		.padding(.horizontal, 10)
+		.padding(.vertical, 8)
+		.background(
+			expanded ? Color.accentColor.opacity(0.08) :
+				allowed ? Color(nsColor: .controlBackgroundColor).opacity(0.55) :
+				Color(nsColor: .controlBackgroundColor).opacity(0.3)
+		)
+		.foregroundStyle(Color.primary)
+		.clipShape(RoundedRectangle(cornerRadius: 8))
+		.contentShape(RoundedRectangle(cornerRadius: 8))
+	}
+
+	private func stepBinding(at index: Int) -> Binding<AutomationStep> {
+		Binding(
+			get: {
+				guard program.steps.indices.contains(index) else {
+					return .delay(DelayStep(seconds: 1))
+				}
+				return program.steps[index]
+			},
+			set: {
+				guard program.steps.indices.contains(index) else { return }
+				program.steps[index] = $0
+			}
+		)
+	}
+
+	private func addStepButton(_ title: String, systemImage: String, kind: AutomationStep.Kind) -> some View {
+		Button {
+			let step = defaultStep(for: kind)
+			program.steps.append(step)
+			expandedStepIndexes.insert(program.steps.count - 1)
+		} label: {
+			Label(title, systemImage: systemImage)
+		}
+	}
+
+	private func allowsAny(_ kinds: [AutomationStep.Kind]) -> Bool {
+		kinds.contains { capabilities.allows($0) }
+	}
+
+	private func toggleExpanded(_ index: Int) {
+		guard program.steps.indices.contains(index), capabilities.allows(program.steps[index].kind) else {
+			expandedStepIndexes.remove(index)
+			return
+		}
+		if expandedStepIndexes.contains(index) {
+			expandedStepIndexes.remove(index)
+		} else {
+			expandedStepIndexes.insert(index)
+		}
+	}
+
+	private func moveStep(from index: Int, by offset: Int) {
+		let destination = index + offset
+		guard program.steps.indices.contains(index), program.steps.indices.contains(destination) else { return }
+		program.steps.swapAt(index, destination)
+		let sourceWasExpanded = expandedStepIndexes.contains(index)
+		let destinationWasExpanded = expandedStepIndexes.contains(destination)
+		expandedStepIndexes.remove(index)
+		expandedStepIndexes.remove(destination)
+		if sourceWasExpanded { expandedStepIndexes.insert(destination) }
+		if destinationWasExpanded { expandedStepIndexes.insert(index) }
+	}
+
+	private func deleteStep(at index: Int) {
+		guard program.steps.indices.contains(index) else { return }
+		program.steps.remove(at: index)
+		expandedStepIndexes = Set(expandedStepIndexes.compactMap { expandedIndex in
+			if expandedIndex == index {
+				return nil
+			}
+			return expandedIndex > index ? expandedIndex - 1 : expandedIndex
+		})
+	}
+
+	private func normalizeExpandedSteps() {
+		expandedStepIndexes = Set(expandedStepIndexes.filter {
+			program.steps.indices.contains($0) && capabilities.allows(program.steps[$0].kind)
+		})
+		if expandedStepIndexes.isEmpty, let firstEditableIndex = program.steps.indices.first(where: { capabilities.allows(program.steps[$0].kind) }) {
+			expandedStepIndexes.insert(firstEditableIndex)
+		}
+	}
+
+	private func defaultStep(for kind: AutomationStep.Kind) -> AutomationStep {
+		AutomationStep.defaultValue(for: kind)
+	}
+
+	private func iconName(for kind: AutomationStep.Kind) -> String {
+		switch kind {
+		case .keyPress: return "keyboard"
+		case .keyDown: return "arrow.down.square"
+		case .keyUp: return "arrow.up.square"
+		case .mouseClick: return "cursorarrow.click"
+		case .mouseDown: return "cursorarrow"
+		case .mouseUp: return "cursorarrow.rays"
+		case .mouseMove: return "move.3d"
+		case .mouseScroll: return "arrow.up.and.down"
+		case .delay: return "timer"
+		case .typeText: return "text.cursor"
+		case .openApp: return "app"
+		case .openURL: return "safari"
+		case .shellCommand: return "terminal"
+		case .webhook: return "antenna.radiowaves.left.and.right"
+		case .custom: return "puzzlepiece.extension"
+		}
+	}
+}
+
+private struct AutomationStepEditor: View {
+	@Binding var step: AutomationStep
+	@State private var showingAppPicker = false
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			Text(editorTitle)
+				.font(.caption.weight(.bold))
+				.textCase(.uppercase)
+				.foregroundStyle(.secondary)
+
+			switch step {
+			case .typeText:
+				typeTextEditor
+			case .keyPress:
+				VisualKeyboardPicker(keyStroke: keyStrokeBinding)
+			case .keyDown:
+				VisualKeyboardPicker(keyStroke: keyDownStrokeBinding)
+			case .keyUp:
+				VisualKeyboardPicker(keyStroke: keyUpStrokeBinding)
+			case .mouseClick:
+				VisualMousePicker(click: mouseClickBinding)
+			case .mouseDown:
+				mouseButtonEditor(binding: mouseDownBinding)
+			case .mouseUp:
+				mouseButtonEditor(binding: mouseUpBinding)
+			case .mouseMove:
+				mouseMoveEditor
+			case .mouseScroll:
+				mouseScrollEditor
+			case .delay:
+				delayEditor
+			case .openApp:
+				openAppEditor
+			case .openURL:
+				openURLEditor
+			case .shellCommand:
+				shellCommandEditor
+			case .webhook:
+				webhookEditor
+			case .custom:
+				customStepEditor
+			}
+		}
+		.padding(10)
+		.background(Color(nsColor: .windowBackgroundColor).opacity(0.72))
+		.clipShape(RoundedRectangle(cornerRadius: 8))
+		.overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.18)))
+		.sheet(isPresented: $showingAppPicker) {
+			InstalledAppPickerSheet(currentBundleIdentifier: openAppBinding.wrappedValue.bundleIdentifier) { app in
+				var step = openAppBinding.wrappedValue
+				step.bundleIdentifier = app.bundleIdentifier
+				openAppBinding.wrappedValue = step
+			}
+		}
+	}
+
+	private var editorTitle: String {
+		switch step.kind {
+		case .keyPress: return "Key Shortcut"
+		case .keyDown: return "Key Down"
+		case .keyUp: return "Key Up"
+		case .mouseClick: return "Mouse Click"
+		case .mouseDown: return "Mouse Down"
+		case .mouseUp: return "Mouse Up"
+		case .mouseMove: return "Mouse Move"
+		case .mouseScroll: return "Mouse Scroll"
+		case .delay: return "Delay"
+		case .typeText: return "Type Text"
+		case .openApp: return "Open App"
+		case .openURL: return "Open URL"
+		case .shellCommand: return "Shell Command"
+		case .webhook: return "Webhook"
+		case .custom: return "App Action"
+		}
+	}
+
+	private var typeTextEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			TextEditor(text: typeTextTextBinding)
+				.font(.system(.body, design: .monospaced))
+				.frame(height: 96)
+				.scrollContentBackground(.hidden)
+				.background(Color(nsColor: .controlBackgroundColor).opacity(0.55))
+				.clipShape(RoundedRectangle(cornerRadius: 7))
+
+			TextEntryModeSelector(selection: typeTextModeBinding)
+
+			if typeTextModeBinding.wrappedValue == .type {
+				HStack {
+					Text("Speed")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					TextField("0", value: typeTextPaceBinding, format: .number)
+						.textFieldStyle(.roundedBorder)
+						.frame(width: 96)
+					Text("chars/min (0 = fastest)")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+				}
+			}
+
+			Toggle("Press Return after text", isOn: typeTextReturnBinding)
+		}
+	}
+
+	private func mouseButtonEditor(binding: Binding<MouseButtonEvent>) -> some View {
+		VStack(alignment: .leading, spacing: 8) {
+			MouseButtonPicker(
+				button: Binding(
+					get: { binding.wrappedValue.button },
+					set: { binding.wrappedValue.button = $0 }
+				)
+			)
+			ModifierSetEditor(
+				modifiers: Binding(
+					get: { binding.wrappedValue.modifiers },
+					set: { binding.wrappedValue.modifiers = $0 }
+				)
+			)
+		}
+	}
+
+	private var mouseMoveEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			HStack {
+				Text("X")
+					.frame(width: 18, alignment: .leading)
+				TextField("0", value: mouseMoveXBinding, format: .number)
+					.textFieldStyle(.roundedBorder)
+				Text("Y")
+					.frame(width: 18, alignment: .leading)
+				TextField("0", value: mouseMoveYBinding, format: .number)
+					.textFieldStyle(.roundedBorder)
+			}
+			.font(.callout)
+
+			Text("Positive X moves right. Positive Y follows macOS event coordinates.")
+				.font(.caption)
+				.foregroundStyle(.secondary)
+		}
+	}
+
+	private var mouseScrollEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			ScrollDirectionPicker(scroll: mouseScrollBinding)
+			HStack {
+				Text("X")
+					.frame(width: 18, alignment: .leading)
+				TextField("0", value: mouseScrollXBinding, format: .number)
+					.textFieldStyle(.roundedBorder)
+				Text("Y")
+					.frame(width: 18, alignment: .leading)
+				TextField("0", value: mouseScrollYBinding, format: .number)
+					.textFieldStyle(.roundedBorder)
+			}
+			.font(.callout)
+		}
+	}
+
+	private var delayEditor: some View {
+		HStack {
+			TextField("Seconds", value: delaySecondsBinding, format: .number.precision(.fractionLength(0...2)))
+				.textFieldStyle(.roundedBorder)
+			Text("seconds")
+				.foregroundStyle(.secondary)
+		}
+	}
+
+	private var openAppEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			InstalledAppPickerButton(bundleIdentifier: openAppBundleBinding.wrappedValue) {
+				showingAppPicker = true
+			}
+
+			VStack(alignment: .leading, spacing: 4) {
+				Text("Bundle ID")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				TextField("com.apple.TextEdit", text: openAppBundleBinding)
+					.textFieldStyle(.roundedBorder)
+			}
+
+			Toggle("Open new window when supported", isOn: openAppNewWindowBinding)
+		}
+	}
+
+	private var openURLEditor: some View {
+		TextField("https://example.com", text: openURLBinding)
+			.textFieldStyle(.roundedBorder)
+	}
+
+	private var shellCommandEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			TextField("say done", text: shellCommandBinding, axis: .vertical)
+				.font(.system(.body, design: .monospaced))
+				.lineLimit(3...7)
+				.textFieldStyle(.roundedBorder)
+
+			HStack {
+				VStack(alignment: .leading, spacing: 4) {
+					Text("Shell")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					TextField("/bin/zsh", text: shellPathBinding)
+						.textFieldStyle(.roundedBorder)
+				}
+
+				VStack(alignment: .leading, spacing: 4) {
+					Text("Timeout (seconds)")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					TextField("10", value: shellTimeoutBinding, format: .number)
+						.textFieldStyle(.roundedBorder)
+						.frame(width: 128)
+				}
+			}
+		}
+	}
+
+	private var webhookEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			TextField("https://example.com/hook", text: webhookURLBinding)
+				.textFieldStyle(.roundedBorder)
+
+			Picker("Method", selection: webhookMethodBinding) {
+				ForEach(WebhookMethod.allCases, id: \.self) { method in
+					Text(method.rawValue).tag(method)
+				}
+			}
+			.pickerStyle(.segmented)
+			.labelsHidden()
+
+			VStack(alignment: .leading, spacing: 4) {
+				Text("Body")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				TextField("{}", text: webhookBodyBinding, axis: .vertical)
+					.font(.system(.body, design: .monospaced))
+					.lineLimit(2...6)
+					.textFieldStyle(.roundedBorder)
+			}
+
+			if !webhookBinding.wrappedValue.headers.isEmpty {
+				Text("\(webhookBinding.wrappedValue.headers.count) custom header(s) preserved")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
+		}
+	}
+
+	private var customStepEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			HStack(spacing: 6) {
+				Text("Namespace")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				Text(customBinding.wrappedValue.namespace.isEmpty ? "—" : customBinding.wrappedValue.namespace)
+					.font(.system(.caption, design: .monospaced))
+			}
+
+			VStack(alignment: .leading, spacing: 4) {
+				Text("Payload (managed by the providing app)")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				TextField("{}", text: customPayloadBinding, axis: .vertical)
+					.font(.system(.body, design: .monospaced))
+					.lineLimit(2...6)
+					.textFieldStyle(.roundedBorder)
+			}
+		}
+	}
+
+	private var keyStrokeBinding: Binding<KeyStroke> {
+		Binding(
+			get: {
+				if case .keyPress(let stroke) = step { return stroke }
+				return KeyStroke(key: .return)
+			},
+			set: { step = .keyPress($0) }
+		)
+	}
+
+	private var keyDownStrokeBinding: Binding<KeyStroke> {
+		Binding(
+			get: {
+				if case .keyDown(let event) = step { return KeyStroke(key: event.key, modifiers: event.modifiers) }
+				return KeyStroke(key: .return)
+			},
+			set: { step = .keyDown(KeyEvent(key: $0.key, modifiers: $0.modifiers)) }
+		)
+	}
+
+	private var keyUpStrokeBinding: Binding<KeyStroke> {
+		Binding(
+			get: {
+				if case .keyUp(let event) = step { return KeyStroke(key: event.key, modifiers: event.modifiers) }
+				return KeyStroke(key: .return)
+			},
+			set: { step = .keyUp(KeyEvent(key: $0.key, modifiers: $0.modifiers)) }
+		)
+	}
+
+	private var mouseClickBinding: Binding<MouseClick> {
+		Binding(
+			get: {
+				if case .mouseClick(let click) = step { return click }
+				return MouseClick(button: .left)
+			},
+			set: { step = .mouseClick($0) }
+		)
+	}
+
+	private var mouseDownBinding: Binding<MouseButtonEvent> {
+		Binding(
+			get: {
+				if case .mouseDown(let event) = step { return event }
+				return MouseButtonEvent(button: .left)
+			},
+			set: { step = .mouseDown($0) }
+		)
+	}
+
+	private var mouseUpBinding: Binding<MouseButtonEvent> {
+		Binding(
+			get: {
+				if case .mouseUp(let event) = step { return event }
+				return MouseButtonEvent(button: .left)
+			},
+			set: { step = .mouseUp($0) }
+		)
+	}
+
+	private var mouseMoveBinding: Binding<MouseMove> {
+		Binding(
+			get: {
+				if case .mouseMove(let move) = step { return move }
+				return MouseMove(deltaX: 0, deltaY: 0)
+			},
+			set: { step = .mouseMove($0) }
+		)
+	}
+
+	private var mouseMoveXBinding: Binding<Double> {
+		Binding(
+			get: { mouseMoveBinding.wrappedValue.deltaX },
+			set: {
+				var move = mouseMoveBinding.wrappedValue
+				move.deltaX = $0
+				mouseMoveBinding.wrappedValue = move
+			}
+		)
+	}
+
+	private var mouseMoveYBinding: Binding<Double> {
+		Binding(
+			get: { mouseMoveBinding.wrappedValue.deltaY },
+			set: {
+				var move = mouseMoveBinding.wrappedValue
+				move.deltaY = $0
+				mouseMoveBinding.wrappedValue = move
+			}
+		)
+	}
+
+	private var mouseScrollBinding: Binding<MouseScroll> {
+		Binding(
+			get: {
+				if case .mouseScroll(let scroll) = step { return scroll }
+				return MouseScroll(deltaY: -4)
+			},
+			set: { step = .mouseScroll($0) }
+		)
+	}
+
+	private var mouseScrollXBinding: Binding<Int32> {
+		Binding(
+			get: { mouseScrollBinding.wrappedValue.deltaX },
+			set: {
+				var scroll = mouseScrollBinding.wrappedValue
+				scroll.deltaX = $0
+				mouseScrollBinding.wrappedValue = scroll
+			}
+		)
+	}
+
+	private var mouseScrollYBinding: Binding<Int32> {
+		Binding(
+			get: { mouseScrollBinding.wrappedValue.deltaY },
+			set: {
+				var scroll = mouseScrollBinding.wrappedValue
+				scroll.deltaY = $0
+				mouseScrollBinding.wrappedValue = scroll
+			}
+		)
+	}
+
+	private var delayBinding: Binding<DelayStep> {
+		Binding(
+			get: {
+				if case .delay(let delay) = step { return delay }
+				return DelayStep(seconds: 1)
+			},
+			set: { step = .delay($0) }
+		)
+	}
+
+	private var delaySecondsBinding: Binding<Double> {
+		Binding(
+			get: { delayBinding.wrappedValue.seconds },
+			set: { delayBinding.wrappedValue = DelayStep(seconds: $0) }
+		)
+	}
+
+	private var typeTextBinding: Binding<TypeTextStep> {
+		Binding(
+			get: {
+				if case .typeText(let text) = step { return text }
+				return TypeTextStep(text: "", mode: .paste, pressReturn: true)
+			},
+			set: { step = .typeText($0) }
+		)
+	}
+
+	private var typeTextTextBinding: Binding<String> {
+		Binding(
+			get: { typeTextBinding.wrappedValue.text },
+			set: {
+				var text = typeTextBinding.wrappedValue
+				text.text = $0
+				typeTextBinding.wrappedValue = text
+			}
+		)
+	}
+
+	private var typeTextModeBinding: Binding<TextEntryMode> {
+		Binding(
+			get: { typeTextBinding.wrappedValue.mode },
+			set: {
+				var text = typeTextBinding.wrappedValue
+				text.mode = $0
+				typeTextBinding.wrappedValue = text
+			}
+		)
+	}
+
+	private var typeTextReturnBinding: Binding<Bool> {
+		Binding(
+			get: { typeTextBinding.wrappedValue.pressReturn },
+			set: {
+				var text = typeTextBinding.wrappedValue
+				text.pressReturn = $0
+				typeTextBinding.wrappedValue = text
+			}
+		)
+	}
+
+	private var openAppBinding: Binding<OpenAppStep> {
+		Binding(
+			get: {
+				if case .openApp(let app) = step { return app }
+				return OpenAppStep(bundleIdentifier: "")
+			},
+			set: { step = .openApp($0) }
+		)
+	}
+
+	private var openAppBundleBinding: Binding<String> {
+		Binding(
+			get: { openAppBinding.wrappedValue.bundleIdentifier },
+			set: {
+				var app = openAppBinding.wrappedValue
+				app.bundleIdentifier = $0
+				openAppBinding.wrappedValue = app
+			}
+		)
+	}
+
+	private var openAppNewWindowBinding: Binding<Bool> {
+		Binding(
+			get: { openAppBinding.wrappedValue.openNewWindow },
+			set: {
+				var app = openAppBinding.wrappedValue
+				app.openNewWindow = $0
+				openAppBinding.wrappedValue = app
+			}
+		)
+	}
+
+	private var openURLBinding: Binding<String> {
+		Binding(
+			get: {
+				if case .openURL(let url) = step { return url.url }
+				return ""
+			},
+			set: { step = .openURL(OpenURLStep(url: $0)) }
+		)
+	}
+
+	private var shellBinding: Binding<ShellCommandStep> {
+		Binding(
+			get: {
+				if case .shellCommand(let shell) = step { return shell }
+				return ShellCommandStep(command: "")
+			},
+			set: { step = .shellCommand($0) }
+		)
+	}
+
+	private var shellCommandBinding: Binding<String> {
+		Binding(
+			get: { shellBinding.wrappedValue.command },
+			set: {
+				var shell = shellBinding.wrappedValue
+				shell.command = $0
+				shellBinding.wrappedValue = shell
+			}
+		)
+	}
+
+	private var shellPathBinding: Binding<String> {
+		Binding(
+			get: { shellBinding.wrappedValue.shellPath },
+			set: {
+				var shell = shellBinding.wrappedValue
+				shell.shellPath = $0
+				shellBinding.wrappedValue = shell
+			}
+		)
+	}
+
+	private var shellTimeoutBinding: Binding<Double> {
+		Binding(
+			get: { shellBinding.wrappedValue.timeoutSeconds },
+			set: {
+				var shell = shellBinding.wrappedValue
+				shell.timeoutSeconds = max(1, $0)
+				shellBinding.wrappedValue = shell
+			}
+		)
+	}
+
+	private var typeTextPaceBinding: Binding<Int> {
+		Binding(
+			get: {
+				if case .typeText(let text) = step { return text.charactersPerMinute ?? 0 }
+				return 0
+			},
+			set: { newValue in
+				guard case .typeText(var text) = step else { return }
+				text.charactersPerMinute = newValue > 0 ? newValue : nil
+				step = .typeText(text)
+			}
+		)
+	}
+
+	private var webhookBinding: Binding<WebhookStep> {
+		Binding(
+			get: {
+				if case .webhook(let webhook) = step { return webhook }
+				return WebhookStep(url: "")
+			},
+			set: { step = .webhook($0) }
+		)
+	}
+
+	private var webhookURLBinding: Binding<String> {
+		Binding(
+			get: { webhookBinding.wrappedValue.url },
+			set: {
+				var webhook = webhookBinding.wrappedValue
+				webhook.url = $0
+				webhookBinding.wrappedValue = webhook
+			}
+		)
+	}
+
+	private var webhookMethodBinding: Binding<WebhookMethod> {
+		Binding(
+			get: { webhookBinding.wrappedValue.method },
+			set: {
+				var webhook = webhookBinding.wrappedValue
+				webhook.method = $0
+				webhookBinding.wrappedValue = webhook
+			}
+		)
+	}
+
+	private var webhookBodyBinding: Binding<String> {
+		Binding(
+			get: { webhookBinding.wrappedValue.body ?? "" },
+			set: {
+				var webhook = webhookBinding.wrappedValue
+				webhook.body = $0.isEmpty ? nil : $0
+				webhookBinding.wrappedValue = webhook
+			}
+		)
+	}
+
+	private var customBinding: Binding<CustomStep> {
+		Binding(
+			get: {
+				if case .custom(let custom) = step { return custom }
+				return CustomStep(namespace: "")
+			},
+			set: { step = .custom($0) }
+		)
+	}
+
+	private var customPayloadBinding: Binding<String> {
+		Binding(
+			get: { customBinding.wrappedValue.payload },
+			set: {
+				var custom = customBinding.wrappedValue
+				custom.payload = $0
+				customBinding.wrappedValue = custom
+			}
+		)
+	}
+}

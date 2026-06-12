@@ -164,6 +164,49 @@ Axes: `leftx`, `lefty`, `rightx`, `righty` (sticks), `lefttrigger`, `righttrigge
 
 ---
 
+## TriggerKit Integration (Macro Execution)
+
+Macros execute through [TriggerKit](TriggerKit/README.md), Kevin's shared macOS automation package (also used by Tardy, Plaque, and TriggerKit.app). ControllerKeys supplies controller-button triggers; TriggerKit supplies the trigger-independent automation engine.
+
+### Architecture
+
+```
+Macro (MacroStep list, persisted in profile JSON)
+    |
+    v  MacroAutomationBridge (conversion, total)
+AutomationProgram (TriggerKit schema)
+    |
+    v  TriggerKitRuntime.AutomationExecutor
+    +-- input steps  -> TriggerKitInputAdapter -> InputSimulatorProtocol (CK's tuned simulator + mock seam)
+    +-- shell/webhook/OBS -> stepOverride hook -> SystemCommandExecutor (terminal selection, retry, keychain)
+    +-- delay/openApp/openURL -> TriggerKit native (http/https scheme allowlist)
+```
+
+- **`Macro`/`MacroStep` remain the persisted and UI model** — no profile migration. Conversion happens at execution time in `MacroAutomationBridge.automationProgram(for:)`.
+- **Conversion is total.** Synthetic marker key codes map to semantic TriggerKit steps where one exists (mouse clicks → `.mouseClick`, unmodified scrolls → `.mouseScroll`, media keys share the same 0xF020–0xF041 codes). Markers with no TriggerKit equivalent (special actions, modified scrolls) pass through as raw-key strokes that the adapter routes back into `InputSimulator`.
+- **OBS WebSocket steps** travel as TriggerKit `custom` steps (namespace `controllerkeys.obs-websocket`) and are dispatched to `SystemCommandExecutor` via the executor's `stepOverride` hook.
+- **Execution policy** preserves pre-TriggerKit semantics: `.concurrent` (macros never block each other), `continuesOnStepFailure: true` (a failing step logs and continues), `validatesAccessibility: false` (CK manages its own permission UX).
+
+### Vendored package
+
+`TriggerKit/` at the repo root is a **vendored copy**; the canonical source lives at `~/projects/triggerkit` (local-only, no public remote). Develop TriggerKit changes there (`swift test`), then run `Scripts/sync-triggerkit.sh` and commit the result here. The Xcode project references it as a local Swift package (`TriggerKitCore` + `TriggerKitRuntime` linked into the app and unit-test targets).
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `Services/Macros/MacroAutomationBridge.swift` | `MacroStep` → `AutomationStep` conversion table, modifier-set mapping, marker translation |
+| `Services/Macros/TriggerKitInputAdapter.swift` | TriggerKit `InputSimulating` → CK `InputSimulatorProtocol`; reproduces pre-TriggerKit call sequences exactly |
+| `Services/Macros/MacroExecutor.swift` | Thin orchestrator: convert, then run through `AutomationExecutor` with the CK policy + step overrides |
+| `XboxControllerMapperTests/MacroExecutorBehaviorTests.swift` | Pins step → simulator call sequences (written pre-refactor, passes unchanged post-refactor) |
+| `XboxControllerMapperTests/MacroAutomationBridgeTests.swift` | Conversion-table coverage |
+
+### Performance
+
+The controller hot paths (button → key press, joystick → mouse at 120Hz) never touch TriggerKit — `MappingEngine` and `InputSimulator` are unchanged. Macro execution adds one O(steps) conversion per macro trigger plus a MainActor task hop, replacing the previous detached-task spawn; input posting still happens on `InputSimulator`'s dedicated queues.
+
+---
+
 ## Service Layer Overview
 
 | Service | File | Responsibility |

@@ -104,3 +104,7 @@ xcuserdata/
 .claude/skills/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+
+# Vendored TriggerKit package build artifacts (canonical repo: ~/projects/triggerkit)
+TriggerKit/.build/
+TriggerKit/.swiftpm/

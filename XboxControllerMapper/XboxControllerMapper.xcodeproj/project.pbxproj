@@ -9,6 +9,10 @@
 /* Begin PBXBuildFile section */
 		0AB89BB42F01B25E00C32D31 /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AB89BB32F01B25D00C32D31 /* GameController.framework */; };
 		0AB89BB62F01B26300C32D31 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AB89BB52F01B26300C32D31 /* Carbon.framework */; };
+		B7C4A1E09D2F4B68A3517E05 /* TriggerKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E03 /* TriggerKitCore */; };
+		B7C4A1E09D2F4B68A3517E06 /* TriggerKitRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E04 /* TriggerKitRuntime */; };
+		B7C4A1E09D2F4B68A3517E09 /* TriggerKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E07 /* TriggerKitCore */; };
+		B7C4A1E09D2F4B68A3517E0A /* TriggerKitRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E08 /* TriggerKitRuntime */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +78,8 @@
 			files = (
 				0AB89BB42F01B25E00C32D31 /* GameController.framework in Frameworks */,
 				0AB89BB62F01B26300C32D31 /* Carbon.framework in Frameworks */,
+				B7C4A1E09D2F4B68A3517E05 /* TriggerKitCore in Frameworks */,
+				B7C4A1E09D2F4B68A3517E06 /* TriggerKitRuntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -81,6 +87,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B7C4A1E09D2F4B68A3517E09 /* TriggerKitCore in Frameworks */,
+				B7C4A1E09D2F4B68A3517E0A /* TriggerKitRuntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,6 +152,8 @@
 			);
 			name = XboxControllerMapper;
 			packageProductDependencies = (
+				B7C4A1E09D2F4B68A3517E03 /* TriggerKitCore */,
+				B7C4A1E09D2F4B68A3517E04 /* TriggerKitRuntime */,
 			);
 			productName = XboxControllerMapper;
 			productReference = 0AB89B5E2F01B1D200C32D31 /* ControllerKeys.app */;
@@ -167,6 +177,8 @@
 			);
 			name = XboxControllerMapperTests;
 			packageProductDependencies = (
+				B7C4A1E09D2F4B68A3517E07 /* TriggerKitCore */,
+				B7C4A1E09D2F4B68A3517E08 /* TriggerKitRuntime */,
 			);
 			productName = XboxControllerMapperTests;
 			productReference = 0AB89B6B2F01B1D400C32D31 /* XboxControllerMapperTests.xctest */;
@@ -231,6 +243,9 @@
 			);
 			mainGroup = 0AB89B552F01B1D200C32D31;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B7C4A1E09D2F4B68A3517E02 /* XCLocalSwiftPackageReference "../TriggerKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0AB89B5F2F01B1D200C32D31 /* Products */;
 			projectDirPath = "";
@@ -303,6 +318,32 @@
 			targetProxy = 0AB89B762F01B1D400C32D31 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B7C4A1E09D2F4B68A3517E02 /* XCLocalSwiftPackageReference "../TriggerKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../TriggerKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B7C4A1E09D2F4B68A3517E03 /* TriggerKitCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TriggerKitCore;
+		};
+		B7C4A1E09D2F4B68A3517E04 /* TriggerKitRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TriggerKitRuntime;
+		};
+		B7C4A1E09D2F4B68A3517E07 /* TriggerKitCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TriggerKitCore;
+		};
+		B7C4A1E09D2F4B68A3517E08 /* TriggerKitRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TriggerKitRuntime;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0AB89B7D2F01B1D400C32D31 /* Debug */ = {
