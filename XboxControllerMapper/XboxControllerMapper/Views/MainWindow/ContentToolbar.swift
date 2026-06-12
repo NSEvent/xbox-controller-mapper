@@ -63,6 +63,7 @@ struct ContentToolbar: View {
             }
             .buttonStyle(.plain)
             .hoverableIconButton()
+            .help("Settings")
             .accessibilityLabel("Settings")
         }
         .padding(.horizontal, 16)

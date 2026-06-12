@@ -71,6 +71,7 @@ struct StreamOverlayView: View {
                 .buttonStyle(.plain)
                 .padding(5)
                 .help("Close stream overlay")
+                .accessibilityLabel("Close stream overlay")
             }
         }
         .onHover { isHoveringPanel = $0 }

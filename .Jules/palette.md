@@ -12,3 +12,6 @@
 ## 2024-05-19 - [Missing Accessibility on Dynamic Form Dictionary Buttons]
 **Learning:** Icon-only buttons used for adding/removing items in dynamic dictionary forms (e.g., webhook headers with `plus.circle.fill` and `minus.circle.fill`) are frequent vectors for missing accessibility labels and tooltips, because they are often implemented with plain button styles without considering screen reader context.
 **Action:** Always verify that inline addition/removal buttons in repeated form elements have explicit `.help()` and `.accessibilityLabel()` modifiers attached to them to ensure they can be understood and navigated accurately by all users.
+## 2024-05-14 - [Icon Button Accessibility Gap]
+**Learning:** In standard SwiftUI development for macOS, icon-only buttons (`Image(systemName: ...)`) are frequently missing `.help()` (for hover tooltips) and `.accessibilityLabel()` (for VoiceOver). Several core navigation components (like Layer tabs and Sidebar buttons) suffered from this pattern.
+**Action:** Always verify that every `Button` wrapping an `Image` has both `.help()` and `.accessibilityLabel()` strings defined, unless explicitly marked as decorative.
