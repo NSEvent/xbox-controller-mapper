@@ -45,13 +45,13 @@ VARIANTS=("$@")
 # the same per-variant magnification as the stills.
 zoom_for() {
     case "$1" in
-        xbox|nintendo|dualshock) echo "1.15" ;;
-        dualsense)               echo "1.05" ;;
-        dualsense-edge)          echo "1.0" ;;
-        xbox-elite)              echo "1.0" ;;
-        steam)                   echo "1.0" ;;
-        appletv)                 echo "1.05" ;;
-        *)                       echo "1.0" ;;
+        xbox|nintendo|dualshock) echo "1.0" ;;
+        dualsense)               echo "0.95" ;;
+        dualsense-edge)          echo "0.9" ;;
+        xbox-elite)              echo "0.9" ;;
+        steam)                   echo "0.9" ;;
+        appletv)                 echo "0.95" ;;
+        *)                       echo "0.9" ;;
     esac
 }
 
@@ -61,15 +61,15 @@ zoom_for() {
 # in the corresponding still captures; re-derive if layouts or zooms change.
 region_for() {
     case "$1" in
-        xbox)           echo "789,469,470,307" ;;
-        nintendo)       echo "789,467,470,312" ;;
-        dualshock)      echo "789,575,470,281" ;;
-        dualsense)      echo "807,583,437,278" ;;
-        dualsense-edge) echo "816,484,420,268" ;;
-        xbox-elite)     echo "816,390,420,271" ;;
-        steam)          echo "816,448,420,275" ;;
-        appletv)        echo "916,402,224,696" ;;
-        *)              echo "789,469,470,307" ;;
+        xbox)           echo "766,480,520,325" ;;
+        nintendo)       echo "766,479,520,329" ;;
+        dualshock)      echo "766,573,520,302" ;;
+        dualsense)      echo "774,575,503,307" ;;
+        dualsense-edge) echo "783,486,486,297" ;;
+        xbox-elite)     echo "783,402,486,299" ;;
+        steam)          echo "783,455,486,303" ;;
+        appletv)        echo "914,408,232,687" ;;
+        *)              echo "766,480,520,325" ;;
     esac
 }
 

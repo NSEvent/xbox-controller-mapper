@@ -74,13 +74,13 @@ tabs_for_exact() {
 # nothing clips.
 zoom_for() {
     case "$1" in
-        xbox|nintendo|dualshock) echo "1.15" ;;
-        dualsense)               echo "1.05" ;;
-        dualsense-edge)          echo "1.0" ;;
-        xbox-elite)              echo "1.0" ;;
-        steam)                   echo "1.0" ;;
-        appletv)                 echo "1.05" ;;
-        *)                       echo "1.0" ;;
+        xbox|nintendo|dualshock) echo "1.0" ;;
+        dualsense)               echo "0.95" ;;
+        dualsense-edge)          echo "0.9" ;;
+        xbox-elite)              echo "0.9" ;;
+        steam)                   echo "0.9" ;;
+        appletv)                 echo "0.95" ;;
+        *)                       echo "0.9" ;;
     esac
 }
 
