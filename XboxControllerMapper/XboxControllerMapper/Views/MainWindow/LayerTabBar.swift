@@ -143,6 +143,8 @@ struct LayerTabBar: View {
                     .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
+                .help("Add Layer")
+                .accessibilityLabel("Add Layer")
                 .foregroundColor(.secondary)
                 .hoverableButton()
             }
