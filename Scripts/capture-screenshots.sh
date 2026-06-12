@@ -55,6 +55,8 @@ tabs_for() {
                    echo "buttons chords sequences macros scripts wheel input joysticks keyboard stats history" ;;
         steam)     echo "buttons chords sequences gestures macros scripts wheel input joysticks touchpad keyboard stats history" ;;
         appletv)   echo "buttons chords sequences macros scripts wheel input joysticks touchpad keyboard stats history" ;;
+        8bitdo-zero2|8bitdo-micro|8bitdo-lite2|8bitdo-lite-se)
+                   echo "buttons chords sequences macros scripts wheel input joysticks keyboard stats history" ;;
         *) echo "" ;;
     esac
 }
@@ -80,6 +82,8 @@ zoom_for() {
         xbox-elite)              echo "0.83" ;;
         steam)                   echo "0.83" ;;
         appletv)                 echo "0.88" ;;
+        8bitdo-zero2|8bitdo-micro|8bitdo-lite2|8bitdo-lite-se)
+                                 echo "0.92" ;;
         *)                       echo "0.83" ;;
     esac
 }
@@ -93,6 +97,10 @@ dir_for() {
         xbox-elite)     echo "xbox-elite" ;;
         nintendo)       echo "nintendo" ;;
         steam)          echo "steam-controller" ;;
+        8bitdo-zero2)   echo "8bitdo-zero2" ;;
+        8bitdo-micro)   echo "8bitdo-micro" ;;
+        8bitdo-lite2)   echo "8bitdo-lite2" ;;
+        8bitdo-lite-se) echo "8bitdo-lite-se" ;;
         appletv)        echo "apple-tv-remote" ;;
     esac
 }

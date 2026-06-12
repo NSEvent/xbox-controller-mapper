@@ -64,6 +64,30 @@ struct ControllerBodyView: View {
                 colors: [Color(white: 0.28), Color(white: 0.14)],
                 startPoint: .top, endPoint: .bottom
             )
+        case .eightBitDoZero2:
+            // Zero 2 teal colorway
+            LinearGradient(
+                colors: [Color(red: 0.32, green: 0.80, blue: 0.82), Color(red: 0.16, green: 0.62, blue: 0.65)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .eightBitDoMicro:
+            // Micro blue colorway
+            LinearGradient(
+                colors: [Color(red: 0.40, green: 0.48, blue: 0.88), Color(red: 0.24, green: 0.31, blue: 0.70)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .eightBitDoLite2:
+            // Lite 2 pink colorway
+            LinearGradient(
+                colors: [Color(red: 0.95, green: 0.58, blue: 0.62), Color(red: 0.85, green: 0.42, blue: 0.47)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .eightBitDoLiteSE:
+            // Lite SE purple colorway
+            LinearGradient(
+                colors: [Color(red: 0.42, green: 0.41, blue: 0.71), Color(red: 0.29, green: 0.28, blue: 0.55)],
+                startPoint: .top, endPoint: .bottom
+            )
         }
     }
 
@@ -93,6 +117,8 @@ struct ControllerBodyView: View {
             nintendoDecor(in: size)
         case .steam:
             steamDecor(in: size)
+        case .eightBitDoZero2, .eightBitDoMicro, .eightBitDoLite2, .eightBitDoLiteSE:
+            eightBitDoDecor(in: size)
         }
     }
 
@@ -124,6 +150,19 @@ struct ControllerBodyView: View {
 
     private func xboxDecor(in size: CGSize) -> some View {
         darkBodySheen(in: size)
+    }
+
+    /// Soft top sheen only — the 8BitDo minis are flat slabs with no grips.
+    private func eightBitDoDecor(in size: CGSize) -> some View {
+        Ellipse()
+            .fill(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.16), .clear],
+                    startPoint: .top, endPoint: .bottom
+                )
+            )
+            .frame(width: size.width * 0.94, height: size.height * 0.55)
+            .position(x: size.width * 0.5, y: size.height * 0.14)
     }
 
     private func dualSenseDecor(in size: CGSize, edge: Bool) -> some View {
@@ -225,6 +264,10 @@ struct AnyControllerBodyShape: Shape {
         case .dualShock: return DualShockBodyShape().path(in: rect)
         case .nintendo: return NintendoProBodyShape().path(in: rect)
         case .steam: return SteamControllerBodyShape().path(in: rect)
+        case .eightBitDoZero2: return EightBitDoZero2BodyShape().path(in: rect)
+        case .eightBitDoMicro: return EightBitDoMicroBodyShape().path(in: rect)
+        case .eightBitDoLite2: return EightBitDoLite2BodyShape().path(in: rect)
+        case .eightBitDoLiteSE: return EightBitDoLiteSEBodyShape().path(in: rect)
         }
     }
 }

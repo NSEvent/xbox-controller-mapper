@@ -205,6 +205,11 @@ extension ControllerService {
         isConnected = true
         isGenericController = true
         controllerName = mapping.name
+        if let model = Self.eightBitDoMinimapModel(forControllerName: mapping.name) {
+            storage.lock.lock()
+            storage.eightBitDoModel = model
+            storage.lock.unlock()
+        }
 		controllerMappingSource = mapping.platform == "Mac OS X" ? nil : "SDL \(mapping.platform) fallback"
         startDisplayUpdateTimer()
 

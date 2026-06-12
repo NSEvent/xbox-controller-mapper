@@ -54,6 +54,9 @@ final class ControllerStorage: @unchecked Sendable {
     var isXboxElite: Bool = false  // Xbox Elite Series 2 controller
     var isSteamController: Bool = false
     var isAppleTVRemote: Bool = false
+    /// Non-nil when the connected pad is one of the small 8BitDo models
+    /// (drives the dedicated minimap preview).
+    var eightBitDoModel: EightBitDoMinimapModel?
     var isJoyConLeft: Bool = false
     var isJoyConRight: Bool = false
     var isBluetoothConnection: Bool = false
@@ -478,6 +481,12 @@ class ControllerService: ObservableObject {
         return storage.isNintendo
     }
 
+    nonisolated var threadSafeEightBitDoMinimapModel: EightBitDoMinimapModel? {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.eightBitDoModel
+    }
+
     nonisolated var threadSafeIsXboxElite: Bool {
         storage.lock.lock()
         defer { storage.lock.unlock() }
@@ -763,8 +772,24 @@ class ControllerService: ObservableObject {
         case "nintendo": return "Pro Controller"
         case "steam": return "Steam Controller"
         case "appletv": return "Apple TV Remote"
+        case "8bitdo-zero2": return "8BitDo Zero 2 gamepad"
+        case "8bitdo-micro": return "8BitDo Micro gamepad"
+        case "8bitdo-lite2": return "8BitDo Lite 2"
+        case "8bitdo-lite-se": return "8BitDo Lite SE"
         default: return "Xbox Wireless Controller"
         }
+    }
+
+    /// Identifies the small 8BitDo pads from their SDL/HID product names
+    /// ("8BitDo Zero 2", "8BitDo Micro", "8BitDo Lite 2", "8BitDo Lite SE").
+    static func eightBitDoMinimapModel(forControllerName name: String) -> EightBitDoMinimapModel? {
+        let lowered = name.lowercased()
+        guard lowered.contains("8bitdo") else { return nil }
+        if lowered.contains("zero") { return .zero2 }
+        if lowered.contains("micro") { return .micro }
+        if lowered.contains("lite se") { return .liteSE }
+        if lowered.contains("lite") { return .lite2 }
+        return nil
     }
 
     init(enableHardwareMonitoring: Bool = true) {
@@ -803,6 +828,15 @@ class ControllerService: ObservableObject {
             storage.isXboxElite = (variant == "xbox-elite")
             storage.isSteamController = (variant == "steam")
             storage.isAppleTVRemote = (variant == "appletv")
+            storage.eightBitDoModel = {
+                switch variant {
+                case "8bitdo-zero2": return .zero2
+                case "8bitdo-micro": return .micro
+                case "8bitdo-lite2": return .lite2
+                case "8bitdo-lite-se": return .liteSE
+                default: return nil
+                }
+            }()
             isConnected = true
             controllerName = Self.screenshotControllerName(for: variant)
             // A believable battery reading instead of the "?" unknown pill
@@ -1464,6 +1498,7 @@ class ControllerService: ObservableObject {
         storage.isXboxElite = false
         storage.isSteamController = false
         storage.isAppleTVRemote = false
+        storage.eightBitDoModel = nil
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
 

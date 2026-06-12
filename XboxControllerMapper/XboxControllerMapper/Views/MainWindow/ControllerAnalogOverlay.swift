@@ -16,6 +16,9 @@ struct ControllerAnalogOverlay: View {
     let isSteamController: Bool
     var isDualShock: Bool = false
     var isDualSenseEdge: Bool = false
+    /// Non-nil when previewing one of the small 8BitDo pads; selects the
+    /// dedicated silhouette + layout instead of the boolean style families.
+    var eightBitDoModel: EightBitDoMinimapModel? = nil
     /// Buttons the Elite/Steam back paddles currently resolve to (paddles
     /// can be hardware-assigned to act as another button; connector lines
     /// must anchor whatever the reference rows resolve to). Order:
@@ -55,6 +58,7 @@ struct ControllerAnalogOverlay: View {
 
     /// Resolved visual style for layout lookups.
     var minimapStyle: ControllerMinimapStyle {
+        if let eightBitDoModel { return eightBitDoModel.minimapStyle }
         if isSteamController { return .steam }
         if isDualShock { return .dualShock }
         if isDualSenseEdge { return .dualSenseEdge }
@@ -68,19 +72,7 @@ struct ControllerAnalogOverlay: View {
     private var frameSize: CGSize { minimapStyle.previewSize }
 
     var body: some View {
-        Group {
-            if isSteamController {
-                steamOverlay
-            } else if isDualShock {
-                dualShockOverlay
-            } else if isPlayStation {
-                dualSenseOverlay
-            } else if isNintendo {
-                nintendoOverlay
-            } else {
-                xboxOverlay
-            }
-        }
+        overlayContent
         .onReceive(controllerService.displayLeftStickSubject) { leftStick = $0 }
         .onReceive(controllerService.displayRightStickSubject) { rightStick = $0 }
         .onReceive(controllerService.displayLeftTriggerSubject) { leftTrigger = $0 }
@@ -97,6 +89,212 @@ struct ControllerAnalogOverlay: View {
         .onReceive(controllerService.$isConnected) { isConnected = $0 }
         .onReceive(controllerService.$batteryLevel) { batteryLevel = $0 }
         .onReceive(controllerService.$batteryState) { batteryState = $0 }
+    }
+
+
+    // MARK: - 8BitDo Overlays
+
+    private func eightBitDoOverlay(_ model: EightBitDoMinimapModel) -> some View {
+        let size = frameSize
+
+        return ZStack {
+            switch model {
+            case .zero2: eightBitDoZero2Controls(size: size, w: size.width)
+            case .micro: eightBitDoMicroControls(size: size, w: size.width)
+            case .lite2: eightBitDoLite2Controls(size: size, w: size.width)
+            case .liteSE: eightBitDoLiteSEControls(size: size, w: size.width)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    @ViewBuilder
+    private func eightBitDoZero2Controls(size: CGSize, w: CGFloat) -> some View {
+        let layout = EightBitDoZero2MinimapLayout.self
+
+        miniBumper(.leftBumper, label: "L", width: w * 0.13)
+            .minimapPosition(layout.leftBumper, in: size)
+        miniBumper(.rightBumper, label: "R", width: w * 0.13)
+            .minimapPosition(layout.rightBumper, in: size)
+
+        miniCircle(.view, size: w * layout.selectStartSize)
+            .minimapPosition(layout.select, in: size)
+        miniCircle(.menu, size: w * layout.selectStartSize)
+            .minimapPosition(layout.start, in: size)
+
+        miniFaceButtons(
+            buttonSize: w * layout.faceButtonSize,
+            offset: w * layout.faceButtonOffset
+        )
+        .minimapPosition(layout.faceCluster, in: size)
+
+        miniDPad(span: w * layout.dpadSize, style: .cross)
+            .minimapPosition(layout.dpad, in: size)
+
+        if isConnected {
+            BatteryView(level: batteryLevel, state: batteryState)
+                .minimapPosition(layout.battery, in: size)
+        }
+    }
+
+    @ViewBuilder
+    private func eightBitDoMicroControls(size: CGSize, w: CGFloat) -> some View {
+        let layout = EightBitDoMicroMinimapLayout.self
+
+        miniTrigger(.leftTrigger, label: "L2", value: leftTrigger, width: w * 0.10)
+            .minimapPosition(layout.leftTrigger, in: size)
+        miniTrigger(.rightTrigger, label: "R2", value: rightTrigger, width: w * 0.10)
+            .minimapPosition(layout.rightTrigger, in: size)
+        miniBumper(.leftBumper, label: "L", width: w * 0.12)
+            .minimapPosition(layout.leftBumper, in: size)
+        miniBumper(.rightBumper, label: "R", width: w * 0.12)
+            .minimapPosition(layout.rightBumper, in: size)
+
+        miniCircle(.view, size: w * layout.minusPlusSize)
+            .minimapPosition(layout.minus, in: size)
+        miniCircle(.menu, size: w * layout.minusPlusSize)
+            .minimapPosition(layout.plus, in: size)
+        miniCircle(.share, size: w * layout.starHomeSize)
+            .minimapPosition(layout.star, in: size)
+        miniCircle(.xbox, size: w * layout.starHomeSize)
+            .minimapPosition(layout.home, in: size)
+
+        miniFaceButtons(
+            buttonSize: w * layout.faceButtonSize,
+            offset: w * layout.faceButtonOffset
+        )
+        .minimapPosition(layout.faceCluster, in: size)
+
+        miniDPad(span: w * layout.dpadSize, style: .cross)
+            .minimapPosition(layout.dpad, in: size)
+
+        if isConnected {
+            BatteryView(level: batteryLevel, state: batteryState)
+                .minimapPosition(layout.battery, in: size)
+        }
+    }
+
+    @ViewBuilder
+    private func eightBitDoLite2Controls(size: CGSize, w: CGFloat) -> some View {
+        let layout = EightBitDoLite2MinimapLayout.self
+
+        miniTrigger(.leftTrigger, label: "L2", value: leftTrigger, width: w * 0.09)
+            .minimapPosition(layout.leftTrigger, in: size)
+        miniTrigger(.rightTrigger, label: "R2", value: rightTrigger, width: w * 0.09)
+            .minimapPosition(layout.rightTrigger, in: size)
+        miniBumper(.leftBumper, label: "L", width: w * 0.12)
+            .minimapPosition(layout.leftBumper, in: size)
+        miniBumper(.rightBumper, label: "R", width: w * 0.12)
+            .minimapPosition(layout.rightBumper, in: size)
+
+        miniCircle(.view, size: w * layout.minusPlusSize)
+            .minimapPosition(layout.minus, in: size)
+        miniCircle(.menu, size: w * layout.minusPlusSize)
+            .minimapPosition(layout.plus, in: size)
+        miniCircle(.share, size: w * layout.starHomeSize)
+            .minimapPosition(layout.star, in: size)
+        miniCircle(.xbox, size: w * layout.starHomeSize)
+            .minimapPosition(layout.home, in: size)
+
+        miniStick(.leftThumbstick, pos: leftStick, wellSize: w * layout.stickWellSize)
+            .minimapPosition(layout.leftStick, in: size)
+        miniStick(.rightThumbstick, pos: rightStick, wellSize: w * layout.stickWellSize)
+            .minimapPosition(layout.rightStick, in: size)
+
+        miniFaceButtons(
+            buttonSize: w * layout.faceButtonSize,
+            offset: w * layout.faceButtonOffset
+        )
+        .minimapPosition(layout.faceCluster, in: size)
+
+        miniDPad(span: w * layout.dpadSize, style: .cross)
+            .minimapPosition(layout.dpad, in: size)
+
+        if isConnected {
+            BatteryView(level: batteryLevel, state: batteryState)
+                .minimapPosition(layout.battery, in: size)
+        }
+    }
+
+    @ViewBuilder
+    private func eightBitDoLiteSEControls(size: CGSize, w: CGFloat) -> some View {
+        let layout = EightBitDoLiteSEMinimapLayout.self
+
+        // The accessibility layout puts the whole shoulder set on the face
+        // as round labeled buttons.
+        miniLightFaceButton(.leftTrigger, letter: "L2", size: w * layout.faceRowSize)
+            .minimapPosition(layout.l2, in: size)
+        miniLightFaceButton(.rightTrigger, letter: "R2", size: w * layout.faceRowSize)
+            .minimapPosition(layout.r2, in: size)
+        miniLightFaceButton(.leftBumper, letter: "L", size: w * layout.faceRowSize)
+            .minimapPosition(layout.l1, in: size)
+        miniLightFaceButton(.rightBumper, letter: "R", size: w * layout.faceRowSize)
+            .minimapPosition(layout.r1, in: size)
+
+        miniCircle(.view, size: w * layout.faceRowSize)
+            .minimapPosition(layout.minus, in: size)
+        miniCircle(.menu, size: w * layout.faceRowSize)
+            .minimapPosition(layout.plus, in: size)
+        miniCircle(.share, size: w * layout.starHomeSize)
+            .minimapPosition(layout.star, in: size)
+        miniCircle(.xbox, size: w * layout.starHomeSize)
+            .minimapPosition(layout.home, in: size)
+
+        // D-pad: four separate round arrow buttons.
+        miniLightGlyphButton(.dpadUp, systemImage: "arrowtriangle.up.fill", size: w * layout.faceRowSize)
+            .minimapPosition(layout.dpadUp, in: size)
+        miniLightGlyphButton(.dpadDown, systemImage: "arrowtriangle.down.fill", size: w * layout.faceRowSize)
+            .minimapPosition(layout.dpadDown, in: size)
+        miniLightGlyphButton(.dpadLeft, systemImage: "arrowtriangle.left.fill", size: w * layout.faceRowSize)
+            .minimapPosition(layout.dpadLeft, in: size)
+        miniLightGlyphButton(.dpadRight, systemImage: "arrowtriangle.right.fill", size: w * layout.faceRowSize)
+            .minimapPosition(layout.dpadRight, in: size)
+
+        // L3/R3 face buttons click the sticks; the stick wells below own the
+        // mappable anchors, so these render as decoration.
+        ForEach([("L3", layout.l3), ("R3", layout.r3)], id: \.0) { label, point in
+            ZStack {
+                Circle()
+                    .fill(Color(white: 0.93))
+                    .overlay(Circle().strokeBorder(Color.black.opacity(0.12), lineWidth: 0.8))
+                Text(label)
+                    .font(.system(size: w * layout.stickClickSize * 0.5, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(white: 0.45))
+            }
+            .frame(width: w * layout.stickClickSize, height: w * layout.stickClickSize)
+            .minimapPosition(point, in: size)
+            .allowsHitTesting(false)
+        }
+
+        miniStick(.leftThumbstick, pos: leftStick, wellSize: w * layout.stickWellSize)
+            .minimapPosition(layout.leftStick, in: size)
+        miniStick(.rightThumbstick, pos: rightStick, wellSize: w * layout.stickWellSize)
+            .minimapPosition(layout.rightStick, in: size)
+
+        miniFaceButtons(
+            buttonSize: w * layout.faceButtonSize,
+            offset: w * layout.faceButtonOffset
+        )
+        .minimapPosition(layout.faceCluster, in: size)
+
+        if isConnected {
+            BatteryView(level: batteryLevel, state: batteryState)
+                .minimapPosition(layout.battery, in: size)
+        }
+    }
+
+    /// Controller dispatch, type-erased: six statically-typed branches push
+    /// `body`'s generic signature past what SILGen handles in Release builds
+    /// (the Swift frontend crashes lowering the conditional). One AnyView at
+    /// the root keeps the per-controller subtrees' identity stable while the
+    /// 15Hz analog state updates re-evaluate the same branch.
+    private var overlayContent: AnyView {
+        if let model = eightBitDoModel { return AnyView(eightBitDoOverlay(model)) }
+        if isSteamController { return AnyView(steamOverlay) }
+        if isDualShock { return AnyView(dualShockOverlay) }
+        if isPlayStation { return AnyView(dualSenseOverlay) }
+        if isNintendo { return AnyView(nintendoOverlay) }
+        return AnyView(xboxOverlay)
     }
 
     // MARK: - Xbox Controller Overlay
@@ -1191,13 +1389,14 @@ struct ControllerAnalogOverlay: View {
 
     /// Glyph shown inside a system button circle, adapted per controller.
     private func miniCircleGlyph(for button: ControllerButton) -> String? {
+        let usesNintendoGlyphs = isNintendo || eightBitDoModel != nil
         switch button {
         case .view:
-            return isNintendo ? "minus" : "rectangle.on.rectangle"
+            return usesNintendoGlyphs ? "minus" : "rectangle.on.rectangle"
         case .menu:
-            return isNintendo ? "plus" : "line.3.horizontal"
+            return usesNintendoGlyphs ? "plus" : "line.3.horizontal"
         case .share:
-            return "square.and.arrow.up"
+            return eightBitDoModel != nil ? "star.fill" : "square.and.arrow.up"
         default:
             return nil
         }
@@ -1207,7 +1406,7 @@ struct ControllerAnalogOverlay: View {
         // The guide button is silver/chrome on Xbox; everything else is
         // dark plastic with a white glyph.
         let baseColor: Color = {
-            if button == .xbox && !isNintendo && !isSteamController {
+            if button == .xbox && !isNintendo && !isSteamController && eightBitDoModel == nil {
                 return Color(white: 0.85)
             }
             return Color(white: 0.24)
@@ -1225,9 +1424,9 @@ struct ControllerAnalogOverlay: View {
                     SteamLogoMark(foregroundColor: isPressed(button) ? .white : Color(white: 0.78))
                         .frame(width: size * 0.62, height: size * 0.62)
                 } else {
-                    Image(systemName: isPlayStation ? "playstation.logo" : (isNintendo ? "house" : "xbox.logo"))
+                    Image(systemName: isPlayStation ? "playstation.logo" : (isNintendo || eightBitDoModel != nil ? "house" : "xbox.logo"))
                         .font(.system(size: size * 0.45, weight: .medium))
-                        .foregroundColor(isPressed(button) ? .white : (isNintendo ? Color(white: 0.85) : Color(white: 0.3)))
+                        .foregroundColor(isPressed(button) ? .white : (isNintendo || eightBitDoModel != nil ? Color(white: 0.85) : Color(white: 0.3)))
                 }
             } else if isSteamController && button == .share {
                 Image(systemName: "ellipsis")
@@ -1289,6 +1488,55 @@ struct ControllerAnalogOverlay: View {
         .frame(width: size, height: size)
         .overlay(miniOverrideOutline(for: button, shape: Circle(), lineWidth: 1.5))
         .shadow(color: pressed ? Color.accentColor.opacity(0.5) : .black.opacity(0.3), radius: 2)
+        .onTapGesture { onButtonTap(button) }
+        .controllerAnchor(button, role: .controller)
+        .onHover { hovering in onButtonHover?(button, hovering) }
+        .swappable(button, onSwap: onSwapRequest)
+    }
+
+
+    /// White-capped lettered button (8BitDo style: white caps, grey glyphs).
+    private func miniLightFaceButton(_ button: ControllerButton, letter: String, size: CGFloat) -> some View {
+        let pressed = isPressed(button)
+        let base = pressed ? Color.accentColor : Color(white: 0.93)
+
+        return ZStack {
+            Circle()
+                .fill(jewelGradient(base, pressed: pressed))
+                .overlay(glassOverlay.clipShape(Circle()))
+                .overlay(Circle().strokeBorder(Color.black.opacity(0.12), lineWidth: 0.8))
+
+            Text(letter)
+                .font(.system(size: size * 0.5, weight: .bold, design: .rounded))
+                .foregroundColor(pressed ? .white : Color(white: 0.45))
+        }
+        .frame(width: size, height: size)
+        .overlay(miniOverrideOutline(for: button, shape: Circle(), lineWidth: 1.5))
+        .shadow(color: pressed ? Color.accentColor.opacity(0.5) : .black.opacity(0.25), radius: 1.5)
+        .onTapGesture { onButtonTap(button) }
+        .controllerAnchor(button, role: .controller)
+        .onHover { hovering in onButtonHover?(button, hovering) }
+        .swappable(button, onSwap: onSwapRequest)
+    }
+
+    /// White-capped button with an SF Symbol glyph (8BitDo Lite SE d-pad arrows).
+    private func miniLightGlyphButton(_ button: ControllerButton, systemImage: String, size: CGFloat) -> some View {
+        let pressed = isPressed(button)
+        let base = pressed ? Color.accentColor : Color(white: 0.93)
+
+        return ZStack {
+            Circle()
+                .fill(jewelGradient(base, pressed: pressed))
+                .overlay(glassOverlay.clipShape(Circle()))
+                .overlay(Circle().strokeBorder(Color.black.opacity(0.12), lineWidth: 0.8))
+
+            Image(systemName: systemImage)
+                .font(.system(size: size * 0.38, weight: .bold))
+                .foregroundColor(pressed ? .white : Color(white: 0.45))
+        }
+        .frame(width: size, height: size)
+        .overlay(miniOverrideOutline(for: button, shape: Circle(), lineWidth: 1.5))
+        .shadow(color: pressed ? Color.accentColor.opacity(0.5) : .black.opacity(0.25), radius: 1.5)
         .onTapGesture { onButtonTap(button) }
         .controllerAnchor(button, role: .controller)
         .onHover { hovering in onButtonHover?(button, hovering) }
@@ -1365,6 +1613,13 @@ struct ControllerAnalogOverlay: View {
                 miniFaceButton(.a, letter: "A", letterColor: letterColor, size: buttonSize).offset(y: offset)
                 miniFaceButton(.x, letter: "X", letterColor: letterColor, size: buttonSize).offset(x: -offset)
                 miniFaceButton(.b, letter: "B", letterColor: letterColor, size: buttonSize).offset(x: offset)
+            case .eightBitDoZero2, .eightBitDoMicro, .eightBitDoLite2, .eightBitDoLiteSE:
+                // White caps with engraved grey letters, GameController-normalized
+                // arrangement (A south), matching how the Switch Pro preview is drawn.
+                miniLightFaceButton(.y, letter: "Y", size: buttonSize).offset(y: -offset)
+                miniLightFaceButton(.a, letter: "A", size: buttonSize).offset(y: offset)
+                miniLightFaceButton(.x, letter: "X", size: buttonSize).offset(x: -offset)
+                miniLightFaceButton(.b, letter: "B", size: buttonSize).offset(x: offset)
             }
         }
         .frame(width: cluster, height: cluster)

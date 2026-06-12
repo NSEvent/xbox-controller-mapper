@@ -51,6 +51,8 @@ zoom_for() {
         xbox-elite)              echo "0.83" ;;
         steam)                   echo "0.83" ;;
         appletv)                 echo "0.88" ;;
+        8bitdo-zero2|8bitdo-micro|8bitdo-lite2|8bitdo-lite-se)
+                                 echo "0.92" ;;
         *)                       echo "0.83" ;;
     esac
 }
@@ -69,6 +71,7 @@ region_for() {
         xbox-elite)     echo "783,402,486,299" ;;
         steam)          echo "783,455,486,303" ;;
         appletv)        echo "914,408,232,687" ;;
+        # 8bitdo-*: re-derive from stills before recording GIFs (fallback below).
         *)              echo "766,480,520,325" ;;
     esac
 }

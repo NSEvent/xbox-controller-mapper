@@ -157,6 +157,17 @@ Settings when `screencapture` says "could not create image").
 
 ## Hard-won gotchas
 
+- **Adding an overlay branch can crash the Release compiler.** With six
+  controller families, `ControllerAnalogOverlay.body`'s conditional pushed
+  SILGen past its limits (Debug built fine; Release crashed the Swift
+  frontend lowering `body`). The dispatch now lives in a type-erased
+  `overlayContent: AnyView` — new controllers just add a branch there.
+- **Official "front" renders can be stylized.** The Zero 2's shop render is
+  ~10% squatter than the real device (aspect 1.82 vs the 73×36.5mm spec's
+  2.0). Sanity-check the traced aspect ratio against the published
+  dimensions before wiring; the flat-lay lifestyle photo was the
+  geometrically faithful source.
+
 - `screencapture -v` (video) does not map `-R` point-regions like still
   capture on scaled displays — record full-screen and crop in ffmpeg
   (already handled in `capture-demo-gifs.sh`).

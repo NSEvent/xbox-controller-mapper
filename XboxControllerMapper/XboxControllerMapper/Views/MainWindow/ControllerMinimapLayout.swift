@@ -12,6 +12,24 @@ import SwiftUI
 /// Which product the preview is mimicking. Distinct from
 /// `ControllerPreviewLayout` (which includes `.active`); this is the
 /// resolved visual style.
+/// Which of the small 8BitDo pads a minimap renders. Carried as one optional
+/// alongside the older boolean style flags (`isPlayStation` etc.).
+enum EightBitDoMinimapModel: String, CaseIterable {
+    case zero2
+    case micro
+    case lite2
+    case liteSE
+
+    var minimapStyle: ControllerMinimapStyle {
+        switch self {
+        case .zero2: return .eightBitDoZero2
+        case .micro: return .eightBitDoMicro
+        case .lite2: return .eightBitDoLite2
+        case .liteSE: return .eightBitDoLiteSE
+        }
+    }
+}
+
 enum ControllerMinimapStyle {
     case xbox
     case xboxElite
@@ -20,6 +38,10 @@ enum ControllerMinimapStyle {
     case dualShock
     case nintendo
     case steam
+    case eightBitDoZero2
+    case eightBitDoMicro
+    case eightBitDoLite2
+    case eightBitDoLiteSE
 
     var bodyAspectRatio: CGFloat {
         switch self {
@@ -29,6 +51,10 @@ enum ControllerMinimapStyle {
         case .dualShock: return DualShockBodyShape.aspectRatio
         case .nintendo: return NintendoProBodyShape.aspectRatio
         case .steam: return SteamControllerBodyShape.aspectRatio
+        case .eightBitDoZero2: return EightBitDoZero2BodyShape.aspectRatio
+        case .eightBitDoMicro: return EightBitDoMicroBodyShape.aspectRatio
+        case .eightBitDoLite2: return EightBitDoLite2BodyShape.aspectRatio
+        case .eightBitDoLiteSE: return EightBitDoLiteSEBodyShape.aspectRatio
         }
     }
 
@@ -273,4 +299,129 @@ enum SteamMinimapLayout {
     static let gripLowerRight = CGPoint(x: 0.60, y: 0.925)
 
     static let battery = CGPoint(x: 0.50, y: 0.90)
+}
+
+
+// MARK: - 8BitDo Zero 2
+
+/// Keychain-sized pad: d-pad + face diamond + select/start only.
+/// No sticks, no triggers, no guide button.
+enum EightBitDoZero2MinimapLayout {
+    static let dpad = CGPoint(x: 0.195, y: 0.46)
+    static let dpadSize: CGFloat = 0.20
+
+    static let faceCluster = CGPoint(x: 0.685, y: 0.40)
+    static let faceButtonOffset: CGFloat = 0.095
+    static let faceButtonSize: CGFloat = 0.085
+
+    static let select = CGPoint(x: 0.375, y: 0.70)
+    static let start = CGPoint(x: 0.46, y: 0.70)
+    static let selectStartSize: CGFloat = 0.066
+
+    static let leftBumper = CGPoint(x: 0.26, y: 0.03)
+    static let rightBumper = CGPoint(x: 0.74, y: 0.03)
+
+    static let battery = CGPoint(x: 0.50, y: 0.87)
+}
+
+// MARK: - 8BitDo Micro
+
+/// Zero 2 successor: adds digital L2/R2 on the top edge, a home (guide)
+/// button, and a profile (star) button. Still no sticks.
+enum EightBitDoMicroMinimapLayout {
+    static let dpad = CGPoint(x: 0.175, y: 0.47)
+    static let dpadSize: CGFloat = 0.24
+
+    static let minus = CGPoint(x: 0.355, y: 0.235)
+    static let plus = CGPoint(x: 0.545, y: 0.235)
+    static let minusPlusSize: CGFloat = 0.05
+
+    static let star = CGPoint(x: 0.43, y: 0.72)
+    static let home = CGPoint(x: 0.545, y: 0.72)
+    static let starHomeSize: CGFloat = 0.062
+
+    static let faceCluster = CGPoint(x: 0.755, y: 0.42)
+    static let faceButtonOffset: CGFloat = 0.092
+    static let faceButtonSize: CGFloat = 0.083
+
+    // Top edge, outer to inner: L, L2 ... R2, R
+    static let leftBumper = CGPoint(x: 0.16, y: 0.02)
+    static let rightBumper = CGPoint(x: 0.84, y: 0.02)
+    static let leftTrigger = CGPoint(x: 0.33, y: 0.005)
+    static let rightTrigger = CGPoint(x: 0.67, y: 0.005)
+
+    static let battery = CGPoint(x: 0.50, y: 0.88)
+}
+
+// MARK: - 8BitDo Lite 2
+
+/// Switch-Lite-style compact pad: low-profile sticks (left upper, right
+/// lower-center), d-pad lower-left, full shoulder set, home + profile.
+enum EightBitDoLite2MinimapLayout {
+    static let leftStick = CGPoint(x: 0.155, y: 0.39)
+    static let rightStick = CGPoint(x: 0.63, y: 0.66)
+    static let stickWellSize: CGFloat = 0.155
+
+    static let dpad = CGPoint(x: 0.315, y: 0.66)
+    static let dpadSize: CGFloat = 0.155
+
+    static let minus = CGPoint(x: 0.345, y: 0.20)
+    static let plus = CGPoint(x: 0.575, y: 0.20)
+    static let minusPlusSize: CGFloat = 0.042
+
+    /// Decorative S/D mode switch between minus and plus.
+    static let modeSwitch = CGPoint(x: 0.46, y: 0.155)
+
+    static let faceCluster = CGPoint(x: 0.745, y: 0.325)
+    static let faceButtonOffset: CGFloat = 0.063
+    static let faceButtonSize: CGFloat = 0.052
+
+    static let star = CGPoint(x: 0.105, y: 0.79)
+    static let home = CGPoint(x: 0.815, y: 0.595)
+    static let starHomeSize: CGFloat = 0.045
+
+    static let leftBumper = CGPoint(x: 0.19, y: 0.025)
+    static let rightBumper = CGPoint(x: 0.81, y: 0.025)
+    static let leftTrigger = CGPoint(x: 0.13, y: 0.005)
+    static let rightTrigger = CGPoint(x: 0.87, y: 0.005)
+
+    static let battery = CGPoint(x: 0.50, y: 0.90)
+}
+
+// MARK: - 8BitDo Lite SE
+
+/// Accessibility model: every control sits on the face for flat use.
+/// Shoulders and stick clicks are face buttons; d-pad is four separate
+/// round buttons; both sticks sit bottom-center.
+enum EightBitDoLiteSEMinimapLayout {
+    static let l2 = CGPoint(x: 0.205, y: 0.155)
+    static let minus = CGPoint(x: 0.345, y: 0.155)
+    static let plus = CGPoint(x: 0.655, y: 0.15)
+    static let r2 = CGPoint(x: 0.79, y: 0.15)
+    static let l1 = CGPoint(x: 0.27, y: 0.30)
+    static let r1 = CGPoint(x: 0.73, y: 0.30)
+    static let faceRowSize: CGFloat = 0.055
+
+    static let dpadUp = CGPoint(x: 0.155, y: 0.30)
+    static let dpadLeft = CGPoint(x: 0.085, y: 0.45)
+    static let dpadRight = CGPoint(x: 0.225, y: 0.45)
+    static let dpadDown = CGPoint(x: 0.155, y: 0.60)
+
+    static let l3 = CGPoint(x: 0.435, y: 0.42)
+    static let r3 = CGPoint(x: 0.565, y: 0.42)
+    static let stickClickSize: CGFloat = 0.05
+
+    static let faceCluster = CGPoint(x: 0.865, y: 0.45)
+    static let faceButtonOffset: CGFloat = 0.07
+    static let faceButtonSize: CGFloat = 0.055
+
+    static let leftStick = CGPoint(x: 0.345, y: 0.72)
+    static let rightStick = CGPoint(x: 0.655, y: 0.72)
+    static let stickWellSize: CGFloat = 0.14
+
+    static let star = CGPoint(x: 0.075, y: 0.83)
+    static let home = CGPoint(x: 0.925, y: 0.83)
+    static let starHomeSize: CGFloat = 0.04
+
+    static let battery = CGPoint(x: 0.50, y: 0.92)
 }

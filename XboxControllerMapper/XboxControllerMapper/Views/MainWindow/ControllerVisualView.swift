@@ -88,6 +88,10 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 	case dualShock
 	case nintendo
 	case steam
+	case eightBitDoZero2
+	case eightBitDoMicro
+	case eightBitDoLite2
+	case eightBitDoLiteSE
 	case appleTVRemote
 
 	var id: String { rawValue }
@@ -102,6 +106,10 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 		case .dualShock: return "DualShock 4"
 		case .nintendo: return "Nintendo"
 		case .steam: return "Steam"
+		case .eightBitDoZero2: return "8BitDo Zero 2"
+		case .eightBitDoMicro: return "8BitDo Micro"
+		case .eightBitDoLite2: return "8BitDo Lite 2"
+		case .eightBitDoLiteSE: return "8BitDo Lite SE"
 		case .appleTVRemote: return "Apple TV Remote"
 		}
 	}
@@ -113,6 +121,8 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 		case .dualSense, .dualSenseEdge, .dualShock: return "playstation.logo"
 		case .nintendo: return "house"
 		case .steam: return "gamecontroller"
+		case .eightBitDoZero2, .eightBitDoMicro: return "gamecontroller.circle"
+		case .eightBitDoLite2, .eightBitDoLiteSE: return "gamecontroller.circle.fill"
 		case .appleTVRemote: return "appletvremote.gen3"
 		}
 	}
@@ -170,6 +180,19 @@ enum ControllerPreviewLayout: String, CaseIterable, Identifiable {
 		case .active: return service.threadSafeIsNintendo
 		case .nintendo: return true
 		default: return false
+		}
+	}
+
+	/// Non-nil when this preview selects one of the small 8BitDo pads.
+	/// `.active` resolves connected pads by their SDL/HID product name.
+	func eightBitDoModel(using service: ControllerService) -> EightBitDoMinimapModel? {
+		switch self {
+		case .active: return service.threadSafeEightBitDoMinimapModel
+		case .eightBitDoZero2: return .zero2
+		case .eightBitDoMicro: return .micro
+		case .eightBitDoLite2: return .lite2
+		case .eightBitDoLiteSE: return .liteSE
+		default: return nil
 		}
 	}
 
@@ -242,6 +265,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	var isSteamController: Bool { previewLayout.isSteamController(using: controllerService) }
 	var isNintendo: Bool { previewLayout.isNintendo(using: controllerService) }
 	var isAppleTVRemote: Bool { previewLayout.isAppleTVRemote(using: controllerService) }
+	var eightBitDoModel: EightBitDoMinimapModel? { previewLayout.eightBitDoModel(using: controllerService) }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -379,6 +403,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                         isSteamController: isSteamController,
                         isDualShock: isDualShock,
                         isDualSenseEdge: isDualSenseEdge,
+                        eightBitDoModel: eightBitDoModel,
                         elitePaddleButtons: [
                             eliteReferenceButton(for: .xboxPaddle1),
                             eliteReferenceButton(for: .xboxPaddle2),
@@ -399,7 +424,10 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                 HStack(spacing: 20) {
                     VStack(alignment: .trailing) {
                         referenceRow(for: .view)
-                        referenceRow(for: .xbox)
+                        // The Zero 2 has no home/guide button at all.
+                        if eightBitDoModel != .zero2 {
+                            referenceRow(for: .xbox)
+                        }
                     }
                     .frame(width: 220)
                     VStack(alignment: .leading) {
@@ -407,9 +435,10 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                         // Show mic mute for DualSense, share for Xbox (but not Elite 2 where
                         // the Share button is the hardware profile cycle button, not mappable)
                         // DualShock 4's physical Share button maps to .view (buttonOptions), not .share
+                        // The Zero 2 has no share/star button either.
                         if isDualSense {
                             referenceRow(for: .micMute)
-                        } else if !isDualShock && (!isXboxElite || isSteamController) {
+                        } else if !isDualShock && (!isXboxElite || isSteamController) && eightBitDoModel != .zero2 {
                             referenceRow(for: .share)
                         }
                     }
@@ -713,6 +742,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
 	/// Resolved minimap style for the previewed controller.
 	var minimapStyle: ControllerMinimapStyle {
+		if let eightBitDoModel { return eightBitDoModel.minimapStyle }
 		if isSteamController { return .steam }
 		if isDualShock { return .dualShock }
 		if isDualSenseEdge { return .dualSenseEdge }
