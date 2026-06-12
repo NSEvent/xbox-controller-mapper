@@ -1297,17 +1297,19 @@ struct ControllerAnalogOverlay: View {
 
     /// PlayStation-style face button. The DualSense uses light buttons with
     /// muted grey symbols (like the real hardware); the DualShock 4 uses
-    /// dark buttons with the classic colored symbols.
+    /// dark buttons with the classic colored symbols. SF Symbols rather
+    /// than Unicode glyphs — the text glyphs (△ ○ □ ✕) have inconsistent
+    /// optical sizes in the system font (the triangle renders smaller).
     private func miniPSFaceButton(_ button: ControllerButton, symbolColor: Color, size: CGFloat, lightStyle: Bool) -> some View {
         let pressed = isPressed(button)
         let bgColor = pressed ? Color.accentColor : (lightStyle ? Color(white: 0.92) : Color(white: 0.12))
-        let symbol: String = {
+        let symbolName: String = {
             switch button {
-            case .a: return "\u{2715}" // Cross
-            case .b: return "\u{25CB}" // Circle
-            case .x: return "\u{25A1}" // Square
-            case .y: return "\u{25B3}" // Triangle
-            default: return ""
+            case .a: return "xmark"    // Cross
+            case .b: return "circle"   // Circle
+            case .x: return "square"   // Square
+            case .y: return "triangle" // Triangle
+            default: return "questionmark"
             }
         }()
 
@@ -1321,8 +1323,8 @@ struct ControllerAnalogOverlay: View {
                     )
                 )
 
-            Text(symbol)
-                .font(.system(size: size * 0.55, weight: .bold))
+            Image(systemName: symbolName)
+                .font(.system(size: size * 0.42, weight: .bold))
                 .foregroundColor(pressed ? .white : symbolColor)
         }
         .frame(width: size, height: size)
