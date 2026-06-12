@@ -2817,13 +2817,15 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         if let configured = UserDefaults.standard.string(forKey: relaySharedSecretDefaultsKey),
            let data = Self.decodeRelaySecret(configured) {
 			let normalized = data.base64EncodedString()
+
+			// Always explicitly delete the insecure copy, even if Keychain migration fails.
+			UserDefaults.standard.removeObject(forKey: relaySharedSecretDefaultsKey)
+
 			if KeychainService.storePassword(
 				normalized,
                 key: relaySecretKey,
                 service: relaySecretKeychainService
-			) != nil {
-				UserDefaults.standard.removeObject(forKey: relaySharedSecretDefaultsKey)
-			} else {
+			) == nil {
 				NSLog("[UCMouseRelay] Failed to migrate relay secret to Keychain")
 			}
             return data
@@ -2852,6 +2854,10 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     @discardableResult
     private func storeRelaySharedSecret(_ data: Data) -> Bool {
         let normalized = data.base64EncodedString()
+
+		// Ensure any legacy insecure copy is deleted
+		UserDefaults.standard.removeObject(forKey: relaySharedSecretDefaultsKey)
+
 		guard KeychainService.storePassword(
             normalized,
             key: relaySecretKey,
@@ -2860,7 +2866,6 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 			NSLog("[UCMouseRelay] Failed to persist relay secret to Keychain")
 			return false
 		}
-		UserDefaults.standard.removeObject(forKey: relaySharedSecretDefaultsKey)
         resetAuthenticator(secretData: data)
 		return true
     }
