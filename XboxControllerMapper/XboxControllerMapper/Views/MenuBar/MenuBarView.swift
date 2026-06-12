@@ -110,10 +110,22 @@ struct MenuBarView: View {
                         Text(controllerService.controllerName)
                             .font(.caption)
                             .foregroundColor(.secondary)
+						if let mappingSource = controllerService.controllerMappingSource {
+							Text(mappingSource)
+								.font(.caption2)
+								.foregroundColor(.secondary)
+						}
                     } else {
                         Text("Connect via Bluetooth")
                             .font(.caption)
                             .foregroundColor(.secondary)
+
+						Button {
+							ControllerSupportDumpService.runInteractiveDump()
+						} label: {
+							Label("Controller Support Dump", systemImage: "doc.text.magnifyingglass")
+						}
+						.font(.caption)
                     }
                 }
 

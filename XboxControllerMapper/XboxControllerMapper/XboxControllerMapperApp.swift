@@ -461,6 +461,13 @@ struct XboxControllerMapperApp: App {
                 .environmentObject(ServiceContainer.shared.usageStatsService)
         }
         .windowResizability(.contentSize)
+		.commands {
+			CommandGroup(after: .help) {
+				Button("Controller Support Dump...") {
+					ControllerSupportDumpService.runInteractiveDump()
+				}
+			}
+		}
 
         MenuBarExtra {
             MenuBarView()

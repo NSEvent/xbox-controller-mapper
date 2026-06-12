@@ -57,11 +57,6 @@ class GenericHIDController {
 
     private static let triggerPressThreshold: Float = 0.12
     private static let axisChangeThreshold: Double = 0.01
-	nonisolated private static let controllerCollectionUsages: Set<Int> = [
-		kHIDUsage_GD_Joystick,
-		kHIDUsage_GD_GamePad,
-		kHIDUsage_GD_MultiAxisController,
-	]
 
 	static func stickAxisValue(_ value: Double, inverted: Bool, polarity: SDLElementRef.AxisPolarity) -> Double {
 		let adjusted = inverted ? -value : value
@@ -157,46 +152,17 @@ class GenericHIDController {
 
     /// Enumerates and sorts HID elements to match SDL's indexing scheme.
     private func enumerateElements() -> Bool {
-        guard let elements = IOHIDDeviceCopyMatchingElements(device, nil, IOOptionBits(kIOHIDOptionsTypeNone)) as? [IOHIDElement] else {
-            return false
-        }
+		guard let enumeration = HIDElementLayout.enumeration(for: device) else {
+			return false
+		}
 
-		let inputElements = elements.filter(Self.isSupportedInputElement)
-		let hasControllerCollection = inputElements.contains(where: Self.isInControllerCollection)
-		var buttons: [(usage: Int, element: IOHIDElement)] = []
-		var axes: [(usage: Int, element: IOHIDElement)] = []
+		buttonElements = enumeration.buttonElements
+		buttonIndexByCookie = Self.indexByCookie(for: buttonElements)
 
-		for element in inputElements {
-			if hasControllerCollection && !Self.isInControllerCollection(element) {
-				continue
-			}
-            let usagePage = IOHIDElementGetUsagePage(element)
-            let usage = Int(IOHIDElementGetUsage(element))
-
-            if usagePage == UInt32(kHIDPage_Button) {
-                buttons.append((usage: usage, element: element))
-            } else if usagePage == UInt32(kHIDPage_GenericDesktop) {
-                switch usage {
-                case kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,
-                     kHIDUsage_GD_Rx, kHIDUsage_GD_Ry, kHIDUsage_GD_Rz:
-                    axes.append((usage: usage, element: element))
-                case kHIDUsage_GD_Hatswitch:
-                    hatElement = element
-					hatElementCookie = IOHIDElementGetCookie(element)
-                default:
-                    break
-                }
-            }
-        }
-
-        // Sort by usage to match SDL's indexing
-        buttons.sort { $0.usage < $1.usage }
-        buttonElements = buttons.map { $0.element }
-        buttonIndexByCookie = Self.indexByCookie(for: buttonElements)
-
-        axes.sort { $0.usage < $1.usage }
-        axisElements = axes.map { $0.element }
-        axisIndexByCookie = Self.indexByCookie(for: axisElements)
+		axisElements = enumeration.axisElements
+		axisIndexByCookie = Self.indexByCookie(for: axisElements)
+		hatElement = enumeration.hatElement
+		hatElementCookie = hatElement.map(IOHIDElementGetCookie)
 
         // Build calibration data
         axisCalibrations = axisElements.map { element in
@@ -223,27 +189,6 @@ class GenericHIDController {
         }
         return map
     }
-
-	nonisolated private static func isSupportedInputElement(_ element: IOHIDElement) -> Bool {
-		let type = IOHIDElementGetType(element)
-		return type == kIOHIDElementTypeInput_Button ||
-			   type == kIOHIDElementTypeInput_Misc ||
-			   type == kIOHIDElementTypeInput_Axis
-	}
-
-	nonisolated private static func isInControllerCollection(_ element: IOHIDElement) -> Bool {
-		var current = IOHIDElementGetParent(element)
-		while let parent = current {
-			let usagePage = IOHIDElementGetUsagePage(parent)
-			let usage = Int(IOHIDElementGetUsage(parent))
-			if usagePage == UInt32(kHIDPage_GenericDesktop),
-			   controllerCollectionUsages.contains(usage) {
-				return true
-			}
-			current = IOHIDElementGetParent(parent)
-		}
-		return false
-	}
 
     // MARK: - Lifecycle
 

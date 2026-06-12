@@ -26,8 +26,23 @@ enum SDLElementRef: Equatable {
 struct SDLControllerMapping {
     let guid: String
     let name: String
+	let platform: String
     let buttonMap: [String: SDLElementRef]   // SDL button name -> element ref
     let axisMap: [String: SDLElementRef]     // SDL axis name -> element ref
+
+	init(
+		guid: String,
+		name: String,
+		platform: String = "Mac OS X",
+		buttonMap: [String: SDLElementRef],
+		axisMap: [String: SDLElementRef]
+	) {
+		self.guid = guid
+		self.name = name
+		self.platform = platform
+		self.buttonMap = buttonMap
+		self.axisMap = axisMap
+	}
 
     /// Maps SDL standard button names to ControllerButton
     static let sdlToControllerButton: [String: ControllerButton] = [
@@ -47,6 +62,10 @@ struct SDLControllerMapping {
         "leftstick": .leftThumbstick,
         "rightstick": .rightThumbstick,
         "misc1": .share,
+		"paddle1": .xboxPaddle1,
+		"paddle2": .xboxPaddle2,
+		"paddle3": .xboxPaddle3,
+		"paddle4": .xboxPaddle4,
     ]
 
     /// SDL axis names for stick movement
@@ -65,6 +84,15 @@ struct SDLControllerMapping {
 		guard sdlStickAxes.contains(baseName) || sdlTriggerAxes.contains(baseName) else { return nil }
 		return (baseName, prefix == "+" ? .positive : .negative)
 	}
+
+	func isCompatible(with layout: HIDElementLayout) -> Bool {
+		(Array(buttonMap.values) + Array(axisMap.values)).allSatisfy { layout.contains($0) }
+	}
+
+	func isCompatible(with layout: HIDElementLayout?) -> Bool {
+		guard let layout else { return true }
+		return isCompatible(with: layout)
+	}
 }
 
 // MARK: - GameControllerDatabase
@@ -80,7 +108,7 @@ class GameControllerDatabase {
     /// first to keep lock hold times minimal.
     private let mappingsLock = NSLock()
     private var mappings: [String: SDLControllerMapping] = [:]
-	private var allPlatformMappings: [String: SDLControllerMapping] = [:]
+	private var allPlatformMappings: [String: [SDLControllerMapping]] = [:]
 	private struct GUIDDeviceProperties {
 		let bus: Int
 		let vendorID: Int
@@ -100,16 +128,16 @@ class GameControllerDatabase {
 	(Config.legacyConfigDirectory as NSString).appendingPathComponent("gamecontrollerdb.txt")
     }
 
-    init(databaseContentOverride: String? = nil) {
-        if let databaseContentOverride {
-            var macMappings: [String: SDLControllerMapping] = [:]
-            var platformMappings: [String: SDLControllerMapping] = [:]
-            parseDatabase(databaseContentOverride, macMappings: &macMappings, platformMappings: &platformMappings)
-            installMappings(macMappings: macMappings, platformMappings: platformMappings)
-        } else {
-            loadDatabase()
-        }
-    }
+	init(databaseContentOverride: String? = nil) {
+		if let databaseContentOverride {
+			var macMappings: [String: SDLControllerMapping] = [:]
+			var platformMappings: [String: [SDLControllerMapping]] = [:]
+			parseDatabase(databaseContentOverride, macMappings: &macMappings, platformMappings: &platformMappings)
+			installMappings(macMappings: macMappings, platformMappings: platformMappings)
+		} else {
+			loadDatabase()
+		}
+	}
 
     // MARK: - GUID Construction
 
@@ -143,27 +171,36 @@ class GameControllerDatabase {
 
     /// Look up a controller mapping by device properties. Tries exact version match first,
     /// then falls back to version 0 and non-macOS mappings for the same VID/PID.
-    func lookup(vendorID: Int, productID: Int, version: Int, transport: String?) -> SDLControllerMapping? {
+	func lookup(
+		vendorID: Int,
+		productID: Int,
+		version: Int,
+		transport: String?,
+		compatibleWith layout: HIDElementLayout? = nil
+	) -> SDLControllerMapping? {
         let guid = Self.constructGUID(vendorID: vendorID, productID: productID,
                                        version: version, transport: transport)
-        mappingsLock.lock()
-        defer { mappingsLock.unlock() }
-        if let mapping = mappings[guid.lowercased()] {
-            return mapping
-        }
-        // Fallback: try with version 0
+		mappingsLock.lock()
+		defer { mappingsLock.unlock() }
+		if let mapping = mappings[guid.lowercased()],
+		   mapping.isCompatible(with: layout) {
+			return mapping
+		}
+		// Fallback: try with version 0
         if version != 0 {
             let fallbackGuid = Self.constructGUID(vendorID: vendorID, productID: productID,
                                                    version: 0, transport: transport)
-	    if let mapping = mappings[fallbackGuid.lowercased()] {
-		return mapping
-	    }
+		    if let mapping = mappings[fallbackGuid.lowercased()],
+			   mapping.isCompatible(with: layout) {
+			return mapping
+		    }
         }
 	return platformFallbackMappingLocked(
 		vendorID: vendorID,
 		productID: productID,
 		version: version,
-		transport: transport
+		transport: transport,
+		compatibleWith: layout
 	)
     }
 
@@ -205,30 +242,42 @@ class GameControllerDatabase {
 		vendorID: Int,
 		productID: Int,
 		version: Int,
-		transport: String?
+		transport: String?,
+		compatibleWith layout: HIDElementLayout?
 	) -> SDLControllerMapping? {
 		let preferredBus = Self.busValue(transport: transport)
-		let candidates = allPlatformMappings.compactMap { guid, mapping -> (score: Int, guid: String, mapping: SDLControllerMapping)? in
+		let candidates = allPlatformMappings.flatMap { guid, rows -> [(score: Int, guid: String, order: Int, mapping: SDLControllerMapping)] in
 			guard let properties = Self.deviceProperties(in: guid),
 			      properties.vendorID == vendorID,
 			      properties.productID == productID else {
-				return nil
+				return []
 			}
 
-			let isMacMapping = mappings[guid] != nil
-			var score = 0
-			if isMacMapping { score -= 1_000 }
-			if properties.bus == preferredBus { score -= 100 }
-			if properties.version == version {
-				score -= 20
-			} else if properties.version == 0 {
-				score -= 10
+			return rows.enumerated().compactMap { order, mapping -> (score: Int, guid: String, order: Int, mapping: SDLControllerMapping)? in
+				if !mapping.isCompatible(with: layout) {
+					return nil
+				}
+
+				var score = 0
+				if mapping.platform == "Mac OS X" { score -= 1_000 }
+				if properties.bus == preferredBus { score -= 100 }
+				if properties.version == version {
+					score -= 20
+				} else if properties.version == 0 {
+					score -= 10
+				}
+				return (score: score, guid: guid, order: order, mapping: mapping)
 			}
-			return (score: score, guid: guid, mapping: mappings[guid] ?? mapping)
 		}
 
 		return candidates.sorted {
-			$0.score == $1.score ? $0.guid < $1.guid : $0.score < $1.score
+			if $0.score != $1.score { return $0.score < $1.score }
+			if $0.guid != $1.guid { return $0.guid < $1.guid }
+			if $0.mapping.platform != $1.mapping.platform {
+				return $0.mapping.platform < $1.mapping.platform
+			}
+			if $0.order != $1.order { return $0.order > $1.order }
+			return $0.mapping.name < $1.mapping.name
 		}.first?.mapping
 	}
 
@@ -296,9 +345,9 @@ class GameControllerDatabase {
 
     // MARK: - Database Loading
 
-    func loadDatabase() {
+	func loadDatabase() {
 	var macMappings: [String: SDLControllerMapping] = [:]
-	var platformMappings: [String: SDLControllerMapping] = [:]
+	var platformMappings: [String: [SDLControllerMapping]] = [:]
 
 	let userPaths = [
 	    Self.userDatabasePath,
@@ -337,7 +386,7 @@ class GameControllerDatabase {
     /// Swaps freshly built replacement dictionaries in under the lock.
     private func installMappings(
         macMappings: [String: SDLControllerMapping],
-        platformMappings: [String: SDLControllerMapping]
+		platformMappings: [String: [SDLControllerMapping]]
     ) {
         mappingsLock.lock()
         mappings = macMappings
@@ -352,7 +401,7 @@ class GameControllerDatabase {
     private func parseDatabase(
         _ content: String,
         macMappings: inout [String: SDLControllerMapping],
-        platformMappings: inout [String: SDLControllerMapping]
+		platformMappings: inout [String: [SDLControllerMapping]]
     ) {
         let lines = content.components(separatedBy: .newlines)
 
@@ -362,8 +411,8 @@ class GameControllerDatabase {
 
             if let mapping = parseLine(trimmed) {
 		let key = Self.normalizedDatabaseGUID(mapping.guid)
-		platformMappings[key] = mapping
-		if trimmed.contains("platform:Mac OS X") {
+		platformMappings[key, default: []].append(mapping)
+		if mapping.platform == "Mac OS X" {
 			macMappings[key] = mapping
 		}
             }
@@ -380,10 +429,15 @@ class GameControllerDatabase {
 
         var buttonMap: [String: SDLElementRef] = [:]
         var axisMap: [String: SDLElementRef] = [:]
+		var platform = "Mac OS X"
 
         for i in 2..<components.count {
             let part = components[i].trimmingCharacters(in: .whitespaces)
-            guard part.contains(":"), !part.hasPrefix("platform:") else { continue }
+			guard part.contains(":") else { continue }
+			if part.hasPrefix("platform:") {
+				platform = String(part.dropFirst("platform:".count))
+				continue
+			}
 
             let kv = part.components(separatedBy: ":")
             guard kv.count == 2 else { continue }
@@ -400,6 +454,7 @@ class GameControllerDatabase {
         }
 
         return SDLControllerMapping(guid: guid, name: name,
+									 platform: platform,
                                      buttonMap: buttonMap, axisMap: axisMap)
     }
 

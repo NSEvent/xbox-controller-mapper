@@ -151,9 +151,11 @@ extension ControllerService {
 	)
 	let productName = IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String
 	let fallbackName = productName?.isEmpty == false ? productName! : "Generic HID Controller"
-        guard let mapping = GameControllerDatabase.shared.lookup(
-            vendorID: vendorID, productID: productID,
-            version: version, transport: transport
+	let layout = HIDElementLayout.layout(for: device)
+	guard let mapping = GameControllerDatabase.shared.lookup(
+		vendorID: vendorID, productID: productID,
+		version: version, transport: transport,
+		compatibleWith: layout
 	) ?? GenericHIDController.inferredMapping(
 	    for: device,
 	    fallbackName: fallbackName,
@@ -203,6 +205,7 @@ extension ControllerService {
         isConnected = true
         isGenericController = true
         controllerName = mapping.name
+		controllerMappingSource = mapping.platform == "Mac OS X" ? nil : "SDL \(mapping.platform) fallback"
         startDisplayUpdateTimer()
 
         #if DEBUG

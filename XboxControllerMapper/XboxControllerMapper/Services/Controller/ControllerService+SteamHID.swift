@@ -335,6 +335,7 @@ extension ControllerService {
             fallbackName: controller.deviceName
         )
         controllerName = controller.deviceName
+		controllerMappingSource = nil
         isGenericController = false
 
         detectConnectionType(device: controller.device)

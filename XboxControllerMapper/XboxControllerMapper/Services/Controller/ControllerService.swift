@@ -222,6 +222,7 @@ class ControllerService: ObservableObject {
     @Published var connectedController: GCController?
     @Published var currentControllerIdentity: ControllerIdentity?
     @Published var controllerName: String = ""
+	@Published var controllerMappingSource: String?
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
     @Published var activeButtons: Set<ControllerButton> = []
@@ -1004,6 +1005,7 @@ class ControllerService: ObservableObject {
         }
         connectedController = controller
         controllerName = controller.vendorName ?? "Game Controller"
+		controllerMappingSource = nil
         currentControllerIdentity = nil
 
         storage.lock.lock()
@@ -1068,6 +1070,7 @@ class ControllerService: ObservableObject {
 		cleanupHIDMonitoring()
 		cleanupNintendoHIDMonitoring()
 		stopEliteHelper()
+		controllerMappingSource = nil
 
 		activeButtons.removeAll()
 		leftStick = .zero
@@ -1119,6 +1122,7 @@ class ControllerService: ObservableObject {
         currentControllerIdentity = nil
         isGenericController = false
         controllerName = ""
+		controllerMappingSource = nil
         activeButtons.removeAll()
         leftStick = .zero
         rightStick = .zero

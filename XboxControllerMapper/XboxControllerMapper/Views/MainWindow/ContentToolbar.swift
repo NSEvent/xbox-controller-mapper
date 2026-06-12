@@ -30,6 +30,26 @@ struct ContentToolbar: View {
             )
             .accessibilityElement(children: .combine)
 
+			if controllerService.isConnected,
+			   let mappingSource = controllerService.controllerMappingSource {
+				Text(mappingSource)
+					.font(.caption2)
+					.foregroundColor(.secondary)
+			}
+
+			if !controllerService.isConnected {
+				Button {
+					ControllerSupportDumpService.runInteractiveDump()
+				} label: {
+					Image(systemName: "doc.text.magnifyingglass")
+						.foregroundColor(.secondary)
+				}
+				.buttonStyle(.plain)
+				.hoverableIconButton()
+				.help("Controller Support Dump")
+				.accessibilityLabel("Controller Support Dump")
+			}
+
             Spacer()
 
             // Enable/disable toggle

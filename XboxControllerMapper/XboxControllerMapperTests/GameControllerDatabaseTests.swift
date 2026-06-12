@@ -141,6 +141,270 @@ final class GameControllerDatabaseTests: XCTestCase {
 		Self.retainedDatabases.append(database)
 	}
 
+	func testLookupByDeviceProperties_UsesCompatibleNonMacMappingWhenLayoutSupportsRefs() {
+		let windowsGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 0,
+			transport: nil
+		)
+		let content = mappingLine(
+			guid: windowsGuid,
+			name: "8BitDo Micro",
+			entries: [
+				"a:b3",
+				"b:b1",
+				"dpup:h0.1",
+				"leftx:a0",
+				"lefty:a1"
+			],
+			platform: "Windows"
+		)
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let layout = HIDElementLayout(buttonCount: 4, axisCount: 2, hasHat: true)
+
+		let mapping = database.lookup(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 1,
+			transport: nil,
+			compatibleWith: layout
+		)
+
+		XCTAssertEqual(mapping?.name, "8BitDo Micro")
+		XCTAssertEqual(mapping?.platform, "Windows")
+		if case let .button(index)? = mapping?.buttonMap["a"] {
+			XCTAssertEqual(index, 3)
+		} else {
+			XCTFail("Expected compatible Windows fallback to map A from b3")
+		}
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testLookupByDeviceProperties_RejectsNonMacMappingWhenLayoutMissingButtonRef() {
+		let windowsGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 0,
+			transport: nil
+		)
+		let content = mappingLine(
+			guid: windowsGuid,
+			name: "8BitDo Micro",
+			entries: [
+				"a:b3",
+				"b:b1",
+				"leftx:a0",
+				"lefty:a1"
+			],
+			platform: "Windows"
+		)
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let layout = HIDElementLayout(buttonCount: 3, axisCount: 2, hasHat: false)
+
+		let mapping = database.lookup(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 1,
+			transport: nil,
+			compatibleWith: layout
+		)
+
+		XCTAssertNil(mapping)
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testLookupByDeviceProperties_RejectsNonMacMappingWhenLayoutMissingAxisOrHatRef() {
+		let windowsGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 0,
+			transport: nil
+		)
+		let content = mappingLine(
+			guid: windowsGuid,
+			name: "8BitDo Lite 2",
+			entries: [
+				"a:b0",
+				"b:b1",
+				"dpup:h0.1",
+				"leftx:a0",
+				"righty:a3"
+			],
+			platform: "Windows"
+		)
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let missingAxis = HIDElementLayout(buttonCount: 2, axisCount: 3, hasHat: true)
+		let missingHat = HIDElementLayout(buttonCount: 2, axisCount: 4, hasHat: false)
+
+		XCTAssertNil(database.lookup(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 1,
+			transport: nil,
+			compatibleWith: missingAxis
+		))
+		XCTAssertNil(database.lookup(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 1,
+			transport: nil,
+			compatibleWith: missingHat
+		))
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testLookupByDeviceProperties_SkipsIncompatibleMacRowWhenLayoutProvided() {
+		let macGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 1,
+			transport: nil
+		)
+		let windowsGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 0,
+			transport: nil
+		)
+		let content = [
+			mappingLine(
+				guid: macGuid,
+				name: "Stale Mac Row",
+				entries: [
+					"a:b5",
+					"leftx:a0"
+				]
+			),
+			mappingLine(
+				guid: windowsGuid,
+				name: "Compatible Windows Row",
+				entries: [
+					"a:b1",
+					"leftx:a0"
+				],
+				platform: "Windows"
+			)
+		].joined(separator: "\n")
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let layout = HIDElementLayout(buttonCount: 2, axisCount: 1, hasHat: false)
+
+		let mapping = database.lookup(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 1,
+			transport: nil,
+			compatibleWith: layout
+		)
+
+		XCTAssertEqual(mapping?.name, "Compatible Windows Row")
+		XCTAssertEqual(mapping?.platform, "Windows")
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testLookupByDeviceProperties_ConsidersDuplicateGuidPlatformRowsIndependently() {
+		let duplicateGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 0,
+			transport: nil
+		)
+		let content = [
+			mappingLine(
+				guid: duplicateGuid,
+				name: "Incompatible Linux Row",
+				entries: [
+					"a:b17",
+					"leftx:a0"
+				],
+				platform: "Linux"
+			),
+			mappingLine(
+				guid: duplicateGuid,
+				name: "Compatible Windows Row",
+				entries: [
+					"a:b1",
+					"leftx:a0"
+				],
+				platform: "Windows"
+			)
+		].joined(separator: "\n")
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let layout = HIDElementLayout(buttonCount: 2, axisCount: 1, hasHat: false)
+
+		let mapping = database.lookup(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 99,
+			transport: nil,
+			compatibleWith: layout
+		)
+
+		XCTAssertEqual(mapping?.name, "Compatible Windows Row")
+		XCTAssertEqual(mapping?.platform, "Windows")
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testLookupByDeviceProperties_PrefersLaterDuplicatePlatformRow() {
+		let duplicateGuid = GameControllerDatabase.constructGUID(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 0,
+			transport: nil
+		)
+		let content = [
+			mappingLine(
+				guid: duplicateGuid,
+				name: "Older Windows Row",
+				entries: [
+					"a:b0",
+					"leftx:a0"
+				],
+				platform: "Windows"
+			),
+			mappingLine(
+				guid: duplicateGuid,
+				name: "Newer Windows Row",
+				entries: [
+					"a:b1",
+					"leftx:a0"
+				],
+				platform: "Windows"
+			)
+		].joined(separator: "\n")
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let layout = HIDElementLayout(buttonCount: 2, axisCount: 1, hasHat: false)
+
+		let mapping = database.lookup(
+			vendorID: 0x2dc8,
+			productID: 0x3106,
+			version: 99,
+			transport: nil,
+			compatibleWith: layout
+		)
+
+		XCTAssertEqual(mapping?.name, "Newer Windows Row")
+		if case let .button(index)? = mapping?.buttonMap["a"] {
+			XCTAssertEqual(index, 1)
+		} else {
+			XCTFail("Expected later duplicate row to provide A mapping")
+		}
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testHIDElementLayoutCountInitializerSupportsHighAxisIndexes() {
+		let layout = HIDElementLayout(buttonCount: 0, axisCount: 7, hasHat: false)
+
+		XCTAssertTrue(layout.contains(.axis(6, inverted: false, polarity: .full)))
+		XCTAssertFalse(layout.contains(.axis(7, inverted: false, polarity: .full)))
+	}
+
 	func testLookupByDeviceProperties_PrefersMagicseeR1MacBLEMapping() {
 		let macGuid = GameControllerDatabase.constructGUID(
 			vendorID: 0x248a,
@@ -369,6 +633,43 @@ final class GameControllerDatabaseTests: XCTestCase {
 			XCTAssertEqual(polarity, .negative)
 		} else {
 			XCTFail("Expected negative split-output stick axis mapping for rightx")
+		}
+
+		Self.retainedDatabases.append(database)
+	}
+
+	func testParsing_MapsSDLPaddlesToControllerButtons() {
+		let guid = GameControllerDatabase.constructGUID(
+			vendorID: 0xc82d,
+			productID: 0x0960,
+			version: 0,
+			transport: nil
+		)
+		let content = mappingLine(
+			guid: guid,
+			name: "8BitDo Pro 3",
+			entries: [
+				"paddle1:b17",
+				"paddle2:b16",
+				"paddle3:b2",
+				"paddle4:b5"
+			]
+		)
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let mapping = database.lookup(guid: guid)
+
+		for (sdlName, expectedButton, expectedIndex) in [
+			("paddle1", ControllerButton.xboxPaddle1, 17),
+			("paddle2", ControllerButton.xboxPaddle2, 16),
+			("paddle3", ControllerButton.xboxPaddle3, 2),
+			("paddle4", ControllerButton.xboxPaddle4, 5),
+		] {
+			XCTAssertEqual(SDLControllerMapping.sdlToControllerButton[sdlName], expectedButton)
+			if case let .button(index)? = mapping?.buttonMap[sdlName] {
+				XCTAssertEqual(index, expectedIndex)
+			} else {
+				XCTFail("Expected \(sdlName) to parse as a button mapping")
+			}
 		}
 
 		Self.retainedDatabases.append(database)

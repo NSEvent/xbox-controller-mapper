@@ -38,11 +38,11 @@ extension GenericHIDController {
 
 	static func canInferMapping(from device: IOHIDDevice) -> Bool {
 		guard !hasKeyboardOrPointerTopLevelUsage(device) else { return false }
-		guard let summary = elementSummary(for: device) else { return false }
+		guard let layout = HIDElementLayout.layout(for: device) else { return false }
 		return inferredMapping(
-			buttonCount: summary.buttonCount,
-			axisCount: summary.axisCount,
-			hasHat: summary.hasHat,
+			buttonCount: layout.buttonCount,
+			axisCount: layout.axisCount,
+			hasHat: layout.hasHat,
 			name: "Generic HID Controller"
 		) != nil
 	}
@@ -56,11 +56,11 @@ extension GenericHIDController {
 		fallbackName: String,
 		guid: String
 	) -> SDLControllerMapping? {
-		guard let summary = elementSummary(for: device) else { return nil }
+		guard let layout = HIDElementLayout.layout(for: device) else { return nil }
 		return inferredMapping(
-			buttonCount: summary.buttonCount,
-			axisCount: summary.axisCount,
-			hasHat: summary.hasHat,
+			buttonCount: layout.buttonCount,
+			axisCount: layout.axisCount,
+			hasHat: layout.hasHat,
 			name: fallbackName,
 			guid: guid
 		)
@@ -98,41 +98,6 @@ extension GenericHIDController {
 			buttonMap: buttonMap,
 			axisMap: axisMap
 		)
-	}
-
-	private static func elementSummary(for device: IOHIDDevice) -> (buttonCount: Int, axisCount: Int, hasHat: Bool)? {
-		guard let elements = IOHIDDeviceCopyMatchingElements(device, nil, IOOptionBits(kIOHIDOptionsTypeNone)) as? [IOHIDElement] else {
-			return nil
-		}
-
-		var buttonCount = 0
-		var axisCount = 0
-		var hasHat = false
-		for element in elements {
-			let type = IOHIDElementGetType(element)
-			let usagePage = IOHIDElementGetUsagePage(element)
-			let usage = Int(IOHIDElementGetUsage(element))
-
-			guard type == kIOHIDElementTypeInput_Button ||
-			      type == kIOHIDElementTypeInput_Misc ||
-			      type == kIOHIDElementTypeInput_Axis else { continue }
-
-			if usagePage == UInt32(kHIDPage_Button) {
-				buttonCount += 1
-			} else if usagePage == UInt32(kHIDPage_GenericDesktop) {
-				switch usage {
-				case kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,
-				     kHIDUsage_GD_Rx, kHIDUsage_GD_Ry, kHIDUsage_GD_Rz:
-					axisCount += 1
-				case kHIDUsage_GD_Hatswitch:
-					hasHat = true
-				default:
-					break
-				}
-			}
-		}
-
-		return (buttonCount: buttonCount, axisCount: axisCount, hasHat: hasHat)
 	}
 
 	private static func hasKeyboardOrPointerTopLevelUsage(_ device: IOHIDDevice) -> Bool {
