@@ -22,6 +22,10 @@ public final class AutomationMacroStore {
 	public let fileURL: URL
 
 	private let queue = DispatchQueue(label: "com.kevintang.TriggerKit.macros", qos: .utility)
+	/// Serializes JSON encodes and disk writes off the state queue, so
+	/// `queue.sync` lookups from latency-sensitive consumer paths (e.g.
+	/// controller button dispatch) never wait behind file I/O.
+	private let ioQueue = DispatchQueue(label: "com.kevintang.TriggerKit.macros.io", qos: .utility)
 	private let notificationCenter: NotificationCenter
 	private let distributedNotificationCenter: DistributedNotificationCenter?
 	private var macros: [UUID: AutomationMacro] = [:]
@@ -152,7 +156,9 @@ public final class AutomationMacroStore {
 			pendingWrite = nil
 			return Array(macros.values)
 		}
-		persist(snapshot)
+		ioQueue.sync {
+			persist(snapshot)
+		}
 	}
 
 	/// Re-reads the backing file, replacing in-memory state. Call when
@@ -209,7 +215,12 @@ public final class AutomationMacroStore {
 		pendingWrite?.cancel()
 		let work = DispatchWorkItem { [weak self] in
 			guard let self else { return }
-			self.persist(Array(self.macros.values))
+			// Snapshot under the state queue, then encode/write on ioQueue.
+			let snapshot = Array(self.macros.values)
+			self.pendingWrite = nil
+			self.ioQueue.async {
+				self.persist(snapshot)
+			}
 		}
 		pendingWrite = work
 		queue.asyncAfter(deadline: .now() + 0.5, execute: work)
@@ -225,6 +236,12 @@ public final class AutomationMacroStore {
 				$0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
 			})
 			try atomicWrite(data, to: fileURL)
+			// Other processes read from disk, so they are told only once the
+			// file is actually current. Posting on upsert instead (as before)
+			// raced the debounced write: observers re-read a stale file and
+			// missed the final state, and got one notification per keystroke
+			// while editing.
+			distributedNotificationCenter?.postNotificationName(.triggerKitMacrosChanged, object: nil)
 		} catch {
 			NSLog("TriggerKit macro write failed: %@", String(describing: error))
 		}
@@ -242,8 +259,10 @@ public final class AutomationMacroStore {
 		}
 	}
 
+	/// In-process observers read the store's in-memory state, so they are
+	/// notified immediately on every mutation. The distributed notification
+	/// is posted from `persist` after the file lands (see there for why).
 	private func postChanged() {
 		notificationCenter.post(name: .triggerKitMacrosChanged, object: self)
-		distributedNotificationCenter?.postNotificationName(.triggerKitMacrosChanged, object: nil)
 	}
 }

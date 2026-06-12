@@ -42,6 +42,45 @@ final class AutomationMacroStoreTests: XCTestCase {
 		XCTAssertTrue(notified, "Reload should post a local change notification")
 	}
 
+	func testDistributedNotificationArrivesOnlyAfterFileIsCurrent() {
+		let url = temporaryFileURL()
+		let store = AutomationMacroStore(
+			fileURL: url,
+			notificationCenter: NotificationCenter(),
+			distributedNotificationCenter: .default()
+		)
+		let macro = AutomationMacro(name: "Synced", program: AutomationProgram(name: "Synced", steps: [
+			.delay(DelayStep(seconds: 1))
+		]))
+
+		let received = expectation(description: "distributed notification with current file")
+		received.assertForOverFulfill = false
+		let observer = DistributedNotificationCenter.default().addObserver(
+			forName: .triggerKitMacrosChanged, object: nil, queue: nil
+		) { _ in
+			// Other TriggerKit apps may post the same name; only count a
+			// notification delivered after OUR write is readable on disk —
+			// that ordering is the contract cross-process consumers rely on.
+			let decoder = JSONDecoder()
+			decoder.dateDecodingStrategy = .iso8601
+			guard let data = try? Data(contentsOf: url),
+			      let decoded = try? decoder.decode([AutomationMacro].self, from: data),
+			      decoded.contains(where: { $0.id == macro.id }) else {
+				return
+			}
+			received.fulfill()
+		}
+		defer { DistributedNotificationCenter.default().removeObserver(observer) }
+
+		store.upsert(macro)
+		XCTAssertFalse(
+			FileManager.default.fileExists(atPath: url.path),
+			"Write is debounced; the file should not exist immediately after upsert"
+		)
+
+		wait(for: [received], timeout: 5)
+	}
+
 	func testDuplicateCreatesNewIDAndCopyName() {
 		let store = AutomationMacroStore(fileURL: temporaryFileURL(), notificationCenter: NotificationCenter(), distributedNotificationCenter: nil)
 		let original = store.create(

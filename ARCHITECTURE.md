@@ -214,6 +214,22 @@ ControllerKeys also consumes TriggerKit's per-user macro library (`~/Library/App
 
 The controller hot paths (button → key press, joystick → mouse at 120Hz) never touch TriggerKit — `MappingEngine` and `InputSimulator` are unchanged. Macro execution adds one O(steps) conversion per macro trigger plus a MainActor task hop, replacing the previous detached-task spawn; input posting still happens on `InputSimulator`'s dedicated queues.
 
+Measured June 2026 (debug build, `SharedMacroLatencyBenchmarkTests` — medians):
+
+| Path | Cost | Frequency |
+|------|------|-----------|
+| `makeCommand` for a plain key press | 0.5–1.5µs | per button press (unchanged vs pre-TriggerKit) |
+| `makeCommand` for a profile macro | ~2µs | per macro trigger |
+| `makeCommand` for a shared library macro (store lookup + normalize) | ~7µs | per macro trigger |
+| Bridge conversion, 10-step macro | ~8µs | per macro trigger (on inputQueue) |
+| Macro dispatch: `execute()` → first posted event | ~0.05ms median | per macro trigger |
+| Snapshot sync (`SharedMacroSnapshotPolicy`) on a ~150-binding profile | ~250µs | per profile save (UI edits only) |
+
+Invariants the store integration maintains:
+- `AutomationMacroStore` runs JSON encode/disk writes on a dedicated `ioQueue`, so the `queue.sync` macro lookup on button dispatch never waits behind file I/O.
+- The store's distributed change notification posts only **after** the debounced write lands, so cross-process observers never re-read a stale file; ControllerKeys performs the resulting `reloadFromDisk()` off the main actor and only fires `@Published sharedLibraryMacros` when the list actually changed (26 views observe ProfileManager).
+- `TriggerKey.catalogKey(keyCode:)` is a cached dictionary lookup (was an O(catalog) rebuild per converted key step).
+
 ---
 
 ## Service Layer Overview

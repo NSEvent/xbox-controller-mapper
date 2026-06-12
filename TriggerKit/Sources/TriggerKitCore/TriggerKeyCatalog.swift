@@ -29,27 +29,33 @@ public extension TriggerKey {
 	static let brightnessUp = TriggerKey(id: "brightness-up", keyCode: 0xF040, displayName: "Brightness Up")
 	static let brightnessDown = TriggerKey(id: "brightness-down", keyCode: 0xF041, displayName: "Brightness Down")
 
-	static var catalogGroups: [TriggerKeyGroup] {
-		[
-			TriggerKeyGroup(title: "Common", keys: commonKeys),
-			TriggerKeyGroup(title: "Letters", keys: letterKeys),
-			TriggerKeyGroup(title: "Numbers", keys: numberKeys),
-			TriggerKeyGroup(title: "Symbols", keys: symbolKeys),
-			TriggerKeyGroup(title: "Navigation", keys: navigationKeys),
-			TriggerKeyGroup(title: "Function", keys: functionKeys),
-			TriggerKeyGroup(title: "Keypad", keys: keypadKeys),
-			TriggerKeyGroup(title: "Modifiers", keys: modifierKeys),
-			TriggerKeyGroup(title: "Media", keys: mediaKeys),
-			TriggerKeyGroup(title: "System", keys: systemKeys)
-		]
-	}
+	// Built once: catalog lookups sit on hosts' input-dispatch paths
+	// (e.g. ControllerKeys converts macro steps per trigger), so rebuilding
+	// ~150 keys per call is measurable.
+	static let catalogGroups: [TriggerKeyGroup] = [
+		TriggerKeyGroup(title: "Common", keys: commonKeys),
+		TriggerKeyGroup(title: "Letters", keys: letterKeys),
+		TriggerKeyGroup(title: "Numbers", keys: numberKeys),
+		TriggerKeyGroup(title: "Symbols", keys: symbolKeys),
+		TriggerKeyGroup(title: "Navigation", keys: navigationKeys),
+		TriggerKeyGroup(title: "Function", keys: functionKeys),
+		TriggerKeyGroup(title: "Keypad", keys: keypadKeys),
+		TriggerKeyGroup(title: "Modifiers", keys: modifierKeys),
+		TriggerKeyGroup(title: "Media", keys: mediaKeys),
+		TriggerKeyGroup(title: "System", keys: systemKeys)
+	]
 
-	static var allCatalogKeys: [TriggerKey] {
-		catalogGroups.flatMap(\.keys)
-	}
+	static let allCatalogKeys: [TriggerKey] = catalogGroups.flatMap(\.keys)
+
+	/// First catalog entry per key code, matching the previous linear-scan
+	/// behavior when a code appears in multiple groups.
+	private static let catalogKeyByCode: [UInt16: TriggerKey] = Dictionary(
+		allCatalogKeys.map { ($0.keyCode, $0) },
+		uniquingKeysWith: { first, _ in first }
+	)
 
 	static func catalogKey(keyCode: UInt16) -> TriggerKey? {
-		allCatalogKeys.first { $0.keyCode == keyCode }
+		catalogKeyByCode[keyCode]
 	}
 
 	static func isMediaOrSystemKeyCode(_ keyCode: UInt16) -> Bool {

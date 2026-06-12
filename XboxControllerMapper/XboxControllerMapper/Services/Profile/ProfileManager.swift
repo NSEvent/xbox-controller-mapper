@@ -131,28 +131,40 @@ class ProfileManager: ObservableObject {
     private func setupSharedMacroLibraryObservation() {
         sharedLibraryMacros = sharedMacroStore.all()
 
-        let refresh: (Notification) -> Void = { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                self.sharedLibraryMacros = self.sharedMacroStore.all()
-            }
-        }
         NotificationCenter.default
             .publisher(for: .triggerKitMacrosChanged)
-            .sink(receiveValue: refresh)
-            .store(in: &cancellables)
-        // Edits made in TriggerKit.app / Plaque / Tardy arrive via the
-        // distributed center; the store reloads lazily, so re-read from disk.
-        DistributedNotificationCenter.default()
-            .publisher(for: .triggerKitMacrosChanged)
-            .sink { [weak self] notification in
+            .sink { [weak self] _ in
                 guard let self else { return }
                 Task { @MainActor in
-                    self.sharedMacroStore.reloadFromDisk()
-                    self.sharedLibraryMacros = self.sharedMacroStore.all()
+                    self.refreshSharedLibraryMacros()
                 }
             }
             .store(in: &cancellables)
+        // Edits made in TriggerKit.app / Plaque / Tardy arrive via the
+        // distributed center after the library file is written; re-read it
+        // off the main actor (file I/O), then publish on main.
+        DistributedNotificationCenter.default()
+            .publisher(for: .triggerKitMacrosChanged)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let store = self.sharedMacroStore
+                Task.detached(priority: .utility) {
+                    store.reloadFromDisk()
+                    await self.refreshSharedLibraryMacros()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Re-reads the in-memory store; only fires the @Published (and the
+    /// resulting view-tree invalidation) when the list actually changed —
+    /// our own edits arrive via both the local and, post-write, the
+    /// distributed notification.
+    private func refreshSharedLibraryMacros() {
+        let updated = sharedMacroStore.all()
+        if updated != sharedLibraryMacros {
+            sharedLibraryMacros = updated
+        }
     }
 
     private func setupAutoSwitching(with appMonitor: AppMonitor) {
