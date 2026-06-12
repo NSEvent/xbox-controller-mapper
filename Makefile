@@ -67,7 +67,7 @@ INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 HELPER_SRC := Helpers/XboxEliteHelper.swift
 HELPER_NAME := XboxEliteHelper
 
-.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-clean refactor-gate screenshots
+.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-clean refactor-gate screenshots demo-gifs sync-website marketing-assets
 
 help:
 	@echo "ControllerKeys - Build Commands"
@@ -81,7 +81,10 @@ help:
 	@echo "  make test-full - Run full test suite"
 	@echo "  make test-clean - Remove cached test derived data"
 	@echo "  make refactor-gate - Run full suite (gate for refactors)"
-	@echo "  make screenshots - Capture marketing screenshots (all variants)"
+	@echo "  make screenshots - Capture marketing screenshots (all controller variants)"
+	@echo "  make demo-gifs   - Record looping minimap demo GIFs (all controller variants)"
+	@echo "  make sync-website - Push screenshots/GIFs to the marketing site repo + gumroad gallery"
+	@echo "  make marketing-assets - screenshots + demo-gifs + sync-website in one go"
 	@echo ""
 	@echo "Configuration:"
 	@echo "  CONFIG=$(CONFIG) SCHEME=$(SCHEME)"
@@ -182,8 +185,25 @@ test-clean:
 # test-full is a superset of test-regressions; running both would build twice.
 refactor-gate: test-full
 
-# Capture marketing/README screenshots for all controller variants.
-# Requires Accessibility + Screen Recording permission for the terminal.
-# Disconnect physical controllers first. See Scripts/capture-screenshots.sh.
+# Marketing asset pipeline. All targets require Accessibility + Screen
+# Recording permission for the terminal (macOS re-prompts for Screen
+# Recording periodically — System Settings > Privacy & Security).
+CAPTURE_VARIANTS := dualsense xbox steam appletv dualsense-edge dualshock nintendo xbox-elite
+
+# Capture marketing/README screenshots for every controller variant
+# (tab walks + stream overlay panels). See Scripts/capture-screenshots.sh.
 screenshots:
-	./Scripts/capture-screenshots.sh dualsense xbox steam appletv
+	./Scripts/capture-screenshots.sh $(CAPTURE_VARIANTS)
+
+# Record looping minimap demo GIFs (scripted Konami-code input) for every
+# variant + the stream overlay. See Scripts/capture-demo-gifs.sh.
+demo-gifs:
+	./Scripts/capture-demo-gifs.sh $(CAPTURE_VARIANTS)
+
+# Refresh the gumroad gallery and copy screenshots/GIFs into the marketing
+# site repo (kevintang.xyz). Commit + push that repo to publish.
+sync-website:
+	./Scripts/sync-website-assets.sh
+
+# Full marketing refresh: recapture everything, then sync all consumers.
+marketing-assets: screenshots demo-gifs sync-website

@@ -22,6 +22,10 @@ A native macOS app that remaps game controllers to keyboard shortcuts, mouse inp
   <img src="screenshots/steam-controller/01-buttons.png" width="49%" alt="Steam Controller with dual touchpads — no Steam required"/>
   <img src="screenshots/dualsense/14-stats.png" width="49%" alt="Usage stats and Controller Wrapped"/>
 </p>
+<p>
+  <img src="screenshots/gifs/xbox.gif" width="49%" alt="Live controller minimap reacting to Xbox input — buttons, sticks, and triggers in real time"/>
+  <img src="screenshots/gifs/dualsense.gif" width="49%" alt="Live DualSense minimap with touchpad tracking and trigger pull display"/>
+</p>
 
 ### Use Cases
 
