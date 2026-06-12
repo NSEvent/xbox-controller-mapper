@@ -18,6 +18,30 @@ final class AutomationMacroStoreTests: XCTestCase {
 		XCTAssertEqual(reloaded.macro(id: macro.id)?.program.steps, [.openURL(OpenURLStep(url: "https://kevin.md"))])
 	}
 
+	func testReloadFromDiskPicksUpExternalWrites() throws {
+		let url = temporaryFileURL()
+		let writer = AutomationMacroStore(fileURL: url, notificationCenter: NotificationCenter(), distributedNotificationCenter: nil)
+		let readerCenter = NotificationCenter()
+		let reader = AutomationMacroStore(fileURL: url, notificationCenter: readerCenter, distributedNotificationCenter: nil)
+		XCTAssertTrue(reader.all().isEmpty)
+
+		let macro = writer.create(name: "External", program: AutomationProgram(name: "External", steps: [
+			.delay(DelayStep(seconds: 1))
+		]))
+		writer.flush()
+
+		var notified = false
+		let observer = readerCenter.addObserver(forName: .triggerKitMacrosChanged, object: nil, queue: nil) { _ in
+			notified = true
+		}
+		defer { readerCenter.removeObserver(observer) }
+
+		reader.reloadFromDisk()
+
+		XCTAssertEqual(reader.macro(id: macro.id)?.name, "External")
+		XCTAssertTrue(notified, "Reload should post a local change notification")
+	}
+
 	func testDuplicateCreatesNewIDAndCopyName() {
 		let store = AutomationMacroStore(fileURL: temporaryFileURL(), notificationCenter: NotificationCenter(), distributedNotificationCenter: nil)
 		let original = store.create(

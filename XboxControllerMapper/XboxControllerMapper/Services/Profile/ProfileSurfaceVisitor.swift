@@ -1,4 +1,5 @@
 import Foundation
+import TriggerKitCore
 
 /// Visitor over the code-execution surface of a `Profile`. Used by
 /// `ProfileImportSafetyAuditor` (and future visitors that need to inspect
@@ -20,6 +21,16 @@ protocol ProfileSurfaceVisitor {
     mutating func visit(macroStep: MacroStep, context: String)
     mutating func visit(script: Script)
     mutating func visit(quickText: QuickText)
+    /// Every `ExecutableAction` binding site (button mappings and their
+    /// long-hold/double-tap variants, chords, sequences, gestures, command
+    /// wheel, touchpad regions). Lets visitors that care about *references*
+    /// (e.g. collecting shared-library macro IDs) see every binding without
+    /// each surface growing its own ad-hoc walk.
+    mutating func visit(action: any ExecutableAction, context: String)
+    /// Steps inside shared-library macro snapshots (`sharedMacroSnapshots`).
+    /// Snapshot programs execute exactly like profile macros, so they are an
+    /// executable surface the import auditor must see.
+    mutating func visit(automationStep: AutomationStep, context: String)
 }
 
 // MARK: - Profile
@@ -38,31 +49,35 @@ extension Profile {
         }
 
         for chord in chordMappings {
+            let context = "Chord \(chord.buttonsDisplayString)"
+            visitor.visit(action: chord, context: context)
             if let command = chord.systemCommand {
-                visitor.visit(systemCommand: command,
-                              context: "Chord \(chord.buttonsDisplayString)")
+                visitor.visit(systemCommand: command, context: context)
             }
         }
 
         for sequence in sequenceMappings {
+            let context = "Sequence \(sequence.stepsDisplayString)"
+            visitor.visit(action: sequence, context: context)
             if let command = sequence.systemCommand {
-                visitor.visit(systemCommand: command,
-                              context: "Sequence \(sequence.stepsDisplayString)")
+                visitor.visit(systemCommand: command, context: context)
             }
         }
 
         for gesture in gestureMappings {
+            let context = "Gesture: \(gesture.gestureType.displayName)"
+            visitor.visit(action: gesture, context: context)
             if let command = gesture.systemCommand {
-                visitor.visit(systemCommand: command,
-                              context: "Gesture: \(gesture.gestureType.displayName)")
+                visitor.visit(systemCommand: command, context: context)
             }
         }
 
         for action in commandWheelActions {
             let label = action.displayName.isEmpty ? "(unnamed)" : action.displayName
+            let context = "Command Wheel: \(label)"
+            visitor.visit(action: action, context: context)
             if let command = action.systemCommand {
-                visitor.visit(systemCommand: command,
-                              context: "Command Wheel: \(label)")
+                visitor.visit(systemCommand: command, context: context)
             }
         }
 
@@ -110,6 +125,17 @@ extension Profile {
         for quickText in onScreenKeyboardSettings.quickTexts {
             visitor.visit(quickText: quickText)
         }
+
+        // Shared-library macro snapshots. These programs run exactly like
+        // profile macros when the referenced library macro is missing, so
+        // every step is part of the executable surface.
+        for (macroId, program) in sharedMacroSnapshots {
+            let programName = program.name.isEmpty ? macroId.uuidString : program.name
+            for (idx, step) in program.steps.enumerated() {
+                visitor.visit(automationStep: step,
+                              context: "Shared macro snapshot '\(programName)' step \(idx + 1)")
+            }
+        }
     }
 }
 
@@ -121,14 +147,21 @@ extension KeyMapping {
     /// variants. Both base profile mappings and Layer mappings call this, so
     /// the variants can never silently fall out of audit coverage.
     func accept<V: ProfileSurfaceVisitor>(_ visitor: inout V, context: String) {
+        visitor.visit(action: self, context: context)
         if let command = systemCommand {
             visitor.visit(systemCommand: command, context: context)
         }
-        if let longHold = longHoldMapping?.systemCommand {
-            visitor.visit(systemCommand: longHold, context: "\(context) (long hold)")
+        if let longHold = longHoldMapping {
+            visitor.visit(action: longHold, context: "\(context) (long hold)")
+            if let command = longHold.systemCommand {
+                visitor.visit(systemCommand: command, context: "\(context) (long hold)")
+            }
         }
-        if let doubleTap = doubleTapMapping?.systemCommand {
-            visitor.visit(systemCommand: doubleTap, context: "\(context) (double tap)")
+        if let doubleTap = doubleTapMapping {
+            visitor.visit(action: doubleTap, context: "\(context) (double tap)")
+            if let command = doubleTap.systemCommand {
+                visitor.visit(systemCommand: command, context: "\(context) (double tap)")
+            }
         }
     }
 }

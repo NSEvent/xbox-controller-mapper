@@ -178,12 +178,14 @@ struct GestureMappingSheet: View {
 
     @ViewBuilder
     private var macroContent: some View {
-        if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
+        if let profile = profileManager.activeProfile,
+           !profile.macros.isEmpty || !profileManager.sharedLibraryMacros.isEmpty {
             Picker("Select Macro", selection: $editorState.selectedMacroId) {
                 Text("Select a Macro...").tag(nil as UUID?)
-                ForEach(profile.macros) { macro in
-                    Text(macro.name).tag(macro.id as UUID?)
-                }
+                MacroPickerSections(
+                    profileMacros: profile.macros,
+                    sharedMacros: profileManager.sharedLibraryMacros
+                )
             }
             .labelsHidden()
             .frame(maxWidth: .infinity)

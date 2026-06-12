@@ -119,12 +119,12 @@ struct GestureRow: View {
                 .tooltipIfPresent(mapping.hint != nil ? systemCommand.displayName : nil)
         } else if let macroId = mapping.macroId,
                   let profile = profileManager.activeProfile,
-                  let macro = profile.macros.first(where: { $0.id == macroId }) {
-            Text(mapping.hint ?? macro.name)
+                  let macroName = profile.macroDisplayName(for: macroId) {
+            Text(mapping.hint ?? macroName)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.purple.opacity(0.9))
                 .lineLimit(1)
-                .tooltipIfPresent(mapping.hint != nil ? macro.name : nil)
+                .tooltipIfPresent(mapping.hint != nil ? macroName : nil)
         } else if let scriptId = mapping.scriptId,
                   let profile = profileManager.activeProfile,
                   let script = profile.scripts.first(where: { $0.id == scriptId }) {

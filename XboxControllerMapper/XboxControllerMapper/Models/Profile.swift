@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import TriggerKitCore
 
 // MARK: - Profile Icons
 
@@ -354,6 +355,14 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Command wheel actions (standalone wheel, independent of on-screen keyboard)
     var commandWheelActions: [CommandWheelAction]
 
+    /// Snapshots of shared TriggerKit library macros referenced by this
+    /// profile's mappings, keyed by library macro ID. A mapping's `macroId`
+    /// that isn't found in `macros` resolves against the shared library; the
+    /// snapshot keeps the binding runnable (and the profile portable) when
+    /// the library macro is deleted or the profile is opened on another
+    /// machine. Maintained by `SharedMacroSnapshotPolicy` on save.
+    var sharedMacroSnapshots: [UUID: AutomationProgram]
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -377,7 +386,8 @@ struct Profile: Codable, Identifiable, Equatable {
         touchpadRegionMappings: [TouchpadRegionMapping] = [],
         touchpadRegionTriggerModes: [ControllerButton: TouchpadTriggerMode] = [:],
         touchpadInputMode: TouchpadInputMode = .wholePad,
-        commandWheelActions: [CommandWheelAction] = []
+        commandWheelActions: [CommandWheelAction] = [],
+        sharedMacroSnapshots: [UUID: AutomationProgram] = [:]
     ) {
         self.id = id
         self.name = name
@@ -404,6 +414,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.touchpadRegionTriggerModes = touchpadRegionTriggerModes
         self.touchpadInputMode = touchpadInputMode
         self.commandWheelActions = commandWheelActions
+        self.sharedMacroSnapshots = sharedMacroSnapshots
     }
 
     /// Validates the profile for sanity
@@ -605,6 +616,7 @@ extension Profile {
         case onScreenKeyboardSettings, gestureMappings, layers, touchpadRegionMappings, commandWheelActions
         case touchpadRegionTriggerModes
         case touchpadInputMode
+        case sharedMacroSnapshots
     }
 
     init(from decoder: Decoder) throws {
@@ -672,6 +684,14 @@ extension Profile {
             touchpadInputMode = (hasQuadrantData || hasLegacyV1Data) ? .quadrants : .wholePad
         }
         commandWheelActions = try container.decode(.commandWheelActions, default: [])
+
+        // Stored string-keyed so the JSON stays an object (UUID-keyed Swift
+        // dictionaries encode as flat arrays).
+        let stringKeyedSnapshots = try container.decode(.sharedMacroSnapshots, default: [String: AutomationProgram]())
+        sharedMacroSnapshots = Dictionary(uniqueKeysWithValues: stringKeyedSnapshots.compactMap { key, value in
+            guard let id = UUID(uuidString: key) else { return nil }
+            return (id, value)
+        })
 
         migrateLegacyStickKeyModes()
     }
@@ -742,6 +762,10 @@ extension Profile {
         // an empty object would just emit dead JSON. Skip the field entirely.
         try container.encode(touchpadInputMode, forKey: .touchpadInputMode)
         try container.encode(commandWheelActions, forKey: .commandWheelActions)
+        if !sharedMacroSnapshots.isEmpty {
+            let stringKeyedSnapshots = Dictionary(uniqueKeysWithValues: sharedMacroSnapshots.map { ($0.key.uuidString, $0.value) })
+            try container.encode(stringKeyedSnapshots, forKey: .sharedMacroSnapshots)
+        }
     }
 }
 
@@ -807,6 +831,16 @@ extension Profile {
         dpadPreset = DPadPreset.resolved(from: buttonMappings)
     }
 
+    /// Display name for a macro reference: profile macros first, then the
+    /// embedded shared-library snapshot. Snapshots re-sync on every profile
+    /// save, so the name tracks the live library macro closely.
+    func macroDisplayName(for macroId: UUID) -> String? {
+        if let profileMacro = macros.first(where: { $0.id == macroId }) {
+            return profileMacro.name
+        }
+        return sharedMacroSnapshots[macroId]?.name
+    }
+
     static func == (lhs: Profile, rhs: Profile) -> Bool {
         lhs.id == rhs.id &&
         lhs.name == rhs.name &&
@@ -828,6 +862,7 @@ extension Profile {
         lhs.gestureMappings == rhs.gestureMappings &&
         lhs.layers == rhs.layers &&
         lhs.touchpadInputMode == rhs.touchpadInputMode &&
-        lhs.commandWheelActions == rhs.commandWheelActions
+        lhs.commandWheelActions == rhs.commandWheelActions &&
+        lhs.sharedMacroSnapshots == rhs.sharedMacroSnapshots
     }
 }

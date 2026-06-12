@@ -187,6 +187,15 @@ AutomationProgram (TriggerKit schema)
 - **OBS WebSocket steps** travel as TriggerKit `custom` steps (namespace `controllerkeys.obs-websocket`) and are dispatched to `SystemCommandExecutor` via the executor's `stepOverride` hook.
 - **Execution policy** preserves pre-TriggerKit semantics: `.concurrent` (macros never block each other), `continuesOnStepFailure: true` (a failing step logs and continues), `validatesAccessibility: false` (CK manages its own permission UX).
 
+### Shared macro library
+
+ControllerKeys also consumes TriggerKit's per-user macro library (`~/Library/Application Support/TriggerKit/macros.json`, shared with TriggerKit.app, Tardy, and Plaque):
+
+- **One UUID namespace.** A binding's `macroId` resolves profile macros first; an ID not in `profile.macros` is a shared-library reference (see `ActionCommandFactory`, priority 2). Every binding surface — buttons, chords, sequences, gestures, command wheel, layers — can reference shared macros with no model change.
+- **Snapshot fallback (TriggerKit consumer contract).** `Profile.sharedMacroSnapshots` embeds a copy of each referenced library macro, synced on every `ProfileManager.updateProfile`. Deleted library macro → bindings run the snapshot. Live macro emptied → bindings intentionally do nothing. Snapshots also make exported/community profiles portable.
+- **Reference collection** reuses `ProfileSurfaceVisitor` (`SharedMacroSnapshotPolicy`), so new binding surfaces are covered automatically — and `ProfileImportSafetyAuditor` walks snapshot programs, so a community profile can't hide shell payloads inside a snapshot.
+- **UI:** macro pickers show a "Shared Library" section (`MacroPickerSections`); the Macros tab manages the library through TriggerKitUI's `AutomationMacroLibraryView`. `ProfileManager.sharedLibraryMacros` refreshes via `.triggerKitMacrosChanged` (including distributed notifications from other apps, which trigger `AutomationMacroStore.reloadFromDisk()`).
+
 ### Vendored package
 
 `TriggerKit/` at the repo root is a **vendored copy**; the canonical source lives at `~/projects/triggerkit` (local-only, no public remote). Develop TriggerKit changes there (`swift test`), then run `Scripts/sync-triggerkit.sh` and commit the result here. The Xcode project references it as a local Swift package (`TriggerKitCore` + `TriggerKitRuntime` linked into the app and unit-test targets).

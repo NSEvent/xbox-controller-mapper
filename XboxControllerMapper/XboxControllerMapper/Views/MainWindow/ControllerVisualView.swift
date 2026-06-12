@@ -1365,8 +1365,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
         if let macroId = mapping.macroId,
            let profile = profileManager.activeProfile,
-           let macro = profile.macros.first(where: { $0.id == macroId }) {
-            return macro.name
+           let macroName = profile.macroDisplayName(for: macroId) {
+            return macroName
         }
 
         if !mapping.isEmpty {

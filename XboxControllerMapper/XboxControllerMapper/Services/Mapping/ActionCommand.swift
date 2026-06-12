@@ -1,5 +1,7 @@
 import Foundation
 import CoreGraphics
+import TriggerKitCore
+import TriggerKitLibrary
 
 // MARK: - ActionCommand Protocol
 
@@ -43,6 +45,25 @@ struct MacroActionCommand: ActionCommand {
         }
         if let hint = hint, !hint.isEmpty { return hint }
         if let macro = macro { return macro.name }
+        return "Macro"
+    }
+}
+
+/// Executes a shared TriggerKit library macro (or its profile-embedded
+/// snapshot when the library macro was deleted). `program` is nil when the
+/// reference is unresolvable — the command then no-ops but still reports
+/// feedback, matching MacroActionCommand's missing-macro behavior.
+struct SharedMacroActionCommand: ActionCommand {
+    let program: AutomationProgram?
+    let macroExecutor: MacroExecutor
+    let hint: String?
+
+    func execute() -> String {
+        if let program {
+            macroExecutor.execute(program: program)
+        }
+        if let hint = hint, !hint.isEmpty { return hint }
+        if let program = program, !program.name.isEmpty { return program.name }
         return "Macro"
     }
 }
@@ -136,6 +157,7 @@ struct ActionCommandFactory {
     let macroExecutor: MacroExecutor
     let systemCommandExecutor: SystemCommandExecutor
     let scriptEngine: ScriptEngine?
+    let sharedMacroStore: AutomationMacroStore
 
     func makeCommand(
         for action: any ExecutableAction,
@@ -152,11 +174,23 @@ struct ActionCommandFactory {
             )
         }
 
-        // Priority 2: Macro
+        // Priority 2: Macro. Profile macros win; an ID not in the profile is
+        // a shared TriggerKit library reference (live macro first, then the
+        // profile's stored snapshot if the library macro was deleted).
         if let macroId = action.macroId {
-            let macro = profile?.macros.first(where: { $0.id == macroId })
-            return MacroActionCommand(
-                macro: macro,
+            if let macro = profile?.macros.first(where: { $0.id == macroId }) {
+                return MacroActionCommand(
+                    macro: macro,
+                    macroExecutor: macroExecutor,
+                    hint: action.hint
+                )
+            }
+            let reference = AutomationMacroReference(
+                macroID: macroId,
+                snapshot: profile?.sharedMacroSnapshots[macroId]
+            )
+            return SharedMacroActionCommand(
+                program: sharedMacroStore.resolve(reference, fallbackName: "Macro"),
                 macroExecutor: macroExecutor,
                 hint: action.hint
             )

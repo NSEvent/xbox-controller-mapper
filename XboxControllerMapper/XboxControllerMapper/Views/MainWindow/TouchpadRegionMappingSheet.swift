@@ -145,12 +145,14 @@ struct TouchpadRegionMappingSheet: View {
 
     @ViewBuilder
     private func macroPicker(slot: Binding<ActionSlot>) -> some View {
-        if let profile = profileManager.activeProfile, !profile.macros.isEmpty {
+        if let profile = profileManager.activeProfile,
+           !profile.macros.isEmpty || !profileManager.sharedLibraryMacros.isEmpty {
             Picker("Macro", selection: slot.macroId) {
                 Text("Select a macro...").tag(nil as UUID?)
-                ForEach(profile.macros) { macro in
-                    Text(macro.name).tag(macro.id as UUID?)
-                }
+                MacroPickerSections(
+                    profileMacros: profile.macros,
+                    sharedMacros: profileManager.sharedLibraryMacros
+                )
             }
             .labelsHidden()
         } else {

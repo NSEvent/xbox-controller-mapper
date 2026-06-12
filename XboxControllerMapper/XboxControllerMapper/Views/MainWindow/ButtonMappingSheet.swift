@@ -308,8 +308,8 @@ struct ButtonMappingSheet: View {
 
                         if let macroId = currentMapping.macroId,
                            let profile = profileManager.activeProfile,
-                           let macro = profile.macros.first(where: { $0.id == macroId }) {
-                            Text("Macro: \(macro.name)")
+                           let macroName = profile.macroDisplayName(for: macroId) {
+                            Text("Macro: \(macroName)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         } else if let scriptId = currentMapping.scriptId,

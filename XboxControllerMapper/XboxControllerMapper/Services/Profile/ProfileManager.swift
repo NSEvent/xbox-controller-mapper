@@ -1,6 +1,8 @@
 import Foundation
 import Combine
 import SwiftUI
+import TriggerKitCore
+import TriggerKitLibrary
 
 /// Errors that can occur when importing profiles from the community repository
 enum CommunityProfileError: LocalizedError {
@@ -62,10 +64,20 @@ class ProfileManager: ObservableObject {
     /// directory on every render, which costs file I/O per redraw).
     @Published private(set) var snapshotsRevision: Int = 0
 
+    /// Macros in the shared TriggerKit library (TriggerKit.app, Plaque, and
+    /// Tardy share the same store). Refreshed on store change notifications,
+    /// including distributed ones from other apps' processes.
+    @Published private(set) var sharedLibraryMacros: [TriggerKitCore.AutomationMacro] = []
+
     var onScreenKeyboardSettings: OnScreenKeyboardSettings {
 	guard let activeProfile else { return OnScreenKeyboardSettings() }
 	return resolvedOnScreenKeyboardSettings(for: activeProfile)
     }
+
+    /// Shared TriggerKit macro library. Bindings whose `macroId` isn't a
+    /// profile macro resolve against this store (with the profile's
+    /// `sharedMacroSnapshots` as the deletion fallback).
+    let sharedMacroStore: AutomationMacroStore
 
     private let fileManager = FileManager.default
     private let configurationSaveService: ProfileConfigurationSaveService
@@ -83,7 +95,12 @@ class ProfileManager: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
 
-    init(appMonitor: AppMonitor? = nil, configDirectoryOverride: URL? = nil) {
+    init(
+        appMonitor: AppMonitor? = nil,
+        configDirectoryOverride: URL? = nil,
+        sharedMacroStore: AutomationMacroStore = .shared
+    ) {
+        self.sharedMacroStore = sharedMacroStore
         let configPaths = ProfileConfigPathResolver.resolve(
             fileManager: fileManager,
             configDirectoryOverride: configDirectoryOverride
@@ -100,6 +117,7 @@ class ProfileManager: ObservableObject {
         loadConfiguration()
         loadCachedFavicons()
         ensureActiveProfileSelection()
+        setupSharedMacroLibraryObservation()
         
         // Initialize state for app switching
         self.previousBundleId = Bundle.main.bundleIdentifier
@@ -110,6 +128,33 @@ class ProfileManager: ObservableObject {
         }
     }
     
+    private func setupSharedMacroLibraryObservation() {
+        sharedLibraryMacros = sharedMacroStore.all()
+
+        let refresh: (Notification) -> Void = { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.sharedLibraryMacros = self.sharedMacroStore.all()
+            }
+        }
+        NotificationCenter.default
+            .publisher(for: .triggerKitMacrosChanged)
+            .sink(receiveValue: refresh)
+            .store(in: &cancellables)
+        // Edits made in TriggerKit.app / Plaque / Tardy arrive via the
+        // distributed center; the store reloads lazily, so re-read from disk.
+        DistributedNotificationCenter.default()
+            .publisher(for: .triggerKitMacrosChanged)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.sharedMacroStore.reloadFromDisk()
+                    self.sharedLibraryMacros = self.sharedMacroStore.all()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
     private func setupAutoSwitching(with appMonitor: AppMonitor) {
         appMonitor.$frontmostBundleId
             .removeDuplicates()
@@ -269,6 +314,10 @@ class ProfileManager: ObservableObject {
     func updateProfile(_ profile: Profile) {
         var updatedProfile = profile
         updatedProfile.modifiedAt = Date()
+        updatedProfile.sharedMacroSnapshots = SharedMacroSnapshotPolicy.syncedSnapshots(
+            for: updatedProfile,
+            store: sharedMacroStore
+        )
 
         if let index = profiles.firstIndex(where: { $0.id == profile.id }) {
             profiles[index] = updatedProfile

@@ -155,7 +155,29 @@ public final class AutomationMacroStore {
 		persist(snapshot)
 	}
 
+	/// Re-reads the backing file, replacing in-memory state. Call when
+	/// another process signals a change via `.triggerKitMacrosChanged` on the
+	/// distributed notification center. Skipped while a local write is
+	/// pending — the local state is about to land on disk and will post its
+	/// own change notification.
+	public func reloadFromDisk() {
+		let reloaded: Bool = queue.sync {
+			guard pendingWrite == nil else { return false }
+			loadFromDiskLocked()
+			return true
+		}
+		if reloaded {
+			notificationCenter.post(name: .triggerKitMacrosChanged, object: self)
+		}
+	}
+
 	private func loadFromDisk() {
+		loadFromDiskLocked()
+	}
+
+	/// Replaces `macros` from the backing file. Callers must either own
+	/// `queue` or be in single-threaded setup (init).
+	private func loadFromDiskLocked() {
 		guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
 		do {
 			let data = try Data(contentsOf: fileURL)

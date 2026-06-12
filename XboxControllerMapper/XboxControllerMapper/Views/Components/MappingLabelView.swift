@@ -161,11 +161,11 @@ struct MappingLabelView: View {
 
         } else if let macroId = mapping.macroId,
            let profile = profileManager.activeProfile,
-           let macro = profile.macros.first(where: { $0.id == macroId }) {
+           let macroName = profile.macroDisplayName(for: macroId) {
 
             // Check hint first, then fall back to macro name
-            let displayText = (mapping.hint?.isEmpty == false) ? mapping.hint! : macro.name
-            labelRow(text: displayText, icon: "▶", color: .purple, tooltip: (mapping.hint?.isEmpty == false) ? macro.name : nil)
+            let displayText = (mapping.hint?.isEmpty == false) ? mapping.hint! : macroName
+            labelRow(text: displayText, icon: "▶", color: .purple, tooltip: (mapping.hint?.isEmpty == false) ? macroName : nil)
 
         } else if !mapping.isEmpty {
             // Show purple ▼ badge for hold-type mappings
@@ -190,8 +190,8 @@ struct MappingLabelView: View {
                 labelRow(text: hint, icon: "⏱", color: .orange, tooltip: longHold.displayString)
             } else if let macroId = longHold.macroId,
                       let profile = profileManager.activeProfile,
-                      let macro = profile.macros.first(where: { $0.id == macroId }) {
-                labelRow(text: macro.name, icon: "⏱", color: .orange, tooltip: nil)
+                      let macroName = profile.macroDisplayName(for: macroId) {
+                labelRow(text: macroName, icon: "⏱", color: .orange, tooltip: nil)
             } else {
                 labelRow(text: longHold.displayString, icon: "⏱", color: .orange, tooltip: nil)
             }
@@ -202,8 +202,8 @@ struct MappingLabelView: View {
                 labelRow(text: hint, icon: "2×", color: .cyan, tooltip: doubleTap.displayString)
             } else if let macroId = doubleTap.macroId,
                       let profile = profileManager.activeProfile,
-                      let macro = profile.macros.first(where: { $0.id == macroId }) {
-                labelRow(text: macro.name, icon: "2×", color: .cyan, tooltip: nil)
+                      let macroName = profile.macroDisplayName(for: macroId) {
+                labelRow(text: macroName, icon: "2×", color: .cyan, tooltip: nil)
             } else {
                 labelRow(text: doubleTap.displayString, icon: "2×", color: .cyan, tooltip: nil)
             }

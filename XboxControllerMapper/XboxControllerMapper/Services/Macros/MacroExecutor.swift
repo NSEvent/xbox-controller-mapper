@@ -49,7 +49,12 @@ class MacroExecutor: @unchecked Sendable {
 	}
 
 	func execute(_ macro: Macro) {
-		let program = MacroAutomationBridge.automationProgram(for: macro)
+		execute(program: MacroAutomationBridge.automationProgram(for: macro))
+	}
+
+	/// Runs a TriggerKit program directly — the execution path for shared
+	/// library macros (and their snapshots), which are already programs.
+	func execute(program: AutomationProgram) {
 		Task(priority: .userInitiated) { [automationExecutor, executionContext] in
 			let result = await automationExecutor.execute(program, context: executionContext)
 			if !result.isSuccess {

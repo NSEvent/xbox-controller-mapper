@@ -1,4 +1,5 @@
 import Foundation
+import TriggerKitCore
 
 /// Itemized audit of the code-execution surface a `Profile` brings into the
 /// app at import time. Surfaced to the user via `ProfileImportSafetySheet`
@@ -133,6 +134,38 @@ enum ProfileImportSafetyAuditor {
                 command: quickText.text,
                 inTerminal: true
             ))
+        }
+
+        mutating func visit(action: any ExecutableAction, context: String) {
+            // Bindings are references, not executable payloads; the payloads
+            // they point at (system commands, macro steps, snapshot steps)
+            // are audited at their own visit sites.
+        }
+
+        mutating func visit(automationStep: AutomationStep, context: String) {
+            switch automationStep {
+            case let .shellCommand(shell):
+                guard !shell.command.isEmpty else { return }
+                commands.append(.init(
+                    context: context,
+                    command: shell.command,
+                    inTerminal: shell.runsInTerminal
+                ))
+
+            // Explicit cases (no `default`): adding a new AutomationStep kind
+            // must surface here as a compile error so the auditor doesn't
+            // silently drop a new execution surface arriving via shared-macro
+            // snapshots. Today these have no shell-execution surface:
+            // input/delay steps post events or sleep, .openApp launches an
+            // installed app, .openURL opens a URL behind the macro executor's
+            // http(s) allowlist, .webhook fires a request with no shell
+            // follow-up, and .custom only dispatches to handlers the host app
+            // itself registers (OBS WebSocket in ControllerKeys).
+            case .keyPress, .keyDown, .keyUp, .mouseClick, .mouseDown, .mouseUp,
+                 .mouseMove, .mouseScroll, .delay, .typeText, .openApp, .openURL,
+                 .webhook, .custom:
+                break
+            }
         }
     }
 }

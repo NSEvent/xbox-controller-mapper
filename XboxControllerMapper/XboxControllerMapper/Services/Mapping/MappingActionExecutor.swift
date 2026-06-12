@@ -1,5 +1,7 @@
 import Foundation
 import CoreGraphics
+import TriggerKitCore
+import TriggerKitLibrary
 
 // MARK: - Mapping Executor
 
@@ -12,6 +14,7 @@ struct MappingExecutor {
     private let usageStatsService: UsageStatsService?
     let systemCommandExecutor: SystemCommandExecutor
     let macroExecutor: MacroExecutor
+    private let sharedMacroStore: AutomationMacroStore
     private let commandFactory: ActionCommandFactory
 
     init(
@@ -29,12 +32,14 @@ struct MappingExecutor {
             inputSimulator: inputSimulator,
             systemCommandExecutor: self.systemCommandExecutor
         )
+        self.sharedMacroStore = profileManager.sharedMacroStore
         self.commandFactory = ActionCommandFactory(
             inputSimulator: inputSimulator,
             inputQueue: inputQueue,
             macroExecutor: self.macroExecutor,
             systemCommandExecutor: self.systemCommandExecutor,
-            scriptEngine: scriptEngine
+            scriptEngine: scriptEngine,
+            sharedMacroStore: self.sharedMacroStore
         )
     }
 
@@ -119,6 +124,9 @@ struct MappingExecutor {
         if let macroId = action.macroId {
             if let profile, let macro = profile.macros.first(where: { $0.id == macroId }) {
                 service.recordMacro(stepCount: macro.steps.count)
+            } else if let program = sharedMacroStore.macro(id: macroId)?.program
+                        ?? profile?.sharedMacroSnapshots[macroId] {
+                service.recordMacro(stepCount: program.steps.count)
             } else {
                 service.recordMacro(stepCount: 1)
             }

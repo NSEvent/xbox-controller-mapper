@@ -13,6 +13,9 @@
 		B7C4A1E09D2F4B68A3517E06 /* TriggerKitRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E04 /* TriggerKitRuntime */; };
 		B7C4A1E09D2F4B68A3517E09 /* TriggerKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E07 /* TriggerKitCore */; };
 		B7C4A1E09D2F4B68A3517E0A /* TriggerKitRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E08 /* TriggerKitRuntime */; };
+		B7C4A1E09D2F4B68A3517E0C /* TriggerKitLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E0B /* TriggerKitLibrary */; };
+		B7C4A1E09D2F4B68A3517E0E /* TriggerKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E0D /* TriggerKitUI */; };
+		B7C4A1E09D2F4B68A3517E10 /* TriggerKitLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E0F /* TriggerKitLibrary */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +83,8 @@
 				0AB89BB62F01B26300C32D31 /* Carbon.framework in Frameworks */,
 				B7C4A1E09D2F4B68A3517E05 /* TriggerKitCore in Frameworks */,
 				B7C4A1E09D2F4B68A3517E06 /* TriggerKitRuntime in Frameworks */,
+				B7C4A1E09D2F4B68A3517E0C /* TriggerKitLibrary in Frameworks */,
+				B7C4A1E09D2F4B68A3517E0E /* TriggerKitUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -89,6 +94,7 @@
 			files = (
 				B7C4A1E09D2F4B68A3517E09 /* TriggerKitCore in Frameworks */,
 				B7C4A1E09D2F4B68A3517E0A /* TriggerKitRuntime in Frameworks */,
+				B7C4A1E09D2F4B68A3517E10 /* TriggerKitLibrary in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -154,6 +160,8 @@
 			packageProductDependencies = (
 				B7C4A1E09D2F4B68A3517E03 /* TriggerKitCore */,
 				B7C4A1E09D2F4B68A3517E04 /* TriggerKitRuntime */,
+				B7C4A1E09D2F4B68A3517E0B /* TriggerKitLibrary */,
+				B7C4A1E09D2F4B68A3517E0D /* TriggerKitUI */,
 			);
 			productName = XboxControllerMapper;
 			productReference = 0AB89B5E2F01B1D200C32D31 /* ControllerKeys.app */;
@@ -179,6 +187,7 @@
 			packageProductDependencies = (
 				B7C4A1E09D2F4B68A3517E07 /* TriggerKitCore */,
 				B7C4A1E09D2F4B68A3517E08 /* TriggerKitRuntime */,
+				B7C4A1E09D2F4B68A3517E0F /* TriggerKitLibrary */,
 			);
 			productName = XboxControllerMapperTests;
 			productReference = 0AB89B6B2F01B1D400C32D31 /* XboxControllerMapperTests.xctest */;
@@ -342,6 +351,18 @@
 		B7C4A1E09D2F4B68A3517E08 /* TriggerKitRuntime */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TriggerKitRuntime;
+		};
+		B7C4A1E09D2F4B68A3517E0B /* TriggerKitLibrary */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TriggerKitLibrary;
+		};
+		B7C4A1E09D2F4B68A3517E0D /* TriggerKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TriggerKitUI;
+		};
+		B7C4A1E09D2F4B68A3517E0F /* TriggerKitLibrary */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TriggerKitLibrary;
 		};
 /* End XCSwiftPackageProductDependency section */
 

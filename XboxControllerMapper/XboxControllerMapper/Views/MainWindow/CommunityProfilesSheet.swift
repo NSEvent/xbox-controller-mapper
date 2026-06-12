@@ -843,10 +843,10 @@ struct PreviewMappingRow: View {
                         color: .green
                     )
                 } else if let macroId = mapping.macroId,
-                          let macro = profile.macros.first(where: { $0.id == macroId }) {
+                          let macroName = profile.macroDisplayName(for: macroId) {
                     PreviewMappingLabel(
-                        text: mapping.hint ?? macro.name,
-                        shortcut: mapping.hint != nil ? "Macro: \(macro.name)" : nil,
+                        text: mapping.hint ?? macroName,
+                        shortcut: mapping.hint != nil ? "Macro: \(macroName)" : nil,
                         icon: "▶",
                         color: .purple
                     )
@@ -952,10 +952,10 @@ struct PreviewChordRow: View {
                     color: .green.opacity(0.9)
                 )
             } else if let macroId = chord.macroId,
-                      let macro = profile.macros.first(where: { $0.id == macroId }) {
+                      let macroName = profile.macroDisplayName(for: macroId) {
                 chordActionLabel(
-                    text: chord.hint ?? macro.name,
-                    shortcut: chord.hint != nil ? "Macro: \(macro.name)" : nil,
+                    text: chord.hint ?? macroName,
+                    shortcut: chord.hint != nil ? "Macro: \(macroName)" : nil,
                     color: .purple.opacity(0.9)
                 )
 			} else if let scriptId = chord.scriptId,

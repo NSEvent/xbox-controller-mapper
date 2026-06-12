@@ -44,13 +44,13 @@ struct ActiveSequencesView: View {
                                 .lineLimit(1)
                                 .tooltipIfPresent(sequence.hint != nil ? systemCommand.displayName : nil)
                         } else if let macroId = sequence.macroId,
-                           let macro = profile.macros.first(where: { $0.id == macroId }) {
-                            Text(sequence.hint ?? macro.name)
+                           let macroName = profile.macroDisplayName(for: macroId) {
+                            Text(sequence.hint ?? macroName)
                                 .font(.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(.purple)
                                 .lineLimit(1)
-                                .tooltipIfPresent(sequence.hint != nil ? macro.name : nil)
+                                .tooltipIfPresent(sequence.hint != nil ? macroName : nil)
                         } else {
                             Text(sequence.hint ?? sequence.actionDisplayString)
                                 .font(.caption)
