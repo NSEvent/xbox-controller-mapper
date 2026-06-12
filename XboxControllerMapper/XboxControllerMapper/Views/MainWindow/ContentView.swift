@@ -17,7 +17,6 @@ struct ContentView: View {
     @State private var editingSequence: SequenceMapping?
     @State private var showingSettingsSheet = false
     @State private var selectedTab = 0
-    @State private var lastScale: CGFloat = 1.0 // Track last scale for gesture
     @State private var isMagnifying = false // Track active magnification to prevent tap conflicts
     @State private var selectedLayerId: UUID? = nil // nil = base layer
     @State private var showingAddLayerSheet = false
@@ -211,7 +210,10 @@ struct ContentView: View {
                 .accessibilityHidden(true)
         )
         .background(
-            Button("Reset Zoom") { profileManager.setUiScale(1.0) }
+            Button("Reset Zoom") {
+                profileManager.setUiScale(1.0)
+                NotificationCenter.default.post(name: ButtonMappingsTab.resetCanvasNotification, object: nil)
+            }
                 .keyboardShortcut("0", modifiers: .command)
                 .hidden()
                 .accessibilityHidden(true)
@@ -240,24 +242,8 @@ struct ContentView: View {
                 .hidden()
                 .accessibilityHidden(true)
         )
-        .highPriorityGesture(
-            MagnificationGesture()
-                .onChanged { value in
-                    isMagnifying = true
-                    let delta = value / lastScale
-                    lastScale = value
-                    profileManager.uiScale = min(max(profileManager.uiScale * delta, 0.5), 2.0)
-                }
-                .onEnded { _ in
-                    lastScale = 1.0
-                    profileManager.setUiScale(profileManager.uiScale)
-                    // Delay resetting isMagnifying to prevent tap events that fire at gesture end
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(100))
-                        isMagnifying = false
-                    }
-                }
-        )
+        // Pinch zoom now lives on the Buttons-tab canvas itself
+        // (ButtonMappingsTab), anchored at the gesture location.
         .onAppear { installScrollKeyMonitor() }
         .onAppear { selectFirstVisibleTabIfNeeded() }
         .onChange(of: hiddenSectionTags) { _, _ in

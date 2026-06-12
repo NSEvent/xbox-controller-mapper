@@ -21,12 +21,62 @@ struct ButtonMappingsTab: View {
     var streamOverlayEnabled: Binding<Bool>
     @AppStorage(ButtonMappingsTabSection.hiddenDefaultsKey) private var hiddenSectionTags = ""
 
+    // Canvas pan/zoom. The pan offset is view state (resets on relaunch);
+    // the zoom factor is profileManager.uiScale (persisted in the config).
+    @State private var canvasPan: CGSize = .zero
+    @State private var panDragBase: CGSize?
+    @State private var pinchBase: (scale: CGFloat, pan: CGSize, anchor: CGPoint)?
+    @State private var canvasFrameGlobal: CGRect = .zero
+    @State private var scrollPanMonitor: Any?
+
+    /// Posted by the View > Reset Zoom menu command so the pan offset
+    /// clears along with the scale.
+    static let resetCanvasNotification = Notification.Name("ControllerKeysResetCanvas")
+
     private var hiddenSections: Set<ButtonMappingsTabSection> {
         ButtonMappingsTabSection.hiddenSections(from: hiddenSectionTags)
     }
 
     private func isSectionVisible(_ section: ButtonMappingsTabSection) -> Bool {
         !hiddenSections.contains(section)
+    }
+
+    // MARK: - Canvas pan/zoom helpers
+
+    /// Keep at least part of the canvas content in view.
+    private func clampedPan(_ pan: CGSize, in size: CGSize) -> CGSize {
+        let scale = max(profileManager.uiScale, 0.5)
+        let boundX = size.width * scale
+        let boundY = size.height * scale
+        return CGSize(
+            width: min(max(pan.width, -boundX), boundX),
+            height: min(max(pan.height, -boundY), boundY)
+        )
+    }
+
+    /// Two-finger scroll over the canvas pans it (direct manipulation:
+    /// content follows the fingers). Events outside the canvas pass through
+    /// untouched so other scrollable areas keep working.
+    private func installScrollPanMonitor() {
+        guard scrollPanMonitor == nil else { return }
+        scrollPanMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            guard let window = event.window,
+                  window.isKeyWindow,
+                  let contentView = window.contentView else { return event }
+
+            // AppKit window coords (bottom-left origin) -> SwiftUI global
+            // (top-left origin)
+            let location = event.locationInWindow
+            let pointer = CGPoint(x: location.x, y: contentView.frame.height - location.y)
+            guard canvasFrameGlobal.contains(pointer) else { return event }
+
+            canvasPan = clampedPan(
+                CGSize(width: canvasPan.width + event.scrollingDeltaX,
+                       height: canvasPan.height + event.scrollingDeltaY),
+                in: canvasFrameGlobal.size
+            )
+            return nil
+        }
     }
 
     var body: some View {
@@ -88,9 +138,71 @@ struct ButtonMappingsTab: View {
                         }
                     )
                     .scaleEffect(finalScale)
+                    .offset(canvasPan)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .allowsHitTesting(!isMagnifying)
                 }
+                .contentShape(Rectangle())
+                // Drag empty canvas (or card backgrounds) to pan. Child
+                // controls' own gestures still win for taps and button drags.
+                .gesture(
+                    DragGesture(minimumDistance: 4)
+                        .onChanged { value in
+                            if panDragBase == nil { panDragBase = canvasPan }
+                            let base = panDragBase ?? .zero
+                            canvasPan = clampedPan(
+                                CGSize(width: base.width + value.translation.width,
+                                       height: base.height + value.translation.height),
+                                in: geometry.size
+                            )
+                        }
+                        .onEnded { _ in panDragBase = nil }
+                )
+                // Pinch zooms toward the gesture location: the content point
+                // under the fingers stays fixed while the scale changes.
+                .simultaneousGesture(
+                    MagnifyGesture()
+                        .onChanged { value in
+                            isMagnifying = true
+                            if pinchBase == nil {
+                                pinchBase = (profileManager.uiScale, canvasPan, value.startLocation)
+                            }
+                            guard let base = pinchBase else { return }
+                            let newScale = min(max(base.scale * value.magnification, 0.5), 2.0)
+                            let k = newScale / base.scale
+                            let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                            let anchor = CGPoint(x: base.anchor.x - center.x, y: base.anchor.y - center.y)
+                            canvasPan = clampedPan(
+                                CGSize(width: anchor.x * (1 - k) + base.pan.width * k,
+                                       height: anchor.y * (1 - k) + base.pan.height * k),
+                                in: geometry.size
+                            )
+                            profileManager.uiScale = newScale
+                        }
+                        .onEnded { _ in
+                            pinchBase = nil
+                            profileManager.setUiScale(profileManager.uiScale)
+                            // Delay resetting isMagnifying to prevent tap events that fire at gesture end
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(100))
+                                isMagnifying = false
+                            }
+                        }
+                )
+                // Double-click empty canvas to re-center and reset zoom
+                .onTapGesture(count: 2) {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        canvasPan = .zero
+                    }
+                    profileManager.setUiScale(1.0)
+                }
+                .background(
+                    Color.clear
+                        .onAppear { canvasFrameGlobal = geometry.frame(in: .global) }
+                        .onChange(of: geometry.size) { _, _ in
+                            canvasFrameGlobal = geometry.frame(in: .global)
+                        }
+                )
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
@@ -108,6 +220,18 @@ struct ButtonMappingsTab: View {
                 removableSection(.activeSequences) {
                     ActiveSequencesView(editingSequence: $editingSequence)
                 }
+            }
+        }
+        .onAppear { installScrollPanMonitor() }
+        .onDisappear {
+            if let monitor = scrollPanMonitor {
+                NSEvent.removeMonitor(monitor)
+                scrollPanMonitor = nil
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Self.resetCanvasNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.2)) {
+                canvasPan = .zero
             }
         }
         .sheet(isPresented: $showingAddLayerSheet) {
