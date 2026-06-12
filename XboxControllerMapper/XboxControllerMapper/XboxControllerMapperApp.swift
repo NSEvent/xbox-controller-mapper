@@ -40,6 +40,44 @@ enum AppRuntime {
         }
         return CGFloat(value)
     }
+
+    /// Show the stream overlay panel in screenshot mode regardless of the
+    /// user's preference (`--screenshot-overlay`). Used by the capture
+    /// scripts so they don't have to toggle persistent prefs.
+    static var screenshotShowOverlay: Bool {
+        ProcessInfo.processInfo.arguments.contains("--screenshot-overlay")
+    }
+
+    /// Fixed window frames for screenshot mode, in top-left screen
+    /// coordinates. The capture scripts rely on these exact frames, and the
+    /// app placing its own windows avoids any dependence on the
+    /// Accessibility API (which can wedge under heavy automation).
+    static let screenshotMainWindowRect = CGRect(x: 100, y: 100, width: 1600, height: 1000)
+    static let screenshotOverlayOrigin = CGPoint(x: 115, y: 640)
+
+    /// Convert a top-left-origin screen rect to an AppKit (bottom-left
+    /// origin) frame on the main screen.
+    static func appKitFrame(topLeftRect rect: CGRect) -> CGRect {
+        guard let screen = NSScreen.screens.first else { return rect }
+        return CGRect(
+            x: screen.frame.minX + rect.minX,
+            y: screen.frame.maxY - rect.minY - rect.height,
+            width: rect.width,
+            height: rect.height
+        )
+    }
+
+    /// In screenshot mode, pin the main window to the fixed capture frame.
+    @MainActor
+    static func positionMainWindowForScreenshots() {
+        guard screenshotVariant != nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            guard let window = NSApp.windows.first(where: {
+                $0.frame.width > 400 && !($0 is NSPanel)
+            }) else { return }
+            window.setFrame(appKitFrame(topLeftRect: screenshotMainWindowRect), display: true)
+        }
+    }
 }
 
 /// Holds all app services as a shared singleton
@@ -107,11 +145,15 @@ final class ServiceContainer {
         setupOnScreenKeyboardObserver(profileManager: profileManager)
         profileManager.setupControllerAutoSwitching(with: controllerService)
 
-        // Auto-show stream overlay if it was previously enabled. Deferred:
-        // creating the panel during App init (before NSApp finishes
-        // launching) leaves it ordered out — orderFrontRegardless is a
-        // no-op that early.
-        if !AppRuntime.isRunningTests, StreamOverlayManager.isEnabled {
+        // Auto-show stream overlay if it was previously enabled (or forced
+        // by --screenshot-overlay; screenshot mode otherwise ignores the
+        // pref so captures are deterministic). Deferred: creating the panel
+        // during App init (before NSApp finishes launching) leaves it
+        // ordered out — orderFrontRegardless is a no-op that early.
+        let showOverlay = AppRuntime.screenshotVariant == nil
+            ? StreamOverlayManager.isEnabled
+            : AppRuntime.screenshotShowOverlay
+        if !AppRuntime.isRunningTests, showOverlay {
             let controllerService = controllerService
             let inputLogService = inputLogService
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -409,6 +451,7 @@ struct XboxControllerMapperApp: App {
         // Single-window scene (prevents Cmd+N from opening duplicates)
         Window("ControllerKeys", id: "main") {
             ContentView()
+                .onAppear { AppRuntime.positionMainWindowForScreenshots() }
                 .environmentObject(ServiceContainer.shared.controllerService)
                 .environmentObject(ServiceContainer.shared.profileManager)
                 .environmentObject(ServiceContainer.shared.appMonitor)

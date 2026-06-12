@@ -74,13 +74,13 @@ tabs_for_exact() {
 # nothing clips.
 zoom_for() {
     case "$1" in
-        xbox|nintendo|dualshock) echo "1.0" ;;
-        dualsense)               echo "0.95" ;;
-        dualsense-edge)          echo "0.9" ;;
-        xbox-elite)              echo "0.9" ;;
-        steam)                   echo "0.9" ;;
-        appletv)                 echo "0.95" ;;
-        *)                       echo "0.9" ;;
+        xbox|nintendo|dualshock) echo "0.92" ;;
+        dualsense)               echo "0.88" ;;
+        dualsense-edge)          echo "0.83" ;;
+        xbox-elite)              echo "0.83" ;;
+        steam)                   echo "0.83" ;;
+        appletv)                 echo "0.88" ;;
+        *)                       echo "0.83" ;;
     esac
 }
 
@@ -278,22 +278,30 @@ PY
 }
 
 position_window() {
-    # Position/size the main window and VERIFY it took — window restoration
-    # can race the first set right after launch, which silently leaves the
-    # window at its restored frame (and every fixed-region capture wrong).
+    # In screenshot mode the app pins its own window to the capture frame
+    # (see AppRuntime.positionMainWindowForScreenshots) - just wait for the
+    # frame to land and verify via the window server. No Accessibility API:
+    # its per-process trees can wedge under heavy automation.
     local attempt
-    for attempt in 1 2 3 4 5; do
-        osascript \
-            -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of (first window whose name is \"$APP_NAME\") to {$WIN_X, $WIN_Y}" \
-            -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of (first window whose name is \"$APP_NAME\") to {$WIN_W, $WIN_H}" >/dev/null 2>&1 || true
-        sleep 0.6
-        local frame
-        frame="$(osascript -e "tell application \"System Events\" to tell process \"$APP_NAME\" to get {position, size} of (first window whose name is \"$APP_NAME\")" 2>/dev/null | tr -d ' ')"
-        if [[ "$frame" == "$WIN_X,$WIN_Y,$WIN_W,$WIN_H" ]]; then
+    for attempt in 1 2 3 4 5 6 7 8; do
+        if python3 - "$APP_NAME" "$WIN_X" "$WIN_Y" "$WIN_W" "$WIN_H" <<'PY'
+import sys
+import Quartz
+name, x, y, w, h = sys.argv[1], *map(int, sys.argv[2:6])
+opts = Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements
+for win in Quartz.CGWindowListCopyWindowInfo(opts, Quartz.kCGNullWindowID) or []:
+    if win.get("kCGWindowOwnerName") == name:
+        b = win.get("kCGWindowBounds", {})
+        if (int(b.get("X", -1)), int(b.get("Y", -1)), int(b.get("Width", 0)), int(b.get("Height", 0))) == (x, y, w, h):
+            sys.exit(0)
+sys.exit(1)
+PY
+        then
             return 0
         fi
+        sleep 1
     done
-    echo "ERROR: could not position the $APP_NAME window (frame: ${frame:-unknown})" >&2
+    echo "ERROR: $APP_NAME window never reached ${WIN_X},${WIN_Y} ${WIN_W}x${WIN_H}" >&2
     return 1
 }
 
@@ -336,24 +344,6 @@ next_tab() {
     osascript -e 'tell application "System Events" to key code 124 using {command down}'
 }
 
-# Prints "x,y,w,h" of the floating stream overlay panel (found via the
-# accessibility API — borderless panels don't show up in CGWindowList).
-overlay_frame() {
-    osascript <<'EOS'
-tell application "System Events"
-    tell process "ControllerKeys"
-        repeat with w in windows
-            if name of w is "ControllerKeys Overlay" then
-                set p to position of w
-                set s to size of w
-                return ((item 1 of p) as string) & "," & ((item 2 of p) as string) & "," & ((item 1 of s) as string) & "," & ((item 2 of s) as string)
-            end if
-        end repeat
-    end tell
-end tell
-EOS
-}
-
 # Variants worth a standalone stream-overlay capture (the panel renders the
 # same minimap as the Buttons tab, scaled down).
 overlay_wanted() {
@@ -363,22 +353,9 @@ overlay_wanted() {
     esac
 }
 
-# Park the panel over the main window's uniform dark canvas so the
-# semi-transparent backdrop reads clean, and keep the pointer away so the
-# hover close button stays hidden.
-position_overlay_panel() {
-    osascript <<EOS
-tell application "System Events"
-    tell process "ControllerKeys"
-        repeat with w in windows
-            if name of w is "ControllerKeys Overlay" then
-                set position of w to {$1, $2}
-            end if
-        end repeat
-    end tell
-end tell
-EOS
-}
+# The app places the panel at a fixed spot in screenshot mode
+# (AppRuntime.screenshotOverlayOrigin = 115,640; content up to 220x205).
+OVERLAY_RECT="105,630,240,230"
 
 capture_stream_overlay() {
     local variant="$1"
@@ -386,31 +363,17 @@ capture_stream_overlay() {
     mkdir -p "$out_dir"
 
     quit_app
-    defaults write KevinTang.XboxControllerMapper streamOverlayEnabled -bool true
-    defaults delete KevinTang.XboxControllerMapper streamOverlayPositions 2>/dev/null || true
-
-    open -a "$APP_NAME" --args --screenshot-variant "$variant"
+    open -a "$APP_NAME" --args --screenshot-variant "$variant" --screenshot-zoom "$(zoom_for "$variant")" --screenshot-overlay
     sleep "$LAUNCH_WAIT"
     osascript -e "tell application \"$APP_NAME\" to activate" >/dev/null
-    sleep 0.5
-    position_window
     # Pointer well away from the panel so the close button stays hidden
-    /usr/bin/python3 -c 'import Quartz; Quartz.CGWarpMouseCursorPosition((1650, 980))' 2>/dev/null || true
-    # The sidebar's lower half is uniformly dark in every variant
-    position_overlay_panel 115 640
+    python3 -c 'import Quartz; Quartz.CGWarpMouseCursorPosition((1650, 980))' 2>/dev/null || true
+    position_window
     sleep 1
 
-    local frame
-    frame="$(overlay_frame)"
-    if [[ -z "$frame" ]]; then
-        echo "   WARN: stream overlay panel not found for $variant" >&2
-    else
-        screencapture -x -R "$frame" "$out_dir/$variant.png"
-        echo "   stream-overlay/$variant.png"
-    fi
-
+    screencapture -x -R "$OVERLAY_RECT" "$out_dir/$variant.png"
+    echo "   stream-overlay/$variant.png"
     quit_app
-    defaults write KevinTang.XboxControllerMapper streamOverlayEnabled -bool false
 }
 
 capture_variant() {

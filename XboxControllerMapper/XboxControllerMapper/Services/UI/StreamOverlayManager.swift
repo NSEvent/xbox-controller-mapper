@@ -91,8 +91,18 @@ class StreamOverlayManager {
         panel.title = "ControllerKeys Overlay"
         panel.contentView = hosting
 
-        // Restore saved position for current display, or center on screen
-        if let screen = NSScreen.main {
+        if AppRuntime.screenshotVariant != nil {
+            // Fixed, script-known position for captures (over the main
+            // window's sidebar), independent of saved state and the
+            // Accessibility API.
+            let topLeft = AppRuntime.screenshotOverlayOrigin
+            let frame = AppRuntime.appKitFrame(topLeftRect: CGRect(
+                x: topLeft.x, y: topLeft.y,
+                width: contentSize.width, height: contentSize.height
+            ))
+            panel.setFrameOrigin(frame.origin)
+        } else if let screen = NSScreen.main {
+            // Restore saved position for current display, or default top-right
             let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? UInt32 ?? 0
             if let savedOrigin = savedPositions[displayID] {
                 panel.setFrameOrigin(savedOrigin)
@@ -140,6 +150,8 @@ class StreamOverlayManager {
     }
 
     private func saveCurrentPosition() {
+        // Don't let the scripted placement clobber the user's saved spot
+        guard AppRuntime.screenshotVariant == nil else { return }
         guard let panel = panel, let screen = panel.screen ?? NSScreen.main else { return }
         let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? UInt32 ?? 0
         var positions = savedPositions
