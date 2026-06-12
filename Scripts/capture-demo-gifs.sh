@@ -45,12 +45,12 @@ VARIANTS=("$@")
 # the same per-variant magnification as the stills.
 zoom_for() {
     case "$1" in
-        xbox|nintendo|dualshock) echo "1.25" ;;
-        dualsense)               echo "1.12" ;;
-        dualsense-edge)          echo "1.05" ;;
-        xbox-elite)              echo "1.05" ;;
-        steam)                   echo "1.05" ;;
-        appletv)                 echo "1.12" ;;
+        xbox|nintendo|dualshock) echo "1.15" ;;
+        dualsense)               echo "1.05" ;;
+        dualsense-edge)          echo "1.0" ;;
+        xbox-elite)              echo "1.0" ;;
+        steam)                   echo "1.0" ;;
+        appletv)                 echo "1.05" ;;
         *)                       echo "1.0" ;;
     esac
 }
@@ -61,15 +61,15 @@ zoom_for() {
 # in the corresponding still captures; re-derive if layouts or zooms change.
 region_for() {
     case "$1" in
-        xbox)           echo "847,530,354,250" ;;
-        nintendo)       echo "847,529,354,254" ;;
-        dualshock)      echo "847,640,354,228" ;;
-        dualsense)      echo "864,648,321,223" ;;
-        dualsense-edge) echo "874,543,302,211" ;;
-        xbox-elite)     echo "874,446,302,214" ;;
-        steam)          echo "874,507,302,217" ;;
-        appletv)        echo "910,390,220,580" ;;
-        *)              echo "820,485,360,280" ;;
+        xbox)           echo "789,469,470,307" ;;
+        nintendo)       echo "789,467,470,312" ;;
+        dualshock)      echo "789,575,470,281" ;;
+        dualsense)      echo "807,583,437,278" ;;
+        dualsense-edge) echo "816,484,420,268" ;;
+        xbox-elite)     echo "816,390,420,271" ;;
+        steam)          echo "816,448,420,275" ;;
+        appletv)        echo "916,402,224,696" ;;
+        *)              echo "789,469,470,307" ;;
     esac
 }
 
@@ -79,9 +79,23 @@ quit_app() {
 }
 
 position_window() {
-    osascript \
-        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of (first window whose name is \"$APP_NAME\") to {$WIN_X, $WIN_Y}" \
-        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of (first window whose name is \"$APP_NAME\") to {$WIN_W, $WIN_H}" >/dev/null
+    # Position/size the main window and VERIFY it took — window restoration
+    # can race the first set right after launch, which silently leaves the
+    # window at its restored frame (and every fixed-region capture wrong).
+    local attempt
+    for attempt in 1 2 3 4 5; do
+        osascript \
+            -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of (first window whose name is \"$APP_NAME\") to {$WIN_X, $WIN_Y}" \
+            -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of (first window whose name is \"$APP_NAME\") to {$WIN_W, $WIN_H}" >/dev/null 2>&1 || true
+        sleep 0.6
+        local frame
+        frame="$(osascript -e "tell application \"System Events\" to tell process \"$APP_NAME\" to get {position, size} of (first window whose name is \"$APP_NAME\")" 2>/dev/null | tr -d ' ')"
+        if [[ "$frame" == "$WIN_X,$WIN_Y,$WIN_W,$WIN_H" ]]; then
+            return 0
+        fi
+    done
+    echo "ERROR: could not position the $APP_NAME window (frame: ${frame:-unknown})" >&2
+    return 1
 }
 
 overlay_frame() {
@@ -118,10 +132,21 @@ park_pointer() {
     /usr/bin/python3 -c 'import Quartz; Quartz.CGWarpMouseCursorPosition((1650, 980))' 2>/dev/null || true
 }
 
+# Crop a full-screen clip down to a point-region and assemble the GIF.
+# screencapture's video mode mis-maps -R regions on scaled (non-2x) displays,
+# so we always record the whole screen and crop here, converting points to
+# video pixels via the actual recorded-width / display-width ratio.
 make_gif() {
-    local clip="$1" out="$2"
+    local clip="$1" out="$2" region="$3"
+    local rx ry rw rh vidw dispw
+    IFS=, read -r rx ry rw rh <<< "$region"
+    vidw=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$clip")
+    dispw=$(python3 -c 'import Quartz; print(int(Quartz.CGDisplayBounds(Quartz.CGMainDisplayID()).size.width))')
+    read -r cx cy cw ch <<< "$(python3 -c "
+s = $vidw / $dispw
+print(int($rx*s), int($ry*s), int($rw*s)//2*2, int($rh*s)//2*2)")"
     ffmpeg -y -loglevel error -i "$clip" \
-        -vf "fps=$FPS,scale=$GIF_WIDTH:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" \
+        -vf "crop=${cw}:${ch}:${cx}:${cy},fps=$FPS,scale=$GIF_WIDTH:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" \
         -loop 0 "$out"
     echo "   $(basename "$out") ($(du -h "$out" | cut -f1 | tr -d ' '))"
 }
@@ -140,8 +165,8 @@ record_variant() {
     park_pointer
     sleep 1
 
-    screencapture -v -R "$(region_for "$variant")" -V "$DURATION" "$clip"
-    make_gif "$clip" "$OUT_DIR/$variant.gif"
+    screencapture -v -V "$DURATION" "$clip" 2>/dev/null
+    make_gif "$clip" "$OUT_DIR/$variant.gif" "$(region_for "$variant")"
 }
 
 record_stream_overlay() {
@@ -168,8 +193,8 @@ record_stream_overlay() {
     if [[ -z "$frame" ]]; then
         echo "   WARN: stream overlay panel not found" >&2
     else
-        screencapture -v -R "$frame" -V "$DURATION" "$clip"
-        make_gif "$clip" "$OUT_DIR/stream-overlay.gif"
+        screencapture -v -V "$DURATION" "$clip" 2>/dev/null
+        make_gif "$clip" "$OUT_DIR/stream-overlay.gif" "$frame"
     fi
 
     quit_app

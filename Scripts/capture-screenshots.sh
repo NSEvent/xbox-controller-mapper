@@ -74,12 +74,12 @@ tabs_for_exact() {
 # nothing clips.
 zoom_for() {
     case "$1" in
-        xbox|nintendo|dualshock) echo "1.25" ;;
-        dualsense)               echo "1.12" ;;
-        dualsense-edge)          echo "1.05" ;;
-        xbox-elite)              echo "1.05" ;;
-        steam)                   echo "1.05" ;;
-        appletv)                 echo "1.12" ;;
+        xbox|nintendo|dualshock) echo "1.15" ;;
+        dualsense)               echo "1.05" ;;
+        dualsense-edge)          echo "1.0" ;;
+        xbox-elite)              echo "1.0" ;;
+        steam)                   echo "1.0" ;;
+        appletv)                 echo "1.05" ;;
         *)                       echo "1.0" ;;
     esac
 }
@@ -278,9 +278,23 @@ PY
 }
 
 position_window() {
-    osascript \
-        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of (first window whose name is \"$APP_NAME\") to {$WIN_X, $WIN_Y}" \
-        -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of (first window whose name is \"$APP_NAME\") to {$WIN_W, $WIN_H}"
+    # Position/size the main window and VERIFY it took — window restoration
+    # can race the first set right after launch, which silently leaves the
+    # window at its restored frame (and every fixed-region capture wrong).
+    local attempt
+    for attempt in 1 2 3 4 5; do
+        osascript \
+            -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set position of (first window whose name is \"$APP_NAME\") to {$WIN_X, $WIN_Y}" \
+            -e "tell application \"System Events\" to tell process \"$APP_NAME\" to set size of (first window whose name is \"$APP_NAME\") to {$WIN_W, $WIN_H}" >/dev/null 2>&1 || true
+        sleep 0.6
+        local frame
+        frame="$(osascript -e "tell application \"System Events\" to tell process \"$APP_NAME\" to get {position, size} of (first window whose name is \"$APP_NAME\")" 2>/dev/null | tr -d ' ')"
+        if [[ "$frame" == "$WIN_X,$WIN_Y,$WIN_W,$WIN_H" ]]; then
+            return 0
+        fi
+    done
+    echo "ERROR: could not position the $APP_NAME window (frame: ${frame:-unknown})" >&2
+    return 1
 }
 
 # Prints "id width" for every on-screen window owned by the app (any layer,
