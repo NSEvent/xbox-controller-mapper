@@ -380,10 +380,10 @@ enum EightBitDoLite2MinimapLayout {
     static let home = CGPoint(x: 0.815, y: 0.595)
     static let starHomeSize: CGFloat = 0.045
 
-    static let leftBumper = CGPoint(x: 0.19, y: 0.025)
-    static let rightBumper = CGPoint(x: 0.81, y: 0.025)
-    static let leftTrigger = CGPoint(x: 0.13, y: 0.005)
-    static let rightTrigger = CGPoint(x: 0.87, y: 0.005)
+    static let leftBumper = CGPoint(x: 0.21, y: 0.03)
+    static let rightBumper = CGPoint(x: 0.79, y: 0.03)
+    static let leftTrigger = CGPoint(x: 0.16, y: 0.0)
+    static let rightTrigger = CGPoint(x: 0.84, y: 0.0)
 
     static let battery = CGPoint(x: 0.50, y: 0.90)
 }

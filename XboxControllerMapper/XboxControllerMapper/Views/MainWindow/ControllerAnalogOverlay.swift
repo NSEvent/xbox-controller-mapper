@@ -117,9 +117,9 @@ struct ControllerAnalogOverlay: View {
         miniBumper(.rightBumper, label: "R", width: w * 0.13)
             .minimapPosition(layout.rightBumper, in: size)
 
-        miniCircle(.view, size: w * layout.selectStartSize)
+        miniLightGlyphButton(.view, systemImage: "minus", size: w * layout.selectStartSize)
             .minimapPosition(layout.select, in: size)
-        miniCircle(.menu, size: w * layout.selectStartSize)
+        miniLightGlyphButton(.menu, systemImage: "plus", size: w * layout.selectStartSize)
             .minimapPosition(layout.start, in: size)
 
         miniFaceButtons(
@@ -128,7 +128,7 @@ struct ControllerAnalogOverlay: View {
         )
         .minimapPosition(layout.faceCluster, in: size)
 
-        miniDPad(span: w * layout.dpadSize, style: .cross)
+        miniDPad(span: w * layout.dpadSize, style: .lightCross)
             .minimapPosition(layout.dpad, in: size)
 
         if isConnected {
@@ -150,9 +150,9 @@ struct ControllerAnalogOverlay: View {
         miniBumper(.rightBumper, label: "R", width: w * 0.12)
             .minimapPosition(layout.rightBumper, in: size)
 
-        miniCircle(.view, size: w * layout.minusPlusSize)
+        miniLightGlyphButton(.view, systemImage: "minus", size: w * layout.minusPlusSize)
             .minimapPosition(layout.minus, in: size)
-        miniCircle(.menu, size: w * layout.minusPlusSize)
+        miniLightGlyphButton(.menu, systemImage: "plus", size: w * layout.minusPlusSize)
             .minimapPosition(layout.plus, in: size)
         miniCircle(.share, size: w * layout.starHomeSize)
             .minimapPosition(layout.star, in: size)
@@ -165,7 +165,7 @@ struct ControllerAnalogOverlay: View {
         )
         .minimapPosition(layout.faceCluster, in: size)
 
-        miniDPad(span: w * layout.dpadSize, style: .cross)
+        miniDPad(span: w * layout.dpadSize, style: .lightCross)
             .minimapPosition(layout.dpad, in: size)
 
         if isConnected {
@@ -187,18 +187,18 @@ struct ControllerAnalogOverlay: View {
         miniBumper(.rightBumper, label: "R", width: w * 0.12)
             .minimapPosition(layout.rightBumper, in: size)
 
-        miniCircle(.view, size: w * layout.minusPlusSize)
+        miniLightGlyphButton(.view, systemImage: "minus", size: w * layout.minusPlusSize)
             .minimapPosition(layout.minus, in: size)
-        miniCircle(.menu, size: w * layout.minusPlusSize)
+        miniLightGlyphButton(.menu, systemImage: "plus", size: w * layout.minusPlusSize)
             .minimapPosition(layout.plus, in: size)
         miniCircle(.share, size: w * layout.starHomeSize)
             .minimapPosition(layout.star, in: size)
         miniCircle(.xbox, size: w * layout.starHomeSize)
             .minimapPosition(layout.home, in: size)
 
-        miniStick(.leftThumbstick, pos: leftStick, wellSize: w * layout.stickWellSize)
+        miniStick(.leftThumbstick, pos: leftStick, wellSize: w * layout.stickWellSize, lightCap: true)
             .minimapPosition(layout.leftStick, in: size)
-        miniStick(.rightThumbstick, pos: rightStick, wellSize: w * layout.stickWellSize)
+        miniStick(.rightThumbstick, pos: rightStick, wellSize: w * layout.stickWellSize, lightCap: true)
             .minimapPosition(layout.rightStick, in: size)
 
         miniFaceButtons(
@@ -207,7 +207,7 @@ struct ControllerAnalogOverlay: View {
         )
         .minimapPosition(layout.faceCluster, in: size)
 
-        miniDPad(span: w * layout.dpadSize, style: .cross)
+        miniDPad(span: w * layout.dpadSize, style: .lightCross)
             .minimapPosition(layout.dpad, in: size)
 
         if isConnected {
@@ -231,9 +231,9 @@ struct ControllerAnalogOverlay: View {
         miniLightFaceButton(.rightBumper, letter: "R", size: w * layout.faceRowSize)
             .minimapPosition(layout.r1, in: size)
 
-        miniCircle(.view, size: w * layout.faceRowSize)
+        miniLightGlyphButton(.view, systemImage: "minus", size: w * layout.faceRowSize)
             .minimapPosition(layout.minus, in: size)
-        miniCircle(.menu, size: w * layout.faceRowSize)
+        miniLightGlyphButton(.menu, systemImage: "plus", size: w * layout.faceRowSize)
             .minimapPosition(layout.plus, in: size)
         miniCircle(.share, size: w * layout.starHomeSize)
             .minimapPosition(layout.star, in: size)
@@ -266,9 +266,9 @@ struct ControllerAnalogOverlay: View {
             .allowsHitTesting(false)
         }
 
-        miniStick(.leftThumbstick, pos: leftStick, wellSize: w * layout.stickWellSize)
+        miniStick(.leftThumbstick, pos: leftStick, wellSize: w * layout.stickWellSize, lightCap: true)
             .minimapPosition(layout.leftStick, in: size)
-        miniStick(.rightThumbstick, pos: rightStick, wellSize: w * layout.stickWellSize)
+        miniStick(.rightThumbstick, pos: rightStick, wellSize: w * layout.stickWellSize, lightCap: true)
             .minimapPosition(layout.rightStick, in: size)
 
         miniFaceButtons(
@@ -1324,7 +1324,7 @@ struct ControllerAnalogOverlay: View {
 
     /// Thumbstick: recessed well + domed cap with a concave dish, following
     /// the live analog position.
-    private func miniStick(_ button: ControllerButton, pos: CGPoint, wellSize: CGFloat = 30, eliteRing: Bool = false) -> some View {
+    private func miniStick(_ button: ControllerButton, pos: CGPoint, wellSize: CGFloat = 30, eliteRing: Bool = false, lightCap: Bool = false) -> some View {
         let directionButtons = button == .leftThumbstick
             ? ControllerButton.joystickDirectionButtons(side: .left)
             : ControllerButton.joystickDirectionButtons(side: .right)
@@ -1362,14 +1362,14 @@ struct ControllerAnalogOverlay: View {
             ZStack {
                 Circle()
                     .fill(
-                        jewelGradient(isStickActive ? Color.accentColor : Color(white: 0.20), pressed: isStickActive)
+                        jewelGradient(isStickActive ? Color.accentColor : Color(white: lightCap ? 0.88 : 0.20), pressed: isStickActive)
                     )
                 Circle()
                     .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.black.opacity(0.38), .clear],
+                            colors: [Color.black.opacity(lightCap ? 0.12 : 0.38), .clear],
                             center: UnitPoint(x: 0.5, y: 0.44),
                             startRadius: 0,
                             endRadius: capSize * 0.40
@@ -1634,6 +1634,8 @@ struct ControllerAnalogOverlay: View {
         case eliteDisc
         /// Plain glossy cross (Nintendo Pro, Steam Controller).
         case cross
+        /// White glossy cross on a colored body (8BitDo pads).
+        case lightCross
         /// Four separate chiclet buttons (DualSense, DualShock).
         case chiclets
     }
@@ -1684,16 +1686,23 @@ struct ControllerAnalogOverlay: View {
                 dpadChiclet(.dpadRight, glyph: "arrowtriangle.right.fill", size: arm).offset(x: span * 0.34)
             } else {
                 // Joined cross. Glossy near-black for the standalone cross
-                // (Nintendo/Steam) so it stands out against the dark body.
-                let crossColor: Color = style == .eliteDisc ? Color(white: 0.58) : Color(white: 0.08)
+                // (Nintendo/Steam) so it stands out against the dark body;
+                // white for the 8BitDo pads' silver crosses on colored shells.
+                let crossColor: Color = {
+                    switch style {
+                    case .eliteDisc: return Color(white: 0.58)
+                    case .lightCross: return Color(white: 0.90)
+                    default: return Color(white: 0.08)
+                    }
+                }()
                 DPadCrossShape(armRatio: 0.30)
                     .fill(jewelGradient(crossColor, pressed: false))
                     .frame(width: span, height: span)
                     .shadow(radius: 1)
 
-                if style == .cross {
+                if style == .cross || style == .lightCross {
                     DPadCrossShape(armRatio: 0.30)
-                        .stroke(Color.white.opacity(0.22), lineWidth: 0.8)
+                        .stroke(style == .lightCross ? Color.black.opacity(0.25) : Color.white.opacity(0.22), lineWidth: 0.8)
                         .frame(width: span, height: span)
                         .allowsHitTesting(false)
                 }
