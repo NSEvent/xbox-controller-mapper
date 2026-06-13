@@ -8,8 +8,13 @@ enum StickMode: String, Codable, CaseIterable {
     case wasdKeys = "wasdKeys"
     case arrowKeys = "arrowKeys"
     case custom = "custom"
+    /// Stick deflection drives the controller's own D-pad buttons
+    /// (.dpadUp/.dpadDown/.dpadLeft/.dpadRight). Useful for stickless pads
+    /// (8BitDo Zero 2 / Micro) where the physical d-pad feeds the left stick:
+    /// this routes it back to true d-pad controls instead of the mouse.
+    case dpad = "dpad"
 
-    static let visibleModes: [StickMode] = [.none, .mouse, .scroll, .custom]
+    static let visibleModes: [StickMode] = [.none, .mouse, .scroll, .custom, .dpad]
 
     var isVisibleInUI: Bool {
         Self.visibleModes.contains(self)
@@ -23,6 +28,7 @@ enum StickMode: String, Codable, CaseIterable {
         case .wasdKeys: return "WASD"
         case .arrowKeys: return "Arrows"
         case .custom: return "Custom"
+        case .dpad: return "D-Pad"
         }
     }
 
@@ -30,7 +36,7 @@ enum StickMode: String, Codable, CaseIterable {
         switch self {
         case .custom:
             return true
-        case .none, .mouse, .scroll, .wasdKeys, .arrowKeys:
+        case .none, .mouse, .scroll, .wasdKeys, .arrowKeys, .dpad:
             return false
         }
     }

@@ -2061,6 +2061,27 @@ class ControllerService: ObservableObject {
     /// Single Joy-Cons don't expose extendedGamepad or microGamepad — they only provide
     /// physicalInputProfile with a dynamic set of buttons, axes, and dpads.
     private func setupPhysicalInputProfileHandlers(_ profile: GCPhysicalInputProfile, from controller: GCController) {
+        // Diagnostic (CK_HID_DUMP=1): attach logging handlers to EVERY element
+        // so we can see exactly what fires (incl. unmapped buttons like Star,
+        // and whether the d-pad reports digital sub-buttons, an analog axis, or
+        // both). Replaces normal binding while active.
+        if Self.hidDumpEnabled {
+            for (name, button) in profile.buttons {
+                button.pressedChangedHandler = { _, _, pressed in
+                    NSLog("[CK_HID_DUMP] BUTTON %@ = %d", name, pressed ? 1 : 0)
+                }
+            }
+            for (name, dpad) in profile.dpads {
+                dpad.valueChangedHandler = { _, x, y in
+                    NSLog("[CK_HID_DUMP] DPAD %@ x=%.2f y=%.2f", name, x, y)
+                }
+            }
+            NSLog("[CK_HID_DUMP] diagnostic handlers attached: buttons=%@ dpads=%@",
+                  profile.buttons.keys.sorted().joined(separator: ", "),
+                  profile.dpads.keys.sorted().joined(separator: ", "))
+            return
+        }
+
         // Map known GCInput element names to ControllerButton cases
         let buttonMap: [(String, ControllerButton)] = [
             (GCInputButtonA, .a),
@@ -2078,6 +2099,16 @@ class ControllerService: ObservableObject {
             (GCInputRightThumbstickButton, .rightThumbstick),
         ]
 
+        // Stickless 8BitDo pads (Zero 2 / Micro in D-input mode) have no real
+        // analog stick — their physical d-pad IS the directional input. The
+        // Micro exposes it as a "Direction Pad" (with digital sub-buttons),
+        // which we must NOT bind as .dpad* buttons here: that would fire d-pad
+        // actions AND (via the thumbstick fallback below) drive the mouse —
+        // the double-input. Instead we route the d-pad to the left stick so
+        // the left-stick mode (Mouse by default, or the D-Pad mode) governs
+        // it, exactly like the Zero 2 (which exposes its d-pad as a thumbstick).
+        let isSticklessEightBitDo = Self.eightBitDoMinimapModel(forControllerName: controller.vendorName ?? "") != nil
+
         var boundCount = 0
         for (inputName, controllerButton) in buttonMap {
             if let element = profile.buttons[inputName] {
@@ -2086,8 +2117,9 @@ class ControllerService: ObservableObject {
             }
         }
 
-        // D-pad
-        if let dpad = profile.dpads[GCInputDirectionPad] {
+        // D-pad (skip the direct button binding for stickless 8BitDo pads —
+        // their d-pad flows through the left stick instead, see above).
+        if !isSticklessEightBitDo, let dpad = profile.dpads[GCInputDirectionPad] {
 			bindButton(dpad.up, to: .dpadUp, from: controller)
 			bindButton(dpad.down, to: .dpadDown, from: controller)
 			bindButton(dpad.left, to: .dpadLeft, from: controller)

@@ -1122,9 +1122,32 @@ struct ControllerAnalogOverlay: View {
     }
 
     private func isPressed(_ button: ControllerButton) -> Bool {
-		activeButtons.contains(button) ||
-			button.physicalEquivalentButtons.contains { activeButtons.contains($0) }
+		if activeButtons.contains(button) ||
+			button.physicalEquivalentButtons.contains(where: { activeButtons.contains($0) }) {
+			return true
+		}
+		// Stickless 8BitDo pads route their physical d-pad through the left
+		// stick, so in Mouse mode no .dpad* button is "pressed". Reflect the
+		// stick deflection onto the d-pad so the minimap shows the press
+		// regardless of the stick mode.
+		if eightBitDoModel != nil, dpadActiveFromLeftStick(button) {
+			return true
+		}
+		return false
     }
+
+	/// True when the left stick is deflected toward `button`'s d-pad direction.
+	/// +y is up (GameController convention); threshold matches the D-Pad mode.
+	private func dpadActiveFromLeftStick(_ button: ControllerButton) -> Bool {
+		let threshold: CGFloat = 0.4
+		switch button {
+		case .dpadUp:    return leftStick.y > threshold
+		case .dpadDown:  return leftStick.y < -threshold
+		case .dpadLeft:  return leftStick.x < -threshold
+		case .dpadRight: return leftStick.x > threshold
+		default:         return false
+		}
+	}
 
     private func firstOverrideColor(for buttons: [ControllerButton]) -> Color? {
 		for button in buttons {

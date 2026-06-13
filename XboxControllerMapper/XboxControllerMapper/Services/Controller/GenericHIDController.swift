@@ -231,12 +231,21 @@ class GenericHIDController {
 
     // MARK: - Input Value Dispatch
 
+    /// Diagnostic for clone bring-up (CK_HID_DUMP=1): logs each element's
+    /// usage/value as it changes, so we can see which raw button a labeled
+    /// button fires and whether the d-pad also drives the stick axes.
+    private static let hidDumpEnabled = ProcessInfo.processInfo.environment["CK_HID_DUMP"] == "1"
+
     private func handleInputValue(_ value: IOHIDValue) {
         let element = IOHIDValueGetElement(value)
         let usagePage = IOHIDElementGetUsagePage(element)
         let usage = Int(IOHIDElementGetUsage(element))
         let intValue = Int(IOHIDValueGetIntegerValue(value))
         let cookie = IOHIDElementGetCookie(element)
+
+        if Self.hidDumpEnabled {
+            NSLog("[CK_HID_DUMP] page=0x%02X usage=0x%02X cookie=%d value=%d", usagePage, UInt32(usage), Int(cookie), intValue)
+        }
 
         if usagePage == UInt32(kHIDPage_Button) {
             handleButtonInput(cookie: cookie, value: intValue)

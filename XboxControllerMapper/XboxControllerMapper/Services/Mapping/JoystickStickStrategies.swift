@@ -129,3 +129,32 @@ struct CustomDirectionStickStrategy: JoystickStickStrategy {
         }
     }
 }
+
+// MARK: - D-Pad Buttons
+
+/// Drives the controller's D-pad buttons (.dpadUp/.dpadDown/.dpadLeft/
+/// .dpadRight) from stick deflection. Lets a stickless pad's d-pad (which
+/// arrives as the left stick) act as a real d-pad. Reuses the held-direction
+/// set so release-on-disable is already handled.
+struct DPadStickStrategy: JoystickStickStrategy {
+    static let shared = DPadStickStrategy()
+
+    func process(_ input: JoystickStickInput, on engine: MappingEngine) {
+        let state = engine.state
+        if input.side == .left {
+            engine.processDPadDirectionButtons(
+                stick: input.stick,
+                side: input.side,
+                settings: input.settings,
+                heldButtons: &state.leftStickHeldDirectionButtons
+            )
+        } else {
+            engine.processDPadDirectionButtons(
+                stick: input.stick,
+                side: input.side,
+                settings: input.settings,
+                heldButtons: &state.rightStickHeldDirectionButtons
+            )
+        }
+    }
+}

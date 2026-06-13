@@ -218,6 +218,12 @@ extension MappingEngine {
         let effectiveLeftMode = activeLayer?.leftStickModeOverride ?? settings.leftStickMode
         let effectiveRightMode = activeLayer?.rightStickModeOverride ?? settings.rightStickMode
 
+        if JoystickHandlerDiagnostics.pollDumpEnabled,
+           abs(leftStick.x) > 0.05 || abs(leftStick.y) > 0.05 {
+            NSLog("[CK_POLL_DUMP] poll leftStick=(%.2f,%.2f) effectiveLeftMode=%@",
+                  leftStick.x, leftStick.y, "\(effectiveLeftMode)")
+        }
+
         let leftInput = JoystickStickInput(
             stick: leftStick,
             side: .left,
@@ -632,6 +638,41 @@ extension MappingEngine {
 
     // MARK: - Custom Direction Buttons
 
+    /// D-Pad stick mode: maps stick deflection to the controller's D-pad
+    /// buttons (8-way; diagonals press two), pressing/releasing on threshold
+    /// crossing. Same held-set bookkeeping as custom direction buttons.
+    nonisolated func processDPadDirectionButtons(
+        stick: CGPoint,
+        side: JoystickSide,
+        settings: JoystickSettings,
+        heldButtons: inout Set<ControllerButton>
+    ) {
+        let deadzone = side == .left ? settings.mouseDeadzone : settings.scrollDeadzone
+        let invertY = side == .left ? settings.invertMouseY : settings.invertScrollY
+        let directions = JoystickDirectionResolver.activeAxisDirections(
+            stick: stick,
+            deadzone: deadzone,
+            invertY: invertY
+        )
+        let targetButtons: Set<ControllerButton> = Set(directions.compactMap { direction in
+            switch direction {
+            case .up: return .dpadUp
+            case .down: return .dpadDown
+            case .left: return .dpadLeft
+            case .right: return .dpadRight
+            case .upLeft, .upRight, .downLeft, .downRight: return nil  // activeAxisDirections returns cardinals only
+            }
+        })
+        if JoystickHandlerDiagnostics.pollDumpEnabled,
+           abs(stick.x) > 0.05 || abs(stick.y) > 0.05 {
+            NSLog("[CK_POLL_DUMP] dpadStrategy side=%@ stick=(%.2f,%.2f) dz=%.2f invY=%d dirs=%@ targets=%@",
+                  side == .left ? "L" : "R", stick.x, stick.y, deadzone, invertY ? 1 : 0,
+                  directions.map { "\($0)" }.joined(separator: ","),
+                  targetButtons.map { $0.rawValue }.sorted().joined(separator: ","))
+        }
+        updateHeldDirectionButtons(targetButtons, heldButtons: &heldButtons)
+    }
+
     nonisolated func processCustomDirectionButtons(
         stick: CGPoint,
         side: JoystickSide,
@@ -813,6 +854,13 @@ extension MappingEngine {
             controllerService.handleButton(button, pressed: false)
         }
     }
+}
+
+/// Env-gated (CK_POLL_DUMP=1) diagnostics for the 120Hz polling loop. Off by
+/// default; used to bring up stickless 8BitDo pads where the d-pad arrives via
+/// the left-stick path. Logs effective stick mode + resolved d-pad directions.
+enum JoystickHandlerDiagnostics {
+    static let pollDumpEnabled = ProcessInfo.processInfo.environment["CK_POLL_DUMP"] == "1"
 }
 
 private extension KeyMapping {
