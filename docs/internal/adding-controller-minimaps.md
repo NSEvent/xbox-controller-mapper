@@ -157,6 +157,15 @@ Settings when `screencapture` says "could not create image").
 
 ## Hard-won gotchas
 
+- **Nintendo face-button labels are rotated, not the input.** GameController
+  position-normalizes Nintendo/8BitDo pads (`.a` = south, verified via
+  `physicalInputProfile`: buttonA carries `a.circle` at the south slot). But
+  the Nintendo diamond PRINTS south "B", east "A", west "Y", north "X". The
+  minimap and `ControllerButton.displayName/shortLabel/systemImageName(forNintendo:)`
+  relabel to the printed letters while the view↔ControllerButton binding
+  stays position-normalized — so pressing the physical "B" (south) still
+  lights the south slot, now correctly labeled "B". Steam/Elite keep Xbox
+  labels (position == label there).
 - **Adding an overlay branch can crash the Release compiler.** With six
   controller families, `ControllerAnalogOverlay.body`'s conditional pushed
   SILGen past its limits (Debug built fine; Release crashed the Swift

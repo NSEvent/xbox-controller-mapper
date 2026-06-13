@@ -1607,19 +1607,31 @@ struct ControllerAnalogOverlay: View {
                 miniFaceButton(.a, letter: "A", letterColor: ButtonColors.xboxA, size: buttonSize).offset(y: offset)
                 miniFaceButton(.x, letter: "X", letterColor: ButtonColors.xboxX, size: buttonSize).offset(x: -offset)
                 miniFaceButton(.b, letter: "B", letterColor: ButtonColors.xboxB, size: buttonSize).offset(x: offset)
-            case .xboxElite, .nintendo, .steam:
+            case .xboxElite, .steam:
+                // Xbox-layout face buttons (Y north, A south, X west, B east).
                 let letterColor = Color(white: 0.85)
                 miniFaceButton(.y, letter: "Y", letterColor: letterColor, size: buttonSize).offset(y: -offset)
                 miniFaceButton(.a, letter: "A", letterColor: letterColor, size: buttonSize).offset(y: offset)
                 miniFaceButton(.x, letter: "X", letterColor: letterColor, size: buttonSize).offset(x: -offset)
                 miniFaceButton(.b, letter: "B", letterColor: letterColor, size: buttonSize).offset(x: offset)
+            case .nintendo:
+                // Nintendo physical diamond: X north, B south, Y west, A east.
+                // The view↔ControllerButton binding stays position-normalized
+                // (.a = south); only the printed letter follows the hardware.
+                let letterColor = Color(white: 0.85)
+                miniFaceButton(.y, letter: "X", letterColor: letterColor, size: buttonSize).offset(y: -offset)
+                miniFaceButton(.a, letter: "B", letterColor: letterColor, size: buttonSize).offset(y: offset)
+                miniFaceButton(.x, letter: "Y", letterColor: letterColor, size: buttonSize).offset(x: -offset)
+                miniFaceButton(.b, letter: "A", letterColor: letterColor, size: buttonSize).offset(x: offset)
             case .eightBitDoZero2, .eightBitDoMicro, .eightBitDoLite2, .eightBitDoLiteSE:
-                // White caps with engraved grey letters, GameController-normalized
-                // arrangement (A south), matching how the Switch Pro preview is drawn.
-                miniLightFaceButton(.y, letter: "Y", size: buttonSize).offset(y: -offset)
-                miniLightFaceButton(.a, letter: "A", size: buttonSize).offset(y: offset)
-                miniLightFaceButton(.x, letter: "X", size: buttonSize).offset(x: -offset)
-                miniLightFaceButton(.b, letter: "B", size: buttonSize).offset(x: offset)
+                // 8BitDo pads use the Nintendo physical diamond (X north,
+                // B south, Y west, A east). White caps, engraved grey letters.
+                // Binding stays position-normalized; only the letter follows
+                // the hardware.
+                miniLightFaceButton(.y, letter: "X", size: buttonSize).offset(y: -offset)
+                miniLightFaceButton(.a, letter: "B", size: buttonSize).offset(y: offset)
+                miniLightFaceButton(.x, letter: "Y", size: buttonSize).offset(x: -offset)
+                miniLightFaceButton(.b, letter: "A", size: buttonSize).offset(x: offset)
             }
         }
         .frame(width: cluster, height: cluster)

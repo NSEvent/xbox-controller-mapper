@@ -23,6 +23,32 @@ final class ControllerButtonCoverageTests: XCTestCase {
         }
     }
 
+    /// The Nintendo physical diamond prints its face letters rotated vs Xbox
+    /// (south "B", east "A", west "Y", north "X"). GameController still
+    /// position-normalizes input (.a = south), so only the *labels* differ —
+    /// the enum identity must stay put.
+    func testNintendoFaceButtonsUsePhysicalDiamondLabels() {
+        // .a is the south position; on a Nintendo pad it's printed "B".
+        XCTAssertEqual(ControllerButton.a.displayName(forNintendo: true), "B")
+        XCTAssertEqual(ControllerButton.b.displayName(forNintendo: true), "A")
+        XCTAssertEqual(ControllerButton.x.displayName(forNintendo: true), "Y")
+        XCTAssertEqual(ControllerButton.y.displayName(forNintendo: true), "X")
+
+        XCTAssertEqual(ControllerButton.a.shortLabel(forNintendo: true), "B")
+        XCTAssertEqual(ControllerButton.b.shortLabel(forNintendo: true), "A")
+        XCTAssertEqual(ControllerButton.x.shortLabel(forNintendo: true), "Y")
+        XCTAssertEqual(ControllerButton.y.shortLabel(forNintendo: true), "X")
+
+        XCTAssertEqual(ControllerButton.a.systemImageName(forNintendo: true), "b.circle")
+        XCTAssertEqual(ControllerButton.b.systemImageName(forNintendo: true), "a.circle")
+        XCTAssertEqual(ControllerButton.x.systemImageName(forNintendo: true), "y.circle")
+        XCTAssertEqual(ControllerButton.y.systemImageName(forNintendo: true), "x.circle")
+
+        // Xbox/default labels are unchanged (position == label there).
+        XCTAssertEqual(ControllerButton.a.displayName, "A")
+        XCTAssertEqual(ControllerButton.a.displayName(forDualSense: true), "Cross")
+    }
+
     func testDualSenseOnlyAndEdgeOnlyClassification() {
         let expectedDualSenseOnly: Set<ControllerButton> = [
             .micMute,
