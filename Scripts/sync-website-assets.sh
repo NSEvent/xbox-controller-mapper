@@ -50,7 +50,8 @@ fi
 # Variant folders mirror by filename; copy all variants so the site can
 # adopt new controllers without re-plumbing.
 for dir in dualsense xbox-series-xs steam-controller apple-tv-remote \
-           dualsense-edge dualshock-4 nintendo xbox-elite gifs stream-overlay; do
+           dualsense-edge dualshock-4 nintendo xbox-elite \
+           8bitdo-zero2 8bitdo-micro gifs stream-overlay; do
     if [[ -d "$SRC/$dir" ]]; then
         mkdir -p "$SITE_DIR/$dir"
         cp "$SRC/$dir/"*.{png,gif} "$SITE_DIR/$dir/" 2>/dev/null || \

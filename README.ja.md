@@ -8,7 +8,7 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 (formerly Xbox Controller Mapper)
 -->
 
-ゲームコントローラーをキーボードショートカット、マウス入力、マクロ、スクリプト、ウェブフック、システムコマンドにリマップするネイティブmacOSアプリです — あらゆるゲームパッドをフル機能のデスクトップ入力デバイスに変えます。Xbox Series X|S、Xbox Elite Series 2、PS5 DualSense、PS4 DualShock 4、Nintendo Joy-Con、Switch Pro Controller、Steam Controller、Apple TV Siri Remote、そして300種以上のサードパーティ製ゲームパッドに対応。DualSenseとSteam Controllerのタッチパッド・ジャイロスコープによるマウス操作、スワイプ入力、JavaScriptスクリプトエンジン、アプリごとのプロファイル自動切り替え、リアルタイム低遅延入力モード、Wi-Fi経由のMac間コントローラーハンドオフを備えています。
+ゲームコントローラーをキーボードショートカット、マウス入力、マクロ、スクリプト、ウェブフック、システムコマンドにリマップするネイティブmacOSアプリです — あらゆるゲームパッドをフル機能のデスクトップ入力デバイスに変えます。Xbox Series X|S、Xbox Elite Series 2、PS5 DualSense、PS4 DualShock 4、Nintendo Joy-Con、Switch Pro Controller、Steam Controller、Apple TV Siri Remote、キーホルダーサイズの8BitDo Zero 2・Micro、そして300種以上のサードパーティ製ゲームパッドに対応。DualSenseとSteam Controllerのタッチパッド・ジャイロスコープによるマウス操作、スワイプ入力、JavaScriptスクリプトエンジン、アプリごとのプロファイル自動切り替え、リアルタイム低遅延入力モード、Wi-Fi経由のMac間コントローラーハンドオフを備えています。
 
 **[ウェブサイトとドキュメント](https://www.kevintang.xyz/apps/controller-keys)** | **[ダウンロード](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discordコミュニティ](https://discord.gg/WsZJkRsPPg)**
 
@@ -269,6 +269,13 @@ macOSには他にもコントローラーマッピングアプリがあります
   - **エッジスクロール**：クリックパッドの外周リングに沿って指をなぞると、iPodホイール式のスクロールが可能。速度は設定できます
   - UIには専用の縦長リモコンプレビューを用意。生のIOKit HIDだけで完全に動作 — Apple TVは不要です
 
+- **8BitDo Zero 2・Micro対応**：キーホルダーサイズの8BitDoパッドを、汎用SDLフォールバックだけでなくファーストクラスでサポート
+  - 公式レンダリングからトレースした、製品どおりに正確なButtonsタブのプレビュー。ハードウェアどおりのラベル（L/Rバンパー、Microの場合はさらにL2/R2トリガー）を表示
+  - これらのスティックレスパッドは物理D-padをファントムの左スティック軸に通すため、macOSが誤キャリブレーションします（右が左として認識されることがよくあります）。ControllerKeysは生のHIDレポートを直接読み取り、再接続のたびにD-padを正しく復元します
+  - D-pad専用のドロップダウンで**矢印キー / WASD / カスタムキー、マウス、スクロール**を駆動 — パッドで文字入力、クリック、カーソル移動が可能になります
+  - MicroのHomeボタンは合成されます（そうしないとmacOSが飲み込んでしまうため）。8BitDoロゴ付きで表示され、ファームウェアのプロファイル（スター）ボタンはマッピング不可のヒントとして描画されます
+  - 動作ベースのスティックレスクローン検出機能がこれらの模倣品を本物のコントローラーと区別するため、実機が影響を受けることはありません
+
 - **サードパーティ製コントローラー対応**：SDLデータベースにより約313種のコントローラーをサポート
   - 8BitDo、Logitech、PowerA、Horiなど
   - 手動設定は不要
@@ -305,6 +312,10 @@ macOSには他にもコントローラーマッピングアプリがあります
 ### キーボードウィジェット設定
 ![オンスクリーンキーボード設定](screenshots/dualsense/13-keyboard.png)
 
+### 8BitDo Zero 2・Micro（トレースしたプレビュー、スティックレスD-pad）
+![8BitDo Zero 2のボタンマッピング](screenshots/8bitdo-zero2/01-buttons.png)
+![8BitDo Microのボタンマッピング](screenshots/8bitdo-micro/01-buttons.png)
+
 </details>
 
 ## 対応コントローラー
@@ -316,7 +327,7 @@ macOSには他にもコントローラーマッピングアプリがあります
 | **Nintendo** | Switch Pro Controller、Joy-Con（単体またはL+Rペア） |
 | **Valve** | Steam Controller（タッチパッド、ジャイロ、グリップ、ハプティクス — Steam不要） |
 | **Apple** | Siri Remote / Apple TV Remote第2世代（クリックパッドカーソル、エッジスクロール、マッピング可能なサイドボタン） |
-| **8BitDo** | Pro 2、SN30 Pro、SN30 Pro+、Ultimate、Lite、Zero 2など |
+| **8BitDo** | **Zero 2・Micro**（専用のスティックレスプレビュー＋raw-HID D-pad）、Pro 2、SN30 Pro、SN30 Pro+、Ultimate、Lite、など |
 | **Logitech** | F310、F510、F710 |
 | **PowerA** | Enhanced Wired、Fusion Pro |
 | **Hori** | HORIPAD、Fighting Commanderなど |

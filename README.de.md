@@ -8,7 +8,7 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 (formerly Xbox Controller Mapper)
 -->
 
-Eine native macOS-App, die Game-Controller auf Tastaturkürzel, Mauseingaben, Makros, Skripte, Webhooks und Systembefehle umlegt — und so jedes Gamepad in ein vollwertiges Desktop-Eingabegerät verwandelt. Unterstützt Xbox Series X|S, Xbox Elite Series 2, PS5 DualSense, PS4 DualShock 4, Nintendo Joy-Con, Switch Pro Controller, Steam Controller, die Apple TV Siri Remote und über 300 Drittanbieter-Gamepads. Mit Touchpad- und Gyroskop-Maussteuerung für DualSense und Steam Controller, Swipe-Typing, einer JavaScript-Scripting-Engine, automatischem Profilwechsel je App, einem Echtzeit-Eingabemodus mit niedriger Latenz und Mac-zu-Mac-Controller-Handoff über WLAN.
+Eine native macOS-App, die Game-Controller auf Tastaturkürzel, Mauseingaben, Makros, Skripte, Webhooks und Systembefehle umlegt — und so jedes Gamepad in ein vollwertiges Desktop-Eingabegerät verwandelt. Unterstützt Xbox Series X|S, Xbox Elite Series 2, PS5 DualSense, PS4 DualShock 4, Nintendo Joy-Con, Switch Pro Controller, Steam Controller, die Apple TV Siri Remote, den schlüsselanhängergroßen 8BitDo Zero 2 und Micro sowie über 300 Drittanbieter-Gamepads. Mit Touchpad- und Gyroskop-Maussteuerung für DualSense und Steam Controller, Swipe-Typing, einer JavaScript-Scripting-Engine, automatischem Profilwechsel je App, einem Echtzeit-Eingabemodus mit niedriger Latenz und Mac-zu-Mac-Controller-Handoff über WLAN.
 
 **[Website & Dokumentation](https://www.kevintang.xyz/apps/controller-keys)** | **[Download](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord-Community](https://discord.gg/WsZJkRsPPg)**
 
@@ -269,6 +269,13 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
   - **Edge Scroll**: Ziehe einen Finger am äußeren Clickpad-Ring entlang für Scrollen im Stil des iPod-Click-Wheels, mit einstellbarer Geschwindigkeit
   - Dedizierte hohe Fernbedienungs-Vorschau in der UI; läuft komplett über rohes IOKit HID — kein Apple TV nötig
 
+- **8BitDo Zero 2 & Micro-Unterstützung**: Erstklassige Unterstützung für die schlüsselanhängergroßen 8BitDo-Pads, nicht nur der generische SDL-Fallback
+  - Produktgetreue Vorschauen im Buttons-Tab, nachgezeichnet von den offiziellen Renderings, mit korrekten Hardware-Beschriftungen (L/R-Schultertasten, plus L2/R2-Trigger beim Micro)
+  - Diese stickless Pads leiten ihr physisches D-pad über eine Phantom-Linksstick-Achse, die macOS fehlkalibriert (rechts wird oft als links erkannt); ControllerKeys liest die rohen HID-Reports direkt aus, um das D-pad bei jedem erneuten Verbinden korrekt wiederherzustellen
+  - Das eigene Dropdown des D-pads steuert **Pfeiltasten / WASD / Benutzerdefinierte Tasten, Maus oder Scrollen** — so kann das Pad tippen, klicken oder den Cursor bewegen
+  - Die Home-Taste des Micro wird synthetisiert (macOS schluckt sie sonst) und mit dem 8BitDo-Logo angezeigt; die Firmware-Profil-Taste (Stern) erscheint als nicht belegbarer Hinweis
+  - Ein verhaltensbasierter Stickless-Klon-Detektor unterscheidet diese Nachahmer von echten Controllern, sodass echte Hardware nie beeinträchtigt wird
+
 - **Drittanbieter-Controller-Unterstützung**: Ca. 313 Controller über die SDL-Datenbank unterstützt
   - 8BitDo, Logitech, PowerA, Hori und mehr
   - Keine manuelle Konfiguration nötig
@@ -305,6 +312,10 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
 ### Tastatur-Widget-Einstellungen
 ![Bildschirmtastatur-Einstellungen](screenshots/dualsense/13-keyboard.png)
 
+### 8BitDo Zero 2 & Micro (nachgezeichnete Vorschauen, stickless D-pad)
+![8BitDo Zero 2 Tastenbelegungen](screenshots/8bitdo-zero2/01-buttons.png)
+![8BitDo Micro Tastenbelegungen](screenshots/8bitdo-micro/01-buttons.png)
+
 </details>
 
 ## Unterstützte Controller
@@ -316,7 +327,7 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
 | **Nintendo** | Switch Pro Controller, Joy-Con (einzeln oder gekoppelt L+R) |
 | **Valve** | Steam Controller (Touchpads, Gyro, Grips, Haptik — ohne Steam) |
 | **Apple** | Siri Remote / Apple TV Remote 2. Gen (Clickpad-Cursor, Edge Scroll, belegbare Seitentasten) |
-| **8BitDo** | Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite, Zero 2 und mehr |
+| **8BitDo** | **Zero 2 & Micro** (dedizierte stickless Vorschauen + raw-HID-D-pad), Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite und mehr |
 | **Logitech** | F310, F510, F710 |
 | **PowerA** | Enhanced Wired, Fusion Pro |
 | **Hori** | HORIPAD, Fighting Commander und mehr |

@@ -8,7 +8,7 @@ direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-ma
 (formerly Xbox Controller Mapper)
 -->
 
-一款原生 macOS 应用程序，可将 Xbox、Xbox Elite Series 2、DualSense（PS5）、DualShock 4（PS4）、Nintendo Joy-Con、Switch Pro 手柄、Steam Controller、Apple TV Siri Remote 以及 300+ 款第三方手柄的输入映射为键盘快捷键、鼠标移动、滚动/缩放/平移操作、宏、脚本、Webhook 和系统命令。支持带滑动输入的屏幕键盘、DualSense 与 Steam Controller 触摸板和陀螺仪、JavaScript 脚本引擎、按应用自动切换配置文件、实时低延迟输入模式，以及通过 Wi-Fi 在两台 Mac 之间无缝传递手柄控制权。
+一款原生 macOS 应用程序，可将 Xbox、Xbox Elite Series 2、DualSense（PS5）、DualShock 4（PS4）、Nintendo Joy-Con、Switch Pro 手柄、Steam Controller、Apple TV Siri Remote、钥匙扣大小的 8BitDo Zero 2 与 Micro 以及 300+ 款第三方手柄的输入映射为键盘快捷键、鼠标移动、滚动/缩放/平移操作、宏、脚本、Webhook 和系统命令。支持带滑动输入的屏幕键盘、DualSense 与 Steam Controller 触摸板和陀螺仪、JavaScript 脚本引擎、按应用自动切换配置文件、实时低延迟输入模式，以及通过 Wi-Fi 在两台 Mac 之间无缝传递手柄控制权。
 
 **[官方网站与文档](https://www.kevintang.xyz/apps/controller-keys)** | **[下载购买](https://thekevintang.gumroad.com/l/xbox-controller-mapper)**
 
@@ -255,6 +255,13 @@ ControllerKeys 是唯一一款完整支持 DualSense 触摸板的选择，非常
   - **边缘滚动**：手指沿触控板外圈滑动即可实现 iPod 转盘式滚动，速度可调
   - UI 中提供专属竖向遥控器预览；完全基于原始 IOKit HID 运行 — 无需 Apple TV
 
+- **8BitDo Zero 2 与 Micro 支持**：为钥匙扣大小的 8BitDo 手柄提供一流支持，而不仅仅是通用 SDL 回退
+  - 按键标签页提供依据官方渲染图描摹的产品级预览，并标注正确的硬件标签（L/R 肩键，以及 Micro 上的 L2/R2 扳机）
+  - 这些无摇杆手柄会把物理方向键通过一个被 macOS 错误校准的幻影左摇杆轴上报（右常被识别为左）；ControllerKeys 直接读取原始 HID 报告，在每次重新连接时都能正确还原方向键
+  - 方向键自带的下拉菜单可驱动**方向键 / WASD / 自定义按键、鼠标或滚动** — 因此该手柄可以打字、点击或移动光标
+  - Micro 的 Home 键由应用合成（否则会被 macOS 吞掉），并显示 8BitDo 标志；固件配置（星形）按键则渲染为不可映射的提示
+  - 行为式无摇杆仿制品检测器能将这些冒牌货与正品手柄区分开来，因此真实硬件绝不会受到影响
+
 - **第三方手柄支持**：通过 SDL 数据库支持约 313 款手柄
   - 8BitDo、罗技、PowerA、Hori 等
   - 无需手动配置
@@ -287,6 +294,10 @@ ControllerKeys 是唯一一款完整支持 DualSense 触摸板的选择，非常
 
 ### 屏幕键盘小组件设置
 ![屏幕键盘设置](screenshots/dualsense/13-keyboard.png)
+
+### 8BitDo Zero 2 与 Micro（描摹预览，无摇杆方向键）
+![8BitDo Zero 2 按键映射](screenshots/8bitdo-zero2/01-buttons.png)
+![8BitDo Micro 按键映射](screenshots/8bitdo-micro/01-buttons.png)
 
 </details>
 

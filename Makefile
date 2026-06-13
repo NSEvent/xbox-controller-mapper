@@ -188,7 +188,7 @@ refactor-gate: test-full
 # Marketing asset pipeline. All targets require Accessibility + Screen
 # Recording permission for the terminal (macOS re-prompts for Screen
 # Recording periodically — System Settings > Privacy & Security).
-CAPTURE_VARIANTS := dualsense xbox steam appletv dualsense-edge dualshock nintendo xbox-elite
+CAPTURE_VARIANTS := dualsense xbox steam appletv dualsense-edge dualshock nintendo xbox-elite 8bitdo-zero2 8bitdo-micro
 
 # Capture marketing/README screenshots for every controller variant
 # (tab walks + stream overlay panels). See Scripts/capture-screenshots.sh.
