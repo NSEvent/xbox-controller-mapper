@@ -1056,6 +1056,16 @@ class ControllerService: ObservableObject {
             )
         }
 
+        // Small 8BitDo pads in D-input (Android) mode expose their real
+        // product name through GameController too. In Switch/macOS modes
+        // they are byte-perfect Pro Controller / DualShock clones, so they
+        // keep those previews (pin the model via the preview dropdown).
+        if let model = Self.eightBitDoMinimapModel(forControllerName: controller.vendorName ?? "") {
+            storage.lock.lock()
+            storage.eightBitDoModel = model
+            storage.lock.unlock()
+        }
+
         // Publish connection only after controller-specific handlers have populated
         // storage flags like isDualSense/isXboxElite. MappingEngine reacts to this publisher.
         isConnected = true
