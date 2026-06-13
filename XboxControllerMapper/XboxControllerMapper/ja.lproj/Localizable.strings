@@ -607,3 +607,107 @@
 
 /* キーリピートのシミュレーション (v1.6.4) */
 "Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input." = "キーダウンイベントを再送信して物理キーボードのキーリピートをシミュレートします。長押しによる連続入力が必要なゲームでお使いください。";
+
+/* MARK: - Controller Pairing Guide (machine-translated 2026-06 — REVIEW) */
+
+/* Empty-state chrome */
+"No controller connected" = "コントローラーが接続されていません";
+"Turn your controller on and put it in pairing mode — it connects automatically. Need the steps? Pick your controller:" = "コントローラーの電源を入れ、ペアリングモードにすると自動的に接続されます。手順が必要ですか？コントローラーを選んでください：";
+"Choose different" = "別のを選ぶ";
+"Back to controller list" = "コントローラー一覧に戻る";
+"Open Bluetooth Settings" = "Bluetooth設定を開く";
+"Full Guide" = "完全ガイド";
+"Open the full guide on the web" = "完全ガイドをWebで開く";
+"Show pairing steps for %@" = "%@のペアリング手順を表示";
+"%@ pairing steps" = "%@のペアリング手順";
+
+/* Shared steps */
+"On your Mac, open **System Settings → Bluetooth**." = "Macで**システム設定 → Bluetooth**を開きます。";
+"A USB-C cable works wired too." = "USB-Cケーブルでの有線接続も可能です。";
+
+/* Xbox */
+"Pair Your Xbox Controller" = "Xboxコントローラーをペアリング";
+"Xbox Series X|S, or a Bluetooth Xbox One controller" = "Xbox Series X|S、またはBluetooth対応のXbox Oneコントローラー";
+"Press the **Xbox button** to turn the controller on — it lights up." = "**Xboxボタン**を押してコントローラーの電源を入れます。ボタンが点灯します。";
+"Hold the **Pair button** on top (next to the charge port) for ~3 seconds, until the Xbox button flashes rapidly." = "上部（充電ポートの隣）の**Pairボタン**を約3秒間、Xboxボタンが速く点滅するまで押し続けます。";
+"Click **Connect** next to **Xbox Wireless Controller**." = "**Xbox Wireless Controller**の隣の**接続**をクリックします。";
+"Prefer wired? Plug in a USB-C cable (Series X|S) or Micro-USB (Xbox One) — it connects instantly, no pairing." = "有線がお好みですか？USB-Cケーブル（Series X|S）またはMicro-USB（Xbox One）を接続すれば、ペアリング不要ですぐに接続できます。";
+"Only Bluetooth models pair wirelessly: any Xbox Series controller, or an Xbox One controller from model 1708 (2016) onward." = "ワイヤレス接続できるのはBluetoothモデルのみです：Xbox Seriesコントローラー全般、またはモデル1708（2016年）以降のXbox Oneコントローラー。";
+
+/* Xbox Elite Series 2 */
+"Pair Your Xbox Elite Series 2" = "Xbox Elite Series 2をペアリング";
+"Xbox Elite Wireless Controller Series 2" = "Xbox Elite Wireless Controller Series 2";
+"Press the **Xbox button** to turn the controller on." = "**Xboxボタン**を押してコントローラーの電源を入れます。";
+"Hold the **Pair button** on top (beside the charge port) for ~3 seconds, until the Xbox button flashes rapidly." = "上部（充電ポートの隣）の**Pairボタン**を約3秒間、Xboxボタンが速く点滅するまで押し続けます。";
+"Click **Connect** next to **Xbox Elite Wireless Controller**." = "**Xbox Elite Wireless Controller**の隣の**接続**をクリックします。";
+"A USB-C cable also works and charges at the same time." = "USB-Cケーブルでも接続でき、同時に充電もできます。";
+"The Elite Series 2 pairs exactly like a standard Xbox controller. Back paddles map just like any other button once connected." = "Elite Series 2は通常のXboxコントローラーとまったく同じようにペアリングできます。接続後は背面パドルも他のボタンと同様に割り当てられます。";
+
+/* DualSense */
+"Pair Your DualSense" = "DualSenseをペアリング";
+"PS5 DualSense Wireless Controller" = "PS5 DualSense ワイヤレスコントローラー";
+"If the controller is on, hold the **PS button** ~10 seconds until the light bar turns off — it must be off first." = "コントローラーがオンの場合は、**PSボタン**を約10秒間、ライトバーが消えるまで押し続けます。先にオフにする必要があります。";
+"Hold the **Create button** (small button left of the touchpad) **and the PS button** together for ~3 seconds, until the light bar flashes blue." = "**Createボタン**（タッチパッド左側の小さなボタン）**とPSボタン**を約3秒間、ライトバーが青く点滅するまで同時に押し続けます。";
+"Click **Connect** next to **DualSense Wireless Controller**." = "**DualSense Wireless Controller**の隣の**接続**をクリックします。";
+"Or just plug in a USB-C cable — it works immediately with no pairing." = "または、USB-Cケーブルを接続するだけで、ペアリング不要ですぐに使えます。";
+"Native DualSense support requires macOS 11.3 or later." = "DualSenseのネイティブ対応にはmacOS 11.3以降が必要です。";
+
+/* DualSense Edge */
+"Pair Your DualSense Edge" = "DualSense Edgeをペアリング";
+"PS5 DualSense Edge Wireless Controller" = "PS5 DualSense Edge ワイヤレスコントローラー";
+"If the controller is on, hold the **PS button** ~10 seconds until the light bar turns off." = "コントローラーがオンの場合は、**PSボタン**を約10秒間、ライトバーが消えるまで押し続けます。";
+"Hold the **Create button** (left of the touchpad) **and the PS button** together for ~3 seconds, until the light bar flashes blue." = "**Createボタン**（タッチパッドの左側）**とPSボタン**を約3秒間、ライトバーが青く点滅するまで同時に押し続けます。";
+"Click **Connect** next to **DualSense Edge Wireless Controller**." = "**DualSense Edge Wireless Controller**の隣の**接続**をクリックします。";
+"A USB-C cable also works instantly. The Edge's braided cable has a locking connector — press the release to unplug." = "USB-Cケーブルでもすぐに接続できます。Edgeの編組ケーブルにはロック式コネクタが付いています。抜くときはリリースを押してください。";
+"Edge paddles and Fn buttons appear automatically once connected." = "接続するとEdgeのパドルとFnボタンが自動的に表示されます。";
+"Native support requires macOS 13 Ventura or later." = "ネイティブ対応にはmacOS 13 Ventura以降が必要です。";
+
+/* DualShock 4 */
+"Pair Your DualShock 4" = "DualShock 4をペアリング";
+"PS4 DualShock 4 Wireless Controller" = "PS4 DualShock 4 ワイヤレスコントローラー";
+"With the controller off, hold the **Share button and the PS button** together for ~3 seconds." = "コントローラーをオフにした状態で、**SHAREボタンとPSボタン**を約3秒間同時に押し続けます。";
+"The light bar flashes white in double-pulses — it's now discoverable." = "ライトバーが白く2回ずつ点滅します。これで検出できる状態になります。";
+"Click **Connect** next to **Wireless Controller**." = "**Wireless Controller**の隣の**接続**をクリックします。";
+"Or connect a Micro-USB cable for a wired, lower-latency link." = "または、Micro-USBケーブルを接続すれば、低遅延の有線接続になります。";
+"Native DualShock 4 support requires macOS 11 Big Sur or later." = "DualShock 4のネイティブ対応にはmacOS 11 Big Sur以降が必要です。";
+
+/* Nintendo Switch Pro */
+"Pair Your Switch Pro Controller" = "Switch Proコントローラーをペアリング";
+"Nintendo Switch Pro Controller or Joy-Con" = "Nintendo Switch ProコントローラーまたはJoy-Con";
+"Hold the small **sync button** on top (next to the USB-C port) until the player LEDs run back and forth." = "上部（USB-Cポートの隣）の小さな**Syncボタン**を、プレイヤーLEDが左右に流れるまで押し続けます。";
+"Under **Nearby Devices**, select **Pro Controller** to connect." = "**近くのデバイス**で**Pro Controller**を選んで接続します。";
+"A USB-C cable connects too, but macOS reads Switch controllers reliably only over Bluetooth — wireless is recommended." = "USB-Cケーブルでも接続できますが、macOSがSwitchコントローラーを確実に認識できるのはBluetooth経由のみです。ワイヤレス接続をおすすめします。";
+"Joy-Con: hold the small **sync button** on the side rail (between SR and SL) until the LEDs run. Pair each Joy-Con separately." = "Joy-Con：サイドレール（SRとSLの間）の小さな**Syncボタン**を、LEDが流れるまで押し続けます。各Joy-Conは個別にペアリングします。";
+"Native Nintendo support requires macOS 13 Ventura or later." = "Nintendoのネイティブ対応にはmacOS 13 Ventura以降が必要です。";
+
+/* Steam Controller */
+"Pair Your Steam Controller" = "Steamコントローラーをペアリング";
+"Valve Steam Controller over Bluetooth LE" = "Valve Steam ControllerをBluetooth LEで接続";
+"With the controller off, hold the **Steam button and the B button** together to power on directly into Bluetooth LE pairing mode." = "コントローラーをオフにした状態で、**SteamボタンとBボタン**を同時に押し続けると、Bluetooth LEペアリングモードで直接起動します。";
+"The Steam button blinks while it's discoverable." = "検出可能な間、Steamボタンが点滅します。";
+"Select the **Steam Controller** under Nearby Devices." = "近くのデバイスで**Steam Controller**を選びます。";
+"Or plug in the USB wireless dongle (2.4 GHz) — it connects without any Bluetooth pairing." = "または、USBワイヤレスドングル（2.4GHz）を接続すれば、Bluetoothのペアリングなしで接続できます。";
+"If **Steam + B** doesn't work on your hardware revision, try holding **Y** while pressing the Steam button." = "お使いのハードウェアリビジョンで**Steam + B**が効かない場合は、**Y**を押しながらSteamボタンを押してみてください。";
+
+/* 8BitDo Zero 2 */
+"Pair Your 8BitDo Zero 2" = "8BitDo Zero 2をペアリング";
+"8BitDo Zero 2 — choose a startup mode" = "8BitDo Zero 2 — 起動モードを選択";
+"Power on by holding a mode button **+ Start**. For this Zero 2 layout, use **Android / D-input**: hold **B + Start** until the LED blinks." = "モードボタン**＋ Start**を押しながら電源を入れます。このZero 2レイアウトには**Android / D-input**を使います：**B ＋ Start**をLEDが点滅するまで押し続けます。";
+"Connect to **8BitDo Zero 2** under Nearby Devices." = "近くのデバイスで**8BitDo Zero 2**に接続します。";
+"The Zero 2 has three Mac-ready modes — hold the button while powering on with **Start**: **B** = Android/D-input (pairs as an *8BitDo Zero 2*, matching this layout), **Y** = Switch (pairs as a *Switch Pro Controller*), **A** = macOS (pairs as a *DualShock 4*). All three work with ControllerKeys." = "Zero 2にはMac対応のモードが3つあります。**Start**で電源を入れる際に各ボタンを押し続けます：**B** = Android/D-input（*8BitDo Zero 2*として接続、このレイアウトに対応）、**Y** = Switch（*Switch Pro Controller*として接続）、**A** = macOS（*DualShock 4*として接続）。3つともControllerKeysで動作します。";
+
+/* 8BitDo Micro / Lite 2 / Lite SE (shared S/D-switch templates) */
+"Pair Your 8BitDo %@" = "8BitDo %@をペアリング";
+"8BitDo %@ — set the S/D mode switch" = "8BitDo %@ — S/Dモードスイッチを設定";
+"Slide the bottom **mode switch to D** (D-input) so it pairs as an 8BitDo %@, then turn it on — an LED blinks." = "底面の**モードスイッチをD**（D-input）に切り替えて8BitDo %@として接続されるようにし、電源を入れます。LEDが点滅します。";
+"Hold the **Pair button** (next to the USB-C port) for ~3 seconds, until the LED blinks rapidly." = "**Pairボタン**（USB-Cポートの隣）を約3秒間、LEDが速く点滅するまで押し続けます。";
+"Connect to **8BitDo %@** under Nearby Devices." = "近くのデバイスで**8BitDo %@**に接続します。";
+"Bottom switch: **D** = D-input/Android (pairs as an *8BitDo %@*, matching this layout); **S** = Switch mode (pairs as a *Switch Pro Controller*). Both work with ControllerKeys." = "底面のスイッチ：**D** = D-input/Android（*8BitDo %@*として接続、このレイアウトに対応）、**S** = Switchモード（*Switch Pro Controller*として接続）。どちらもControllerKeysで動作します。";
+
+/* Apple TV Siri Remote */
+"Pair Your Siri Remote" = "Siri Remoteをペアリング";
+"Apple TV Siri Remote (2nd or 3rd gen)" = "Apple TV Siri Remote（第2または第3世代）";
+"If you have an Apple TV nearby, **unplug it first** — the remote has to disconnect from the Apple TV before it can pair to your Mac." = "近くにApple TVがある場合は、**先に電源を抜いてください**。リモコンはApple TVとの接続を切ってからでないとMacとペアリングできません。";
+"On the remote, hold **Volume Up (+) and the Back button** together until it enters pairing mode." = "リモコンの**Volume Up (+) と Back ボタン**を、ペアリングモードに入るまで同時に押し続けます。";
+"Select the remote under **Nearby Devices** to connect — it joins as a Bluetooth HID device." = "**近くのデバイス**でリモコンを選んで接続します。BluetoothのHIDデバイスとして追加されます。";
+"Keep the Apple TV unplugged for the whole pairing process so the remote doesn't reconnect to it mid-pair." = "ペアリングの間はApple TVの電源を抜いたままにして、リモコンが途中で再接続しないようにします。";

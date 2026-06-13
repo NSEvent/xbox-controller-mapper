@@ -94,6 +94,20 @@ struct ButtonMappingsTab: View {
 
 				layoutPreviewMenu
 
+				// Scope the connect/disconnect animation to just this card so it
+				// doesn't also cross-fade the picker label / mismatch note / layer
+				// bar, which change on the same `isConnected` flip.
+				Group {
+					if !controllerService.isConnected {
+						ControllerPairingHintView(
+							previewLayout: controllerPreviewLayout,
+							onSelectLayout: { controllerPreviewLayout = $0 }
+						)
+						.transition(.opacity.combined(with: .move(edge: .top)))
+					}
+				}
+				.animation(.easeInOut(duration: 0.25), value: controllerService.isConnected)
+
                 InputLogView()
             }
             .padding(.horizontal, 16)
@@ -303,6 +317,15 @@ struct ButtonMappingsTab: View {
 
 	private var layoutPreviewMismatchNote: String? {
 		guard controllerPreviewLayout != .active else { return nil }
+
+		// When no controller is connected, the pairing-hint card owns the
+		// messaging — suppress every mismatch warning so the two can't
+		// contradict each other (the card says "No controller connected" while
+		// this would say "Connected: …"). `connectedControllerPreviewLayouts` is
+		// built from GCController / HID snapshots that aren't gated by
+		// `isConnected`, so without this guard the non-empty branch below could
+		// still fire mid-(dis)connect.
+		guard controllerService.isConnected else { return nil }
 
 		let connectedLayouts = connectedControllerPreviewLayouts
 		guard !connectedLayouts.contains(controllerPreviewLayout) else { return nil }

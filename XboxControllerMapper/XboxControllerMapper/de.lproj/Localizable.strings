@@ -607,3 +607,107 @@
 
 /* Simulierte Tastenwiederholung (v1.6.4) */
 "Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input." = "Sendet Tastendruck-Ereignisse erneut, um eine physische Tastenwiederholung zu simulieren. Geeignet für Spiele, die für wiederholte Eingaben gehaltene Tasten erfordern.";
+
+/* MARK: - Controller Pairing Guide (machine-translated 2026-06 — REVIEW) */
+
+/* Empty-state chrome */
+"No controller connected" = "Kein Controller verbunden";
+"Turn your controller on and put it in pairing mode — it connects automatically. Need the steps? Pick your controller:" = "Schalte deinen Controller ein und versetze ihn in den Kopplungsmodus – er verbindet sich automatisch. Du brauchst die Schritte? Wähle deinen Controller:";
+"Choose different" = "Anderen auswählen";
+"Back to controller list" = "Zurück zur Controller-Liste";
+"Open Bluetooth Settings" = "Bluetooth-Einstellungen öffnen";
+"Full Guide" = "Vollständige Anleitung";
+"Open the full guide on the web" = "Vollständige Anleitung im Web öffnen";
+"Show pairing steps for %@" = "Kopplungsschritte für %@ anzeigen";
+"%@ pairing steps" = "Kopplungsschritte für %@";
+
+/* Shared steps */
+"On your Mac, open **System Settings → Bluetooth**." = "Öffne auf deinem Mac **Systemeinstellungen → Bluetooth**.";
+"A USB-C cable works wired too." = "Ein USB-C-Kabel funktioniert auch kabelgebunden.";
+
+/* Xbox */
+"Pair Your Xbox Controller" = "Xbox Controller koppeln";
+"Xbox Series X|S, or a Bluetooth Xbox One controller" = "Xbox Series X|S oder ein Bluetooth-fähiger Xbox One Controller";
+"Press the **Xbox button** to turn the controller on — it lights up." = "Drücke die **Xbox-Taste**, um den Controller einzuschalten – sie leuchtet auf.";
+"Hold the **Pair button** on top (next to the charge port) for ~3 seconds, until the Xbox button flashes rapidly." = "Halte die **Pair-Taste** oben (neben dem Ladeanschluss) ~3 Sekunden lang gedrückt, bis die Xbox-Taste schnell blinkt.";
+"Click **Connect** next to **Xbox Wireless Controller**." = "Klicke neben **Xbox Wireless Controller** auf **Verbinden**.";
+"Prefer wired? Plug in a USB-C cable (Series X|S) or Micro-USB (Xbox One) — it connects instantly, no pairing." = "Lieber kabelgebunden? Schließe ein USB-C-Kabel (Series X|S) oder Micro-USB (Xbox One) an – es verbindet sich sofort, ohne Kopplung.";
+"Only Bluetooth models pair wirelessly: any Xbox Series controller, or an Xbox One controller from model 1708 (2016) onward." = "Nur Bluetooth-Modelle koppeln drahtlos: jeder Xbox Series Controller oder ein Xbox One Controller ab Modell 1708 (2016).";
+
+/* Xbox Elite Series 2 */
+"Pair Your Xbox Elite Series 2" = "Xbox Elite Series 2 koppeln";
+"Xbox Elite Wireless Controller Series 2" = "Xbox Elite Wireless Controller Series 2";
+"Press the **Xbox button** to turn the controller on." = "Drücke die **Xbox-Taste**, um den Controller einzuschalten.";
+"Hold the **Pair button** on top (beside the charge port) for ~3 seconds, until the Xbox button flashes rapidly." = "Halte die **Pair-Taste** oben (neben dem Ladeanschluss) ~3 Sekunden lang gedrückt, bis die Xbox-Taste schnell blinkt.";
+"Click **Connect** next to **Xbox Elite Wireless Controller**." = "Klicke neben **Xbox Elite Wireless Controller** auf **Verbinden**.";
+"A USB-C cable also works and charges at the same time." = "Ein USB-C-Kabel funktioniert ebenfalls und lädt gleichzeitig.";
+"The Elite Series 2 pairs exactly like a standard Xbox controller. Back paddles map just like any other button once connected." = "Die Elite Series 2 wird genau wie ein normaler Xbox Controller gekoppelt. Die hinteren Paddles lassen sich nach dem Verbinden wie jede andere Taste zuordnen.";
+
+/* DualSense */
+"Pair Your DualSense" = "DualSense koppeln";
+"PS5 DualSense Wireless Controller" = "PS5 DualSense Wireless-Controller";
+"If the controller is on, hold the **PS button** ~10 seconds until the light bar turns off — it must be off first." = "Wenn der Controller eingeschaltet ist, halte die **PS-Taste** ~10 Sekunden gedrückt, bis die Leuchtleiste erlischt – er muss zuerst aus sein.";
+"Hold the **Create button** (small button left of the touchpad) **and the PS button** together for ~3 seconds, until the light bar flashes blue." = "Halte die **Create-Taste** (kleine Taste links vom Touchpad) **und die PS-Taste** ~3 Sekunden zusammen gedrückt, bis die Leuchtleiste blau blinkt.";
+"Click **Connect** next to **DualSense Wireless Controller**." = "Klicke neben **DualSense Wireless Controller** auf **Verbinden**.";
+"Or just plug in a USB-C cable — it works immediately with no pairing." = "Oder schließe einfach ein USB-C-Kabel an – es funktioniert sofort, ohne Kopplung.";
+"Native DualSense support requires macOS 11.3 or later." = "Native DualSense-Unterstützung erfordert macOS 11.3 oder neuer.";
+
+/* DualSense Edge */
+"Pair Your DualSense Edge" = "DualSense Edge koppeln";
+"PS5 DualSense Edge Wireless Controller" = "PS5 DualSense Edge Wireless-Controller";
+"If the controller is on, hold the **PS button** ~10 seconds until the light bar turns off." = "Wenn der Controller eingeschaltet ist, halte die **PS-Taste** ~10 Sekunden gedrückt, bis die Leuchtleiste erlischt.";
+"Hold the **Create button** (left of the touchpad) **and the PS button** together for ~3 seconds, until the light bar flashes blue." = "Halte die **Create-Taste** (links vom Touchpad) **und die PS-Taste** ~3 Sekunden zusammen gedrückt, bis die Leuchtleiste blau blinkt.";
+"Click **Connect** next to **DualSense Edge Wireless Controller**." = "Klicke neben **DualSense Edge Wireless Controller** auf **Verbinden**.";
+"A USB-C cable also works instantly. The Edge's braided cable has a locking connector — press the release to unplug." = "Ein USB-C-Kabel funktioniert ebenfalls sofort. Das geflochtene Kabel der Edge hat einen verriegelnden Stecker – drücke die Entriegelung zum Abziehen.";
+"Edge paddles and Fn buttons appear automatically once connected." = "Edge-Paddles und Fn-Tasten erscheinen nach dem Verbinden automatisch.";
+"Native support requires macOS 13 Ventura or later." = "Native Unterstützung erfordert macOS 13 Ventura oder neuer.";
+
+/* DualShock 4 */
+"Pair Your DualShock 4" = "DualShock 4 koppeln";
+"PS4 DualShock 4 Wireless Controller" = "PS4 DualShock 4 Wireless-Controller";
+"With the controller off, hold the **Share button and the PS button** together for ~3 seconds." = "Halte bei ausgeschaltetem Controller die **Share-Taste und die PS-Taste** ~3 Sekunden zusammen gedrückt.";
+"The light bar flashes white in double-pulses — it's now discoverable." = "Die Leuchtleiste blinkt weiß in Doppelimpulsen – er ist jetzt sichtbar.";
+"Click **Connect** next to **Wireless Controller**." = "Klicke neben **Wireless Controller** auf **Verbinden**.";
+"Or connect a Micro-USB cable for a wired, lower-latency link." = "Oder schließe ein Micro-USB-Kabel für eine kabelgebundene Verbindung mit geringerer Latenz an.";
+"Native DualShock 4 support requires macOS 11 Big Sur or later." = "Native DualShock 4-Unterstützung erfordert macOS 11 Big Sur oder neuer.";
+
+/* Nintendo Switch Pro */
+"Pair Your Switch Pro Controller" = "Switch Pro Controller koppeln";
+"Nintendo Switch Pro Controller or Joy-Con" = "Nintendo Switch Pro Controller oder Joy-Con";
+"Hold the small **sync button** on top (next to the USB-C port) until the player LEDs run back and forth." = "Halte die kleine **Sync-Taste** oben (neben dem USB-C-Anschluss) gedrückt, bis die Spieler-LEDs hin und her laufen.";
+"Under **Nearby Devices**, select **Pro Controller** to connect." = "Wähle unter den Geräten in der Nähe den **Pro Controller** aus, um zu verbinden.";
+"A USB-C cable connects too, but macOS reads Switch controllers reliably only over Bluetooth — wireless is recommended." = "Ein USB-C-Kabel verbindet ebenfalls, aber macOS erkennt Switch-Controller nur über Bluetooth zuverlässig – drahtlos wird empfohlen.";
+"Joy-Con: hold the small **sync button** on the side rail (between SR and SL) until the LEDs run. Pair each Joy-Con separately." = "Joy-Con: Halte die kleine **Sync-Taste** an der Seitenschiene (zwischen SR und SL) gedrückt, bis die LEDs laufen. Kopple jeden Joy-Con einzeln.";
+"Native Nintendo support requires macOS 13 Ventura or later." = "Native Nintendo-Unterstützung erfordert macOS 13 Ventura oder neuer.";
+
+/* Steam Controller */
+"Pair Your Steam Controller" = "Steam Controller koppeln";
+"Valve Steam Controller over Bluetooth LE" = "Valve Steam Controller über Bluetooth LE";
+"With the controller off, hold the **Steam button and the B button** together to power on directly into Bluetooth LE pairing mode." = "Halte bei ausgeschaltetem Controller die **Steam-Taste und die B-Taste** zusammen gedrückt, um direkt im Bluetooth-LE-Kopplungsmodus einzuschalten.";
+"The Steam button blinks while it's discoverable." = "Die Steam-Taste blinkt, solange er sichtbar ist.";
+"Select the **Steam Controller** under Nearby Devices." = "Wähle den **Steam Controller** unter den Geräten in der Nähe aus.";
+"Or plug in the USB wireless dongle (2.4 GHz) — it connects without any Bluetooth pairing." = "Oder schließe den USB-Funkadapter (2,4 GHz) an – er verbindet sich ganz ohne Bluetooth-Kopplung.";
+"If **Steam + B** doesn't work on your hardware revision, try holding **Y** while pressing the Steam button." = "Falls **Steam + B** bei deiner Hardware-Revision nicht funktioniert, halte **Y** gedrückt, während du die Steam-Taste drückst.";
+
+/* 8BitDo Zero 2 */
+"Pair Your 8BitDo Zero 2" = "8BitDo Zero 2 koppeln";
+"8BitDo Zero 2 — choose a startup mode" = "8BitDo Zero 2 – Startmodus wählen";
+"Power on by holding a mode button **+ Start**. For this Zero 2 layout, use **Android / D-input**: hold **B + Start** until the LED blinks." = "Schalte ein, indem du eine Modustaste **+ Start** gedrückt hältst. Für dieses Zero-2-Layout nutze **Android / D-Input**: halte **B + Start**, bis die LED blinkt.";
+"Connect to **8BitDo Zero 2** under Nearby Devices." = "Verbinde dich mit **8BitDo Zero 2** unter den Geräten in der Nähe.";
+"The Zero 2 has three Mac-ready modes — hold the button while powering on with **Start**: **B** = Android/D-input (pairs as an *8BitDo Zero 2*, matching this layout), **Y** = Switch (pairs as a *Switch Pro Controller*), **A** = macOS (pairs as a *DualShock 4*). All three work with ControllerKeys." = "Der Zero 2 hat drei Mac-taugliche Modi – halte die Taste beim Einschalten mit **Start** gedrückt: **B** = Android/D-Input (koppelt als *8BitDo Zero 2*, passend zu diesem Layout), **Y** = Switch (koppelt als *Switch Pro Controller*), **A** = macOS (koppelt als *DualShock 4*). Alle drei funktionieren mit ControllerKeys.";
+
+/* 8BitDo Micro / Lite 2 / Lite SE (shared S/D-switch templates) */
+"Pair Your 8BitDo %@" = "8BitDo %@ koppeln";
+"8BitDo %@ — set the S/D mode switch" = "8BitDo %@ – S/D-Modusschalter einstellen";
+"Slide the bottom **mode switch to D** (D-input) so it pairs as an 8BitDo %@, then turn it on — an LED blinks." = "Schiebe den unteren **Modusschalter auf D** (D-Input), damit er als 8BitDo %@ gekoppelt wird, und schalte ihn dann ein – eine LED blinkt.";
+"Hold the **Pair button** (next to the USB-C port) for ~3 seconds, until the LED blinks rapidly." = "Halte die **Pair-Taste** (neben dem USB-C-Anschluss) ~3 Sekunden gedrückt, bis die LED schnell blinkt.";
+"Connect to **8BitDo %@** under Nearby Devices." = "Verbinde dich mit **8BitDo %@** unter den Geräten in der Nähe.";
+"Bottom switch: **D** = D-input/Android (pairs as an *8BitDo %@*, matching this layout); **S** = Switch mode (pairs as a *Switch Pro Controller*). Both work with ControllerKeys." = "Unterer Schalter: **D** = D-Input/Android (koppelt als *8BitDo %@*, passend zu diesem Layout); **S** = Switch-Modus (koppelt als *Switch Pro Controller*). Beide funktionieren mit ControllerKeys.";
+
+/* Apple TV Siri Remote */
+"Pair Your Siri Remote" = "Siri Remote koppeln";
+"Apple TV Siri Remote (2nd or 3rd gen)" = "Apple TV Siri Remote (2. oder 3. Generation)";
+"If you have an Apple TV nearby, **unplug it first** — the remote has to disconnect from the Apple TV before it can pair to your Mac." = "Falls ein Apple TV in der Nähe ist, **trenne es zuerst vom Strom** – die Remote muss sich vom Apple TV trennen, bevor sie sich mit deinem Mac koppeln kann.";
+"On the remote, hold **Volume Up (+) and the Back button** together until it enters pairing mode." = "Halte an der Remote **Volume Up (+) und die Back-Taste** zusammen gedrückt, bis sie in den Kopplungsmodus wechselt.";
+"Select the remote under **Nearby Devices** to connect — it joins as a Bluetooth HID device." = "Wähle die Remote unter den Geräten in der Nähe aus, um zu verbinden – sie wird als Bluetooth-HID-Gerät hinzugefügt.";
+"Keep the Apple TV unplugged for the whole pairing process so the remote doesn't reconnect to it mid-pair." = "Lass das Apple TV während des gesamten Kopplungsvorgangs vom Strom getrennt, damit sich die Remote nicht erneut damit verbindet.";
