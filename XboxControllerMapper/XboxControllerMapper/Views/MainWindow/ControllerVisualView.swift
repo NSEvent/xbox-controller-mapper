@@ -267,6 +267,18 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	var isAppleTVRemote: Bool { previewLayout.isAppleTVRemote(using: controllerService) }
 	var eightBitDoModel: EightBitDoMinimapModel? { previewLayout.eightBitDoModel(using: controllerService) }
 
+	/// The small 8BitDo pads (Zero 2, Micro) are stickless: the physical d-pad
+	/// feeds the left-stick axis, so they expose no analog sticks at all. The
+	/// Lite 2 / Lite SE are full pads with real sticks.
+	var isStickless: Bool { eightBitDoModel == .zero2 || eightBitDoModel == .micro }
+
+	/// Whether the previewed controller exposes analog sticks in the sidebar.
+	var hasSticks: Bool { !isStickless }
+
+	/// The Zero 2 has no triggers at all (only L/R bumpers). Every other
+	/// controller — including the Micro (L2/R2) — does.
+	var hasTriggers: Bool { eightBitDoModel != .zero2 }
+
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
     }
@@ -363,9 +375,16 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 			HStack(alignment: .center, spacing: 0) {
             // Left Column: Shoulder and Left-side inputs
             VStack(alignment: .trailing, spacing: 16) {
-                referenceGroup(title: "Shoulder", buttons: [.leftTrigger, .leftBumper])
-                stickModeSection(title: "Left Stick", side: .left, center: .leftThumbstick)
-                dpadDirectionCluster
+                referenceGroup(title: "Shoulder", buttons: hasTriggers ? [.leftTrigger, .leftBumper] : [.leftBumper])
+                if isStickless {
+                    // Stickless pads: the d-pad IS the left-stick axis, so a
+                    // single section drives both the mode (mouse/scroll/d-pad/…)
+                    // and the per-direction bindings.
+                    sticklessDpadSection
+                } else {
+                    stickModeSection(title: "Left Stick", side: .left, center: .leftThumbstick)
+                    dpadDirectionCluster
+                }
             }
             .frame(width: 220)
             .padding(.trailing, 20)
@@ -435,10 +454,11 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                         // Show mic mute for DualSense, share for Xbox (but not Elite 2 where
                         // the Share button is the hardware profile cycle button, not mappable)
                         // DualShock 4's physical Share button maps to .view (buttonOptions), not .share
-                        // The Zero 2 has no share/star button either.
+                        // On 8BitDo pads the star is the firmware profile button (not mappable),
+                        // so it never gets a reference row — it shows on the minimap only.
                         if isDualSense {
                             referenceRow(for: .micMute)
-                        } else if !isDualShock && (!isXboxElite || isSteamController) && eightBitDoModel != .zero2 {
+                        } else if !isDualShock && (!isXboxElite || isSteamController) && eightBitDoModel == nil {
                             referenceRow(for: .share)
                         }
                     }
@@ -505,9 +525,11 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
             // Right Column: Face buttons and Right-side inputs
             VStack(alignment: .leading, spacing: 16) {
-                referenceGroup(title: "Shoulder", buttons: [.rightTrigger, .rightBumper])
+                referenceGroup(title: "Shoulder", buttons: hasTriggers ? [.rightTrigger, .rightBumper] : [.rightBumper])
                 referenceGroup(title: "Actions", buttons: [.y, .b, .a, .x])
-                stickModeSection(title: "Right Stick", side: .right, center: .rightThumbstick)
+                if hasSticks {
+                    stickModeSection(title: "Right Stick", side: .right, center: .rightThumbstick)
+                }
             }
             .frame(width: 220)
             .padding(.leading, 20)
@@ -844,6 +866,124 @@ struct ControllerVisualView: View, ControllerTypeProviding {
             right: .dpadRight,
             down: .dpadDown
         )
+    }
+
+    /// D-pad section for stickless pads (Zero 2 / Micro). The physical d-pad
+    /// feeds the left-stick axis, so its dropdown is the d-pad's own preset
+    /// picker — Arrow Keys / WASD / Custom (which route the axis back to true
+    /// d-pad buttons) — extended with Mouse and Scroll (which drive the axis
+    /// directly). There is deliberately no "D-Pad" entry: that StickMode exists
+    /// to make an analog *stick* emulate a d-pad, which is meaningless for a
+    /// control that already is one. The direction tiles only appear for the key
+    /// presets, where binding the four directions makes sense.
+    @ViewBuilder
+    private var sticklessDpadSection: some View {
+        let mode = stickMode(side: .left)
+        // Arrow Keys / WASD / Custom all run through StickMode.dpad; Mouse and
+        // Scroll drive the axis, so the per-direction tiles are only relevant
+        // in the key presets.
+        let showsDirections = (mode == .dpad)
+
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text("D-Pad")
+                    .textCase(.uppercase)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+
+                Spacer(minLength: 4)
+                sticklessDpadModeMenu
+            }
+            .padding(.horizontal, 4)
+
+            if showsDirections {
+                directionClusterGrid(
+                    up: .dpadUp,
+                    left: .dpadLeft,
+                    center: .label(""),
+                    right: .dpadRight,
+                    down: .dpadDown
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Dropdown for the stickless d-pad: the d-pad key presets plus Mouse and
+    /// Scroll. Arrow Keys / WASD / Custom seed the d-pad button mappings and
+    /// route the axis to the d-pad; Mouse / Scroll switch the axis directly.
+    private var sticklessDpadModeMenu: some View {
+        let mode = stickMode(side: .left)
+        let preset = profileManager.activeProfile?.dpadPreset ?? .custom
+        let label: String = {
+            switch mode {
+            case .mouse: return "Mouse"
+            case .scroll: return "Scroll"
+            case .none: return "Off"
+            default: return preset.displayName  // Arrows / WASD / Custom
+            }
+        }()
+        let isKeyMode = (mode == .dpad)
+
+        return Menu {
+            sticklessDpadModeButton("Arrow Keys", selected: isKeyMode && preset == .arrows) {
+                profileManager.setDPadPreset(.arrows)
+                setStickMode(.dpad, side: .left)
+            }
+            sticklessDpadModeButton("WASD", selected: isKeyMode && preset == .wasd) {
+                profileManager.setDPadPreset(.wasd)
+                setStickMode(.dpad, side: .left)
+            }
+            sticklessDpadModeButton("Custom", selected: isKeyMode && preset == .custom) {
+                profileManager.setDPadPreset(.custom)
+                setStickMode(.dpad, side: .left)
+            }
+            Divider()
+            sticklessDpadModeButton("Mouse", selected: mode == .mouse) {
+                setStickMode(.mouse, side: .left)
+            }
+            sticklessDpadModeButton("Scroll", selected: mode == .scroll) {
+                setStickMode(.scroll, side: .left)
+            }
+            sticklessDpadModeButton("Off", selected: mode == StickMode.none) {
+                setStickMode(StickMode.none, side: .left)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(LocalizedStringKey(label))
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 7, weight: .bold))
+                    .opacity(0.7)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .frame(height: 20)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Set what the D-pad does")
+    }
+
+    @ViewBuilder
+    private func sticklessDpadModeButton(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            if selected {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
+            }
+        }
     }
 
     /// Returns true when the current editing scope (layer if selected, else profile) has direction
@@ -1219,7 +1359,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         .controllerAnchor(button, role: .label)
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)
         .accessibilityElement(children: .combine)
-			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))
+			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil))
 		.accessibilityHint(showsLayerActivator ? "Double-tap to open layer" : "Double-tap to configure")
         .accessibilityAddTraits(.isButton)
         .help(compactHelpText(for: button, mapping: currentMapping, layer: layerActivator, showsLayer: showsLayerActivator))
@@ -1284,7 +1424,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 				isDualSense: isPlayStation,
 				isNintendo: isNintendo,
 				isSteamController: isSteamController,
-				isAppleTVRemote: isAppleTVRemote
+				isAppleTVRemote: isAppleTVRemote,
+				isEightBitDo: eightBitDoModel != nil
 			)
         .scaleEffect(0.72)
         .frame(width: 22, height: 22)
@@ -1412,7 +1553,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         layer: Layer?,
         showsLayer: Bool
     ) -> String {
-			let title = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote)
+			let title = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil)
         if let layer, showsLayer {
             return "\(title)\nLayer Activator: \(layer.name)"
         }
@@ -1440,7 +1581,8 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 						isDualSense: isPlayStation,
 						isNintendo: isNintendo,
 						isSteamController: isSteamController,
-						isAppleTVRemote: isAppleTVRemote
+						isAppleTVRemote: isAppleTVRemote,
+						isEightBitDo: eightBitDoModel != nil
 					)
 
 				// Layer activator badge — hidden when viewing a different layer
@@ -1524,7 +1666,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         .contentShape(Rectangle())
         .opacity(isLayerActivatorInLayerContext(button) ? 0.4 : 1.0)  // Dim all layer activators when viewing any layer
         .accessibilityElement(children: .combine)
-			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote))
+			.accessibilityLabel(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote, forEightBitDo: eightBitDoModel != nil))
 		.accessibilityHint(showsLayerActivator ? "Double-tap to open layer" : "Double-tap to configure")
         .accessibilityAddTraits(.isButton)
         .onTapGesture { onButtonTap(button) }

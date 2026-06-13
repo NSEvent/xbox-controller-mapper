@@ -258,6 +258,23 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Display name for 8BitDo pads (Zero 2 / Micro / Lite). Face buttons keep
+    /// their printed A/B/X/Y labels (like Nintendo), the bumpers are printed
+    /// L/R, but unlike Nintendo the analog/digital triggers are printed L2/R2
+    /// (not ZL/ZR), and the guide button is the 8BitDo home button.
+    func displayName(forEightBitDo isEightBitDo: Bool) -> String {
+        guard isEightBitDo else { return displayName }
+        switch self {
+        case .leftBumper: return "L"
+        case .rightBumper: return "R"
+        case .leftTrigger: return "L2"
+        case .rightTrigger: return "R2"
+        case .xbox: return "Home"
+        case .share: return "Star"
+        default: return displayName
+        }
+    }
+
 	/// Display name for Apple TV/Siri Remote controls.
 	func displayName(forAppleTVRemote isAppleTVRemote: Bool) -> String {
 		guard isAppleTVRemote else { return displayName }
@@ -280,9 +297,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     func displayName(
 		forDualSense isDualSense: Bool,
 		forNintendo isNintendo: Bool,
-		forAppleTVRemote isAppleTVRemote: Bool = false
+		forAppleTVRemote isAppleTVRemote: Bool = false,
+		forEightBitDo isEightBitDo: Bool = false
     ) -> String {
 		if isAppleTVRemote { return displayName(forAppleTVRemote: true) }
+		if isEightBitDo { return displayName(forEightBitDo: true) }
         if isNintendo { return displayName(forNintendo: true) }
         return displayName(forDualSense: isDualSense)
     }
@@ -412,6 +431,19 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
         case .view: return "\u{2212}"  // minus sign
         case .share: return "\u{25A1}"  // capture button (square)
         case .xbox: return "\u{2302}"   // home button
+        default: return shortLabel
+        }
+    }
+
+    /// Short label for 8BitDo pads: L/R bumpers, L2/R2 triggers (matches the
+    /// minimap), everything else falls back to the default labels.
+    func shortLabel(forEightBitDo isEightBitDo: Bool) -> String {
+        guard isEightBitDo else { return shortLabel }
+        switch self {
+        case .leftBumper: return "L"
+        case .rightBumper: return "R"
+        case .leftTrigger: return "L2"
+        case .rightTrigger: return "R2"
         default: return shortLabel
         }
     }

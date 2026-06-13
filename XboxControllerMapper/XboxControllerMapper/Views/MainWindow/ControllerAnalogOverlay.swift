@@ -154,7 +154,7 @@ struct ControllerAnalogOverlay: View {
             .minimapPosition(layout.minus, in: size)
         miniLightGlyphButton(.menu, systemImage: "plus", size: w * layout.minusPlusSize)
             .minimapPosition(layout.plus, in: size)
-        miniCircle(.share, size: w * layout.starHomeSize)
+        miniCircle(.share, size: w * layout.starHomeSize, interactive: false)
             .minimapPosition(layout.star, in: size)
         miniCircle(.xbox, size: w * layout.starHomeSize)
             .minimapPosition(layout.home, in: size)
@@ -191,7 +191,7 @@ struct ControllerAnalogOverlay: View {
             .minimapPosition(layout.minus, in: size)
         miniLightGlyphButton(.menu, systemImage: "plus", size: w * layout.minusPlusSize)
             .minimapPosition(layout.plus, in: size)
-        miniCircle(.share, size: w * layout.starHomeSize)
+        miniCircle(.share, size: w * layout.starHomeSize, interactive: false)
             .minimapPosition(layout.star, in: size)
         miniCircle(.xbox, size: w * layout.starHomeSize)
             .minimapPosition(layout.home, in: size)
@@ -235,7 +235,7 @@ struct ControllerAnalogOverlay: View {
             .minimapPosition(layout.minus, in: size)
         miniLightGlyphButton(.menu, systemImage: "plus", size: w * layout.faceRowSize)
             .minimapPosition(layout.plus, in: size)
-        miniCircle(.share, size: w * layout.starHomeSize)
+        miniCircle(.share, size: w * layout.starHomeSize, interactive: false)
             .minimapPosition(layout.star, in: size)
         miniCircle(.xbox, size: w * layout.starHomeSize)
             .minimapPosition(layout.home, in: size)
@@ -1457,7 +1457,7 @@ struct ControllerAnalogOverlay: View {
         }
     }
 
-    private func miniCircle(_ button: ControllerButton, size: CGFloat) -> some View {
+    private func miniCircle(_ button: ControllerButton, size: CGFloat, interactive: Bool = true) -> some View {
         // The guide button is silver/chrome on Xbox; everything else is
         // dark plastic with a white glyph.
         let baseColor: Color = {
@@ -1478,10 +1478,17 @@ struct ControllerAnalogOverlay: View {
                 if isSteamController {
                     SteamLogoMark(foregroundColor: isPressed(button) ? .white : Color(white: 0.78))
                         .frame(width: size * 0.62, height: size * 0.62)
+                } else if eightBitDoModel != nil {
+                    Image("EightBitDoLogo")
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: size * 0.6, height: size * 0.48)
+                        .foregroundColor(isPressed(button) ? .white : Color(white: 0.85))
                 } else {
-                    Image(systemName: isPlayStation ? "playstation.logo" : (isNintendo || eightBitDoModel != nil ? "house" : "xbox.logo"))
+                    Image(systemName: isPlayStation ? "playstation.logo" : (isNintendo ? "house" : "xbox.logo"))
                         .font(.system(size: size * 0.45, weight: .medium))
-                        .foregroundColor(isPressed(button) ? .white : (isNintendo || eightBitDoModel != nil ? Color(white: 0.85) : Color(white: 0.3)))
+                        .foregroundColor(isPressed(button) ? .white : (isNintendo ? Color(white: 0.85) : Color(white: 0.3)))
                 }
             } else if isSteamController && button == .share {
                 Image(systemName: "ellipsis")
@@ -1500,6 +1507,9 @@ struct ControllerAnalogOverlay: View {
         .controllerAnchor(button, role: .controller)
         .onHover { hovering in onButtonHover?(button, hovering) }
         .swappable(button, onSwap: onSwapRequest)
+        // Non-interactive buttons (e.g. the 8BitDo star/profile button, which
+        // the firmware consumes) render as decoration: no tap, hover, or swap.
+        .allowsHitTesting(interactive)
     }
 
     private func miniSquare(_ button: ControllerButton, size: CGFloat) -> some View {

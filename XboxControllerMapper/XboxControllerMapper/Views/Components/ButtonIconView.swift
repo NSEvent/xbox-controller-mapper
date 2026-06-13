@@ -9,6 +9,7 @@ struct ButtonIconView: View {
     let isNintendo: Bool
     let isSteamController: Bool
     let isAppleTVRemote: Bool
+    let isEightBitDo: Bool
     let showDirectionalArrows: Bool
 
     init(
@@ -18,6 +19,7 @@ struct ButtonIconView: View {
         isNintendo: Bool = false,
         isSteamController: Bool = false,
 		isAppleTVRemote: Bool = false,
+        isEightBitDo: Bool = false,
         showDirectionalArrows: Bool = false
     ) {
         self.button = button
@@ -26,6 +28,7 @@ struct ButtonIconView: View {
         self.isNintendo = isNintendo
         self.isSteamController = isSteamController
 		self.isAppleTVRemote = isAppleTVRemote
+        self.isEightBitDo = isEightBitDo
         self.showDirectionalArrows = showDirectionalArrows
     }
     
@@ -167,6 +170,11 @@ struct ButtonIconView: View {
     }
     
     private var baseColor: Color {
+        // 8BitDo home button is dark plastic with a light logo, matching the
+        // minimap — never the silver/chrome Xbox guide treatment.
+        if isEightBitDo && button == .xbox {
+            return Color(white: 0.24)
+        }
         // Use PlayStation style for DualSense face buttons (dark background), standard colors for others
 		if isAppleTVRemote {
 			switch button {
@@ -267,6 +275,23 @@ struct ButtonIconView: View {
                 touchpadSideGlyph(icon: "hand.point.up.left")
             } else if button == .leftTouchpadTap || button == .rightTouchpadTap {
                 touchpadSideGlyph(icon: "hand.tap")
+            } else if isEightBitDo && button == .xbox {
+                // 8BitDo home button: the brand mark, tinted to read on the dark tile.
+                Image("EightBitDoLogo")
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 16, height: 13)
+                    .foregroundColor(isPressed ? .white : Color(white: 0.88))
+            } else if isEightBitDo && (button == .leftBumper || button == .rightBumper || button == .leftTrigger || button == .rightTrigger) {
+                Text(button.shortLabel(forEightBitDo: true))
+                    .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.95))
+            } else if isEightBitDo && (button == .view || button == .menu) {
+                // 8BitDo Select/Start are printed as minus/plus, matching the minimap.
+                Image(systemName: button == .view ? "minus" : "plus")
+                    .font(.system(size: fontSize, weight: .bold))
+                    .foregroundColor(.white.opacity(0.95))
             } else if isSteamController && button == .xbox {
                 SteamLogoMark(foregroundColor: isPressed ? .white : Color(white: 0.25))
                     .frame(width: 15, height: 15)
