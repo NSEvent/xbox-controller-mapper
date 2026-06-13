@@ -89,6 +89,38 @@ final class ControllerDisconnectStateResetTests: XCTestCase {
         XCTAssertFalse(controllerService.readStorage(\.lastRightFunctionState), "lastRightFunctionState should be reset")
     }
 
+    func testCloneDetectionStateResetClearsAllCloneState() {
+        // resetCloneDetectionStateLocked() is the single source of truth both
+        // resetControllerTypeState() and prepareForActiveControllerSwitch() use,
+        // so switching directly to the Apple TV Remote (which bypasses
+        // resetControllerTypeState) can't leak a prior clone pad's state.
+        let storage = controllerService.storage
+
+        storage.lock.lock()
+        storage.eightBitDoModel = .zero2
+        storage.emittedCloneDpadButtons = [.dpadUp, .dpadLeft]
+        storage.lock.unlock()
+
+        // Latch the behavioral detector via two clean center→full snaps.
+        for _ in 0..<2 {
+            controllerService.sticklessCloneDetector.noteLeftStick(.zero)
+            controllerService.sticklessCloneDetector.noteLeftStick(CGPoint(x: 0, y: 1.0))
+        }
+        XCTAssertTrue(controllerService.sticklessCloneDetector.isSticklessClone)
+        XCTAssertNotNil(controllerService.threadSafeEightBitDoMinimapModel)
+
+        // The exact sequence both switch paths run: the helper under the lock,
+        // then the detector reset outside it.
+        storage.lock.lock()
+        controllerService.resetCloneDetectionStateLocked()
+        storage.lock.unlock()
+        controllerService.sticklessCloneDetector.reset()
+
+        XCTAssertNil(controllerService.threadSafeEightBitDoMinimapModel)
+        XCTAssertTrue(controllerService.readStorage(\.emittedCloneDpadButtons).isEmpty)
+        XCTAssertFalse(controllerService.sticklessCloneDetector.isSticklessClone)
+    }
+
     func testTriggerResetExistsInDisconnectHandler() {
         // Verify the actual disconnect handler code resets triggers by checking
         // that the production code includes the trigger reset lines.

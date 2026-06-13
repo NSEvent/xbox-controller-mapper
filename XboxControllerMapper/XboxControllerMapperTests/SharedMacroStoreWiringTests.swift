@@ -260,6 +260,33 @@ final class SharedMacroStoreWiringTests: XCTestCase {
         XCTAssertTrue(decoded.sharedMacroSnapshots.isEmpty)
     }
 
+    /// A forward-versioned (unsupported-schema) snapshot must be dropped, not
+    /// throw — otherwise one bad entry from a newer build would unwind the whole
+    /// profile array on a downgrade and every profile would vanish. The valid
+    /// sibling entry, and the profile itself, must still decode.
+    func testForwardVersionedSnapshotIsDroppedWithoutSinkingTheProfile() throws {
+        let goodId = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
+        let futureId = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"
+        let json = """
+        {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "name": "Mixed",
+            "sharedMacroSnapshots": {
+                "\(goodId)": { "name": "Good", "steps": [] },
+                "\(futureId)": { "schemaVersion": 999, "name": "FromTheFuture", "steps": [] }
+            }
+        }
+        """
+
+        let decoded = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.name, "Mixed", "Profile must survive a poison snapshot.")
+        XCTAssertEqual(decoded.sharedMacroSnapshots.count, 1)
+        XCTAssertEqual(decoded.sharedMacroSnapshots[UUID(uuidString: goodId)!]?.name, "Good")
+        XCTAssertNil(decoded.sharedMacroSnapshots[UUID(uuidString: futureId)!],
+                     "The unsupported-schema snapshot must be dropped.")
+    }
+
     func testEmptySnapshotsAreOmittedFromEncodedJSON() throws {
         let data = try JSONEncoder().encode(Profile(name: "P"))
         let json = String(data: data, encoding: .utf8) ?? ""

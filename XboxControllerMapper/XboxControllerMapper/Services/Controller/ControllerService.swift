@@ -1579,7 +1579,10 @@ class ControllerService: ObservableObject {
     /// `resetControllerTypeState()` and `prepareForActiveControllerSwitch()`
     /// use this so a new clone-detection field can't be reset on one path but
     /// leaked on the other.
-    private func resetCloneDetectionStateLocked() {
+    // Internal (not private) so a unit test can exercise it directly: calling
+    // the full prepareForActiveControllerSwitch()/resetControllerTypeState() on a
+    // bare service tears down HID monitoring that was never set up.
+    func resetCloneDetectionStateLocked() {
         storage.eightBitDoModel = nil
         storage.emittedCloneDpadButtons.removeAll()
     }

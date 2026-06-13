@@ -108,4 +108,35 @@ final class LayerStickModeOverrideTests: XCTestCase {
         XCTAssertNil(decoded.leftStickModeOverride)
         XCTAssertNil(decoded.rightStickModeOverride)
     }
+
+    /// An unknown StickMode raw value on a layer override (e.g. a case added by
+    /// a newer build) must fall back to nil ("inherit"), NOT throw and unwind
+    /// the whole layer/profile decode on a downgrade.
+    func testLayer_unknownStickModeOverrideDecodesToNilNotThrow() throws {
+        let json = """
+        {
+            "id": "\(UUID().uuidString)",
+            "name": "FromFuture",
+            "buttonMappings": {},
+            "leftStickModeOverride": "teleport",
+            "rightStickModeOverride": "scroll"
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(Layer.self, from: json)
+
+        XCTAssertNil(decoded.leftStickModeOverride, "Unknown raw value should degrade to inherit.")
+        XCTAssertEqual(decoded.rightStickModeOverride, .scroll, "Known sibling value still decodes.")
+    }
+
+    /// An unknown StickMode raw value on JoystickSettings must degrade to the
+    /// per-side default rather than throwing out the whole settings/profile.
+    func testJoystickSettings_unknownStickModeDecodesToDefaultNotThrow() throws {
+        let json = #"{"leftStickMode":"teleport","rightStickMode":"dpad"}"#.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(JoystickSettings.self, from: json)
+
+        XCTAssertEqual(decoded.leftStickMode, .mouse, "Unknown raw value degrades to the default.")
+        XCTAssertEqual(decoded.rightStickMode, .dpad, "Known sibling value (incl. newer cases) still decodes.")
+    }
 }
