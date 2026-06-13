@@ -112,9 +112,9 @@ struct ControllerAnalogOverlay: View {
     private func eightBitDoZero2Controls(size: CGSize, w: CGFloat) -> some View {
         let layout = EightBitDoZero2MinimapLayout.self
 
-        miniBumper(.leftBumper, label: "L", width: w * 0.13)
+		miniZero2Bumper(.leftBumper, label: "L", width: w * layout.bumperWidth, tilt: -5)
             .minimapPosition(layout.leftBumper, in: size)
-        miniBumper(.rightBumper, label: "R", width: w * 0.13)
+		miniZero2Bumper(.rightBumper, label: "R", width: w * layout.bumperWidth, tilt: 5)
             .minimapPosition(layout.rightBumper, in: size)
 
         miniLightGlyphButton(.view, systemImage: "minus", size: w * layout.selectStartSize)
@@ -1266,6 +1266,38 @@ struct ControllerAnalogOverlay: View {
             .swappable(button, onSwap: onSwapRequest)
     }
 
+    /// Zero 2 shoulder tab: the product photo shows shallow white caps
+    /// peeking above the teal face rather than dark bumper strips.
+    private func miniZero2Bumper(_ button: ControllerButton, label: String, width: CGFloat, tilt: Double) -> some View {
+		let pressed = isPressed(button)
+		let height = width * 0.22
+		let shape = Capsule(style: .continuous)
+		let base = pressed ? Color.accentColor : Color(white: 0.92)
+
+		return shape
+			.fill(jewelGradient(base, pressed: pressed))
+			.overlay(glassOverlay.clipShape(shape))
+			.overlay(
+				shape.strokeBorder(
+					pressed ? Color.white.opacity(0.35) : Color.black.opacity(0.16),
+					lineWidth: 0.8
+				)
+			)
+			.frame(width: width, height: height)
+			.overlay(
+				Text(label)
+					.font(.system(size: height * 0.62, weight: .bold, design: .rounded))
+					.foregroundColor(pressed ? .white : Color(white: 0.42))
+			)
+			.overlay(miniOverrideOutline(for: button, shape: shape, lineWidth: 1.5))
+			.rotationEffect(.degrees(tilt))
+			.shadow(color: pressed ? Color.accentColor.opacity(0.42) : .black.opacity(0.18), radius: 2, x: 0, y: 1)
+			.onTapGesture { onButtonTap(button) }
+			.controllerAnchor(button, role: .controller)
+			.onHover { hovering in onButtonHover?(button, hovering) }
+			.swappable(button, onSwap: onSwapRequest)
+    }
+
     /// Small pill button (DualSense Create/Options, DS4 Share/Options,
     /// Edge Fn). `size` is the pill height; width is derived.
     private func miniPill(_ button: ControllerButton, size: CGFloat, tilt: Double = 0) -> some View {
@@ -1743,6 +1775,16 @@ struct ControllerAnalogOverlay: View {
                         .allowsHitTesting(false)
                 }
 
+				if style == .lightCross {
+					Group {
+						dpadEmbossedArrow("arrowtriangle.up.fill", size: arm).offset(y: -span * 0.30)
+						dpadEmbossedArrow("arrowtriangle.down.fill", size: arm).offset(y: span * 0.30)
+						dpadEmbossedArrow("arrowtriangle.left.fill", size: arm).offset(x: -span * 0.30)
+						dpadEmbossedArrow("arrowtriangle.right.fill", size: arm).offset(x: span * 0.30)
+					}
+					.allowsHitTesting(false)
+				}
+
                 // Active states (lighting up)
                 if isPressed(.dpadUp) {
                     RoundedRectangle(cornerRadius: arm * 0.25).fill(Color.accentColor)
@@ -1816,6 +1858,14 @@ struct ControllerAnalogOverlay: View {
             }
         }
         .frame(width: span, height: span)
+    }
+
+    /// Subtle embossed arrow glyphs for the 8BitDo white cross d-pad.
+    private func dpadEmbossedArrow(_ glyph: String, size: CGFloat) -> some View {
+		Image(systemName: glyph)
+			.font(.system(size: size * 0.58, weight: .bold))
+			.foregroundStyle(Color.black.opacity(0.13))
+			.shadow(color: .white.opacity(0.24), radius: 0.5, x: 0, y: -0.5)
     }
 
     /// One separated d-pad button for the PlayStation chiclet style.

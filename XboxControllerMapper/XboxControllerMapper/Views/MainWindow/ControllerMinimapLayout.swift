@@ -307,21 +307,22 @@ enum SteamMinimapLayout {
 /// Keychain-sized pad: d-pad + face diamond + select/start only.
 /// No sticks, no triggers, no guide button.
 enum EightBitDoZero2MinimapLayout {
-    static let dpad = CGPoint(x: 0.195, y: 0.46)
-    static let dpadSize: CGFloat = 0.20
+    static let dpad = CGPoint(x: 0.24, y: 0.515)
+    static let dpadSize: CGFloat = 0.25
 
-    static let faceCluster = CGPoint(x: 0.685, y: 0.40)
-    static let faceButtonOffset: CGFloat = 0.095
-    static let faceButtonSize: CGFloat = 0.085
+    static let faceCluster = CGPoint(x: 0.75, y: 0.512)
+    static let faceButtonOffset: CGFloat = 0.085
+    static let faceButtonSize: CGFloat = 0.080
 
-    static let select = CGPoint(x: 0.375, y: 0.70)
-    static let start = CGPoint(x: 0.46, y: 0.70)
-    static let selectStartSize: CGFloat = 0.066
+    static let select = CGPoint(x: 0.447, y: 0.72)
+    static let start = CGPoint(x: 0.553, y: 0.72)
+    static let selectStartSize: CGFloat = 0.074
 
-    static let leftBumper = CGPoint(x: 0.26, y: 0.03)
-    static let rightBumper = CGPoint(x: 0.74, y: 0.03)
+    static let leftBumper = CGPoint(x: 0.285, y: 0.045)
+    static let rightBumper = CGPoint(x: 0.715, y: 0.045)
+    static let bumperWidth: CGFloat = 0.22
 
-    static let battery = CGPoint(x: 0.50, y: 0.87)
+    static let battery = CGPoint(x: 0.50, y: 0.93)
 }
 
 // MARK: - 8BitDo Micro
@@ -329,20 +330,20 @@ enum EightBitDoZero2MinimapLayout {
 /// Zero 2 successor: adds digital L2/R2 on the top edge, a home (guide)
 /// button, and a profile (star) button. Still no sticks.
 enum EightBitDoMicroMinimapLayout {
-    static let dpad = CGPoint(x: 0.175, y: 0.47)
+    static let dpad = CGPoint(x: 0.245, y: 0.47)
     static let dpadSize: CGFloat = 0.24
 
-    static let minus = CGPoint(x: 0.355, y: 0.235)
-    static let plus = CGPoint(x: 0.545, y: 0.235)
+    static let minus = CGPoint(x: 0.405, y: 0.235)
+    static let plus = CGPoint(x: 0.595, y: 0.235)
     static let minusPlusSize: CGFloat = 0.05
 
-    static let star = CGPoint(x: 0.43, y: 0.72)
-    static let home = CGPoint(x: 0.545, y: 0.72)
+    static let star = CGPoint(x: 0.4425, y: 0.72)
+    static let home = CGPoint(x: 0.5575, y: 0.72)
     static let starHomeSize: CGFloat = 0.062
 
-    static let faceCluster = CGPoint(x: 0.755, y: 0.42)
-    static let faceButtonOffset: CGFloat = 0.092
-    static let faceButtonSize: CGFloat = 0.083
+    static let faceCluster = CGPoint(x: 0.755, y: 0.47)
+    static let faceButtonOffset: CGFloat = 0.078
+    static let faceButtonSize: CGFloat = 0.072
 
     // Top edge, outer to inner: L, L2 ... R2, R
     static let leftBumper = CGPoint(x: 0.16, y: 0.02)

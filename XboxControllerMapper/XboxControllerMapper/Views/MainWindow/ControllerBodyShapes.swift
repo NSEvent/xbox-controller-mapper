@@ -355,38 +355,12 @@ struct SteamControllerBodyShape: Shape {
 
 // MARK: - Shared Components
 
-/// 8BitDo Zero 2 silhouette (traced from top-down product photo)
+/// 8BitDo Zero 2 silhouette: simple symmetrical horizontal pill.
 struct EightBitDoZero2BodyShape: Shape {
-    static let aspectRatio: CGFloat = 2.0941
+    static let aspectRatio: CGFloat = 1.98
 
     func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let w = rect.width
-        let h = rect.height
-        p.move(to: CGPoint(x: w * 0.6693, y: h * 0.0021))
-        p.addCurve(to: CGPoint(x: w * 0.6238, y: h * 0.0034), control1: CGPoint(x: w * 0.6579, y: h * 0.0026), control2: CGPoint(x: w * 0.6375, y: h * 0.0033))
-        p.addCurve(to: CGPoint(x: w * 0.5748, y: h * 0.0269), control1: CGPoint(x: w * 0.5890, y: h * 0.0037), control2: CGPoint(x: w * 0.5863, y: h * 0.0050))
-        p.addCurve(to: CGPoint(x: w * 0.5243, y: h * 0.0461), control1: CGPoint(x: w * 0.5649, y: h * 0.0457), control2: CGPoint(x: w * 0.5677, y: h * 0.0446))
-        p.addCurve(to: CGPoint(x: w * 0.4384, y: h * 0.0492), control1: CGPoint(x: w * 0.5038, y: h * 0.0467), control2: CGPoint(x: w * 0.4652, y: h * 0.0480))
-        p.addCurve(to: CGPoint(x: w * 0.3697, y: h * 0.0332), control1: CGPoint(x: w * 0.3776, y: h * 0.0516), control2: CGPoint(x: w * 0.3799, y: h * 0.0521))
-        p.addCurve(to: CGPoint(x: w * 0.2371, y: h * 0.0166), control1: CGPoint(x: w * 0.3582, y: h * 0.0117), control2: CGPoint(x: w * 0.3414, y: h * 0.0096))
-        p.addCurve(to: CGPoint(x: w * 0.0511, y: h * 0.2336), control1: CGPoint(x: w * 0.1505, y: h * 0.0223), control2: CGPoint(x: w * 0.0933, y: h * 0.0890))
-        p.addCurve(to: CGPoint(x: w * 0.0405, y: h * 0.2689), control1: CGPoint(x: w * 0.0482, y: h * 0.2437), control2: CGPoint(x: w * 0.0434, y: h * 0.2594))
-        p.addCurve(to: CGPoint(x: w * 0.0065, y: h * 0.5894), control1: CGPoint(x: w * 0.0124, y: h * 0.3605), control2: CGPoint(x: w * 0.0000, y: h * 0.4772))
-        p.addCurve(to: CGPoint(x: w * 0.0840, y: h * 0.8864), control1: CGPoint(x: w * 0.0130, y: h * 0.6987), control2: CGPoint(x: w * 0.0436, y: h * 0.8161))
-        p.addCurve(to: CGPoint(x: w * 0.1213, y: h * 0.9427), control1: CGPoint(x: w * 0.0930, y: h * 0.9022), control2: CGPoint(x: w * 0.1166, y: h * 0.9377))
-        p.addCurve(to: CGPoint(x: w * 0.2146, y: h * 0.9980), control1: CGPoint(x: w * 0.1492, y: h * 0.9720), control2: CGPoint(x: w * 0.1835, y: h * 0.9925))
-        p.addCurve(to: CGPoint(x: w * 0.4590, y: h * 0.9948), control1: CGPoint(x: w * 0.2257, y: h * 1.0000), control2: CGPoint(x: w * 0.4417, y: h * 0.9972))
-        p.addCurve(to: CGPoint(x: w * 0.4912, y: h * 0.9933), control1: CGPoint(x: w * 0.4646, y: h * 0.9941), control2: CGPoint(x: w * 0.4791, y: h * 0.9933))
-        p.addCurve(to: CGPoint(x: w * 0.5398, y: h * 0.9915), control1: CGPoint(x: w * 0.5033, y: h * 0.9932), control2: CGPoint(x: w * 0.5253, y: h * 0.9925))
-        p.addCurve(to: CGPoint(x: w * 0.6157, y: h * 0.9883), control1: CGPoint(x: w * 0.5544, y: h * 0.9907), control2: CGPoint(x: w * 0.5885, y: h * 0.9893))
-        p.addCurve(to: CGPoint(x: w * 0.7684, y: h * 0.9744), control1: CGPoint(x: w * 0.7528, y: h * 0.9832), control2: CGPoint(x: w * 0.7463, y: h * 0.9837))
-        p.addCurve(to: CGPoint(x: w * 0.9105, y: h * 0.2498), control1: CGPoint(x: w * 0.9252, y: h * 0.9082), control2: CGPoint(x: w * 1.0000, y: h * 0.5269))
-        p.addCurve(to: CGPoint(x: w * 0.8944, y: h * 0.1997), control1: CGPoint(x: w * 0.9059, y: h * 0.2357), control2: CGPoint(x: w * 0.8986, y: h * 0.2131))
-        p.addCurve(to: CGPoint(x: w * 0.7566, y: h * 0.0068), control1: CGPoint(x: w * 0.8610, y: h * 0.0942), control2: CGPoint(x: w * 0.8130, y: h * 0.0270))
-        p.addCurve(to: CGPoint(x: w * 0.6693, y: h * 0.0021), control1: CGPoint(x: w * 0.7430, y: h * 0.0020), control2: CGPoint(x: w * 0.7072, y: h * 0.0000))
-        p.closeSubpath()
-        return p
+		Path(roundedRect: rect, cornerRadius: min(rect.width, rect.height) / 2)
     }
 }
 

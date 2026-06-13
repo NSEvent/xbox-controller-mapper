@@ -151,7 +151,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
     }
 
     func testJoystickSettingsVisibleModesHideLegacyKeyModes() {
-        XCTAssertEqual(StickMode.visibleModes, [.none, .mouse, .scroll, .custom])
+		XCTAssertEqual(StickMode.visibleModes, [.none, .mouse, .scroll, .custom, .dpad])
         XCTAssertFalse(StickMode.wasdKeys.isVisibleInUI)
         XCTAssertFalse(StickMode.arrowKeys.isVisibleInUI)
     }

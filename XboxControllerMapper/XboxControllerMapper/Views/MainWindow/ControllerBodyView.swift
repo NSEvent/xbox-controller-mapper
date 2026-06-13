@@ -67,7 +67,11 @@ struct ControllerBodyView: View {
         case .eightBitDoZero2:
             // Zero 2 teal colorway
             LinearGradient(
-                colors: [Color(red: 0.32, green: 0.80, blue: 0.82), Color(red: 0.16, green: 0.62, blue: 0.65)],
+				colors: [
+					Color(red: 0.48, green: 0.86, blue: 0.86),
+					Color(red: 0.28, green: 0.76, blue: 0.77),
+					Color(red: 0.03, green: 0.62, blue: 0.66)
+				],
                 startPoint: .top, endPoint: .bottom
             )
         case .eightBitDoMicro:
@@ -95,6 +99,8 @@ struct ControllerBodyView: View {
         switch style {
         case .dualSense, .dualSenseEdge:
             return Color.white.opacity(0.65)
+		case .eightBitDoZero2:
+			return Color.black.opacity(0.18)
         default:
             return Color.white.opacity(0.16)
         }
@@ -117,7 +123,9 @@ struct ControllerBodyView: View {
             nintendoDecor(in: size)
         case .steam:
             steamDecor(in: size)
-        case .eightBitDoZero2, .eightBitDoMicro, .eightBitDoLite2, .eightBitDoLiteSE:
+		case .eightBitDoZero2:
+			zero2Decor(in: size)
+		case .eightBitDoMicro, .eightBitDoLite2, .eightBitDoLiteSE:
             eightBitDoDecor(in: size)
         }
     }
@@ -163,6 +171,36 @@ struct ControllerBodyView: View {
             )
             .frame(width: size.width * 0.94, height: size.height * 0.55)
             .position(x: size.width * 0.5, y: size.height * 0.14)
+    }
+
+    private func zero2Decor(in size: CGSize) -> some View {
+		ZStack {
+			Ellipse()
+				.fill(
+					LinearGradient(
+						colors: [Color.white.opacity(0.22), .clear],
+						startPoint: .top,
+						endPoint: .bottom
+					)
+				)
+				.frame(width: size.width * 0.84, height: size.height * 0.42)
+				.position(x: size.width * 0.50, y: size.height * 0.19)
+
+			Ellipse()
+				.fill(Color.white.opacity(0.08))
+				.frame(width: size.width * 0.88, height: size.height * 0.24)
+				.position(x: size.width * 0.50, y: size.height * 0.72)
+				.blur(radius: 7)
+
+			LinearGradient(
+				colors: [.clear, Color(red: 0.00, green: 0.42, blue: 0.46).opacity(0.42)],
+				startPoint: .top,
+				endPoint: .bottom
+			)
+			.frame(height: size.height * 0.30)
+			.position(x: size.width * 0.50, y: size.height * 0.86)
+
+		}
     }
 
     private func dualSenseDecor(in size: CGSize, edge: Bool) -> some View {
