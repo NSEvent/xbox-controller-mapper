@@ -185,9 +185,41 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertEqual(down?.leftStickY ?? 0, -1.0, accuracy: 0.01, "d-pad DOWN must drive left stick -Y (down)")
     }
 
-    func testNintendoStandardReport_doesNotProduceStickAxes() {
-        // Only the 0x3F simple report carries the phantom stick we override.
-        let result = parse(NintendoHIDParser(), reportID: 0x30, bytes: makeReport(length: 12) { _ in })
+    // 0x30 standard report: 12-bit packed left stick at bytes 6..8
+    // (b6=Xlo, b7 lo nibble=Xhi, b7 hi nibble=Ylo, b8=Yhi), neutral 0x7FF.
+    // Captured from an 8BitDo Micro in Switch mode.
+
+    private func makeStandardStickReport(x12: Int, y12: Int) -> [UInt8] {
+        makeReport(length: 12) { p in
+            p[6] = UInt8(x12 & 0xFF)
+            p[7] = UInt8(((x12 >> 8) & 0x0F) | ((y12 & 0x0F) << 4))
+            p[8] = UInt8((y12 >> 4) & 0xFF)
+        }
+    }
+
+    func testNintendoStandardReport_neutralStickCentered() {
+        let result = parse(NintendoHIDParser(), reportID: 0x30, bytes: makeStandardStickReport(x12: 0x7FF, y12: 0x7FF))
+        XCTAssertEqual(result?.leftStickX ?? 99, 0, accuracy: 0.01)
+        XCTAssertEqual(result?.leftStickY ?? 99, 0, accuracy: 0.01)
+    }
+
+    func testNintendoStandardReport_dpadDirections() {
+        // 0x30 uses Nintendo's stick encoding: Y inverted vs HID, so UP is the
+        // HIGH raw value (the opposite of the 0x3F simple report). Verified
+        // on-device (8BitDo Micro): without this flip, up/down come out swapped.
+        let right = parse(NintendoHIDParser(), reportID: 0x30, bytes: makeStandardStickReport(x12: 0xFFF, y12: 0x7FF))
+        let left = parse(NintendoHIDParser(), reportID: 0x30, bytes: makeStandardStickReport(x12: 0x000, y12: 0x7FF))
+        let up = parse(NintendoHIDParser(), reportID: 0x30, bytes: makeStandardStickReport(x12: 0x7FF, y12: 0xFFF))
+        let down = parse(NintendoHIDParser(), reportID: 0x30, bytes: makeStandardStickReport(x12: 0x7FF, y12: 0x000))
+        XCTAssertEqual(right?.leftStickX ?? 0, 1.0, accuracy: 0.01, "d-pad RIGHT → +X")
+        XCTAssertEqual(left?.leftStickX ?? 0, -1.0, accuracy: 0.01, "d-pad LEFT → -X")
+        XCTAssertEqual(up?.leftStickY ?? 0, 1.0, accuracy: 0.01, "d-pad UP (high raw Y) → +Y")
+        XCTAssertEqual(down?.leftStickY ?? 0, -1.0, accuracy: 0.01, "d-pad DOWN (low raw Y) → -Y")
+    }
+
+    func testNintendoStandardReport_tooShortHasNoStick() {
+        // Need bytes 6..8; a 5-byte report (Home-only) must not synthesize a stick.
+        let result = parse(NintendoHIDParser(), reportID: 0x30, bytes: makeReport(length: 5) { _ in })
         XCTAssertNil(result?.leftStickX)
         XCTAssertNil(result?.leftStickY)
     }

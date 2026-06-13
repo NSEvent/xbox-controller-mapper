@@ -155,6 +155,13 @@ extension ControllerService {
     /// Parse Nintendo Pro Controller HID input reports for the Home button and,
     /// on stickless clones, the d-pad-driven left stick.
     nonisolated func handleNintendoHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
+        // Diagnostic aid for bringing up new clone controllers: set CK_HID_DUMP=1
+        // to log raw report bytes whenever they change (deduped). Off by default;
+        // HID reports arrive regardless of app focus, so launch the app binary
+        // directly and read its stderr while pressing buttons.
+        if Self.hidDumpEnabled {
+            Self.logChangedReport(reportID: reportID, report: report, length: length)
+        }
         guard let parsed = NintendoHIDParser().parse(
             reportID: reportID,
             report: UnsafePointer(report),
@@ -191,5 +198,24 @@ extension ControllerService {
                 self?.handleButton(.xbox, pressed: homePressed)
             }
         }
+    }
+
+    // MARK: - Raw report diagnostic (CK_HID_DUMP=1)
+
+    nonisolated static let hidDumpEnabled = ProcessInfo.processInfo.environment["CK_HID_DUMP"] == "1"
+    nonisolated(unsafe) private static var lastDumpBytes: [UInt8] = []
+    private static let dumpLock = NSLock()
+
+    nonisolated static func logChangedReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
+        let n = min(length, 16)
+        var bytes = [UInt8](repeating: 0, count: n)
+        for i in 0..<n { bytes[i] = report[i] }
+        dumpLock.lock()
+        let changed = bytes != lastDumpBytes
+        if changed { lastDumpBytes = bytes }
+        dumpLock.unlock()
+        guard changed else { return }
+        let hex = bytes.map { String(format: "%02X", $0) }.joined(separator: " ")
+        NSLog("[CK_HID_DUMP] id=0x%02X len=%d  %@", reportID, length, hex)
     }
 }

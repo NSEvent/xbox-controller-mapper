@@ -94,17 +94,26 @@ struct DualShockHIDParser: HIDReportParser {
 /// (for the simple 0x3F report) the left-stick axes.
 ///
 /// Report layout (byte 0 is the report ID, included by the input callback):
-///   Standard report 0x30: buttons2 at byte 4.
+///   Standard report 0x30: buttons2 at byte 4; LEFT stick 12-bit packed at
+///                         bytes 6..8 (b6=Xlo, b7 lo nibble=Xhi, b7 hi nibble=
+///                         Ylo, b8=Yhi), neutral 0x7FF.
 ///   Simple   report 0x3F: buttons2 at byte 2 (Home in buttons_hi);
 ///                         hat at byte 3; four 16-bit LE axes at bytes 4..11
 ///                         (a0=X, a1=Y, a2=Rx, a3=Ry), neutral 0x7FFF.
 ///
 /// buttons2 bit layout: bit 4 (0x10) = Home.
+///
+/// On stickless 8BitDo clones the d-pad is funneled through the left stick.
+/// Different clones use different reports — the Zero 2 sends 0x3F (16-bit
+/// axes), the Micro sends 0x30 (12-bit packed) — so we extract the left stick
+/// from both. Output convention: +x right, +y up.
 struct NintendoHIDParser: HIDReportParser {
-    /// Empirically verified on an 8BitDo Zero 2 (Switch mode): a0 max = right,
-    /// min = left; a1 max = down, min = up. Standard HID gamepad convention.
-    private static let axisCenter = 0x7FFF
-    private static let axisRange = Double(0xFFFF)
+    /// Empirically verified on 8BitDo Zero 2 / Micro (Switch mode): X max =
+    /// right / min = left; Y max = down / min = up. Standard HID convention.
+    private static let axis16Center = 0x7FFF
+    private static let axis16Range = Double(0xFFFF)
+    private static let axis12Center = 0x7FF
+    private static let axis12Range = Double(0xFFF)
 
     func parse(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) -> HIDReportParseResult? {
         let buttons2Offset: Int
@@ -123,17 +132,32 @@ struct NintendoHIDParser: HIDReportParser {
             nintendoHome: (report[buttons2Offset] & 0x10) != 0
         )
 
-        // Simple report carries the (phantom) left-stick axes at bytes 4..7.
         if reportID == 0x3F, length >= 8 {
+            // Simple report: 16-bit LE left-stick axes at bytes 4..7. These
+            // follow standard HID (Y increases downward → up is the low value).
             let a0 = Int(report[4]) | (Int(report[5]) << 8)
             let a1 = Int(report[6]) | (Int(report[7]) << 8)
-            // +x = right (a0 high); +y = up (a1 low → GameController up-positive).
-            let x = Double(a0 - Self.axisCenter) / (Self.axisRange / 2.0)
-            let y = Double(Self.axisCenter - a1) / (Self.axisRange / 2.0)
-            result.leftStickX = Float(max(-1.0, min(1.0, x)))
-            result.leftStickY = Float(max(-1.0, min(1.0, y)))
+            setLeftStick(&result, x: a0, y: a1, center: Self.axis16Center, range: Self.axis16Range, yUpIsHigh: false)
+        } else if reportID == 0x30, length >= 9 {
+            // Standard report: 12-bit packed left stick at bytes 6..8. This
+            // uses Nintendo's proprietary stick encoding where Y is INVERTED
+            // vs HID — up is the HIGH value (verified on an 8BitDo Micro).
+            let b6 = Int(report[6]); let b7 = Int(report[7]); let b8 = Int(report[8])
+            let x12 = b6 | ((b7 & 0x0F) << 8)
+            let y12 = (b7 >> 4) | (b8 << 4)
+            setLeftStick(&result, x: x12, y: y12, center: Self.axis12Center, range: Self.axis12Range, yUpIsHigh: true)
         }
 
         return result
+    }
+
+    /// +x = right (raw high). +y = up. `yUpIsHigh` picks the Y convention:
+    /// false = standard HID (up is the low value), true = Nintendo 0x30
+    /// (up is the high value).
+    private func setLeftStick(_ result: inout HIDReportParseResult, x: Int, y: Int, center: Int, range: Double, yUpIsHigh: Bool) {
+        let nx = Double(x - center) / (range / 2.0)
+        let ny = Double(yUpIsHigh ? (y - center) : (center - y)) / (range / 2.0)
+        result.leftStickX = Float(max(-1.0, min(1.0, nx)))
+        result.leftStickY = Float(max(-1.0, min(1.0, ny)))
     }
 }
