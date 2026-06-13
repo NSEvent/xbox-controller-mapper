@@ -607,3 +607,107 @@
 
 /* 模擬按鍵重複 (v1.6.4) */
 "Re-posts key-down events to simulate physical key repeat. Use this for games that require held keys to generate repeated input." = "重新發送按鍵事件以模擬實體鍵盤重複。適用於需要持續按鍵產生重複輸入的遊戲。";
+
+/* MARK: - Controller Pairing Guide (machine-translated 2026-06 — REVIEW) */
+
+/* Empty-state chrome */
+"No controller connected" = "未連接控制器";
+"Turn your controller on and put it in pairing mode — it connects automatically. Need the steps? Pick your controller:" = "開啟控制器電源並進入配對模式，它會自動連接。需要步驟說明嗎？請選擇你的控制器：";
+"Choose different" = "選擇其他";
+"Back to controller list" = "返回控制器列表";
+"Open Bluetooth Settings" = "打開藍牙設定";
+"Full Guide" = "完整指南";
+"Open the full guide on the web" = "在網頁中打開完整指南";
+"Show pairing steps for %@" = "顯示 %@ 的配對步驟";
+"%@ pairing steps" = "%@ 的配對步驟";
+
+/* Shared steps */
+"On your Mac, open **System Settings → Bluetooth**." = "在 Mac 上打開**系統設定 → 藍牙**。";
+"A USB-C cable works wired too." = "也可以使用 USB-C 連接線進行有線連接。";
+
+/* Xbox */
+"Pair Your Xbox Controller" = "配對 Xbox 控制器";
+"Xbox Series X|S, or a Bluetooth Xbox One controller" = "Xbox Series X|S，或支援藍牙的 Xbox One 控制器";
+"Press the **Xbox button** to turn the controller on — it lights up." = "按下 **Xbox 按鈕**開啟控制器電源——按鈕會亮起。";
+"Hold the **Pair button** on top (next to the charge port) for ~3 seconds, until the Xbox button flashes rapidly." = "按住頂部（充電埠旁）的**Pair 按鈕**約 3 秒，直到 Xbox 按鈕快速閃爍。";
+"Click **Connect** next to **Xbox Wireless Controller**." = "在 **Xbox Wireless Controller** 旁邊點按**連接**。";
+"Prefer wired? Plug in a USB-C cable (Series X|S) or Micro-USB (Xbox One) — it connects instantly, no pairing." = "偏好有線連接？插入 USB-C 連接線（Series X|S）或 Micro-USB（Xbox One）即可立即連接，無需配對。";
+"Only Bluetooth models pair wirelessly: any Xbox Series controller, or an Xbox One controller from model 1708 (2016) onward." = "只有藍牙型號才能無線配對：任何 Xbox Series 控制器，或型號 1708（2016 年）及之後的 Xbox One 控制器。";
+
+/* Xbox Elite Series 2 */
+"Pair Your Xbox Elite Series 2" = "配對 Xbox Elite Series 2";
+"Xbox Elite Wireless Controller Series 2" = "Xbox Elite Wireless Controller Series 2";
+"Press the **Xbox button** to turn the controller on." = "按下 **Xbox 按鈕**開啟控制器電源。";
+"Hold the **Pair button** on top (beside the charge port) for ~3 seconds, until the Xbox button flashes rapidly." = "按住頂部（充電埠旁）的**Pair 按鈕**約 3 秒，直到 Xbox 按鈕快速閃爍。";
+"Click **Connect** next to **Xbox Elite Wireless Controller**." = "在 **Xbox Elite Wireless Controller** 旁邊點按**連接**。";
+"A USB-C cable also works and charges at the same time." = "USB-C 連接線同樣可用，並能同時充電。";
+"The Elite Series 2 pairs exactly like a standard Xbox controller. Back paddles map just like any other button once connected." = "Elite Series 2 的配對方式與標準 Xbox 控制器完全相同。連接後，背面撥片可像其他任何按鈕一樣進行對應。";
+
+/* DualSense */
+"Pair Your DualSense" = "配對 DualSense";
+"PS5 DualSense Wireless Controller" = "PS5 DualSense 無線控制器";
+"If the controller is on, hold the **PS button** ~10 seconds until the light bar turns off — it must be off first." = "如果控制器已開機，按住 **PS 按鈕**約 10 秒，直到燈條熄滅——必須先關機。";
+"Hold the **Create button** (small button left of the touchpad) **and the PS button** together for ~3 seconds, until the light bar flashes blue." = "同時按住**Create 按鈕**（觸控板左側的小按鈕）**和 PS 按鈕**約 3 秒，直到燈條藍色閃爍。";
+"Click **Connect** next to **DualSense Wireless Controller**." = "在 **DualSense Wireless Controller** 旁邊點按**連接**。";
+"Or just plug in a USB-C cable — it works immediately with no pairing." = "或者直接插入 USB-C 連接線——無需配對即可立即使用。";
+"Native DualSense support requires macOS 11.3 or later." = "DualSense 的原生支援需要 macOS 11.3 或更新版本。";
+
+/* DualSense Edge */
+"Pair Your DualSense Edge" = "配對 DualSense Edge";
+"PS5 DualSense Edge Wireless Controller" = "PS5 DualSense Edge 無線控制器";
+"If the controller is on, hold the **PS button** ~10 seconds until the light bar turns off." = "如果控制器已開機，按住 **PS 按鈕**約 10 秒，直到燈條熄滅。";
+"Hold the **Create button** (left of the touchpad) **and the PS button** together for ~3 seconds, until the light bar flashes blue." = "同時按住**Create 按鈕**（觸控板左側）**和 PS 按鈕**約 3 秒，直到燈條藍色閃爍。";
+"Click **Connect** next to **DualSense Edge Wireless Controller**." = "在 **DualSense Edge Wireless Controller** 旁邊點按**連接**。";
+"A USB-C cable also works instantly. The Edge's braided cable has a locking connector — press the release to unplug." = "USB-C 連接線同樣可立即連接。Edge 的編織線材帶有鎖定接頭——拔出時請按下釋放按鈕。";
+"Edge paddles and Fn buttons appear automatically once connected." = "連接後，Edge 的撥片和 Fn 按鈕會自動顯示。";
+"Native support requires macOS 13 Ventura or later." = "原生支援需要 macOS 13 Ventura 或更新版本。";
+
+/* DualShock 4 */
+"Pair Your DualShock 4" = "配對 DualShock 4";
+"PS4 DualShock 4 Wireless Controller" = "PS4 DualShock 4 無線控制器";
+"With the controller off, hold the **Share button and the PS button** together for ~3 seconds." = "在控制器關機狀態下，同時按住 **SHARE 按鈕和 PS 按鈕**約 3 秒。";
+"The light bar flashes white in double-pulses — it's now discoverable." = "燈條會以雙閃方式白色閃爍——此時即可被發現。";
+"Click **Connect** next to **Wireless Controller**." = "在 **Wireless Controller** 旁邊點按**連接**。";
+"Or connect a Micro-USB cable for a wired, lower-latency link." = "或者連接 Micro-USB 連接線，獲得更低延遲的有線連接。";
+"Native DualShock 4 support requires macOS 11 Big Sur or later." = "DualShock 4 的原生支援需要 macOS 11 Big Sur 或更新版本。";
+
+/* Nintendo Switch Pro */
+"Pair Your Switch Pro Controller" = "配對 Switch Pro 控制器";
+"Nintendo Switch Pro Controller or Joy-Con" = "Nintendo Switch Pro 控制器或 Joy-Con";
+"Hold the small **sync button** on top (next to the USB-C port) until the player LEDs run back and forth." = "按住頂部（USB-C 埠旁）的小**Sync 按鈕**，直到玩家指示燈來回流動。";
+"Under **Nearby Devices**, select **Pro Controller** to connect." = "在**附近的裝置**中選擇 **Pro Controller** 進行連接。";
+"A USB-C cable connects too, but macOS reads Switch controllers reliably only over Bluetooth — wireless is recommended." = "USB-C 連接線也能連接，但 macOS 只有透過藍牙才能可靠辨識 Switch 控制器——建議使用無線連接。";
+"Joy-Con: hold the small **sync button** on the side rail (between SR and SL) until the LEDs run. Pair each Joy-Con separately." = "Joy-Con：按住側邊軌道上（SR 與 SL 之間）的小**Sync 按鈕**，直到指示燈流動。每個 Joy-Con 需分別配對。";
+"Native Nintendo support requires macOS 13 Ventura or later." = "Nintendo 的原生支援需要 macOS 13 Ventura 或更新版本。";
+
+/* Steam Controller */
+"Pair Your Steam Controller" = "配對 Steam 控制器";
+"Valve Steam Controller over Bluetooth LE" = "透過 Bluetooth LE 連接 Valve Steam 控制器";
+"With the controller off, hold the **Steam button and the B button** together to power on directly into Bluetooth LE pairing mode." = "在控制器關機狀態下，同時按住 **Steam 按鈕和 B 按鈕**，即可直接以 Bluetooth LE 配對模式開機。";
+"The Steam button blinks while it's discoverable." = "在可被發現期間，Steam 按鈕會閃爍。";
+"Select the **Steam Controller** under Nearby Devices." = "在附近的裝置中選擇 **Steam Controller**。";
+"Or plug in the USB wireless dongle (2.4 GHz) — it connects without any Bluetooth pairing." = "或者插入 USB 無線接收器（2.4 GHz）——無需任何藍牙配對即可連接。";
+"If **Steam + B** doesn't work on your hardware revision, try holding **Y** while pressing the Steam button." = "如果 **Steam + B** 在你的硬體版本上不起作用，可嘗試按住 **Y** 的同時按下 Steam 按鈕。";
+
+/* 8BitDo Zero 2 */
+"Pair Your 8BitDo Zero 2" = "配對 8BitDo Zero 2";
+"8BitDo Zero 2 — choose a startup mode" = "8BitDo Zero 2 — 選擇啟動模式";
+"Power on by holding a mode button **+ Start**. For this Zero 2 layout, use **Android / D-input**: hold **B + Start** until the LED blinks." = "按住某個模式按鈕 **+ Start** 開機。對於此 Zero 2 佈局，請使用 **Android / D-input**：按住 **B + Start** 直到指示燈閃爍。";
+"Connect to **8BitDo Zero 2** under Nearby Devices." = "在附近的裝置中連接 **8BitDo Zero 2**。";
+"The Zero 2 has three Mac-ready modes — hold the button while powering on with **Start**: **B** = Android/D-input (pairs as an *8BitDo Zero 2*, matching this layout), **Y** = Switch (pairs as a *Switch Pro Controller*), **A** = macOS (pairs as a *DualShock 4*). All three work with ControllerKeys." = "Zero 2 有三種適用於 Mac 的模式——用 **Start** 開機時按住相應按鈕：**B** = Android/D-input（以 *8BitDo Zero 2* 配對，與此佈局相符），**Y** = Switch（以 *Switch Pro Controller* 配對），**A** = macOS（以 *DualShock 4* 配對）。三者均可在 ControllerKeys 中使用。";
+
+/* 8BitDo Micro / Lite 2 / Lite SE (shared S/D-switch templates) */
+"Pair Your 8BitDo %@" = "配對 8BitDo %@";
+"8BitDo %@ — set the S/D mode switch" = "8BitDo %@ — 設定 S/D 模式開關";
+"Slide the bottom **mode switch to D** (D-input) so it pairs as an 8BitDo %@, then turn it on — an LED blinks." = "將底部的**模式開關撥到 D**（D-input），使其以 8BitDo %@ 配對，然後開機——指示燈會閃爍。";
+"Hold the **Pair button** (next to the USB-C port) for ~3 seconds, until the LED blinks rapidly." = "按住**Pair 按鈕**（USB-C 埠旁）約 3 秒，直到指示燈快速閃爍。";
+"Connect to **8BitDo %@** under Nearby Devices." = "在附近的裝置中連接 **8BitDo %@**。";
+"Bottom switch: **D** = D-input/Android (pairs as an *8BitDo %@*, matching this layout); **S** = Switch mode (pairs as a *Switch Pro Controller*). Both work with ControllerKeys." = "底部開關：**D** = D-input/Android（以 *8BitDo %@* 配對，與此佈局相符）；**S** = Switch 模式（以 *Switch Pro Controller* 配對）。兩者均可在 ControllerKeys 中使用。";
+
+/* Apple TV Siri Remote */
+"Pair Your Siri Remote" = "配對 Siri Remote";
+"Apple TV Siri Remote (2nd or 3rd gen)" = "Apple TV Siri Remote（第 2 代或第 3 代）";
+"If you have an Apple TV nearby, **unplug it first** — the remote has to disconnect from the Apple TV before it can pair to your Mac." = "如果附近有 Apple TV，請**先拔掉它的電源**——遙控器必須先與 Apple TV 中斷連接，才能與你的 Mac 配對。";
+"On the remote, hold **Volume Up (+) and the Back button** together until it enters pairing mode." = "在遙控器上，同時按住**Volume Up (+) 和 Back 按鈕**，直到進入配對模式。";
+"Select the remote under **Nearby Devices** to connect — it joins as a Bluetooth HID device." = "在**附近的裝置**中選擇遙控器進行連接——它會作為藍牙 HID 裝置加入。";
+"Keep the Apple TV unplugged for the whole pairing process so the remote doesn't reconnect to it mid-pair." = "在整個配對過程中保持 Apple TV 斷電，以免遙控器在配對中途重新連接到它。";

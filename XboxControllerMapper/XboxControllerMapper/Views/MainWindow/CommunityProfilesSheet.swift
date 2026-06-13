@@ -603,10 +603,7 @@ struct SetupGuideSection: View {
     }
 
     private func inlineMarkdown(_ text: String) -> Text {
-        if let attr = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-            return Text(attr)
-        }
-        return Text(text)
+        Text(inlineMarkdown: text)
     }
 
     private func headingSize(_ level: Int) -> CGFloat {
