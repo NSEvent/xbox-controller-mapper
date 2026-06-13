@@ -57,16 +57,10 @@ final class ControllerStorage: @unchecked Sendable {
     /// Non-nil when the connected pad is one of the small 8BitDo models
     /// (drives the dedicated minimap preview).
     var eightBitDoModel: EightBitDoMinimapModel?
-    /// The matched "Pro Controller" HID device reports an empty manufacturer
-    /// string — the tell for a third-party clone (genuine Nintendo pads report
-    /// "Nintendo Co.,Ltd."). Set when Nintendo HID monitoring opens the device.
-    var nintendoHIDManufacturerEmpty: Bool = false
-    /// True once we confirm a stickless 8BitDo-style clone: empty manufacturer
-    /// AND a simple (0x3F) report whose left-stick axes carry the d-pad. macOS
-    /// mis-calibrates the phantom stick's sign per connection, so we drive the
-    /// left stick from the deterministic raw HID axes instead and ignore the
-    /// GameController left-thumbstick for this device.
-    var isNintendoDPadStickClone: Bool = false
+    /// D-pad buttons we emitted (as real .dpad* presses) before the stickless
+    /// clone detector latched. Tracked so a release arriving after the latch
+    /// still fires, instead of leaving a button stuck down.
+    var emittedCloneDpadButtons: Set<ControllerButton> = []
     var isJoyConLeft: Bool = false
     var isJoyConRight: Bool = false
     var isBluetoothConnection: Bool = false
@@ -121,6 +115,10 @@ final class ControllerStorage: @unchecked Sendable {
 
 	    // Nintendo Pro Controller HID button state
 	    var lastNintendoHomeState: Bool = false
+	    // 8BitDo D-input (Android-mode) HID button state — Home + Star, which the
+	    // GameController profile omits, are read from raw HID instead.
+	    var lastEightBitDoHomeState: Bool = false
+	    var lastEightBitDoStarState: Bool = false
 	    var appleTVRemoteTouchReleaseWorkItem: DispatchWorkItem?
     var appleTVRemoteActiveSystemKeyTypes: Set<Int> = []
     var appleTVRemoteSystemKeyTypeSuppressUntil: [Int: TimeInterval] = [:]
@@ -319,6 +317,17 @@ class ControllerService: ObservableObject {
     var nintendoHIDManager: IOHIDManager?
     var nintendoHIDRegistrations: [NintendoHIDRegistration] = []
 
+    // 8BitDo D-input pad HID monitoring (Home + Star not exposed by GameController)
+    var eightBitDoHIDManager: IOHIDManager?
+    var eightBitDoHIDRegistrations: [EightBitDoHIDRegistration] = []
+
+    /// Detects a stickless d-pad clone (8BitDo Zero 2 impersonating a Pro
+    /// Controller in Switch mode or a DualShock 4 in Mac mode) from input
+    /// behavior alone — no reliance on the unreliable HID manufacturer string.
+    /// `nonisolated` + internally locked so HID callbacks and GameController
+    /// handlers on different queues can feed it. See [[SticklessDpadCloneDetector]].
+    nonisolated let sticklessCloneDetector = SticklessDpadCloneDetector()
+
 	// Apple TV/Siri Remote HID monitoring (buttons + touch surface)
 	var appleTVRemoteHIDManager: IOHIDManager?
 	var appleTVRemoteHIDButtonManager: IOHIDManager?
@@ -500,10 +509,13 @@ class ControllerService: ObservableObject {
     /// True for a stickless Nintendo-clone whose d-pad is funneled through the
     /// (mis-calibrated) phantom left stick — we drive the left stick from raw
     /// HID instead, so the GameController left-thumbstick must be ignored.
+    /// Detected behaviorally (see [[SticklessDpadCloneDetector]]); gated to the
+    /// Nintendo path since the DualShock clone's GameController stick is fine.
     nonisolated var threadSafeIsNintendoDPadStickClone: Bool {
+        guard sticklessCloneDetector.isSticklessClone else { return false }
         storage.lock.lock()
         defer { storage.lock.unlock() }
-        return storage.isNintendoDPadStickClone
+        return storage.isNintendo
     }
 
     nonisolated var threadSafeIsXboxElite: Bool {
@@ -1132,6 +1144,7 @@ class ControllerService: ObservableObject {
 		stopHaptics()
 		cleanupHIDMonitoring()
 		cleanupNintendoHIDMonitoring()
+		cleanupEightBitDoHIDMonitoring()
 		stopEliteHelper()
 		controllerMappingSource = nil
 
@@ -1200,6 +1213,7 @@ class ControllerService: ObservableObject {
         stopHaptics()
         cleanupHIDMonitoring()  // Clean up mic button monitoring
         cleanupNintendoHIDMonitoring()  // Clean up Nintendo Home button monitoring
+        cleanupEightBitDoHIDMonitoring()  // Clean up 8BitDo Home/Star monitoring
         stopEliteHelper()  // Clean up Elite helper process
 
         storage.lock.lock()
@@ -1378,6 +1392,40 @@ class ControllerService: ObservableObject {
         }
     }
 
+	/// D-pad binding for clone-capable controllers (Nintendo / DualShock). Feeds
+	/// the stickless-clone detector and, once a clone is confirmed, suppresses
+	/// the direct .dpad* mapping so the d-pad (which the clone also routes to the
+	/// left stick) is governed by the stick mode instead. Genuine controllers
+	/// never latch as clones, so the press passes straight through.
+	private func bindCloneAwareDpad(_ element: GCControllerButtonInput?, to button: ControllerButton, from controller: GCController) {
+		element?.pressedChangedHandler = { [weak self, weak controller] _, _, pressed in
+			guard let self, let controller else { return }
+
+			if self.sticklessCloneDetector.isSticklessClone {
+				// Clone confirmed: the left stick already carries this d-pad.
+				// Suppress the press, but still deliver a release for any press
+				// that fired before the latch so nothing stays stuck down.
+				let shouldRelease: Bool = self.storage.lock.withLock {
+					guard !pressed, self.storage.emittedCloneDpadButtons.contains(button) else { return false }
+					self.storage.emittedCloneDpadButtons.remove(button)
+					return true
+				}
+				if shouldRelease {
+					self.routeGameControllerButtonInput(from: controller, button: button, pressed: false)
+				}
+				return
+			}
+
+			// Not (yet) a clone — behave like a normal d-pad button, tracking
+			// emitted presses so a post-latch release can still be delivered.
+			self.storage.lock.withLock {
+				if pressed { self.storage.emittedCloneDpadButtons.insert(button) }
+				else { self.storage.emittedCloneDpadButtons.remove(button) }
+			}
+			self.routeGameControllerButtonInput(from: controller, button: button, pressed: pressed)
+		}
+	}
+
 	private func routeGameControllerButtonInput(from controller: GCController, button: ControllerButton, pressed: Bool) {
 		Task { @MainActor [weak self, weak controller] in
 			guard let self, let controller else { return }
@@ -1528,10 +1576,12 @@ class ControllerService: ObservableObject {
         storage.isSteamController = false
         storage.isAppleTVRemote = false
         storage.eightBitDoModel = nil
-        storage.nintendoHIDManufacturerEmpty = false
-        storage.isNintendoDPadStickClone = false
+        storage.emittedCloneDpadButtons.removeAll()
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
+
+        // Behavioral clone detection is per-connection — start fresh.
+        sticklessCloneDetector.reset()
 
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
         UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
@@ -1569,6 +1619,15 @@ class ControllerService: ObservableObject {
 			// Detect Nintendo controller type before the extendedGamepad guard,
         // since single Joy-Cons only provide physicalInputProfile.
         detectNintendoController(controller)
+
+        // 8BitDo D-input pads (Micro / Zero 2 / Lite, Android mode) expose Home
+        // and Star only via raw HID — the GameController profile drops them.
+        // Monitor the underlying 0x2DC8 device directly, regardless of which
+        // GameController path the pad takes. No-op in Switch mode (VID 0x057E,
+        // handled by the Nintendo HID path instead).
+        if Self.eightBitDoMinimapModel(forControllerName: controller.vendorName ?? "") != nil {
+            setupEightBitDoHIDMonitoring()
+        }
 
         // Try extendedGamepad first (works for Xbox, DualSense, Pro Controller, paired Joy-Cons)
         guard let gamepad = controller.extendedGamepad else {
@@ -1620,11 +1679,26 @@ class ControllerService: ObservableObject {
 			}
         }
 
-        // D-pad
-		bindButton(gamepad.dpad.up, to: .dpadUp, from: controller)
-		bindButton(gamepad.dpad.down, to: .dpadDown, from: controller)
-		bindButton(gamepad.dpad.left, to: .dpadLeft, from: controller)
-		bindButton(gamepad.dpad.right, to: .dpadRight, from: controller)
+        // D-pad. Stickless clones (8BitDo Zero 2 impersonating a Pro Controller
+        // in Switch mode, or a DualShock 4 in Mac mode) funnel the physical
+        // d-pad through the left stick too, so once detected we suppress the
+        // direct .dpad* mapping and let the stick mode govern it (Mouse default
+        // / D-Pad option) — matching the Android-mode behavior. Genuine pads are
+        // never detected as clones, so they bind normally. Routed through the
+        // clone-aware handler only for the impersonated categories.
+        let isCloneCapable = storage.lock.withLock { storage.isNintendo }
+            || (gamepad as? GCDualShockGamepad) != nil
+        if isCloneCapable {
+            bindCloneAwareDpad(gamepad.dpad.up, to: .dpadUp, from: controller)
+            bindCloneAwareDpad(gamepad.dpad.down, to: .dpadDown, from: controller)
+            bindCloneAwareDpad(gamepad.dpad.left, to: .dpadLeft, from: controller)
+            bindCloneAwareDpad(gamepad.dpad.right, to: .dpadRight, from: controller)
+        } else {
+            bindButton(gamepad.dpad.up, to: .dpadUp, from: controller)
+            bindButton(gamepad.dpad.down, to: .dpadDown, from: controller)
+            bindButton(gamepad.dpad.left, to: .dpadLeft, from: controller)
+            bindButton(gamepad.dpad.right, to: .dpadRight, from: controller)
+        }
 
         // Special buttons
 		bindButton(gamepad.buttonMenu, to: .menu, from: controller)
@@ -2170,7 +2244,15 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         storage.leftStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
         let callback = storage.onLeftStickMoved
+        let feedCloneDetector = storage.isDualShock
         storage.lock.unlock()
+
+        // Feed the stickless-clone detector from the DualShock GameController
+        // stick. (The Nintendo path feeds it from clean raw-HID axes instead —
+        // see handleNintendoHIDReport — to avoid any GameController smoothing.)
+        if feedCloneDetector {
+            sticklessCloneDetector.noteLeftStick(CGPoint(x: CGFloat(x), y: CGFloat(y)))
+        }
 
         // Only create Task if callback exists (avoids creating 250+ Tasks/sec for nil callbacks)
         if let callback = callback {

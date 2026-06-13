@@ -78,21 +78,12 @@ extension ControllerService {
     }
 
     private func setupNintendoHIDDeviceCallback(_ device: IOHIDDevice) {
-        // A genuine Pro Controller reports manufacturer "Nintendo Co.,Ltd.";
-        // third-party clones (8BitDo Zero 2, etc.) leave it empty. Record that
-        // so handleNintendoHIDReport can opt into the raw-HID d-pad override.
-        let manufacturer = (IOHIDDeviceGetProperty(device, kIOHIDManufacturerKey as CFString) as? String) ?? ""
-        if manufacturer.trimmingCharacters(in: .whitespaces).isEmpty {
-            // Flag at setup (not on first report) so the GameController
-            // left-thumbstick is suppressed before any input arrives — no
-            // first-press race. Genuine Nintendo pads report a manufacturer,
-            // so this only catches clones, which send the 0x3F report we read.
-            storage.lock.lock()
-            storage.nintendoHIDManufacturerEmpty = true
-            storage.isNintendoDPadStickClone = true
-            storage.lock.unlock()
-            NSLog("[ControllerKeys] Nintendo HID: empty manufacturer — driving left stick from raw HID (stickless clone)")
-        }
+        // Whether this is a genuine Pro Controller or an 8BitDo clone is decided
+        // behaviorally by SticklessDpadCloneDetector (fed clean raw-HID stick
+        // axes in handleNintendoHIDReport), not from the unreliable manufacturer
+        // string — a genuine pad over Bluetooth can report an empty manufacturer
+        // too. Once the detector latches, handleNintendoHIDReport drives the
+        // left stick from raw HID and the GameController phantom stick is ignored.
 
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.nintendoHIDReportBufferSize)
         let ctx = NintendoHIDCallbackContext(service: self)
@@ -170,15 +161,16 @@ extension ControllerService {
 
         // Raw-HID left-stick override for stickless clones (8BitDo Zero 2 etc.).
         // macOS funnels the d-pad through the phantom Pro-Controller stick and
-        // mis-calibrates its sign per connection; the raw 0x3F axes are
-        // deterministic, so we drive the left stick from them directly. Gated
-        // on an empty-manufacturer device actually emitting 0x3F stick data, so
-        // genuine Pro Controllers are never affected.
+        // mis-calibrates its sign per connection; the raw 0x3F/0x30 axes are
+        // deterministic, so once we've identified a clone we drive the left
+        // stick from them directly. The raw axes are also the cleanest signal
+        // for clone detection (exact digital values — a genuine analog stick
+        // sweeps through intermediate magnitudes), so we always feed them to the
+        // detector; genuine Pro Controllers reveal their analog stick and never
+        // latch, so their stick keeps coming from GameController.
         if let x = parsed.leftStickX, let y = parsed.leftStickY {
-            storage.lock.lock()
-            let isClone = storage.isNintendoDPadStickClone
-            storage.lock.unlock()
-            if isClone {
+            sticklessCloneDetector.noteLeftStick(CGPoint(x: CGFloat(x), y: CGFloat(y)))
+            if sticklessCloneDetector.isSticklessClone {
                 updateLeftStick(x: x, y: y)
             }
         }
