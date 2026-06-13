@@ -1615,23 +1615,24 @@ struct ControllerAnalogOverlay: View {
                 miniFaceButton(.x, letter: "X", letterColor: letterColor, size: buttonSize).offset(x: -offset)
                 miniFaceButton(.b, letter: "B", letterColor: letterColor, size: buttonSize).offset(x: offset)
             case .nintendo:
-                // Nintendo physical diamond: X north, B south, Y west, A east.
-                // The view↔ControllerButton binding stays position-normalized
-                // (.a = south); only the printed letter follows the hardware.
+                // Nintendo physical diamond: X north, A east, B south, Y west.
+                // macOS maps these pads by LABEL (.a is the printed-A button,
+                // etc.), so each button keeps its own letter and we place it
+                // at its physical slot. Pressing a button then lights the
+                // matching position with the matching letter.
                 let letterColor = Color(white: 0.85)
-                miniFaceButton(.y, letter: "X", letterColor: letterColor, size: buttonSize).offset(y: -offset)
-                miniFaceButton(.a, letter: "B", letterColor: letterColor, size: buttonSize).offset(y: offset)
-                miniFaceButton(.x, letter: "Y", letterColor: letterColor, size: buttonSize).offset(x: -offset)
-                miniFaceButton(.b, letter: "A", letterColor: letterColor, size: buttonSize).offset(x: offset)
+                miniFaceButton(.x, letter: "X", letterColor: letterColor, size: buttonSize).offset(y: -offset)  // north
+                miniFaceButton(.b, letter: "B", letterColor: letterColor, size: buttonSize).offset(y: offset)   // south
+                miniFaceButton(.y, letter: "Y", letterColor: letterColor, size: buttonSize).offset(x: -offset)  // west
+                miniFaceButton(.a, letter: "A", letterColor: letterColor, size: buttonSize).offset(x: offset)   // east
             case .eightBitDoZero2, .eightBitDoMicro, .eightBitDoLite2, .eightBitDoLiteSE:
                 // 8BitDo pads use the Nintendo physical diamond (X north,
-                // B south, Y west, A east). White caps, engraved grey letters.
-                // Binding stays position-normalized; only the letter follows
-                // the hardware.
-                miniLightFaceButton(.y, letter: "X", size: buttonSize).offset(y: -offset)
-                miniLightFaceButton(.a, letter: "B", size: buttonSize).offset(y: offset)
-                miniLightFaceButton(.x, letter: "Y", size: buttonSize).offset(x: -offset)
-                miniLightFaceButton(.b, letter: "A", size: buttonSize).offset(x: offset)
+                // A east, B south, Y west). White caps, engraved grey letters.
+                // Same label-mapped positioning as .nintendo.
+                miniLightFaceButton(.x, letter: "X", size: buttonSize).offset(y: -offset)  // north
+                miniLightFaceButton(.b, letter: "B", size: buttonSize).offset(y: offset)   // south
+                miniLightFaceButton(.y, letter: "Y", size: buttonSize).offset(x: -offset)  // west
+                miniLightFaceButton(.a, letter: "A", size: buttonSize).offset(x: offset)   // east
             }
         }
         .frame(width: cluster, height: cluster)

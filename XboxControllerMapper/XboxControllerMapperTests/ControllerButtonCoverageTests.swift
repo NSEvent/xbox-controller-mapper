@@ -23,30 +23,20 @@ final class ControllerButtonCoverageTests: XCTestCase {
         }
     }
 
-    /// The Nintendo physical diamond prints its face letters rotated vs Xbox
-    /// (south "B", east "A", west "Y", north "X"). GameController still
-    /// position-normalizes input (.a = south), so only the *labels* differ —
-    /// the enum identity must stay put.
-    func testNintendoFaceButtonsUsePhysicalDiamondLabels() {
-        // .a is the south position; on a Nintendo pad it's printed "B".
-        XCTAssertEqual(ControllerButton.a.displayName(forNintendo: true), "B")
-        XCTAssertEqual(ControllerButton.b.displayName(forNintendo: true), "A")
-        XCTAssertEqual(ControllerButton.x.displayName(forNintendo: true), "Y")
-        XCTAssertEqual(ControllerButton.y.displayName(forNintendo: true), "X")
-
-        XCTAssertEqual(ControllerButton.a.shortLabel(forNintendo: true), "B")
-        XCTAssertEqual(ControllerButton.b.shortLabel(forNintendo: true), "A")
-        XCTAssertEqual(ControllerButton.x.shortLabel(forNintendo: true), "Y")
-        XCTAssertEqual(ControllerButton.y.shortLabel(forNintendo: true), "X")
-
-        XCTAssertEqual(ControllerButton.a.systemImageName(forNintendo: true), "b.circle")
-        XCTAssertEqual(ControllerButton.b.systemImageName(forNintendo: true), "a.circle")
-        XCTAssertEqual(ControllerButton.x.systemImageName(forNintendo: true), "y.circle")
-        XCTAssertEqual(ControllerButton.y.systemImageName(forNintendo: true), "x.circle")
-
-        // Xbox/default labels are unchanged (position == label there).
-        XCTAssertEqual(ControllerButton.a.displayName, "A")
-        XCTAssertEqual(ControllerButton.a.displayName(forDualSense: true), "Cross")
+    /// macOS maps Nintendo/8BitDo face buttons by LABEL (.a is the button
+    /// printed "A", etc.), so the A/B/X/Y labels are identical to Xbox — the
+    /// difference from Xbox is purely the physical ARRANGEMENT, which the
+    /// minimap handles by positioning button views (not by relabeling).
+    /// This pins that the labels stay default so the relabel mistake (which
+    /// produced press-B-lights-A) can't return.
+    func testNintendoFaceButtonLabelsMatchDefaults() {
+        for b in [ControllerButton.a, .b, .x, .y] {
+            XCTAssertEqual(b.displayName(forNintendo: true), b.displayName)
+            XCTAssertEqual(b.shortLabel(forNintendo: true), b.shortLabel)
+            XCTAssertEqual(b.systemImageName(forNintendo: true), b.systemImageName)
+        }
+        XCTAssertEqual(ControllerButton.a.displayName(forNintendo: true), "A")
+        XCTAssertEqual(ControllerButton.b.displayName(forNintendo: true), "B")
     }
 
     func testDualSenseOnlyAndEdgeOnlyClassification() {

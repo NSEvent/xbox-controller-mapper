@@ -238,17 +238,12 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     func displayName(forNintendo isNintendo: Bool) -> String {
         guard isNintendo else { return displayName }
         switch self {
-        // GameController position-normalizes Nintendo face buttons: the
-        // SOUTH button reports as buttonA, EAST as buttonB, etc. (verified
-        // via physicalInputProfile — buttonA carries the standard a.circle
-        // symbol at the south slot). But the Nintendo diamond PRINTS its
-        // letters rotated vs Xbox — south is "B", east "A", north "X",
-        // west "Y" — so we relabel to match the physical hardware while the
-        // input binding (.a = south, etc.) stays position-normalized.
-        case .a: return "B"   // south position
-        case .b: return "A"   // east position
-        case .x: return "Y"   // west position
-        case .y: return "X"   // north position
+        // macOS maps Nintendo/8BitDo face buttons by LABEL, not position:
+        // the button printed "A" reports as buttonA (-> .a), etc. So the
+        // A/B/X/Y labels are already correct as-is. What differs from Xbox is
+        // the physical ARRANGEMENT of those labels (Nintendo: X north, A east,
+        // B south, Y west), which the minimap handles by positioning each
+        // button view — not by relabeling.
         case .leftBumper: return "L"
         case .rightBumper: return "R"
         case .leftTrigger: return "ZL"
@@ -409,11 +404,6 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     func shortLabel(forNintendo isNintendo: Bool) -> String {
         guard isNintendo else { return shortLabel }
         switch self {
-        // Nintendo physical diamond labels (see displayName(forNintendo:)).
-        case .a: return "B"   // south position
-        case .b: return "A"   // east position
-        case .x: return "Y"   // west position
-        case .y: return "X"   // north position
         case .leftBumper: return "L"
         case .rightBumper: return "R"
         case .leftTrigger: return "ZL"
@@ -983,13 +973,6 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     func systemImageName(forNintendo isNintendo: Bool) -> String? {
         guard isNintendo else { return systemImageName }
         switch self {
-        // Match the Nintendo physical diamond (see displayName(forNintendo:)):
-        // the lettered SF Symbol follows the printed label, not the
-        // position-normalized GameController identity.
-        case .a: return "b.circle"   // south position
-        case .b: return "a.circle"   // east position
-        case .x: return "y.circle"   // west position
-        case .y: return "x.circle"   // north position
         case .xbox: return "house"  // Home button
         default: return systemImageName  // Reuse Xbox SF Symbols for everything else
         }
