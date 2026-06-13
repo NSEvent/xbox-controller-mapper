@@ -44,6 +44,70 @@ final class AutomationExecutorTests: XCTestCase {
 		])
 	}
 
+	func testFailureAbortReleasesHeldKeysAndMouseButtons() async {
+		// A program that holds a key and a mouse button, then hits a failing
+		// step with continuesOnStepFailure == false, must not leave them down:
+		// the executor replays the releases in reverse order on abort.
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let heldKey = KeyEvent(key: .escape, modifiers: ModifierSet(command: .left))
+		let heldButton = MouseButtonEvent(button: .left, modifiers: ModifierSet(shift: .left))
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Abort", steps: [
+				.keyDown(heldKey),
+				.mouseDown(heldButton),
+				.openURL(OpenURLStep(url: "https://example.com"))
+			]),
+			context: TriggerExecutionContext(
+				policy: TriggerExecutionPolicy(allowedURLSchemes: [], continuesOnStepFailure: false)
+			)
+		)
+
+		XCTAssertFalse(result.isSuccess)
+		XCTAssertEqual(input.calls, [
+			.keyDown(heldKey),
+			.mouseDown(heldButton),
+			.mouseUp(heldButton),
+			.keyUp(heldKey)
+		])
+	}
+
+	func testCleanCompletionLeavesIntentionallyHeldKeyDown() async {
+		// A program may deliberately end on a keyDown to leave a key held; clean
+		// completion must NOT synthesize a release.
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let heldKey = KeyEvent(key: .escape)
+
+		let result = await executor.execute(AutomationProgram(name: "Hold", steps: [.keyDown(heldKey)]))
+
+		XCTAssertEqual(result, .success("Completed 1 step(s)"))
+		XCTAssertEqual(input.calls, [.keyDown(heldKey)])
+	}
+
+	func testBalancedKeyDownUpIsNotDoubleReleasedOnAbort() async {
+		// A key that is explicitly released before a later failing step must not
+		// be released a second time by the cleanup.
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .escape)
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Balanced", steps: [
+				.keyDown(key),
+				.keyUp(key),
+				.openURL(OpenURLStep(url: "https://example.com"))
+			]),
+			context: TriggerExecutionContext(
+				policy: TriggerExecutionPolicy(allowedURLSchemes: [], continuesOnStepFailure: false)
+			)
+		)
+
+		XCTAssertFalse(result.isSuccess)
+		XCTAssertEqual(input.calls, [.keyDown(key), .keyUp(key)])
+	}
+
 	func testExecutorRunsPrepareTargetBeforeSteps() async {
 		var events: [String] = []
 		let input = FakeInputSimulator { call in

@@ -687,9 +687,13 @@ extension Profile {
 
         // Stored string-keyed so the JSON stays an object (UUID-keyed Swift
         // dictionaries encode as flat arrays).
-        let stringKeyedSnapshots = try container.decode(.sharedMacroSnapshots, default: [String: AutomationProgram]())
-        sharedMacroSnapshots = Dictionary(uniqueKeysWithValues: stringKeyedSnapshots.compactMap { key, value in
-            guard let id = UUID(uuidString: key) else { return nil }
+        // Decode each snapshot leniently: a forward-versioned program written by
+        // a newer build throws from AutomationProgram.init(from:), and without
+        // this wrapper that throw would unwind the entire profile array decode
+        // (every profile would vanish). Drop just the undecodable entry instead.
+        let stringKeyedSnapshots = try container.decode(.sharedMacroSnapshots, default: [String: LossyDecoded<AutomationProgram>]())
+        sharedMacroSnapshots = Dictionary(uniqueKeysWithValues: stringKeyedSnapshots.compactMap { key, wrapper -> (UUID, AutomationProgram)? in
+            guard let id = UUID(uuidString: key), let value = wrapper.value else { return nil }
             return (id, value)
         })
 

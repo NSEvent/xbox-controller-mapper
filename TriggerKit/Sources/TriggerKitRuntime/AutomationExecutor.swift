@@ -94,8 +94,12 @@ public enum TriggerExecutionResult: Equatable, Sendable {
 	}
 }
 
-@MainActor
-public final class AutomationExecutor {
+/// Drives an `AutomationProgram` to completion. Deliberately *not* `@MainActor`:
+/// programs run on a background task (as the original ControllerKeys macro path
+/// did via `Task.detached`) so a multi-step macro with delays never occupies the
+/// main run loop. Steps that touch main-thread-affine AppKit APIs (NSWorkspace,
+/// NSAppleScript) hop to the main actor explicitly.
+public final class AutomationExecutor: Sendable {
 	private static let executionGate = AutomationExecutionGate()
 	private let input: InputSimulating
 
@@ -132,12 +136,28 @@ public final class AutomationExecutor {
 		_ program: AutomationProgram,
 		context: TriggerExecutionContext
 	) async -> TriggerExecutionResult {
+		// Track inputs the program pressed-and-held but has not yet released.
+		// On any abnormal exit — cancellation, a thrown error, or a failure
+		// abort (continuesOnStepFailure == false) — replay their releases in
+		// reverse order so a mid-sequence macro can never leave a key, modifier,
+		// or mouse button stuck down on the user's system.
+		var heldKeys: [KeyEvent] = []
+		var heldMouseButtons: [MouseButtonEvent] = []
+		var finishedCleanly = false
+		defer {
+			if !finishedCleanly {
+				for event in heldMouseButtons.reversed() { input.mouseUp(event) }
+				for event in heldKeys.reversed() { input.keyUp(event) }
+			}
+		}
 		do {
 			try Task.checkCancellation()
 			if let disallowedStep = program.steps.first(where: { !context.policy.capabilities.allows($0.kind) }) {
+				finishedCleanly = true
 				return .failure("Action not allowed: \(disallowedStep.kind.displayName)")
 			}
 			if context.policy.validatesAccessibility, program.requiresAccessibility, !input.isInputPostingAvailable {
+				finishedCleanly = true
 				return .failure("Accessibility permission is required for input actions")
 			}
 			try await context.prepareTarget?()
@@ -145,7 +165,15 @@ public final class AutomationExecutor {
 			for step in program.steps {
 				try Task.checkCancellation()
 				let result = await execute(step, context: context)
-				if !result.isSuccess {
+				if result.isSuccess {
+					switch step {
+					case .keyDown(let event): heldKeys.append(event)
+					case .keyUp(let event): heldKeys.removeAll { $0.key == event.key }
+					case .mouseDown(let event): heldMouseButtons.append(event)
+					case .mouseUp(let event): heldMouseButtons.removeAll { $0.button == event.button }
+					default: break
+					}
+				} else {
 					guard context.policy.continuesOnStepFailure else {
 						return result
 					}
@@ -153,6 +181,7 @@ public final class AutomationExecutor {
 					context.logger("Step failed: \(result.message)")
 				}
 			}
+			finishedCleanly = true
 			if program.steps.isEmpty {
 				return .success("No actions")
 			}
@@ -204,10 +233,10 @@ public final class AutomationExecutor {
 		case .openApp(let app):
 			return await openApp(app)
 		case .openURL(let url):
-			return openURL(url, allowedSchemes: context.policy.allowedURLSchemes)
+			return await openURL(url, allowedSchemes: context.policy.allowedURLSchemes)
 		case .shellCommand(let shell):
 			if shell.runsInTerminal {
-				return runShellInTerminal(shell)
+				return await runShellInTerminal(shell)
 			}
 			let outcome = await runShell(
 				shell,
@@ -237,19 +266,26 @@ public final class AutomationExecutor {
 	}
 
 	private func openApp(_ step: OpenAppStep) async -> TriggerExecutionResult {
-		guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: step.bundleIdentifier) else {
-			return .failure("App not found: \(step.bundleIdentifier)")
+		let bundleIdentifier = step.bundleIdentifier
+		// NSWorkspace lookups/launches are main-thread-affine; hop to the main
+		// actor now that the executor itself runs on a background task.
+		guard let appURL = await MainActor.run(body: {
+			NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
+		}) else {
+			return .failure("App not found: \(bundleIdentifier)")
 		}
-		let configuration = NSWorkspace.OpenConfiguration()
-		configuration.activates = true
 		let result: TriggerExecutionResult = await withCheckedContinuation { continuation in
-			NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { app, error in
-				if let error {
-					continuation.resume(returning: .failure(error.localizedDescription))
-				} else if app == nil {
-					continuation.resume(returning: .failure("Could not open app: \(step.bundleIdentifier)"))
-				} else {
-					continuation.resume(returning: .success("Opened \(step.bundleIdentifier)"))
+			Task { @MainActor in
+				let configuration = NSWorkspace.OpenConfiguration()
+				configuration.activates = true
+				NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { app, error in
+					if let error {
+						continuation.resume(returning: .failure(error.localizedDescription))
+					} else if app == nil {
+						continuation.resume(returning: .failure("Could not open app: \(bundleIdentifier)"))
+					} else {
+						continuation.resume(returning: .success("Opened \(bundleIdentifier)"))
+					}
 				}
 			}
 		}
@@ -257,12 +293,12 @@ public final class AutomationExecutor {
 		if step.openNewWindow {
 			try? await Task.sleep(nanoseconds: 300_000_000)
 			await input.keyPress(KeyStroke(key: newWindowKey, modifiers: ModifierSet(command: .any)))
-			return .success("Opened \(step.bundleIdentifier) and requested a new window")
+			return .success("Opened \(bundleIdentifier) and requested a new window")
 		}
 		return result
 	}
 
-	private func openURL(_ step: OpenURLStep, allowedSchemes: Set<String>?) -> TriggerExecutionResult {
+	private func openURL(_ step: OpenURLStep, allowedSchemes: Set<String>?) async -> TriggerExecutionResult {
 		let urlString = step.url.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard let url = URL(string: urlString), let scheme = url.scheme?.lowercased(), !scheme.isEmpty else {
 			return .failure("Invalid URL")
@@ -270,7 +306,8 @@ public final class AutomationExecutor {
 		if let allowedSchemes, !allowedSchemes.contains(scheme) {
 			return .failure("URL scheme not allowed: \(scheme)")
 		}
-		guard NSWorkspace.shared.open(url) else {
+		let opened = await MainActor.run { NSWorkspace.shared.open(url) }
+		guard opened else {
 			return .failure("Could not open URL: \(urlString)")
 		}
 		return .success("Opened \(urlString)")
@@ -303,7 +340,7 @@ public final class AutomationExecutor {
 		}
 	}
 
-	private func runShellInTerminal(_ step: ShellCommandStep) -> TriggerExecutionResult {
+	private func runShellInTerminal(_ step: ShellCommandStep) async -> TriggerExecutionResult {
 		let command = step.command.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard !command.isEmpty else {
 			return .failure("Empty terminal command")
@@ -317,12 +354,15 @@ public final class AutomationExecutor {
 			do script "\(escaped)"
 		end tell
 		"""
-		var error: NSDictionary?
-		NSAppleScript(source: script)?.executeAndReturnError(&error)
-		if let error, let message = error[NSAppleScript.errorMessage] as? String {
-			return .failure("Terminal launch failed: \(message)")
+		// NSAppleScript must run on the main thread.
+		return await MainActor.run {
+			var error: NSDictionary?
+			NSAppleScript(source: script)?.executeAndReturnError(&error)
+			if let error, let message = error[NSAppleScript.errorMessage] as? String {
+				return .failure("Terminal launch failed: \(message)")
+			}
+			return .success("Ran in Terminal")
 		}
-		return .success("Ran in Terminal")
 	}
 
 	private nonisolated func runShell(

@@ -382,8 +382,10 @@ extension JoystickSettings {
         scrollBoostMultiplier = try container.decode(.scrollBoostMultiplier, default: 2.0, clampedTo: 1.0...4.0)
         focusModeSensitivity = try container.decode(.focusModeSensitivity, default: 0.2, clampedTo: unit)
         focusModeModifier = try container.decode(.focusModeModifier, default: .command)
-        leftStickMode = try container.decode(.leftStickMode, default: .mouse)
-        rightStickMode = try container.decode(.rightStickMode, default: .scroll)
+        // Lenient: a StickMode case added by a newer build must degrade to the
+        // default on a downgrade rather than throwing out the whole config.
+        leftStickMode = try container.decodeLenient(.leftStickMode, default: .mouse)
+        rightStickMode = try container.decodeLenient(.rightStickMode, default: .scroll)
         let leftLegacySharedSize = Self.sliceSize(
             fromLegacyDeadzone: try container.decodeIfPresent(Double.self, forKey: .leftStickCustomSliceDeadzone)
         )

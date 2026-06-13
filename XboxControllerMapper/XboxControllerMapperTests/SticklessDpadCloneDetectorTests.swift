@@ -5,25 +5,51 @@ import CoreGraphics
 /// Behavioral detector for stickless d-pad clones (8BitDo Zero 2 impersonating a
 /// Pro Controller in Switch mode / a DualShock 4 in Mac mode). The core rule:
 /// a clone's "stick" snaps center→full with no intermediate magnitudes, whereas
-/// a real analog stick always sweeps through intermediate values.
+/// a real analog stick always sweeps through intermediate values. Latching
+/// requires TWO clean center→full snaps so one improbably-fast flick of a real
+/// stick can't false-latch.
 final class SticklessDpadCloneDetectorTests: XCTestCase {
+
+    /// Drive `count` clean center→full snaps (the clone signature).
+    private func snap(_ d: SticklessDpadCloneDetector, _ point: CGPoint, times count: Int) {
+        for _ in 0..<count {
+            d.noteLeftStick(.zero)        // at rest (arms the next snap)
+            d.noteLeftStick(point)        // jump straight to full, no intermediate
+        }
+    }
 
     func testDefaultsToNotAClone() {
         let d = SticklessDpadCloneDetector()
         XCTAssertFalse(d.isSticklessClone)
     }
 
-    func testCenterThenFullDeflectionLatchesClone() {
+    func testSingleSnapDoesNotLatch() {
+        // One center→full snap is not enough — confirmation is required.
         let d = SticklessDpadCloneDetector()
-        d.noteLeftStick(.zero)                       // at rest
-        d.noteLeftStick(CGPoint(x: 0, y: 1.0))       // d-pad up: snapped to full
+        d.noteLeftStick(.zero)
+        d.noteLeftStick(CGPoint(x: 0, y: 1.0))
+        XCTAssertFalse(d.isSticklessClone)
+    }
+
+    func testTwoCenterFullSnapsLatchClone() {
+        let d = SticklessDpadCloneDetector()
+        snap(d, CGPoint(x: 0, y: 1.0), times: 2)     // d-pad up, twice
         XCTAssertTrue(d.isSticklessClone)
     }
 
-    func testFullDiagonalAlsoLatches() {
+    func testHeldFullDeflectionCountsAsOneSnap() {
+        // Many consecutive full samples from holding a direction must count once
+        // (the stick must return to center to arm the next snap), so a single
+        // held press does not latch.
         let d = SticklessDpadCloneDetector()
         d.noteLeftStick(.zero)
-        d.noteLeftStick(CGPoint(x: 1.0, y: 1.0))     // diagonal d-pad (mag ~1.41)
+        for _ in 0..<10 { d.noteLeftStick(CGPoint(x: 0, y: 1.0)) }
+        XCTAssertFalse(d.isSticklessClone)
+    }
+
+    func testFullDiagonalSnapsLatch() {
+        let d = SticklessDpadCloneDetector()
+        snap(d, CGPoint(x: 1.0, y: 1.0), times: 2)   // diagonal d-pad (mag ~1.41)
         XCTAssertTrue(d.isSticklessClone)
     }
 
@@ -31,7 +57,20 @@ final class SticklessDpadCloneDetectorTests: XCTestCase {
         let d = SticklessDpadCloneDetector()
         d.noteLeftStick(.zero)
         d.noteLeftStick(CGPoint(x: 0, y: 0.45))      // a real analog stick mid-push
-        d.noteLeftStick(CGPoint(x: 0, y: 1.0))       // then full — but analog already proven
+        snap(d, CGPoint(x: 0, y: 1.0), times: 2)     // then full snaps — but analog already proven
+        XCTAssertFalse(d.isSticklessClone)
+    }
+
+    func testFastFlickThenAnalogReleaseDoesNotLatch() {
+        // A genuine analog stick whose first push happens to skip the analog
+        // band in one sample (snap #1) but then springs back through an
+        // intermediate magnitude on release must be ruled out — its spring-back
+        // proves it is analog before a second snap can latch it.
+        let d = SticklessDpadCloneDetector()
+        d.noteLeftStick(.zero)
+        d.noteLeftStick(CGPoint(x: 0, y: 1.0))       // fast flick to full (snap #1)
+        d.noteLeftStick(CGPoint(x: 0, y: 0.5))       // spring-back through the band
+        d.noteLeftStick(CGPoint(x: 0, y: 1.0))       // pushed full again
         XCTAssertFalse(d.isSticklessClone)
     }
 
@@ -43,14 +82,13 @@ final class SticklessDpadCloneDetectorTests: XCTestCase {
         XCTAssertFalse(d.isSticklessClone)
     }
 
-    func testCenterThenFullStillLatchesAfterHeldStart() {
-        // Same held-at-connect device, but once it returns to center and snaps
-        // out again with no intermediate, it's a clone after all.
+    func testSnapsLatchAfterHeldStart() {
+        // Held-at-connect device: the leading full sample is ignored (no center
+        // yet), then two clean center→full snaps latch it.
         let d = SticklessDpadCloneDetector()
         d.noteLeftStick(CGPoint(x: 1.0, y: 0))       // full first (ignored — no center yet)
         XCTAssertFalse(d.isSticklessClone)
-        d.noteLeftStick(.zero)                       // returns to center
-        d.noteLeftStick(CGPoint(x: -1.0, y: 0))      // snaps to full again
+        snap(d, CGPoint(x: -1.0, y: 0), times: 2)
         XCTAssertTrue(d.isSticklessClone)
     }
 
@@ -58,17 +96,22 @@ final class SticklessDpadCloneDetectorTests: XCTestCase {
         // Small resting drift (below the analog band) must not flip the
         // has-analog-stick guard, or a clone would never be detected.
         let d = SticklessDpadCloneDetector()
-        d.noteLeftStick(CGPoint(x: 0.03, y: -0.02))  // drift ~ center
-        d.noteLeftStick(CGPoint(x: 1.0, y: 0))
+        d.noteLeftStick(CGPoint(x: 0.03, y: -0.02))  // drift ~ center (arms)
+        d.noteLeftStick(CGPoint(x: 1.0, y: 0))       // snap #1
+        d.noteLeftStick(CGPoint(x: -0.02, y: 0.03))  // drift ~ center (re-arms)
+        d.noteLeftStick(CGPoint(x: 1.0, y: 0))       // snap #2
         XCTAssertTrue(d.isSticklessClone)
     }
 
     func testResetClearsLatch() {
         let d = SticklessDpadCloneDetector()
-        d.noteLeftStick(.zero)
-        d.noteLeftStick(CGPoint(x: 0, y: 1.0))
+        snap(d, CGPoint(x: 0, y: 1.0), times: 2)
         XCTAssertTrue(d.isSticklessClone)
         d.reset()
+        XCTAssertFalse(d.isSticklessClone)
+        // And the snap counter is cleared — one post-reset snap must not latch.
+        d.noteLeftStick(.zero)
+        d.noteLeftStick(CGPoint(x: 0, y: 1.0))
         XCTAssertFalse(d.isSticklessClone)
     }
 }

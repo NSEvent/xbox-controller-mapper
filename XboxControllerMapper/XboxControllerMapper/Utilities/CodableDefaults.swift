@@ -19,4 +19,36 @@ extension KeyedDecodingContainer {
         guard raw.isFinite else { return fallback }
         return min(range.upperBound, max(range.lowerBound, raw))
     }
+
+    /// Decode a `RawRepresentable` enum, mapping a missing key OR an unrecognized
+    /// raw value to `fallback`. Unlike plain `decode(_:default:)`, this does not
+    /// throw when a newer build wrote an enum case this build doesn't know about,
+    /// which keeps configs downgrade-safe (the schema contract: unknown values
+    /// degrade gracefully, they never break loading).
+    func decodeLenient<T>(_ key: Key, default fallback: T) throws -> T
+        where T: RawRepresentable, T.RawValue: Decodable {
+        guard let rawValue = try decodeIfPresent(T.RawValue.self, forKey: key) else { return fallback }
+        return T(rawValue: rawValue) ?? fallback
+    }
+
+    /// Optional variant: a missing key or an unrecognized raw value both decode
+    /// to `nil` (e.g. a layer stick-mode override falling back to "inherit").
+    func decodeLenient<T>(_ key: Key) throws -> T?
+        where T: RawRepresentable, T.RawValue: Decodable {
+        guard let rawValue = try decodeIfPresent(T.RawValue.self, forKey: key) else { return nil }
+        return T(rawValue: rawValue)
+    }
+}
+
+/// Wraps a `Decodable` so a value that fails to decode (e.g. a forward-versioned
+/// payload from a newer build) becomes `nil` instead of throwing out of the
+/// surrounding container. Decode a `[Key: LossyDecoded<T>]` to drop only the
+/// undecodable entries rather than losing the whole dictionary — and, with it,
+/// every sibling that decoded fine.
+struct LossyDecoded<Wrapped: Decodable>: Decodable {
+    let value: Wrapped?
+
+    init(from decoder: Decoder) throws {
+        value = try? Wrapped(from: decoder)
+    }
 }

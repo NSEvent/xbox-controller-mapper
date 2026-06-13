@@ -14,7 +14,7 @@ import TriggerKitRuntime
 /// after, modifier key codes route through the modifier-hold path, and
 /// synthetic marker key codes flow back through `pressKey`/`keyDown`, where
 /// ControllerKeys dispatches them to mouse, scroll, and media handling.
-final class TriggerKitInputAdapter: InputSimulating {
+final class TriggerKitInputAdapter: InputSimulating, @unchecked Sendable {
 	/// Matches the pre-TriggerKit modifier-only press hold time
 	/// (`Config.keyPressDuration`, microseconds).
 	private static let modifierTapNanoseconds = UInt64(Config.keyPressDuration) * 1_000

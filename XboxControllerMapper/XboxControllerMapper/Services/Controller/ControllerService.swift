@@ -1180,7 +1180,17 @@ class ControllerService: ObservableObject {
 		storage.eliteRawPaddleState.removeAll()
 		storage.rawHIDGuidePressed = false
 		storage.rawHIDGuideLastEventTime = nil
+		// Clear stickless-clone / 8BitDo state here too: switching directly to
+		// the Apple TV Remote goes through this method but bypasses
+		// resetControllerTypeState(), so without this a prior clone pad's
+		// detection state and minimap model would leak into the next controller.
+		storage.eightBitDoModel = nil
+		storage.emittedCloneDpadButtons.removeAll()
 		storage.lock.unlock()
+
+		// Detector has its own lock — reset outside storage.lock to keep the
+		// lock-acquisition order consistent.
+		sticklessCloneDetector.reset()
 	}
 
     func controllerDisconnected() {

@@ -97,8 +97,10 @@ struct Layer: Codable, Identifiable, Equatable {
         })
 
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings)
-        leftStickModeOverride = try container.decodeIfPresent(StickMode.self, forKey: .leftStickModeOverride)
-        rightStickModeOverride = try container.decodeIfPresent(StickMode.self, forKey: .rightStickModeOverride)
+        // Lenient: an unknown StickMode raw value (e.g. from a newer build)
+        // falls back to nil ("inherit") instead of throwing out the layer.
+        leftStickModeOverride = try container.decodeLenient(.leftStickModeOverride)
+        rightStickModeOverride = try container.decodeLenient(.rightStickModeOverride)
     }
 
     func encode(to encoder: Encoder) throws {

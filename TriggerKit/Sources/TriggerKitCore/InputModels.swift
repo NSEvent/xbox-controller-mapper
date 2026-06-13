@@ -235,12 +235,44 @@ public struct MouseMove: Codable, Equatable, Sendable {
 }
 
 public struct MouseScroll: Codable, Equatable, Sendable {
-	public var deltaX: Int32
-	public var deltaY: Int32
+	/// Largest line-scroll delta a single step may emit per axis. A configured
+	/// or decoded value beyond this would fling the scroll position; clamp it
+	/// the same way `MouseClick`/`TypeTextStep` sanitize their inputs.
+	public static let maximumMagnitude: Int32 = 10_000
+
+	public var deltaX: Int32 {
+		didSet { deltaX = Self.sanitized(deltaX) }
+	}
+	public var deltaY: Int32 {
+		didSet { deltaY = Self.sanitized(deltaY) }
+	}
 
 	public init(deltaX: Int32 = 0, deltaY: Int32 = 0) {
-		self.deltaX = deltaX
-		self.deltaY = deltaY
+		self.deltaX = Self.sanitized(deltaX)
+		self.deltaY = Self.sanitized(deltaY)
+	}
+
+	private static func sanitized(_ value: Int32) -> Int32 {
+		min(maximumMagnitude, max(-maximumMagnitude, value))
+	}
+
+	private enum CodingKeys: String, CodingKey {
+		case deltaX
+		case deltaY
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		self.init(
+			deltaX: try container.decodeIfPresent(Int32.self, forKey: .deltaX) ?? 0,
+			deltaY: try container.decodeIfPresent(Int32.self, forKey: .deltaY) ?? 0
+		)
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: CodingKeys.self)
+		try container.encode(deltaX, forKey: .deltaX)
+		try container.encode(deltaY, forKey: .deltaY)
 	}
 
 	public var displaySummary: String {
