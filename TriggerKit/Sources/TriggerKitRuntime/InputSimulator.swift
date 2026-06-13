@@ -43,10 +43,12 @@ public final class InputSimulator: InputSimulating, @unchecked Sendable {
 		if TriggerKey.isMediaOrSystemKeyCode(stroke.key.keyCode) {
 			// Honor modifiers on media/system keys (e.g. a configured
 			// Shift+BrightnessUp) — mirror the keyDown path, which posts them.
+			// Release in a defer: pressMediaKey awaits a short sleep, and if the
+			// program is cancelled there the modifier must not be left held.
 			let flags = InputEventMapper.eventFlags(for: stroke)
 			postModifierKeys(stroke.modifiers, keyDown: true, flags: flags)
+			defer { postModifierKeys(stroke.modifiers, keyDown: false) }
 			await pressMediaKey(stroke.key)
-			postModifierKeys(stroke.modifiers, keyDown: false)
 			return
 		}
 		let modifiers = InputEventMapper.modifierKeyCodes(for: stroke.modifiers)
