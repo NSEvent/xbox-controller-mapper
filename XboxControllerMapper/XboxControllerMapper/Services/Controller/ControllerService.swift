@@ -57,6 +57,16 @@ final class ControllerStorage: @unchecked Sendable {
     /// Non-nil when the connected pad is one of the small 8BitDo models
     /// (drives the dedicated minimap preview).
     var eightBitDoModel: EightBitDoMinimapModel?
+    /// The matched "Pro Controller" HID device reports an empty manufacturer
+    /// string — the tell for a third-party clone (genuine Nintendo pads report
+    /// "Nintendo Co.,Ltd."). Set when Nintendo HID monitoring opens the device.
+    var nintendoHIDManufacturerEmpty: Bool = false
+    /// True once we confirm a stickless 8BitDo-style clone: empty manufacturer
+    /// AND a simple (0x3F) report whose left-stick axes carry the d-pad. macOS
+    /// mis-calibrates the phantom stick's sign per connection, so we drive the
+    /// left stick from the deterministic raw HID axes instead and ignore the
+    /// GameController left-thumbstick for this device.
+    var isNintendoDPadStickClone: Bool = false
     var isJoyConLeft: Bool = false
     var isJoyConRight: Bool = false
     var isBluetoothConnection: Bool = false
@@ -485,6 +495,15 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         defer { storage.lock.unlock() }
         return storage.eightBitDoModel
+    }
+
+    /// True for a stickless Nintendo-clone whose d-pad is funneled through the
+    /// (mis-calibrated) phantom left stick — we drive the left stick from raw
+    /// HID instead, so the GameController left-thumbstick must be ignored.
+    nonisolated var threadSafeIsNintendoDPadStickClone: Bool {
+        storage.lock.lock()
+        defer { storage.lock.unlock() }
+        return storage.isNintendoDPadStickClone
     }
 
     nonisolated var threadSafeIsXboxElite: Bool {
@@ -1509,6 +1528,8 @@ class ControllerService: ObservableObject {
         storage.isSteamController = false
         storage.isAppleTVRemote = false
         storage.eightBitDoModel = nil
+        storage.nintendoHIDManufacturerEmpty = false
+        storage.isNintendoDPadStickClone = false
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
 
@@ -1726,6 +1747,12 @@ class ControllerService: ObservableObject {
 
 		gamepad.leftThumbstick.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
 			guard let self, let controller else { return }
+			// Stickless Nintendo clones (e.g. 8BitDo Zero 2 in Switch mode)
+			// funnel the d-pad through this phantom stick, and macOS
+			// mis-calibrates its sign per connection. We drive the left stick
+			// from the deterministic raw HID axes instead (see
+			// handleNintendoHIDReport), so ignore the GameController value here.
+			if self.threadSafeIsNintendoDPadStickClone { return }
 			self.routeGameControllerStickInput(from: controller, x: xValue, y: yValue) { service, x, y in
 				service.updateLeftStick(x: x, y: y)
 			}

@@ -78,6 +78,22 @@ extension ControllerService {
     }
 
     private func setupNintendoHIDDeviceCallback(_ device: IOHIDDevice) {
+        // A genuine Pro Controller reports manufacturer "Nintendo Co.,Ltd.";
+        // third-party clones (8BitDo Zero 2, etc.) leave it empty. Record that
+        // so handleNintendoHIDReport can opt into the raw-HID d-pad override.
+        let manufacturer = (IOHIDDeviceGetProperty(device, kIOHIDManufacturerKey as CFString) as? String) ?? ""
+        if manufacturer.trimmingCharacters(in: .whitespaces).isEmpty {
+            // Flag at setup (not on first report) so the GameController
+            // left-thumbstick is suppressed before any input arrives — no
+            // first-press race. Genuine Nintendo pads report a manufacturer,
+            // so this only catches clones, which send the 0x3F report we read.
+            storage.lock.lock()
+            storage.nintendoHIDManufacturerEmpty = true
+            storage.isNintendoDPadStickClone = true
+            storage.lock.unlock()
+            NSLog("[ControllerKeys] Nintendo HID: empty manufacturer — driving left stick from raw HID (stickless clone)")
+        }
+
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: Self.nintendoHIDReportBufferSize)
         let ctx = NintendoHIDCallbackContext(service: self)
         let retainedContext = Unmanaged.passRetained(ctx).toOpaque()
@@ -136,13 +152,31 @@ extension ControllerService {
         nintendoHIDRegistrations.removeAll()
     }
 
-    /// Parse Nintendo Pro Controller HID input reports for the Home button.
+    /// Parse Nintendo Pro Controller HID input reports for the Home button and,
+    /// on stickless clones, the d-pad-driven left stick.
     nonisolated func handleNintendoHIDReport(reportID: UInt32, report: UnsafeMutablePointer<UInt8>, length: Int) {
         guard let parsed = NintendoHIDParser().parse(
             reportID: reportID,
             report: UnsafePointer(report),
             length: length
-        ), let homePressed = parsed.nintendoHome else { return }
+        ) else { return }
+
+        // Raw-HID left-stick override for stickless clones (8BitDo Zero 2 etc.).
+        // macOS funnels the d-pad through the phantom Pro-Controller stick and
+        // mis-calibrates its sign per connection; the raw 0x3F axes are
+        // deterministic, so we drive the left stick from them directly. Gated
+        // on an empty-manufacturer device actually emitting 0x3F stick data, so
+        // genuine Pro Controllers are never affected.
+        if let x = parsed.leftStickX, let y = parsed.leftStickY {
+            storage.lock.lock()
+            let isClone = storage.isNintendoDPadStickClone
+            storage.lock.unlock()
+            if isClone {
+                updateLeftStick(x: x, y: y)
+            }
+        }
+
+        guard let homePressed = parsed.nintendoHome else { return }
 
         storage.lock.lock()
         let homeChanged = homePressed != storage.lastNintendoHomeState

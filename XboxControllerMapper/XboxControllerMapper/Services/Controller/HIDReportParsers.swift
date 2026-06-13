@@ -90,13 +90,22 @@ struct DualShockHIDParser: HIDReportParser {
 
 // MARK: - Nintendo Pro Controller
 
-/// Parses Nintendo Pro Controller HID input reports for the Home button.
+/// Parses Nintendo Pro Controller HID input reports for the Home button, and
+/// (for the simple 0x3F report) the left-stick axes.
 ///
-/// Standard report 0x30: buttons2 at byte 4.
-/// Simple   report 0x3F: buttons2 at byte 2 (Home in buttons_hi).
+/// Report layout (byte 0 is the report ID, included by the input callback):
+///   Standard report 0x30: buttons2 at byte 4.
+///   Simple   report 0x3F: buttons2 at byte 2 (Home in buttons_hi);
+///                         hat at byte 3; four 16-bit LE axes at bytes 4..11
+///                         (a0=X, a1=Y, a2=Rx, a3=Ry), neutral 0x7FFF.
 ///
 /// buttons2 bit layout: bit 4 (0x10) = Home.
 struct NintendoHIDParser: HIDReportParser {
+    /// Empirically verified on an 8BitDo Zero 2 (Switch mode): a0 max = right,
+    /// min = left; a1 max = down, min = up. Standard HID gamepad convention.
+    private static let axisCenter = 0x7FFF
+    private static let axisRange = Double(0xFFFF)
+
     func parse(reportID: UInt32, report: UnsafePointer<UInt8>, length: Int) -> HIDReportParseResult? {
         let buttons2Offset: Int
         switch (reportID, length) {
@@ -110,8 +119,21 @@ struct NintendoHIDParser: HIDReportParser {
 
         guard buttons2Offset < length else { return nil }
 
-        return HIDReportParseResult(
+        var result = HIDReportParseResult(
             nintendoHome: (report[buttons2Offset] & 0x10) != 0
         )
+
+        // Simple report carries the (phantom) left-stick axes at bytes 4..7.
+        if reportID == 0x3F, length >= 8 {
+            let a0 = Int(report[4]) | (Int(report[5]) << 8)
+            let a1 = Int(report[6]) | (Int(report[7]) << 8)
+            // +x = right (a0 high); +y = up (a1 low → GameController up-positive).
+            let x = Double(a0 - Self.axisCenter) / (Self.axisRange / 2.0)
+            let y = Double(Self.axisCenter - a1) / (Self.axisRange / 2.0)
+            result.leftStickX = Float(max(-1.0, min(1.0, x)))
+            result.leftStickY = Float(max(-1.0, min(1.0, y)))
+        }
+
+        return result
     }
 }

@@ -148,6 +148,50 @@ final class HIDReportParserTests: XCTestCase {
         XCTAssertEqual(result?.nintendoHome, false)
     }
 
+    // MARK: - Nintendo simple-report left-stick axes (8BitDo clone d-pad)
+    //
+    // Byte layout (id at byte 0): [3]=hat, [4][5]=a0 X (LE), [6][7]=a1 Y (LE).
+    // Captured from an 8BitDo Zero 2 in Switch mode: a0 max=right/min=left,
+    // a1 max=down/min=up, neutral 0x7FFF. Output convention: +x right, +y up.
+
+    private func makeSimpleStickReport(a0: Int, a1: Int) -> [UInt8] {
+        makeReport(length: 12) { p in
+            p[4] = UInt8(a0 & 0xFF); p[5] = UInt8((a0 >> 8) & 0xFF)
+            p[6] = UInt8(a1 & 0xFF); p[7] = UInt8((a1 >> 8) & 0xFF)
+        }
+    }
+
+    func testNintendoSimpleReport_neutralAxesAreCentered() {
+        let result = parse(NintendoHIDParser(), reportID: 0x3F, bytes: makeSimpleStickReport(a0: 0x7FFF, a1: 0x7FFF))
+        XCTAssertEqual(result?.leftStickX ?? 99, 0, accuracy: 0.001)
+        XCTAssertEqual(result?.leftStickY ?? 99, 0, accuracy: 0.001)
+    }
+
+    func testNintendoSimpleReport_dpadRightIsPositiveX() {
+        let result = parse(NintendoHIDParser(), reportID: 0x3F, bytes: makeSimpleStickReport(a0: 0xFFFF, a1: 0x7FFF))
+        XCTAssertEqual(result?.leftStickX ?? 0, 1.0, accuracy: 0.01, "d-pad RIGHT must drive left stick +X (right)")
+        XCTAssertEqual(result?.leftStickY ?? 99, 0, accuracy: 0.001)
+    }
+
+    func testNintendoSimpleReport_dpadLeftIsNegativeX() {
+        let result = parse(NintendoHIDParser(), reportID: 0x3F, bytes: makeSimpleStickReport(a0: 0x0000, a1: 0x7FFF))
+        XCTAssertEqual(result?.leftStickX ?? 0, -1.0, accuracy: 0.01, "d-pad LEFT must drive left stick -X (left)")
+    }
+
+    func testNintendoSimpleReport_dpadUpIsPositiveY_dpadDownNegative() {
+        let up = parse(NintendoHIDParser(), reportID: 0x3F, bytes: makeSimpleStickReport(a0: 0x7FFF, a1: 0x0000))
+        let down = parse(NintendoHIDParser(), reportID: 0x3F, bytes: makeSimpleStickReport(a0: 0x7FFF, a1: 0xFFFF))
+        XCTAssertEqual(up?.leftStickY ?? 0, 1.0, accuracy: 0.01, "d-pad UP must drive left stick +Y (up)")
+        XCTAssertEqual(down?.leftStickY ?? 0, -1.0, accuracy: 0.01, "d-pad DOWN must drive left stick -Y (down)")
+    }
+
+    func testNintendoStandardReport_doesNotProduceStickAxes() {
+        // Only the 0x3F simple report carries the phantom stick we override.
+        let result = parse(NintendoHIDParser(), reportID: 0x30, bytes: makeReport(length: 12) { _ in })
+        XCTAssertNil(result?.leftStickX)
+        XCTAssertNil(result?.leftStickY)
+    }
+
     // MARK: - Steam Controller
 
     func testSteamController_Report45ParsesButtonsAndAxes() {

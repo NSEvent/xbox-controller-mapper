@@ -16,6 +16,11 @@ struct HIDReportParseResult: Equatable {
     var nintendoHome: Bool? = nil
     /// True = charging, false = not. Nil when the report type doesn't expose it.
     var batteryCharging: Bool? = nil
+    /// Left-stick axes from the Nintendo simple (0x3F) report, normalized to
+    /// -1...1 with +x = right and +y = up (GameController convention). On
+    /// stickless 8BitDo clones these carry the d-pad; nil when unavailable.
+    var leftStickX: Float? = nil
+    var leftStickY: Float? = nil
 }
 
 /// One parser per controller family. Owns its (reportID, length, offset,
