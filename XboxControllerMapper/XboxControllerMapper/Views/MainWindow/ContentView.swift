@@ -23,7 +23,21 @@ struct ContentView: View {
     @State private var editingLayerId: UUID? = nil
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
-	@State private var controllerPreviewLayout: ControllerPreviewLayout = .active
+	/// Persisted so a manually-pinned preview (e.g. an 8BitDo pad that
+	/// presents as a Pro Controller clone in Switch mode and can't be
+	/// auto-detected) survives relaunches.
+	@AppStorage("controllerPreviewLayout") private var controllerPreviewLayoutRaw: String = ControllerPreviewLayout.active.rawValue
+
+	private var controllerPreviewLayout: ControllerPreviewLayout {
+		ControllerPreviewLayout(rawValue: controllerPreviewLayoutRaw) ?? .active
+	}
+
+	private var controllerPreviewLayoutBinding: Binding<ControllerPreviewLayout> {
+		Binding(
+			get: { ControllerPreviewLayout(rawValue: controllerPreviewLayoutRaw) ?? .active },
+			set: { controllerPreviewLayoutRaw = $0.rawValue }
+		)
+	}
     @State private var showingGestureSheet = false
     @State private var editingGestureType: MotionGestureType?
     @State private var scrollKeyMonitor: Any?
@@ -80,7 +94,7 @@ struct ContentView: View {
                             selectedLayerId: $selectedLayerId,
                             isSwapMode: $isSwapMode,
                             swapFirstButton: $swapFirstButton,
-							controllerPreviewLayout: $controllerPreviewLayout,
+							controllerPreviewLayout: controllerPreviewLayoutBinding,
                             showingAddLayerSheet: $showingAddLayerSheet,
                             editingLayerId: $editingLayerId,
                             editingChord: $editingChord,

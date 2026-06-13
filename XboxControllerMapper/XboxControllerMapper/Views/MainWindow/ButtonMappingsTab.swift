@@ -358,6 +358,16 @@ struct ButtonMappingsTab: View {
 			if controllerService.threadSafeIsDualShock {
 				layouts.insert(.dualShock)
 			}
+			// Small 8BitDo pads connected in D-input mode (the generic HID
+			// path identifies them by SDL product name). In Switch mode they
+			// are byte-perfect Pro Controller clones and land on .nintendo.
+			switch controllerService.threadSafeEightBitDoMinimapModel {
+			case .zero2: layouts.insert(.eightBitDoZero2)
+			case .micro: layouts.insert(.eightBitDoMicro)
+			case .lite2: layouts.insert(.eightBitDoLite2)
+			case .liteSE: layouts.insert(.eightBitDoLiteSE)
+			case nil: break
+			}
 		}
 
 		if controllerService.appleTVRemoteHIDDevice != nil || controllerService.appleTVRemoteHIDTouchDevice != nil {
