@@ -693,7 +693,15 @@ extension Profile {
         // (every profile would vanish). Drop just the undecodable entry instead.
         let stringKeyedSnapshots = try container.decode(.sharedMacroSnapshots, default: [String: LossyDecoded<AutomationProgram>]())
         sharedMacroSnapshots = Dictionary(uniqueKeysWithValues: stringKeyedSnapshots.compactMap { key, wrapper -> (UUID, AutomationProgram)? in
-            guard let id = UUID(uuidString: key), let value = wrapper.value else { return nil }
+            guard let id = UUID(uuidString: key) else { return nil }
+            guard let value = wrapper.value else {
+                // Snapshot present but undecodable — almost always a newer schema
+                // version on a downgrade. Drop it (it regenerates from the live
+                // library on the next save) but log so genuine corruption isn't
+                // silent.
+                NSLog("[ControllerKeys] Dropping undecodable shared-macro snapshot %@", key)
+                return nil
+            }
             return (id, value)
         })
 

@@ -108,6 +108,29 @@ final class AutomationExecutorTests: XCTestCase {
 		XCTAssertEqual(input.calls, [.keyDown(key), .keyUp(key)])
 	}
 
+	func testRepeatedKeyDownReleasesExactlyOnceOnAbort() async {
+		// keyDown(A), keyDown(A), keyUp(A) leaves one A still held; the abort
+		// cleanup must replay exactly one keyUp(A), not zero and not two.
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .escape)
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Repeat", steps: [
+				.keyDown(key),
+				.keyDown(key),
+				.keyUp(key),
+				.openURL(OpenURLStep(url: "https://example.com"))
+			]),
+			context: TriggerExecutionContext(
+				policy: TriggerExecutionPolicy(allowedURLSchemes: [], continuesOnStepFailure: false)
+			)
+		)
+
+		XCTAssertFalse(result.isSuccess)
+		XCTAssertEqual(input.calls, [.keyDown(key), .keyDown(key), .keyUp(key), .keyUp(key)])
+	}
+
 	func testExecutorRunsPrepareTargetBeforeSteps() async {
 		var events: [String] = []
 		let input = FakeInputSimulator { call in
@@ -395,8 +418,7 @@ private enum RecordedInputCall: Equatable {
 	}
 }
 
-@MainActor
-private final class UnavailableInputSimulator: InputSimulating {
+private final class UnavailableInputSimulator: InputSimulating, @unchecked Sendable {
 	var calls: [RecordedInputCall] = []
 	var isInputPostingAvailable: Bool { false }
 
@@ -437,8 +459,7 @@ private final class UnavailableInputSimulator: InputSimulating {
 	}
 }
 
-@MainActor
-private final class FakeInputSimulator: InputSimulating {
+private final class FakeInputSimulator: InputSimulating, @unchecked Sendable {
 	var calls: [RecordedInputCall] = []
 	private let onCall: (RecordedInputCall) -> Void
 
@@ -488,8 +509,7 @@ private final class FakeInputSimulator: InputSimulating {
 	}
 }
 
-@MainActor
-private final class SequencedInputSimulator: InputSimulating {
+private final class SequencedInputSimulator: InputSimulating, @unchecked Sendable {
 	var events: [String] = []
 
 	func keyPress(_ stroke: KeyStroke) async {

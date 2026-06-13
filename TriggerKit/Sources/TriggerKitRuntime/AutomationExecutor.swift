@@ -166,11 +166,21 @@ public final class AutomationExecutor: Sendable {
 				try Task.checkCancellation()
 				let result = await execute(step, context: context)
 				if result.isSuccess {
+					// Pair each release with the most recent matching press (LIFO)
+					// rather than clearing every match, so a re-pressed key
+					// (keyDown A, keyDown A, keyUp A) still leaves one held — and
+					// abort cleanup replays the right number of releases.
 					switch step {
 					case .keyDown(let event): heldKeys.append(event)
-					case .keyUp(let event): heldKeys.removeAll { $0.key == event.key }
+					case .keyUp(let event):
+						if let index = heldKeys.lastIndex(where: { $0.key == event.key }) {
+							heldKeys.remove(at: index)
+						}
 					case .mouseDown(let event): heldMouseButtons.append(event)
-					case .mouseUp(let event): heldMouseButtons.removeAll { $0.button == event.button }
+					case .mouseUp(let event):
+						if let index = heldMouseButtons.lastIndex(where: { $0.button == event.button }) {
+							heldMouseButtons.remove(at: index)
+						}
 					default: break
 					}
 				} else {

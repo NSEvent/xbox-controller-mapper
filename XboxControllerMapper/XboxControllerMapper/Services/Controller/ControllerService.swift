@@ -1184,8 +1184,7 @@ class ControllerService: ObservableObject {
 		// the Apple TV Remote goes through this method but bypasses
 		// resetControllerTypeState(), so without this a prior clone pad's
 		// detection state and minimap model would leak into the next controller.
-		storage.eightBitDoModel = nil
-		storage.emittedCloneDpadButtons.removeAll()
+		resetCloneDetectionStateLocked()
 		storage.lock.unlock()
 
 		// Detector has its own lock — reset outside storage.lock to keep the
@@ -1574,6 +1573,17 @@ class ControllerService: ObservableObject {
     /// controller matching none of the branches keeps stale flags loaded in init.
     /// Note: Apple TV Remote HID *cleanup* stays owned by
     /// clearAppleTVRemoteStateForNonRemoteController — only the flag resets here.
+    /// Single source of truth for the per-connection stickless-clone / 8BitDo
+    /// detection storage fields. Caller MUST hold `storage.lock`; pair with
+    /// `sticklessCloneDetector.reset()` after unlocking. Both
+    /// `resetControllerTypeState()` and `prepareForActiveControllerSwitch()`
+    /// use this so a new clone-detection field can't be reset on one path but
+    /// leaked on the other.
+    private func resetCloneDetectionStateLocked() {
+        storage.eightBitDoModel = nil
+        storage.emittedCloneDpadButtons.removeAll()
+    }
+
     func resetControllerTypeState() {
         storage.lock.lock()
         storage.isDualSense = false
@@ -1585,8 +1595,7 @@ class ControllerService: ObservableObject {
         storage.isXboxElite = false
         storage.isSteamController = false
         storage.isAppleTVRemote = false
-        storage.eightBitDoModel = nil
-        storage.emittedCloneDpadButtons.removeAll()
+        resetCloneDetectionStateLocked()
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
 
