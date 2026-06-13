@@ -273,12 +273,12 @@ There are other controller mapping apps for macOS, but none offered everything I
   - **Edge Scroll**: drag a finger around the outer clickpad ring for iPod-wheel-style scrolling, with configurable speed
   - Dedicated tall remote preview in the UI; runs entirely over raw IOKit HID — no Apple TV required
 
-- **8BitDo Zero 2 & Micro Support**: First-class support for the keychain-sized 8BitDo pads, not just generic SDL fallback
-  - Product-accurate Buttons-tab previews traced from the official renders, with correct hardware labels (L/R bumpers, plus L2/R2 triggers on the Micro)
-  - These stickless pads route their physical d-pad through a phantom left-stick axis that macOS mis-calibrates (right often reads as left); ControllerKeys reads the raw HID reports directly to recover the d-pad correctly on every reconnect
-  - The d-pad's own dropdown drives **Arrow Keys / WASD / Custom keys, Mouse, or Scroll** — so the pad can type, click, or move the cursor
-  - The Micro's Home button is synthesized (macOS otherwise swallows it) and shown with the 8BitDo logo; the firmware profile (star) button renders as a non-mappable hint
-  - A behavioral stickless-clone detector distinguishes these impostors from genuine controllers, so real hardware is never affected
+- **8BitDo Zero 2 & Micro Support**: First-class support for the keychain-sized 8BitDo pads, with on-screen layouts built just for them
+  - A pixel-accurate on-screen map of each pad, with hardware-accurate labels (L/R bumpers, plus L2/R2 triggers on the Micro)
+  - The d-pad just works: these tiny pads feed their d-pad through an analog axis that macOS mis-reads (right often registers as left), so ControllerKeys reads the raw reports and corrects it on every reconnect
+  - Turn the d-pad into **Arrow Keys, WASD, custom keys, the Mouse, or Scroll** — so the pad can type, click, or move the cursor
+  - The Micro's Home button — which macOS normally swallows — is recovered and shown with the 8BitDo logo; the firmware profile (star) button stays as a non-mappable hint
+  - It all works the moment you pair, and a clone-detection check keeps your other controllers unaffected
 
 - **Third-Party Controller Support**: ~313 controllers supported via SDL database
   - 8BitDo, Logitech, PowerA, Hori, and more
@@ -316,7 +316,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 ### Keyboard Widget Settings
 ![On-Screen Keyboard Settings](screenshots/dualsense/13-keyboard.png)
 
-### 8BitDo Zero 2 & Micro (traced previews, stickless d-pad)
+### 8BitDo Zero 2 & Micro (custom on-screen layouts)
 ![8BitDo Zero 2 button mappings](screenshots/8bitdo-zero2/01-buttons.png)
 ![8BitDo Micro button mappings](screenshots/8bitdo-micro/01-buttons.png)
 
@@ -331,7 +331,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | **Nintendo** | Switch Pro Controller, Joy-Con (single or paired L+R) |
 | **Valve** | Steam Controller (touchpads, gyro, grips, haptics — no Steam required) |
 | **Apple** | Siri Remote / Apple TV Remote 2nd gen (clickpad cursor, edge scroll, mappable side buttons) |
-| **8BitDo** | **Zero 2 & Micro** (dedicated stickless previews + raw-HID d-pad), Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite, and more |
+| **8BitDo** | **Zero 2 & Micro** (dedicated on-screen layouts + corrected d-pad), Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite, and more |
 | **Logitech** | F310, F510, F710 |
 | **PowerA** | Enhanced Wired, Fusion Pro |
 | **Hori** | HORIPAD, Fighting Commander, and more |

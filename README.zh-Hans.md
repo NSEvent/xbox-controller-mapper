@@ -255,12 +255,12 @@ ControllerKeys 是唯一一款完整支持 DualSense 触摸板的选择，非常
   - **边缘滚动**：手指沿触控板外圈滑动即可实现 iPod 转盘式滚动，速度可调
   - UI 中提供专属竖向遥控器预览；完全基于原始 IOKit HID 运行 — 无需 Apple TV
 
-- **8BitDo Zero 2 与 Micro 支持**：为钥匙扣大小的 8BitDo 手柄提供一流支持，而不仅仅是通用 SDL 回退
-  - 按键标签页提供依据官方渲染图描摹的产品级预览，并标注正确的硬件标签（L/R 肩键，以及 Micro 上的 L2/R2 扳机）
-  - 这些无摇杆手柄会把物理方向键通过一个被 macOS 错误校准的幻影左摇杆轴上报（右常被识别为左）；ControllerKeys 直接读取原始 HID 报告，在每次重新连接时都能正确还原方向键
-  - 方向键自带的下拉菜单可驱动**方向键 / WASD / 自定义按键、鼠标或滚动** — 因此该手柄可以打字、点击或移动光标
-  - Micro 的 Home 键由应用合成（否则会被 macOS 吞掉），并显示 8BitDo 标志；固件配置（星形）按键则渲染为不可映射的提示
-  - 行为式无摇杆仿制品检测器能将这些冒牌货与正品手柄区分开来，因此真实硬件绝不会受到影响
+- **8BitDo Zero 2 与 Micro 支持**：为钥匙扣大小的 8BitDo 手柄提供一流支持，还配有专为它们打造的屏幕布局图
+  - 像素级精准还原每款手柄的屏幕布局图，并标注与硬件一致的标签（L/R 肩键，以及 Micro 上的 L2/R2 扳机）
+  - 方向键直接好用：这些小手柄会把方向键通过一个被 macOS 误读的模拟轴上报（右常被识别为左），因此 ControllerKeys 会读取原始报告，在每次重新连接时予以纠正
+  - 把方向键变成**方向键、WASD、自定义按键、鼠标或滚动** — 这样手柄就能打字、点击或移动光标
+  - Micro 的 Home 键通常会被 macOS 吞掉，应用会将其恢复并显示 8BitDo 标志；固件配置（星形）按键则保留为不可映射的提示
+  - 这一切在你配对的那一刻即可生效，仿制品检测机制还能确保你的其他手柄不受影响
 
 - **第三方手柄支持**：通过 SDL 数据库支持约 313 款手柄
   - 8BitDo、罗技、PowerA、Hori 等
@@ -295,7 +295,7 @@ ControllerKeys 是唯一一款完整支持 DualSense 触摸板的选择，非常
 ### 屏幕键盘小组件设置
 ![屏幕键盘设置](screenshots/dualsense/13-keyboard.png)
 
-### 8BitDo Zero 2 与 Micro（描摹预览，无摇杆方向键）
+### 8BitDo Zero 2 与 Micro（专属屏幕布局图）
 ![8BitDo Zero 2 按键映射](screenshots/8bitdo-zero2/01-buttons.png)
 ![8BitDo Micro 按键映射](screenshots/8bitdo-micro/01-buttons.png)
 

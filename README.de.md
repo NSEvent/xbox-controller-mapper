@@ -269,12 +269,12 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
   - **Edge Scroll**: Ziehe einen Finger am äußeren Clickpad-Ring entlang für Scrollen im Stil des iPod-Click-Wheels, mit einstellbarer Geschwindigkeit
   - Dedizierte hohe Fernbedienungs-Vorschau in der UI; läuft komplett über rohes IOKit HID — kein Apple TV nötig
 
-- **8BitDo Zero 2 & Micro-Unterstützung**: Erstklassige Unterstützung für die schlüsselanhängergroßen 8BitDo-Pads, nicht nur der generische SDL-Fallback
-  - Produktgetreue Vorschauen im Buttons-Tab, nachgezeichnet von den offiziellen Renderings, mit korrekten Hardware-Beschriftungen (L/R-Schultertasten, plus L2/R2-Trigger beim Micro)
-  - Diese stickless Pads leiten ihr physisches D-pad über eine Phantom-Linksstick-Achse, die macOS fehlkalibriert (rechts wird oft als links erkannt); ControllerKeys liest die rohen HID-Reports direkt aus, um das D-pad bei jedem erneuten Verbinden korrekt wiederherzustellen
-  - Das eigene Dropdown des D-pads steuert **Pfeiltasten / WASD / Benutzerdefinierte Tasten, Maus oder Scrollen** — so kann das Pad tippen, klicken oder den Cursor bewegen
-  - Die Home-Taste des Micro wird synthetisiert (macOS schluckt sie sonst) und mit dem 8BitDo-Logo angezeigt; die Firmware-Profil-Taste (Stern) erscheint als nicht belegbarer Hinweis
-  - Ein verhaltensbasierter Stickless-Klon-Detektor unterscheidet diese Nachahmer von echten Controllern, sodass echte Hardware nie beeinträchtigt wird
+- **8BitDo Zero 2 & Micro-Unterstützung**: Erstklassige Unterstützung für die schlüsselanhängergroßen 8BitDo-Pads, mit Bildschirm-Layouts, die eigens für sie gebaut wurden
+  - Eine pixelgenaue Bildschirm-Abbildung jedes Pads, mit hardwaregetreuen Beschriftungen (L/R-Schultertasten, plus L2/R2-Trigger beim Micro)
+  - Das D-pad funktioniert einfach: Diese winzigen Pads leiten ihr D-pad über eine analoge Achse, die macOS falsch interpretiert (rechts wird oft als links erkannt), daher liest ControllerKeys die rohen Reports aus und korrigiert es bei jedem erneuten Verbinden
+  - Mach aus dem D-pad **Pfeiltasten, WASD, eigene Tasten, die Maus oder Scrollen** — so kann das Pad tippen, klicken oder den Cursor bewegen
+  - Die Home-Taste des Micro — die macOS normalerweise schluckt — wird wiederhergestellt und mit dem 8BitDo-Logo angezeigt; die Firmware-Profil-Taste (Stern) bleibt als nicht belegbarer Hinweis
+  - Alles funktioniert in dem Moment, in dem du koppelst, und eine Klon-Erkennung sorgt dafür, dass deine anderen Controller unangetastet bleiben
 
 - **Drittanbieter-Controller-Unterstützung**: Ca. 313 Controller über die SDL-Datenbank unterstützt
   - 8BitDo, Logitech, PowerA, Hori und mehr
@@ -312,7 +312,7 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
 ### Tastatur-Widget-Einstellungen
 ![Bildschirmtastatur-Einstellungen](screenshots/dualsense/13-keyboard.png)
 
-### 8BitDo Zero 2 & Micro (nachgezeichnete Vorschauen, stickless D-pad)
+### 8BitDo Zero 2 & Micro (maßgeschneiderte Bildschirm-Layouts)
 ![8BitDo Zero 2 Tastenbelegungen](screenshots/8bitdo-zero2/01-buttons.png)
 ![8BitDo Micro Tastenbelegungen](screenshots/8bitdo-micro/01-buttons.png)
 
@@ -327,7 +327,7 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
 | **Nintendo** | Switch Pro Controller, Joy-Con (einzeln oder gekoppelt L+R) |
 | **Valve** | Steam Controller (Touchpads, Gyro, Grips, Haptik — ohne Steam) |
 | **Apple** | Siri Remote / Apple TV Remote 2. Gen (Clickpad-Cursor, Edge Scroll, belegbare Seitentasten) |
-| **8BitDo** | **Zero 2 & Micro** (dedizierte stickless Vorschauen + raw-HID-D-pad), Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite und mehr |
+| **8BitDo** | **Zero 2 & Micro** (dedizierte Bildschirm-Layouts + korrigiertes D-pad), Pro 2, SN30 Pro, SN30 Pro+, Ultimate, Lite und mehr |
 | **Logitech** | F310, F510, F710 |
 | **PowerA** | Enhanced Wired, Fusion Pro |
 | **Hori** | HORIPAD, Fighting Commander und mehr |
