@@ -26,7 +26,7 @@ struct ButtonMappingsTab: View {
     @State private var canvasPan: CGSize = .zero
     @State private var panDragBase: CGSize?
     @State private var pinchBase: (scale: CGFloat, pan: CGSize, anchor: CGPoint)?
-    @State private var canvasFrameGlobal: CGRect = .zero
+    @State private var canvasEventView: NSView?
     @State private var scrollPanMonitor: Any?
 
     /// Posted by the View > Reset Zoom menu command so the pan offset
@@ -60,20 +60,29 @@ struct ButtonMappingsTab: View {
     private func installScrollPanMonitor() {
         guard scrollPanMonitor == nil else { return }
         scrollPanMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-            guard let window = event.window,
-                  window.isKeyWindow,
-                  let contentView = window.contentView else { return event }
+            guard let canvasEventView,
+                  let canvasWindow = canvasEventView.window else { return event }
 
-            // AppKit window coords (bottom-left origin) -> SwiftUI global
-            // (top-left origin)
-            let location = event.locationInWindow
-            let pointer = CGPoint(x: location.x, y: contentView.frame.height - location.y)
-            guard canvasFrameGlobal.contains(pointer) else { return event }
+            let pointerInCanvas: Bool
+            if event.window === canvasWindow {
+                let point = canvasEventView.convert(event.locationInWindow, from: nil)
+                pointerInCanvas = canvasEventView.bounds.contains(point)
+            } else {
+                pointerInCanvas = false
+            }
+
+            guard CanvasScrollPanPolicy.shouldHandleScroll(
+                pointerInCanvas: pointerInCanvas,
+                eventWindowNumber: event.window?.windowNumber,
+                canvasWindowNumber: canvasWindow.windowNumber,
+                eventWindowHasAttachedSheet: event.window?.attachedSheet != nil,
+                eventWindowIsSheet: event.window?.sheetParent != nil
+            ) else { return event }
 
             canvasPan = clampedPan(
                 CGSize(width: canvasPan.width + event.scrollingDeltaX,
                        height: canvasPan.height + event.scrollingDeltaY),
-                in: canvasFrameGlobal.size
+                in: canvasEventView.bounds.size
             )
             return nil
         }
@@ -211,11 +220,7 @@ struct ButtonMappingsTab: View {
                     profileManager.setUiScale(1.0)
                 }
                 .background(
-                    Color.clear
-                        .onAppear { canvasFrameGlobal = geometry.frame(in: .global) }
-                        .onChange(of: geometry.size) { _, _ in
-                            canvasFrameGlobal = geometry.frame(in: .global)
-                        }
+                    CanvasScrollEventViewReader(view: $canvasEventView)
                 )
             }
             .padding(.horizontal, 16)
@@ -242,6 +247,7 @@ struct ButtonMappingsTab: View {
                 NSEvent.removeMonitor(monitor)
                 scrollPanMonitor = nil
             }
+            canvasEventView = nil
         }
         .onReceive(NotificationCenter.default.publisher(for: Self.resetCanvasNotification)) { _ in
             withAnimation(.easeOut(duration: 0.2)) {
