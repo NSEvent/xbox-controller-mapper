@@ -1,6 +1,16 @@
 import SwiftUI
 import GameController
 
+private struct ControllerCanvasContentSizePreferenceKey: PreferenceKey {
+	static var defaultValue: CGSize = .zero
+
+	static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+		let next = nextValue()
+		guard next.width > 0, next.height > 0 else { return }
+		value = next
+	}
+}
+
 /// The main controller visual tab showing the button mapping diagram, layer bar,
 /// and active chords/sequences.
 struct ButtonMappingsTab: View {
@@ -28,6 +38,7 @@ struct ButtonMappingsTab: View {
     @State private var pinchBase: (scale: CGFloat, pan: CGSize, anchor: CGPoint)?
     @State private var canvasEventView: NSView?
     @State private var scrollPanMonitor: Any?
+	@State private var measuredCanvasBaseSize: CGSize = .zero
 
     /// Posted by the View > Reset Zoom menu command so the pan offset
     /// clears along with the scale.
@@ -43,14 +54,36 @@ struct ButtonMappingsTab: View {
 
     // MARK: - Canvas pan/zoom helpers
 
-    /// Keep at least part of the canvas content in view.
-    private func clampedPan(_ pan: CGSize, in size: CGSize) -> CGSize {
-        let scale = max(profileManager.uiScale, 0.5)
-        let boundX = size.width * scale
-        let boundY = size.height * scale
+	private let fallbackCanvasBaseSize = CGSize(width: 980, height: 620)
+
+	private var canvasBaseSize: CGSize {
+		CanvasScrollPanPolicy.contentBaseSize(
+			measuredSize: measuredCanvasBaseSize,
+			fallbackSize: fallbackCanvasBaseSize
+		)
+	}
+
+	private func autoScale(for viewportSize: CGSize) -> CGFloat {
+		min(viewportSize.width / canvasBaseSize.width, viewportSize.height / canvasBaseSize.height)
+	}
+
+	private func finalScale(for viewportSize: CGSize) -> CGFloat {
+		autoScale(for: viewportSize) * profileManager.uiScale * (AppRuntime.screenshotZoom ?? 1)
+	}
+
+	private func contentSize(for viewportSize: CGSize) -> CGSize {
+		let scale = finalScale(for: viewportSize)
         return CGSize(
-            width: min(max(pan.width, -boundX), boundX),
-            height: min(max(pan.height, -boundY), boundY)
+			width: canvasBaseSize.width * scale,
+			height: canvasBaseSize.height * scale
+		)
+	}
+
+	private func clampedPan(_ pan: CGSize, in viewportSize: CGSize) -> CGSize {
+		CanvasScrollPanPolicy.clampedPan(
+			pan,
+			viewportSize: viewportSize,
+			contentSize: contentSize(for: viewportSize)
         )
     }
 
@@ -90,18 +123,20 @@ struct ButtonMappingsTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 8) {
-                LayerTabBar(
-                    selectedLayerId: $selectedLayerId,
-                    isSwapMode: $isSwapMode,
-                    swapFirstButton: $swapFirstButton,
-                    showingAddLayerSheet: $showingAddLayerSheet,
-                    editingLayerId: $editingLayerId,
-                    actionFeedbackEnabled: actionFeedbackEnabled,
-                    streamOverlayEnabled: streamOverlayEnabled
-                )
+				VStack(spacing: 8) {
+					HStack(spacing: 8) {
+						layoutPreviewMenu
 
-				layoutPreviewMenu
+						LayerTabBar(
+							selectedLayerId: $selectedLayerId,
+							isSwapMode: $isSwapMode,
+							swapFirstButton: $swapFirstButton,
+							showingAddLayerSheet: $showingAddLayerSheet,
+							editingLayerId: $editingLayerId,
+							actionFeedbackEnabled: actionFeedbackEnabled,
+							streamOverlayEnabled: streamOverlayEnabled
+						)
+					}
 
 				// Scope the connect/disconnect animation to just this card so it
 				// doesn't also cross-fade the picker label / mismatch note / layer
@@ -132,18 +167,7 @@ struct ButtonMappingsTab: View {
                                 .stroke(Color.white.opacity(0.07), lineWidth: 1)
                         }
 
-                    // Base size of ControllerVisualView content
-                    let baseWidth: CGFloat = 920
-                    let baseHeight: CGFloat = 580
-
-                    // Calculate scale to fit available space (allow both up and down scaling)
-                    let scaleX = geometry.size.width / baseWidth
-                    let scaleY = geometry.size.height / baseHeight
-                    let autoScale = min(scaleX, scaleY)
-
-                    // Combine with user's manual zoom setting (and the
-                    // per-variant zoom override in screenshot mode)
-                    let finalScale = autoScale * profileManager.uiScale * (AppRuntime.screenshotZoom ?? 1)
+						let finalScale = finalScale(for: geometry.size)
 
                     ControllerVisualView(
                         selectedButton: $selectedButton,
@@ -160,6 +184,15 @@ struct ButtonMappingsTab: View {
                             }
                         }
                     )
+					.fixedSize()
+					.background(
+						GeometryReader { contentProxy in
+							Color.clear.preference(
+								key: ControllerCanvasContentSizePreferenceKey.self,
+								value: contentProxy.size
+							)
+						}
+					)
                     .scaleEffect(finalScale)
                     .offset(canvasPan)
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -200,8 +233,9 @@ struct ButtonMappingsTab: View {
                                        height: anchor.y * (1 - k) + base.pan.height * k),
                                 in: geometry.size
                             )
-                            profileManager.uiScale = newScale
-                        }
+								profileManager.uiScale = newScale
+								canvasPan = clampedPan(canvasPan, in: geometry.size)
+							}
                         .onEnded { _ in
                             pinchBase = nil
                             profileManager.setUiScale(profileManager.uiScale)
@@ -223,9 +257,9 @@ struct ButtonMappingsTab: View {
                     CanvasScrollEventViewReader(view: $canvasEventView)
                 )
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .clipped()
+				.padding(.horizontal, 16)
+				.padding(.top, 2)
+				.clipped()
 
             // Mapped Chords Display
             if isSectionVisible(.activeChords) {
@@ -249,11 +283,23 @@ struct ButtonMappingsTab: View {
             }
             canvasEventView = nil
         }
-        .onReceive(NotificationCenter.default.publisher(for: Self.resetCanvasNotification)) { _ in
-            withAnimation(.easeOut(duration: 0.2)) {
-                canvasPan = .zero
+			.onReceive(NotificationCenter.default.publisher(for: Self.resetCanvasNotification)) { _ in
+				withAnimation(.easeOut(duration: 0.2)) {
+					canvasPan = .zero
+				}
+			}
+			.onChange(of: profileManager.uiScale) { _, _ in
+				if let size = canvasEventView?.bounds.size {
+					canvasPan = clampedPan(canvasPan, in: size)
+				}
             }
-        }
+			.onPreferenceChange(ControllerCanvasContentSizePreferenceKey.self) { newSize in
+				guard newSize.width > 0, newSize.height > 0 else { return }
+				measuredCanvasBaseSize = newSize
+				if let size = canvasEventView?.bounds.size {
+					canvasPan = clampedPan(canvasPan, in: size)
+				}
+			}
         .sheet(isPresented: $showingAddLayerSheet) {
             AddLayerSheet()
         }

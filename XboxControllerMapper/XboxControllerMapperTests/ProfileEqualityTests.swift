@@ -12,6 +12,7 @@ final class ProfileEqualityTests: XCTestCase {
         name: String = "Test",
         isDefault: Bool = false,
         icon: String? = "star.fill",
+		controllerPreviewLayout: ControllerPreviewLayout = .active,
         buttonMappings: [ControllerButton: KeyMapping] = [.a: .key(36)],
         chordMappings: [ChordMapping] = [],
         sequenceMappings: [SequenceMapping] = [],
@@ -29,6 +30,7 @@ final class ProfileEqualityTests: XCTestCase {
             name: name,
             isDefault: isDefault,
             icon: icon,
+			controllerPreviewLayout: controllerPreviewLayout,
             buttonMappings: buttonMappings,
             chordMappings: chordMappings,
             sequenceMappings: sequenceMappings,
@@ -104,6 +106,12 @@ final class ProfileEqualityTests: XCTestCase {
         let b = makeProfile(icon: "heart.fill")
         XCTAssertNotEqual(a, b)
     }
+
+	func testProfilesWithDifferentControllerPreviewLayoutsAreNotEqual() {
+		let a = makeProfile(controllerPreviewLayout: .dualShock)
+		let b = makeProfile(controllerPreviewLayout: .eightBitDoMicro)
+		XCTAssertNotEqual(a, b)
+	}
 
     func testProfilesWithDifferentButtonMappingsAreNotEqual() {
         let a = makeProfile(buttonMappings: [.a: .key(36)])

@@ -23,19 +23,16 @@ struct ContentView: View {
     @State private var editingLayerId: UUID? = nil
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
-	/// Persisted so a manually-pinned preview (e.g. an 8BitDo pad that
-	/// presents as a Pro Controller clone in Switch mode and can't be
-	/// auto-detected) survives relaunches.
-	@AppStorage("controllerPreviewLayout") private var controllerPreviewLayoutRaw: String = ControllerPreviewLayout.active.rawValue
+	@AppStorage("profileSidebarVisible") private var profileSidebarVisible = false
 
 	private var controllerPreviewLayout: ControllerPreviewLayout {
-		ControllerPreviewLayout(rawValue: controllerPreviewLayoutRaw) ?? .active
+		profileManager.activeProfile?.controllerPreviewLayout ?? .active
 	}
 
 	private var controllerPreviewLayoutBinding: Binding<ControllerPreviewLayout> {
 		Binding(
-			get: { ControllerPreviewLayout(rawValue: controllerPreviewLayoutRaw) ?? .active },
-			set: { controllerPreviewLayoutRaw = $0.rawValue }
+			get: { profileManager.activeProfile?.controllerPreviewLayout ?? .active },
+			set: { profileManager.setControllerPreviewLayout($0) }
 		)
 	}
     @State private var showingGestureSheet = false
@@ -71,14 +68,19 @@ struct ContentView: View {
     var body: some View {
         HSplitView {
             // Sidebar: Profile management
-            ProfileSidebar()
-                .frame(minWidth: 200, maxWidth: 260)
-                .background(Color.black.opacity(0.2)) // Subtle darkening for sidebar
+			if profileSidebarVisible {
+				ProfileSidebar()
+					.frame(minWidth: 200, idealWidth: 220, maxWidth: 260)
+					.background(Color.black.opacity(0.2)) // Subtle darkening for sidebar
+			}
 
             // Main content
             VStack(spacing: 0) {
                 // Toolbar
-                ContentToolbar(showingSettingsSheet: $showingSettingsSheet)
+				ContentToolbar(
+					showingSettingsSheet: $showingSettingsSheet,
+					profileSidebarVisible: $profileSidebarVisible
+				)
                     .zIndex(1) // Keep above content
 
                 // Custom tab bar + content

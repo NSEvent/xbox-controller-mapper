@@ -285,6 +285,9 @@ struct Profile: Codable, Identifiable, Equatable {
     /// Custom icon for the profile (SF Symbol name)
     var icon: String?
 
+	/// Preferred controller preview for this profile's map editor.
+	var controllerPreviewLayout: ControllerPreviewLayout
+
     /// Button mappings (system-wide defaults)
     var buttonMappings: [ControllerButton: KeyMapping]
 
@@ -368,6 +371,7 @@ struct Profile: Codable, Identifiable, Equatable {
         name: String,
         isDefault: Bool = false,
         icon: String? = nil,
+		controllerPreviewLayout: ControllerPreviewLayout = .active,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         dpadPreset: DPadPreset = .custom,
         chordMappings: [ChordMapping] = [],
@@ -393,6 +397,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.name = name
         self.isDefault = isDefault
         self.icon = icon
+		self.controllerPreviewLayout = controllerPreviewLayout
         self.createdAt = Date()
         self.modifiedAt = Date()
         self.buttonMappings = buttonMappings
@@ -608,9 +613,10 @@ struct Profile: Codable, Identifiable, Equatable {
 // MARK: - Custom Codable for Dictionary with enum keys
 
 extension Profile {
-    enum CodingKeys: String, CodingKey {
-        case id, name, isDefault, icon, createdAt, modifiedAt
-        case buttonMappings, dpadPreset, chordMappings, sequenceMappings, joystickSettings
+	enum CodingKeys: String, CodingKey {
+			case id, name, isDefault, icon, createdAt, modifiedAt
+			case controllerPreviewLayout
+			case buttonMappings, dpadPreset, chordMappings, sequenceMappings, joystickSettings
         case dualSenseLEDSettings, linkedApps, linkedControllers, inputLatencyMode, macros, scripts
 	case inheritedOnScreenKeyboardProfileId
         case onScreenKeyboardSettings, gestureMappings, layers, touchpadRegionMappings, commandWheelActions
@@ -628,9 +634,10 @@ extension Profile {
         isDefault = try container.decode(.isDefault, default: false)
         icon = try container.decodeIfPresent(String.self, forKey: .icon)
         createdAt = try container.decode(.createdAt, default: Date())
-        modifiedAt = try container.decode(.modifiedAt, default: Date())
+			modifiedAt = try container.decode(.modifiedAt, default: Date())
+			controllerPreviewLayout = try container.decodeLenient(.controllerPreviewLayout, default: .active)
 
-        // Decode button mappings from string-keyed dictionary. Schema v2 used
+			// Decode button mappings from string-keyed dictionary. Schema v2 used
         // four single-case quadrant button keys (e.g. "touchpadRegionTopLeft");
         // schema v3 splits these into per-trigger variants. We rewrite v2 keys
         // to v3 keys here using the trigger-mode hint in the legacy
@@ -746,8 +753,9 @@ extension Profile {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encode(isDefault, forKey: .isDefault)
-        try container.encodeIfPresent(icon, forKey: .icon)
-        try container.encode(createdAt, forKey: .createdAt)
+			try container.encodeIfPresent(icon, forKey: .icon)
+			try container.encode(controllerPreviewLayout, forKey: .controllerPreviewLayout)
+			try container.encode(createdAt, forKey: .createdAt)
         try container.encode(modifiedAt, forKey: .modifiedAt)
 
         // Encode button mappings as string-keyed dictionary
@@ -856,9 +864,10 @@ extension Profile {
     static func == (lhs: Profile, rhs: Profile) -> Bool {
         lhs.id == rhs.id &&
         lhs.name == rhs.name &&
-        lhs.isDefault == rhs.isDefault &&
-        lhs.icon == rhs.icon &&
-        lhs.buttonMappings == rhs.buttonMappings &&
+			lhs.isDefault == rhs.isDefault &&
+			lhs.icon == rhs.icon &&
+			lhs.controllerPreviewLayout == rhs.controllerPreviewLayout &&
+			lhs.buttonMappings == rhs.buttonMappings &&
         lhs.dpadPreset == rhs.dpadPreset &&
         lhs.chordMappings == rhs.chordMappings &&
         lhs.sequenceMappings == rhs.sequenceMappings &&

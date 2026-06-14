@@ -41,8 +41,32 @@ final class ModelCodableCoverageTests: XCTestCase {
 
         XCTAssertEqual(decoded.linkedControllers, [])
         XCTAssertEqual(decoded.inputLatencyMode, .standard)
+		XCTAssertEqual(decoded.controllerPreviewLayout, .active)
 	XCTAssertNil(decoded.inheritedOnScreenKeyboardProfileId)
     }
+
+	func testProfileCodableRoundTripsControllerPreviewLayout() throws {
+		let profile = Profile(name: "DS4", controllerPreviewLayout: .dualShock)
+
+		let data = try JSONEncoder().encode(profile)
+		let decoded = try JSONDecoder().decode(Profile.self, from: data)
+
+		XCTAssertEqual(decoded.controllerPreviewLayout, .dualShock)
+	}
+
+	func testProfileDecodingUnknownControllerPreviewLayoutFallsBackToActive() throws {
+		let json = """
+		{
+		"id": "00000000-0000-0000-0000-000000000002",
+		"name": "Future",
+		"controllerPreviewLayout": "futurePad"
+		}
+		"""
+
+		let decoded = try JSONDecoder().decode(Profile.self, from: Data(json.utf8))
+
+		XCTAssertEqual(decoded.controllerPreviewLayout, .active)
+	}
 
     func testProfileCodableRoundTripsInheritedOnScreenKeyboardProfileId() throws {
 	let sourceId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!

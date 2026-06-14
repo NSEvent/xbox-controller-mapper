@@ -38,6 +38,24 @@ final class ProfileManagerAdvancedCoverageTests: XCTestCase {
         XCTAssertEqual(trailingIds, [chordB.id, chordC.id, chordA.id])
     }
 
+	func testControllerPreviewLayoutPersistsPerProfile() {
+		let first = Profile(name: "DS4", controllerPreviewLayout: .dualShock)
+		let second = Profile(name: "Micro", controllerPreviewLayout: .eightBitDoMicro)
+		profileManager.profiles = [first, second]
+
+		profileManager.setActiveProfile(first)
+		XCTAssertEqual(profileManager.activeProfile?.controllerPreviewLayout, .dualShock)
+
+		profileManager.setControllerPreviewLayout(.dualSense)
+		XCTAssertEqual(profileManager.activeProfile?.controllerPreviewLayout, .dualSense)
+
+		profileManager.setActiveProfile(second)
+		XCTAssertEqual(profileManager.activeProfile?.controllerPreviewLayout, .eightBitDoMicro)
+
+		let updatedFirst = profileManager.profiles.first(where: { $0.id == first.id })
+		XCTAssertEqual(updatedFirst?.controllerPreviewLayout, .dualSense)
+	}
+
     func testLayerCreationActivatorRulesAndQueries() {
         let first = profileManager.createLayer(name: "Layer 1", activatorButton: .leftBumper)
         XCTAssertNotNil(first)

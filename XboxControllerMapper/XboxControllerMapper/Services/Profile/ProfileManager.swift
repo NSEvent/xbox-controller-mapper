@@ -267,6 +267,13 @@ class ProfileManager: ObservableObject {
         saveConfiguration()
     }
 
+	func setControllerPreviewLayout(_ layout: ControllerPreviewLayout, in profile: Profile? = nil) {
+		guard var targetProfile = profile ?? activeProfile else { return }
+		guard targetProfile.controllerPreviewLayout != layout else { return }
+		targetProfile.controllerPreviewLayout = layout
+		updateProfile(targetProfile)
+	}
+
     // MARK: - Profile Management
 
     func createProfile(name: String, basedOn template: Profile? = nil) -> Profile {

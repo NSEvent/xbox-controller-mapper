@@ -4,11 +4,15 @@ import SwiftUI
 /// mapping toggle, and settings button.
 struct ContentToolbar: View {
     @EnvironmentObject var controllerService: ControllerService
+	@EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var mappingEngine: MappingEngine
     @Binding var showingSettingsSheet: Bool
+	@Binding var profileSidebarVisible: Bool
 
     var body: some View {
         HStack {
+			ProfileToolbarMenu(profileSidebarVisible: $profileSidebarVisible)
+
             // Connection status
             HStack(spacing: 8) {
                 Circle()
@@ -70,4 +74,51 @@ struct ContentToolbar: View {
         .padding(.vertical, 12)
         // Transparent toolbar to let glass show through
     }
+}
+
+private struct ProfileToolbarMenu: View {
+	@EnvironmentObject var profileManager: ProfileManager
+	@Binding var profileSidebarVisible: Bool
+
+	var body: some View {
+		Menu {
+			ForEach(profileManager.profiles) { profile in
+				Button {
+					profileManager.setActiveProfile(profile)
+				} label: {
+					Label(
+						profile.name,
+						systemImage: profile.id == profileManager.activeProfileId ? "checkmark" : (profile.icon ?? "gamecontroller")
+					)
+				}
+			}
+
+			Divider()
+
+			Button {
+				profileSidebarVisible.toggle()
+			} label: {
+				Label(
+					profileSidebarVisible ? "Hide Profile Sidebar" : "Show Profile Sidebar",
+					systemImage: "sidebar.leading"
+				)
+			}
+		} label: {
+			Label(profileManager.activeProfile?.name ?? "Profiles", systemImage: profileManager.activeProfile?.icon ?? "rectangle.stack")
+				.font(.caption.bold())
+				.lineLimit(1)
+				.padding(.horizontal, 12)
+				.padding(.vertical, 6)
+				.background(Color.black.opacity(0.3))
+				.cornerRadius(12)
+				.overlay(
+					RoundedRectangle(cornerRadius: 12)
+						.stroke(Color.white.opacity(0.1), lineWidth: 1)
+				)
+		}
+		.menuStyle(.borderlessButton)
+		.help("Profiles")
+		.accessibilityLabel("Profiles")
+		.fixedSize()
+	}
 }
