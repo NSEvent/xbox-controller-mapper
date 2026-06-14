@@ -38,7 +38,7 @@ struct InputLogView: View, ControllerTypeProviding {
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity)
-        .frame(height: 62)
+        .frame(height: 56)
         .accessibilityLabel("Recent button presses")
         .background(Color.black.opacity(0.22))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -85,7 +85,7 @@ private struct LogEntryView: View, Equatable {
                     }
                 }
                 .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.vertical, 3)
 
                 // Bottom: Action
                 Text(entry.actionDescription)

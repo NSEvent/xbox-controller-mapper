@@ -123,7 +123,7 @@ struct ButtonMappingsTab: View {
 
     var body: some View {
         VStack(spacing: 0) {
-				VStack(spacing: 8) {
+				VStack(spacing: 6) {
 					HStack(spacing: 8) {
 						layoutPreviewMenu
 
@@ -152,11 +152,15 @@ struct ButtonMappingsTab: View {
 				}
 				.animation(.easeInOut(duration: 0.25), value: controllerService.isConnected)
 
-                InputLogView()
+                if isSectionVisible(.timeline) {
+                    removableSection(.timeline) {
+                        InputLogView()
+                    }
+                }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
 
             GeometryReader { geometry in
                 ZStack {
@@ -594,6 +598,7 @@ struct ButtonMappingsTab: View {
 }
 
 enum ButtonMappingsTabSection: Int, CaseIterable, Identifiable {
+    case timeline = 2
     case activeChords = 3
     case activeSequences = 4
 
@@ -603,6 +608,7 @@ enum ButtonMappingsTabSection: Int, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
+        case .timeline: return "Timeline"
         case .activeChords: return "Active Chords"
         case .activeSequences: return "Active Sequences"
         }
