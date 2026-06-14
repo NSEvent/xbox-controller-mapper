@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-06-14
+
+### Added
+
+- **Profile switch action**: System-command mappings can now switch directly to another ControllerKeys profile. The action is available across the mapping editor surfaces and is treated as an internal profile action instead of a shell/webhook command.
+
+- **Controller Connection Guides window**: Pairing help now has a dedicated guide window with controller-specific minimaps, reachable from the no-controller pairing hint and the menu bar.
+
+### Changed
+
+- **8BitDo documentation and marketing assets**: The README set and screenshot pipeline now include the 8BitDo Zero 2 and Micro, with the 8BitDo section rewritten to focus on why the tiny-controller support matters in practice.
+
+- **Icon-only control accessibility**: Added missing accessibility labels and tooltips to several toolbar, layer, sidebar, and stream-overlay controls.
+
+### Fixed
+
+- **Configure-button sheet scrolling**: Scrolling inside a Buttons-tab configuration sheet no longer leaks through to the underlying buttons canvas. Canvas two-finger panning now only handles scroll events from the actual canvas window and ignores attached sheet windows.
+
+- **Universal Control secret storage hardening**: The relay no longer falls back to storing shared secrets in UserDefaults when Keychain persistence fails.
+
 ## [2.0.0] - 2026-06-13
 
 ### Added
