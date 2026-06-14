@@ -258,7 +258,10 @@ struct ContentView: View {
                 .hidden()
                 .accessibilityHidden(true)
         )
-        // ⌘B toggles the profile sidebar (matches VS Code / Xcode-style editors).
+        // ⌘B toggles the profile sidebar (VS Code-style). The profile menu
+        // item in ContentToolbar carries the same shortcut so the hint shows
+        // next to it, but a menu-content shortcut only fires while the menu is
+        // open — this hidden button is what makes ⌘B work globally.
         .background(
             Button("Toggle Profile Sidebar") { profileSidebarVisible.toggle() }
                 .keyboardShortcut("b", modifiers: .command)

@@ -103,6 +103,7 @@ private struct ProfileToolbarMenu: View {
 					systemImage: "sidebar.leading"
 				)
 			}
+			.keyboardShortcut("b", modifiers: .command)
 		} label: {
 			Label(profileManager.activeProfile?.name ?? "Profiles", systemImage: profileManager.activeProfile?.icon ?? "rectangle.stack")
 				.font(.caption.bold())
