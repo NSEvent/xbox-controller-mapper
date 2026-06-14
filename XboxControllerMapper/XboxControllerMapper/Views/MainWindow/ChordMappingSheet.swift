@@ -35,6 +35,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
 
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
+	@State private var selectedProfileId: UUID?
+	@State private var selectedProfileName: String?
     @State private var appBundleIdentifier: String = ""
     @State private var appNewWindow: Bool = false
     @State private var shellCommandText: String = ""
@@ -534,6 +536,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
             .pickerStyle(.segmented)
 
             switch systemCommandCategory {
+			case .profile:
+				ProfileSelectionPicker(selection: $selectedProfileId, selectedName: $selectedProfileName)
             case .app:
                 AppSelectionButton(bundleId: appBundleIdentifier, showingPicker: $showingAppPicker)
                     .sheet(isPresented: $showingAppPicker) {
@@ -688,6 +692,9 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
 
     private func buildChordSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
+		case .profile:
+			guard let selectedProfileId else { return nil }
+			return .switchProfile(profileId: selectedProfileId, profileName: selectedProfileName)
         case .app:
             guard !appBundleIdentifier.isEmpty else { return nil }
             return .launchApp(bundleIdentifier: appBundleIdentifier, newWindow: appNewWindow)
@@ -727,6 +734,9 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
     private func loadChordSystemCommandState(_ command: SystemCommand) {
         systemCommandCategory = command.category
         switch command {
+		case .switchProfile(let profileId, let profileName):
+			selectedProfileId = profileId
+			selectedProfileName = profileName
         case .launchApp(let bundleId, let newWindow):
             appBundleIdentifier = bundleId
             appNewWindow = newWindow

@@ -240,6 +240,11 @@ final class CommandWheelActionTests: XCTestCase {
     func testDefaultIconName_LaunchApp() {
         let action = CommandWheelAction(systemCommand: .launchApp(bundleIdentifier: "com.test", newWindow: false))
         XCTAssertEqual(action.defaultIconName, "app")
+	}
+
+	func testDefaultIconName_SwitchProfile() {
+		let action = CommandWheelAction(systemCommand: .switchProfile(profileId: UUID(), profileName: "Gaming"))
+		XCTAssertEqual(action.defaultIconName, "person.crop.circle")
     }
 
     func testDefaultIconName_OpenLink() {

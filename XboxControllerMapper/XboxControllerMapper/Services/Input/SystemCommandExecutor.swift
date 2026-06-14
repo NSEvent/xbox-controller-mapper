@@ -67,6 +67,9 @@ class SystemCommandExecutor: @unchecked Sendable {
 
     func execute(_ command: SystemCommand) {
         switch command {
+		case .switchProfile(let profileId, _):
+			switchProfile(profileId: profileId)
+
         case .launchApp(let bundleIdentifier, let newWindow):
             launchApplication(bundleIdentifier: bundleIdentifier, newWindow: newWindow)
 
@@ -85,6 +88,18 @@ class SystemCommandExecutor: @unchecked Sendable {
 
         case .obsWebSocket(let url, let password, let requestType, let requestData):
             executeOBSWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
+		}
+	}
+
+	// MARK: - Profile Switching
+
+	private func switchProfile(profileId: UUID) {
+		Task { @MainActor [profileManager] in
+			guard let profile = profileManager.profiles.first(where: { $0.id == profileId }) else {
+				NSLog("[SystemCommand] Profile not found for id: %@", profileId.uuidString)
+				return
+			}
+			profileManager.setActiveProfile(profile)
         }
     }
 

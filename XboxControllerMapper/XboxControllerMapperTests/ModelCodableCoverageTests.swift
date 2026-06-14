@@ -110,13 +110,17 @@ final class ModelCodableCoverageTests: XCTestCase {
         let link = SystemCommand.openLink(url: "https://example.com/very/long/path/that/should/truncate")
         let webhook = SystemCommand.httpRequest(url: "https://example.com/hook", method: .POST, headers: nil, body: nil)
         let obs = SystemCommand.obsWebSocket(url: "ws://127.0.0.1:4455", password: nil, requestType: "VeryLongRequestTypeNameThatShouldTruncate", requestData: nil)
+		let profileId = UUID()
+		let profile = SystemCommand.switchProfile(profileId: profileId, profileName: "Gaming")
 
+		XCTAssertEqual(profile.category, .profile)
         XCTAssertEqual(launch.category, .app)
         XCTAssertEqual(shell.category, .shell)
         XCTAssertEqual(link.category, .link)
         XCTAssertEqual(webhook.category, .webhook)
         XCTAssertEqual(obs.category, .obs)
 
+		XCTAssertEqual(profile.displayName, "Switch to Gaming")
         XCTAssertEqual(launch.displayName, "com.fake.app (New Window)")
         XCTAssertTrue(shell.displayName.hasSuffix("..."))
         XCTAssertTrue(link.displayName.hasSuffix("..."))
@@ -129,12 +133,16 @@ final class ModelCodableCoverageTests: XCTestCase {
         let link = try JSONDecoder().decode(SystemCommand.self, from: Data(#"{"type":"openLink"}"#.utf8))
         let request = try JSONDecoder().decode(SystemCommand.self, from: Data(#"{"type":"httpRequest"}"#.utf8))
         let obs = try JSONDecoder().decode(SystemCommand.self, from: Data(#"{"type":"obsWebSocket"}"#.utf8))
+		let profileId = UUID()
+		let profileData = Data(#"{"type":"switchProfile","profileId":"\#(profileId.uuidString)","profileName":"Gaming"}"#.utf8)
+		let profile = try JSONDecoder().decode(SystemCommand.self, from: profileData)
 
         XCTAssertEqual(launch, .launchApp(bundleIdentifier: "", newWindow: false))
         XCTAssertEqual(shell, .shellCommand(command: "", inTerminal: false))
         XCTAssertEqual(link, .openLink(url: ""))
         XCTAssertEqual(request, .httpRequest(url: "", method: .POST, headers: nil, body: nil))
         XCTAssertEqual(obs, .obsWebSocket(url: "", password: nil, requestType: "", requestData: nil))
+		XCTAssertEqual(profile, .switchProfile(profileId: profileId, profileName: "Gaming"))
     }
 
     // MARK: - Macro

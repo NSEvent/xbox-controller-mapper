@@ -79,6 +79,7 @@ struct HTTPResponseHandling: Codable, Equatable {
 
 /// Categories for grouping system commands in the UI
 enum SystemCommandCategory: String, CaseIterable, Identifiable {
+	case profile = "Switch Profile"
     case shell = "Shell Command"
     case app = "Launch App"
     case link = "Open Link"
@@ -90,6 +91,7 @@ enum SystemCommandCategory: String, CaseIterable, Identifiable {
     /// Short label for use in segmented pickers where space is limited
     var shortLabel: String {
         switch self {
+		case .profile: return "Profile"
         case .shell: return "Shell"
         case .app: return "App"
         case .link: return "Link"
@@ -101,6 +103,9 @@ enum SystemCommandCategory: String, CaseIterable, Identifiable {
 
 /// Represents a system-level command that can be triggered by a button or chord mapping
 enum SystemCommand: Equatable {
+	// Profile switching
+	case switchProfile(profileId: UUID, profileName: String? = nil)
+
     // App launching
     case launchApp(bundleIdentifier: String, newWindow: Bool = false)
 
@@ -119,6 +124,11 @@ enum SystemCommand: Equatable {
     /// Human-readable display name for the UI
     var displayName: String {
         switch self {
+		case .switchProfile(_, let profileName):
+			if let profileName, !profileName.isEmpty {
+				return "Switch to \(profileName)"
+			}
+			return "Switch Profile"
         case .launchApp(let bundleId, let newWindow):
             let name: String
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
@@ -155,6 +165,7 @@ enum SystemCommand: Equatable {
     /// Category for UI grouping
     var category: SystemCommandCategory {
         switch self {
+		case .switchProfile: return .profile
         case .launchApp: return .app
         case .shellCommand: return .shell
         case .openLink: return .link
@@ -168,11 +179,11 @@ enum SystemCommand: Equatable {
 
 extension SystemCommand: Codable {
     private enum CommandType: String, Codable {
-        case launchApp, shellCommand, openLink, httpRequest, obsWebSocket
+		case switchProfile, launchApp, shellCommand, openLink, httpRequest, obsWebSocket
     }
 
     private enum CodingKeys: String, CodingKey {
-        case type, bundleIdentifier, command, inTerminal, url, newWindow
+		case type, profileId, profileName, bundleIdentifier, command, inTerminal, url, newWindow
         case method, headers, body, password, requestType, requestData
         case responseHandling
     }
@@ -182,6 +193,10 @@ extension SystemCommand: Codable {
         let type = try container.decode(CommandType.self, forKey: .type)
 
         switch type {
+		case .switchProfile:
+			let profileId: UUID = try container.decode(.profileId, default: UUID())
+			let profileName = try container.decodeIfPresent(String.self, forKey: .profileName)
+			self = .switchProfile(profileId: profileId, profileName: profileName)
         case .launchApp:
             let bundleId: String = try container.decode(.bundleIdentifier, default: "")
             let newWindow: Bool = try container.decode(.newWindow, default: false)
@@ -221,6 +236,10 @@ extension SystemCommand: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         switch self {
+		case .switchProfile(let profileId, let profileName):
+			try container.encode(CommandType.switchProfile, forKey: .type)
+			try container.encode(profileId, forKey: .profileId)
+			try container.encodeIfPresent(profileName, forKey: .profileName)
         case .launchApp(let bundleId, let newWindow):
             try container.encode(CommandType.launchApp, forKey: .type)
             try container.encode(bundleId, forKey: .bundleIdentifier)

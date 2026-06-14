@@ -109,6 +109,30 @@ final class SystemCommandExecutorBranchTests: XCTestCase {
         XCTAssertEqual(newWindowShortcutCount, 0)
     }
 
+	func testSwitchProfileActivatesTargetProfile() async {
+		let first = Profile(name: "Gaming")
+		let second = Profile(name: "macOS")
+		profileManager.profiles = [first, second]
+		profileManager.setActiveProfile(first)
+
+		executor.execute(.switchProfile(profileId: second.id, profileName: second.name))
+		try? await Task.sleep(nanoseconds: 80_000_000)
+
+		XCTAssertEqual(profileManager.activeProfileId, second.id)
+		XCTAssertEqual(profileManager.activeProfile?.name, "macOS")
+	}
+
+	func testSwitchProfileMissingTargetLeavesActiveProfileAlone() async {
+		let first = Profile(name: "Gaming")
+		profileManager.profiles = [first]
+		profileManager.setActiveProfile(first)
+
+		executor.execute(.switchProfile(profileId: UUID(), profileName: "Missing"))
+		try? await Task.sleep(nanoseconds: 80_000_000)
+
+		XCTAssertEqual(profileManager.activeProfileId, first.id)
+	}
+
     func testShellCommandSilentBranchRuns() async {
         executor.execute(.shellCommand(command: "/usr/bin/true", inTerminal: false))
         try? await Task.sleep(nanoseconds: 100_000_000)

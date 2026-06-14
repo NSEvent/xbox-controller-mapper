@@ -261,6 +261,8 @@ struct GestureMappingSheet: View {
             .pickerStyle(.segmented)
 
             switch editorState.systemCommandCategory {
+			case .profile:
+				ProfileSelectionPicker(selection: $editorState.selectedProfileId, selectedName: $editorState.selectedProfileName)
             case .app:
                 AppSelectionButton(bundleId: editorState.appBundleIdentifier, showingPicker: $editorState.showingAppPicker)
                     .sheet(isPresented: $editorState.showingAppPicker) {

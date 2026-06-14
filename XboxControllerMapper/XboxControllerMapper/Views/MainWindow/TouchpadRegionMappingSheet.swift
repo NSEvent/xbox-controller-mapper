@@ -167,6 +167,7 @@ struct TouchpadRegionMappingSheet: View {
     private func systemCommandEditor(slot: Binding<ActionSlot>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Picker("Category", selection: slot.systemCommandCategory) {
+				Text("Profile").tag(SystemCommandCategory.profile)
                 Text("App").tag(SystemCommandCategory.app)
                 Text("Shell").tag(SystemCommandCategory.shell)
                 Text("Link").tag(SystemCommandCategory.link)
@@ -174,6 +175,8 @@ struct TouchpadRegionMappingSheet: View {
             .pickerStyle(.segmented)
 
             switch slot.wrappedValue.systemCommandCategory {
+			case .profile:
+				ProfileSelectionPicker(selection: slot.selectedProfileId, selectedName: slot.selectedProfileName)
             case .app:
                 AppSelectionButton(
                     bundleId: slot.wrappedValue.appBundleIdentifier,
@@ -259,6 +262,8 @@ struct ActionSlot {
 
     // System command sub-state
     var systemCommandCategory: SystemCommandCategory = .app
+	var selectedProfileId: UUID?
+	var selectedProfileName: String?
     var appBundleIdentifier: String = ""
     var appNewWindow: Bool = false
     var shellCommand: String = ""
@@ -281,6 +286,9 @@ struct ActionSlot {
             kind = .systemCommand
             systemCommandCategory = cmd.category
             switch cmd {
+			case .switchProfile(let profileId, let profileName):
+				selectedProfileId = profileId
+				selectedProfileName = profileName
             case .launchApp(let id, let newWindow):
                 appBundleIdentifier = id
                 appNewWindow = newWindow
@@ -305,6 +313,9 @@ struct ActionSlot {
 
     func buildSystemCommand() -> SystemCommand? {
         switch systemCommandCategory {
+		case .profile:
+			guard let selectedProfileId else { return nil }
+			return .switchProfile(profileId: selectedProfileId, profileName: selectedProfileName)
         case .app:
             guard !appBundleIdentifier.isEmpty else { return nil }
             return .launchApp(bundleIdentifier: appBundleIdentifier, newWindow: appNewWindow)

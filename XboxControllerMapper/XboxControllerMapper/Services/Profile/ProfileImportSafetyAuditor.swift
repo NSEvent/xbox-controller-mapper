@@ -84,7 +84,7 @@ enum ProfileImportSafetyAuditor {
             // Explicit cases (no `default`): adding a new SystemCommand
             // variant must surface here as a compile error so the auditor
             // doesn't silently drop a new execution surface.
-            case .launchApp, .openLink, .obsWebSocket:
+			case .switchProfile, .launchApp, .openLink, .obsWebSocket:
                 break
             }
         }

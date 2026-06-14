@@ -124,6 +124,55 @@ final class MappingEngineCoreTests: MappingEngineTestCase {
                 if case .pressKey(let code, _) = event { return code == 3 }
                 return false
             })
+		}
+	}
+
+	func testChordCanToggleBetweenProfiles() async throws {
+		let gamingId = UUID()
+		let desktopId = UUID()
+
+		await MainActor.run {
+			let gaming = Profile(
+				id: gamingId,
+				name: "Gaming",
+				isDefault: true,
+				chordMappings: [
+					ChordMapping(
+						buttons: [.view, .menu],
+						systemCommand: .switchProfile(profileId: desktopId, profileName: "Desktop")
+					)
+				]
+			)
+			let desktop = Profile(
+				id: desktopId,
+				name: "Desktop",
+				chordMappings: [
+					ChordMapping(
+						buttons: [.view, .menu],
+						systemCommand: .switchProfile(profileId: gamingId, profileName: "Gaming")
+					)
+				]
+			)
+
+			profileManager.profiles = [gaming, desktop]
+			profileManager.setActiveProfile(gaming)
+		}
+
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.onChordDetected?([.view, .menu])
+		}
+		await waitForTasks()
+
+		await MainActor.run {
+			XCTAssertEqual(profileManager.activeProfileId, desktopId)
+			controllerService.onChordDetected?([.view, .menu])
+		}
+		await waitForTasks()
+
+		await MainActor.run {
+			XCTAssertEqual(profileManager.activeProfileId, gamingId)
         }
     }
     
