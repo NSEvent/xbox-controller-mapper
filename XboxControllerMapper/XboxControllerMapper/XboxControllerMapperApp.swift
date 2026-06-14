@@ -444,6 +444,18 @@ final class DockVisibilityController {
     }
 }
 
+/// Help-menu item that opens the standalone Connection Guides window. Kept as
+/// its own `View` so it can read `@Environment(\.openWindow)` — that value isn't
+/// available directly inside the `.commands` builder.
+private struct ConnectionGuidesMenuItem: View {
+    @Environment(\.openWindow) private var openWindow
+    var body: some View {
+        Button("Controller Connection Guides") {
+            openWindow(id: "connection-guides")
+        }
+    }
+}
+
 @main
 struct XboxControllerMapperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -463,11 +475,20 @@ struct XboxControllerMapperApp: App {
         .windowResizability(.contentSize)
 		.commands {
 			CommandGroup(after: .help) {
+				ConnectionGuidesMenuItem()
 				Button("Controller Support Dump...") {
 					ControllerSupportDumpService.runInteractiveDump()
 				}
 			}
 		}
+
+		Window("Controller Connection Guides", id: "connection-guides") {
+			ConnectionGuidesView()
+		}
+		// The view has a fixed width and content-driven height, so the window
+		// sizes itself to each guide (and the chooser) and re-sizes as the user
+		// navigates between controllers — no scrolling, no manual resize.
+		.windowResizability(.contentSize)
 
         MenuBarExtra {
             MenuBarView()

@@ -34,6 +34,13 @@ struct ControllerPairingGuide: Equatable {
     let nativeSupportNote: String?
     /// Optional link to the full web guide.
     let guideURL: URL?
+    /// The buttons that appear on this controller's minimap and are part of the
+    /// pairing combo — highlighted "pressed" on the `PairingMinimapView` so the
+    /// user can see *where* to press. Empty when the pairing button isn't on the
+    /// front face (e.g. the Xbox top Pair button, the Nintendo top sync button,
+    /// or the 8BitDo Micro/Lite Pair button + S/D slider), in which case only
+    /// the controller body is shown and the steps describe the physical button.
+    let pairingButtons: Set<ControllerButton>
 
     init(
         title: String,
@@ -43,7 +50,8 @@ struct ControllerPairingGuide: Equatable {
         wiredNote: String? = nil,
         tip: String? = nil,
         nativeSupportNote: String? = nil,
-        guideURL: URL? = nil
+        guideURL: URL? = nil,
+        pairingButtons: Set<ControllerButton> = []
     ) {
         self.title = title
         self.tagline = tagline
@@ -53,6 +61,7 @@ struct ControllerPairingGuide: Equatable {
         self.tip = tip
         self.nativeSupportNote = nativeSupportNote
         self.guideURL = guideURL
+        self.pairingButtons = pairingButtons
     }
 }
 
@@ -93,7 +102,9 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("Prefer wired? Plug in a USB-C cable (Series X|S) or Micro-USB (Xbox One) — it connects instantly, no pairing."),
                 tip: loc("Only Bluetooth models pair wirelessly: any Xbox Series controller, or an Xbox One controller from model 1708 (2016) onward."),
-                guideURL: PairingGuideURL.xbox
+                guideURL: PairingGuideURL.xbox,
+                // Xbox button (power on); the top Pair button isn't on the face.
+                pairingButtons: [.xbox]
             )
 
         case .xboxElite:
@@ -109,7 +120,8 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("A USB-C cable also works and charges at the same time."),
                 tip: loc("The Elite Series 2 pairs exactly like a standard Xbox controller. Back paddles map just like any other button once connected."),
-                guideURL: PairingGuideURL.xbox
+                guideURL: PairingGuideURL.xbox,
+                pairingButtons: [.xbox]
             )
 
         case .dualSense:
@@ -125,7 +137,9 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("Or just plug in a USB-C cable — it works immediately with no pairing."),
                 nativeSupportNote: loc("Native DualSense support requires macOS 11.3 or later."),
-                guideURL: PairingGuideURL.ps5
+                guideURL: PairingGuideURL.ps5,
+                // Create button (left of touchpad) + PS button.
+                pairingButtons: [.view, .xbox]
             )
 
         case .dualSenseEdge:
@@ -142,7 +156,8 @@ extension ControllerPreviewLayout {
                 wiredNote: loc("A USB-C cable also works instantly. The Edge's braided cable has a locking connector — press the release to unplug."),
                 tip: loc("Edge paddles and Fn buttons appear automatically once connected."),
                 nativeSupportNote: loc("Native support requires macOS 13 Ventura or later."),
-                guideURL: PairingGuideURL.ps5
+                guideURL: PairingGuideURL.ps5,
+                pairingButtons: [.view, .xbox]
             )
 
         case .dualShock:
@@ -158,7 +173,9 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("Or connect a Micro-USB cable for a wired, lower-latency link."),
                 nativeSupportNote: loc("Native DualShock 4 support requires macOS 11 Big Sur or later."),
-                guideURL: PairingGuideURL.ps5
+                guideURL: PairingGuideURL.ps5,
+                // Share button + PS button.
+                pairingButtons: [.view, .xbox]
             )
 
         case .nintendo:
@@ -188,7 +205,9 @@ extension ControllerPreviewLayout {
                     loc("Select the **Steam Controller** under Nearby Devices.")
                 ],
                 wiredNote: loc("Or plug in the USB wireless dongle (2.4 GHz) — it connects without any Bluetooth pairing."),
-                tip: loc("If **Steam + B** doesn't work on your hardware revision, try holding **Y** while pressing the Steam button.")
+                tip: loc("If **Steam + B** doesn't work on your hardware revision, try holding **Y** while pressing the Steam button."),
+                // Steam button (guide) + B face button.
+                pairingButtons: [.xbox, .b]
             )
 
         case .eightBitDoZero2:
@@ -204,7 +223,9 @@ extension ControllerPreviewLayout {
                     loc("Connect to **8BitDo Zero 2** under Nearby Devices.")
                 ],
                 wiredNote: loc("A USB-C cable works wired too."),
-                tip: loc("The Zero 2 has three Mac-ready modes — hold the button while powering on with **Start**: **B** = Android/D-input (pairs as an *8BitDo Zero 2*, matching this layout), **Y** = Switch (pairs as a *Switch Pro Controller*), **A** = macOS (pairs as a *DualShock 4*). All three work with ControllerKeys.")
+                tip: loc("The Zero 2 has three Mac-ready modes — hold the button while powering on with **Start**: **B** = Android/D-input (pairs as an *8BitDo Zero 2*, matching this layout), **Y** = Switch (pairs as a *Switch Pro Controller*), **A** = macOS (pairs as a *DualShock 4*). All three work with ControllerKeys."),
+                // Android / D-input startup combo: B + Start. (Start = +/menu.)
+                pairingButtons: [.b, .menu]
             )
         case .eightBitDoMicro:
             return Self.eightBitDoSwitchSelectorGuide(model: "Micro", systemImage: systemImage)
@@ -224,7 +245,9 @@ extension ControllerPreviewLayout {
                     loc("On your Mac, open **System Settings → Bluetooth**."),
                     loc("Select the remote under **Nearby Devices** to connect — it joins as a Bluetooth HID device.")
                 ],
-                tip: loc("Keep the Apple TV unplugged for the whole pairing process so the remote doesn't reconnect to it mid-pair.")
+                tip: loc("Keep the Apple TV unplugged for the whole pairing process so the remote doesn't reconnect to it mid-pair."),
+                // Volume Up (+) + Back button.
+                pairingButtons: [.appleTVRemoteVolumeUp, .view]
             )
         }
     }

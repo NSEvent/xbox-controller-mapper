@@ -99,6 +99,22 @@ struct ControllerPairingHintView: View {
                 .accessibilityLabel("Back to controller list")
             }
 
+            // Minimap of the controller, with the pairing buttons lit so the
+            // user can see where to press. The caption only appears when those
+            // buttons live on the front face (some controllers pair via a top
+            // sync / Pair button the minimap can't show).
+            VStack(spacing: 6) {
+                PairingMinimapView(layout: previewLayout, pressedButtons: guide.pairingButtons)
+                if !guide.pairingButtons.isEmpty {
+                    Text("The buttons you press to pair are highlighted")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 2)
+
             // Numbered Bluetooth steps
             VStack(alignment: .leading, spacing: 9) {
                 ForEach(Array(guide.bluetoothSteps.enumerated()), id: \.offset) { index, step in

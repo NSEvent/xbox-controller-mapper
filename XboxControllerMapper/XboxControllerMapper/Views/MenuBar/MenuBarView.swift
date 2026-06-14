@@ -246,6 +246,15 @@ struct MenuBarView: View {
             }
             .buttonStyle(.plain)
 
+            Button(action: openConnectionGuides) {
+                HStack(spacing: 4) {
+                    Image(systemName: "dot.radiowaves.left.and.right")
+                    Text("Connection Guides")
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+
             Button(action: quitApp) {
                 HStack(spacing: 4) {
                     Image(systemName: "xmark.circle")
@@ -283,6 +292,15 @@ struct MenuBarView: View {
         // The previous AppKit fallback used a non-existent selector and only
         // worked while the window was still in NSApp.windows.
         openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func openConnectionGuides() {
+        // The guides window is a regular Window scene; promote the activation
+        // policy first (mirrors openMainWindow) so it surfaces even when the
+        // app is running dock-less in the menu bar.
+        DockVisibilityController.shared.promoteForOpeningMainWindow()
+        openWindow(id: "connection-guides")
         NSApp.activate(ignoringOtherApps: true)
     }
 
