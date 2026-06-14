@@ -787,7 +787,7 @@ struct CustomTabBar: View {
     let tabs: [CustomTabItem]
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             HStack(spacing: 8) {
                 ForEach(availableGroups) { group in
                     groupButton(group)
@@ -801,7 +801,7 @@ struct CustomTabBar: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(4)
+            .padding(3)
             .background(Color.black.opacity(0.22))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay {
@@ -810,8 +810,8 @@ struct CustomTabBar: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 6)
-        .padding(.bottom, 8)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
         .background(Color.black.opacity(0.08))
     }
 
@@ -857,7 +857,7 @@ struct CustomTabBar: View {
             }
             .foregroundColor(isSelected ? .white : .white.opacity(0.54))
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(isSelected ? Color.white.opacity(0.11) : Color.clear)

@@ -159,8 +159,8 @@ struct ButtonMappingsTab: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
+            .padding(.top, 6)
+            .padding(.bottom, 4)
 
             GeometryReader { geometry in
                 ZStack {

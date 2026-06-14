@@ -71,7 +71,7 @@ struct ContentToolbar: View {
             .accessibilityLabel("Settings")
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 8)
         // Transparent toolbar to let glass show through
     }
 }
