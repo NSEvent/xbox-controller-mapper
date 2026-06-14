@@ -23,7 +23,7 @@ struct ContentView: View {
     @State private var editingLayerId: UUID? = nil
     @State private var isSwapMode: Bool = false
     @State private var swapFirstButton: ControllerButton? = nil
-	@AppStorage("profileSidebarVisible") private var profileSidebarVisible = false
+	@AppStorage("profileSidebarVisible") private var profileSidebarVisible = true
 
 	private var controllerPreviewLayout: ControllerPreviewLayout {
 		profileManager.activeProfile?.controllerPreviewLayout ?? .active
@@ -255,6 +255,13 @@ struct ContentView: View {
         .background(
             Button("Next Tab Alt") { switchTab(direction: 1) }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                .hidden()
+                .accessibilityHidden(true)
+        )
+        // ⌘B toggles the profile sidebar (matches VS Code / Xcode-style editors).
+        .background(
+            Button("Toggle Profile Sidebar") { profileSidebarVisible.toggle() }
+                .keyboardShortcut("b", modifiers: .command)
                 .hidden()
                 .accessibilityHidden(true)
         )
