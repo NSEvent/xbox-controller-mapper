@@ -13,26 +13,7 @@ struct ContentToolbar: View {
         HStack {
 			ProfileToolbarMenu(profileSidebarVisible: $profileSidebarVisible)
 
-            // Connection status
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(controllerService.isConnected ? Color.green : Color.red)
-                    .frame(width: 8, height: 8)
-                    .shadow(color: (controllerService.isConnected ? Color.green : Color.red).opacity(0.6), radius: 4)
-
-                Text(controllerService.isConnected ? controllerService.controllerName : "No Controller")
-                    .font(.caption.bold())
-                    .foregroundColor(controllerService.isConnected ? .white : .secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Color.black.opacity(0.3))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
-            .accessibilityElement(children: .combine)
+            Spacer()
 
 			if controllerService.isConnected,
 			   let mappingSource = controllerService.controllerMappingSource {
@@ -54,7 +35,26 @@ struct ContentToolbar: View {
 				.accessibilityLabel("Controller Support Dump")
 			}
 
-            Spacer()
+            // Connection status — sits on the right, just left of the toggle
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(controllerService.isConnected ? Color.green : Color.red)
+                    .frame(width: 8, height: 8)
+                    .shadow(color: (controllerService.isConnected ? Color.green : Color.red).opacity(0.6), radius: 4)
+
+                Text(controllerService.isConnected ? controllerService.controllerName : "No Controller")
+                    .font(.caption.bold())
+                    .foregroundColor(controllerService.isConnected ? .white : .secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.black.opacity(0.3))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            )
+            .accessibilityElement(children: .combine)
 
             // Enable/disable toggle
             MappingActiveToggle(isEnabled: $mappingEngine.isEnabled)

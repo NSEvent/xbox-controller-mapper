@@ -435,24 +435,40 @@ struct MappingActiveToggle: View {
     @Binding var isEnabled: Bool
     @State private var isHovered = false
 
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(isEnabled ? "MAPPING ACTIVE" : "DISABLED")
-                .font(.caption.bold())
-                .foregroundColor(isEnabled ? .accentColor : .secondary)
-
-            Toggle("", isOn: $isEnabled)
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .labelsHidden()
+    // White on a filled capsule reads clearly against the glass toolbar —
+    // unlike the old accent-text-on-gray, which was low contrast. Colors are
+    // pulled out as properties so the view body stays type-checkable.
+    private var fillColor: Color {
+        if isEnabled {
+            return Color.green.opacity(isHovered ? 1.0 : 0.9)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isHovered ? Color.accentColor.opacity(0.1) : Color.clear)
+        return Color.white.opacity(isHovered ? 0.16 : 0.1)
+    }
+
+    private var strokeColor: Color {
+        Color.white.opacity(isEnabled ? 0.3 : 0.14)
+    }
+
+    private var textColor: Color {
+        isEnabled ? Color.white : Color.white.opacity(0.55)
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: isEnabled ? "bolt.fill" : "bolt.slash.fill")
+                .font(.system(size: 10, weight: .bold))
+            Text(isEnabled ? "Mapping On" : "Mapping Off")
+                .font(.caption.bold())
+        }
+        .foregroundStyle(textColor)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 5)
+        .background(Capsule(style: .continuous).fill(fillColor))
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(strokeColor, lineWidth: 1)
         )
-        .contentShape(Rectangle())
+        .contentShape(Capsule(style: .continuous))
         .onTapGesture {
             isEnabled.toggle()
         }
