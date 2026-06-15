@@ -43,28 +43,13 @@ struct ContentView: View {
     private var clampedWindowBackgroundOpacity: Double {
         min(max(windowBackgroundOpacity, 0.0), 1.0)
     }
-    private var actionFeedbackEnabled: Binding<Bool> {
-        Binding(
-            get: { ActionFeedbackIndicator.isEnabled },
-            set: { ActionFeedbackIndicator.isEnabled = $0 }
-        )
-    }
-    private var streamOverlayEnabled: Binding<Bool> {
-        Binding(
-            get: { StreamOverlayManager.isEnabled },
-            set: { newValue in
-                StreamOverlayManager.isEnabled = newValue
-                if newValue {
-                    StreamOverlayManager.shared.show(
-                        controllerService: controllerService,
-                        inputLogService: inputLogService
-                    )
-                } else {
-                    StreamOverlayManager.shared.hide()
-                }
-            }
-        )
-    }
+    // Observable mirrors of the UserDefaults-backed flags so the toggle
+    // highlights in LayerTabBar re-render whenever these change — whether from
+    // the button, the menu bar, or the overlay's own close button. The matching
+    // ActionFeedbackIndicator / StreamOverlayManager getters read the same keys,
+    // so they stay in sync. Stream show/hide is driven by .onChange below.
+    @AppStorage("actionFeedbackEnabled") private var actionFeedbackEnabled = true
+    @AppStorage("streamOverlayEnabled") private var streamOverlayEnabled = false
     var body: some View {
         HSplitView {
             // Sidebar: Profile management
@@ -102,8 +87,8 @@ struct ContentView: View {
                             editingChord: $editingChord,
                             editingSequence: $editingSequence,
                             isMagnifying: $isMagnifying,
-                            actionFeedbackEnabled: actionFeedbackEnabled,
-                            streamOverlayEnabled: streamOverlayEnabled
+                            actionFeedbackEnabled: $actionFeedbackEnabled,
+                            streamOverlayEnabled: $streamOverlayEnabled
                         )
                     case 1:
                         ChordsTab(
@@ -272,6 +257,18 @@ struct ContentView: View {
         // (ButtonMappingsTab), anchored at the gesture location.
         .onAppear { installScrollKeyMonitor() }
         .onAppear { selectFirstVisibleTabIfNeeded() }
+        // Drive the stream overlay panel from the (now observable) flag, so the
+        // toggle and the panel stay in lockstep no matter what flipped the flag.
+        .onChange(of: streamOverlayEnabled) { _, isOn in
+            if isOn {
+                StreamOverlayManager.shared.show(
+                    controllerService: controllerService,
+                    inputLogService: inputLogService
+                )
+            } else {
+                StreamOverlayManager.shared.hide()
+            }
+        }
         .onChange(of: hiddenSectionTags) { _, _ in
             selectFirstVisibleTabIfNeeded()
         }

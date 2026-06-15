@@ -175,8 +175,12 @@ struct LayerTabBar: View {
                 }
             }
 
-            // Action feedback toggle (styled like layer tabs)
-            Toggle(isOn: actionFeedbackEnabled) {
+            // Action feedback toggle (styled like layer tabs). Plain Button —
+            // not Toggle(.button) — so the highlight is a pure function of the
+            // bound value with no internal selected-state to desync.
+            Button {
+                actionFeedbackEnabled.wrappedValue.toggle()
+            } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "bubble.left.fill")
                         .font(.system(size: 10))
@@ -189,13 +193,14 @@ struct LayerTabBar: View {
                 .background(actionFeedbackEnabled.wrappedValue ? Color.accentColor : Color.white.opacity(0.1))
                 .cornerRadius(6)
             }
-            .toggleStyle(.button)
             .buttonStyle(.plain)
             .foregroundColor(actionFeedbackEnabled.wrappedValue ? .white : .secondary)
             .hoverableButton()
 
-            // Stream overlay toggle
-            Toggle(isOn: streamOverlayEnabled) {
+            // Stream overlay toggle (plain Button, same rationale as above).
+            Button {
+                streamOverlayEnabled.wrappedValue.toggle()
+            } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "play.rectangle.on.rectangle")
                         .font(.system(size: 10))
@@ -208,7 +213,6 @@ struct LayerTabBar: View {
                 .background(streamOverlayEnabled.wrappedValue ? Color.purple : Color.white.opacity(0.1))
                 .cornerRadius(6)
             }
-            .toggleStyle(.button)
             .buttonStyle(.plain)
             .foregroundColor(streamOverlayEnabled.wrappedValue ? .white : .secondary)
             .hoverableButton()
