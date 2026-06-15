@@ -106,6 +106,12 @@ check-version-plist:
 		exit 1; \
 	fi
 
+# Local `make install` builds compile in DEV_BYPASS_LICENSE so the developer /
+# contributor running from source isn't gated by the 14-day trial. The release
+# pipeline (Scripts/sign-and-notarize.sh) never sets this, so the distributed,
+# notarized build stays gated and contains no bypass code path.
+DEV_SWIFT_CONDITIONS = SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) DEV_BYPASS_LICENSE'
+
 build: check-permissions check-version-plist
 ifeq ($(HAS_DEV_CERT),1)
 	@echo "✅ Found developer certificate for team $(TEAM_ID) - building with code signing"
@@ -113,6 +119,7 @@ ifeq ($(HAS_DEV_CERT),1)
 		DEVELOPMENT_TEAM=$(TEAM_ID) \
 		MARKETING_VERSION=$(MARKETING_VERSION) \
 		CURRENT_PROJECT_VERSION=$(BUILD_NUMBER) \
+		$(DEV_SWIFT_CONDITIONS) \
 		-allowProvisioningUpdates \
 		build
 else
@@ -124,6 +131,7 @@ else
 		CODE_SIGNING_ALLOWED=NO \
 		MARKETING_VERSION=$(MARKETING_VERSION) \
 		CURRENT_PROJECT_VERSION=$(BUILD_NUMBER) \
+		$(DEV_SWIFT_CONDITIONS) \
 		build
 endif
 

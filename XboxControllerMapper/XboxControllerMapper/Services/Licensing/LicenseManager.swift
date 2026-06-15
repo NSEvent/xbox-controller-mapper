@@ -87,6 +87,14 @@ final class LicenseManager: ObservableObject {
 
     /// Recomputes `status` from the keychain (license first, then trial clock).
     func refresh() {
+#if DEV_BYPASS_LICENSE
+        // Local `make install` dev/contributor builds compile in this flag so
+        // the developer isn't trial-gated. The notarized release pipeline
+        // (Scripts/sign-and-notarize.sh) never defines it, so shipped binaries
+        // stay gated and contain no bypass code path at all.
+        status = .licensed
+        return
+#endif
         // A previously-verified license wins, and stays valid offline.
         if storedLicenseKey != nil,
            KeychainService.retrievePassword(key: Keys.licensedConfirmed, service: keychainService) == "1" {
