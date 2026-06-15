@@ -535,6 +535,7 @@ struct ButtonMappingsTab: View {
                 }
                 .buttonStyle(.plain)
                 .help("Hide \(section.label)")
+                .accessibilityLabel("Hide \(section.label)")
                 .padding(.top, 6)
                 .padding(.trailing, 8)
             }

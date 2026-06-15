@@ -15,3 +15,7 @@
 ## 2024-05-14 - [Icon Button Accessibility Gap]
 **Learning:** In standard SwiftUI development for macOS, icon-only buttons (`Image(systemName: ...)`) are frequently missing `.help()` (for hover tooltips) and `.accessibilityLabel()` (for VoiceOver). Several core navigation components (like Layer tabs and Sidebar buttons) suffered from this pattern.
 **Action:** Always verify that every `Button` wrapping an `Image` has both `.help()` and `.accessibilityLabel()` strings defined, unless explicitly marked as decorative.
+
+## 2024-06-08 - Ensure Symmetry in Accessibility and Tooltips for SwiftUI Icon Buttons
+**Learning:** Verified the necessity of ensuring full symmetry in accessibility and tooltips for icon-only buttons (`Image(systemName: ...)`). These buttons often get one but not the other (`.help()` without `.accessibilityLabel()`, or vice-versa), which causes poor UX for some group of users.
+**Action:** When adding or modifying icon buttons, always apply both `.help("Action")` and `.accessibilityLabel("Action")`.

@@ -168,6 +168,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                                             .foregroundColor(.red.opacity(0.7))
                                     }
                                     .buttonStyle(.borderless)
+                                    .help("Remove step")
 										.accessibilityLabel("Remove \(button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote)) from step \(index + 1)")
                                 }
                             }
