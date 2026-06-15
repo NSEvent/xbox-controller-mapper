@@ -521,12 +521,14 @@ class CommandWheelManager: ObservableObject {
     private func openWebsite(url urlString: String) {
         let urlStr = Self.normalizeURL(urlString)
         guard let url = URL(string: urlStr) else { return }
+        guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else { return }
         NSWorkspace.shared.open(url)
         usageStatsService?.recordLinkOpened()
     }
 
     private func openWebsiteIncognito(url urlString: String) {
         let urlStr = Self.normalizeURL(urlString)
+        guard let url = URL(string: urlStr), let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else { return }
 
         // Determine the default browser
         let defaultBrowser = LSCopyDefaultHandlerForURLScheme("https" as CFString)?.takeRetainedValue() as String? ?? ""
@@ -567,9 +569,8 @@ class CommandWheelManager: ObservableObject {
             return
         default:
             // Fallback: just open normally if browser is unknown
-            if let url = URL(string: urlStr) {
-                NSWorkspace.shared.open(url)
-            }
+            // URL and scheme validation already performed at start of function
+            NSWorkspace.shared.open(url)
             return
         }
 

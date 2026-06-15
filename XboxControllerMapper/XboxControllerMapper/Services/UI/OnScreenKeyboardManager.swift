@@ -1395,6 +1395,12 @@ class OnScreenKeyboardManager: ObservableObject {
             return
         }
 
+        // Security: Only allow http/https schemes
+        guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme) else {
+            NSLog("[OnScreenKeyboard] Blocked non-HTTP URL scheme: \(urlString)")
+            return
+        }
+
         NSWorkspace.shared.open(url)
         usageStatsService?.recordLinkOpened()
     }
