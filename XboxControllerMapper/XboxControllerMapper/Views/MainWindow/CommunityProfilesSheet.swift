@@ -648,6 +648,7 @@ private struct CodeBlockView: View {
             }
             .buttonStyle(.plain)
             .help(didCopy ? "Copied" : "Copy code")
+            .accessibilityLabel(didCopy ? "Copied" : "Copy code")
             .padding(4)
         }
     }
