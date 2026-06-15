@@ -141,6 +141,16 @@ final class ServiceContainer {
             updateCheckService.checkForUpdates()
         }
 
+        // Trial enforcement: keep mapping off once the 14-day trial expires
+        // (and no license), even when no window is open. Skipped in screenshot
+        // mode so captures aren't affected by trial state.
+        if !AppRuntime.isRunningTests, AppRuntime.screenshotVariant == nil {
+            let engine = self.mappingEngine
+            Task { @MainActor in
+                LicenseManager.shared.enforce { engine.isEnabled = false }
+            }
+        }
+
         // Wire up on-screen keyboard quick texts from profile manager
         setupOnScreenKeyboardObserver(profileManager: profileManager)
         profileManager.setupControllerAutoSwitching(with: controllerService)

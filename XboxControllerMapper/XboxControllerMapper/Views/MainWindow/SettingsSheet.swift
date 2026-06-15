@@ -55,6 +55,8 @@ struct SettingsSheet: View {
     @AppStorage("universalControlRelayPort") private var relayRemotePort = 38383
     @AppStorage(WindowBackgroundDefaults.opacityKey) private var windowBackgroundOpacity: Double = WindowBackgroundDefaults.defaultOpacity
 
+    @ObservedObject private var license = LicenseManager.shared
+
     @State private var selection: SettingsCategory? = .general
     @State private var isRefreshingDatabase = false
     @State private var databaseStatus: String?
@@ -62,6 +64,10 @@ struct SettingsSheet: View {
     @State private var relaySecretStatus: String?
     @State private var relaySecretStatusIsError = false
     @State private var isCheckingRelaySecret = false
+    @State private var licenseKeyInput = ""
+    @State private var isVerifyingLicense = false
+    @State private var licenseMessage: String?
+    @State private var licenseMessageIsError = false
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -147,6 +153,8 @@ struct SettingsSheet: View {
 
     @ViewBuilder
     private var generalSection: some View {
+        licenseSection
+
         Section {
             Toggle("Launch at Login", isOn: $launchAtLogin)
 
@@ -164,6 +172,128 @@ struct SettingsSheet: View {
                 if !hideFromDock {
                     NSApp.activate(ignoringOtherApps: true)
                 }
+            }
+        }
+    }
+
+    // MARK: License
+
+    @ViewBuilder
+    private var licenseSection: some View {
+        Section {
+            HStack(spacing: 10) {
+                Image(systemName: licenseStatusIcon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(licenseStatusColor)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(licenseStatusTitle)
+                        .font(.body.weight(.semibold))
+                    if let subtitle = licenseStatusSubtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer()
+            }
+
+            if license.isLicensed {
+                Button("Deactivate on This Mac") {
+                    license.clearLicense()
+                    licenseMessage = nil
+                }
+                .controlSize(.small)
+            } else {
+                HStack {
+                    TextField("Gumroad license key", text: $licenseKeyInput)
+                        .textFieldStyle(.roundedBorder)
+                        .disableAutocorrection(true)
+                        .onSubmit { activateLicense() }
+
+                    Button {
+                        activateLicense()
+                    } label: {
+                        if isVerifyingLicense {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Activate")
+                        }
+                    }
+                    .disabled(isVerifyingLicense || licenseKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+
+                if let url = URL(string: Config.updateCheckGumroadURL) {
+                    Link("Buy a license", destination: url)
+                        .font(.callout)
+                }
+            }
+
+            if let licenseMessage {
+                Label(
+                    licenseMessage,
+                    systemImage: licenseMessageIsError ? "xmark.circle.fill" : "checkmark.circle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(licenseMessageIsError ? .red : .green)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        } header: {
+            Text("License")
+        }
+    }
+
+    private var licenseStatusIcon: String {
+        switch license.status {
+        case .licensed: return "checkmark.seal.fill"
+        case .trial: return "hourglass"
+        case .expired: return "lock.fill"
+        }
+    }
+
+    private var licenseStatusColor: Color {
+        switch license.status {
+        case .licensed: return .green
+        case .trial(let days): return days <= 3 ? .orange : .blue
+        case .expired: return .orange
+        }
+    }
+
+    private var licenseStatusTitle: String {
+        switch license.status {
+        case .licensed:
+            return "Licensed"
+        case .trial(let days):
+            return "Free Trial — \(days) day\(days == 1 ? "" : "s") left"
+        case .expired:
+            return "Trial Ended"
+        }
+    }
+
+    private var licenseStatusSubtitle: String? {
+        switch license.status {
+        case .licensed:
+            return "Thanks for supporting ControllerKeys."
+        case .trial:
+            return "Enter a license key any time to unlock permanently."
+        case .expired:
+            return "Controller mapping is paused. Enter a license to re-enable it."
+        }
+    }
+
+    private func activateLicense() {
+        let key = licenseKeyInput
+        guard !key.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        isVerifyingLicense = true
+        licenseMessage = nil
+        Task {
+            let result = await license.verify(key: key)
+            isVerifyingLicense = false
+            licenseMessage = result.message
+            licenseMessageIsError = !result.success
+            if result.success {
+                licenseKeyInput = ""
             }
         }
     }

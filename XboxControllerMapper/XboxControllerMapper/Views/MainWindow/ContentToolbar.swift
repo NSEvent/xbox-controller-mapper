@@ -6,6 +6,7 @@ struct ContentToolbar: View {
     @EnvironmentObject var controllerService: ControllerService
 	@EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var mappingEngine: MappingEngine
+    @ObservedObject private var license = LicenseManager.shared
     @Binding var showingSettingsSheet: Bool
 	@Binding var profileSidebarVisible: Bool
 
@@ -56,8 +57,34 @@ struct ContentToolbar: View {
             )
             .accessibilityElement(children: .combine)
 
+            // Free-trial countdown pill (only while trialing)
+            if case let .trial(days) = license.status {
+                Button {
+                    showingSettingsSheet = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "hourglass")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Trial · \(days)d")
+                            .font(.caption.bold())
+                    }
+                    .foregroundStyle(days <= 3 ? Color.orange : Color.white.opacity(0.7))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(Capsule(style: .continuous).fill(Color.white.opacity(0.08)))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("Free trial: \(days) day\(days == 1 ? "" : "s") left — click for license options")
+            }
+
             // Enable/disable toggle
-            MappingActiveToggle(isEnabled: $mappingEngine.isEnabled)
+            MappingActiveToggle(isEnabled: $mappingEngine.isEnabled) {
+                showingSettingsSheet = true
+            }
 
             Button {
                 showingSettingsSheet = true

@@ -155,7 +155,14 @@ struct ContentView: View {
             }
             .ignoresSafeArea()
         )
-        .sheet(item: $configuringButton) { button in
+        // NOTE: each sheet is hosted on its OWN view via `isolatedSheet` rather
+        // than chained directly here. SwiftUI supports only one sheet
+        // presentation per view; chaining several on one host makes their
+        // presentation states contend, so asking to present one while another
+        // is still dismissing silently drops the request and leaves its
+        // trigger binding stuck "set" (e.g. the Settings button stops opening
+        // Settings until something resets the flag). See `isolatedSheet`.
+        .isolatedSheet(item: $configuringButton) { button in
             ButtonMappingSheet(
                 button: button,
                 mapping: Binding(
@@ -176,25 +183,25 @@ struct ContentView: View {
 					selectedLayerId: selectedLayerId
 				)
         }
-        .sheet(isPresented: $showingChordSheet) {
+        .isolatedSheet(isPresented: $showingChordSheet) {
             ChordMappingSheet()
         }
-        .sheet(item: $editingChord) { chord in
+        .isolatedSheet(item: $editingChord) { chord in
             ChordMappingSheet(editingChord: chord)
         }
-        .sheet(isPresented: $showingSequenceSheet) {
+        .isolatedSheet(isPresented: $showingSequenceSheet) {
             SequenceMappingSheet()
         }
-        .sheet(item: $editingSequence) { sequence in
+        .isolatedSheet(item: $editingSequence) { sequence in
             SequenceMappingSheet(editingSequence: sequence)
         }
-        .sheet(item: $editingGestureType) { gestureType in
+        .isolatedSheet(item: $editingGestureType) { gestureType in
             GestureMappingSheet(
                 gestureType: gestureType,
                 existingMapping: profileManager.gestureMapping(for: gestureType)
             )
         }
-        .sheet(isPresented: $showingSettingsSheet) {
+        .isolatedSheet(isPresented: $showingSettingsSheet) {
             SettingsSheet()
         }
         // Add keyboard shortcuts for scaling
@@ -429,16 +436,65 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Isolated Sheet Hosting
+
+extension View {
+    /// Presents a sheet on a dedicated background host view rather than on the
+    /// view this is called on.
+    ///
+    /// SwiftUI allows only ONE sheet presentation per view. When several
+    /// `.sheet` modifiers are chained on the same view, their presentation
+    /// states contend: triggering one sheet while another on that host is
+    /// still finishing its dismiss transition causes the new present request
+    /// to be silently dropped, and the trigger binding stays set — so tapping
+    /// the control again is a no-op and the sheet appears "stuck". Hosting
+    /// each sheet on its own `Color.clear` background view removes the
+    /// contention so every present request is honored.
+    func isolatedSheet<Content: View>(
+        isPresented: Binding<Bool>,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        background(Color.clear.sheet(isPresented: isPresented, content: content))
+    }
+
+    /// Item-driven variant of `isolatedSheet(isPresented:content:)`.
+    func isolatedSheet<Item: Identifiable, Content: View>(
+        item: Binding<Item?>,
+        @ViewBuilder content: @escaping (Item) -> Content
+    ) -> some View {
+        background(Color.clear.sheet(item: item, content: content))
+    }
+}
+
 // MARK: - Mapping Active Toggle
 
 struct MappingActiveToggle: View {
     @Binding var isEnabled: Bool
+    @ObservedObject private var license = LicenseManager.shared
+    /// Called when the user taps the toggle while the trial has expired —
+    /// opens the license UI instead of toggling.
+    var onLockedTap: () -> Void = {}
     @State private var isHovered = false
+
+    private var locked: Bool { !license.isActive }
+
+    private var iconName: String {
+        if locked { return "lock.fill" }
+        return isEnabled ? "bolt.fill" : "bolt.slash.fill"
+    }
+
+    private var label: String {
+        if locked { return "Trial ended" }
+        return isEnabled ? "Mapping On" : "Mapping Off"
+    }
 
     // White on a filled capsule reads clearly against the glass toolbar —
     // unlike the old accent-text-on-gray, which was low contrast. Colors are
     // pulled out as properties so the view body stays type-checkable.
     private var fillColor: Color {
+        if locked {
+            return Color.orange.opacity(isHovered ? 1.0 : 0.9)
+        }
         if isEnabled {
             return Color.green.opacity(isHovered ? 1.0 : 0.9)
         }
@@ -446,18 +502,20 @@ struct MappingActiveToggle: View {
     }
 
     private var strokeColor: Color {
-        Color.white.opacity(isEnabled ? 0.3 : 0.14)
+        if locked { return Color.white.opacity(0.3) }
+        return Color.white.opacity(isEnabled ? 0.3 : 0.14)
     }
 
     private var textColor: Color {
-        isEnabled ? Color.white : Color.white.opacity(0.55)
+        if locked { return Color.white }
+        return isEnabled ? Color.white : Color.white.opacity(0.55)
     }
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: isEnabled ? "bolt.fill" : "bolt.slash.fill")
+            Image(systemName: iconName)
                 .font(.system(size: 10, weight: .bold))
-            Text(isEnabled ? "Mapping On" : "Mapping Off")
+            Text(label)
                 .font(.caption.bold())
         }
         .foregroundStyle(textColor)
@@ -470,7 +528,11 @@ struct MappingActiveToggle: View {
         )
         .contentShape(Capsule(style: .continuous))
         .onTapGesture {
-            isEnabled.toggle()
+            if locked {
+                onLockedTap()
+            } else {
+                isEnabled.toggle()
+            }
         }
         .onHover { hovering in
             isHovered = hovering
@@ -480,9 +542,10 @@ struct MappingActiveToggle: View {
                 NSCursor.pop()
             }
         }
+        .help(locked ? "Your free trial has ended — click to enter a license" : "")
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Mapping")
-        .accessibilityValue(isEnabled ? "Active" : "Disabled")
+        .accessibilityLabel(locked ? "Trial ended" : "Mapping")
+        .accessibilityValue(locked ? "Locked" : (isEnabled ? "Active" : "Disabled"))
         .accessibilityAddTraits(.isToggle)
     }
 }
