@@ -1,7 +1,7 @@
 import Foundation
 
 public struct AutomationProgram: Codable, Equatable, Identifiable, Sendable {
-	public static let currentSchemaVersion = 1
+	public static let currentSchemaVersion = 2
 
 	public var id: UUID
 	public var schemaVersion: Int
@@ -48,12 +48,12 @@ public struct AutomationProgram: Codable, Equatable, Identifiable, Sendable {
 			)
 		}
 
-		let decodedSteps = try container.decodeIfPresent([LossyAutomationStep].self, forKey: .steps) ?? []
+		let decodedSteps = try container.decodeIfPresent([AutomationStep].self, forKey: .steps) ?? []
 		self.init(
 			id: try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID(),
 			schemaVersion: Self.currentSchemaVersion,
 			name: try container.decodeIfPresent(String.self, forKey: .name) ?? "Automation",
-			steps: decodedSteps.compactMap(\.step)
+			steps: decodedSteps
 		)
 	}
 
@@ -63,13 +63,5 @@ public struct AutomationProgram: Codable, Equatable, Identifiable, Sendable {
 		try container.encode(Self.currentSchemaVersion, forKey: .schemaVersion)
 		try container.encode(name, forKey: .name)
 		try container.encode(steps, forKey: .steps)
-	}
-}
-
-private struct LossyAutomationStep: Decodable {
-	let step: AutomationStep?
-
-	init(from decoder: Decoder) throws {
-		step = try? AutomationStep(from: decoder)
 	}
 }

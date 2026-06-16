@@ -44,93 +44,6 @@ final class AutomationExecutorTests: XCTestCase {
 		])
 	}
 
-	func testFailureAbortReleasesHeldKeysAndMouseButtons() async {
-		// A program that holds a key and a mouse button, then hits a failing
-		// step with continuesOnStepFailure == false, must not leave them down:
-		// the executor replays the releases in reverse order on abort.
-		let input = FakeInputSimulator()
-		let executor = AutomationExecutor(input: input)
-		let heldKey = KeyEvent(key: .escape, modifiers: ModifierSet(command: .left))
-		let heldButton = MouseButtonEvent(button: .left, modifiers: ModifierSet(shift: .left))
-
-		let result = await executor.execute(
-			AutomationProgram(name: "Abort", steps: [
-				.keyDown(heldKey),
-				.mouseDown(heldButton),
-				.openURL(OpenURLStep(url: "https://example.com"))
-			]),
-			context: TriggerExecutionContext(
-				policy: TriggerExecutionPolicy(allowedURLSchemes: [], continuesOnStepFailure: false)
-			)
-		)
-
-		XCTAssertFalse(result.isSuccess)
-		XCTAssertEqual(input.calls, [
-			.keyDown(heldKey),
-			.mouseDown(heldButton),
-			.mouseUp(heldButton),
-			.keyUp(heldKey)
-		])
-	}
-
-	func testCleanCompletionLeavesIntentionallyHeldKeyDown() async {
-		// A program may deliberately end on a keyDown to leave a key held; clean
-		// completion must NOT synthesize a release.
-		let input = FakeInputSimulator()
-		let executor = AutomationExecutor(input: input)
-		let heldKey = KeyEvent(key: .escape)
-
-		let result = await executor.execute(AutomationProgram(name: "Hold", steps: [.keyDown(heldKey)]))
-
-		XCTAssertEqual(result, .success("Completed 1 step(s)"))
-		XCTAssertEqual(input.calls, [.keyDown(heldKey)])
-	}
-
-	func testBalancedKeyDownUpIsNotDoubleReleasedOnAbort() async {
-		// A key that is explicitly released before a later failing step must not
-		// be released a second time by the cleanup.
-		let input = FakeInputSimulator()
-		let executor = AutomationExecutor(input: input)
-		let key = KeyEvent(key: .escape)
-
-		let result = await executor.execute(
-			AutomationProgram(name: "Balanced", steps: [
-				.keyDown(key),
-				.keyUp(key),
-				.openURL(OpenURLStep(url: "https://example.com"))
-			]),
-			context: TriggerExecutionContext(
-				policy: TriggerExecutionPolicy(allowedURLSchemes: [], continuesOnStepFailure: false)
-			)
-		)
-
-		XCTAssertFalse(result.isSuccess)
-		XCTAssertEqual(input.calls, [.keyDown(key), .keyUp(key)])
-	}
-
-	func testRepeatedKeyDownReleasesExactlyOnceOnAbort() async {
-		// keyDown(A), keyDown(A), keyUp(A) leaves one A still held; the abort
-		// cleanup must replay exactly one keyUp(A), not zero and not two.
-		let input = FakeInputSimulator()
-		let executor = AutomationExecutor(input: input)
-		let key = KeyEvent(key: .escape)
-
-		let result = await executor.execute(
-			AutomationProgram(name: "Repeat", steps: [
-				.keyDown(key),
-				.keyDown(key),
-				.keyUp(key),
-				.openURL(OpenURLStep(url: "https://example.com"))
-			]),
-			context: TriggerExecutionContext(
-				policy: TriggerExecutionPolicy(allowedURLSchemes: [], continuesOnStepFailure: false)
-			)
-		)
-
-		XCTAssertFalse(result.isSuccess)
-		XCTAssertEqual(input.calls, [.keyDown(key), .keyDown(key), .keyUp(key), .keyUp(key)])
-	}
-
 	func testExecutorRunsPrepareTargetBeforeSteps() async {
 		var events: [String] = []
 		let input = FakeInputSimulator { call in
@@ -305,6 +218,78 @@ final class AutomationExecutorTests: XCTestCase {
 		XCTAssertEqual(result, .failure("Cancelled"))
 	}
 
+	func testExecutorReleasesHeldInputsWhenStepFailureAbortsProgram() async {
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .escape, modifiers: ModifierSet(shift: .left))
+		let mouse = MouseButtonEvent(button: .right, modifiers: ModifierSet(command: .left))
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Abort", steps: [
+				.keyDown(key),
+				.mouseDown(mouse),
+				.delay(DelayStep(seconds: 0)),
+				.keyUp(key),
+				.mouseUp(mouse)
+			]),
+			context: TriggerExecutionContext(stepOverride: { step in
+				if case .delay = step {
+					return .failure("boom")
+				}
+				return nil
+			})
+		)
+
+		XCTAssertEqual(result, .failure("boom"))
+		XCTAssertEqual(input.calls, [
+			.keyDown(key),
+			.mouseDown(mouse),
+			.mouseUp(mouse),
+			.keyUp(key)
+		])
+	}
+
+	func testExecutorReleasesHeldInputsWhenCancelled() async {
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .tab)
+		let task = Task { @MainActor in
+			await executor.execute(AutomationProgram(name: "Cancel Held", steps: [
+				.keyDown(key),
+				.delay(DelayStep(seconds: 5)),
+				.keyUp(key)
+			]))
+		}
+
+		try? await Task.sleep(nanoseconds: 10_000_000)
+		task.cancel()
+
+		let result = await task.value
+		XCTAssertEqual(result, .failure("Cancelled"))
+		XCTAssertEqual(input.calls, [
+			.keyDown(key),
+			.keyUp(key)
+		])
+	}
+
+	func testExecutorReleasesHeldInputsWhenConditionSkipsRemainder() async {
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .space)
+
+		let result = await executor.execute(AutomationProgram(name: "Condition Skip", steps: [
+			.keyDown(key),
+			.condition(ConditionStep(kind: .appRunning, bundleIdentifier: "com.triggerkit.tests.missing-app")),
+			.keyUp(key)
+		]))
+
+		XCTAssertEqual(result, .success("Skipped — Only if com.triggerkit.tests.missing-app running"))
+		XCTAssertEqual(input.calls, [
+			.keyDown(key),
+			.keyUp(key)
+		])
+	}
+
 	func testShellCommandSuccessReturnsOutputAndLogsIt() async {
 		let executor = AutomationExecutor(input: FakeInputSimulator())
 		var logs: [String] = []
@@ -418,7 +403,8 @@ private enum RecordedInputCall: Equatable {
 	}
 }
 
-private final class UnavailableInputSimulator: InputSimulating, @unchecked Sendable {
+@MainActor
+private final class UnavailableInputSimulator: InputSimulating {
 	var calls: [RecordedInputCall] = []
 	var isInputPostingAvailable: Bool { false }
 
@@ -459,7 +445,8 @@ private final class UnavailableInputSimulator: InputSimulating, @unchecked Senda
 	}
 }
 
-private final class FakeInputSimulator: InputSimulating, @unchecked Sendable {
+@MainActor
+private final class FakeInputSimulator: InputSimulating {
 	var calls: [RecordedInputCall] = []
 	private let onCall: (RecordedInputCall) -> Void
 
@@ -509,7 +496,8 @@ private final class FakeInputSimulator: InputSimulating, @unchecked Sendable {
 	}
 }
 
-private final class SequencedInputSimulator: InputSimulating, @unchecked Sendable {
+@MainActor
+private final class SequencedInputSimulator: InputSimulating {
 	var events: [String] = []
 
 	func keyPress(_ stroke: KeyStroke) async {

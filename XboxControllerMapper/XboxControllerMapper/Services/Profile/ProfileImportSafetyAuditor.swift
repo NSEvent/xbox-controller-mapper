@@ -159,11 +159,13 @@ enum ProfileImportSafetyAuditor {
             // input/delay steps post events or sleep, .openApp launches an
             // installed app, .openURL opens a URL behind the macro executor's
             // http(s) allowlist, .webhook fires a request with no shell
-            // follow-up, and .custom only dispatches to handlers the host app
-            // itself registers (OBS WebSocket in ControllerKeys).
-            case .keyPress, .keyDown, .keyUp, .mouseClick, .mouseDown, .mouseUp,
-                 .mouseMove, .mouseScroll, .delay, .typeText, .openApp, .openURL,
-                 .webhook, .custom:
+			// follow-up, .clipboard writes local pasteboard text, .systemSetting
+			// uses fixed built-in system actions, .condition only gates later
+			// steps, and .custom only dispatches to handlers the host app itself
+			// registers (OBS WebSocket in ControllerKeys).
+			case .keyPress, .keyDown, .keyUp, .mouseClick, .mouseDown, .mouseUp,
+				 .mouseMove, .mouseScroll, .delay, .typeText, .openApp, .openURL,
+				 .webhook, .clipboard, .systemSetting, .condition, .custom:
                 break
             }
         }

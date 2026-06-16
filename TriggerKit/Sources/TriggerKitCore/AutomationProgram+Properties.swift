@@ -11,7 +11,7 @@ public extension AutomationStep {
 			return true
 		case .openApp(let step):
 			return step.openNewWindow
-		case .delay, .openURL, .shellCommand, .webhook, .custom:
+		case .delay, .openURL, .shellCommand, .webhook, .clipboard, .systemSetting, .condition, .custom:
 			return false
 		}
 	}

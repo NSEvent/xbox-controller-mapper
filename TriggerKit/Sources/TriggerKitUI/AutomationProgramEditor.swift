@@ -5,16 +5,25 @@ public struct AutomationProgramEditor: View {
 	@Binding private var program: AutomationProgram
 	private let showsNameField: Bool
 	private let capabilities: AutomationCapabilities
+	/// Optional host hook: when set, the editor shows a "Test" button that runs
+	/// the current program now and displays the returned outcome. Execution stays
+	/// host-owned (env vars, custom-action handling, target focus). `nil` hides
+	/// the button.
+	private let onTestRun: (@MainActor (AutomationProgram) async -> ProgramRunOutcome)?
 	@State private var expandedStepIndexes: Set<Int> = []
+	@State private var isTesting = false
+	@State private var testOutcome: ProgramRunOutcome?
 
 	public init(
 		program: Binding<AutomationProgram>,
 		showsNameField: Bool = true,
-		capabilities: AutomationCapabilities = .all
+		capabilities: AutomationCapabilities = .all,
+		onTestRun: (@MainActor (AutomationProgram) async -> ProgramRunOutcome)? = nil
 	) {
 		self._program = program
 		self.showsNameField = showsNameField
 		self.capabilities = capabilities
+		self.onTestRun = onTestRun
 	}
 
 	public var body: some View {
@@ -25,6 +34,10 @@ public struct AutomationProgramEditor: View {
 			}
 
 			stepList
+
+			if let testOutcome {
+				testResultLine(testOutcome)
+			}
 		}
 		.onAppear {
 			normalizeExpandedSteps()
@@ -49,6 +62,20 @@ public struct AutomationProgramEditor: View {
 					.foregroundStyle(.secondary)
 
 				Spacer()
+
+				if let onTestRun {
+					Button {
+						runTest(onTestRun)
+					} label: {
+						if isTesting {
+							ProgressView().controlSize(.small)
+						} else {
+							Label("Test", systemImage: "play.fill")
+						}
+					}
+					.disabled(isTesting || program.steps.isEmpty)
+					.help("Run these steps now")
+				}
 
 				Menu {
 					if capabilities.allows(.typeText) {
@@ -96,6 +123,35 @@ public struct AutomationProgramEditor: View {
 					if capabilities.allows(.shellCommand) {
 						addStepButton("Shell Command", systemImage: "terminal", kind: .shellCommand)
 					}
+					if allowsAny([.clipboard, .systemSetting, .condition]) {
+						Divider()
+					}
+					if capabilities.allows(.clipboard) {
+						addStepButton("Set Clipboard", systemImage: "doc.on.clipboard", kind: .clipboard)
+					}
+					if capabilities.allows(.systemSetting) {
+						addStepButton("System Setting", systemImage: "slider.horizontal.3", kind: .systemSetting)
+					}
+					if capabilities.allows(.condition) {
+						addStepButton("Condition (Only If…)", systemImage: "arrow.triangle.branch", kind: .condition)
+					}
+					let customActions = capabilities.allows(.custom) ? CustomActionRegistry.shared.descriptors : []
+					if !customActions.isEmpty {
+						Divider()
+						ForEach(customActionGroups(customActions)) { group in
+							if let title = group.title {
+								Section(title) {
+									ForEach(group.descriptors) { descriptor in
+										addCustomActionButton(descriptor)
+									}
+								}
+							} else {
+								ForEach(group.descriptors) { descriptor in
+									addCustomActionButton(descriptor)
+								}
+							}
+						}
+					}
 				} label: {
 					Label("Add", systemImage: "plus")
 				}
@@ -137,7 +193,7 @@ public struct AutomationProgramEditor: View {
 				.help(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
 
 				HStack(spacing: 8) {
-					Image(systemName: iconName(for: step.kind))
+					Image(systemName: iconName(for: step))
 						.frame(width: 18)
 						.foregroundStyle(allowed ? Color.accentColor : Color.secondary)
 
@@ -227,6 +283,69 @@ public struct AutomationProgramEditor: View {
 		}
 	}
 
+	private func addCustomActionButton(_ descriptor: CustomActionDescriptor) -> some View {
+		Button {
+			program.steps.append(.custom(descriptor.makeStep()))
+			expandedStepIndexes.insert(program.steps.count - 1)
+		} label: {
+			Label(descriptor.title, systemImage: descriptor.systemImage)
+		}
+	}
+
+	private struct CustomActionGroup: Identifiable {
+		let id: String
+		let title: String?
+		let descriptors: [CustomActionDescriptor]
+	}
+
+	/// Buckets descriptors by `category`, preserving first-seen order for both the
+	/// groups and the descriptors within each. Uncategorized descriptors form a
+	/// trailing headerless group.
+	private func customActionGroups(_ descriptors: [CustomActionDescriptor]) -> [CustomActionGroup] {
+		var order: [String] = []
+		var buckets: [String: [CustomActionDescriptor]] = [:]
+		for descriptor in descriptors {
+			let key = descriptor.category ?? ""
+			if buckets[key] == nil { order.append(key) }
+			buckets[key, default: []].append(descriptor)
+		}
+		return order.map { key in
+			CustomActionGroup(
+				id: key.isEmpty ? "_uncategorized" : key,
+				title: key.isEmpty ? nil : key,
+				descriptors: buckets[key] ?? []
+			)
+		}
+	}
+
+	private func runTest(_ runner: @escaping @MainActor (AutomationProgram) async -> ProgramRunOutcome) {
+		guard !isTesting, !program.steps.isEmpty else { return }
+		isTesting = true
+		testOutcome = nil
+		let snapshot = program
+		Task { @MainActor in
+			let outcome = await runner(snapshot)
+			testOutcome = outcome
+			isTesting = false
+		}
+	}
+
+	@ViewBuilder
+	private func testResultLine(_ outcome: ProgramRunOutcome) -> some View {
+		Label(outcome.message, systemImage: outcome.succeeded ? "checkmark.circle.fill" : "xmark.circle.fill")
+			.font(.caption)
+			.foregroundStyle(outcome.succeeded ? Color.green : Color.red)
+			.lineLimit(3)
+			.textSelection(.enabled)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.padding(.horizontal, 10)
+			.padding(.vertical, 6)
+			.background(
+				(outcome.succeeded ? Color.green : Color.red).opacity(0.10),
+				in: RoundedRectangle(cornerRadius: 6)
+			)
+	}
+
 	private func allowsAny(_ kinds: [AutomationStep.Kind]) -> Bool {
 		kinds.contains { capabilities.allows($0) }
 	}
@@ -279,6 +398,14 @@ public struct AutomationProgramEditor: View {
 		AutomationStep.defaultValue(for: kind)
 	}
 
+	private func iconName(for step: AutomationStep) -> String {
+		if case .custom(let custom) = step,
+		   let descriptor = CustomActionRegistry.shared.descriptor(for: custom.namespace) {
+			return descriptor.systemImage
+		}
+		return iconName(for: step.kind)
+	}
+
 	private func iconName(for kind: AutomationStep.Kind) -> String {
 		switch kind {
 		case .keyPress: return "keyboard"
@@ -295,6 +422,9 @@ public struct AutomationProgramEditor: View {
 		case .openURL: return "safari"
 		case .shellCommand: return "terminal"
 		case .webhook: return "antenna.radiowaves.left.and.right"
+		case .clipboard: return "doc.on.clipboard"
+		case .systemSetting: return "slider.horizontal.3"
+		case .condition: return "arrow.triangle.branch"
 		case .custom: return "puzzlepiece.extension"
 		}
 	}
@@ -340,6 +470,12 @@ private struct AutomationStepEditor: View {
 				shellCommandEditor
 			case .webhook:
 				webhookEditor
+			case .clipboard:
+				clipboardEditor
+			case .systemSetting:
+				systemSettingEditor
+			case .condition:
+				conditionEditor
 			case .custom:
 				customStepEditor
 			}
@@ -373,6 +509,9 @@ private struct AutomationStepEditor: View {
 		case .openURL: return "Open URL"
 		case .shellCommand: return "Shell Command"
 		case .webhook: return "Webhook"
+		case .clipboard: return "Set Clipboard"
+		case .systemSetting: return "System Setting"
+		case .condition: return "Condition"
 		case .custom: return "App Action"
 		}
 	}
@@ -469,6 +608,99 @@ private struct AutomationStepEditor: View {
 		}
 	}
 
+	private var clipboardEditor: some View {
+		VStack(alignment: .leading, spacing: 6) {
+			Text("Clipboard text")
+				.font(.caption)
+				.foregroundStyle(.secondary)
+			TextEditor(text: clipboardTextBinding)
+				.font(.system(.body, design: .monospaced))
+				.frame(height: 72)
+				.scrollContentBackground(.hidden)
+				.background(Color(nsColor: .controlBackgroundColor).opacity(0.55))
+				.clipShape(RoundedRectangle(cornerRadius: 7))
+			Text("Sets the clipboard. Add a Key Shortcut ⌘V afterward to paste.")
+				.font(.caption)
+				.foregroundStyle(.secondary)
+		}
+	}
+
+	private var systemSettingEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			Picker("Setting", selection: systemSettingActionBinding) {
+				ForEach(SystemSettingAction.allCases, id: \.self) { action in
+					Text(action.displayName).tag(action)
+				}
+			}
+			.labelsHidden()
+			.pickerStyle(.menu)
+
+			if systemSettingActionBinding.wrappedValue == .setVolume {
+				HStack(spacing: 8) {
+					Slider(value: systemSettingVolumeBinding, in: 0...100, step: 1)
+					Text("\(Int(systemSettingVolumeBinding.wrappedValue.rounded()))")
+						.font(.caption)
+						.monospacedDigit()
+						.foregroundStyle(.secondary)
+						.frame(minWidth: 32, alignment: .trailing)
+				}
+			}
+
+			if systemSettingActionBinding.wrappedValue == .toggleDarkMode {
+				Text("First run prompts to allow controlling System Events.")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
+		}
+	}
+
+	private var conditionEditor: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			Picker("Test", selection: conditionKindBinding) {
+				ForEach(ConditionKind.allCases, id: \.self) { kind in
+					Text(kind.displayName).tag(kind)
+				}
+			}
+			.labelsHidden()
+			.pickerStyle(.menu)
+
+			Toggle("Invert (skip when the condition is true)", isOn: conditionNegateBinding)
+				.font(.callout)
+
+			switch conditionKindBinding.wrappedValue {
+			case .online:
+				Text("Skips the remaining steps when offline.")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			case .appRunning:
+				VStack(alignment: .leading, spacing: 4) {
+					Text("Bundle ID")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					TextField("com.spotify.client", text: conditionBundleBinding)
+						.textFieldStyle(.roundedBorder)
+				}
+			case .timeWindow:
+				HStack(spacing: 8) {
+					Text("From")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					DatePicker("", selection: conditionStartBinding, displayedComponents: .hourAndMinute)
+						.labelsHidden()
+					Text("to")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					DatePicker("", selection: conditionEndBinding, displayedComponents: .hourAndMinute)
+						.labelsHidden()
+				}
+			}
+
+			Text(conditionBinding.wrappedValue.displaySummary)
+				.font(.caption)
+				.foregroundStyle(.secondary)
+		}
+	}
+
 	private var openAppEditor: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			InstalledAppPickerButton(bundleIdentifier: openAppBundleBinding.wrappedValue) {
@@ -551,7 +783,74 @@ private struct AutomationStepEditor: View {
 		}
 	}
 
+	@ViewBuilder
 	private var customStepEditor: some View {
+		if let descriptor = CustomActionRegistry.shared.descriptor(for: customBinding.wrappedValue.namespace) {
+			registeredCustomEditor(descriptor)
+		} else {
+			rawCustomEditor
+		}
+	}
+
+	private func registeredCustomEditor(_ descriptor: CustomActionDescriptor) -> some View {
+		VStack(alignment: .leading, spacing: 10) {
+			if descriptor.options.isEmpty {
+				Text("This action has no options.")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			} else {
+				ForEach(descriptor.options) { option in
+					optionRow(option)
+				}
+			}
+		}
+	}
+
+	@ViewBuilder
+	private func optionRow(_ option: CustomActionOption) -> some View {
+		VStack(alignment: .leading, spacing: 4) {
+			switch option.kind {
+			case .toggle(let defaultValue):
+				Toggle(option.label, isOn: boolOptionBinding(option.key, default: defaultValue))
+			case .text(let defaultValue, let placeholder):
+				Text(option.label)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				TextField(placeholder, text: stringOptionBinding(option.key, default: defaultValue))
+					.textFieldStyle(.roundedBorder)
+			case .number(let defaultValue, let range, let step):
+				Text(option.label)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				HStack(spacing: 8) {
+					Slider(value: doubleOptionBinding(option.key, default: defaultValue), in: range, step: step)
+					Text(numberDisplay(doubleOptionBinding(option.key, default: defaultValue).wrappedValue, step: step))
+						.font(.caption)
+						.monospacedDigit()
+						.foregroundStyle(.secondary)
+						.frame(minWidth: 32, alignment: .trailing)
+				}
+			case .picker(let defaultValue, let choices):
+				Text(option.label)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				Picker(option.label, selection: stringOptionBinding(option.key, default: defaultValue)) {
+					ForEach(choices) { choice in
+						Text(choice.label).tag(choice.value)
+					}
+				}
+				.labelsHidden()
+				.pickerStyle(.segmented)
+			}
+			if let help = option.help {
+				Text(help)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
+		}
+	}
+
+	private var rawCustomEditor: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			HStack(spacing: 6) {
 				Text("Namespace")
@@ -571,6 +870,54 @@ private struct AutomationStepEditor: View {
 					.textFieldStyle(.roundedBorder)
 			}
 		}
+	}
+
+	private func boolOptionBinding(_ key: String, default defaultValue: Bool) -> Binding<Bool> {
+		Binding(
+			get: {
+				CustomActionPayload.bool(key, in: customBinding.wrappedValue.payload, default: defaultValue)
+			},
+			set: { newValue in
+				var custom = customBinding.wrappedValue
+				custom.payload = CustomActionPayload.setting(newValue, for: key, in: custom.payload)
+				customBinding.wrappedValue = custom
+			}
+		)
+	}
+
+	private func doubleOptionBinding(_ key: String, default defaultValue: Double) -> Binding<Double> {
+		Binding(
+			get: {
+				CustomActionPayload.double(key, in: customBinding.wrappedValue.payload, default: defaultValue)
+			},
+			set: { newValue in
+				var custom = customBinding.wrappedValue
+				custom.payload = CustomActionPayload.setting(newValue, for: key, in: custom.payload)
+				customBinding.wrappedValue = custom
+			}
+		)
+	}
+
+	/// Formats a numeric option value: whole numbers when the step is integral,
+	/// otherwise one decimal place.
+	private func numberDisplay(_ value: Double, step: Double) -> String {
+		if step >= 1, step.rounded() == step {
+			return String(Int(value.rounded()))
+		}
+		return String(format: "%.1f", value)
+	}
+
+	private func stringOptionBinding(_ key: String, default defaultValue: String) -> Binding<String> {
+		Binding(
+			get: {
+				CustomActionPayload.string(key, in: customBinding.wrappedValue.payload, default: defaultValue)
+			},
+			set: { newValue in
+				var custom = customBinding.wrappedValue
+				custom.payload = CustomActionPayload.setting(newValue, for: key, in: custom.payload)
+				customBinding.wrappedValue = custom
+			}
+		)
 	}
 
 	private var keyStrokeBinding: Binding<KeyStroke> {
@@ -712,6 +1059,129 @@ private struct AutomationStepEditor: View {
 			get: { delayBinding.wrappedValue.seconds },
 			set: { delayBinding.wrappedValue = DelayStep(seconds: $0) }
 		)
+	}
+
+	private var clipboardBinding: Binding<ClipboardStep> {
+		Binding(
+			get: {
+				if case .clipboard(let clip) = step { return clip }
+				return ClipboardStep()
+			},
+			set: { step = .clipboard($0) }
+		)
+	}
+
+	private var clipboardTextBinding: Binding<String> {
+		Binding(
+			get: { clipboardBinding.wrappedValue.text },
+			set: { clipboardBinding.wrappedValue = ClipboardStep(text: $0) }
+		)
+	}
+
+	private var systemSettingBinding: Binding<SystemSettingStep> {
+		Binding(
+			get: {
+				if case .systemSetting(let setting) = step { return setting }
+				return SystemSettingStep(action: .setVolume)
+			},
+			set: { step = .systemSetting($0) }
+		)
+	}
+
+	private var systemSettingActionBinding: Binding<SystemSettingAction> {
+		Binding(
+			get: { systemSettingBinding.wrappedValue.action },
+			set: {
+				var setting = systemSettingBinding.wrappedValue
+				setting.action = $0
+				systemSettingBinding.wrappedValue = setting
+			}
+		)
+	}
+
+	private var systemSettingVolumeBinding: Binding<Double> {
+		Binding(
+			get: { Double(systemSettingBinding.wrappedValue.volume) },
+			set: {
+				var setting = systemSettingBinding.wrappedValue
+				setting.volume = Int($0.rounded())
+				systemSettingBinding.wrappedValue = setting
+			}
+		)
+	}
+
+	private var conditionBinding: Binding<ConditionStep> {
+		Binding(
+			get: {
+				if case .condition(let cond) = step { return cond }
+				return ConditionStep()
+			},
+			set: { step = .condition($0) }
+		)
+	}
+
+	private var conditionKindBinding: Binding<ConditionKind> {
+		Binding(
+			get: { conditionBinding.wrappedValue.kind },
+			set: {
+				var cond = conditionBinding.wrappedValue
+				cond.kind = $0
+				conditionBinding.wrappedValue = cond
+			}
+		)
+	}
+
+	private var conditionNegateBinding: Binding<Bool> {
+		Binding(
+			get: { conditionBinding.wrappedValue.negate },
+			set: {
+				var cond = conditionBinding.wrappedValue
+				cond.negate = $0
+				conditionBinding.wrappedValue = cond
+			}
+		)
+	}
+
+	private var conditionBundleBinding: Binding<String> {
+		Binding(
+			get: { conditionBinding.wrappedValue.bundleIdentifier },
+			set: {
+				var cond = conditionBinding.wrappedValue
+				cond.bundleIdentifier = $0
+				conditionBinding.wrappedValue = cond
+			}
+		)
+	}
+
+	private var conditionStartBinding: Binding<Date> {
+		Binding(
+			get: { Self.dateFromMinutes(conditionBinding.wrappedValue.startMinutes) },
+			set: {
+				var cond = conditionBinding.wrappedValue
+				cond.startMinutes = Self.minutesFromDate($0)
+				conditionBinding.wrappedValue = cond
+			}
+		)
+	}
+
+	private var conditionEndBinding: Binding<Date> {
+		Binding(
+			get: { Self.dateFromMinutes(conditionBinding.wrappedValue.endMinutes) },
+			set: {
+				var cond = conditionBinding.wrappedValue
+				cond.endMinutes = Self.minutesFromDate($0)
+				conditionBinding.wrappedValue = cond
+			}
+		)
+	}
+
+	private static func dateFromMinutes(_ minutes: Int) -> Date {
+		Calendar.current.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: Date()) ?? Date()
+	}
+
+	private static func minutesFromDate(_ date: Date) -> Int {
+		let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+		return (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
 	}
 
 	private var typeTextBinding: Binding<TypeTextStep> {

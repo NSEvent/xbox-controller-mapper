@@ -178,6 +178,183 @@ public struct WebhookStep: Codable, Equatable, Sendable {
 	}
 }
 
+/// Sets the system clipboard (general pasteboard) to a fixed string. Pairs with
+/// a later `keyPress` Cmd+V to paste, or just leaves the text ready to paste.
+public struct ClipboardStep: Codable, Equatable, Sendable {
+	public var text: String
+
+	public init(text: String = "") {
+		self.text = text
+	}
+
+	public var displaySummary: String {
+		text.isEmpty ? "Set clipboard" : "Copy \"\(String(text.prefix(32)))\""
+	}
+}
+
+/// Which system setting a `SystemSettingStep` changes.
+public enum SystemSettingAction: String, Codable, CaseIterable, Sendable {
+	case setVolume
+	case mute
+	case unmute
+	case sleepDisplay
+	case toggleDarkMode
+
+	public var displayName: String {
+		switch self {
+		case .setVolume: return "Set Volume"
+		case .mute: return "Mute"
+		case .unmute: return "Unmute"
+		case .sleepDisplay: return "Sleep Display"
+		case .toggleDarkMode: return "Toggle Dark Mode"
+		}
+	}
+}
+
+/// Changes a system-level setting (output volume, mute, display sleep, dark
+/// mode). Implemented host-side via signed system tools, so it needs no input
+/// (Accessibility) permission.
+public struct SystemSettingStep: Codable, Equatable, Sendable {
+	public var action: SystemSettingAction
+	/// Output volume 0–100, used only when `action == .setVolume`.
+	public var volume: Int {
+		didSet { volume = Self.clampedVolume(volume) }
+	}
+
+	public init(action: SystemSettingAction, volume: Int = 50) {
+		self.action = action
+		self.volume = Self.clampedVolume(volume)
+	}
+
+	public var displaySummary: String {
+		switch action {
+		case .setVolume: return "Set volume \(volume)"
+		default: return action.displayName
+		}
+	}
+
+	private static func clampedVolume(_ value: Int) -> Int {
+		min(max(0, value), 100)
+	}
+
+	private enum CodingKeys: String, CodingKey {
+		case action
+		case volume
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		self.init(
+			action: try container.decode(SystemSettingAction.self, forKey: .action),
+			volume: try container.decodeIfPresent(Int.self, forKey: .volume) ?? 50
+		)
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: CodingKeys.self)
+		try container.encode(action, forKey: .action)
+		try container.encode(volume, forKey: .volume)
+	}
+}
+
+/// What a `ConditionStep` tests before allowing the rest of the program to run.
+public enum ConditionKind: String, Codable, CaseIterable, Sendable {
+	case online
+	case appRunning
+	case timeWindow
+
+	public var displayName: String {
+		switch self {
+		case .online: return "Online"
+		case .appRunning: return "App Running"
+		case .timeWindow: return "Time Window"
+		}
+	}
+}
+
+/// A guard step: if its condition isn't met, the rest of the program is skipped
+/// (reported as a successful no-op, not a failure). Lets a program say "only
+/// auto-play between 09:00–22:00" or "only run if online". `negate` flips the
+/// test ("unless" instead of "only if").
+public struct ConditionStep: Codable, Equatable, Sendable {
+	public var kind: ConditionKind
+	public var negate: Bool
+	/// Bundle id tested when `kind == .appRunning`.
+	public var bundleIdentifier: String
+	/// Minutes since midnight; window is [start, end) when `kind == .timeWindow`.
+	/// A start later than end wraps past midnight (e.g. 22:00–06:00).
+	public var startMinutes: Int {
+		didSet { startMinutes = Self.clampedMinutes(startMinutes) }
+	}
+	public var endMinutes: Int {
+		didSet { endMinutes = Self.clampedMinutes(endMinutes) }
+	}
+
+	public init(
+		kind: ConditionKind = .online,
+		negate: Bool = false,
+		bundleIdentifier: String = "",
+		startMinutes: Int = 9 * 60,
+		endMinutes: Int = 22 * 60
+	) {
+		self.kind = kind
+		self.negate = negate
+		self.bundleIdentifier = bundleIdentifier
+		self.startMinutes = Self.clampedMinutes(startMinutes)
+		self.endMinutes = Self.clampedMinutes(endMinutes)
+	}
+
+	public var displaySummary: String {
+		let prefix = negate ? "Unless" : "Only if"
+		switch kind {
+		case .online:
+			return "\(prefix) online"
+		case .appRunning:
+			let app = bundleIdentifier.isEmpty ? "app" : bundleIdentifier
+			return "\(prefix) \(app) running"
+		case .timeWindow:
+			return "\(prefix) \(Self.clockString(startMinutes))–\(Self.clockString(endMinutes))"
+		}
+	}
+
+	private static func clampedMinutes(_ value: Int) -> Int {
+		min(max(0, value), 24 * 60 - 1)
+	}
+
+	static func clockString(_ minutes: Int) -> String {
+		let clamped = min(max(0, minutes), 24 * 60 - 1)
+		return String(format: "%02d:%02d", clamped / 60, clamped % 60)
+	}
+
+	private enum CodingKeys: String, CodingKey {
+		case kind
+		case negate
+		case bundleIdentifier
+		case startMinutes
+		case endMinutes
+	}
+
+	public init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		self.init(
+			kind: try container.decode(ConditionKind.self, forKey: .kind),
+			negate: try container.decodeIfPresent(Bool.self, forKey: .negate) ?? false,
+			bundleIdentifier: try container.decodeIfPresent(String.self, forKey: .bundleIdentifier) ?? "",
+			startMinutes: try container.decodeIfPresent(Int.self, forKey: .startMinutes) ?? 9 * 60,
+			endMinutes: try container.decodeIfPresent(Int.self, forKey: .endMinutes) ?? 22 * 60
+		)
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: CodingKeys.self)
+		try container.encode(kind, forKey: .kind)
+		try container.encode(negate, forKey: .negate)
+		try container.encode(bundleIdentifier, forKey: .bundleIdentifier)
+		try container.encode(startMinutes, forKey: .startMinutes)
+		try container.encode(endMinutes, forKey: .endMinutes)
+	}
+}
+
 /// A host-app-specific step. TriggerKit carries it through programs and
 /// persistence untouched; execution requires the host to supply a
 /// `stepOverride` in `TriggerExecutionContext`, otherwise the step fails.

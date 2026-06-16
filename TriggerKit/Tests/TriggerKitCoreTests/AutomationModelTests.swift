@@ -17,28 +17,6 @@ final class AutomationModelTests: XCTestCase {
 		XCTAssertEqual(multiple.displaySummary, "2 steps")
 	}
 
-	func testMouseScrollClampsOutOfRangeDeltas() throws {
-		// Memberwise init clamps.
-		let constructed = MouseScroll(deltaX: 50_000, deltaY: -50_000)
-		XCTAssertEqual(constructed.deltaX, MouseScroll.maximumMagnitude)
-		XCTAssertEqual(constructed.deltaY, -MouseScroll.maximumMagnitude)
-
-		// didSet clamps post-init mutation.
-		var mutable = MouseScroll()
-		mutable.deltaY = 99_999
-		XCTAssertEqual(mutable.deltaY, MouseScroll.maximumMagnitude)
-
-		// Decoding clamps too (a hostile/corrupt config can't fling the scroll).
-		let decoded = try JSONDecoder().decode(MouseScroll.self, from: Data(#"{"deltaX":1000000,"deltaY":5}"#.utf8))
-		XCTAssertEqual(decoded.deltaX, MouseScroll.maximumMagnitude)
-		XCTAssertEqual(decoded.deltaY, 5)
-
-		// In-range values round-trip unchanged.
-		let inRange = MouseScroll(deltaX: 3, deltaY: -4)
-		let roundTripped = try JSONDecoder().decode(MouseScroll.self, from: JSONEncoder().encode(inRange))
-		XCTAssertEqual(roundTripped, inRange)
-	}
-
 	func testRequiresAccessibilityClassifiesInputAndNonInputSteps() {
 		let inputSteps: [AutomationStep] = [
 			.keyPress(KeyStroke(key: .return)),

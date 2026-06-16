@@ -39,6 +39,9 @@ final class AutomationProgramCodableTests: XCTestCase {
 			.openURL(OpenURLStep(url: "https://kevintang.xyz")),
 			.shellCommand(ShellCommandStep(command: "echo hi", shellPath: "/bin/sh", timeoutSeconds: 4, runsInTerminal: true)),
 			.webhook(WebhookStep(url: "https://example.com/hook", method: .put, headers: ["X-Token": "abc"], body: "{\"ok\":true}", timeoutSeconds: 6)),
+			.clipboard(ClipboardStep(text: "copied text")),
+			.systemSetting(SystemSettingStep(action: .setVolume, volume: 65)),
+			.condition(ConditionStep(kind: .timeWindow, negate: true, bundleIdentifier: "com.spotify.client", startMinutes: 9 * 60, endMinutes: 22 * 60)),
 			.custom(CustomStep(namespace: "controllerkeys.obs-websocket", payload: "{\"requestType\":\"ToggleRecord\"}", displayName: "OBS: ToggleRecord"))
 		]
 
@@ -99,6 +102,9 @@ final class AutomationProgramCodableTests: XCTestCase {
 			.openURL: "openURL",
 			.shellCommand: "shellCommand",
 			.webhook: "webhook",
+			.clipboard: "clipboard",
+			.systemSetting: "systemSetting",
+			.condition: "condition",
 			.custom: "custom"
 		]
 
@@ -129,11 +135,20 @@ final class AutomationProgramCodableTests: XCTestCase {
 		XCTAssertThrowsError(try JSONDecoder().decode(AutomationProgram.self, from: data))
 	}
 
-	func testProgramDecodingDropsUnsupportedFutureSteps() throws {
+	func testProgramDecodingAcceptsPreviousSchemaVersion() throws {
+		let data = #"{"id":"11111111-1111-1111-1111-111111111111","schemaVersion":1,"name":"Old","steps":[{"kind":"delay","delay":{"seconds":2}}]}"#.data(using: .utf8)!
+
+		let program = try JSONDecoder().decode(AutomationProgram.self, from: data)
+
+		XCTAssertEqual(program.schemaVersion, AutomationProgram.currentSchemaVersion)
+		XCTAssertEqual(program.steps, [.delay(DelayStep(seconds: 2))])
+	}
+
+	func testProgramDecodingRejectsUnsupportedFutureSteps() {
 		let data = """
 		{
 			"id": "11111111-1111-1111-1111-111111111111",
-			"schemaVersion": 1,
+			"schemaVersion": \(AutomationProgram.currentSchemaVersion),
 			"name": "Mixed",
 			"steps": [
 				{"kind": "delay", "delay": {"seconds": 2}},
@@ -143,13 +158,7 @@ final class AutomationProgramCodableTests: XCTestCase {
 		}
 		""".data(using: .utf8)!
 
-		let program = try JSONDecoder().decode(AutomationProgram.self, from: data)
-
-		XCTAssertEqual(program.schemaVersion, AutomationProgram.currentSchemaVersion)
-		XCTAssertEqual(program.steps, [
-			.delay(DelayStep(seconds: 2)),
-			.openURL(OpenURLStep(url: "https://kevintang.xyz"))
-		])
+		XCTAssertThrowsError(try JSONDecoder().decode(AutomationProgram.self, from: data))
 	}
 
 	func testModifierDisplayPreservesSideLabels() {

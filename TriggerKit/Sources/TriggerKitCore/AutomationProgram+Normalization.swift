@@ -41,6 +41,10 @@ public extension AutomationStep {
 				body: webhook.body,
 				timeoutSeconds: webhook.timeoutSeconds
 			))
+		case .condition(let condition):
+			var trimmed = condition
+			trimmed.bundleIdentifier = condition.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+			return .condition(trimmed)
 		case .custom(let custom):
 			return .custom(CustomStep(
 				namespace: custom.namespace.trimmingCharacters(in: .whitespacesAndNewlines),

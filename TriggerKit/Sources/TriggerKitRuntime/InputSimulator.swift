@@ -4,7 +4,8 @@ import Carbon.HIToolbox
 import Foundation
 import TriggerKitCore
 
-public protocol InputSimulating: Sendable {
+@MainActor
+public protocol InputSimulating {
 	var isInputPostingAvailable: Bool { get }
 	func keyPress(_ stroke: KeyStroke) async
 	func keyDown(_ event: KeyEvent)
@@ -21,15 +22,9 @@ public extension InputSimulating {
 	var isInputPostingAvailable: Bool { true }
 }
 
-/// Posts synthetic input via CoreGraphics. Deliberately *not* `@MainActor`:
-/// CGEvent posting works from any thread, and keeping it off the main actor
-/// lets the executor run programs on a background task (matching the original
-/// `Task.detached` macro path) without blocking UI. The two modifier-tracking
-/// dictionaries are the only mutable state, so they are guarded by `stateLock`
-/// to stay safe when a host fires concurrent programs against one instance.
-public final class InputSimulator: InputSimulating, @unchecked Sendable {
+@MainActor
+public final class InputSimulator: InputSimulating {
 	private let source = CGEventSource(stateID: .hidSystemState)
-	private let stateLock = NSLock()
 	private var activeKeyDownModifiers: [TriggerKey: ModifierSet] = [:]
 	private var activeMouseDownModifiers: [MouseButton: ModifierSet] = [:]
 
@@ -41,13 +36,6 @@ public final class InputSimulator: InputSimulating, @unchecked Sendable {
 
 	public func keyPress(_ stroke: KeyStroke) async {
 		if TriggerKey.isMediaOrSystemKeyCode(stroke.key.keyCode) {
-			// Honor modifiers on media/system keys (e.g. a configured
-			// Shift+BrightnessUp) — mirror the keyDown path, which posts them.
-			// Release in a defer: pressMediaKey awaits a short sleep, and if the
-			// program is cancelled there the modifier must not be left held.
-			let flags = InputEventMapper.eventFlags(for: stroke)
-			postModifierKeys(stroke.modifiers, keyDown: true, flags: flags)
-			defer { postModifierKeys(stroke.modifiers, keyDown: false) }
 			await pressMediaKey(stroke.key)
 			return
 		}
@@ -64,15 +52,19 @@ public final class InputSimulator: InputSimulating, @unchecked Sendable {
 		postModifierKeys(event.modifiers, keyDown: true, flags: flags)
 		if TriggerKey.isMediaOrSystemKeyCode(event.key.keyCode) {
 			postMediaKey(event.key, keyDown: true)
-			rememberKeyDownModifiers(event)
+			if !event.modifiers.isEmpty {
+				activeKeyDownModifiers[event.key] = event.modifiers
+			}
 			return
 		}
 		postKey(CGKeyCode(event.key.keyCode), keyDown: true, flags: flags)
-		rememberKeyDownModifiers(event)
+		if !event.modifiers.isEmpty {
+			activeKeyDownModifiers[event.key] = event.modifiers
+		}
 	}
 
 	public func keyUp(_ event: KeyEvent) {
-		let storedModifiers = forgetKeyDownModifiers(event)
+		let storedModifiers = activeKeyDownModifiers.removeValue(forKey: event.key)
 		let modifiers = storedModifiers ?? event.modifiers
 		let flags = InputEventMapper.eventFlags(for: modifiers).union(InputEventMapper.specialKeyFlags(for: event.key))
 		if storedModifiers == nil {
@@ -101,16 +93,12 @@ public final class InputSimulator: InputSimulating, @unchecked Sendable {
 		postModifierKeys(event.modifiers, keyDown: true, flags: flags)
 		postMouse(event.button, mouseDown: true, flags: flags)
 		if !event.modifiers.isEmpty {
-			stateLock.lock()
 			activeMouseDownModifiers[event.button] = event.modifiers
-			stateLock.unlock()
 		}
 	}
 
 	public func mouseUp(_ event: MouseButtonEvent) {
-		stateLock.lock()
 		let storedModifiers = activeMouseDownModifiers.removeValue(forKey: event.button)
-		stateLock.unlock()
 		let modifiers = storedModifiers ?? event.modifiers
 		let flags = InputEventMapper.eventFlags(for: modifiers)
 		if storedModifiers == nil {
@@ -154,19 +142,6 @@ public final class InputSimulator: InputSimulating, @unchecked Sendable {
 			await settleAfterShortcut()
 			await keyPress(KeyStroke(key: .return))
 		}
-	}
-
-	private func rememberKeyDownModifiers(_ event: KeyEvent) {
-		guard !event.modifiers.isEmpty else { return }
-		stateLock.lock()
-		activeKeyDownModifiers[event.key] = event.modifiers
-		stateLock.unlock()
-	}
-
-	private func forgetKeyDownModifiers(_ event: KeyEvent) -> ModifierSet? {
-		stateLock.lock()
-		defer { stateLock.unlock() }
-		return activeKeyDownModifiers.removeValue(forKey: event.key)
 	}
 
 	private func postKey(_ keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags = []) {
@@ -232,25 +207,18 @@ public final class InputSimulator: InputSimulating, @unchecked Sendable {
 		pasteboard.clearContents()
 		pasteboard.setString(text, forType: .string)
 		let temporaryChangeCount = pasteboard.changeCount
-		// Restore in a defer: the awaits below are cancellation points, and if
-		// the program is cancelled mid-paste the user's real clipboard must not
-		// be left holding our injected text.
-		defer { snapshot.restore(to: .general, ifChangeCountMatches: temporaryChangeCount) }
 		await keyPress(KeyStroke(key: TriggerKey(id: "v", keyCode: 9, displayName: "V"), modifiers: ModifierSet(command: .any)))
 		try? await Task.sleep(nanoseconds: 200_000_000)
+		snapshot.restore(to: .general, ifChangeCountMatches: temporaryChangeCount)
 	}
 
 	private func typeUnicode(_ text: String, charactersPerMinute: Int? = nil) async {
 		let interCharacterDelay: UInt64? = charactersPerMinute.flatMap { pace in
 			pace > 0 ? UInt64((60.0 / Double(pace)) * 1_000_000_000) : nil
 		}
-		// Iterate grapheme clusters, not scalars: flag emoji (🇺🇸), skin-tone /
-		// ZWJ sequences (👨‍👩‍👧), and base+combining-mark characters are built from
-		// multiple scalars and must be posted as one event or they render broken.
-		for character in text {
-			let chars = Array(String(character).utf16)
-			guard !chars.isEmpty,
-			      let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+		for scalar in text.unicodeScalars {
+			let chars = Array(String(scalar).utf16)
+			guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
 			      let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
 				continue
 			}

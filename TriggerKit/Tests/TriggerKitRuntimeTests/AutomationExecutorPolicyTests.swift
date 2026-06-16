@@ -239,7 +239,7 @@ final class AutomationExecutorPolicyTests: XCTestCase {
 
 // MARK: - Test doubles
 
-private final class RecordingInputSimulator: InputSimulating, @unchecked Sendable {
+private final class RecordingInputSimulator: InputSimulating {
 	private(set) var keyPresses: [KeyStroke] = []
 
 	func keyPress(_ stroke: KeyStroke) async { keyPresses.append(stroke) }

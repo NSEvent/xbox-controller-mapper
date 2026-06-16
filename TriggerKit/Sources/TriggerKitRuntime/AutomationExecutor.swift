@@ -2,6 +2,7 @@ import Carbon.HIToolbox
 import Darwin
 import AppKit
 import Foundation
+import SystemConfiguration
 import TriggerKitCore
 
 public enum TriggerExecutionConcurrencyPolicy: Equatable, Sendable {
@@ -94,12 +95,8 @@ public enum TriggerExecutionResult: Equatable, Sendable {
 	}
 }
 
-/// Drives an `AutomationProgram` to completion. Deliberately *not* `@MainActor`:
-/// programs run on a background task (as the original ControllerKeys macro path
-/// did via `Task.detached`) so a multi-step macro with delays never occupies the
-/// main run loop. Steps that touch main-thread-affine AppKit APIs (NSWorkspace,
-/// NSAppleScript) hop to the main actor explicitly.
-public final class AutomationExecutor: Sendable {
+@MainActor
+public final class AutomationExecutor {
 	private static let executionGate = AutomationExecutionGate()
 	private let input: InputSimulating
 
@@ -136,11 +133,6 @@ public final class AutomationExecutor: Sendable {
 		_ program: AutomationProgram,
 		context: TriggerExecutionContext
 	) async -> TriggerExecutionResult {
-		// Track inputs the program pressed-and-held but has not yet released.
-		// On any abnormal exit — cancellation, a thrown error, or a failure
-		// abort (continuesOnStepFailure == false) — replay their releases in
-		// reverse order so a mid-sequence macro can never leave a key, modifier,
-		// or mouse button stuck down on the user's system.
 		var heldKeys: [KeyEvent] = []
 		var heldMouseButtons: [MouseButtonEvent] = []
 		var finishedCleanly = false
@@ -150,6 +142,7 @@ public final class AutomationExecutor: Sendable {
 				for event in heldKeys.reversed() { input.keyUp(event) }
 			}
 		}
+
 		do {
 			try Task.checkCancellation()
 			if let disallowedStep = program.steps.first(where: { !context.policy.capabilities.allows($0.kind) }) {
@@ -164,24 +157,33 @@ public final class AutomationExecutor: Sendable {
 			var failedSteps = 0
 			for step in program.steps {
 				try Task.checkCancellation()
+				// A condition gates the rest of the program: if it isn't met, stop
+				// here and report a successful no-op (an intentional skip, not a
+				// failure), so e.g. a quiet-hours guard doesn't log errors nightly.
+				if case .condition(let condition) = step {
+					if await evaluateCondition(condition) {
+						continue
+					}
+					context.logger("Skipped — \(condition.displaySummary)")
+					return .success("Skipped — \(condition.displaySummary)")
+				}
 				let result = await execute(step, context: context)
 				if result.isSuccess {
-					// Pair each release with the most recent matching press (LIFO)
-					// rather than clearing every match, so a re-pressed key
-					// (keyDown A, keyDown A, keyUp A) still leaves one held — and
-					// abort cleanup replays the right number of releases.
 					switch step {
-					case .keyDown(let event): heldKeys.append(event)
+					case .keyDown(let event):
+						heldKeys.append(event)
 					case .keyUp(let event):
 						if let index = heldKeys.lastIndex(where: { $0.key == event.key }) {
 							heldKeys.remove(at: index)
 						}
-					case .mouseDown(let event): heldMouseButtons.append(event)
+					case .mouseDown(let event):
+						heldMouseButtons.append(event)
 					case .mouseUp(let event):
 						if let index = heldMouseButtons.lastIndex(where: { $0.button == event.button }) {
 							heldMouseButtons.remove(at: index)
 						}
-					default: break
+					default:
+						break
 					}
 				} else {
 					guard context.policy.continuesOnStepFailure else {
@@ -191,13 +193,14 @@ public final class AutomationExecutor: Sendable {
 					context.logger("Step failed: \(result.message)")
 				}
 			}
-			finishedCleanly = true
 			if program.steps.isEmpty {
 				return .success("No actions")
 			}
 			if failedSteps > 0 {
+				finishedCleanly = true
 				return .success("Completed \(program.steps.count) step(s), \(failedSteps) failed")
 			}
+			finishedCleanly = true
 			return .success("Completed \(program.steps.count) step(s)")
 		} catch is CancellationError {
 			return .failure("Cancelled")
@@ -243,10 +246,10 @@ public final class AutomationExecutor: Sendable {
 		case .openApp(let app):
 			return await openApp(app)
 		case .openURL(let url):
-			return await openURL(url, allowedSchemes: context.policy.allowedURLSchemes)
+			return openURL(url, allowedSchemes: context.policy.allowedURLSchemes)
 		case .shellCommand(let shell):
 			if shell.runsInTerminal {
-				return await runShellInTerminal(shell)
+				return runShellInTerminal(shell)
 			}
 			let outcome = await runShell(
 				shell,
@@ -259,9 +262,119 @@ public final class AutomationExecutor: Sendable {
 			return outcome.result
 		case .webhook(let webhook):
 			return await runWebhook(webhook, session: context.urlSession)
+		case .clipboard(let clipboard):
+			return setClipboard(clipboard)
+		case .systemSetting(let setting):
+			return await runSystemSetting(setting)
+		case .condition(let condition):
+			// Normally intercepted by the program loop; if a host executes a
+			// single condition step directly, surface the boolean as a result.
+			return await evaluateCondition(condition)
+				? .success("Condition met — \(condition.displaySummary)")
+				: .failure("Condition not met — \(condition.displaySummary)")
 		case .custom(let custom):
 			return .failure("No handler for app action: \(custom.namespace)")
 		}
+	}
+
+	private func setClipboard(_ step: ClipboardStep) -> TriggerExecutionResult {
+		let pasteboard = NSPasteboard.general
+		pasteboard.clearContents()
+		pasteboard.setString(step.text, forType: .string)
+		return .success(step.displaySummary)
+	}
+
+	private func runSystemSetting(_ step: SystemSettingStep) async -> TriggerExecutionResult {
+		switch step.action {
+		case .setVolume:
+			let level = min(max(0, step.volume), 100)
+			return await runOSAScript("set volume output volume \(level)", success: "Set volume \(level)")
+		case .mute:
+			return await runOSAScript("set volume with output muted", success: "Muted")
+		case .unmute:
+			return await runOSAScript("set volume without output muted", success: "Unmuted")
+		case .sleepDisplay:
+			return await runProcess("/usr/bin/pmset", ["displaysleepnow"], success: "Display asleep")
+		case .toggleDarkMode:
+			// Sends an Apple event to System Events; the host's first run triggers
+			// a one-time macOS automation-consent prompt.
+			let script = "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"
+			return await runOSAScript(script, success: "Toggled Dark Mode")
+		}
+	}
+
+	private func runOSAScript(_ script: String, success: String) async -> TriggerExecutionResult {
+		await runProcess("/usr/bin/osascript", ["-e", script], success: success)
+	}
+
+	/// Spawns a signed system executable as a child process and maps its exit
+	/// status to a result. Spawning (rather than in-process `NSAppleScript`)
+	/// keeps Standard-Additions calls clear of the Apple-events entitlement.
+	private nonisolated func runProcess(_ executablePath: String, _ arguments: [String], success: String) async -> TriggerExecutionResult {
+		await Task.detached(priority: .userInitiated) {
+			let name = (executablePath as NSString).lastPathComponent
+			let process = Process()
+			process.executableURL = URL(fileURLWithPath: executablePath)
+			process.arguments = arguments
+
+			let pipe = Pipe()
+			process.standardOutput = pipe
+			process.standardError = pipe
+
+			do {
+				try process.run()
+			} catch {
+				return .failure("\(name) launch failed: \(error.localizedDescription)")
+			}
+			process.waitUntilExit()
+
+			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			let output = String(data: data, encoding: .utf8)?
+				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+			if process.terminationStatus == 0 {
+				return .success(success)
+			}
+			return .failure(output.isEmpty ? "\(name) exit \(process.terminationStatus)" : output)
+		}.value
+	}
+
+	private func evaluateCondition(_ step: ConditionStep) async -> Bool {
+		let raw: Bool
+		switch step.kind {
+		case .online:
+			raw = Self.isOnline()
+		case .appRunning:
+			let target = step.bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+			raw = !target.isEmpty && NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == target }
+		case .timeWindow:
+			raw = Self.isWithinWindow(start: step.startMinutes, end: step.endMinutes)
+		}
+		return step.negate ? !raw : raw
+	}
+
+	/// General internet reachability via SystemConfiguration — synchronous and
+	/// fast (no network round-trip), checks the route to a zero address.
+	private nonisolated static func isOnline() -> Bool {
+		var address = sockaddr()
+		address.sa_len = UInt8(MemoryLayout<sockaddr>.size)
+		address.sa_family = sa_family_t(AF_INET)
+		guard let reachability = withUnsafePointer(to: &address, {
+			SCNetworkReachabilityCreateWithAddress(nil, $0)
+		}) else { return false }
+		var flags = SCNetworkReachabilityFlags()
+		guard SCNetworkReachabilityGetFlags(reachability, &flags) else { return false }
+		return flags.contains(.reachable) && !flags.contains(.connectionRequired)
+	}
+
+	/// True if the current local time is inside [start, end) minutes-since-midnight.
+	/// A start ≥ end wraps past midnight (e.g. 22:00–06:00).
+	private nonisolated static func isWithinWindow(start: Int, end: Int) -> Bool {
+		let now = Calendar.current.dateComponents([.hour, .minute], from: Date())
+		let minutes = (now.hour ?? 0) * 60 + (now.minute ?? 0)
+		if start == end { return true }
+		if start < end { return minutes >= start && minutes < end }
+		return minutes >= start || minutes < end
 	}
 
 	private func wait(_ delay: DelayStep) async -> TriggerExecutionResult {
@@ -276,26 +389,19 @@ public final class AutomationExecutor: Sendable {
 	}
 
 	private func openApp(_ step: OpenAppStep) async -> TriggerExecutionResult {
-		let bundleIdentifier = step.bundleIdentifier
-		// NSWorkspace lookups/launches are main-thread-affine; hop to the main
-		// actor now that the executor itself runs on a background task.
-		guard let appURL = await MainActor.run(body: {
-			NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
-		}) else {
-			return .failure("App not found: \(bundleIdentifier)")
+		guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: step.bundleIdentifier) else {
+			return .failure("App not found: \(step.bundleIdentifier)")
 		}
+		let configuration = NSWorkspace.OpenConfiguration()
+		configuration.activates = true
 		let result: TriggerExecutionResult = await withCheckedContinuation { continuation in
-			Task { @MainActor in
-				let configuration = NSWorkspace.OpenConfiguration()
-				configuration.activates = true
-				NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { app, error in
-					if let error {
-						continuation.resume(returning: .failure(error.localizedDescription))
-					} else if app == nil {
-						continuation.resume(returning: .failure("Could not open app: \(bundleIdentifier)"))
-					} else {
-						continuation.resume(returning: .success("Opened \(bundleIdentifier)"))
-					}
+			NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { app, error in
+				if let error {
+					continuation.resume(returning: .failure(error.localizedDescription))
+				} else if app == nil {
+					continuation.resume(returning: .failure("Could not open app: \(step.bundleIdentifier)"))
+				} else {
+					continuation.resume(returning: .success("Opened \(step.bundleIdentifier)"))
 				}
 			}
 		}
@@ -303,12 +409,12 @@ public final class AutomationExecutor: Sendable {
 		if step.openNewWindow {
 			try? await Task.sleep(nanoseconds: 300_000_000)
 			await input.keyPress(KeyStroke(key: newWindowKey, modifiers: ModifierSet(command: .any)))
-			return .success("Opened \(bundleIdentifier) and requested a new window")
+			return .success("Opened \(step.bundleIdentifier) and requested a new window")
 		}
 		return result
 	}
 
-	private func openURL(_ step: OpenURLStep, allowedSchemes: Set<String>?) async -> TriggerExecutionResult {
+	private func openURL(_ step: OpenURLStep, allowedSchemes: Set<String>?) -> TriggerExecutionResult {
 		let urlString = step.url.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard let url = URL(string: urlString), let scheme = url.scheme?.lowercased(), !scheme.isEmpty else {
 			return .failure("Invalid URL")
@@ -316,8 +422,7 @@ public final class AutomationExecutor: Sendable {
 		if let allowedSchemes, !allowedSchemes.contains(scheme) {
 			return .failure("URL scheme not allowed: \(scheme)")
 		}
-		let opened = await MainActor.run { NSWorkspace.shared.open(url) }
-		guard opened else {
+		guard NSWorkspace.shared.open(url) else {
 			return .failure("Could not open URL: \(urlString)")
 		}
 		return .success("Opened \(urlString)")
@@ -350,7 +455,7 @@ public final class AutomationExecutor: Sendable {
 		}
 	}
 
-	private func runShellInTerminal(_ step: ShellCommandStep) async -> TriggerExecutionResult {
+	private func runShellInTerminal(_ step: ShellCommandStep) -> TriggerExecutionResult {
 		let command = step.command.trimmingCharacters(in: .whitespacesAndNewlines)
 		guard !command.isEmpty else {
 			return .failure("Empty terminal command")
@@ -364,15 +469,12 @@ public final class AutomationExecutor: Sendable {
 			do script "\(escaped)"
 		end tell
 		"""
-		// NSAppleScript must run on the main thread.
-		return await MainActor.run {
-			var error: NSDictionary?
-			NSAppleScript(source: script)?.executeAndReturnError(&error)
-			if let error, let message = error[NSAppleScript.errorMessage] as? String {
-				return .failure("Terminal launch failed: \(message)")
-			}
-			return .success("Ran in Terminal")
+		var error: NSDictionary?
+		NSAppleScript(source: script)?.executeAndReturnError(&error)
+		if let error, let message = error[NSAppleScript.errorMessage] as? String {
+			return .failure("Terminal launch failed: \(message)")
 		}
+		return .success("Ran in Terminal")
 	}
 
 	private nonisolated func runShell(

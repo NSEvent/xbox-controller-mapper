@@ -15,6 +15,9 @@ public enum AutomationStep: Equatable, Sendable {
 	case openURL(OpenURLStep)
 	case shellCommand(ShellCommandStep)
 	case webhook(WebhookStep)
+	case clipboard(ClipboardStep)
+	case systemSetting(SystemSettingStep)
+	case condition(ConditionStep)
 	case custom(CustomStep)
 }
 
@@ -34,6 +37,9 @@ public extension AutomationStep {
 		case openURL
 		case shellCommand
 		case webhook
+		case clipboard
+		case systemSetting
+		case condition
 		case custom
 
 		public var displayName: String {
@@ -52,6 +58,9 @@ public extension AutomationStep {
 			case .openURL: return "Open URL"
 			case .shellCommand: return "Shell Command"
 			case .webhook: return "Webhook"
+			case .clipboard: return "Set Clipboard"
+			case .systemSetting: return "System Setting"
+			case .condition: return "Condition"
 			case .custom: return "App Action"
 			}
 		}
@@ -73,6 +82,9 @@ public extension AutomationStep {
 		case .openURL: return .openURL
 		case .shellCommand: return .shellCommand
 		case .webhook: return .webhook
+		case .clipboard: return .clipboard
+		case .systemSetting: return .systemSetting
+		case .condition: return .condition
 		case .custom: return .custom
 		}
 	}
@@ -106,6 +118,12 @@ public extension AutomationStep {
 		case .shellCommand(let step):
 			return step.displaySummary
 		case .webhook(let step):
+			return step.displaySummary
+		case .clipboard(let step):
+			return step.displaySummary
+		case .systemSetting(let step):
+			return step.displaySummary
+		case .condition(let step):
 			return step.displaySummary
 		case .custom(let step):
 			return step.displaySummary
@@ -142,6 +160,12 @@ public extension AutomationStep {
 			return .shellCommand(ShellCommandStep(command: ""))
 		case .webhook:
 			return .webhook(WebhookStep(url: ""))
+		case .clipboard:
+			return .clipboard(ClipboardStep())
+		case .systemSetting:
+			return .systemSetting(SystemSettingStep(action: .setVolume))
+		case .condition:
+			return .condition(ConditionStep())
 		case .custom:
 			return .custom(CustomStep(namespace: ""))
 		}
@@ -163,6 +187,9 @@ extension AutomationStep: Codable {
 		case openURL
 		case shellCommand
 		case webhook
+		case clipboard
+		case systemSetting
+		case condition
 		case custom
 	}
 
@@ -198,6 +225,12 @@ extension AutomationStep: Codable {
 			self = .shellCommand(try container.decode(ShellCommandStep.self, forKey: .shellCommand))
 		case .webhook:
 			self = .webhook(try container.decode(WebhookStep.self, forKey: .webhook))
+		case .clipboard:
+			self = .clipboard(try container.decode(ClipboardStep.self, forKey: .clipboard))
+		case .systemSetting:
+			self = .systemSetting(try container.decode(SystemSettingStep.self, forKey: .systemSetting))
+		case .condition:
+			self = .condition(try container.decode(ConditionStep.self, forKey: .condition))
 		case .custom:
 			self = .custom(try container.decode(CustomStep.self, forKey: .custom))
 		}
@@ -231,6 +264,12 @@ extension AutomationStep: Codable {
 			try container.encode(step, forKey: .shellCommand)
 		case .webhook(let step):
 			try container.encode(step, forKey: .webhook)
+		case .clipboard(let step):
+			try container.encode(step, forKey: .clipboard)
+		case .systemSetting(let step):
+			try container.encode(step, forKey: .systemSetting)
+		case .condition(let step):
+			try container.encode(step, forKey: .condition)
 		case .custom(let step):
 			try container.encode(step, forKey: .custom)
 		}
