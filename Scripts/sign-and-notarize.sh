@@ -76,6 +76,33 @@ if [[ -z "$APP_PATH" ]]; then
 fi
 echo "Built app: $APP_PATH"
 
+# Re-sign Sparkle's bundled helpers with Developer ID + hardened runtime +
+# secure timestamp. The framework ships Updater.app / Autoupdate / the XPC
+# services with Sparkle's own signature, which notarization rejects ("not
+# signed with a valid Developer ID certificate"). Sign inside-out, then re-sign
+# the framework and the app so the outer seals cover the updated helpers.
+SPARKLE_FW="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+if [[ -d "$SPARKLE_FW" ]]; then
+    echo ""
+    echo "=== Re-signing Sparkle helpers ==="
+    SPARKLE_V="$SPARKLE_FW/Versions/Current"
+    for COMPONENT in \
+        "$SPARKLE_V/XPCServices/Downloader.xpc" \
+        "$SPARKLE_V/XPCServices/Installer.xpc" \
+        "$SPARKLE_V/Autoupdate" \
+        "$SPARKLE_V/Updater.app"; do
+        [[ -e "$COMPONENT" ]] || continue
+        codesign --force --options runtime --timestamp \
+            --preserve-metadata=entitlements \
+            --sign "$SIGNING_IDENTITY" "$COMPONENT"
+    done
+    codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$SPARKLE_FW"
+    codesign --force --options runtime --timestamp \
+        --entitlements "$PROJECT_ROOT/XboxControllerMapper/XboxControllerMapper/XboxControllerMapper.entitlements" \
+        --sign "$SIGNING_IDENTITY" "$APP_PATH"
+    echo "Sparkle helpers re-signed; app re-sealed."
+fi
+
 # Verify the app is universal
 echo ""
 echo "=== Verifying Universal Binary ==="
