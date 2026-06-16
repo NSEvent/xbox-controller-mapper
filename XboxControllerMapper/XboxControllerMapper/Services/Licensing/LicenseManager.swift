@@ -85,8 +85,32 @@ final class LicenseManager: ObservableObject {
 
     // MARK: - Status
 
+    /// Demo/QA override: `--demo-license expired|trial<N>|licensed` forces a
+    /// status so the trial/expired/licensed UI can be previewed deterministically
+    /// (e.g. to demo the expiry flow or shoot marketing). `licensed` is honored
+    /// only in screenshot mode so it can never be a real-build bypass; the
+    /// restrictive states are harmless to allow anywhere.
+    private static var demoForcedStatus: Status? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "--demo-license"), i + 1 < args.count else { return nil }
+        switch args[i + 1] {
+        case "expired":
+            return .expired
+        case let value where value.hasPrefix("trial"):
+            return .trial(daysRemaining: Int(value.dropFirst("trial".count)) ?? trialLengthDays)
+        case "licensed":
+            return AppRuntime.screenshotVariant != nil ? .licensed : nil
+        default:
+            return nil
+        }
+    }
+
     /// Recomputes `status` from the keychain (license first, then trial clock).
     func refresh() {
+        if let forced = Self.demoForcedStatus {
+            status = forced
+            return
+        }
 #if DEV_BYPASS_LICENSE
         // Local `make install` dev/contributor builds compile in this flag so
         // the developer isn't trial-gated. The notarized release pipeline

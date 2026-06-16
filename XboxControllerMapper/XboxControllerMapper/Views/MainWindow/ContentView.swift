@@ -16,6 +16,8 @@ struct ContentView: View {
     @State private var showingSequenceSheet = false
     @State private var editingSequence: SequenceMapping?
     @State private var showingSettingsSheet = false
+    @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
+    @State private var showingWelcome = false
     @State private var selectedTab = 0
     @State private var isMagnifying = false // Track active magnification to prevent tap conflicts
     @State private var selectedLayerId: UUID? = nil // nil = base layer
@@ -204,6 +206,13 @@ struct ContentView: View {
         .isolatedSheet(isPresented: $showingSettingsSheet) {
             SettingsSheet()
         }
+        .isolatedSheet(isPresented: $showingWelcome) {
+            TrialWelcomeSheet {
+                hasShownTrialWelcome = true
+                showingWelcome = false
+            }
+            .interactiveDismissDisabled()
+        }
         // Add keyboard shortcuts for scaling
         .background(
             Button("Zoom In") { profileManager.setUiScale(min(profileManager.uiScale + 0.1, 2.0)) }
@@ -264,6 +273,13 @@ struct ContentView: View {
         // (ButtonMappingsTab), anchored at the gesture location.
         .onAppear { installScrollKeyMonitor() }
         .onAppear { selectFirstVisibleTabIfNeeded() }
+        .onAppear {
+            // First-launch welcome (trial explainer + activate-with-Gumroad-key).
+            // Suppressed in screenshot mode so marketing captures aren't blocked.
+            if !hasShownTrialWelcome, AppRuntime.screenshotVariant == nil {
+                showingWelcome = true
+            }
+        }
         // Drive the stream overlay panel from the (now observable) flag, so the
         // toggle and the panel stay in lockstep no matter what flipped the flag.
         .onChange(of: streamOverlayEnabled) { _, isOn in
