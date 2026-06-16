@@ -75,6 +75,7 @@ public struct AutomationProgramEditor: View {
 					}
 					.disabled(isTesting || program.steps.isEmpty)
 					.help("Run these steps now")
+					.accessibilityLabel("Run these steps now")
 				}
 
 				Menu {
@@ -191,6 +192,7 @@ public struct AutomationProgramEditor: View {
 				}
 				.disabled(!allowed)
 				.help(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
+				.accessibilityLabel(allowed ? (expanded ? "Collapse" : "Expand") : "Unavailable in this host")
 
 				HStack(spacing: 8) {
 					Image(systemName: iconName(for: step))
@@ -216,6 +218,7 @@ public struct AutomationProgramEditor: View {
 				}
 				.disabled(index == 0)
 				.help("Move up")
+				.accessibilityLabel("Move up")
 
 				Button {
 					moveStep(from: index, by: 1)
@@ -224,6 +227,7 @@ public struct AutomationProgramEditor: View {
 				}
 				.disabled(index == program.steps.count - 1)
 				.help("Move down")
+				.accessibilityLabel("Move down")
 
 				Button(role: .destructive) {
 					deleteStep(at: index)
@@ -231,6 +235,7 @@ public struct AutomationProgramEditor: View {
 					Image(systemName: "trash")
 				}
 				.help("Delete")
+				.accessibilityLabel("Delete")
 			}
 			.buttonStyle(.plain)
 

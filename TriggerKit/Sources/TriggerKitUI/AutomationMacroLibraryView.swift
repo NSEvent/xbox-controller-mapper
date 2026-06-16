@@ -60,6 +60,7 @@ public struct AutomationMacroLibraryView: View {
 				}
 				.buttonStyle(.plain)
 				.help("New macro")
+				.accessibilityLabel("New macro")
 			}
 			.padding(.horizontal, 12)
 			.padding(.top, 12)
@@ -88,6 +89,7 @@ public struct AutomationMacroLibraryView: View {
 				}
 				.disabled(selectedID == nil)
 				.help("Duplicate")
+				.accessibilityLabel("Duplicate")
 
 				Button(role: .destructive) {
 					showDeleteConfirm = true
@@ -96,6 +98,7 @@ public struct AutomationMacroLibraryView: View {
 				}
 				.disabled(selectedID == nil)
 				.help("Delete")
+				.accessibilityLabel("Delete")
 			}
 			.buttonStyle(.plain)
 			.padding(.horizontal, 12)
