@@ -144,6 +144,21 @@ final class AutomationProgramCodableTests: XCTestCase {
 		XCTAssertEqual(program.steps, [.delay(DelayStep(seconds: 2))])
 	}
 
+	func testDecodeMigratingRunsRegisteredSchemaHops() throws {
+		let data = #"{"id":"11111111-1111-1111-1111-111111111111","schemaVersion":1,"name":"Old","steps":[{"kind":"delay","delay":{"seconds":2}}]}"#.data(using: .utf8)!
+
+		let program = try AutomationProgram.decodeMigrating(from: data)
+
+		XCTAssertEqual(program.schemaVersion, AutomationProgram.currentSchemaVersion)
+		XCTAssertEqual(program.steps, [.delay(DelayStep(seconds: 2))])
+	}
+
+	func testDecodeMigratingRejectsFutureSchemaVersion() {
+		let data = #"{"id":"11111111-1111-1111-1111-111111111111","schemaVersion":999,"name":"Future","steps":[]}"#.data(using: .utf8)!
+
+		XCTAssertThrowsError(try AutomationProgram.decodeMigrating(from: data))
+	}
+
 	func testProgramDecodingRejectsUnsupportedFutureSteps() {
 		let data = """
 		{

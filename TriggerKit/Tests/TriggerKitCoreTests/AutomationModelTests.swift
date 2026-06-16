@@ -48,6 +48,21 @@ final class AutomationModelTests: XCTestCase {
 		XCTAssertFalse(AutomationProgram(name: "System", steps: nonInputSteps).requiresAccessibility)
 	}
 
+	func testStepTraitsClassifySafetySurfaces() {
+		XCTAssertEqual(AutomationStep.Kind.shellCommand.traits.runsProcess, true)
+		XCTAssertEqual(AutomationStep.Kind.webhook.traits.opensNetwork, true)
+		XCTAssertEqual(AutomationStep.Kind.clipboard.traits.modifiesClipboard, true)
+		XCTAssertEqual(AutomationStep.Kind.systemSetting.traits.changesSystemState, true)
+		XCTAssertEqual(AutomationStep.Kind.systemSetting.traits.needsAppleEvents, true)
+
+		XCTAssertFalse(AutomationStep.typeText(TypeTextStep(text: "abc", mode: .type)).traits.modifiesClipboard)
+		XCTAssertTrue(AutomationStep.typeText(TypeTextStep(text: "abc", mode: .paste)).traits.modifiesClipboard)
+		XCTAssertFalse(AutomationStep.openApp(OpenAppStep(bundleIdentifier: "com.apple.TextEdit")).traits.requiresAccessibility)
+		XCTAssertTrue(AutomationStep.openApp(OpenAppStep(bundleIdentifier: "com.apple.TextEdit", openNewWindow: true)).traits.requiresAccessibility)
+		XCTAssertFalse(AutomationStep.openURL(OpenURLStep(url: "file:///tmp/example")).traits.opensNetwork)
+		XCTAssertTrue(AutomationStep.openURL(OpenURLStep(url: "https://example.com")).traits.opensNetwork)
+	}
+
 	func testModelInitializersClampUnsafeValues() {
 		XCTAssertEqual(DelayStep(seconds: -10).seconds, 0)
 		XCTAssertEqual(DelayStep(seconds: .greatestFiniteMagnitude).seconds, 315_360_000)

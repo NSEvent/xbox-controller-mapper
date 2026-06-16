@@ -27,7 +27,9 @@ Initial package slice:
 - text, delay, app, URL, and shell step models
 - webhook steps (native URLSession execution) and host-app `custom` steps
 - paced typing (`charactersPerMinute`) and run-in-Terminal shell commands
+- validation issues, step safety traits, and explicit held-input cleanup policy
 - host `stepOverride` hook, `.concurrent` execution policy, and URL-scheme allowlist
+- migrating decode entry point for controlled schema upgrades
 - macOS runtime executor
 - shared macro library at `~/Library/Application Support/TriggerKit/macros.json`
 - reusable macro manager UI

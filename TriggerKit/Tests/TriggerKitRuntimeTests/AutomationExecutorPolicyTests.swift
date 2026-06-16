@@ -224,6 +224,21 @@ final class AutomationExecutorPolicyTests: XCTestCase {
 		XCTAssertEqual(result, .failure("Webhook HTTP 503"))
 	}
 
+	func testWebhookTimeoutFailure() async {
+		StubURLProtocol.error = URLError(.timedOut)
+		defer { StubURLProtocol.error = nil }
+		let executor = AutomationExecutor(input: RecordingInputSimulator())
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Hook", steps: [
+				.webhook(WebhookStep(url: "https://example.com/hook", timeoutSeconds: 1))
+			]),
+			context: TriggerExecutionContext(urlSession: StubURLProtocol.session())
+		)
+
+		XCTAssertEqual(result, .failure(URLError(.timedOut).localizedDescription))
+	}
+
 	func testWebhookRejectsNonHTTPURL() async {
 		let executor = AutomationExecutor(input: RecordingInputSimulator())
 
@@ -255,6 +270,7 @@ private final class RecordingInputSimulator: InputSimulating {
 
 private final class StubURLProtocol: URLProtocol {
 	nonisolated(unsafe) static var handler: ((URLRequest) -> (Int, Data))?
+	nonisolated(unsafe) static var error: Error?
 
 	static func session() -> URLSession {
 		let configuration = URLSessionConfiguration.ephemeral
@@ -266,6 +282,10 @@ private final class StubURLProtocol: URLProtocol {
 	override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
 	override func startLoading() {
+		if let error = Self.error {
+			client?.urlProtocol(self, didFailWithError: error)
+			return
+		}
 		guard let handler = Self.handler, let url = request.url else {
 			client?.urlProtocol(self, didFailWithError: URLError(.badURL))
 			return

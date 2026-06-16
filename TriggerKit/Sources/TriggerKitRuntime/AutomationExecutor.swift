@@ -14,6 +14,18 @@ public enum TriggerExecutionConcurrencyPolicy: Equatable, Sendable {
 	case concurrent
 }
 
+public enum TriggerHeldInputCleanupPolicy: Equatable, Sendable {
+	/// Release tracked held inputs only when the program exits abnormally
+	/// (failure, cancellation, skipped remainder, or partial failure).
+	case onAbnormalExit
+	/// Always release tracked held inputs before returning, even after a clean
+	/// completion. Safer for host apps that do not intentionally leave keys held.
+	case always
+	/// Never release tracked held inputs automatically. Hosts choosing this own
+	/// every matching key/button-up.
+	case never
+}
+
 public struct TriggerExecutionPolicy: Sendable {
 	public var capabilities: AutomationCapabilities
 	public var concurrencyPolicy: TriggerExecutionConcurrencyPolicy
@@ -27,6 +39,7 @@ public struct TriggerExecutionPolicy: Sendable {
 	/// When true, a failing step is logged and the program keeps running
 	/// instead of aborting. Failures still cancel the program when false.
 	public var continuesOnStepFailure: Bool
+	public var cleanupHeldInputs: TriggerHeldInputCleanupPolicy
 
 	public init(
 		capabilities: AutomationCapabilities = .all,
@@ -34,7 +47,8 @@ public struct TriggerExecutionPolicy: Sendable {
 		validatesAccessibility: Bool = true,
 		maximumShellOutputBytes: Int = 1_048_576,
 		allowedURLSchemes: Set<String>? = nil,
-		continuesOnStepFailure: Bool = false
+		continuesOnStepFailure: Bool = false,
+		cleanupHeldInputs: TriggerHeldInputCleanupPolicy = .onAbnormalExit
 	) {
 		self.capabilities = capabilities
 		self.concurrencyPolicy = concurrencyPolicy
@@ -42,6 +56,7 @@ public struct TriggerExecutionPolicy: Sendable {
 		self.maximumShellOutputBytes = max(1, maximumShellOutputBytes)
 		self.allowedURLSchemes = allowedURLSchemes.map { Set($0.map { $0.lowercased() }) }
 		self.continuesOnStepFailure = continuesOnStepFailure
+		self.cleanupHeldInputs = cleanupHeldInputs
 	}
 
 	public static let `default` = TriggerExecutionPolicy()
@@ -137,9 +152,17 @@ public final class AutomationExecutor {
 		var heldMouseButtons: [MouseButtonEvent] = []
 		var finishedCleanly = false
 		defer {
-			if !finishedCleanly {
-				for event in heldMouseButtons.reversed() { input.mouseUp(event) }
-				for event in heldKeys.reversed() { input.keyUp(event) }
+			let shouldCleanup: Bool
+			switch context.policy.cleanupHeldInputs {
+			case .onAbnormalExit:
+				shouldCleanup = !finishedCleanly
+			case .always:
+				shouldCleanup = true
+			case .never:
+				shouldCleanup = false
+			}
+			if shouldCleanup {
+				releaseHeldInputs(keys: heldKeys, mouseButtons: heldMouseButtons)
 			}
 		}
 
@@ -194,6 +217,7 @@ public final class AutomationExecutor {
 				}
 			}
 			if program.steps.isEmpty {
+				finishedCleanly = true
 				return .success("No actions")
 			}
 			if failedSteps > 0 {
@@ -206,6 +230,11 @@ public final class AutomationExecutor {
 		} catch {
 			return .failure(error.localizedDescription)
 		}
+	}
+
+	private func releaseHeldInputs(keys: [KeyEvent], mouseButtons: [MouseButtonEvent]) {
+		for event in mouseButtons.reversed() { input.mouseUp(event) }
+		for event in keys.reversed() { input.keyUp(event) }
 	}
 
 	private func execute(_ step: AutomationStep, context: TriggerExecutionContext) async -> TriggerExecutionResult {

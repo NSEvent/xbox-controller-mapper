@@ -37,7 +37,8 @@ class MacroExecutor: @unchecked Sendable {
 				concurrencyPolicy: .concurrent,
 				validatesAccessibility: false,
 				allowedURLSchemes: ["http", "https"],
-				continuesOnStepFailure: true
+				continuesOnStepFailure: true,
+				cleanupHeldInputs: .always
 			),
 			stepOverride: { [systemCommandExecutor] step in
 				Self.systemCommand(for: step).map { command in

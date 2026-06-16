@@ -283,6 +283,69 @@ final class AutomationExecutorTests: XCTestCase {
 		])
 	}
 
+	func testExecutorCleanupPolicyAlwaysReleasesHeldInputsAfterCleanCompletion() async {
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .escape)
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Hold", steps: [.keyDown(key)]),
+			context: TriggerExecutionContext(
+				policy: TriggerExecutionPolicy(cleanupHeldInputs: .always)
+			)
+		)
+
+		XCTAssertEqual(result, .success("Completed 1 step(s)"))
+		XCTAssertEqual(input.calls, [
+			.keyDown(key),
+			.keyUp(key)
+		])
+	}
+
+	func testExecutorCleanupPolicyNeverLeavesHeldInputsAfterFailure() async {
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .escape)
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Hold", steps: [
+				.keyDown(key),
+				.delay(DelayStep(seconds: 0))
+			]),
+			context: TriggerExecutionContext(
+				policy: TriggerExecutionPolicy(cleanupHeldInputs: .never),
+				stepOverride: { step in
+					if case .delay = step {
+						return .failure("boom")
+					}
+					return nil
+				}
+			)
+		)
+
+		XCTAssertEqual(result, .failure("boom"))
+		XCTAssertEqual(input.calls, [.keyDown(key)])
+	}
+
+	func testExecutorReleasesHeldInputsWhenCustomStepFailureAbortsProgram() async {
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .escape)
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Custom Failure", steps: [
+				.keyDown(key),
+				.custom(CustomStep(namespace: "app.fail"))
+			])
+		)
+
+		XCTAssertEqual(result, .failure("No handler for app action: app.fail"))
+		XCTAssertEqual(input.calls, [
+			.keyDown(key),
+			.keyUp(key)
+		])
+	}
+
 	func testExecutorReleasesHeldInputsWhenCancelled() async {
 		let input = FakeInputSimulator()
 		let executor = AutomationExecutor(input: input)
@@ -382,6 +445,15 @@ final class AutomationExecutorTests: XCTestCase {
 
 		XCTAssertEqual(result, .failure("Shell exit 7"))
 		XCTAssertTrue(input.calls.isEmpty)
+	}
+
+	func testShellCommandTimeoutStopsRunningProcess() async {
+		let executor = AutomationExecutor(input: FakeInputSimulator())
+		let result = await executor.execute(AutomationProgram(name: "Shell Timeout", steps: [
+			.shellCommand(ShellCommandStep(command: "sleep 5", shellPath: "/bin/sh", timeoutSeconds: 1))
+		]))
+
+		XCTAssertEqual(result, .failure("Shell command timed out"))
 	}
 
 	func testShellCommandCancellationStopsRunningProcess() async {

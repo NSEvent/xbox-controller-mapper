@@ -1,18 +1,11 @@
 public extension AutomationProgram {
 	var requiresAccessibility: Bool {
-		steps.contains { $0.requiresAccessibility }
+		steps.contains { $0.traits.requiresAccessibility }
 	}
 }
 
 public extension AutomationStep {
 	var requiresAccessibility: Bool {
-		switch self {
-		case .keyPress, .keyDown, .keyUp, .mouseClick, .mouseDown, .mouseUp, .mouseMove, .mouseScroll, .typeText:
-			return true
-		case .openApp(let step):
-			return step.openNewWindow
-		case .delay, .openURL, .shellCommand, .webhook, .clipboard, .systemSetting, .condition, .custom:
-			return false
-		}
+		traits.requiresAccessibility
 	}
 }
