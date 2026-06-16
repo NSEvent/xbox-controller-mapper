@@ -47,7 +47,8 @@ public struct ModifierSetEditor: View {
 		}
 		.buttonStyle(.plain)
 		.fixedSize(horizontal: true, vertical: false)
-		.help("Click to cycle Off, Any, Left, Right")
+		.help("\(label): Click to cycle Off, Any, Left, Right")
+		.accessibilityLabel("\(label): Click to cycle Off, Any, Left, Right")
 	}
 
 	private var functionButton: some View {
