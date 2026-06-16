@@ -207,6 +207,13 @@ private extension AutomationStep {
 		if let allowedSchemes, !allowedSchemes.contains(scheme) {
 			return [issue(disallowedCode, index: index, message: "\(label) scheme is not allowed: \(scheme)")]
 		}
+
+		// Security: Block dangerous URL schemes that can bypass app sandboxing or manipulate system settings.
+		let blockedSchemes: Set<String> = ["file", "x-apple.systempreferences"]
+		if blockedSchemes.contains(scheme) {
+			return [issue(disallowedCode, index: index, message: "\(label) scheme is dangerously blocked: \(scheme)")]
+		}
+
 		return []
 	}
 

@@ -450,6 +450,14 @@ public final class AutomationExecutor {
 		if let allowedSchemes, !allowedSchemes.contains(scheme) {
 			return .failure("URL scheme not allowed: \(scheme)")
 		}
+
+		// Security: Block dangerous URL schemes that can bypass app sandboxing or manipulate system settings.
+		// These schemes act similarly to shell execution if passed untrusted inputs.
+		let blockedSchemes: Set<String> = ["file", "x-apple.systempreferences"]
+		if blockedSchemes.contains(scheme) {
+			return .failure("Dangerous URL scheme blocked: \(scheme)")
+		}
+
 		guard NSWorkspace.shared.open(url) else {
 			return .failure("Could not open URL: \(urlString)")
 		}
