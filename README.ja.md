@@ -15,6 +15,8 @@ welcome. (formerly Xbox Controller Mapper)
 
 **[ダウンロード — 無料トライアル](https://github.com/NSEvent/xbox-controller-mapper/releases/latest)** | **[ウェブサイトとドキュメント](https://www.kevintang.xyz/apps/controller-keys)** | **[ライセンスを購入](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discordコミュニティ](https://discord.gg/WsZJkRsPPg)**
 
+⭐ **役に立ったら [リポジトリにスターを](https://github.com/NSEvent/xbox-controller-mapper)** — 他の人が ControllerKeys を見つけやすくなります。
+
 ![ControllerKeys - ボタンマッピング](screenshots/xbox-series-xs/01-buttons.png)
 
 <p>

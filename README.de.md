@@ -15,6 +15,8 @@ Eine native macOS-App, die Game-Controller auf Tastaturkürzel, Mauseingaben, Ma
 
 **[Download — kostenlose Testversion](https://github.com/NSEvent/xbox-controller-mapper/releases/latest)** | **[Website & Dokumentation](https://www.kevintang.xyz/apps/controller-keys)** | **[Lizenz kaufen](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord](https://discord.gg/WsZJkRsPPg)**
 
+⭐ **Nützlich? [Gib dem Repo einen Stern](https://github.com/NSEvent/xbox-controller-mapper)** — so finden es andere leichter.
+
 ![ControllerKeys – Tasten-Mappings](screenshots/xbox-series-xs/01-buttons.png)
 
 <p>

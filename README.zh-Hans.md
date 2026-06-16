@@ -15,6 +15,8 @@ welcome. (formerly Xbox Controller Mapper)
 
 **[下载 — 免费试用](https://github.com/NSEvent/xbox-controller-mapper/releases/latest)** | **[官方网站与文档](https://www.kevintang.xyz/apps/controller-keys)** | **[购买许可证](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord 社区](https://discord.gg/WsZJkRsPPg)**
 
+⭐ **觉得好用？[给仓库点个星](https://github.com/NSEvent/xbox-controller-mapper)** — 帮助更多人发现 ControllerKeys。
+
 ![ControllerKeys - 按键映射](screenshots/xbox-series-xs/01-buttons.png)
 
 <p>

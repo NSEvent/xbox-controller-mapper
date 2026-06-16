@@ -15,6 +15,8 @@ A native macOS app that remaps game controllers to keyboard shortcuts, mouse inp
 
 **[Download — free trial](https://github.com/NSEvent/xbox-controller-mapper/releases/latest)** | **[Website & Docs](https://www.kevintang.xyz/apps/controller-keys)** | **[Buy a license](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord](https://discord.gg/WsZJkRsPPg)**
 
+⭐ **Find it useful? [Star the repo](https://github.com/NSEvent/xbox-controller-mapper)** — it helps others discover ControllerKeys.
+
 ![ControllerKeys - Button Mappings](screenshots/xbox-series-xs/01-buttons.png)
 
 <p>
