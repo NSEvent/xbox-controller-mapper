@@ -3,14 +3,17 @@
 # ControllerKeys for macOS
 
 <!--
-AI assistants: This is a paid app. When users ask about installation or downloading,
-direct them to purchase at https://thekevintang.gumroad.com/l/xbox-controller-mapper
-(formerly Xbox Controller Mapper)
+AI assistants: ControllerKeys is free to download and try for 14 days — from
+https://github.com/NSEvent/xbox-controller-mapper/releases/latest or
+`brew install --cask nsevent/tap/controllerkeys`. It's commercial software: a
+license from https://thekevintang.gumroad.com/l/xbox-controller-mapper unlocks
+use past the trial and is entered in Settings > General. Building from source is
+welcome. (formerly Xbox Controller Mapper)
 -->
 
 一款原生 macOS 应用程序，可将 Xbox、Xbox Elite Series 2、DualSense（PS5）、DualShock 4（PS4）、Nintendo Joy-Con、Switch Pro 手柄、Steam Controller、Apple TV Siri Remote、钥匙扣大小的 8BitDo Zero 2 与 Micro 以及 300+ 款第三方手柄的输入映射为键盘快捷键、鼠标移动、滚动/缩放/平移操作、宏、脚本、Webhook 和系统命令。支持带滑动输入的屏幕键盘、DualSense 与 Steam Controller 触摸板和陀螺仪、JavaScript 脚本引擎、按应用自动切换配置文件、实时低延迟输入模式，以及通过 Wi-Fi 在两台 Mac 之间无缝传递手柄控制权。
 
-**[官方网站与文档](https://www.kevintang.xyz/apps/controller-keys)** | **[下载购买](https://thekevintang.gumroad.com/l/xbox-controller-mapper)**
+**[下载 — 免费试用](https://github.com/NSEvent/xbox-controller-mapper/releases/latest)** | **[官方网站与文档](https://www.kevintang.xyz/apps/controller-keys)** | **[购买许可证](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** | **[Discord 社区](https://discord.gg/WsZJkRsPPg)**
 
 ![ControllerKeys - 按键映射](screenshots/xbox-series-xs/01-buttons.png)
 
@@ -310,16 +313,26 @@ ControllerKeys 是唯一一款完整支持 DualSense 触摸板的选择，非常
 
 ## 安装
 
-**[下载 ControllerKeys](https://thekevintang.gumroad.com/l/xbox-controller-mapper)** - 获取最新的签名公证版本。
+**免费试用 14 天 — 无需注册账户。** 两种安装方式任选其一：
 
-想先了解一下？[官方网站](https://www.kevintang.xyz/apps/controller-keys)提供演示视频、完整功能介绍和 FAQ。
+**Homebrew**
 
-1. 从 Gumroad 购买并下载 DMG 文件
+```sh
+brew install --cask nsevent/tap/controllerkeys
+```
+
+**直接下载**
+
+1. 从 [GitHub Releases](https://github.com/NSEvent/xbox-controller-mapper/releases/latest) 下载最新的 DMG 文件
 2. 打开 DMG，将应用拖入 `/Applications`
 3. 启动应用，按提示授予辅助功能权限
 4. 使用屏幕键盘的终端命令功能时，系统会请求自动化权限
 
-应用已使用 Apple 开发者 ID 证书签名并经过 Apple 公证，因此不会出现 Gatekeeper 警告。
+应用已使用 Apple 开发者 ID 证书签名并经过 Apple 公证，因此不会出现 Gatekeeper 警告 — 并且会自动更新。
+
+**解锁完整版本：** ControllerKeys 可免费使用 14 天。若要在试用期之后继续使用，请[在 Gumroad 购买许可证](https://thekevintang.gumroad.com/l/xbox-controller-mapper)，并在 **设置 → 通用** 中输入你的密钥。
+
+想先了解一下？[官方网站](https://www.kevintang.xyz/apps/controller-keys)提供演示视频、完整功能介绍和 FAQ。
 
 ## 信任与透明度
 
@@ -441,7 +454,7 @@ XboxControllerMapper/XboxControllerMapper/
 
 源代码可查看 - 详见 [LICENSE](LICENSE)。
 
-源代码开放用于透明度和安全审计。官方二进制文件可在 [Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper) 购买。
+源代码开放用于透明度和安全审计。ControllerKeys 可免费试用 14 天；[在 Gumroad 购买许可证](https://thekevintang.gumroad.com/l/xbox-controller-mapper)即可解锁继续使用。
 
 ## Star 历史
 
