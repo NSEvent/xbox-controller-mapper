@@ -56,6 +56,7 @@ struct SettingsSheet: View {
     @AppStorage(WindowBackgroundDefaults.opacityKey) private var windowBackgroundOpacity: Double = WindowBackgroundDefaults.defaultOpacity
 
     @ObservedObject private var license = LicenseManager.shared
+    @ObservedObject private var updater = UpdaterManager.shared
 
     @State private var selection: SettingsCategory? = .general
     @State private var isRefreshingDatabase = false
@@ -173,6 +174,24 @@ struct SettingsSheet: View {
                     NSApp.activate(ignoringOtherApps: true)
                 }
             }
+        }
+
+        Section {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Automatic Updates")
+                    Text("ControllerKeys checks for new versions and installs them with your approval.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Check Now…") {
+                    UpdaterManager.shared.checkForUpdates()
+                }
+                .disabled(!updater.canCheckForUpdates)
+            }
+        } header: {
+            Text("Software Update")
         }
     }
 

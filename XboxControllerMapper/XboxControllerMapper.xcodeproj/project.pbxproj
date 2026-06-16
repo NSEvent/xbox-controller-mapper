@@ -16,6 +16,7 @@
 		B7C4A1E09D2F4B68A3517E0C /* TriggerKitLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E0B /* TriggerKitLibrary */; };
 		B7C4A1E09D2F4B68A3517E0E /* TriggerKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E0D /* TriggerKitUI */; };
 		B7C4A1E09D2F4B68A3517E10 /* TriggerKitLibrary in Frameworks */ = {isa = PBXBuildFile; productRef = B7C4A1E09D2F4B68A3517E0F /* TriggerKitLibrary */; };
+		5BA8C1E000000000000000A3 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 5BA8C1E000000000000000A2 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +86,7 @@
 				B7C4A1E09D2F4B68A3517E06 /* TriggerKitRuntime in Frameworks */,
 				B7C4A1E09D2F4B68A3517E0C /* TriggerKitLibrary in Frameworks */,
 				B7C4A1E09D2F4B68A3517E0E /* TriggerKitUI in Frameworks */,
+				5BA8C1E000000000000000A3 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +164,7 @@
 				B7C4A1E09D2F4B68A3517E04 /* TriggerKitRuntime */,
 				B7C4A1E09D2F4B68A3517E0B /* TriggerKitLibrary */,
 				B7C4A1E09D2F4B68A3517E0D /* TriggerKitUI */,
+				5BA8C1E000000000000000A2 /* Sparkle */,
 			);
 			productName = XboxControllerMapper;
 			productReference = 0AB89B5E2F01B1D200C32D31 /* ControllerKeys.app */;
@@ -254,6 +257,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				B7C4A1E09D2F4B68A3517E02 /* XCLocalSwiftPackageReference "../TriggerKit" */,
+				5BA8C1E000000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0AB89B5F2F01B1D200C32D31 /* Products */;
@@ -328,6 +332,17 @@
 		};
 /* End PBXTargetDependency section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		5BA8C1E000000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCLocalSwiftPackageReference section */
 		B7C4A1E09D2F4B68A3517E02 /* XCLocalSwiftPackageReference "../TriggerKit" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -363,6 +378,11 @@
 		B7C4A1E09D2F4B68A3517E0F /* TriggerKitLibrary */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TriggerKitLibrary;
+		};
+		5BA8C1E000000000000000A2 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5BA8C1E000000000000000A1 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 

@@ -149,6 +149,12 @@ final class ServiceContainer {
             Task { @MainActor in
                 LicenseManager.shared.enforce { engine.isEnabled = false }
             }
+
+            // Start Sparkle's auto-update lifecycle (background checks + the
+            // "Check for Updates" command). Skipped above for tests/screenshots.
+            Task { @MainActor in
+                UpdaterManager.shared.start()
+            }
         }
 
         // Wire up on-screen keyboard quick texts from profile manager
