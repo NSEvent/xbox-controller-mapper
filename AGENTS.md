@@ -41,6 +41,6 @@ PRs welcome. `make install BUILD_FROM_SOURCE=1` builds and installs locally;
 
 ## About
 
-- **License**: MIT — source-available for transparency and security auditing.
+- **License**: a custom Source-Available license (see [LICENSE](LICENSE)) — open for transparency and security auditing, not a permissive OSS license.
 - **Why a license check**: ControllerKeys needs macOS Accessibility permissions, so the
   source is open for users to verify it's safe; license sales fund ongoing development.

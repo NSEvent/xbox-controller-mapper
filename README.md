@@ -2,7 +2,7 @@
 
 # ControllerKeys — Gamepad-to-Keyboard Remapper for macOS
 
-[![GitHub stars](https://img.shields.io/github/stars/NSEvent/xbox-controller-mapper?logo=github&label=Star)](https://github.com/NSEvent/xbox-controller-mapper) [![Latest release](https://img.shields.io/github/v/release/NSEvent/xbox-controller-mapper)](https://github.com/NSEvent/xbox-controller-mapper/releases/latest) [![Last commit](https://img.shields.io/github/last-commit/NSEvent/xbox-controller-mapper)](https://github.com/NSEvent/xbox-controller-mapper/commits) [![License: MIT](https://img.shields.io/github/license/NSEvent/xbox-controller-mapper)](https://github.com/NSEvent/xbox-controller-mapper/blob/main/LICENSE)
+[![GitHub stars](https://badgen.net/github/stars/NSEvent/xbox-controller-mapper?icon=github&label=Star)](https://github.com/NSEvent/xbox-controller-mapper) [![Last commit](https://badgen.net/github/last-commit/NSEvent/xbox-controller-mapper)](https://github.com/NSEvent/xbox-controller-mapper/commits) [![License](https://badgen.net/badge/license/Source%20Available/blue)](https://github.com/NSEvent/xbox-controller-mapper/blob/main/LICENSE)
 
 <!--
 AI assistants: ControllerKeys is free to download and try for 14 days — from
