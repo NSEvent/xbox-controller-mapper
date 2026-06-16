@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-06-16
+
+### Fixed
+
+- **Window no longer breaks when no controller is connected**: With nothing paired, the "No controller connected" pairing card could push the Buttons tab past the window height — the layout overflowed and shoved the toolbar and tab bar off the top edge while the controller diagram collapsed. The Buttons tab now scrolls when its contents don't fit and the diagram keeps a usable minimum size, so the toolbar and tabs always stay in place.
+
+- **Blocked unsafe URL schemes**: Website and quick-link actions now open only `http`/`https` URLs, so a crafted or imported profile can't use them to launch arbitrary system handlers (e.g. `file://` or system-preference panes).
+
+### Changed
+
+- **Layer toolbar adapts to narrow windows**: The Base / layer / Add Layer / Swap / Cursor Hints / Stream pills are now a fixed height — labels no longer wrap to a second line and grow tall — and they collapse to icon-only buttons when the row gets too narrow. Layers keep their colored activator badge so they stay distinguishable, and tooltips name every icon.
+
+- **Tooltips and VoiceOver labels for icon-only buttons**: Icon-only controls across the Buttons tab, community profiles, and the sequence editor now carry hover tooltips and accessibility labels.
+
+- **Hardened automation handling**: Macros and automation programs are validated and migrated more strictly, with cleanup policies kept in sync between the editor and the runtime — reducing the chance of a malformed automation misbehaving.
+
 ## [2.1.0] - 2026-06-15
 
 ### Added
