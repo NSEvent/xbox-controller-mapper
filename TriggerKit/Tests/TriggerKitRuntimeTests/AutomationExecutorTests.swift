@@ -249,6 +249,40 @@ final class AutomationExecutorTests: XCTestCase {
 		])
 	}
 
+	func testExecutorReleasesHeldInputsWhenContinuingAfterFailure() async {
+		let input = FakeInputSimulator()
+		let executor = AutomationExecutor(input: input)
+		let key = KeyEvent(key: .escape)
+		let trailingPress = KeyStroke(key: .return)
+		var logs: [String] = []
+
+		let result = await executor.execute(
+			AutomationProgram(name: "Continue", steps: [
+				.keyDown(key),
+				.delay(DelayStep(seconds: 0)),
+				.keyPress(trailingPress)
+			]),
+			context: TriggerExecutionContext(
+				logger: { logs.append($0) },
+				policy: TriggerExecutionPolicy(continuesOnStepFailure: true),
+				stepOverride: { step in
+					if case .delay = step {
+						return .failure("boom")
+					}
+					return nil
+				}
+			)
+		)
+
+		XCTAssertEqual(result, .success("Completed 3 step(s), 1 failed"))
+		XCTAssertEqual(logs, ["Step failed: boom"])
+		XCTAssertEqual(input.calls, [
+			.keyDown(key),
+			.keyPress(trailingPress),
+			.keyUp(key)
+		])
+	}
+
 	func testExecutorReleasesHeldInputsWhenCancelled() async {
 		let input = FakeInputSimulator()
 		let executor = AutomationExecutor(input: input)

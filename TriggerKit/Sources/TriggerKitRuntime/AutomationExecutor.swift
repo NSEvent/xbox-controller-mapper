@@ -197,7 +197,6 @@ public final class AutomationExecutor {
 				return .success("No actions")
 			}
 			if failedSteps > 0 {
-				finishedCleanly = true
 				return .success("Completed \(program.steps.count) step(s), \(failedSteps) failed")
 			}
 			finishedCleanly = true
