@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-06-15
+
+### Added
+
+- **14-day free trial with license unlock**: ControllerKeys now opens as a 14-day free trial with full functionality — no account needed. A first-launch welcome explains the trial and lets anyone who already purchased on Gumroad paste their license key to activate immediately. When the trial ends, controller mapping pauses (the rest of the app stays usable) until a license is entered; activation verifies against Gumroad and then keeps working offline, and the trial clock is stored in the login keychain so it survives reinstalls. License status, activation, and a buy link live in Settings → General.
+
+- **Automatic updates**: ControllerKeys can now update itself — it checks for new versions in the background and installs them with your approval, with a "Check Now" control in Settings → General. Updates are cryptographically signed (EdDSA) and notarized, so only genuine builds are ever installed.
+
+- **Show/hide the profile sidebar with ⌘B**: The profile sidebar is now shown by default and toggles with ⌘B (the shortcut hint appears next to the menu item). Hiding it persists until you show it again.
+
+### Changed
+
+- **Apple-style Settings**: Settings was rebuilt from one long scrolling form into a System Settings-style sheet — a sidebar of categories (General, Appearance, Layout, Controllers, Remote Mouse, About) with the selected category's controls shown on the right.
+
+- **Reworked toolbar and mapping toggle**: The connection status (status light and controller name) moved to the right side of the toolbar, next to a redesigned mapping toggle — a high-contrast filled pill ("Mapping On" / "Trial ended") that replaces the previous low-contrast accent-on-gray text.
+
+- **More room for the controller map**: Tightened the toolbar, tab bar, and Buttons-tab header so the controller diagram sits higher and renders larger. The Timeline strip is now optional — hide it from the Buttons tab and restore it from Settings → Layout.
+
+### Fixed
+
+- **Stream and Cursor Hints toggles**: These buttons now reliably reflect their on/off state. Previously the highlight could stick after toggling because the underlying preference wasn't observed by the view.
+
 ## [2.0.1] - 2026-06-14
 
 ### Added
