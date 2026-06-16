@@ -11,6 +11,17 @@ private struct ControllerCanvasContentSizePreferenceKey: PreferenceKey {
 	}
 }
 
+/// Sums the heights of the non-canvas sections (header block + chords/sequences)
+/// so the canvas can size itself to fill the remaining viewport height. Multiple
+/// measured subtrees contribute, so `reduce` adds rather than replaces.
+private struct NonCanvasHeightPreferenceKey: PreferenceKey {
+	static var defaultValue: CGFloat = 0
+
+	static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+		value += nextValue()
+	}
+}
+
 /// The main controller visual tab showing the button mapping diagram, layer bar,
 /// and active chords/sequences.
 struct ButtonMappingsTab: View {
@@ -39,6 +50,15 @@ struct ButtonMappingsTab: View {
     @State private var canvasEventView: NSView?
     @State private var scrollPanMonitor: Any?
 	@State private var measuredCanvasBaseSize: CGSize = .zero
+	/// Combined height of the header block + chords/sequences sections, measured
+	/// via `NonCanvasHeightPreferenceKey`. Drives the canvas's adaptive height.
+	@State private var nonCanvasHeight: CGFloat = 0
+
+	/// Floor for the controller canvas so it stays usable even when the
+	/// surrounding sections are tall. Below this the whole tab scrolls instead
+	/// of collapsing the canvas (which used to overflow the window and shove the
+	/// toolbar / tab bar off the top edge when no controller was connected).
+	private let minCanvasHeight: CGFloat = 240
 
     /// Posted by the View > Reset Zoom menu command so the pan offset
     /// clears along with the scale.
@@ -87,6 +107,25 @@ struct ButtonMappingsTab: View {
         )
     }
 
+	/// Canvas height: fill the viewport left over after the measured non-canvas
+	/// sections, never below `minCanvasHeight`. When the leftover would be below
+	/// the floor, the parent ScrollView scrolls instead of squeezing the canvas.
+	private func canvasHeight(viewport: CGFloat) -> CGFloat {
+		max(minCanvasHeight, viewport - nonCanvasHeight)
+	}
+
+	/// Transparent probe that reports its own height into
+	/// `NonCanvasHeightPreferenceKey`. Placed behind the header block and the
+	/// chords/sequences block so their combined height drives `canvasHeight`.
+	private var nonCanvasHeightReader: some View {
+		GeometryReader { proxy in
+			Color.clear.preference(
+				key: NonCanvasHeightPreferenceKey.self,
+				value: proxy.size.height
+			)
+		}
+	}
+
     /// Two-finger scroll over the canvas pans it (direct manipulation:
     /// content follows the fingers). Events outside the canvas pass through
     /// untouched so other scrollable areas keep working.
@@ -122,7 +161,9 @@ struct ButtonMappingsTab: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { outer in
+            ScrollView {
+                VStack(spacing: 0) {
 				VStack(spacing: 6) {
 					HStack(spacing: 8) {
 						layoutPreviewMenu
@@ -161,6 +202,7 @@ struct ButtonMappingsTab: View {
             .padding(.horizontal, 16)
             .padding(.top, 6)
             .padding(.bottom, 4)
+            .background(nonCanvasHeightReader)
 
             GeometryReader { geometry in
                 ZStack {
@@ -263,23 +305,33 @@ struct ButtonMappingsTab: View {
             }
 				.padding(.horizontal, 16)
 				.padding(.top, 2)
+				.frame(height: canvasHeight(viewport: outer.size.height))
 				.clipped()
 
-            // Mapped Chords Display
-            if isSectionVisible(.activeChords) {
-                removableSection(.activeChords) {
-                    ActiveChordsView(editingChord: $editingChord)
+            // Mapped Chords + Sequences. Measured (like the header) so the canvas
+            // can size to whatever viewport height is left over.
+            VStack(spacing: 0) {
+                // Mapped Chords Display
+                if isSectionVisible(.activeChords) {
+                    removableSection(.activeChords) {
+                        ActiveChordsView(editingChord: $editingChord)
+                    }
                 }
-            }
 
-            // Mapped Sequences Display
-            if isSectionVisible(.activeSequences) {
-                removableSection(.activeSequences) {
-                    ActiveSequencesView(editingSequence: $editingSequence)
+                // Mapped Sequences Display
+                if isSectionVisible(.activeSequences) {
+                    removableSection(.activeSequences) {
+                        ActiveSequencesView(editingSequence: $editingSequence)
+                    }
                 }
             }
-        }
-        .onAppear { installScrollPanMonitor() }
+            .background(nonCanvasHeightReader)
+                }
+                // Fill the viewport so content top-aligns; when the canvas hits its
+                // floor and total content exceeds the viewport, the ScrollView scrolls.
+                .frame(minHeight: outer.size.height)
+            }
+            .onAppear { installScrollPanMonitor() }
         .onDisappear {
             if let monitor = scrollPanMonitor {
                 NSEvent.removeMonitor(monitor)
@@ -304,6 +356,9 @@ struct ButtonMappingsTab: View {
 					canvasPan = clampedPan(canvasPan, in: size)
 				}
 			}
+			.onPreferenceChange(NonCanvasHeightPreferenceKey.self) { newValue in
+				nonCanvasHeight = max(0, newValue)
+			}
         .sheet(isPresented: $showingAddLayerSheet) {
             AddLayerSheet()
         }
@@ -327,6 +382,7 @@ struct ButtonMappingsTab: View {
 
             // No layer activator held - return to base layer
             selectedLayerId = nil
+        }
         }
     }
 
@@ -356,6 +412,10 @@ struct ButtonMappingsTab: View {
 					)
 			}
 			.menuStyle(.borderlessButton)
+			// Without fixedSize a borderlessButton menu expands to fill the row,
+			// starving the LayerTabBar beside it of width (and forcing it compact
+			// even on a wide window). Pin it to its label width instead.
+			.fixedSize()
 			.help("Preview controller layout")
 
 			if let note = layoutPreviewMismatchNote {
@@ -366,8 +426,6 @@ struct ButtonMappingsTab: View {
 					.truncationMode(.tail)
 					.help(note)
 			}
-
-			Spacer(minLength: 0)
 		}
 	}
 
