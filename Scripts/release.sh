@@ -136,6 +136,24 @@ git commit -m "chore: update Sparkle appcast for ${MARKETING_VERSION}"
 git push origin "$BRANCH"
 echo "Pushed appcast.xml to $BRANCH"
 
+# Bump the Homebrew cask in the local tap clone so `brew upgrade` sees the new
+# version. Sparkle handles in-app updates; this keeps brew-installed copies in
+# sync too. Skipped if the tap clone isn't present.
+TAP_CASK="$HOME/projects/homebrew-tap/Casks/controllerkeys.rb"
+if [[ -f "$TAP_CASK" ]]; then
+    echo ""
+    echo "=== Updating Homebrew tap cask ==="
+    DMG_SHA=$(shasum -a 256 "$APP_DMG" | awk '{print $1}')
+    /usr/bin/sed -i '' -E \
+        -e "s/^  version \".*\"/  version \"${MARKETING_VERSION}\"/" \
+        -e "s/^  sha256 \".*\"/  sha256 \"${DMG_SHA}\"/" \
+        "$TAP_CASK"
+    git -C "$HOME/projects/homebrew-tap" add Casks/controllerkeys.rb
+    git -C "$HOME/projects/homebrew-tap" commit -m "controllerkeys ${MARKETING_VERSION}"
+    git -C "$HOME/projects/homebrew-tap" push origin main
+    echo "Tap cask updated to ${MARKETING_VERSION} (sha256 ${DMG_SHA})"
+fi
+
 echo ""
 echo "=== Release Complete ==="
 echo "Tag created: $TAG"
