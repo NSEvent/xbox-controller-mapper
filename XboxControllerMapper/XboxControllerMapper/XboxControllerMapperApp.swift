@@ -122,7 +122,12 @@ final class ServiceContainer {
             inputLogService: inputLogService,
             usageStatsService: usageStatsService
         )
-        if !AppRuntime.isRunningTests {
+        // The cross-Mac relay listener publishes a Bonjour service, which
+        // triggers the Local Network prompt. Only start it at launch if the user
+        // has actually set up the relay — otherwise the prompt is deferred to
+        // the sync button in Settings (see SettingsSheet.startRelayPairing), so a
+        // user who never uses the feature never sees it.
+        if !AppRuntime.isRunningTests, UniversalControlMouseRelay.shared.hasConfiguredRelay {
             UniversalControlMouseRelay.shared.startListening(
                 inputSimulator: self.mappingEngine.inputSimulator
             )
@@ -154,6 +159,13 @@ final class ServiceContainer {
             // "Check for Updates" command). Skipped above for tests/screenshots.
             Task { @MainActor in
                 UpdaterManager.shared.start()
+            }
+
+            // Anonymous, opt-out usage ping (active installs, version adoption,
+            // trial → license conversion) now that downloads are free via
+            // GitHub/Homebrew rather than Gumroad.
+            Task { @MainActor in
+                TelemetryService.shared.appLaunched(status: LicenseManager.shared.telemetryStatus)
             }
         }
 
@@ -538,8 +550,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Disable App Nap to ensure controller events are received in background
         disableAppNap()
 
-        // Request Accessibility permissions if not granted
-        requestAccessibilityPermissions()
+        // Permissions are no longer requested in a launch-time prompt-wall.
+        // The first-run onboarding wizard (ContentView) drives them one at a
+        // time. Here we just wire the "permission was just granted" hooks so a
+        // grant re-activates the dependent services live, without a relaunch.
+        wirePermissionHooks()
 
         // Wire up dynamic dock-icon visibility. When `hideFromDock` is enabled,
         // the activation policy follows window visibility (dock icon only appears
@@ -580,49 +595,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    private func requestAccessibilityPermissions() {
-        // First check if we already have permissions
-        if AXIsProcessTrusted() {
-            return
+    /// Connects the central `PermissionsManager` to the services that depend on
+    /// each permission, so granting one during onboarding (or later) takes effect
+    /// live. `onAccessibilityGranted` restarts the local event monitor (the
+    /// `InputSimulator` re-polls on its own); `onInputMonitoringGranted` opens
+    /// the deferred IOHID monitors; `requestBluetoothAction` starts the battery
+    /// monitor (whose `CBCentralManager` is what surfaces the Bluetooth prompt).
+    private func wirePermissionHooks() {
+        let permissions = PermissionsManager.shared
+        permissions.onAccessibilityGranted = {
+            ServiceContainer.shared.inputMonitor.startMonitoring()
         }
-
-        // Try to trigger the system prompt (this also adds the app to the list)
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        let trusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
-
-        if !trusted {
-            // System prompt may not appear on newer macOS or after rebuilds
-            // Show our own alert and open System Settings directly
-            DispatchQueue.main.async {
-                self.showAccessibilityAlert()
-            }
+        permissions.onInputMonitoringGranted = {
+            ServiceContainer.shared.controllerService.startInputMonitoringHID()
         }
-    }
-
-    private func showAccessibilityAlert() {
-        let alert = NSAlert()
-        alert.messageText = "Accessibility Permission Required"
-        alert.informativeText = """
-            ControllerKeys needs Accessibility permission to simulate keyboard and mouse input in other apps.
-
-            1. Click "Open System Settings"
-            2. Click the "+" button at the bottom of the list
-            3. Navigate to the app and add it
-            4. Toggle the switch ON
-
-            The app is located at:
-            \(Bundle.main.bundlePath)
-            """
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Later")
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            // Open System Settings to Accessibility
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
-
-            // Also reveal the app in Finder so user can drag it
-            NSWorkspace.shared.selectFile(Bundle.main.bundlePath, inFileViewerRootedAtPath: "")
+        permissions.requestBluetoothAction = {
+            ServiceContainer.shared.controllerService.startBluetoothBattery()
         }
     }
 

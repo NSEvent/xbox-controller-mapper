@@ -536,6 +536,18 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         relaySharedSecretBase64()
     }
 
+    /// Whether the user has actually set up the cross-Mac relay — paired with a
+    /// remote or stored a relay target. The launch path uses this to decide
+    /// whether to publish the Bonjour listener: publishing triggers the Local
+    /// Network prompt, so a user who never touched the sync feature shouldn't see
+    /// it on cold start. When they do pair (via the Settings sync button), the
+    /// listener is started there in-context instead.
+    var hasConfiguredRelay: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return hasConfiguredRelayTargetLocked()
+    }
+
     @discardableResult
     func configureRelayPairingSecret(_ secret: String) -> Bool {
         guard let data = Self.decodeRelaySecret(secret) else { return false }

@@ -776,6 +776,17 @@ class ControllerService: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
+    /// Retained copy of the init-time flag so the permission-gated startups
+    /// (`startBluetoothBattery`, `startInputMonitoringHID`) can respect
+    /// screenshot/test mode when called later from the onboarding flow.
+    private let hardwareMonitoringEnabled: Bool
+
+    /// Guards so the deferred, permission-gated startups are idempotent — they
+    /// may run at launch (returning user, permission already granted) or be
+    /// triggered once by the onboarding grant hooks, but never both.
+    private var bluetoothBatteryStarted = false
+    private var inputMonitoringHIDStarted = false
+
     // Low-level monitor for Xbox Guide button
 	private let guideMonitor: XboxGuideMonitor
 
@@ -823,9 +834,45 @@ class ControllerService: ObservableObject {
         return nil
     }
 
+    /// Starts CoreBluetooth battery monitoring. Constructing the
+    /// `CBCentralManager` (inside `BluetoothBatteryMonitor.startMonitoring`) is
+    /// what triggers the Bluetooth system prompt, so this is deferred for new
+    /// users until the onboarding Bluetooth step. Run at launch only if the
+    /// permission is already granted. Idempotent.
+    func startBluetoothBattery() {
+        guard hardwareMonitoringEnabled, !bluetoothBatteryStarted else { return }
+        bluetoothBatteryStarted = true
+        batteryMonitor.startMonitoring()
+        batteryMonitor.$batteryLevel
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateBatteryInfo()
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Starts IOHIDManager-based input monitoring (Steam controllers, generic
+    /// HID gamepads, the Apple TV remote). Opening an `IOHIDManager` triggers the
+    /// Input Monitoring system prompt, so this is deferred for new users until
+    /// the onboarding Input Monitoring step. Run at launch only if the permission
+    /// is already granted. Also (re)starts the Xbox guide monitor when a
+    /// controller is connected, so a late grant takes effect without needing a
+    /// reconnect. Idempotent.
+    func startInputMonitoringHID() {
+        guard hardwareMonitoringEnabled, !inputMonitoringHIDStarted else { return }
+        inputMonitoringHIDStarted = true
+        setupSteamControllerHIDMonitoring()
+        setupGenericHIDMonitoring()
+        setupAppleTVRemoteHIDMonitoring()
+        if isConnected {
+            guideMonitor.startAsync()
+        }
+    }
+
     init(enableHardwareMonitoring: Bool = true) {
         let shouldEnableHardwareMonitoring = enableHardwareMonitoring && !Self.isRunningTests
 		self.guideMonitor = XboxGuideMonitor(enableHardwareMonitoring: shouldEnableHardwareMonitoring)
+        self.hardwareMonitoringEnabled = shouldEnableHardwareMonitoring
 
         // Load last controller type (so UI shows correct button labels when no controller is connected)
         storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
@@ -887,17 +934,19 @@ class ControllerService: ObservableObject {
             setupNotifications()
             startDiscovery()
             checkConnectedControllers()
-            batteryMonitor.startMonitoring()
-            batteryMonitor.$batteryLevel
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] _ in
-                    self?.updateBatteryInfo()
-                }
-                .store(in: &cancellables)
 
-			setupSteamControllerHIDMonitoring()
-			setupGenericHIDMonitoring()
-			setupAppleTVRemoteHIDMonitoring()
+            // Bluetooth battery monitoring and IOHID-based input monitoring each
+            // trigger a system permission prompt the first time they start. To
+            // avoid the old launch-time prompt-wall, only start them here when
+            // the user has *already* granted the permission (returning users).
+            // For new users the onboarding flow starts them once the relevant
+            // step is granted (see startBluetoothBattery / startInputMonitoringHID).
+            if SystemPermission.bluetoothGranted {
+                startBluetoothBattery()
+            }
+            if SystemPermission.inputMonitoringGranted {
+                startInputMonitoringHID()
+            }
 		}
 
         guideMonitor.onGuideButtonAction = { [weak self] isPressed in
@@ -1661,7 +1710,10 @@ class ControllerService: ObservableObject {
         }
 
 		let xboxGamepad = gamepad as? GCXboxGamepad
-		if xboxGamepad != nil {
+		// Opening the guide monitor's IOHIDManager needs Input Monitoring. Skip it
+		// until that's granted so a connected Xbox pad can't cold-trigger the
+		// prompt before onboarding; startInputMonitoringHID() starts it post-grant.
+		if xboxGamepad != nil, SystemPermission.inputMonitoringGranted {
 			guideMonitor.startAsync()
 		}
 		let xboxGamepadHasPaddles = xboxGamepad.map {

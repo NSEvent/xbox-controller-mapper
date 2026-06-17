@@ -18,6 +18,9 @@ struct ContentView: View {
     @State private var showingSettingsSheet = false
     @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
     @State private var showingWelcome = false
+    @AppStorage("hasCompletedPermissionsOnboarding") private var hasCompletedOnboarding = false
+    @State private var showingOnboarding = false
+    @ObservedObject private var permissions = PermissionsManager.shared
     @State private var selectedTab = 0
     @State private var isMagnifying = false // Track active magnification to prevent tap conflicts
     @State private var selectedLayerId: UUID? = nil // nil = base layer
@@ -69,6 +72,8 @@ struct ContentView: View {
 					profileSidebarVisible: $profileSidebarVisible
 				)
                     .zIndex(1) // Keep above content
+
+                permissionBanner
 
                 // Custom tab bar + content
                 CustomTabBar(selectedTab: $selectedTab, tabs: customTabs)
@@ -213,6 +218,18 @@ struct ContentView: View {
             }
             .interactiveDismissDisabled()
         }
+        .isolatedSheet(isPresented: $showingOnboarding) {
+            OnboardingView {
+                hasCompletedOnboarding = true
+                showingOnboarding = false
+                // Chain into the trial welcome for brand-new users so the two
+                // first-run sheets don't fight over presentation.
+                if !hasShownTrialWelcome, AppRuntime.screenshotVariant == nil {
+                    showingWelcome = true
+                }
+            }
+            .interactiveDismissDisabled()
+        }
         // Add keyboard shortcuts for scaling
         .background(
             Button("Zoom In") { profileManager.setUiScale(min(profileManager.uiScale + 0.1, 2.0)) }
@@ -274,11 +291,31 @@ struct ContentView: View {
         .onAppear { installScrollKeyMonitor() }
         .onAppear { selectFirstVisibleTabIfNeeded() }
         .onAppear {
-            // First-launch welcome (trial explainer + activate-with-Gumroad-key).
-            // Suppressed in screenshot mode so marketing captures aren't blocked.
-            if !hasShownTrialWelcome, AppRuntime.screenshotVariant == nil {
+            // First run: guided permissions onboarding, then the trial welcome.
+            // Both are suppressed in screenshot mode so marketing captures aren't
+            // blocked. Onboarding's onComplete chains into the trial welcome.
+            guard AppRuntime.screenshotVariant == nil else { return }
+            if !hasCompletedOnboarding {
+                // Existing users updating from a prior version already granted the
+                // required permissions — don't re-walk them through the wizard.
+                if SystemPermission.accessibilityGranted, SystemPermission.inputMonitoringGranted {
+                    hasCompletedOnboarding = true
+                    if !hasShownTrialWelcome { showingWelcome = true }
+                } else {
+                    showingOnboarding = true
+                }
+            } else if !hasShownTrialWelcome {
                 showingWelcome = true
             }
+        }
+        // Re-present the wizard from Settings ▸ Permissions ▸ "Set Up Permissions…".
+        .onReceive(NotificationCenter.default.publisher(for: .reopenPermissionsOnboarding)) { _ in
+            showingOnboarding = true
+        }
+        // Returning from System Settings re-activates the window; refresh so the
+        // revoked-permission banner clears (and grant hooks fire) without a relaunch.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            permissions.refresh()
         }
         // Drive the stream overlay panel from the (now observable) flag, so the
         // toggle and the panel stay in lockstep no matter what flipped the flag.
@@ -315,6 +352,41 @@ struct ContentView: View {
                 NSEvent.removeMonitor(monitor)
                 scrollKeyMonitor = nil
             }
+        }
+    }
+
+    // MARK: - Permission Banner
+
+    /// Inline warning shown when the user has finished onboarding but
+    /// Accessibility is no longer granted (commonly after a macOS update
+    /// invalidates the TCC entry). Without Accessibility the app is inert, so we
+    /// surface a one-tap path back into the setup wizard. Hidden during
+    /// onboarding/screenshots and once accessibility is healthy.
+    @ViewBuilder
+    private var permissionBanner: some View {
+        if hasCompletedOnboarding,
+           !showingOnboarding,
+           AppRuntime.screenshotVariant == nil,
+           !permissions.accessibilityGranted {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Accessibility permission is off")
+                        .font(.callout.weight(.semibold))
+                    Text("ControllerKeys can't control the mouse or keyboard until you turn it back on.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Fix") { showingOnboarding = true }
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Color.orange.opacity(0.12))
+            .overlay(alignment: .bottom) { Divider() }
+            .zIndex(1)
         }
     }
 

@@ -54,9 +54,11 @@ struct SettingsSheet: View {
     @AppStorage("universalControlRelayHost") private var relayRemoteHost = "kmacstudio"
     @AppStorage("universalControlRelayPort") private var relayRemotePort = 38383
     @AppStorage(WindowBackgroundDefaults.opacityKey) private var windowBackgroundOpacity: Double = WindowBackgroundDefaults.defaultOpacity
+    @AppStorage("telemetryEnabled") private var shareUsageData = true
 
     @ObservedObject private var license = LicenseManager.shared
     @ObservedObject private var updater = UpdaterManager.shared
+    @ObservedObject private var permissions = PermissionsManager.shared
 
     @State private var selection: SettingsCategory? = .general
     @State private var isRefreshingDatabase = false
@@ -192,6 +194,88 @@ struct SettingsSheet: View {
             }
         } header: {
             Text("Software Update")
+        }
+
+        permissionsSection
+
+        Section {
+            Toggle(isOn: $shareUsageData) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Share Anonymous Usage Data")
+                    Text("Sends an anonymous ping — app version, macOS version, and Mac type — so I can see how many people use ControllerKeys and which versions to keep supporting. No account, no name, no personal data. [Privacy details](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Privacy")
+        }
+    }
+
+    // MARK: Permissions
+
+    @ViewBuilder
+    private var permissionsSection: some View {
+        Section {
+            permissionRow(
+                "Accessibility",
+                detail: "Move the mouse and press keys",
+                state: permissions.accessibility,
+                openSettings: permissions.openAccessibilitySettings
+            )
+            permissionRow(
+                "Input Monitoring",
+                detail: "Read every controller type",
+                state: permissions.inputMonitoring,
+                openSettings: permissions.openInputMonitoringSettings
+            )
+            permissionRow(
+                "Bluetooth",
+                detail: "Wireless controller battery level",
+                state: permissions.bluetooth,
+                optional: true,
+                openSettings: permissions.openBluetoothSettings
+            )
+
+            HStack {
+                Text("Walk through setup again if a permission stops working.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Set Up Permissions…") {
+                    dismiss()
+                    NotificationCenter.default.post(name: .reopenPermissionsOnboarding, object: nil)
+                }
+            }
+        } header: {
+            Text("Permissions")
+        }
+        .onAppear { permissions.refresh() }
+    }
+
+    private func permissionRow(
+        _ title: String,
+        detail: String,
+        state: PermissionState,
+        optional: Bool = false,
+        openSettings: @escaping () -> Void
+    ) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if state == .granted {
+                Label("Granted", systemImage: "checkmark.circle.fill")
+                    .labelStyle(.titleAndIcon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.green)
+            } else {
+                Button(optional ? "Enable…" : "Grant…", action: openSettings)
+            }
         }
     }
 
@@ -637,6 +721,12 @@ struct SettingsSheet: View {
             isCheckingRelaySecret = false
             if success {
                 relayPairingCodeInput = ""
+                // Start receiving immediately (no relaunch). This publishes the
+                // Bonjour service — the lazy point where the Local Network prompt
+                // appears, in-context, rather than at every launch.
+                UniversalControlMouseRelay.shared.startListening(
+                    inputSimulator: ServiceContainer.shared.mappingEngine.inputSimulator
+                )
             }
             setRelaySecretStatus(message, isError: !success)
         }
