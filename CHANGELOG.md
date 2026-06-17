@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-06-17
+
+### Added
+
+- **Guided first-run permissions setup**: First launch now walks you through the macOS permissions ControllerKeys needs — Accessibility, Input Monitoring, and Bluetooth — one at a time, each with a plain-language explanation and a live status pill that flips to "Granted" the moment you toggle the switch, instead of firing every system prompt at once on launch. Accessibility (the fussy one) gets a drag-and-drop app-icon well so you can drop ControllerKeys straight into the Settings list without hunting through a file chooser, plus a Reveal-in-Finder fallback and troubleshooting help for stale permission state. Granting a permission instantly restarts the features that depend on it — no relaunch needed — and you can re-run the whole flow any time from Settings → General → Permissions. A banner appears if a permission is later revoked.
+
+- **Anonymous, opt-out usage analytics**: Now that ControllerKeys is distributed free through GitHub and Homebrew, the app sends a small anonymous ping — app version, macOS version, and Mac type — so I can see how many people use it and which versions to keep supporting. There's no account, no name, and no controller input or profile data involved, and your IP address is never stored. You can turn it off any time in Settings → General → "Share Anonymous Usage Data"; the privacy policy lists exactly what's sent.
+
+### Changed
+
+- **Local Network permission is no longer requested at launch**: The cross-Mac Remote Mouse relay now asks for Local Network access only when you actually set it up (or if you've already paired two Macs) — so if you never use that feature, you're never prompted for it.
+
+- **More VoiceOver labels in the automation editors**: Icon-only buttons in the macro library, automation program editor, and modifier-set editor now carry accessibility labels for screen-reader users.
+
 ## [2.1.1] - 2026-06-16
 
 ### Fixed
