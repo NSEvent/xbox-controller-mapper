@@ -40,6 +40,17 @@ final class LicenseManager: ObservableObject {
         return 0
     }
 
+    /// Compact status string for anonymous telemetry.
+    var telemetryStatus: String { Self.telemetryString(status) }
+
+    static func telemetryString(_ status: Status) -> String {
+        switch status {
+        case .licensed: return "licensed"
+        case .trial: return "trial"
+        case .expired: return "expired"
+        }
+    }
+
     var storedLicenseKey: String? {
         KeychainService.retrievePassword(key: Keys.licenseKey, service: keychainService)
     }
@@ -80,6 +91,10 @@ final class LicenseManager: ObservableObject {
             if case .expired = status {
                 disableMapping()
             }
+            // Report trial_expired / license_valid once per transition (dedup'd
+            // inside TelemetryService) so expiry is caught even in a long-running
+            // session that never relaunches.
+            TelemetryService.shared.reportStatusTransition(Self.telemetryString(status))
         }
     }
 
@@ -209,6 +224,10 @@ final class LicenseManager: ObservableObject {
             KeychainService.storePassword(key, key: Keys.licenseKey, service: keychainService)
             KeychainService.storePassword("1", key: Keys.licensedConfirmed, service: keychainService)
             status = .licensed
+            // Tier 3 join: report activation with the Gumroad sale_id so the
+            // backend can tie this anonymous install to its purchase.
+            let saleID = (json?["purchase"] as? [String: Any])?["sale_id"] as? String
+            TelemetryService.shared.licenseActivated(saleID: saleID)
             return VerifyResult(success: true, message: "License activated — thank you for your support!")
         } catch {
             return VerifyResult(

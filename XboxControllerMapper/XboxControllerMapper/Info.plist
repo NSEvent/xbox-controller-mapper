@@ -58,12 +58,14 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/NSEvent/xbox-controller-mapper/main/appcast.xml</string>
+	<string>https://analytics.kevintang.app/controllerkeys/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>UE8E+aypYDGJ7X8LznvFn1YBdENZDo5qrsX93K1/1Js=</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
+	<key>SUEnableSystemProfiling</key>
+	<true/>
 </dict>
 </plist>

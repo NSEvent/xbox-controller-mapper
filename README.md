@@ -384,9 +384,9 @@ This app requires **Accessibility permissions** to simulate keyboard and mouse i
 
 - **Open Source**: The complete source code is available for audit. You can verify exactly what the app does with your input data.
 
-- **No Telemetry or Phoning Home**: The app never contacts any server on its own. Network access only occurs when you explicitly configure webhooks, OBS WebSocket commands, or community profile imports.
+- **Anonymous, Opt-Out Analytics**: Now that the app is distributed free via GitHub and Homebrew (rather than a gated download), it sends a small **anonymous** usage ping — a random install ID (no account, no personal data), app version, macOS version, Mac type, locale, and trial/license status — so I can see active installs and which versions to keep supporting. Your IP is never stored (only a one-way salted hash; approximate country is derived at the edge). **No controller input, profiles, scripts, or settings are ever sent.** Turn it off any time in **Settings → General → Privacy**; full details are in the [Privacy Policy](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics). Other network access only occurs when you explicitly configure webhooks, OBS WebSocket commands, or community profile imports, or when the app checks for updates.
 
-- **No Data Collection**: The app does not log, store, or transmit any input data. Controller inputs are translated to keyboard/mouse events in real-time and immediately discarded.
+- **No Input Data Collection**: The app does not log, store, or transmit any controller input data. Controller inputs are translated to keyboard/mouse events in real-time and immediately discarded.
 
 - **Signed & Notarized**: Releases are signed with an Apple Developer ID certificate and notarized by Apple, ensuring the binary matches the source code and hasn't been tampered with.
 
