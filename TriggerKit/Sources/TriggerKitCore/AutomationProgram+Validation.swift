@@ -207,6 +207,10 @@ private extension AutomationStep {
 		if let allowedSchemes, !allowedSchemes.contains(scheme) {
 			return [issue(disallowedCode, index: index, message: "\(label) scheme is not allowed: \(scheme)")]
 		}
+		let blockedSchemes: Set<String> = ["file", "x-apple.systempreferences"]
+		if blockedSchemes.contains(scheme) {
+			return [issue(disallowedCode, index: index, message: "\(label) scheme is blocked for security: \(scheme)")]
+		}
 		return []
 	}
 

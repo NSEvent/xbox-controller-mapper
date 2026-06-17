@@ -6,3 +6,7 @@
 **Vulnerability:** The app allowed opening any URL string without validating the scheme, making it possible for attackers to use NSWorkspace.shared.open with potentially dangerous handlers like file:// or system preference handlers.
 **Learning:** Passing untrusted URLs to NSWorkspace.shared.open or /usr/bin/open acts similarly to a shell execution if non-standard or local file schemes are used. It bypasses normal app boundaries.
 **Prevention:** Always restrict URL schemes to an explicit allowlist (like http, https) before delegating to system URL openers.
+## 2026-06-16 - [Sandbox Escape via URL Handler Scheme]
+**Vulnerability:** Execution frameworks allowed untrusted automation configurations to open URLs with schemes like `file` and `x-apple.systempreferences`, effectively allowing arbitrary local execution or sandbox escapes via `NSWorkspace.shared.open`.
+**Learning:** `NSWorkspace.shared.open` delegates URL handling directly to the OS, executing system preferences panes or opening arbitrary files. Bounding allowed schemes is critical, and a strict blocklist is required when an allowlist is too restrictive for general automation.
+**Prevention:** Apply a strict blocklist for URL handlers (e.g. `file`, `x-apple.systempreferences`) at the core execution and validation levels when evaluating untrusted URL strings.
