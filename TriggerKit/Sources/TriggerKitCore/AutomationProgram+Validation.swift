@@ -1,5 +1,10 @@
 import Foundation
 
+
+public enum AutomationSecurityPolicy {
+	public static let blockedURLSchemes: Set<String> = ["file", "x-apple.systempreferences"]
+}
+
 public struct AutomationValidationPolicy: Equatable, Sendable {
 	public var allowsEmptyProgram: Bool
 	public var capabilities: AutomationCapabilities
@@ -207,8 +212,7 @@ private extension AutomationStep {
 		if let allowedSchemes, !allowedSchemes.contains(scheme) {
 			return [issue(disallowedCode, index: index, message: "\(label) scheme is not allowed: \(scheme)")]
 		}
-		let blockedSchemes: Set<String> = ["file", "x-apple.systempreferences"]
-		if blockedSchemes.contains(scheme) {
+		if AutomationSecurityPolicy.blockedURLSchemes.contains(scheme) {
 			return [issue(disallowedCode, index: index, message: "\(label) scheme is blocked for security: \(scheme)")]
 		}
 		return []

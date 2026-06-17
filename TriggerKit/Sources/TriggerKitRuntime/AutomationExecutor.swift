@@ -450,8 +450,7 @@ public final class AutomationExecutor {
 		if let allowedSchemes, !allowedSchemes.contains(scheme) {
 			return .failure("URL scheme not allowed: \(scheme)")
 		}
-		let blockedSchemes: Set<String> = ["file", "x-apple.systempreferences"]
-		if blockedSchemes.contains(scheme) {
+		if AutomationSecurityPolicy.blockedURLSchemes.contains(scheme) {
 			return .failure("URL scheme blocked for security: \(scheme)")
 		}
 		guard NSWorkspace.shared.open(url) else {
