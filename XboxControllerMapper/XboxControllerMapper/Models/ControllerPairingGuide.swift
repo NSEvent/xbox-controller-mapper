@@ -74,8 +74,16 @@ private func loc(_ key: String) -> String {
 // MARK: - Web guide links
 
 private enum PairingGuideURL {
-    static let xbox = URL(string: "https://www.kevintang.xyz/apps/xbox-controller-mapper/guides/connect-xbox-controller-mac.html")
-    static let ps5 = URL(string: "https://www.kevintang.xyz/apps/xbox-controller-mapper/guides/connect-ps5-controller-mac.html")
+    private static let base = "https://www.kevintang.xyz/apps/controller-keys/guides/"
+    static let xbox = URL(string: base + "connect-xbox-controller-mac.html")
+    static let xboxElite = URL(string: base + "xbox-elite-series-2-paddles-mac.html")
+    static let ps5 = URL(string: base + "connect-ps5-controller-mac.html")
+    static let dualSenseEdge = URL(string: base + "connect-dualsense-edge-mac.html")
+    static let dualShock = URL(string: base + "connect-dualshock-4-mac.html")
+    static let nintendo = URL(string: base + "connect-joycon-pro-controller-mac.html")
+    static let steam = URL(string: base + "connect-steam-controller-mac.html")
+    static let eightBitDo = URL(string: base + "connect-8bitdo-controller-mac.html")
+    static let appleTVRemote = URL(string: base + "connect-apple-tv-remote-mac.html")
 }
 
 // MARK: - Per-controller guides
@@ -120,7 +128,7 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("A USB-C cable also works and charges at the same time."),
                 tip: loc("The Elite Series 2 pairs exactly like a standard Xbox controller. Back paddles map just like any other button once connected."),
-                guideURL: PairingGuideURL.xbox,
+                guideURL: PairingGuideURL.xboxElite,
                 pairingButtons: [.xbox]
             )
 
@@ -156,7 +164,7 @@ extension ControllerPreviewLayout {
                 wiredNote: loc("A USB-C cable also works instantly. The Edge's braided cable has a locking connector — press the release to unplug."),
                 tip: loc("Edge paddles and Fn buttons appear automatically once connected."),
                 nativeSupportNote: loc("Native support requires macOS 13 Ventura or later."),
-                guideURL: PairingGuideURL.ps5,
+                guideURL: PairingGuideURL.dualSenseEdge,
                 pairingButtons: [.view, .xbox]
             )
 
@@ -173,7 +181,7 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("Or connect a Micro-USB cable for a wired, lower-latency link."),
                 nativeSupportNote: loc("Native DualShock 4 support requires macOS 11 Big Sur or later."),
-                guideURL: PairingGuideURL.ps5,
+                guideURL: PairingGuideURL.dualShock,
                 // Share button + PS button.
                 pairingButtons: [.view, .xbox]
             )
@@ -190,7 +198,8 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("A USB-C cable connects too, but macOS reads Switch controllers reliably only over Bluetooth — wireless is recommended."),
                 tip: loc("Joy-Con: hold the small **sync button** on the side rail (between SR and SL) until the LEDs run. Pair each Joy-Con separately."),
-                nativeSupportNote: loc("Native Nintendo support requires macOS 13 Ventura or later.")
+                nativeSupportNote: loc("Native Nintendo support requires macOS 13 Ventura or later."),
+                guideURL: PairingGuideURL.nintendo
             )
 
         case .steam:
@@ -206,6 +215,7 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("Or plug in the USB wireless dongle (2.4 GHz) — it connects without any Bluetooth pairing."),
                 tip: loc("If **Steam + B** doesn't work on your hardware revision, try holding **Y** while pressing the Steam button."),
+                guideURL: PairingGuideURL.steam,
                 // Steam button (guide) + B face button.
                 pairingButtons: [.xbox, .b]
             )
@@ -224,6 +234,7 @@ extension ControllerPreviewLayout {
                 ],
                 wiredNote: loc("A USB-C cable works wired too."),
                 tip: loc("The Zero 2 has three Mac-ready modes — hold the button while powering on with **Start**: **B** = Android/D-input (pairs as an *8BitDo Zero 2*, matching this layout), **Y** = Switch (pairs as a *Switch Pro Controller*), **A** = macOS (pairs as a *DualShock 4*). All three work with ControllerKeys."),
+                guideURL: PairingGuideURL.eightBitDo,
                 // Android / D-input startup combo: B + Start. (Start = +/menu.)
                 pairingButtons: [.b, .menu]
             )
@@ -246,6 +257,7 @@ extension ControllerPreviewLayout {
                     loc("Select the remote under **Nearby Devices** to connect — it joins as a Bluetooth HID device.")
                 ],
                 tip: loc("Keep the Apple TV unplugged for the whole pairing process so the remote doesn't reconnect to it mid-pair."),
+                guideURL: PairingGuideURL.appleTVRemote,
                 // Volume Up (+) + Back button.
                 pairingButtons: [.appleTVRemoteVolumeUp, .view]
             )
@@ -269,7 +281,8 @@ extension ControllerPreviewLayout {
                 String(format: loc("Connect to **8BitDo %@** under Nearby Devices."), model)
             ],
             wiredNote: loc("A USB-C cable works wired too."),
-            tip: String(format: loc("Bottom switch: **D** = D-input/Android (pairs as an *8BitDo %@*, matching this layout); **S** = Switch mode (pairs as a *Switch Pro Controller*). Both work with ControllerKeys."), model)
+            tip: String(format: loc("Bottom switch: **D** = D-input/Android (pairs as an *8BitDo %@*, matching this layout); **S** = Switch mode (pairs as a *Switch Pro Controller*). Both work with ControllerKeys."), model),
+            guideURL: PairingGuideURL.eightBitDo
         )
     }
 }
