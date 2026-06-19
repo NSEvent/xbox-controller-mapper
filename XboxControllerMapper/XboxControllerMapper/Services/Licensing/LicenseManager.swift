@@ -2,6 +2,26 @@ import Foundation
 import SwiftUI
 import Combine
 
+struct LicenseCredentialStore {
+	var retrieve: (_ key: String) -> String?
+	var store: (_ password: String, _ key: String) -> String?
+	var delete: (_ key: String) -> Void
+
+	static func keychain(service: String) -> LicenseCredentialStore {
+		LicenseCredentialStore(
+			retrieve: { key in
+				KeychainService.retrievePassword(key: key, service: service)
+			},
+			store: { password, key in
+				KeychainService.storePassword(password, key: key, service: service)
+			},
+			delete: { key in
+				KeychainService.deletePassword(key: key, service: service)
+			}
+		)
+	}
+}
+
 /// Owns the trial / license state for the app.
 ///
 /// - The 14-day trial clock is anchored in the **login keychain** (not
@@ -52,7 +72,8 @@ final class LicenseManager: ObservableObject {
     }
 
     var storedLicenseKey: String? {
-        KeychainService.retrievePassword(key: Keys.licenseKey, service: keychainService)
+		guard !skipsPersistentLicenseStorage else { return nil }
+		return credentialStore.retrieve(Keys.licenseKey)
     }
 
     // MARK: - Config
@@ -63,18 +84,31 @@ final class LicenseManager: ObservableObject {
     /// the License Verification API.
     static let productID = "9AsXgsuZVzxgNYfoVcFW1A=="
 
-    private let keychainService = "com.controllerkeys.license"
+	private static let keychainService = "com.controllerkeys.license"
     private enum Keys {
         static let trialStart = "trialStart"
         static let licenseKey = "licenseKey"
         static let licensedConfirmed = "licensedConfirmed"
     }
 
+	private let credentialStore: LicenseCredentialStore
+	private let skipsPersistentLicenseStorage: Bool
     private let isoFormatter = ISO8601DateFormatter()
     private var clockTimer: Timer?
     private var enforcementCancellable: AnyCancellable?
 
-    private init() {
+    init(
+		credentialStore: LicenseCredentialStore = .keychain(service: keychainService),
+		skipsPersistentLicenseStorage: Bool = AppRuntime.isRunningTests
+    ) {
+		self.credentialStore = credentialStore
+		self.skipsPersistentLicenseStorage = skipsPersistentLicenseStorage
+
+		if skipsPersistentLicenseStorage {
+			status = .licensed
+			return
+		}
+
         refresh()
         // A long-running app should notice the trial expiring at a day
         // boundary without needing a relaunch.
@@ -87,6 +121,8 @@ final class LicenseManager: ObservableObject {
     /// again whenever it transitions to expired — so mapping stops even with no
     /// window open. Called once at app startup.
     func enforce(disableMapping: @escaping () -> Void) {
+		guard !skipsPersistentLicenseStorage else { return }
+
         enforcementCancellable = $status.sink { status in
             if case .expired = status {
                 disableMapping()
@@ -122,6 +158,11 @@ final class LicenseManager: ObservableObject {
 
     /// Recomputes `status` from the keychain (license first, then trial clock).
     func refresh() {
+		if skipsPersistentLicenseStorage {
+			status = .licensed
+			return
+		}
+
         if let forced = Self.demoForcedStatus {
             status = forced
             return
@@ -136,7 +177,7 @@ final class LicenseManager: ObservableObject {
 #endif
         // A previously-verified license wins, and stays valid offline.
         if storedLicenseKey != nil,
-           KeychainService.retrievePassword(key: Keys.licensedConfirmed, service: keychainService) == "1" {
+		   credentialStore.retrieve(Keys.licensedConfirmed) == "1" {
             status = .licensed
             return
         }
@@ -150,12 +191,12 @@ final class LicenseManager: ObservableObject {
     /// Returns the trial start date, creating (and persisting) it on first launch.
     @discardableResult
     private func ensureTrialStart() -> Date {
-        if let stored = KeychainService.retrievePassword(key: Keys.trialStart, service: keychainService),
+		if let stored = credentialStore.retrieve(Keys.trialStart),
            let date = isoFormatter.date(from: stored) {
             return date
         }
         let now = Date()
-        KeychainService.storePassword(isoFormatter.string(from: now), key: Keys.trialStart, service: keychainService)
+		credentialStore.store(isoFormatter.string(from: now), Keys.trialStart)
         return now
     }
 
@@ -170,6 +211,11 @@ final class LicenseManager: ObservableObject {
     /// success, caches it so the app is licensed (including offline) going
     /// forward.
     func verify(key rawKey: String) async -> VerifyResult {
+		if skipsPersistentLicenseStorage {
+			status = .licensed
+			return VerifyResult(success: true, message: "License active for tests.")
+		}
+
         let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else {
             return VerifyResult(success: false, message: "Enter your license key.")
@@ -221,8 +267,8 @@ final class LicenseManager: ObservableObject {
                 }
             }
 
-            KeychainService.storePassword(key, key: Keys.licenseKey, service: keychainService)
-            KeychainService.storePassword("1", key: Keys.licensedConfirmed, service: keychainService)
+			credentialStore.store(key, Keys.licenseKey)
+			credentialStore.store("1", Keys.licensedConfirmed)
             status = .licensed
             // Tier 3 join: report activation with the Gumroad sale_id so the
             // backend can tie this anonymous install to its purchase.
@@ -239,8 +285,13 @@ final class LicenseManager: ObservableObject {
 
     /// Removes the stored license (used for testing / "deactivate this Mac").
     func clearLicense() {
-        KeychainService.deletePassword(key: Keys.licenseKey, service: keychainService)
-        KeychainService.deletePassword(key: Keys.licensedConfirmed, service: keychainService)
+		if skipsPersistentLicenseStorage {
+			status = .licensed
+			return
+		}
+
+		credentialStore.delete(Keys.licenseKey)
+		credentialStore.delete(Keys.licensedConfirmed)
         refresh()
     }
 
@@ -248,10 +299,15 @@ final class LicenseManager: ObservableObject {
     /// Backdates the trial start so the trial shows `daysRemaining` left
     /// (use 0 or negative to force the expired state). Debug builds only.
     func debugSetTrialDaysRemaining(_ daysRemaining: Int) {
+		guard !skipsPersistentLicenseStorage else {
+			status = .licensed
+			return
+		}
+
         clearLicense()
         let offsetDays = Self.trialLengthDays - daysRemaining
         let backdated = Date().addingTimeInterval(-Double(offsetDays) * 86_400)
-        KeychainService.storePassword(isoFormatter.string(from: backdated), key: Keys.trialStart, service: keychainService)
+		credentialStore.store(isoFormatter.string(from: backdated), Keys.trialStart)
         refresh()
     }
 #endif
