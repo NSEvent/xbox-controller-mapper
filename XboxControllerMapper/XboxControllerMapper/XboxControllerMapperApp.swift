@@ -487,20 +487,24 @@ private struct ConnectionGuidesMenuItem: View {
 @main
 struct XboxControllerMapperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    var body: some Scene {
-        // Single-window scene (prevents Cmd+N from opening duplicates)
-        Window("ControllerKeys", id: "main") {
-            ContentView()
-                .onAppear { AppRuntime.positionMainWindowForScreenshots() }
-                .environmentObject(ServiceContainer.shared.controllerService)
-                .environmentObject(ServiceContainer.shared.profileManager)
-                .environmentObject(ServiceContainer.shared.appMonitor)
-                .environmentObject(ServiceContainer.shared.mappingEngine)
-                .environmentObject(ServiceContainer.shared.inputMonitor)
-                .environmentObject(ServiceContainer.shared.inputLogService)
-                .environmentObject(ServiceContainer.shared.usageStatsService)
-        }
-        .windowResizability(.contentSize)
+	var body: some Scene {
+		// Single-window scene (prevents Cmd+N from opening duplicates)
+		Window("ControllerKeys", id: "main") {
+			if AppRuntime.isRunningTests {
+				EmptyView()
+			} else {
+				ContentView()
+					.onAppear { AppRuntime.positionMainWindowForScreenshots() }
+					.environmentObject(ServiceContainer.shared.controllerService)
+					.environmentObject(ServiceContainer.shared.profileManager)
+					.environmentObject(ServiceContainer.shared.appMonitor)
+					.environmentObject(ServiceContainer.shared.mappingEngine)
+					.environmentObject(ServiceContainer.shared.inputMonitor)
+					.environmentObject(ServiceContainer.shared.inputLogService)
+					.environmentObject(ServiceContainer.shared.usageStatsService)
+			}
+		}
+		.windowResizability(.contentSize)
 		.commands {
 			CommandGroup(after: .help) {
 				ConnectionGuidesMenuItem()
@@ -511,27 +515,39 @@ struct XboxControllerMapperApp: App {
 		}
 
 		Window("Controller Connection Guides", id: "connection-guides") {
-			ConnectionGuidesView()
+			if AppRuntime.isRunningTests {
+				EmptyView()
+			} else {
+				ConnectionGuidesView()
+			}
 		}
 		// The view has a fixed width and content-driven height, so the window
 		// sizes itself to each guide (and the chooser) and re-sizes as the user
-		// navigates between controllers — no scrolling, no manual resize.
+		// navigates between controllers - no scrolling, no manual resize.
 		.windowResizability(.contentSize)
 
-        MenuBarExtra {
-            MenuBarView()
-                .environmentObject(ServiceContainer.shared.controllerService)
-                .environmentObject(ServiceContainer.shared.profileManager)
-                .environmentObject(ServiceContainer.shared.mappingEngine)
-                .environmentObject(ServiceContainer.shared.inputMonitor)
-                .environmentObject(ServiceContainer.shared.inputLogService)
-        } label: {
-            MenuBarLabel(
-                controllerService: ServiceContainer.shared.controllerService,
-                mappingEngine: ServiceContainer.shared.mappingEngine
-            )
-        }
-        .menuBarExtraStyle(.window)
+		MenuBarExtra {
+			if AppRuntime.isRunningTests {
+				EmptyView()
+			} else {
+				MenuBarView()
+					.environmentObject(ServiceContainer.shared.controllerService)
+					.environmentObject(ServiceContainer.shared.profileManager)
+					.environmentObject(ServiceContainer.shared.mappingEngine)
+					.environmentObject(ServiceContainer.shared.inputMonitor)
+					.environmentObject(ServiceContainer.shared.inputLogService)
+			}
+		} label: {
+			if AppRuntime.isRunningTests {
+				Image(systemName: "gamecontroller")
+			} else {
+				MenuBarLabel(
+					controllerService: ServiceContainer.shared.controllerService,
+					mappingEngine: ServiceContainer.shared.mappingEngine
+				)
+			}
+		}
+		.menuBarExtraStyle(.window)
     }
 }
 

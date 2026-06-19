@@ -1179,19 +1179,12 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
             mockInputSimulator.clearEvents()
         }
 
-        let zone = UniversalControlMouseRelay.HandoffZone(
-            localDisplayID: nil,
-            localEdge: .right,
-            localRangeMin: nil,
-            localRangeMax: nil,
-            remoteHost: "127.0.0.1",
-            remotePort: 65530,
-            remoteEntryEdge: .left,
-            remoteReturnEdge: .left
-        )
-        UniversalControlMouseRelay.shared.beginRemoteSession(zone: zone)
-		UniversalControlMouseRelay.shared.confirmRemoteSessionForTesting()
-        defer { UniversalControlMouseRelay.shared.setRemoteSessionActive(false) }
+		UniversalControlMouseRelay.shared.setDropsOutgoingMessagesForTesting(true)
+		UniversalControlMouseRelay.shared.setRemoteSessionActive(true)
+		defer {
+			UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
+			UniversalControlMouseRelay.shared.setDropsOutgoingMessagesForTesting(false)
+		}
 
         await MainActor.run {
             controllerService.buttonPressed(.a)

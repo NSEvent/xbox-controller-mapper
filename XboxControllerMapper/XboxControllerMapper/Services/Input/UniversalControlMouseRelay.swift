@@ -178,6 +178,9 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
     private var remoteLastClickTime: [CGMouseButton: Date] = [:]
     private var didLogSendFailure = false
     private var didLogFirstSend = false
+	#if DEBUG
+	private var dropsOutgoingMessagesForTesting = false
+	#endif
     private var didLogFirstReceive = false
     private var lastHandoffSkipLog = Date.distantPast
     private var remoteHandoffSuppressedUntil = Date.distantPast
@@ -967,8 +970,22 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
 
     private func sendLine(_ line: String) -> Bool {
         guard canSendToRemote else { return false }
+		#if DEBUG
+		lock.lock()
+		let shouldDropForTesting = dropsOutgoingMessagesForTesting
+		lock.unlock()
+		if shouldDropForTesting { return true }
+		#endif
         return sendAuthenticatedLine(line, on: ensureClientForActiveZone())
     }
+
+	#if DEBUG
+	func setDropsOutgoingMessagesForTesting(_ drops: Bool) {
+		lock.lock()
+		dropsOutgoingMessagesForTesting = drops
+		lock.unlock()
+	}
+	#endif
 
     private func sendAuthenticatedLine(_ line: String, on connection: NWConnection) -> Bool {
         guard let sealed = sealOutgoingLine(line),
