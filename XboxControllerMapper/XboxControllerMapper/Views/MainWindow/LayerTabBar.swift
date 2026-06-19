@@ -299,8 +299,18 @@ struct LayerTabBar: View {
                 )
             }
         )
-        .onPreferenceChange(LayerBarWidthPreferenceKey.self) { newValue in
-            barWidth = newValue
-        }
-    }
+	.onPreferenceChange(LayerBarWidthPreferenceKey.self) { newValue in
+		scheduleBarWidthUpdate(newValue)
+	}
+	}
+
+	private func scheduleBarWidthUpdate(_ newValue: CGFloat) {
+		let normalized = LayoutMeasurementPolicy.normalizedDimension(newValue)
+		guard LayoutMeasurementPolicy.shouldUpdate(current: barWidth, proposed: normalized) else { return }
+
+		DispatchQueue.main.async {
+			guard LayoutMeasurementPolicy.shouldUpdate(current: barWidth, proposed: normalized) else { return }
+			barWidth = normalized
+		}
+	}
 }

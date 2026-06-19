@@ -348,16 +348,12 @@ struct ButtonMappingsTab: View {
 				if let size = canvasEventView?.bounds.size {
 					canvasPan = clampedPan(canvasPan, in: size)
 				}
-            }
+			}
 			.onPreferenceChange(ControllerCanvasContentSizePreferenceKey.self) { newSize in
-				guard newSize.width > 0, newSize.height > 0 else { return }
-				measuredCanvasBaseSize = newSize
-				if let size = canvasEventView?.bounds.size {
-					canvasPan = clampedPan(canvasPan, in: size)
-				}
+				scheduleCanvasBaseSizeUpdate(newSize)
 			}
 			.onPreferenceChange(NonCanvasHeightPreferenceKey.self) { newValue in
-				nonCanvasHeight = max(0, newValue)
+				scheduleNonCanvasHeightUpdate(newValue)
 			}
         .sheet(isPresented: $showingAddLayerSheet) {
             AddLayerSheet()
@@ -385,6 +381,30 @@ struct ButtonMappingsTab: View {
         }
         }
     }
+
+	private func scheduleCanvasBaseSizeUpdate(_ newSize: CGSize) {
+		let normalized = LayoutMeasurementPolicy.normalizedSize(newSize)
+		guard normalized.width > 0, normalized.height > 0 else { return }
+		guard LayoutMeasurementPolicy.shouldUpdate(current: measuredCanvasBaseSize, proposed: normalized) else { return }
+
+		DispatchQueue.main.async {
+			guard LayoutMeasurementPolicy.shouldUpdate(current: measuredCanvasBaseSize, proposed: normalized) else { return }
+			measuredCanvasBaseSize = normalized
+			if let size = canvasEventView?.bounds.size {
+				canvasPan = clampedPan(canvasPan, in: size)
+			}
+		}
+	}
+
+	private func scheduleNonCanvasHeightUpdate(_ newValue: CGFloat) {
+		let normalized = LayoutMeasurementPolicy.normalizedDimension(newValue)
+		guard LayoutMeasurementPolicy.shouldUpdate(current: nonCanvasHeight, proposed: normalized) else { return }
+
+		DispatchQueue.main.async {
+			guard LayoutMeasurementPolicy.shouldUpdate(current: nonCanvasHeight, proposed: normalized) else { return }
+			nonCanvasHeight = normalized
+		}
+	}
 
 	private var layoutPreviewMenu: some View {
 		HStack {

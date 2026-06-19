@@ -50,12 +50,14 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
         if centralManager?.isScanning == true {
             centralManager?.stopScan()
         }
-        batteryLevel = nil
+		connectedPeripheral = nil
+		batteryCharacteristic = nil
+		clearBatteryState()
     }
 
     /// Resets the cached battery level (call when controller disconnects)
     func resetBatteryLevel() {
-        batteryLevel = nil
+		clearBatteryState()
     }
 
     /// Refreshes the battery level by re-reading from the connected peripheral
@@ -71,6 +73,8 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     }
     
     private func scanForControllers() {
+		guard centralManager?.state == .poweredOn else { return }
+
         // First, check for already connected devices (common for controllers)
         let connected = centralManager.retrieveConnectedPeripherals(withServices: [batteryServiceUUID])
 
@@ -95,7 +99,12 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
         case .poweredOn:
             scanForControllers()
         case .poweredOff, .resetting, .unauthorized, .unknown, .unsupported:
-            stopMonitoring()
+			if central.isScanning {
+				central.stopScan()
+			}
+			connectedPeripheral = nil
+			batteryCharacteristic = nil
+			clearBatteryState()
         @unknown default:
             break
         }
@@ -137,7 +146,7 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         connectedPeripheral = nil
         batteryCharacteristic = nil
-        batteryLevel = nil
+		clearBatteryState()
 
         // Retry scanning
         if central.state == .poweredOn {
@@ -179,8 +188,18 @@ class BluetoothBatteryMonitor: NSObject, ObservableObject, CBCentralManagerDeleg
             let level = Int(value.first ?? 0)
 
             DispatchQueue.main.async { [weak self] in
+				guard self?.batteryLevel != level else { return }
                 self?.batteryLevel = level
             }
         }
     }
+
+	private func clearBatteryState() {
+		if batteryLevel != nil {
+			batteryLevel = nil
+		}
+		if isCharging {
+			isCharging = false
+		}
+	}
 }
