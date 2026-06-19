@@ -1139,7 +1139,10 @@ class ControllerService: ObservableObject {
             isGenericController = false
         }
         connectedController = controller
-        controllerName = controller.vendorName ?? "Game Controller"
+		controllerName = ControllerIdentityResolver.displayName(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		)
 		controllerMappingSource = nil
         currentControllerIdentity = nil
 

@@ -4,8 +4,11 @@ import IOKit
 import IOKit.hid
 
 enum ControllerIdentityResolver {
-    static func identity(for controller: GCController, preferredDevice: IOHIDDevice? = nil) -> ControllerIdentity {
-        let fallbackName = controller.vendorName ?? controller.productCategory
+	static func identity(for controller: GCController, preferredDevice: IOHIDDevice? = nil) -> ControllerIdentity {
+		let fallbackName = displayName(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		)
         if let preferredDevice {
             return identity(for: preferredDevice, fallbackName: fallbackName)
         }
@@ -16,6 +19,19 @@ enum ControllerIdentityResolver {
         )
         return resolvedIdentity(candidates: candidates, fallbackName: fallbackName)
     }
+
+	static func displayName(vendorName: String?, productCategory: String) -> String {
+		let vendor = normalizedDisplayComponent(vendorName)
+		let category = normalizedDisplayComponent(productCategory)
+
+		if let vendor, !isGenericDisplayName(vendor) {
+			return vendor
+		}
+		if let category, !isGenericDisplayName(category) {
+			return category
+		}
+		return category ?? vendor ?? "Game Controller"
+	}
 
     static func resolvedIdentity(
         candidates: [ControllerIdentity],
@@ -125,8 +141,9 @@ enum ControllerIdentityResolver {
         vendorName: String?,
         productCategory: String
     ) -> [ControllerIdentity] {
-        allControllerDevices()
-            .map { identity(for: $0, fallbackName: vendorName ?? productCategory) }
+		let fallbackName = displayName(vendorName: vendorName, productCategory: productCategory)
+		return allControllerDevices()
+			.map { identity(for: $0, fallbackName: fallbackName) }
             .filter { identity in
                 let haystack = [
                     identity.productName,
@@ -146,6 +163,27 @@ enum ControllerIdentityResolver {
                 }
             }
     }
+
+	private static func normalizedDisplayComponent(_ name: String?) -> String? {
+		guard let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines),
+			  !trimmed.isEmpty else {
+			return nil
+		}
+		return trimmed
+	}
+
+	private static func isGenericDisplayName(_ name: String) -> Bool {
+		let normalized = name.lowercased()
+		return [
+			"controller",
+			"extended gamepad",
+			"game controller",
+			"gamepad",
+			"hid",
+			"wireless controller",
+			"wireless gamepad"
+		].contains(normalized)
+	}
 
     private static func allControllerDevices() -> [IOHIDDevice] {
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))

@@ -2,6 +2,36 @@ import XCTest
 @testable import ControllerKeys
 
 final class ControllerIdentityResolverTests: XCTestCase {
+	func testDisplayNameUsesProductCategoryWhenVendorNameIsGeneric() {
+		XCTAssertEqual(
+			ControllerIdentityResolver.displayName(
+				vendorName: "HID",
+				productCategory: "8BitDo Lite 2"
+			),
+			"8BitDo Lite 2"
+		)
+	}
+
+	func testDisplayNameKeepsSpecificVendorName() {
+		XCTAssertEqual(
+			ControllerIdentityResolver.displayName(
+				vendorName: "Xbox Wireless Controller",
+				productCategory: "Xbox Controller"
+			),
+			"Xbox Wireless Controller"
+		)
+	}
+
+	func testDisplayNameKeepsVendorNameWhenProductCategoryIsGeneric() {
+		XCTAssertEqual(
+			ControllerIdentityResolver.displayName(
+				vendorName: "Steam Controller",
+				productCategory: "Game Controller"
+			),
+			"Steam Controller"
+		)
+	}
+
     func testResolvedIdentityKeepsStableIdForOnePhysicalController() {
         let identity = makeIdentity(stableId: "serial:alpha")
 
