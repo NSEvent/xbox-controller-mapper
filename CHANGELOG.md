@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-06-19
+
+### Fixed
+
+- **8BitDo Lite 2 Android-mode support**: Android mode now identifies as the Lite 2 instead of a generic controller, uses the corrected mini-map layout, keeps left-stick motion from falsely lighting D-pad actions, and reads the 8BitDo/Home logo button through raw HID when Input Monitoring is granted.
+
+- **Launch crash when Bluetooth is off**: ControllerKeys no longer crashes at startup when Bluetooth is unavailable or powered off; battery monitoring now clears state safely when CoreBluetooth is not ready.
+
+- **Unsafe automation URL schemes blocked**: TriggerKit URL handling now rejects non-web and system URL schemes so imported automations cannot launch arbitrary local handlers.
+
+### Changed
+
+- **Real controller names**: Controller surfaces now prefer product-specific names over generic GameController labels when a real product name is available.
+
+- **Controller pairing guide links updated**: In-app pairing guide URLs now point at the ControllerKeys documentation pages, including the newly added controller guides.
+
+- **Release test stability**: App-hosted XCTest now starts in a test-only scene so controller mapping and remote-mouse side effects stay out of the suite.
+
 ## [2.2.0] - 2026-06-17
 
 ### Added
