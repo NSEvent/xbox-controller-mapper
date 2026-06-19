@@ -4,8 +4,8 @@ import IOKit.hid
 
 // MARK: - 8BitDo D-input Pad HID Monitoring (Home + Star buttons)
 
-/// The Home button on the 8BitDo Micro (D-input / Android mode) is dropped by
-/// Apple's GameController framework — the SDL row maps it to `guide`, which
+/// The Home button on small 8BitDo D-input / Android-mode pads is dropped by
+/// Apple's GameController framework — the SDL rows map it to `guide`, which
 /// macOS intercepts. We monitor the underlying HID device (vendor 0x2DC8)
 /// directly and synthesize the press.
 ///
@@ -25,6 +25,11 @@ import IOKit.hid
 /// is a controller-side function/shortcut key with no standalone HID event, so
 /// it cannot be mapped on macOS in this mode. The detection is left in place in
 /// case a firmware/mode variant ever does report it.
+///
+/// Lite 2 (PID 0x5112) input report (report ID 0x01, 10 bytes) — verified by
+/// raw capture from Android/D-input mode:
+///   [0]=reportID 0x01  [1]=button byte  [2..7]=axes  [8..9]=buttons/hat
+///   Home / 8BitDo logo = byte[1] & 0x04.
 ///
 /// The Zero 2 (PID 0x3230) sends a different, longer report and is skipped until
 /// its layout is captured — see the length/PID guard in handleEightBitDoHIDReport.
@@ -58,17 +63,19 @@ extension ControllerService {
     /// impersonate Nintendo (VID 0x057E) and are handled by the Nintendo path.
     private static let eightBitDoVendorID = 0x2DC8
 
-    /// D-input product IDs for the small stickless pads whose Home/Star the
-    /// GameController profile omits. Micro 0x9020, Zero 2 0x3230.
-    private static let eightBitDoDInputProductIDs = [microProductID, zero2ProductID]
+    /// D-input product IDs for the small pads whose Home/Star the GameController
+    /// profile omits. Micro 0x9020, Zero 2 0x3230, Lite 2 0x5112.
+    private static let eightBitDoDInputProductIDs = [microProductID, zero2ProductID, lite2ProductID]
 
     // Report-parsing constants. `nonisolated` so handleEightBitDoHIDReport (which
     // runs nonisolated, off the HID run loop) can read them without crossing the
     // MainActor boundary — same pattern as the Nintendo HID dump constants.
     nonisolated private static let microProductID = 0x9020
     nonisolated private static let zero2ProductID = 0x3230
-    /// Only the standard input report carries the button bytes.
-    nonisolated private static let eightBitDoInputReportID: UInt32 = 0x03
+    nonisolated private static let lite2ProductID = 0x5112
+    /// Only the standard input reports carry the button bytes.
+    nonisolated private static let microInputReportID: UInt32 = 0x03
+    nonisolated private static let lite2InputReportID: UInt32 = 0x01
 
     // Micro (PID 0x9020) input report — 11 bytes, verified by raw capture:
     //   [0]=reportID 0x03  [1]=0x08  [2..5]=analog axes (neutral 0x7F)
@@ -81,6 +88,9 @@ extension ControllerService {
     nonisolated private static let microButtonsHighOffset = 9
     nonisolated private static let eightBitDoHomeMask: UInt8 = 0x10   // HID Button usage 13
     nonisolated private static let eightBitDoStarMask: UInt8 = 0x20   // HID Button usage 14
+    nonisolated private static let lite2ReportLength = 10
+    nonisolated private static let lite2ButtonsOffset = 1
+    nonisolated private static let lite2HomeMask: UInt8 = 0x04
 
     func setupEightBitDoHIDMonitoring() {
         // Clean up any previous monitoring
@@ -100,13 +110,21 @@ extension ControllerService {
         IOHIDManagerSetDeviceMatchingMultiple(manager, matches as CFArray)
 
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-        IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+		let openResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+		guard openResult == kIOReturnSuccess else {
+			NSLog("[ControllerKeys] 8BitDo HID monitoring failed to open IOHIDManager: 0x%08X", UInt32(bitPattern: openResult))
+			return
+		}
 
-        if let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> {
-            for device in devices {
-                setupEightBitDoHIDDeviceCallback(device)
-            }
-        }
+		let devices = (IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>) ?? []
+		guard !devices.isEmpty else {
+			NSLog("[ControllerKeys] 8BitDo HID monitoring found no matching 0x2DC8 D-input devices")
+			return
+		}
+
+		for device in devices {
+			setupEightBitDoHIDDeviceCallback(device)
+		}
     }
 
     private func setupEightBitDoHIDDeviceCallback(_ device: IOHIDDevice) {
@@ -199,17 +217,24 @@ extension ControllerService {
             Self.logChangedReport(reportID: reportID, report: report, length: length)
         }
 
-        // Only the Micro's 11-byte layout is verified. The Zero 2 (PID 0x3230)
-        // sends a different, longer report — skip it rather than misread an
-        // axis byte as buttons (which would fire phantom presses). Capture its
-        // layout before enabling.
-        guard reportID == Self.eightBitDoInputReportID,
-              productID == Self.microProductID,
-              length == Self.microReportLength else { return }
-
-        let buttonsHigh = report[Self.microButtonsHighOffset]
-        let homePressed = (buttonsHigh & Self.eightBitDoHomeMask) != 0
-        let starPressed = (buttonsHigh & Self.eightBitDoStarMask) != 0
+		let homePressed: Bool
+		let starPressed: Bool
+		switch productID {
+		case Self.microProductID:
+			guard reportID == Self.microInputReportID,
+				  length == Self.microReportLength else { return }
+			let buttonsHigh = report[Self.microButtonsHighOffset]
+			homePressed = (buttonsHigh & Self.eightBitDoHomeMask) != 0
+			starPressed = (buttonsHigh & Self.eightBitDoStarMask) != 0
+		case Self.lite2ProductID:
+			guard reportID == Self.lite2InputReportID,
+				  length == Self.lite2ReportLength else { return }
+			let buttons = report[Self.lite2ButtonsOffset]
+			homePressed = (buttons & Self.lite2HomeMask) != 0
+			starPressed = false
+		default:
+			return
+		}
 
         storage.lock.lock()
         let homeChanged = homePressed != storage.lastEightBitDoHomeState

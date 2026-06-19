@@ -306,6 +306,72 @@ final class GameControllerDatabaseTests: XCTestCase {
 		Self.retainedDatabases.append(database)
 	}
 
+	func testLookupByDeviceProperties_Lite2BluetoothMacRowMatchesDumpLayout() {
+		let guid = GameControllerDatabase.constructGUID(
+			vendorID: 0x2dc8,
+			productID: 0x5112,
+			version: 0x0100,
+			transport: "Bluetooth"
+		)
+		XCTAssertEqual(guid, "05000000c82d00001251000000010000")
+
+		let content = mappingLine(
+			guid: guid,
+			name: "8BitDo Lite 2",
+			entries: [
+				"a:b1",
+				"b:b0",
+				"back:b10",
+				"dpdown:h0.4",
+				"dpleft:h0.8",
+				"dpright:h0.2",
+				"dpup:h0.1",
+				"guide:b12",
+				"leftshoulder:b6",
+				"leftstick:b13",
+				"lefttrigger:b8",
+				"leftx:a0",
+				"lefty:a1",
+				"rightshoulder:b7",
+				"rightstick:b14",
+				"righttrigger:b9",
+				"rightx:a2",
+				"righty:a3",
+				"start:b11",
+				"x:b4",
+				"y:b3",
+			],
+			platform: "Mac OS X"
+		)
+		let database = GameControllerDatabase(databaseContentOverride: content)
+		let dumpLayout = HIDElementLayout(buttonCount: 20, axisCount: 4, hasHat: true)
+
+		let mapping = database.lookup(
+			vendorID: 0x2dc8,
+			productID: 0x5112,
+			version: 0x0100,
+			transport: "Bluetooth",
+			compatibleWith: dumpLayout
+		)
+
+		XCTAssertEqual(mapping?.name, "8BitDo Lite 2")
+		XCTAssertEqual(mapping?.platform, "Mac OS X")
+		XCTAssertTrue(mapping?.isCompatible(with: dumpLayout) == true)
+
+		if case let .button(index)? = mapping?.axisMap["lefttrigger"] {
+			XCTAssertEqual(index, 8)
+		} else {
+			XCTFail("Expected Lite 2 left trigger to use available button b8")
+		}
+		if case let .button(index)? = mapping?.axisMap["righttrigger"] {
+			XCTAssertEqual(index, 9)
+		} else {
+			XCTFail("Expected Lite 2 right trigger to use available button b9")
+		}
+
+		Self.retainedDatabases.append(database)
+	}
+
 	func testLookupByDeviceProperties_ConsidersDuplicateGuidPlatformRowsIndependently() {
 		let duplicateGuid = GameControllerDatabase.constructGUID(
 			vendorID: 0x2dc8,

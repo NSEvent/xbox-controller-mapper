@@ -1130,7 +1130,7 @@ struct ControllerAnalogOverlay: View {
 		// stick, so in Mouse mode no .dpad* button is "pressed". Reflect the
 		// stick deflection onto the d-pad so the minimap shows the press
 		// regardless of the stick mode.
-		if eightBitDoModel != nil, dpadActiveFromLeftStick(button) {
+		if eightBitDoModel?.isStickless == true, dpadActiveFromLeftStick(button) {
 			return true
 		}
 		return false

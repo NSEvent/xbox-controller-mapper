@@ -144,7 +144,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	/// The small 8BitDo pads (Zero 2, Micro) are stickless: the physical d-pad
 	/// feeds the left-stick axis, so they expose no analog sticks at all. The
 	/// Lite 2 / Lite SE are full pads with real sticks.
-	var isStickless: Bool { eightBitDoModel == .zero2 || eightBitDoModel == .micro }
+	var isStickless: Bool { eightBitDoModel?.isStickless == true }
 
 	/// Whether the previewed controller exposes analog sticks in the sidebar.
 	var hasSticks: Bool { !isStickless }

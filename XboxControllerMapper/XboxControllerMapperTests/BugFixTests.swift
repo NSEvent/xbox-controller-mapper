@@ -121,6 +121,54 @@ final class ControllerDisconnectStateResetTests: XCTestCase {
         XCTAssertFalse(controllerService.sticklessCloneDetector.isSticklessClone)
     }
 
+	func testEightBitDoLite2HIDReportSynthesizesHomeButton() async {
+		controllerService.lowLatencyInputEnabled = true
+		controllerService.chordParticipantButtons = []
+
+		let pressed = expectation(description: "Lite 2 Home press emits Xbox button")
+		let released = expectation(description: "Lite 2 Home release emits Xbox button")
+
+		controllerService.onButtonPressed = { button in
+			XCTAssertEqual(button, .xbox)
+			pressed.fulfill()
+		}
+		controllerService.onButtonReleased = { button, _ in
+			XCTAssertEqual(button, .xbox)
+			released.fulfill()
+		}
+
+		var pressReport = [UInt8](repeating: 0, count: 10)
+		pressReport[1] = 0x04
+		pressReport.withUnsafeMutableBufferPointer { buffer in
+			controllerService.handleEightBitDoHIDReport(
+				productID: 0x5112,
+				reportID: 0x01,
+				report: buffer.baseAddress!,
+				length: buffer.count
+			)
+		}
+
+		var releaseReport = [UInt8](repeating: 0, count: 10)
+		releaseReport.withUnsafeMutableBufferPointer { buffer in
+			controllerService.handleEightBitDoHIDReport(
+				productID: 0x5112,
+				reportID: 0x01,
+				report: buffer.baseAddress!,
+				length: buffer.count
+			)
+		}
+
+		await fulfillment(of: [pressed, released], timeout: 1.0)
+	}
+
+	func testEightBitDoLite2DetectionUsesProductCategoryWhenVendorNameIsGeneric() {
+		let model = ControllerService.eightBitDoMinimapModel(
+			vendorName: "HID",
+			productCategory: "8BitDo Lite 2"
+		)
+		XCTAssertEqual(model, .lite2)
+	}
+
     func testTriggerResetExistsInDisconnectHandler() {
         // Verify the actual disconnect handler code resets triggers by checking
         // that the production code includes the trigger reset lines.

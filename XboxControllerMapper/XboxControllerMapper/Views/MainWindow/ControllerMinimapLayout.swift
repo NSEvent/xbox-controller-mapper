@@ -20,6 +20,10 @@ enum EightBitDoMinimapModel: String, CaseIterable {
     case lite2
     case liteSE
 
+	var isStickless: Bool {
+		self == .zero2 || self == .micro
+	}
+
     var minimapStyle: ControllerMinimapStyle {
         switch self {
         case .zero2: return .eightBitDoZero2
@@ -360,25 +364,25 @@ enum EightBitDoMicroMinimapLayout {
 /// lower-center), d-pad lower-left, full shoulder set, home + profile.
 enum EightBitDoLite2MinimapLayout {
     static let leftStick = CGPoint(x: 0.155, y: 0.39)
-    static let rightStick = CGPoint(x: 0.63, y: 0.66)
+    static let rightStick = CGPoint(x: 0.66, y: 0.66)
     static let stickWellSize: CGFloat = 0.155
 
     static let dpad = CGPoint(x: 0.315, y: 0.66)
     static let dpadSize: CGFloat = 0.155
 
-    static let minus = CGPoint(x: 0.345, y: 0.20)
-    static let plus = CGPoint(x: 0.575, y: 0.20)
+    static let minus = CGPoint(x: 0.315, y: 0.20)
+    static let plus = CGPoint(x: 0.66, y: 0.20)
     static let minusPlusSize: CGFloat = 0.042
 
     /// Decorative S/D mode switch between minus and plus.
     static let modeSwitch = CGPoint(x: 0.46, y: 0.155)
 
-    static let faceCluster = CGPoint(x: 0.745, y: 0.325)
+    static let faceCluster = CGPoint(x: 0.845, y: 0.39)
     static let faceButtonOffset: CGFloat = 0.063
     static let faceButtonSize: CGFloat = 0.052
 
-    static let star = CGPoint(x: 0.105, y: 0.79)
-    static let home = CGPoint(x: 0.815, y: 0.595)
+    static let star = CGPoint(x: 0.155, y: 0.79)
+    static let home = CGPoint(x: 0.845, y: 0.79)
     static let starHomeSize: CGFloat = 0.045
 
     static let leftBumper = CGPoint(x: 0.21, y: 0.03)

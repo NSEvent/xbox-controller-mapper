@@ -23,6 +23,13 @@ final class SticklessDpadCloneDetectorTests: XCTestCase {
         XCTAssertFalse(d.isSticklessClone)
     }
 
+	func testEightBitDoModelSticklessScopeExcludesFullLitePads() {
+		XCTAssertTrue(EightBitDoMinimapModel.zero2.isStickless)
+		XCTAssertTrue(EightBitDoMinimapModel.micro.isStickless)
+		XCTAssertFalse(EightBitDoMinimapModel.lite2.isStickless)
+		XCTAssertFalse(EightBitDoMinimapModel.liteSE.isStickless)
+	}
+
     func testSingleSnapDoesNotLatch() {
         // One center→full snap is not enough — confirmation is required.
         let d = SticklessDpadCloneDetector()

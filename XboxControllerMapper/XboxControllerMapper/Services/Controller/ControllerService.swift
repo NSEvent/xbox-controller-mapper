@@ -834,6 +834,24 @@ class ControllerService: ObservableObject {
         return nil
     }
 
+	static func eightBitDoMinimapModel(vendorName: String?, productCategory: String) -> EightBitDoMinimapModel? {
+		eightBitDoMinimapModel(forControllerName: "\(vendorName ?? "") \(productCategory)")
+	}
+
+	private func startEightBitDoHIDMonitoringIfNeeded(for controller: GCController, reason: String) {
+		guard Self.eightBitDoMinimapModel(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		) != nil else { return }
+
+		guard SystemPermission.inputMonitoringGranted else {
+			NSLog("[ControllerKeys] 8BitDo HID monitoring deferred (%@); Input Monitoring is not granted", reason)
+			return
+		}
+
+		setupEightBitDoHIDMonitoring()
+	}
+
     /// Starts CoreBluetooth battery monitoring. Constructing the
     /// `CBCentralManager` (inside `BluetoothBatteryMonitor.startMonitoring`) is
     /// what triggers the Bluetooth system prompt, so this is deferred for new
@@ -864,6 +882,9 @@ class ControllerService: ObservableObject {
         setupSteamControllerHIDMonitoring()
         setupGenericHIDMonitoring()
         setupAppleTVRemoteHIDMonitoring()
+		if let connectedController {
+			startEightBitDoHIDMonitoringIfNeeded(for: connectedController, reason: "input monitoring start")
+		}
         if isConnected {
             guideMonitor.startAsync()
         }
@@ -1140,7 +1161,10 @@ class ControllerService: ObservableObject {
         // product name through GameController too. In Switch/macOS modes
         // they are byte-perfect Pro Controller / DualShock clones, so they
         // keep those previews (pin the model via the preview dropdown).
-        if let model = Self.eightBitDoMinimapModel(forControllerName: controller.vendorName ?? "") {
+		if let model = Self.eightBitDoMinimapModel(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		) {
             storage.lock.lock()
             storage.eightBitDoModel = model
             storage.lock.unlock()
@@ -1696,9 +1720,7 @@ class ControllerService: ObservableObject {
         // Monitor the underlying 0x2DC8 device directly, regardless of which
         // GameController path the pad takes. No-op in Switch mode (VID 0x057E,
         // handled by the Nintendo HID path instead).
-        if Self.eightBitDoMinimapModel(forControllerName: controller.vendorName ?? "") != nil {
-            setupEightBitDoHIDMonitoring()
-        }
+		startEightBitDoHIDMonitoringIfNeeded(for: controller, reason: "controller setup")
 
         // Try extendedGamepad first (works for Xbox, DualSense, Pro Controller, paired Joy-Cons)
         guard let gamepad = controller.extendedGamepad else {
@@ -2255,7 +2277,10 @@ class ControllerService: ObservableObject {
         // the double-input. Instead we route the d-pad to the left stick so
         // the left-stick mode (Mouse by default, or the D-Pad mode) governs
         // it, exactly like the Zero 2 (which exposes its d-pad as a thumbstick).
-        let isSticklessEightBitDo = Self.eightBitDoMinimapModel(forControllerName: controller.vendorName ?? "") != nil
+		let isSticklessEightBitDo = Self.eightBitDoMinimapModel(
+			vendorName: controller.vendorName,
+			productCategory: controller.productCategory
+		)?.isStickless == true
 
         var boundCount = 0
         for (inputName, controllerButton) in buttonMap {
