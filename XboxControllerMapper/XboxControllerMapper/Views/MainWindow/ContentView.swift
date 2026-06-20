@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var showingSequenceSheet = false
     @State private var editingSequence: SequenceMapping?
     @State private var showingSettingsSheet = false
+    @State private var showingCommandPalette = false
     @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
     @State private var showingWelcome = false
     @AppStorage("hasCompletedPermissionsOnboarding") private var hasCompletedOnboarding = false
@@ -69,7 +70,8 @@ struct ContentView: View {
                 // Toolbar
 				ContentToolbar(
 					showingSettingsSheet: $showingSettingsSheet,
-					profileSidebarVisible: $profileSidebarVisible
+					profileSidebarVisible: $profileSidebarVisible,
+					showingCommandPalette: $showingCommandPalette
 				)
                     .zIndex(1) // Keep above content
 
@@ -211,6 +213,11 @@ struct ContentView: View {
         .isolatedSheet(isPresented: $showingSettingsSheet) {
             SettingsSheet()
         }
+        .isolatedSheet(isPresented: $showingCommandPalette) {
+            CommandPaletteView(destinations: paletteDestinations) { destination in
+                applyPaletteNavigation(destination)
+            }
+        }
         .isolatedSheet(isPresented: $showingWelcome) {
             TrialWelcomeSheet {
                 hasShownTrialWelcome = true
@@ -283,6 +290,16 @@ struct ContentView: View {
         .background(
             Button("Toggle Profile Sidebar") { profileSidebarVisible.toggle() }
                 .keyboardShortcut("b", modifiers: .command)
+                .hidden()
+                .accessibilityHidden(true)
+        )
+        // ⌘K opens the command palette — a Spotlight-style jump bar to any
+        // section, controller button, or bound shortcut. Hidden button so the
+        // shortcut fires globally while the main window is key (same pattern as
+        // the tab/zoom shortcuts above).
+        .background(
+            Button("Command Palette") { showingCommandPalette = true }
+                .keyboardShortcut("k", modifiers: .command)
                 .hidden()
                 .accessibilityHidden(true)
         )
@@ -428,6 +445,97 @@ struct ContentView: View {
             return
         }
         selectedTab = firstVisibleTag
+    }
+
+    // MARK: - Command Palette (⌘K)
+
+    /// Jump-targets for the ⌘K palette: every visible section, every mapped
+    /// button (plus the always-present core buttons), and Settings. Built fresh
+    /// each time the palette opens so it reflects the current controller and the
+    /// active profile's bindings.
+    private var paletteDestinations: [CommandPaletteDestination] {
+        var destinations: [CommandPaletteDestination] = []
+
+        // Sections — only the ones currently visible for this controller.
+        for tab in customTabs {
+            guard let section = MainWindowSection(rawValue: tab.tag) else { continue }
+            destinations.append(CommandPaletteDestination(
+                id: "section-\(tab.tag)",
+                title: tab.label,
+                subtitle: section.navGroup.rawValue,
+                groupLabel: section.navGroup.rawValue,
+                systemImage: tab.systemImage,
+                keywords: section.searchKeywords,
+                target: .section(tab.tag)
+            ))
+        }
+
+        // Buttons — mapped ones first (with their current binding as subtitle),
+        // then the core set so unmapped staples are still reachable.
+        let isPlayStation = controllerService.threadSafeIsPlayStation
+        let isNintendo = controllerService.threadSafeIsNintendo
+        let isAppleTVRemote = controllerService.threadSafeIsAppleTVRemote
+        let mappings = profileManager.activeProfile?.buttonMappings ?? [:]
+        var seenButtons = Set<ControllerButton>()
+
+        func addButton(_ button: ControllerButton) {
+            guard !seenButtons.contains(button) else { return }
+            seenButtons.insert(button)
+            let name = button.displayName(
+                forDualSense: isPlayStation,
+                forNintendo: isNintendo,
+                forAppleTVRemote: isAppleTVRemote
+            )
+            let binding = mappings[button]?.displayString
+            destinations.append(CommandPaletteDestination(
+                id: "button-\(button.rawValue)",
+                title: name,
+                subtitle: binding ?? "Not mapped",
+                groupLabel: "Button",
+                systemImage: "gamecontroller",
+                // Make the bound shortcut searchable: typing "copy" finds the
+                // button bound to that action.
+                keywords: [button.rawValue, binding].compactMap { $0 },
+                target: .button(button)
+            ))
+        }
+
+        for button in ControllerButton.allCases where mappings[button] != nil { addButton(button) }
+        for button in CommandPaletteDestination.coreButtons { addButton(button) }
+
+        // Settings.
+        destinations.append(CommandPaletteDestination(
+            id: "settings",
+            title: "Settings",
+            subtitle: "Preferences, license, permissions",
+            groupLabel: "App",
+            systemImage: "gearshape",
+            keywords: ["preferences", "license", "permissions", "options"],
+            target: .settings
+        ))
+
+        return destinations
+    }
+
+    /// Performs the navigation for a palette selection. Section switches happen
+    /// immediately; anything that opens another sheet is deferred briefly so the
+    /// palette sheet has finished dismissing first (avoids the sheet-contention
+    /// described on `isolatedSheet`).
+    private func applyPaletteNavigation(_ destination: CommandPaletteDestination) {
+        switch destination.target {
+        case .section(let tag):
+            withAnimation(.easeInOut(duration: 0.16)) { selectedTab = tag }
+        case .button(let button):
+            // Surface the button on the Buttons canvas, then open its editor.
+            selectedTab = MainWindowSection.buttons.rawValue
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                configuringButton = button
+            }
+        case .settings:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                showingSettingsSheet = true
+            }
+        }
     }
 
     // MARK: - Scroll Key Navigation (Home/End/PageUp/PageDown)
@@ -846,6 +954,28 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .microphone: return "mic.fill"
         case .stats: return "chart.bar.xaxis"
         case .history: return "clock.arrow.circlepath"
+        }
+    }
+
+    /// Extra search terms for the ⌘K palette so a section is findable by what it
+    /// does, not just its label (e.g. "javascript" → Scripts, "latency" → Input).
+    var searchKeywords: [String] {
+        switch self {
+        case .buttons: return ["mappings", "bindings", "keys", "remap"]
+        case .chords: return ["combo", "combination", "simultaneous"]
+        case .sequences: return ["combo", "order", "series", "fighting"]
+        case .gestures: return ["motion", "gyro", "tilt", "aim"]
+        case .macros: return ["automation", "record", "replay", "sequence"]
+        case .scripts: return ["javascript", "js", "code", "automation", "engine"]
+        case .wheel: return ["radial", "menu", "command", "pie"]
+        case .input: return ["latency", "realtime", "timing", "mode"]
+        case .joysticks: return ["sticks", "deadzone", "sensitivity", "curve", "analog"]
+        case .touchpad: return ["trackpad", "gyro", "regions", "quadrants", "pad"]
+        case .leds: return ["lightbar", "color", "lighting", "rgb"]
+        case .microphone: return ["mic", "mute", "audio"]
+        case .keyboard: return ["on-screen", "osk", "swipe", "typing"]
+        case .stats: return ["usage", "wrapped", "analytics", "metrics"]
+        case .history: return ["snapshots", "undo", "versions", "restore"]
         }
     }
 
