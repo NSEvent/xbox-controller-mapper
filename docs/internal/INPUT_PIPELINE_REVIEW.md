@@ -390,12 +390,12 @@ Used for chord detection (tokens = buttons), sequence detection (tokens = button
 | 2 | Add `dispatchPrecondition` assertions on queue-sensitive functions | **Done** | MappingEngine, JoystickHandler, TouchpadInputHandler |
 | 3 | Normalize action handler signatures via Command pattern | **Done** | ActionCommand.swift (192 lines), MappingActionExecutor.swift rewritten |
 
-### Tier 2: Medium Impact, Medium Risk — ALL COMPLETED
+### Tier 2: Medium Impact, Medium Risk — PARTIALLY COMPLETED
 | # | Change | Status | Files |
 |---|--------|--------|-------|
-| 4 | Introduce ControllerInputEvent enum | **Done** | ControllerInputEvent.swift + MappingEngine.handleControllerInput() |
+| 4 | Introduce ControllerInputEvent enum | **Partially done** | `ControllerInputEvent` now envelopes MappingEngine callback routing; ControllerService still exposes legacy callbacks |
 | 5 | Command pattern for action execution | **Done** | ActionCommandFactory with 6 concrete commands |
-| 6 | Split InputSimulator into KeyboardSimulator + MouseSimulator | **Deferred** | Macro code extracted; keyboard/mouse split not yet needed |
+| 6 | Split InputSimulator into KeyboardSimulator + MouseSimulator | **Partially done** | Macro code extracted; `ModifierKeyEmissionPolicy` now owns side-aware modifier selection |
 
 ### Tier 3: Aspirational, Higher Risk — PARTIALLY COMPLETED
 | # | Change | Status | Files |
@@ -403,22 +403,27 @@ Used for chord detection (tokens = buttons), sequence detection (tokens = button
 | 7 | Unified GestureDetector protocol | **Done** | GestureDetector.swift (GestureDetecting protocol), SequenceDetector.swift, MotionGestureDetector.swift |
 | 8 | Move chord detection from ControllerService to MappingEngine | **Deferred** | Decision: chord detection stays in ControllerService (see Decisions) |
 | 9 | Event bus for action side-effects | **Not started** | Future work |
+| 10 | HID driver descriptors | **Partially done** | `HIDControllerDriverDescriptor` centralizes matching criteria; lifecycle/callback protocol still deferred |
+| 11 | Data-driven controller visual descriptors | **Partially done** | `ControllerVisualDescriptor` centralizes preview capabilities; overlay builders still per-controller |
 
 ### Test Coverage Added
 - **ActionLayerCharacterizationTests** — 10 tests (priority dispatch, macro isolation, OSK notification)
 - **PipelineCharacterizationTests** — 9 tests (button press, chord, sequence, motion, touchpad, queue routing)
-- **ControllerInputEventTests** — 8 tests (event enum equality, associated values)
 - **SequenceDetectorTests** — 7 tests (step matching, timeout, reset, concurrent sequences)
 - **MotionGestureDetectorTests** — 7 tests (peak detection, settling, cooldown, axis independence)
 - **ModifierRefCountingTests** — 11 tests (overlapping holds, underflow protection, stress)
+- **ControllerVisualDescriptorTests** — preview capability and row-selection coverage
+- **ControllerInputEventTests** — event queue routing coverage for discrete vs. continuous input
+- **HIDControllerDriverDescriptorTests** — raw HID matching descriptor coverage
+- **ModifierKeyEmissionPolicyTests** — side-aware modifier key selection coverage
 
 ---
 
 ## Decisions Made
 
-1. **Chord detection stays in ControllerService.** It's hardware timing ("were these pressed together?"), not mapping logic ("what do they mean?"). ControllerService emits `ControllerInputEvent.chord` events. MappingEngine interprets them.
+1. **Chord detection stays in ControllerService.** It's hardware timing ("were these pressed together?"), not mapping logic ("what do they mean?"). MappingEngine now wraps incoming callbacks in a `ControllerInputEvent` envelope before queue dispatch, but ControllerService still publishes separate callback slots. A single ControllerService event callback remains future work.
 
-2. **120Hz polling for touchpad is fine.** Single-finger is already event-driven (low latency), polling handles momentum smoothing. The inconsistency is in callback registration, not in the actual data flow. The `ControllerInputEvent` enum fixes the registration inconsistency.
+2. **120Hz polling for touchpad is fine.** Single-finger is already event-driven (low latency), polling handles momentum smoothing. The remaining inconsistency is callback registration shape, not the data flow itself.
 
 3. **No Swift Concurrency adoption.** NSLock + DispatchQueue is the right choice for real-time input (120Hz polling, microsecond latency). Structured concurrency's scheduling overhead isn't suitable here.
 
@@ -456,5 +461,5 @@ scriptQueue         - JavaScript execution (serializes JSContext)
 
 ---
 
-*Last updated: 2026-02-22*
-*Status: Tier 1 and Tier 2 implemented. 52 new tests added. All regression tests passing (14/14).*
+*Last updated: 2026-06-22*
+*Status: Tier 1 implemented; Tier 2/Tier 3 partially implemented. Current app-hosted `xcodebuild test` on kmacstudio is blocked by the ControllerKeys test-host launch stall documented in the wiki; use build-for-testing plus focused direct XCTest checks until that CI issue is fixed.*

@@ -238,16 +238,20 @@ Invariants the store integration maintains:
 |---------|------|---------------|
 | `ControllerService` | Services/ControllerService.swift | Controller connection, raw input handling, haptics, battery, DualSense HID |
 | `MappingEngine` | Services/MappingEngine.swift | Button->action mapping, chords, long hold, double tap, macros, system commands |
+| `ControllerInputEvent` | Services/Mapping/ControllerInputEvent.swift | Event envelope and queue policy for MappingEngine controller callbacks |
 | `InputSimulator` | Services/InputSimulator.swift | CGEvent-based keyboard/mouse output |
+| `ModifierKeyEmissionPolicy` | Services/Input/ModifierKeyEmissionPolicy.swift | Pure side-aware modifier key selection for InputSimulator |
 | `ProfileManager` | Services/ProfileManager.swift | Profile CRUD, persistence, backup |
 | `AppMonitor` | Services/AppMonitor.swift | Active app detection for profile auto-switching |
 | `XboxGuideMonitor` | Services/XboxGuideMonitor.swift | IOKit HID for Xbox Guide button (swallowed by GameController) |
 | `GameControllerDatabase` | Services/GameControllerDatabase.swift | SDL database parsing and lookup |
 | `GenericHIDController` | Services/GenericHIDController.swift | Raw HID input for third-party controllers |
+| `HIDControllerDriverDescriptor` | Services/Controller/HIDControllerDriverDescriptor.swift | Testable raw-HID matching criteria for specialized controller backends |
 | `OnScreenKeyboardManager` | Services/OnScreenKeyboardManager.swift | Floating keyboard overlay window |
 | `CommandWheelManager` | Services/CommandWheelManager.swift | Radial menu for app/website switching |
 | `InputLogService` | Services/InputLogService.swift | Debug input logging |
 | `SystemCommandExecutor` | Services/SystemCommandExecutor.swift | Shell commands, app launch, URL open |
+| `ControllerVisualDescriptor` | Views/MainWindow/ControllerVisualDescriptor.swift | Preview capability/row descriptor for controller mapping canvas |
 
 ---
 
