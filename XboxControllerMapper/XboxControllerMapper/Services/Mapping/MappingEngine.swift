@@ -300,22 +300,13 @@ class MappingEngine: ObservableObject {
 
         // Controller input callbacks — route each event to the appropriate queue.
         controllerService.onButtonPressed = { [weak self] button in
-            guard let self = self else { return }
-            self.inputQueue.async {
-                self.handleButtonPressed(button)
-            }
+			self?.enqueueControllerInputEvent(.buttonPressed(button))
         }
         controllerService.onButtonReleased = { [weak self] button, duration in
-            guard let self = self else { return }
-            self.inputQueue.async {
-                self.handleButtonReleased(button, holdDuration: duration)
-            }
+			self?.enqueueControllerInputEvent(.buttonReleased(button, holdDuration: duration))
         }
         controllerService.onChordDetected = { [weak self] buttons in
-            guard let self = self else { return }
-            self.inputQueue.async {
-                self.handleChord(buttons)
-            }
+			self?.enqueueControllerInputEvent(.chordDetected(buttons))
         }
 
         // Joystick polling
@@ -347,74 +338,41 @@ class MappingEngine: ObservableObject {
             .store(in: &cancellables)
 
         controllerService.onTouchpadMoved = { [weak self] delta in
-            guard let self = self else { return }
-            self.pollingQueue.async {
-                self.processTouchpadMovement(delta)
-            }
+			self?.enqueueControllerInputEvent(.touchpadMoved(delta))
         }
         controllerService.onSteamLeftTouchpadMoved = { [weak self] delta in
-            guard let self = self else { return }
-            self.pollingQueue.async {
-                self.processSteamLeftTouchpadScroll(delta)
-            }
+			self?.enqueueControllerInputEvent(.steamLeftTouchpadMoved(delta))
         }
 		controllerService.onAppleTVRemoteCircularScroll = { [weak self] angleDelta in
-			guard let self = self else { return }
-			self.pollingQueue.async {
-				self.processAppleTVRemoteCircularScroll(angleDelta)
-			}
+			self?.enqueueControllerInputEvent(.appleTVRemoteCircularScroll(angleDelta))
 		}
         controllerService.onTouchpadGesture = { [weak self] gesture in
-            guard let self = self else { return }
-            self.pollingQueue.async {
-                self.processTouchpadGesture(gesture)
-            }
+			self?.enqueueControllerInputEvent(.touchpadGesture(gesture))
         }
         controllerService.onTouchpadTap = { [weak self] in
-            guard let self = self else { return }
-            self.pollingQueue.async {
-                self.processTouchpadTap()
-            }
+			self?.enqueueControllerInputEvent(.touchpadTap)
         }
         controllerService.onControllerButtonTap = { [weak self] button in
-            guard let self = self else { return }
-            self.inputQueue.async {
-                self.processTapGesture(button)
-            }
+			self?.enqueueControllerInputEvent(.controllerButtonTap(button))
         }
         controllerService.onTouchpadTwoFingerTap = { [weak self] in
-            guard let self = self else { return }
-            self.pollingQueue.async {
-                self.processTouchpadTwoFingerTap()
-            }
+			self?.enqueueControllerInputEvent(.touchpadTwoFingerTap)
         }
         controllerService.onTouchpadLongTap = { [weak self] in
-            guard let self = self else { return }
-            self.pollingQueue.async {
-                self.processTouchpadLongTap()
-            }
+			self?.enqueueControllerInputEvent(.touchpadLongTap)
         }
         controllerService.onTouchpadTwoFingerLongTap = { [weak self] in
-            guard let self = self else { return }
-            self.pollingQueue.async {
-                self.processTouchpadTwoFingerLongTap()
-            }
+			self?.enqueueControllerInputEvent(.touchpadTwoFingerLongTap)
         }
         controllerService.onTouchpadRegionTap = { [weak self] region in
-            guard let self = self else { return }
-            self.inputQueue.async {
-                self.processTouchpadRegionEvent(region, trigger: .touch)
-            }
+			self?.enqueueControllerInputEvent(.touchpadRegionTap(region))
         }
         // Region clicks no longer use a callback. ControllerService dispatches
         // them directly as `handleButton(.touchpadRegion*Click, pressed:)`,
         // which goes through the standard press/release machinery (long hold,
         // double tap, repeat, layer overrides all work for free).
         controllerService.onMotionGesture = { [weak self] gestureType in
-            guard let self = self else { return }
-            self.inputQueue.async {
-                self.processMotionGesture(gestureType)
-            }
+			self?.enqueueControllerInputEvent(.motionGesture(gestureType))
         }
 
         // Enable/Disable toggle sync
@@ -1562,6 +1520,52 @@ class MappingEngine: ObservableObject {
         }
     }
 
+	nonisolated private func enqueueControllerInputEvent(_ event: ControllerInputEvent) {
+		switch event.processingQueue {
+		case .input:
+			inputQueue.async { [weak self] in
+				self?.handleControllerInputEvent(event)
+			}
+		case .polling:
+			pollingQueue.async { [weak self] in
+				self?.handleControllerInputEvent(event)
+			}
+		}
+	}
+
+	nonisolated private func handleControllerInputEvent(_ event: ControllerInputEvent) {
+		switch event {
+		case .buttonPressed(let button):
+			handleButtonPressed(button)
+		case .buttonReleased(let button, let holdDuration):
+			handleButtonReleased(button, holdDuration: holdDuration)
+		case .chordDetected(let buttons):
+			handleChord(buttons)
+		case .touchpadMoved(let delta):
+			processTouchpadMovement(delta)
+		case .steamLeftTouchpadMoved(let delta):
+			processSteamLeftTouchpadScroll(delta)
+		case .appleTVRemoteCircularScroll(let angleDelta):
+			processAppleTVRemoteCircularScroll(angleDelta)
+		case .touchpadGesture(let gesture):
+			processTouchpadGesture(gesture)
+		case .touchpadTap:
+			processTouchpadTap()
+		case .controllerButtonTap(let button):
+			processTapGesture(button)
+		case .touchpadTwoFingerTap:
+			processTouchpadTwoFingerTap()
+		case .touchpadLongTap:
+			processTouchpadLongTap()
+		case .touchpadTwoFingerLongTap:
+			processTouchpadTwoFingerLongTap()
+		case .touchpadRegionTap(let region):
+			processTouchpadRegionEvent(region, trigger: .touch)
+		case .motionGesture(let gestureType):
+			processMotionGesture(gestureType)
+		}
+	}
+
     // MARK: - Control
 
     func enable() {
@@ -1580,21 +1584,15 @@ class MappingEngine: ObservableObject {
     // MARK: - Remote Controller Relay
 
     nonisolated func handleRemoteControllerButtonPressed(_ button: ControllerButton) {
-        inputQueue.async { [weak self] in
-            self?.handleButtonPressed(button)
-        }
+		enqueueControllerInputEvent(.buttonPressed(button))
     }
 
     nonisolated func handleRemoteControllerButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
-        inputQueue.async { [weak self] in
-            self?.handleButtonReleased(button, holdDuration: holdDuration)
-        }
+		enqueueControllerInputEvent(.buttonReleased(button, holdDuration: holdDuration))
     }
 
     nonisolated func handleRemoteControllerChord(_ buttons: Set<ControllerButton>) {
-        inputQueue.async { [weak self] in
-            self?.handleChord(buttons)
-        }
+		enqueueControllerInputEvent(.chordDetected(buttons))
     }
 
     nonisolated func resetRemoteControllerInputState() {
