@@ -892,15 +892,7 @@ extension ControllerService {
 		}
 
 		storage.lock.lock()
-		storage.isAppleTVRemote = true
-		storage.isDualSense = false
-		storage.isDualSenseEdge = false
-		storage.isDualShock = false
-		storage.isNintendo = false
-		storage.isXboxElite = false
-		storage.isJoyConLeft = false
-		storage.isJoyConRight = false
-		storage.isSteamController = false
+		storage.applyControllerTypeLocked(.appleTVRemote)
 		storage.lock.unlock()
 
 		UserDefaults.standard.set(true, forKey: Config.lastControllerWasAppleTVRemoteKey)

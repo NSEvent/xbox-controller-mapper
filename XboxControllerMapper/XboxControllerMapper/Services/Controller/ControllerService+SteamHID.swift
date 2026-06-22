@@ -342,15 +342,7 @@ extension ControllerService {
         storage.lock.lock()
         resetMotionStateLocked()
         resetTouchpadStateLocked()
-        storage.isDualSense = false
-        storage.isDualSenseEdge = false
-        storage.isDualShock = false
-        storage.isNintendo = false
-			storage.isJoyConLeft = false
-				storage.isJoyConRight = false
-				storage.isXboxElite = false
-				storage.isAppleTVRemote = false
-				storage.isSteamController = true
+        storage.applyControllerTypeLocked(.steam)
 			storage.elitePaddleEventSource = .none
 			storage.lock.unlock()
 

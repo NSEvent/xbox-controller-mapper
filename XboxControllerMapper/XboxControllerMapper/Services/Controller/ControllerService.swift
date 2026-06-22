@@ -827,34 +827,19 @@ class ControllerService: ObservableObject {
         storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
         storage.isDualSenseEdge = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey)
         storage.isDualShock = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey)
+        storage.isNintendo = UserDefaults.standard.bool(forKey: Config.lastControllerWasNintendoKey)
         storage.isXboxElite = UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey)
         storage.isSteamController = UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey)
 		storage.isAppleTVRemote = UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey)
-        if storage.isSteamController {
-            storage.isDualSense = false
-            storage.isDualSenseEdge = false
-            storage.isDualShock = false
-            storage.isXboxElite = false
-			storage.isAppleTVRemote = false
-		} else if storage.isAppleTVRemote {
-			storage.isDualSense = false
-			storage.isDualSenseEdge = false
-			storage.isDualShock = false
-			storage.isXboxElite = false
-			storage.isNintendo = false
-        }
+        storage.normalizeControllerTypeFlagsLocked()
 
         // Screenshot mode: force the preview to the requested variant and
         // present as connected. Hardware monitoring is off in this mode (see
         // ServiceContainer), so nothing can override these between captures.
         if let variant = AppRuntime.screenshotVariant {
-            storage.isDualSense = (variant == "dualsense" || variant == "dualsense-edge")
-            storage.isDualSenseEdge = (variant == "dualsense-edge")
-            storage.isDualShock = (variant == "dualshock")
-            storage.isNintendo = (variant == "nintendo")
-            storage.isXboxElite = (variant == "xbox-elite")
-            storage.isSteamController = (variant == "steam")
-            storage.isAppleTVRemote = (variant == "appletv")
+            if let type = ControllerTypeState(screenshotVariant: variant) {
+                storage.applyControllerTypeLocked(type)
+            }
             storage.eightBitDoModel = {
                 switch variant {
                 case "8bitdo-zero2": return .zero2
@@ -1593,15 +1578,7 @@ class ControllerService: ObservableObject {
 
     func resetControllerTypeState() {
         storage.lock.lock()
-        storage.isDualSense = false
-        storage.isDualSenseEdge = false
-        storage.isDualShock = false
-        storage.isNintendo = false
-        storage.isJoyConLeft = false
-        storage.isJoyConRight = false
-        storage.isXboxElite = false
-        storage.isSteamController = false
-        storage.isAppleTVRemote = false
+        storage.clearControllerTypeFlagsLocked()
         resetCloneDetectionStateLocked()
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
@@ -1787,13 +1764,7 @@ class ControllerService: ObservableObject {
 
 		if let xboxGamepad {
             storage.lock.lock()
-            storage.isDualSense = false
-            storage.isDualSenseEdge = false
-            storage.isDualShock = false
-            storage.isNintendo = false
-            storage.isJoyConLeft = false
-            storage.isJoyConRight = false
-            storage.isSteamController = false
+            storage.applyControllerTypeLocked(.xbox)
             storage.lock.unlock()
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
@@ -1817,7 +1788,7 @@ class ControllerService: ObservableObject {
 					gameControllerHasPaddles: hasPaddles
 				)
                 storage.lock.lock()
-                storage.isXboxElite = true
+                storage.applyControllerTypeLocked(.xboxElite)
 				storage.elitePaddleEventSource = paddleEventSource
                 storage.lock.unlock()
                 UserDefaults.standard.set(true, forKey: Config.lastControllerWasXboxEliteKey)
@@ -1836,7 +1807,7 @@ class ControllerService: ObservableObject {
 				startEliteHelper(paddleEventSource: paddleEventSource)
             } else {
                 storage.lock.lock()
-                storage.isXboxElite = false
+                storage.applyControllerTypeLocked(.xbox)
 				storage.elitePaddleEventSource = .none
                 storage.lock.unlock()
                 UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
@@ -1869,13 +1840,7 @@ class ControllerService: ObservableObject {
         // DualSense-specific: Touchpad support
         if let dualSenseGamepad = gamepad as? GCDualSenseGamepad {
             storage.lock.lock()
-            storage.isDualSense = true
-            storage.isDualShock = false
-            storage.isNintendo = false
-            storage.isXboxElite = false
-            storage.isJoyConLeft = false
-            storage.isJoyConRight = false
-            storage.isSteamController = false
+            storage.applyControllerTypeLocked(.dualSense)
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
@@ -1902,14 +1867,7 @@ class ControllerService: ObservableObject {
         // Note: DualShock 4 doesn't have mic button or LED control via GameController framework
         else if let dualShockGamepad = gamepad as? GCDualShockGamepad {
             storage.lock.lock()
-            storage.isDualShock = true
-            storage.isDualSense = false
-            storage.isDualSenseEdge = false
-            storage.isNintendo = false
-            storage.isXboxElite = false
-            storage.isJoyConLeft = false
-            storage.isJoyConRight = false
-            storage.isSteamController = false
+            storage.applyControllerTypeLocked(.dualShock)
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
@@ -1958,15 +1916,7 @@ class ControllerService: ObservableObject {
 
     private func setupAppleTVRemoteInputHandlers(for controller: GCController, microGamepad: GCMicroGamepad) {
 		storage.lock.lock()
-		storage.isAppleTVRemote = true
-		storage.isDualSense = false
-		storage.isDualSenseEdge = false
-		storage.isDualShock = false
-		storage.isNintendo = false
-		storage.isXboxElite = false
-		storage.isJoyConLeft = false
-		storage.isJoyConRight = false
-		storage.isSteamController = false
+		storage.applyControllerTypeLocked(.appleTVRemote)
 		storage.lock.unlock()
 
 		UserDefaults.standard.set(true, forKey: Config.lastControllerWasAppleTVRemoteKey)
@@ -2138,14 +2088,7 @@ class ControllerService: ObservableObject {
         NSLog("[ControllerKeys] Joy-Con L/R detection: isLeft=%d  isRight=%d", isLeft ? 1 : 0, isRight ? 1 : 0)
 
         storage.lock.lock()
-        storage.isNintendo = true
-        storage.isJoyConLeft = isLeft
-        storage.isJoyConRight = isRight
-        storage.isDualSense = false
-        storage.isDualSenseEdge = false
-        storage.isDualShock = false
-        storage.isXboxElite = false
-        storage.isSteamController = false
+        storage.applyControllerTypeLocked(.nintendo(ControllerJoyConSide(isLeft: isLeft, isRight: isRight)))
         storage.lock.unlock()
 
         UserDefaults.standard.set(true, forKey: Config.lastControllerWasNintendoKey)

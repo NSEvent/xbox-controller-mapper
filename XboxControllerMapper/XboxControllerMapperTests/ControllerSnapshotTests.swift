@@ -61,6 +61,52 @@ final class ControllerSnapshotTests: XCTestCase {
         XCTAssertFalse(snap.hasMotion)
     }
 
+    func testApplyingControllerTypeClearsCompetingFamilyFlags() {
+        controllerService.storage.lock.lock()
+        defer { controllerService.storage.lock.unlock() }
+        controllerService.storage.isDualSense = true
+        controllerService.storage.isDualShock = true
+        controllerService.storage.isNintendo = true
+        controllerService.storage.isJoyConLeft = true
+        controllerService.storage.isXboxElite = true
+        controllerService.storage.isAppleTVRemote = true
+
+        controllerService.storage.applyControllerTypeLocked(.steam)
+
+        XCTAssertEqual(controllerService.storage.controllerTypeStateLocked, .steam)
+        XCTAssertFalse(controllerService.storage.isDualSense)
+        XCTAssertFalse(controllerService.storage.isDualShock)
+        XCTAssertFalse(controllerService.storage.isNintendo)
+        XCTAssertFalse(controllerService.storage.isJoyConLeft)
+        XCTAssertFalse(controllerService.storage.isXboxElite)
+        XCTAssertFalse(controllerService.storage.isAppleTVRemote)
+        XCTAssertTrue(controllerService.storage.isSteamController)
+    }
+
+    func testDualSenseEdgeControllerTypeSetsBaseDualSenseCapability() {
+        controllerService.storage.lock.lock()
+        defer { controllerService.storage.lock.unlock() }
+        controllerService.storage.applyControllerTypeLocked(.dualSenseEdge)
+
+        XCTAssertEqual(controllerService.storage.controllerTypeStateLocked, .dualSenseEdge)
+        XCTAssertTrue(controllerService.storage.isDualSense)
+        XCTAssertTrue(controllerService.storage.isDualSenseEdge)
+        XCTAssertFalse(controllerService.storage.isDualShock)
+        XCTAssertFalse(controllerService.storage.isNintendo)
+    }
+
+    func testNintendoControllerTypeCarriesJoyConSide() {
+        controllerService.storage.lock.lock()
+        defer { controllerService.storage.lock.unlock() }
+        controllerService.storage.applyControllerTypeLocked(.nintendo(.left))
+
+        XCTAssertEqual(controllerService.storage.controllerTypeStateLocked, .nintendo(.left))
+        XCTAssertTrue(controllerService.storage.isNintendo)
+        XCTAssertTrue(controllerService.storage.isJoyConLeft)
+        XCTAssertFalse(controllerService.storage.isJoyConRight)
+        XCTAssertFalse(controllerService.storage.isDualSense)
+    }
+
     func testSnapshotReportsSteamControllerHasMotion() {
         controllerService.storage.lock.lock()
         controllerService.storage.isSteamController = true
