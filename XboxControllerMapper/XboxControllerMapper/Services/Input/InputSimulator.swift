@@ -59,7 +59,7 @@ extension InputSimulatorProtocol {
     }
 
     func holdModifiers(_ modifiers: ModifierFlags) {
-		for mask in ModifierKeyState.modifierPressOrder where modifiers.cgEventFlags.contains(mask) {
+		for mask in ModifierKeyEmissionPolicy.modifierPressOrder where modifiers.cgEventFlags.contains(mask) {
 			if let keyCode = modifiers.virtualKey(forMask: mask) {
 				holdModifierKey(keyCode)
 			}
@@ -67,40 +67,13 @@ extension InputSimulatorProtocol {
     }
 
     func releaseModifiers(_ modifiers: ModifierFlags) {
-		for mask in ModifierKeyState.modifierReleaseOrder where modifiers.cgEventFlags.contains(mask) {
+		for mask in ModifierKeyEmissionPolicy.modifierReleaseOrder where modifiers.cgEventFlags.contains(mask) {
 			if let keyCode = modifiers.virtualKey(forMask: mask) {
 				releaseModifierKey(keyCode)
 			}
 		}
     }
 }
-
-// MARK: - Modifier Key Handler
-
-/// Helper class to manage modifier key reference counting and state
-private class ModifierKeyState {
-    /// Maps modifier mask to virtual key code
-    static let maskToKeyCode: [UInt64: Int] = [
-        CGEventFlags.maskCommand.rawValue: kVK_Command,
-        CGEventFlags.maskAlternate.rawValue: kVK_Option,
-        CGEventFlags.maskShift.rawValue: kVK_Shift,
-        CGEventFlags.maskControl.rawValue: kVK_Control
-    ]
-
-    /// List of modifier masks in order for iteration
-    static let modifierMasks: [CGEventFlags] = [
-        .maskCommand, .maskAlternate, .maskShift, .maskControl
-    ]
-
-    static let modifierPressOrder: [CGEventFlags] = [
-		.maskCommand, .maskShift, .maskAlternate, .maskControl
-    ]
-
-    static let modifierReleaseOrder: [CGEventFlags] = [
-		.maskControl, .maskAlternate, .maskShift, .maskCommand
-    ]
-}
-
 
 /// Service for simulating keyboard and mouse input via CGEvent and IOHIDPostEvent.
 class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
@@ -264,17 +237,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Picks the modifier pre-press keycode for a given mask. Honors `modifierSides`
     /// when supplied; otherwise defaults to the Left variant (existing behavior).
-    private static func modifierVirtualKey(for mask: CGEventFlags, sides: ModifierFlags?) -> Int {
-        if let sides, let keyCode = sides.virtualKey(forMask: mask) {
-            return Int(keyCode)
-        }
-        switch mask {
-        case .maskCommand: return kVK_Command
-        case .maskAlternate: return kVK_Option
-        case .maskShift: return kVK_Shift
-        case .maskControl: return kVK_Control
-        default: return 0
-        }
+    private static func modifierVirtualKey(for mask: CGEventFlags, sides: ModifierFlags?) -> CGKeyCode {
+		ModifierKeyEmissionPolicy.keyCode(for: mask, sides: sides) ?? 0
     }
 
     private func pressKeyInternal(_ keyCode: CGKeyCode, modifiers: CGEventFlags, modifierSides: ModifierFlags?) {
@@ -329,7 +293,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             func pressMod(flag: CGEventFlags) {
                 let key = InputSimulator.modifierVirtualKey(for: flag, sides: modifierSides)
                 currentFlags.insert(flag)
-                self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: true, flags: currentFlags)
+				self.postKeyEvent(keyCode: key, keyDown: true, flags: currentFlags)
                 usleep(Config.modifierPressDelay)
             }
 
@@ -358,7 +322,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             func releaseMod(flag: CGEventFlags) {
                 let key = InputSimulator.modifierVirtualKey(for: flag, sides: modifierSides)
                 currentFlags.remove(flag)
-                self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: false, flags: currentFlags)
+				self.postKeyEvent(keyCode: key, keyDown: false, flags: currentFlags)
                 usleep(Config.modifierPressDelay)
             }
 
@@ -506,7 +470,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
+		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             modifierCounts[key] = count + 1
@@ -514,9 +478,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if count == 0 {
                 // First time this modifier is being held
                 heldModifiers.insert(mask)
-                if let vKey = ModifierKeyState.maskToKeyCode[key] {
-					modifierHeldKeyCodes[key] = CGKeyCode(vKey)
-                    if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: true) {
+				if let vKey = ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key) {
+					modifierHeldKeyCodes[key] = vKey
+					if let event = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true) {
                         event.flags = heldModifiers
                         event.post(tap: .cghidEventTap)
                     } else {
@@ -541,7 +505,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
+		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             guard count > 0 else {
@@ -551,7 +515,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 if heldModifiers.contains(mask) {
                     NSLog("[InputSimulator] WARNING: modifier 0x%llx in heldModifiers but count is 0 — force-removing to prevent stuck modifier", key)
                     heldModifiers.remove(mask)
-					let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyState.maskToKeyCode[key].map(CGKeyCode.init)
+					let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
 					modifierHeldKeyCodes[key] = nil
 					if let releaseKeyCode {
 						if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
@@ -567,7 +531,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if count == 1 {
                 // Last button holding this modifier released
                 heldModifiers.remove(mask)
-				let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyState.maskToKeyCode[key].map(CGKeyCode.init)
+				let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
 				modifierHeldKeyCodes[key] = nil
 				if let releaseKeyCode {
 					if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
@@ -702,10 +666,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         defer { stateLock.unlock() }
 
         // Post key-up events for each modifier that is currently held
-        for mask in ModifierKeyState.modifierMasks where heldModifiers.contains(mask) {
+		for mask in ModifierKeyEmissionPolicy.modifierMasks where heldModifiers.contains(mask) {
             let key = mask.rawValue
             heldModifiers.remove(mask)
-			let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyState.maskToKeyCode[key].map(CGKeyCode.init)
+			let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
 			modifierHeldKeyCodes[key] = nil
 			if let releaseKeyCode {
 				if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
@@ -729,12 +693,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
+		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
 			let count = modifierCounts[key] ?? 0
 			modifierCounts[key] = count + 1
-			if count == 0, let vKey = ModifierKeyState.maskToKeyCode[key] {
-				modifierHeldKeyCodes[key] = CGKeyCode(vKey)
+			if count == 0, let vKey = ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key) {
+				modifierHeldKeyCodes[key] = vKey
 			}
 			heldModifiers.insert(mask)
 		}
@@ -745,7 +709,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 		stateLock.lock()
 		defer { stateLock.unlock() }
 
-		for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
+		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
 			let key = mask.rawValue
 			let count = modifierCounts[key] ?? 0
 			modifierCounts[key] = count + 1
@@ -760,7 +724,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
+		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             if count <= 1 {
