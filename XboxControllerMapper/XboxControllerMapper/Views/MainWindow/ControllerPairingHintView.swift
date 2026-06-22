@@ -20,7 +20,7 @@ struct ControllerPairingHintView: View {
 
     /// Every concrete family, in picker order, for the chooser grid.
     private static let selectableLayouts: [ControllerPreviewLayout] =
-        ControllerPreviewLayout.allCases.filter { $0 != .active }
+        ControllerPreviewLayout.concreteLayouts
 
     var body: some View {
         Group {

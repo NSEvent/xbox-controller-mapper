@@ -18,7 +18,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.appleTVRemote: .appleTVRemote,
 		]
 
-		for layout in ControllerPreviewLayout.allCases where layout != .active {
+		for layout in ControllerPreviewLayout.concreteLayouts {
 			XCTAssertEqual(
 				ControllerVisualDescriptor.concrete(for: layout)?.family,
 				expected[layout],
@@ -29,6 +29,55 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 
 	func testActivePreviewHasNoConcreteDescriptor() {
 		XCTAssertNil(ControllerVisualDescriptor.concrete(for: .active))
+	}
+
+	func testConcreteGamepadLayoutsResolveExpectedMinimapStyles() {
+		let expected: [ControllerPreviewLayout: ControllerMinimapStyle?] = [
+			.xbox: .xbox,
+			.xboxElite: .xboxElite,
+			.dualSense: .dualSense,
+			.dualSenseEdge: .dualSenseEdge,
+			.dualShock: .dualShock,
+			.nintendo: .nintendo,
+			.steam: .steam,
+			.eightBitDoZero2: .eightBitDoZero2,
+			.eightBitDoMicro: .eightBitDoMicro,
+			.eightBitDoLite2: .eightBitDoLite2,
+			.eightBitDoLiteSE: .eightBitDoLiteSE,
+			.appleTVRemote: nil,
+		]
+
+		for layout in ControllerPreviewLayout.concreteLayouts {
+			XCTAssertEqual(
+				ControllerVisualDescriptor.concrete(for: layout)?.minimapStyle,
+				expected[layout] ?? nil,
+				"\(layout.rawValue) should resolve to the expected minimap style"
+			)
+		}
+	}
+
+	func testEveryMinimapStyleIsReachableFromAPreviewLayout() {
+		let renderedStyles = Set(
+			ControllerPreviewLayout.concreteLayouts.compactMap {
+				ControllerVisualDescriptor.concrete(for: $0)?.minimapStyle
+			}
+		)
+
+		XCTAssertEqual(
+			renderedStyles,
+			Set(ControllerMinimapStyle.allCases),
+			"Every minimap style should be reachable from a concrete preview layout"
+		)
+	}
+
+	func testEveryGamepadMinimapStyleHasValidPreviewSize() {
+		for style in ControllerMinimapStyle.allCases {
+			XCTAssertGreaterThan(style.bodyAspectRatio, 0, "\(style) should have a positive aspect ratio")
+			XCTAssertGreaterThan(style.previewSize.width, 0, "\(style) should have a positive width")
+			XCTAssertGreaterThan(style.previewSize.height, 0, "\(style) should have a positive height")
+			XCTAssertTrue(style.previewSize.width.isFinite, "\(style) width should be finite")
+			XCTAssertTrue(style.previewSize.height.isFinite, "\(style) height should be finite")
+		}
 	}
 
 	func testCapabilitiesMatchExistingControllerRules() {

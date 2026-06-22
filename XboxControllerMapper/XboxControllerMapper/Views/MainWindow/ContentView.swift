@@ -35,6 +35,10 @@ struct ContentView: View {
 		profileManager.activeProfile?.controllerPreviewLayout ?? .active
 	}
 
+	private var controllerVisualDescriptor: ControllerVisualDescriptor {
+		ControllerVisualDescriptor.resolved(previewLayout: controllerPreviewLayout, using: controllerService)
+	}
+
 	private var controllerPreviewLayoutBinding: Binding<ControllerPreviewLayout> {
 		Binding(
 			get: { profileManager.activeProfile?.controllerPreviewLayout ?? .active },
@@ -185,10 +189,10 @@ struct ContentView: View {
                     },
                     set: { _ in } // Read-only: ButtonMappingSheet saves directly via ProfileManager (see saveMapping())
                 ),
-					isDualSense: controllerPreviewLayout.isPlayStation(using: controllerService),
-					isNintendo: controllerPreviewLayout.isNintendo(using: controllerService),
-					isSteamController: controllerPreviewLayout.isSteamController(using: controllerService),
-					isAppleTVRemote: controllerPreviewLayout.isAppleTVRemote(using: controllerService),
+					isDualSense: controllerVisualDescriptor.isPlayStation,
+					isNintendo: controllerVisualDescriptor.isNintendo,
+					isSteamController: controllerVisualDescriptor.isSteamController,
+					isAppleTVRemote: controllerVisualDescriptor.isAppleTVRemote,
 					selectedLayerId: selectedLayerId
 				)
         }

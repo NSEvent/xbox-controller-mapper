@@ -34,7 +34,7 @@ enum EightBitDoMinimapModel: String, CaseIterable {
     }
 }
 
-enum ControllerMinimapStyle {
+enum ControllerMinimapStyle: CaseIterable, Hashable {
     case xbox
     case xboxElite
     case dualSense

@@ -17,6 +17,10 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 
 	var id: String { rawValue }
 
+	static var concreteLayouts: [ControllerPreviewLayout] {
+		allCases.filter { $0 != .active }
+	}
+
 	var displayName: String {
 		switch self {
 		case .active: return "Active Controller"
@@ -45,81 +49,6 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .eightBitDoZero2, .eightBitDoMicro: return "gamecontroller.circle"
 		case .eightBitDoLite2, .eightBitDoLiteSE: return "gamecontroller.circle.fill"
 		case .appleTVRemote: return "appletvremote.gen3"
-		}
-	}
-
-	func isPlayStation(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsPlayStation
-		case .dualSense, .dualSenseEdge, .dualShock: return true
-		default: return false
-		}
-	}
-
-	func isDualSense(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsDualSense
-		case .dualSense, .dualSenseEdge: return true
-		default: return false
-		}
-	}
-
-	func isDualSenseEdge(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsDualSenseEdge
-		case .dualSenseEdge: return true
-		default: return false
-		}
-	}
-
-	func isDualShock(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsDualShock
-		case .dualShock: return true
-		default: return false
-		}
-	}
-
-	func isXboxElite(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsXboxElite
-		case .xboxElite: return true
-		default: return false
-		}
-	}
-
-	func isSteamController(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsSteamController
-		case .steam: return true
-		default: return false
-		}
-	}
-
-	func isNintendo(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsNintendo
-		case .nintendo: return true
-		default: return false
-		}
-	}
-
-	func eightBitDoModel(using service: ControllerService) -> EightBitDoMinimapModel? {
-		switch self {
-		case .active: return service.threadSafeEightBitDoMinimapModel
-		case .eightBitDoZero2: return .zero2
-		case .eightBitDoMicro: return .micro
-		case .eightBitDoLite2: return .lite2
-		case .eightBitDoLiteSE: return .liteSE
-		default: return nil
-		}
-	}
-
-	func isAppleTVRemote(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsAppleTVRemote
-		case .appleTVRemote: return true
-		default: return false
 		}
 	}
 }

@@ -7,11 +7,6 @@ import XCTest
 /// layout without a guide fails here.
 final class ControllerPairingGuideTests: XCTestCase {
 
-    /// All previewable controllers except `.active` (which has no single device).
-    private var concreteLayouts: [ControllerPreviewLayout] {
-        ControllerPreviewLayout.allCases.filter { $0 != .active }
-    }
-
     func testActiveLayoutHasNoGuide() {
         // `.active` resolves to a real device at runtime; the empty state shows a
         // chooser instead of a single guide.
@@ -19,7 +14,7 @@ final class ControllerPairingGuideTests: XCTestCase {
     }
 
     func testEveryConcreteLayoutHasAGuide() {
-        for layout in concreteLayouts {
+        for layout in ControllerPreviewLayout.concreteLayouts {
             XCTAssertNotNil(
                 layout.pairingGuide,
                 "\(layout.displayName) is missing a pairing guide"
@@ -28,7 +23,7 @@ final class ControllerPairingGuideTests: XCTestCase {
     }
 
     func testGuidesAreWellFormed() {
-        for layout in concreteLayouts {
+        for layout in ControllerPreviewLayout.concreteLayouts {
             guard let guide = layout.pairingGuide else {
                 XCTFail("\(layout.displayName) is missing a pairing guide")
                 continue
@@ -60,7 +55,7 @@ final class ControllerPairingGuideTests: XCTestCase {
     func testIconMatchesPickerIcon() {
         // The guide header should reuse the picker's icon for the controller so
         // the empty state and the dropdown stay visually consistent.
-        for layout in concreteLayouts {
+        for layout in ControllerPreviewLayout.concreteLayouts {
             XCTAssertEqual(
                 layout.pairingGuide?.systemImage,
                 layout.systemImage,
@@ -70,7 +65,7 @@ final class ControllerPairingGuideTests: XCTestCase {
     }
 
     func testGuideURLsAreSecure() {
-        for layout in concreteLayouts {
+        for layout in ControllerPreviewLayout.concreteLayouts {
             guard let url = layout.pairingGuide?.guideURL else { continue }
             XCTAssertEqual(
                 url.scheme, "https",
@@ -87,7 +82,7 @@ final class ControllerPairingGuideTests: XCTestCase {
         // each string the way the view does and assert the emphasis markers were
         // actually consumed: a surviving '*' means an unbalanced `**…` span that
         // would show literal asterisks in the card.
-        for layout in concreteLayouts {
+        for layout in ControllerPreviewLayout.concreteLayouts {
             guard let guide = layout.pairingGuide else { continue }
 
             let markdownStrings = guide.bluetoothSteps
