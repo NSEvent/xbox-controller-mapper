@@ -67,7 +67,7 @@ INFO_PLIST := XboxControllerMapper/XboxControllerMapper/Info.plist
 HELPER_SRC := Helpers/XboxEliteHelper.swift
 HELPER_NAME := XboxEliteHelper
 
-.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-clean refactor-gate screenshots demo-gifs sync-website marketing-assets
+.PHONY: build install clean release sign-and-notarize app-path help check-permissions check-version-plist test-regressions test-full test-full-xcodebuild test-clean refactor-gate screenshots demo-gifs sync-website marketing-assets
 
 help:
 	@echo "ControllerKeys - Build Commands"
@@ -78,7 +78,8 @@ help:
 	@echo "  make release   - Full release workflow (sign, notarize, create GitHub release)"
 	@echo "  make app-path  - Show the built app path"
 	@echo "  make test-regressions - Run focused regression suite"
-	@echo "  make test-full - Run full test suite"
+	@echo "  make test-full - Run full test suite via direct XCTest"
+	@echo "  make test-full-xcodebuild - Run full suite through Xcode's app-host launcher"
 	@echo "  make test-clean - Remove cached test derived data"
 	@echo "  make refactor-gate - Run full suite (gate for refactors)"
 	@echo "  make screenshots - Capture marketing screenshots (all controller variants)"
@@ -185,6 +186,9 @@ test-regressions:
 		-only-testing:XboxControllerMapperTests/JoystickAndMouseMappingTests/testJoystickMouseMovement
 
 test-full:
+	PROJECT="$(PROJECT)" SCHEME="$(SCHEME)" TEST_DERIVED_DATA="$(TEST_DERIVED_DATA)" ./Scripts/run-direct-xctest.sh
+
+test-full-xcodebuild:
 	xcodebuild test -project $(PROJECT) -scheme $(SCHEME) -derivedDataPath $(TEST_DERIVED_DATA) -destination 'platform=macOS'
 
 test-clean:

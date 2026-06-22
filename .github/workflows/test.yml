@@ -26,13 +26,9 @@ jobs:
       - name: Run tests
         run: |
           set -o pipefail
-          xcodebuild test \
-            -project XboxControllerMapper/XboxControllerMapper.xcodeproj \
-            -scheme XboxControllerMapper \
-            -destination 'platform=macOS,arch=arm64' \
-            -derivedDataPath DerivedData \
-            CODE_SIGN_IDENTITY=- \
-            CODE_SIGNING_REQUIRED=NO \
+          TEST_DERIVED_DATA=DerivedData \
+          TEST_DESTINATION='platform=macOS,arch=arm64' \
+          ./Scripts/run-direct-xctest.sh \
             2>&1 | tee xcodebuild.log | grep -vE '^\s*$' | tail -200
 
       - name: Upload log on failure
