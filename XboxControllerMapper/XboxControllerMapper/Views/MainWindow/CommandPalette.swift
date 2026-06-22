@@ -41,6 +41,65 @@ struct CommandPaletteDestination: Identifiable, Equatable {
     ]
 }
 
+struct CommandPaletteDestinationProvider {
+	static func destinations(
+		visibleTabs: [CustomTabItem],
+		mappings: [ControllerButton: KeyMapping],
+		descriptor: ControllerVisualDescriptor
+	) -> [CommandPaletteDestination] {
+		var destinations: [CommandPaletteDestination] = []
+
+		for tab in visibleTabs {
+			guard let section = MainWindowSection(rawValue: tab.tag) else { continue }
+			destinations.append(CommandPaletteDestination(
+				id: "section-\(tab.tag)",
+				title: tab.label,
+				subtitle: section.navGroup.rawValue,
+				groupLabel: section.navGroup.rawValue,
+				systemImage: tab.systemImage,
+				keywords: section.searchKeywords,
+				target: .section(tab.tag)
+			))
+		}
+
+		var seenButtons = Set<ControllerButton>()
+		func addButton(_ button: ControllerButton) {
+			guard !seenButtons.contains(button) else { return }
+			seenButtons.insert(button)
+			let binding = mappings[button]?.displayString
+			destinations.append(CommandPaletteDestination(
+				id: "button-\(button.rawValue)",
+				title: button.displayName(
+					forDualSense: descriptor.isPlayStation,
+					forNintendo: descriptor.isNintendo,
+					forAppleTVRemote: descriptor.isAppleTVRemote,
+					forEightBitDo: descriptor.eightBitDoModel != nil
+				),
+				subtitle: binding ?? "Not mapped",
+				groupLabel: "Button",
+				systemImage: "gamecontroller",
+				keywords: [button.rawValue, binding].compactMap { $0 },
+				target: .button(button)
+			))
+		}
+
+		for button in ControllerButton.allCases where mappings[button] != nil { addButton(button) }
+		for button in CommandPaletteDestination.coreButtons { addButton(button) }
+
+		destinations.append(CommandPaletteDestination(
+			id: "settings",
+			title: "Settings",
+			subtitle: "Preferences, license, permissions",
+			groupLabel: "App",
+			systemImage: "gearshape",
+			keywords: ["preferences", "license", "permissions", "options"],
+			target: .settings
+		))
+
+		return destinations
+	}
+}
+
 // MARK: - Pure matching/ranking (unit-tested)
 
 /// Ranking for the palette. Pure and deterministic — no SwiftUI, no globals — so

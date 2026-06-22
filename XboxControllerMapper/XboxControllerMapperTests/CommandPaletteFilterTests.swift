@@ -41,6 +41,92 @@ final class CommandPaletteFilterTests: XCTestCase {
         ]
     }
 
+    private func providerDestination(
+        for button: ControllerButton,
+        descriptor: ControllerVisualDescriptor,
+        mappings: [ControllerButton: KeyMapping] = [:]
+    ) -> CommandPaletteDestination? {
+        CommandPaletteDestinationProvider.destinations(
+            visibleTabs: [],
+            mappings: mappings,
+            descriptor: descriptor
+        )
+        .first { $0.target == .button(button) }
+    }
+
+    // MARK: Destination provider
+
+    func testDestinationProviderBuildsSectionsButtonsAndSettings() {
+        let destinations = CommandPaletteDestinationProvider.destinations(
+            visibleTabs: [
+                MainWindowSection.buttons.tabItem,
+                MainWindowSection.macros.tabItem
+            ],
+            mappings: [
+                .b: KeyMapping(keyCode: 8, modifiers: ModifierFlags(command: true)),
+                .share: KeyMapping(keyCode: 9)
+            ],
+            descriptor: ControllerVisualDescriptor(family: .xbox)
+        )
+
+        XCTAssertEqual(destinations.prefix(2).map(\.target), [
+            .section(MainWindowSection.buttons.rawValue),
+            .section(MainWindowSection.macros.rawValue)
+        ])
+        XCTAssertEqual(destinations.first?.keywords, MainWindowSection.buttons.searchKeywords)
+        XCTAssertEqual(destinations.last?.target, .settings)
+
+        let buttonTargets = destinations.filter {
+            if case .button = $0.target { return true }
+            return false
+        }
+        XCTAssertEqual(buttonTargets.filter { $0.target == .button(.b) }.count, 1)
+        XCTAssertEqual(buttonTargets.filter { $0.target == .button(.share) }.count, 1)
+
+        let mappedBIndex = destinations.firstIndex { $0.target == .button(.b) }
+        let firstCoreAIndex = destinations.firstIndex { $0.target == .button(.a) }
+        XCTAssertNotNil(mappedBIndex)
+        XCTAssertNotNil(firstCoreAIndex)
+        XCTAssertLessThan(mappedBIndex!, firstCoreAIndex!)
+
+        let b = destinations.first { $0.target == .button(.b) }
+        XCTAssertEqual(b?.title, "B")
+        XCTAssertEqual(b?.subtitle, "⌘ + C")
+        XCTAssertTrue(b?.keywords.contains("b") == true)
+        XCTAssertTrue(b?.keywords.contains("⌘ + C") == true)
+    }
+
+    func testDestinationProviderUsesControllerSpecificButtonLabels() {
+        XCTAssertEqual(
+            providerDestination(
+                for: .a,
+                descriptor: ControllerVisualDescriptor(family: .dualSense)
+            )?.title,
+            "Cross"
+        )
+        XCTAssertEqual(
+            providerDestination(
+                for: .leftTrigger,
+                descriptor: ControllerVisualDescriptor(family: .nintendo)
+            )?.title,
+            "ZL"
+        )
+        XCTAssertEqual(
+            providerDestination(
+                for: .leftTrigger,
+                descriptor: ControllerVisualDescriptor(family: .eightBitDo(.micro))
+            )?.title,
+            "L2"
+        )
+        XCTAssertEqual(
+            providerDestination(
+                for: .view,
+                descriptor: ControllerVisualDescriptor(family: .appleTVRemote)
+            )?.title,
+            "Back"
+        )
+    }
+
     // MARK: Empty query
 
     func testEmptyQueryReturnsAllInOriginalOrder() {

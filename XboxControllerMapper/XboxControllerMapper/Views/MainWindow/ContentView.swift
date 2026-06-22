@@ -458,67 +458,11 @@ struct ContentView: View {
     /// each time the palette opens so it reflects the current controller and the
     /// active profile's bindings.
     private var paletteDestinations: [CommandPaletteDestination] {
-        var destinations: [CommandPaletteDestination] = []
-
-        // Sections — only the ones currently visible for this controller.
-        for tab in customTabs {
-            guard let section = MainWindowSection(rawValue: tab.tag) else { continue }
-            destinations.append(CommandPaletteDestination(
-                id: "section-\(tab.tag)",
-                title: tab.label,
-                subtitle: section.navGroup.rawValue,
-                groupLabel: section.navGroup.rawValue,
-                systemImage: tab.systemImage,
-                keywords: section.searchKeywords,
-                target: .section(tab.tag)
-            ))
-        }
-
-        // Buttons — mapped ones first (with their current binding as subtitle),
-        // then the core set so unmapped staples are still reachable.
-        let isPlayStation = controllerService.threadSafeIsPlayStation
-        let isNintendo = controllerService.threadSafeIsNintendo
-        let isAppleTVRemote = controllerService.threadSafeIsAppleTVRemote
-        let mappings = profileManager.activeProfile?.buttonMappings ?? [:]
-        var seenButtons = Set<ControllerButton>()
-
-        func addButton(_ button: ControllerButton) {
-            guard !seenButtons.contains(button) else { return }
-            seenButtons.insert(button)
-            let name = button.displayName(
-                forDualSense: isPlayStation,
-                forNintendo: isNintendo,
-                forAppleTVRemote: isAppleTVRemote
-            )
-            let binding = mappings[button]?.displayString
-            destinations.append(CommandPaletteDestination(
-                id: "button-\(button.rawValue)",
-                title: name,
-                subtitle: binding ?? "Not mapped",
-                groupLabel: "Button",
-                systemImage: "gamecontroller",
-                // Make the bound shortcut searchable: typing "copy" finds the
-                // button bound to that action.
-                keywords: [button.rawValue, binding].compactMap { $0 },
-                target: .button(button)
-            ))
-        }
-
-        for button in ControllerButton.allCases where mappings[button] != nil { addButton(button) }
-        for button in CommandPaletteDestination.coreButtons { addButton(button) }
-
-        // Settings.
-        destinations.append(CommandPaletteDestination(
-            id: "settings",
-            title: "Settings",
-            subtitle: "Preferences, license, permissions",
-            groupLabel: "App",
-            systemImage: "gearshape",
-            keywords: ["preferences", "license", "permissions", "options"],
-            target: .settings
-        ))
-
-        return destinations
+        CommandPaletteDestinationProvider.destinations(
+            visibleTabs: customTabs,
+            mappings: profileManager.activeProfile?.buttonMappings ?? [:],
+            descriptor: controllerVisualDescriptor
+        )
     }
 
     /// Performs the navigation for a palette selection. Section switches happen
