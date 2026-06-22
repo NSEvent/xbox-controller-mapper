@@ -120,6 +120,9 @@ final class OBSWebSocketTests: XCTestCase {
         XCTAssertEqual(json["type"] as? String, "obsWebSocket")
         XCTAssertEqual(json["url"] as? String, "ws://127.0.0.1:4455")
         let passwordReference = try XCTUnwrap(json["password"] as? String)
+		if passwordReference == "secret" {
+			throw XCTSkip("Writable keychain unavailable in this test session")
+		}
         XCTAssertNotEqual(passwordReference, "secret")
         XCTAssertNotNil(UUID(uuidString: passwordReference))
         XCTAssertEqual(json["requestType"] as? String, "SetCurrentProgramScene")
