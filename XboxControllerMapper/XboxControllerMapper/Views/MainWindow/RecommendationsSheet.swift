@@ -54,8 +54,10 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 
     // MARK: - Content
 
-    private var content: some View {
-        Group {
+	private var content: some View {
+		let presentationState = controllerPresentationState
+
+		return Group {
             if analysisResult.recommendations.isEmpty {
                 VStack(spacing: 12) {
                     Spacer()
@@ -72,7 +74,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(analysisResult.recommendations) { rec in
-                            recommendationRow(rec)
+							recommendationRow(rec, presentationState: presentationState)
                         }
                     }
                     .padding(12)
@@ -83,7 +85,10 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 
     // MARK: - Recommendation Row
 
-    private func recommendationRow(_ rec: BindingRecommendation) -> some View {
+	private func recommendationRow(
+		_ rec: BindingRecommendation,
+		presentationState: ControllerPresentationState
+	) -> some View {
         let isSelected = selectedIds.contains(rec.id)
 
         return HStack(spacing: 10) {
@@ -99,10 +104,10 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
             // Recommendation content
             VStack(alignment: .leading, spacing: 6) {
                 // Title line
-                titleView(for: rec)
+				titleView(for: rec, presentationState: presentationState)
 
                 // Before → After with button icons
-                beforeAfterView(for: rec)
+				beforeAfterView(for: rec, presentationState: presentationState)
             }
 
             Spacer()
@@ -125,38 +130,44 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
         .onTapGesture { toggleSelection(rec.id) }
     }
 
-    @ViewBuilder
-    private func titleView(for rec: BindingRecommendation) -> some View {
+	@ViewBuilder
+	private func titleView(
+		for rec: BindingRecommendation,
+		presentationState: ControllerPresentationState
+	) -> some View {
         switch rec.type {
         case .swap(let b1, let b2):
-            Text("Swap \(buttonName(b1)) and \(buttonName(b2)) — most-used action is on a harder button")
+			Text("Swap \(buttonName(b1, presentationState: presentationState)) and \(buttonName(b2, presentationState: presentationState)) — most-used action is on a harder button")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.primary)
                 .lineLimit(2)
 
         case .promoteToChord(let fromButton, let fromType, let toChordButtons, _, _):
             let typeLabel = fromType == .longHold ? "long hold" : "double tap"
-            let chordLabel = chordButtonNames(toChordButtons)
-            Text("Promote \(buttonName(fromButton)) \(typeLabel) to \(chordLabel) chord — faster to execute")
+			let chordLabel = chordButtonNames(toChordButtons, presentationState: presentationState)
+			Text("Promote \(buttonName(fromButton, presentationState: presentationState)) \(typeLabel) to \(chordLabel) chord — faster to execute")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.primary)
                 .lineLimit(2)
 
         case .demoteToLongHold(let button, _, _):
-            Text("Move \(buttonName(button)) to long hold — rarely used, frees the single-press slot")
+			Text("Move \(buttonName(button, presentationState: presentationState)) to long hold — rarely used, frees the single-press slot")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.primary)
                 .lineLimit(2)
         }
     }
 
-    @ViewBuilder
-    private func beforeAfterView(for rec: BindingRecommendation) -> some View {
+	@ViewBuilder
+	private func beforeAfterView(
+		for rec: BindingRecommendation,
+		presentationState: ControllerPresentationState
+	) -> some View {
         switch rec.type {
         case .swap(let b1, let b2):
             HStack(spacing: 6) {
                 // Before
-                buttonIcon(b1)
+				buttonIcon(b1, presentationState: presentationState)
                 Text(rec.actionDescription1)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -164,7 +175,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
                 Text("/")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary.opacity(0.5))
-                buttonIcon(b2)
+				buttonIcon(b2, presentationState: presentationState)
                 Text(rec.actionDescription2)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -175,7 +186,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
                     .foregroundColor(.secondary)
 
                 // After (swapped)
-                buttonIcon(b1)
+				buttonIcon(b1, presentationState: presentationState)
                 Text(rec.actionDescription2)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -183,7 +194,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
                 Text("/")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary.opacity(0.5))
-                buttonIcon(b2)
+				buttonIcon(b2, presentationState: presentationState)
                 Text(rec.actionDescription1)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -192,7 +203,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 
         case .promoteToChord(let fromButton, let fromType, let toChordButtons, _, _):
             HStack(spacing: 6) {
-                buttonIcon(fromButton)
+				buttonIcon(fromButton, presentationState: presentationState)
                 let typeLabel = fromType == .longHold ? "hold" : "2x"
                 Text("\(typeLabel): \(rec.actionDescription1)")
                     .font(.system(size: 10))
@@ -203,7 +214,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
                     .font(.system(size: 8))
                     .foregroundColor(.secondary)
 
-                chordButtonIcons(toChordButtons)
+				chordButtonIcons(toChordButtons, presentationState: presentationState)
                 Text(rec.actionDescription1)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -212,7 +223,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 
         case .demoteToLongHold(let button, _, _):
             HStack(spacing: 6) {
-                buttonIcon(button)
+				buttonIcon(button, presentationState: presentationState)
                 Text("press: \(rec.actionDescription1)")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -222,7 +233,7 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
                     .font(.system(size: 8))
                     .foregroundColor(.secondary)
 
-                buttonIcon(button)
+				buttonIcon(button, presentationState: presentationState)
                 Text("long hold: \(rec.actionDescription1)")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
@@ -233,28 +244,53 @@ struct RecommendationsSheet: View, ControllerTypeProviding {
 
     // MARK: - Button Display Helpers
 
-    private func buttonName(_ button: ControllerButton) -> String {
-        button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo)
-    }
+	private func buttonName(
+		_ button: ControllerButton,
+		presentationState: ControllerPresentationState
+	) -> String {
+		button.displayName(
+			forDualSense: presentationState.isPlayStation,
+			forNintendo: presentationState.isNintendo
+		)
+	}
 
-    private func chordButtonNames(_ buttons: Set<ControllerButton>) -> String {
+	private func chordButtonNames(
+		_ buttons: Set<ControllerButton>,
+		presentationState: ControllerPresentationState
+	) -> String {
         buttons.sorted { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }
-            .map { $0.shortLabel(forDualSense: isPlayStation, forNintendo: isNintendo) }
+			.map {
+				$0.shortLabel(
+					forDualSense: presentationState.isPlayStation,
+					forNintendo: presentationState.isNintendo
+				)
+			}
             .joined(separator: "+")
     }
 
-    private func buttonIcon(_ button: ControllerButton) -> some View {
-        ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController)
+	private func buttonIcon(
+		_ button: ControllerButton,
+		presentationState: ControllerPresentationState
+	) -> some View {
+		ButtonIconView(
+			button: button,
+			isDualSense: presentationState.isPlayStation,
+			isNintendo: presentationState.isNintendo,
+			isSteamController: presentationState.isSteamController
+		)
             .scaleEffect(0.7)
             .frame(width: 22, height: 22)
     }
 
-    @ViewBuilder
-    private func chordButtonIcons(_ buttons: Set<ControllerButton>) -> some View {
+	@ViewBuilder
+	private func chordButtonIcons(
+		_ buttons: Set<ControllerButton>,
+		presentationState: ControllerPresentationState
+	) -> some View {
         let sorted = buttons.sorted { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }
         HStack(spacing: 2) {
             ForEach(sorted, id: \.self) { button in
-                buttonIcon(button)
+				buttonIcon(button, presentationState: presentationState)
             }
         }
     }
