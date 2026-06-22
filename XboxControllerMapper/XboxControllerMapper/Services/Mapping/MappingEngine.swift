@@ -143,13 +143,7 @@ class MappingEngine: ObservableObject {
 	self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
         self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
-        // Build precomputed lookup caches
-        let initialChords = profileManager.activeProfile?.chordMappings ?? []
-		self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: initialChords.flatMap { $0.buttons })
-		self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profileManager.activeProfile?.sequenceMappings ?? []).flatMap { $0.steps })
-        self.state.chordLookup = Dictionary(uniqueKeysWithValues: initialChords.map { ($0.buttons, $0) })
-        self.state.layersById = Self.layersById(for: profileManager.activeProfile)
-        rebuildLayerActivatorMap(profile: profileManager.activeProfile)
+        self.state.applyProfileIndex(MappingProfileIndex(profile: profileManager.activeProfile))
         syncLatencySettings(for: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
         syncTouchpadSettings(from: profileManager.activeProfile)
@@ -164,34 +158,11 @@ class MappingEngine: ObservableObject {
         joystickTimer = nil
     }
 
-    /// Rebuilds the layer activator button -> layer ID lookup map
-    private func rebuildLayerActivatorMap(profile: Profile?) {
-        state.layerActivatorMap.removeAll()
-        guard let profile = profile else { return }
-        for layer in profile.layers {
-            if let activatorButton = layer.activatorButton {
-                state.layerActivatorMap[activatorButton] = layer.id
-            }
-        }
-    }
-
     private func syncLatencySettings(for profile: Profile?) {
-		let chordButtons = Self.expandedParticipantButtons(for: (profile?.chordMappings ?? []).flatMap { $0.buttons })
+		let chordButtons = MappingProfileIndex(profile: profile).chordParticipantButtons
         controllerService.chordParticipantButtons = chordButtons
         controllerService.lowLatencyInputEnabled = profile?.inputLatencyMode == .realtime
     }
-
-	private static func expandedParticipantButtons(for buttons: [ControllerButton]) -> Set<ControllerButton> {
-		Set(buttons.flatMap { button in
-			[button] + button.physicalEquivalentButtons
-		})
-	}
-
-	/// O(1) layer lookup cache for the 120Hz joystick poll. Tolerates duplicate
-	/// layer IDs in hand-edited configs by keeping the first occurrence.
-	private static func layersById(for profile: Profile?) -> [UUID: Layer] {
-		Dictionary((profile?.layers ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-	}
 
     /// Pushes effective gesture detection settings from the profile into ControllerStorage
     /// so the motion callback thread can read them without accessing JoystickSettings.
@@ -266,15 +237,8 @@ class MappingEngine: ObservableObject {
 		    self.state.swipeTypingSensitivity = osk.swipeTypingSensitivity
                     self.state.activeLayerIds.removeAll()
                     self.state.buttonsActingAsLayerActivators.removeAll()
-                    self.rebuildLayerActivatorMap(profile: profile)
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
-
-                    // Build precomputed lookup caches
-                    let chords = profile?.chordMappings ?? []
-					self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
-					self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
-                    self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
-                    self.state.layersById = Self.layersById(for: profile)
+                    self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
                     return heldDirections
                 }
                 for button in directionButtonsToRelease {
@@ -344,15 +308,9 @@ class MappingEngine: ObservableObject {
                 let cleanup: (leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)? = self.state.lock.withLock {
                     self.state.isEnabled = enabled
                     if enabled {
-                        // Rebuild precomputed lookup caches that were cleared by reset()
                         let profile = self.state.activeProfile
-                        let chords = profile?.chordMappings ?? []
-						self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
-						self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
-                        self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
-                        self.state.layersById = Self.layersById(for: profile)
                         self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
-                        self.rebuildLayerActivatorMap(profile: profile)
+                        self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
                         self.syncLatencySettings(for: profile)
                         return nil
                     }

@@ -5,9 +5,8 @@ import CoreGraphics
 /// Tests for the precomputed lookup caches used by MappingEngine to avoid
 /// linear scans on every button press.
 ///
-/// These tests verify the cache-building logic in isolation (using the same
-/// expressions that MappingEngine.setupBindings uses) rather than instantiating
-/// EngineState directly, which requires the full app module to be loaded.
+/// These tests verify the cache-building logic in isolation rather than
+/// instantiating MappingEngine.
 final class PrecomputedLookupCacheTests: XCTestCase {
 
     // MARK: - Chord Participant Cache
@@ -263,6 +262,78 @@ final class PrecomputedLookupCacheTests: XCTestCase {
         XCTAssertTrue(seqParticipants.isEmpty)
         XCTAssertTrue(chordLookup.isEmpty)
     }
+
+	func testMappingProfileIndexBuildsLookupTablesFromProfile() {
+		let chord1 = ChordMapping(buttons: [.a, .b], keyCode: 10)
+		let chord2 = ChordMapping(buttons: [.leftBumper, .rightBumper], keyCode: 20)
+		let sequence = SequenceMapping(steps: [.dpadDown, .dpadDown, .a], keyCode: 30)
+		let layerID = UUID()
+		let layer = Layer(
+			id: layerID,
+			name: "Navigation",
+			activatorButton: .leftThumbstick,
+			buttonMappings: [.a: KeyMapping(keyCode: 8)]
+		)
+		let profile = Profile(
+			name: "Indexed",
+			chordMappings: [chord1, chord2],
+			sequenceMappings: [sequence],
+			layers: [layer]
+		)
+
+		let index = MappingProfileIndex(profile: profile)
+
+		XCTAssertEqual(index.chordLookup[Set([.a, .b] as [ControllerButton])]?.keyCode, 10)
+		XCTAssertEqual(index.chordLookup[Set([.leftBumper, .rightBumper] as [ControllerButton])]?.keyCode, 20)
+		XCTAssertTrue(index.chordParticipantButtons.isSuperset(of: [.a, .b, .leftBumper, .rightBumper]))
+		XCTAssertEqual(index.sequenceParticipantButtons, Set([.dpadDown, .a] as [ControllerButton]))
+		XCTAssertEqual(index.layersById[layerID]?.name, "Navigation")
+		XCTAssertEqual(index.layerActivatorMap[.leftThumbstick], layerID)
+	}
+
+	func testMappingProfileIndexExpandsPhysicalEquivalentButtons() {
+		let chord = ChordMapping(buttons: [.leftPaddle, .rightPaddle], keyCode: 1)
+		let sequence = SequenceMapping(steps: [.leftFunction, .rightFunction], keyCode: 2)
+		let profile = Profile(
+			name: "Physical Equivalents",
+			chordMappings: [chord],
+			sequenceMappings: [sequence]
+		)
+
+		let index = MappingProfileIndex(profile: profile)
+
+		XCTAssertTrue(index.chordParticipantButtons.contains(.leftPaddle))
+		XCTAssertTrue(index.chordParticipantButtons.contains(.rightPaddle))
+		XCTAssertTrue(index.chordParticipantButtons.contains(.xboxPaddle1))
+		XCTAssertTrue(index.chordParticipantButtons.contains(.xboxPaddle2))
+		XCTAssertTrue(index.sequenceParticipantButtons.contains(.leftFunction))
+		XCTAssertTrue(index.sequenceParticipantButtons.contains(.rightFunction))
+		XCTAssertTrue(index.sequenceParticipantButtons.contains(.xboxPaddle3))
+		XCTAssertTrue(index.sequenceParticipantButtons.contains(.xboxPaddle4))
+	}
+
+	func testMappingProfileIndexNilProfileIsEmpty() {
+		let index = MappingProfileIndex(profile: nil)
+
+		XCTAssertTrue(index.chordParticipantButtons.isEmpty)
+		XCTAssertTrue(index.sequenceParticipantButtons.isEmpty)
+		XCTAssertTrue(index.chordLookup.isEmpty)
+		XCTAssertTrue(index.layersById.isEmpty)
+		XCTAssertTrue(index.layerActivatorMap.isEmpty)
+	}
+
+	func testMappingProfileIndexKeepsFirstDuplicateLayerID() {
+		let id = UUID()
+		let first = Layer(id: id, name: "First", activatorButton: .a)
+		let second = Layer(id: id, name: "Second", activatorButton: .b)
+		let profile = Profile(name: "Duplicate Layers", layers: [first, second])
+
+		let index = MappingProfileIndex(profile: profile)
+
+		XCTAssertEqual(index.layersById[id]?.name, "First")
+		XCTAssertEqual(index.layerActivatorMap[.a], id)
+		XCTAssertEqual(index.layerActivatorMap[.b], id)
+	}
 
     // MARK: - Edge Cases
 
