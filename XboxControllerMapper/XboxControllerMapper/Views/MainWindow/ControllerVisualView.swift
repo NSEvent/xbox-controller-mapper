@@ -131,27 +131,20 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
     @State private var hoveredButton: ControllerButton?
 
-	var isPlayStation: Bool { previewLayout.isPlayStation(using: controllerService) }
-	var isDualSense: Bool { previewLayout.isDualSense(using: controllerService) }
-	var isDualSenseEdge: Bool { previewLayout.isDualSenseEdge(using: controllerService) }
-	var isDualShock: Bool { previewLayout.isDualShock(using: controllerService) }
-	var isXboxElite: Bool { previewLayout.isXboxElite(using: controllerService) }
-	var isSteamController: Bool { previewLayout.isSteamController(using: controllerService) }
-	var isNintendo: Bool { previewLayout.isNintendo(using: controllerService) }
-	var isAppleTVRemote: Bool { previewLayout.isAppleTVRemote(using: controllerService) }
-	var eightBitDoModel: EightBitDoMinimapModel? { previewLayout.eightBitDoModel(using: controllerService) }
-
-	/// The small 8BitDo pads (Zero 2, Micro) are stickless: the physical d-pad
-	/// feeds the left-stick axis, so they expose no analog sticks at all. The
-	/// Lite 2 / Lite SE are full pads with real sticks.
-	var isStickless: Bool { eightBitDoModel?.isStickless == true }
-
-	/// Whether the previewed controller exposes analog sticks in the sidebar.
-	var hasSticks: Bool { !isStickless }
-
-	/// The Zero 2 has no triggers at all (only L/R bumpers). Every other
-	/// controller — including the Micro (L2/R2) — does.
-	var hasTriggers: Bool { eightBitDoModel != .zero2 }
+	var visualDescriptor: ControllerVisualDescriptor {
+		ControllerVisualDescriptor.resolved(previewLayout: previewLayout, using: controllerService)
+	}
+	var isPlayStation: Bool { visualDescriptor.isPlayStation }
+	var isDualSense: Bool { visualDescriptor.isDualSense }
+	var isDualSenseEdge: Bool { visualDescriptor.isDualSenseEdge }
+	var isDualShock: Bool { visualDescriptor.isDualShock }
+	var isXboxElite: Bool { visualDescriptor.isXboxElite }
+	var isSteamController: Bool { visualDescriptor.isSteamController }
+	var isNintendo: Bool { visualDescriptor.isNintendo }
+	var isAppleTVRemote: Bool { visualDescriptor.isAppleTVRemote }
+	var eightBitDoModel: EightBitDoMinimapModel? { visualDescriptor.eightBitDoModel }
+	var isStickless: Bool { visualDescriptor.isStickless }
+	var hasSticks: Bool { visualDescriptor.hasSticks }
 
     private var joystickSettings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -249,7 +242,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 			HStack(alignment: .center, spacing: 0) {
             // Left Column: Shoulder and Left-side inputs
             VStack(alignment: .trailing, spacing: 16) {
-                referenceGroup(title: "Shoulder", buttons: hasTriggers ? [.leftTrigger, .leftBumper] : [.leftBumper])
+				referenceGroup(title: "Shoulder", buttons: visualDescriptor.shoulderButtons(side: .left))
                 if isStickless {
                     // Stickless pads: the d-pad IS the left-stick axis, so a
                     // single section drives both the mode (mouse/scroll/d-pad/…)
@@ -270,9 +263,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                 // layout and the 8-button quadrant layout. Two-finger buttons
                 // stay visible in both modes since there's no quadrant
                 // analog for two fingers.
-                if isSteamController {
+				if visualDescriptor.showsSteamTouchpads {
                     steamTouchpadButtonsSection
-                } else if isPlayStation {
+				} else if visualDescriptor.showsPlayStationTouchpad {
                     touchpadButtonsSection
                 }
 
@@ -316,31 +309,21 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                 // System Buttons Reference
                 HStack(spacing: 20) {
                     VStack(alignment: .trailing) {
-                        referenceRow(for: .view)
-                        // The Zero 2 has no home/guide button at all.
-                        if eightBitDoModel != .zero2 {
-                            referenceRow(for: .xbox)
-                        }
+						ForEach(visualDescriptor.leftSystemButtons) { button in
+							referenceRow(for: button)
+						}
                     }
                     .frame(width: 220)
                     VStack(alignment: .leading) {
-                        referenceRow(for: .menu)
-                        // Show mic mute for DualSense, share for Xbox (but not Elite 2 where
-                        // the Share button is the hardware profile cycle button, not mappable)
-                        // DualShock 4's physical Share button maps to .view (buttonOptions), not .share
-                        // On 8BitDo pads the star is the firmware profile button (not mappable),
-                        // so it never gets a reference row — it shows on the minimap only.
-                        if isDualSense {
-                            referenceRow(for: .micMute)
-                        } else if !isDualShock && (!isXboxElite || isSteamController) && eightBitDoModel == nil {
-                            referenceRow(for: .share)
-                        }
+						ForEach(visualDescriptor.rightSystemButtons) { button in
+							referenceRow(for: button)
+						}
                     }
                     .frame(width: 220)
                 }
 
                 // Edge-specific buttons (paddles and function buttons)
-                if isDualSenseEdge {
+				if visualDescriptor.showsDualSenseEdgeControls {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("EDGE CONTROLS")
                             .font(.system(size: 10, weight: .bold))
@@ -362,9 +345,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                 }
 
                 // Xbox Elite-specific buttons (back paddles)
-                if isXboxElite || isSteamController {
+				if visualDescriptor.showsGripOrPaddleSection {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES")
+						Text(visualDescriptor.gripOrPaddleSectionTitle)
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 4)
@@ -399,7 +382,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
             // Right Column: Face buttons and Right-side inputs
             VStack(alignment: .leading, spacing: 16) {
-                referenceGroup(title: "Shoulder", buttons: hasTriggers ? [.rightTrigger, .rightBumper] : [.rightBumper])
+				referenceGroup(title: "Shoulder", buttons: visualDescriptor.shoulderButtons(side: .right))
                 referenceGroup(title: "Actions", buttons: [.y, .b, .a, .x])
                 if hasSticks {
                     stickModeSection(title: "Right Stick", side: .right, center: .rightThumbstick)
@@ -638,14 +621,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
 	/// Resolved minimap style for the previewed controller.
 	var minimapStyle: ControllerMinimapStyle {
-		if let eightBitDoModel { return eightBitDoModel.minimapStyle }
-		if isSteamController { return .steam }
-		if isDualShock { return .dualShock }
-		if isDualSenseEdge { return .dualSenseEdge }
-		if isPlayStation { return .dualSense }
-		if isNintendo { return .nintendo }
-		if isXboxElite { return .xboxElite }
-		return .xbox
+		visualDescriptor.minimapStyle ?? .xbox
 	}
 
 	private var controllerPreviewWidth: CGFloat { minimapStyle.previewSize.width }
