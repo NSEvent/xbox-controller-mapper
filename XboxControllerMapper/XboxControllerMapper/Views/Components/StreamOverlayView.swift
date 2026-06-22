@@ -18,20 +18,18 @@ struct StreamOverlayView: View {
     private let graphicWidth: CGFloat = 200
 
     private var isAppleTVRemote: Bool {
-        controllerService.threadSafeIsAppleTVRemote
+        visualDescriptor.isAppleTVRemote
     }
 
     /// Resolved from the connected controller so the overlay always matches
     /// the active hardware (previously this was hardcoded to Xbox vs
     /// PlayStation only).
+    private var visualDescriptor: ControllerVisualDescriptor {
+        ControllerVisualDescriptor.active(using: controllerService)
+    }
+
     private var minimapStyle: ControllerMinimapStyle {
-        if controllerService.threadSafeIsSteamController { return .steam }
-        if controllerService.threadSafeIsDualShock { return .dualShock }
-        if controllerService.threadSafeIsDualSenseEdge { return .dualSenseEdge }
-        if controllerService.threadSafeIsPlayStation { return .dualSense }
-        if controllerService.threadSafeIsNintendo { return .nintendo }
-        if controllerService.threadSafeIsXboxElite { return .xboxElite }
-        return .xbox
+        visualDescriptor.minimapStyle ?? .xbox
     }
 
     var body: some View {
@@ -114,12 +112,7 @@ struct StreamOverlayView: View {
 
             ControllerAnalogOverlay(
                 controllerService: controllerService,
-                isPlayStation: controllerService.threadSafeIsPlayStation,
-                isNintendo: controllerService.threadSafeIsNintendo,
-                isXboxElite: controllerService.threadSafeIsXboxElite,
-                isSteamController: controllerService.threadSafeIsSteamController,
-                isDualShock: controllerService.threadSafeIsDualShock,
-                isDualSenseEdge: controllerService.threadSafeIsDualSenseEdge,
+                descriptor: visualDescriptor,
                 onButtonTap: { _ in }
             )
             .frame(width: size.width, height: size.height)

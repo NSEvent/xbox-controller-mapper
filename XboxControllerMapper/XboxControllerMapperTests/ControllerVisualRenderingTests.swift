@@ -253,13 +253,7 @@ private struct StaticControllerMinimapPreview: View {
 
 			ControllerAnalogOverlay(
 				controllerService: controllerService,
-				isPlayStation: descriptor.isPlayStation,
-				isNintendo: descriptor.isNintendo,
-				isXboxElite: descriptor.isXboxElite,
-				isSteamController: descriptor.isSteamController,
-				isDualShock: descriptor.isDualShock,
-				isDualSenseEdge: descriptor.isDualSenseEdge,
-				eightBitDoModel: descriptor.eightBitDoModel,
+				descriptor: descriptor,
 				onButtonTap: { _ in },
 				overrideColorForButton: { pressedButtons.contains($0) ? Color.accentColor : nil }
 			)

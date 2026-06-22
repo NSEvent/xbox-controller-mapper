@@ -70,13 +70,7 @@ struct PairingMinimapView: View {
 
             ControllerAnalogOverlay(
                 controllerService: service,
-                isPlayStation: visualDescriptor.isPlayStation,
-                isNintendo: visualDescriptor.isNintendo,
-                isXboxElite: visualDescriptor.isXboxElite,
-                isSteamController: visualDescriptor.isSteamController,
-                isDualShock: visualDescriptor.isDualShock,
-                isDualSenseEdge: visualDescriptor.isDualSenseEdge,
-                eightBitDoModel: visualDescriptor.eightBitDoModel,
+                descriptor: visualDescriptor,
                 onButtonTap: { _ in },
                 overrideColorForButton: { pressedButtons.contains($0) ? Color.accentColor : nil }
             )

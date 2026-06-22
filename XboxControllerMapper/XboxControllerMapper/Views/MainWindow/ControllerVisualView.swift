@@ -283,13 +283,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                     // updates from the rest of the view hierarchy
                     ControllerAnalogOverlay(
                         controllerService: controllerService,
-                        isPlayStation: isPlayStation,
-                        isNintendo: isNintendo,
-                        isXboxElite: isXboxElite,
-                        isSteamController: isSteamController,
-                        isDualShock: isDualShock,
-                        isDualSenseEdge: isDualSenseEdge,
-                        eightBitDoModel: eightBitDoModel,
+                        descriptor: visualDescriptor,
                         elitePaddleButtons: [
                             eliteReferenceButton(for: .xboxPaddle1),
                             eliteReferenceButton(for: .xboxPaddle2),
