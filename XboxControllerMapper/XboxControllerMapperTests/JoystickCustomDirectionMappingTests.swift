@@ -38,9 +38,7 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         await waitForTasks(0.1)
 
         await MainActor.run {
-            controllerService?.onButtonPressed = nil
-            controllerService?.onButtonReleased = nil
-            controllerService?.onChordDetected = nil
+            controllerService?.onInputEvent = nil
             controllerService?.cleanup()
 
             mappingEngine = nil

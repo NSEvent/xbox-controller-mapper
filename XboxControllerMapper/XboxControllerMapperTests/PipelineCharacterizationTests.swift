@@ -41,17 +41,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         await waitForInputQueue()
 
         await MainActor.run {
-            controllerService?.onButtonPressed = nil
-            controllerService?.onButtonReleased = nil
-            controllerService?.onChordDetected = nil
-            controllerService?.onLeftStickMoved = nil
-            controllerService?.onRightStickMoved = nil
-            controllerService?.onTouchpadMoved = nil
-            controllerService?.onTouchpadGesture = nil
-            controllerService?.onTouchpadTap = nil
-            controllerService?.onTouchpadTwoFingerTap = nil
-            controllerService?.onTouchpadLongTap = nil
-            controllerService?.onTouchpadTwoFingerLongTap = nil
+            controllerService?.onInputEvent = nil
             controllerService?.cleanup()
 
             mappingEngine = nil
@@ -90,7 +80,7 @@ final class PipelineCharacterizationTests: XCTestCase {
 
     // MARK: - Chord Detection Characterization
 
-    /// A single button press (no chord partner) should fire onButtonPressed exactly once.
+    /// A single button press (no chord partner) should emit one input event.
     func testSingleButtonFiresOnButtonPressed() async throws {
         await MainActor.run {
             let profile = Profile(
@@ -118,7 +108,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         XCTAssertEqual(pressCount, 1, "Single button should fire mapped key exactly once")
     }
 
-    /// Two buttons pressed within chord window should fire onChordDetected (not individual presses).
+    /// Two buttons pressed within chord window should emit one chord event, not individual presses.
     func testTwoButtonsWithinWindowFiresChord() async throws {
         await MainActor.run {
             let profile = Profile(
@@ -228,7 +218,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onMotionGesture?(.tiltBack)
+            controllerService.emitInputEvent(.motionGesture(.tiltBack))
         }
         await waitForInputQueue()
 
@@ -254,7 +244,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onTouchpadTap?()
+            controllerService.emitInputEvent(.touchpadTap)
         }
         await waitForPollingQueue()
 
@@ -278,7 +268,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onTouchpadTwoFingerTap?()
+            controllerService.emitInputEvent(.touchpadTwoFingerTap)
         }
         await waitForPollingQueue()
 
@@ -335,7 +325,7 @@ final class PipelineCharacterizationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onTouchpadMoved?(CGPoint(x: 0.5, y: 0.3))
+            controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.5, y: 0.3)))
         }
         await waitForPollingQueue()
 

@@ -298,15 +298,10 @@ class MappingEngine: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Controller input callbacks — route each event to the appropriate queue.
-        controllerService.onButtonPressed = { [weak self] button in
-			self?.enqueueControllerInputEvent(.buttonPressed(button))
-        }
-        controllerService.onButtonReleased = { [weak self] button, duration in
-			self?.enqueueControllerInputEvent(.buttonReleased(button, holdDuration: duration))
-        }
-        controllerService.onChordDetected = { [weak self] buttons in
-			self?.enqueueControllerInputEvent(.chordDetected(buttons))
+        // Controller input events — ControllerService owns event emission;
+        // MappingEngine owns queue routing and mapping behavior.
+        controllerService.onInputEvent = { [weak self] event in
+            self?.enqueueControllerInputEvent(event)
         }
 
         // Joystick polling
@@ -337,43 +332,10 @@ class MappingEngine: ObservableObject {
             }
             .store(in: &cancellables)
 
-        controllerService.onTouchpadMoved = { [weak self] delta in
-			self?.enqueueControllerInputEvent(.touchpadMoved(delta))
-        }
-        controllerService.onSteamLeftTouchpadMoved = { [weak self] delta in
-			self?.enqueueControllerInputEvent(.steamLeftTouchpadMoved(delta))
-        }
-		controllerService.onAppleTVRemoteCircularScroll = { [weak self] angleDelta in
-			self?.enqueueControllerInputEvent(.appleTVRemoteCircularScroll(angleDelta))
-		}
-        controllerService.onTouchpadGesture = { [weak self] gesture in
-			self?.enqueueControllerInputEvent(.touchpadGesture(gesture))
-        }
-        controllerService.onTouchpadTap = { [weak self] in
-			self?.enqueueControllerInputEvent(.touchpadTap)
-        }
-        controllerService.onControllerButtonTap = { [weak self] button in
-			self?.enqueueControllerInputEvent(.controllerButtonTap(button))
-        }
-        controllerService.onTouchpadTwoFingerTap = { [weak self] in
-			self?.enqueueControllerInputEvent(.touchpadTwoFingerTap)
-        }
-        controllerService.onTouchpadLongTap = { [weak self] in
-			self?.enqueueControllerInputEvent(.touchpadLongTap)
-        }
-        controllerService.onTouchpadTwoFingerLongTap = { [weak self] in
-			self?.enqueueControllerInputEvent(.touchpadTwoFingerLongTap)
-        }
-        controllerService.onTouchpadRegionTap = { [weak self] region in
-			self?.enqueueControllerInputEvent(.touchpadRegionTap(region))
-        }
         // Region clicks no longer use a callback. ControllerService dispatches
         // them directly as `handleButton(.touchpadRegion*Click, pressed:)`,
         // which goes through the standard press/release machinery (long hold,
         // double tap, repeat, layer overrides all work for free).
-        controllerService.onMotionGesture = { [weak self] gestureType in
-			self?.enqueueControllerInputEvent(.motionGesture(gestureType))
-        }
 
         // Enable/Disable toggle sync
         $isEnabled
@@ -1521,7 +1483,7 @@ class MappingEngine: ObservableObject {
     }
 
 	nonisolated private func enqueueControllerInputEvent(_ event: ControllerInputEvent) {
-		switch event.processingQueue {
+		switch ControllerInputEventRouting.queue(for: event) {
 		case .input:
 			inputQueue.async { [weak self] in
 				self?.handleControllerInputEvent(event)

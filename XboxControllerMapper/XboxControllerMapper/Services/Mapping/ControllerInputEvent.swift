@@ -16,30 +16,4 @@ enum ControllerInputEvent: Equatable {
 	case touchpadTwoFingerLongTap
 	case touchpadRegionTap(TouchpadRegion)
 	case motionGesture(MotionGestureType)
-
-	var processingQueue: ControllerInputEventQueue {
-		switch self {
-		case .touchpadMoved,
-			 .steamLeftTouchpadMoved,
-			 .appleTVRemoteCircularScroll,
-			 .touchpadGesture,
-			 .touchpadTap,
-			 .touchpadTwoFingerTap,
-			 .touchpadLongTap,
-			 .touchpadTwoFingerLongTap:
-			return .polling
-		case .buttonPressed,
-			 .buttonReleased,
-			 .chordDetected,
-			 .controllerButtonTap,
-			 .touchpadRegionTap,
-			 .motionGesture:
-			return .input
-		}
-	}
-}
-
-enum ControllerInputEventQueue {
-	case input
-	case polling
 }

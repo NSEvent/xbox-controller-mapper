@@ -14,7 +14,7 @@ final class ControllerInputEventTests: XCTestCase {
 		]
 
 		for event in events {
-			XCTAssertEqual(event.processingQueue, .input, "\(event) should use inputQueue")
+			XCTAssertEqual(ControllerInputEventRouting.queue(for: event), .input, "\(event) should use inputQueue")
 		}
 	}
 
@@ -37,7 +37,7 @@ final class ControllerInputEventTests: XCTestCase {
 		]
 
 		for event in events {
-			XCTAssertEqual(event.processingQueue, .polling, "\(event) should use pollingQueue")
+			XCTAssertEqual(ControllerInputEventRouting.queue(for: event), .polling, "\(event) should use pollingQueue")
 		}
 	}
 }

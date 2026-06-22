@@ -22,8 +22,8 @@ final class ModifierAndComboTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
         }
         await waitForTasks()
 

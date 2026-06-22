@@ -254,7 +254,6 @@ extension ControllerService {
             guard let self else { return }
             storage.lock.lock()
             let mode = storage.touchpadInputMode
-            let callback = storage.onControllerButtonTap
             storage.lock.unlock()
 
             let button: ControllerButton?
@@ -265,7 +264,7 @@ extension ControllerService {
                 button = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .touch)
             }
             if let button {
-                callback?(button)
+                emitInputEvent(.controllerButtonTap(button))
             }
         }
         controller.onBatteryChanged = { [weak self, weak controller] level, state in

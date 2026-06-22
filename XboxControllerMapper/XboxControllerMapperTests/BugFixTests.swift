@@ -128,13 +128,17 @@ final class ControllerDisconnectStateResetTests: XCTestCase {
 		let pressed = expectation(description: "Lite 2 Home press emits Xbox button")
 		let released = expectation(description: "Lite 2 Home release emits Xbox button")
 
-		controllerService.onButtonPressed = { button in
-			XCTAssertEqual(button, .xbox)
-			pressed.fulfill()
-		}
-		controllerService.onButtonReleased = { button, _ in
-			XCTAssertEqual(button, .xbox)
-			released.fulfill()
+		controllerService.onInputEvent = { event in
+			switch event {
+			case .buttonPressed(let button):
+				XCTAssertEqual(button, .xbox)
+				pressed.fulfill()
+			case .buttonReleased(let button, _):
+				XCTAssertEqual(button, .xbox)
+				released.fulfill()
+			default:
+				break
+			}
 		}
 
 		var pressReport = [UInt8](repeating: 0, count: 10)

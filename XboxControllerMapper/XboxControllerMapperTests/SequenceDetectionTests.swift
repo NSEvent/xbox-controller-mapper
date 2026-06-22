@@ -45,9 +45,7 @@ final class SequenceDetectionTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 100_000_000)
         await MainActor.run {
             mockInputSimulator?.releaseAllModifiers()
-            controllerService?.onButtonPressed = nil
-            controllerService?.onButtonReleased = nil
-            controllerService?.onChordDetected = nil
+            controllerService?.onInputEvent = nil
             controllerService?.cleanup()
             mappingEngine = nil
             controllerService = nil
@@ -82,8 +80,8 @@ final class SequenceDetectionTests: XCTestCase {
         // Press A → B → X with release between each
         for button: ControllerButton in [.a, .b, .x] {
             await MainActor.run {
-                controllerService.onButtonPressed?(button)
-                controllerService.onButtonReleased?(button, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(button))
+                controllerService.emitInputEvent(.buttonReleased(button, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -116,8 +114,8 @@ final class SequenceDetectionTests: XCTestCase {
         // Press L3 three times via direct callback
         for _ in 0..<3 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.leftThumbstick)
-                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(.leftThumbstick))
+                controllerService.emitInputEvent(.buttonReleased(.leftThumbstick, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -188,8 +186,8 @@ final class SequenceDetectionTests: XCTestCase {
         // Press L3 three times via direct callback
         for _ in 0..<3 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.leftThumbstick)
-                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(.leftThumbstick))
+                controllerService.emitInputEvent(.buttonReleased(.leftThumbstick, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -229,8 +227,8 @@ final class SequenceDetectionTests: XCTestCase {
 
         for _ in 0..<2 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.a)
-                controllerService.onButtonReleased?(.a, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(.a))
+                controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -312,8 +310,8 @@ final class SequenceDetectionTests: XCTestCase {
 
         // First press
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         // Wait longer than the step timeout
         await waitForTasks(0.2)
@@ -321,8 +319,8 @@ final class SequenceDetectionTests: XCTestCase {
         // Second and third press
         for _ in 0..<2 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.a)
-                controllerService.onButtonReleased?(.a, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(.a))
+                controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -362,8 +360,8 @@ final class SequenceDetectionTests: XCTestCase {
         // Press L3 three times via direct callback
         for _ in 0..<3 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.leftThumbstick)
-                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(.leftThumbstick))
+                controllerService.emitInputEvent(.buttonReleased(.leftThumbstick, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -414,8 +412,8 @@ final class SequenceDetectionTests: XCTestCase {
         // Press A then B
         for button: ControllerButton in [.a, .b] {
             await MainActor.run {
-                controllerService.onButtonPressed?(button)
-                controllerService.onButtonReleased?(button, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(button))
+                controllerService.emitInputEvent(.buttonReleased(button, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -463,9 +461,9 @@ final class SequenceDetectionTests: XCTestCase {
             XCTAssertFalse(LaserPointerOverlay.shared.isShowing, "Laser should not be showing initially")
         }
 
-        // Simulate chord via onChordDetected callback
+        // Simulate chord through the controller input-event boundary
         await MainActor.run {
-            controllerService.onChordDetected?([.leftBumper, .rightBumper])
+            controllerService.emitInputEvent(.chordDetected([.leftBumper, .rightBumper]))
         }
         await waitForTasks(0.15)
 

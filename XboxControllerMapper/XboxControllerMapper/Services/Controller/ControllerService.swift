@@ -150,22 +150,8 @@ final class ControllerStorage: @unchecked Sendable {
     var chordParticipantButtons: Set<ControllerButton> = []
     var lowLatencyInputEnabled: Bool = false
 
-    // Callbacks
-    var onButtonPressed: ((ControllerButton) -> Void)?
-    var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)?
-    var onChordDetected: ((Set<ControllerButton>) -> Void)?
-    var onLeftStickMoved: ((CGPoint) -> Void)?
-    var onRightStickMoved: ((CGPoint) -> Void)?
-    var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
-    var onSteamLeftTouchpadMoved: ((CGPoint) -> Void)?  // Left-pad delta movement for app-owned scroll
-    var onAppleTVRemoteCircularScroll: ((CGFloat) -> Void)?
-    var onTouchpadGesture: ((TouchpadGesture) -> Void)?
-    var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
-    var onControllerButtonTap: ((ControllerButton) -> Void)?  // One-shot virtual tap events
-    var onTouchpadTwoFingerTap: (() -> Void)?  // Two-finger tap or click (right-click)
-    var onTouchpadLongTap: (() -> Void)?  // Long tap (touch held without moving)
-    var onTouchpadTwoFingerLongTap: (() -> Void)?  // Two-finger long tap
-    var onTouchpadRegionTap: ((TouchpadRegion) -> Void)?  // Region-specific tap
+    // Typed event boundary consumed by MappingEngine.
+    var onInputEvent: ((ControllerInputEvent) -> Void)?
     /// When true, region-click events only fire while a finger is currently touching
     /// the pad. Default true. Mirrors `JoystickSettings.requireActiveTouchForRegionClick`
     /// and is updated by MappingEngine whenever joystick settings change.
@@ -192,8 +178,6 @@ final class ControllerStorage: @unchecked Sendable {
     // Motion Gesture State (supported controller gyroscope)
     var motionInputEnabled: Bool = false
     var motionGestureDetector = MotionGestureDetector()
-    var onMotionGesture: ((MotionGestureType) -> Void)?
-
     // Gyro aiming: accumulated rotation rates between polls (averaged on consume)
     // DS4 raw-HID gyro bias calibration. Apple's framework calibrates DualSense
     // automatically; for DS4 we sample the average gyro reading at rest so we
@@ -696,66 +680,10 @@ class ControllerService: ObservableObject {
     /// Battery state
     @Published var batteryState: GCDeviceBattery.State = .unknown
 
-    // Callback proxies (Thread-safe storage backing)
-    var onButtonPressed: ((ControllerButton) -> Void)? {
-        get { readStorage(\.onButtonPressed) }
-        set { writeStorage(\.onButtonPressed, newValue) }
-    }
-    var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)? {
-        get { readStorage(\.onButtonReleased) }
-        set { writeStorage(\.onButtonReleased, newValue) }
-    }
-    var onChordDetected: ((Set<ControllerButton>) -> Void)? {
-        get { readStorage(\.onChordDetected) }
-        set { writeStorage(\.onChordDetected, newValue) }
-    }
-    var onLeftStickMoved: ((CGPoint) -> Void)? {
-        get { readStorage(\.onLeftStickMoved) }
-        set { writeStorage(\.onLeftStickMoved, newValue) }
-    }
-    var onRightStickMoved: ((CGPoint) -> Void)? {
-        get { readStorage(\.onRightStickMoved) }
-        set { writeStorage(\.onRightStickMoved, newValue) }
-    }
-    var onTouchpadMoved: ((CGPoint) -> Void)? {
-        get { readStorage(\.onTouchpadMoved) }
-        set { writeStorage(\.onTouchpadMoved, newValue) }
-    }
-    var onSteamLeftTouchpadMoved: ((CGPoint) -> Void)? {
-        get { readStorage(\.onSteamLeftTouchpadMoved) }
-        set { writeStorage(\.onSteamLeftTouchpadMoved, newValue) }
-    }
-    var onAppleTVRemoteCircularScroll: ((CGFloat) -> Void)? {
-		get { readStorage(\.onAppleTVRemoteCircularScroll) }
-		set { writeStorage(\.onAppleTVRemoteCircularScroll, newValue) }
-    }
-    var onTouchpadGesture: ((TouchpadGesture) -> Void)? {
-        get { readStorage(\.onTouchpadGesture) }
-        set { writeStorage(\.onTouchpadGesture, newValue) }
-    }
-    var onTouchpadTap: (() -> Void)? {
-        get { readStorage(\.onTouchpadTap) }
-        set { writeStorage(\.onTouchpadTap, newValue) }
-    }
-    var onControllerButtonTap: ((ControllerButton) -> Void)? {
-        get { readStorage(\.onControllerButtonTap) }
-        set { writeStorage(\.onControllerButtonTap, newValue) }
-    }
-    var onTouchpadTwoFingerTap: (() -> Void)? {
-        get { readStorage(\.onTouchpadTwoFingerTap) }
-        set { writeStorage(\.onTouchpadTwoFingerTap, newValue) }
-    }
-    var onTouchpadLongTap: (() -> Void)? {
-        get { readStorage(\.onTouchpadLongTap) }
-        set { writeStorage(\.onTouchpadLongTap, newValue) }
-    }
-    var onTouchpadTwoFingerLongTap: (() -> Void)? {
-        get { readStorage(\.onTouchpadTwoFingerLongTap) }
-        set { writeStorage(\.onTouchpadTwoFingerLongTap, newValue) }
-    }
-    var onTouchpadRegionTap: ((TouchpadRegion) -> Void)? {
-        get { readStorage(\.onTouchpadRegionTap) }
-        set { writeStorage(\.onTouchpadRegionTap, newValue) }
+    // Typed input event sink (Thread-safe storage backing)
+    var onInputEvent: ((ControllerInputEvent) -> Void)? {
+        get { readStorage(\.onInputEvent) }
+        set { writeStorage(\.onInputEvent, newValue) }
     }
     var requireActiveTouchForRegionClick: Bool {
         get { readStorage(\.requireActiveTouchForRegionClick) }
@@ -769,9 +697,9 @@ class ControllerService: ObservableObject {
         get { readStorage(\.touchpadInputMode) }
         set { writeStorage(\.touchpadInputMode, newValue) }
     }
-    var onMotionGesture: ((MotionGestureType) -> Void)? {
-        get { readStorage(\.onMotionGesture) }
-        set { writeStorage(\.onMotionGesture, newValue) }
+    nonisolated func emitInputEvent(_ event: ControllerInputEvent) {
+        let callback = readStorage(\.onInputEvent)
+        callback?(event)
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -2343,9 +2271,9 @@ class ControllerService: ObservableObject {
     // MARK: - Thread-Safe Update Helpers
 
     nonisolated func updateLeftStick(x: Float, y: Float) {
+        let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
         storage.lock.lock()
-        storage.leftStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
-        let callback = storage.onLeftStickMoved
+        storage.leftStick = point
         let feedCloneDetector = storage.isDualShock
         storage.lock.unlock()
 
@@ -2353,31 +2281,15 @@ class ControllerService: ObservableObject {
         // stick. (The Nintendo path feeds it from clean raw-HID axes instead —
         // see handleNintendoHIDReport — to avoid any GameController smoothing.)
         if feedCloneDetector {
-            sticklessCloneDetector.noteLeftStick(CGPoint(x: CGFloat(x), y: CGFloat(y)))
-        }
-
-        // Only create Task if callback exists (avoids creating 250+ Tasks/sec for nil callbacks)
-        if let callback = callback {
-            let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
-            Task { @MainActor in
-                callback(point)
-            }
+            sticklessCloneDetector.noteLeftStick(point)
         }
     }
 
     nonisolated func updateRightStick(x: Float, y: Float) {
+        let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
         storage.lock.lock()
-        storage.rightStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
-        let callback = storage.onRightStickMoved
+        storage.rightStick = point
         storage.lock.unlock()
-
-        // Only create Task if callback exists (avoids creating 250+ Tasks/sec for nil callbacks)
-        if let callback = callback {
-            let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
-            Task { @MainActor in
-                callback(point)
-            }
-        }
     }
 
     nonisolated func updateLeftTrigger(_ value: Float, pressed: Bool) {
@@ -2431,7 +2343,6 @@ class ControllerService: ObservableObject {
             && !storage.chordParticipantButtons.contains(button)
             && storage.capturedButtonsInWindow.isEmpty
         if shouldBypassChordWindow {
-            let callback = storage.onButtonPressed
             let uiButtons = storage.activeButtons
             storage.lock.unlock()
 
@@ -2440,7 +2351,7 @@ class ControllerService: ObservableObject {
             }
 
             LatencyDiagnostics.mark("controller.lowLatencyPress \(button.rawValue)")
-            callback?(button)
+            emitInputEvent(.buttonPressed(button))
             return
         }
 
@@ -2493,9 +2404,8 @@ class ControllerService: ObservableObject {
             storage.pendingReleases[button] = holdDuration
             storage.lock.unlock()
         } else {
-            let callback = storage.onButtonReleased
             storage.lock.unlock()
-            callback?(button, holdDuration)
+            emitInputEvent(.buttonReleased(button, holdDuration: holdDuration))
         }
     }
 
@@ -2511,10 +2421,6 @@ class ControllerService: ObservableObject {
         let releases = storage.pendingReleases
         storage.pendingReleases.removeAll()
 
-        let chordCallback = storage.onChordDetected
-        let pressCallback = storage.onButtonPressed
-        let releaseCallback = storage.onButtonReleased
-
         storage.lock.unlock()
 
         // Deliver chord/press callbacks FIRST, then pending releases.
@@ -2526,15 +2432,15 @@ class ControllerService: ObservableObject {
         // hold-path buttons (mouse clicks) permanently stuck down.
         if captured.count >= 2 {
             LatencyDiagnostics.mark("controller.chord \(captured.map(\.rawValue).sorted().joined(separator: "+"))")
-            chordCallback?(captured)
+            emitInputEvent(.chordDetected(captured))
         } else if let button = captured.first {
             LatencyDiagnostics.mark("controller.delayedPress \(button.rawValue)")
-            pressCallback?(button)
+            emitInputEvent(.buttonPressed(button))
         }
 
         for button in captured {
             if let duration = releases[button] {
-                releaseCallback?(button, duration)
+                emitInputEvent(.buttonReleased(button, holdDuration: duration))
             }
         }
     }

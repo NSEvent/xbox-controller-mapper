@@ -24,8 +24,8 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
         // First tap
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
         }
 
         // Wait longer than double-tap threshold
@@ -58,22 +58,22 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
         // First tap
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.05)
 
         // Second tap (double-tap)
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.05)
 
         // Third tap (should start new sequence)
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.3)
 
@@ -100,7 +100,7 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
 
         // Wait exactly at threshold
@@ -108,7 +108,7 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
         await MainActor.run {
             // Release with hold duration exactly at threshold
-            controllerService.onButtonReleased?(.a, 0.1)
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.1))
         }
         await waitForTasks()
 
@@ -131,14 +131,14 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
 
         // Wait less than threshold
         try? await Task.sleep(nanoseconds: 50_000_000) // 0.05s
 
         await MainActor.run {
-            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
         }
         await waitForTasks()
 
@@ -167,7 +167,7 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
 
         // Wait for long-hold timer to fire (but don't release)
@@ -183,7 +183,7 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
         // Now release
         await MainActor.run {
-            controllerService.onButtonReleased?(.a, 0.3)
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.3))
         }
         await waitForTasks()
 
@@ -218,14 +218,14 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
         // Double tap
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.05)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.3)
 
@@ -258,7 +258,7 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
 
         // Wait for long hold to trigger
@@ -288,15 +288,15 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
         // First tap of A
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.05)
 
         // Press B during A's double-tap window
         await MainActor.run {
-            controllerService.onButtonPressed?(.b)
-            controllerService.onButtonReleased?(.b, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.b))
+            controllerService.emitInputEvent(.buttonReleased(.b, holdDuration: 0.03))
         }
         await waitForTasks(0.3)
 
@@ -327,14 +327,14 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
 
         // Release quickly (before 0.5s threshold)
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
 
         await MainActor.run {
-            controllerService.onButtonReleased?(.a, 0.1)
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.1))
         }
         await waitForTasks()
 
@@ -366,8 +366,8 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
         // First tap
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
 
         // Wait longer than double-tap threshold
@@ -375,8 +375,8 @@ final class DoubleTapAndLongHoldTests: MappingEngineTestCase {
 
         // Second tap (too late)
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.3)
 
