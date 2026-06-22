@@ -59,20 +59,12 @@ extension ControllerService {
 
     private static let eightBitDoHIDReportBufferSize = 64
 
-    /// 8BitDo vendor ID (D-input / Android mode). In Switch mode the pads
-    /// impersonate Nintendo (VID 0x057E) and are handled by the Nintendo path.
-    private static let eightBitDoVendorID = 0x2DC8
-
-    /// D-input product IDs for the small pads whose Home/Star the GameController
-    /// profile omits. Micro 0x9020, Zero 2 0x3230, Lite 2 0x5112.
-    private static let eightBitDoDInputProductIDs = [microProductID, zero2ProductID, lite2ProductID]
-
     // Report-parsing constants. `nonisolated` so handleEightBitDoHIDReport (which
     // runs nonisolated, off the HID run loop) can read them without crossing the
     // MainActor boundary — same pattern as the Nintendo HID dump constants.
-    nonisolated private static let microProductID = 0x9020
-    nonisolated private static let zero2ProductID = 0x3230
-    nonisolated private static let lite2ProductID = 0x5112
+    nonisolated private static let microProductID = EightBitDoDInputHIDDriverDescriptor.microProductID
+    nonisolated private static let zero2ProductID = EightBitDoDInputHIDDriverDescriptor.zero2ProductID
+    nonisolated private static let lite2ProductID = EightBitDoDInputHIDDriverDescriptor.lite2ProductID
     /// Only the standard input reports carry the button bytes.
     nonisolated private static let microInputReportID: UInt32 = 0x03
     nonisolated private static let lite2InputReportID: UInt32 = 0x01
@@ -101,13 +93,7 @@ extension ControllerService {
         eightBitDoHIDManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         guard let manager = eightBitDoHIDManager else { return }
 
-        let matches: [[String: Any]] = Self.eightBitDoDInputProductIDs.map { pid in
-            [
-                kIOHIDVendorIDKey as String: Self.eightBitDoVendorID,
-                kIOHIDProductIDKey as String: pid,
-            ]
-        }
-        IOHIDManagerSetDeviceMatchingMultiple(manager, matches as CFArray)
+		IOHIDManagerSetDeviceMatchingMultiple(manager, EightBitDoDInputHIDDriverDescriptor().matchingCFArray)
 
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
 		let openResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
