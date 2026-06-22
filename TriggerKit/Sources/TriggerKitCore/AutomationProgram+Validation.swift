@@ -2,7 +2,18 @@ import Foundation
 
 
 public enum AutomationSecurityPolicy {
-	public static let blockedURLSchemes: Set<String> = ["file", "x-apple.systempreferences"]
+	public static let blockedURLSchemes: Set<String> = [
+		"file",
+		"x-apple.systempreferences",
+		"shortcuts",
+		"terminal",
+		"ssh",
+		"telnet",
+		"vnc",
+		"ftp",
+		"smb",
+		"afp"
+	]
 }
 
 public struct AutomationValidationPolicy: Equatable, Sendable {
