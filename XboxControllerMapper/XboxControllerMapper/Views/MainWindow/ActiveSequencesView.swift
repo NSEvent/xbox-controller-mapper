@@ -6,7 +6,13 @@ struct ActiveSequencesView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @Binding var editingSequence: SequenceMapping?
 
+    private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+    }
+
     var body: some View {
+		let presentationState = controllerPresentationState
+
         if let profile = profileManager.activeProfile, !profile.sequenceMappings.isEmpty {
             Divider()
                 .background(Color.white.opacity(0.1))
@@ -27,7 +33,13 @@ struct ActiveSequencesView: View {
                                         .foregroundColor(.white.opacity(0.2))
                                         .accessibilityHidden(true)
                                 }
-									ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation, isNintendo: controllerService.threadSafeIsNintendo, isSteamController: controllerService.threadSafeIsSteamController, isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote)
+								ButtonIconView(
+									button: button,
+									isDualSense: presentationState.isPlayStation,
+									isNintendo: presentationState.isNintendo,
+									isSteamController: presentationState.isSteamController,
+									isAppleTVRemote: presentationState.isAppleTVRemote
+								)
                             }
                         }
 

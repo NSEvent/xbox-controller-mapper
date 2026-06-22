@@ -182,35 +182,45 @@ extension ControllerVisualDescriptor {
 		}
 	}
 
-	static func active(using service: ControllerService) -> ControllerVisualDescriptor {
-		if service.threadSafeIsAppleTVRemote {
+	static func active(from state: ControllerPresentationState) -> ControllerVisualDescriptor {
+		if state.isAppleTVRemote {
 			return ControllerVisualDescriptor(family: .appleTVRemote)
 		}
-		if let model = service.threadSafeEightBitDoMinimapModel {
+		if let model = state.eightBitDoModel {
 			return ControllerVisualDescriptor(family: .eightBitDo(model))
 		}
-		if service.threadSafeIsSteamController {
-			return ControllerVisualDescriptor(family: .steam)
-		}
-		if service.threadSafeIsDualShock {
-			return ControllerVisualDescriptor(family: .dualShock)
-		}
-		if service.threadSafeIsDualSenseEdge {
-			return ControllerVisualDescriptor(family: .dualSenseEdge)
-		}
-		if service.threadSafeIsDualSense || service.threadSafeIsPlayStation {
-			return ControllerVisualDescriptor(family: .dualSense)
-		}
-		if service.threadSafeIsNintendo {
-			return ControllerVisualDescriptor(family: .nintendo)
-		}
-		if service.threadSafeIsXboxElite {
+		switch state.controllerType {
+		case .xbox:
+			return ControllerVisualDescriptor(family: .xbox)
+		case .xboxElite:
 			return ControllerVisualDescriptor(family: .xboxElite)
+		case .dualSense:
+			return ControllerVisualDescriptor(family: .dualSense)
+		case .dualSenseEdge:
+			return ControllerVisualDescriptor(family: .dualSenseEdge)
+		case .dualShock:
+			return ControllerVisualDescriptor(family: .dualShock)
+		case .nintendo:
+			return ControllerVisualDescriptor(family: .nintendo)
+		case .steam:
+			return ControllerVisualDescriptor(family: .steam)
+		case .appleTVRemote:
+			return ControllerVisualDescriptor(family: .appleTVRemote)
 		}
-		return ControllerVisualDescriptor(family: .xbox)
+	}
+
+	static func active(using service: ControllerService) -> ControllerVisualDescriptor {
+		active(from: service.threadSafeControllerPresentationState)
+	}
+
+	static func resolved(
+		previewLayout: ControllerPreviewLayout,
+		presentationState: ControllerPresentationState
+	) -> ControllerVisualDescriptor {
+		concrete(for: previewLayout) ?? active(from: presentationState)
 	}
 
 	static func resolved(previewLayout: ControllerPreviewLayout, using service: ControllerService) -> ControllerVisualDescriptor {
-		concrete(for: previewLayout) ?? active(using: service)
+		resolved(previewLayout: previewLayout, presentationState: service.threadSafeControllerPresentationState)
 	}
 }

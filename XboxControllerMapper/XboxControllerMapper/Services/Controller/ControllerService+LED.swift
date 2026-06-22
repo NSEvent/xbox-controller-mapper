@@ -76,12 +76,12 @@ extension ControllerService {
             #if DEBUG
             print("[HID] Detected product ID: 0x\(String(productID, radix: 16)) (isEdge=\(isEdge))")
             #endif
-            storage.lock.lock()
-            storage.isDualSenseEdge = isEdge
-            storage.lock.unlock()
-            UserDefaults.standard.set(isEdge, forKey: Config.lastControllerWasDualSenseEdgeKey)
-        }
-    }
+			storage.lock.lock()
+			storage.applyControllerTypeLocked(isEdge ? .dualSenseEdge : .dualSense)
+			storage.lock.unlock()
+			UserDefaults.standard.set(isEdge, forKey: Config.lastControllerWasDualSenseEdgeKey)
+		}
+	}
 
     /// Applies LED settings to the connected DualSense controller.
     /// Over USB: sends a full HID output report (light bar, player LEDs, mute LED, brightness).

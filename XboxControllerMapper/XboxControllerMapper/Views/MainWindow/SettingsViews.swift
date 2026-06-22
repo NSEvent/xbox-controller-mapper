@@ -296,7 +296,7 @@ struct JoystickSettingsView: View {
 
 struct TouchpadSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
-	@EnvironmentObject var controllerService: ControllerService
+    @EnvironmentObject var controllerService: ControllerService
     @State private var cursorAdvancedExpanded = false
     @State private var zoomAdvancedExpanded = false
 
@@ -304,9 +304,13 @@ struct TouchpadSettingsView: View {
         profileManager.activeProfile?.joystickSettings ?? .default
     }
 
-	private var isAppleTVRemote: Bool {
-		controllerService.threadSafeIsAppleTVRemote
-	}
+    private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+    }
+
+    private var isAppleTVRemote: Bool {
+		controllerPresentationState.isAppleTVRemote
+    }
 
     var body: some View {
         Form {

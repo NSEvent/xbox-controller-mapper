@@ -344,14 +344,20 @@ class ControllerService: ObservableObject {
         withStorageLock { $0[keyPath: keyPath] }
     }
 
-    nonisolated func writeStorage<T>(
-        _ keyPath: ReferenceWritableKeyPath<ControllerStorage, T>,
-        _ value: T
-    ) {
-        withStorageLock { $0[keyPath: keyPath] = value }
-    }
+	nonisolated func writeStorage<T>(
+		_ keyPath: ReferenceWritableKeyPath<ControllerStorage, T>,
+		_ value: T
+	) {
+		withStorageLock { $0[keyPath: keyPath] = value }
+	}
 
-    // MARK: - Controller Snapshot (single lock acquisition for hot-path polling)
+	nonisolated var threadSafeControllerPresentationState: ControllerPresentationState {
+		storage.lock.lock()
+		defer { storage.lock.unlock() }
+		return storage.controllerPresentationStateLocked
+	}
+
+	// MARK: - Controller Snapshot (single lock acquisition for hot-path polling)
 
     /// A value-type snapshot of controller input state, captured in a single lock acquisition.
     /// Used by JoystickHandler's 120Hz polling loop to avoid per-field lock thrashing.
@@ -370,20 +376,21 @@ class ControllerService: ObservableObject {
 
     /// Captures a consistent snapshot of all joystick-polling-relevant state in a single lock acquisition.
     /// This replaces 4-6 individual `threadSafe*` property reads that each acquire/release the lock separately.
-    nonisolated func snapshot() -> ControllerSnapshot {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return ControllerSnapshot(
-            leftStick: storage.leftStick,
-            rightStick: storage.rightStick,
-            leftTrigger: storage.leftTrigger,
-            rightTrigger: storage.rightTrigger,
-            touchpadPosition: storage.touchpadPosition,
-            isTouchpadTouching: storage.isTouchpadTouching,
-			hasMotion: storage.isDualSense || storage.isDualShock || storage.isSteamController,
-			isSteamController: storage.isSteamController
-        )
-    }
+	nonisolated func snapshot() -> ControllerSnapshot {
+		storage.lock.lock()
+		defer { storage.lock.unlock() }
+		let presentationState = storage.controllerPresentationStateLocked
+		return ControllerSnapshot(
+			leftStick: storage.leftStick,
+			rightStick: storage.rightStick,
+			leftTrigger: storage.leftTrigger,
+			rightTrigger: storage.rightTrigger,
+			touchpadPosition: storage.touchpadPosition,
+			isTouchpadTouching: storage.isTouchpadTouching,
+			hasMotion: presentationState.hasMotion,
+			isSteamController: presentationState.isSteamController
+		)
+	}
 
     nonisolated var threadSafeLeftStick: CGPoint {
         storage.lock.lock()
@@ -447,85 +454,61 @@ class ControllerService: ObservableObject {
         return blocked
     }
 
-    nonisolated var threadSafeIsDualSense: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && storage.isDualSense
-    }
+	nonisolated var threadSafeIsDualSense: Bool {
+		threadSafeControllerPresentationState.isDualSense
+	}
 
-    nonisolated var threadSafeIsDualSenseEdge: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && storage.isDualSenseEdge
-    }
+	nonisolated var threadSafeIsDualSenseEdge: Bool {
+		threadSafeControllerPresentationState.isDualSenseEdge
+	}
 
-    nonisolated var threadSafeIsDualShock: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && storage.isDualShock
-    }
+	nonisolated var threadSafeIsDualShock: Bool {
+		threadSafeControllerPresentationState.isDualShock
+	}
 
-    /// Returns true if connected controller is any PlayStation controller (DualSense, DualShock)
-    nonisolated var threadSafeIsPlayStation: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && (storage.isDualSense || storage.isDualShock)
-    }
+	/// Returns true if connected controller is any PlayStation controller (DualSense, DualShock)
+	nonisolated var threadSafeIsPlayStation: Bool {
+		threadSafeControllerPresentationState.isPlayStation
+	}
 
-    nonisolated var threadSafeHasMotion: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isDualSense || storage.isDualShock || storage.isSteamController
-    }
+	nonisolated var threadSafeHasMotion: Bool {
+		threadSafeControllerPresentationState.hasMotion
+	}
 
-    nonisolated var threadSafeIsNintendo: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isNintendo
-    }
+	nonisolated var threadSafeIsNintendo: Bool {
+		threadSafeControllerPresentationState.isNintendo
+	}
 
-    nonisolated var threadSafeEightBitDoMinimapModel: EightBitDoMinimapModel? {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.eightBitDoModel
-    }
+	nonisolated var threadSafeEightBitDoMinimapModel: EightBitDoMinimapModel? {
+		threadSafeControllerPresentationState.eightBitDoModel
+	}
 
     /// True for a stickless Nintendo-clone whose d-pad is funneled through the
     /// (mis-calibrated) phantom left stick — we drive the left stick from raw
     /// HID instead, so the GameController left-thumbstick must be ignored.
     /// Detected behaviorally (see [[SticklessDpadCloneDetector]]); gated to the
     /// Nintendo path since the DualShock clone's GameController stick is fine.
-    nonisolated var threadSafeIsNintendoDPadStickClone: Bool {
-        guard sticklessCloneDetector.isSticklessClone else { return false }
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isNintendo
-    }
+	nonisolated var threadSafeIsNintendoDPadStickClone: Bool {
+		guard sticklessCloneDetector.isSticklessClone else { return false }
+		return threadSafeControllerPresentationState.isNintendo
+	}
 
-    nonisolated var threadSafeIsXboxElite: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && storage.isXboxElite
-    }
+	nonisolated var threadSafeIsXboxElite: Bool {
+		threadSafeControllerPresentationState.isXboxElite
+	}
 
-    nonisolated var threadSafeIsSteamController: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isSteamController
-    }
+	nonisolated var threadSafeIsSteamController: Bool {
+		threadSafeControllerPresentationState.isSteamController
+	}
 
-    nonisolated var threadSafeIsAppleTVRemote: Bool {
-		storage.lock.lock()
-		defer { storage.lock.unlock() }
-		return storage.isAppleTVRemote
-    }
+	nonisolated var threadSafeIsAppleTVRemote: Bool {
+		threadSafeControllerPresentationState.isAppleTVRemote
+	}
 
-    /// Returns true if a single Joy-Con is connected (left or right, not a Pro Controller)
-    nonisolated var threadSafeIsSingleJoyCon: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isJoyConLeft || storage.isJoyConRight
-    }
+	/// Returns true if a single Joy-Con is connected (left or right, not a Pro Controller)
+	nonisolated var threadSafeIsSingleJoyCon: Bool {
+		threadSafeControllerPresentationState.isSingleJoyCon
+	}
 
     /// Returns the average gyro rotation rates accumulated since the last call, then resets the accumulator.
     nonisolated func consumeAverageMotionRates() -> (pitch: Double, roll: Double) {
@@ -823,15 +806,16 @@ class ControllerService: ObservableObject {
 		self.guideMonitor = XboxGuideMonitor(enableHardwareMonitoring: shouldEnableHardwareMonitoring)
         self.hardwareMonitoringEnabled = shouldEnableHardwareMonitoring
 
-        // Load last controller type (so UI shows correct button labels when no controller is connected)
-        storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
-        storage.isDualSenseEdge = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey)
-        storage.isDualShock = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey)
-        storage.isNintendo = UserDefaults.standard.bool(forKey: Config.lastControllerWasNintendoKey)
-        storage.isXboxElite = UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey)
-        storage.isSteamController = UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey)
-		storage.isAppleTVRemote = UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey)
-        storage.normalizeControllerTypeFlagsLocked()
+		// Load last controller type (so UI shows correct button labels when no controller is connected)
+		storage.restoreControllerTypeFlags(
+			isDualSense: UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey),
+			isDualSenseEdge: UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey),
+			isDualShock: UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey),
+			isNintendo: UserDefaults.standard.bool(forKey: Config.lastControllerWasNintendoKey),
+			isXboxElite: UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey),
+			isSteamController: UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey),
+			isAppleTVRemote: UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey)
+		)
 
         // Screenshot mode: force the preview to the requested variant and
         // present as connected. Hardware monitoring is off in this mode (see
@@ -2009,7 +1993,7 @@ class ControllerService: ObservableObject {
 			releaseAppleTVRemoteTouchIfStillActive()
 
 				storage.lock.lock()
-				storage.isAppleTVRemote = false
+				storage.clearAppleTVRemoteFlagLocked()
 				storage.lock.unlock()
 
 			UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)

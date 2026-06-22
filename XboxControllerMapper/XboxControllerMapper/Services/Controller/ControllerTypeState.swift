@@ -1,6 +1,6 @@
 import Foundation
 
-enum ControllerJoyConSide: Equatable {
+enum ControllerJoyConSide: Equatable, Sendable {
 	case left
 	case right
 	case pair
@@ -38,7 +38,7 @@ enum ControllerJoyConSide: Equatable {
 	}
 }
 
-enum ControllerTypeState: Equatable {
+enum ControllerTypeState: Equatable, Sendable {
 	case xbox
 	case xboxElite
 	case dualSense
@@ -72,7 +72,107 @@ enum ControllerTypeState: Equatable {
 	}
 }
 
+struct ControllerPresentationState: Equatable, Sendable {
+	let controllerType: ControllerTypeState
+	let eightBitDoModel: EightBitDoMinimapModel?
+
+	var isAppleTVRemote: Bool {
+		controllerType == .appleTVRemote
+	}
+
+	var isSteamController: Bool {
+		controllerType == .steam
+	}
+
+	var isDualSense: Bool {
+		switch controllerType {
+		case .dualSense, .dualSenseEdge:
+			return true
+		default:
+			return false
+		}
+	}
+
+	var isDualSenseEdge: Bool {
+		controllerType == .dualSenseEdge
+	}
+
+	var isDualShock: Bool {
+		controllerType == .dualShock
+	}
+
+	var isPlayStation: Bool {
+		switch controllerType {
+		case .dualSense, .dualSenseEdge, .dualShock:
+			return true
+		default:
+			return false
+		}
+	}
+
+	var isNintendo: Bool {
+		if case .nintendo = controllerType { return true }
+		return false
+	}
+
+	var isXboxElite: Bool {
+		controllerType == .xboxElite
+	}
+
+	var hasMotion: Bool {
+		isPlayStation || isSteamController
+	}
+
+	var isSingleJoyCon: Bool {
+		guard case let .nintendo(side) = controllerType else { return false }
+		return side.isLeft || side.isRight
+	}
+}
+
 extension ControllerStorage {
+	func restoreControllerTypeFlags(
+		isDualSense: Bool,
+		isDualSenseEdge: Bool,
+		isDualShock: Bool,
+		isNintendo: Bool,
+		isXboxElite: Bool,
+		isSteamController: Bool,
+		isAppleTVRemote: Bool
+	) {
+		lock.lock()
+		defer { lock.unlock() }
+		restoreControllerTypeFlagsLocked(
+			isDualSense: isDualSense,
+			isDualSenseEdge: isDualSenseEdge,
+			isDualShock: isDualShock,
+			isNintendo: isNintendo,
+			isXboxElite: isXboxElite,
+			isSteamController: isSteamController,
+			isAppleTVRemote: isAppleTVRemote
+		)
+	}
+
+	/// Caller owns `lock`.
+	func restoreControllerTypeFlagsLocked(
+		isDualSense: Bool,
+		isDualSenseEdge: Bool,
+		isDualShock: Bool,
+		isNintendo: Bool,
+		isXboxElite: Bool,
+		isSteamController: Bool,
+		isAppleTVRemote: Bool
+	) {
+		clearControllerTypeFlagsLocked()
+		self.isDualSense = isDualSense
+		self.isDualSenseEdge = isDualSenseEdge
+		self.isDualShock = isDualShock
+		self.isNintendo = isNintendo
+		self.isXboxElite = isXboxElite
+		self.isSteamController = isSteamController
+		self.isAppleTVRemote = isAppleTVRemote
+		normalizeControllerTypeFlagsLocked()
+	}
+
 	/// Caller owns `lock`.
 	func clearControllerTypeFlagsLocked() {
 		isDualSense = false
@@ -113,6 +213,11 @@ extension ControllerStorage {
 	}
 
 	/// Caller owns `lock`.
+	func clearAppleTVRemoteFlagLocked() {
+		isAppleTVRemote = false
+	}
+
+	/// Caller owns `lock`.
 	var controllerTypeStateLocked: ControllerTypeState {
 		if isAppleTVRemote { return .appleTVRemote }
 		if isSteamController { return .steam }
@@ -129,5 +234,13 @@ extension ControllerStorage {
 	/// Caller owns `lock`.
 	func normalizeControllerTypeFlagsLocked() {
 		applyControllerTypeLocked(controllerTypeStateLocked)
+	}
+
+	/// Caller owns `lock`.
+	var controllerPresentationStateLocked: ControllerPresentationState {
+		ControllerPresentationState(
+			controllerType: controllerTypeStateLocked,
+			eightBitDoModel: eightBitDoModel
+		)
 	}
 }

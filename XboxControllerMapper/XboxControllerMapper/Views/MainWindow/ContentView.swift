@@ -35,8 +35,15 @@ struct ContentView: View {
 		profileManager.activeProfile?.controllerPreviewLayout ?? .active
 	}
 
+	private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+	}
+
 	private var controllerVisualDescriptor: ControllerVisualDescriptor {
-		ControllerVisualDescriptor.resolved(previewLayout: controllerPreviewLayout, using: controllerService)
+		ControllerVisualDescriptor.resolved(
+			previewLayout: controllerPreviewLayout,
+			presentationState: controllerPresentationState
+		)
 	}
 
 	private var controllerPreviewLayoutBinding: Binding<ControllerPreviewLayout> {
@@ -353,21 +360,9 @@ struct ContentView: View {
         .onChange(of: hiddenSectionTags) { _, _ in
             selectFirstVisibleTabIfNeeded()
         }
-        .onChange(of: controllerService.threadSafeIsPlayStation) { _, _ in
-            selectFirstVisibleTabIfNeeded()
-        }
-        .onChange(of: controllerService.threadSafeIsDualSense) { _, _ in
-            selectFirstVisibleTabIfNeeded()
-        }
-			.onChange(of: controllerService.threadSafeIsSteamController) { _, _ in
-				selectFirstVisibleTabIfNeeded()
-			}
-			.onChange(of: controllerService.threadSafeIsAppleTVRemote) { _, _ in
-				selectFirstVisibleTabIfNeeded()
-			}
-			.onChange(of: controllerService.threadSafeHasMotion) { _, _ in
-            selectFirstVisibleTabIfNeeded()
-        }
+		.onChange(of: controllerPresentationState) { _, _ in
+			selectFirstVisibleTabIfNeeded()
+		}
         .onDisappear {
             if let monitor = scrollKeyMonitor {
                 NSEvent.removeMonitor(monitor)
@@ -413,19 +408,20 @@ struct ContentView: View {
 
     // MARK: - Tab Navigation
 
-    /// Tab definitions for the custom tab bar.
-    private var customTabs: [CustomTabItem] {
-        let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
-        return MainWindowSection.visibleSections(
-            hiddenSections: hiddenSections,
-            isPlayStation: controllerService.threadSafeIsPlayStation,
-            isDualSense: controllerService.threadSafeIsDualSense,
-            isSteamController: controllerService.threadSafeIsSteamController,
-			isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
-            hasMotion: controllerService.threadSafeHasMotion
-        )
-        .map(\.tabItem)
-    }
+	/// Tab definitions for the custom tab bar.
+	private var customTabs: [CustomTabItem] {
+		let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
+		let presentationState = controllerPresentationState
+		return MainWindowSection.visibleSections(
+			hiddenSections: hiddenSections,
+			isPlayStation: presentationState.isPlayStation,
+			isDualSense: presentationState.isDualSense,
+			isSteamController: presentationState.isSteamController,
+			isAppleTVRemote: presentationState.isAppleTVRemote,
+			hasMotion: presentationState.hasMotion
+		)
+		.map(\.tabItem)
+	}
 
     /// Ordered list of visible tab tags matching the TabView order.
     private var orderedTabTags: [Int] {

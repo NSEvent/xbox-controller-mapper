@@ -6,7 +6,13 @@ struct ActiveChordsView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @Binding var editingChord: ChordMapping?
 
+    private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+    }
+
     var body: some View {
+		let presentationState = controllerPresentationState
+
         if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
             Divider()
                 .background(Color.white.opacity(0.1))
@@ -21,7 +27,13 @@ struct ActiveChordsView: View {
                     HStack(spacing: 10) {
                         HStack(spacing: 2) {
                             ForEach(Array(chord.buttons).sorted(by: { $0.category.chordDisplayOrder < $1.category.chordDisplayOrder }), id: \.self) { button in
-									ButtonIconView(button: button, isDualSense: controllerService.threadSafeIsPlayStation, isNintendo: controllerService.threadSafeIsNintendo, isSteamController: controllerService.threadSafeIsSteamController, isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote)
+								ButtonIconView(
+									button: button,
+									isDualSense: presentationState.isPlayStation,
+									isNintendo: presentationState.isNintendo,
+									isSteamController: presentationState.isSteamController,
+									isAppleTVRemote: presentationState.isAppleTVRemote
+								)
                             }
                         }
 

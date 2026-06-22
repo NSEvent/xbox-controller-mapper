@@ -42,11 +42,20 @@ if [[ -f "$DEBUG_DYLIB" ]]; then
 	cp "$DEBUG_DYLIB" "$PACKAGE_FRAMEWORKS/ControllerKeys.debug.dylib"
 elif [[ -f "$APP_DEBUG_DYLIB" ]]; then
 	cp "$APP_DEBUG_DYLIB" "$PACKAGE_FRAMEWORKS/ControllerKeys.debug.dylib"
+else
+	echo "Missing ControllerKeys.debug.dylib in $PRODUCTS_DIR or $APP_PATH/Contents/MacOS" >&2
+	exit 1
 fi
 
 if [[ -d "$PRODUCTS_DIR/Sparkle.framework" ]]; then
 	rm -rf "$PACKAGE_FRAMEWORKS/Sparkle.framework"
 	/usr/bin/ditto "$PRODUCTS_DIR/Sparkle.framework" "$PACKAGE_FRAMEWORKS/Sparkle.framework"
+elif [[ -d "$APP_PATH/Contents/Frameworks/Sparkle.framework" ]]; then
+	rm -rf "$PACKAGE_FRAMEWORKS/Sparkle.framework"
+	/usr/bin/ditto "$APP_PATH/Contents/Frameworks/Sparkle.framework" "$PACKAGE_FRAMEWORKS/Sparkle.framework"
+else
+	echo "Missing Sparkle.framework in $PRODUCTS_DIR or $APP_PATH/Contents/Frameworks" >&2
+	exit 1
 fi
 
 if [[ -n "${CONTROLLERKEYS_RENDER_SNAPSHOT_DIR:-}" ]]; then

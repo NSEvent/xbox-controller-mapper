@@ -14,13 +14,17 @@ protocol ControllerTypeProviding {
 }
 
 extension ControllerTypeProviding {
-    /// True for any PlayStation controller (DualSense or DualShock) - used for PS-style labels
-    var isPlayStation: Bool { controllerService.threadSafeIsPlayStation }
-    var isDualSense: Bool { controllerService.threadSafeIsDualSense }
-    var isDualSenseEdge: Bool { controllerService.threadSafeIsDualSenseEdge }
-    var isDualShock: Bool { controllerService.threadSafeIsDualShock }
-    var isXboxElite: Bool { controllerService.threadSafeIsXboxElite }
-    var isSteamController: Bool { controllerService.threadSafeIsSteamController }
-    var isNintendo: Bool { controllerService.threadSafeIsNintendo }
-    var isAppleTVRemote: Bool { controllerService.threadSafeIsAppleTVRemote }
+	var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+	}
+
+	/// True for any PlayStation controller (DualSense or DualShock) - used for PS-style labels
+	var isPlayStation: Bool { controllerPresentationState.isPlayStation }
+	var isDualSense: Bool { controllerPresentationState.isDualSense }
+	var isDualSenseEdge: Bool { controllerPresentationState.isDualSenseEdge }
+	var isDualShock: Bool { controllerPresentationState.isDualShock }
+	var isXboxElite: Bool { controllerPresentationState.isXboxElite }
+	var isSteamController: Bool { controllerPresentationState.isSteamController }
+	var isNintendo: Bool { controllerPresentationState.isNintendo }
+	var isAppleTVRemote: Bool { controllerPresentationState.isAppleTVRemote }
 }

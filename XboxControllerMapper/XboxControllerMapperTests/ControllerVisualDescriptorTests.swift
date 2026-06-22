@@ -31,6 +31,23 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 		XCTAssertNil(ControllerVisualDescriptor.concrete(for: .active))
 	}
 
+	@MainActor
+	func testActiveDescriptorUsesCanonicalControllerTypePrecedence() {
+		let storage = ControllerStorage()
+
+		let presentationState = storage.lock.withLock {
+			storage.isDualSense = true
+			storage.isDualSenseEdge = true
+			storage.isDualShock = true
+			storage.isNintendo = true
+			storage.isXboxElite = true
+			return storage.controllerPresentationStateLocked
+		}
+
+		XCTAssertEqual(presentationState.controllerType, .dualSenseEdge)
+		XCTAssertEqual(ControllerVisualDescriptor.active(from: presentationState).family, .dualSenseEdge)
+	}
+
 	func testConcreteGamepadLayoutsResolveExpectedMinimapStyles() {
 		let expected: [ControllerPreviewLayout: ControllerMinimapStyle?] = [
 			.xbox: .xbox,
