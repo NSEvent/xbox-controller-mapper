@@ -96,6 +96,7 @@ struct CommandWheelSettingsView: View {
                 }
                 .disabled(actions.count >= maxItems)
                 .help(actions.count >= maxItems ? "Maximum \(maxItems) actions" : "")
+                .accessibilityLabel("Add Action" + (actions.count >= maxItems ? ", maximum \(maxItems) actions reached" : ""))
             } header: {
                 HStack {
                     Text("Actions")

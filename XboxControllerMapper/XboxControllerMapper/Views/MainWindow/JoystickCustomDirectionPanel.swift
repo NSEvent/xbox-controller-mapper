@@ -110,6 +110,7 @@ struct JoystickCustomDirectionPanel: View {
             }
             .menuStyle(.borderlessButton)
             .help("Set all four custom stick directions")
+            .accessibilityLabel("Set all four custom stick directions")
         }
     }
 }
