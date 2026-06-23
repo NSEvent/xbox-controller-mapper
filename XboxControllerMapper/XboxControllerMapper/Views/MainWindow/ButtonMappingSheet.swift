@@ -899,6 +899,7 @@ struct ButtonMappingSheet: View {
                 .foregroundColor(.red)
                 .disabled(!canClearMapping)
                 .help(canClearMapping ? "Clear this button mapping" : "No mapping to clear")
+                .accessibilityLabel(canClearMapping ? "Clear this button mapping" : "No mapping to clear")
 
                 Spacer()
 

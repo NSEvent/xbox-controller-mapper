@@ -79,6 +79,7 @@ struct ContentToolbar: View {
                 }
                 .buttonStyle(.plain)
                 .help("Free trial: \(days) day\(days == 1 ? "" : "s") left — click for license options")
+                .accessibilityLabel("Free trial: \(days) day\(days == 1 ? "" : "s") left")
             }
 
             // Enable/disable toggle
