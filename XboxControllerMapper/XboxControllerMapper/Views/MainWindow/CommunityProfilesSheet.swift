@@ -379,6 +379,8 @@ struct CommunityProfileRow: View {
             }
             .buttonStyle(.plain)
             .disabled(isAlreadyImported)
+            .help(isSelected ? "Deselect \(profileInfo.displayName)" : "Select \(profileInfo.displayName)")
+            .accessibilityLabel(isSelected ? "Deselect \(profileInfo.displayName)" : "Select \(profileInfo.displayName)")
 
             // Profile name (clickable for preview)
             Text(profileInfo.displayName)

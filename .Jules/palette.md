@@ -25,3 +25,7 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
+
+## 2023-10-25 - Added Context to Icon-Only List Buttons
+**Learning:** Found an icon-only list item checkbox button (`onToggleSelect` in `CommunityProfileRow`) missing accessibility/help labels. Unlike standard text buttons, icon-only interaction targets must always explicitly provide context (via `.help` and `.accessibilityLabel`), particularly within repeated lists where context comes from dynamic adjacent content (`profileInfo.displayName`).
+**Action:** Always verify icon-only interactive elements in loops or lists. Append `.help` and `.accessibilityLabel` with dynamic context using the current loop variable's properties to explicitly specify *what* the button is selecting/deselecting.
