@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Expanded automation URL-scheme blocklist**: TriggerKit automation URL handling now also rejects `shortcuts`, `terminal`, `ssh`, `telnet`, `vnc`, `ftp`, `smb`, and `afp` schemes, closing local-execution and sandbox-escape vectors that the earlier `file` and system-scheme block didn't cover.
 
+- **OBS WebSocket password no longer falls back to plaintext**: When Keychain storage failed, the OBS password used by automation commands was previously written to disk in plaintext as a fallback. It now fails securely and discards the password instead of persisting it unencrypted.
+
+- **Accessibility labels for tooltip-only buttons**: Controls that previously exposed only a hover tooltip — the ⌘K command palette, Settings, Profiles, trial status, and several mapping panels — now carry VoiceOver accessibility labels.
+
 ## [2.2.1] - 2026-06-19
 
 ### Fixed
