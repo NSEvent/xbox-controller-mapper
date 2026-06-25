@@ -5,6 +5,7 @@ import SwiftUI
 struct JoystickSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @State private var focusCursorHighlightEnabled: Bool = FocusModeIndicator.isEnabled
+    @State private var overrideLayerId: UUID?
 
     var settings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -279,6 +280,29 @@ struct JoystickSettingsView: View {
                     ))
                 }
             }
+
+            if let layers = profileManager.activeProfile?.layers, !layers.isEmpty {
+                Section("Per-Layer Overrides") {
+                    Text("Override stick behavior while a layer is held. Any control left on “Inherit” uses the base settings above.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Picker("Layer", selection: Binding(
+                        get: { resolvedOverrideLayer(layers)?.id },
+                        set: { overrideLayerId = $0 }
+                    )) {
+                        ForEach(layers) { layer in
+                            Text(layer.name).tag(layer.id as UUID?)
+                        }
+                    }
+
+                    if let layer = resolvedOverrideLayer(layers) {
+                        layerStickOverrideGroup(title: "Left Stick", side: .left, layer: layer)
+                        Divider()
+                        layerStickOverrideGroup(title: "Right Stick", side: .right, layer: layer)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -288,6 +312,113 @@ struct JoystickSettingsView: View {
         var newSettings = settings
         newSettings[keyPath: keyPath] = value
         profileManager.updateJoystickSettings(newSettings)
+    }
+
+    /// The layer whose overrides are being edited: the picked one, or the first layer
+    /// when nothing valid is selected (so the section always shows a layer).
+    private func resolvedOverrideLayer(_ layers: [Layer]) -> Layer? {
+        layers.first(where: { $0.id == overrideLayerId }) ?? layers.first
+    }
+
+    /// Per-stick override controls for the selected layer: a mode override (with an
+    /// explicit "Inherit" option) plus sensitivity/acceleration/deadzone for the
+    /// effective mode. Each control inherits the base stick until explicitly set.
+    @ViewBuilder
+    private func layerStickOverrideGroup(title: String, side: JoystickSide, layer: Layer) -> some View {
+        let override = side == .left ? layer.leftStickTuning : layer.rightStickTuning
+        let base = settings.stick(side)
+        let effectiveMode = override?.mode ?? base.mode
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(LocalizedStringKey(title))
+                    .font(.subheadline.bold())
+                Spacer()
+                if override != nil {
+                    Button("Reset to Base") {
+                        profileManager.clearLayerStickOverride(side: side, layerId: layer.id)
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                }
+            }
+
+            Picker("Mode", selection: Binding(
+                get: { override?.mode },
+                set: { profileManager.setLayerStickOverride(\.mode, $0, side: side, layerId: layer.id) }
+            )) {
+                Text("Inherit (\(base.mode.displayName))").tag(StickMode?.none)
+                ForEach(StickMode.visibleModes, id: \.self) { mode in
+                    Text(LocalizedStringKey(mode.displayName)).tag(mode as StickMode?)
+                }
+            }
+
+            switch effectiveMode {
+            case .mouse:
+                layerOverrideSlider("Sensitivity", side: side, layer: layer, keyPath: \.mouseSensitivity, base: base.mouseSensitivity, range: 0...1)
+                layerOverrideSlider("Acceleration", side: side, layer: layer, keyPath: \.mouseAcceleration, base: base.mouseAcceleration, range: 0...1)
+                layerOverrideSlider("Deadzone", side: side, layer: layer, keyPath: \.mouseDeadzone, base: base.mouseDeadzone, range: 0...0.5)
+            case .scroll:
+                layerOverrideSlider("Sensitivity", side: side, layer: layer, keyPath: \.scrollSensitivity, base: base.scrollSensitivity, range: 0...1)
+                layerOverrideSlider("Acceleration", side: side, layer: layer, keyPath: \.scrollAcceleration, base: base.scrollAcceleration, range: 0...1)
+                layerOverrideSlider("Deadzone", side: side, layer: layer, keyPath: \.scrollDeadzone, base: base.scrollDeadzone, range: 0...0.5)
+            case .none, .custom, .dpad, .wasdKeys, .arrowKeys:
+                Text("No tunable sensitivity for \(effectiveMode.displayName) mode.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func layerOverrideSlider(
+        _ label: String,
+        side: JoystickSide,
+        layer: Layer,
+        keyPath: WritableKeyPath<StickTuningOverride, Double?>,
+        base: Double,
+        range: ClosedRange<Double>
+    ) -> some View {
+        let override = side == .left ? layer.leftStickTuning : layer.rightStickTuning
+        let overrideValue = override?[keyPath: keyPath]
+        let isOverridden = overrideValue != nil
+
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(LocalizedStringKey(label))
+                    .italic(!isOverridden)
+                    .foregroundStyle(isOverridden ? Color.primary : Color.secondary)
+                if !isOverridden {
+                    Text("· inherited")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Text("\(overrideValue ?? base, specifier: "%.2f")")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+                    .frame(width: 40)
+                if isOverridden {
+                    Button {
+                        profileManager.setLayerStickOverride(keyPath, nil, side: side, layerId: layer.id)
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Reset to base (inherit)")
+                }
+            }
+
+            Slider(
+                value: Binding(
+                    get: { overrideValue ?? base },
+                    set: { profileManager.setLayerStickOverride(keyPath, $0, side: side, layerId: layer.id) }
+                ),
+                in: range
+            )
+        }
     }
 
 }
