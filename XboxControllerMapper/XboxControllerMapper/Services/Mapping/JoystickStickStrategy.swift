@@ -15,6 +15,11 @@ struct JoystickStickInput {
     let stick: CGPoint
     let side: JoystickSide
     let settings: JoystickSettings
+    /// Per-side tuning, already resolved for the active layer (override applied
+    /// over the base stick). Strategies read sensitivity/acceleration/deadzone/
+    /// mode from here; `settings` is for genuinely global knobs (focus mode,
+    /// scroll boost).
+    let tuning: StickTuning
     let dt: TimeInterval
     let now: CFAbsoluteTime
 }

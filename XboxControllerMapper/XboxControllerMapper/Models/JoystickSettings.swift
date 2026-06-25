@@ -42,32 +42,23 @@ enum StickMode: String, Codable, CaseIterable {
     }
 }
 
-/// Settings for joystick behavior
+/// Settings for joystick behavior.
+///
+/// Per-stick response (mode, sensitivity, acceleration, deadzone, invert, custom
+/// slices) lives in `leftStick` / `rightStick` (`StickTuning`), so the two sticks
+/// are independently tunable even when both drive the mouse. Everything else here
+/// is genuinely global (touchpad, focus mode, gyro aiming, motion gestures,
+/// scroll double-tap boost).
 struct JoystickSettings: Codable, Equatable {
     static let defaultCustomSliceSize = 0.75
     static let defaultCustomDeadzone = 0.22
     static let defaultTouchpadDeadzone = 0.005
 
-    /// Mouse movement sensitivity (0.0 - 1.0, where 0.5 is default)
-    var mouseSensitivity: Double = 0.5
+    /// Per-stick tuning for the left analog stick (defaults to mouse).
+    var leftStick: StickTuning = .leftDefault
 
-    /// Scroll speed sensitivity (0.0 - 1.0, where 0.5 is default)
-    var scrollSensitivity: Double = 0.5
-
-    /// Deadzone for mouse movement (0.0 - 1.0)
-    var mouseDeadzone: Double = 0.15
-
-    /// Deadzone for scrolling (0.0 - 1.0)
-    var scrollDeadzone: Double = 0.15
-
-    /// Invert vertical mouse movement
-    var invertMouseY: Bool = false
-
-    /// Invert vertical scroll direction
-    var invertScrollY: Bool = false
-
-    /// Acceleration curve for mouse movement (0.0 = linear, 1.0 = max acceleration)
-    var mouseAcceleration: Double = 0.5
+    /// Per-stick tuning for the right analog stick (defaults to scroll).
+    var rightStick: StickTuning = .rightDefault
 
     /// Touchpad sensitivity (0.0 - 1.0)
     var touchpadSensitivity: Double = 0.5
@@ -114,9 +105,6 @@ struct JoystickSettings: Codable, Equatable {
     /// Applies to DualSense, DualSense Edge, and DualShock 4 (same touchpad pipeline).
     var disableTouchpadAsMouse: Bool = false
 
-    /// Acceleration curve for scrolling (0.0 = linear, 1.0 = max acceleration)
-    var scrollAcceleration: Double = 0.5
-
     /// Multiplier applied to scroll speed after a double-tap up/down
     var scrollBoostMultiplier: Double = 2.0
 
@@ -125,30 +113,6 @@ struct JoystickSettings: Codable, Equatable {
 
     /// Modifier that triggers focus mode (slower mouse speed)
     var focusModeModifier: ModifierFlags = .command
-
-    /// Mode for left stick (default: mouse)
-    var leftStickMode: StickMode = .mouse
-
-    /// Mode for right stick (default: scroll)
-    var rightStickMode: StickMode = .scroll
-
-    /// Width of the custom left-stick horizontal direction slices.
-    var leftStickCustomHorizontalSliceSize: Double = 0.75
-
-    /// Width of the custom left-stick vertical direction slices.
-    var leftStickCustomVerticalSliceSize: Double = 0.75
-
-    /// Center deadzone for custom left-stick direction slices.
-    var leftStickCustomDeadzone: Double = 0.22
-
-    /// Width of the custom right-stick horizontal direction slices.
-    var rightStickCustomHorizontalSliceSize: Double = 0.75
-
-    /// Width of the custom right-stick vertical direction slices.
-    var rightStickCustomVerticalSliceSize: Double = 0.75
-
-    /// Center deadzone for custom right-stick direction slices.
-    var rightStickCustomDeadzone: Double = 0.22
 
     /// Whether gyroscope aiming is enabled during focus mode.
     var gyroAimingEnabled: Bool = false
@@ -167,13 +131,18 @@ struct JoystickSettings: Codable, Equatable {
 
     static let `default` = JoystickSettings()
 
+    /// Tuning for the given side.
+    func stick(_ side: JoystickSide) -> StickTuning {
+        side == .left ? leftStick : rightStick
+    }
+
     /// Converts 0-1 gyro aiming sensitivity to pixel-scale multiplier (cubic curve)
     var gyroAimingMultiplier: Double {
         return 1.0 + pow(gyroAimingSensitivity, 3.0) * 20.0
     }
 
     func chordSequenceJoystickDirectionButtons(side: JoystickSide) -> [ControllerButton] {
-        let mode = side == .left ? leftStickMode : rightStickMode
+        let mode = stick(side).mode
         guard mode.exposesJoystickDirections else { return [] }
         return ControllerButton.joystickDirectionButtons(side: side)
     }
@@ -213,11 +182,8 @@ struct JoystickSettings: Codable, Equatable {
     /// Validates settings ranges
     func isValid() -> Bool {
         let range = 0.0...1.0
-        return range.contains(mouseSensitivity) &&
-               range.contains(scrollSensitivity) &&
-               (0.0...0.99).contains(mouseDeadzone) &&
-               (0.0...0.99).contains(scrollDeadzone) &&
-               range.contains(mouseAcceleration) &&
+        return leftStick.isValid() &&
+               rightStick.isValid() &&
                range.contains(touchpadSensitivity) &&
                range.contains(touchpadAcceleration) &&
                (0.0...0.03).contains(touchpadDeadzone) &&
@@ -225,34 +191,17 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(touchpadPanSensitivity) &&
 			   range.contains(appleTVRemoteCircularScrollSensitivity) &&
                (0.5...5.0).contains(touchpadZoomToPanRatio) &&
-               range.contains(scrollAcceleration) &&
                (1.0...4.0).contains(scrollBoostMultiplier) &&
                range.contains(focusModeSensitivity) &&
-               range.contains(leftStickCustomHorizontalSliceSize) &&
-               range.contains(leftStickCustomVerticalSliceSize) &&
-               range.contains(leftStickCustomDeadzone) &&
-               range.contains(rightStickCustomHorizontalSliceSize) &&
-               range.contains(rightStickCustomVerticalSliceSize) &&
-               range.contains(rightStickCustomDeadzone) &&
                range.contains(gyroAimingSensitivity) &&
                range.contains(gyroAimingDeadzone) &&
                range.contains(gestureSensitivity) &&
                range.contains(gestureCooldown)
     }
 
-    /// Converts 0-1 sensitivity to actual multiplier for mouse
-    var mouseMultiplier: Double {
-        return calculateMouseMultiplier(sensitivity: mouseSensitivity)
-    }
-
     /// Converts 0-1 focus sensitivity to actual multiplier for mouse
     var focusMultiplier: Double {
-        return calculateMouseMultiplier(sensitivity: focusModeSensitivity)
-    }
-    
-    private func calculateMouseMultiplier(sensitivity: Double) -> Double {
-        // Map 0-1 to 2-120 range (exponential for better feel)
-        return 2.0 + pow(sensitivity, 3.0) * 118.0
+        return JoystickCurves.mouseMultiplier(sensitivity: focusModeSensitivity)
     }
 
     func calibratedTouchpadValue(_ raw: Double, boost: Double) -> Double {
@@ -275,42 +224,21 @@ struct JoystickSettings: Codable, Equatable {
         return 0.25 + effectiveTouchpadSensitivity * 1.5
     }
 
-    /// Converts 0-1 sensitivity to actual multiplier for scroll
-    var scrollMultiplier: Double {
-        // Map 0-1 to 1-30 range
-        return 1.0 + pow(scrollSensitivity, 1.5) * 29.0
-    }
-
-    /// Converts 0-1 acceleration to exponent value
-    var mouseAccelerationExponent: Double {
-        // Map 0-1 to 1.0-3.0 (1.0 = linear, higher = more acceleration)
-        return 1.0 + mouseAcceleration * 2.0
-    }
-
     /// Converts 0-1 acceleration to exponent value
     var touchpadAccelerationExponent: Double {
         // Map 0-1 to 1.0-3.0 (1.0 = linear, higher = more acceleration)
         return 1.0 + effectiveTouchpadAcceleration * 2.0
     }
-
-    /// Converts 0-1 acceleration to exponent value
-    var scrollAccelerationExponent: Double {
-        // Map 0-1 to 1.0-2.5
-        return 1.0 + scrollAcceleration * 1.5
-    }
 }
 
-// MARK: - Custom Codable (handles new fields with defaults)
+// MARK: - Custom Codable (per-stick migration + global field defaults)
 
 extension JoystickSettings {
     enum CodingKeys: String, CodingKey {
-        case mouseSensitivity
-        case scrollSensitivity
-        case mouseDeadzone
-        case scrollDeadzone
-        case invertMouseY
-        case invertScrollY
-        case mouseAcceleration
+        // New per-stick representation.
+        case leftStick
+        case rightStick
+        // Global fields.
         case touchpadSensitivity
         case touchpadAcceleration
         case touchpadDeadzone
@@ -324,10 +252,25 @@ extension JoystickSettings {
         case touchpadZoomToPanRatio
         case touchpadUseNativeZoom
         case disableTouchpadAsMouse
-        case scrollAcceleration
         case scrollBoostMultiplier
         case focusModeSensitivity
         case focusModeModifier
+        case gyroAimingEnabled
+        case gyroAimingSensitivity
+        case gyroAimingDeadzone
+        case gestureSensitivity
+        case gestureCooldown
+        // Legacy function-keyed per-stick fields — decoded only when the new
+        // `leftStick`/`rightStick` keys are absent, and re-encoded for downgrade
+        // safety (see encode).
+        case mouseSensitivity
+        case scrollSensitivity
+        case mouseDeadzone
+        case scrollDeadzone
+        case invertMouseY
+        case invertScrollY
+        case mouseAcceleration
+        case scrollAcceleration
         case leftStickMode
         case rightStickMode
         case leftStickCustomHorizontalSliceSize
@@ -344,23 +287,12 @@ extension JoystickSettings {
         case leftStickVerticalAxisRange // Legacy axis UI, migrated as vertical slice size.
         case rightStickHorizontalAxisRange // Legacy axis UI, migrated as horizontal slice size.
         case rightStickVerticalAxisRange // Legacy axis UI, migrated as vertical slice size.
-        case gyroAimingEnabled
-        case gyroAimingSensitivity
-        case gyroAimingDeadzone
-        case gestureSensitivity
-        case gestureCooldown
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let unit = 0.0...1.0
-        mouseSensitivity = try container.decode(.mouseSensitivity, default: 0.5, clampedTo: unit)
-        scrollSensitivity = try container.decode(.scrollSensitivity, default: 0.5, clampedTo: unit)
-        mouseDeadzone = try container.decode(.mouseDeadzone, default: 0.15, clampedTo: 0.0...0.99)
-        scrollDeadzone = try container.decode(.scrollDeadzone, default: 0.15, clampedTo: 0.0...0.99)
-        invertMouseY = try container.decode(.invertMouseY, default: false)
-        invertScrollY = try container.decode(.invertScrollY, default: false)
-        mouseAcceleration = try container.decode(.mouseAcceleration, default: 0.5, clampedTo: unit)
+
         touchpadSensitivity = try container.decode(.touchpadSensitivity, default: 0.5, clampedTo: unit)
         touchpadAcceleration = try container.decode(.touchpadAcceleration, default: 0.5, clampedTo: unit)
         touchpadDeadzone = try container.decode(.touchpadDeadzone, default: Self.defaultTouchpadDeadzone, clampedTo: 0.0...0.03)
@@ -374,90 +306,37 @@ extension JoystickSettings {
 			clampedTo: unit
 		)
         touchpadInvertScrollX = try container.decode(.touchpadInvertScrollX, default: false)
-        touchpadInvertScrollY = try container.decode(.touchpadInvertScrollY, default: invertScrollY)
+        let legacyInvertScrollY = try container.decode(.invertScrollY, default: false)
+        touchpadInvertScrollY = try container.decode(.touchpadInvertScrollY, default: legacyInvertScrollY)
         touchpadZoomToPanRatio = try container.decode(.touchpadZoomToPanRatio, default: 1.95, clampedTo: 0.5...5.0)
         touchpadUseNativeZoom = try container.decode(.touchpadUseNativeZoom, default: true)
         disableTouchpadAsMouse = try container.decode(.disableTouchpadAsMouse, default: false)
-        scrollAcceleration = try container.decode(.scrollAcceleration, default: 0.5, clampedTo: unit)
         scrollBoostMultiplier = try container.decode(.scrollBoostMultiplier, default: 2.0, clampedTo: 1.0...4.0)
         focusModeSensitivity = try container.decode(.focusModeSensitivity, default: 0.2, clampedTo: unit)
         focusModeModifier = try container.decode(.focusModeModifier, default: .command)
-        // Lenient: a StickMode case added by a newer build must degrade to the
-        // default on a downgrade rather than throwing out the whole config.
-        leftStickMode = try container.decodeLenient(.leftStickMode, default: .mouse)
-        rightStickMode = try container.decodeLenient(.rightStickMode, default: .scroll)
-        let leftLegacySharedSize = Self.sliceSize(
-            fromLegacyDeadzone: try container.decodeIfPresent(Double.self, forKey: .leftStickCustomSliceDeadzone)
-        )
-        let rightLegacySharedSize = Self.sliceSize(
-            fromLegacyDeadzone: try container.decodeIfPresent(Double.self, forKey: .rightStickCustomSliceDeadzone)
-        )
-        let leftLegacyHorizontalSize = try container.decode(
-            .leftStickHorizontalAxisRange,
-            default: leftLegacySharedSize,
-            clampedTo: unit
-        )
-        let leftLegacyVerticalSize = try container.decode(
-            .leftStickVerticalAxisRange,
-            default: leftLegacySharedSize,
-            clampedTo: unit
-        )
-        let rightLegacyHorizontalSize = try container.decode(
-            .rightStickHorizontalAxisRange,
-            default: rightLegacySharedSize,
-            clampedTo: unit
-        )
-        let rightLegacyVerticalSize = try container.decode(
-            .rightStickVerticalAxisRange,
-            default: rightLegacySharedSize,
-            clampedTo: unit
-        )
-        leftStickCustomHorizontalSliceSize = try container.decode(
-            .leftStickCustomHorizontalSliceSize,
-            default: leftLegacyHorizontalSize,
-            clampedTo: unit
-        )
-        leftStickCustomVerticalSliceSize = try container.decode(
-            .leftStickCustomVerticalSliceSize,
-            default: leftLegacyVerticalSize,
-            clampedTo: unit
-        )
-        leftStickCustomDeadzone = try container.decode(
-            .leftStickCustomDeadzone,
-            default: container.contains(.mouseDeadzone) ? mouseDeadzone : Self.defaultCustomDeadzone,
-            clampedTo: unit
-        )
-        rightStickCustomHorizontalSliceSize = try container.decode(
-            .rightStickCustomHorizontalSliceSize,
-            default: rightLegacyHorizontalSize,
-            clampedTo: unit
-        )
-        rightStickCustomVerticalSliceSize = try container.decode(
-            .rightStickCustomVerticalSliceSize,
-            default: rightLegacyVerticalSize,
-            clampedTo: unit
-        )
-        rightStickCustomDeadzone = try container.decode(
-            .rightStickCustomDeadzone,
-            default: container.contains(.scrollDeadzone) ? scrollDeadzone : Self.defaultCustomDeadzone,
-            clampedTo: unit
-        )
         gyroAimingEnabled = try container.decode(.gyroAimingEnabled, default: false)
         gyroAimingSensitivity = try container.decode(.gyroAimingSensitivity, default: 0.3, clampedTo: unit)
         gyroAimingDeadzone = try container.decode(.gyroAimingDeadzone, default: 0.3, clampedTo: unit)
         gestureSensitivity = try container.decode(.gestureSensitivity, default: 0.5, clampedTo: unit)
         gestureCooldown = try container.decode(.gestureCooldown, default: 0.5, clampedTo: unit)
+
+        // Per-stick tuning: prefer the new nested representation; otherwise migrate
+        // from the legacy function-keyed flat fields, fanning the shared mouse/scroll
+        // values into BOTH sticks so old configs keep identical behavior while
+        // becoming independently editable.
+        let migrated = try Self.migrateLegacyStickTunings(from: container)
+        leftStick = try container.decodeIfPresent(StickTuning.self, forKey: .leftStick) ?? migrated.left
+        rightStick = try container.decodeIfPresent(StickTuning.self, forKey: .rightStick) ?? migrated.right
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(mouseSensitivity, forKey: .mouseSensitivity)
-        try container.encode(scrollSensitivity, forKey: .scrollSensitivity)
-        try container.encode(mouseDeadzone, forKey: .mouseDeadzone)
-        try container.encode(scrollDeadzone, forKey: .scrollDeadzone)
-        try container.encode(invertMouseY, forKey: .invertMouseY)
-        try container.encode(invertScrollY, forKey: .invertScrollY)
-        try container.encode(mouseAcceleration, forKey: .mouseAcceleration)
+
+        // New canonical per-stick representation.
+        try container.encode(leftStick, forKey: .leftStick)
+        try container.encode(rightStick, forKey: .rightStick)
+
+        // Global fields.
         try container.encode(touchpadSensitivity, forKey: .touchpadSensitivity)
         try container.encode(touchpadAcceleration, forKey: .touchpadAcceleration)
         try container.encode(touchpadDeadzone, forKey: .touchpadDeadzone)
@@ -471,23 +350,112 @@ extension JoystickSettings {
         try container.encode(touchpadZoomToPanRatio, forKey: .touchpadZoomToPanRatio)
         try container.encode(touchpadUseNativeZoom, forKey: .touchpadUseNativeZoom)
         try container.encode(disableTouchpadAsMouse, forKey: .disableTouchpadAsMouse)
-        try container.encode(scrollAcceleration, forKey: .scrollAcceleration)
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
         try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)
         try container.encode(focusModeModifier, forKey: .focusModeModifier)
-        try container.encode(leftStickMode, forKey: .leftStickMode)
-        try container.encode(rightStickMode, forKey: .rightStickMode)
-        try container.encode(leftStickCustomHorizontalSliceSize, forKey: .leftStickCustomHorizontalSliceSize)
-        try container.encode(leftStickCustomVerticalSliceSize, forKey: .leftStickCustomVerticalSliceSize)
-        try container.encode(leftStickCustomDeadzone, forKey: .leftStickCustomDeadzone)
-        try container.encode(rightStickCustomHorizontalSliceSize, forKey: .rightStickCustomHorizontalSliceSize)
-        try container.encode(rightStickCustomVerticalSliceSize, forKey: .rightStickCustomVerticalSliceSize)
-        try container.encode(rightStickCustomDeadzone, forKey: .rightStickCustomDeadzone)
         try container.encode(gyroAimingEnabled, forKey: .gyroAimingEnabled)
         try container.encode(gyroAimingSensitivity, forKey: .gyroAimingSensitivity)
         try container.encode(gyroAimingDeadzone, forKey: .gyroAimingDeadzone)
         try container.encode(gestureSensitivity, forKey: .gestureSensitivity)
         try container.encode(gestureCooldown, forKey: .gestureCooldown)
+
+        // Legacy compatibility: keep the old flat fields populated so a profile
+        // saved/exported by this build still loads sane values on a pre-per-stick
+        // build (left = conventional mouse stick, right = conventional scroll stick).
+        // A newer build ignores these and reads leftStick/rightStick instead.
+        try container.encode(leftStick.mouseSensitivity, forKey: .mouseSensitivity)
+        try container.encode(leftStick.mouseAcceleration, forKey: .mouseAcceleration)
+        try container.encode(leftStick.mouseDeadzone, forKey: .mouseDeadzone)
+        try container.encode(leftStick.invertMouseY, forKey: .invertMouseY)
+        try container.encode(rightStick.scrollSensitivity, forKey: .scrollSensitivity)
+        try container.encode(rightStick.scrollAcceleration, forKey: .scrollAcceleration)
+        try container.encode(rightStick.scrollDeadzone, forKey: .scrollDeadzone)
+        try container.encode(rightStick.invertScrollY, forKey: .invertScrollY)
+        try container.encode(leftStick.mode, forKey: .leftStickMode)
+        try container.encode(rightStick.mode, forKey: .rightStickMode)
+        try container.encode(leftStick.customHorizontalSliceSize, forKey: .leftStickCustomHorizontalSliceSize)
+        try container.encode(leftStick.customVerticalSliceSize, forKey: .leftStickCustomVerticalSliceSize)
+        try container.encode(leftStick.customDeadzone, forKey: .leftStickCustomDeadzone)
+        try container.encode(rightStick.customHorizontalSliceSize, forKey: .rightStickCustomHorizontalSliceSize)
+        try container.encode(rightStick.customVerticalSliceSize, forKey: .rightStickCustomVerticalSliceSize)
+        try container.encode(rightStick.customDeadzone, forKey: .rightStickCustomDeadzone)
+    }
+
+    /// Rebuilds per-stick tuning from the legacy function-keyed fields. Both sticks
+    /// inherit the same legacy mouse* and scroll* values (which were shared before),
+    /// plus their own mode and custom slices.
+    private static func migrateLegacyStickTunings(
+        from container: KeyedDecodingContainer<CodingKeys>
+    ) throws -> (left: StickTuning, right: StickTuning) {
+        let unit = 0.0...1.0
+        let mouseSensitivity = try container.decode(.mouseSensitivity, default: 0.5, clampedTo: unit)
+        let scrollSensitivity = try container.decode(.scrollSensitivity, default: 0.5, clampedTo: unit)
+        let mouseDeadzone = try container.decode(.mouseDeadzone, default: 0.15, clampedTo: 0.0...0.99)
+        let scrollDeadzone = try container.decode(.scrollDeadzone, default: 0.15, clampedTo: 0.0...0.99)
+        let invertMouseY = try container.decode(.invertMouseY, default: false)
+        let invertScrollY = try container.decode(.invertScrollY, default: false)
+        let mouseAcceleration = try container.decode(.mouseAcceleration, default: 0.5, clampedTo: unit)
+        let scrollAcceleration = try container.decode(.scrollAcceleration, default: 0.5, clampedTo: unit)
+        // Lenient: a StickMode case added by a newer build degrades to the default
+        // on downgrade rather than throwing out the whole config.
+        let leftMode = try container.decodeLenient(.leftStickMode, default: StickMode.mouse)
+        let rightMode = try container.decodeLenient(.rightStickMode, default: StickMode.scroll)
+
+        let leftLegacySharedSize = sliceSize(
+            fromLegacyDeadzone: try container.decodeIfPresent(Double.self, forKey: .leftStickCustomSliceDeadzone)
+        )
+        let rightLegacySharedSize = sliceSize(
+            fromLegacyDeadzone: try container.decodeIfPresent(Double.self, forKey: .rightStickCustomSliceDeadzone)
+        )
+        let leftLegacyHorizontalSize = try container.decode(.leftStickHorizontalAxisRange, default: leftLegacySharedSize, clampedTo: unit)
+        let leftLegacyVerticalSize = try container.decode(.leftStickVerticalAxisRange, default: leftLegacySharedSize, clampedTo: unit)
+        let rightLegacyHorizontalSize = try container.decode(.rightStickHorizontalAxisRange, default: rightLegacySharedSize, clampedTo: unit)
+        let rightLegacyVerticalSize = try container.decode(.rightStickVerticalAxisRange, default: rightLegacySharedSize, clampedTo: unit)
+
+        let leftCustomHorizontal = try container.decode(.leftStickCustomHorizontalSliceSize, default: leftLegacyHorizontalSize, clampedTo: unit)
+        let leftCustomVertical = try container.decode(.leftStickCustomVerticalSliceSize, default: leftLegacyVerticalSize, clampedTo: unit)
+        let leftCustomDeadzone = try container.decode(
+            .leftStickCustomDeadzone,
+            default: container.contains(.mouseDeadzone) ? mouseDeadzone : Self.defaultCustomDeadzone,
+            clampedTo: unit
+        )
+        let rightCustomHorizontal = try container.decode(.rightStickCustomHorizontalSliceSize, default: rightLegacyHorizontalSize, clampedTo: unit)
+        let rightCustomVertical = try container.decode(.rightStickCustomVerticalSliceSize, default: rightLegacyVerticalSize, clampedTo: unit)
+        let rightCustomDeadzone = try container.decode(
+            .rightStickCustomDeadzone,
+            default: container.contains(.scrollDeadzone) ? scrollDeadzone : Self.defaultCustomDeadzone,
+            clampedTo: unit
+        )
+
+        let left = StickTuning(
+            mode: leftMode,
+            mouseSensitivity: mouseSensitivity,
+            mouseAcceleration: mouseAcceleration,
+            mouseDeadzone: mouseDeadzone,
+            invertMouseY: invertMouseY,
+            scrollSensitivity: scrollSensitivity,
+            scrollAcceleration: scrollAcceleration,
+            scrollDeadzone: scrollDeadzone,
+            invertScrollY: invertScrollY,
+            customHorizontalSliceSize: leftCustomHorizontal,
+            customVerticalSliceSize: leftCustomVertical,
+            customDeadzone: leftCustomDeadzone
+        )
+        let right = StickTuning(
+            mode: rightMode,
+            mouseSensitivity: mouseSensitivity,
+            mouseAcceleration: mouseAcceleration,
+            mouseDeadzone: mouseDeadzone,
+            invertMouseY: invertMouseY,
+            scrollSensitivity: scrollSensitivity,
+            scrollAcceleration: scrollAcceleration,
+            scrollDeadzone: scrollDeadzone,
+            invertScrollY: invertScrollY,
+            customHorizontalSliceSize: rightCustomHorizontal,
+            customVerticalSliceSize: rightCustomVertical,
+            customDeadzone: rightCustomDeadzone
+        )
+        return (left, right)
     }
 
     private static func sliceSize(fromLegacyDeadzone deadzone: Double?) -> Double {

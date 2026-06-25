@@ -678,6 +678,10 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                 .padding(.horizontal, 4)
             }
 
+            if selectedLayerId != nil {
+                layerStickTuningPanel(side: side)
+            }
+
             if mode.exposesJoystickDirections {
                 directionClusterGrid(
                     up: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .up))
@@ -850,22 +854,17 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     }
 
     private func profileStickMode(side: JoystickSide) -> StickMode {
-        switch side {
-        case .left:
-            return joystickSettings.leftStickMode
-        case .right:
-            return joystickSettings.rightStickMode
-        }
+        joystickSettings.stick(side).mode
+    }
+
+    /// The active layer's tuning override for this side, if any (nil when editing base).
+    private func selectedLayerStickOverride(side: JoystickSide) -> StickTuningOverride? {
+        guard let layer = selectedLayer else { return nil }
+        return side == .left ? layer.leftStickTuning : layer.rightStickTuning
     }
 
     private func layerStickModeOverride(side: JoystickSide) -> StickMode? {
-        guard let layer = selectedLayer else { return nil }
-        switch side {
-        case .left:
-            return layer.leftStickModeOverride
-        case .right:
-            return layer.rightStickModeOverride
-        }
+        selectedLayerStickOverride(side: side)?.mode
     }
 
     /// Effective mode resolved at the current editing scope: layer override (if any) → profile default.
@@ -952,6 +951,81 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help("Set joystick mode")
+    }
+
+    /// Per-layer tuning overrides for one stick, shown only while editing a layer.
+    /// Each row shows the effective value (override if set, else the inherited base,
+    /// rendered italic with a dashed marker). Editing sets the override; the reset
+    /// arrow clears it so the field falls back through to the base stick.
+    @ViewBuilder
+    private func layerStickTuningPanel(side: JoystickSide) -> some View {
+        let mode = stickMode(side: side)
+        let base = joystickSettings.stick(side)
+        VStack(alignment: .leading, spacing: 5) {
+            switch mode {
+            case .mouse:
+                layerOverrideSliderRow(side: side, label: "Sensitivity", keyPath: \.mouseSensitivity, base: base.mouseSensitivity, range: 0...1)
+                layerOverrideSliderRow(side: side, label: "Acceleration", keyPath: \.mouseAcceleration, base: base.mouseAcceleration, range: 0...1)
+                layerOverrideSliderRow(side: side, label: "Deadzone", keyPath: \.mouseDeadzone, base: base.mouseDeadzone, range: 0...0.5)
+            case .scroll:
+                layerOverrideSliderRow(side: side, label: "Sensitivity", keyPath: \.scrollSensitivity, base: base.scrollSensitivity, range: 0...1)
+                layerOverrideSliderRow(side: side, label: "Acceleration", keyPath: \.scrollAcceleration, base: base.scrollAcceleration, range: 0...1)
+                layerOverrideSliderRow(side: side, label: "Deadzone", keyPath: \.scrollDeadzone, base: base.scrollDeadzone, range: 0...0.5)
+            case .none, .custom, .dpad, .wasdKeys, .arrowKeys:
+                EmptyView()
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    @ViewBuilder
+    private func layerOverrideSliderRow(
+        side: JoystickSide,
+        label: String,
+        keyPath: WritableKeyPath<StickTuningOverride, Double?>,
+        base: Double,
+        range: ClosedRange<Double>
+    ) -> some View {
+        let overrideValue = selectedLayerStickOverride(side: side)?[keyPath: keyPath]
+        let isOverridden = overrideValue != nil
+        HStack(spacing: 6) {
+            Text(LocalizedStringKey(label))
+                .font(.system(size: 9, weight: .semibold))
+                .italic(!isOverridden)
+                .foregroundStyle(isOverridden ? Color.primary.opacity(0.8) : Color.secondary)
+                .frame(width: 70, alignment: .leading)
+
+            Slider(
+                value: Binding(
+                    get: { overrideValue ?? base },
+                    set: { newValue in
+                        guard let layerId = selectedLayerId else { return }
+                        profileManager.setLayerStickOverride(keyPath, newValue, side: side, layerId: layerId)
+                    }
+                ),
+                in: range
+            )
+            .controlSize(.mini)
+
+            if isOverridden {
+                Button {
+                    guard let layerId = selectedLayerId else { return }
+                    profileManager.setLayerStickOverride(keyPath, nil, side: side, layerId: layerId)
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 8, weight: .bold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Reset to base (inherit)")
+            } else {
+                Image(systemName: "circle.dashed")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.tertiary)
+                    .help("Inheriting base")
+            }
+        }
+        .padding(.horizontal, 4)
     }
 
     private func stickPresetMenu(side: JoystickSide) -> some View {

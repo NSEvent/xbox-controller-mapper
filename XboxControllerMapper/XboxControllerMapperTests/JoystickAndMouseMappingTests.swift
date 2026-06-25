@@ -74,7 +74,7 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     func testJoystickInvertedY() async throws {
         await MainActor.run {
             var profile = Profile(name: "InvertY", buttonMappings: [:])
-            profile.joystickSettings.invertMouseY = true
+            profile.joystickSettings.leftStick.invertMouseY = true
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -406,13 +406,13 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
             profileManager.setActiveProfile(profile)
 
             var settings = JoystickSettings.default
-            settings.mouseSensitivity = 0.8
-            settings.invertMouseY = true
+            settings.leftStick.mouseSensitivity = 0.8
+            settings.leftStick.invertMouseY = true
 
             profileManager.updateJoystickSettings(settings)
 
-            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.mouseSensitivity, 0.8)
-            XCTAssertTrue(profileManager.activeProfile?.joystickSettings.invertMouseY ?? false)
+            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.leftStick.mouseSensitivity, 0.8)
+            XCTAssertTrue(profileManager.activeProfile?.joystickSettings.leftStick.invertMouseY ?? false)
         }
     }
 
@@ -422,8 +422,8 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     func testLeftStickWASDModeUpDirection() async throws {
         await MainActor.run {
             var profile = Profile(name: "WASD", buttonMappings: [:])
-            profile.joystickSettings.leftStickMode = .wasdKeys
-            profile.joystickSettings.mouseDeadzone = 0.15
+            profile.joystickSettings.leftStick.mode = .wasdKeys
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.15
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -447,8 +447,8 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     func testLeftStickWASDModeDiagonal() async throws {
         await MainActor.run {
             var profile = Profile(name: "WASD", buttonMappings: [:])
-            profile.joystickSettings.leftStickMode = .wasdKeys
-            profile.joystickSettings.mouseDeadzone = 0.15
+            profile.joystickSettings.leftStick.mode = .wasdKeys
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.15
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -469,8 +469,8 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     func testLeftStickWASDModeReleaseOnCenter() async throws {
         await MainActor.run {
             var profile = Profile(name: "WASD", buttonMappings: [:])
-            profile.joystickSettings.leftStickMode = .wasdKeys
-            profile.joystickSettings.mouseDeadzone = 0.15
+            profile.joystickSettings.leftStick.mode = .wasdKeys
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.15
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -501,8 +501,8 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     func testLeftStickWASDModeDeadzoneRespected() async throws {
         await MainActor.run {
             var profile = Profile(name: "WASD", buttonMappings: [:])
-            profile.joystickSettings.leftStickMode = .wasdKeys
-            profile.joystickSettings.mouseDeadzone = 0.3 // Higher deadzone
+            profile.joystickSettings.leftStick.mode = .wasdKeys
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.3 // Higher deadzone
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -525,15 +525,15 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     func testRightStickArrowKeysMode() async throws {
         await MainActor.run {
             var profile = Profile(name: "Arrows", buttonMappings: [:])
-            profile.joystickSettings.rightStickMode = .arrowKeys
-            profile.joystickSettings.scrollDeadzone = 0.15
+            profile.joystickSettings.rightStick.mode = .arrowKeys
+            profile.joystickSettings.rightStick.scrollDeadzone = 0.15
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }
         try? await Task.sleep(nanoseconds: 50_000_000)
 
         await MainActor.run {
-            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.rightStickMode, .arrowKeys)
+            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.rightStick.mode, .arrowKeys)
         }
     }
 
@@ -541,8 +541,8 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     func testEngineDisableReleasesDirectionKeys() async throws {
         await MainActor.run {
             var profile = Profile(name: "WASD", buttonMappings: [:])
-            profile.joystickSettings.leftStickMode = .wasdKeys
-            profile.joystickSettings.mouseDeadzone = 0.15
+            profile.joystickSettings.leftStick.mode = .wasdKeys
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.15
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -567,15 +567,15 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
     func testStickModeSettingPersistence() async throws {
         await MainActor.run {
             var profile = Profile(name: "ModeTest", buttonMappings: [:])
-            profile.joystickSettings.leftStickMode = .wasdKeys
-            profile.joystickSettings.rightStickMode = .arrowKeys
+            profile.joystickSettings.leftStick.mode = .wasdKeys
+            profile.joystickSettings.rightStick.mode = .arrowKeys
             profileManager.setActiveProfile(profile)
         }
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.leftStickMode, .wasdKeys)
-            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.rightStickMode, .arrowKeys)
+            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.leftStick.mode, .wasdKeys)
+            XCTAssertEqual(profileManager.activeProfile?.joystickSettings.rightStick.mode, .arrowKeys)
         }
     }
 }

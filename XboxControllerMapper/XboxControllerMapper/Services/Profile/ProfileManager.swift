@@ -404,32 +404,75 @@ class ProfileManager: ObservableObject {
     }
 
     /// Sets the stick mode for one side at the given scope.
-    /// - Parameter layerId: When nil, writes the profile-level default (i.e. `JoystickSettings.leftStickMode`/`rightStickMode`).
-    ///   When non-nil, writes that layer's per-side override. Pass `mode = nil` together with a layer id to clear the override
-    ///   so the layer falls back to the profile default.
+    /// - Parameter layerId: When nil, writes the profile-level default (i.e. `JoystickSettings.leftStick`/`rightStick` mode).
+    ///   When non-nil, writes that layer's per-side override mode. Pass `mode = nil` together with a layer id to clear the
+    ///   mode override so the layer falls back to the profile default for mode (other override fields are untouched).
     func setStickMode(_ mode: StickMode?, side: JoystickSide, layerId: UUID?, in profile: Profile? = nil) {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         if let layerId {
             guard let layerIndex = targetProfile.layers.firstIndex(where: { $0.id == layerId }) else { return }
-            switch side {
-            case .left:
-                targetProfile.layers[layerIndex].leftStickModeOverride = mode
-            case .right:
-                targetProfile.layers[layerIndex].rightStickModeOverride = mode
-            }
+            Self.mutateLayerStickOverride(&targetProfile.layers[layerIndex], side: side) { $0.mode = mode }
         } else {
             // Profile-level write: a nil mode is meaningless here (the profile always has a concrete mode),
             // so callers must pass a real StickMode for layer-id-less writes.
             guard let mode else { return }
             switch side {
             case .left:
-                targetProfile.joystickSettings.leftStickMode = mode
+                targetProfile.joystickSettings.leftStick.mode = mode
             case .right:
-                targetProfile.joystickSettings.rightStickMode = mode
+                targetProfile.joystickSettings.rightStick.mode = mode
             }
         }
         updateProfile(targetProfile)
+    }
+
+    /// Sets (or clears, with `value == nil`) a single field of a layer's per-side stick
+    /// tuning override. Clearing a field makes that field fall through to the base stick;
+    /// when the override becomes fully empty it is dropped so the layer cleanly inherits.
+    func setLayerStickOverride<T>(
+        _ keyPath: WritableKeyPath<StickTuningOverride, T?>,
+        _ value: T?,
+        side: JoystickSide,
+        layerId: UUID,
+        in profile: Profile? = nil
+    ) {
+        guard var targetProfile = profile ?? activeProfile,
+              let layerIndex = targetProfile.layers.firstIndex(where: { $0.id == layerId }) else { return }
+        Self.mutateLayerStickOverride(&targetProfile.layers[layerIndex], side: side) { $0[keyPath: keyPath] = value }
+        updateProfile(targetProfile)
+    }
+
+    /// Clears a layer's entire per-side stick override so it fully inherits the base stick.
+    func clearLayerStickOverride(side: JoystickSide, layerId: UUID, in profile: Profile? = nil) {
+        guard var targetProfile = profile ?? activeProfile,
+              let layerIndex = targetProfile.layers.firstIndex(where: { $0.id == layerId }) else { return }
+        switch side {
+        case .left:
+            targetProfile.layers[layerIndex].leftStickTuning = nil
+        case .right:
+            targetProfile.layers[layerIndex].rightStickTuning = nil
+        }
+        updateProfile(targetProfile)
+    }
+
+    /// Get-or-create the side's override, apply `mutate`, and drop it again if it
+    /// ends up empty (so "inherit everything" is represented as a nil override).
+    private static func mutateLayerStickOverride(
+        _ layer: inout Layer,
+        side: JoystickSide,
+        _ mutate: (inout StickTuningOverride) -> Void
+    ) {
+        switch side {
+        case .left:
+            var override = layer.leftStickTuning ?? StickTuningOverride()
+            mutate(&override)
+            layer.leftStickTuning = override.isEmpty ? nil : override
+        case .right:
+            var override = layer.rightStickTuning ?? StickTuningOverride()
+            mutate(&override)
+            layer.rightStickTuning = override.isEmpty ? nil : override
+        }
     }
 
     // MARK: - DualSense LED Settings

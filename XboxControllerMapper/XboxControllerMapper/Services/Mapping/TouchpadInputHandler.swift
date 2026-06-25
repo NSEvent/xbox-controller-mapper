@@ -88,7 +88,7 @@ extension MappingEngine {
         let dx = Double(smoothedDelta.x) * sensitivity
         var dy = -Double(smoothedDelta.y) * sensitivity
 
-        if settings.invertMouseY {
+        if settings.leftStick.invertMouseY {
             dy = -dy
         }
 

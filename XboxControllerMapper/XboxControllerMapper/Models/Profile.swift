@@ -581,19 +581,13 @@ struct Profile: Codable, Identifiable, Equatable {
 
         // Joystick settings tuned for comfortable use
         let joystick = JoystickSettings(
-            mouseSensitivity: 0.5,
-            scrollSensitivity: 0.5,
-            mouseDeadzone: 0.15,
-            scrollDeadzone: 0.15,
-            invertMouseY: false,
-            invertScrollY: false,
-            mouseAcceleration: 0.5,
+            leftStick: .leftDefault,
+            rightStick: .rightDefault,
             touchpadSensitivity: 0.5,
             touchpadAcceleration: 0.5,
             touchpadDeadzone: JoystickSettings.defaultTouchpadDeadzone,
             touchpadSmoothing: 0.4,
             touchpadPanSensitivity: 0.5,
-            scrollAcceleration: 0.5,
             scrollBoostMultiplier: 4.0,
             focusModeSensitivity: 0.1,
             focusModeModifier: .command
@@ -798,23 +792,17 @@ extension Profile {
     }
 
     private mutating func migrateLegacyStickKeyMode(side: JoystickSide) {
-        let mode: StickMode
-        switch side {
-        case .left:
-            mode = joystickSettings.leftStickMode
-        case .right:
-            mode = joystickSettings.rightStickMode
-        }
+        let mode = joystickSettings.stick(side).mode
 
         guard mode == .wasdKeys || mode == .arrowKeys else { return }
 
         switch side {
         case .left:
-            joystickSettings.leftStickMode = .custom
-            joystickSettings.leftStickCustomDeadzone = joystickSettings.mouseDeadzone
+            joystickSettings.leftStick.mode = .custom
+            joystickSettings.leftStick.customDeadzone = joystickSettings.leftStick.mouseDeadzone
         case .right:
-            joystickSettings.rightStickMode = .custom
-            joystickSettings.rightStickCustomDeadzone = joystickSettings.scrollDeadzone
+            joystickSettings.rightStick.mode = .custom
+            joystickSettings.rightStick.customDeadzone = joystickSettings.rightStick.scrollDeadzone
         }
 
         let preset: StickDirectionPreset = mode == .wasdKeys ? .wasd : .arrows

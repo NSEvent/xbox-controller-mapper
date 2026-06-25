@@ -109,18 +109,18 @@ final class LayerAndConfigCoverageTests: XCTestCase {
 
     func testLegacyStickKeyModesDecodeAsCustomVirtualMappings() throws {
         var legacy = Profile(name: "Legacy Stick Modes")
-        legacy.joystickSettings.leftStickMode = .wasdKeys
-        legacy.joystickSettings.rightStickMode = .arrowKeys
-        legacy.joystickSettings.mouseDeadzone = 0.27
-        legacy.joystickSettings.scrollDeadzone = 0.31
+        legacy.joystickSettings.leftStick.mode = .wasdKeys
+        legacy.joystickSettings.rightStick.mode = .arrowKeys
+        legacy.joystickSettings.leftStick.mouseDeadzone = 0.27
+        legacy.joystickSettings.rightStick.scrollDeadzone = 0.31
 
         let data = try JSONEncoder().encode(legacy)
         let decoded = try JSONDecoder().decode(Profile.self, from: data)
 
-        XCTAssertEqual(decoded.joystickSettings.leftStickMode, .custom)
-        XCTAssertEqual(decoded.joystickSettings.rightStickMode, .custom)
-        XCTAssertEqual(decoded.joystickSettings.leftStickCustomDeadzone, 0.27, accuracy: 0.0001)
-        XCTAssertEqual(decoded.joystickSettings.rightStickCustomDeadzone, 0.31, accuracy: 0.0001)
+        XCTAssertEqual(decoded.joystickSettings.leftStick.mode, .custom)
+        XCTAssertEqual(decoded.joystickSettings.rightStick.mode, .custom)
+        XCTAssertEqual(decoded.joystickSettings.leftStick.customDeadzone, 0.27, accuracy: 0.0001)
+        XCTAssertEqual(decoded.joystickSettings.rightStick.customDeadzone, 0.31, accuracy: 0.0001)
 
         assertStickMapping(decoded.buttonMappings[.leftStickUp], keyCode: KeyCodeMapping.keyW)
         assertStickMapping(decoded.buttonMappings[.leftStickLeft], keyCode: KeyCodeMapping.keyA)
@@ -135,7 +135,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
 
     func testLegacyStickKeyModeMigrationDoesNotOverwriteExistingVirtualMapping() throws {
         var legacy = Profile(name: "Legacy Stick Custom")
-        legacy.joystickSettings.leftStickMode = .wasdKeys
+        legacy.joystickSettings.leftStick.mode = .wasdKeys
         legacy.buttonMappings[.leftStickUp] = KeyMapping(
             keyCode: KeyCodeMapping.keyQ,
             longHoldMapping: LongHoldMapping(keyCode: KeyCodeMapping.space)
@@ -144,7 +144,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         let data = try JSONEncoder().encode(legacy)
         let decoded = try JSONDecoder().decode(Profile.self, from: data)
 
-        XCTAssertEqual(decoded.joystickSettings.leftStickMode, .custom)
+        XCTAssertEqual(decoded.joystickSettings.leftStick.mode, .custom)
         XCTAssertEqual(decoded.buttonMappings[.leftStickUp]?.keyCode, KeyCodeMapping.keyQ)
         XCTAssertEqual(decoded.buttonMappings[.leftStickUp]?.longHoldMapping?.keyCode, KeyCodeMapping.space)
         assertStickMapping(decoded.buttonMappings[.leftStickLeft], keyCode: KeyCodeMapping.keyA)

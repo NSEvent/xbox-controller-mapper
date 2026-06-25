@@ -14,8 +14,8 @@ struct JoystickSettingsView: View {
         Form {
             Section("Left Joystick") {
                 Picker("Mode", selection: Binding(
-                    get: { settings.leftStickMode },
-                    set: { updateSettings(\.leftStickMode, $0) }
+                    get: { settings.leftStick.mode },
+                    set: { updateSettings(\.leftStick.mode, $0) }
                 )) {
                     ForEach(StickMode.visibleModes, id: \.self) { mode in
                         Text(LocalizedStringKey(mode.displayName)).tag(mode)
@@ -26,12 +26,12 @@ struct JoystickSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if settings.leftStickMode == .mouse {
+                if settings.leftStick.mode == .mouse {
                     SliderRow(
                         label: "Sensitivity",
                         value: Binding(
-                            get: { settings.mouseSensitivity },
-                            set: { updateSettings(\.mouseSensitivity, $0) }
+                            get: { settings.leftStick.mouseSensitivity },
+                            set: { updateSettings(\.leftStick.mouseSensitivity, $0) }
                         ),
                         range: 0...1,
                         description: "How fast the cursor moves"
@@ -40,20 +40,20 @@ struct JoystickSettingsView: View {
                     SliderRow(
                         label: "Acceleration",
                         value: Binding(
-                            get: { settings.mouseAcceleration },
-                            set: { updateSettings(\.mouseAcceleration, $0) }
+                            get: { settings.leftStick.mouseAcceleration },
+                            set: { updateSettings(\.leftStick.mouseAcceleration, $0) }
                         ),
                         range: 0...1,
                         description: "0 = linear, 1 = max curve"
                     )
                 }
 
-                if settings.leftStickMode == .scroll {
+                if settings.leftStick.mode == .scroll {
                     SliderRow(
                         label: "Sensitivity",
                         value: Binding(
-                            get: { settings.scrollSensitivity },
-                            set: { updateSettings(\.scrollSensitivity, $0) }
+                            get: { settings.leftStick.scrollSensitivity },
+                            set: { updateSettings(\.leftStick.scrollSensitivity, $0) }
                         ),
                         range: 0...1,
                         description: "How fast scrolling occurs"
@@ -62,48 +62,48 @@ struct JoystickSettingsView: View {
                     SliderRow(
                         label: "Acceleration",
                         value: Binding(
-                            get: { settings.scrollAcceleration },
-                            set: { updateSettings(\.scrollAcceleration, $0) }
+                            get: { settings.leftStick.scrollAcceleration },
+                            set: { updateSettings(\.leftStick.scrollAcceleration, $0) }
                         ),
                         range: 0...1,
                         description: "0 = linear, 1 = max curve"
                     )
                 }
 
-                if settings.leftStickMode == .custom {
+                if settings.leftStick.mode == .custom {
                     JoystickCustomDirectionPanel(
                         side: .left,
                         horizontalSliceSize: Binding(
-                            get: { settings.leftStickCustomHorizontalSliceSize },
-                            set: { updateSettings(\.leftStickCustomHorizontalSliceSize, $0) }
+                            get: { settings.leftStick.customHorizontalSliceSize },
+                            set: { updateSettings(\.leftStick.customHorizontalSliceSize, $0) }
                         ),
                         verticalSliceSize: Binding(
-                            get: { settings.leftStickCustomVerticalSliceSize },
-                            set: { updateSettings(\.leftStickCustomVerticalSliceSize, $0) }
+                            get: { settings.leftStick.customVerticalSliceSize },
+                            set: { updateSettings(\.leftStick.customVerticalSliceSize, $0) }
                         ),
                         deadzone: Binding(
-                            get: { settings.leftStickCustomDeadzone },
-                            set: { updateSettings(\.leftStickCustomDeadzone, $0) }
+                            get: { settings.leftStick.customDeadzone },
+                            set: { updateSettings(\.leftStick.customDeadzone, $0) }
                         ),
                         invertY: Binding(
-                            get: { settings.invertMouseY },
-                            set: { updateSettings(\.invertMouseY, $0) }
+                            get: { settings.leftStick.invertMouseY },
+                            set: { updateSettings(\.leftStick.invertMouseY, $0) }
                         )
                     )
                 } else {
                     SliderRow(
                         label: "Deadzone",
                         value: Binding(
-                            get: { settings.mouseDeadzone },
-                            set: { updateSettings(\.mouseDeadzone, $0) }
+                            get: { settings.leftStick.mouseDeadzone },
+                            set: { updateSettings(\.leftStick.mouseDeadzone, $0) }
                         ),
                         range: 0...0.5,
                         description: "Ignore small movements"
                     )
 
                     Toggle("Invert Y Axis", isOn: Binding(
-                        get: { settings.invertMouseY },
-                        set: { updateSettings(\.invertMouseY, $0) }
+                        get: { settings.leftStick.invertMouseY },
+                        set: { updateSettings(\.leftStick.invertMouseY, $0) }
                     ))
                 }
             }
@@ -176,8 +176,8 @@ struct JoystickSettingsView: View {
 
             Section("Right Joystick") {
                 Picker("Mode", selection: Binding(
-                    get: { settings.rightStickMode },
-                    set: { updateSettings(\.rightStickMode, $0) }
+                    get: { settings.rightStick.mode },
+                    set: { updateSettings(\.rightStick.mode, $0) }
                 )) {
                     ForEach(StickMode.visibleModes, id: \.self) { mode in
                         Text(LocalizedStringKey(mode.displayName)).tag(mode)
@@ -188,12 +188,12 @@ struct JoystickSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if settings.rightStickMode == .mouse {
+                if settings.rightStick.mode == .mouse {
                     SliderRow(
                         label: "Sensitivity",
                         value: Binding(
-                            get: { settings.mouseSensitivity },
-                            set: { updateSettings(\.mouseSensitivity, $0) }
+                            get: { settings.rightStick.mouseSensitivity },
+                            set: { updateSettings(\.rightStick.mouseSensitivity, $0) }
                         ),
                         range: 0...1,
                         description: "How fast the cursor moves"
@@ -202,20 +202,20 @@ struct JoystickSettingsView: View {
                     SliderRow(
                         label: "Acceleration",
                         value: Binding(
-                            get: { settings.mouseAcceleration },
-                            set: { updateSettings(\.mouseAcceleration, $0) }
+                            get: { settings.rightStick.mouseAcceleration },
+                            set: { updateSettings(\.rightStick.mouseAcceleration, $0) }
                         ),
                         range: 0...1,
                         description: "0 = linear, 1 = max curve"
                     )
                 }
 
-                if settings.rightStickMode == .scroll {
+                if settings.rightStick.mode == .scroll {
                     SliderRow(
                         label: "Sensitivity",
                         value: Binding(
-                            get: { settings.scrollSensitivity },
-                            set: { updateSettings(\.scrollSensitivity, $0) }
+                            get: { settings.rightStick.scrollSensitivity },
+                            set: { updateSettings(\.rightStick.scrollSensitivity, $0) }
                         ),
                         range: 0...1,
                         description: "How fast scrolling occurs"
@@ -224,8 +224,8 @@ struct JoystickSettingsView: View {
                     SliderRow(
                         label: "Acceleration",
                         value: Binding(
-                            get: { settings.scrollAcceleration },
-                            set: { updateSettings(\.scrollAcceleration, $0) }
+                            get: { settings.rightStick.scrollAcceleration },
+                            set: { updateSettings(\.rightStick.scrollAcceleration, $0) }
                         ),
                         range: 0...1,
                         description: "0 = linear, 1 = max curve"
@@ -242,40 +242,40 @@ struct JoystickSettingsView: View {
                     )
                 }
 
-                if settings.rightStickMode == .custom {
+                if settings.rightStick.mode == .custom {
                     JoystickCustomDirectionPanel(
                         side: .right,
                         horizontalSliceSize: Binding(
-                            get: { settings.rightStickCustomHorizontalSliceSize },
-                            set: { updateSettings(\.rightStickCustomHorizontalSliceSize, $0) }
+                            get: { settings.rightStick.customHorizontalSliceSize },
+                            set: { updateSettings(\.rightStick.customHorizontalSliceSize, $0) }
                         ),
                         verticalSliceSize: Binding(
-                            get: { settings.rightStickCustomVerticalSliceSize },
-                            set: { updateSettings(\.rightStickCustomVerticalSliceSize, $0) }
+                            get: { settings.rightStick.customVerticalSliceSize },
+                            set: { updateSettings(\.rightStick.customVerticalSliceSize, $0) }
                         ),
                         deadzone: Binding(
-                            get: { settings.rightStickCustomDeadzone },
-                            set: { updateSettings(\.rightStickCustomDeadzone, $0) }
+                            get: { settings.rightStick.customDeadzone },
+                            set: { updateSettings(\.rightStick.customDeadzone, $0) }
                         ),
                         invertY: Binding(
-                            get: { settings.invertScrollY },
-                            set: { updateSettings(\.invertScrollY, $0) }
+                            get: { settings.rightStick.invertScrollY },
+                            set: { updateSettings(\.rightStick.invertScrollY, $0) }
                         )
                     )
                 } else {
                     SliderRow(
                         label: "Deadzone",
                         value: Binding(
-                            get: { settings.scrollDeadzone },
-                            set: { updateSettings(\.scrollDeadzone, $0) }
+                            get: { settings.rightStick.scrollDeadzone },
+                            set: { updateSettings(\.rightStick.scrollDeadzone, $0) }
                         ),
                         range: 0...0.5,
                         description: "Ignore small movements"
                     )
 
                     Toggle("Invert Y Axis", isOn: Binding(
-                        get: { settings.invertScrollY },
-                        set: { updateSettings(\.invertScrollY, $0) }
+                        get: { settings.rightStick.invertScrollY },
+                        set: { updateSettings(\.rightStick.invertScrollY, $0) }
                     ))
                 }
             }

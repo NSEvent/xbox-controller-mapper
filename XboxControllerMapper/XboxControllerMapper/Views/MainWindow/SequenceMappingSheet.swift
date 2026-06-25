@@ -453,7 +453,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 							}
 
 							if !presentationState.isAppleTVRemote && !leftJoystickDirectionButtons.isEmpty {
-								JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStickMode) { button in
+								JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStick.mode) { button in
 									addStepButton(button, presentationState: presentationState)
 								}
 						}
@@ -508,7 +508,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
 							}
 
 							if !presentationState.isAppleTVRemote && !rightJoystickDirectionButtons.isEmpty {
-								JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStickMode) { button in
+								JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStick.mode) { button in
 									addStepButton(button, presentationState: presentationState)
 								}
 						}

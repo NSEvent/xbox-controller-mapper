@@ -69,8 +69,8 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
     func testRightStickScrollModeGeneratesScrollEvents() async throws {
         await MainActor.run {
             var profile = Profile(name: "RightScroll", buttonMappings: [:])
-            profile.joystickSettings.rightStickMode = .scroll
-            profile.joystickSettings.scrollDeadzone = 0.05
+            profile.joystickSettings.rightStick.mode = .scroll
+            profile.joystickSettings.rightStick.scrollDeadzone = 0.05
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }

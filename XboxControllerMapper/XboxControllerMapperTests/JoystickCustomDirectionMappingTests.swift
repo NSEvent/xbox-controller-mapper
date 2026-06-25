@@ -131,8 +131,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 
     func testChordSequenceDirectionButtonsAreAvailableOnlyForCustomMode() {
         var customSettings = JoystickSettings.default
-        customSettings.leftStickMode = .custom
-        customSettings.rightStickMode = .custom
+        customSettings.leftStick.mode = .custom
+        customSettings.rightStick.mode = .custom
 
         XCTAssertEqual(
             customSettings.chordSequenceJoystickDirectionButtons(side: .left),
@@ -147,8 +147,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 
         for mode in [StickMode.none, .mouse, .scroll, .wasdKeys, .arrowKeys] {
             var settings = JoystickSettings.default
-            settings.leftStickMode = mode
-            settings.rightStickMode = mode
+            settings.leftStick.mode = mode
+            settings.rightStick.mode = mode
 
             XCTAssertTrue(settings.chordSequenceJoystickDirectionButtons(side: .left).isEmpty)
             XCTAssertTrue(settings.chordSequenceJoystickDirectionButtons(side: .right).isEmpty)
@@ -158,37 +158,37 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
     func testDefaultCustomTuningLeavesUsableCardinalSlicesAndDiagonalGaps() {
         let settings = JoystickSettings.default
 
-        XCTAssertEqual(settings.leftStickCustomHorizontalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.leftStickCustomVerticalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.leftStickCustomDeadzone, 0.22, accuracy: 0.0001)
-        XCTAssertEqual(settings.rightStickCustomHorizontalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.rightStickCustomVerticalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.rightStickCustomDeadzone, 0.22, accuracy: 0.0001)
-        XCTAssertEqual(settings.mouseDeadzone, 0.15, accuracy: 0.0001)
-        XCTAssertEqual(settings.scrollDeadzone, 0.15, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStick.customHorizontalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStick.customVerticalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStick.customDeadzone, 0.22, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStick.customHorizontalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStick.customVerticalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStick.customDeadzone, 0.22, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStick.mouseDeadzone, 0.15, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStick.scrollDeadzone, 0.15, accuracy: 0.0001)
 
         XCTAssertEqual(
-            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0, y: 0.9), side: .left, settings: settings),
+            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0, y: 0.9), side: .left, tuning: settings.leftStick),
             [.leftStickUp],
             "Default custom tuning should still make clear cardinal input easy"
         )
         XCTAssertEqual(
-            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0.8, y: 0.8), side: .left, settings: settings),
+            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0.8, y: 0.8), side: .left, tuning: settings.leftStick),
             [],
             "Default custom tuning should leave a diagonal deadzone between slices"
         )
         XCTAssertEqual(
-            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0.18, y: 0), side: .left, settings: settings),
+            JoystickDirectionResolver.activeButtons(stick: CGPoint(x: 0.18, y: 0), side: .left, tuning: settings.leftStick),
             [],
             "Default custom tuning should ignore small center drift"
         )
         XCTAssertEqual(
             JoystickDirectionResolver.activeDirections(
                 stick: CGPoint(x: 0, y: 0.9),
-                deadzone: settings.leftStickCustomDeadzone,
-                horizontalSliceSize: settings.leftStickCustomHorizontalSliceSize,
-                verticalSliceSize: settings.leftStickCustomVerticalSliceSize,
-                invertY: settings.invertMouseY
+                deadzone: settings.leftStick.customDeadzone,
+                horizontalSliceSize: settings.leftStick.customHorizontalSliceSize,
+                verticalSliceSize: settings.leftStick.customVerticalSliceSize,
+                invertY: settings.leftStick.invertMouseY
             ),
             [.up],
             "Default custom tuning should still make clear cardinal input easy"
@@ -198,12 +198,12 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
     func testDecodedCustomTuningUsesNewDefaultsWhenFieldsAreMissing() throws {
         let settings = try JSONDecoder().decode(JoystickSettings.self, from: Data("{}".utf8))
 
-        XCTAssertEqual(settings.leftStickCustomHorizontalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.leftStickCustomVerticalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.leftStickCustomDeadzone, 0.22, accuracy: 0.0001)
-        XCTAssertEqual(settings.rightStickCustomHorizontalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.rightStickCustomVerticalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.rightStickCustomDeadzone, 0.22, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStick.customHorizontalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStick.customVerticalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.leftStick.customDeadzone, 0.22, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStick.customHorizontalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStick.customVerticalSliceSize, 0.75, accuracy: 0.0001)
+        XCTAssertEqual(settings.rightStick.customDeadzone, 0.22, accuracy: 0.0001)
     }
 
     func testCustomLeftStickDirectionStartsAndStopsHoldMapping() async throws {
@@ -211,8 +211,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
             var profile = Profile(name: "Custom Left Stick", buttonMappings: [
                 .leftStickUp: holdMapping(10)
             ])
-            profile.joystickSettings.leftStickMode = .custom
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .custom
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -243,8 +243,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 			StickDirectionPreset.wasd.apply(to: &mappings, side: .left)
 
 			var profile = Profile(name: "Custom WASD Movement", buttonMappings: mappings)
-			profile.joystickSettings.leftStickMode = .custom
-			profile.joystickSettings.leftStickCustomDeadzone = 0.1
+			profile.joystickSettings.leftStick.mode = .custom
+			profile.joystickSettings.leftStick.customDeadzone = 0.1
 			installActiveProfile(profile)
 			controllerService.isConnected = true
 		}
@@ -273,8 +273,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 			]
 
 			var profile = Profile(name: "Custom IJKL Movement", buttonMappings: mappings)
-			profile.joystickSettings.leftStickMode = .custom
-			profile.joystickSettings.leftStickCustomDeadzone = 0.1
+			profile.joystickSettings.leftStick.mode = .custom
+			profile.joystickSettings.leftStick.customDeadzone = 0.1
 			installActiveProfile(profile)
 			controllerService.isConnected = true
 		}
@@ -301,9 +301,9 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 				.leftStickUp: KeyMapping(keyCode: KeyCodeMapping.scrollUp),
 				.leftStickLeft: KeyMapping(keyCode: KeyCodeMapping.scrollLeft)
 			])
-			profile.joystickSettings.leftStickMode = .custom
-			profile.joystickSettings.leftStickCustomDeadzone = 0.1
-			profile.joystickSettings.scrollAcceleration = 0
+			profile.joystickSettings.leftStick.mode = .custom
+			profile.joystickSettings.leftStick.customDeadzone = 0.1
+			profile.joystickSettings.leftStick.scrollAcceleration = 0
 			installActiveProfile(profile)
 			controllerService.isConnected = true
 		}
@@ -343,10 +343,10 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 			var lowSensitivityProfile = Profile(name: "Low Scroll Sensitivity", buttonMappings: [
 				.leftStickUp: KeyMapping(keyCode: KeyCodeMapping.scrollUp)
 			])
-			lowSensitivityProfile.joystickSettings.leftStickMode = .custom
-			lowSensitivityProfile.joystickSettings.leftStickCustomDeadzone = 0.1
-			lowSensitivityProfile.joystickSettings.scrollSensitivity = 0
-			lowSensitivityProfile.joystickSettings.scrollAcceleration = 0
+			lowSensitivityProfile.joystickSettings.leftStick.mode = .custom
+			lowSensitivityProfile.joystickSettings.leftStick.customDeadzone = 0.1
+			lowSensitivityProfile.joystickSettings.leftStick.scrollSensitivity = 0
+			lowSensitivityProfile.joystickSettings.leftStick.scrollAcceleration = 0
 			installActiveProfile(lowSensitivityProfile)
 			controllerService.isConnected = true
 		}
@@ -368,10 +368,10 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 			var highSensitivityProfile = Profile(name: "High Scroll Sensitivity", buttonMappings: [
 				.leftStickUp: KeyMapping(keyCode: KeyCodeMapping.scrollUp)
 			])
-			highSensitivityProfile.joystickSettings.leftStickMode = .custom
-			highSensitivityProfile.joystickSettings.leftStickCustomDeadzone = 0.1
-			highSensitivityProfile.joystickSettings.scrollSensitivity = 1
-			highSensitivityProfile.joystickSettings.scrollAcceleration = 0
+			highSensitivityProfile.joystickSettings.leftStick.mode = .custom
+			highSensitivityProfile.joystickSettings.leftStick.customDeadzone = 0.1
+			highSensitivityProfile.joystickSettings.leftStick.scrollSensitivity = 1
+			highSensitivityProfile.joystickSettings.leftStick.scrollAcceleration = 0
 			installActiveProfile(highSensitivityProfile)
 		}
 		await waitForTasks(0.12)
@@ -395,10 +395,10 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 					scrollActionSettings: ScrollActionSettings(speed: 1, acceleration: 0)
 				)
 			])
-			profile.joystickSettings.leftStickMode = .custom
-			profile.joystickSettings.leftStickCustomDeadzone = 0.1
-			profile.joystickSettings.scrollSensitivity = 0
-			profile.joystickSettings.scrollAcceleration = 0
+			profile.joystickSettings.leftStick.mode = .custom
+			profile.joystickSettings.leftStick.customDeadzone = 0.1
+			profile.joystickSettings.leftStick.scrollSensitivity = 0
+			profile.joystickSettings.leftStick.scrollAcceleration = 0
 			installActiveProfile(profile)
 			controllerService.isConnected = true
 		}
@@ -423,8 +423,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                     ChordMapping(buttons: [.leftStickUp, .a], keyCode: 42)
                 ]
             )
-            profile.joystickSettings.leftStickMode = .custom
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .custom
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -452,8 +452,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                     ChordMapping(buttons: [.leftStickUp, .a], keyCode: 43)
                 ]
             )
-            profile.joystickSettings.leftStickMode = .wasdKeys
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .wasdKeys
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -485,8 +485,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                     SequenceMapping(steps: [.rightStickLeft, .b], keyCode: 44)
                 ]
             )
-            profile.joystickSettings.rightStickMode = .arrowKeys
-            profile.joystickSettings.scrollDeadzone = 0.1
+            profile.joystickSettings.rightStick.mode = .arrowKeys
+            profile.joystickSettings.rightStick.scrollDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -522,8 +522,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                     ChordMapping(buttons: [.leftStickUp, .a], keyCode: 45)
                 ]
             )
-            profile.joystickSettings.leftStickMode = .mouse
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .mouse
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -551,10 +551,10 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                 .leftStickUp: holdMapping(10),
                 .leftStickRight: holdMapping(11)
             ])
-            profile.joystickSettings.leftStickMode = .custom
-            profile.joystickSettings.leftStickCustomHorizontalSliceSize = 0.6
-            profile.joystickSettings.leftStickCustomVerticalSliceSize = 0.6
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .custom
+            profile.joystickSettings.leftStick.customHorizontalSliceSize = 0.6
+            profile.joystickSettings.leftStick.customVerticalSliceSize = 0.6
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -579,10 +579,10 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                 .leftStickUp: holdMapping(10),
                 .leftStickRight: holdMapping(11)
             ])
-            profile.joystickSettings.leftStickMode = .custom
-            profile.joystickSettings.leftStickCustomHorizontalSliceSize = 0.2
-            profile.joystickSettings.leftStickCustomVerticalSliceSize = 1.0
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .custom
+            profile.joystickSettings.leftStick.customHorizontalSliceSize = 0.2
+            profile.joystickSettings.leftStick.customVerticalSliceSize = 1.0
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -607,8 +607,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                 .leftStickUp: holdMapping(10),
                 .leftStickRight: holdMapping(11)
             ])
-            profile.joystickSettings.leftStickMode = .custom
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .custom
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -648,8 +648,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                 buttonMappings: [.leftStickUp: holdMapping(20)],
                 layers: [layer]
             )
-            profile.joystickSettings.leftStickMode = .custom
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .custom
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -680,8 +680,8 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
                 buttonMappings: [.a: .key(31)],
                 layers: [layer]
             )
-            profile.joystickSettings.leftStickMode = .custom
-            profile.joystickSettings.mouseDeadzone = 0.1
+            profile.joystickSettings.leftStick.mode = .custom
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.1
             installActiveProfile(profile)
             controllerService.isConnected = true
         }

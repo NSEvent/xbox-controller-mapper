@@ -53,9 +53,9 @@ extension ProfileManager {
         preset.apply(to: &targetProfile.buttonMappings, side: side)
         switch side {
         case .left:
-            targetProfile.joystickSettings.leftStickMode = .custom
+            targetProfile.joystickSettings.leftStick.mode = .custom
         case .right:
-            targetProfile.joystickSettings.rightStickMode = .custom
+            targetProfile.joystickSettings.rightStick.mode = .custom
         }
         updateProfile(targetProfile)
     }

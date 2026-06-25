@@ -19,6 +19,7 @@ struct MouseStickStrategy: JoystickStickStrategy {
     func process(_ input: JoystickStickInput, on engine: MappingEngine) {
         engine.processMouseMovement(
             input.stick,
+            tuning: input.tuning,
             settings: input.settings,
             now: input.now
         )
@@ -37,10 +38,10 @@ struct ScrollStickStrategy: JoystickStickStrategy {
         // Right-stick scroll has a double-tap-to-boost feature; left-stick
         // does not. Match existing behavior exactly.
         if input.side == .right {
-            engine.updateScrollDoubleTapState(rawStick: input.stick, settings: input.settings, now: input.now)
+            engine.updateScrollDoubleTapState(rawStick: input.stick, tuning: input.tuning, now: input.now)
         }
 
-        let deadzone = input.side == .right ? input.settings.scrollDeadzone : input.settings.mouseDeadzone
+        let deadzone = input.side == .right ? input.tuning.scrollDeadzone : input.tuning.mouseDeadzone
         let magnitudeSquared = input.stick.x * input.stick.x + input.stick.y * input.stick.y
         let deadzoneSquared = deadzone * deadzone
 
@@ -57,7 +58,7 @@ struct ScrollStickStrategy: JoystickStickStrategy {
             state.smoothedRightStick = smoothed
         }
 
-        engine.processScrolling(smoothed, rawStick: input.stick, settings: input.settings, now: input.now)
+        engine.processScrolling(smoothed, rawStick: input.stick, tuning: input.tuning, settings: input.settings, now: input.now)
     }
 }
 
@@ -76,13 +77,14 @@ struct DirectionKeyStickStrategy: JoystickStickStrategy {
 
         // Left and right sticks read different deadzone/invert fields, matching
         // the long-standing convention that those settings cluster with mouse
-        // (left stick) vs. scroll (right stick) primary modes.
+        // (left stick) vs. scroll (right stick) primary modes — now sourced from
+        // each stick's own tuning.
         if input.side == .left {
-            deadzone = input.settings.mouseDeadzone
-            invertY = input.settings.invertMouseY
+            deadzone = input.tuning.mouseDeadzone
+            invertY = input.tuning.invertMouseY
         } else {
-            deadzone = input.settings.scrollDeadzone
-            invertY = input.settings.invertScrollY
+            deadzone = input.tuning.scrollDeadzone
+            invertY = input.tuning.invertScrollY
         }
 
         if input.side == .left {
@@ -116,14 +118,14 @@ struct CustomDirectionStickStrategy: JoystickStickStrategy {
             engine.processCustomDirectionButtons(
                 stick: input.stick,
                 side: input.side,
-                settings: input.settings,
+                tuning: input.tuning,
                 heldButtons: &state.leftStickHeldDirectionButtons
             )
         } else {
             engine.processCustomDirectionButtons(
                 stick: input.stick,
                 side: input.side,
-                settings: input.settings,
+                tuning: input.tuning,
                 heldButtons: &state.rightStickHeldDirectionButtons
             )
         }
@@ -145,14 +147,14 @@ struct DPadStickStrategy: JoystickStickStrategy {
             engine.processDPadDirectionButtons(
                 stick: input.stick,
                 side: input.side,
-                settings: input.settings,
+                tuning: input.tuning,
                 heldButtons: &state.leftStickHeldDirectionButtons
             )
         } else {
             engine.processDPadDirectionButtons(
                 stick: input.stick,
                 side: input.side,
-                settings: input.settings,
+                tuning: input.tuning,
                 heldButtons: &state.rightStickHeldDirectionButtons
             )
         }

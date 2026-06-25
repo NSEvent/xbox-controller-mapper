@@ -50,11 +50,13 @@ struct Layer: Codable, Identifiable, Equatable {
     /// Optional LED settings applied when this layer is active (nil = inherit profile settings)
     var dualSenseLEDSettings: DualSenseLEDSettings?
 
-    /// Per-stick-mode overrides applied when this layer is active.
-    /// nil = inherit the profile-level `JoystickSettings.leftStickMode` / `rightStickMode`.
-    /// Other joystick tuning (sensitivity, deadzone, acceleration) stays profile-level.
-    var leftStickModeOverride: StickMode?
-    var rightStickModeOverride: StickMode?
+    /// Per-stick tuning overrides applied when this layer is active.
+    /// nil = inherit the profile-level `JoystickSettings.leftStick` / `rightStick`.
+    /// A non-nil override only changes the fields it explicitly sets (mode,
+    /// sensitivity, acceleration, deadzone, …); unset fields fall through to the
+    /// base stick — same transparency model as button mappings.
+    var leftStickTuning: StickTuningOverride?
+    var rightStickTuning: StickTuningOverride?
 
     init(
         id: UUID = UUID(),
@@ -62,22 +64,25 @@ struct Layer: Codable, Identifiable, Equatable {
         activatorButton: ControllerButton? = nil,
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         dualSenseLEDSettings: DualSenseLEDSettings? = nil,
-        leftStickModeOverride: StickMode? = nil,
-        rightStickModeOverride: StickMode? = nil
+        leftStickTuning: StickTuningOverride? = nil,
+        rightStickTuning: StickTuningOverride? = nil
     ) {
         self.id = id
         self.name = name
         self.activatorButton = activatorButton
         self.buttonMappings = buttonMappings
         self.dualSenseLEDSettings = dualSenseLEDSettings
-        self.leftStickModeOverride = leftStickModeOverride
-        self.rightStickModeOverride = rightStickModeOverride
+        self.leftStickTuning = leftStickTuning
+        self.rightStickTuning = rightStickTuning
     }
 
     // MARK: - Custom Codable
 
     private enum CodingKeys: String, CodingKey {
         case id, name, activatorButton, buttonMappings, dualSenseLEDSettings
+        case leftStickTuning, rightStickTuning
+        // Legacy mode-only overrides (pre per-stick tuning) — migrated on decode,
+        // re-encoded for downgrade safety.
         case leftStickModeOverride, rightStickModeOverride
     }
 
@@ -97,10 +102,22 @@ struct Layer: Codable, Identifiable, Equatable {
         })
 
         dualSenseLEDSettings = try container.decodeIfPresent(DualSenseLEDSettings.self, forKey: .dualSenseLEDSettings)
-        // Lenient: an unknown StickMode raw value (e.g. from a newer build)
-        // falls back to nil ("inherit") instead of throwing out the layer.
-        leftStickModeOverride = try container.decodeLenient(.leftStickModeOverride)
-        rightStickModeOverride = try container.decodeLenient(.rightStickModeOverride)
+        // Prefer the new per-stick tuning override; otherwise migrate the legacy
+        // mode-only override into a tuning override carrying just the mode.
+        // Lenient: an unknown StickMode raw value (newer build) falls back to nil
+        // ("inherit") instead of throwing out the layer.
+        leftStickTuning = try container.decodeIfPresent(StickTuningOverride.self, forKey: .leftStickTuning)
+            ?? Self.migrateLegacyModeOverride(try container.decodeLenient(.leftStickModeOverride))
+        rightStickTuning = try container.decodeIfPresent(StickTuningOverride.self, forKey: .rightStickTuning)
+            ?? Self.migrateLegacyModeOverride(try container.decodeLenient(.rightStickModeOverride))
+    }
+
+    /// Wraps a legacy mode-only override into a full tuning override (or nil).
+    private static func migrateLegacyModeOverride(_ mode: StickMode?) -> StickTuningOverride? {
+        guard let mode else { return nil }
+        var override = StickTuningOverride()
+        override.mode = mode
+        return override
     }
 
     func encode(to encoder: Encoder) throws {
@@ -115,7 +132,11 @@ struct Layer: Codable, Identifiable, Equatable {
         try container.encode(stringKeyedMappings, forKey: .buttonMappings)
 
         try container.encodeIfPresent(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
-        try container.encodeIfPresent(leftStickModeOverride, forKey: .leftStickModeOverride)
-        try container.encodeIfPresent(rightStickModeOverride, forKey: .rightStickModeOverride)
+        try container.encodeIfPresent(leftStickTuning, forKey: .leftStickTuning)
+        try container.encodeIfPresent(rightStickTuning, forKey: .rightStickTuning)
+        // Downgrade safety: also write the legacy mode-only override so a
+        // pre-per-stick build still honors a layer's stick-mode change.
+        try container.encodeIfPresent(leftStickTuning?.mode, forKey: .leftStickModeOverride)
+        try container.encodeIfPresent(rightStickTuning?.mode, forKey: .rightStickModeOverride)
     }
 }

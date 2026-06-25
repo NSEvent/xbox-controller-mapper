@@ -5,9 +5,9 @@ enum JoystickDirectionResolver {
     static func activeButtons(
         stick: CGPoint,
         side: JoystickSide,
-        settings: JoystickSettings
+        tuning: StickTuning
     ) -> Set<ControllerButton> {
-        let config = customConfig(side: side, settings: settings)
+        let config = customConfig(side: side, tuning: tuning)
         return activeDirections(
             stick: stick,
             deadzone: config.deadzone,
@@ -61,10 +61,10 @@ enum JoystickDirectionResolver {
 	static func activeAxisButtons(
 		stick: CGPoint,
 		side: JoystickSide,
-		settings: JoystickSettings,
+		tuning: StickTuning,
 		threshold: Double = 0.4
 	) -> Set<ControllerButton> {
-		let config = customConfig(side: side, settings: settings)
+		let config = customConfig(side: side, tuning: tuning)
 		return activeAxisButtons(
 			stick: stick,
 			side: side,
@@ -102,28 +102,20 @@ enum JoystickDirectionResolver {
         return directions
     }
 
-    private static func customConfig(side: JoystickSide, settings: JoystickSettings) -> (
+    private static func customConfig(side: JoystickSide, tuning: StickTuning) -> (
         deadzone: Double,
         horizontalSliceSize: Double,
         verticalSliceSize: Double,
         invertY: Bool
     ) {
-        switch side {
-        case .left:
-            return (
-                deadzone: settings.leftStickCustomDeadzone,
-                horizontalSliceSize: settings.leftStickCustomHorizontalSliceSize,
-                verticalSliceSize: settings.leftStickCustomVerticalSliceSize,
-                invertY: settings.invertMouseY
-            )
-        case .right:
-            return (
-                deadzone: settings.rightStickCustomDeadzone,
-                horizontalSliceSize: settings.rightStickCustomHorizontalSliceSize,
-                verticalSliceSize: settings.rightStickCustomVerticalSliceSize,
-                invertY: settings.invertScrollY
-            )
-        }
+        // Custom-direction invert still tracks the stick's mouse (left) vs. scroll
+        // (right) invert toggle, matching the custom-direction panel's binding.
+        return (
+            deadzone: tuning.customDeadzone,
+            horizontalSliceSize: tuning.customHorizontalSliceSize,
+            verticalSliceSize: tuning.customVerticalSliceSize,
+            invertY: side == .left ? tuning.invertMouseY : tuning.invertScrollY
+        )
     }
 
     private static func activeCardinalDirection(
