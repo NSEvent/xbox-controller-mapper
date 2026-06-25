@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-06-25
+
+### Added
+
+- **⌘K command palette**: A Spotlight-style jump bar — press ⌘K or the new toolbar button — to go straight to any section, controller button, or bound shortcut without walking the nested tab bar. Sections are searchable by what they do (typing "javascript" finds Scripts, "latency" finds Input), with arrow-key, Return, and Escape navigation.
+
+### Fixed
+
+- **Touchpad cursor lag and path replay**: Using the DualSense touchpad as a mouse could feel laggy and re-trace the path you just swiped under high-rate input — most noticeable through a Bluetooth-to-USB controller adapter, but reproducible wired too. Touchpad samples are now coalesced into a single net movement per drain, so a burst can no longer back up the input queue and replay the motion.
+
+- **Expanded automation URL-scheme blocklist**: TriggerKit automation URL handling now also rejects `shortcuts`, `terminal`, `ssh`, `telnet`, `vnc`, `ftp`, `smb`, and `afp` schemes, closing local-execution and sandbox-escape vectors that the earlier `file` and system-scheme block didn't cover.
+
 ## [2.2.1] - 2026-06-19
 
 ### Fixed
