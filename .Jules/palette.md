@@ -22,3 +22,6 @@
 ## 2026-06-16 - Ensure Symmetry in Accessibility and Tooltips for SwiftUI Icon Buttons
 **Learning:** Verified the necessity of ensuring full symmetry in accessibility and tooltips for icon-only buttons (`Image(systemName: ...)`). These buttons often get one but not the other (`.help()` without `.accessibilityLabel()`, or vice-versa), which causes poor UX for some group of users.
 **Action:** When adding or modifying icon buttons, always apply both `.help("Action")` and `.accessibilityLabel("Action")`.
+## 2026-06-23 - [SwiftUI Button Accessibility]
+**Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
+**Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.

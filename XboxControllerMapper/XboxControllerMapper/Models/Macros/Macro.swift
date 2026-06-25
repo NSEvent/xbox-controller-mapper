@@ -245,9 +245,8 @@ enum MacroStep: Codable, Equatable {
                 if KeychainService.storePassword(password, key: key) != nil {
                     try container.encode(key, forKey: .password)
                 } else {
-                    // Keychain store failed — fall back to plaintext to avoid silent data loss
-                    NSLog("[Macro] Keychain store failed, falling back to plaintext for OBS password")
-                    try container.encode(password, forKey: .password)
+                    // Keychain store failed — fail securely, do not write plaintext to disk
+                    NSLog("[Macro] Keychain store failed, discarding OBS password for security")
                 }
             }
             try container.encode(requestType, forKey: .requestType)
