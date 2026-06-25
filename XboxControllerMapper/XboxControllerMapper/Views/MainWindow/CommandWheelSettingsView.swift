@@ -176,8 +176,8 @@ struct CommandWheelActionRow: View {
             }
             .buttonStyle(.plain)
             .foregroundColor(.secondary)
-            .help("Edit")
-            .accessibilityLabel("Edit Command Wheel Action")
+            .help("Edit \(action.displayName.isEmpty ? "Unnamed" : action.displayName)")
+            .accessibilityLabel("Edit \(action.displayName.isEmpty ? "Unnamed" : action.displayName)")
 
             // Delete button
             Button(action: onDelete) {
@@ -186,8 +186,8 @@ struct CommandWheelActionRow: View {
             }
             .buttonStyle(.plain)
             .foregroundColor(.secondary)
-            .help("Delete")
-            .accessibilityLabel("Delete Command Wheel Action")
+            .help("Delete \(action.displayName.isEmpty ? "Unnamed" : action.displayName)")
+            .accessibilityLabel("Delete \(action.displayName.isEmpty ? "Unnamed" : action.displayName)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 6)
