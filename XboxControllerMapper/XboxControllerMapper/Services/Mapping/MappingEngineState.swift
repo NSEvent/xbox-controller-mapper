@@ -75,6 +75,13 @@ extension MappingEngine {
         var lastJoystickSampleTime: TimeInterval = 0
         var smoothedTouchpadDelta: CGPoint = .zero
         var lastTouchpadSampleTime: TimeInterval = 0
+        // Touchpad movement coalescing: a burst of high-rate touchpad samples is
+        // summed into one net delta and applied once per scheduled flush, so a
+        // bursty transport (BT→USB bridge dongle, or a wired DualSense at its
+        // native high report rate) can't backlog the serial pollingQueue and
+        // replay the swipe path. See MappingEngine.enqueueCoalescedTouchpadMovement.
+        var coalescedTouchpadDelta: CGPoint = .zero
+        var touchpadFlushScheduled: Bool = false
         var smoothedTouchpadCenterDelta: CGPoint = .zero
         var smoothedTouchpadDistanceDelta: Double = 0
         var lastTouchpadGestureSampleTime: TimeInterval = 0
@@ -195,6 +202,8 @@ extension MappingEngine {
             lastJoystickSampleTime = 0
             smoothedTouchpadDelta = .zero
             lastTouchpadSampleTime = 0
+            coalescedTouchpadDelta = .zero
+            touchpadFlushScheduled = false
             smoothedTouchpadCenterDelta = .zero
             smoothedTouchpadDistanceDelta = 0
             lastTouchpadGestureSampleTime = 0

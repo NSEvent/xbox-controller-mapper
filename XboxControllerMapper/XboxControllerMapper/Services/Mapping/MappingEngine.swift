@@ -1441,6 +1441,13 @@ class MappingEngine: ObservableObject {
     }
 
 	nonisolated private func enqueueControllerInputEvent(_ event: ControllerInputEvent) {
+		// Coalesce high-rate touchpad movement so a bursty transport can't backlog
+		// the serial pollingQueue and replay the swipe path. All other events keep
+		// their 1:1 routing.
+		if case .touchpadMoved(let delta) = event {
+			enqueueCoalescedTouchpadMovement(delta)
+			return
+		}
 		switch ControllerInputEventRouting.queue(for: event) {
 		case .input:
 			inputQueue.async { [weak self] in
@@ -1450,6 +1457,38 @@ class MappingEngine: ObservableObject {
 			pollingQueue.async { [weak self] in
 				self?.handleControllerInputEvent(event)
 			}
+		}
+	}
+
+	/// Coalesces high-rate touchpad movement into a single net delta per drain.
+	///
+	/// Bursty transports — BT→USB bridge dongles, and even a wired DualSense at
+	/// its native high report rate — deliver touchpad samples faster than the
+	/// serial `pollingQueue` can post Quartz mouse-moves. Enqueuing one block per
+	/// sample backlogs the queue, so the queued moves drain late and the cursor
+	/// re-traces the swipe path ("laggy + repeating paths"). Summing the deltas
+	/// and draining once per scheduled flush preserves total displacement,
+	/// eliminates the backlog, and lowers latency. Under normal (non-bursty)
+	/// input each sample drains before the next arrives, so per-sample behavior
+	/// is unchanged.
+	nonisolated private func enqueueCoalescedTouchpadMovement(_ delta: CGPoint) {
+		let shouldSchedule: Bool = state.lock.withLock { () -> Bool in
+			state.coalescedTouchpadDelta.x += delta.x
+			state.coalescedTouchpadDelta.y += delta.y
+			if state.touchpadFlushScheduled { return false }
+			state.touchpadFlushScheduled = true
+			return true
+		}
+		guard shouldSchedule else { return }
+		pollingQueue.async { [weak self] in
+			guard let self else { return }
+			let summed: CGPoint = self.state.lock.withLock { () -> CGPoint in
+				let accumulated = self.state.coalescedTouchpadDelta
+				self.state.coalescedTouchpadDelta = .zero
+				self.state.touchpadFlushScheduled = false
+				return accumulated
+			}
+			self.processTouchpadMovement(summed)
 		}
 	}
 
