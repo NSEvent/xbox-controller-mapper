@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-06-25
+
+### Added
+
+- **Independent left/right stick tuning**: Each analog stick now has its own sensitivity, acceleration, and deadzone, so you can keep one stick slow for pixel-precise aiming and the other fast to fling the cursor across a wide monitor—even with both sticks set to mouse mode. Previously the two sticks shared a single sensitivity, so tuning one changed the other. Set them independently in Settings → Joysticks.
+
+- **Per-layer joystick overrides**: Any layer can now override a stick's mode and tuning while it's held, and anything you don't set falls through to your base settings—the same transparency model layers already use for button mappings. Hold a layer trigger to make the left stick fast and release for fine control, without touching the other stick. Configure them in the new Per-Layer Overrides section of the Joysticks tab.
+
+### Fixed
+
+- **Joystick deadzone and invert controls follow the selected mode**: The Deadzone slider and Invert Y toggle edited the scroll-mode field on the right stick and the mouse-mode field on the left regardless of which mode was actually selected, so they had no effect once a stick was switched away from its default mode. They now bind to the field the chosen mode actually uses.
+
 ## [2.3.0] - 2026-06-25
 
 ### Added
