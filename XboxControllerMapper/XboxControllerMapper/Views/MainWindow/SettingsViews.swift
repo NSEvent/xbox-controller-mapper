@@ -92,19 +92,34 @@ struct JoystickSettingsView: View {
                         )
                     )
                 } else {
+                    // Deadzone/Invert follow the active mode so they edit the field the
+                    // runtime actually reads: scroll mode uses the scroll fields, every
+                    // other (movement) mode on the left stick uses the mouse fields.
                     SliderRow(
                         label: "Deadzone",
                         value: Binding(
-                            get: { settings.leftStick.mouseDeadzone },
-                            set: { updateSettings(\.leftStick.mouseDeadzone, $0) }
+                            get: { settings.leftStick.mode == .scroll ? settings.leftStick.scrollDeadzone : settings.leftStick.mouseDeadzone },
+                            set: {
+                                if settings.leftStick.mode == .scroll {
+                                    updateSettings(\.leftStick.scrollDeadzone, $0)
+                                } else {
+                                    updateSettings(\.leftStick.mouseDeadzone, $0)
+                                }
+                            }
                         ),
                         range: 0...0.5,
                         description: "Ignore small movements"
                     )
 
                     Toggle("Invert Y Axis", isOn: Binding(
-                        get: { settings.leftStick.invertMouseY },
-                        set: { updateSettings(\.leftStick.invertMouseY, $0) }
+                        get: { settings.leftStick.mode == .scroll ? settings.leftStick.invertScrollY : settings.leftStick.invertMouseY },
+                        set: {
+                            if settings.leftStick.mode == .scroll {
+                                updateSettings(\.leftStick.invertScrollY, $0)
+                            } else {
+                                updateSettings(\.leftStick.invertMouseY, $0)
+                            }
+                        }
                     ))
                 }
             }
@@ -264,19 +279,34 @@ struct JoystickSettingsView: View {
                         )
                     )
                 } else {
+                    // Deadzone/Invert follow the active mode so they edit the field the
+                    // runtime actually reads: mouse mode uses the mouse fields, every
+                    // other (movement) mode on the right stick uses the scroll fields.
                     SliderRow(
                         label: "Deadzone",
                         value: Binding(
-                            get: { settings.rightStick.scrollDeadzone },
-                            set: { updateSettings(\.rightStick.scrollDeadzone, $0) }
+                            get: { settings.rightStick.mode == .mouse ? settings.rightStick.mouseDeadzone : settings.rightStick.scrollDeadzone },
+                            set: {
+                                if settings.rightStick.mode == .mouse {
+                                    updateSettings(\.rightStick.mouseDeadzone, $0)
+                                } else {
+                                    updateSettings(\.rightStick.scrollDeadzone, $0)
+                                }
+                            }
                         ),
                         range: 0...0.5,
                         description: "Ignore small movements"
                     )
 
                     Toggle("Invert Y Axis", isOn: Binding(
-                        get: { settings.rightStick.invertScrollY },
-                        set: { updateSettings(\.rightStick.invertScrollY, $0) }
+                        get: { settings.rightStick.mode == .mouse ? settings.rightStick.invertMouseY : settings.rightStick.invertScrollY },
+                        set: {
+                            if settings.rightStick.mode == .mouse {
+                                updateSettings(\.rightStick.invertMouseY, $0)
+                            } else {
+                                updateSettings(\.rightStick.invertScrollY, $0)
+                            }
+                        }
                     ))
                 }
             }
