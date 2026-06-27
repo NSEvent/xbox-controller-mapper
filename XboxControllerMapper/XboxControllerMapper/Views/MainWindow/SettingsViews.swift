@@ -438,6 +438,7 @@ struct JoystickSettingsView: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Reset to base (inherit)")
+                    .accessibilityLabel("Reset \(label) to inherited")
                 }
             }
 
