@@ -9,13 +9,14 @@ A dead-simple presentation clicker. It does one thing well: drive a slideshow wi
 | **A** · **Right Bumper** · **D-pad →** | Next slide |
 | **B** · **Left Bumper** · **D-pad ←** | Previous slide |
 | **Right Trigger** | Laser pointer |
+| **Start (+)** | Start presentation (from the beginning) |
 | **Select (−)** | Exit presentation |
 
-Next and previous are bound to three buttons each on purpose—people reach for different buttons by instinct, so any of them just works. Exit lives on a single, out-of-the-way button (Select) so you don't end the show by accident.
+Next and previous are bound to three buttons each on purpose—people reach for different buttons by instinct, so any of them just works. Start and Exit sit on the two small recessed buttons (Start = begin the show, Select = end it), out of the way so you don't trigger them by accident.
 
 ## Google Slides vs PowerPoint
 
-The navigation keys (next, previous, exit) work in **Google Slides, PowerPoint, and Keynote**. One binding is Google-Slides-specific:
+The navigation keys (next, previous, exit) work in **Google Slides, PowerPoint, and Keynote**. **Start presentation** sends **⌘+Shift+Enter**, which begins the show from the first slide in both **Google Slides and PowerPoint** (Keynote uses a different shortcut, so Start won't launch Keynote). One binding is Google-Slides-specific:
 
 - **Laser pointer** sends **L**, which toggles the laser in Google Slides present mode. In PowerPoint the laser is a click-and-drag gesture, so this button is inert there (harmless).
 

@@ -4,7 +4,7 @@
   "icon" : "rectangle.on.rectangle.angled",
   "isDefault" : false,
   "createdAt" : "2026-06-27T12:00:00Z",
-  "modifiedAt" : "2026-06-27T12:00:00Z",
+  "modifiedAt" : "2026-06-27T13:00:00Z",
   "linkedApps" : [
     "com.microsoft.Powerpoint"
   ],
@@ -82,6 +82,17 @@
         "command" : false,
         "option" : false,
         "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "menu" : {
+      "hint" : "Start Presentation",
+      "keyCode" : 36,
+      "modifiers" : {
+        "command" : true,
+        "option" : false,
+        "shift" : true,
         "control" : false
       },
       "isHoldModifier" : false
