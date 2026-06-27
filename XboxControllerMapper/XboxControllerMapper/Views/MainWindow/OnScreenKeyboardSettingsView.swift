@@ -116,7 +116,7 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Edit quick text")
-                    .accessibilityLabel("Edit quick text")
+                    .accessibilityLabel("Edit \(quickText.text)")
 
                     Button(action: onDelete) {
                         Image(systemName: "trash")
@@ -124,7 +124,7 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                     }
                     .buttonStyle(.borderless)
                     .help("Delete quick text")
-                    .accessibilityLabel("Delete quick text")
+                    .accessibilityLabel("Delete \(quickText.text)")
                 }
             }
 
@@ -195,7 +195,7 @@ struct AppBarItemRowView: View {
             }
             .buttonStyle(.borderless)
             .help("Edit app")
-            .accessibilityLabel("Edit app")
+            .accessibilityLabel("Edit \(item.displayName)")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
@@ -203,7 +203,7 @@ struct AppBarItemRowView: View {
             }
             .buttonStyle(.borderless)
             .help("Delete app")
-            .accessibilityLabel("Delete app")
+            .accessibilityLabel("Delete \(item.displayName)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
@@ -274,7 +274,7 @@ struct WebsiteLinkRowView: View {
             }
             .buttonStyle(.borderless)
             .help("Edit link")
-            .accessibilityLabel("Edit link")
+            .accessibilityLabel("Edit \(link.displayName)")
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
@@ -282,7 +282,7 @@ struct WebsiteLinkRowView: View {
             }
             .buttonStyle(.borderless)
             .help("Delete link")
-            .accessibilityLabel("Delete link")
+            .accessibilityLabel("Delete \(link.displayName)")
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
