@@ -1,0 +1,164 @@
+{
+  "id" : "36DB65F5-54ED-419B-8FCC-1AC6438BA25D",
+  "name" : "Google Slides \/ PowerPoint",
+  "icon" : "rectangle.on.rectangle.angled",
+  "isDefault" : false,
+  "createdAt" : "2026-06-27T12:00:00Z",
+  "modifiedAt" : "2026-06-27T12:00:00Z",
+  "linkedApps" : [
+    "com.microsoft.Powerpoint"
+  ],
+  "buttonMappings" : {
+    "a" : {
+      "hint" : "Next Slide",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "b" : {
+      "hint" : "Previous Slide",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "leftBumper" : {
+      "hint" : "Previous Slide",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightBumper" : {
+      "hint" : "Next Slide",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadLeft" : {
+      "hint" : "Previous Slide",
+      "keyCode" : 123,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "dpadRight" : {
+      "hint" : "Next Slide",
+      "keyCode" : 124,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "rightTrigger" : {
+      "hint" : "Laser Pointer",
+      "keyCode" : 37,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    },
+    "view" : {
+      "hint" : "Exit Presentation",
+      "keyCode" : 53,
+      "modifiers" : {
+        "command" : false,
+        "option" : false,
+        "shift" : false,
+        "control" : false
+      },
+      "isHoldModifier" : false
+    }
+  },
+  "chordMappings" : [],
+  "sequenceMappings" : [],
+  "gestureMappings" : [],
+  "macros" : [],
+  "joystickSettings" : {
+    "mouseSensitivity" : 0.5,
+    "scrollSensitivity" : 0.5,
+    "mouseDeadzone" : 0.15,
+    "scrollDeadzone" : 0.15,
+    "invertMouseY" : false,
+    "invertScrollY" : false,
+    "mouseAcceleration" : 0.5,
+    "touchpadSensitivity" : 0.5,
+    "touchpadAcceleration" : 0.5,
+    "touchpadDeadzone" : 0.001,
+    "touchpadSmoothing" : 0.4,
+    "touchpadPanSensitivity" : 0.5,
+    "touchpadZoomToPanRatio" : 1.8,
+    "touchpadUseNativeZoom" : true,
+    "scrollAcceleration" : 0.5,
+    "scrollBoostMultiplier" : 2.0,
+    "focusModeSensitivity" : 0.1,
+    "focusModeModifier" : {
+      "command" : true,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    },
+    "gyroAimingEnabled" : false,
+    "gyroAimingSensitivity" : 0.3
+  },
+  "dualSenseLEDSettings" : {
+    "lightBarColor" : {
+      "red" : 0.9,
+      "green" : 0.6,
+      "blue" : 0.1
+    },
+    "lightBarBrightness" : "bright",
+    "lightBarEnabled" : true,
+    "muteButtonLED" : "off",
+    "playerLEDs" : {
+      "led1" : true,
+      "led2" : false,
+      "led3" : false,
+      "led4" : false,
+      "led5" : false
+    }
+  },
+  "onScreenKeyboardSettings" : {
+    "defaultTerminalApp" : "Terminal",
+    "typingDelay" : 0.03,
+    "showExtendedFunctionKeys" : false,
+    "activateAllWindows" : true,
+    "appBarItems" : [],
+    "websiteLinks" : [],
+    "quickTexts" : [],
+    "toggleShortcutModifiers" : {
+      "command" : false,
+      "option" : false,
+      "shift" : false,
+      "control" : false
+    }
+  }
+}
