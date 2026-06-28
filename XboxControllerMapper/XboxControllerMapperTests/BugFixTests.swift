@@ -173,6 +173,29 @@ final class ControllerDisconnectStateResetTests: XCTestCase {
 		XCTAssertEqual(model, .lite2)
 	}
 
+	func testEightBitDoMicroPhysicalDPadIsSticklessDPadNotLeftStickFallback() {
+		XCTAssertTrue(ControllerService.isSticklessEightBitDoModel(
+			vendorName: "HID",
+			productCategory: "8BitDo Micro gamepad"
+		))
+		XCTAssertTrue(ControllerService.isSticklessEightBitDoModel(
+			vendorName: nil,
+			productCategory: "8BitDo Micro Controller"
+		))
+		XCTAssertFalse(ControllerService.shouldUsePhysicalDirectionPadAsLeftStickFallback(
+			vendorName: "HID",
+			productCategory: "8BitDo Micro gamepad"
+		))
+		XCTAssertFalse(ControllerService.isSticklessEightBitDoModel(
+			vendorName: "HID",
+			productCategory: "8BitDo Lite 2"
+		))
+		XCTAssertTrue(ControllerService.shouldUsePhysicalDirectionPadAsLeftStickFallback(
+			vendorName: "HID",
+			productCategory: "8BitDo Lite 2"
+		))
+	}
+
     func testTriggerResetExistsInDisconnectHandler() {
         // Verify the actual disconnect handler code resets triggers by checking
         // that the production code includes the trigger reset lines.

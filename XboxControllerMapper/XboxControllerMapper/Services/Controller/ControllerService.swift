@@ -735,7 +735,7 @@ class ControllerService: ObservableObject {
 
     /// Identifies the small 8BitDo pads from their SDL/HID product names
     /// ("8BitDo Zero 2", "8BitDo Micro", "8BitDo Lite 2", "8BitDo Lite SE").
-    static func eightBitDoMinimapModel(forControllerName name: String) -> EightBitDoMinimapModel? {
+    nonisolated static func eightBitDoMinimapModel(forControllerName name: String) -> EightBitDoMinimapModel? {
         let lowered = name.lowercased()
         guard lowered.contains("8bitdo") else { return nil }
         if lowered.contains("zero") { return .zero2 }
@@ -745,8 +745,19 @@ class ControllerService: ObservableObject {
         return nil
     }
 
-	static func eightBitDoMinimapModel(vendorName: String?, productCategory: String) -> EightBitDoMinimapModel? {
+	nonisolated static func eightBitDoMinimapModel(vendorName: String?, productCategory: String) -> EightBitDoMinimapModel? {
 		eightBitDoMinimapModel(forControllerName: "\(vendorName ?? "") \(productCategory)")
+	}
+
+	nonisolated static func isSticklessEightBitDoModel(vendorName: String?, productCategory: String) -> Bool {
+		eightBitDoMinimapModel(vendorName: vendorName, productCategory: productCategory)?.isStickless == true
+	}
+
+	nonisolated static func shouldUsePhysicalDirectionPadAsLeftStickFallback(
+		vendorName: String?,
+		productCategory: String
+	) -> Bool {
+		!isSticklessEightBitDoModel(vendorName: vendorName, productCategory: productCategory)
 	}
 
 	private func startEightBitDoHIDMonitoringIfNeeded(for controller: GCController, reason: String) {
@@ -2128,17 +2139,14 @@ class ControllerService: ObservableObject {
         ]
 
         // Stickless 8BitDo pads (Zero 2 / Micro in D-input mode) have no real
-        // analog stick — their physical d-pad IS the directional input. The
-        // Micro exposes it as a "Direction Pad" (with digital sub-buttons),
-        // which we must NOT bind as .dpad* buttons here: that would fire d-pad
-        // actions AND (via the thumbstick fallback below) drive the mouse —
-        // the double-input. Instead we route the d-pad to the left stick so
-        // the left-stick mode (Mouse by default, or the D-Pad mode) governs
-        // it, exactly like the Zero 2 (which exposes its d-pad as a thumbstick).
-		let isSticklessEightBitDo = Self.eightBitDoMinimapModel(
+		// analog stick. When macOS exposes the physical d-pad as a
+		// `Direction Pad`, bind it as real .dpad* buttons and do not also use it
+		// as the left-stick fallback. The mapping canvas labels this control as
+		// a D-pad, and Android-mode Micro reports digital D-pad directions here.
+		let useDirectionPadAsLeftStickFallback = Self.shouldUsePhysicalDirectionPadAsLeftStickFallback(
 			vendorName: controller.vendorName,
 			productCategory: controller.productCategory
-		)?.isStickless == true
+		)
 
         var boundCount = 0
         for (inputName, controllerButton) in buttonMap {
@@ -2148,9 +2156,8 @@ class ControllerService: ObservableObject {
             }
         }
 
-        // D-pad (skip the direct button binding for stickless 8BitDo pads —
-        // their d-pad flows through the left stick instead, see above).
-        if !isSticklessEightBitDo, let dpad = profile.dpads[GCInputDirectionPad] {
+		// D-pad.
+		if let dpad = profile.dpads[GCInputDirectionPad] {
 			bindButton(dpad.up, to: .dpadUp, from: controller)
 			bindButton(dpad.down, to: .dpadDown, from: controller)
 			bindButton(dpad.left, to: .dpadLeft, from: controller)
@@ -2166,7 +2173,7 @@ class ControllerService: ObservableObject {
 					service.updateLeftStick(x: x, y: y)
 				}
             }
-        } else if let dpad = profile.dpads[GCInputDirectionPad] {
+		} else if useDirectionPadAsLeftStickFallback, let dpad = profile.dpads[GCInputDirectionPad] {
             // Fallback: Joy-Con stick may be exposed as a D-pad rather than a thumbstick.
             // Use it for mouse movement so the user gets analog-like cursor control.
 			dpad.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
