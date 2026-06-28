@@ -129,6 +129,8 @@ struct ScriptListView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .help("Add Example Script")
+                .accessibilityLabel("Add Example Script")
             }
 
             HStack(spacing: 12) {

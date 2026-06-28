@@ -25,3 +25,6 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
+## 2024-06-28 - Missing accessibility in Empty State List Item Buttons
+**Learning:** Empty state list item buttons (like "Add example scripts") containing only an icon or text and icon can miss explicit accessibility labels or helpful tooltips, particularly in dynamically generated lists (`ForEach`) or customized interactive elements, causing a bad UX for mouse and screen reader users.
+**Action:** Always add `.help()` and `.accessibilityLabel()` modifiers to interactive empty state list buttons.
