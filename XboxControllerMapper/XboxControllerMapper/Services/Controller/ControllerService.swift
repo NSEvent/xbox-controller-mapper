@@ -263,6 +263,8 @@ class ControllerService: ObservableObject {
     private var connectionGeneration: UInt64 = 0
 	private var configuredGameControllerIDs: Set<ObjectIdentifier> = []
 	private let inactiveControllerAnalogActivationDeadzone: Float = 0.18
+	private let inactiveControllerTakeoverQuietInterval: TimeInterval = 0.75
+	private var activeGameControllerLastInputTime: TimeInterval = 0
 
     /// Generation token for the battery polling chain. `updateBatteryInfo()` bumps
     /// it so previously scheduled polls cancel themselves — otherwise every external
@@ -707,13 +709,18 @@ class ControllerService: ObservableObject {
     // Haptic engines for controller feedback (try multiple localities)
     // Protected by hapticLock — accessed from both @MainActor (setup/stop) and hapticQueue (play)
     let hapticLock = NSLock()
-    var hapticEngines: [CHHapticEngine] = []
+    nonisolated(unsafe) var hapticEngines: [CHHapticEngine] = []
     let hapticQueue = DispatchQueue(label: "com.xboxmapper.haptic", qos: .userInitiated)
+    let hapticQueueSpecificKey = DispatchSpecificKey<Void>()
     struct ActiveHapticPlayer {
         let player: CHHapticPatternPlayer
         let endTime: TimeInterval
     }
-    var activeHapticPlayers: [ActiveHapticPlayer] = []
+    nonisolated(unsafe) var activeHapticPlayers: [ActiveHapticPlayer] = []
+    nonisolated(unsafe) var hapticSessionGeneration: UInt64 = 0
+	#if DEBUG
+	nonisolated(unsafe) var hapticSessionAcceptedForTesting: ((UInt64) -> Void)?
+	#endif
 
     /// Display name shown in the toolbar pill for `--screenshot-variant` captures.
     static func screenshotControllerName(for variant: String) -> String {
@@ -816,6 +823,7 @@ class ControllerService: ObservableObject {
         let shouldEnableHardwareMonitoring = enableHardwareMonitoring && !Self.isRunningTests
 		self.guideMonitor = XboxGuideMonitor(enableHardwareMonitoring: shouldEnableHardwareMonitoring)
         self.hardwareMonitoringEnabled = shouldEnableHardwareMonitoring
+		hapticQueue.setSpecific(key: hapticQueueSpecificKey, value: ())
 
 		// Load last controller type (so UI shows correct button labels when no controller is connected)
 		storage.restoreControllerTypeFlags(
@@ -1036,6 +1044,7 @@ class ControllerService: ObservableObject {
 			  connectionGeneration, reason, controller.vendorName ?? "(nil)")
 
 		prepareForActiveControllerSwitch()
+		activeGameControllerLastInputTime = CFAbsoluteTimeGetCurrent()
 
         // Cancel generic HID fallback if GameController framework claimed this device
         genericHIDFallbackTimer?.cancel()
@@ -1092,8 +1101,10 @@ class ControllerService: ObservableObject {
             self?.objectWillChange.send()
         }
 
+		let activationGeneration = connectionGeneration
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            self?.playHaptic(intensity: 0.7, sharpness: 0.6, duration: 0.12)
+			guard let self, self.connectionGeneration == activationGeneration else { return }
+			self.playHaptic(intensity: 0.7, sharpness: 0.6, duration: 0.12)
         }
         updateBatteryInfo()
         startDisplayUpdateTimer()
@@ -1131,6 +1142,7 @@ class ControllerService: ObservableObject {
 		cleanupEightBitDoHIDMonitoring()
 		stopEliteHelper()
 		controllerMappingSource = nil
+		activeGameControllerLastInputTime = 0
 
 		activeButtons.removeAll()
 		leftStick = .zero
@@ -1187,6 +1199,7 @@ class ControllerService: ObservableObject {
         connectedController?.motion?.sensorsActive = false
         connectedController = nil
 		configuredGameControllerIDs.removeAll()
+		activeGameControllerLastInputTime = 0
         isConnected = false
         currentControllerIdentity = nil
         isGenericController = false
@@ -1480,11 +1493,69 @@ class ControllerService: ObservableObject {
 		if steamHIDActiveDevice != nil {
 			return false
 		}
+		let now = CFAbsoluteTimeGetCurrent()
 		if connectedController !== controller {
-			guard meaningful else { return false }
+			guard Self.shouldActivateInactiveControllerInput(
+				meaningful: meaningful,
+				activeControllerHasInput: hasActiveGameControllerInput(),
+				activeControllerLastInputTime: activeGameControllerLastInputTime,
+				now: now,
+				quietInterval: inactiveControllerTakeoverQuietInterval
+			) else { return false }
 			activateGameController(controller, reason: "input")
+		} else {
+			if meaningful || hasActiveGameControllerInput() {
+				activeGameControllerLastInputTime = now
+			}
 		}
 		return shouldAcceptGameControllerInput()
+	}
+
+	nonisolated static func shouldActivateInactiveControllerInput(
+		meaningful: Bool,
+		activeControllerHasInput: Bool,
+		activeControllerLastInputTime: TimeInterval,
+		now: TimeInterval,
+		quietInterval: TimeInterval
+	) -> Bool {
+		guard meaningful else { return false }
+		guard !activeControllerHasInput else { return false }
+		guard activeControllerLastInputTime > 0 else { return true }
+		return now - activeControllerLastInputTime >= quietInterval
+	}
+
+	nonisolated func hasActiveGameControllerInput() -> Bool {
+		storage.lock.lock()
+		defer { storage.lock.unlock() }
+		return Self.hasActiveGameControllerInput(
+			activeButtons: storage.activeButtons,
+			leftStick: storage.leftStick,
+			rightStick: storage.rightStick,
+			leftTrigger: storage.leftTrigger,
+			rightTrigger: storage.rightTrigger,
+			touchpadIsActive: storage.isTouchpadTouching ||
+				storage.isTouchpadSecondaryTouching ||
+				storage.isSteamLeftTouchpadTouching ||
+				storage.isSteamRightTouchpadTouching,
+			deadzone: inactiveControllerAnalogActivationDeadzone
+		)
+	}
+
+	nonisolated static func hasActiveGameControllerInput(
+		activeButtons: Set<ControllerButton>,
+		leftStick: CGPoint,
+		rightStick: CGPoint,
+		leftTrigger: Float,
+		rightTrigger: Float,
+		touchpadIsActive: Bool,
+		deadzone: Float
+	) -> Bool {
+		guard activeButtons.isEmpty else { return true }
+		guard !touchpadIsActive else { return true }
+		if hypotf(Float(leftStick.x), Float(leftStick.y)) >= deadzone { return true }
+		if hypotf(Float(rightStick.x), Float(rightStick.y)) >= deadzone { return true }
+		if leftTrigger >= deadzone || rightTrigger >= deadzone { return true }
+		return false
 	}
 
     func clearGameControllerHandlers(for controller: GCController) {
