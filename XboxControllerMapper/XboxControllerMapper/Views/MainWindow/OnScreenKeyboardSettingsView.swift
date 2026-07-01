@@ -104,6 +104,7 @@ struct QuickTextRowView<SuggestionsView: View>: View {
                                 .font(.caption2)
                                 .foregroundColor(.blue)
                                 .help("Contains variables that will be expanded")
+                                .accessibilityLabel("Contains variables that will be expanded")
                         }
 
                         Spacer()
