@@ -384,8 +384,8 @@ struct ActionMappingEditor: View {
                                 .foregroundColor(.red)
                         }
                         .buttonStyle(.plain)
-                        .help("Remove header")
-                        .accessibilityLabel("Remove header")
+                        .help("Remove header \(key)")
+                        .accessibilityLabel("Remove header \(key)")
                     }
                 }
 

@@ -217,21 +217,23 @@ struct ScriptRow: View {
             .onTapGesture { onEdit() }
 
             HStack(spacing: 12) {
+                let displayName = script.name.isEmpty ? "Untitled Script" : script.name
+
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit")
-                .accessibilityLabel("Edit")
+                .help("Edit \(displayName)")
+                .accessibilityLabel("Edit \(displayName)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete")
-                .accessibilityLabel("Delete")
+                .help("Delete \(displayName)")
+                .accessibilityLabel("Delete \(displayName)")
             }
         }
         .padding(.horizontal, 12)
