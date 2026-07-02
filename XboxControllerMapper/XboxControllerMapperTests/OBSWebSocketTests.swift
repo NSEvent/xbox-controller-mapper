@@ -119,7 +119,12 @@ final class OBSWebSocketTests: XCTestCase {
 
         XCTAssertEqual(json["type"] as? String, "obsWebSocket")
         XCTAssertEqual(json["url"] as? String, "ws://127.0.0.1:4455")
-        let passwordReference = try XCTUnwrap(json["password"] as? String)
+        // Without a writable keychain the password is either passed through as-is or
+        // discarded entirely ("Keychain store failed, discarding OBS password") —
+        // both mean this session can't exercise the keychain-reference path.
+        guard let passwordReference = json["password"] as? String else {
+            throw XCTSkip("Writable keychain unavailable in this test session")
+        }
 		if passwordReference == "secret" {
 			throw XCTSkip("Writable keychain unavailable in this test session")
 		}
