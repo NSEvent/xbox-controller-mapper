@@ -72,6 +72,7 @@ This document lists all features for verification after refactoring.
 - [ ] Scroll acceleration
 - [ ] Scroll boost multiplier
 - [ ] Focus mode (precision control with modifier key)
+- [ ] FPS / pointer-lock relative mouse mode (Auto / Off / Always) — 360° aiming in games that capture the mouse
 
 ## DualSense (PS5) Features
 

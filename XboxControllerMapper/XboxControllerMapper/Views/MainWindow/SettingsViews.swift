@@ -190,6 +190,22 @@ struct JoystickSettingsView: View {
                     }
             }
 
+            Section("FPS / Pointer-Lock Games") {
+                Picker("Relative Mouse Aiming", selection: Binding(
+                    get: { settings.pointerLockMouseMode },
+                    set: { updateSettings(\.pointerLockMouseMode, $0) }
+                )) {
+                    ForEach(PointerLockMouseMode.allCases, id: \.self) { mode in
+                        Text(LocalizedStringKey(mode.displayName)).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text("Games that capture the mouse (browser FPS, pointer lock) need relative input to aim 360°. Auto switches while the game hides the cursor, so aiming never stops at screen edges. Always is for per-app game profiles; the cursor won't move outside a game.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Right Joystick") {
                 Picker("Mode", selection: Binding(
                     get: { settings.rightStick.mode },

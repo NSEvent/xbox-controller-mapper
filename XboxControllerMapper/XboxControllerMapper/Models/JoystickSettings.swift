@@ -123,6 +123,11 @@ struct JoystickSettings: Codable, Equatable {
     /// Deadzone for gyroscope aiming (0.0 - 1.0, rad/s threshold)
     var gyroAimingDeadzone: Double = 0.3
 
+    /// How mouse movement is posted when a game captures the mouse (pointer lock).
+    /// `.auto` switches to relative delta-only events while the system cursor is
+    /// hidden, so FPS aiming never stops at screen edges.
+    var pointerLockMouseMode: PointerLockMouseMode = .auto
+
     /// Motion gesture sensitivity (0.0 = hard to trigger, 1.0 = very sensitive)
     var gestureSensitivity: Double = 0.5
 
@@ -258,6 +263,7 @@ extension JoystickSettings {
         case gyroAimingEnabled
         case gyroAimingSensitivity
         case gyroAimingDeadzone
+        case pointerLockMouseMode
         case gestureSensitivity
         case gestureCooldown
         // Legacy function-keyed per-stick fields — decoded only when the new
@@ -317,6 +323,8 @@ extension JoystickSettings {
         gyroAimingEnabled = try container.decode(.gyroAimingEnabled, default: false)
         gyroAimingSensitivity = try container.decode(.gyroAimingSensitivity, default: 0.3, clampedTo: unit)
         gyroAimingDeadzone = try container.decode(.gyroAimingDeadzone, default: 0.3, clampedTo: unit)
+        // Lenient: a mode added by a newer build degrades to .auto on downgrade.
+        pointerLockMouseMode = try container.decodeLenient(.pointerLockMouseMode, default: PointerLockMouseMode.auto)
         gestureSensitivity = try container.decode(.gestureSensitivity, default: 0.5, clampedTo: unit)
         gestureCooldown = try container.decode(.gestureCooldown, default: 0.5, clampedTo: unit)
 
@@ -356,6 +364,7 @@ extension JoystickSettings {
         try container.encode(gyroAimingEnabled, forKey: .gyroAimingEnabled)
         try container.encode(gyroAimingSensitivity, forKey: .gyroAimingSensitivity)
         try container.encode(gyroAimingDeadzone, forKey: .gyroAimingDeadzone)
+        try container.encode(pointerLockMouseMode, forKey: .pointerLockMouseMode)
         try container.encode(gestureSensitivity, forKey: .gestureSensitivity)
         try container.encode(gestureCooldown, forKey: .gestureCooldown)
 

@@ -30,6 +30,9 @@ protocol InputSimulatorProtocol: Sendable {
     func getHeldModifiers() -> CGEventFlags
     func moveMouse(dx: CGFloat, dy: CGFloat)
     func moveMouseNative(dx: Int, dy: Int)
+    /// Configures pointer-lock (FPS) relative mouse mode. Default implementation
+    /// is a no-op for conformers that don't post real mouse events.
+    func setPointerLockMouseMode(_ mode: PointerLockMouseMode)
     func warpMouseTo(point: CGPoint)
     var isLeftMouseButtonHeld: Bool { get }
     func scroll(event: ScrollEvent)
@@ -40,6 +43,8 @@ protocol InputSimulatorProtocol: Sendable {
 }
 
 extension InputSimulatorProtocol {
+    func setPointerLockMouseMode(_ mode: PointerLockMouseMode) {}
+
     func scroll(dx: CGFloat, dy: CGFloat) {
         scroll(event: ScrollEvent(dx: dx, dy: dy))
     }
@@ -169,6 +174,91 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Lock for protecting shared state
     private let stateLock = NSLock()
+
+    // MARK: - Pointer-Lock (FPS) Relative Mouse Mode
+
+    /// Configured mode; pushed in by MappingEngine on profile/settings changes. (stateLock)
+    private var pointerLockMouseMode: PointerLockMouseMode = .auto
+    /// Throttled cursor-visibility poll state. (stateLock)
+    private var lastCursorVisibilityPollTime: CFAbsoluteTime?
+    private var cachedCursorVisible: Bool?
+    private var cachedAppInitiatedCursorHide = false
+
+    func setPointerLockMouseMode(_ mode: PointerLockMouseMode) {
+        stateLock.lock()
+        pointerLockMouseMode = mode
+        // Force a fresh visibility poll on the next move so mode changes apply immediately.
+        lastCursorVisibilityPollTime = nil
+        stateLock.unlock()
+    }
+
+    /// Decides whether the current move should post relative deltas instead of the
+    /// absolute tracked/clamped path. Caller must hold `stateLock`.
+    private func shouldUseRelativeMouseMovementLocked(now: CFAbsoluteTime, zoomActive: Bool) -> Bool {
+        let mode = pointerLockMouseMode
+        guard mode != .off else { return false }
+        if PointerLockMousePolicy.shouldRefreshCursorVisibility(now: now, lastPoll: lastCursorVisibilityPollTime) {
+            lastCursorVisibilityPollTime = now
+            cachedCursorVisible = CursorVisibility.isCursorVisible()
+            cachedAppInitiatedCursorHide = UserDefaults.standard.bool(
+                forKey: Config.onScreenKeyboardCursorHiddenDefaultsKey
+            )
+        }
+        return PointerLockMousePolicy.shouldUseRelativeMovement(
+            mode: mode,
+            cursorVisible: cachedCursorVisible,
+            zoomActive: zoomActive,
+            universalControlRelayActive: universalControlRelayActive,
+            appInitiatedCursorHide: cachedAppInitiatedCursorHide
+        )
+    }
+
+    /// Posts a delta-only mouse event at the current cursor position. Under pointer
+    /// lock the app receives movementX/Y 1:1, the cursor stays pinned, and the lock
+    /// stays engaged (verified against Chrome's Pointer Lock API 2026-07-02).
+    private func postRelativeMouseMove(dx: Int, dy: Int, heldButtons: Set<CGMouseButton>, eventNumber: Int64) {
+        let eventType: CGEventType
+        let mouseButton: CGMouseButton
+        if heldButtons.contains(.left) {
+            eventType = .leftMouseDragged
+            mouseButton = .left
+        } else if heldButtons.contains(.right) {
+            eventType = .rightMouseDragged
+            mouseButton = .right
+        } else if heldButtons.contains(.center) {
+            eventType = .otherMouseDragged
+            mouseButton = .center
+        } else {
+            eventType = .mouseMoved
+            mouseButton = .left
+        }
+
+        let cursorPos: CGPoint
+        if let locEvent = CGEvent(source: nil) {
+            cursorPos = locEvent.location
+        } else {
+            let ns = NSEvent.mouseLocation
+            let screenH = NSScreen.main?.frame.height ?? 1080
+            cursorPos = CGPoint(x: ns.x, y: screenH - ns.y)
+        }
+
+        guard let event = CGEvent(
+            mouseEventSource: eventSource,
+            mouseType: eventType,
+            mouseCursorPosition: cursorPos,
+            mouseButton: mouseButton
+        ) else {
+            NSLog("[InputSimulator] Failed to create relative mouse move event - check Accessibility permissions")
+            return
+        }
+        event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
+        event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
+        if eventType != .mouseMoved {
+            event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
+            event.setDoubleValueField(.mouseEventPressure, value: 1.0)
+        }
+        event.post(tap: .cghidEventTap)
+    }
 
     // MARK: - Keyboard Simulation
 
@@ -872,6 +962,23 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // cursor "reset" behavior when reading position each frame
             let now = CFAbsoluteTimeGetCurrent()
             let zoomActive = Self.isZoomCurrentlyActive()
+
+            // Pointer-lock (FPS) relative mode: bypass the tracked/clamped absolute
+            // path entirely so aiming never dies at a screen edge. Tracking is
+            // cleared so absolute mode re-syncs from the system on exit.
+            if self.shouldUseRelativeMouseMovementLocked(now: now, zoomActive: zoomActive) {
+                self.trackedCursorPosition = nil
+                self.lastMouseMoveTime = now
+                self.stateLock.unlock()
+                self.postRelativeMouseMove(
+                    dx: Int(moveX),
+                    dy: Int(moveY),
+                    heldButtons: heldButtons,
+                    eventNumber: eventNumber
+                )
+                return
+            }
+
             let currentCGPoint: CGPoint
 
             // If there's been no movement for 2+ seconds, clear tracked position

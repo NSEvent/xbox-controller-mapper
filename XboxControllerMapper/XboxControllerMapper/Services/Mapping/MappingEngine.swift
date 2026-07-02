@@ -146,6 +146,7 @@ class MappingEngine: ObservableObject {
         self.state.applyProfileIndex(MappingProfileIndex(profile: profileManager.activeProfile))
         syncLatencySettings(for: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
+        syncPointerLockMouseMode(from: profileManager.activeProfile?.joystickSettings)
         syncTouchpadSettings(from: profileManager.activeProfile)
         syncMotionActivation(for: profileManager.activeProfile)
     }
@@ -186,6 +187,10 @@ class MappingEngine: ObservableObject {
         let settings = settings ?? .default
         controllerService.requireActiveTouchForRegionClick = settings.requireActiveTouchForRegionClick
 		controllerService.appleTVRemoteCircularScrollEnabled = settings.appleTVRemoteCircularScrollEnabled
+    }
+
+    private func syncPointerLockMouseMode(from settings: JoystickSettings?) {
+        inputSimulator.setPointerLockMouseMode((settings ?? .default).pointerLockMouseMode)
     }
 
     private func syncGestureSettings(from settings: JoystickSettings?) {
@@ -245,6 +250,7 @@ class MappingEngine: ObservableObject {
                     self.controllerService.handleButton(button, pressed: false)
                 }
                 self.syncGestureSettings(from: profile?.joystickSettings)
+                self.syncPointerLockMouseMode(from: profile?.joystickSettings)
                 self.syncTouchpadSettings(from: profile)
                 self.syncMotionActivation(for: profile)
                 self.syncLatencySettings(for: profile)
