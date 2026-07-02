@@ -184,12 +184,40 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     private var cachedCursorVisible: Bool?
     private var cachedAppInitiatedCursorHide = false
 
+    /// Last logged (decision, cursorVisible) for state-change diagnostics. (stateLock)
+    private var lastLoggedRelativeModeState: (decision: Bool, cursorVisible: Bool?)?
+    /// Throttle for the liveness trace line. (stateLock)
+    private var lastRelativeModeTraceTime: CFAbsoluteTime = 0
+
+    /// Opt-in support diagnostics: `defaults write KevinTang.XboxControllerMapper
+    /// pointerLockTraceLogging -bool true` then relaunch. NSLog from the release app
+    /// doesn't reach the unified log reliably, so pointer-lock diagnostics append to
+    /// /tmp/controllerkeys-pointerlock-trace.log instead.
+    private static let pointerLockTraceEnabled = UserDefaults.standard.bool(forKey: "pointerLockTraceLogging")
+
+    private static func pointerLockTrace(_ message: String) {
+        guard pointerLockTraceEnabled else { return }
+        let line = "\(Date()) \(message)\n"
+        if let data = line.data(using: .utf8),
+           let handle = FileHandle(forWritingAtPath: "/tmp/controllerkeys-pointerlock-trace.log") {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            handle.closeFile()
+        } else {
+            FileManager.default.createFile(
+                atPath: "/tmp/controllerkeys-pointerlock-trace.log",
+                contents: line.data(using: .utf8)
+            )
+        }
+    }
+
     func setPointerLockMouseMode(_ mode: PointerLockMouseMode) {
         stateLock.lock()
         pointerLockMouseMode = mode
         // Force a fresh visibility poll on the next move so mode changes apply immediately.
         lastCursorVisibilityPollTime = nil
         stateLock.unlock()
+        Self.pointerLockTrace("mode set: \(mode.rawValue)")
     }
 
     /// Decides whether the current move should post relative deltas instead of the
@@ -204,13 +232,28 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 forKey: Config.onScreenKeyboardCursorHiddenDefaultsKey
             )
         }
-        return PointerLockMousePolicy.shouldUseRelativeMovement(
+        let decision = PointerLockMousePolicy.shouldUseRelativeMovement(
             mode: mode,
             cursorVisible: cachedCursorVisible,
             zoomActive: zoomActive,
             universalControlRelayActive: universalControlRelayActive,
             appInitiatedCursorHide: cachedAppInitiatedCursorHide
         )
+        let stateChanged = lastLoggedRelativeModeState?.decision != decision
+            || lastLoggedRelativeModeState?.cursorVisible != cachedCursorVisible
+        if stateChanged || now - lastRelativeModeTraceTime > 1.0 {
+            lastLoggedRelativeModeState = (decision, cachedCursorVisible)
+            lastRelativeModeTraceTime = now
+            Self.pointerLockTrace(
+                "decision: mode=\(mode.rawValue)"
+                + " cursorVisible=\(cachedCursorVisible.map { $0 ? "yes" : "no" } ?? "unknown")"
+                + " appHide=\(cachedAppInitiatedCursorHide)"
+                + " relay=\(universalControlRelayActive)"
+                + " zoom=\(zoomActive)"
+                + " -> relative=\(decision)\(stateChanged ? " [CHANGED]" : "")"
+            )
+        }
+        return decision
     }
 
     /// Posts a delta-only mouse event at the current cursor position. Under pointer
