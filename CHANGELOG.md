@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-07-02
+
+### Added
+
+- **FPS / pointer-lock relative mouse mode**: Games that capture the mouse—browser FPS games, aim trainers, anything using the Pointer Lock API—need an endless stream of relative mouse motion, but stick aiming previously moved the real cursor to absolute screen positions, so aiming died at the screen edge and the cursor could escape the game onto the desktop. A new mode in Settings → Joysticks posts true relative movement while a game has the mouse captured: full 360° aiming, no edge stops, and the cursor stays pinned inside the game. Auto (the default) detects capture by watching for the game hiding the system cursor and switches back the moment it's released; Always is for dedicated per-app game profiles. One caveat: games that opt into raw input (`unadjustedMovement`) read the physical mouse hardware directly and can't see synthetic input from any macOS software—turn the game's raw-input setting off to aim with ControllerKeys.
+
+- **Google Slides / PowerPoint community profile**: A presentation-remote profile with a Start Presentation button, so a controller can drive slide decks out of the box.
+
+### Fixed
+
+- **Controller switching is harder to break**: Handing control to a second connected controller now waits for the active controller to go quiet and return to neutral first, so a drifting stick or a held button can no longer yank control away mid-input. Haptic sessions are also invalidated on switch, so rumble queued by the previous controller no longer fires on the new one.
+
+- **8BitDo Micro d-pad routes as a d-pad**: When macOS exposes the Micro's physical d-pad as a Direction Pad (Android mode), it now binds as real d-pad buttons instead of doubling as the left-stick fallback, matching what the mapping canvas shows.
+
 ## [2.4.0] - 2026-06-25
 
 ### Added
