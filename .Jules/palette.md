@@ -25,3 +25,6 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
+## 2024-11-20 - [Dynamic Context for Repeated List Actions]
+**Learning:** When using generic actions like "Edit" or "Delete" in repeated list rows (e.g., Macros, Scripts), screen reader users hear only the action without context (e.g., "Edit, button. Delete, button.").
+**Action:** Always inject dynamic context (e.g., the item's name) into `.accessibilityLabel()` and `.help()` modifiers for repeated list actions to ensure disambiguation for screen readers (e.g., `.accessibilityLabel("Edit \(item.name)")`).
