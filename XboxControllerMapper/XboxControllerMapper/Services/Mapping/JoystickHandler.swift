@@ -66,6 +66,10 @@ extension MappingEngine {
         // Single lock acquisition for all controller input state (cache-friendly snapshot)
         let controllerSnapshot = controllerService.snapshot()
         let leftStick = controllerSnapshot.leftStick
+		let analogPrecisionMultiplier = settings.analogPrecisionMultiplier(
+			leftTrigger: Double(controllerSnapshot.leftTrigger),
+			rightTrigger: Double(controllerSnapshot.rightTrigger)
+		)
 		processGyroAiming(
 			settings: settings,
 			now: now,
@@ -233,6 +237,7 @@ extension MappingEngine {
             side: .left,
             settings: settings,
             tuning: leftTuning,
+			analogPrecisionMultiplier: analogPrecisionMultiplier,
             dt: dt,
             now: now
         )
@@ -251,6 +256,7 @@ extension MappingEngine {
                 side: .right,
                 settings: settings,
                 tuning: rightTuning,
+				analogPrecisionMultiplier: analogPrecisionMultiplier,
                 dt: dt,
                 now: now
             )
@@ -500,7 +506,13 @@ extension MappingEngine {
         }
     }
 
-    nonisolated func processMouseMovement(_ stick: CGPoint, tuning: StickTuning, settings: JoystickSettings, now: CFAbsoluteTime) {
+    nonisolated func processMouseMovement(
+		_ stick: CGPoint,
+		tuning: StickTuning,
+		settings: JoystickSettings,
+		analogPrecisionMultiplier: Double,
+		now: CFAbsoluteTime
+    ) {
         let focusFlags = settings.focusModeModifier.cgEventFlags
         let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
 
@@ -515,7 +527,8 @@ extension MappingEngine {
         let normalizedMagnitude = JoystickMath.normalizedMagnitude(magnitude, deadzone: tuning.mouseDeadzone)
         let acceleratedMagnitude = pow(normalizedMagnitude, tuning.mouseAccelerationExponent)
 
-        let targetMultiplier = isFocusActive ? settings.focusMultiplier : tuning.mouseMultiplier
+		let baseTargetMultiplier = isFocusActive ? settings.focusMultiplier : tuning.mouseMultiplier
+		let targetMultiplier = baseTargetMultiplier * analogPrecisionMultiplier
 
         if state.currentMultiplier == 0 {
             state.currentMultiplier = targetMultiplier

@@ -21,6 +21,7 @@ struct MouseStickStrategy: JoystickStickStrategy {
             input.stick,
             tuning: input.tuning,
             settings: input.settings,
+			analogPrecisionMultiplier: input.analogPrecisionMultiplier,
             now: input.now
         )
     }

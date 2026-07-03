@@ -184,6 +184,48 @@ struct JoystickSettingsView: View {
                     }
                 }
 
+				Picker("Analog Trigger", selection: Binding(
+					get: { settings.analogPrecisionTriggerMode },
+					set: { updateSettings(\.analogPrecisionTriggerMode, $0) }
+				)) {
+					ForEach(AnalogPrecisionTriggerMode.allCases, id: \.self) { mode in
+						Text(LocalizedStringKey(mode.displayName)).tag(mode)
+					}
+				}
+				.pickerStyle(.segmented)
+
+				if settings.analogPrecisionTriggerMode != .off {
+					SliderRow(
+						label: "Minimum Speed",
+						value: Binding(
+							get: { settings.analogPrecisionMinimumSpeed },
+							set: { updateSettings(\.analogPrecisionMinimumSpeed, $0) }
+						),
+						range: 0.05...1.0,
+						description: "Cursor speed at full trigger pull"
+					)
+
+					SliderRow(
+						label: "Trigger Deadzone",
+						value: Binding(
+							get: { settings.analogPrecisionDeadzone },
+							set: { updateSettings(\.analogPrecisionDeadzone, $0) }
+						),
+						range: 0...0.5,
+						description: "How far the trigger moves before slowing starts"
+					)
+
+					SliderRow(
+						label: "Trigger Curve",
+						value: Binding(
+							get: { settings.analogPrecisionCurve },
+							set: { updateSettings(\.analogPrecisionCurve, $0) }
+						),
+						range: 0...1,
+						description: "0 = linear, 1 = more slowdown near full pull"
+					)
+				}
+
                 Toggle("Highlight Focused Cursor", isOn: $focusCursorHighlightEnabled)
                     .onChange(of: focusCursorHighlightEnabled) { _, newValue in
                         FocusModeIndicator.isEnabled = newValue

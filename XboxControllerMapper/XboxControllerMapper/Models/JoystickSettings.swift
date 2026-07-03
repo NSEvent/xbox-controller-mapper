@@ -42,6 +42,36 @@ enum StickMode: String, Codable, CaseIterable {
     }
 }
 
+/// Which analog trigger, if any, scales cursor speed as a continuous precision control.
+enum AnalogPrecisionTriggerMode: String, Codable, CaseIterable {
+    case off = "off"
+    case left = "left"
+    case right = "right"
+    case either = "either"
+
+    var displayName: String {
+		switch self {
+		case .off: return "Off"
+		case .left: return "L2 / LT"
+		case .right: return "R2 / RT"
+		case .either: return "Either"
+		}
+    }
+
+    func rawValue(leftTrigger: Double, rightTrigger: Double) -> Double {
+		switch self {
+		case .off:
+			return 0
+		case .left:
+			return leftTrigger
+		case .right:
+			return rightTrigger
+		case .either:
+			return max(leftTrigger, rightTrigger)
+		}
+    }
+}
+
 /// Settings for joystick behavior.
 ///
 /// Per-stick response (mode, sensitivity, acceleration, deadzone, invert, custom
@@ -113,6 +143,18 @@ struct JoystickSettings: Codable, Equatable {
 
     /// Modifier that triggers focus mode (slower mouse speed)
     var focusModeModifier: ModifierFlags = .command
+
+    /// Analog trigger that proportionally slows mouse/touchpad cursor movement.
+    var analogPrecisionTriggerMode: AnalogPrecisionTriggerMode = .off
+
+    /// Cursor-speed floor at a full trigger pull (0.05 - 1.0).
+    var analogPrecisionMinimumSpeed: Double = 0.15
+
+    /// Trigger value ignored before precision scaling begins (0.0 - 0.95).
+    var analogPrecisionDeadzone: Double = 0.05
+
+    /// Response curve from trigger depth to speed reduction (0 = linear, 1 = cubic).
+    var analogPrecisionCurve: Double = 0.35
 
     /// Whether gyroscope aiming is enabled during focus mode.
     var gyroAimingEnabled: Bool = false
@@ -198,6 +240,9 @@ struct JoystickSettings: Codable, Equatable {
                (0.5...5.0).contains(touchpadZoomToPanRatio) &&
                (1.0...4.0).contains(scrollBoostMultiplier) &&
                range.contains(focusModeSensitivity) &&
+			   (0.05...1.0).contains(analogPrecisionMinimumSpeed) &&
+			   (0.0...0.95).contains(analogPrecisionDeadzone) &&
+			   range.contains(analogPrecisionCurve) &&
                range.contains(gyroAimingSensitivity) &&
                range.contains(gyroAimingDeadzone) &&
                range.contains(gestureSensitivity) &&
@@ -207,6 +252,25 @@ struct JoystickSettings: Codable, Equatable {
     /// Converts 0-1 focus sensitivity to actual multiplier for mouse
     var focusMultiplier: Double {
         return JoystickCurves.mouseMultiplier(sensitivity: focusModeSensitivity)
+    }
+
+    /// Multiplier applied to cursor motion based on analog trigger depth.
+    /// Returns 1.0 when disabled or below deadzone, and approaches
+    /// `analogPrecisionMinimumSpeed` at full trigger pull.
+    func analogPrecisionMultiplier(leftTrigger: Double, rightTrigger: Double) -> Double {
+		guard analogPrecisionTriggerMode != .off else { return 1.0 }
+		let rawTrigger = max(0.0, min(1.0, analogPrecisionTriggerMode.rawValue(
+			leftTrigger: leftTrigger,
+			rightTrigger: rightTrigger
+		)))
+		let deadzone = max(0.0, min(0.95, analogPrecisionDeadzone))
+		guard rawTrigger > deadzone else { return 1.0 }
+
+		let minimumSpeed = max(0.05, min(1.0, analogPrecisionMinimumSpeed))
+		let normalized = (rawTrigger - deadzone) / (1.0 - deadzone)
+		let exponent = 1.0 + max(0.0, min(1.0, analogPrecisionCurve)) * 2.0
+		let shaped = pow(normalized, exponent)
+		return 1.0 - shaped * (1.0 - minimumSpeed)
     }
 
     func calibratedTouchpadValue(_ raw: Double, boost: Double) -> Double {
@@ -260,6 +324,10 @@ extension JoystickSettings {
         case scrollBoostMultiplier
         case focusModeSensitivity
         case focusModeModifier
+		case analogPrecisionTriggerMode
+		case analogPrecisionMinimumSpeed
+		case analogPrecisionDeadzone
+		case analogPrecisionCurve
         case gyroAimingEnabled
         case gyroAimingSensitivity
         case gyroAimingDeadzone
@@ -320,6 +388,17 @@ extension JoystickSettings {
         scrollBoostMultiplier = try container.decode(.scrollBoostMultiplier, default: 2.0, clampedTo: 1.0...4.0)
         focusModeSensitivity = try container.decode(.focusModeSensitivity, default: 0.2, clampedTo: unit)
         focusModeModifier = try container.decode(.focusModeModifier, default: .command)
+		analogPrecisionTriggerMode = try container.decodeLenient(
+			.analogPrecisionTriggerMode,
+			default: AnalogPrecisionTriggerMode.off
+		)
+		analogPrecisionMinimumSpeed = try container.decode(
+			.analogPrecisionMinimumSpeed,
+			default: 0.15,
+			clampedTo: 0.05...1.0
+		)
+		analogPrecisionDeadzone = try container.decode(.analogPrecisionDeadzone, default: 0.05, clampedTo: 0.0...0.95)
+		analogPrecisionCurve = try container.decode(.analogPrecisionCurve, default: 0.35, clampedTo: unit)
         gyroAimingEnabled = try container.decode(.gyroAimingEnabled, default: false)
         gyroAimingSensitivity = try container.decode(.gyroAimingSensitivity, default: 0.3, clampedTo: unit)
         gyroAimingDeadzone = try container.decode(.gyroAimingDeadzone, default: 0.3, clampedTo: unit)
@@ -361,6 +440,10 @@ extension JoystickSettings {
         try container.encode(scrollBoostMultiplier, forKey: .scrollBoostMultiplier)
         try container.encode(focusModeSensitivity, forKey: .focusModeSensitivity)
         try container.encode(focusModeModifier, forKey: .focusModeModifier)
+		try container.encode(analogPrecisionTriggerMode, forKey: .analogPrecisionTriggerMode)
+		try container.encode(analogPrecisionMinimumSpeed, forKey: .analogPrecisionMinimumSpeed)
+		try container.encode(analogPrecisionDeadzone, forKey: .analogPrecisionDeadzone)
+		try container.encode(analogPrecisionCurve, forKey: .analogPrecisionCurve)
         try container.encode(gyroAimingEnabled, forKey: .gyroAimingEnabled)
         try container.encode(gyroAimingSensitivity, forKey: .gyroAimingSensitivity)
         try container.encode(gyroAimingDeadzone, forKey: .gyroAimingDeadzone)

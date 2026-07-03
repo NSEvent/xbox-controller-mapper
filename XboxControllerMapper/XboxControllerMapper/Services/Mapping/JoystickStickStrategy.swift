@@ -20,6 +20,8 @@ struct JoystickStickInput {
     /// mode from here; `settings` is for genuinely global knobs (focus mode,
     /// scroll boost).
     let tuning: StickTuning
+    /// Continuous precision multiplier from analog trigger depth (1.0 = normal).
+    let analogPrecisionMultiplier: Double
     let dt: TimeInterval
     let now: CFAbsoluteTime
 }
