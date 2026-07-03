@@ -25,3 +25,7 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
+
+## 2024-05-18 - Add Dynamic Context to Item Action Tooltips and Accessibility Labels
+**Learning:** Icon-only action buttons in repeated list rows (e.g. "Edit", "Delete") cause ambiguity for screen readers and tooltips when multiple rows share the identical label (e.g., ten different "Edit" buttons on screen).
+**Action:** Always inject dynamic item context into list action buttons by using string interpolation for both tooltips and voiceover labels (e.g. `.help("Edit \(item.name)")` and `.accessibilityLabel("Edit \(item.name)")`).
