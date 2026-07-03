@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2026-07-03
+
+### Added
+
+- **Analog trigger precision control**: Use LT/L2, RT/R2, or either trigger as a continuous precision control for thumbstick and touchpad cursor movement. The deeper you pull, the slower the cursor moves, with sliders for minimum speed, trigger deadzone, and response curve. It is off by default and stacks with existing trigger button mappings instead of replacing them; the Joysticks settings UI now recommends RT/R2 first and warns when the selected trigger also has a button action or overlaps with left-trigger swipe typing.
+
 ## [2.5.0] - 2026-07-02
 
 ### Added
