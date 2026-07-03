@@ -117,6 +117,52 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         }
     }
 
+	func testAnalogPrecisionTriggerScalesTouchpadMouseMovement() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "TouchAnalogPrecision", buttonMappings: [:])
+			profile.joystickSettings.touchpadDeadzone = 0.00001
+			profile.joystickSettings.touchpadSmoothing = 0
+			profile.joystickSettings.analogPrecisionTriggerMode = .right
+			profile.joystickSettings.analogPrecisionMinimumSpeed = 0.25
+			profile.joystickSettings.analogPrecisionDeadzone = 0.0
+			profile.joystickSettings.analogPrecisionCurve = 0.0
+			profileManager.setActiveProfile(profile)
+		}
+		try? await Task.sleep(nanoseconds: 10_000_000)
+
+		await MainActor.run {
+			controllerService.updateRightTrigger(0.0, pressed: false)
+			mockInputSimulator.clearEvents()
+			controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.6, y: 0.4)))
+		}
+		await waitForTasks(0.2)
+		let normal = averageRecentTouchpadMouseMagnitude()
+
+		await MainActor.run {
+			controllerService.updateRightTrigger(1.0, pressed: false)
+			mockInputSimulator.clearEvents()
+			controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.6, y: 0.4)))
+		}
+		await waitForTasks(0.2)
+		let precise = averageRecentTouchpadMouseMagnitude()
+
+		XCTAssertGreaterThan(normal, 0.1)
+		XCTAssertGreaterThan(precise, 0.1)
+		XCTAssertLessThan(precise, normal * 0.6)
+	}
+
+	private func averageRecentTouchpadMouseMagnitude(limit: Int = 4) -> CGFloat {
+		let magnitudes = mockInputSimulator.events.compactMap { event -> CGFloat? in
+			if case .moveMouse(let dx, let dy) = event {
+				return hypot(dx, dy)
+			}
+			return nil
+		}
+		let recent = Array(magnitudes.suffix(limit))
+		XCTAssertFalse(recent.isEmpty, "Expected touchpad mouse movement events")
+		return recent.reduce(0, +) / CGFloat(max(recent.count, 1))
+	}
+
     func testTouchpadMovementSuppressedDuringTwoFingerGesture() async throws {
         await MainActor.run {
             var profile = Profile(name: "TouchSuppressed", buttonMappings: [:])

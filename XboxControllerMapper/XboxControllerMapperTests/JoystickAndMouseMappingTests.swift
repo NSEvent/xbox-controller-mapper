@@ -27,6 +27,52 @@ final class JoystickAndMouseMappingTests: MappingEngineTestCase {
             }, "Mouse movement should be generated from joystick input")
         }
     }
+
+	func testAnalogPrecisionTriggerScalesJoystickMouseMovement() async throws {
+		await MainActor.run {
+			var settings = JoystickSettings()
+			settings.leftStick.mode = .mouse
+			settings.leftStick.mouseDeadzone = 0.05
+			settings.leftStick.mouseAcceleration = 0.0
+			settings.leftStick.mouseSensitivity = 0.5
+			settings.analogPrecisionTriggerMode = .right
+			settings.analogPrecisionMinimumSpeed = 0.25
+			settings.analogPrecisionDeadzone = 0.0
+			settings.analogPrecisionCurve = 0.0
+
+			let profile = Profile(name: "Analog Precision", buttonMappings: [:], joystickSettings: settings)
+			profileManager.setActiveProfile(profile)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.15)
+
+		controllerService.updateRightTrigger(0.0, pressed: false)
+		mockInputSimulator.clearEvents()
+		controllerService.setLeftStickForTesting(CGPoint(x: 0.8, y: 0.0))
+		await waitForTasks(0.35)
+		let normal = averageRecentMouseDeltaX()
+
+		controllerService.updateRightTrigger(1.0, pressed: false)
+		mockInputSimulator.clearEvents()
+		await waitForTasks(0.35)
+		let precise = averageRecentMouseDeltaX()
+
+		XCTAssertGreaterThan(normal, 0.1)
+		XCTAssertGreaterThan(precise, 0.1)
+		XCTAssertLessThan(precise, normal * 0.6)
+	}
+
+	private func averageRecentMouseDeltaX(limit: Int = 8) -> CGFloat {
+		let deltas = mockInputSimulator.events.compactMap { event -> CGFloat? in
+			if case .moveMouse(let dx, _) = event {
+				return abs(dx)
+			}
+			return nil
+		}
+		let recent = Array(deltas.suffix(limit))
+		XCTAssertFalse(recent.isEmpty, "Expected mouse movement events")
+		return recent.reduce(0, +) / CGFloat(max(recent.count, 1))
+	}
     
     // MARK: - Joystick Processing Tests (High Priority)
 

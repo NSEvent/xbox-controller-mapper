@@ -193,6 +193,14 @@ struct JoystickSettingsView: View {
 					}
 				}
 				.pickerStyle(.segmented)
+				.help("R2 / RT avoids the left-trigger swipe-typing overlap.")
+
+				if let analogPrecisionWarning {
+					Label(analogPrecisionWarning, systemImage: "exclamationmark.triangle")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+						.help(analogPrecisionWarning)
+				}
 
 				if settings.analogPrecisionTriggerMode != .off {
 					SliderRow(
@@ -401,6 +409,40 @@ struct JoystickSettingsView: View {
         newSettings[keyPath: keyPath] = value
         profileManager.updateJoystickSettings(newSettings)
     }
+
+	private var analogPrecisionTriggerButtons: [ControllerButton] {
+		switch settings.analogPrecisionTriggerMode {
+		case .off:
+			return []
+		case .left:
+			return [.leftTrigger]
+		case .right:
+			return [.rightTrigger]
+		case .either:
+			return [.rightTrigger, .leftTrigger]
+		}
+	}
+
+	private var analogPrecisionWarning: String? {
+		guard !analogPrecisionTriggerButtons.isEmpty else { return nil }
+		var messages: [String] = []
+
+		if let profile = profileManager.activeProfile {
+			let mappedTriggers = analogPrecisionTriggerButtons.filter { button in
+				(profile.buttonMappings[button]?.isEmpty == false)
+			}
+			if !mappedTriggers.isEmpty {
+				let names = mappedTriggers.map(\.displayName).joined(separator: " / ")
+				messages.append("\(names) also has a button mapping; precision stacks with that action.")
+			}
+		}
+
+		if analogPrecisionTriggerButtons.contains(.leftTrigger) {
+			messages.append("LT also starts swipe typing while the on-screen keyboard is visible.")
+		}
+
+		return messages.isEmpty ? nil : messages.joined(separator: " ")
+	}
 
     /// The layer whose overrides are being edited: the picked one, or the first layer
     /// when nothing valid is selected (so the section always shows a layer).

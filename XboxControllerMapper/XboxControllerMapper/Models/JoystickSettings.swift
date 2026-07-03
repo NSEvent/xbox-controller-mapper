@@ -49,6 +49,10 @@ enum AnalogPrecisionTriggerMode: String, Codable, CaseIterable {
     case right = "right"
     case either = "either"
 
+	static var allCases: [AnalogPrecisionTriggerMode] {
+		[.off, .right, .left, .either]
+	}
+
     var displayName: String {
 		switch self {
 		case .off: return "Off"
