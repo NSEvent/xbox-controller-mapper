@@ -132,6 +132,7 @@ struct SharedMacroRow: View {
     var onEdit: () -> Void
 
     var body: some View {
+        let displayName = macro.name.isEmpty ? "Unnamed Macro" : macro.name
         HStack {
             Image(systemName: "books.vertical")
                 .foregroundColor(.white.opacity(0.3))
@@ -155,8 +156,8 @@ struct SharedMacroRow: View {
                     .foregroundColor(.accentColor)
             }
             .buttonStyle(.borderless)
-            .help("Edit in shared library")
-            .accessibilityLabel("Edit in shared library")
+            .help("Edit \(displayName) in shared library")
+            .accessibilityLabel("Edit \(displayName) in shared library")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -170,6 +171,7 @@ struct MacroRow: View {
     var onDelete: () -> Void
 
     var body: some View {
+        let displayName = macro.name.isEmpty ? "Unnamed Macro" : macro.name
         HStack {
             // Drag handle - not tappable, allows List drag to work
             Image(systemName: "line.3.horizontal")
@@ -206,16 +208,16 @@ struct MacroRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit")
-                .accessibilityLabel("Edit")
+                .help("Edit \(displayName)")
+                .accessibilityLabel("Edit \(displayName)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete")
-                .accessibilityLabel("Delete")
+                .help("Delete \(displayName)")
+                .accessibilityLabel("Delete \(displayName)")
             }
         }
         .padding(.horizontal, 12)

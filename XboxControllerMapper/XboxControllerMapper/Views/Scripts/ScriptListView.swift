@@ -179,6 +179,7 @@ struct ScriptRow: View {
     var onDelete: () -> Void
 
     var body: some View {
+        let displayName = script.name.isEmpty ? "Untitled Script" : script.name
         HStack {
             // Drag handle
             Image(systemName: "line.3.horizontal")
@@ -222,16 +223,16 @@ struct ScriptRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit")
-                .accessibilityLabel("Edit")
+                .help("Edit \(displayName)")
+                .accessibilityLabel("Edit \(displayName)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete")
-                .accessibilityLabel("Delete")
+                .help("Delete \(displayName)")
+                .accessibilityLabel("Delete \(displayName)")
             }
         }
         .padding(.horizontal, 12)
