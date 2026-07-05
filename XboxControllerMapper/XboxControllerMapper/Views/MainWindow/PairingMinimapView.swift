@@ -99,7 +99,7 @@ struct PairingMinimapView: View {
 		let size = OuraRingMinimapView.previewSize
 		let scale = targetWidth / size.width
 
-		return OuraRingMinimapView(isTapPressed: pressedButtons.contains(.ouraTap))
+		return OuraRingMinimapView(isTapPressed: pressedButtons.contains { $0.isOuraRingOnly })
 			.frame(width: size.width, height: size.height)
 			.scaleEffect(scale)
 			.frame(width: targetWidth, height: (size.height * scale).rounded())

@@ -100,6 +100,7 @@ final class ControllerButtonCoverageTests: XCTestCase {
 				XCTAssertFalse(ControllerButton.xboxButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.xboxButtons.contains(.appleTVRemotePower))
 				XCTAssertFalse(ControllerButton.xboxButtons.contains(.ouraTap))
+				XCTAssertFalse(ControllerButton.xboxButtons.contains(.ouraDoubleTap))
 
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.share), "Standard DualSense does not expose Share")
 				XCTAssertTrue(ControllerButton.dualSenseButtons.contains(.touchpadButton))
@@ -107,11 +108,13 @@ final class ControllerButtonCoverageTests: XCTestCase {
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.appleTVRemoteVolumeUp))
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.ouraTap))
+				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.ouraTripleTap))
 
 				XCTAssertFalse(ControllerButton.dualShockButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.ouraTap))
-				XCTAssertEqual(ControllerButton.ouraRingButtons, [.ouraTap])
+				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.ouraFiveTap))
+				XCTAssertEqual(ControllerButton.ouraRingButtons, [.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap])
 				XCTAssertEqual(
 					ControllerButton.appleTVRemoteButtons,
 					[

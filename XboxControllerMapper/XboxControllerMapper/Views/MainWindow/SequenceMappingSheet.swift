@@ -43,6 +43,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
+	@State private var ouraRingCommandOption: OuraRingSystemCommandOption = .centerRing
     @State private var webhookURL: String = ""
     @State private var webhookMethod: HTTPMethod = .POST
     @State private var webhookBody: String = ""
@@ -697,6 +698,8 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+			case .ring:
+				OuraRingSystemCommandPicker(selection: $ouraRingCommandOption)
             case .webhook:
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
@@ -755,6 +758,8 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
         case .link:
             guard !linkURL.isEmpty else { return nil }
             return .openLink(url: linkURL)
+		case .ring:
+			return ouraRingCommandOption.systemCommand
         case .webhook:
             guard !webhookURL.isEmpty else { return nil }
             let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
@@ -796,6 +801,8 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
             shellRunInTerminal = inTerminal
         case .openLink(let url):
             linkURL = url
+		case .centerOuraRing, .toggleOuraMotion:
+			ouraRingCommandOption = OuraRingSystemCommandOption(command: command)
         case .httpRequest(let url, let method, let headers, let body, let responseHandling):
             webhookURL = url
             webhookMethod = method

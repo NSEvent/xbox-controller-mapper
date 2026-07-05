@@ -554,6 +554,11 @@ struct Profile: Codable, Identifiable, Equatable {
         mappings[.rightTouchpadButton] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
         mappings[.rightTouchpadTap] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
 
+		// Oura Ring tap gestures. Single tap behaves like the default click;
+		// multi-tap gestures keep calibration controls editable.
+		mappings[.ouraTap] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
+		applyOuraGestureDefaults(to: &mappings)
+
         // Chord mappings
         let chords: [ChordMapping] = [
             // RB + X = Cmd+Delete
@@ -602,6 +607,15 @@ struct Profile: Codable, Identifiable, Equatable {
             joystickSettings: joystick
         )
     }
+
+	private static func applyOuraGestureDefaults(to mappings: inout [ControllerButton: KeyMapping]) {
+		if mappings[.ouraDoubleTap] == nil {
+			mappings[.ouraDoubleTap] = KeyMapping(systemCommand: .centerOuraRing, hint: "Center Ring")
+		}
+		if mappings[.ouraTripleTap] == nil {
+			mappings[.ouraTripleTap] = KeyMapping(systemCommand: .toggleOuraMotion, hint: "Toggle Ring Mouse")
+		}
+	}
 }
 
 // MARK: - Custom Codable for Dictionary with enum keys
@@ -649,6 +663,7 @@ extension Profile {
             }
             return (button, value)
         })
+		Self.applyOuraGestureDefaults(to: &buttonMappings)
         dpadPreset = try container.decode(.dpadPreset, default: DPadPreset.resolved(from: buttonMappings))
 
         chordMappings = try container.decode(.chordMappings, default: [])

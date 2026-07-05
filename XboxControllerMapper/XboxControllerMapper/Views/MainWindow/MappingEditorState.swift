@@ -25,6 +25,7 @@ struct MappingEditorState {
     var shellCommandText: String = ""
     var shellRunInTerminal: Bool = true
     var linkURL: String = ""
+	var ouraRingCommandOption: OuraRingSystemCommandOption = .centerRing
 
     // Webhook (primary-only, but kept here for uniformity)
     var webhookURL: String = ""
@@ -121,6 +122,8 @@ struct MappingEditorState {
         case .link:
             guard !linkURL.isEmpty else { return nil }
             return .openLink(url: linkURL)
+		case .ring:
+			return ouraRingCommandOption.systemCommand
         case .webhook:
             guard !webhookURL.isEmpty else { return nil }
             let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
@@ -165,6 +168,8 @@ struct MappingEditorState {
             shellRunInTerminal = terminal
         case .openLink(let url):
             linkURL = url
+		case .centerOuraRing, .toggleOuraMotion:
+			ouraRingCommandOption = OuraRingSystemCommandOption(command: command)
         case .httpRequest(let url, let method, let headers, let body, let responseHandling):
             webhookURL = url
             webhookMethod = method

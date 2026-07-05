@@ -265,6 +265,8 @@ struct ActionMappingEditor: View {
             appFields
         case .link:
             linkFields
+		case .ring:
+			OuraRingSystemCommandPicker(selection: $state.ouraRingCommandOption)
         case .webhook:
             if showFullSystemCategories {
                 webhookFields
@@ -508,6 +510,25 @@ struct ActionMappingEditor: View {
                 .foregroundColor(.secondary)
         }
     }
+}
+
+struct OuraRingSystemCommandPicker: View {
+	@Binding var selection: OuraRingSystemCommandOption
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			Picker("Ring Command", selection: $selection) {
+				ForEach(OuraRingSystemCommandOption.allCases) { option in
+					Text(option.displayName).tag(option)
+				}
+			}
+			.pickerStyle(.segmented)
+
+			Text(selection.helpText)
+				.font(.caption)
+				.foregroundColor(.secondary)
+		}
+	}
 }
 
 struct ProfileSelectionPicker: View {

@@ -21,4 +21,33 @@ final class ProfileDefaultMappingsTests: XCTestCase {
         XCTAssertFalse(inTerminal, "Center mouse command should run silently")
         XCTAssertTrue(command.contains("CGWarpMouseCursorPosition"), "Command should warp cursor to center")
     }
+
+	func testCreateDefaultIncludesOuraGestureMappings() {
+		let profile = Profile.createDefault()
+
+		XCTAssertEqual(profile.buttonMappings[.ouraTap]?.keyCode, KeyCodeMapping.mouseLeftClick)
+		XCTAssertEqual(profile.buttonMappings[.ouraDoubleTap]?.systemCommand, .centerOuraRing)
+		XCTAssertEqual(profile.buttonMappings[.ouraTripleTap]?.systemCommand, .toggleOuraMotion)
+		XCTAssertNil(profile.buttonMappings[.ouraFiveTap], "5x tap should be user-configurable without a default action")
+	}
+
+	func testDecodingMigratesOuraDoubleAndTripleTapDefaultsOnlyWhenMissing() throws {
+		let profileId = UUID()
+		let json = #"""
+		{
+			"id": "\#(profileId.uuidString)",
+			"name": "Old",
+			"buttonMappings": {
+				"ouraTripleTap": {}
+			}
+		}
+		"""#.data(using: .utf8)!
+
+		let profile = try JSONDecoder().decode(Profile.self, from: json)
+
+		XCTAssertEqual(profile.buttonMappings[.ouraDoubleTap]?.systemCommand, .centerOuraRing)
+		XCTAssertTrue(profile.buttonMappings[.ouraTripleTap]?.isEmpty == true)
+		XCTAssertNil(profile.buttonMappings[.ouraTap])
+		XCTAssertNil(profile.buttonMappings[.ouraFiveTap])
+	}
 }

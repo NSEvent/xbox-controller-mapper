@@ -319,6 +319,8 @@ struct GestureMappingSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+			case .ring:
+				OuraRingSystemCommandPicker(selection: $editorState.ouraRingCommandOption)
             case .webhook:
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("URL (e.g. https://api.example.com/webhook)", text: $editorState.webhookURL)

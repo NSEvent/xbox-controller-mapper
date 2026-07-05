@@ -38,7 +38,7 @@ struct CommandPaletteDestination: Identifiable, Equatable {
         .dpadUp, .dpadDown, .dpadLeft, .dpadRight,
         .leftThumbstick, .rightThumbstick,
 		.menu, .view,
-		.ouraTap
+		.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap
     ]
 }
 

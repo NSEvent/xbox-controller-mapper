@@ -146,7 +146,7 @@ struct StreamOverlayView: View {
 		let size = OuraRingMinimapView.previewSize
 		let scale = graphicWidth / size.width
 
-		return OuraRingMinimapView(isTapPressed: controllerService.activeButtons.contains(.ouraTap))
+		return OuraRingMinimapView(isTapPressed: controllerService.activeButtons.contains { $0.isOuraRingOnly })
 			.frame(width: size.width, height: size.height)
 			.scaleEffect(scale)
 			.frame(width: graphicWidth, height: (size.height * scale).rounded())

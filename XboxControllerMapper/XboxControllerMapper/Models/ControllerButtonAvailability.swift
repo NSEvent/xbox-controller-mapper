@@ -64,7 +64,12 @@ extension ControllerButton {
     }
 
     var isOuraRingOnly: Bool {
-		self == .ouraTap
+		switch self {
+		case .ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap:
+			return true
+		default:
+			return false
+		}
     }
 
     /// Whether this button represents one of the eight touchpad quadrant
@@ -388,6 +393,6 @@ extension ControllerButton {
     }
 
     static var ouraRingButtons: [ControllerButton] {
-		[.ouraTap]
+		[.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap]
     }
 }

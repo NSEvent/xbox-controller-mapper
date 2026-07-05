@@ -13,9 +13,9 @@ extension ControllerVisualView {
 
 			VStack(spacing: 12) {
 				OuraRingMinimapView(
-					isTapPressed: isPressed(.ouraTap),
-					isTapSelected: selectedButton == .ouraTap,
-					isSwapSource: swapFirstButton == .ouraTap,
+					isTapPressed: ControllerButton.ouraRingButtons.contains(where: isPressed),
+					isTapSelected: selectedButton.map { ControllerButton.ouraRingButtons.contains($0) } ?? false,
+					isSwapSource: swapFirstButton.map { ControllerButton.ouraRingButtons.contains($0) } ?? false,
 					onButtonTap: onButtonTap,
 					onButtonHover: handleButtonHover,
 					onSwapRequest: performSwap

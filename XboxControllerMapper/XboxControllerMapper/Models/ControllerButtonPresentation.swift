@@ -89,6 +89,9 @@ extension ControllerButton {
         case .gestureSteerLeft: return "Steer Left"
         case .gestureSteerRight: return "Steer Right"
 		case .ouraTap: return "Oura Tap"
+		case .ouraDoubleTap: return "Oura Double Tap"
+		case .ouraTripleTap: return "Oura Triple Tap"
+		case .ouraFiveTap: return "Oura 5x Tap"
         }
     }
 
@@ -278,6 +281,9 @@ extension ControllerButton {
         case .gestureSteerLeft: return "↰"
         case .gestureSteerRight: return "↱"
 		case .ouraTap: return "Tap"
+		case .ouraDoubleTap: return "2x"
+		case .ouraTripleTap: return "3x"
+		case .ouraFiveTap: return "5x"
         }
     }
 

@@ -3,17 +3,17 @@ import Foundation
 enum OuraTapSequenceImmediateAction: Equatable {
 	case pending(Int)
 	case duplicate
-	case tripleTap
+	case completed(Int)
 }
 
 enum OuraTapSequenceResolvedAction: Equatable {
-	case singleTap
-	case doubleTap
+	case tapCount(Int)
 }
 
 struct OuraTapSequenceRecognizer {
 	static let sequenceWindow: CFTimeInterval = 0.34
 	private static let duplicateWindow: CFTimeInterval = 0.09
+	private static let maximumTapCount = 5
 
 	private var tapCount = 0
 	private var lastTapTime: CFAbsoluteTime?
@@ -39,10 +39,11 @@ struct OuraTapSequenceRecognizer {
 		lastTapTime = timestamp
 		lastAcceptedTapTime = timestamp
 
-		if tapCount >= 3 {
+		if tapCount >= Self.maximumTapCount {
+			let completedCount = tapCount
 			tapCount = 0
 			lastTapTime = nil
-			return .tripleTap
+			return .completed(completedCount)
 		}
 		return .pending(tapCount)
 	}
@@ -54,14 +55,8 @@ struct OuraTapSequenceRecognizer {
 		tapCount = 0
 		self.lastTapTime = nil
 
-		switch resolvedCount {
-		case 1:
-			return .singleTap
-		case 2:
-			return .doubleTap
-		default:
-			return nil
-		}
+		guard resolvedCount > 0 else { return nil }
+		return .tapCount(resolvedCount)
 	}
 }
 

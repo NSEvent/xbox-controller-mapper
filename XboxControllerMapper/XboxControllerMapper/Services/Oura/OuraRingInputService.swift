@@ -4,6 +4,43 @@ import CoreBluetooth
 import CoreGraphics
 import Foundation
 
+final class OuraRingCommandCenter {
+	static let shared = OuraRingCommandCenter()
+
+	private let lock = NSLock()
+	private var centerHandler: (() -> Void)?
+	private var toggleMotionHandler: (() -> Void)?
+
+	private init() {}
+
+	func install(center: @escaping () -> Void, toggleMotion: @escaping () -> Void) {
+		lock.lock()
+		centerHandler = center
+		toggleMotionHandler = toggleMotion
+		lock.unlock()
+	}
+
+	func centerRing() -> Bool {
+		lock.lock()
+		let handler = centerHandler
+		lock.unlock()
+		return run(handler)
+	}
+
+	func toggleMotionOutput() -> Bool {
+		lock.lock()
+		let handler = toggleMotionHandler
+		lock.unlock()
+		return run(handler)
+	}
+
+	private func run(_ handler: (() -> Void)?) -> Bool {
+		guard let handler else { return false }
+		DispatchQueue.main.async(execute: handler)
+		return true
+	}
+}
+
 enum OuraRingConnectionStatus: Equatable {
 	case disabled
 	case bluetoothUnavailable(String)
@@ -99,6 +136,11 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		self.controllerService = controllerService
 		self.profileManager = profileManager
 		super.init()
+
+		OuraRingCommandCenter.shared.install(
+			center: { [weak self] in self?.resetMotionCenter() },
+			toggleMotion: { [weak self] in self?.toggleMotionOutputEnabled() }
+		)
 
 		profileManager.$activeProfile
 			.map { $0?.joystickSettings.ouraMotion ?? .default }
@@ -216,7 +258,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		motionMapper.reset()
 		tapDetector.reset()
 		releaseOuraMotionSticks()
-		controllerService.handleButton(.ouraTap, pressed: false)
+		releaseOuraGestureButtons()
 		controllerService.setOuraRingConnected(false)
 
 		if centralManager?.isScanning == true {
@@ -411,6 +453,12 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		}
 	}
 
+	private func releaseOuraGestureButtons() {
+		for button in ControllerButton.ouraRingButtons {
+			controllerService.handleButton(button, pressed: false)
+		}
+	}
+
 	private func handle(_ event: OuraRingDecodedEvent, from peripheral: CBPeripheral) {
 		switch event {
 		case .nonce(let nonce):
@@ -495,12 +543,11 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			suppressMotionForTap(at: timestamp, duration: tapMotionSuppressionDuration)
 			appendDiagnostic("\(count)x tap pending from \(source)")
 			scheduleTapSequenceResolution()
-		case .tripleTap:
+		case .completed(let count):
 			tapSequenceWorkItem?.cancel()
 			tapSequenceWorkItem = nil
 			suppressMotionForTap(at: timestamp, duration: tapMotionPostActionSuppressionDuration)
-			appendDiagnostic("triple tap toggled motion output")
-			toggleMotionOutputEnabled()
+			performTapSequenceAction(.tapCount(count))
 		}
 	}
 
@@ -522,11 +569,25 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		tapSequenceWorkItem = nil
 		suppressMotionForTap(at: CFAbsoluteTimeGetCurrent(), duration: tapMotionPostActionSuppressionDuration)
 		switch action {
-		case .singleTap:
-			fireTap()
-		case .doubleTap:
-			appendDiagnostic("double tap recentered motion")
-			resetMotionCenter()
+		case .tapCount(let count):
+			switch count {
+			case 1:
+				fireGestureButton(.ouraTap)
+			case 2:
+				fireGestureButton(.ouraDoubleTap, fallback: { [weak self] in
+					self?.appendDiagnostic("double tap recentered motion")
+					self?.resetMotionCenter()
+				})
+			case 3:
+				fireGestureButton(.ouraTripleTap, fallback: { [weak self] in
+					self?.appendDiagnostic("triple tap toggled motion output")
+					self?.toggleMotionOutputEnabled()
+				})
+			case 5:
+				fireGestureButton(.ouraFiveTap)
+			default:
+				appendDiagnostic("\(count)x tap ignored")
+			}
 		}
 	}
 
@@ -535,15 +596,25 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		releaseOuraMotionSticks()
 	}
 
-	private func fireTap() {
+	private func fireGestureButton(_ button: ControllerButton, fallback: (() -> Void)? = nil) {
+		if !hasExplicitGestureBinding(for: button) {
+			fallback?()
+			return
+		}
+
 		tapReleaseWorkItem?.cancel()
-		controllerService.handleButton(.ouraTap, pressed: true)
+		controllerService.handleButton(button, pressed: true)
 
 		let workItem = DispatchWorkItem { [weak self] in
-			self?.controllerService.handleButton(.ouraTap, pressed: false)
+			self?.controllerService.handleButton(button, pressed: false)
 		}
 		tapReleaseWorkItem = workItem
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.07, execute: workItem)
+	}
+
+	private func hasExplicitGestureBinding(for button: ControllerButton) -> Bool {
+		guard let profile = profileManager.activeProfile else { return false }
+		return ButtonMappingResolutionPolicy.hasExplicitBinding(for: button, profile: profile)
 	}
 
 	private func loadAuthKey() -> Data? {

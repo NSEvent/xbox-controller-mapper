@@ -44,7 +44,7 @@ extension ControllerButton {
 			return "minus"
 		case .appleTVRemoteMute:
 			return "speaker.slash.fill"
-		case .ouraTap:
+		case .ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap:
 			return "hand.tap"
 		case .dpadUp:
 			return "chevron.up"
@@ -137,7 +137,7 @@ extension ControllerButton {
 		case .leftTouchpadButton, .rightTouchpadButton: return "hand.point.up.left"
 		case .leftTouchpadTap, .rightTouchpadTap: return "hand.tap"
 		case .micMute: return "mic.slash"
-		case .ouraTap: return "hand.tap"
+		case .ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap: return "hand.tap"
 		case .xboxPaddle1: return "l.button.roundedbottom.horizontal"
 		case .xboxPaddle2: return "r.button.roundedbottom.horizontal"
 		case .xboxPaddle3: return "l.button.roundedbottom.horizontal.fill"

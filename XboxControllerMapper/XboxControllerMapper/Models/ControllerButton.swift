@@ -122,6 +122,9 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
 
     // Oura Ring virtual inputs
     case ouraTap                  // Finger tap detected by an Oura Ring
+    case ouraDoubleTap            // Two taps detected by an Oura Ring
+    case ouraTripleTap            // Three taps detected by an Oura Ring
+    case ouraFiveTap              // Five taps detected by an Oura Ring
 
     var id: String { rawValue }
 

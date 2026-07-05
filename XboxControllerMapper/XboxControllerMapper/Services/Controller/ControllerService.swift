@@ -1274,7 +1274,7 @@ class ControllerService: ObservableObject {
 				activeButtons.removeAll()
 				stopDisplayUpdateTimer()
 			} else {
-				handleButton(.ouraTap, pressed: false)
+				releaseOuraRingButtons()
 			}
 		}
     }
@@ -2360,8 +2360,14 @@ class ControllerService: ObservableObject {
     nonisolated func releaseOuraRingInputs() {
 		updateLeftStick(x: 0, y: 0)
 		updateRightStick(x: 0, y: 0)
-		handleButton(.ouraTap, pressed: false)
+		releaseOuraRingButtons()
     }
+
+	nonisolated private func releaseOuraRingButtons() {
+		for button in ControllerButton.ouraRingButtons {
+			handleButton(button, pressed: false)
+		}
+	}
 
     nonisolated func updateLeftTrigger(_ value: Float, pressed: Bool) {
         storage.lock.lock()

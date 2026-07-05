@@ -93,6 +93,13 @@ enum ButtonMappingResolutionPolicy {
 		_ button: ControllerButton,
 		profile: Profile
 	) -> Bool {
+		hasExplicitBinding(for: button, profile: profile)
+	}
+
+	static func hasExplicitBinding(
+		for button: ControllerButton,
+		profile: Profile
+	) -> Bool {
 		if profile.buttonMappings[button] != nil {
 			return true
 		}
@@ -100,6 +107,9 @@ enum ButtonMappingResolutionPolicy {
 			return true
 		}
 		if profile.sequenceMappings.contains(where: { $0.steps.contains(button) }) {
+			return true
+		}
+		if profile.layers.contains(where: { $0.activatorButton == button || $0.buttonMappings[button] != nil }) {
 			return true
 		}
 		return false
