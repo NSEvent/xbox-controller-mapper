@@ -114,11 +114,12 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var connectAttemptStartTime: CFAbsoluteTime?
 	private var lastAccelerometerTapTime: CFAbsoluteTime = 0
 	private var lastMotionDiagnosticTime: CFAbsoluteTime = 0
+	private var suppressTapDetectionUntil: CFAbsoluteTime = 0
 
 	private let keychainService = "com.controllerkeys.oura-ring"
 	private let authKeyAccount = "oura-auth-key-v1"
 	private let legacyDefaultDeadzone = 0.08
-	private let connectAttemptTimeout: CFTimeInterval = 8.0
+	private let connectAttemptTimeout: CFTimeInterval = 20.0
 	private let realtimeAccelerometerDurationMinutes: UInt16 = 10
 	private let realtimeRefreshInterval: TimeInterval = 9 * 60
 	private let tapMotionSuppressionDuration = OuraTapSequenceRecognizer.sequenceWindow + 0.20
@@ -510,7 +511,10 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		let centeredSample = result.centeredSample
 		let projectedInput = result.projectedInput
 		let stick = result.stick
-		if tapDetector.register(sample) {
+		if result.didEstablishCenter {
+			suppressTapDetectionUntil = max(suppressTapDetectionUntil, sample.timestamp + 0.75)
+		}
+		if sample.timestamp >= suppressTapDetectionUntil, tapDetector.register(sample) {
 			handleAccelerometerTapCandidate(at: sample.timestamp)
 		}
 		let outputStick = tapMotionSuppressor.isSuppressed(at: sample.timestamp) ? .zero : stick

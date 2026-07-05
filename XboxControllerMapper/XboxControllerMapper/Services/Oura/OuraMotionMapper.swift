@@ -331,18 +331,23 @@ private struct OuraVector3: Equatable {
 }
 
 struct OuraTapDetector {
+	private var sampleBeforePrevious: OuraMotionSample?
 	private var previousSample: OuraMotionSample?
 	private var pendingTap: PendingTap?
 	private var lastTapTime: CFAbsoluteTime = 0
 
 	mutating func reset() {
+		sampleBeforePrevious = nil
 		previousSample = nil
 		pendingTap = nil
 		lastTapTime = 0
 	}
 
 	mutating func register(_ sample: OuraMotionSample) -> Bool {
-		defer { previousSample = sample }
+		defer {
+			sampleBeforePrevious = previousSample
+			previousSample = sample
+		}
 		if let pendingTap {
 			if confirmsTap(candidate: pendingTap, with: sample) {
 				self.pendingTap = nil
@@ -369,14 +374,16 @@ struct OuraTapDetector {
 		let magnitude = hypot3(sample.x, sample.y, sample.z)
 		let previousMagnitude = hypot3(previousSample.x, previousSample.y, previousSample.z)
 		let magnitudeDelta = abs(magnitude - previousMagnitude)
+		guard let sampleBeforePrevious else { return false }
+		let leadInJerk = OuraMotionDelta(
+			x: previousSample.x - sampleBeforePrevious.x,
+			y: previousSample.y - sampleBeforePrevious.y,
+			z: previousSample.z - sampleBeforePrevious.z
+		).magnitude
+		let quietLeadIn = leadInJerk < 0.70 || jerk > max(1.35, leadInJerk * 2.0)
+		let sharpPeak = jerk > 0.55 && magnitude > 1.10 && magnitudeDelta > 0.15
 
-		if jerk > 1.05, magnitudeDelta > 0.38 || magnitude > 1.45 {
-			lastTapTime = sample.timestamp
-			pendingTap = nil
-			return true
-		}
-
-		if jerk > 0.60, magnitudeDelta > 0.20 || magnitude > 1.20 {
+		if quietLeadIn && sharpPeak {
 			pendingTap = PendingTap(
 				previousSample: previousSample,
 				sample: sample,
@@ -406,7 +413,7 @@ struct OuraTapDetector {
 		)
 
 		return reversal &&
-			(peakDrop > 0.08 || settledDistance < candidate.delta.magnitude * 0.85)
+			(peakDrop > 0.08 || settledDistance < candidate.delta.magnitude * 0.90)
 	}
 
 	private func hypot3(_ x: Double, _ y: Double, _ z: Double) -> Double {

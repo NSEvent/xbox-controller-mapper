@@ -141,8 +141,9 @@ final class OuraRingInputTests: XCTestCase {
 		var detector = OuraTapDetector()
 
 		XCTAssertFalse(detector.register(OuraMotionSample(x: 0, y: 0, z: 1.0, timestamp: 10.00)))
-		XCTAssertFalse(detector.register(OuraMotionSample(x: 0.72, y: 0.08, z: 1.42, timestamp: 10.02)))
-		XCTAssertTrue(detector.register(OuraMotionSample(x: 0, y: 0, z: 1.0, timestamp: 10.04)))
+		XCTAssertFalse(detector.register(OuraMotionSample(x: 0.01, y: 0, z: 1.0, timestamp: 10.02)))
+		XCTAssertFalse(detector.register(OuraMotionSample(x: 0.72, y: 0.08, z: 1.42, timestamp: 10.04)))
+		XCTAssertTrue(detector.register(OuraMotionSample(x: 0, y: 0, z: 1.0, timestamp: 10.06)))
 		XCTAssertFalse(detector.register(OuraMotionSample(x: 0.05, y: 0.05, z: 1.02, timestamp: 10.35)))
 	}
 
@@ -340,5 +341,26 @@ final class OuraRingInputTests: XCTestCase {
 		XCTAssertFalse(detector.register(OuraMotionSample(x: 0.9, y: 0.0, z: 1.1, timestamp: 20.02)))
 		XCTAssertFalse(detector.register(OuraMotionSample(x: 1.3, y: 0.0, z: 1.1, timestamp: 20.04)))
 		XCTAssertFalse(detector.register(OuraMotionSample(x: 1.7, y: 0.0, z: 1.1, timestamp: 20.06)))
+	}
+
+	func testOuraTapDetectorIgnoresBroadHandMotionBurst() {
+		var detector = OuraTapDetector()
+		let samples = [
+			OuraMotionSample(x: 0.22, y: -0.18, z: -0.91, timestamp: 30.00),
+			OuraMotionSample(x: -1.04, y: -0.41, z: -0.72, timestamp: 30.03),
+			OuraMotionSample(x: -0.58, y: -0.28, z: -0.69, timestamp: 30.06),
+			OuraMotionSample(x: 1.00, y: -0.32, z: 0.17, timestamp: 30.09),
+			OuraMotionSample(x: 0.16, y: -0.08, z: -0.14, timestamp: 30.12),
+			OuraMotionSample(x: 0.05, y: -0.54, z: -0.92, timestamp: 30.15),
+			OuraMotionSample(x: -0.16, y: 0.48, z: -0.83, timestamp: 30.18),
+			OuraMotionSample(x: -0.22, y: -0.06, z: -1.46, timestamp: 30.21),
+			OuraMotionSample(x: 0.13, y: 0.12, z: -0.83, timestamp: 30.24),
+			OuraMotionSample(x: 0.02, y: 0.27, z: -0.97, timestamp: 30.27),
+			OuraMotionSample(x: 0.32, y: 0.57, z: -0.65, timestamp: 30.30)
+		]
+
+		for sample in samples {
+			XCTAssertFalse(detector.register(sample))
+		}
 	}
 }
