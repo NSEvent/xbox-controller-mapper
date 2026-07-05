@@ -11,7 +11,7 @@ enum OuraTapSequenceResolvedAction: Equatable {
 }
 
 struct OuraTapSequenceRecognizer {
-	static let sequenceWindow: CFTimeInterval = 0.34
+	static let sequenceWindow: CFTimeInterval = 0.65
 	private static let duplicateWindow: CFTimeInterval = 0.09
 	private static let maximumTapCount = 5
 

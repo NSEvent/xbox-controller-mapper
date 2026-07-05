@@ -123,7 +123,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private let realtimeRefreshInterval: TimeInterval = 9 * 60
 	private let tapMotionSuppressionDuration = OuraTapSequenceRecognizer.sequenceWindow + 0.20
 	private let tapMotionPostActionSuppressionDuration: CFTimeInterval = 0.18
-	private let accelerometerTapRefractory: CFTimeInterval = 0.24
+	private let accelerometerTapRefractory: CFTimeInterval = 0.16
 	private var loggedNearbyPeripheralIDs: Set<UUID> = []
 	private var diagnosticLogURL: URL {
 		FileManager.default.homeDirectoryForCurrentUser
@@ -570,6 +570,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		suppressMotionForTap(at: CFAbsoluteTimeGetCurrent(), duration: tapMotionPostActionSuppressionDuration)
 		switch action {
 		case .tapCount(let count):
+			appendDiagnostic("\(count)x tap resolved")
 			switch count {
 			case 1:
 				fireGestureButton(.ouraTap)
@@ -646,7 +647,9 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		guard currentSettings.diagnosticsEnabled else { return }
 		lastDiagnosticLine = message
 		NSLog("[ControllerKeys][Oura] %@", message)
-		let timestamp = ISO8601DateFormatter().string(from: Date())
+		let timestampFormatter = ISO8601DateFormatter()
+		timestampFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+		let timestamp = timestampFormatter.string(from: Date())
 		let line = "\(timestamp) \(message)\n"
 		guard let data = line.data(using: .utf8) else { return }
 		do {
