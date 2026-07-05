@@ -76,6 +76,83 @@ enum AnalogPrecisionTriggerMode: String, Codable, CaseIterable {
     }
 }
 
+enum OuraMotionOrientation: String, Codable, CaseIterable, Identifiable {
+	case screenPlane = "screenPlane"
+	case fingerToScreen = "fingerToScreen"
+	case legacyXY = "legacyXY"
+
+	var id: String { rawValue }
+
+	var displayName: String {
+		switch self {
+		case .screenPlane: return "Point + Twist"
+		case .fingerToScreen: return "Finger Forward"
+		case .legacyXY: return "Legacy X/Y"
+		}
+	}
+}
+
+struct OuraMotionSettings: Codable, Equatable {
+    static let `default` = OuraMotionSettings()
+
+    var enabled: Bool = false
+	var motionOutputEnabled: Bool = true
+    var targetStick: JoystickSide = .left
+	var orientation: OuraMotionOrientation = .screenPlane
+    var sensitivity: Double = 0.6
+	var horizontalBoost: Double = 2.2
+	var leftTiltBoost: Double = 1.8
+    var deadzone: Double = 0.03
+    var smoothing: Double = 0.35
+    var invertX: Bool = false
+    var invertY: Bool = false
+    var adoptResetRing: Bool = true
+    var diagnosticsEnabled: Bool = true
+
+	func isValid() -> Bool {
+		(0.0...1.0).contains(sensitivity) &&
+		(1.0...4.0).contains(horizontalBoost) &&
+		(1.0...4.0).contains(leftTiltBoost) &&
+		(0.0...0.95).contains(deadzone) &&
+		(0.0...1.0).contains(smoothing)
+    }
+
+    enum CodingKeys: String, CodingKey {
+		case enabled
+		case motionOutputEnabled
+		case targetStick
+		case orientation
+		case sensitivity
+		case horizontalBoost
+		case leftTiltBoost
+		case deadzone
+		case smoothing
+		case invertX
+		case invertY
+		case adoptResetRing
+		case diagnosticsEnabled
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+		enabled = try container.decode(.enabled, default: false)
+		motionOutputEnabled = try container.decode(.motionOutputEnabled, default: true)
+		targetStick = try container.decodeLenient(.targetStick, default: JoystickSide.left)
+		orientation = try container.decode(.orientation, default: .screenPlane)
+		sensitivity = try container.decode(.sensitivity, default: 0.6, clampedTo: 0.0...1.0)
+		horizontalBoost = try container.decode(.horizontalBoost, default: 2.2, clampedTo: 1.0...4.0)
+		leftTiltBoost = try container.decode(.leftTiltBoost, default: 1.8, clampedTo: 1.0...4.0)
+		deadzone = try container.decode(.deadzone, default: 0.03, clampedTo: 0.0...0.95)
+		smoothing = try container.decode(.smoothing, default: 0.35, clampedTo: 0.0...1.0)
+		invertX = try container.decode(.invertX, default: false)
+		invertY = try container.decode(.invertY, default: false)
+		adoptResetRing = try container.decode(.adoptResetRing, default: true)
+		diagnosticsEnabled = try container.decode(.diagnosticsEnabled, default: true)
+    }
+}
+
 /// Settings for joystick behavior.
 ///
 /// Per-stick response (mode, sensitivity, acceleration, deadzone, invert, custom
@@ -180,6 +257,9 @@ struct JoystickSettings: Codable, Equatable {
     /// Motion gesture cooldown (0.0 = fast repeat, 1.0 = slow repeat)
     var gestureCooldown: Double = 0.5
 
+    /// Oura Ring accelerometer/tap input routed into the regular stick/button mapping pipeline.
+    var ouraMotion: OuraMotionSettings = .default
+
     static let `default` = JoystickSettings()
 
     /// Tuning for the given side.
@@ -250,7 +330,8 @@ struct JoystickSettings: Codable, Equatable {
                range.contains(gyroAimingSensitivity) &&
                range.contains(gyroAimingDeadzone) &&
                range.contains(gestureSensitivity) &&
-               range.contains(gestureCooldown)
+			   range.contains(gestureCooldown) &&
+			   ouraMotion.isValid()
     }
 
     /// Converts 0-1 focus sensitivity to actual multiplier for mouse
@@ -338,6 +419,7 @@ extension JoystickSettings {
         case pointerLockMouseMode
         case gestureSensitivity
         case gestureCooldown
+		case ouraMotion
         // Legacy function-keyed per-stick fields — decoded only when the new
         // `leftStick`/`rightStick` keys are absent, and re-encoded for downgrade
         // safety (see encode).
@@ -410,6 +492,7 @@ extension JoystickSettings {
         pointerLockMouseMode = try container.decodeLenient(.pointerLockMouseMode, default: PointerLockMouseMode.auto)
         gestureSensitivity = try container.decode(.gestureSensitivity, default: 0.5, clampedTo: unit)
         gestureCooldown = try container.decode(.gestureCooldown, default: 0.5, clampedTo: unit)
+		ouraMotion = try container.decode(.ouraMotion, default: .default)
 
         // Per-stick tuning: prefer the new nested representation; otherwise migrate
         // from the legacy function-keyed flat fields, fanning the shared mouse/scroll
@@ -454,6 +537,7 @@ extension JoystickSettings {
         try container.encode(pointerLockMouseMode, forKey: .pointerLockMouseMode)
         try container.encode(gestureSensitivity, forKey: .gestureSensitivity)
         try container.encode(gestureCooldown, forKey: .gestureCooldown)
+		try container.encode(ouraMotion, forKey: .ouraMotion)
 
         // Legacy compatibility: keep the old flat fields populated so a profile
         // saved/exported by this build still loads sane values on a pre-per-stick

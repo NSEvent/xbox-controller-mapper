@@ -13,6 +13,7 @@ enum ControllerVisualFamily: Equatable {
 	case steam
 	case eightBitDo(EightBitDoMinimapModel)
 	case appleTVRemote
+	case ouraRing
 }
 
 struct ControllerVisualDescriptor: Equatable {
@@ -20,6 +21,10 @@ struct ControllerVisualDescriptor: Equatable {
 
 	var isAppleTVRemote: Bool {
 		family == .appleTVRemote
+	}
+
+	var isOuraRing: Bool {
+		family == .ouraRing
 	}
 
 	var isPlayStation: Bool {
@@ -72,11 +77,11 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var hasSticks: Bool {
-		!isStickless
+		!isStickless && !isOuraRing
 	}
 
 	var hasTriggers: Bool {
-		eightBitDoModel != .zero2
+		eightBitDoModel != .zero2 && !isOuraRing
 	}
 
 	var showsPlayStationTouchpad: Bool {
@@ -119,10 +124,13 @@ struct ControllerVisualDescriptor: Equatable {
 			return model.minimapStyle
 		case .appleTVRemote:
 			return nil
+		case .ouraRing:
+			return nil
 		}
 	}
 
 	func shoulderButtons(side: JoystickSide) -> [ControllerButton] {
+		if isOuraRing { return [] }
 		switch side {
 		case .left:
 			return hasTriggers ? [.leftTrigger, .leftBumper] : [.leftBumper]
@@ -132,6 +140,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var leftSystemButtons: [ControllerButton] {
+		if isOuraRing { return [] }
 		var buttons: [ControllerButton] = [.view]
 		if eightBitDoModel != .zero2 {
 			buttons.append(.xbox)
@@ -140,6 +149,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var rightSystemButtons: [ControllerButton] {
+		if isOuraRing { return [] }
 		var buttons: [ControllerButton] = [.menu]
 		if isDualSense {
 			buttons.append(.micMute)
@@ -179,6 +189,8 @@ extension ControllerVisualDescriptor {
 			return ControllerVisualDescriptor(family: .eightBitDo(.liteSE))
 		case .appleTVRemote:
 			return ControllerVisualDescriptor(family: .appleTVRemote)
+		case .ouraRing:
+			return ControllerVisualDescriptor(family: .ouraRing)
 		}
 	}
 
@@ -210,7 +222,10 @@ extension ControllerVisualDescriptor {
 	}
 
 	static func active(using service: ControllerService) -> ControllerVisualDescriptor {
-		active(from: service.threadSafeControllerPresentationState)
+		if service.isOuraRingActiveInputSource {
+			return ControllerVisualDescriptor(family: .ouraRing)
+		}
+		return active(from: service.threadSafeControllerPresentationState)
 	}
 
 	static func resolved(
@@ -221,6 +236,6 @@ extension ControllerVisualDescriptor {
 	}
 
 	static func resolved(previewLayout: ControllerPreviewLayout, using service: ControllerService) -> ControllerVisualDescriptor {
-		resolved(previewLayout: previewLayout, presentationState: service.threadSafeControllerPresentationState)
+		concrete(for: previewLayout) ?? active(using: service)
 	}
 }

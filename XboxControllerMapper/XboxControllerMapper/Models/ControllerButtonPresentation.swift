@@ -88,6 +88,7 @@ extension ControllerButton {
         case .gestureTiltForward: return "Tilt Forward"
         case .gestureSteerLeft: return "Steer Left"
         case .gestureSteerRight: return "Steer Right"
+		case .ouraTap: return "Oura Tap"
         }
     }
 
@@ -276,6 +277,7 @@ extension ControllerButton {
         case .gestureTiltForward: return "⤵"
         case .gestureSteerLeft: return "↰"
         case .gestureSteerRight: return "↱"
+		case .ouraTap: return "Tap"
         }
     }
 

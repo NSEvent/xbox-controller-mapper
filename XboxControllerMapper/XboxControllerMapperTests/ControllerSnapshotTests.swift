@@ -52,9 +52,7 @@ final class ControllerSnapshotTests: XCTestCase {
 
     func testSnapshotCapturesHasMotionFalseWhenNeitherFlagSet() {
         controllerService.storage.lock.lock()
-        controllerService.storage.isDualSense = false
-        controllerService.storage.isDualShock = false
-        controllerService.storage.isSteamController = false
+		controllerService.storage.applyControllerTypeLocked(.xbox)
         controllerService.storage.lock.unlock()
 
         let snap = controllerService.snapshot()

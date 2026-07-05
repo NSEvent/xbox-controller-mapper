@@ -37,7 +37,8 @@ struct CommandPaletteDestination: Identifiable, Equatable {
         .leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
         .dpadUp, .dpadDown, .dpadLeft, .dpadRight,
         .leftThumbstick, .rightThumbstick,
-        .menu, .view
+		.menu, .view,
+		.ouraTap
     ]
 }
 

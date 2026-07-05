@@ -218,6 +218,7 @@ class ControllerService: ObservableObject {
     @Published var currentControllerIdentity: ControllerIdentity?
     @Published var controllerName: String = ""
 	@Published var controllerMappingSource: String?
+    @Published private(set) var isOuraRingConnected = false
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
     @Published var activeButtons: Set<ControllerButton> = []
@@ -1251,6 +1252,56 @@ class ControllerService: ObservableObject {
 		storage.rawHIDGuidePressed = false
 		storage.rawHIDGuideLastEventTime = nil
         storage.lock.unlock()
+
+		if isOuraRingConnected {
+			publishOuraRingConnection()
+		}
+    }
+
+    func setOuraRingConnected(_ connected: Bool) {
+		guard isOuraRingConnected != connected else { return }
+		isOuraRingConnected = connected
+
+		if connected {
+			publishOuraRingConnection()
+		} else {
+			if !hasActiveHardwareInputSource {
+				releaseOuraRingInputs()
+				isConnected = false
+				currentControllerIdentity = nil
+				controllerName = ""
+				controllerMappingSource = nil
+				activeButtons.removeAll()
+				stopDisplayUpdateTimer()
+			} else {
+				handleButton(.ouraTap, pressed: false)
+			}
+		}
+    }
+
+	private var hasActiveHardwareInputSource: Bool {
+		connectedController != nil ||
+		isGenericController ||
+		steamHIDActiveDevice != nil ||
+		appleTVRemoteHIDDevice != nil ||
+		appleTVRemoteHIDTouchDevice != nil
+    }
+
+	var isOuraRingActiveInputSource: Bool {
+		isOuraRingConnected &&
+		controllerName == "Oura Ring" &&
+		controllerMappingSource == "Oura Ring"
+	}
+
+    private func publishOuraRingConnection() {
+		guard !hasActiveHardwareInputSource else { return }
+		isConnected = true
+		currentControllerIdentity = nil
+		controllerName = "Oura Ring"
+		controllerMappingSource = "Oura Ring"
+		if !AppRuntime.isRunningTests {
+			startDisplayUpdateTimer()
+		}
     }
 
     func resetTouchpadStateLocked() {
@@ -2295,6 +2346,21 @@ class ControllerService: ObservableObject {
         storage.lock.lock()
         storage.rightStick = point
         storage.lock.unlock()
+    }
+
+    nonisolated func updateOuraRingStick(_ point: CGPoint, side: JoystickSide) {
+		switch side {
+		case .left:
+			updateLeftStick(x: Float(point.x), y: Float(point.y))
+		case .right:
+			updateRightStick(x: Float(point.x), y: Float(point.y))
+		}
+    }
+
+    nonisolated func releaseOuraRingInputs() {
+		updateLeftStick(x: 0, y: 0)
+		updateRightStick(x: 0, y: 0)
+		handleButton(.ouraTap, pressed: false)
     }
 
     nonisolated func updateLeftTrigger(_ value: Float, pressed: Bool) {

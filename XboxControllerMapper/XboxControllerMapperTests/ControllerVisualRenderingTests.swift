@@ -232,7 +232,9 @@ private struct StaticControllerMinimapPreview: View {
 
 	var body: some View {
 		Group {
-			if descriptor.isAppleTVRemote {
+			if descriptor.isOuraRing {
+				ouraRingMinimap
+			} else if descriptor.isAppleTVRemote {
 				appleTVRemoteMinimap
 			} else {
 				gamepadMinimap
@@ -272,5 +274,15 @@ private struct StaticControllerMinimapPreview: View {
 			.frame(width: size.width, height: size.height)
 			.scaleEffect(scale)
 			.frame(width: (size.width * scale).rounded(), height: remoteTargetHeight)
+	}
+
+	private var ouraRingMinimap: some View {
+		let size = OuraRingMinimapView.previewSize
+		let scale = targetWidth / size.width
+
+		return OuraRingMinimapView(isTapPressed: pressedButtons.contains(.ouraTap))
+			.frame(width: size.width, height: size.height)
+			.scaleEffect(scale)
+			.frame(width: targetWidth, height: (size.height * scale).rounded())
 	}
 }

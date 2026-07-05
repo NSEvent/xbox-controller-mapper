@@ -142,6 +142,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	var isSteamController: Bool { visualDescriptor.isSteamController }
 	var isNintendo: Bool { visualDescriptor.isNintendo }
 	var isAppleTVRemote: Bool { visualDescriptor.isAppleTVRemote }
+	var isOuraRing: Bool { visualDescriptor.isOuraRing }
 	var eightBitDoModel: EightBitDoMinimapModel? { visualDescriptor.eightBitDoModel }
 	var isStickless: Bool { visualDescriptor.isStickless }
 	var hasSticks: Bool { visualDescriptor.hasSticks }
@@ -218,7 +219,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
 	    var body: some View {
 			Group {
-				if isAppleTVRemote {
+				if isOuraRing {
+					ouraRingLayout
+				} else if isAppleTVRemote {
 					appleTVRemoteLayout
 				} else {
 					standardControllerLayout
@@ -646,7 +649,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     }
 
     @ViewBuilder
-    private func stickModeSection(title: String, side: JoystickSide, center: ControllerButton) -> some View {
+    func stickModeSection(title: String, side: JoystickSide, center: ControllerButton) -> some View {
         let mode = stickMode(side: side)
         let buttons = Set(side == .left ? leftStickDirectionButtons : rightStickDirectionButtons)
 

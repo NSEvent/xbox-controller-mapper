@@ -4,6 +4,7 @@ import SwiftUI
 
 struct JoystickSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
+    @EnvironmentObject var ouraRingInputService: OuraRingInputService
     @State private var focusCursorHighlightEnabled: Bool = FocusModeIndicator.isEnabled
     @State private var overrideLayerId: UUID?
 
@@ -256,6 +257,141 @@ struct JoystickSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+			Section("Oura Ring Motion") {
+				Toggle("Enable Oura Ring", isOn: Binding(
+					get: { settings.ouraMotion.enabled },
+					set: { enabled in
+						updateOuraMotion { $0.enabled = enabled }
+					}
+				))
+
+				HStack {
+					Label(ouraRingInputService.status.displayName, systemImage: "circle.dashed")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					Spacer()
+					Button("Scan") {
+						ouraRingInputService.startIfEnabled()
+					}
+					.disabled(!settings.ouraMotion.enabled)
+					Button("Forget Key") {
+						ouraRingInputService.forgetRingKeyAndReconnect()
+					}
+					.disabled(!settings.ouraMotion.enabled)
+					Button("Center") {
+						ouraRingInputService.resetMotionCenter()
+					}
+					.disabled(!settings.ouraMotion.enabled)
+					Button(settings.ouraMotion.motionOutputEnabled ? "Pause Motion" : "Resume Motion") {
+						ouraRingInputService.toggleMotionOutputEnabled()
+					}
+					.disabled(!settings.ouraMotion.enabled)
+				}
+
+				if settings.ouraMotion.enabled {
+					Picker("Target", selection: Binding(
+						get: { settings.ouraMotion.targetStick },
+						set: { target in
+							updateOuraMotion { $0.targetStick = target }
+						}
+					)) {
+						ForEach(JoystickSide.allCases) { side in
+							Text(side.displayName).tag(side)
+						}
+					}
+					.pickerStyle(.segmented)
+
+					Picker("Orientation", selection: Binding(
+						get: { settings.ouraMotion.orientation },
+						set: { orientation in
+							updateOuraMotion { $0.orientation = orientation }
+						}
+					)) {
+						ForEach(OuraMotionOrientation.allCases) { orientation in
+							Text(orientation.displayName).tag(orientation)
+						}
+					}
+					.pickerStyle(.segmented)
+
+					SliderRow(
+						label: "Sensitivity",
+						value: Binding(
+							get: { settings.ouraMotion.sensitivity },
+							set: { value in updateOuraMotion { $0.sensitivity = value } }
+						),
+						range: 0...1,
+						description: "Motion strength before it reaches the selected stick"
+					)
+
+					SliderRow(
+						label: "Horizontal Boost",
+						value: Binding(
+							get: { settings.ouraMotion.horizontalBoost },
+							set: { value in updateOuraMotion { $0.horizontalBoost = value } }
+						),
+						range: 1...4,
+						description: "Extra ring-twist strength for wide screens"
+					)
+
+					SliderRow(
+						label: "Left Boost",
+						value: Binding(
+							get: { settings.ouraMotion.leftTiltBoost },
+							set: { value in updateOuraMotion { $0.leftTiltBoost = value } }
+						),
+						range: 1...4,
+						description: "Extra strength for smaller left-hand travel"
+					)
+
+					SliderRow(
+						label: "Deadzone",
+						value: Binding(
+							get: { settings.ouraMotion.deadzone },
+							set: { value in updateOuraMotion { $0.deadzone = value } }
+						),
+						range: 0...0.5,
+						description: "Ignore small hand drift"
+					)
+
+					SliderRow(
+						label: "Smoothing",
+						value: Binding(
+							get: { settings.ouraMotion.smoothing },
+							set: { value in updateOuraMotion { $0.smoothing = value } }
+						),
+						range: 0...1,
+						description: "Higher values make motion steadier"
+					)
+
+					Toggle("Invert X Axis", isOn: Binding(
+						get: { settings.ouraMotion.invertX },
+						set: { value in updateOuraMotion { $0.invertX = value } }
+					))
+
+					Toggle("Invert Y Axis", isOn: Binding(
+						get: { settings.ouraMotion.invertY },
+						set: { value in updateOuraMotion { $0.invertY = value } }
+					))
+
+					Toggle("Adopt Reset Ring", isOn: Binding(
+						get: { settings.ouraMotion.adoptResetRing },
+						set: { value in updateOuraMotion { $0.adoptResetRing = value } }
+					))
+
+					Toggle("Diagnostic Logging", isOn: Binding(
+						get: { settings.ouraMotion.diagnosticsEnabled },
+						set: { value in updateOuraMotion { $0.diagnosticsEnabled = value } }
+					))
+
+					if !ouraRingInputService.lastDiagnosticLine.isEmpty {
+						Text(ouraRingInputService.lastDiagnosticLine)
+							.font(.caption2.monospaced())
+							.foregroundStyle(.secondary)
+							.lineLimit(2)
+					}
+				}
+			}
+
             Section("Right Joystick") {
                 Picker("Mode", selection: Binding(
                     get: { settings.rightStick.mode },
@@ -408,6 +544,12 @@ struct JoystickSettingsView: View {
         var newSettings = settings
         newSettings[keyPath: keyPath] = value
         profileManager.updateJoystickSettings(newSettings)
+    }
+
+    private func updateOuraMotion(_ mutate: (inout OuraMotionSettings) -> Void) {
+		var newSettings = settings
+		mutate(&newSettings.ouraMotion)
+		profileManager.updateJoystickSettings(newSettings)
     }
 
 	private var analogPrecisionTriggerButtons: [ControllerButton] {

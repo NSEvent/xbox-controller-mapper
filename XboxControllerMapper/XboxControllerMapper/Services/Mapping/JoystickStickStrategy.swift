@@ -3,9 +3,18 @@ import CoreGraphics
 
 /// Which physical stick is being processed. Used by mode strategies that need
 /// per-side state (e.g. smoothing buffers, held-key sets, scroll boost).
-enum JoystickSide {
+enum JoystickSide: String, Codable, CaseIterable, Identifiable, Sendable {
     case left
     case right
+
+    var id: String { rawValue }
+
+    var displayName: String {
+		switch self {
+		case .left: return "Left Stick"
+		case .right: return "Right Stick"
+		}
+    }
 }
 
 /// Inputs to a stick mode strategy for one polling tick. Bundled into a struct

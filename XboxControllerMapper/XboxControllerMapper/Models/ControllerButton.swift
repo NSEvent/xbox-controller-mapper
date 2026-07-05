@@ -120,6 +120,9 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     case gestureSteerLeft         // Gyroscope steer left gesture (DualSense only)
     case gestureSteerRight        // Gyroscope steer right gesture (DualSense only)
 
+    // Oura Ring virtual inputs
+    case ouraTap                  // Finger tap detected by an Oura Ring
+
     var id: String { rawValue }
 
 }

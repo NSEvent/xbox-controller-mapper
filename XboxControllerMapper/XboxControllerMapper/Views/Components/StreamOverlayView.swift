@@ -21,6 +21,10 @@ struct StreamOverlayView: View {
         visualDescriptor.isAppleTVRemote
     }
 
+	private var isOuraRing: Bool {
+		visualDescriptor.isOuraRing
+	}
+
     /// Resolved from the connected controller so the overlay always matches
     /// the active hardware (previously this was hardcoded to Xbox vs
     /// PlayStation only).
@@ -35,7 +39,9 @@ struct StreamOverlayView: View {
     var body: some View {
         VStack(spacing: 4) {
             Group {
-                if isAppleTVRemote {
+				if isOuraRing {
+					ouraRingGraphic
+				} else if isAppleTVRemote {
                     appleTVRemoteGraphic
                 } else {
                     controllerGraphic
@@ -135,6 +141,16 @@ struct StreamOverlayView: View {
             .scaleEffect(scale)
             .frame(width: graphicWidth, height: height)
     }
+
+	private var ouraRingGraphic: some View {
+		let size = OuraRingMinimapView.previewSize
+		let scale = graphicWidth / size.width
+
+		return OuraRingMinimapView(isTapPressed: controllerService.activeButtons.contains(.ouraTap))
+			.frame(width: size.width, height: size.height)
+			.scaleEffect(scale)
+			.frame(width: graphicWidth, height: (size.height * scale).rounded())
+	}
 
     // MARK: - Display Logic
 

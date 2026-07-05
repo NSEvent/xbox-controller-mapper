@@ -531,6 +531,9 @@ struct ButtonMappingsTab: View {
 		if controllerService.appleTVRemoteHIDDevice != nil || controllerService.appleTVRemoteHIDTouchDevice != nil {
 			layouts.insert(.appleTVRemote)
 		}
+		if controllerService.isOuraRingConnected {
+			layouts.insert(.ouraRing)
+		}
 
 		return layouts
 	}

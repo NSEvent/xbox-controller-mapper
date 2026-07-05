@@ -44,6 +44,8 @@ extension ControllerButton {
 			return .paddle
 		case .gestureTiltBack, .gestureTiltForward, .gestureSteerLeft, .gestureSteerRight:
 			return .touchpad
+		case .ouraTap:
+			return .special
 		}
 	}
 }

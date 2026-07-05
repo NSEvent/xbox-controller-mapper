@@ -40,10 +40,7 @@ struct ContentView: View {
 	}
 
 	private var controllerVisualDescriptor: ControllerVisualDescriptor {
-		ControllerVisualDescriptor.resolved(
-			previewLayout: controllerPreviewLayout,
-			presentationState: controllerPresentationState
-		)
+		ControllerVisualDescriptor.resolved(previewLayout: controllerPreviewLayout, using: controllerService)
 	}
 
 	private var controllerPreviewLayoutBinding: Binding<ControllerPreviewLayout> {
@@ -783,6 +780,10 @@ extension UUID: @retroactive Identifiable {
     let profileManager = ProfileManager()
     let appMonitor = AppMonitor()
     let inputLogService = InputLogService()
+    let ouraRingInputService = OuraRingInputService(
+		controllerService: controllerService,
+		profileManager: profileManager
+    )
     let mappingEngine = MappingEngine(
         controllerService: controllerService,
         profileManager: profileManager,
@@ -796,6 +797,7 @@ extension UUID: @retroactive Identifiable {
         .environmentObject(appMonitor)
         .environmentObject(mappingEngine)
         .environmentObject(inputLogService)
+		.environmentObject(ouraRingInputService)
 }
 
 // MARK: - Main Window Sections

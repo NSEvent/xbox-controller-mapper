@@ -14,6 +14,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 	case eightBitDoLite2
 	case eightBitDoLiteSE
 	case appleTVRemote
+	case ouraRing
 
 	var id: String { rawValue }
 
@@ -36,6 +37,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .eightBitDoLite2: return "8BitDo Lite 2"
 		case .eightBitDoLiteSE: return "8BitDo Lite SE"
 		case .appleTVRemote: return "Apple TV Remote"
+		case .ouraRing: return "Oura Ring"
 		}
 	}
 
@@ -49,6 +51,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .eightBitDoZero2, .eightBitDoMicro: return "gamecontroller.circle"
 		case .eightBitDoLite2, .eightBitDoLiteSE: return "gamecontroller.circle.fill"
 		case .appleTVRemote: return "appletvremote.gen3"
+		case .ouraRing: return "circle.dashed"
 		}
 	}
 }

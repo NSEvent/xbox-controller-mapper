@@ -16,6 +16,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.eightBitDoLite2: .eightBitDo(.lite2),
 			.eightBitDoLiteSE: .eightBitDo(.liteSE),
 			.appleTVRemote: .appleTVRemote,
+			.ouraRing: .ouraRing,
 		]
 
 		for layout in ControllerPreviewLayout.concreteLayouts {
@@ -62,6 +63,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.eightBitDoLite2: .eightBitDoLite2,
 			.eightBitDoLiteSE: .eightBitDoLiteSE,
 			.appleTVRemote: nil,
+			.ouraRing: nil,
 		]
 
 		for layout in ControllerPreviewLayout.concreteLayouts {
@@ -114,6 +116,13 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 		XCTAssertFalse(lite2.isStickless)
 		XCTAssertTrue(lite2.hasSticks)
 		XCTAssertTrue(lite2.hasTriggers)
+
+		let oura = ControllerVisualDescriptor(family: .ouraRing)
+		XCTAssertTrue(oura.isOuraRing)
+		XCTAssertFalse(oura.hasSticks)
+		XCTAssertFalse(oura.hasTriggers)
+		XCTAssertEqual(oura.leftSystemButtons, [])
+		XCTAssertEqual(oura.rightSystemButtons, [])
 	}
 
 	func testSystemRowsMatchCurrentPreviewBehavior() {
