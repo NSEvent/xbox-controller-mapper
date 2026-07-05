@@ -222,16 +222,16 @@ struct ScriptRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit")
-                .accessibilityLabel("Edit")
+                .help(script.name.isEmpty ? "Edit" : "Edit \(script.name)")
+                .accessibilityLabel(script.name.isEmpty ? "Edit" : "Edit \(script.name)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete")
-                .accessibilityLabel("Delete")
+                .help(script.name.isEmpty ? "Delete" : "Delete \(script.name)")
+                .accessibilityLabel(script.name.isEmpty ? "Delete" : "Delete \(script.name)")
             }
         }
         .padding(.horizontal, 12)
