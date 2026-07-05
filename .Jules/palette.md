@@ -25,3 +25,6 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
+## 2026-07-05 - [Dynamic Context for List Actions]
+**Learning:** In repeated lists or loops, action buttons (like Edit/Delete) require dynamic context in their `.help()` and `.accessibilityLabel()` modifiers (e.g., fallback to 'Unnamed' if empty) to disambiguate the action for screen reader users and prevent confusion.
+**Action:** Ensure dynamic labels are applied to all list items.
