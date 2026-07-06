@@ -509,10 +509,17 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	// feature" lines and "rx unknown" frames after tapping.
 	private func probeTapToTagFeatureIfEnabled() {
 		guard UserDefaults.standard.bool(forKey: "ouraTapFeatureProbe") else { return }
+		// Round 2: the round-1 triplet drew ack 27 07 01 but no tap pushes —
+		// iterate the mode bytes and echo the ring's own connect announcement
+		// (07 01 00) as a command.
 		let candidates: [[UInt8]] = [
 			[0x2F, 0x02, 0x20, 0x07],
-			[0x2F, 0x03, 0x22, 0x07, 0x03],
-			[0x2F, 0x03, 0x26, 0x07, 0x02]
+			[0x2F, 0x03, 0x22, 0x07, 0x01],
+			[0x2F, 0x03, 0x26, 0x07, 0x01],
+			[0x2F, 0x03, 0x22, 0x07, 0x02],
+			[0x2F, 0x03, 0x26, 0x07, 0x03],
+			[0x07, 0x01, 0x01],
+			[0x07, 0x01, 0x00]
 		]
 		for (index, frame) in candidates.enumerated() {
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.4 * Double(index + 1)) { [weak self] in
