@@ -36,6 +36,7 @@ from dataclasses import replace
 
 FLICK_COOLDOWN = 0.65
 FLICK_CONFIDENCE_THRESHOLD = 0.5
+POST_RESOLVE_COOLDOWN = 0.35
 CENTER_SUPPRESSION = 0.75
 
 
@@ -72,6 +73,7 @@ class MLPipeline:
 			resolved = self.sequence.resolve_pending(at)
 			if resolved is not None:
 				self.hold.cancel()
+				self.cooldown_until = max(self.cooldown_until, at + POST_RESOLVE_COOLDOWN)
 				self.events.append((at, "tap-resolved", str(resolved)))
 
 	def feed_sample(self, t, ct, x, y, z, px, py):
@@ -133,6 +135,7 @@ class MLPipeline:
 			else:
 				self.hold.cancel()
 				self.resolution_at = None
+				self.cooldown_until = max(self.cooldown_until, now + POST_RESOLVE_COOLDOWN)
 				self.events.append((now, "tap-resolved", str(count)))
 		elif label.startswith("flick-"):
 			# Mirror the Swift gates (phantom-flick fix, 2026-07-06): drop

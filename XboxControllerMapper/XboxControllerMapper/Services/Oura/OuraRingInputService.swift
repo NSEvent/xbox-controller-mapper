@@ -133,6 +133,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var tapHoldFedThrough: CFAbsoluteTime = -.greatestFiniteMagnitude
 	private let flickClassificationCooldown: CFTimeInterval = 0.65
 	private let flickConfidenceThreshold = 0.5
+	private let postResolveClassificationCooldown: CFTimeInterval = 0.35
 	private var useMLGesturePath: Bool {
 		gestureClassifier.isAvailable &&
 			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")
@@ -853,6 +854,15 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private func performTapSequenceAction(_ action: OuraTapSequenceResolvedAction) {
 		tapSequenceWorkItem = nil
 		tapHoldRecognizer.cancel()
+		// Brief classification cooldown after a resolved sequence: the hand
+		// settling after the last tap sheds ghost impulses that would start a
+		// phantom follow-up sequence or tap-hold (five-tap trials went 4/12 →
+		// 11/12 in replay with this). Reuses the flick cooldown gate, which
+		// drops any queued peak inside the window at classification time.
+		flickClassificationCooldownUntil = max(
+			flickClassificationCooldownUntil,
+			CFAbsoluteTimeGetCurrent() + postResolveClassificationCooldown
+		)
 		suppressMotionForTap(at: CFAbsoluteTimeGetCurrent(), duration: tapMotionPostActionSuppressionDuration)
 		switch action {
 		case .tapCount(let count):
