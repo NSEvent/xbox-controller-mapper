@@ -495,6 +495,32 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		}
 		beginStreamingActivity()
 		startMotionWatchdog()
+		probeTapToTagFeatureIfEnabled()
+	}
+
+	// Research probe (defaults: ouraTapFeatureProbe): the protocol spec lists
+	// feature 0x07 "Tap-to-tag" — an ON-RING tap detector running at the
+	// sensor's native rate, which would beat our 48 Hz BLE reconstruction at
+	// the physics level. The decoder already handles its push frame
+	// (2f 02 28 07 → .tap, source "tap feature"); nobody has found the enable
+	// command. Try the live-HR enable pattern (feature 0x02 uses
+	// 2F 02 20 02 / 2F 03 22 02 03 / 2F 03 26 02 02) transposed to 0x07.
+	// Watch ~/Library/Logs/ControllerKeys-Oura.log for "tap-candidate … tap
+	// feature" lines and "rx unknown" frames after tapping.
+	private func probeTapToTagFeatureIfEnabled() {
+		guard UserDefaults.standard.bool(forKey: "ouraTapFeatureProbe") else { return }
+		let candidates: [[UInt8]] = [
+			[0x2F, 0x02, 0x20, 0x07],
+			[0x2F, 0x03, 0x22, 0x07, 0x03],
+			[0x2F, 0x03, 0x26, 0x07, 0x02]
+		]
+		for (index, frame) in candidates.enumerated() {
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.4 * Double(index + 1)) { [weak self] in
+				guard let self, self.writeCharacteristic != nil else { return }
+				self.appendDiagnostic("tap-to-tag probe tx \(Data(frame).ouraHexString)")
+				self.write(Data(frame))
+			}
+		}
 	}
 
 	// App Nap freezes BLE delivery and the realtime-refresh timer as soon as
