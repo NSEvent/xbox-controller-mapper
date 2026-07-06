@@ -136,6 +136,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private let flickMidSequenceConfidenceThreshold = 0.85
 	private let postResolveClassificationCooldown: CFTimeInterval = 0.35
 	private let postHoldClassificationCooldown: CFTimeInterval = 0.6
+	private let tapDetectionMargin: CFTimeInterval = 0.20
 	private var useMLGesturePath: Bool {
 		gestureClassifier.isAvailable &&
 			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")
@@ -795,7 +796,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			}
 			suppressMotionForTap(at: peak, duration: tapMotionSuppressionDuration)
 			appendDiagnostic("\(count)x tap pending from ml classifier")
-			scheduleMLTapSequenceResolution()
+			scheduleMLTapSequenceResolution(anchoredAt: peak)
 		case .completed(let count):
 			tapHoldRecognizer.cancel()
 			tapSequenceWorkItem?.cancel()
@@ -823,14 +824,19 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	// A candidate mid-classification may extend the tap sequence, so the
 	// resolution timer defers until the pending window completes.
-	private func scheduleMLTapSequenceResolution() {
+	//
+	// Anchored at the tap PEAK, not the classification instant: a second
+	// tap's peak must physically land within sequenceWindow of the first, and
+	// tapDetectionMargin covers its detector/enqueue lag — anchoring at
+	// classification time was adding the ~0.42s window lag to every
+	// single-tap resolution (Kevin: "single tap takes too long to show up").
+	private func scheduleMLTapSequenceResolution(anchoredAt peak: CFAbsoluteTime) {
 		tapSequenceWorkItem?.cancel()
 		let workItem = DispatchWorkItem { [weak self] in self?.resolveMLTapSequence() }
 		tapSequenceWorkItem = workItem
-		DispatchQueue.main.asyncAfter(
-			deadline: .now() + OuraTapSequenceRecognizer.sequenceWindow + 0.02,
-			execute: workItem
-		)
+		let deadline = peak + OuraTapSequenceRecognizer.sequenceWindow + tapDetectionMargin + 0.02
+		let delay = max(0.05, deadline - CFAbsoluteTimeGetCurrent())
+		DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
 	}
 
 	private func resolveMLTapSequence() {

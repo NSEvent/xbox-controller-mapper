@@ -38,7 +38,8 @@ FLICK_COOLDOWN = 0.65
 FLICK_CONFIDENCE_THRESHOLD = 0.5
 FLICK_MID_SEQUENCE_CONFIDENCE = 0.85
 POST_RESOLVE_COOLDOWN = 0.35
-POST_HOLD_COOLDOWN = 1.2
+POST_HOLD_COOLDOWN = 0.6
+DETECTION_MARGIN = 0.20
 CENTER_SUPPRESSION = 0.75
 
 
@@ -134,7 +135,14 @@ class MLPipeline:
 					self._start_hold_retroactively(peak_ct)
 				else:
 					self.hold.cancel()
-				self.resolution_at = max(now, peak_ct + self.p.sequence_window) + self.p.timer_slack
+				# Anchor resolution at the PEAK, not classification time: a
+				# second tap's peak must land within sequence_window of the
+				# first, and DETECTION_MARGIN covers its detector/enqueue lag —
+				# the pending-peaks deferral then waits for its classification.
+				# Anchoring at classification time added the ~0.42s window lag
+				# to every single-tap resolution.
+				self.resolution_at = max(now + 0.01,
+					peak_ct + self.p.sequence_window + DETECTION_MARGIN) + self.p.timer_slack
 			else:
 				self.hold.cancel()
 				self.resolution_at = None
