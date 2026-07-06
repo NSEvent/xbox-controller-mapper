@@ -122,6 +122,9 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	// ML gesture-event path (OuraGestureEventClassifier.swift); falls back to
 	// the heuristic recognizers until the model loads or when the
 	// ouraGestureClassifierDisabled default is set.
+	private var streamingActivity: NSObjectProtocol?
+	private var motionWatchdogTimer: Timer?
+	private var lastMotionSampleWallTime: CFAbsoluteTime = 0
 	private let gestureClassifier = OuraGestureEventClassifier()
 	private var motionWindowBuffer = OuraMotionWindowBuffer()
 	private var impulseDetector = OuraImpulseDetector()
@@ -283,6 +286,8 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		clearConnectAttempt()
 		realtimeRefreshTimer?.invalidate()
 		realtimeRefreshTimer = nil
+		endStreamingActivity()
+		stopMotionWatchdog()
 		tapSequence.reset()
 		tapMotionSuppressor.reset()
 		tapHoldRecognizer.reset()
@@ -478,6 +483,53 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		if let realtimeRefreshTimer {
 			RunLoop.main.add(realtimeRefreshTimer, forMode: .common)
 		}
+		beginStreamingActivity()
+		startMotionWatchdog()
+	}
+
+	// App Nap freezes BLE delivery and the realtime-refresh timer as soon as
+	// ControllerKeys is not the active app — the ring's cursor/gestures die
+	// until the app is foregrounded again (observed 2026-07-06: trace went
+	// from ~50 samples/s to 0 the moment another app took focus). Hold a
+	// user-initiated activity while the ring streams; allow idle system sleep.
+	private func beginStreamingActivity() {
+		guard streamingActivity == nil else { return }
+		streamingActivity = ProcessInfo.processInfo.beginActivity(
+			options: .userInitiatedAllowingIdleSystemSleep,
+			reason: "Oura ring realtime motion streaming"
+		)
+	}
+
+	private func endStreamingActivity() {
+		if let streamingActivity {
+			ProcessInfo.processInfo.endActivity(streamingActivity)
+			self.streamingActivity = nil
+		}
+	}
+
+	// If the stream dies mid-deflection (BLE dropout, ring sleep), the virtual
+	// stick would stay latched at its last value and the cursor drifts
+	// forever. Watchdog releases the sticks when samples stop arriving.
+	private func startMotionWatchdog() {
+		guard motionWatchdogTimer == nil else { return }
+		let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+			Task { @MainActor in
+				guard let self else { return }
+				guard self.lastMotionSampleWallTime > 0,
+				      CFAbsoluteTimeGetCurrent() - self.lastMotionSampleWallTime > 1.2 else { return }
+				self.lastMotionSampleWallTime = 0
+				self.releaseOuraMotionSticks()
+				self.appendDiagnostic("motion stream stalled — sticks released by watchdog")
+			}
+		}
+		RunLoop.main.add(timer, forMode: .common)
+		motionWatchdogTimer = timer
+	}
+
+	private func stopMotionWatchdog() {
+		motionWatchdogTimer?.invalidate()
+		motionWatchdogTimer = nil
+		lastMotionSampleWallTime = 0
 	}
 
 	private func releaseOuraMotionSticks() {
@@ -535,6 +587,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	}
 
 	private func applyMotion(_ sample: OuraMotionSample) {
+		lastMotionSampleWallTime = CFAbsoluteTimeGetCurrent()
 		let result = motionMapper.mappingResult(forRawSample: sample)
 		if result.didEstablishCenter {
 			appendDiagnostic(String(format: "motion center %.2f %.2f %.2f", sample.x, sample.y, sample.z))
@@ -976,6 +1029,8 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		appendDiagnostic("disconnected \(error?.localizedDescription ?? "no error")")
 		realtimeRefreshTimer?.invalidate()
 		realtimeRefreshTimer = nil
+		endStreamingActivity()
+		stopMotionWatchdog()
 		tapDetector.reset()
 		motionMapper.reset()
 		resetMLGestureState()
