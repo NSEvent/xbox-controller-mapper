@@ -109,6 +109,8 @@ class MLPipeline:
 				self.sequence.reset()
 
 	def _classify(self, peak_ct, now):
+		if peak_ct < self.cooldown_until:
+			return  # previous flick's echo — already-queued peaks skip the enqueue check
 		window = extract_window(self.cts, self.rows, peak_ct)
 		if window is None:
 			return

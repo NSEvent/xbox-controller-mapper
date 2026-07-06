@@ -662,6 +662,11 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	}
 
 	private func classifyImpulsePeak(_ peak: CFAbsoluteTime, now: CFAbsoluteTime) {
+		// The enqueue-time cooldown check can't catch peaks that were already
+		// queued when a flick fired — a flick's secondary spikes arrive within
+		// ~0.3s and would double-fire it. Anything inside the cooldown is the
+		// previous flick's echo; drop it outright.
+		guard peak >= flickClassificationCooldownUntil else { return }
 		guard let window = motionWindowBuffer.window(around: peak),
 		      let (event, confidence) = gestureClassifier.classify(window: window) else {
 			return

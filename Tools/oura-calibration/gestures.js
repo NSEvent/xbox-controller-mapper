@@ -6,18 +6,25 @@
 // ouraMotionTraceLogging -bool true) must be enabled so analyze_gestures.py
 // can join prompts to accelerometer samples by wall-clock time.
 
+// v2 (2026-07-06): more flicks prompted as NATURAL desk-posture motions (v1's
+// exaggerated prompted flicks scored ≥0.98 model confidence while Kevin's
+// casual flicks ranged 0.35-1.00 — distribution mismatch), and three
+// deliberate cursor-navigation negative classes (v1 had only 6 aimless
+// noise-move trials, so cursor use produced phantom flick classifications).
 const CLASSES = [
-	{ id: "single-tap", label: "SINGLE TAP", hint: "One crisp tap", reps: 12, windowSeconds: 2.0, expect: { taps: 1 } },
-	{ id: "double-tap", label: "DOUBLE TAP", hint: "Two quick taps", reps: 12, windowSeconds: 2.5, expect: { taps: 2 } },
-	{ id: "triple-tap", label: "TRIPLE TAP", hint: "Three quick taps", reps: 12, windowSeconds: 3.0, expect: { taps: 3 } },
-	{ id: "five-tap", label: "5x TAP", hint: "Five quick taps", reps: 10, windowSeconds: 4.0, expect: { taps: 5 } },
-	{ id: "flick-up", label: "FLICK UP", hint: "One sharp flick upward", reps: 10, windowSeconds: 2.0, expect: { flick: "up" } },
-	{ id: "flick-down", label: "FLICK DOWN", hint: "One sharp flick downward", reps: 10, windowSeconds: 2.0, expect: { flick: "down" } },
-	{ id: "flick-left", label: "FLICK LEFT", hint: "One sharp flick to the left", reps: 10, windowSeconds: 2.0, expect: { flick: "left" } },
-	{ id: "flick-right", label: "FLICK RIGHT", hint: "One sharp flick to the right", reps: 10, windowSeconds: 2.0, expect: { flick: "right" } },
-	{ id: "tap-hold", label: "TAP + HOLD", hint: "Tap once, then press and hold", reps: 8, windowSeconds: 2.5, expect: { tapHold: true } },
-	{ id: "noise-still", label: "HOLD STILL", hint: "Do nothing — hand relaxed", reps: 4, windowSeconds: 5.0, expect: { none: true } },
-	{ id: "noise-move", label: "MOVE CURSOR", hint: "Move the cursor around normally — no taps, no flicks", reps: 6, windowSeconds: 5.0, expect: { none: true } }
+	{ id: "single-tap", label: "SINGLE TAP", hint: "One crisp tap", reps: 8, windowSeconds: 2.0, expect: { taps: 1 } },
+	{ id: "double-tap", label: "DOUBLE TAP", hint: "Two quick taps", reps: 10, windowSeconds: 2.5, expect: { taps: 2 } },
+	{ id: "triple-tap", label: "TRIPLE TAP", hint: "Three quick taps", reps: 8, windowSeconds: 3.0, expect: { taps: 3 } },
+	{ id: "five-tap", label: "5x TAP", hint: "Five quick taps", reps: 6, windowSeconds: 4.0, expect: { taps: 5 } },
+	{ id: "flick-up", label: "FLICK UP", hint: "One natural flick up — as you'd really do it, not exaggerated", reps: 12, windowSeconds: 2.0, expect: { flick: "up" } },
+	{ id: "flick-down", label: "FLICK DOWN", hint: "One natural flick down — as you'd really do it, not exaggerated", reps: 12, windowSeconds: 2.0, expect: { flick: "down" } },
+	{ id: "flick-left", label: "FLICK LEFT", hint: "One natural flick left — as you'd really do it, not exaggerated", reps: 12, windowSeconds: 2.0, expect: { flick: "left" } },
+	{ id: "flick-right", label: "FLICK RIGHT", hint: "One natural flick right — as you'd really do it, not exaggerated", reps: 12, windowSeconds: 2.0, expect: { flick: "right" } },
+	{ id: "tap-hold", label: "TAP + HOLD", hint: "Tap once, then press and hold", reps: 6, windowSeconds: 2.5, expect: { tapHold: true } },
+	{ id: "noise-still", label: "HOLD STILL", hint: "Do nothing — hand relaxed", reps: 3, windowSeconds: 5.0, expect: { none: true } },
+	{ id: "noise-cursor-point", label: "POINT AT THINGS", hint: "Move the cursor deliberately — point at corners, icons, buttons. No gestures.", reps: 8, windowSeconds: 5.0, expect: { none: true } },
+	{ id: "noise-cursor-fast", label: "FAST CURSOR SWEEPS", hint: "Big quick cursor sweeps across the screen. No gestures.", reps: 6, windowSeconds: 5.0, expect: { none: true } },
+	{ id: "noise-cursor-circles", label: "CURSOR CIRCLES", hint: "Move the cursor in circles, small and large. No gestures.", reps: 4, windowSeconds: 5.0, expect: { none: true } }
 ];
 
 const PREPARE_SECONDS = 1.4;
