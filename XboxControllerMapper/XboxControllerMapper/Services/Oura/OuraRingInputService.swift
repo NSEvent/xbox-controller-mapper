@@ -140,6 +140,9 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private let postHoldClassificationCooldown: CFTimeInterval = 0.6
 	private let tapDetectionMargin: CFTimeInterval = 0.20
 	private let tapLeanProbabilityThreshold = 0.45
+	private let tapCorroborationFloor = 0.10
+	private let tapCorroborationWindow: CFTimeInterval = 0.12
+	private var heuristicTapFires: [CFAbsoluteTime] = []
 	private var useMLGesturePath: Bool {
 		gestureClassifier.isAvailable &&
 			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")
@@ -725,6 +728,18 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private func applyMotionGesturesML(_ sample: OuraMotionSample, projectedInput: CGPoint) {
 		motionWindowBuffer.append(sample, projected: projectedInput)
 
+		// The tuned heuristic detector runs in parallel as a corroborator: it
+		// never fires actions itself (alone it ghost-fires too much — 1219
+		// fires/hour live), but its shape verdict breaks ties on borderline
+		// ML windows in classifyImpulsePeak. Live measurement: +179 real
+		// taps/hour recovered, zero cost on both labeled sessions.
+		if sample.timestamp >= suppressTapDetectionUntil, tapDetector.register(sample) {
+			heuristicTapFires.append(sample.timestamp)
+			if heuristicTapFires.count > 16 {
+				heuristicTapFires.removeFirst(heuristicTapFires.count - 16)
+			}
+		}
+
 		while let peak = pendingClassificationPeaks.first,
 		      sample.timestamp >= peak + OuraMotionWindowBuffer.postSpan {
 			pendingClassificationPeaks.removeFirst()
@@ -759,8 +774,15 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		// by a hair (live: 70 borderline windows in 40 min with P(tap) ≥ 0.3).
 		// Firing tap at P(tap) ≥ 0.45 recovers them at zero cost on both
 		// labeled sessions (noise trials stay clean).
-		if event == .noise, tapProbability >= tapLeanProbabilityThreshold {
-			event = .tap
+		if event == .noise {
+			if tapProbability >= tapLeanProbabilityThreshold {
+				event = .tap
+			} else if tapProbability >= tapCorroborationFloor,
+			          heuristicTapFires.contains(where: { abs($0 - peak) <= tapCorroborationWindow }) {
+				// Two weak signals agreeing: a borderline ML window plus the
+				// shape detector firing for the same instant is a tap.
+				event = .tap
+			}
 		}
 		motionTrace.recordEvent("ml-class",
 			detail: "\(event.rawValue) \(String(format: "%.2f", confidence))", timestamp: peak)
@@ -881,6 +903,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		motionWindowBuffer.reset()
 		impulseDetector.reset()
 		pendingClassificationPeaks.removeAll()
+		heuristicTapFires.removeAll()
 		flickClassificationCooldownUntil = 0
 		tapHoldFedThrough = -.greatestFiniteMagnitude
 	}

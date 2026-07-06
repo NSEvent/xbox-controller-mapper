@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT.parent / "Tools" / "oura-calibration"))
 
 from model import CLASSES, OuraGestureNet
 from build_dataset import extract_window, PEAK_MIN_SEPARATION, PEAK_THRESHOLD, WINDOW_POST
-from tune_gestures import (Params, SHIPPED_2026_07_06, TapSequence, TapHold,
+from tune_gestures import (Params, SHIPPED_2026_07_06, TapDetector, TapSequence, TapHold,
 	load_trace, score, print_confusion, build_trials, latest_gesture_session,
 	load_events, split_by_coverage)
 from dataclasses import replace
@@ -40,6 +40,9 @@ FLICK_MID_SEQUENCE_CONFIDENCE = 0.85
 POST_RESOLVE_COOLDOWN = 0.35
 POST_HOLD_COOLDOWN = 0.6
 DETECTION_MARGIN = 0.20
+TAP_LEAN = 0.45
+TAP_CORROBORATION_FLOOR = 0.10
+TAP_CORROBORATION_WINDOW = 0.12
 CENTER_SUPPRESSION = 0.75
 
 
@@ -49,6 +52,8 @@ class MLPipeline:
 		self.p = params
 		self.sequence = TapSequence(params)
 		self.hold = TapHold(params)
+		self.tap_detector = TapDetector(params)   # heuristic corroborator
+		self.heuristic_fires = []
 		self.rows = []            # [t, ct, x, y, z, px, py] history
 		self.cts = []
 		self.jerk_prev = None     # (ct, jerk) of previous jerk-series entry
@@ -82,6 +87,12 @@ class MLPipeline:
 	def feed_sample(self, t, ct, x, y, z, px, py):
 		self.rows.append([t, ct, x, y, z, px, py])
 		self.cts.append(ct)
+
+		# heuristic tap detector runs in parallel as a corroborator: its fire
+		# times break ties on borderline ML windows (see _classify)
+		if ct >= self.suppress_until and self.tap_detector.register((ct, x, y, z)):
+			self.heuristic_fires.append(ct)
+			del self.heuristic_fires[:-16]
 
 		# classify any pending peak whose window is now complete
 		while self.pending_peaks and ct >= self.pending_peaks[0] + WINDOW_POST:
@@ -124,6 +135,15 @@ class MLPipeline:
 			logits = self.model(torch.tensor(np.array([window], dtype=np.float32)))
 		probs = torch.softmax(logits, dim=1)[0]
 		label = CLASSES[int(probs.argmax())]
+		ptap = float(probs[0])
+		if label == "noise":
+			if ptap >= TAP_LEAN:
+				label = "tap"
+			elif ptap >= TAP_CORROBORATION_FLOOR and any(
+					abs(f - peak_ct) <= TAP_CORROBORATION_WINDOW for f in self.heuristic_fires):
+				# two weak signals agreeing: borderline ML window + the shape
+				# detector fired for the same instant (live: +179 taps/hour)
+				label = "tap"
 		confidence = float(probs.max())
 		self.events.append((peak_ct, "ml-class", label))
 		if label == "tap":
