@@ -125,6 +125,8 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var streamingActivity: NSObjectProtocol?
 	private var motionWatchdogTimer: Timer?
 	private var lastMotionSampleWallTime: CFAbsoluteTime = 0
+	private var stallSticksReleased = false
+	private var lastStallRearmTime: CFAbsoluteTime = 0
 	private let gestureClassifier = OuraGestureEventClassifier()
 	private var motionWindowBuffer = OuraMotionWindowBuffer()
 	private var impulseDetector = OuraImpulseDetector()
@@ -512,19 +514,32 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		}
 	}
 
-	// If the stream dies mid-deflection (BLE dropout, ring sleep), the virtual
-	// stick would stay latched at its last value and the cursor drifts
-	// forever. Watchdog releases the sticks when samples stop arriving.
+	// If the stream dies mid-deflection (BLE dropout, ring pausing realtime),
+	// the virtual stick would stay latched and the cursor drifts. The watchdog
+	// releases the sticks AND actively re-arms the realtime accelerometer:
+	// live traces showed the stream silently dying for 6-84s stretches (seven
+	// gaps in 45 min) with the 9-minute refresh timer as the only revival —
+	// re-arming every 2s during a stall turns those into ~2-3s blips.
 	private func startMotionWatchdog() {
 		guard motionWatchdogTimer == nil else { return }
 		let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
 			Task { @MainActor in
 				guard let self else { return }
-				guard self.lastMotionSampleWallTime > 0,
-				      CFAbsoluteTimeGetCurrent() - self.lastMotionSampleWallTime > 1.2 else { return }
-				self.lastMotionSampleWallTime = 0
-				self.releaseOuraMotionSticks()
-				self.appendDiagnostic("motion stream stalled — sticks released by watchdog")
+				guard self.lastMotionSampleWallTime > 0 else { return }
+				let now = CFAbsoluteTimeGetCurrent()
+				let stalledFor = now - self.lastMotionSampleWallTime
+				guard stalledFor > 1.2 else { return }
+				if !self.stallSticksReleased {
+					self.stallSticksReleased = true
+					self.releaseOuraMotionSticks()
+					self.appendDiagnostic("motion stream stalled — sticks released by watchdog")
+				}
+				if now - self.lastStallRearmTime > 2.0, self.peripheral != nil, self.writeCharacteristic != nil {
+					self.lastStallRearmTime = now
+					self.write(OuraRingProtocol.startAccelerometerCommand(
+						durationMinutes: self.realtimeAccelerometerDurationMinutes))
+					self.appendDiagnostic(String(format: "motion stream stalled %.1fs — re-arming realtime accelerometer", stalledFor))
+				}
 			}
 		}
 		RunLoop.main.add(timer, forMode: .common)
@@ -535,6 +550,8 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		motionWatchdogTimer?.invalidate()
 		motionWatchdogTimer = nil
 		lastMotionSampleWallTime = 0
+		stallSticksReleased = false
+		lastStallRearmTime = 0
 	}
 
 	private func releaseOuraMotionSticks() {
@@ -593,6 +610,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	private func applyMotion(_ sample: OuraMotionSample) {
 		lastMotionSampleWallTime = CFAbsoluteTimeGetCurrent()
+		stallSticksReleased = false
 		let result = motionMapper.mappingResult(forRawSample: sample)
 		if result.didEstablishCenter {
 			appendDiagnostic(String(format: "motion center %.2f %.2f %.2f", sample.x, sample.y, sample.z))
