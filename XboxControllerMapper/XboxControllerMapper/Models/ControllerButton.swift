@@ -125,6 +125,11 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     case ouraDoubleTap            // Two taps detected by an Oura Ring
     case ouraTripleTap            // Three taps detected by an Oura Ring
     case ouraFiveTap              // Five taps detected by an Oura Ring
+    case ouraTapHold              // Tap followed by a still hold
+    case ouraFlickUp              // Quick directional flick up
+    case ouraFlickDown            // Quick directional flick down
+    case ouraFlickLeft            // Quick directional flick left
+    case ouraFlickRight           // Quick directional flick right
 
     var id: String { rawValue }
 

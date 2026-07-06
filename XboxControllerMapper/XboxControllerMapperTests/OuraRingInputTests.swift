@@ -21,12 +21,30 @@ final class OuraRingInputTests: XCTestCase {
 		XCTAssertEqual(decoded.targetStick, .right)
 		XCTAssertEqual(decoded.orientation, .screenPlane)
 		XCTAssertEqual(decoded.sensitivity, 1.0)
-		XCTAssertEqual(decoded.horizontalBoost, 2.2)
-		XCTAssertEqual(decoded.leftTiltBoost, 1.8)
+		XCTAssertEqual(decoded.horizontalBoost, 1.0)
+		XCTAssertEqual(decoded.leftTiltBoost, 1.0)
 		XCTAssertEqual(decoded.deadzone, 0.0)
 		XCTAssertEqual(decoded.smoothing, 1.0)
 		XCTAssertTrue(decoded.adoptResetRing)
 		XCTAssertTrue(decoded.diagnosticsEnabled)
+	}
+
+	func testOuraMotionSettingsDefaultMatchesTunedRingProfile() {
+		let settings = OuraMotionSettings.default
+
+		XCTAssertFalse(settings.enabled)
+		XCTAssertTrue(settings.motionOutputEnabled)
+		XCTAssertEqual(settings.targetStick, .left)
+		XCTAssertEqual(settings.orientation, .screenPlane)
+		XCTAssertEqual(settings.sensitivity, 0.0479656339031339, accuracy: 1e-12)
+		XCTAssertEqual(settings.horizontalBoost, 1.0, accuracy: 1e-12)
+		XCTAssertEqual(settings.leftTiltBoost, 1.0, accuracy: 1e-12)
+		XCTAssertEqual(settings.deadzone, 0.3505420470505618, accuracy: 1e-12)
+		XCTAssertEqual(settings.smoothing, 0.7516045616005551, accuracy: 1e-12)
+		XCTAssertFalse(settings.invertX)
+		XCTAssertFalse(settings.invertY)
+		XCTAssertTrue(settings.adoptResetRing)
+		XCTAssertTrue(settings.diagnosticsEnabled)
 	}
 
 	func testJoystickSettingsRoundTripPreservesOuraMotion() throws {
@@ -201,6 +219,57 @@ final class OuraRingInputTests: XCTestCase {
 
 		suppressor.reset()
 		XCTAssertFalse(suppressor.isSuppressed(at: 11.20))
+	}
+
+	func testOuraTapHoldRecognizerFiresAfterStillHold() {
+		var recognizer = OuraTapHoldRecognizer()
+		let anchor = OuraMotionSample(x: 0.10, y: 0.95, z: -0.12, timestamp: 40.00)
+
+		recognizer.registerTap(at: anchor.timestamp, sample: anchor)
+
+		XCTAssertFalse(recognizer.registerMotion(OuraMotionSample(x: 0.11, y: 0.95, z: -0.11, timestamp: 40.20)))
+		XCTAssertTrue(recognizer.registerMotion(OuraMotionSample(x: 0.10, y: 0.96, z: -0.12, timestamp: 40.50)))
+		XCTAssertFalse(recognizer.registerMotion(OuraMotionSample(x: 0.11, y: 0.95, z: -0.12, timestamp: 40.80)))
+	}
+
+	func testOuraTapHoldRecognizerCancelsWhenHandMoves() {
+		var recognizer = OuraTapHoldRecognizer()
+		let anchor = OuraMotionSample(x: 0.10, y: 0.95, z: -0.12, timestamp: 41.00)
+
+		recognizer.registerTap(at: anchor.timestamp, sample: anchor)
+
+		XCTAssertFalse(recognizer.registerMotion(OuraMotionSample(x: 0.58, y: 0.72, z: -0.32, timestamp: 41.20)))
+		XCTAssertFalse(recognizer.registerMotion(OuraMotionSample(x: 0.10, y: 0.95, z: -0.12, timestamp: 41.70)))
+	}
+
+	func testOuraDirectionalFlickRecognizerDetectsFastReturnToStart() {
+		var recognizer = OuraDirectionalFlickRecognizer()
+
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: -0.22, y: 0.38), timestamp: 42.00))
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: 0.42, y: 0.43), timestamp: 42.25))
+		XCTAssertEqual(
+			recognizer.register(projectedInput: CGPoint(x: -0.15, y: 0.36), timestamp: 42.50),
+			.right
+		)
+	}
+
+	func testOuraDirectionalFlickRecognizerRequiresReturnToStart() {
+		var recognizer = OuraDirectionalFlickRecognizer()
+
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: 0.20, y: -0.24), timestamp: 43.00))
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: -0.44, y: -0.18), timestamp: 43.25))
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: -0.36, y: -0.17), timestamp: 43.45))
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: -0.30, y: -0.18), timestamp: 43.70))
+	}
+
+	func testOuraDirectionalFlickRecognizerIgnoresSlowSteeringMotion() {
+		var recognizer = OuraDirectionalFlickRecognizer()
+
+		XCTAssertNil(recognizer.register(projectedInput: .zero, timestamp: 44.00))
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: 0.14, y: 0.02), timestamp: 44.08))
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: 0.29, y: 0.02), timestamp: 44.20))
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: 0.47, y: 0.03), timestamp: 44.36))
+		XCTAssertNil(recognizer.register(projectedInput: CGPoint(x: 0.09, y: 0.02), timestamp: 44.64))
 	}
 
 	func testOuraMotionMapperAppliesDeadzoneSensitivityAndSmoothing() {

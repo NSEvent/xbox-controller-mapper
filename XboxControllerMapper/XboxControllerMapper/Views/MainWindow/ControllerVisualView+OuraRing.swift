@@ -7,7 +7,8 @@ extension ControllerVisualView {
 
 		return HStack(alignment: .center, spacing: 38) {
 			VStack(alignment: .trailing, spacing: 16) {
-				referenceGroup(title: "Tap", buttons: ControllerButton.ouraRingButtons)
+				referenceGroup(title: "Tap", buttons: ControllerButton.ouraRingTapButtons)
+				referenceGroup(title: "Flick", buttons: ControllerButton.ouraRingFlickButtons)
 			}
 			.frame(width: 250)
 

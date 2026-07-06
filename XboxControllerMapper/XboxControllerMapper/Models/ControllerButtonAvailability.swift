@@ -65,7 +65,8 @@ extension ControllerButton {
 
     var isOuraRingOnly: Bool {
 		switch self {
-		case .ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap:
+		case .ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap,
+			.ouraTapHold, .ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight:
 			return true
 		default:
 			return false
@@ -393,6 +394,17 @@ extension ControllerButton {
     }
 
     static var ouraRingButtons: [ControllerButton] {
-		[.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap]
+		[
+			.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap, .ouraTapHold,
+			.ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight
+		]
     }
+
+	static var ouraRingTapButtons: [ControllerButton] {
+		[.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap, .ouraTapHold]
+	}
+
+	static var ouraRingFlickButtons: [ControllerButton] {
+		[.ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight]
+	}
 }

@@ -114,7 +114,21 @@ final class ControllerButtonCoverageTests: XCTestCase {
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.ouraTap))
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.ouraFiveTap))
-				XCTAssertEqual(ControllerButton.ouraRingButtons, [.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap])
+				XCTAssertEqual(
+					ControllerButton.ouraRingTapButtons,
+					[.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap, .ouraTapHold]
+				)
+				XCTAssertEqual(
+					ControllerButton.ouraRingFlickButtons,
+					[.ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight]
+				)
+				XCTAssertEqual(
+					ControllerButton.ouraRingButtons,
+					[
+						.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap, .ouraTapHold,
+						.ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight
+					]
+				)
 				XCTAssertEqual(
 					ControllerButton.appleTVRemoteButtons,
 					[

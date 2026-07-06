@@ -273,7 +273,7 @@ extension ControllerPreviewLayout {
 					loc("Wait for the Oura status to show **Authenticated**; the Buttons tab then shows the Oura Ring layout.")
 				],
 				tip: loc("Use **Reset Center** while pointing your finger at the screen to recalibrate the motion plane."),
-				pairingButtons: [.ouraTap, .ouraDoubleTap, .ouraTripleTap]
+				pairingButtons: [.ouraTap, .ouraTapHold, .ouraFlickLeft, .ouraFlickRight]
 			)
         }
     }

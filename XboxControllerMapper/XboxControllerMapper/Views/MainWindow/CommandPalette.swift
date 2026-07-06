@@ -34,11 +34,12 @@ struct CommandPaletteDestination: Identifiable, Equatable {
     /// palette can take you straight to binding them.
     static let coreButtons: [ControllerButton] = [
         .a, .b, .x, .y,
-        .leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
-        .dpadUp, .dpadDown, .dpadLeft, .dpadRight,
-        .leftThumbstick, .rightThumbstick,
+		.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
+		.dpadUp, .dpadDown, .dpadLeft, .dpadRight,
+		.leftThumbstick, .rightThumbstick,
 		.menu, .view,
-		.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap
+		.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap, .ouraTapHold,
+		.ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight
     ]
 }
 

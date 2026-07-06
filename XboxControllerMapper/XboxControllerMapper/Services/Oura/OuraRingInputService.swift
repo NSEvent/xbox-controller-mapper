@@ -110,6 +110,8 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var realtimeRefreshTimer: Timer?
 	private var tapSequence = OuraTapSequenceRecognizer()
 	private var tapMotionSuppressor = OuraTapMotionSuppressor()
+	private var tapHoldRecognizer = OuraTapHoldRecognizer()
+	private var flickRecognizer = OuraDirectionalFlickRecognizer()
 	private var isMigratingLegacyDeadzone = false
 	private var connectAttemptStartTime: CFAbsoluteTime?
 	private var lastAccelerometerTapTime: CFAbsoluteTime = 0
@@ -180,6 +182,8 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		tapSequenceWorkItem?.cancel()
 		tapSequenceWorkItem = nil
 		tapSequence.reset()
+		tapHoldRecognizer.reset()
+		flickRecognizer.reset()
 		motionMapper.reset()
 		tapDetector.reset()
 		releaseOuraMotionSticks()
@@ -203,6 +207,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	func toggleMotionOutputEnabled() {
 		setMotionOutputEnabled(!currentSettings.motionOutputEnabled)
+		resetMotionCenter()
 	}
 
 	func pauseMotionOutput() {
@@ -256,6 +261,8 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		realtimeRefreshTimer = nil
 		tapSequence.reset()
 		tapMotionSuppressor.reset()
+		tapHoldRecognizer.reset()
+		flickRecognizer.reset()
 		motionMapper.reset()
 		tapDetector.reset()
 		releaseOuraMotionSticks()
@@ -514,8 +521,12 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		if result.didEstablishCenter {
 			suppressTapDetectionUntil = max(suppressTapDetectionUntil, sample.timestamp + 0.75)
 		}
-		if sample.timestamp >= suppressTapDetectionUntil, tapDetector.register(sample) {
-			handleAccelerometerTapCandidate(at: sample.timestamp)
+		let detectedTap = sample.timestamp >= suppressTapDetectionUntil && tapDetector.register(sample)
+		if detectedTap {
+			handleAccelerometerTapCandidate(at: sample.timestamp, sample: sample)
+		} else {
+			handleTapHoldCandidate(sample)
+			handleDirectionalFlickCandidate(projectedInput: projectedInput, timestamp: sample.timestamp)
 		}
 		let outputStick = tapMotionSuppressor.isSuppressed(at: sample.timestamp) ? .zero : stick
 		controllerService.updateOuraRingStick(outputStick, side: currentSettings.targetStick)
@@ -532,26 +543,59 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		}
 	}
 
-	private func handleAccelerometerTapCandidate(at timestamp: CFAbsoluteTime) {
+	private func handleAccelerometerTapCandidate(at timestamp: CFAbsoluteTime, sample: OuraMotionSample?) {
 		guard timestamp - lastAccelerometerTapTime > accelerometerTapRefractory else { return }
 
 		lastAccelerometerTapTime = timestamp
-		handleTapCandidate(at: timestamp, source: "accelerometer spike")
+		handleTapCandidate(at: timestamp, source: "accelerometer spike", sample: sample)
 	}
 
-	private func handleTapCandidate(at timestamp: CFAbsoluteTime, source: String) {
+	private func handleTapCandidate(at timestamp: CFAbsoluteTime, source: String, sample: OuraMotionSample? = nil) {
 		switch tapSequence.registerTap(at: timestamp) {
 		case .duplicate:
 			return
 		case .pending(let count):
+			if count == 1 {
+				tapHoldRecognizer.registerTap(at: timestamp, sample: sample)
+			} else {
+				tapHoldRecognizer.cancel()
+			}
 			suppressMotionForTap(at: timestamp, duration: tapMotionSuppressionDuration)
 			appendDiagnostic("\(count)x tap pending from \(source)")
 			scheduleTapSequenceResolution()
 		case .completed(let count):
+			tapHoldRecognizer.cancel()
 			tapSequenceWorkItem?.cancel()
 			tapSequenceWorkItem = nil
 			suppressMotionForTap(at: timestamp, duration: tapMotionPostActionSuppressionDuration)
 			performTapSequenceAction(.tapCount(count))
+		}
+	}
+
+	private func handleTapHoldCandidate(_ sample: OuraMotionSample) {
+		guard tapHoldRecognizer.registerMotion(sample) else { return }
+		if fireGestureButton(.ouraTapHold) {
+			tapSequenceWorkItem?.cancel()
+			tapSequenceWorkItem = nil
+			tapSequence.reset()
+			suppressMotionForTap(at: sample.timestamp, duration: tapMotionPostActionSuppressionDuration)
+			appendDiagnostic("tap hold resolved")
+		} else {
+			appendDiagnostic("tap hold detected without mapping")
+		}
+	}
+
+	private func handleDirectionalFlickCandidate(projectedInput: CGPoint, timestamp: CFAbsoluteTime) {
+		guard !tapMotionSuppressor.isSuppressed(at: timestamp),
+		      let flick = flickRecognizer.register(projectedInput: projectedInput, timestamp: timestamp) else {
+			return
+		}
+
+		if fireGestureButton(flick.button) {
+			suppressMotionForTap(at: timestamp, duration: tapMotionPostActionSuppressionDuration)
+			appendDiagnostic("flick \(flick.diagnosticName) resolved")
+		} else {
+			appendDiagnostic("flick \(flick.diagnosticName) detected without mapping")
 		}
 	}
 
@@ -571,6 +615,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	private func performTapSequenceAction(_ action: OuraTapSequenceResolvedAction) {
 		tapSequenceWorkItem = nil
+		tapHoldRecognizer.cancel()
 		suppressMotionForTap(at: CFAbsoluteTimeGetCurrent(), duration: tapMotionPostActionSuppressionDuration)
 		switch action {
 		case .tapCount(let count):
@@ -601,10 +646,11 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		releaseOuraMotionSticks()
 	}
 
-	private func fireGestureButton(_ button: ControllerButton, fallback: (() -> Void)? = nil) {
+	@discardableResult
+	private func fireGestureButton(_ button: ControllerButton, fallback: (() -> Void)? = nil) -> Bool {
 		if !hasExplicitGestureBinding(for: button) {
 			fallback?()
-			return
+			return false
 		}
 
 		tapReleaseWorkItem?.cancel()
@@ -615,6 +661,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		}
 		tapReleaseWorkItem = workItem
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.07, execute: workItem)
+		return true
 	}
 
 	private func hasExplicitGestureBinding(for button: ControllerButton) -> Bool {

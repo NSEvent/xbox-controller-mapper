@@ -222,7 +222,7 @@ extension ControllerVisualDescriptor {
 	}
 
 	static func active(using service: ControllerService) -> ControllerVisualDescriptor {
-		if service.isOuraRingActiveInputSource {
+		if service.isOuraRingConnected {
 			return ControllerVisualDescriptor(family: .ouraRing)
 		}
 		return active(from: service.threadSafeControllerPresentationState)

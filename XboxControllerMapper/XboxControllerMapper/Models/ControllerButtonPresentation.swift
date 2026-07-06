@@ -92,6 +92,11 @@ extension ControllerButton {
 		case .ouraDoubleTap: return "Oura Double Tap"
 		case .ouraTripleTap: return "Oura Triple Tap"
 		case .ouraFiveTap: return "Oura 5x Tap"
+		case .ouraTapHold: return "Oura Tap Hold"
+		case .ouraFlickUp: return "Oura Flick Up"
+		case .ouraFlickDown: return "Oura Flick Down"
+		case .ouraFlickLeft: return "Oura Flick Left"
+		case .ouraFlickRight: return "Oura Flick Right"
         }
     }
 
@@ -284,6 +289,11 @@ extension ControllerButton {
 		case .ouraDoubleTap: return "2x"
 		case .ouraTripleTap: return "3x"
 		case .ouraFiveTap: return "5x"
+		case .ouraTapHold: return "Hold"
+		case .ouraFlickUp: return "↑"
+		case .ouraFlickDown: return "↓"
+		case .ouraFlickLeft: return "←"
+		case .ouraFlickRight: return "→"
         }
     }
 
