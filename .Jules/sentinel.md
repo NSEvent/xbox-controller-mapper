@@ -18,3 +18,7 @@
 **Vulnerability:** The application was falling back to storing OBS passwords as plaintext strings inside exported/saved JSON models (`Macro.swift` and `SystemCommand.swift`) if saving to the macOS Keychain failed.
 **Learning:** Saving secrets to unencrypted formats simply because secure storage fails is a critical anti-pattern known as "failing open" that results in data exposure.
 **Prevention:** Always fail securely. If secure storage operations fail, discard the sensitive credential in memory rather than writing it insecurely to disk, even if it requires the user to re-authenticate later.
+## 2026-06-26 - [Denial of Service via Subprocess Deadlock]
+**Vulnerability:** The application was vulnerable to an execution deadlock when a spawned shell process emitted output larger than the OS pipe buffer limit (~64KB), causing the `Process` execution framework to hang indefinitely because it called `waitUntilExit()` before reading the pipe.
+**Learning:** If a parent process calls `waitUntilExit()` before fully draining the stdout/stderr pipe, the child process will block indefinitely once the buffer fills up, while the parent is blocked waiting for the child to exit. This is a classic deadlock pattern.
+**Prevention:** When using `Foundation.Process` (or `NSTask`) with `Pipe`, always read the pipe data (e.g., using `readDataToEndOfFile()`) *before* calling `waitUntilExit()`. Alternatively, use asynchronous readability handlers to continuously drain the buffer without blocking the main execution thread.

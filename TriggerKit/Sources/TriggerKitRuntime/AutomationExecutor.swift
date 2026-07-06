@@ -354,9 +354,11 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-			process.waitUntilExit()
 
+			// Read pipe data BEFORE waitUntilExit to avoid deadlock when
+			// process output exceeds the pipe buffer size (~64KB).
 			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			process.waitUntilExit()
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
