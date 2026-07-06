@@ -60,9 +60,10 @@ SHIPPED_2026_07_06 = dict(
 	det_refractory=0.18, det_quiet_leadin_jerk=1.63, det_peak_jerk=0.44,
 	det_peak_magnitude=1.064, det_peak_magnitude_delta=0.05, det_confirm_window=0.145,
 	det_peak_drop=0.13, det_settle_ratio=0.92,
-	hold_duration=0.36, hold_settle=0.09, hold_max_anchor_drift=0.44, hold_max_sample_step=0.45,
+	hold_duration=0.6, hold_settle=0.09, hold_max_anchor_drift=0.44, hold_max_sample_step=0.45,
 	sequence_window=0.75,  # raised from 0.65 later on 2026-07-06 — live 3x/5x chains split on ~0.7s gaps
 )
+# hold_duration raised 0.36 → 0.6 same day: still-handed single taps were firing as holds
 
 
 @dataclass(frozen=True)

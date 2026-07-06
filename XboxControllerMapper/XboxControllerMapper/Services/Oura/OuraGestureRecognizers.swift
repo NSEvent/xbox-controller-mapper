@@ -30,7 +30,11 @@ enum OuraDirectionalFlick: Equatable {
 // labeled session (Tools/oura-calibration/tune_gestures.py), same pass as the
 // OuraTapDetector thresholds.
 struct OuraTapHoldRecognizer {
-	private static let holdDuration: CFTimeInterval = 0.36
+	// 0.36 → 0.6 (2026-07-06): a tap followed by the hand naturally resting
+	// was firing as a hold; 0.6s of stillness makes holds deliberate. Must
+	// stay under the tap-sequence resolution (~0.77s) or the hold can never
+	// fire — resolution cancels the candidate.
+	private static let holdDuration: CFTimeInterval = 0.6
 	private static let settleDuration: CFTimeInterval = 0.09
 	private static let minimumStillDuration: CFTimeInterval = 0.22
 	private static let maximumHoldDuration: CFTimeInterval = 1.2

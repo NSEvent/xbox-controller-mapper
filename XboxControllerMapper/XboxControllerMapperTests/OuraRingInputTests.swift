@@ -228,8 +228,9 @@ final class OuraRingInputTests: XCTestCase {
 		recognizer.registerTap(at: anchor.timestamp, sample: anchor)
 
 		XCTAssertFalse(recognizer.registerMotion(OuraMotionSample(x: 0.11, y: 0.95, z: -0.11, timestamp: 40.20)))
-		XCTAssertTrue(recognizer.registerMotion(OuraMotionSample(x: 0.10, y: 0.96, z: -0.12, timestamp: 40.50)))
-		XCTAssertFalse(recognizer.registerMotion(OuraMotionSample(x: 0.11, y: 0.95, z: -0.12, timestamp: 40.80)))
+		XCTAssertFalse(recognizer.registerMotion(OuraMotionSample(x: 0.10, y: 0.96, z: -0.12, timestamp: 40.50)))
+		XCTAssertTrue(recognizer.registerMotion(OuraMotionSample(x: 0.10, y: 0.95, z: -0.12, timestamp: 40.70)))
+		XCTAssertFalse(recognizer.registerMotion(OuraMotionSample(x: 0.11, y: 0.95, z: -0.12, timestamp: 40.95)))
 	}
 
 	func testOuraTapHoldRecognizerCancelsWhenHandMoves() {
