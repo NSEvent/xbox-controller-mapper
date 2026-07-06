@@ -35,7 +35,7 @@ from tune_gestures import (Params, SHIPPED_2026_07_06, TapSequence, TapHold,
 from dataclasses import replace
 
 FLICK_COOLDOWN = 0.65
-FLICK_CONFIDENCE_THRESHOLD = 0.97
+FLICK_CONFIDENCE_THRESHOLD = 0.5
 CENTER_SUPPRESSION = 0.75
 
 
@@ -133,11 +133,16 @@ class MLPipeline:
 				self.resolution_at = None
 				self.events.append((now, "tap-resolved", str(count)))
 		elif label.startswith("flick-"):
-			# Mirror the Swift gates: low-confidence flicks and flicks while a
-			# tap sequence is pending are treated as noise (phantom-flick fix,
-			# 2026-07-06 live report).
-			if confidence < FLICK_CONFIDENCE_THRESHOLD or self.sequence.tap_count > 0:
+			# Mirror the Swift gates (phantom-flick fix, 2026-07-06): drop
+			# low-confidence flicks; consume a pending tap only when it falls
+			# inside the flick's own window (its outbound spike).
+			if confidence < FLICK_CONFIDENCE_THRESHOLD:
 				return
+			if self.sequence.tap_count > 0 and self.sequence.last_tap_time is not None \
+					and peak_ct - self.sequence.last_tap_time <= 0.64:
+				self.sequence.reset()
+				self.resolution_at = None
+				self.hold.cancel()
 			self.events.append((now, "flick", label.split("-")[1]))
 			self.cooldown_until = peak_ct + FLICK_COOLDOWN
 			self.hold.cancel()

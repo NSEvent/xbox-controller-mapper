@@ -129,7 +129,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var flickClassificationCooldownUntil: CFAbsoluteTime = 0
 	private var tapHoldFedThrough: CFAbsoluteTime = -.greatestFiniteMagnitude
 	private let flickClassificationCooldown: CFTimeInterval = 0.65
-	private let flickConfidenceThreshold = 0.97
+	private let flickConfidenceThreshold = 0.5
 	private var useMLGesturePath: Bool {
 		gestureClassifier.isAvailable &&
 			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")
@@ -675,15 +675,25 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			handleMLTapCandidate(at: peak)
 		case .flickUp, .flickDown, .flickLeft, .flickRight:
 			guard let flick = event.directionalFlick else { return }
-			// Cursor navigation produces flick-shaped impulses the v0 model
-			// wasn't trained against (real flicks measured ≥0.98 confidence,
-			// phantoms spread much lower), and a flick mid-tap-sequence is
-			// physically implausible — both are treated as noise so they can
-			// never eat a pending tap count.
-			guard confidence >= flickConfidenceThreshold, !tapSequence.hasPendingTaps else {
-				appendDiagnostic("flick \(flick.diagnosticName) ignored (ml, conf \(String(format: "%.2f", confidence))"
-					+ (tapSequence.hasPendingTaps ? ", taps pending)" : ")"))
+			// The v0 model can't cleanly separate casual flicks from
+			// cursor-motion impulses (measured confidences overlap; Kevin's
+			// real flicks ranged 0.35-1.00). 0.5 keeps most real flicks and
+			// drops the low tail; retraining with cursor-navigation negatives
+			// is the durable fix.
+			guard confidence >= flickConfidenceThreshold else {
+				appendDiagnostic("flick \(flick.diagnosticName) ignored (ml, conf \(String(format: "%.2f", confidence)))")
 				return
+			}
+			// A pending tap registered within the flick's own window is the
+			// flick's outbound spike — consume it so it can't also resolve as
+			// a phantom tap. An older pending sequence is a real tap combo;
+			// leave it to resolve on its own timer.
+			if let lastTap = tapSequence.lastPendingTapTime,
+			   peak - lastTap <= OuraMotionWindowBuffer.preSpan + OuraMotionWindowBuffer.postSpan {
+				tapSequenceWorkItem?.cancel()
+				tapSequenceWorkItem = nil
+				tapSequence.reset()
+				tapHoldRecognizer.cancel()
 			}
 			flickClassificationCooldownUntil = peak + flickClassificationCooldown
 			motionTrace.recordEvent("flick", detail: flick.diagnosticName, timestamp: now)
@@ -820,6 +830,14 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private func fireGestureButton(_ button: ControllerButton, fallback: (() -> Void)? = nil) -> Bool {
 		if !hasExplicitGestureBinding(for: button) {
 			fallback?()
+			// Still surface the gesture in the Buttons-tab input timeline —
+			// the engine resolves it as unmapped, logs "(unmapped)", and
+			// executes nothing. Without this, recognized-but-unbound gestures
+			// are invisible, which reads as "the ring isn't working".
+			controllerService.handleButton(button, pressed: true)
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.07) { [weak self] in
+				self?.controllerService.handleButton(button, pressed: false)
+			}
 			return false
 		}
 
