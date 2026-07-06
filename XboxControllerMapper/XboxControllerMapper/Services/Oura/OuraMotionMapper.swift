@@ -330,6 +330,11 @@ private struct OuraVector3: Equatable {
 	}
 }
 
+// Thresholds tuned offline against the 2026-07-05 labeled gesture session
+// (104 prompted trials) via Tools/oura-calibration/tune_gestures.py — the
+// looser quiet-lead-in gate plus the longer refractory/confirm windows took
+// tap+hold accuracy from 54% to 85% on ground truth with zero false taps
+// during cursor motion. Re-tune against a fresh session before hand-editing.
 struct OuraTapDetector {
 	private var sampleBeforePrevious: OuraMotionSample?
 	private var previousSample: OuraMotionSample?
@@ -354,13 +359,13 @@ struct OuraTapDetector {
 				lastTapTime = sample.timestamp
 				return true
 			}
-			if sample.timestamp - pendingTap.sample.timestamp > 0.10 {
+			if sample.timestamp - pendingTap.sample.timestamp > 0.145 {
 				self.pendingTap = nil
 			}
 		}
 
 		guard let previousSample else { return false }
-		guard sample.timestamp - lastTapTime > 0.10 else { return false }
+		guard sample.timestamp - lastTapTime > 0.18 else { return false }
 
 		let dt = sample.timestamp - previousSample.timestamp
 		guard dt > 0, dt < 0.2 else { return false }
@@ -380,8 +385,8 @@ struct OuraTapDetector {
 			y: previousSample.y - sampleBeforePrevious.y,
 			z: previousSample.z - sampleBeforePrevious.z
 		).magnitude
-		let quietLeadIn = leadInJerk < 0.70 || jerk > max(1.35, leadInJerk * 2.0)
-		let sharpPeak = jerk > 0.55 && magnitude > 1.10 && magnitudeDelta > 0.15
+		let quietLeadIn = leadInJerk < 1.63 || jerk > max(1.35, leadInJerk * 2.0)
+		let sharpPeak = jerk > 0.44 && magnitude > 1.064 && magnitudeDelta > 0.05
 
 		if quietLeadIn && sharpPeak {
 			pendingTap = PendingTap(
@@ -396,7 +401,7 @@ struct OuraTapDetector {
 
 	private func confirmsTap(candidate: PendingTap, with sample: OuraMotionSample) -> Bool {
 		let dt = sample.timestamp - candidate.sample.timestamp
-		guard dt > 0, dt <= 0.10 else { return false }
+		guard dt > 0, dt <= 0.145 else { return false }
 
 		let followDelta = OuraMotionDelta(
 			x: sample.x - candidate.sample.x,
@@ -413,7 +418,7 @@ struct OuraTapDetector {
 		)
 
 		return reversal &&
-			(peakDrop > 0.08 || settledDistance < candidate.delta.magnitude * 0.90)
+			(peakDrop > 0.13 || settledDistance < candidate.delta.magnitude * 0.92)
 	}
 
 	private func hypot3(_ x: Double, _ y: Double, _ z: Double) -> Double {

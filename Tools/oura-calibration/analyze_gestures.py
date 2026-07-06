@@ -244,7 +244,7 @@ def export_dataset(trials, samples, trace_events, export_path):
 				"expect": trial["expect"],
 				"predicted": trial.get("predicted"),
 				"samples": [
-					[s["t"], s["x"], s["y"], s["z"], s.get("px", 0.0), s.get("py", 0.0)]
+					[s["t"], s["ct"], s["x"], s["y"], s["z"], s.get("px", 0.0), s.get("py", 0.0)]
 					for s in window_samples
 				],
 				"events": [
@@ -275,9 +275,23 @@ def main():
 	session_end = trials[-1]["endT"]
 	samples, trace_events = load_trace(args.trace, session_start, session_end)
 
+	# A prompted window with no trace samples is lost data (trace not yet
+	# enabled, app restarted, …), not a recognition miss — flag and exclude it
+	# so the confusion matrix only scores trials the recognizers could see.
+	covered, dropped = [], []
+	for trial in trials:
+		window = slice_window(samples, trial["goT"] - PRE_ROLL_SECONDS, trial["endT"] + POST_ROLL_SECONDS)
+		(covered if window else dropped).append(trial)
+	if dropped:
+		by_class = Counter(trial["label"] for trial in dropped)
+		print(f"⚠ {len(dropped)}/{len(trials)} trial windows have NO trace samples — excluded from scoring "
+			f"({', '.join(f'{k}×{v}' for k, v in sorted(by_class.items()))}). "
+			"Check when the trace flag was enabled relative to session start.")
+	trials = covered
+
 	print(f"Capture: {capture_dir}")
 	print(f"Trace:   {args.trace}")
-	print(f"Trials:  {len(trials)} completed "
+	print(f"Trials:  {len(trials)} with trace coverage "
 		f"({session_end - session_start:.0f}s span, {len(samples)} trace samples, {len(trace_events)} trace events)")
 	if not samples:
 		print("⚠ Trace has NO samples inside the session window. Enable the flag and restart the app:\n"

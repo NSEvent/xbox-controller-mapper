@@ -414,18 +414,29 @@ final class OuraRingInputTests: XCTestCase {
 
 	func testOuraTapDetectorIgnoresBroadHandMotionBurst() {
 		var detector = OuraTapDetector()
+		// Real ring data: the most violent stretch of a prompted "move the
+		// cursor, no gestures" trial from the 2026-07-05 labeled session
+		// (Tools/oura-calibration), including the paired-timestamp BLE frame
+		// structure. Broad hand motion must never register as a tap.
 		let samples = [
-			OuraMotionSample(x: 0.22, y: -0.18, z: -0.91, timestamp: 30.00),
-			OuraMotionSample(x: -1.04, y: -0.41, z: -0.72, timestamp: 30.03),
-			OuraMotionSample(x: -0.58, y: -0.28, z: -0.69, timestamp: 30.06),
-			OuraMotionSample(x: 1.00, y: -0.32, z: 0.17, timestamp: 30.09),
-			OuraMotionSample(x: 0.16, y: -0.08, z: -0.14, timestamp: 30.12),
-			OuraMotionSample(x: 0.05, y: -0.54, z: -0.92, timestamp: 30.15),
-			OuraMotionSample(x: -0.16, y: 0.48, z: -0.83, timestamp: 30.18),
-			OuraMotionSample(x: -0.22, y: -0.06, z: -1.46, timestamp: 30.21),
-			OuraMotionSample(x: 0.13, y: 0.12, z: -0.83, timestamp: 30.24),
-			OuraMotionSample(x: 0.02, y: 0.27, z: -0.97, timestamp: 30.27),
-			OuraMotionSample(x: 0.32, y: 0.57, z: -0.65, timestamp: 30.30)
+			OuraMotionSample(x: 0.08, y: 0.46, z: -0.95, timestamp: 30.000),
+			OuraMotionSample(x: 0.08, y: 0.45, z: -0.99, timestamp: 30.045),
+			OuraMotionSample(x: 0.18, y: 0.46, z: -0.99, timestamp: 30.045),
+			OuraMotionSample(x: 0.22, y: 0.48, z: -1.05, timestamp: 30.075),
+			OuraMotionSample(x: 0.08, y: 0.52, z: -0.81, timestamp: 30.075),
+			OuraMotionSample(x: 0.04, y: 0.50, z: -0.71, timestamp: 30.135),
+			OuraMotionSample(x: 0.20, y: 0.43, z: -0.64, timestamp: 30.135),
+			OuraMotionSample(x: 0.47, y: 0.21, z: -0.67, timestamp: 30.165),
+			OuraMotionSample(x: 0.70, y: 0.18, z: -0.41, timestamp: 30.165),
+			OuraMotionSample(x: 0.90, y: 0.27, z: -0.28, timestamp: 30.210),
+			OuraMotionSample(x: 0.92, y: 0.27, z: -0.63, timestamp: 30.210),
+			OuraMotionSample(x: 0.92, y: 0.29, z: -0.95, timestamp: 30.240),
+			OuraMotionSample(x: 0.90, y: 0.34, z: -0.71, timestamp: 30.240),
+			OuraMotionSample(x: 0.90, y: 0.35, z: -0.49, timestamp: 30.285),
+			OuraMotionSample(x: 0.99, y: 0.32, z: -0.56, timestamp: 30.285),
+			OuraMotionSample(x: 0.99, y: 0.23, z: -0.31, timestamp: 30.331),
+			OuraMotionSample(x: 0.89, y: 0.17, z: -0.22, timestamp: 30.331),
+			OuraMotionSample(x: 0.89, y: 0.09, z: 0.00, timestamp: 30.375)
 		]
 
 		for sample in samples {

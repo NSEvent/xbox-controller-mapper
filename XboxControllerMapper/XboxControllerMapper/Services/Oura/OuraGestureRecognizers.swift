@@ -26,13 +26,16 @@ enum OuraDirectionalFlick: Equatable {
 	}
 }
 
+// holdDuration/settleDuration/drift/step tuned offline against the 2026-07-05
+// labeled session (Tools/oura-calibration/tune_gestures.py), same pass as the
+// OuraTapDetector thresholds.
 struct OuraTapHoldRecognizer {
-	private static let holdDuration: CFTimeInterval = 0.42
-	private static let settleDuration: CFTimeInterval = 0.16
+	private static let holdDuration: CFTimeInterval = 0.36
+	private static let settleDuration: CFTimeInterval = 0.09
 	private static let minimumStillDuration: CFTimeInterval = 0.22
 	private static let maximumHoldDuration: CFTimeInterval = 1.2
-	private static let maximumAnchorDrift = 0.34
-	private static let maximumSampleStep = 0.28
+	private static let maximumAnchorDrift = 0.44
+	private static let maximumSampleStep = 0.45
 
 	private var candidate: Candidate?
 	private var previousSample: OuraMotionSample?
