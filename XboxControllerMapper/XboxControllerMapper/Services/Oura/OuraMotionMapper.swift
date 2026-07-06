@@ -250,15 +250,26 @@ private struct OuraScreenPlaneBasis {
 		self.right = projectedRight
 
 		let projectedUp = (upAxis.projected(perpendicularTo: normalizedNeutral) - projectedRight * upAxis.dot(projectedRight)).normalized
+		var resolvedUp: OuraVector3
 		if let projectedUp {
-			self.up = projectedUp
+			resolvedUp = projectedUp
 		} else {
-			self.up = Self.projectedAxis(
+			resolvedUp = Self.projectedAxis(
 				fallbackAxis,
 				normal: normalizedNeutral,
 				fallbacks: [upAxis, normalizedNeutral.cross(projectedRight)]
 			)
 		}
+		// The pitch response is proportional to the neutral's y-component in
+		// ring frame, which changes sign as the finger crosses level — so
+		// centering with the finger level-or-raised inverted up/down (Kevin
+		// 2026-07-06: cursor only correct when centering pointed slightly
+		// down). Anchor the up axis to the negative-y convention so every
+		// centering pose behaves like the working one.
+		if normalizedNeutral.y > 0 {
+			resolvedUp = resolvedUp * -1
+		}
+		self.up = resolvedUp
 	}
 
 	private static func projectedAxis(_ axis: OuraVector3, normal: OuraVector3, fallbacks: [OuraVector3]) -> OuraVector3 {

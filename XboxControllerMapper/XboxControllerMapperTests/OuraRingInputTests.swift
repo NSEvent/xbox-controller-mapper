@@ -3,6 +3,31 @@ import XCTest
 @testable import ControllerKeys
 
 final class OuraRingInputTests: XCTestCase {
+	func testScreenPlanePitchDirectionConsistentAcrossCenteringPoses() {
+		// Regression: centering with the finger level-or-raised (neutral y > 0)
+		// inverted up/down; pitching the finger up must move the projection the
+		// same direction regardless of the centering pose.
+		func pitchResponse(neutralY: Double) -> Double {
+			var settings = OuraMotionSettings.default
+			settings.enabled = true
+			settings.orientation = .screenPlane
+			var mapper = OuraMotionMapper(settings: settings)
+			let nx = 0.05, nz = -0.95
+			_ = mapper.mappingResult(forRawSample: OuraMotionSample(x: nx, y: neutralY, z: nz, timestamp: 1.0))
+			let theta = 0.1
+			let py = neutralY * cos(theta) - nz * sin(theta)
+			let pz = neutralY * sin(theta) + nz * cos(theta)
+			let result = mapper.mappingResult(forRawSample: OuraMotionSample(x: nx, y: py, z: pz, timestamp: 1.05))
+			return Double(result.projectedInput.y)
+		}
+
+		let down = pitchResponse(neutralY: -0.3)
+		let up = pitchResponse(neutralY: 0.3)
+		XCTAssertGreaterThan(abs(down), 1e-4)
+		XCTAssertGreaterThan(abs(up), 1e-4)
+		XCTAssertEqual((down > 0), (up > 0), "pitch direction must not depend on centering pose")
+	}
+
 	func testOuraMotionSettingsDecodeClampsAndDefaults() throws {
 		let json = #"""
 		{
