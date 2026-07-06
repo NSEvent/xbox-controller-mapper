@@ -497,3 +497,147 @@ final class OuraMotionTraceFormatTests: XCTestCase {
 		XCTAssertNil(object["detail"])
 	}
 }
+
+final class OuraGestureEventClassifierTests: XCTestCase {
+	func testImpulseDetectorConfirmsSpikeAndHonorsSeparation() {
+		var detector = OuraImpulseDetector()
+
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0, y: 0, z: 1.0, timestamp: 10.00)))
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0.02, y: 0, z: 1.0, timestamp: 10.04)))
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0.9, y: 0.1, z: 1.4, timestamp: 10.08)))
+		// spike confirmed one jerk-series entry later
+		XCTAssertEqual(detector.register(OuraMotionSample(x: 0.05, y: 0, z: 1.0, timestamp: 10.12)), 10.08)
+		// a second peak inside the 0.18s separation must not confirm
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0.9, y: 0.1, z: 1.4, timestamp: 10.16)))
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0.05, y: 0, z: 1.0, timestamp: 10.20)))
+	}
+
+	func testImpulseDetectorSkipsPairedFrameSamples() {
+		var detector = OuraImpulseDetector()
+
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0, y: 0, z: 1.0, timestamp: 20.00)))
+		// second sample of the same BLE frame (<1ms apart) adds no jerk entry
+		XCTAssertNil(detector.register(OuraMotionSample(x: 5.0, y: 5.0, z: 5.0, timestamp: 20.0004)))
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0.01, y: 0, z: 1.0, timestamp: 20.04)))
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0.02, y: 0, z: 1.0, timestamp: 20.08)))
+		XCTAssertNil(detector.register(OuraMotionSample(x: 0.03, y: 0, z: 1.0, timestamp: 20.12)))
+	}
+
+	func testMotionWindowBufferResamplesLinearRamp() throws {
+		var buffer = OuraMotionWindowBuffer()
+		// linear ramp: x goes 0→1 over exactly the window span around center 10.0
+		let lo = 10.0 - OuraMotionWindowBuffer.preSpan
+		let hi = 10.0 + OuraMotionWindowBuffer.postSpan
+		for i in 0...64 {
+			let t = lo + (hi - lo) * Double(i) / 64.0
+			let v = Double(i) / 64.0
+			buffer.append(OuraMotionSample(x: v, y: -v, z: 1.0, timestamp: t),
+				projected: CGPoint(x: v * 2, y: 0))
+		}
+
+		let window = try XCTUnwrap(buffer.window(around: 10.0))
+		XCTAssertEqual(window.count, OuraMotionWindowBuffer.steps)
+		XCTAssertEqual(window[0][0], 0.0, accuracy: 0.02)
+		XCTAssertEqual(window[31][0], 1.0, accuracy: 0.02)
+		XCTAssertEqual(window[16][0], Double(16) / 31.0, accuracy: 0.04)
+		XCTAssertEqual(window[16][1], -window[16][0], accuracy: 1e-9)
+		XCTAssertEqual(window[16][3], window[16][0] * 2, accuracy: 1e-9)
+	}
+
+	func testMotionWindowBufferRejectsSparseCoverage() {
+		var buffer = OuraMotionWindowBuffer()
+		buffer.append(OuraMotionSample(x: 0, y: 0, z: 1, timestamp: 9.99), projected: .zero)
+		buffer.append(OuraMotionSample(x: 0, y: 0, z: 1, timestamp: 10.01), projected: .zero)
+		XCTAssertNil(buffer.window(around: 10.0))
+	}
+
+	// Process-lifetime instance: deallocating a classifier inside XCTest's
+	// memory-check scope exercised an isolated-deinit runtime bug (see the
+	// nonisolated note on the class); a static also mirrors production, where
+	// the service holds one classifier for the app's lifetime.
+	private static let sharedClassifier = OuraGestureEventClassifier()
+
+	func testClassifierPredictsRealFlickAndTapWindows() {
+		let classifier = Self.sharedClassifier
+		classifier.loadIfNeeded()
+		let deadline = Date().addingTimeInterval(10)
+		while !classifier.isAvailable && Date() < deadline {
+			RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+		}
+		XCTAssertTrue(classifier.isAvailable, "OuraGestureClassifier.mlmodelc missing or failed to load from bundle")
+
+		// Real windows from the 2026-07-05 labeled session (events.ndjson).
+		XCTAssertEqual(classifier.classify(window: Self.flickLeftWindow), .flickLeft)
+		XCTAssertEqual(classifier.classify(window: Self.tapWindow), .tap)
+	}
+
+	private static let flickLeftWindow: [[Double]] = [
+		[0.3289, -0.1077, -1.0258, -0.0741, 0.4714],
+		[0.3344, -0.1062, -0.993, -0.0874, 0.4581],
+		[0.3362, -0.0998, -0.993, -0.0885, 0.4522],
+		[0.3934, -0.1071, -1.003, -0.1419, 0.4626],
+		[0.4206, -0.1195, -1.0117, -0.1672, 0.4773],
+		[0.3788, -0.1106, -0.9883, -0.1318, 0.4606],
+		[0.3155, -0.1046, -0.959, -0.0774, 0.4444],
+		[0.1657, -0.2803, -1.0421, 0.0707, 0.6382],
+		[0.1074, -0.372, -1.0868, 0.1292, 0.7399],
+		[-1.4954, -0.4946, -0.9825, 1.6372, 0.8165],
+		[-2.8005, -0.4616, -1.026, 2.9096, 0.8015],
+		[-5.2286, -1.6188, -2.2172, 5.4343, 2.3112],
+		[-3.2869, -1.9898, -1.717, 3.4029, 2.4761],
+		[-0.5117, -3.7496, -0.6576, 0.2966, 3.7336],
+		[1.0694, -4.4159, -0.0387, -1.4448, 4.131],
+		[4.4558, -3.6502, -0.014, -4.6428, 3.4082],
+		[4.9974, -2.756, -0.6223, -4.9293, 2.7945],
+		[1.6608, -1.5441, -1.1815, -1.4577, 1.8669],
+		[0.8806, -1.2191, -0.9087, -0.7416, 1.4652],
+		[0.0879, -0.2876, -0.4667, 0.003, 0.437],
+		[0.0487, -0.1057, -0.3646, 0.033, 0.2305],
+		[0.1011, 0.1356, -0.4382, 0.0237, 0.032],
+		[0.1242, 0.1296, -0.5672, 0.0328, 0.0843],
+		[0.2603, 0.0349, -0.7416, -0.0645, 0.2357],
+		[0.3673, 0.017, -0.8058, -0.1535, 0.2756],
+		[0.4887, -0.11, -0.9082, -0.2575, 0.4311],
+		[0.4832, -0.1498, -0.9394, -0.2483, 0.4794],
+		[0.4205, -0.2464, -1.0292, -0.1749, 0.6019],
+		[0.4415, -0.2622, -1.0261, -0.1974, 0.6156],
+		[0.4625, -0.2781, -1.023, -0.22, 0.6292],
+		[0.5279, -0.2471, -0.9653, -0.2943, 0.5794],
+		[0.2504, -0.2783, -0.9714, -0.0282, 0.6108]
+	]
+
+	private static let tapWindow: [[Double]] = [
+		[0.25, -0.3359, -1.3675, 0.15, 0.5308],
+		[0.0511, -0.0038, -1.3278, 0.3425, 0.1965],
+		[0.0861, 0.2827, -1.5375, 0.3834, -0.0565],
+		[0.1093, -0.4281, -0.806, 0.1148, 0.5406],
+		[0.1324, -0.2275, -0.6629, 0.0592, 0.3214],
+		[0.242, 0.3024, -0.901, 0.0478, -0.1684],
+		[0.2661, 0.3274, -0.8791, 0.0194, -0.1963],
+		[0.1597, 0.3437, -0.9246, 0.135, -0.2058],
+		[0.1307, 0.2725, -0.8162, 0.1276, -0.1511],
+		[0.0367, -0.5208, -0.0232, -0.0507, 0.5186],
+		[0.0935, -0.8996, -0.1498, -0.084, 0.9118],
+		[-0.9428, 0.8333, -4.3955, 2.232, -0.1863],
+		[-0.9153, 0.008, -1.8233, 1.4117, 0.2568],
+		[0.092, -0.3949, -0.8976, 0.1597, 0.521],
+		[0.1732, -0.338, -0.926, 0.0931, 0.4688],
+		[0.142, -0.1504, -1.1082, 0.1847, 0.3097],
+		[0.4731, 0.6336, -1.3209, -0.0347, -0.4351],
+		[0.107, -0.4189, -0.7482, 0.1004, 0.5231],
+		[0.107, -0.6798, -0.5107, 0.019, 0.7468],
+		[0.0209, 0.136, -1.0451, 0.2941, 0.0172],
+		[0.0948, 0.1814, -0.9946, 0.2106, -0.0351],
+		[0.1688, 0.2269, -0.944, 0.1271, -0.0875],
+		[0.2427, 0.2724, -0.8935, 0.0436, -0.1398],
+		[0.0647, 0.2239, -1.2746, 0.3236, -0.0365],
+		[0.0921, 0.2314, -1.1145, 0.2507, -0.0671],
+		[0.1945, 0.2151, -1.065, 0.1376, -0.0582],
+		[0.1977, 0.205, -1.0293, 0.1236, -0.0534],
+		[0.1593, 0.1909, -1.01, 0.154, -0.0423],
+		[0.1431, 0.1724, -0.96, 0.1539, -0.0312],
+		[0.1546, 0.2022, -0.9075, 0.1287, -0.0682],
+		[0.1639, 0.2157, -0.922, 0.1247, -0.0795],
+		[0.134, 0.2168, -0.9259, 0.1544, -0.0801]
+	]
+}

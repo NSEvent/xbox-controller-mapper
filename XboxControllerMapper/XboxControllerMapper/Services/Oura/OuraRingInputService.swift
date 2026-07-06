@@ -119,6 +119,21 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var suppressTapDetectionUntil: CFAbsoluteTime = 0
 	private let motionTrace = OuraMotionTraceWriter()
 
+	// ML gesture-event path (OuraGestureEventClassifier.swift); falls back to
+	// the heuristic recognizers until the model loads or when the
+	// ouraGestureClassifierDisabled default is set.
+	private let gestureClassifier = OuraGestureEventClassifier()
+	private var motionWindowBuffer = OuraMotionWindowBuffer()
+	private var impulseDetector = OuraImpulseDetector()
+	private var pendingClassificationPeaks: [CFAbsoluteTime] = []
+	private var flickClassificationCooldownUntil: CFAbsoluteTime = 0
+	private var tapHoldFedThrough: CFAbsoluteTime = -.greatestFiniteMagnitude
+	private let flickClassificationCooldown: CFTimeInterval = 0.65
+	private var useMLGesturePath: Bool {
+		gestureClassifier.isAvailable &&
+			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")
+	}
+
 	private let keychainService = "com.controllerkeys.oura-ring"
 	private let authKeyAccount = "oura-auth-key-v1"
 	private let legacyDefaultDeadzone = 0.08
@@ -157,6 +172,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	func startIfEnabled() {
 		guard currentSettings.enabled, !AppRuntime.isRunningTests else { return }
+		gestureClassifier.loadIfNeeded()
 		if centralManager == nil {
 			centralManager = CBCentralManager(delegate: self, queue: .main)
 		} else if centralManager?.state == .poweredOn {
@@ -187,6 +203,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		flickRecognizer.reset()
 		motionMapper.reset()
 		tapDetector.reset()
+		resetMLGestureState()
 		releaseOuraMotionSticks()
 		appendDiagnostic("motion center will reset on next accelerometer sample")
 	}
@@ -266,6 +283,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		flickRecognizer.reset()
 		motionMapper.reset()
 		tapDetector.reset()
+		resetMLGestureState()
 		releaseOuraMotionSticks()
 		releaseOuraGestureButtons()
 		controllerService.setOuraRingConnected(false)
@@ -524,15 +542,19 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			suppressTapDetectionUntil = max(suppressTapDetectionUntil, sample.timestamp + 0.75)
 			motionTrace.recordEvent("center", timestamp: sample.timestamp)
 		}
-		let detectedTap = sample.timestamp >= suppressTapDetectionUntil && tapDetector.register(sample)
-		if detectedTap {
-			motionTrace.recordEvent("tap-detected", timestamp: sample.timestamp)
-		}
-		if detectedTap {
-			handleAccelerometerTapCandidate(at: sample.timestamp, sample: sample)
+		if useMLGesturePath {
+			applyMotionGesturesML(sample, projectedInput: projectedInput)
 		} else {
-			handleTapHoldCandidate(sample)
-			handleDirectionalFlickCandidate(projectedInput: projectedInput, timestamp: sample.timestamp)
+			let detectedTap = sample.timestamp >= suppressTapDetectionUntil && tapDetector.register(sample)
+			if detectedTap {
+				motionTrace.recordEvent("tap-detected", timestamp: sample.timestamp)
+			}
+			if detectedTap {
+				handleAccelerometerTapCandidate(at: sample.timestamp, sample: sample)
+			} else {
+				handleTapHoldCandidate(sample)
+				handleDirectionalFlickCandidate(projectedInput: projectedInput, timestamp: sample.timestamp)
+			}
 		}
 		let outputStick = tapMotionSuppressor.isSuppressed(at: sample.timestamp) ? .zero : stick
 		controllerService.updateOuraRingStick(outputStick, side: currentSettings.targetStick)
@@ -606,6 +628,130 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		} else {
 			appendDiagnostic("flick \(flick.diagnosticName) detected without mapping")
 		}
+	}
+
+	// MARK: - ML gesture path
+
+	private func applyMotionGesturesML(_ sample: OuraMotionSample, projectedInput: CGPoint) {
+		motionWindowBuffer.append(sample, projected: projectedInput)
+
+		while let peak = pendingClassificationPeaks.first,
+		      sample.timestamp >= peak + OuraMotionWindowBuffer.postSpan {
+			pendingClassificationPeaks.removeFirst()
+			classifyImpulsePeak(peak, now: sample.timestamp)
+		}
+
+		if let peak = impulseDetector.register(sample),
+		   peak >= suppressTapDetectionUntil,
+		   peak >= flickClassificationCooldownUntil {
+			pendingClassificationPeaks.append(peak)
+		}
+
+		// The hold recognizer consumes the motion stream continuously; skip
+		// samples the retroactive catch-up in handleMLTapCandidate already fed.
+		if sample.timestamp > tapHoldFedThrough {
+			tapHoldFedThrough = sample.timestamp
+			handleTapHoldCandidate(sample)
+		}
+	}
+
+	private func classifyImpulsePeak(_ peak: CFAbsoluteTime, now: CFAbsoluteTime) {
+		guard let window = motionWindowBuffer.window(around: peak),
+		      let event = gestureClassifier.classify(window: window) else {
+			return
+		}
+		motionTrace.recordEvent("ml-class", detail: event.rawValue, timestamp: peak)
+		switch event {
+		case .noise:
+			break
+		case .tap:
+			handleMLTapCandidate(at: peak)
+		case .flickUp, .flickDown, .flickLeft, .flickRight:
+			guard let flick = event.directionalFlick else { return }
+			flickClassificationCooldownUntil = peak + flickClassificationCooldown
+			tapHoldRecognizer.cancel()
+			tapSequenceWorkItem?.cancel()
+			tapSequenceWorkItem = nil
+			tapSequence.reset()
+			motionTrace.recordEvent("flick", detail: flick.diagnosticName, timestamp: now)
+			if fireGestureButton(flick.button) {
+				suppressMotionForTap(at: now, duration: tapMotionPostActionSuppressionDuration)
+				appendDiagnostic("flick \(flick.diagnosticName) resolved (ml)")
+			} else {
+				appendDiagnostic("flick \(flick.diagnosticName) detected without mapping (ml)")
+			}
+		}
+	}
+
+	private func handleMLTapCandidate(at peak: CFAbsoluteTime) {
+		motionTrace.recordEvent("tap-candidate", detail: "ml classifier", timestamp: peak)
+		switch tapSequence.registerTap(at: peak) {
+		case .duplicate:
+			return
+		case .pending(let count):
+			if count == 1 {
+				startTapHoldRetroactively(from: peak)
+			} else {
+				tapHoldRecognizer.cancel()
+			}
+			suppressMotionForTap(at: peak, duration: tapMotionSuppressionDuration)
+			appendDiagnostic("\(count)x tap pending from ml classifier")
+			scheduleMLTapSequenceResolution()
+		case .completed(let count):
+			tapHoldRecognizer.cancel()
+			tapSequenceWorkItem?.cancel()
+			tapSequenceWorkItem = nil
+			suppressMotionForTap(at: peak, duration: tapMotionPostActionSuppressionDuration)
+			performTapSequenceAction(.tapCount(count))
+		}
+	}
+
+	// Classification arrives ~0.4s after the tap peak; anchor the hold
+	// candidate back at the peak and replay the buffered samples since, so
+	// hold timing (settle at +0.09s, ring-down drift checks) matches the
+	// heuristic path.
+	private func startTapHoldRetroactively(from peak: CFAbsoluteTime) {
+		let history = motionWindowBuffer.entriesAfter(peak)
+		guard let anchor = history.first else { return }
+		tapHoldRecognizer.registerTap(at: peak, sample: OuraMotionSample(
+			x: anchor.x, y: anchor.y, z: anchor.z, timestamp: anchor.timestamp))
+		for entry in history.dropFirst() {
+			tapHoldFedThrough = max(tapHoldFedThrough, entry.timestamp)
+			handleTapHoldCandidate(OuraMotionSample(
+				x: entry.x, y: entry.y, z: entry.z, timestamp: entry.timestamp))
+		}
+	}
+
+	// A candidate mid-classification may extend the tap sequence, so the
+	// resolution timer defers until the pending window completes.
+	private func scheduleMLTapSequenceResolution() {
+		tapSequenceWorkItem?.cancel()
+		let workItem = DispatchWorkItem { [weak self] in self?.resolveMLTapSequence() }
+		tapSequenceWorkItem = workItem
+		DispatchQueue.main.asyncAfter(
+			deadline: .now() + OuraTapSequenceRecognizer.sequenceWindow + 0.02,
+			execute: workItem
+		)
+	}
+
+	private func resolveMLTapSequence() {
+		if let pending = pendingClassificationPeaks.first {
+			let delay = max(0.05, pending + OuraMotionWindowBuffer.postSpan + 0.05 - CFAbsoluteTimeGetCurrent())
+			let workItem = DispatchWorkItem { [weak self] in self?.resolveMLTapSequence() }
+			tapSequenceWorkItem = workItem
+			DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+			return
+		}
+		guard let action = tapSequence.resolvePending(at: CFAbsoluteTimeGetCurrent()) else { return }
+		performTapSequenceAction(action)
+	}
+
+	private func resetMLGestureState() {
+		motionWindowBuffer.reset()
+		impulseDetector.reset()
+		pendingClassificationPeaks.removeAll()
+		flickClassificationCooldownUntil = 0
+		tapHoldFedThrough = -.greatestFiniteMagnitude
 	}
 
 	private func scheduleTapSequenceResolution() {
@@ -795,6 +941,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		realtimeRefreshTimer = nil
 		tapDetector.reset()
 		motionMapper.reset()
+		resetMLGestureState()
 		motionTrace.close()
 		if self.peripheral?.identifier == peripheral.identifier {
 			clearConnectAttempt()
