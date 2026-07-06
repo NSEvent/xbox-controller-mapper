@@ -61,6 +61,7 @@ SHIPPED_2026_07_06 = dict(
 	det_peak_magnitude=1.064, det_peak_magnitude_delta=0.05, det_confirm_window=0.145,
 	det_peak_drop=0.13, det_settle_ratio=0.92,
 	hold_duration=0.36, hold_settle=0.09, hold_max_anchor_drift=0.44, hold_max_sample_step=0.45,
+	sequence_window=0.75,  # raised from 0.65 later on 2026-07-06 — live 3x/5x chains split on ~0.7s gaps
 )
 
 

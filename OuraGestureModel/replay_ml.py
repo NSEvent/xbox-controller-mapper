@@ -36,7 +36,9 @@ from dataclasses import replace
 
 FLICK_COOLDOWN = 0.65
 FLICK_CONFIDENCE_THRESHOLD = 0.5
+FLICK_MID_SEQUENCE_CONFIDENCE = 0.85
 POST_RESOLVE_COOLDOWN = 0.35
+POST_HOLD_COOLDOWN = 1.2
 CENTER_SUPPRESSION = 0.75
 
 
@@ -109,6 +111,7 @@ class MLPipeline:
 				self.events.append((ct, "tap-hold", None))
 				self.resolution_at = None
 				self.sequence.reset()
+				self.cooldown_until = max(self.cooldown_until, ct + POST_HOLD_COOLDOWN)
 
 	def _classify(self, peak_ct, now):
 		if peak_ct < self.cooldown_until:
@@ -145,6 +148,8 @@ class MLPipeline:
 				return
 			if self.sequence.tap_count > 0 and self.sequence.last_tap_time is not None \
 					and peak_ct - self.sequence.last_tap_time <= 0.64:
+				if confidence < FLICK_MID_SEQUENCE_CONFIDENCE:
+					return  # hand-settle phantom — don't eat the pending chain
 				self.sequence.reset()
 				self.resolution_at = None
 				self.hold.cancel()
@@ -169,6 +174,7 @@ class MLPipeline:
 				self.events.append((r[1], "tap-hold", None))
 				self.resolution_at = None
 				self.sequence.reset()
+				self.cooldown_until = max(self.cooldown_until, r[1] + POST_HOLD_COOLDOWN)
 				break
 
 

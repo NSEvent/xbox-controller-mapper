@@ -169,18 +169,18 @@ final class OuraRingInputTests: XCTestCase {
 		var recognizer = OuraTapSequenceRecognizer()
 
 		XCTAssertEqual(recognizer.registerTap(at: 1.00), .pending(1))
-		XCTAssertNil(recognizer.resolvePending(at: 1.60))
-		XCTAssertEqual(recognizer.resolvePending(at: 1.66), .tapCount(1))
+		XCTAssertNil(recognizer.resolvePending(at: 1.70))
+		XCTAssertEqual(recognizer.resolvePending(at: 1.76), .tapCount(1))
 
 		XCTAssertEqual(recognizer.registerTap(at: 2.00), .pending(1))
 		XCTAssertEqual(recognizer.registerTap(at: 2.48), .pending(2))
 		XCTAssertNil(recognizer.resolvePending(at: 3.10))
-		XCTAssertEqual(recognizer.resolvePending(at: 3.14), .tapCount(2))
+		XCTAssertEqual(recognizer.resolvePending(at: 3.24), .tapCount(2))
 
 		XCTAssertEqual(recognizer.registerTap(at: 4.00), .pending(1))
 		XCTAssertEqual(recognizer.registerTap(at: 4.42), .pending(2))
 		XCTAssertEqual(recognizer.registerTap(at: 4.88), .pending(3))
-		XCTAssertEqual(recognizer.resolvePending(at: 5.54), .tapCount(3))
+		XCTAssertEqual(recognizer.resolvePending(at: 5.64), .tapCount(3))
 	}
 
 	func testOuraTapSequenceRecognizerCompletesFiveTapImmediately() {
@@ -200,7 +200,7 @@ final class OuraRingInputTests: XCTestCase {
 		XCTAssertEqual(recognizer.registerTap(at: 4.00), .pending(1))
 		XCTAssertEqual(recognizer.registerTap(at: 4.04), .duplicate)
 		XCTAssertEqual(recognizer.registerTap(at: 4.18), .pending(2))
-		XCTAssertEqual(recognizer.resolvePending(at: 4.84), .tapCount(2))
+		XCTAssertEqual(recognizer.resolvePending(at: 4.94), .tapCount(2))
 	}
 
 	func testOuraTapMotionSuppressorExtendsAndExpires() {

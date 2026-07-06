@@ -11,7 +11,10 @@ enum OuraTapSequenceResolvedAction: Equatable {
 }
 
 struct OuraTapSequenceRecognizer {
-	static let sequenceWindow: CFTimeInterval = 0.65
+	// 0.65 → 0.75 (2026-07-06): Kevin's live 3x/5x chains showed inter-tap
+	// gaps up to ~0.7s splitting sequences; +0.1s window costs the same in
+	// resolution latency.
+	static let sequenceWindow: CFTimeInterval = 0.75
 	private static let duplicateWindow: CFTimeInterval = 0.09
 	private static let maximumTapCount = 5
 

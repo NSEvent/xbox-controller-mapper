@@ -133,7 +133,9 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var tapHoldFedThrough: CFAbsoluteTime = -.greatestFiniteMagnitude
 	private let flickClassificationCooldown: CFTimeInterval = 0.65
 	private let flickConfidenceThreshold = 0.5
+	private let flickMidSequenceConfidenceThreshold = 0.85
 	private let postResolveClassificationCooldown: CFTimeInterval = 0.35
+	private let postHoldClassificationCooldown: CFTimeInterval = 1.2
 	private var useMLGesturePath: Bool {
 		gestureClassifier.isAvailable &&
 			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")
@@ -664,10 +666,18 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private func handleTapHoldCandidate(_ sample: OuraMotionSample) {
 		guard tapHoldRecognizer.registerMotion(sample) else { return }
 		motionTrace.recordEvent("tap-hold", timestamp: sample.timestamp)
+		// The hold grew out of a pending tap — swallow that tap regardless of
+		// whether a hold action is bound, or it also resolves as a phantom
+		// single 0.67s later. The cooldown suppresses the release ghost (the
+		// hand moving again after the hold classifies as a fresh tap).
+		tapSequenceWorkItem?.cancel()
+		tapSequenceWorkItem = nil
+		tapSequence.reset()
+		flickClassificationCooldownUntil = max(
+			flickClassificationCooldownUntil,
+			sample.timestamp + postHoldClassificationCooldown
+		)
 		if fireGestureButton(.ouraTapHold) {
-			tapSequenceWorkItem?.cancel()
-			tapSequenceWorkItem = nil
-			tapSequence.reset()
 			suppressMotionForTap(at: sample.timestamp, duration: tapMotionPostActionSuppressionDuration)
 			appendDiagnostic("tap hold resolved")
 		} else {
@@ -745,10 +755,16 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			}
 			// A pending tap registered within the flick's own window is the
 			// flick's outbound spike — consume it so it can't also resolve as
-			// a phantom tap. An older pending sequence is a real tap combo;
-			// leave it to resolve on its own timer.
+			// a phantom tap. But hand-settle after a tap CHAIN classifies as
+			// flick-down at ~0.65-0.75 confidence (real flicks score 0.9+ on
+			// the merged model), and consuming there was eating 3x/5x counts —
+			// interrupting a pending sequence needs the higher bar.
 			if let lastTap = tapSequence.lastPendingTapTime,
 			   peak - lastTap <= OuraMotionWindowBuffer.preSpan + OuraMotionWindowBuffer.postSpan {
+				guard confidence >= flickMidSequenceConfidenceThreshold else {
+					appendDiagnostic("flick \(flick.diagnosticName) ignored mid-sequence (ml, conf \(String(format: "%.2f", confidence)))")
+					return
+				}
 				tapSequenceWorkItem?.cancel()
 				tapSequenceWorkItem = nil
 				tapSequence.reset()
