@@ -426,7 +426,10 @@ final class OuraRingInputTests: XCTestCase {
 		XCTAssertGreaterThan(twistedRight.projectedInput.x, 0.30)
 		XCTAssertEqual(twistedRight.projectedInput.y, 0.0, accuracy: 1e-9)
 		XCTAssertEqual(tiltedUp.projectedInput.x, 0.0, accuracy: 1e-9)
-		XCTAssertGreaterThan(tiltedUp.projectedInput.y, 0.30)
+		// Sign flipped 2026-07-06 with the pose-independent up axis: this
+		// synthetic neutral has y > 0, the pose family whose vertical
+		// response was inverted in real use before the basis sign anchor.
+		XCTAssertLessThan(tiltedUp.projectedInput.y, -0.30)
 	}
 
 	func testOuraTapDetectorIgnoresFastDirectionalSwipe() {
