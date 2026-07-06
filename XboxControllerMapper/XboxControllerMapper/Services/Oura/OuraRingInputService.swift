@@ -135,7 +135,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private let flickConfidenceThreshold = 0.5
 	private let flickMidSequenceConfidenceThreshold = 0.85
 	private let postResolveClassificationCooldown: CFTimeInterval = 0.35
-	private let postHoldClassificationCooldown: CFTimeInterval = 1.2
+	private let postHoldClassificationCooldown: CFTimeInterval = 0.6
 	private var useMLGesturePath: Bool {
 		gestureClassifier.isAvailable &&
 			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")

@@ -36,10 +36,14 @@ struct OuraTapHoldRecognizer {
 	// fire — resolution cancels the candidate.
 	private static let holdDuration: CFTimeInterval = 0.6
 	private static let settleDuration: CFTimeInterval = 0.09
-	private static let minimumStillDuration: CFTimeInterval = 0.22
+	// Stillness tightened 2026-07-06 (live: 42% of taps fired as holds): the
+	// tuner's loose 0.44/0.45 drift bounds tolerated a gently MOVING hand.
+	// 0.25g + 0.35s of real stillness keeps prompted holds at 11/12 while
+	// zeroing spurious holds in tap trials (v2 replay 197→199/214).
+	private static let minimumStillDuration: CFTimeInterval = 0.35
 	private static let maximumHoldDuration: CFTimeInterval = 1.2
-	private static let maximumAnchorDrift = 0.44
-	private static let maximumSampleStep = 0.45
+	private static let maximumAnchorDrift = 0.25
+	private static let maximumSampleStep = 0.25
 
 	private var candidate: Candidate?
 	private var previousSample: OuraMotionSample?
