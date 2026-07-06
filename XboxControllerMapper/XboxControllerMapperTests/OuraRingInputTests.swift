@@ -433,3 +433,56 @@ final class OuraRingInputTests: XCTestCase {
 		}
 	}
 }
+
+final class OuraMotionTraceFormatTests: XCTestCase {
+	func testSampleLineIsValidJSONWithExpectedFields() throws {
+		let line = OuraMotionTraceFormat.sampleLine(
+			wallTime: 1783272960.123456,
+			sample: OuraMotionSample(x: 0.0125, y: -0.98, z: 1.4049, timestamp: 773430000.25),
+			projected: CGPoint(x: 0.05, y: -0.0213)
+		)
+
+		let object = try XCTUnwrap(
+			JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+		)
+		XCTAssertEqual(object["type"] as? String, "sample")
+		XCTAssertEqual(try XCTUnwrap(object["t"] as? Double), 1783272960.123456, accuracy: 1e-5)
+		XCTAssertEqual(try XCTUnwrap(object["ct"] as? Double), 773430000.25, accuracy: 1e-5)
+		XCTAssertEqual(try XCTUnwrap(object["x"] as? Double), 0.0125, accuracy: 1e-4)
+		XCTAssertEqual(try XCTUnwrap(object["y"] as? Double), -0.98, accuracy: 1e-4)
+		XCTAssertEqual(try XCTUnwrap(object["z"] as? Double), 1.4049, accuracy: 1e-4)
+		XCTAssertEqual(try XCTUnwrap(object["px"] as? Double), 0.05, accuracy: 1e-4)
+		XCTAssertEqual(try XCTUnwrap(object["py"] as? Double), -0.0213, accuracy: 1e-4)
+	}
+
+	func testEventLineWithDetailIsValidJSON() throws {
+		let line = OuraMotionTraceFormat.eventLine(
+			wallTime: 1783272961.5,
+			timestamp: 773430001.5,
+			name: "tap-candidate",
+			detail: "accelerometer spike"
+		)
+
+		let object = try XCTUnwrap(
+			JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+		)
+		XCTAssertEqual(object["type"] as? String, "event")
+		XCTAssertEqual(object["name"] as? String, "tap-candidate")
+		XCTAssertEqual(object["detail"] as? String, "accelerometer spike")
+		XCTAssertEqual(try XCTUnwrap(object["t"] as? Double), 1783272961.5, accuracy: 1e-5)
+	}
+
+	func testEventLineWithoutDetailOmitsField() throws {
+		let line = OuraMotionTraceFormat.eventLine(
+			wallTime: 1783272962.0,
+			timestamp: 773430002.0,
+			name: "center"
+		)
+
+		let object = try XCTUnwrap(
+			JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+		)
+		XCTAssertEqual(object["name"] as? String, "center")
+		XCTAssertNil(object["detail"])
+	}
+}

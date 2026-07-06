@@ -117,6 +117,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var lastAccelerometerTapTime: CFAbsoluteTime = 0
 	private var lastMotionDiagnosticTime: CFAbsoluteTime = 0
 	private var suppressTapDetectionUntil: CFAbsoluteTime = 0
+	private let motionTrace = OuraMotionTraceWriter()
 
 	private let keychainService = "com.controllerkeys.oura-ring"
 	private let authKeyAccount = "oura-auth-key-v1"
@@ -518,10 +519,15 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		let centeredSample = result.centeredSample
 		let projectedInput = result.projectedInput
 		let stick = result.stick
+		motionTrace.recordSample(sample, projected: projectedInput)
 		if result.didEstablishCenter {
 			suppressTapDetectionUntil = max(suppressTapDetectionUntil, sample.timestamp + 0.75)
+			motionTrace.recordEvent("center", timestamp: sample.timestamp)
 		}
 		let detectedTap = sample.timestamp >= suppressTapDetectionUntil && tapDetector.register(sample)
+		if detectedTap {
+			motionTrace.recordEvent("tap-detected", timestamp: sample.timestamp)
+		}
 		if detectedTap {
 			handleAccelerometerTapCandidate(at: sample.timestamp, sample: sample)
 		} else {
@@ -551,6 +557,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	}
 
 	private func handleTapCandidate(at timestamp: CFAbsoluteTime, source: String, sample: OuraMotionSample? = nil) {
+		motionTrace.recordEvent("tap-candidate", detail: source, timestamp: timestamp)
 		switch tapSequence.registerTap(at: timestamp) {
 		case .duplicate:
 			return
@@ -574,6 +581,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	private func handleTapHoldCandidate(_ sample: OuraMotionSample) {
 		guard tapHoldRecognizer.registerMotion(sample) else { return }
+		motionTrace.recordEvent("tap-hold", timestamp: sample.timestamp)
 		if fireGestureButton(.ouraTapHold) {
 			tapSequenceWorkItem?.cancel()
 			tapSequenceWorkItem = nil
@@ -591,6 +599,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			return
 		}
 
+		motionTrace.recordEvent("flick", detail: flick.diagnosticName, timestamp: timestamp)
 		if fireGestureButton(flick.button) {
 			suppressMotionForTap(at: timestamp, duration: tapMotionPostActionSuppressionDuration)
 			appendDiagnostic("flick \(flick.diagnosticName) resolved")
@@ -619,6 +628,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		suppressMotionForTap(at: CFAbsoluteTimeGetCurrent(), duration: tapMotionPostActionSuppressionDuration)
 		switch action {
 		case .tapCount(let count):
+			motionTrace.recordEvent("tap-resolved", detail: String(count))
 			appendDiagnostic("\(count)x tap resolved")
 			switch count {
 			case 1:
@@ -785,6 +795,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		realtimeRefreshTimer = nil
 		tapDetector.reset()
 		motionMapper.reset()
+		motionTrace.close()
 		if self.peripheral?.identifier == peripheral.identifier {
 			clearConnectAttempt()
 			self.peripheral = nil
