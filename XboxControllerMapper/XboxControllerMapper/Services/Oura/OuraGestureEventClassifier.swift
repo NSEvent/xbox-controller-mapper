@@ -230,7 +230,7 @@ nonisolated final class OuraGestureEventClassifier {
 		return nil
 	}
 
-	func classify(window: [[Double]]) -> (event: OuraGestureEvent, confidence: Double)? {
+	func classify(window: [[Double]]) -> (event: OuraGestureEvent, confidence: Double, tapProbability: Double)? {
 		lock.lock()
 		let model = self.model
 		lock.unlock()
@@ -262,7 +262,10 @@ nonisolated final class OuraGestureEventClassifier {
 		for value in values {
 			expSum += exp(value - bestValue)
 		}
-		guard bestIndex < OuraGestureEvent.classOrder.count else { return nil }
-		return (OuraGestureEvent.classOrder[bestIndex], 1.0 / expSum)
+		guard bestIndex < OuraGestureEvent.classOrder.count, !values.isEmpty else { return nil }
+		// classOrder[0] == .tap — its softmax probability drives the tap-lean
+		// rule (borderline windows where noise narrowly outranks tap).
+		let tapProbability = exp(values[0] - bestValue) / expSum
+		return (OuraGestureEvent.classOrder[bestIndex], 1.0 / expSum, tapProbability)
 	}
 }

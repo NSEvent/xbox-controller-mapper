@@ -137,6 +137,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private let postResolveClassificationCooldown: CFTimeInterval = 0.35
 	private let postHoldClassificationCooldown: CFTimeInterval = 0.6
 	private let tapDetectionMargin: CFTimeInterval = 0.20
+	private let tapLeanProbabilityThreshold = 0.45
 	private var useMLGesturePath: Bool {
 		gestureClassifier.isAvailable &&
 			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")
@@ -733,8 +734,15 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		// previous flick's echo; drop it outright.
 		guard peak >= flickClassificationCooldownUntil else { return }
 		guard let window = motionWindowBuffer.window(around: peak),
-		      let (event, confidence) = gestureClassifier.classify(window: window) else {
+		      var (event, confidence, tapProbability) = gestureClassifier.classify(window: window) else {
 			return
+		}
+		// Tap-lean rule: light/casual taps sometimes lose the argmax to noise
+		// by a hair (live: 70 borderline windows in 40 min with P(tap) ≥ 0.3).
+		// Firing tap at P(tap) ≥ 0.45 recovers them at zero cost on both
+		// labeled sessions (noise trials stay clean).
+		if event == .noise, tapProbability >= tapLeanProbabilityThreshold {
+			event = .tap
 		}
 		motionTrace.recordEvent("ml-class",
 			detail: "\(event.rawValue) \(String(format: "%.2f", confidence))", timestamp: peak)
