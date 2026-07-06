@@ -25,3 +25,7 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
+
+## 2024-07-06 - [Contextual Accessibility on Repeated List Actions]
+**Learning:** Icon-only buttons in repeated lists (like "Edit" or "Delete" in lists of Macros, Scripts, or Gestures) often lack contextual disambiguation in their VoiceOver labels and tooltips. When all list items just say "Edit" and "Delete", screen reader users lose context on which item they are operating on.
+**Action:** Always append dynamic context from the current list item (e.g. `macro.name.isEmpty ? "Unnamed Macro" : macro.name`) to `.help()` and `.accessibilityLabel()` strings for list actions.

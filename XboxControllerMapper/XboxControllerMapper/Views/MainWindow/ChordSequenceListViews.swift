@@ -115,16 +115,16 @@ struct ChordRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit")
-                .accessibilityLabel("Edit")
+                .help("Edit \(chord.hasAction ? "Chord" : "Empty Chord")")
+                .accessibilityLabel("Edit \(chord.hasAction ? "Chord" : "Empty Chord")")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete")
-                .accessibilityLabel("Delete")
+                .help("Delete \(chord.hasAction ? "Chord" : "Empty Chord")")
+                .accessibilityLabel("Delete \(chord.hasAction ? "Chord" : "Empty Chord")")
             }
         }
         .padding(.horizontal, 12)
@@ -261,16 +261,16 @@ struct SequenceRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit")
-                .accessibilityLabel("Edit")
+                .help("Edit \(chord.hasAction ? "Chord" : "Empty Chord")")
+                .accessibilityLabel("Edit \(chord.hasAction ? "Chord" : "Empty Chord")")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete")
-                .accessibilityLabel("Delete")
+                .help("Delete \(chord.hasAction ? "Chord" : "Empty Chord")")
+                .accessibilityLabel("Delete \(chord.hasAction ? "Chord" : "Empty Chord")")
             }
         }
         .padding(.horizontal, 12)
