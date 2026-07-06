@@ -230,7 +230,7 @@ nonisolated final class OuraGestureEventClassifier {
 		return nil
 	}
 
-	func classify(window: [[Double]]) -> OuraGestureEvent? {
+	func classify(window: [[Double]]) -> (event: OuraGestureEvent, confidence: Double)? {
 		lock.lock()
 		let model = self.model
 		lock.unlock()
@@ -249,14 +249,20 @@ nonisolated final class OuraGestureEventClassifier {
 		}
 		var bestIndex = 0
 		var bestValue = -Double.infinity
+		var expSum = 0.0
+		var values: [Double] = []
 		for index in 0..<logits.count {
 			let value = logits[index].doubleValue
+			values.append(value)
 			if value > bestValue {
 				bestValue = value
 				bestIndex = index
 			}
 		}
+		for value in values {
+			expSum += exp(value - bestValue)
+		}
 		guard bestIndex < OuraGestureEvent.classOrder.count else { return nil }
-		return OuraGestureEvent.classOrder[bestIndex]
+		return (OuraGestureEvent.classOrder[bestIndex], 1.0 / expSum)
 	}
 }

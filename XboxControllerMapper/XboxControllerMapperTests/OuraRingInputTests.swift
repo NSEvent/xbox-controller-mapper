@@ -567,8 +567,10 @@ final class OuraGestureEventClassifierTests: XCTestCase {
 		XCTAssertTrue(classifier.isAvailable, "OuraGestureClassifier.mlmodelc missing or failed to load from bundle")
 
 		// Real windows from the 2026-07-05 labeled session (events.ndjson).
-		XCTAssertEqual(classifier.classify(window: Self.flickLeftWindow), .flickLeft)
-		XCTAssertEqual(classifier.classify(window: Self.tapWindow), .tap)
+		let flickResult = classifier.classify(window: Self.flickLeftWindow)
+		XCTAssertEqual(flickResult?.event, .flickLeft)
+		XCTAssertGreaterThan(flickResult?.confidence ?? 0, 0.97, "real flicks measured ≥0.98 confidence")
+		XCTAssertEqual(classifier.classify(window: Self.tapWindow)?.event, .tap)
 	}
 
 	private static let flickLeftWindow: [[Double]] = [

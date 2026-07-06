@@ -19,6 +19,10 @@ struct OuraTapSequenceRecognizer {
 	private var lastTapTime: CFAbsoluteTime?
 	private var lastAcceptedTapTime: CFAbsoluteTime?
 
+	var hasPendingTaps: Bool {
+		tapCount > 0
+	}
+
 	mutating func reset() {
 		tapCount = 0
 		lastTapTime = nil

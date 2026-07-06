@@ -129,6 +129,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var flickClassificationCooldownUntil: CFAbsoluteTime = 0
 	private var tapHoldFedThrough: CFAbsoluteTime = -.greatestFiniteMagnitude
 	private let flickClassificationCooldown: CFTimeInterval = 0.65
+	private let flickConfidenceThreshold = 0.97
 	private var useMLGesturePath: Bool {
 		gestureClassifier.isAvailable &&
 			!UserDefaults.standard.bool(forKey: "ouraGestureClassifierDisabled")
@@ -203,7 +204,12 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		flickRecognizer.reset()
 		motionMapper.reset()
 		tapDetector.reset()
-		resetMLGestureState()
+		// Deliberately NOT resetMLGestureState(): the window buffer and
+		// impulse detector track raw motion, which recentering doesn't change,
+		// and clearing them blacks out detection for ~1.4s after every
+		// recenter (Kevin recenters constantly during normal use). The 0.75s
+		// center suppression below already guards against the recenter jolt.
+		pendingClassificationPeaks.removeAll()
 		releaseOuraMotionSticks()
 		appendDiagnostic("motion center will reset on next accelerometer sample")
 	}
@@ -657,10 +663,11 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	private func classifyImpulsePeak(_ peak: CFAbsoluteTime, now: CFAbsoluteTime) {
 		guard let window = motionWindowBuffer.window(around: peak),
-		      let event = gestureClassifier.classify(window: window) else {
+		      let (event, confidence) = gestureClassifier.classify(window: window) else {
 			return
 		}
-		motionTrace.recordEvent("ml-class", detail: event.rawValue, timestamp: peak)
+		motionTrace.recordEvent("ml-class",
+			detail: "\(event.rawValue) \(String(format: "%.2f", confidence))", timestamp: peak)
 		switch event {
 		case .noise:
 			break
@@ -668,13 +675,20 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			handleMLTapCandidate(at: peak)
 		case .flickUp, .flickDown, .flickLeft, .flickRight:
 			guard let flick = event.directionalFlick else { return }
+			// Cursor navigation produces flick-shaped impulses the v0 model
+			// wasn't trained against (real flicks measured ≥0.98 confidence,
+			// phantoms spread much lower), and a flick mid-tap-sequence is
+			// physically implausible — both are treated as noise so they can
+			// never eat a pending tap count.
+			guard confidence >= flickConfidenceThreshold, !tapSequence.hasPendingTaps else {
+				appendDiagnostic("flick \(flick.diagnosticName) ignored (ml, conf \(String(format: "%.2f", confidence))"
+					+ (tapSequence.hasPendingTaps ? ", taps pending)" : ")"))
+				return
+			}
 			flickClassificationCooldownUntil = peak + flickClassificationCooldown
-			tapHoldRecognizer.cancel()
-			tapSequenceWorkItem?.cancel()
-			tapSequenceWorkItem = nil
-			tapSequence.reset()
 			motionTrace.recordEvent("flick", detail: flick.diagnosticName, timestamp: now)
 			if fireGestureButton(flick.button) {
+				tapHoldRecognizer.cancel()
 				suppressMotionForTap(at: now, duration: tapMotionPostActionSuppressionDuration)
 				appendDiagnostic("flick \(flick.diagnosticName) resolved (ml)")
 			} else {

@@ -35,6 +35,7 @@ from tune_gestures import (Params, SHIPPED_2026_07_06, TapSequence, TapHold,
 from dataclasses import replace
 
 FLICK_COOLDOWN = 0.65
+FLICK_CONFIDENCE_THRESHOLD = 0.97
 CENTER_SUPPRESSION = 0.75
 
 
@@ -113,7 +114,9 @@ class MLPipeline:
 			return
 		with torch.no_grad():
 			logits = self.model(torch.tensor(np.array([window], dtype=np.float32)))
-		label = CLASSES[int(logits.argmax())]
+		probs = torch.softmax(logits, dim=1)[0]
+		label = CLASSES[int(probs.argmax())]
+		confidence = float(probs.max())
 		self.events.append((peak_ct, "ml-class", label))
 		if label == "tap":
 			kind, count = self.sequence.register_tap(peak_ct)
@@ -130,11 +133,14 @@ class MLPipeline:
 				self.resolution_at = None
 				self.events.append((now, "tap-resolved", str(count)))
 		elif label.startswith("flick-"):
+			# Mirror the Swift gates: low-confidence flicks and flicks while a
+			# tap sequence is pending are treated as noise (phantom-flick fix,
+			# 2026-07-06 live report).
+			if confidence < FLICK_CONFIDENCE_THRESHOLD or self.sequence.tap_count > 0:
+				return
 			self.events.append((now, "flick", label.split("-")[1]))
 			self.cooldown_until = peak_ct + FLICK_COOLDOWN
 			self.hold.cancel()
-			self.sequence.reset()
-			self.resolution_at = None
 		# noise → drop
 
 	def _start_hold_retroactively(self, peak_ct):
