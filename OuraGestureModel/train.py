@@ -24,7 +24,7 @@ DEFAULT_EVENTS = Path(__file__).resolve().parent.parent / \
 	"Tools/oura-calibration/captures/20260705-231028/events.ndjson"
 CHECKPOINT_DIR = Path(__file__).resolve().parent / "checkpoints"
 
-EPOCHS = 160
+EPOCHS = 320
 BATCH_SIZE = 32
 LR = 1e-3
 SEED = 7
@@ -42,7 +42,7 @@ class EventDataset(Dataset):
 	def __getitem__(self, i):
 		w = self.windows[i]
 		if self.augment:
-			shift = random.randint(-4, 4)
+			shift = random.randint(-6, 6)
 			if shift:
 				w = np.roll(w, shift, axis=0)
 				if shift > 0:
@@ -50,7 +50,7 @@ class EventDataset(Dataset):
 				else:
 					w[shift:] = w[shift - 1]
 			w = w * random.uniform(0.85, 1.15)
-			w = w + np.random.normal(0, 0.02, w.shape).astype(np.float32)
+			w = w + np.random.normal(0, 0.04, w.shape).astype(np.float32)
 		return torch.from_numpy(w.astype(np.float32)), self.labels[i]
 
 

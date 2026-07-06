@@ -18,16 +18,16 @@ class OuraGestureNet(nn.Module):
 		self.register_buffer("input_mean", torch.zeros(CHANNELS) if mean is None else torch.as_tensor(mean, dtype=torch.float32))
 		self.register_buffer("input_std", torch.ones(CHANNELS) if std is None else torch.as_tensor(std, dtype=torch.float32))
 		self.features = nn.Sequential(
-			nn.Conv1d(CHANNELS, 24, kernel_size=5, padding=2),
+			nn.Conv1d(CHANNELS, 32, kernel_size=5, padding=2),
 			nn.ReLU(),
 			nn.MaxPool1d(2),
-			nn.Conv1d(24, 48, kernel_size=3, padding=1),
+			nn.Conv1d(32, 64, kernel_size=3, padding=1),
 			nn.ReLU(),
 			nn.MaxPool1d(2),
-			nn.Conv1d(48, 48, kernel_size=3, padding=1),
+			nn.Conv1d(64, 64, kernel_size=3, padding=1),
 			nn.ReLU(),
 		)
-		self.head = nn.Linear(48, len(CLASSES))
+		self.head = nn.Linear(64, len(CLASSES))
 
 	def forward(self, x):
 		# x: (B, 32, 5) raw → normalize → (B, 5, 32)

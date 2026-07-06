@@ -100,7 +100,11 @@ struct OuraMotionWindowBuffer {
 	}
 
 	static let preSpan: CFTimeInterval = 0.26
-	static let postSpan: CFTimeInterval = 0.38
+	// 0.38 → 0.24 (overnight search 2026-07-06): the shorter window scored
+	// BETTER (v1 98%, v2 94% end-to-end) and cuts every gesture's
+	// classification latency by 0.14s. Must match OuraGestureModel
+	// build_dataset.WINDOW_POST.
+	static let postSpan: CFTimeInterval = 0.24
 	static let steps = 32
 	private static let retention: CFTimeInterval = 3.0
 	private static let minimumCoverage = 0.6
