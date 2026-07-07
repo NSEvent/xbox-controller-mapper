@@ -158,11 +158,15 @@ final class PermissionsManager: ObservableObject {
         openSettings("com.apple.preference.security?Privacy_Accessibility")
     }
 
-    /// Triggers the Input Monitoring system prompt (and adds the app to the
-    /// list) the first time, then deep-links to the pane for repeat visits.
+    /// Triggers the Input Monitoring system prompt (which should register the
+    /// app in the list on first run), then deep-links to the pane for repeat
+    /// visits. The pane open is delayed slightly so macOS can finish processing
+    /// the prompt/registration path before System Settings renders the list.
     func requestInputMonitoring() {
         _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
-        openSettings("com.apple.preference.security?Privacy_ListenEvent")
+	DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+	    self?.openSettings("com.apple.preference.security?Privacy_ListenEvent")
+	}
     }
 
     /// Starts the Bluetooth battery monitor, which constructs the

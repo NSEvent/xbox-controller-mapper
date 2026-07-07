@@ -1,6 +1,6 @@
 # Controller Input Issues
 
-Last updated: 2026-05-30
+Last updated: 2026-07-06
 
 ## 1. Steam Controller gyro drifts bottom-left
 
@@ -52,3 +52,19 @@ Investigation notes:
 - Replaced the blocking `NSAlert.runModal()` pairing-code prompt with a nonactivating floating panel.
 - Removed the settings-sheet pairing result alert; pairing progress and errors now stay inline in the settings UI.
 - The pairing code presenter does not activate ControllerKeys or require an OK click, so controller-driven pointer input can keep routing.
+
+## 4. First-run onboarding does not add ControllerKeys to Input Monitoring
+
+Status: fixed in local branch
+
+Observed:
+- During first-run onboarding, ControllerKeys can fail to appear automatically in System Settings → Privacy & Security → Input Monitoring.
+- The user must manually add ControllerKeys with `+` or by dragging the app/icon into the list before the switch can be enabled.
+
+Target:
+- First-run setup should request Input Monitoring before Accessibility so macOS can register ControllerKeys in the Input Monitoring list before Accessibility masks the separate listen permission.
+- The onboarding copy should explicitly tell users to add ControllerKeys manually if macOS does not insert it automatically.
+
+Investigation notes:
+- `IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)` is the correct request API, but requesting Accessibility first can make listen access appear granted without a separate Input Monitoring list entry.
+- The wizard now walks Input Monitoring before Accessibility, delays opening the pane briefly after requesting access, and makes the manual-add fallback part of the numbered instructions.
