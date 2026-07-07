@@ -223,7 +223,7 @@ struct ScriptRow: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Edit")
-                .accessibilityLabel("Edit")
+                .accessibilityLabel("Edit \(script.name.isEmpty ? "Unnamed Script" : script.name)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
@@ -231,7 +231,7 @@ struct ScriptRow: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Delete")
-                .accessibilityLabel("Delete")
+                .accessibilityLabel("Delete \(script.name.isEmpty ? "Unnamed Script" : script.name)")
             }
         }
         .padding(.horizontal, 12)

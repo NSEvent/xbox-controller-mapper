@@ -57,7 +57,7 @@ struct LinkedControllersSheet: View {
                             }
                             .buttonStyle(.borderless)
                             .help("Remove")
-                            .accessibilityLabel("Remove Linked Controller")
+                            .accessibilityLabel("Remove \(binding.displayName.isEmpty ? "Unnamed Controller" : binding.displayName)")
                         }
                         .padding(.vertical, 4)
                     }
