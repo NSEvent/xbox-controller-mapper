@@ -93,6 +93,15 @@ class Params:
 	duplicate_window: float = 0.09
 	max_tap_count: int = 5
 	timer_slack: float = 0.02
+	# Echo guard (2026-07-06): at resolution, a trailing tap closer than this
+	# to its predecessor is dropped as hand-settle unless the preceding gap was
+	# just as fast (established chain rhythm). Doubles then need a two-beat
+	# rhythm. 0 = disabled, mirroring the shipped default — Kevin's echo
+	# misfires only occur with a stale motion center, and his natural doubles
+	# gap ~0.29s, inside any guard that would catch echoes (gaps 0.18-0.30 on
+	# the labeled sessions). Set 0.35 to experiment with the guard on.
+	# Policy constant, not a tuned param — keep out of SEARCH_SPACE.
+	min_double_gap: float = 0.0
 	# OuraTapHoldRecognizer
 	hold_duration: float = 0.42
 	hold_settle: float = 0.16
@@ -227,39 +236,51 @@ class TapDetector:
 class TapSequence:
 	def __init__(self, p):
 		self.p = p
-		self.tap_count = 0
-		self.last_tap_time = None
+		self.tap_times = []
 		self.last_accepted_tap_time = None
+		self.last_echo_gap = None
+
+	@property
+	def tap_count(self):
+		return len(self.tap_times)
+
+	@property
+	def last_tap_time(self):
+		return self.tap_times[-1] if self.tap_times else None
 
 	def reset(self):
-		self.tap_count = 0
-		self.last_tap_time = None
+		self.tap_times = []
 		self.last_accepted_tap_time = None
 
 	def register_tap(self, ts):
 		p = self.p
 		if self.last_accepted_tap_time is not None and ts - self.last_accepted_tap_time < p.duplicate_window:
 			return ("duplicate", 0)
-		if self.last_tap_time is not None and ts - self.last_tap_time <= p.sequence_window:
-			self.tap_count += 1
+		if self.tap_times and ts - self.tap_times[-1] <= p.sequence_window:
+			self.tap_times.append(ts)
 		else:
-			self.tap_count = 1
-		self.last_tap_time = ts
+			self.tap_times = [ts]
 		self.last_accepted_tap_time = ts
-		if self.tap_count >= p.max_tap_count:
-			completed = self.tap_count
-			self.tap_count = 0
-			self.last_tap_time = None
+		if len(self.tap_times) >= p.max_tap_count:
+			completed = len(self.tap_times)
+			self.tap_times = []
 			return ("completed", completed)
-		return ("pending", self.tap_count)
+		return ("pending", len(self.tap_times))
 
 	def resolve_pending(self, ts):
-		if self.last_tap_time is None or ts - self.last_tap_time < self.p.sequence_window:
+		self.last_echo_gap = None
+		if not self.tap_times or ts - self.tap_times[-1] < self.p.sequence_window:
 			return None
-		resolved = self.tap_count
-		self.tap_count = 0
-		self.last_tap_time = None
-		return resolved if resolved > 0 else None
+		times = self.tap_times
+		self.tap_times = []
+		guard = getattr(self.p, "min_double_gap", 0.0)
+		if guard > 0 and len(times) >= 2:
+			trailing = times[-1] - times[-2]
+			preceding = times[-2] - times[-3] if len(times) >= 3 else float("inf")
+			if trailing < guard and preceding >= guard:
+				times = times[:-1]
+				self.last_echo_gap = trailing
+		return len(times) if times else None
 
 
 class TapHold:

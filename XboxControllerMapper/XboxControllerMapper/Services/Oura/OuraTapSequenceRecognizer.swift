@@ -18,22 +18,46 @@ struct OuraTapSequenceRecognizer {
 	private static let duplicateWindow: CFTimeInterval = 0.09
 	private static let maximumTapCount = 5
 
-	private var tapCount = 0
-	private var lastTapTime: CFAbsoluteTime?
+	// Echo guard (2026-07-06): a tap's hand-settle rebound lands ~0.18-0.30s
+	// after the real tap and is physically a second contact — across all three
+	// labeled sessions it matches real chain taps on every measurable feature
+	// (peak jerk, classifier confidence, inter-tap gap), so no per-tap gate can
+	// separate them; even retraining with these windows as noise negatives
+	// left them classifying as tap at 0.65-1.00. When enabled, at resolution
+	// time a trailing tap closer than this to its predecessor is dropped as
+	// settle UNLESS the preceding gap was just as fast (an established 3x/5x
+	// machine-gun rhythm earns its trailing tap) — double tap then requires a
+	// deliberate two-beat rhythm, like the macOS double-click-speed setting.
+	// DISABLED by default: Kevin's echo misfires only occur when the motion
+	// center is stale (well-centered sessions are clean), and his natural
+	// doubles gap ~0.29s — inside any guard that would catch the echoes.
+	// Enable to trade fast doubles for echo immunity:
+	//   defaults write KevinTang.XboxControllerMapper
+	//     ouraDoubleTapMinGap -float 0.35     (0 or unset = disabled)
+	static let defaultEchoGuardGap: CFTimeInterval =
+		UserDefaults.standard.double(forKey: "ouraDoubleTapMinGap")
+
+	var echoGuardGap: CFTimeInterval = OuraTapSequenceRecognizer.defaultEchoGuardGap
+
+	/// Gap of the trailing tap dropped as settle echo by the last
+	/// `resolvePending` call, for diagnostics. Nil when nothing was dropped.
+	private(set) var lastResolutionEchoGap: CFTimeInterval?
+
+	private var tapTimes: [CFAbsoluteTime] = []
 	private var lastAcceptedTapTime: CFAbsoluteTime?
 
 	var hasPendingTaps: Bool {
-		tapCount > 0
+		!tapTimes.isEmpty
 	}
 
 	var lastPendingTapTime: CFAbsoluteTime? {
-		hasPendingTaps ? lastTapTime : nil
+		tapTimes.last
 	}
 
 	mutating func reset() {
-		tapCount = 0
-		lastTapTime = nil
+		tapTimes = []
 		lastAcceptedTapTime = nil
+		lastResolutionEchoGap = nil
 	}
 
 	mutating func registerTap(at timestamp: CFAbsoluteTime) -> OuraTapSequenceImmediateAction {
@@ -41,33 +65,41 @@ struct OuraTapSequenceRecognizer {
 			return .duplicate
 		}
 
-		if let lastTapTime, timestamp - lastTapTime <= Self.sequenceWindow {
-			tapCount += 1
+		if let last = tapTimes.last, timestamp - last <= Self.sequenceWindow {
+			tapTimes.append(timestamp)
 		} else {
-			tapCount = 1
+			tapTimes = [timestamp]
 		}
-
-		lastTapTime = timestamp
 		lastAcceptedTapTime = timestamp
 
-		if tapCount >= Self.maximumTapCount {
-			let completedCount = tapCount
-			tapCount = 0
-			lastTapTime = nil
+		if tapTimes.count >= Self.maximumTapCount {
+			let completedCount = tapTimes.count
+			tapTimes = []
 			return .completed(completedCount)
 		}
-		return .pending(tapCount)
+		return .pending(tapTimes.count)
 	}
 
 	mutating func resolvePending(at timestamp: CFAbsoluteTime) -> OuraTapSequenceResolvedAction? {
-		guard let lastTapTime, timestamp - lastTapTime >= Self.sequenceWindow else { return nil }
+		lastResolutionEchoGap = nil
+		guard let last = tapTimes.last, timestamp - last >= Self.sequenceWindow else { return nil }
 
-		let resolvedCount = tapCount
-		tapCount = 0
-		self.lastTapTime = nil
+		var times = tapTimes
+		tapTimes = []
 
-		guard resolvedCount > 0 else { return nil }
-		return .tapCount(resolvedCount)
+		if echoGuardGap > 0, times.count >= 2 {
+			let trailingGap = times[times.count - 1] - times[times.count - 2]
+			let precedingGap = times.count >= 3
+				? times[times.count - 2] - times[times.count - 3]
+				: CFTimeInterval.greatestFiniteMagnitude
+			if trailingGap < echoGuardGap, precedingGap >= echoGuardGap {
+				times.removeLast()
+				lastResolutionEchoGap = trailingGap
+			}
+		}
+
+		guard !times.isEmpty else { return nil }
+		return .tapCount(times.count)
 	}
 }
 

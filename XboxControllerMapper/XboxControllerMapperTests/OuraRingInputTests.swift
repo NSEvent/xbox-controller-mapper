@@ -228,6 +228,51 @@ final class OuraRingInputTests: XCTestCase {
 		XCTAssertEqual(recognizer.resolvePending(at: 4.94), .tapCount(2))
 	}
 
+	func testOuraTapSequenceRecognizerEchoGuardDowngradesFastPairToSingle() {
+		var recognizer = OuraTapSequenceRecognizer()
+		recognizer.echoGuardGap = 0.35
+
+		// Settle echo 0.26s after a single tap — the live misfire signature.
+		XCTAssertEqual(recognizer.registerTap(at: 1.00), .pending(1))
+		XCTAssertEqual(recognizer.registerTap(at: 1.26), .pending(2))
+		XCTAssertEqual(recognizer.resolvePending(at: 2.02), .tapCount(1))
+		XCTAssertEqual(recognizer.lastResolutionEchoGap ?? -1, 0.26, accuracy: 0.001)
+
+		// A deliberate two-beat double is untouched.
+		XCTAssertEqual(recognizer.registerTap(at: 3.00), .pending(1))
+		XCTAssertEqual(recognizer.registerTap(at: 3.45), .pending(2))
+		XCTAssertEqual(recognizer.resolvePending(at: 4.21), .tapCount(2))
+		XCTAssertNil(recognizer.lastResolutionEchoGap)
+	}
+
+	func testOuraTapSequenceRecognizerEchoGuardDropsRhythmBreakingTrailingTap() {
+		var recognizer = OuraTapSequenceRecognizer()
+		recognizer.echoGuardGap = 0.35
+
+		// Slow double followed by a fast settle echo → still a double.
+		XCTAssertEqual(recognizer.registerTap(at: 1.00), .pending(1))
+		XCTAssertEqual(recognizer.registerTap(at: 1.45), .pending(2))
+		XCTAssertEqual(recognizer.registerTap(at: 1.70), .pending(3))
+		XCTAssertEqual(recognizer.resolvePending(at: 2.46), .tapCount(2))
+		XCTAssertEqual(recognizer.lastResolutionEchoGap ?? -1, 0.25, accuracy: 0.001)
+
+		// A machine-gun triple establishes its rhythm — trailing tap kept.
+		XCTAssertEqual(recognizer.registerTap(at: 5.00), .pending(1))
+		XCTAssertEqual(recognizer.registerTap(at: 5.24), .pending(2))
+		XCTAssertEqual(recognizer.registerTap(at: 5.50), .pending(3))
+		XCTAssertEqual(recognizer.resolvePending(at: 6.26), .tapCount(3))
+		XCTAssertNil(recognizer.lastResolutionEchoGap)
+	}
+
+	func testOuraTapSequenceRecognizerEchoGuardDisabledByZeroGap() {
+		var recognizer = OuraTapSequenceRecognizer()
+		recognizer.echoGuardGap = 0
+
+		XCTAssertEqual(recognizer.registerTap(at: 1.00), .pending(1))
+		XCTAssertEqual(recognizer.registerTap(at: 1.26), .pending(2))
+		XCTAssertEqual(recognizer.resolvePending(at: 2.02), .tapCount(2))
+	}
+
 	func testOuraTapMotionSuppressorExtendsAndExpires() {
 		var suppressor = OuraTapMotionSuppressor()
 
@@ -671,4 +716,125 @@ final class OuraGestureEventClassifierTests: XCTestCase {
 		[0.2917, 0.0042, -1.016, 0.017, 0.3134],
 		[0.2862, -0.0358, -0.9589, 0.0094, 0.2579]
 	]
+}
+
+final class OuraAutoRecenterMonitorTests: XCTestCase {
+	private func makeMonitor() -> OuraAutoRecenterMonitor {
+		var monitor = OuraAutoRecenterMonitor()
+		monitor.enabled = true
+		return monitor
+	}
+
+	private let neutral = OuraMotionSample(x: 0, y: 0.7, z: 0.7, timestamp: 0)
+
+	/// Feeds still samples at `pose` from `start` at ~48Hz for `duration`;
+	/// returns the first snap, if any.
+	private func feedStill(
+		_ monitor: inout OuraAutoRecenterMonitor,
+		pose: (Double, Double, Double),
+		from start: CFAbsoluteTime,
+		duration: CFTimeInterval
+	) -> (neutral: OuraMotionSample, driftDegrees: Double)? {
+		var t = start
+		while t < start + duration {
+			let sample = OuraMotionSample(x: pose.0, y: pose.1, z: pose.2, timestamp: t)
+			if let snap = monitor.register(sample, neutral: neutral) {
+				return snap
+			}
+			t += 0.021
+		}
+		return nil
+	}
+
+	func testStaleCenterAtRestSnapsAfterConfirmWindow() {
+		var monitor = makeMonitor()
+		// 60° away from neutral, |a| ≈ 0.99 — provably stale at rest.
+		let snap = feedStill(&monitor, pose: (0.7, 0.7, 0), from: 10.0, duration: 2.5)
+		XCTAssertNotNil(snap)
+		XCTAssertEqual(snap?.driftDegrees ?? 0, 60, accuracy: 3)
+		XCTAssertEqual(snap?.neutral.x ?? 0, 0.7, accuracy: 0.01)
+		// The snap must not fire before the confirm window has elapsed.
+		XCTAssertGreaterThanOrEqual(snap?.neutral.timestamp ?? 0, 10.0 + monitor.confirmDuration)
+	}
+
+	func testActiveMotionNeverSnaps() {
+		var monitor = makeMonitor()
+		var t: CFAbsoluteTime = 10.0
+		var flip = false
+		while t < 14.0 {
+			// Inter-sample delta ~0.06 — above the stillness bar.
+			let x = 0.7 + (flip ? 0.035 : -0.035)
+			XCTAssertNil(monitor.register(
+				OuraMotionSample(x: x, y: 0.7, z: 0, timestamp: t), neutral: neutral))
+			flip.toggle()
+			t += 0.021
+		}
+	}
+
+	func testDriftBelowThresholdDoesNotSnap() {
+		var monitor = makeMonitor()
+		// ~8° from neutral — inside the healthy band.
+		let pose = (0.0, 0.7 * cos(8 * Double.pi / 180) - 0.7 * sin(8 * Double.pi / 180),
+			0.7 * sin(8 * Double.pi / 180) + 0.7 * cos(8 * Double.pi / 180))
+		XCTAssertNil(feedStill(&monitor, pose: pose, from: 10.0, duration: 3.0))
+	}
+
+	func testNonGravityMagnitudeDoesNotSnap() {
+		var monitor = makeMonitor()
+		// Large angle but |a| = 0.42 — not a pure-gravity rest window.
+		XCTAssertNil(feedStill(&monitor, pose: (0.3, 0.3, 0), from: 10.0, duration: 3.0))
+	}
+
+	func testHoldOffDefersSnapUntilExpiry() {
+		var monitor = makeMonitor()
+		monitor.holdOff(until: 13.0)
+		XCTAssertNil(feedStill(&monitor, pose: (0.7, 0.7, 0), from: 10.0, duration: 2.9))
+		let snap = feedStill(&monitor, pose: (0.7, 0.7, 0), from: 12.9, duration: 0.5)
+		XCTAssertNotNil(snap)
+		XCTAssertGreaterThanOrEqual(snap?.neutral.timestamp ?? 0, 13.0)
+	}
+
+	func testCooldownBlocksBackToBackSnaps() {
+		var monitor = makeMonitor()
+		XCTAssertNotNil(feedStill(&monitor, pose: (0.7, 0.7, 0), from: 10.0, duration: 2.0))
+		// New still pose right after — still stale vs neutral, but inside cooldown.
+		XCTAssertNil(feedStill(&monitor, pose: (0, 0, 1), from: 12.1, duration: 2.5))
+		// After the cooldown expires the ongoing still run may snap again.
+		XCTAssertNotNil(feedStill(&monitor, pose: (0, 0, 1), from: 14.7, duration: 2.5))
+	}
+
+	func testDisabledMonitorNeverSnaps() {
+		var monitor = makeMonitor()
+		monitor.enabled = false
+		XCTAssertNil(feedStill(&monitor, pose: (0.7, 0.7, 0), from: 10.0, duration: 4.0))
+	}
+
+	func testMapperSnapsStaleCenterAndZeroesProjection() {
+		var settings = OuraMotionSettings.default
+		settings.enabled = true
+		settings.orientation = .screenPlane
+		var mapper = OuraMotionMapper(settings: settings)
+		mapper.autoRecenterMonitor.enabled = true
+
+		// First sample establishes the center at (0, 0.7, 0.7).
+		let first = mapper.mappingResult(forRawSample: OuraMotionSample(x: 0, y: 0.7, z: 0.7, timestamp: 0))
+		XCTAssertTrue(first.didEstablishCenter)
+
+		// Hand comes to rest 60° away — projection reads a large phantom
+		// deflection until the monitor snaps.
+		var t: CFAbsoluteTime = 0.021
+		var snapDrift: Double?
+		var lastProjection = CGPoint.zero
+		while t < 3.0 {
+			let result = mapper.mappingResult(forRawSample: OuraMotionSample(x: 0.7, y: 0.7, z: 0, timestamp: t))
+			if let drift = result.autoRecenterDriftDegrees {
+				snapDrift = drift
+			}
+			lastProjection = result.projectedInput
+			t += 0.021
+		}
+		XCTAssertEqual(snapDrift ?? 0, 60, accuracy: 3)
+		XCTAssertLessThan(hypot(lastProjection.x, lastProjection.y), 0.05,
+			"projection should read neutral after the snap")
+	}
 }

@@ -13,6 +13,23 @@ struct OuraMotionMappingResult {
 	let projectedInput: CGPoint
 	let stick: CGPoint
 	let didEstablishCenter: Bool
+	/// Set when the auto-recenter monitor snapped a stale center on this
+	/// sample: the drift angle that triggered it. Nil on normal samples.
+	var autoRecenterDriftDegrees: Double?
+
+	init(
+		centeredSample: OuraMotionSample,
+		projectedInput: CGPoint,
+		stick: CGPoint,
+		didEstablishCenter: Bool,
+		autoRecenterDriftDegrees: Double? = nil
+	) {
+		self.centeredSample = centeredSample
+		self.projectedInput = projectedInput
+		self.stick = stick
+		self.didEstablishCenter = didEstablishCenter
+		self.autoRecenterDriftDegrees = autoRecenterDriftDegrees
+	}
 }
 
 struct OuraMotionMapper {
@@ -31,6 +48,7 @@ struct OuraMotionMapper {
 	private var screenPlaneBasis: OuraScreenPlaneBasis?
 	private var previousRawSample: OuraMotionSample?
 	private var lowMotionStartTime: CFAbsoluteTime?
+	var autoRecenterMonitor = OuraAutoRecenterMonitor()
 
 	private static let minimumOutputMagnitude = 0.18
 	private static let softRecenterInputThreshold = 0.08
@@ -48,6 +66,7 @@ struct OuraMotionMapper {
 		screenPlaneBasis = nil
 		previousRawSample = nil
 		lowMotionStartTime = nil
+		autoRecenterMonitor.reset()
 	}
 
 	mutating func stickPosition(for sample: OuraMotionSample) -> CGPoint {
@@ -70,6 +89,21 @@ struct OuraMotionMapper {
 			)
 		}
 
+		// Snap recenter before centering this sample, so a provably stale
+		// neutral is replaced and the sample below is measured against the
+		// fresh one. Runs regardless of motionOutputEnabled — a stale center
+		// degrades gesture windows (px/py drift) even with the stick paused.
+		var autoRecenterDrift: Double?
+		if let snap = autoRecenterMonitor.register(sample, neutral: neutralSample) {
+			neutralSample = snap.neutral
+			if let normalized = OuraVector3(snap.neutral).normalized {
+				screenPlaneBasis = OuraScreenPlaneBasis(neutral: normalized)
+			}
+			smoothedStick = .zero
+			lowMotionStartTime = nil
+			autoRecenterDrift = snap.driftDegrees
+		}
+
 		let centeredResult = centeredSample(for: sample)
 		let projectedInput: CGPoint
 		switch settings.orientation {
@@ -84,7 +118,8 @@ struct OuraMotionMapper {
 			centeredSample: centeredResult.sample,
 			projectedInput: projectedInput,
 			stick: settings.motionOutputEnabled ? stickPosition(forProjectedInput: projectedInput) : zeroOutput(),
-			didEstablishCenter: centeredResult.didEstablishCenter
+			didEstablishCenter: centeredResult.didEstablishCenter,
+			autoRecenterDriftDegrees: autoRecenterDrift
 		)
 	}
 

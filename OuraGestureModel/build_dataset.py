@@ -35,6 +35,17 @@ PEAK_MIN_SEPARATION = 0.18
 TAP_MIN_SEPARATION = 0.25
 GHOST_AMPLITUDE_RATIO = 0.6
 MIN_WINDOW_COVERAGE = 0.6
+# Trailing settle echoes after the LAST intended tap: leftover peaks in this
+# window used to be discarded as "ambiguous" (amp ≥ 0.6× the weakest tap), so
+# the classifier never saw them and called them "tap" at 0.84-0.98 confidence
+# live — the single-tap→double-tap misfire (2026-07-06). Prompt count is
+# ground truth: when every expected tap was found, anything tap-like right
+# after the last one is hand-settle → hard negative. Bounds are the measured
+# echo-gap band (0.18-0.30s live) with margin; only applied AFTER the last
+# accepted tap so builder-excluded fast chain taps (gaps down to 0.18s, under
+# TAP_MIN_SEPARATION) between accepted taps can't be mislabeled as noise.
+ECHO_AFTER_LAST_TAP_MIN = 0.10
+ECHO_AFTER_LAST_TAP_MAX = 0.45
 
 EXPECTED_TAPS = {"single-tap": 1, "double-tap": 2, "triple-tap": 3, "five-tap": 5, "tap-hold": 1}
 
@@ -124,11 +135,16 @@ def events_from_trial(trial, index):
 			if all(abs(ct - a[0]) >= TAP_MIN_SEPARATION for a in accepted):
 				accepted.append((ct, amp))
 		floor = min((amp for _, amp in accepted), default=0)
+		last_tap_ct = max((ct for ct, _ in accepted), default=None)
+		all_taps_found = len(accepted) == expected
 		for ct, amp in peaks:
 			if any(abs(ct - a[0]) < 1e-9 for a in accepted):
 				event_label = "tap"
 			elif amp < floor * GHOST_AMPLITUDE_RATIO:
 				event_label = "noise"
+			elif (all_taps_found and last_tap_ct is not None
+					and ECHO_AFTER_LAST_TAP_MIN <= ct - last_tap_ct <= ECHO_AFTER_LAST_TAP_MAX):
+				event_label = "noise"  # trailing settle echo — see constants above
 			else:
 				continue  # ambiguous — neither clearly a tap nor clearly a ghost
 			window = extract_window(cts, rows, ct)

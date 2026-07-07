@@ -662,6 +662,11 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			suppressTapDetectionUntil = max(suppressTapDetectionUntil, sample.timestamp + 0.75)
 			motionTrace.recordEvent("center", timestamp: sample.timestamp)
 		}
+		if let drift = result.autoRecenterDriftDegrees {
+			suppressTapDetectionUntil = max(suppressTapDetectionUntil, sample.timestamp + 0.75)
+			motionTrace.recordEvent("auto-recenter", detail: String(format: "%.0f", drift), timestamp: sample.timestamp)
+			appendDiagnostic(String(format: "auto recenter: %.0f° drift at rest", drift))
+		}
 		if useMLGesturePath {
 			applyMotionGesturesML(sample, projectedInput: projectedInput)
 		} else {
@@ -931,7 +936,14 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 			return
 		}
 		guard let action = tapSequence.resolvePending(at: CFAbsoluteTimeGetCurrent()) else { return }
+		logEchoGuardDowngradeIfNeeded()
 		performTapSequenceAction(action)
+	}
+
+	private func logEchoGuardDowngradeIfNeeded() {
+		guard let gap = tapSequence.lastResolutionEchoGap else { return }
+		motionTrace.recordEvent("echo-dropped", detail: String(format: "%.3f", gap))
+		appendDiagnostic(String(format: "trailing tap %.2fs after previous dropped as settle echo", gap))
 	}
 
 	private func resetMLGestureState() {
@@ -948,6 +960,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		let workItem = DispatchWorkItem { [weak self] in
 			guard let self else { return }
 			guard let action = self.tapSequence.resolvePending(at: CFAbsoluteTimeGetCurrent()) else { return }
+			self.logEchoGuardDowngradeIfNeeded()
 			self.performTapSequenceAction(action)
 		}
 		tapSequenceWorkItem = workItem
@@ -997,6 +1010,9 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	private func suppressMotionForTap(at timestamp: CFAbsoluteTime, duration: CFTimeInterval) {
 		tapMotionSuppressor.suppress(at: timestamp, duration: duration)
+		// Tap ring-down can pass the raw-stillness bar briefly — keep the
+		// auto-recenter monitor out of gesture windows.
+		motionMapper.autoRecenterMonitor.holdOff(until: timestamp + max(duration, 1.0))
 		releaseOuraMotionSticks()
 	}
 
