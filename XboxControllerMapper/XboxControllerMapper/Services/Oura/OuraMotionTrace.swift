@@ -15,16 +15,22 @@ import Foundation
 //   {"type":"sample","t":…,"ct":…,"x":…,"y":…,"z":…,"px":…,"py":…}
 //   {"type":"event","t":…,"ct":…,"name":"tap-detected","detail":"…"}
 
-enum OuraMotionTraceFormat {
+nonisolated enum OuraMotionTraceFormat {
 	static func sampleLine(
 		wallTime: TimeInterval,
 		sample: OuraMotionSample,
 		projected: CGPoint
 	) -> String {
-		String(
-			format: "{\"type\":\"sample\",\"t\":%.6f,\"ct\":%.6f,\"x\":%.4f,\"y\":%.4f,\"z\":%.4f,\"px\":%.4f,\"py\":%.4f}",
-			wallTime, sample.timestamp, sample.x, sample.y, sample.z, projected.x, projected.y
-		)
+		jsonLine([
+			"type": "sample",
+			"t": wallTime,
+			"ct": sample.timestamp,
+			"x": sample.x,
+			"y": sample.y,
+			"z": sample.z,
+			"px": Double(projected.x),
+			"py": Double(projected.y)
+		])
 	}
 
 	static func eventLine(
@@ -33,22 +39,36 @@ enum OuraMotionTraceFormat {
 		name: String,
 		detail: String? = nil
 	) -> String {
-		var line = String(
-			format: "{\"type\":\"event\",\"t\":%.6f,\"ct\":%.6f,\"name\":\"%@\"",
-			wallTime, timestamp, name as NSString
-		)
+		var object: [String: Any] = [
+			"type": "event",
+			"t": wallTime,
+			"ct": timestamp,
+			"name": name
+		]
 		if let detail {
-			line += ",\"detail\":\"\(detail)\""
+			object["detail"] = detail
 		}
-		line += "}"
+		return jsonLine(object)
+	}
+
+	private static func jsonLine(_ object: [String: Any]) -> String {
+		guard JSONSerialization.isValidJSONObject(object),
+		      let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
+		      let line = String(data: data, encoding: .utf8) else {
+			return "{}"
+		}
 		return line
 	}
 }
 
-final class OuraMotionTraceWriter {
+// nonisolated: internally NSLock-synchronized and must not inherit the
+// project's default MainActor isolation. XCTest teardown can otherwise trip the
+// isolated-deinit back-deploy path when OuraRingInputService is released.
+nonisolated final class OuraMotionTraceWriter {
 	static let defaultsKey = "ouraMotionTraceLogging"
 	static let traceURL = URL(fileURLWithPath: "/tmp/controllerkeys-oura-motion-trace.ndjson")
 
+	private let lock = NSLock()
 	private var handle: FileHandle?
 	private var openFailed = false
 
@@ -80,6 +100,8 @@ final class OuraMotionTraceWriter {
 	}
 
 	func close() {
+		lock.lock()
+		defer { lock.unlock() }
 		try? handle?.close()
 		handle = nil
 		openFailed = false
@@ -87,6 +109,8 @@ final class OuraMotionTraceWriter {
 
 	private func write(_ line: String) {
 		guard let data = (line + "\n").data(using: .utf8) else { return }
+		lock.lock()
+		defer { lock.unlock() }
 		if handle == nil, !openFailed {
 			let path = Self.traceURL.path
 			if !FileManager.default.fileExists(atPath: path) {

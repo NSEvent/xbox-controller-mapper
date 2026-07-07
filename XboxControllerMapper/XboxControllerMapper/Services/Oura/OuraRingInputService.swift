@@ -289,24 +289,13 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	}
 
 	private func stopInternal(status newStatus: OuraRingConnectionStatus) {
-		tapReleaseWorkItem?.cancel()
-		tapReleaseWorkItem = nil
-		tapSequenceWorkItem?.cancel()
-		tapSequenceWorkItem = nil
 		clearConnectAttempt()
 		realtimeRefreshTimer?.invalidate()
 		realtimeRefreshTimer = nil
 		endStreamingActivity()
 		stopMotionWatchdog()
-		tapSequence.reset()
-		tapMotionSuppressor.reset()
-		tapHoldRecognizer.reset()
-		flickRecognizer.reset()
-		motionMapper.reset()
-		tapDetector.reset()
-		resetMLGestureState()
-		releaseOuraMotionSticks()
-		releaseOuraGestureButtons()
+		resetInputSessionForConnectionLoss()
+		motionTrace.close()
 		controllerService.setOuraRingConnected(false)
 
 		if centralManager?.isScanning == true {
@@ -322,6 +311,21 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		writeCharacteristic = nil
 		notifyCharacteristic = nil
 		status = newStatus
+	}
+
+	func resetInputSessionForConnectionLoss() {
+		tapReleaseWorkItem?.cancel()
+		tapReleaseWorkItem = nil
+		tapSequenceWorkItem?.cancel()
+		tapSequenceWorkItem = nil
+		tapSequence.reset()
+		tapMotionSuppressor.reset()
+		tapHoldRecognizer.reset()
+		flickRecognizer.reset()
+		motionMapper.reset()
+		tapDetector.reset()
+		resetMLGestureState()
+		controllerService.releaseOuraRingInputs()
 	}
 
 	private func scanForRing() {
@@ -1163,12 +1167,10 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		realtimeRefreshTimer = nil
 		endStreamingActivity()
 		stopMotionWatchdog()
-		tapDetector.reset()
-		motionMapper.reset()
-		resetMLGestureState()
 		motionTrace.close()
 		if self.peripheral?.identifier == peripheral.identifier {
 			clearConnectAttempt()
+			resetInputSessionForConnectionLoss()
 			self.peripheral = nil
 			writeCharacteristic = nil
 			notifyCharacteristic = nil

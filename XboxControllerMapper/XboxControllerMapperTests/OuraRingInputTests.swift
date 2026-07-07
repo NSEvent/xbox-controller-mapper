@@ -517,6 +517,36 @@ final class OuraRingInputTests: XCTestCase {
 			XCTAssertFalse(detector.register(sample))
 		}
 	}
+
+	@MainActor
+	func testConnectionLossResetReleasesVirtualOuraInputs() {
+		let configDirectory = FileManager.default.temporaryDirectory
+			.appendingPathComponent("controllerkeys-oura-tests-\(UUID().uuidString)", isDirectory: true)
+		let controllerService = ControllerService(enableHardwareMonitoring: false)
+		controllerService.lowLatencyInputEnabled = true
+		let profileManager = ProfileManager(configDirectoryOverride: configDirectory)
+		let service = OuraRingInputService(controllerService: controllerService, profileManager: profileManager)
+
+		controllerService.updateOuraRingStick(CGPoint(x: 0.42, y: -0.31), side: .left)
+		controllerService.updateOuraRingStick(CGPoint(x: -0.22, y: 0.67), side: .right)
+		controllerService.handleButton(.ouraTap, pressed: true)
+
+		let leftStick = controllerService.readStorage(\.leftStick)
+		let rightStick = controllerService.readStorage(\.rightStick)
+		XCTAssertEqual(Double(leftStick.x), 0.42, accuracy: 1e-6)
+		XCTAssertEqual(Double(leftStick.y), -0.31, accuracy: 1e-6)
+		XCTAssertEqual(Double(rightStick.x), -0.22, accuracy: 1e-6)
+		XCTAssertEqual(Double(rightStick.y), 0.67, accuracy: 1e-6)
+		XCTAssertTrue(controllerService.readStorage(\.activeButtons).contains(.ouraTap))
+
+		service.resetInputSessionForConnectionLoss()
+
+		XCTAssertEqual(controllerService.readStorage(\.leftStick), .zero)
+		XCTAssertEqual(controllerService.readStorage(\.rightStick), .zero)
+		XCTAssertFalse(controllerService.readStorage(\.activeButtons).contains(.ouraTap))
+		controllerService.cleanup()
+		try? FileManager.default.removeItem(at: configDirectory)
+	}
 }
 
 final class OuraMotionTraceFormatTests: XCTestCase {
@@ -555,6 +585,22 @@ final class OuraMotionTraceFormatTests: XCTestCase {
 		XCTAssertEqual(object["name"] as? String, "tap-candidate")
 		XCTAssertEqual(object["detail"] as? String, "accelerometer spike")
 		XCTAssertEqual(try XCTUnwrap(object["t"] as? Double), 1783272961.5, accuracy: 1e-5)
+	}
+
+	func testEventLineEscapesStringsAsJSON() throws {
+		let detail = #"ml "tap" \ backslash"#
+		let line = OuraMotionTraceFormat.eventLine(
+			wallTime: 1783272961.5,
+			timestamp: 773430001.5,
+			name: #"tap "candidate""#,
+			detail: detail
+		)
+
+		let object = try XCTUnwrap(
+			JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+		)
+		XCTAssertEqual(object["name"] as? String, #"tap "candidate""#)
+		XCTAssertEqual(object["detail"] as? String, detail)
 	}
 
 	func testEventLineWithoutDetailOmitsField() throws {
@@ -645,6 +691,7 @@ final class OuraGestureEventClassifierTests: XCTestCase {
 		XCTAssertEqual(flickResult?.event, .flickLeft)
 		XCTAssertGreaterThan(flickResult?.confidence ?? 0, 0.97, "real flicks measured ≥0.98 confidence")
 		XCTAssertEqual(classifier.classify(window: Self.tapWindow)?.event, .tap)
+		XCTAssertNil(classifier.classify(window: Array(repeating: [0.0, 0.0, 0.0, 0.0], count: OuraMotionWindowBuffer.steps)))
 	}
 
 	private static let flickLeftWindow: [[Double]] = [

@@ -238,7 +238,11 @@ nonisolated final class OuraGestureEventClassifier {
 		lock.lock()
 		let model = self.model
 		lock.unlock()
-		guard let model, window.count == OuraMotionWindowBuffer.steps else { return nil }
+		guard let model,
+		      window.count == OuraMotionWindowBuffer.steps,
+		      window.allSatisfy({ $0.count == 5 }) else {
+			return nil
+		}
 		guard let input = try? MLMultiArray(shape: [1, NSNumber(value: OuraMotionWindowBuffer.steps), 5],
 			dataType: .float32) else { return nil }
 		for (step, row) in window.enumerated() {
@@ -266,7 +270,7 @@ nonisolated final class OuraGestureEventClassifier {
 		for value in values {
 			expSum += exp(value - bestValue)
 		}
-		guard bestIndex < OuraGestureEvent.classOrder.count, !values.isEmpty else { return nil }
+		guard bestIndex < OuraGestureEvent.classOrder.count, !values.isEmpty, expSum > 0 else { return nil }
 		// classOrder[0] == .tap — its softmax probability drives the tap-lean
 		// rule (borderline windows where noise narrowly outranks tap).
 		let tapProbability = exp(values[0] - bestValue) / expSum
