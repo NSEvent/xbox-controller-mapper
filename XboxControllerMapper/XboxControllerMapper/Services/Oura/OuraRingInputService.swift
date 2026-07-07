@@ -452,6 +452,27 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		notifyCharacteristic = nil
 	}
 
+	func handleBluetoothUnavailable(_ reason: String) {
+		appendDiagnostic("bluetooth unavailable: \(reason)")
+		clearConnectAttempt()
+		disconnectWithoutRestartPeripheralID = nil
+		pendingAdoptionKey = nil
+		realtimeRefreshTimer?.invalidate()
+		realtimeRefreshTimer = nil
+		endStreamingActivity()
+		stopMotionWatchdog()
+		resetInputSessionForConnectionLoss()
+		motionTrace.close()
+		if centralManager?.isScanning == true {
+			centralManager?.stopScan()
+		}
+		peripheral = nil
+		writeCharacteristic = nil
+		notifyCharacteristic = nil
+		controllerService.setOuraRingConnected(false)
+		status = .bluetoothUnavailable(reason)
+	}
+
 	private func scheduleConnectTimeout(for peripheral: CBPeripheral) {
 		connectTimeoutWorkItem?.cancel()
 		let peripheralID = peripheral.identifier
@@ -1141,19 +1162,23 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	// MARK: - CBCentralManagerDelegate
 
 	func centralManagerDidUpdateState(_ central: CBCentralManager) {
+		guard currentSettings.enabled else {
+			stopInternal(status: .disabled)
+			return
+		}
 		switch central.state {
 		case .poweredOn:
 			scanForRing()
 		case .unauthorized:
-			status = .bluetoothUnavailable("permission denied")
+			handleBluetoothUnavailable("permission denied")
 		case .poweredOff:
-			status = .bluetoothUnavailable("powered off")
+			handleBluetoothUnavailable("powered off")
 		case .unsupported:
-			status = .bluetoothUnavailable("unsupported")
+			handleBluetoothUnavailable("unsupported")
 		case .resetting, .unknown:
-			status = .bluetoothUnavailable("not ready")
+			handleBluetoothUnavailable("not ready")
 		@unknown default:
-			status = .bluetoothUnavailable("unknown state")
+			handleBluetoothUnavailable("unknown state")
 		}
 	}
 
@@ -1187,7 +1212,6 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		}
 		clearConnectAttempt()
 		status = .connected(displayName(for: peripheral))
-		controllerService.setOuraRingConnected(true)
 		peripheral.discoverServices([OuraRingProtocol.serviceUUID])
 	}
 

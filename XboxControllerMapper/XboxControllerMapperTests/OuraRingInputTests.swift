@@ -570,6 +570,29 @@ final class OuraRingInputTests: XCTestCase {
 		controllerService.cleanup()
 		try? FileManager.default.removeItem(at: configDirectory)
 	}
+
+	@MainActor
+	func testBluetoothUnavailableClearsConnectedStateAndVirtualInputs() {
+		let configDirectory = FileManager.default.temporaryDirectory
+			.appendingPathComponent("controllerkeys-oura-tests-\(UUID().uuidString)", isDirectory: true)
+		let controllerService = ControllerService(enableHardwareMonitoring: false)
+		controllerService.lowLatencyInputEnabled = true
+		let profileManager = ProfileManager(configDirectoryOverride: configDirectory)
+		let service = OuraRingInputService(controllerService: controllerService, profileManager: profileManager)
+
+		controllerService.setOuraRingConnected(true)
+		controllerService.updateOuraRingStick(CGPoint(x: -0.4, y: 0.25), side: .right)
+		controllerService.handleButton(.ouraTripleTap, pressed: true)
+
+		service.handleBluetoothUnavailable("powered off")
+
+		XCTAssertEqual(service.status, .bluetoothUnavailable("powered off"))
+		XCTAssertFalse(controllerService.isOuraRingConnected)
+		XCTAssertEqual(controllerService.readStorage(\.rightStick), .zero)
+		XCTAssertFalse(controllerService.readStorage(\.activeButtons).contains(.ouraTripleTap))
+		controllerService.cleanup()
+		try? FileManager.default.removeItem(at: configDirectory)
+	}
 }
 
 final class OuraMotionTraceFormatTests: XCTestCase {
