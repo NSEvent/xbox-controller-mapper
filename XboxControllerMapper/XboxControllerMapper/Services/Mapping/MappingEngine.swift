@@ -59,7 +59,7 @@ class MappingEngine: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    nonisolated init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor, inputSimulator: InputSimulatorProtocol = InputSimulator(), inputLogService: InputLogService? = nil, usageStatsService: UsageStatsService? = nil) {
+    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor, inputSimulator: InputSimulatorProtocol = InputSimulator(), inputLogService: InputLogService? = nil, usageStatsService: UsageStatsService? = nil) {
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
