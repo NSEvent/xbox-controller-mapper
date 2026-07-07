@@ -108,6 +108,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	private var tapSequenceWorkItem: DispatchWorkItem?
 	private var connectTimeoutWorkItem: DispatchWorkItem?
 	private var realtimeRefreshTimer: Timer?
+	private var disconnectWithoutRestartPeripheralID: UUID?
 	private var tapSequence = OuraTapSequenceRecognizer()
 	private var tapMotionSuppressor = OuraTapMotionSuppressor()
 	private var tapHoldRecognizer = OuraTapHoldRecognizer()
@@ -290,6 +291,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	private func stopInternal(status newStatus: OuraRingConnectionStatus) {
 		clearConnectAttempt()
+		disconnectWithoutRestartPeripheralID = nil
 		realtimeRefreshTimer?.invalidate()
 		realtimeRefreshTimer = nil
 		endStreamingActivity()
@@ -421,6 +423,35 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		connectAttemptStartTime = nil
 	}
 
+	func failCurrentConnection(_ reason: String) {
+		appendDiagnostic("connection failed: \(reason)")
+		status = .authFailed(reason)
+		clearConnectAttempt()
+		disconnectWithoutRestartPeripheralID = nil
+		pendingAdoptionKey = nil
+		realtimeRefreshTimer?.invalidate()
+		realtimeRefreshTimer = nil
+		endStreamingActivity()
+		stopMotionWatchdog()
+		resetInputSessionForConnectionLoss()
+		motionTrace.close()
+		controllerService.setOuraRingConnected(false)
+
+		guard let peripheral else {
+			writeCharacteristic = nil
+			notifyCharacteristic = nil
+			return
+		}
+
+		disconnectWithoutRestartPeripheralID = peripheral.identifier
+		if writeCharacteristic != nil {
+			write(OuraRingProtocol.stopRealtimeCommand())
+		}
+		centralManager?.cancelPeripheralConnection(peripheral)
+		writeCharacteristic = nil
+		notifyCharacteristic = nil
+	}
+
 	private func scheduleConnectTimeout(for peripheral: CBPeripheral) {
 		connectTimeoutWorkItem?.cancel()
 		let peripheralID = peripheral.identifier
@@ -455,12 +486,12 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		}
 
 		guard currentSettings.adoptResetRing else {
-			status = .authFailed("no stored key; reset the ring or enable reset-ring adoption")
+			failCurrentConnection("no stored key; reset the ring or enable reset-ring adoption")
 			return
 		}
 
 		guard let newKey = OuraRingProtocol.newAuthKey() else {
-			status = .authFailed("could not generate auth key")
+			failCurrentConnection("could not generate auth key")
 			return
 		}
 
@@ -612,7 +643,7 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		switch event {
 		case .nonce(let nonce):
 			guard let authKey, let command = OuraRingProtocol.authProofCommand(nonce: nonce, key: authKey) else {
-				status = .authFailed("could not build auth proof")
+				failCurrentConnection("could not build auth proof")
 				return
 			}
 			write(command)
@@ -622,18 +653,18 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 				finishAuthentication(peripheral: peripheral)
 			case .inFactoryReset where currentSettings.adoptResetRing:
 				guard let newKey = OuraRingProtocol.newAuthKey() else {
-					status = .authFailed("could not generate reset-ring key")
+					failCurrentConnection("could not generate reset-ring key")
 					return
 				}
 				pendingAdoptionKey = newKey
 				status = .adopting
 				write(OuraRingProtocol.installKeyCommand(newKey))
 			case .wrongKey, .inFactoryReset, .notOriginalDevice:
-				status = .authFailed(authStatus.displayName)
+				failCurrentConnection(authStatus.displayName)
 			}
 		case .keyInstallStatus(let success):
 			guard success, let key = pendingAdoptionKey else {
-				status = .authFailed("ring rejected auth key install")
+				failCurrentConnection("ring rejected auth key install")
 				return
 			}
 			saveAuthKey(key)
@@ -1076,6 +1107,10 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 		return displayName(for: peripheral)
 	}
 
+	private func isTrackedPeripheral(_ peripheral: CBPeripheral) -> Bool {
+		self.peripheral?.identifier == peripheral.identifier
+	}
+
 	private func appendDiagnostic(_ message: String) {
 		guard currentSettings.diagnosticsEnabled else { return }
 		lastDiagnosticLine = message
@@ -1145,6 +1180,11 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	}
 
 	func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+		guard isTrackedPeripheral(peripheral) else {
+			appendDiagnostic("ignored stale Oura connect for \(displayName(for: peripheral))")
+			central.cancelPeripheralConnection(peripheral)
+			return
+		}
 		clearConnectAttempt()
 		status = .connected(displayName(for: peripheral))
 		controllerService.setOuraRingConnected(true)
@@ -1152,6 +1192,10 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	}
 
 	func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+		guard isTrackedPeripheral(peripheral) else {
+			appendDiagnostic("ignored stale Oura connect failure for \(displayName(for: peripheral))")
+			return
+		}
 		clearConnectAttempt()
 		appendDiagnostic("connect failed \(error?.localizedDescription ?? "unknown error")")
 		self.peripheral = nil
@@ -1163,21 +1207,27 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 	func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
 		appendDiagnostic("disconnected \(error?.localizedDescription ?? "no error")")
+		guard isTrackedPeripheral(peripheral) else {
+			appendDiagnostic("ignored stale Oura disconnect for \(displayName(for: peripheral))")
+			return
+		}
+		let shouldPreserveFailureStatus = disconnectWithoutRestartPeripheralID == peripheral.identifier
+		disconnectWithoutRestartPeripheralID = nil
 		realtimeRefreshTimer?.invalidate()
 		realtimeRefreshTimer = nil
 		endStreamingActivity()
 		stopMotionWatchdog()
 		motionTrace.close()
-		if self.peripheral?.identifier == peripheral.identifier {
-			clearConnectAttempt()
-			resetInputSessionForConnectionLoss()
-			self.peripheral = nil
-			writeCharacteristic = nil
-			notifyCharacteristic = nil
-			controllerService.setOuraRingConnected(false)
+		clearConnectAttempt()
+		resetInputSessionForConnectionLoss()
+		self.peripheral = nil
+		writeCharacteristic = nil
+		notifyCharacteristic = nil
+		controllerService.setOuraRingConnected(false)
+		if !shouldPreserveFailureStatus {
+			status = .disconnected
 		}
-		status = .disconnected
-		if currentSettings.enabled {
+		if currentSettings.enabled && !shouldPreserveFailureStatus {
 			scanForRing()
 		}
 	}
@@ -1185,13 +1235,17 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	// MARK: - CBPeripheralDelegate
 
 	func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+		guard isTrackedPeripheral(peripheral) else {
+			appendDiagnostic("ignored stale Oura service discovery for \(displayName(for: peripheral))")
+			return
+		}
 		guard error == nil, let services = peripheral.services else {
-			status = .authFailed(error?.localizedDescription ?? "service discovery failed")
+			failCurrentConnection(error?.localizedDescription ?? "service discovery failed")
 			return
 		}
 
 		guard let service = services.first(where: { $0.uuid == OuraRingProtocol.serviceUUID }) else {
-			status = .authFailed("Oura service not found")
+			failCurrentConnection("Oura service not found")
 			return
 		}
 
@@ -1202,8 +1256,12 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 	}
 
 	func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+		guard isTrackedPeripheral(peripheral) else {
+			appendDiagnostic("ignored stale Oura characteristic discovery for \(displayName(for: peripheral))")
+			return
+		}
 		guard error == nil, let characteristics = service.characteristics else {
-			status = .authFailed(error?.localizedDescription ?? "characteristic discovery failed")
+			failCurrentConnection(error?.localizedDescription ?? "characteristic discovery failed")
 			return
 		}
 
@@ -1218,10 +1276,16 @@ final class OuraRingInputService: NSObject, ObservableObject, CBCentralManagerDe
 
 		if writeCharacteristic != nil, notifyCharacteristic != nil {
 			authenticateOrAdopt()
+		} else {
+			failCurrentConnection("Oura characteristics not found")
 		}
 	}
 
 	func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+		guard isTrackedPeripheral(peripheral) else {
+			appendDiagnostic("ignored stale Oura notification for \(displayName(for: peripheral))")
+			return
+		}
 		guard error == nil, characteristic.uuid == OuraRingProtocol.notifyCharacteristicUUID, let data = characteristic.value else {
 			if let error {
 				appendDiagnostic("notify error \(error.localizedDescription)")

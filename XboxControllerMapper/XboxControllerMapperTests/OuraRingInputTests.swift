@@ -547,6 +547,29 @@ final class OuraRingInputTests: XCTestCase {
 		controllerService.cleanup()
 		try? FileManager.default.removeItem(at: configDirectory)
 	}
+
+	@MainActor
+	func testConnectionFailureClearsConnectedStateAndVirtualInputs() {
+		let configDirectory = FileManager.default.temporaryDirectory
+			.appendingPathComponent("controllerkeys-oura-tests-\(UUID().uuidString)", isDirectory: true)
+		let controllerService = ControllerService(enableHardwareMonitoring: false)
+		controllerService.lowLatencyInputEnabled = true
+		let profileManager = ProfileManager(configDirectoryOverride: configDirectory)
+		let service = OuraRingInputService(controllerService: controllerService, profileManager: profileManager)
+
+		controllerService.setOuraRingConnected(true)
+		controllerService.updateOuraRingStick(CGPoint(x: 0.35, y: 0.46), side: .left)
+		controllerService.handleButton(.ouraDoubleTap, pressed: true)
+
+		service.failCurrentConnection("wrong auth key")
+
+		XCTAssertEqual(service.status, .authFailed("wrong auth key"))
+		XCTAssertFalse(controllerService.isOuraRingConnected)
+		XCTAssertEqual(controllerService.readStorage(\.leftStick), .zero)
+		XCTAssertFalse(controllerService.readStorage(\.activeButtons).contains(.ouraDoubleTap))
+		controllerService.cleanup()
+		try? FileManager.default.removeItem(at: configDirectory)
+	}
 }
 
 final class OuraMotionTraceFormatTests: XCTestCase {
