@@ -41,6 +41,25 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		}
 	}
 
+	var platformLabel: String {
+		switch self {
+		case .active: return "Connected device"
+		case .xbox: return "Xbox Series X|S / One"
+		case .xboxElite: return "Xbox Elite Series 2"
+		case .dualSense: return "PS5"
+		case .dualSenseEdge: return "PS5 (Edge)"
+		case .dualShock: return "PS4"
+		case .nintendo: return "Switch Pro / Joy-Con"
+		case .steam: return "Steam Controller"
+		case .eightBitDoZero2: return "Keychain Bluetooth pad"
+		case .eightBitDoMicro: return "Micro Bluetooth pad"
+		case .eightBitDoLite2: return "Switch / D-input modes"
+		case .eightBitDoLiteSE: return "Switch / D-input modes"
+		case .appleTVRemote: return "Apple TV Siri Remote"
+		case .ouraRing: return "Oura Ring 3 / 4"
+		}
+	}
+
 	var systemImage: String {
 		switch self {
 		case .active: return "dot.radiowaves.left.and.right"

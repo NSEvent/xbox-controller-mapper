@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **No-controller chooser no longer drops rows after scrolling**: In a short window, scrolling the Buttons tab so the "No controller connected" chooser is partly clipped and then returning to the top could leave some controller-family buttons missing after SwiftUI refreshed the view. The chooser now uses an eager static grid instead of a nested `LazyVGrid`, so the small fixed set of controller buttons stays mounted and redraws reliably.
+
 ## [2.5.1] - 2026-07-03
 
 ### Added

@@ -50,6 +50,18 @@ final class ControllerVisualRenderingTests: XCTestCase {
 		}
 	}
 
+	func testNoControllerChooserRendersVisibleCompactGrid() throws {
+		let image = try renderPairingChooser()
+		let stats = try sampledStats(from: image)
+
+		XCTAssertGreaterThan(stats.distinctColorBuckets, 12, "Pairing chooser rendered mostly blank")
+		XCTAssertGreaterThan(stats.foregroundSamples, 500, "Pairing chooser has too little foreground content")
+		XCTAssertGreaterThan(stats.foregroundBounds.width, 420, "Pairing chooser foreground is too narrow")
+		XCTAssertGreaterThan(stats.foregroundBounds.height, 240, "Pairing chooser foreground is too short")
+
+		try writePNGIfRequested(image, name: "pairing-chooser-compact")
+	}
+
 	private func renderControllerCanvas(_ layout: ControllerPreviewLayout) throws -> NSImage {
 		let controllerService = ControllerService(enableHardwareMonitoring: false)
 		Self.retainedControllerServices.append(controllerService)
@@ -93,6 +105,19 @@ final class ControllerVisualRenderingTests: XCTestCase {
 				.background(Color(NSColor.windowBackgroundColor)),
 			size: CGSize(width: 420, height: 420),
 			label: "\(layout.rawValue) minimap"
+		)
+	}
+
+	private func renderPairingChooser() throws -> NSImage {
+		let content = ControllerPairingHintView(previewLayout: .active, onSelectLayout: { _ in })
+
+		return try render(
+			content
+				.frame(width: 560)
+				.padding(20)
+				.background(Color(NSColor.windowBackgroundColor)),
+			size: CGSize(width: 600, height: 430),
+			label: "pairing chooser"
 		)
 	}
 

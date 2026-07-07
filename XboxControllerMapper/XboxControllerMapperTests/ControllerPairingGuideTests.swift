@@ -64,6 +64,21 @@ final class ControllerPairingGuideTests: XCTestCase {
         }
     }
 
+    func testChooserPlatformLabelsExplainConsoleFamilies() {
+	XCTAssertEqual(ControllerPreviewLayout.dualSense.platformLabel, "PS5")
+	XCTAssertEqual(ControllerPreviewLayout.dualSenseEdge.platformLabel, "PS5 (Edge)")
+	XCTAssertEqual(ControllerPreviewLayout.dualShock.platformLabel, "PS4")
+	XCTAssertTrue(ControllerPreviewLayout.nintendo.platformLabel.contains("Switch"))
+	XCTAssertTrue(ControllerPreviewLayout.xbox.platformLabel.contains("Xbox"))
+
+	for layout in ControllerPreviewLayout.concreteLayouts {
+	    XCTAssertFalse(
+		layout.platformLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+		"\(layout.displayName) needs a platform label for the guide chooser"
+	    )
+	}
+    }
+
     func testGuideURLsAreSecure() {
         for layout in ControllerPreviewLayout.concreteLayouts {
             guard let url = layout.pairingGuide?.guideURL else { continue }
