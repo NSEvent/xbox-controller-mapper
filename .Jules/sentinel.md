@@ -18,3 +18,7 @@
 **Vulnerability:** The application was falling back to storing OBS passwords as plaintext strings inside exported/saved JSON models (`Macro.swift` and `SystemCommand.swift`) if saving to the macOS Keychain failed.
 **Learning:** Saving secrets to unencrypted formats simply because secure storage fails is a critical anti-pattern known as "failing open" that results in data exposure.
 **Prevention:** Always fail securely. If secure storage operations fail, discard the sensitive credential in memory rather than writing it insecurely to disk, even if it requires the user to re-authenticate later.
+## 2026-06-26 - [Process Pipe Buffer Deadlock]
+**Vulnerability:** Parent processes executing `Process()` (NSTask) with piped standard output/error were deadlocking if the child output exceeded the OS pipe buffer size (~64KB). The parent process called `waitUntilExit()` before reading the output, causing a classic IPC deadlock.
+**Learning:** This is a DoS risk if an attacker can control or pad the output of commands executed by the application.
+**Prevention:** Always read all data from `Pipe()` objects (e.g., using `readDataToEndOfFile()`) *before* calling `process.waitUntilExit()`.
