@@ -131,6 +131,9 @@ struct ContentView: View {
                     case 14:
                         InputSettingsView()
                             .scrollContentBackground(.hidden)
+					case 15:
+						RingSettingsView()
+							.scrollContentBackground(.hidden)
                     case 2:
                         JoystickSettingsView()
                             .scrollContentBackground(.hidden)
@@ -818,6 +821,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     case wheel = 12
     case history = 13
     case input = 14
+	case ring = 15
 
     static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
 
@@ -830,6 +834,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         .scripts,
         .wheel,
         .input,
+		.ring,
         .joysticks,
         .touchpad,
         .leds,
@@ -858,6 +863,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .wheel: return "Wheel"
         case .history: return "History"
         case .input: return "Input"
+		case .ring: return "Ring"
         }
     }
 
@@ -876,7 +882,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
             return .map
         case .macros, .scripts, .wheel, .keyboard:
             return .automate
-        case .input, .joysticks, .touchpad, .leds, .microphone:
+		case .input, .ring, .joysticks, .touchpad, .leds, .microphone:
             return .hardware
         case .stats, .history:
             return .activity
@@ -893,6 +899,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .scripts: return "curlybraces"
         case .wheel: return "circle.grid.cross"
         case .input: return "speedometer"
+		case .ring: return "circle.dashed"
         case .keyboard: return "keyboard"
         case .joysticks: return "circle.circle"
         case .touchpad: return "rectangle.and.hand.point.up.left"
@@ -915,6 +922,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .scripts: return ["javascript", "js", "code", "automation", "engine"]
         case .wheel: return ["radial", "menu", "command", "pie"]
         case .input: return ["latency", "realtime", "timing", "mode"]
+		case .ring: return ["oura", "motion", "tilt", "tap", "flick", "bluetooth", "pairing", "calibration", "recenter"]
         case .joysticks: return ["sticks", "deadzone", "sensitivity", "curve", "analog"]
         case .touchpad: return ["trackpad", "gyro", "regions", "quadrants", "pad"]
         case .leds: return ["lightbar", "color", "lighting", "rgb"]
