@@ -25,3 +25,6 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
+## 2023-10-27 - [Tooltips and Accessibility Labels on Media Keys]
+**Learning:** Icon-only media keys in the on-screen keyboard were missing accessibility labels and tooltips, which makes them inaccessible to screen readers and harder to understand for visual users.
+**Action:** Add `.help()` and `.accessibilityLabel()` to icon-only buttons like media playback controls, supplying meaningful descriptive text instead of empty strings.

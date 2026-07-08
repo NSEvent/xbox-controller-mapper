@@ -534,20 +534,20 @@ struct OnScreenKeyboardView: View {
     private var mediaControlsRow: some View {
         HStack(spacing: keySpacing * 6) {
             mediaControlGroup(title: "PLAYBACK", icon: "play.circle.fill") {
-                mediaKey(KeyCodeMapping.mediaPrevious, label: "", symbol: "backward.end.fill", keyboardRow: mediaRowIndex, column: 0)
-                mediaKey(KeyCodeMapping.mediaPlayPause, label: "", symbol: "playpause.fill", keyboardRow: mediaRowIndex, column: 1)
-                mediaKey(KeyCodeMapping.mediaNext, label: "", symbol: "forward.end.fill", keyboardRow: mediaRowIndex, column: 2)
+                mediaKey(KeyCodeMapping.mediaPrevious, label: "Previous Track", symbol: "backward.end.fill", keyboardRow: mediaRowIndex, column: 0)
+                mediaKey(KeyCodeMapping.mediaPlayPause, label: "Play/Pause", symbol: "playpause.fill", keyboardRow: mediaRowIndex, column: 1)
+                mediaKey(KeyCodeMapping.mediaNext, label: "Next Track", symbol: "forward.end.fill", keyboardRow: mediaRowIndex, column: 2)
             }
 
             mediaControlGroup(title: "SOUND", icon: "speaker.wave.2.fill") {
-                mediaKey(KeyCodeMapping.volumeMute, label: "", symbol: "speaker.slash.fill", keyboardRow: mediaRowIndex, column: 3)
-                mediaKey(KeyCodeMapping.volumeDown, label: "", symbol: "speaker.wave.1.fill", keyboardRow: mediaRowIndex, column: 4)
-                mediaKey(KeyCodeMapping.volumeUp, label: "", symbol: "speaker.wave.3.fill", keyboardRow: mediaRowIndex, column: 5)
+                mediaKey(KeyCodeMapping.volumeMute, label: "Mute", symbol: "speaker.slash.fill", keyboardRow: mediaRowIndex, column: 3)
+                mediaKey(KeyCodeMapping.volumeDown, label: "Volume Down", symbol: "speaker.wave.1.fill", keyboardRow: mediaRowIndex, column: 4)
+                mediaKey(KeyCodeMapping.volumeUp, label: "Volume Up", symbol: "speaker.wave.3.fill", keyboardRow: mediaRowIndex, column: 5)
             }
 
             mediaControlGroup(title: "DISPLAY", icon: "sun.max.fill") {
-                mediaKey(KeyCodeMapping.brightnessDown, label: "", symbol: "sun.min.fill", keyboardRow: mediaRowIndex, column: 6)
-                mediaKey(KeyCodeMapping.brightnessUp, label: "", symbol: "sun.max.fill", keyboardRow: mediaRowIndex, column: 7)
+                mediaKey(KeyCodeMapping.brightnessDown, label: "Brightness Down", symbol: "sun.min.fill", keyboardRow: mediaRowIndex, column: 6)
+                mediaKey(KeyCodeMapping.brightnessUp, label: "Brightness Up", symbol: "sun.max.fill", keyboardRow: mediaRowIndex, column: 7)
             }
         }
         .padding(.vertical, 4)
@@ -600,6 +600,8 @@ struct OnScreenKeyboardView: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHighlighted)
         }
         .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
         .navigationItemBounds(.keyPosition(row: keyboardRow, column: column))
         .onHover { hovering in
             hoveredKey = hovering ? keyCode : nil
