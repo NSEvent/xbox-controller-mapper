@@ -943,8 +943,6 @@ struct OnScreenKeyboardView: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHighlighted)
         }
         .buttonStyle(.plain)
-        .help(label)
-        .accessibilityLabel(label)
         .navigationItemBounds(.keyPosition(row: keyboardRow, column: column))
         .onHover { hovering in
             hoveredKey = hovering ? keyCode : nil
