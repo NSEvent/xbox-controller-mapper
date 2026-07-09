@@ -90,6 +90,7 @@ final class PermissionsManager: ObservableObject {
     var requestBluetoothAction: (@MainActor () -> Void)?
 
     private var pollTimer: Timer?
+    private var pollers = 0
 
     private init() {
         refresh()
@@ -130,18 +131,26 @@ final class PermissionsManager: ObservableObject {
     /// Begins ~1s polling of TCC state. Used while the onboarding wizard (or the
     /// revoked-permission banner) is on screen so cards flip to "Granted ✓" the
     /// instant the user toggles a switch in System Settings — no relaunch, no
-    /// guessing. Idempotent.
+    /// guessing. **Reference-counted** — pair every startPolling() with exactly
+    /// one stopPolling(). With the shared manager, two overlapping views
+    /// (onboarding sheet + revoked-permission banner) share one timer; the first
+    /// to disappear must not kill it for the one still on screen.
     func startPolling() {
+        pollers += 1
         guard pollTimer == nil else { return }
         refresh()
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refresh() }
+            // Already fires on RunLoop.main; hop via Task to match the canonical
+            // block (MainActor.assumeIsolated requires macOS 14).
+            Task { @MainActor in self?.refresh() }
         }
         RunLoop.main.add(timer, forMode: .common)
         pollTimer = timer
     }
 
     func stopPolling() {
+        pollers = max(0, pollers - 1)
+        guard pollers == 0 else { return }
         pollTimer?.invalidate()
         pollTimer = nil
     }
