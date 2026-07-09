@@ -92,9 +92,13 @@ enum OuraMotionOrientation: String, Codable, CaseIterable, Identifiable {
 	}
 }
 
-enum OuraMotionOutputMode: String, CaseIterable, Identifiable {
+enum OuraMotionOutputMode: String, Codable, CaseIterable, Identifiable {
 	case mouse
 	case scroll
+	case arrowKeys
+	case wasdKeys
+	case custom
+	case dpad
 	case off
 
 	var id: String { rawValue }
@@ -103,6 +107,10 @@ enum OuraMotionOutputMode: String, CaseIterable, Identifiable {
 		switch self {
 		case .mouse: return "Mouse"
 		case .scroll: return "Scroll"
+		case .arrowKeys: return "Arrow Keys"
+		case .wasdKeys: return "WASD"
+		case .custom: return "Custom"
+		case .dpad: return "D-Pad"
 		case .off: return "Off"
 		}
 	}
@@ -111,6 +119,10 @@ enum OuraMotionOutputMode: String, CaseIterable, Identifiable {
 		switch self {
 		case .mouse: return "cursorarrow.motionlines"
 		case .scroll: return "arrow.up.and.down"
+		case .arrowKeys: return "arrow.up.and.down.and.arrow.left.and.right"
+		case .wasdKeys: return "keyboard"
+		case .custom: return "square.grid.2x2"
+		case .dpad: return "dpad"
 		case .off: return "pause.circle"
 		}
 	}
@@ -119,7 +131,20 @@ enum OuraMotionOutputMode: String, CaseIterable, Identifiable {
 		switch self {
 		case .mouse: return "Ring tilt moves the cursor."
 		case .scroll: return "Ring tilt scrolls the foreground app."
+		case .arrowKeys: return "Ring tilt holds the arrow keys."
+		case .wasdKeys: return "Ring tilt holds W/A/S/D."
+		case .custom: return "Ring tilt triggers four configurable direction actions."
+		case .dpad: return "Ring tilt presses D-pad directions."
 		case .off: return "Ring motion is paused; taps and flicks still work."
+		}
+	}
+
+	var exposesTiltDirections: Bool {
+		switch self {
+		case .arrowKeys, .wasdKeys, .custom, .dpad:
+			return true
+		case .mouse, .scroll, .off:
+			return false
 		}
 	}
 }
@@ -129,6 +154,7 @@ struct OuraMotionSettings: Codable, Equatable {
 
     var enabled: Bool = false
 	var motionOutputEnabled: Bool = true
+	var outputMode: OuraMotionOutputMode?
     var targetStick: JoystickSide = .left
 	var orientation: OuraMotionOrientation = .screenPlane
     var sensitivity: Double = 0.0479656339031339
@@ -152,6 +178,7 @@ struct OuraMotionSettings: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
 		case enabled
 		case motionOutputEnabled
+		case outputMode
 		case targetStick
 		case orientation
 		case sensitivity
@@ -171,6 +198,7 @@ struct OuraMotionSettings: Codable, Equatable {
 		let container = try decoder.container(keyedBy: CodingKeys.self)
 		enabled = try container.decode(.enabled, default: false)
 		motionOutputEnabled = try container.decode(.motionOutputEnabled, default: true)
+		outputMode = try container.decodeLenient(.outputMode)
 		targetStick = try container.decodeLenient(.targetStick, default: JoystickSide.left)
 		orientation = try container.decode(.orientation, default: .screenPlane)
 		sensitivity = try container.decode(.sensitivity, default: 0.0479656339031339, clampedTo: 0.0...1.0)
@@ -301,13 +329,24 @@ struct JoystickSettings: Codable, Equatable {
 
 	var ouraMotionOutputMode: OuraMotionOutputMode {
 		guard ouraMotion.motionOutputEnabled else { return .off }
+		if let outputMode = ouraMotion.outputMode {
+			return outputMode
+		}
 		switch stick(ouraMotion.targetStick).mode {
 		case .scroll:
 			return .scroll
 		case .none:
 			return .off
-		case .mouse, .wasdKeys, .arrowKeys, .custom, .dpad:
+		case .mouse:
 			return .mouse
+		case .wasdKeys:
+			return .wasdKeys
+		case .arrowKeys:
+			return .arrowKeys
+		case .custom:
+			return .custom
+		case .dpad:
+			return .dpad
 		}
 	}
 
@@ -315,12 +354,34 @@ struct JoystickSettings: Codable, Equatable {
 		switch mode {
 		case .mouse:
 			ouraMotion.motionOutputEnabled = true
+			ouraMotion.outputMode = .mouse
 			ouraMotion.targetStick = .left
 			leftStick.mode = .mouse
 		case .scroll:
 			ouraMotion.motionOutputEnabled = true
+			ouraMotion.outputMode = .scroll
 			ouraMotion.targetStick = .right
 			rightStick.mode = .scroll
+		case .arrowKeys:
+			ouraMotion.motionOutputEnabled = true
+			ouraMotion.outputMode = .arrowKeys
+			ouraMotion.targetStick = .left
+			leftStick.mode = .arrowKeys
+		case .wasdKeys:
+			ouraMotion.motionOutputEnabled = true
+			ouraMotion.outputMode = .wasdKeys
+			ouraMotion.targetStick = .left
+			leftStick.mode = .wasdKeys
+		case .custom:
+			ouraMotion.motionOutputEnabled = true
+			ouraMotion.outputMode = .custom
+			ouraMotion.targetStick = .left
+			leftStick.mode = .custom
+		case .dpad:
+			ouraMotion.motionOutputEnabled = true
+			ouraMotion.outputMode = .dpad
+			ouraMotion.targetStick = .left
+			leftStick.mode = .dpad
 		case .off:
 			ouraMotion.motionOutputEnabled = false
 		}

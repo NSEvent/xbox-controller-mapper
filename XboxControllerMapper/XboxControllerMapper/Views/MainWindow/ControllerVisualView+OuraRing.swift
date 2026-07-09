@@ -42,7 +42,7 @@ extension ControllerVisualView {
 	}
 
 	private var ouraMotionOutputSection: some View {
-		let output = profileManager.activeProfile?.joystickSettings.ouraMotionOutputMode ?? .off
+		let output = profileManager.activeProfile?.ouraMotionOutputMode ?? .off
 
 		return VStack(alignment: .leading, spacing: 8) {
 			HStack(alignment: .center, spacing: 8) {
@@ -61,8 +61,39 @@ extension ControllerVisualView {
 				.foregroundStyle(.secondary)
 				.fixedSize(horizontal: false, vertical: true)
 				.padding(.horizontal, 4)
+
+			if output.exposesTiltDirections {
+				ouraMotionDirectionCluster(for: output)
+					.padding(.top, 2)
+			}
 		}
 		.frame(maxWidth: .infinity, alignment: .leading)
+	}
+
+	@ViewBuilder
+	private func ouraMotionDirectionCluster(for output: OuraMotionOutputMode) -> some View {
+		switch output {
+		case .arrowKeys, .wasdKeys, .custom:
+			directionCluster(
+				title: "Tilt Directions",
+				up: .leftStickUp,
+				left: .leftStickLeft,
+				center: .label(""),
+				right: .leftStickRight,
+				down: .leftStickDown
+			)
+		case .dpad:
+			directionCluster(
+				title: "Tilt Directions",
+				up: .dpadUp,
+				left: .dpadLeft,
+				center: .label(""),
+				right: .dpadRight,
+				down: .dpadDown
+			)
+		case .mouse, .scroll, .off:
+			EmptyView()
+		}
 	}
 
 	private func ouraMotionOutputMenu(selectedOutput: OuraMotionOutputMode) -> some View {
@@ -108,9 +139,7 @@ extension ControllerVisualView {
 	}
 
 	private func setOuraMotionOutputMode(_ output: OuraMotionOutputMode) {
-		guard var settings = profileManager.activeProfile?.joystickSettings else { return }
-		settings.setOuraMotionOutputMode(output)
-		profileManager.updateJoystickSettings(settings)
+		profileManager.setOuraMotionOutputMode(output)
 	}
 }
 

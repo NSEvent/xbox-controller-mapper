@@ -798,6 +798,65 @@ extension Profile {
     }
 }
 
+// MARK: - Oura Ring Motion Output
+
+extension Profile {
+	var ouraMotionOutputMode: OuraMotionOutputMode {
+		let mode = joystickSettings.ouraMotionOutputMode
+		guard joystickSettings.ouraMotion.outputMode == nil, mode == .custom else { return mode }
+
+		switch StickDirectionPreset.resolved(
+			from: buttonMappings,
+			side: joystickSettings.ouraMotion.targetStick
+		) {
+		case .some(.arrows):
+			return .arrowKeys
+		case .some(.wasd):
+			return .wasdKeys
+		case nil:
+			return .custom
+		}
+	}
+
+	mutating func setOuraMotionOutputMode(_ mode: OuraMotionOutputMode) {
+		joystickSettings.setOuraMotionOutputMode(mode)
+
+		switch mode {
+		case .arrowKeys:
+			joystickSettings.leftStick.mode = .custom
+			joystickSettings.leftStick.customDeadzone = joystickSettings.leftStick.mouseDeadzone
+			StickDirectionPreset.arrows.apply(to: &buttonMappings, side: .left)
+		case .wasdKeys:
+			joystickSettings.leftStick.mode = .custom
+			joystickSettings.leftStick.customDeadzone = joystickSettings.leftStick.mouseDeadzone
+			StickDirectionPreset.wasd.apply(to: &buttonMappings, side: .left)
+		case .custom:
+			joystickSettings.leftStick.mode = .custom
+		case .mouse, .scroll, .dpad, .off:
+			break
+		}
+	}
+
+	mutating func updateOuraMotionOutputModeIfNeeded(afterChanging button: ControllerButton) {
+		guard joystickSettings.ouraMotion.targetStick == .left,
+			  ControllerButton.joystickDirectionButtons(side: .left).contains(button),
+			  joystickSettings.ouraMotion.outputMode == .arrowKeys ||
+			  joystickSettings.ouraMotion.outputMode == .wasdKeys else {
+			return
+		}
+
+		joystickSettings.leftStick.mode = .custom
+		switch StickDirectionPreset.resolved(from: buttonMappings, side: .left) {
+		case .some(.arrows):
+			joystickSettings.ouraMotion.outputMode = .arrowKeys
+		case .some(.wasd):
+			joystickSettings.ouraMotion.outputMode = .wasdKeys
+		case nil:
+			joystickSettings.ouraMotion.outputMode = .custom
+		}
+	}
+}
+
 // MARK: - Custom Equatable (excludes timestamps)
 
 extension Profile {

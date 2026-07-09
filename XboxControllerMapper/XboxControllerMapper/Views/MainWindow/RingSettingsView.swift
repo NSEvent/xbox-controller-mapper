@@ -14,6 +14,10 @@ struct RingSettingsView: View {
 		settings.ouraMotion
 	}
 
+	private var motionOutputMode: OuraMotionOutputMode {
+		profileManager.activeProfile?.ouraMotionOutputMode ?? settings.ouraMotionOutputMode
+	}
+
 	var body: some View {
 		Form {
 			connectionSection
@@ -57,9 +61,9 @@ struct RingSettingsView: View {
 	private var routingSection: some View {
 		Section("Motion Routing") {
 			Picker("Motion Output", selection: Binding(
-				get: { settings.ouraMotionOutputMode },
+				get: { motionOutputMode },
 				set: { output in
-					updateSettings { $0.setOuraMotionOutputMode(output) }
+					profileManager.setOuraMotionOutputMode(output)
 				}
 			)) {
 				ForEach(OuraMotionOutputMode.allCases) { output in
@@ -67,8 +71,8 @@ struct RingSettingsView: View {
 						.tag(output)
 				}
 			}
-			.pickerStyle(.segmented)
-			Text(settings.ouraMotionOutputMode.detailText)
+			.pickerStyle(.menu)
+			Text(motionOutputMode.detailText)
 				.font(.caption)
 				.foregroundStyle(.secondary)
 

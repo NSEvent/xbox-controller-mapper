@@ -1,4 +1,5 @@
 import CoreBluetooth
+import CoreGraphics
 import XCTest
 @testable import ControllerKeys
 
@@ -43,6 +44,7 @@ final class OuraRingInputTests: XCTestCase {
 
 		XCTAssertTrue(decoded.enabled)
 		XCTAssertTrue(decoded.motionOutputEnabled)
+		XCTAssertNil(decoded.outputMode)
 		XCTAssertEqual(decoded.targetStick, .right)
 		XCTAssertEqual(decoded.orientation, .screenPlane)
 		XCTAssertEqual(decoded.sensitivity, 1.0)
@@ -59,6 +61,7 @@ final class OuraRingInputTests: XCTestCase {
 
 		XCTAssertFalse(settings.enabled)
 		XCTAssertTrue(settings.motionOutputEnabled)
+		XCTAssertNil(settings.outputMode)
 		XCTAssertEqual(settings.targetStick, .left)
 		XCTAssertEqual(settings.orientation, .screenPlane)
 		XCTAssertEqual(settings.sensitivity, 0.0479656339031339, accuracy: 1e-12)
@@ -79,6 +82,7 @@ final class OuraRingInputTests: XCTestCase {
 
 		settings.setOuraMotionOutputMode(.scroll)
 		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotion.outputMode, .scroll)
 		XCTAssertEqual(settings.ouraMotion.targetStick, .right)
 		XCTAssertEqual(settings.rightStick.mode, .scroll)
 		XCTAssertEqual(settings.ouraMotionOutputMode, .scroll)
@@ -89,9 +93,78 @@ final class OuraRingInputTests: XCTestCase {
 
 		settings.setOuraMotionOutputMode(.mouse)
 		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotion.outputMode, .mouse)
 		XCTAssertEqual(settings.ouraMotion.targetStick, .left)
 		XCTAssertEqual(settings.leftStick.mode, .mouse)
 		XCTAssertEqual(settings.ouraMotionOutputMode, .mouse)
+
+		settings.setOuraMotionOutputMode(.arrowKeys)
+		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotion.outputMode, .arrowKeys)
+		XCTAssertEqual(settings.ouraMotion.targetStick, .left)
+		XCTAssertEqual(settings.leftStick.mode, .arrowKeys)
+		XCTAssertEqual(settings.ouraMotionOutputMode, .arrowKeys)
+
+		settings.setOuraMotionOutputMode(.wasdKeys)
+		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotion.outputMode, .wasdKeys)
+		XCTAssertEqual(settings.ouraMotion.targetStick, .left)
+		XCTAssertEqual(settings.leftStick.mode, .wasdKeys)
+		XCTAssertEqual(settings.ouraMotionOutputMode, .wasdKeys)
+
+		settings.setOuraMotionOutputMode(.custom)
+		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotion.outputMode, .custom)
+		XCTAssertEqual(settings.ouraMotion.targetStick, .left)
+		XCTAssertEqual(settings.leftStick.mode, .custom)
+		XCTAssertEqual(settings.ouraMotionOutputMode, .custom)
+
+		settings.setOuraMotionOutputMode(.dpad)
+		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotion.outputMode, .dpad)
+		XCTAssertEqual(settings.ouraMotion.targetStick, .left)
+		XCTAssertEqual(settings.leftStick.mode, .dpad)
+		XCTAssertEqual(settings.ouraMotionOutputMode, .dpad)
+	}
+
+	func testProfileOuraMotionKeyOutputsUseCustomDirectionMappings() throws {
+		var profile = Profile(name: "Ring")
+
+		profile.setOuraMotionOutputMode(.wasdKeys)
+
+		XCTAssertEqual(profile.ouraMotionOutputMode, .wasdKeys)
+		XCTAssertEqual(profile.joystickSettings.ouraMotion.targetStick, .left)
+		XCTAssertEqual(profile.joystickSettings.leftStick.mode, .custom)
+		assertStickMapping(profile.buttonMappings[.leftStickUp], keyCode: KeyCodeMapping.keyW)
+		assertStickMapping(profile.buttonMappings[.leftStickLeft], keyCode: KeyCodeMapping.keyA)
+		assertStickMapping(profile.buttonMappings[.leftStickRight], keyCode: KeyCodeMapping.keyD)
+		assertStickMapping(profile.buttonMappings[.leftStickDown], keyCode: KeyCodeMapping.keyS)
+
+		let data = try JSONEncoder().encode(profile)
+		let decoded = try JSONDecoder().decode(Profile.self, from: data)
+
+		XCTAssertEqual(decoded.ouraMotionOutputMode, .wasdKeys)
+		XCTAssertEqual(decoded.joystickSettings.leftStick.mode, .custom)
+		assertStickMapping(decoded.buttonMappings[.leftStickUp], keyCode: KeyCodeMapping.keyW)
+
+		var customProfile = decoded
+		customProfile.setOuraMotionOutputMode(.custom)
+		XCTAssertEqual(customProfile.ouraMotionOutputMode, .custom)
+		XCTAssertEqual(customProfile.joystickSettings.leftStick.mode, .custom)
+
+		var arrowsProfile = decoded
+		arrowsProfile.setOuraMotionOutputMode(.arrowKeys)
+
+		XCTAssertEqual(arrowsProfile.ouraMotionOutputMode, .arrowKeys)
+		XCTAssertEqual(arrowsProfile.joystickSettings.leftStick.mode, .custom)
+		assertStickMapping(arrowsProfile.buttonMappings[.leftStickUp], keyCode: KeyCodeMapping.upArrow)
+		assertStickMapping(arrowsProfile.buttonMappings[.leftStickLeft], keyCode: KeyCodeMapping.leftArrow)
+		assertStickMapping(arrowsProfile.buttonMappings[.leftStickRight], keyCode: KeyCodeMapping.rightArrow)
+		assertStickMapping(arrowsProfile.buttonMappings[.leftStickDown], keyCode: KeyCodeMapping.downArrow)
+
+		arrowsProfile.buttonMappings[.leftStickUp]?.keyCode = KeyCodeMapping.tab
+		arrowsProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: .leftStickUp)
+		XCTAssertEqual(arrowsProfile.ouraMotionOutputMode, .custom)
 	}
 
 	func testJoystickSettingsRoundTripPreservesOuraMotion() throws {
@@ -99,6 +172,7 @@ final class OuraRingInputTests: XCTestCase {
 		settings.ouraMotion.enabled = true
 		settings.ouraMotion.motionOutputEnabled = false
 		settings.ouraMotion.targetStick = .right
+		settings.ouraMotion.outputMode = .scroll
 		settings.ouraMotion.orientation = .legacyXY
 		settings.ouraMotion.sensitivity = 0.72
 		settings.ouraMotion.horizontalBoost = 2.4
@@ -110,6 +184,17 @@ final class OuraRingInputTests: XCTestCase {
 
 		XCTAssertEqual(decoded.ouraMotion, settings.ouraMotion)
 		XCTAssertTrue(decoded.isValid())
+	}
+
+	private func assertStickMapping(
+		_ mapping: KeyMapping?,
+		keyCode: CGKeyCode,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) {
+		XCTAssertEqual(mapping?.keyCode, keyCode, file: file, line: line)
+		XCTAssertTrue(mapping?.isHoldModifier ?? false, file: file, line: line)
+		XCTAssertTrue(mapping?.holdRepeatEnabled ?? false, file: file, line: line)
 	}
 
 	func testOuraPacketDecoderRecognizesAuthFrames() {
