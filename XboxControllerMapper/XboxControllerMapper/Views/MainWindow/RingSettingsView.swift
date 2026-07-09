@@ -56,17 +56,21 @@ struct RingSettingsView: View {
 
 	private var routingSection: some View {
 		Section("Motion Routing") {
-			Picker("Target Stick", selection: Binding(
-				get: { ringSettings.targetStick },
-				set: { target in
-					updateOuraMotion { $0.targetStick = target }
+			Picker("Motion Output", selection: Binding(
+				get: { settings.ouraMotionOutputMode },
+				set: { output in
+					updateSettings { $0.setOuraMotionOutputMode(output) }
 				}
 			)) {
-				ForEach(JoystickSide.allCases) { side in
-					Text(side.displayName).tag(side)
+				ForEach(OuraMotionOutputMode.allCases) { output in
+					Label(output.displayName, systemImage: output.systemImageName)
+						.tag(output)
 				}
 			}
 			.pickerStyle(.segmented)
+			Text(settings.ouraMotionOutputMode.detailText)
+				.font(.caption)
+				.foregroundStyle(.secondary)
 
 			Picker("Orientation", selection: Binding(
 				get: { ringSettings.orientation },
@@ -169,8 +173,14 @@ struct RingSettingsView: View {
 	}
 
 	private func updateOuraMotion(_ mutate: (inout OuraMotionSettings) -> Void) {
+		updateSettings { settings in
+			mutate(&settings.ouraMotion)
+		}
+	}
+
+	private func updateSettings(_ mutate: (inout JoystickSettings) -> Void) {
 		var newSettings = settings
-		mutate(&newSettings.ouraMotion)
+		mutate(&newSettings)
 		profileManager.updateJoystickSettings(newSettings)
 	}
 }

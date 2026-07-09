@@ -72,6 +72,28 @@ final class OuraRingInputTests: XCTestCase {
 		XCTAssertTrue(settings.diagnosticsEnabled)
 	}
 
+	func testOuraMotionOutputModeMapsToInternalStickRouting() {
+		var settings = JoystickSettings()
+
+		XCTAssertEqual(settings.ouraMotionOutputMode, .mouse)
+
+		settings.setOuraMotionOutputMode(.scroll)
+		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotion.targetStick, .right)
+		XCTAssertEqual(settings.rightStick.mode, .scroll)
+		XCTAssertEqual(settings.ouraMotionOutputMode, .scroll)
+
+		settings.setOuraMotionOutputMode(.off)
+		XCTAssertFalse(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotionOutputMode, .off)
+
+		settings.setOuraMotionOutputMode(.mouse)
+		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
+		XCTAssertEqual(settings.ouraMotion.targetStick, .left)
+		XCTAssertEqual(settings.leftStick.mode, .mouse)
+		XCTAssertEqual(settings.ouraMotionOutputMode, .mouse)
+	}
+
 	func testJoystickSettingsRoundTripPreservesOuraMotion() throws {
 		var settings = JoystickSettings()
 		settings.ouraMotion.enabled = true

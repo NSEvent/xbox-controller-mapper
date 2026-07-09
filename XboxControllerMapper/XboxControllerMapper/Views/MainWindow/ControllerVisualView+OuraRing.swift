@@ -2,13 +2,9 @@ import SwiftUI
 
 extension ControllerVisualView {
 	var ouraRingLayout: some View {
-		let motionSide = profileManager.activeProfile?.joystickSettings.ouraMotion.targetStick ?? .left
-		let motionCenter: ControllerButton = motionSide == .left ? .leftThumbstick : .rightThumbstick
-
-		return HStack(alignment: .center, spacing: 38) {
+		HStack(alignment: .center, spacing: 38) {
 			VStack(alignment: .trailing, spacing: 16) {
 				referenceGroup(title: "Tap", buttons: ControllerButton.ouraRingTapButtons)
-				referenceGroup(title: "Flick", buttons: ControllerButton.ouraRingFlickButtons)
 			}
 			.frame(width: 250)
 
@@ -37,11 +33,84 @@ extension ControllerVisualView {
 			.frame(width: OuraRingMinimapView.previewSize.width)
 
 			VStack(alignment: .leading, spacing: 16) {
-				stickModeSection(title: "Motion", side: motionSide, center: motionCenter)
+				ouraMotionOutputSection
+				referenceGroup(title: "Flick", buttons: ControllerButton.ouraRingFlickButtons)
 			}
 			.frame(width: 250)
 		}
 		.padding(28)
+	}
+
+	private var ouraMotionOutputSection: some View {
+		let output = profileManager.activeProfile?.joystickSettings.ouraMotionOutputMode ?? .off
+
+		return VStack(alignment: .leading, spacing: 8) {
+			HStack(alignment: .center, spacing: 8) {
+				Text("Motion")
+					.textCase(.uppercase)
+					.font(.system(size: 10, weight: .bold))
+					.foregroundColor(.secondary)
+
+				Spacer(minLength: 4)
+				ouraMotionOutputMenu(selectedOutput: output)
+			}
+			.padding(.horizontal, 4)
+
+			Label(output.detailText, systemImage: output.systemImageName)
+				.font(.system(size: 10, weight: .medium))
+				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
+				.padding(.horizontal, 4)
+		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+	}
+
+	private func ouraMotionOutputMenu(selectedOutput: OuraMotionOutputMode) -> some View {
+		Menu {
+			ForEach(OuraMotionOutputMode.allCases) { output in
+				Button {
+					setOuraMotionOutputMode(output)
+				} label: {
+					if output == selectedOutput {
+						Label(output.displayName, systemImage: "checkmark")
+					} else {
+						Text(output.displayName)
+					}
+				}
+			}
+		} label: {
+			HStack(spacing: 4) {
+				Image(systemName: selectedOutput.systemImageName)
+					.font(.system(size: 8, weight: .bold))
+				Text(selectedOutput.displayName)
+					.font(.system(size: 9, weight: .heavy, design: .rounded))
+					.lineLimit(1)
+					.minimumScaleFactor(0.7)
+				Image(systemName: "chevron.up.chevron.down")
+					.font(.system(size: 7, weight: .bold))
+					.opacity(0.7)
+			}
+			.foregroundStyle(.secondary)
+			.padding(.horizontal, 7)
+			.frame(height: 20)
+			.background(
+				RoundedRectangle(cornerRadius: 6)
+					.fill(Color.primary.opacity(0.06))
+			)
+			.overlay(
+				RoundedRectangle(cornerRadius: 6)
+					.stroke(Color.primary.opacity(0.10), lineWidth: 1)
+			)
+		}
+		.menuStyle(.borderlessButton)
+		.fixedSize()
+		.help("Set what ring motion does")
+	}
+
+	private func setOuraMotionOutputMode(_ output: OuraMotionOutputMode) {
+		guard var settings = profileManager.activeProfile?.joystickSettings else { return }
+		settings.setOuraMotionOutputMode(output)
+		profileManager.updateJoystickSettings(settings)
 	}
 }
 

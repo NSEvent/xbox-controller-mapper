@@ -210,6 +210,18 @@ final class ControllerButtonCoverageTests: XCTestCase {
 		XCTAssertEqual(ControllerButton.view.systemImageName(forDualSense: true), "square.and.arrow.up")
 		XCTAssertEqual(ControllerButton.appleTVRemotePower.systemImageName(forDualSense: false), "power")
 		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.systemImageName(forDualSense: false), "speaker.wave.3.fill")
+		XCTAssertEqual(ControllerButton.ouraTap.systemImageName(forDualSense: false), "hand.tap")
+		XCTAssertEqual(ControllerButton.ouraDoubleTap.systemImageName(forDualSense: false), "2.circle")
+		XCTAssertEqual(ControllerButton.ouraTripleTap.systemImageName(forDualSense: false), "3.circle")
+		XCTAssertEqual(ControllerButton.ouraFiveTap.systemImageName(forDualSense: false), "5.circle")
+		XCTAssertEqual(
+			Set([
+				ControllerButton.ouraDoubleTap.systemImageName,
+				ControllerButton.ouraTripleTap.systemImageName,
+				ControllerButton.ouraFiveTap.systemImageName
+			]).count,
+			3
+		)
 		XCTAssertNil(ControllerButton.a.systemImageName(forDualSense: true), "DualSense face buttons use text symbols")
 	}
 

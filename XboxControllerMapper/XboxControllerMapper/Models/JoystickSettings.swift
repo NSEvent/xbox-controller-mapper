@@ -92,6 +92,38 @@ enum OuraMotionOrientation: String, Codable, CaseIterable, Identifiable {
 	}
 }
 
+enum OuraMotionOutputMode: String, CaseIterable, Identifiable {
+	case mouse
+	case scroll
+	case off
+
+	var id: String { rawValue }
+
+	var displayName: String {
+		switch self {
+		case .mouse: return "Mouse"
+		case .scroll: return "Scroll"
+		case .off: return "Off"
+		}
+	}
+
+	var systemImageName: String {
+		switch self {
+		case .mouse: return "cursorarrow.motionlines"
+		case .scroll: return "arrow.up.and.down"
+		case .off: return "pause.circle"
+		}
+	}
+
+	var detailText: String {
+		switch self {
+		case .mouse: return "Ring tilt moves the cursor."
+		case .scroll: return "Ring tilt scrolls the foreground app."
+		case .off: return "Ring motion is paused; taps and flicks still work."
+		}
+	}
+}
+
 struct OuraMotionSettings: Codable, Equatable {
     static let `default` = OuraMotionSettings()
 
@@ -266,6 +298,33 @@ struct JoystickSettings: Codable, Equatable {
     func stick(_ side: JoystickSide) -> StickTuning {
         side == .left ? leftStick : rightStick
     }
+
+	var ouraMotionOutputMode: OuraMotionOutputMode {
+		guard ouraMotion.motionOutputEnabled else { return .off }
+		switch stick(ouraMotion.targetStick).mode {
+		case .scroll:
+			return .scroll
+		case .none:
+			return .off
+		case .mouse, .wasdKeys, .arrowKeys, .custom, .dpad:
+			return .mouse
+		}
+	}
+
+	mutating func setOuraMotionOutputMode(_ mode: OuraMotionOutputMode) {
+		switch mode {
+		case .mouse:
+			ouraMotion.motionOutputEnabled = true
+			ouraMotion.targetStick = .left
+			leftStick.mode = .mouse
+		case .scroll:
+			ouraMotion.motionOutputEnabled = true
+			ouraMotion.targetStick = .right
+			rightStick.mode = .scroll
+		case .off:
+			ouraMotion.motionOutputEnabled = false
+		}
+	}
 
     /// Converts 0-1 gyro aiming sensitivity to pixel-scale multiplier (cubic curve)
     var gyroAimingMultiplier: Double {
