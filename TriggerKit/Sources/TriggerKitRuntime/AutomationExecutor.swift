@@ -354,9 +354,8 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-			process.waitUntilExit()
-
 			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			process.waitUntilExit()
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -729,13 +728,14 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		let pipe = Pipe()
 		pgrep.standardOutput = pipe
 		pgrep.standardError = FileHandle.nullDevice
+		let data: Data
 		do {
 			try pgrep.run()
+			data = pipe.fileHandleForReading.readDataToEndOfFile()
 			pgrep.waitUntilExit()
 		} catch {
 			return []
 		}
-		let data = pipe.fileHandleForReading.readDataToEndOfFile()
 		let output = String(data: data, encoding: .utf8) ?? ""
 		return output
 			.split(whereSeparator: \.isNewline)
