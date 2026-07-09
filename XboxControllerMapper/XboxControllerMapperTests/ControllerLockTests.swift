@@ -42,6 +42,7 @@ final class ControllerLockTests: XCTestCase {
     override func tearDown() async throws {
         await MainActor.run {
             mappingEngine?.disable()
+			OuraRingCommandCenter.shared.resetHandlersForTesting()
         }
         try? await Task.sleep(nanoseconds: 100_000_000)
         await MainActor.run {
@@ -62,6 +63,32 @@ final class ControllerLockTests: XCTestCase {
         try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         await Task.yield()
     }
+
+	func testLockToggleRecentersOuraRingOnLockAndUnlock() async throws {
+		var centerCount = 0
+		await MainActor.run {
+			OuraRingCommandCenter.shared.install(
+				center: { centerCount += 1 },
+				toggleMotion: {}
+			)
+		}
+
+		await MainActor.run {
+			XCTAssertTrue(mappingEngine.performLockToggle(), "First toggle should lock")
+		}
+		await waitForTasks(0.05)
+		await MainActor.run {
+			XCTAssertEqual(centerCount, 1, "Locking should recenter the Oura ring")
+		}
+
+		await MainActor.run {
+			XCTAssertFalse(mappingEngine.performLockToggle(), "Second toggle should unlock")
+		}
+		await waitForTasks(0.05)
+		await MainActor.run {
+			XCTAssertEqual(centerCount, 2, "Unlocking should recenter the Oura ring again")
+		}
+	}
 
     // MARK: 1. Lock via single button — blocks subsequent presses
 

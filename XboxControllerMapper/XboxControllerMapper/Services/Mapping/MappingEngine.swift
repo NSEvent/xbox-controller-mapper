@@ -940,7 +940,9 @@ class MappingEngine: ObservableObject {
         } else {
             cleanup = nil
         }
-        state.lock.unlock()
+		state.lock.unlock()
+
+		_ = OuraRingCommandCenter.shared.centerRing()
 
         if nowLocked {
             inputSimulator.releaseAllModifiers()

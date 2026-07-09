@@ -20,6 +20,15 @@ final class OuraRingCommandCenter {
 		lock.unlock()
 	}
 
+	#if DEBUG
+	func resetHandlersForTesting() {
+		lock.lock()
+		centerHandler = nil
+		toggleMotionHandler = nil
+		lock.unlock()
+	}
+	#endif
+
 	func centerRing() -> Bool {
 		lock.lock()
 		let handler = centerHandler
