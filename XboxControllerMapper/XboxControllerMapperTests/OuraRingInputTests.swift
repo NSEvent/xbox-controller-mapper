@@ -112,6 +112,10 @@ final class OuraRingInputTests: XCTestCase {
 		XCTAssertEqual(settings.leftStick.mode, .wasdKeys)
 		XCTAssertEqual(settings.ouraMotionOutputMode, .wasdKeys)
 
+		settings.leftStick.mode = .mouse
+		XCTAssertEqual(settings.ouraMotionOutputMode, .mouse)
+		settings.leftStick.mode = .wasdKeys
+
 		settings.setOuraMotionOutputMode(.custom)
 		XCTAssertTrue(settings.ouraMotion.motionOutputEnabled)
 		XCTAssertEqual(settings.ouraMotion.outputMode, .custom)
@@ -147,6 +151,12 @@ final class OuraRingInputTests: XCTestCase {
 		XCTAssertEqual(decoded.joystickSettings.leftStick.mode, .custom)
 		assertStickMapping(decoded.buttonMappings[.leftStickUp], keyCode: KeyCodeMapping.keyW)
 
+		var reconciledProfile = decoded
+		reconciledProfile.joystickSettings.leftStick.mode = .mouse
+		reconciledProfile.reconcileOuraMotionOutputModeWithCurrentRouting()
+		XCTAssertEqual(reconciledProfile.ouraMotionOutputMode, .mouse)
+		XCTAssertEqual(reconciledProfile.joystickSettings.ouraMotion.outputMode, .mouse)
+
 		var customProfile = decoded
 		customProfile.setOuraMotionOutputMode(.custom)
 		XCTAssertEqual(customProfile.ouraMotionOutputMode, .custom)
@@ -165,6 +175,11 @@ final class OuraRingInputTests: XCTestCase {
 		arrowsProfile.buttonMappings[.leftStickUp]?.keyCode = KeyCodeMapping.tab
 		arrowsProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: .leftStickUp)
 		XCTAssertEqual(arrowsProfile.ouraMotionOutputMode, .custom)
+
+		var presetProfile = decoded
+		StickDirectionPreset.arrows.apply(to: &presetProfile.buttonMappings, side: .left)
+		presetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: .leftStickUp)
+		XCTAssertEqual(presetProfile.ouraMotionOutputMode, .arrowKeys)
 	}
 
 	func testJoystickSettingsRoundTripPreservesOuraMotion() throws {

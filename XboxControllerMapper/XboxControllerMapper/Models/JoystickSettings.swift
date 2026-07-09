@@ -327,11 +327,8 @@ struct JoystickSettings: Codable, Equatable {
         side == .left ? leftStick : rightStick
     }
 
-	var ouraMotionOutputMode: OuraMotionOutputMode {
+	var inferredOuraMotionOutputMode: OuraMotionOutputMode {
 		guard ouraMotion.motionOutputEnabled else { return .off }
-		if let outputMode = ouraMotion.outputMode {
-			return outputMode
-		}
 		switch stick(ouraMotion.targetStick).mode {
 		case .scroll:
 			return .scroll
@@ -347,6 +344,36 @@ struct JoystickSettings: Codable, Equatable {
 			return .custom
 		case .dpad:
 			return .dpad
+		}
+	}
+
+	var ouraMotionOutputMode: OuraMotionOutputMode {
+		guard ouraMotion.motionOutputEnabled else { return .off }
+		if let outputMode = ouraMotion.outputMode,
+		   ouraMotionOutputModeMatchesCurrentRouting(outputMode) {
+			return outputMode
+		}
+		return inferredOuraMotionOutputMode
+	}
+
+	func ouraMotionOutputModeMatchesCurrentRouting(_ mode: OuraMotionOutputMode) -> Bool {
+		guard ouraMotion.motionOutputEnabled else { return false }
+		let stickMode = stick(ouraMotion.targetStick).mode
+		switch mode {
+		case .mouse:
+			return stickMode == .mouse
+		case .scroll:
+			return stickMode == .scroll
+		case .arrowKeys:
+			return stickMode == .arrowKeys
+		case .wasdKeys:
+			return stickMode == .wasdKeys
+		case .custom:
+			return stickMode == .custom
+		case .dpad:
+			return stickMode == .dpad
+		case .off:
+			return stickMode == .none
 		}
 	}
 

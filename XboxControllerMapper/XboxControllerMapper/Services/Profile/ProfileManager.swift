@@ -400,6 +400,7 @@ class ProfileManager: ObservableObject {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         targetProfile.joystickSettings = settings
+		targetProfile.reconcileOuraMotionOutputModeWithCurrentRouting()
         updateProfile(targetProfile)
     }
 
@@ -423,6 +424,7 @@ class ProfileManager: ObservableObject {
             case .right:
                 targetProfile.joystickSettings.rightStick.mode = mode
             }
+			targetProfile.reconcileOuraMotionOutputModeWithCurrentRouting()
         }
         updateProfile(targetProfile)
     }

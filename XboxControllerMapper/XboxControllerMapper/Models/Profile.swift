@@ -802,9 +802,31 @@ extension Profile {
 
 extension Profile {
 	var ouraMotionOutputMode: OuraMotionOutputMode {
-		let mode = joystickSettings.ouraMotionOutputMode
-		guard joystickSettings.ouraMotion.outputMode == nil, mode == .custom else { return mode }
+		guard joystickSettings.ouraMotion.motionOutputEnabled else { return .off }
+		if let outputMode = joystickSettings.ouraMotion.outputMode,
+		   ouraMotionOutputModeMatchesCurrentRouting(outputMode) {
+			return outputMode
+		}
 
+		let mode = joystickSettings.inferredOuraMotionOutputMode
+		guard mode == .custom else { return mode }
+		return inferredCustomDirectionPresetOutputMode ?? .custom
+	}
+
+	mutating func reconcileOuraMotionOutputModeWithCurrentRouting() {
+		guard joystickSettings.ouraMotion.motionOutputEnabled,
+			  let outputMode = joystickSettings.ouraMotion.outputMode,
+			  !ouraMotionOutputModeMatchesCurrentRouting(outputMode) else {
+			return
+		}
+
+		let inferred = joystickSettings.inferredOuraMotionOutputMode
+		joystickSettings.ouraMotion.outputMode = inferred == .custom
+			? inferredCustomDirectionPresetOutputMode ?? .custom
+			: inferred == .off ? nil : inferred
+	}
+
+	private var inferredCustomDirectionPresetOutputMode: OuraMotionOutputMode? {
 		switch StickDirectionPreset.resolved(
 			from: buttonMappings,
 			side: joystickSettings.ouraMotion.targetStick
@@ -814,8 +836,28 @@ extension Profile {
 		case .some(.wasd):
 			return .wasdKeys
 		case nil:
-			return .custom
+			return nil
 		}
+	}
+
+	private func ouraMotionOutputModeMatchesCurrentRouting(_ mode: OuraMotionOutputMode) -> Bool {
+		switch mode {
+		case .arrowKeys:
+			return ouraMotionUsesLeftCustomPreset(.arrows) ||
+				   joystickSettings.ouraMotionOutputModeMatchesCurrentRouting(mode)
+		case .wasdKeys:
+			return ouraMotionUsesLeftCustomPreset(.wasd) ||
+				   joystickSettings.ouraMotionOutputModeMatchesCurrentRouting(mode)
+		case .mouse, .scroll, .custom, .dpad, .off:
+			return joystickSettings.ouraMotionOutputModeMatchesCurrentRouting(mode)
+		}
+	}
+
+	private func ouraMotionUsesLeftCustomPreset(_ preset: StickDirectionPreset) -> Bool {
+		joystickSettings.ouraMotion.motionOutputEnabled &&
+		joystickSettings.ouraMotion.targetStick == .left &&
+		joystickSettings.leftStick.mode == .custom &&
+		StickDirectionPreset.resolved(from: buttonMappings, side: .left) == preset
 	}
 
 	mutating func setOuraMotionOutputMode(_ mode: OuraMotionOutputMode) {

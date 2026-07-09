@@ -66,6 +66,9 @@ extension ProfileManager {
         case .right:
             targetProfile.joystickSettings.rightStick.mode = .custom
         }
+		targetProfile.updateOuraMotionOutputModeIfNeeded(
+			afterChanging: ControllerButton.joystickDirectionButton(side: side, direction: .up)
+		)
         updateProfile(targetProfile)
     }
 
