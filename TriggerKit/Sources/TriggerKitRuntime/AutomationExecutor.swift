@@ -354,9 +354,11 @@ public final class AutomationExecutor {
 			} catch {
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
-			process.waitUntilExit()
 
+			// Read pipe data BEFORE waitUntilExit to avoid deadlock when
+			// output exceeds the pipe buffer size (~64KB).
 			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			process.waitUntilExit()
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -731,11 +733,13 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		pgrep.standardError = FileHandle.nullDevice
 		do {
 			try pgrep.run()
-			pgrep.waitUntilExit()
 		} catch {
 			return []
 		}
+
+		// Read pipe data BEFORE waitUntilExit to avoid deadlock
 		let data = pipe.fileHandleForReading.readDataToEndOfFile()
+		pgrep.waitUntilExit()
 		let output = String(data: data, encoding: .utf8) ?? ""
 		return output
 			.split(whereSeparator: \.isNewline)
