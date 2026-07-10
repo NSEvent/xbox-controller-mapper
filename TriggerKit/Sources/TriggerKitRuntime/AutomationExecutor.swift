@@ -643,7 +643,12 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		}
 
 		let timeout = DispatchTime.now() + step.timeoutSeconds
-		if semaphore.wait(timeout: timeout) == .timedOut {
+		let waitResult = semaphore.wait(timeout: timeout)
+
+		// If the process hasn't exited but pipe buffer is filled, it could be deadlocked
+		// but since we read asynchronously via readabilityHandler, this shouldn't happen for the pipe.
+
+		if waitResult == .timedOut {
 			terminateProcessTree(process, signal: SIGTERM)
 			_ = semaphore.wait(timeout: .now() + 1)
 			if process.isRunning {

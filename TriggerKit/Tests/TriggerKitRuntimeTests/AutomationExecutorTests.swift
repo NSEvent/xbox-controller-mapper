@@ -464,7 +464,7 @@ final class AutomationExecutorTests: XCTestCase {
 			]))
 		}
 
-		try? await Task.sleep(nanoseconds: 20_000_000)
+		try? await Task.sleep(nanoseconds: 250_000_000) // increase delay so process has time to start
 		task.cancel()
 
 		let result = await task.value
