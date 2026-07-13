@@ -25,7 +25,3 @@
 ## 2026-06-23 - [SwiftUI Button Accessibility]
 **Learning:** Found a pattern where SwiftUI icon-only buttons or minimal UI elements were given `.help()` modifiers for hover tooltips but lacked `.accessibilityLabel()` modifiers for screen readers.
 **Action:** When adding `.help()` to buttons, always pair it with a corresponding `.accessibilityLabel()` to ensure full accessibility.
-
-## 2024-07-13 - Dynamic Accessibility Labels in Lists
-**Learning:** Using static labels like "Edit" or "Delete" on icon-only buttons inside lists makes them ambiguous for screen reader users (e.g., hearing "Edit, Edit, Edit").
-**Action:** Always inject contextual names (e.g., `macro.name` or `script.name`) into both `.help()` and `.accessibilityLabel()` for repeated list actions to disambiguate the target. Ensure a fallback exists if the name is empty (e.g., "Untitled").

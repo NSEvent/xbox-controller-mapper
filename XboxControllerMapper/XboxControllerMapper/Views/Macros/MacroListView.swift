@@ -155,8 +155,8 @@ struct SharedMacroRow: View {
                     .foregroundColor(.accentColor)
             }
             .buttonStyle(.borderless)
-            .help("Edit \(macro.name.isEmpty ? "Unnamed" : macro.name) in shared library")
-            .accessibilityLabel("Edit \(macro.name.isEmpty ? "Unnamed" : macro.name) in shared library")
+            .help("Edit \(macro.name.isEmpty ? \"Unnamed\" : macro.name) in shared library")
+            .accessibilityLabel("Edit \(macro.name.isEmpty ? \"Unnamed\" : macro.name) in shared library")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -206,16 +206,16 @@ struct MacroRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit \(macro.name.isEmpty ? "Unnamed" : macro.name)")
-                .accessibilityLabel("Edit \(macro.name.isEmpty ? "Unnamed" : macro.name)")
+                .help("Edit \(macro.name.isEmpty ? \"Unnamed\" : macro.name)")
+                .accessibilityLabel("Edit \(macro.name.isEmpty ? \"Unnamed\" : macro.name)")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete \(macro.name.isEmpty ? "Unnamed" : macro.name)")
-                .accessibilityLabel("Delete \(macro.name.isEmpty ? "Unnamed" : macro.name)")
+                .help("Delete \(macro.name.isEmpty ? \"Unnamed\" : macro.name)")
+                .accessibilityLabel("Delete \(macro.name.isEmpty ? \"Unnamed\" : macro.name)")
             }
         }
         .padding(.horizontal, 12)
