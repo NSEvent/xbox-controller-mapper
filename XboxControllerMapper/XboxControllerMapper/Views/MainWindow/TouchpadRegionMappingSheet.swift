@@ -171,6 +171,7 @@ struct TouchpadRegionMappingSheet: View {
                 Text("App").tag(SystemCommandCategory.app)
                 Text("Shell").tag(SystemCommandCategory.shell)
                 Text("Link").tag(SystemCommandCategory.link)
+				Text("Ring").tag(SystemCommandCategory.ring)
             }
             .pickerStyle(.segmented)
 
@@ -203,6 +204,8 @@ struct TouchpadRegionMappingSheet: View {
             case .link:
                 TextField("URL", text: slot.linkURL)
                     .textFieldStyle(.roundedBorder)
+			case .ring:
+				OuraRingSystemCommandPicker(selection: slot.ouraRingCommandOption)
             default:
                 Text("Unsupported")
                     .font(.caption)
@@ -269,6 +272,7 @@ struct ActionSlot {
     var shellCommand: String = ""
     var shellRunInTerminal: Bool = false
     var linkURL: String = ""
+	var ouraRingCommandOption: OuraRingSystemCommandOption = .centerRing
     var showingAppPicker: Bool = false
 
     var isValid: Bool {
@@ -297,6 +301,8 @@ struct ActionSlot {
                 shellRunInTerminal = inTerm
             case .openLink(let url):
                 linkURL = url
+			case .centerOuraRing, .toggleOuraMotion:
+				ouraRingCommandOption = OuraRingSystemCommandOption(command: cmd)
             default: break
             }
         } else if let id = mapping.macroId {
@@ -325,6 +331,8 @@ struct ActionSlot {
         case .link:
             guard !linkURL.isEmpty else { return nil }
             return .openLink(url: linkURL)
+		case .ring:
+			return ouraRingCommandOption.systemCommand
         default:
             return nil
         }

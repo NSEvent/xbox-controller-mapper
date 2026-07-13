@@ -154,6 +154,21 @@ if [[ -f "$TAP_CASK" ]]; then
     echo "Tap cask updated to ${MARKETING_VERSION} (sha256 ${DMG_SHA})"
 fi
 
+WEBSITE_RELEASE_UPDATER="$HOME/projects/kevintang.xyz/scripts/update-controllerkeys-release-version.py"
+if [[ -f "$WEBSITE_RELEASE_UPDATER" ]]; then
+    echo ""
+    echo "=== Updating ControllerKeys marketing site ==="
+    RELEASE_PUBLISHED_AT="$(gh release view "$TAG" --json publishedAt -q .publishedAt 2>/dev/null || date -u +%Y-%m-%d)"
+    python3 "$WEBSITE_RELEASE_UPDATER" \
+        --version "$MARKETING_VERSION" \
+        --date "$RELEASE_PUBLISHED_AT" \
+        --commit \
+        --push
+else
+    echo ""
+    echo "Warning: ControllerKeys marketing updater not found at $WEBSITE_RELEASE_UPDATER"
+fi
+
 echo ""
 echo "=== Release Complete ==="
 echo "Tag created: $TAG"

@@ -20,7 +20,7 @@ struct ControllerPairingHintView: View {
 
     /// Every concrete family, in picker order, for the chooser grid.
     private static let selectableLayouts: [ControllerPreviewLayout] =
-        ControllerPreviewLayout.allCases.filter { $0 != .active }
+        ControllerPreviewLayout.concreteLayouts
 
     var body: some View {
         Group {
@@ -54,15 +54,7 @@ struct ControllerPairingHintView: View {
                 Spacer(minLength: 0)
             }
 
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 150), spacing: 8)],
-                alignment: .leading,
-                spacing: 8
-            ) {
-                ForEach(Self.selectableLayouts) { layout in
-                    ChooserChip(layout: layout) { onSelectLayout(layout) }
-                }
-            }
+			ChooserGrid(layouts: Self.selectableLayouts, onSelectLayout: onSelectLayout)
         }
     }
 
@@ -239,6 +231,43 @@ struct ControllerPairingHintView: View {
     }
 }
 
+// MARK: - Chooser grid
+
+/// Small, static chooser grid. Keep this eager: the card already lives inside
+/// the Buttons tab ScrollView, and `LazyVGrid` can stale-clip rows on macOS
+/// after the card scrolls partially offscreen and back.
+private struct ChooserGrid: View {
+	let layouts: [ControllerPreviewLayout]
+	let onSelectLayout: (ControllerPreviewLayout) -> Void
+
+	private let columns = 3
+	private let spacing: CGFloat = 8
+
+	private var rows: [[ControllerPreviewLayout]] {
+		stride(from: 0, to: layouts.count, by: columns).map { start in
+			Array(layouts[start..<min(start + columns, layouts.count)])
+		}
+	}
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: spacing) {
+			ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+				HStack(spacing: spacing) {
+					ForEach(row) { layout in
+						ChooserChip(layout: layout) { onSelectLayout(layout) }
+					}
+
+					ForEach(0..<max(0, columns - row.count), id: \.self) { _ in
+						Color.clear
+							.frame(maxWidth: .infinity)
+							.accessibilityHidden(true)
+					}
+				}
+			}
+		}
+	}
+}
+
 // MARK: - Chooser chip
 
 /// A controller-family pick in the chooser grid. A real `Button` (so it keeps
@@ -256,15 +285,22 @@ private struct ChooserChip: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 16)
-                Text(layout.displayName)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+				VStack(alignment: .leading, spacing: 1) {
+					Text(layout.displayName)
+						.font(.system(size: 12, weight: .semibold))
+						.foregroundStyle(.primary)
+						.lineLimit(1)
+						.minimumScaleFactor(0.8)
+					Text(layout.platformLabel)
+						.font(.system(size: 10.5, weight: .medium))
+						.foregroundStyle(.secondary)
+						.lineLimit(1)
+						.minimumScaleFactor(0.8)
+				}
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+			.padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .background(GlassCardBackground(isHovered: isHovered, cornerRadius: 8))

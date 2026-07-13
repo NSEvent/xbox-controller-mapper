@@ -18,26 +18,30 @@ struct StreamOverlayView: View {
     private let graphicWidth: CGFloat = 200
 
     private var isAppleTVRemote: Bool {
-        controllerService.threadSafeIsAppleTVRemote
+        visualDescriptor.isAppleTVRemote
     }
+
+	private var isOuraRing: Bool {
+		visualDescriptor.isOuraRing
+	}
 
     /// Resolved from the connected controller so the overlay always matches
     /// the active hardware (previously this was hardcoded to Xbox vs
     /// PlayStation only).
+    private var visualDescriptor: ControllerVisualDescriptor {
+        ControllerVisualDescriptor.active(using: controllerService)
+    }
+
     private var minimapStyle: ControllerMinimapStyle {
-        if controllerService.threadSafeIsSteamController { return .steam }
-        if controllerService.threadSafeIsDualShock { return .dualShock }
-        if controllerService.threadSafeIsDualSenseEdge { return .dualSenseEdge }
-        if controllerService.threadSafeIsPlayStation { return .dualSense }
-        if controllerService.threadSafeIsNintendo { return .nintendo }
-        if controllerService.threadSafeIsXboxElite { return .xboxElite }
-        return .xbox
+        visualDescriptor.minimapStyle ?? .xbox
     }
 
     var body: some View {
         VStack(spacing: 4) {
             Group {
-                if isAppleTVRemote {
+				if isOuraRing {
+					ouraRingGraphic
+				} else if isAppleTVRemote {
                     appleTVRemoteGraphic
                 } else {
                     controllerGraphic
@@ -114,12 +118,7 @@ struct StreamOverlayView: View {
 
             ControllerAnalogOverlay(
                 controllerService: controllerService,
-                isPlayStation: controllerService.threadSafeIsPlayStation,
-                isNintendo: controllerService.threadSafeIsNintendo,
-                isXboxElite: controllerService.threadSafeIsXboxElite,
-                isSteamController: controllerService.threadSafeIsSteamController,
-                isDualShock: controllerService.threadSafeIsDualShock,
-                isDualSenseEdge: controllerService.threadSafeIsDualSenseEdge,
+                descriptor: visualDescriptor,
                 onButtonTap: { _ in }
             )
             .frame(width: size.width, height: size.height)
@@ -142,6 +141,16 @@ struct StreamOverlayView: View {
             .scaleEffect(scale)
             .frame(width: graphicWidth, height: height)
     }
+
+	private var ouraRingGraphic: some View {
+		let size = OuraRingMinimapView.previewSize
+		let scale = graphicWidth / size.width
+
+		return OuraRingMinimapView(isTapPressed: controllerService.activeButtons.contains { $0.isOuraRingOnly })
+			.frame(width: size.width, height: size.height)
+			.scaleEffect(scale)
+			.frame(width: graphicWidth, height: (size.height * scale).rounded())
+	}
 
     // MARK: - Display Logic
 

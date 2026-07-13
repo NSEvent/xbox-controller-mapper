@@ -238,16 +238,20 @@ Invariants the store integration maintains:
 |---------|------|---------------|
 | `ControllerService` | Services/ControllerService.swift | Controller connection, raw input handling, haptics, battery, DualSense HID |
 | `MappingEngine` | Services/MappingEngine.swift | Button->action mapping, chords, long hold, double tap, macros, system commands |
+| `ControllerInputEvent` | Services/Mapping/ControllerInputEvent.swift | Event envelope and queue policy for MappingEngine controller callbacks |
 | `InputSimulator` | Services/InputSimulator.swift | CGEvent-based keyboard/mouse output |
+| `ModifierKeyEmissionPolicy` | Services/Input/ModifierKeyEmissionPolicy.swift | Pure side-aware modifier key selection for InputSimulator |
 | `ProfileManager` | Services/ProfileManager.swift | Profile CRUD, persistence, backup |
 | `AppMonitor` | Services/AppMonitor.swift | Active app detection for profile auto-switching |
 | `XboxGuideMonitor` | Services/XboxGuideMonitor.swift | IOKit HID for Xbox Guide button (swallowed by GameController) |
 | `GameControllerDatabase` | Services/GameControllerDatabase.swift | SDL database parsing and lookup |
 | `GenericHIDController` | Services/GenericHIDController.swift | Raw HID input for third-party controllers |
+| `HIDControllerDriverDescriptor` | Services/Controller/HIDControllerDriverDescriptor.swift | Testable raw-HID matching criteria for specialized controller backends |
 | `OnScreenKeyboardManager` | Services/OnScreenKeyboardManager.swift | Floating keyboard overlay window |
 | `CommandWheelManager` | Services/CommandWheelManager.swift | Radial menu for app/website switching |
 | `InputLogService` | Services/InputLogService.swift | Debug input logging |
 | `SystemCommandExecutor` | Services/SystemCommandExecutor.swift | Shell commands, app launch, URL open |
+| `ControllerVisualDescriptor` | Views/MainWindow/ControllerVisualDescriptor.swift | Preview capability/row descriptor for controller mapping canvas |
 
 ---
 
@@ -344,3 +348,20 @@ grep -oE '[0-9]+ NSDisplayCycleFlush' /tmp/ck_sample.txt | awk '{sum+=$1} END {p
 - **Reduce mouse event rate to 60Hz with velocity-adaptive posting** — post at 120Hz during slow/precise movement, drop to 60Hz during fast sweeps where individual frames aren't perceptible. Would halve IPC cost during fast movement.
 - **Separate NSHostingView for ControllerAnalogOverlay** — isolates the analog overlay's `@State` updates from the main view tree's layout pass.
 - **CALayer-based analog overlay** — replace SwiftUI analog rendering with Core Graphics/CALayer. Layer property updates don't trigger view tree diffing.
+
+## Pref-verification gotcha
+
+ControllerKeys is NOT sandboxed (entitlements set `com.apple.security.app-sandbox = false`). The leftover `~/Library/Containers/KevinTang.XboxControllerMapper/` dir is a red herring — real prefs live at `~/Library/Preferences/KevinTang.XboxControllerMapper.plist` (`defaults read KevinTang.XboxControllerMapper`).
+
+Do NOT verify a UI-pref change by `defaults write` then relaunching — cfprefsd caching makes the running app read a stale value even when `defaults read` shows the new one. Click the real control instead (synthetic Quartz `CGEventPost` clicks work). Also: `codesign -d --entitlements -` prints the `app-sandbox` key even when its value is `false` — use `--xml … | plutil -p -` for the actual boolean.
+
+Project-file note: the Xcode project is objectVersion 77 (`PBXFileSystemSynchronizedRootGroup`) — Swift sources are auto-discovered; do NOT run `add-xcode-files.py` here (only frameworks need explicit PBXBuildFile entries).
+
+## Licensing & release internals
+
+- **Trial clock** anchored in the login keychain (service `com.controllerkeys.license`, account `trialStart`) so delete+reinstall does NOT reset the 14-day trial. License key + `licensedConfirmed` flag stored the same way; a confirmed license stays valid offline.
+- **Gumroad verify:** POSTs to `https://api.gumroad.com/v2/licenses/verify` with `product_id=9AsXgsuZVzxgNYfoVcFW1A==` (percent-encode so the trailing `==` survives), `increment_uses_count=false`; rejects refunded/disputed/chargebacked. The Gumroad product MUST have license keys enabled.
+- **Enforcement:** `LicenseManager.enforce { mappingEngine.isEnabled = false }` in `XboxControllerMapperApp.init` (skipped in screenshot mode); fires at startup + on transition to expired. Dev builds compile in `DEV_BYPASS_LICENSE` via `make install`; the release never sets it.
+- **Sparkle:** `SUFeedURL = https://raw.githubusercontent.com/NSEvent/xbox-controller-mapper/main/appcast.xml`, `SUPublicEDKey = UE8E+aypYDGJ7X8LznvFn1YBdENZDo5qrsX93K1/1Js=` (private EdDSA key in Kevin's login keychain — back it up). CFBundleVersion (BUILD_NUMBER) MUST increase every release or Sparkle won't detect the update.
+- **Notarization re-sign (do not remove):** `Scripts/sign-and-notarize.sh` re-signs Sparkle's bundled `Updater.app`, `Autoupdate`, `XPCServices/*.xpc` inside-out, re-signs the framework, then re-seals the app — Sparkle ships them with its own signature, which Apple notarization rejects.
+- **Release pipeline:** `Scripts/release.sh` EdDSA-signs the DMG from a clean staging dir (one-item feed), writes/commits/pushes `appcast.xml`, attaches the DMG to the GitHub release, and auto-bumps the homebrew tap cask (`NSEvent/homebrew-tap`, version + sha256). Public free download gated only by the in-app trial.

@@ -14,8 +14,13 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 	case eightBitDoLite2
 	case eightBitDoLiteSE
 	case appleTVRemote
+	case ouraRing
 
 	var id: String { rawValue }
+
+	static var concreteLayouts: [ControllerPreviewLayout] {
+		allCases.filter { $0 != .active }
+	}
 
 	var displayName: String {
 		switch self {
@@ -32,6 +37,26 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .eightBitDoLite2: return "8BitDo Lite 2"
 		case .eightBitDoLiteSE: return "8BitDo Lite SE"
 		case .appleTVRemote: return "Apple TV Remote"
+		case .ouraRing: return "Oura Ring"
+		}
+	}
+
+	var platformLabel: String {
+		switch self {
+		case .active: return "Connected device"
+		case .xbox: return "Xbox Series X|S / One"
+		case .xboxElite: return "Xbox Elite Series 2"
+		case .dualSense: return "PS5"
+		case .dualSenseEdge: return "PS5 (Edge)"
+		case .dualShock: return "PS4"
+		case .nintendo: return "Switch Pro / Joy-Con"
+		case .steam: return "Steam Controller"
+		case .eightBitDoZero2: return "Keychain Bluetooth pad"
+		case .eightBitDoMicro: return "Micro Bluetooth pad"
+		case .eightBitDoLite2: return "Switch / D-input modes"
+		case .eightBitDoLiteSE: return "Switch / D-input modes"
+		case .appleTVRemote: return "Apple TV Siri Remote"
+		case .ouraRing: return "Oura Ring 3 / 4"
 		}
 	}
 
@@ -45,81 +70,7 @@ enum ControllerPreviewLayout: String, Codable, CaseIterable, Identifiable {
 		case .eightBitDoZero2, .eightBitDoMicro: return "gamecontroller.circle"
 		case .eightBitDoLite2, .eightBitDoLiteSE: return "gamecontroller.circle.fill"
 		case .appleTVRemote: return "appletvremote.gen3"
-		}
-	}
-
-	func isPlayStation(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsPlayStation
-		case .dualSense, .dualSenseEdge, .dualShock: return true
-		default: return false
-		}
-	}
-
-	func isDualSense(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsDualSense
-		case .dualSense, .dualSenseEdge: return true
-		default: return false
-		}
-	}
-
-	func isDualSenseEdge(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsDualSenseEdge
-		case .dualSenseEdge: return true
-		default: return false
-		}
-	}
-
-	func isDualShock(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsDualShock
-		case .dualShock: return true
-		default: return false
-		}
-	}
-
-	func isXboxElite(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsXboxElite
-		case .xboxElite: return true
-		default: return false
-		}
-	}
-
-	func isSteamController(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsSteamController
-		case .steam: return true
-		default: return false
-		}
-	}
-
-	func isNintendo(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsNintendo
-		case .nintendo: return true
-		default: return false
-		}
-	}
-
-	func eightBitDoModel(using service: ControllerService) -> EightBitDoMinimapModel? {
-		switch self {
-		case .active: return service.threadSafeEightBitDoMinimapModel
-		case .eightBitDoZero2: return .zero2
-		case .eightBitDoMicro: return .micro
-		case .eightBitDoLite2: return .lite2
-		case .eightBitDoLiteSE: return .liteSE
-		default: return nil
-		}
-	}
-
-	func isAppleTVRemote(using service: ControllerService) -> Bool {
-		switch self {
-		case .active: return service.threadSafeIsAppleTVRemote
-		case .appleTVRemote: return true
-		default: return false
+		case .ouraRing: return "circle.dashed"
 		}
 	}
 }

@@ -150,22 +150,8 @@ final class ControllerStorage: @unchecked Sendable {
     var chordParticipantButtons: Set<ControllerButton> = []
     var lowLatencyInputEnabled: Bool = false
 
-    // Callbacks
-    var onButtonPressed: ((ControllerButton) -> Void)?
-    var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)?
-    var onChordDetected: ((Set<ControllerButton>) -> Void)?
-    var onLeftStickMoved: ((CGPoint) -> Void)?
-    var onRightStickMoved: ((CGPoint) -> Void)?
-    var onTouchpadMoved: ((CGPoint) -> Void)?  // Delta movement
-    var onSteamLeftTouchpadMoved: ((CGPoint) -> Void)?  // Left-pad delta movement for app-owned scroll
-    var onAppleTVRemoteCircularScroll: ((CGFloat) -> Void)?
-    var onTouchpadGesture: ((TouchpadGesture) -> Void)?
-    var onTouchpadTap: (() -> Void)?  // Single tap (touch + release without moving)
-    var onControllerButtonTap: ((ControllerButton) -> Void)?  // One-shot virtual tap events
-    var onTouchpadTwoFingerTap: (() -> Void)?  // Two-finger tap or click (right-click)
-    var onTouchpadLongTap: (() -> Void)?  // Long tap (touch held without moving)
-    var onTouchpadTwoFingerLongTap: (() -> Void)?  // Two-finger long tap
-    var onTouchpadRegionTap: ((TouchpadRegion) -> Void)?  // Region-specific tap
+    // Typed event boundary consumed by MappingEngine.
+    var onInputEvent: ((ControllerInputEvent) -> Void)?
     /// When true, region-click events only fire while a finger is currently touching
     /// the pad. Default true. Mirrors `JoystickSettings.requireActiveTouchForRegionClick`
     /// and is updated by MappingEngine whenever joystick settings change.
@@ -192,8 +178,6 @@ final class ControllerStorage: @unchecked Sendable {
     // Motion Gesture State (supported controller gyroscope)
     var motionInputEnabled: Bool = false
     var motionGestureDetector = MotionGestureDetector()
-    var onMotionGesture: ((MotionGestureType) -> Void)?
-
     // Gyro aiming: accumulated rotation rates between polls (averaged on consume)
     // DS4 raw-HID gyro bias calibration. Apple's framework calibrates DualSense
     // automatically; for DS4 we sample the average gyro reading at rest so we
@@ -234,6 +218,7 @@ class ControllerService: ObservableObject {
     @Published var currentControllerIdentity: ControllerIdentity?
     @Published var controllerName: String = ""
 	@Published var controllerMappingSource: String?
+    @Published private(set) var isOuraRingConnected = false
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
     @Published var activeButtons: Set<ControllerButton> = []
@@ -279,6 +264,8 @@ class ControllerService: ObservableObject {
     private var connectionGeneration: UInt64 = 0
 	private var configuredGameControllerIDs: Set<ObjectIdentifier> = []
 	private let inactiveControllerAnalogActivationDeadzone: Float = 0.18
+	private let inactiveControllerTakeoverQuietInterval: TimeInterval = 0.75
+	private var activeGameControllerLastInputTime: TimeInterval = 0
 
     /// Generation token for the battery polling chain. `updateBatteryInfo()` bumps
     /// it so previously scheduled polls cancel themselves — otherwise every external
@@ -360,14 +347,20 @@ class ControllerService: ObservableObject {
         withStorageLock { $0[keyPath: keyPath] }
     }
 
-    nonisolated func writeStorage<T>(
-        _ keyPath: ReferenceWritableKeyPath<ControllerStorage, T>,
-        _ value: T
-    ) {
-        withStorageLock { $0[keyPath: keyPath] = value }
-    }
+	nonisolated func writeStorage<T>(
+		_ keyPath: ReferenceWritableKeyPath<ControllerStorage, T>,
+		_ value: T
+	) {
+		withStorageLock { $0[keyPath: keyPath] = value }
+	}
 
-    // MARK: - Controller Snapshot (single lock acquisition for hot-path polling)
+	nonisolated var threadSafeControllerPresentationState: ControllerPresentationState {
+		storage.lock.lock()
+		defer { storage.lock.unlock() }
+		return storage.controllerPresentationStateLocked
+	}
+
+	// MARK: - Controller Snapshot (single lock acquisition for hot-path polling)
 
     /// A value-type snapshot of controller input state, captured in a single lock acquisition.
     /// Used by JoystickHandler's 120Hz polling loop to avoid per-field lock thrashing.
@@ -386,20 +379,21 @@ class ControllerService: ObservableObject {
 
     /// Captures a consistent snapshot of all joystick-polling-relevant state in a single lock acquisition.
     /// This replaces 4-6 individual `threadSafe*` property reads that each acquire/release the lock separately.
-    nonisolated func snapshot() -> ControllerSnapshot {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return ControllerSnapshot(
-            leftStick: storage.leftStick,
-            rightStick: storage.rightStick,
-            leftTrigger: storage.leftTrigger,
-            rightTrigger: storage.rightTrigger,
-            touchpadPosition: storage.touchpadPosition,
-            isTouchpadTouching: storage.isTouchpadTouching,
-			hasMotion: storage.isDualSense || storage.isDualShock || storage.isSteamController,
-			isSteamController: storage.isSteamController
-        )
-    }
+	nonisolated func snapshot() -> ControllerSnapshot {
+		storage.lock.lock()
+		defer { storage.lock.unlock() }
+		let presentationState = storage.controllerPresentationStateLocked
+		return ControllerSnapshot(
+			leftStick: storage.leftStick,
+			rightStick: storage.rightStick,
+			leftTrigger: storage.leftTrigger,
+			rightTrigger: storage.rightTrigger,
+			touchpadPosition: storage.touchpadPosition,
+			isTouchpadTouching: storage.isTouchpadTouching,
+			hasMotion: presentationState.hasMotion,
+			isSteamController: presentationState.isSteamController
+		)
+	}
 
     nonisolated var threadSafeLeftStick: CGPoint {
         storage.lock.lock()
@@ -463,85 +457,61 @@ class ControllerService: ObservableObject {
         return blocked
     }
 
-    nonisolated var threadSafeIsDualSense: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && storage.isDualSense
-    }
+	nonisolated var threadSafeIsDualSense: Bool {
+		threadSafeControllerPresentationState.isDualSense
+	}
 
-    nonisolated var threadSafeIsDualSenseEdge: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && storage.isDualSenseEdge
-    }
+	nonisolated var threadSafeIsDualSenseEdge: Bool {
+		threadSafeControllerPresentationState.isDualSenseEdge
+	}
 
-    nonisolated var threadSafeIsDualShock: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && storage.isDualShock
-    }
+	nonisolated var threadSafeIsDualShock: Bool {
+		threadSafeControllerPresentationState.isDualShock
+	}
 
-    /// Returns true if connected controller is any PlayStation controller (DualSense, DualShock)
-    nonisolated var threadSafeIsPlayStation: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && (storage.isDualSense || storage.isDualShock)
-    }
+	/// Returns true if connected controller is any PlayStation controller (DualSense, DualShock)
+	nonisolated var threadSafeIsPlayStation: Bool {
+		threadSafeControllerPresentationState.isPlayStation
+	}
 
-    nonisolated var threadSafeHasMotion: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isDualSense || storage.isDualShock || storage.isSteamController
-    }
+	nonisolated var threadSafeHasMotion: Bool {
+		threadSafeControllerPresentationState.hasMotion
+	}
 
-    nonisolated var threadSafeIsNintendo: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isNintendo
-    }
+	nonisolated var threadSafeIsNintendo: Bool {
+		threadSafeControllerPresentationState.isNintendo
+	}
 
-    nonisolated var threadSafeEightBitDoMinimapModel: EightBitDoMinimapModel? {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.eightBitDoModel
-    }
+	nonisolated var threadSafeEightBitDoMinimapModel: EightBitDoMinimapModel? {
+		threadSafeControllerPresentationState.eightBitDoModel
+	}
 
     /// True for a stickless Nintendo-clone whose d-pad is funneled through the
     /// (mis-calibrated) phantom left stick — we drive the left stick from raw
     /// HID instead, so the GameController left-thumbstick must be ignored.
     /// Detected behaviorally (see [[SticklessDpadCloneDetector]]); gated to the
     /// Nintendo path since the DualShock clone's GameController stick is fine.
-    nonisolated var threadSafeIsNintendoDPadStickClone: Bool {
-        guard sticklessCloneDetector.isSticklessClone else { return false }
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isNintendo
-    }
+	nonisolated var threadSafeIsNintendoDPadStickClone: Bool {
+		guard sticklessCloneDetector.isSticklessClone else { return false }
+		return threadSafeControllerPresentationState.isNintendo
+	}
 
-    nonisolated var threadSafeIsXboxElite: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return !storage.isSteamController && storage.isXboxElite
-    }
+	nonisolated var threadSafeIsXboxElite: Bool {
+		threadSafeControllerPresentationState.isXboxElite
+	}
 
-    nonisolated var threadSafeIsSteamController: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isSteamController
-    }
+	nonisolated var threadSafeIsSteamController: Bool {
+		threadSafeControllerPresentationState.isSteamController
+	}
 
-    nonisolated var threadSafeIsAppleTVRemote: Bool {
-		storage.lock.lock()
-		defer { storage.lock.unlock() }
-		return storage.isAppleTVRemote
-    }
+	nonisolated var threadSafeIsAppleTVRemote: Bool {
+		threadSafeControllerPresentationState.isAppleTVRemote
+	}
 
-    /// Returns true if a single Joy-Con is connected (left or right, not a Pro Controller)
-    nonisolated var threadSafeIsSingleJoyCon: Bool {
-        storage.lock.lock()
-        defer { storage.lock.unlock() }
-        return storage.isJoyConLeft || storage.isJoyConRight
-    }
+	/// Returns true if a single Joy-Con is connected (left or right, not a Pro Controller)
+	nonisolated var threadSafeIsSingleJoyCon: Bool {
+		threadSafeControllerPresentationState.isSingleJoyCon
+	}
 
     /// Returns the average gyro rotation rates accumulated since the last call, then resets the accumulator.
     nonisolated func consumeAverageMotionRates() -> (pitch: Double, roll: Double) {
@@ -696,66 +666,10 @@ class ControllerService: ObservableObject {
     /// Battery state
     @Published var batteryState: GCDeviceBattery.State = .unknown
 
-    // Callback proxies (Thread-safe storage backing)
-    var onButtonPressed: ((ControllerButton) -> Void)? {
-        get { readStorage(\.onButtonPressed) }
-        set { writeStorage(\.onButtonPressed, newValue) }
-    }
-    var onButtonReleased: ((ControllerButton, TimeInterval) -> Void)? {
-        get { readStorage(\.onButtonReleased) }
-        set { writeStorage(\.onButtonReleased, newValue) }
-    }
-    var onChordDetected: ((Set<ControllerButton>) -> Void)? {
-        get { readStorage(\.onChordDetected) }
-        set { writeStorage(\.onChordDetected, newValue) }
-    }
-    var onLeftStickMoved: ((CGPoint) -> Void)? {
-        get { readStorage(\.onLeftStickMoved) }
-        set { writeStorage(\.onLeftStickMoved, newValue) }
-    }
-    var onRightStickMoved: ((CGPoint) -> Void)? {
-        get { readStorage(\.onRightStickMoved) }
-        set { writeStorage(\.onRightStickMoved, newValue) }
-    }
-    var onTouchpadMoved: ((CGPoint) -> Void)? {
-        get { readStorage(\.onTouchpadMoved) }
-        set { writeStorage(\.onTouchpadMoved, newValue) }
-    }
-    var onSteamLeftTouchpadMoved: ((CGPoint) -> Void)? {
-        get { readStorage(\.onSteamLeftTouchpadMoved) }
-        set { writeStorage(\.onSteamLeftTouchpadMoved, newValue) }
-    }
-    var onAppleTVRemoteCircularScroll: ((CGFloat) -> Void)? {
-		get { readStorage(\.onAppleTVRemoteCircularScroll) }
-		set { writeStorage(\.onAppleTVRemoteCircularScroll, newValue) }
-    }
-    var onTouchpadGesture: ((TouchpadGesture) -> Void)? {
-        get { readStorage(\.onTouchpadGesture) }
-        set { writeStorage(\.onTouchpadGesture, newValue) }
-    }
-    var onTouchpadTap: (() -> Void)? {
-        get { readStorage(\.onTouchpadTap) }
-        set { writeStorage(\.onTouchpadTap, newValue) }
-    }
-    var onControllerButtonTap: ((ControllerButton) -> Void)? {
-        get { readStorage(\.onControllerButtonTap) }
-        set { writeStorage(\.onControllerButtonTap, newValue) }
-    }
-    var onTouchpadTwoFingerTap: (() -> Void)? {
-        get { readStorage(\.onTouchpadTwoFingerTap) }
-        set { writeStorage(\.onTouchpadTwoFingerTap, newValue) }
-    }
-    var onTouchpadLongTap: (() -> Void)? {
-        get { readStorage(\.onTouchpadLongTap) }
-        set { writeStorage(\.onTouchpadLongTap, newValue) }
-    }
-    var onTouchpadTwoFingerLongTap: (() -> Void)? {
-        get { readStorage(\.onTouchpadTwoFingerLongTap) }
-        set { writeStorage(\.onTouchpadTwoFingerLongTap, newValue) }
-    }
-    var onTouchpadRegionTap: ((TouchpadRegion) -> Void)? {
-        get { readStorage(\.onTouchpadRegionTap) }
-        set { writeStorage(\.onTouchpadRegionTap, newValue) }
+    // Typed input event sink (Thread-safe storage backing)
+    var onInputEvent: ((ControllerInputEvent) -> Void)? {
+        get { readStorage(\.onInputEvent) }
+        set { writeStorage(\.onInputEvent, newValue) }
     }
     var requireActiveTouchForRegionClick: Bool {
         get { readStorage(\.requireActiveTouchForRegionClick) }
@@ -769,9 +683,9 @@ class ControllerService: ObservableObject {
         get { readStorage(\.touchpadInputMode) }
         set { writeStorage(\.touchpadInputMode, newValue) }
     }
-    var onMotionGesture: ((MotionGestureType) -> Void)? {
-        get { readStorage(\.onMotionGesture) }
-        set { writeStorage(\.onMotionGesture, newValue) }
+    nonisolated func emitInputEvent(_ event: ControllerInputEvent) {
+        let callback = readStorage(\.onInputEvent)
+        callback?(event)
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -796,13 +710,18 @@ class ControllerService: ObservableObject {
     // Haptic engines for controller feedback (try multiple localities)
     // Protected by hapticLock — accessed from both @MainActor (setup/stop) and hapticQueue (play)
     let hapticLock = NSLock()
-    var hapticEngines: [CHHapticEngine] = []
+    nonisolated(unsafe) var hapticEngines: [CHHapticEngine] = []
     let hapticQueue = DispatchQueue(label: "com.xboxmapper.haptic", qos: .userInitiated)
+    let hapticQueueSpecificKey = DispatchSpecificKey<Void>()
     struct ActiveHapticPlayer {
         let player: CHHapticPatternPlayer
         let endTime: TimeInterval
     }
-    var activeHapticPlayers: [ActiveHapticPlayer] = []
+    nonisolated(unsafe) var activeHapticPlayers: [ActiveHapticPlayer] = []
+    nonisolated(unsafe) var hapticSessionGeneration: UInt64 = 0
+	#if DEBUG
+	nonisolated(unsafe) var hapticSessionAcceptedForTesting: ((UInt64) -> Void)?
+	#endif
 
     /// Display name shown in the toolbar pill for `--screenshot-variant` captures.
     static func screenshotControllerName(for variant: String) -> String {
@@ -824,7 +743,7 @@ class ControllerService: ObservableObject {
 
     /// Identifies the small 8BitDo pads from their SDL/HID product names
     /// ("8BitDo Zero 2", "8BitDo Micro", "8BitDo Lite 2", "8BitDo Lite SE").
-    static func eightBitDoMinimapModel(forControllerName name: String) -> EightBitDoMinimapModel? {
+    nonisolated static func eightBitDoMinimapModel(forControllerName name: String) -> EightBitDoMinimapModel? {
         let lowered = name.lowercased()
         guard lowered.contains("8bitdo") else { return nil }
         if lowered.contains("zero") { return .zero2 }
@@ -834,8 +753,19 @@ class ControllerService: ObservableObject {
         return nil
     }
 
-	static func eightBitDoMinimapModel(vendorName: String?, productCategory: String) -> EightBitDoMinimapModel? {
+	nonisolated static func eightBitDoMinimapModel(vendorName: String?, productCategory: String) -> EightBitDoMinimapModel? {
 		eightBitDoMinimapModel(forControllerName: "\(vendorName ?? "") \(productCategory)")
+	}
+
+	nonisolated static func isSticklessEightBitDoModel(vendorName: String?, productCategory: String) -> Bool {
+		eightBitDoMinimapModel(vendorName: vendorName, productCategory: productCategory)?.isStickless == true
+	}
+
+	nonisolated static func shouldUsePhysicalDirectionPadAsLeftStickFallback(
+		vendorName: String?,
+		productCategory: String
+	) -> Bool {
+		!isSticklessEightBitDoModel(vendorName: vendorName, productCategory: productCategory)
 	}
 
 	private func startEightBitDoHIDMonitoringIfNeeded(for controller: GCController, reason: String) {
@@ -894,39 +824,26 @@ class ControllerService: ObservableObject {
         let shouldEnableHardwareMonitoring = enableHardwareMonitoring && !Self.isRunningTests
 		self.guideMonitor = XboxGuideMonitor(enableHardwareMonitoring: shouldEnableHardwareMonitoring)
         self.hardwareMonitoringEnabled = shouldEnableHardwareMonitoring
+		hapticQueue.setSpecific(key: hapticQueueSpecificKey, value: ())
 
-        // Load last controller type (so UI shows correct button labels when no controller is connected)
-        storage.isDualSense = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey)
-        storage.isDualSenseEdge = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey)
-        storage.isDualShock = UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey)
-        storage.isXboxElite = UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey)
-        storage.isSteamController = UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey)
-		storage.isAppleTVRemote = UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey)
-        if storage.isSteamController {
-            storage.isDualSense = false
-            storage.isDualSenseEdge = false
-            storage.isDualShock = false
-            storage.isXboxElite = false
-			storage.isAppleTVRemote = false
-		} else if storage.isAppleTVRemote {
-			storage.isDualSense = false
-			storage.isDualSenseEdge = false
-			storage.isDualShock = false
-			storage.isXboxElite = false
-			storage.isNintendo = false
-        }
+		// Load last controller type (so UI shows correct button labels when no controller is connected)
+		storage.restoreControllerTypeFlags(
+			isDualSense: UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseKey),
+			isDualSenseEdge: UserDefaults.standard.bool(forKey: Config.lastControllerWasDualSenseEdgeKey),
+			isDualShock: UserDefaults.standard.bool(forKey: Config.lastControllerWasDualShockKey),
+			isNintendo: UserDefaults.standard.bool(forKey: Config.lastControllerWasNintendoKey),
+			isXboxElite: UserDefaults.standard.bool(forKey: Config.lastControllerWasXboxEliteKey),
+			isSteamController: UserDefaults.standard.bool(forKey: Config.lastControllerWasSteamControllerKey),
+			isAppleTVRemote: UserDefaults.standard.bool(forKey: Config.lastControllerWasAppleTVRemoteKey)
+		)
 
         // Screenshot mode: force the preview to the requested variant and
         // present as connected. Hardware monitoring is off in this mode (see
         // ServiceContainer), so nothing can override these between captures.
         if let variant = AppRuntime.screenshotVariant {
-            storage.isDualSense = (variant == "dualsense" || variant == "dualsense-edge")
-            storage.isDualSenseEdge = (variant == "dualsense-edge")
-            storage.isDualShock = (variant == "dualshock")
-            storage.isNintendo = (variant == "nintendo")
-            storage.isXboxElite = (variant == "xbox-elite")
-            storage.isSteamController = (variant == "steam")
-            storage.isAppleTVRemote = (variant == "appletv")
+            if let type = ControllerTypeState(screenshotVariant: variant) {
+                storage.applyControllerTypeLocked(type)
+            }
             storage.eightBitDoModel = {
                 switch variant {
                 case "8bitdo-zero2": return .zero2
@@ -1128,6 +1045,7 @@ class ControllerService: ObservableObject {
 			  connectionGeneration, reason, controller.vendorName ?? "(nil)")
 
 		prepareForActiveControllerSwitch()
+		activeGameControllerLastInputTime = CFAbsoluteTimeGetCurrent()
 
         // Cancel generic HID fallback if GameController framework claimed this device
         genericHIDFallbackTimer?.cancel()
@@ -1184,8 +1102,10 @@ class ControllerService: ObservableObject {
             self?.objectWillChange.send()
         }
 
+		let activationGeneration = connectionGeneration
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            self?.playHaptic(intensity: 0.7, sharpness: 0.6, duration: 0.12)
+			guard let self, self.connectionGeneration == activationGeneration else { return }
+			self.playHaptic(intensity: 0.7, sharpness: 0.6, duration: 0.12)
         }
         updateBatteryInfo()
         startDisplayUpdateTimer()
@@ -1223,6 +1143,7 @@ class ControllerService: ObservableObject {
 		cleanupEightBitDoHIDMonitoring()
 		stopEliteHelper()
 		controllerMappingSource = nil
+		activeGameControllerLastInputTime = 0
 
 		activeButtons.removeAll()
 		leftStick = .zero
@@ -1279,6 +1200,7 @@ class ControllerService: ObservableObject {
         connectedController?.motion?.sensorsActive = false
         connectedController = nil
 		configuredGameControllerIDs.removeAll()
+		activeGameControllerLastInputTime = 0
         isConnected = false
         currentControllerIdentity = nil
         isGenericController = false
@@ -1330,6 +1252,56 @@ class ControllerService: ObservableObject {
 		storage.rawHIDGuidePressed = false
 		storage.rawHIDGuideLastEventTime = nil
         storage.lock.unlock()
+
+		if isOuraRingConnected {
+			publishOuraRingConnection()
+		}
+    }
+
+    func setOuraRingConnected(_ connected: Bool) {
+		guard isOuraRingConnected != connected else { return }
+		isOuraRingConnected = connected
+
+		if connected {
+			publishOuraRingConnection()
+		} else {
+			if !hasActiveHardwareInputSource {
+				releaseOuraRingInputs()
+				isConnected = false
+				currentControllerIdentity = nil
+				controllerName = ""
+				controllerMappingSource = nil
+				activeButtons.removeAll()
+				stopDisplayUpdateTimer()
+			} else {
+				releaseOuraRingButtons()
+			}
+		}
+    }
+
+	private var hasActiveHardwareInputSource: Bool {
+		connectedController != nil ||
+		isGenericController ||
+		steamHIDActiveDevice != nil ||
+		appleTVRemoteHIDDevice != nil ||
+		appleTVRemoteHIDTouchDevice != nil
+    }
+
+	var isOuraRingActiveInputSource: Bool {
+		isOuraRingConnected &&
+		controllerName == "Oura Ring" &&
+		controllerMappingSource == "Oura Ring"
+	}
+
+    private func publishOuraRingConnection() {
+		guard !hasActiveHardwareInputSource else { return }
+		isConnected = true
+		currentControllerIdentity = nil
+		controllerName = "Oura Ring"
+		controllerMappingSource = "Oura Ring"
+		if !AppRuntime.isRunningTests {
+			startDisplayUpdateTimer()
+		}
     }
 
     func resetTouchpadStateLocked() {
@@ -1572,11 +1544,69 @@ class ControllerService: ObservableObject {
 		if steamHIDActiveDevice != nil {
 			return false
 		}
+		let now = CFAbsoluteTimeGetCurrent()
 		if connectedController !== controller {
-			guard meaningful else { return false }
+			guard Self.shouldActivateInactiveControllerInput(
+				meaningful: meaningful,
+				activeControllerHasInput: hasActiveGameControllerInput(),
+				activeControllerLastInputTime: activeGameControllerLastInputTime,
+				now: now,
+				quietInterval: inactiveControllerTakeoverQuietInterval
+			) else { return false }
 			activateGameController(controller, reason: "input")
+		} else {
+			if meaningful || hasActiveGameControllerInput() {
+				activeGameControllerLastInputTime = now
+			}
 		}
 		return shouldAcceptGameControllerInput()
+	}
+
+	nonisolated static func shouldActivateInactiveControllerInput(
+		meaningful: Bool,
+		activeControllerHasInput: Bool,
+		activeControllerLastInputTime: TimeInterval,
+		now: TimeInterval,
+		quietInterval: TimeInterval
+	) -> Bool {
+		guard meaningful else { return false }
+		guard !activeControllerHasInput else { return false }
+		guard activeControllerLastInputTime > 0 else { return true }
+		return now - activeControllerLastInputTime >= quietInterval
+	}
+
+	nonisolated func hasActiveGameControllerInput() -> Bool {
+		storage.lock.lock()
+		defer { storage.lock.unlock() }
+		return Self.hasActiveGameControllerInput(
+			activeButtons: storage.activeButtons,
+			leftStick: storage.leftStick,
+			rightStick: storage.rightStick,
+			leftTrigger: storage.leftTrigger,
+			rightTrigger: storage.rightTrigger,
+			touchpadIsActive: storage.isTouchpadTouching ||
+				storage.isTouchpadSecondaryTouching ||
+				storage.isSteamLeftTouchpadTouching ||
+				storage.isSteamRightTouchpadTouching,
+			deadzone: inactiveControllerAnalogActivationDeadzone
+		)
+	}
+
+	nonisolated static func hasActiveGameControllerInput(
+		activeButtons: Set<ControllerButton>,
+		leftStick: CGPoint,
+		rightStick: CGPoint,
+		leftTrigger: Float,
+		rightTrigger: Float,
+		touchpadIsActive: Bool,
+		deadzone: Float
+	) -> Bool {
+		guard activeButtons.isEmpty else { return true }
+		guard !touchpadIsActive else { return true }
+		if hypotf(Float(leftStick.x), Float(leftStick.y)) >= deadzone { return true }
+		if hypotf(Float(rightStick.x), Float(rightStick.y)) >= deadzone { return true }
+		if leftTrigger >= deadzone || rightTrigger >= deadzone { return true }
+		return false
 	}
 
     func clearGameControllerHandlers(for controller: GCController) {
@@ -1665,15 +1695,7 @@ class ControllerService: ObservableObject {
 
     func resetControllerTypeState() {
         storage.lock.lock()
-        storage.isDualSense = false
-        storage.isDualSenseEdge = false
-        storage.isDualShock = false
-        storage.isNintendo = false
-        storage.isJoyConLeft = false
-        storage.isJoyConRight = false
-        storage.isXboxElite = false
-        storage.isSteamController = false
-        storage.isAppleTVRemote = false
+        storage.clearControllerTypeFlagsLocked()
         resetCloneDetectionStateLocked()
         storage.elitePaddleEventSource = .none
         storage.lock.unlock()
@@ -1859,13 +1881,7 @@ class ControllerService: ObservableObject {
 
 		if let xboxGamepad {
             storage.lock.lock()
-            storage.isDualSense = false
-            storage.isDualSenseEdge = false
-            storage.isDualShock = false
-            storage.isNintendo = false
-            storage.isJoyConLeft = false
-            storage.isJoyConRight = false
-            storage.isSteamController = false
+            storage.applyControllerTypeLocked(.xbox)
             storage.lock.unlock()
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseEdgeKey)
@@ -1889,7 +1905,7 @@ class ControllerService: ObservableObject {
 					gameControllerHasPaddles: hasPaddles
 				)
                 storage.lock.lock()
-                storage.isXboxElite = true
+                storage.applyControllerTypeLocked(.xboxElite)
 				storage.elitePaddleEventSource = paddleEventSource
                 storage.lock.unlock()
                 UserDefaults.standard.set(true, forKey: Config.lastControllerWasXboxEliteKey)
@@ -1908,7 +1924,7 @@ class ControllerService: ObservableObject {
 				startEliteHelper(paddleEventSource: paddleEventSource)
             } else {
                 storage.lock.lock()
-                storage.isXboxElite = false
+                storage.applyControllerTypeLocked(.xbox)
 				storage.elitePaddleEventSource = .none
                 storage.lock.unlock()
                 UserDefaults.standard.set(false, forKey: Config.lastControllerWasXboxEliteKey)
@@ -1941,13 +1957,7 @@ class ControllerService: ObservableObject {
         // DualSense-specific: Touchpad support
         if let dualSenseGamepad = gamepad as? GCDualSenseGamepad {
             storage.lock.lock()
-            storage.isDualSense = true
-            storage.isDualShock = false
-            storage.isNintendo = false
-            storage.isXboxElite = false
-            storage.isJoyConLeft = false
-            storage.isJoyConRight = false
-            storage.isSteamController = false
+            storage.applyControllerTypeLocked(.dualSense)
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualSenseKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualShockKey)
@@ -1974,14 +1984,7 @@ class ControllerService: ObservableObject {
         // Note: DualShock 4 doesn't have mic button or LED control via GameController framework
         else if let dualShockGamepad = gamepad as? GCDualShockGamepad {
             storage.lock.lock()
-            storage.isDualShock = true
-            storage.isDualSense = false
-            storage.isDualSenseEdge = false
-            storage.isNintendo = false
-            storage.isXboxElite = false
-            storage.isJoyConLeft = false
-            storage.isJoyConRight = false
-            storage.isSteamController = false
+            storage.applyControllerTypeLocked(.dualShock)
             storage.lock.unlock()
             UserDefaults.standard.set(true, forKey: Config.lastControllerWasDualShockKey)
             UserDefaults.standard.set(false, forKey: Config.lastControllerWasDualSenseKey)
@@ -2030,15 +2033,7 @@ class ControllerService: ObservableObject {
 
     private func setupAppleTVRemoteInputHandlers(for controller: GCController, microGamepad: GCMicroGamepad) {
 		storage.lock.lock()
-		storage.isAppleTVRemote = true
-		storage.isDualSense = false
-		storage.isDualSenseEdge = false
-		storage.isDualShock = false
-		storage.isNintendo = false
-		storage.isXboxElite = false
-		storage.isJoyConLeft = false
-		storage.isJoyConRight = false
-		storage.isSteamController = false
+		storage.applyControllerTypeLocked(.appleTVRemote)
 		storage.lock.unlock()
 
 		UserDefaults.standard.set(true, forKey: Config.lastControllerWasAppleTVRemoteKey)
@@ -2131,7 +2126,7 @@ class ControllerService: ObservableObject {
 			releaseAppleTVRemoteTouchIfStillActive()
 
 				storage.lock.lock()
-				storage.isAppleTVRemote = false
+				storage.clearAppleTVRemoteFlagLocked()
 				storage.lock.unlock()
 
 			UserDefaults.standard.set(false, forKey: Config.lastControllerWasAppleTVRemoteKey)
@@ -2210,14 +2205,7 @@ class ControllerService: ObservableObject {
         NSLog("[ControllerKeys] Joy-Con L/R detection: isLeft=%d  isRight=%d", isLeft ? 1 : 0, isRight ? 1 : 0)
 
         storage.lock.lock()
-        storage.isNintendo = true
-        storage.isJoyConLeft = isLeft
-        storage.isJoyConRight = isRight
-        storage.isDualSense = false
-        storage.isDualSenseEdge = false
-        storage.isDualShock = false
-        storage.isXboxElite = false
-        storage.isSteamController = false
+        storage.applyControllerTypeLocked(.nintendo(ControllerJoyConSide(isLeft: isLeft, isRight: isRight)))
         storage.lock.unlock()
 
         UserDefaults.standard.set(true, forKey: Config.lastControllerWasNintendoKey)
@@ -2273,17 +2261,14 @@ class ControllerService: ObservableObject {
         ]
 
         // Stickless 8BitDo pads (Zero 2 / Micro in D-input mode) have no real
-        // analog stick — their physical d-pad IS the directional input. The
-        // Micro exposes it as a "Direction Pad" (with digital sub-buttons),
-        // which we must NOT bind as .dpad* buttons here: that would fire d-pad
-        // actions AND (via the thumbstick fallback below) drive the mouse —
-        // the double-input. Instead we route the d-pad to the left stick so
-        // the left-stick mode (Mouse by default, or the D-Pad mode) governs
-        // it, exactly like the Zero 2 (which exposes its d-pad as a thumbstick).
-		let isSticklessEightBitDo = Self.eightBitDoMinimapModel(
+		// analog stick. When macOS exposes the physical d-pad as a
+		// `Direction Pad`, bind it as real .dpad* buttons and do not also use it
+		// as the left-stick fallback. The mapping canvas labels this control as
+		// a D-pad, and Android-mode Micro reports digital D-pad directions here.
+		let useDirectionPadAsLeftStickFallback = Self.shouldUsePhysicalDirectionPadAsLeftStickFallback(
 			vendorName: controller.vendorName,
 			productCategory: controller.productCategory
-		)?.isStickless == true
+		)
 
         var boundCount = 0
         for (inputName, controllerButton) in buttonMap {
@@ -2293,9 +2278,8 @@ class ControllerService: ObservableObject {
             }
         }
 
-        // D-pad (skip the direct button binding for stickless 8BitDo pads —
-        // their d-pad flows through the left stick instead, see above).
-        if !isSticklessEightBitDo, let dpad = profile.dpads[GCInputDirectionPad] {
+		// D-pad.
+		if let dpad = profile.dpads[GCInputDirectionPad] {
 			bindButton(dpad.up, to: .dpadUp, from: controller)
 			bindButton(dpad.down, to: .dpadDown, from: controller)
 			bindButton(dpad.left, to: .dpadLeft, from: controller)
@@ -2311,7 +2295,7 @@ class ControllerService: ObservableObject {
 					service.updateLeftStick(x: x, y: y)
 				}
             }
-        } else if let dpad = profile.dpads[GCInputDirectionPad] {
+		} else if useDirectionPadAsLeftStickFallback, let dpad = profile.dpads[GCInputDirectionPad] {
             // Fallback: Joy-Con stick may be exposed as a D-pad rather than a thumbstick.
             // Use it for mouse movement so the user gets analog-like cursor control.
 			dpad.valueChangedHandler = { [weak self, weak controller] _, xValue, yValue in
@@ -2343,9 +2327,9 @@ class ControllerService: ObservableObject {
     // MARK: - Thread-Safe Update Helpers
 
     nonisolated func updateLeftStick(x: Float, y: Float) {
+        let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
         storage.lock.lock()
-        storage.leftStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
-        let callback = storage.onLeftStickMoved
+        storage.leftStick = point
         let feedCloneDetector = storage.isDualShock
         storage.lock.unlock()
 
@@ -2353,32 +2337,37 @@ class ControllerService: ObservableObject {
         // stick. (The Nintendo path feeds it from clean raw-HID axes instead —
         // see handleNintendoHIDReport — to avoid any GameController smoothing.)
         if feedCloneDetector {
-            sticklessCloneDetector.noteLeftStick(CGPoint(x: CGFloat(x), y: CGFloat(y)))
-        }
-
-        // Only create Task if callback exists (avoids creating 250+ Tasks/sec for nil callbacks)
-        if let callback = callback {
-            let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
-            Task { @MainActor in
-                callback(point)
-            }
+            sticklessCloneDetector.noteLeftStick(point)
         }
     }
 
     nonisolated func updateRightStick(x: Float, y: Float) {
+        let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
         storage.lock.lock()
-        storage.rightStick = CGPoint(x: CGFloat(x), y: CGFloat(y))
-        let callback = storage.onRightStickMoved
+        storage.rightStick = point
         storage.lock.unlock()
-
-        // Only create Task if callback exists (avoids creating 250+ Tasks/sec for nil callbacks)
-        if let callback = callback {
-            let point = CGPoint(x: CGFloat(x), y: CGFloat(y))
-            Task { @MainActor in
-                callback(point)
-            }
-        }
     }
+
+    nonisolated func updateOuraRingStick(_ point: CGPoint, side: JoystickSide) {
+		switch side {
+		case .left:
+			updateLeftStick(x: Float(point.x), y: Float(point.y))
+		case .right:
+			updateRightStick(x: Float(point.x), y: Float(point.y))
+		}
+    }
+
+    nonisolated func releaseOuraRingInputs() {
+		updateLeftStick(x: 0, y: 0)
+		updateRightStick(x: 0, y: 0)
+		releaseOuraRingButtons()
+    }
+
+	nonisolated private func releaseOuraRingButtons() {
+		for button in ControllerButton.ouraRingButtons {
+			handleButton(button, pressed: false)
+		}
+	}
 
     nonisolated func updateLeftTrigger(_ value: Float, pressed: Bool) {
         storage.lock.lock()
@@ -2431,7 +2420,6 @@ class ControllerService: ObservableObject {
             && !storage.chordParticipantButtons.contains(button)
             && storage.capturedButtonsInWindow.isEmpty
         if shouldBypassChordWindow {
-            let callback = storage.onButtonPressed
             let uiButtons = storage.activeButtons
             storage.lock.unlock()
 
@@ -2440,7 +2428,7 @@ class ControllerService: ObservableObject {
             }
 
             LatencyDiagnostics.mark("controller.lowLatencyPress \(button.rawValue)")
-            callback?(button)
+            emitInputEvent(.buttonPressed(button))
             return
         }
 
@@ -2493,9 +2481,8 @@ class ControllerService: ObservableObject {
             storage.pendingReleases[button] = holdDuration
             storage.lock.unlock()
         } else {
-            let callback = storage.onButtonReleased
             storage.lock.unlock()
-            callback?(button, holdDuration)
+            emitInputEvent(.buttonReleased(button, holdDuration: holdDuration))
         }
     }
 
@@ -2511,10 +2498,6 @@ class ControllerService: ObservableObject {
         let releases = storage.pendingReleases
         storage.pendingReleases.removeAll()
 
-        let chordCallback = storage.onChordDetected
-        let pressCallback = storage.onButtonPressed
-        let releaseCallback = storage.onButtonReleased
-
         storage.lock.unlock()
 
         // Deliver chord/press callbacks FIRST, then pending releases.
@@ -2526,15 +2509,15 @@ class ControllerService: ObservableObject {
         // hold-path buttons (mouse clicks) permanently stuck down.
         if captured.count >= 2 {
             LatencyDiagnostics.mark("controller.chord \(captured.map(\.rawValue).sorted().joined(separator: "+"))")
-            chordCallback?(captured)
+            emitInputEvent(.chordDetected(captured))
         } else if let button = captured.first {
             LatencyDiagnostics.mark("controller.delayedPress \(button.rawValue)")
-            pressCallback?(button)
+            emitInputEvent(.buttonPressed(button))
         }
 
         for button in captured {
             if let duration = releases[button] {
-                releaseCallback?(button, duration)
+                emitInputEvent(.buttonReleased(button, holdDuration: duration))
             }
         }
     }

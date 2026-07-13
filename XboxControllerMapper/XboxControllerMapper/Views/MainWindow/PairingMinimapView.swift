@@ -33,7 +33,9 @@ struct PairingMinimapView: View {
 
     var body: some View {
         Group {
-            if layout.isAppleTVRemote(using: service) {
+			if visualDescriptor.isOuraRing {
+				ouraRingMinimap
+			} else if visualDescriptor.isAppleTVRemote {
                 appleTVRemoteMinimap
             } else {
                 gamepadMinimap
@@ -51,17 +53,12 @@ struct PairingMinimapView: View {
 
     // MARK: - Gamepad
 
-    /// Mirrors `ControllerAnalogOverlay.minimapStyle` so the body silhouette and
-    /// the overlay agree on which layout tables to use.
+    private var visualDescriptor: ControllerVisualDescriptor {
+        ControllerVisualDescriptor.resolved(previewLayout: layout, using: service)
+    }
+
     private var minimapStyle: ControllerMinimapStyle {
-        if let model = layout.eightBitDoModel(using: service) { return model.minimapStyle }
-        if layout.isSteamController(using: service) { return .steam }
-        if layout.isDualShock(using: service) { return .dualShock }
-        if layout.isDualSenseEdge(using: service) { return .dualSenseEdge }
-        if layout.isPlayStation(using: service) { return .dualSense }
-        if layout.isNintendo(using: service) { return .nintendo }
-        if layout.isXboxElite(using: service) { return .xboxElite }
-        return .xbox
+        visualDescriptor.minimapStyle ?? .xbox
     }
 
     private var gamepadMinimap: some View {
@@ -75,13 +72,7 @@ struct PairingMinimapView: View {
 
             ControllerAnalogOverlay(
                 controllerService: service,
-                isPlayStation: layout.isPlayStation(using: service),
-                isNintendo: layout.isNintendo(using: service),
-                isXboxElite: layout.isXboxElite(using: service),
-                isSteamController: layout.isSteamController(using: service),
-                isDualShock: layout.isDualShock(using: service),
-                isDualSenseEdge: layout.isDualSenseEdge(using: service),
-                eightBitDoModel: layout.eightBitDoModel(using: service),
+                descriptor: visualDescriptor,
                 onButtonTap: { _ in },
                 overrideColorForButton: { pressedButtons.contains($0) ? Color.accentColor : nil }
             )
@@ -102,5 +93,15 @@ struct PairingMinimapView: View {
             .frame(width: size.width, height: size.height)
             .scaleEffect(scale)
             .frame(width: (size.width * scale).rounded(), height: remoteTargetHeight)
+    }
+
+    private var ouraRingMinimap: some View {
+		let size = OuraRingMinimapView.previewSize
+		let scale = targetWidth / size.width
+
+		return OuraRingMinimapView(isTapPressed: pressedButtons.contains { $0.isOuraRingOnly })
+			.frame(width: size.width, height: size.height)
+			.scaleEffect(scale)
+			.frame(width: targetWidth, height: (size.height * scale).rounded())
     }
 }

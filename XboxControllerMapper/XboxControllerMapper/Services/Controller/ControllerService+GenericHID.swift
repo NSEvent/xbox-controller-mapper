@@ -27,43 +27,10 @@ extension ControllerService {
         let context = UnsafeMutableRawPointer(retainedContext)
 
         genericHIDSetupQueue.async {
-            let excludedVendors: Set<Int> = [
-                0x045E, // Xbox raw Guide/Elite path
-                0x054C, // PlayStation raw PS button path
-                0x057E, // Nintendo raw Home button path
-                SteamControllerHIDParser.valveVendorID,
-            ]
-	    let knownMappingCriteria = GameControllerDatabase.shared
-                .knownVendorProductPairs(excludingVendors: excludedVendors)
-                .map { pair in
-                    [
-                        kIOHIDVendorIDKey as String: pair.vendorID,
-                        kIOHIDProductIDKey as String: pair.productID,
-                    ] as CFDictionary
-		}
-	    let standardControllerCriteria = [
-		[
-		    kIOHIDDeviceUsagePageKey as String: kHIDPage_GenericDesktop,
-		    kIOHIDDeviceUsageKey as String: kHIDUsage_GD_Joystick,
-		],
-		[
-		    kIOHIDDeviceUsagePageKey as String: kHIDPage_GenericDesktop,
-		    kIOHIDDeviceUsageKey as String: kHIDUsage_GD_GamePad,
-		],
-		[
-		    kIOHIDDeviceUsagePageKey as String: kHIDPage_GenericDesktop,
-		    kIOHIDDeviceUsageKey as String: kHIDUsage_GD_MultiAxisController,
-		],
-	    ].map { $0 as CFDictionary }
-	    let bluetoothLECriteria = [
-		[kIOHIDTransportKey as String: "BluetoothLowEnergy"],
-		[kIOHIDTransportKey as String: "Bluetooth Low Energy"],
-	    ].map { $0 as CFDictionary }
-	    let criteria = (
-		knownMappingCriteria +
-		standardControllerCriteria +
-		bluetoothLECriteria
-	    ) as CFArray
+			let knownMappingCriteria = GameControllerDatabase.shared
+				.knownVendorProductPairs(excludingVendors: GenericHIDDriverDescriptor.excludedVendorIDs)
+			let descriptor = GenericHIDDriverDescriptor(knownVendorProductPairs: knownMappingCriteria)
+			let criteria = descriptor.matchingCFArray
 
             guard CFArrayGetCount(criteria) > 0 else { return }
             IOHIDManagerSetDeviceMatchingMultiple(manager, criteria)

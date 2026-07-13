@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var showingSequenceSheet = false
     @State private var editingSequence: SequenceMapping?
     @State private var showingSettingsSheet = false
+    @State private var showingCommandPalette = false
     @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
     @State private var showingWelcome = false
     @AppStorage("hasCompletedPermissionsOnboarding") private var hasCompletedOnboarding = false
@@ -32,6 +33,14 @@ struct ContentView: View {
 
 	private var controllerPreviewLayout: ControllerPreviewLayout {
 		profileManager.activeProfile?.controllerPreviewLayout ?? .active
+	}
+
+	private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+	}
+
+	private var controllerVisualDescriptor: ControllerVisualDescriptor {
+		ControllerVisualDescriptor.resolved(previewLayout: controllerPreviewLayout, using: controllerService)
 	}
 
 	private var controllerPreviewLayoutBinding: Binding<ControllerPreviewLayout> {
@@ -69,7 +78,8 @@ struct ContentView: View {
                 // Toolbar
 				ContentToolbar(
 					showingSettingsSheet: $showingSettingsSheet,
-					profileSidebarVisible: $profileSidebarVisible
+					profileSidebarVisible: $profileSidebarVisible,
+					showingCommandPalette: $showingCommandPalette
 				)
                     .zIndex(1) // Keep above content
 
@@ -121,6 +131,9 @@ struct ContentView: View {
                     case 14:
                         InputSettingsView()
                             .scrollContentBackground(.hidden)
+					case 15:
+						RingSettingsView()
+							.scrollContentBackground(.hidden)
                     case 2:
                         JoystickSettingsView()
                             .scrollContentBackground(.hidden)
@@ -183,10 +196,10 @@ struct ContentView: View {
                     },
                     set: { _ in } // Read-only: ButtonMappingSheet saves directly via ProfileManager (see saveMapping())
                 ),
-					isDualSense: controllerPreviewLayout.isPlayStation(using: controllerService),
-					isNintendo: controllerPreviewLayout.isNintendo(using: controllerService),
-					isSteamController: controllerPreviewLayout.isSteamController(using: controllerService),
-					isAppleTVRemote: controllerPreviewLayout.isAppleTVRemote(using: controllerService),
+					isDualSense: controllerVisualDescriptor.isPlayStation,
+					isNintendo: controllerVisualDescriptor.isNintendo,
+					isSteamController: controllerVisualDescriptor.isSteamController,
+					isAppleTVRemote: controllerVisualDescriptor.isAppleTVRemote,
 					selectedLayerId: selectedLayerId
 				)
         }
@@ -210,6 +223,11 @@ struct ContentView: View {
         }
         .isolatedSheet(isPresented: $showingSettingsSheet) {
             SettingsSheet()
+        }
+        .isolatedSheet(isPresented: $showingCommandPalette) {
+            CommandPaletteView(destinations: paletteDestinations) { destination in
+                applyPaletteNavigation(destination)
+            }
         }
         .isolatedSheet(isPresented: $showingWelcome) {
             TrialWelcomeSheet {
@@ -286,6 +304,16 @@ struct ContentView: View {
                 .hidden()
                 .accessibilityHidden(true)
         )
+        // ⌘K opens the command palette — a Spotlight-style jump bar to any
+        // section, controller button, or bound shortcut. Hidden button so the
+        // shortcut fires globally while the main window is key (same pattern as
+        // the tab/zoom shortcuts above).
+        .background(
+            Button("Command Palette") { showingCommandPalette = true }
+                .keyboardShortcut("k", modifiers: .command)
+                .hidden()
+                .accessibilityHidden(true)
+        )
         // Pinch zoom now lives on the Buttons-tab canvas itself
         // (ButtonMappingsTab), anchored at the gesture location.
         .onAppear { installScrollKeyMonitor() }
@@ -332,21 +360,9 @@ struct ContentView: View {
         .onChange(of: hiddenSectionTags) { _, _ in
             selectFirstVisibleTabIfNeeded()
         }
-        .onChange(of: controllerService.threadSafeIsPlayStation) { _, _ in
-            selectFirstVisibleTabIfNeeded()
-        }
-        .onChange(of: controllerService.threadSafeIsDualSense) { _, _ in
-            selectFirstVisibleTabIfNeeded()
-        }
-			.onChange(of: controllerService.threadSafeIsSteamController) { _, _ in
-				selectFirstVisibleTabIfNeeded()
-			}
-			.onChange(of: controllerService.threadSafeIsAppleTVRemote) { _, _ in
-				selectFirstVisibleTabIfNeeded()
-			}
-			.onChange(of: controllerService.threadSafeHasMotion) { _, _ in
-            selectFirstVisibleTabIfNeeded()
-        }
+		.onChange(of: controllerPresentationState) { _, _ in
+			selectFirstVisibleTabIfNeeded()
+		}
         .onDisappear {
             if let monitor = scrollKeyMonitor {
                 NSEvent.removeMonitor(monitor)
@@ -392,19 +408,20 @@ struct ContentView: View {
 
     // MARK: - Tab Navigation
 
-    /// Tab definitions for the custom tab bar.
-    private var customTabs: [CustomTabItem] {
-        let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
-        return MainWindowSection.visibleSections(
-            hiddenSections: hiddenSections,
-            isPlayStation: controllerService.threadSafeIsPlayStation,
-            isDualSense: controllerService.threadSafeIsDualSense,
-            isSteamController: controllerService.threadSafeIsSteamController,
-			isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
-            hasMotion: controllerService.threadSafeHasMotion
-        )
-        .map(\.tabItem)
-    }
+	/// Tab definitions for the custom tab bar.
+	private var customTabs: [CustomTabItem] {
+		let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
+		let presentationState = controllerPresentationState
+		return MainWindowSection.visibleSections(
+			hiddenSections: hiddenSections,
+			isPlayStation: presentationState.isPlayStation,
+			isDualSense: presentationState.isDualSense,
+			isSteamController: presentationState.isSteamController,
+			isAppleTVRemote: presentationState.isAppleTVRemote,
+			hasMotion: presentationState.hasMotion
+		)
+		.map(\.tabItem)
+	}
 
     /// Ordered list of visible tab tags matching the TabView order.
     private var orderedTabTags: [Int] {
@@ -428,6 +445,41 @@ struct ContentView: View {
             return
         }
         selectedTab = firstVisibleTag
+    }
+
+    // MARK: - Command Palette (⌘K)
+
+    /// Jump-targets for the ⌘K palette: every visible section, every mapped
+    /// button (plus the always-present core buttons), and Settings. Built fresh
+    /// each time the palette opens so it reflects the current controller and the
+    /// active profile's bindings.
+    private var paletteDestinations: [CommandPaletteDestination] {
+        CommandPaletteDestinationProvider.destinations(
+            visibleTabs: customTabs,
+            mappings: profileManager.activeProfile?.buttonMappings ?? [:],
+            descriptor: controllerVisualDescriptor
+        )
+    }
+
+    /// Performs the navigation for a palette selection. Section switches happen
+    /// immediately; anything that opens another sheet is deferred briefly so the
+    /// palette sheet has finished dismissing first (avoids the sheet-contention
+    /// described on `isolatedSheet`).
+    private func applyPaletteNavigation(_ destination: CommandPaletteDestination) {
+        switch destination.target {
+        case .section(let tag):
+            withAnimation(.easeInOut(duration: 0.16)) { selectedTab = tag }
+        case .button(let button):
+            // Surface the button on the Buttons canvas, then open its editor.
+            selectedTab = MainWindowSection.buttons.rawValue
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                configuringButton = button
+            }
+        case .settings:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                showingSettingsSheet = true
+            }
+        }
     }
 
     // MARK: - Scroll Key Navigation (Home/End/PageUp/PageDown)
@@ -731,6 +783,10 @@ extension UUID: @retroactive Identifiable {
     let profileManager = ProfileManager()
     let appMonitor = AppMonitor()
     let inputLogService = InputLogService()
+    let ouraRingInputService = OuraRingInputService(
+		controllerService: controllerService,
+		profileManager: profileManager
+    )
     let mappingEngine = MappingEngine(
         controllerService: controllerService,
         profileManager: profileManager,
@@ -744,6 +800,7 @@ extension UUID: @retroactive Identifiable {
         .environmentObject(appMonitor)
         .environmentObject(mappingEngine)
         .environmentObject(inputLogService)
+		.environmentObject(ouraRingInputService)
 }
 
 // MARK: - Main Window Sections
@@ -764,6 +821,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
     case wheel = 12
     case history = 13
     case input = 14
+	case ring = 15
 
     static let hiddenDefaultsKey = "hiddenMainWindowSectionTags"
 
@@ -776,6 +834,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         .scripts,
         .wheel,
         .input,
+		.ring,
         .joysticks,
         .touchpad,
         .leds,
@@ -804,6 +863,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .wheel: return "Wheel"
         case .history: return "History"
         case .input: return "Input"
+		case .ring: return "Ring"
         }
     }
 
@@ -822,7 +882,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
             return .map
         case .macros, .scripts, .wheel, .keyboard:
             return .automate
-        case .input, .joysticks, .touchpad, .leds, .microphone:
+		case .input, .ring, .joysticks, .touchpad, .leds, .microphone:
             return .hardware
         case .stats, .history:
             return .activity
@@ -839,6 +899,7 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .scripts: return "curlybraces"
         case .wheel: return "circle.grid.cross"
         case .input: return "speedometer"
+		case .ring: return "circle.dashed"
         case .keyboard: return "keyboard"
         case .joysticks: return "circle.circle"
         case .touchpad: return "rectangle.and.hand.point.up.left"
@@ -846,6 +907,29 @@ enum MainWindowSection: Int, CaseIterable, Identifiable {
         case .microphone: return "mic.fill"
         case .stats: return "chart.bar.xaxis"
         case .history: return "clock.arrow.circlepath"
+        }
+    }
+
+    /// Extra search terms for the ⌘K palette so a section is findable by what it
+    /// does, not just its label (e.g. "javascript" → Scripts, "latency" → Input).
+    var searchKeywords: [String] {
+        switch self {
+        case .buttons: return ["mappings", "bindings", "keys", "remap"]
+        case .chords: return ["combo", "combination", "simultaneous"]
+        case .sequences: return ["combo", "order", "series", "fighting"]
+        case .gestures: return ["motion", "gyro", "tilt", "aim"]
+        case .macros: return ["automation", "record", "replay", "sequence"]
+        case .scripts: return ["javascript", "js", "code", "automation", "engine"]
+        case .wheel: return ["radial", "menu", "command", "pie"]
+        case .input: return ["latency", "realtime", "timing", "mode"]
+		case .ring: return ["oura", "motion", "tilt", "tap", "flick", "bluetooth", "pairing", "calibration", "recenter"]
+        case .joysticks: return ["sticks", "deadzone", "sensitivity", "curve", "analog"]
+        case .touchpad: return ["trackpad", "gyro", "regions", "quadrants", "pad"]
+        case .leds: return ["lightbar", "color", "lighting", "rgb"]
+        case .microphone: return ["mic", "mute", "audio"]
+        case .keyboard: return ["on-screen", "osk", "swipe", "typing"]
+        case .stats: return ["usage", "wrapped", "analytics", "metrics"]
+        case .history: return ["snapshots", "undo", "versions", "restore"]
         }
     }
 

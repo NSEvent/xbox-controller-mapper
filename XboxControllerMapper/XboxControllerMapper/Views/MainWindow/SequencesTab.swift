@@ -7,7 +7,13 @@ struct SequencesTab: View {
     @Binding var showingSequenceSheet: Bool
     @Binding var editingSequence: SequenceMapping?
 
+    private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+    }
+
     var body: some View {
+		let presentationState = controllerPresentationState
+
         Form {
             Section {
                 Button(action: { showingSequenceSheet = true }) {
@@ -19,11 +25,11 @@ struct SequencesTab: View {
                 if let profile = profileManager.activeProfile, !profile.sequenceMappings.isEmpty {
                     SequenceListView(
                         sequences: profile.sequenceMappings,
-							isDualSense: controllerService.threadSafeIsPlayStation,
-							isNintendo: controllerService.threadSafeIsNintendo,
-							isSteamController: controllerService.threadSafeIsSteamController,
-							isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
-							onEdit: { sequence in
+						isDualSense: presentationState.isPlayStation,
+						isNintendo: presentationState.isNintendo,
+						isSteamController: presentationState.isSteamController,
+						isAppleTVRemote: presentationState.isAppleTVRemote,
+						onEdit: { sequence in
                             editingSequence = sequence
                         },
                         onDelete: { sequence in

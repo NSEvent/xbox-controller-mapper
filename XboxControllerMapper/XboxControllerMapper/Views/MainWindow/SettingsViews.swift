@@ -5,6 +5,7 @@ import SwiftUI
 struct JoystickSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
     @State private var focusCursorHighlightEnabled: Bool = FocusModeIndicator.isEnabled
+    @State private var overrideLayerId: UUID?
 
     var settings: JoystickSettings {
         profileManager.activeProfile?.joystickSettings ?? .default
@@ -14,8 +15,8 @@ struct JoystickSettingsView: View {
         Form {
             Section("Left Joystick") {
                 Picker("Mode", selection: Binding(
-                    get: { settings.leftStickMode },
-                    set: { updateSettings(\.leftStickMode, $0) }
+                    get: { settings.leftStick.mode },
+                    set: { updateSettings(\.leftStick.mode, $0) }
                 )) {
                     ForEach(StickMode.visibleModes, id: \.self) { mode in
                         Text(LocalizedStringKey(mode.displayName)).tag(mode)
@@ -26,12 +27,12 @@ struct JoystickSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if settings.leftStickMode == .mouse {
+                if settings.leftStick.mode == .mouse {
                     SliderRow(
                         label: "Sensitivity",
                         value: Binding(
-                            get: { settings.mouseSensitivity },
-                            set: { updateSettings(\.mouseSensitivity, $0) }
+                            get: { settings.leftStick.mouseSensitivity },
+                            set: { updateSettings(\.leftStick.mouseSensitivity, $0) }
                         ),
                         range: 0...1,
                         description: "How fast the cursor moves"
@@ -40,20 +41,20 @@ struct JoystickSettingsView: View {
                     SliderRow(
                         label: "Acceleration",
                         value: Binding(
-                            get: { settings.mouseAcceleration },
-                            set: { updateSettings(\.mouseAcceleration, $0) }
+                            get: { settings.leftStick.mouseAcceleration },
+                            set: { updateSettings(\.leftStick.mouseAcceleration, $0) }
                         ),
                         range: 0...1,
                         description: "0 = linear, 1 = max curve"
                     )
                 }
 
-                if settings.leftStickMode == .scroll {
+                if settings.leftStick.mode == .scroll {
                     SliderRow(
                         label: "Sensitivity",
                         value: Binding(
-                            get: { settings.scrollSensitivity },
-                            set: { updateSettings(\.scrollSensitivity, $0) }
+                            get: { settings.leftStick.scrollSensitivity },
+                            set: { updateSettings(\.leftStick.scrollSensitivity, $0) }
                         ),
                         range: 0...1,
                         description: "How fast scrolling occurs"
@@ -62,48 +63,63 @@ struct JoystickSettingsView: View {
                     SliderRow(
                         label: "Acceleration",
                         value: Binding(
-                            get: { settings.scrollAcceleration },
-                            set: { updateSettings(\.scrollAcceleration, $0) }
+                            get: { settings.leftStick.scrollAcceleration },
+                            set: { updateSettings(\.leftStick.scrollAcceleration, $0) }
                         ),
                         range: 0...1,
                         description: "0 = linear, 1 = max curve"
                     )
                 }
 
-                if settings.leftStickMode == .custom {
+                if settings.leftStick.mode == .custom {
                     JoystickCustomDirectionPanel(
                         side: .left,
                         horizontalSliceSize: Binding(
-                            get: { settings.leftStickCustomHorizontalSliceSize },
-                            set: { updateSettings(\.leftStickCustomHorizontalSliceSize, $0) }
+                            get: { settings.leftStick.customHorizontalSliceSize },
+                            set: { updateSettings(\.leftStick.customHorizontalSliceSize, $0) }
                         ),
                         verticalSliceSize: Binding(
-                            get: { settings.leftStickCustomVerticalSliceSize },
-                            set: { updateSettings(\.leftStickCustomVerticalSliceSize, $0) }
+                            get: { settings.leftStick.customVerticalSliceSize },
+                            set: { updateSettings(\.leftStick.customVerticalSliceSize, $0) }
                         ),
                         deadzone: Binding(
-                            get: { settings.leftStickCustomDeadzone },
-                            set: { updateSettings(\.leftStickCustomDeadzone, $0) }
+                            get: { settings.leftStick.customDeadzone },
+                            set: { updateSettings(\.leftStick.customDeadzone, $0) }
                         ),
                         invertY: Binding(
-                            get: { settings.invertMouseY },
-                            set: { updateSettings(\.invertMouseY, $0) }
+                            get: { settings.leftStick.invertMouseY },
+                            set: { updateSettings(\.leftStick.invertMouseY, $0) }
                         )
                     )
                 } else {
+                    // Deadzone/Invert follow the active mode so they edit the field the
+                    // runtime actually reads: scroll mode uses the scroll fields, every
+                    // other (movement) mode on the left stick uses the mouse fields.
                     SliderRow(
                         label: "Deadzone",
                         value: Binding(
-                            get: { settings.mouseDeadzone },
-                            set: { updateSettings(\.mouseDeadzone, $0) }
+                            get: { settings.leftStick.mode == .scroll ? settings.leftStick.scrollDeadzone : settings.leftStick.mouseDeadzone },
+                            set: {
+                                if settings.leftStick.mode == .scroll {
+                                    updateSettings(\.leftStick.scrollDeadzone, $0)
+                                } else {
+                                    updateSettings(\.leftStick.mouseDeadzone, $0)
+                                }
+                            }
                         ),
                         range: 0...0.5,
                         description: "Ignore small movements"
                     )
 
                     Toggle("Invert Y Axis", isOn: Binding(
-                        get: { settings.invertMouseY },
-                        set: { updateSettings(\.invertMouseY, $0) }
+                        get: { settings.leftStick.mode == .scroll ? settings.leftStick.invertScrollY : settings.leftStick.invertMouseY },
+                        set: {
+                            if settings.leftStick.mode == .scroll {
+                                updateSettings(\.leftStick.invertScrollY, $0)
+                            } else {
+                                updateSettings(\.leftStick.invertMouseY, $0)
+                            }
+                        }
                     ))
                 }
             }
@@ -168,16 +184,82 @@ struct JoystickSettingsView: View {
                     }
                 }
 
+				Picker("Analog Trigger", selection: Binding(
+					get: { settings.analogPrecisionTriggerMode },
+					set: { updateSettings(\.analogPrecisionTriggerMode, $0) }
+				)) {
+					ForEach(AnalogPrecisionTriggerMode.allCases, id: \.self) { mode in
+						Text(LocalizedStringKey(mode.displayName)).tag(mode)
+					}
+				}
+				.pickerStyle(.segmented)
+				.help("R2 / RT avoids the left-trigger swipe-typing overlap.")
+
+				if let analogPrecisionWarning {
+					Label(analogPrecisionWarning, systemImage: "exclamationmark.triangle")
+						.font(.caption)
+						.foregroundStyle(.secondary)
+						.help(analogPrecisionWarning)
+				}
+
+				if settings.analogPrecisionTriggerMode != .off {
+					SliderRow(
+						label: "Minimum Speed",
+						value: Binding(
+							get: { settings.analogPrecisionMinimumSpeed },
+							set: { updateSettings(\.analogPrecisionMinimumSpeed, $0) }
+						),
+						range: 0.05...1.0,
+						description: "Cursor speed at full trigger pull"
+					)
+
+					SliderRow(
+						label: "Trigger Deadzone",
+						value: Binding(
+							get: { settings.analogPrecisionDeadzone },
+							set: { updateSettings(\.analogPrecisionDeadzone, $0) }
+						),
+						range: 0...0.5,
+						description: "How far the trigger moves before slowing starts"
+					)
+
+					SliderRow(
+						label: "Trigger Curve",
+						value: Binding(
+							get: { settings.analogPrecisionCurve },
+							set: { updateSettings(\.analogPrecisionCurve, $0) }
+						),
+						range: 0...1,
+						description: "0 = linear, 1 = more slowdown near full pull"
+					)
+				}
+
                 Toggle("Highlight Focused Cursor", isOn: $focusCursorHighlightEnabled)
                     .onChange(of: focusCursorHighlightEnabled) { _, newValue in
                         FocusModeIndicator.isEnabled = newValue
                     }
             }
 
+            Section("FPS / Pointer-Lock Games") {
+                Picker("Relative Mouse Aiming", selection: Binding(
+                    get: { settings.pointerLockMouseMode },
+                    set: { updateSettings(\.pointerLockMouseMode, $0) }
+                )) {
+                    ForEach(PointerLockMouseMode.allCases, id: \.self) { mode in
+                        Text(LocalizedStringKey(mode.displayName)).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text("Games that capture the mouse (browser FPS, pointer lock) need relative input to aim 360°. Auto switches while the game hides the cursor, so aiming never stops at screen edges. Always is for per-app game profiles; the cursor won't move outside a game.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Right Joystick") {
                 Picker("Mode", selection: Binding(
-                    get: { settings.rightStickMode },
-                    set: { updateSettings(\.rightStickMode, $0) }
+                    get: { settings.rightStick.mode },
+                    set: { updateSettings(\.rightStick.mode, $0) }
                 )) {
                     ForEach(StickMode.visibleModes, id: \.self) { mode in
                         Text(LocalizedStringKey(mode.displayName)).tag(mode)
@@ -188,12 +270,12 @@ struct JoystickSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if settings.rightStickMode == .mouse {
+                if settings.rightStick.mode == .mouse {
                     SliderRow(
                         label: "Sensitivity",
                         value: Binding(
-                            get: { settings.mouseSensitivity },
-                            set: { updateSettings(\.mouseSensitivity, $0) }
+                            get: { settings.rightStick.mouseSensitivity },
+                            set: { updateSettings(\.rightStick.mouseSensitivity, $0) }
                         ),
                         range: 0...1,
                         description: "How fast the cursor moves"
@@ -202,20 +284,20 @@ struct JoystickSettingsView: View {
                     SliderRow(
                         label: "Acceleration",
                         value: Binding(
-                            get: { settings.mouseAcceleration },
-                            set: { updateSettings(\.mouseAcceleration, $0) }
+                            get: { settings.rightStick.mouseAcceleration },
+                            set: { updateSettings(\.rightStick.mouseAcceleration, $0) }
                         ),
                         range: 0...1,
                         description: "0 = linear, 1 = max curve"
                     )
                 }
 
-                if settings.rightStickMode == .scroll {
+                if settings.rightStick.mode == .scroll {
                     SliderRow(
                         label: "Sensitivity",
                         value: Binding(
-                            get: { settings.scrollSensitivity },
-                            set: { updateSettings(\.scrollSensitivity, $0) }
+                            get: { settings.rightStick.scrollSensitivity },
+                            set: { updateSettings(\.rightStick.scrollSensitivity, $0) }
                         ),
                         range: 0...1,
                         description: "How fast scrolling occurs"
@@ -224,8 +306,8 @@ struct JoystickSettingsView: View {
                     SliderRow(
                         label: "Acceleration",
                         value: Binding(
-                            get: { settings.scrollAcceleration },
-                            set: { updateSettings(\.scrollAcceleration, $0) }
+                            get: { settings.rightStick.scrollAcceleration },
+                            set: { updateSettings(\.rightStick.scrollAcceleration, $0) }
                         ),
                         range: 0...1,
                         description: "0 = linear, 1 = max curve"
@@ -242,41 +324,79 @@ struct JoystickSettingsView: View {
                     )
                 }
 
-                if settings.rightStickMode == .custom {
+                if settings.rightStick.mode == .custom {
                     JoystickCustomDirectionPanel(
                         side: .right,
                         horizontalSliceSize: Binding(
-                            get: { settings.rightStickCustomHorizontalSliceSize },
-                            set: { updateSettings(\.rightStickCustomHorizontalSliceSize, $0) }
+                            get: { settings.rightStick.customHorizontalSliceSize },
+                            set: { updateSettings(\.rightStick.customHorizontalSliceSize, $0) }
                         ),
                         verticalSliceSize: Binding(
-                            get: { settings.rightStickCustomVerticalSliceSize },
-                            set: { updateSettings(\.rightStickCustomVerticalSliceSize, $0) }
+                            get: { settings.rightStick.customVerticalSliceSize },
+                            set: { updateSettings(\.rightStick.customVerticalSliceSize, $0) }
                         ),
                         deadzone: Binding(
-                            get: { settings.rightStickCustomDeadzone },
-                            set: { updateSettings(\.rightStickCustomDeadzone, $0) }
+                            get: { settings.rightStick.customDeadzone },
+                            set: { updateSettings(\.rightStick.customDeadzone, $0) }
                         ),
                         invertY: Binding(
-                            get: { settings.invertScrollY },
-                            set: { updateSettings(\.invertScrollY, $0) }
+                            get: { settings.rightStick.invertScrollY },
+                            set: { updateSettings(\.rightStick.invertScrollY, $0) }
                         )
                     )
                 } else {
+                    // Deadzone/Invert follow the active mode so they edit the field the
+                    // runtime actually reads: mouse mode uses the mouse fields, every
+                    // other (movement) mode on the right stick uses the scroll fields.
                     SliderRow(
                         label: "Deadzone",
                         value: Binding(
-                            get: { settings.scrollDeadzone },
-                            set: { updateSettings(\.scrollDeadzone, $0) }
+                            get: { settings.rightStick.mode == .mouse ? settings.rightStick.mouseDeadzone : settings.rightStick.scrollDeadzone },
+                            set: {
+                                if settings.rightStick.mode == .mouse {
+                                    updateSettings(\.rightStick.mouseDeadzone, $0)
+                                } else {
+                                    updateSettings(\.rightStick.scrollDeadzone, $0)
+                                }
+                            }
                         ),
                         range: 0...0.5,
                         description: "Ignore small movements"
                     )
 
                     Toggle("Invert Y Axis", isOn: Binding(
-                        get: { settings.invertScrollY },
-                        set: { updateSettings(\.invertScrollY, $0) }
+                        get: { settings.rightStick.mode == .mouse ? settings.rightStick.invertMouseY : settings.rightStick.invertScrollY },
+                        set: {
+                            if settings.rightStick.mode == .mouse {
+                                updateSettings(\.rightStick.invertMouseY, $0)
+                            } else {
+                                updateSettings(\.rightStick.invertScrollY, $0)
+                            }
+                        }
                     ))
+                }
+            }
+
+            if let layers = profileManager.activeProfile?.layers, !layers.isEmpty {
+                Section("Per-Layer Overrides") {
+                    Text("Override stick behavior while a layer is held. Any control left on “Inherit” uses the base settings above.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Picker("Layer", selection: Binding(
+                        get: { resolvedOverrideLayer(layers)?.id },
+                        set: { overrideLayerId = $0 }
+                    )) {
+                        ForEach(layers) { layer in
+                            Text(layer.name).tag(layer.id as UUID?)
+                        }
+                    }
+
+                    if let layer = resolvedOverrideLayer(layers) {
+                        layerStickOverrideGroup(title: "Left Stick", side: .left, layer: layer)
+                        Divider()
+                        layerStickOverrideGroup(title: "Right Stick", side: .right, layer: layer)
+                    }
                 }
             }
         }
@@ -290,13 +410,154 @@ struct JoystickSettingsView: View {
         profileManager.updateJoystickSettings(newSettings)
     }
 
+	private var analogPrecisionTriggerButtons: [ControllerButton] {
+		switch settings.analogPrecisionTriggerMode {
+		case .off:
+			return []
+		case .left:
+			return [.leftTrigger]
+		case .right:
+			return [.rightTrigger]
+		case .either:
+			return [.rightTrigger, .leftTrigger]
+		}
+	}
+
+	private var analogPrecisionWarning: String? {
+		guard !analogPrecisionTriggerButtons.isEmpty else { return nil }
+		var messages: [String] = []
+
+		if let profile = profileManager.activeProfile {
+			let mappedTriggers = analogPrecisionTriggerButtons.filter { button in
+				(profile.buttonMappings[button]?.isEmpty == false)
+			}
+			if !mappedTriggers.isEmpty {
+				let names = mappedTriggers.map(\.displayName).joined(separator: " / ")
+				messages.append("\(names) also has a button mapping; precision stacks with that action.")
+			}
+		}
+
+		if analogPrecisionTriggerButtons.contains(.leftTrigger) {
+			messages.append("LT also starts swipe typing while the on-screen keyboard is visible.")
+		}
+
+		return messages.isEmpty ? nil : messages.joined(separator: " ")
+	}
+
+    /// The layer whose overrides are being edited: the picked one, or the first layer
+    /// when nothing valid is selected (so the section always shows a layer).
+    private func resolvedOverrideLayer(_ layers: [Layer]) -> Layer? {
+        layers.first(where: { $0.id == overrideLayerId }) ?? layers.first
+    }
+
+    /// Per-stick override controls for the selected layer: a mode override (with an
+    /// explicit "Inherit" option) plus sensitivity/acceleration/deadzone for the
+    /// effective mode. Each control inherits the base stick until explicitly set.
+    @ViewBuilder
+    private func layerStickOverrideGroup(title: String, side: JoystickSide, layer: Layer) -> some View {
+        let override = side == .left ? layer.leftStickTuning : layer.rightStickTuning
+        let base = settings.stick(side)
+        let effectiveMode = override?.mode ?? base.mode
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(LocalizedStringKey(title))
+                    .font(.subheadline.bold())
+                Spacer()
+                if override != nil {
+                    Button("Reset to Base") {
+                        profileManager.clearLayerStickOverride(side: side, layerId: layer.id)
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                }
+            }
+
+            Picker("Mode", selection: Binding(
+                get: { override?.mode },
+                set: { profileManager.setLayerStickOverride(\.mode, $0, side: side, layerId: layer.id) }
+            )) {
+                Text("Inherit (\(base.mode.displayName))").tag(StickMode?.none)
+                ForEach(StickMode.visibleModes, id: \.self) { mode in
+                    Text(LocalizedStringKey(mode.displayName)).tag(mode as StickMode?)
+                }
+            }
+
+            switch effectiveMode {
+            case .mouse:
+                layerOverrideSlider("Sensitivity", side: side, layer: layer, keyPath: \.mouseSensitivity, base: base.mouseSensitivity, range: 0...1)
+                layerOverrideSlider("Acceleration", side: side, layer: layer, keyPath: \.mouseAcceleration, base: base.mouseAcceleration, range: 0...1)
+                layerOverrideSlider("Deadzone", side: side, layer: layer, keyPath: \.mouseDeadzone, base: base.mouseDeadzone, range: 0...0.5)
+            case .scroll:
+                layerOverrideSlider("Sensitivity", side: side, layer: layer, keyPath: \.scrollSensitivity, base: base.scrollSensitivity, range: 0...1)
+                layerOverrideSlider("Acceleration", side: side, layer: layer, keyPath: \.scrollAcceleration, base: base.scrollAcceleration, range: 0...1)
+                layerOverrideSlider("Deadzone", side: side, layer: layer, keyPath: \.scrollDeadzone, base: base.scrollDeadzone, range: 0...0.5)
+            case .none, .custom, .dpad, .wasdKeys, .arrowKeys:
+                Text("No tunable sensitivity for \(effectiveMode.displayName) mode.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func layerOverrideSlider(
+        _ label: String,
+        side: JoystickSide,
+        layer: Layer,
+        keyPath: WritableKeyPath<StickTuningOverride, Double?>,
+        base: Double,
+        range: ClosedRange<Double>
+    ) -> some View {
+        let override = side == .left ? layer.leftStickTuning : layer.rightStickTuning
+        let overrideValue = override?[keyPath: keyPath]
+        let isOverridden = overrideValue != nil
+
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(LocalizedStringKey(label))
+                    .italic(!isOverridden)
+                    .foregroundStyle(isOverridden ? Color.primary : Color.secondary)
+                if !isOverridden {
+                    Text("· inherited")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                Spacer()
+                Text("\(overrideValue ?? base, specifier: "%.2f")")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+                    .frame(width: 40)
+                if isOverridden {
+                    Button {
+                        profileManager.setLayerStickOverride(keyPath, nil, side: side, layerId: layer.id)
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Reset to base (inherit)")
+                }
+            }
+
+            Slider(
+                value: Binding(
+                    get: { overrideValue ?? base },
+                    set: { profileManager.setLayerStickOverride(keyPath, $0, side: side, layerId: layer.id) }
+                ),
+                in: range
+            )
+        }
+    }
+
 }
 
 // MARK: - Touchpad Settings View
 
 struct TouchpadSettingsView: View {
     @EnvironmentObject var profileManager: ProfileManager
-	@EnvironmentObject var controllerService: ControllerService
+    @EnvironmentObject var controllerService: ControllerService
     @State private var cursorAdvancedExpanded = false
     @State private var zoomAdvancedExpanded = false
 
@@ -304,9 +565,13 @@ struct TouchpadSettingsView: View {
         profileManager.activeProfile?.joystickSettings ?? .default
     }
 
-	private var isAppleTVRemote: Bool {
-		controllerService.threadSafeIsAppleTVRemote
-	}
+    private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+    }
+
+    private var isAppleTVRemote: Bool {
+		controllerPresentationState.isAppleTVRemote
+    }
 
     var body: some View {
         Form {

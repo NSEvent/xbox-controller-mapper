@@ -56,8 +56,12 @@ struct SettingsSheet: View {
     @AppStorage(WindowBackgroundDefaults.opacityKey) private var windowBackgroundOpacity: Double = WindowBackgroundDefaults.defaultOpacity
     @AppStorage("telemetryEnabled") private var shareUsageData = true
 
-    @ObservedObject private var license = LicenseManager.shared
-    @ObservedObject private var updater = UpdaterManager.shared
+	@ObservedObject private var license = LicenseManager.shared
+	@ObservedObject private var updater = UpdaterManager.shared
+
+	private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+	}
     @ObservedObject private var permissions = PermissionsManager.shared
 
     @State private var selection: SettingsCategory? = .general
@@ -465,15 +469,16 @@ struct SettingsSheet: View {
         }
     }
 
-    @ViewBuilder
-    private func mainSectionToggle(_ section: MainWindowSection) -> some View {
-        let available = section.isAvailable(
-            isPlayStation: controllerService.threadSafeIsPlayStation,
-            isDualSense: controllerService.threadSafeIsDualSense,
-            isSteamController: controllerService.threadSafeIsSteamController,
-            isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
-            hasMotion: controllerService.threadSafeHasMotion
-        )
+	@ViewBuilder
+	private func mainSectionToggle(_ section: MainWindowSection) -> some View {
+		let presentationState = controllerPresentationState
+		let available = section.isAvailable(
+			isPlayStation: presentationState.isPlayStation,
+			isDualSense: presentationState.isDualSense,
+			isSteamController: presentationState.isSteamController,
+			isAppleTVRemote: presentationState.isAppleTVRemote,
+			hasMotion: presentationState.hasMotion
+		)
 
         Toggle(isOn: visibleSectionBinding(for: section)) {
             HStack(spacing: 8) {
@@ -758,16 +763,17 @@ struct SettingsSheet: View {
         )
     }
 
-    private func isLastVisibleSection(_ section: MainWindowSection) -> Bool {
-        let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
-        let visibleSections = MainWindowSection.visibleSections(
-            hiddenSections: hiddenSections,
-            isPlayStation: controllerService.threadSafeIsPlayStation,
-            isDualSense: controllerService.threadSafeIsDualSense,
-            isSteamController: controllerService.threadSafeIsSteamController,
-            isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
-            hasMotion: controllerService.threadSafeHasMotion
-        )
+	private func isLastVisibleSection(_ section: MainWindowSection) -> Bool {
+		let hiddenSections = MainWindowSection.hiddenSections(from: hiddenSectionTags)
+		let presentationState = controllerPresentationState
+		let visibleSections = MainWindowSection.visibleSections(
+			hiddenSections: hiddenSections,
+			isPlayStation: presentationState.isPlayStation,
+			isDualSense: presentationState.isDualSense,
+			isSteamController: presentationState.isSteamController,
+			isAppleTVRemote: presentationState.isAppleTVRemote,
+			hasMotion: presentationState.hasMotion
+		)
         return visibleSections.count == 1 && visibleSections.first == section
     }
 

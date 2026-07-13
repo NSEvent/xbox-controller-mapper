@@ -7,7 +7,13 @@ struct ChordsTab: View {
     @Binding var showingChordSheet: Bool
     @Binding var editingChord: ChordMapping?
 
+    private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+    }
+
     var body: some View {
+		let presentationState = controllerPresentationState
+
         Form {
             Section {
                 Button(action: { showingChordSheet = true }) {
@@ -19,11 +25,11 @@ struct ChordsTab: View {
                 if let profile = profileManager.activeProfile, !profile.chordMappings.isEmpty {
                     ChordListView(
                         chords: profile.chordMappings,
-							isDualSense: controllerService.threadSafeIsPlayStation,
-							isNintendo: controllerService.threadSafeIsNintendo,
-							isSteamController: controllerService.threadSafeIsSteamController,
-							isAppleTVRemote: controllerService.threadSafeIsAppleTVRemote,
-							onEdit: { chord in
+						isDualSense: presentationState.isPlayStation,
+						isNintendo: presentationState.isNintendo,
+						isSteamController: presentationState.isSteamController,
+						isAppleTVRemote: presentationState.isAppleTVRemote,
+						onEdit: { chord in
                             editingChord = chord
                         },
                         onDelete: { chord in

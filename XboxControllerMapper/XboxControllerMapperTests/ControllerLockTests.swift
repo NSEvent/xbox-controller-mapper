@@ -42,13 +42,12 @@ final class ControllerLockTests: XCTestCase {
     override func tearDown() async throws {
         await MainActor.run {
             mappingEngine?.disable()
+			OuraRingCommandCenter.shared.resetHandlersForTesting()
         }
         try? await Task.sleep(nanoseconds: 100_000_000)
         await MainActor.run {
             mockInputSimulator?.releaseAllModifiers()
-            controllerService?.onButtonPressed = nil
-            controllerService?.onButtonReleased = nil
-            controllerService?.onChordDetected = nil
+            controllerService?.onInputEvent = nil
             controllerService?.cleanup()
             mappingEngine = nil
             controllerService = nil
@@ -65,6 +64,32 @@ final class ControllerLockTests: XCTestCase {
         await Task.yield()
     }
 
+	func testLockToggleRecentersOuraRingOnLockAndUnlock() async throws {
+		var centerCount = 0
+		await MainActor.run {
+			OuraRingCommandCenter.shared.install(
+				center: { centerCount += 1 },
+				toggleMotion: {}
+			)
+		}
+
+		await MainActor.run {
+			XCTAssertTrue(mappingEngine.performLockToggle(), "First toggle should lock")
+		}
+		await waitForTasks(0.05)
+		await MainActor.run {
+			XCTAssertEqual(centerCount, 1, "Locking should recenter the Oura ring")
+		}
+
+		await MainActor.run {
+			XCTAssertFalse(mappingEngine.performLockToggle(), "Second toggle should unlock")
+		}
+		await waitForTasks(0.05)
+		await MainActor.run {
+			XCTAssertEqual(centerCount, 2, "Unlocking should recenter the Oura ring again")
+		}
+	}
+
     // MARK: 1. Lock via single button — blocks subsequent presses
 
     func testLockViaSingleButton_BlocksSubsequentPresses() async throws {
@@ -80,8 +105,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Press X to lock
         await MainActor.run {
-            controllerService.onButtonPressed?(.x)
-            controllerService.onButtonReleased?(.x, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.x))
+            controllerService.emitInputEvent(.buttonReleased(.x, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
@@ -95,8 +120,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Press A — should be blocked
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
@@ -125,15 +150,15 @@ final class ControllerLockTests: XCTestCase {
 
         // Lock
         await MainActor.run {
-            controllerService.onButtonPressed?(.x)
-            controllerService.onButtonReleased?(.x, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.x))
+            controllerService.emitInputEvent(.buttonReleased(.x, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
         // Unlock
         await MainActor.run {
-            controllerService.onButtonPressed?(.x)
-            controllerService.onButtonReleased?(.x, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.x))
+            controllerService.emitInputEvent(.buttonReleased(.x, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
@@ -145,8 +170,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Press A — should work now
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.2)
 
@@ -180,8 +205,8 @@ final class ControllerLockTests: XCTestCase {
         // Press L3 three times to trigger sequence lock
         for _ in 0..<3 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.leftThumbstick)
-                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(.leftThumbstick))
+                controllerService.emitInputEvent(.buttonReleased(.leftThumbstick, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -195,8 +220,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Press A — should be blocked
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
@@ -230,8 +255,8 @@ final class ControllerLockTests: XCTestCase {
         // Lock via sequence
         for _ in 0..<3 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.leftThumbstick)
-                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(.leftThumbstick))
+                controllerService.emitInputEvent(.buttonReleased(.leftThumbstick, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -240,8 +265,8 @@ final class ControllerLockTests: XCTestCase {
         // Unlock via sequence
         for _ in 0..<3 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.leftThumbstick)
-                controllerService.onButtonReleased?(.leftThumbstick, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(.leftThumbstick))
+                controllerService.emitInputEvent(.buttonReleased(.leftThumbstick, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -255,8 +280,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Press A — should work
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.2)
 
@@ -289,7 +314,7 @@ final class ControllerLockTests: XCTestCase {
 
         // Press chord LB+RB
         await MainActor.run {
-            controllerService.onChordDetected?([.leftBumper, .rightBumper])
+            controllerService.emitInputEvent(.chordDetected([.leftBumper, .rightBumper]))
         }
         await waitForTasks(0.2)
 
@@ -301,8 +326,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Press A — should be blocked
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
@@ -335,20 +360,20 @@ final class ControllerLockTests: XCTestCase {
 
         // Lock
         await MainActor.run {
-            controllerService.onChordDetected?([.leftBumper, .rightBumper])
+            controllerService.emitInputEvent(.chordDetected([.leftBumper, .rightBumper]))
         }
         await waitForTasks(0.2)
 
         // Release chord buttons
         await MainActor.run {
-            controllerService.onButtonReleased?(.leftBumper, 0.1)
-            controllerService.onButtonReleased?(.rightBumper, 0.1)
+            controllerService.emitInputEvent(.buttonReleased(.leftBumper, holdDuration: 0.1))
+            controllerService.emitInputEvent(.buttonReleased(.rightBumper, holdDuration: 0.1))
         }
         await waitForTasks(0.1)
 
         // Unlock
         await MainActor.run {
-            controllerService.onChordDetected?([.leftBumper, .rightBumper])
+            controllerService.emitInputEvent(.chordDetected([.leftBumper, .rightBumper]))
         }
         await waitForTasks(0.2)
 
@@ -360,8 +385,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Press A — should work
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.03))
         }
         await waitForTasks(0.2)
 
@@ -390,7 +415,7 @@ final class ControllerLockTests: XCTestCase {
 
         // Hold LB (command modifier)
         await MainActor.run {
-            controllerService.onButtonPressed?(.leftBumper)
+            controllerService.emitInputEvent(.buttonPressed(.leftBumper))
         }
         await waitForTasks(0.1)
 
@@ -402,8 +427,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Lock — should release modifiers
         await MainActor.run {
-            controllerService.onButtonPressed?(.x)
-            controllerService.onButtonReleased?(.x, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.x))
+            controllerService.emitInputEvent(.buttonReleased(.x, holdDuration: 0.03))
         }
         await waitForTasks(0.2)
 
@@ -431,8 +456,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Lock
         await MainActor.run {
-            controllerService.onButtonPressed?(.x)
-            controllerService.onButtonReleased?(.x, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.x))
+            controllerService.emitInputEvent(.buttonReleased(.x, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
@@ -475,8 +500,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Lock
         await MainActor.run {
-            controllerService.onButtonPressed?(.x)
-            controllerService.onButtonReleased?(.x, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.x))
+            controllerService.emitInputEvent(.buttonReleased(.x, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
@@ -485,8 +510,8 @@ final class ControllerLockTests: XCTestCase {
         // Try sequence A → B while locked
         for button: ControllerButton in [.a, .b] {
             await MainActor.run {
-                controllerService.onButtonPressed?(button)
-                controllerService.onButtonReleased?(button, 0.03)
+                controllerService.emitInputEvent(.buttonPressed(button))
+                controllerService.emitInputEvent(.buttonReleased(button, holdDuration: 0.03))
             }
             await waitForTasks(0.05)
         }
@@ -520,8 +545,8 @@ final class ControllerLockTests: XCTestCase {
 
         // Lock
         await MainActor.run {
-            controllerService.onButtonPressed?(.x)
-            controllerService.onButtonReleased?(.x, 0.03)
+            controllerService.emitInputEvent(.buttonPressed(.x))
+            controllerService.emitInputEvent(.buttonReleased(.x, holdDuration: 0.03))
         }
         await waitForTasks(0.1)
 
@@ -529,7 +554,7 @@ final class ControllerLockTests: XCTestCase {
 
         // Try chord A+B while locked
         await MainActor.run {
-            controllerService.onChordDetected?([.a, .b])
+            controllerService.emitInputEvent(.chordDetected([.a, .b]))
         }
         await waitForTasks(0.2)
 

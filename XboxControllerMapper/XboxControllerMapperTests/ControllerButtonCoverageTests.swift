@@ -99,15 +99,36 @@ final class ControllerButtonCoverageTests: XCTestCase {
 				XCTAssertTrue(ControllerButton.xboxButtons.contains(.a))
 				XCTAssertFalse(ControllerButton.xboxButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.xboxButtons.contains(.appleTVRemotePower))
+				XCTAssertFalse(ControllerButton.xboxButtons.contains(.ouraTap))
+				XCTAssertFalse(ControllerButton.xboxButtons.contains(.ouraDoubleTap))
 
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.share), "Standard DualSense does not expose Share")
 				XCTAssertTrue(ControllerButton.dualSenseButtons.contains(.touchpadButton))
 				XCTAssertTrue(ControllerButton.dualSenseButtons.contains(.a))
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.appleTVRemoteVolumeUp))
+				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.ouraTap))
+				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.ouraTripleTap))
 
 				XCTAssertFalse(ControllerButton.dualShockButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.siri))
+				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.ouraTap))
+				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.ouraFiveTap))
+				XCTAssertEqual(
+					ControllerButton.ouraRingTapButtons,
+					[.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap, .ouraTapHold]
+				)
+				XCTAssertEqual(
+					ControllerButton.ouraRingFlickButtons,
+					[.ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight]
+				)
+				XCTAssertEqual(
+					ControllerButton.ouraRingButtons,
+					[
+						.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap, .ouraTapHold,
+						.ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight
+					]
+				)
 				XCTAssertEqual(
 					ControllerButton.appleTVRemoteButtons,
 					[
@@ -189,6 +210,18 @@ final class ControllerButtonCoverageTests: XCTestCase {
 		XCTAssertEqual(ControllerButton.view.systemImageName(forDualSense: true), "square.and.arrow.up")
 		XCTAssertEqual(ControllerButton.appleTVRemotePower.systemImageName(forDualSense: false), "power")
 		XCTAssertEqual(ControllerButton.appleTVRemoteVolumeUp.systemImageName(forDualSense: false), "speaker.wave.3.fill")
+		XCTAssertEqual(ControllerButton.ouraTap.systemImageName(forDualSense: false), "hand.tap")
+		XCTAssertEqual(ControllerButton.ouraDoubleTap.systemImageName(forDualSense: false), "2.circle")
+		XCTAssertEqual(ControllerButton.ouraTripleTap.systemImageName(forDualSense: false), "3.circle")
+		XCTAssertEqual(ControllerButton.ouraFiveTap.systemImageName(forDualSense: false), "5.circle")
+		XCTAssertEqual(
+			Set([
+				ControllerButton.ouraDoubleTap.systemImageName,
+				ControllerButton.ouraTripleTap.systemImageName,
+				ControllerButton.ouraFiveTap.systemImageName
+			]).count,
+			3
+		)
 		XCTAssertNil(ControllerButton.a.systemImageName(forDualSense: true), "DualSense face buttons use text symbols")
 	}
 

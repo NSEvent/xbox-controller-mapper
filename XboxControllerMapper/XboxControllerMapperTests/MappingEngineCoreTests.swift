@@ -79,19 +79,19 @@ final class MappingEngineCoreTests: MappingEngineTestCase {
         // Allow Combine to deliver profile change to MappingEngine
         try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
         await MainActor.run {
-            controllerService.onButtonPressed?(.leftBumper)
+            controllerService.emitInputEvent(.buttonPressed(.leftBumper))
         }
         await waitForTasks()
         
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
         }
         await waitForTasks(0.1)
         
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
         }
         await waitForTasks(0.3)
         
@@ -115,7 +115,7 @@ final class MappingEngineCoreTests: MappingEngineTestCase {
         // Allow Combine to deliver profile change to MappingEngine
         try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
         await MainActor.run {
-            controllerService.onChordDetected?([.a, .b])
+            controllerService.emitInputEvent(.chordDetected([.a, .b]))
         }
         await waitForTasks()
         
@@ -161,13 +161,13 @@ final class MappingEngineCoreTests: MappingEngineTestCase {
 		try? await Task.sleep(nanoseconds: 10_000_000)
 
 		await MainActor.run {
-			controllerService.onChordDetected?([.view, .menu])
+			controllerService.emitInputEvent(.chordDetected([.view, .menu]))
 		}
 		await waitForTasks()
 
 		await MainActor.run {
 			XCTAssertEqual(profileManager.activeProfileId, desktopId)
-			controllerService.onChordDetected?([.view, .menu])
+			controllerService.emitInputEvent(.chordDetected([.view, .menu]))
 		}
 		await waitForTasks()
 
@@ -213,7 +213,7 @@ final class MappingEngineCoreTests: MappingEngineTestCase {
         // Allow Combine to deliver profile change to MappingEngine
         try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
         await MainActor.run {
-            controllerService.onButtonPressed?(.leftBumper)
+            controllerService.emitInputEvent(.buttonPressed(.leftBumper))
         }
         await waitForTasks()
         
@@ -437,11 +437,11 @@ final class MappingEngineCoreTests: MappingEngineTestCase {
 
             // We simulate what MappingEngine sees:
             // 1. A release (engine doesn't know about chord yet)
-            controllerService.onButtonReleased?(.a, 0.02)
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.02))
             // 2. B release
-            controllerService.onButtonReleased?(.b, 0.02)
+            controllerService.emitInputEvent(.buttonReleased(.b, holdDuration: 0.02))
             // 3. Chord detected (timer finally fired)
-            controllerService.onChordDetected?([.a, .b])
+            controllerService.emitInputEvent(.chordDetected([.a, .b]))
         }
         await waitForTasks()
         

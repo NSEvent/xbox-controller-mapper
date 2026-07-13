@@ -51,17 +51,7 @@ class MappingEngineTestCase: XCTestCase {
         try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
         await MainActor.run {
             mockInputSimulator?.releaseAllModifiers()
-            controllerService?.onButtonPressed = nil
-            controllerService?.onButtonReleased = nil
-            controllerService?.onChordDetected = nil
-            controllerService?.onLeftStickMoved = nil
-            controllerService?.onRightStickMoved = nil
-            controllerService?.onTouchpadMoved = nil
-            controllerService?.onTouchpadGesture = nil
-            controllerService?.onTouchpadTap = nil
-            controllerService?.onTouchpadTwoFingerTap = nil
-            controllerService?.onTouchpadLongTap = nil
-            controllerService?.onTouchpadTwoFingerLongTap = nil
+            controllerService?.onInputEvent = nil
             controllerService?.cleanup() // Clean up HID resources before deallocation
             // Reset PlayStation controller flags to prevent LED code from running
             UserDefaults.standard.removeObject(forKey: Config.lastControllerWasDualSenseKey)

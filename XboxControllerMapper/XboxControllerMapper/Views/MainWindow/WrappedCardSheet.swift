@@ -7,7 +7,13 @@ struct WrappedCardSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
 
+    private var controllerPresentationState: ControllerPresentationState {
+		controllerService.threadSafeControllerPresentationState
+    }
+
     var body: some View {
+		let presentationState = controllerPresentationState
+
         VStack(spacing: 24) {
             Text("Your Controller Wrapped")
                 .font(.title2)
@@ -16,9 +22,9 @@ struct WrappedCardSheet: View {
 
             WrappedCardView(
                 stats: usageStatsService.stats,
-                isDualSense: controllerService.threadSafeIsPlayStation,
-                isNintendo: controllerService.threadSafeIsNintendo,
-                isSteamController: controllerService.threadSafeIsSteamController
+				isDualSense: presentationState.isPlayStation,
+				isNintendo: presentationState.isNintendo,
+				isSteamController: presentationState.isSteamController
             )
             .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
 
@@ -49,11 +55,12 @@ struct WrappedCardSheet: View {
 
     @MainActor
     private func copyCardToClipboard() {
+		let presentationState = controllerPresentationState
         let card = WrappedCardView(
             stats: usageStatsService.stats,
-            isDualSense: controllerService.threadSafeIsPlayStation,
-            isNintendo: controllerService.threadSafeIsNintendo,
-            isSteamController: controllerService.threadSafeIsSteamController
+			isDualSense: presentationState.isPlayStation,
+			isNintendo: presentationState.isNintendo,
+			isSteamController: presentationState.isSteamController
         )
 
         let renderer = ImageRenderer(content: card)

@@ -346,6 +346,10 @@ There are other controller mapping apps for macOS, but none offered everything I
 
 Any controller recognized by macOS's GameController framework works out of the box. Unrecognized controllers fall back to the SDL database for automatic button mapping.
 
+### DualSense as a wired USB controller (Pico bridge)
+
+Want a DualSense to appear as a *wired* USB controller — for the lowest-latency real-time path, or a setup that rejects Bluetooth? A Raspberry Pi Pico 2 W running [DS5Dongle](https://github.com/awalol/DS5Dongle) bridges the controller over Bluetooth and presents it to macOS as wired USB; ControllerKeys then treats it like any wired DualSense, touchpad and all. To also get the controller's **speaker** working as a macOS audio output (the stock dongle firmware can't drive it on macOS), see [ds5dongle-pico2w-macos](https://github.com/NSEvent/ds5dongle-pico2w-macos) — a prebuilt Pico 2 W build plus setup steps.
+
 ## Requirements
 
 - macOS 14.6 or later

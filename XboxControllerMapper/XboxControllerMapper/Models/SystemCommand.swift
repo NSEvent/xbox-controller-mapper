@@ -83,6 +83,7 @@ enum SystemCommandCategory: String, CaseIterable, Identifiable {
     case shell = "Shell Command"
     case app = "Launch App"
     case link = "Open Link"
+	case ring = "Ring Control"
     case webhook = "Webhook"
     case obs = "OBS WebSocket"
 
@@ -95,10 +96,54 @@ enum SystemCommandCategory: String, CaseIterable, Identifiable {
         case .shell: return "Shell"
         case .app: return "App"
         case .link: return "Link"
+		case .ring: return "Ring"
         case .webhook: return "Webhook"
         case .obs: return "OBS"
         }
     }
+}
+
+enum OuraRingSystemCommandOption: String, CaseIterable, Identifiable {
+	case centerRing
+	case toggleMouseControl
+
+	var id: String { rawValue }
+
+	var displayName: String {
+		switch self {
+		case .centerRing:
+			return "Center Ring"
+		case .toggleMouseControl:
+			return "Toggle Ring Mouse Control"
+		}
+	}
+
+	var helpText: String {
+		switch self {
+		case .centerRing:
+			return "Recalibrates ring motion at the current finger angle."
+		case .toggleMouseControl:
+			return "Starts or stops Oura Ring motion output."
+		}
+	}
+
+	var systemCommand: SystemCommand {
+		switch self {
+		case .centerRing:
+			return .centerOuraRing
+		case .toggleMouseControl:
+			return .toggleOuraMotion
+		}
+	}
+
+	init(command: SystemCommand) {
+		switch command {
+		case .toggleOuraMotion:
+			self = .toggleMouseControl
+		default:
+			self = .centerRing
+		}
+	}
 }
 
 /// Represents a system-level command that can be triggered by a button or chord mapping
@@ -120,6 +165,10 @@ enum SystemCommand: Equatable {
 
     // OBS WebSocket request (generic requestType + optional requestData JSON)
     case obsWebSocket(url: String, password: String? = nil, requestType: String, requestData: String? = nil)
+
+	// Oura Ring control commands
+	case centerOuraRing
+	case toggleOuraMotion
 
     /// Human-readable display name for the UI
     var displayName: String {
@@ -159,6 +208,10 @@ enum SystemCommand: Equatable {
                 return String(display.prefix(30)) + "..."
             }
             return display
+		case .centerOuraRing:
+			return "Center Ring"
+		case .toggleOuraMotion:
+			return "Toggle Ring Mouse Control"
         }
     }
 
@@ -169,6 +222,7 @@ enum SystemCommand: Equatable {
         case .launchApp: return .app
         case .shellCommand: return .shell
         case .openLink: return .link
+		case .centerOuraRing, .toggleOuraMotion: return .ring
         case .httpRequest: return .webhook
         case .obsWebSocket: return .obs
         }
@@ -180,6 +234,7 @@ enum SystemCommand: Equatable {
 extension SystemCommand: Codable {
     private enum CommandType: String, Codable {
 		case switchProfile, launchApp, shellCommand, openLink, httpRequest, obsWebSocket
+		case centerOuraRing, toggleOuraMotion
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -229,6 +284,10 @@ extension SystemCommand: Codable {
             let requestType: String = try container.decode(.requestType, default: "")
             let requestData = try container.decodeIfPresent(String.self, forKey: .requestData)
             self = .obsWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
+		case .centerOuraRing:
+			self = .centerOuraRing
+		case .toggleOuraMotion:
+			self = .toggleOuraMotion
         }
     }
 
@@ -276,6 +335,10 @@ extension SystemCommand: Codable {
             }
             try container.encode(requestType, forKey: .requestType)
             try container.encodeIfPresent(requestData, forKey: .requestData)
+		case .centerOuraRing:
+			try container.encode(CommandType.centerOuraRing, forKey: .type)
+		case .toggleOuraMotion:
+			try container.encode(CommandType.toggleOuraMotion, forKey: .type)
         }
     }
 }

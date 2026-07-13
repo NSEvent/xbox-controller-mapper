@@ -42,6 +42,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
     @State private var shellCommandText: String = ""
     @State private var shellRunInTerminal: Bool = true
     @State private var linkURL: String = ""
+	@State private var ouraRingCommandOption: OuraRingSystemCommandOption = .centerRing
     @State private var webhookURL: String = ""
     @State private var webhookMethod: HTTPMethod = .POST
     @State private var webhookBody: String = ""
@@ -136,8 +137,10 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
         dismiss()
     }
 
-    var body: some View {
-        ScrollView {
+	var body: some View {
+		let presentationState = controllerPresentationState
+
+		ScrollView {
             VStack(spacing: 20) {
                 Text(isEditing ? "Edit Chord" : "Add Chord")
                 .font(.headline)
@@ -149,188 +152,188 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                 // Visual Controller Layout
                 VStack(spacing: 10) {
 						// Top Row: Triggers & Bumpers
-						if !isAppleTVRemote {
-							HStack(spacing: 120) {
-								VStack(spacing: 8) {
-									toggleButton(.leftTrigger)
-									toggleButton(.leftBumper)
-								}
+							if !presentationState.isAppleTVRemote {
+								HStack(spacing: 120) {
+									VStack(spacing: 8) {
+										toggleButton(.leftTrigger, presentationState: presentationState)
+										toggleButton(.leftBumper, presentationState: presentationState)
+									}
 
-								VStack(spacing: 8) {
-									toggleButton(.rightTrigger)
-									toggleButton(.rightBumper)
+									VStack(spacing: 8) {
+										toggleButton(.rightTrigger, presentationState: presentationState)
+										toggleButton(.rightBumper, presentationState: presentationState)
+									}
 								}
 							}
-						}
 
                     // Middle Row: D-Pad, System, Face Buttons, Sticks
                     HStack(alignment: .top, spacing: 40) {
                         // Left Column: D-Pad & L3 Stick
                         VStack(spacing: 25) {
                             // D-Pad Cross (aligned with face buttons)
-                            VStack(spacing: 2) {
-                                toggleButton(.dpadUp)
-                                HStack(spacing: 25) {
-                                    toggleButton(.dpadLeft)
-                                    toggleButton(.dpadRight)
-                                }
-                                toggleButton(.dpadDown)
-                            }
-
-								if !isAppleTVRemote {
-									toggleButton(.leftThumbstick)
+								VStack(spacing: 2) {
+									toggleButton(.dpadUp, presentationState: presentationState)
+									HStack(spacing: 25) {
+										toggleButton(.dpadLeft, presentationState: presentationState)
+										toggleButton(.dpadRight, presentationState: presentationState)
+									}
+									toggleButton(.dpadDown, presentationState: presentationState)
 								}
 
-								if !isAppleTVRemote && !leftJoystickDirectionButtons.isEmpty {
-									JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStickMode) { button in
-										toggleButton(button)
+									if !presentationState.isAppleTVRemote {
+										toggleButton(.leftThumbstick, presentationState: presentationState)
 									}
-                            }
-                        }
 
-							// Center Column: System Buttons
-							VStack(spacing: 15) {
-								toggleButton(.xbox)
-								if isAppleTVRemote {
-									HStack(spacing: 25) {
-										toggleButton(.view)
-										toggleButton(.menu)
-										toggleButton(.siri)
-									}
-										VStack(spacing: 8) {
-											HStack(spacing: 14) {
-												toggleButton(.appleTVRemotePower)
-												toggleButton(.appleTVRemoteVolumeUp)
-											}
-											HStack(spacing: 14) {
-												toggleButton(.appleTVRemoteVolumeDown)
-												toggleButton(.appleTVRemoteMute)
-											}
+									if !presentationState.isAppleTVRemote && !leftJoystickDirectionButtons.isEmpty {
+										JoystickDirectionSelectionGrid(side: .left, mode: joystickSettings.leftStick.mode) { button in
+											toggleButton(button, presentationState: presentationState)
 										}
-									} else {
-									HStack(spacing: 25) {
-										toggleButton(.view)
-										toggleButton(.menu)
-									}
-									// Show mic mute for DualSense, share for Xbox only
-									// DualShock 4's physical Share button maps to .view (buttonOptions), not .share
-									if isDualSense {
-										toggleButton(.micMute)
-									} else if !isDualShock {
-										toggleButton(.share)
-									}
-									// Touchpad button for PlayStation controllers (DualSense/DualShock)
-									if isPlayStation {
-										toggleButton(.touchpadButton)
-									}
 								}
 							}
+
+								// Center Column: System Buttons
+								VStack(spacing: 15) {
+									toggleButton(.xbox, presentationState: presentationState)
+									if presentationState.isAppleTVRemote {
+										HStack(spacing: 25) {
+											toggleButton(.view, presentationState: presentationState)
+											toggleButton(.menu, presentationState: presentationState)
+											toggleButton(.siri, presentationState: presentationState)
+										}
+											VStack(spacing: 8) {
+												HStack(spacing: 14) {
+													toggleButton(.appleTVRemotePower, presentationState: presentationState)
+													toggleButton(.appleTVRemoteVolumeUp, presentationState: presentationState)
+												}
+												HStack(spacing: 14) {
+													toggleButton(.appleTVRemoteVolumeDown, presentationState: presentationState)
+													toggleButton(.appleTVRemoteMute, presentationState: presentationState)
+												}
+											}
+										} else {
+										HStack(spacing: 25) {
+											toggleButton(.view, presentationState: presentationState)
+											toggleButton(.menu, presentationState: presentationState)
+										}
+										// Show mic mute for DualSense, share for Xbox only
+										// DualShock 4's physical Share button maps to .view (buttonOptions), not .share
+										if presentationState.isDualSense {
+											toggleButton(.micMute, presentationState: presentationState)
+										} else if !presentationState.isDualShock {
+											toggleButton(.share, presentationState: presentationState)
+										}
+										// Touchpad button for PlayStation controllers (DualSense/DualShock)
+										if presentationState.isPlayStation {
+											toggleButton(.touchpadButton, presentationState: presentationState)
+										}
+									}
+								}
 							.padding(.top, 15)
 
-							// Right Column: Face Buttons & Stick
-							VStack(spacing: 25) {
-								// Face Buttons Diamond
-								if isAppleTVRemote {
-									VStack(spacing: 12) {
-										toggleButton(.touchpadButton)
-										toggleButton(.touchpadTap)
-									}
-								} else {
-									VStack(spacing: 2) {
-										toggleButton(.y)
-										HStack(spacing: 25) {
-											toggleButton(.x)
-											toggleButton(.b)
+								// Right Column: Face Buttons & Stick
+								VStack(spacing: 25) {
+									// Face Buttons Diamond
+									if presentationState.isAppleTVRemote {
+										VStack(spacing: 12) {
+											toggleButton(.touchpadButton, presentationState: presentationState)
+											toggleButton(.touchpadTap, presentationState: presentationState)
 										}
-										toggleButton(.a)
+									} else {
+										VStack(spacing: 2) {
+											toggleButton(.y, presentationState: presentationState)
+											HStack(spacing: 25) {
+												toggleButton(.x, presentationState: presentationState)
+												toggleButton(.b, presentationState: presentationState)
+											}
+											toggleButton(.a, presentationState: presentationState)
+										}
 									}
-								}
 
-								if !isAppleTVRemote {
-									toggleButton(.rightThumbstick)
-								}
-
-								if !isAppleTVRemote && !rightJoystickDirectionButtons.isEmpty {
-									JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStickMode) { button in
-										toggleButton(button)
+									if !presentationState.isAppleTVRemote {
+										toggleButton(.rightThumbstick, presentationState: presentationState)
 									}
-                            }
-                        }
-                    }
 
-                    // Edge Controls (function buttons and paddles)
-                    if isDualSenseEdge {
-                        VStack(spacing: 8) {
+									if !presentationState.isAppleTVRemote && !rightJoystickDirectionButtons.isEmpty {
+										JoystickDirectionSelectionGrid(side: .right, mode: joystickSettings.rightStick.mode) { button in
+											toggleButton(button, presentationState: presentationState)
+										}
+								}
+							}
+						}
+
+						// Edge Controls (function buttons and paddles)
+						if presentationState.isDualSenseEdge {
+							VStack(spacing: 8) {
                             Text("EDGE CONTROLS")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.secondary)
 
-                            // Function buttons row (above touchpad area)
-                            HStack(spacing: 40) {
-                                toggleButton(.leftFunction)
-                                Text("Fn")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                toggleButton(.rightFunction)
-                            }
+								// Function buttons row (above touchpad area)
+								HStack(spacing: 40) {
+									toggleButton(.leftFunction, presentationState: presentationState)
+									Text("Fn")
+										.font(.system(size: 10, weight: .medium))
+										.foregroundColor(.secondary)
+									toggleButton(.rightFunction, presentationState: presentationState)
+								}
 
-                            // Paddles row (back of controller)
-                            HStack(spacing: 40) {
-                                toggleButton(.leftPaddle)
-                                Text("Paddles")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                toggleButton(.rightPaddle)
-                            }
-                        }
+								// Paddles row (back of controller)
+								HStack(spacing: 40) {
+									toggleButton(.leftPaddle, presentationState: presentationState)
+									Text("Paddles")
+										.font(.system(size: 10, weight: .medium))
+										.foregroundColor(.secondary)
+									toggleButton(.rightPaddle, presentationState: presentationState)
+								}
+							}
                         .padding(.top, 20)
                     }
 
-                    // Xbox Elite Controls (back paddles)
-                    if isXboxElite {
-                        VStack(spacing: 12) {
-                            Text(isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.secondary)
+						// Xbox Elite Controls (back paddles)
+						if presentationState.isXboxElite {
+							VStack(spacing: 12) {
+								Text(presentationState.isSteamController ? "STEAM GRIP BUTTONS" : "ELITE PADDLES")
+									.font(.system(size: 10, weight: .bold))
+									.foregroundColor(.secondary)
 
-                            HStack(spacing: 40) {
-                                toggleButton(.xboxPaddle1)
-                                Text("Upper")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                toggleButton(.xboxPaddle2)
-                            }
+								HStack(spacing: 40) {
+									toggleButton(.xboxPaddle1, presentationState: presentationState)
+									Text("Upper")
+										.font(.system(size: 10, weight: .medium))
+										.foregroundColor(.secondary)
+									toggleButton(.xboxPaddle2, presentationState: presentationState)
+								}
 
-                            HStack(spacing: 40) {
-                                toggleButton(.xboxPaddle3)
-                                Text("Lower")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                toggleButton(.xboxPaddle4)
-                            }
-                        }
+								HStack(spacing: 40) {
+									toggleButton(.xboxPaddle3, presentationState: presentationState)
+									Text("Lower")
+										.font(.system(size: 10, weight: .medium))
+										.foregroundColor(.secondary)
+									toggleButton(.xboxPaddle4, presentationState: presentationState)
+								}
+							}
                         .padding(.top, 20)
                     }
 
-                    if isSteamController {
-                        VStack(spacing: 12) {
+						if presentationState.isSteamController {
+							VStack(spacing: 12) {
                             Text("STEAM TOUCHPADS")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.secondary)
 
-                            HStack(spacing: 40) {
-                                VStack(spacing: 8) {
-                                    toggleButton(.leftTouchpadButton)
-                                    toggleButton(.leftTouchpadTap)
-                                }
-                                Text("Pads")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                VStack(spacing: 8) {
-                                    toggleButton(.rightTouchpadButton)
-                                    toggleButton(.rightTouchpadTap)
-                                }
-                            }
+								HStack(spacing: 40) {
+									VStack(spacing: 8) {
+										toggleButton(.leftTouchpadButton, presentationState: presentationState)
+										toggleButton(.leftTouchpadTap, presentationState: presentationState)
+									}
+									Text("Pads")
+										.font(.system(size: 10, weight: .medium))
+										.foregroundColor(.secondary)
+									VStack(spacing: 8) {
+										toggleButton(.rightTouchpadButton, presentationState: presentationState)
+										toggleButton(.rightTouchpadTap, presentationState: presentationState)
+									}
+								}
                         }
                         .padding(.top, 20)
                     }
@@ -594,6 +597,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+			case .ring:
+				OuraRingSystemCommandPicker(selection: $ouraRingCommandOption)
             case .webhook:
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("URL (e.g. https://api.example.com/webhook)", text: $webhookURL)
@@ -704,6 +709,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
         case .link:
             guard !linkURL.isEmpty else { return nil }
             return .openLink(url: linkURL)
+		case .ring:
+			return ouraRingCommandOption.systemCommand
         case .webhook:
             guard !webhookURL.isEmpty else { return nil }
             let headers = webhookHeaders.isEmpty ? nil : webhookHeaders
@@ -745,6 +752,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
             shellRunInTerminal = inTerminal
         case .openLink(let url):
             linkURL = url
+		case .centerOuraRing, .toggleOuraMotion:
+			ouraRingCommandOption = OuraRingSystemCommandOption(command: command)
         case .httpRequest(let url, let method, let headers, let body, let responseHandling):
             webhookURL = url
             webhookMethod = method
@@ -766,32 +775,39 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
         }
     }
 
-    @ViewBuilder
-    private func toggleButton(_ button: ControllerButton) -> some View {
-        let scale: CGFloat = 1.3
-        let conflictingChord = buttonConflicts[button]
-        let isConflicted = conflictingChord != nil
-        let isSelected = selectedButtons.contains(button)
-			let buttonName = button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote)
+	@ViewBuilder
+	private func toggleButton(
+		_ button: ControllerButton,
+		presentationState: ControllerPresentationState
+	) -> some View {
+		let scale: CGFloat = 1.3
+		let conflictingChord = buttonConflicts[button]
+		let isConflicted = conflictingChord != nil
+		let isSelected = selectedButtons.contains(button)
+		let buttonName = button.displayName(
+			forDualSense: presentationState.isPlayStation,
+			forNintendo: presentationState.isNintendo,
+			forAppleTVRemote: presentationState.isAppleTVRemote
+		)
 
-        VStack(spacing: 2) {
-            Button(action: {
+		VStack(spacing: 2) {
+			Button(action: {
                 if isSelected {
                     selectedButtons.remove(button)
                 } else if !isConflicted {
                     selectedButtons.insert(button)
                 }
-            }) {
-                ButtonIconView(
-                    button: button,
-						isPressed: isSelected,
-						isDualSense: isPlayStation,
-						isNintendo: isNintendo,
-						isSteamController: isSteamController,
-						isAppleTVRemote: isAppleTVRemote
-					)
-                    .scaleEffect(scale)
-                    .frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)
+			}) {
+				ButtonIconView(
+					button: button,
+					isPressed: isSelected,
+					isDualSense: presentationState.isPlayStation,
+					isNintendo: presentationState.isNintendo,
+					isSteamController: presentationState.isSteamController,
+					isAppleTVRemote: presentationState.isAppleTVRemote
+				)
+					.scaleEffect(scale)
+					.frame(width: buttonWidth(for: button) * scale, height: buttonHeight(for: button) * scale)
                     .opacity(isConflicted ? 0.3 : (isSelected ? 1.0 : 0.7))
                     .overlay {
                         if isSelected {

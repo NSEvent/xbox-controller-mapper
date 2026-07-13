@@ -20,7 +20,7 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.leftBumper)
+            controllerService.emitInputEvent(.buttonPressed(.leftBumper))
         }
         await waitForTasks()
 
@@ -34,7 +34,7 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
 
         await MainActor.run {
             // Release with OLD profile's mapping should still work
-            controllerService.onButtonReleased?(.leftBumper, 0.5)
+            controllerService.emitInputEvent(.buttonReleased(.leftBumper, holdDuration: 0.5))
         }
         await waitForTasks()
 
@@ -52,7 +52,7 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
         await waitForTasks(0.1)
 
@@ -71,8 +71,8 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.b)
-            controllerService.onButtonReleased?(.b, 0.1)
+            controllerService.emitInputEvent(.buttonPressed(.b))
+            controllerService.emitInputEvent(.buttonReleased(.b, holdDuration: 0.1))
         }
         await waitForTasks()
 
@@ -94,14 +94,14 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
 
         await MainActor.run {
             // Press unmapped button first
-            controllerService.onButtonPressed?(.b)
+            controllerService.emitInputEvent(.buttonPressed(.b))
         }
         await waitForTasks(0.1)
 
         await MainActor.run {
             // Then press mapped button
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
         }
         await waitForTasks()
 
@@ -126,14 +126,14 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
 
         // Hold for multiple repeat intervals
         await waitForTasks(0.25)
 
         await MainActor.run {
-            controllerService.onButtonReleased?(.a, 0.25)
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.25))
         }
         await waitForTasks()
 
@@ -158,7 +158,7 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
         await waitForTasks(0.15)
 
@@ -170,7 +170,7 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         }
 
         await MainActor.run {
-            controllerService.onButtonReleased?(.a, 0.15)
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.15))
         }
 
         // Wait to verify no more repeats
@@ -206,8 +206,8 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.a)
-            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.emitInputEvent(.buttonPressed(.a))
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
         }
         await waitForTasks()
 
@@ -232,8 +232,8 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.onButtonPressed?(.leftBumper)
-            controllerService.onButtonPressed?(.rightBumper)
+            controllerService.emitInputEvent(.buttonPressed(.leftBumper))
+            controllerService.emitInputEvent(.buttonPressed(.rightBumper))
         }
         await waitForTasks()
 
@@ -263,8 +263,8 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         // Rapid fire 5 press/release cycles
         for _ in 0..<5 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.a)
-                controllerService.onButtonReleased?(.a, 0.01)
+                controllerService.emitInputEvent(.buttonPressed(.a))
+                controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.01))
             }
             try? await Task.sleep(nanoseconds: 20_000_000) // 20ms between cycles
         }
@@ -292,8 +292,8 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         for i in 0..<4 {
             let button: ControllerButton = i % 2 == 0 ? .a : .b
             await MainActor.run {
-                controllerService.onButtonPressed?(button)
-                controllerService.onButtonReleased?(button, 0.01)
+                controllerService.emitInputEvent(.buttonPressed(button))
+                controllerService.emitInputEvent(.buttonReleased(button, holdDuration: 0.01))
             }
             try? await Task.sleep(nanoseconds: 30_000_000)
         }
@@ -415,8 +415,8 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         // Rapid press/release cycles
         for _ in 0..<5 {
             await MainActor.run {
-                controllerService.onButtonPressed?(.a)
-                controllerService.onButtonReleased?(.a, 0.01)
+                controllerService.emitInputEvent(.buttonPressed(.a))
+                controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.01))
             }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
@@ -449,7 +449,7 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
 
         await MainActor.run {
             // Start holding A
-            controllerService.onButtonPressed?(.a)
+            controllerService.emitInputEvent(.buttonPressed(.a))
         }
         await waitForTasks(0.1)
 
@@ -457,8 +457,8 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
             XCTAssertTrue(mockInputSimulator.heldModifiers.contains(.maskCommand))
 
             // Press and release B while A held
-            controllerService.onButtonPressed?(.b)
-            controllerService.onButtonReleased?(.b, 0.05)
+            controllerService.emitInputEvent(.buttonPressed(.b))
+            controllerService.emitInputEvent(.buttonReleased(.b, holdDuration: 0.05))
         }
         await waitForTasks()
 
@@ -474,7 +474,7 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         }
 
         await MainActor.run {
-            controllerService.onButtonReleased?(.a, 0.5)
+            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.5))
         }
         await waitForTasks()
 

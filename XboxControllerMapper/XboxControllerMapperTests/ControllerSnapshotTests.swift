@@ -52,13 +52,57 @@ final class ControllerSnapshotTests: XCTestCase {
 
     func testSnapshotCapturesHasMotionFalseWhenNeitherFlagSet() {
         controllerService.storage.lock.lock()
-        controllerService.storage.isDualSense = false
-        controllerService.storage.isDualShock = false
-        controllerService.storage.isSteamController = false
+		controllerService.storage.applyControllerTypeLocked(.xbox)
         controllerService.storage.lock.unlock()
 
         let snap = controllerService.snapshot()
         XCTAssertFalse(snap.hasMotion)
+    }
+
+    func testApplyingControllerTypeClearsCompetingFamilyFlags() {
+        controllerService.storage.lock.lock()
+        defer { controllerService.storage.lock.unlock() }
+        controllerService.storage.isDualSense = true
+        controllerService.storage.isDualShock = true
+        controllerService.storage.isNintendo = true
+        controllerService.storage.isJoyConLeft = true
+        controllerService.storage.isXboxElite = true
+        controllerService.storage.isAppleTVRemote = true
+
+        controllerService.storage.applyControllerTypeLocked(.steam)
+
+        XCTAssertEqual(controllerService.storage.controllerTypeStateLocked, .steam)
+        XCTAssertFalse(controllerService.storage.isDualSense)
+        XCTAssertFalse(controllerService.storage.isDualShock)
+        XCTAssertFalse(controllerService.storage.isNintendo)
+        XCTAssertFalse(controllerService.storage.isJoyConLeft)
+        XCTAssertFalse(controllerService.storage.isXboxElite)
+        XCTAssertFalse(controllerService.storage.isAppleTVRemote)
+        XCTAssertTrue(controllerService.storage.isSteamController)
+    }
+
+    func testDualSenseEdgeControllerTypeSetsBaseDualSenseCapability() {
+        controllerService.storage.lock.lock()
+        defer { controllerService.storage.lock.unlock() }
+        controllerService.storage.applyControllerTypeLocked(.dualSenseEdge)
+
+        XCTAssertEqual(controllerService.storage.controllerTypeStateLocked, .dualSenseEdge)
+        XCTAssertTrue(controllerService.storage.isDualSense)
+        XCTAssertTrue(controllerService.storage.isDualSenseEdge)
+        XCTAssertFalse(controllerService.storage.isDualShock)
+        XCTAssertFalse(controllerService.storage.isNintendo)
+    }
+
+    func testNintendoControllerTypeCarriesJoyConSide() {
+        controllerService.storage.lock.lock()
+        defer { controllerService.storage.lock.unlock() }
+        controllerService.storage.applyControllerTypeLocked(.nintendo(.left))
+
+        XCTAssertEqual(controllerService.storage.controllerTypeStateLocked, .nintendo(.left))
+        XCTAssertTrue(controllerService.storage.isNintendo)
+        XCTAssertTrue(controllerService.storage.isJoyConLeft)
+        XCTAssertFalse(controllerService.storage.isJoyConRight)
+        XCTAssertFalse(controllerService.storage.isDualSense)
     }
 
     func testSnapshotReportsSteamControllerHasMotion() {
@@ -459,7 +503,11 @@ final class ControllerSnapshotTests: XCTestCase {
 
     func testSteamTouchpadsUseSharedSurfaceForTwoPadPinch() {
         var gestures: [TouchpadGesture] = []
-        controllerService.onTouchpadGesture = { gestures.append($0) }
+        controllerService.onInputEvent = { event in
+            if case .touchpadGesture(let gesture) = event {
+                gestures.append(gesture)
+            }
+        }
         controllerService.storage.lock.withLock {
             controllerService.storage.isSteamController = true
         }
@@ -484,8 +532,16 @@ final class ControllerSnapshotTests: XCTestCase {
     func testSteamRestingLeftTouchpadDoesNotSuppressRightTouchpadMouse() {
         var gestures: [TouchpadGesture] = []
         var movements: [CGPoint] = []
-        controllerService.onTouchpadGesture = { gestures.append($0) }
-        controllerService.onTouchpadMoved = { movements.append($0) }
+        controllerService.onInputEvent = { event in
+            switch event {
+            case .touchpadGesture(let gesture):
+                gestures.append(gesture)
+            case .touchpadMoved(let delta):
+                movements.append(delta)
+            default:
+                break
+            }
+        }
         controllerService.storage.lock.withLock {
             controllerService.storage.isSteamController = true
         }
@@ -515,8 +571,16 @@ final class ControllerSnapshotTests: XCTestCase {
 	func testSteamLeftTouchpadJitterDoesNotSuppressRightTouchpadMouse() {
 		var gestures: [TouchpadGesture] = []
 		var movements: [CGPoint] = []
-		controllerService.onTouchpadGesture = { gestures.append($0) }
-		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.onInputEvent = { event in
+			switch event {
+			case .touchpadGesture(let gesture):
+				gestures.append(gesture)
+			case .touchpadMoved(let delta):
+				movements.append(delta)
+			default:
+				break
+			}
+		}
 		controllerService.storage.lock.withLock {
 			controllerService.storage.isSteamController = true
 		}
@@ -560,8 +624,16 @@ final class ControllerSnapshotTests: XCTestCase {
 	func testAppleTVRemoteCircularScrollEmitsAngleDeltaAndSuppressesMouseMovement() {
 		var scrollDeltas: [CGFloat] = []
 		var movements: [CGPoint] = []
-		controllerService.onAppleTVRemoteCircularScroll = { scrollDeltas.append($0) }
-		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.onInputEvent = { event in
+			switch event {
+			case .appleTVRemoteCircularScroll(let angleDelta):
+				scrollDeltas.append(angleDelta)
+			case .touchpadMoved(let delta):
+				movements.append(delta)
+			default:
+				break
+			}
+		}
 		controllerService.storage.lock.withLock {
 			controllerService.storage.isAppleTVRemote = true
 		}
@@ -579,8 +651,16 @@ final class ControllerSnapshotTests: XCTestCase {
 	func testAppleTVRemoteCircularScrollKeepsOwnershipThroughCenterBrushUntilLift() {
 		var scrollDeltas: [CGFloat] = []
 		var movements: [CGPoint] = []
-		controllerService.onAppleTVRemoteCircularScroll = { scrollDeltas.append($0) }
-		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.onInputEvent = { event in
+			switch event {
+			case .appleTVRemoteCircularScroll(let angleDelta):
+				scrollDeltas.append(angleDelta)
+			case .touchpadMoved(let delta):
+				movements.append(delta)
+			default:
+				break
+			}
+		}
 		controllerService.storage.lock.withLock {
 			controllerService.storage.isAppleTVRemote = true
 		}
@@ -615,8 +695,16 @@ final class ControllerSnapshotTests: XCTestCase {
 	func testAppleTVRemoteTouchStartingInsideDoesNotBecomeCircularScrollAfterMovingOutward() {
 		var scrollDeltas: [CGFloat] = []
 		var movements: [CGPoint] = []
-		controllerService.onAppleTVRemoteCircularScroll = { scrollDeltas.append($0) }
-		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.onInputEvent = { event in
+			switch event {
+			case .appleTVRemoteCircularScroll(let angleDelta):
+				scrollDeltas.append(angleDelta)
+			case .touchpadMoved(let delta):
+				movements.append(delta)
+			default:
+				break
+			}
+		}
 		controllerService.storage.lock.withLock {
 			controllerService.storage.isAppleTVRemote = true
 		}
@@ -643,8 +731,16 @@ final class ControllerSnapshotTests: XCTestCase {
 	func testAppleTVRemoteCircularScrollDisabledKeepsOuterRingMouseMovement() {
 		var scrollDeltas: [CGFloat] = []
 		var movements: [CGPoint] = []
-		controllerService.onAppleTVRemoteCircularScroll = { scrollDeltas.append($0) }
-		controllerService.onTouchpadMoved = { movements.append($0) }
+		controllerService.onInputEvent = { event in
+			switch event {
+			case .appleTVRemoteCircularScroll(let angleDelta):
+				scrollDeltas.append(angleDelta)
+			case .touchpadMoved(let delta):
+				movements.append(delta)
+			default:
+				break
+			}
+		}
 		controllerService.storage.lock.withLock {
 			controllerService.storage.isAppleTVRemote = true
 			controllerService.storage.appleTVRemoteCircularScrollEnabled = false

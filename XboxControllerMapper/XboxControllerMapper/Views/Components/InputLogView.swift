@@ -1,14 +1,16 @@
 import SwiftUI
 
 struct InputLogView: View, ControllerTypeProviding {
-    @EnvironmentObject var inputLogService: InputLogService
-    @EnvironmentObject var controllerService: ControllerService
+	@EnvironmentObject var inputLogService: InputLogService
+	@EnvironmentObject var controllerService: ControllerService
 
-    var body: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "waveform.path")
-                    .font(.system(size: 11, weight: .semibold))
+	var body: some View {
+		let presentationState = controllerPresentationState
+
+		HStack(spacing: 10) {
+			HStack(spacing: 6) {
+				Image(systemName: "waveform.path")
+					.font(.system(size: 11, weight: .semibold))
                 Text("Timeline")
                     .font(.system(size: 11, weight: .semibold))
             }
@@ -25,14 +27,18 @@ struct InputLogView: View, ControllerTypeProviding {
                 }
                 .frame(maxWidth: .infinity, minHeight: 46)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 0) {
-                        ForEach(inputLogService.entries) { entry in
-								LogEntryView(entry: entry, isLast: entry.id == inputLogService.entries.last?.id, isPlayStation: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
-                        }
-                    }
-                    .frame(minHeight: 46)
-                }
+				ScrollView(.horizontal, showsIndicators: false) {
+					HStack(spacing: 0) {
+						ForEach(inputLogService.entries) { entry in
+							LogEntryView(
+								entry: entry,
+								isLast: entry.id == inputLogService.entries.last?.id,
+								presentationState: presentationState
+							)
+						}
+					}
+					.frame(minHeight: 46)
+				}
                 .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
             }
         }
@@ -50,27 +56,32 @@ struct InputLogView: View, ControllerTypeProviding {
 }
 
 private struct LogEntryView: View, Equatable {
-    let entry: InputLogEntry
-    let isLast: Bool
-	    let isPlayStation: Bool  // True for DualSense/DualShock - used for PS-style labels
-	    let isNintendo: Bool
-	    let isSteamController: Bool
-	    let isAppleTVRemote: Bool
+	let entry: InputLogEntry
+	let isLast: Bool
+	let presentationState: ControllerPresentationState
 
-	    static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
-			lhs.isLast == rhs.isLast && lhs.entry == rhs.entry && lhs.isPlayStation == rhs.isPlayStation && lhs.isNintendo == rhs.isNintendo && lhs.isSteamController == rhs.isSteamController && lhs.isAppleTVRemote == rhs.isAppleTVRemote
-    }
+	static func == (lhs: LogEntryView, rhs: LogEntryView) -> Bool {
+		lhs.isLast == rhs.isLast
+			&& lhs.entry == rhs.entry
+			&& lhs.presentationState == rhs.presentationState
+	}
 
-    var body: some View {
-        HStack(spacing: 0) {
+	var body: some View {
+		HStack(spacing: 0) {
             VStack(spacing: 6) {
-                // Top: Button(s) + Type
-                HStack(spacing: 4) {
-                    ForEach(entry.buttons, id: \.self) { button in
-							ButtonIconView(button: button, isDualSense: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController, isAppleTVRemote: isAppleTVRemote)
-                    }
+				// Top: Button(s) + Type
+				HStack(spacing: 4) {
+					ForEach(entry.buttons, id: \.self) { button in
+						ButtonIconView(
+							button: button,
+							isDualSense: presentationState.isPlayStation,
+							isNintendo: presentationState.isNintendo,
+							isSteamController: presentationState.isSteamController,
+							isAppleTVRemote: presentationState.isAppleTVRemote
+						)
+					}
 
-                    if entry.type != .singlePress {
+					if entry.type != .singlePress {
                         Text(entry.type.rawValue)
                             .font(.system(size: 10, weight: .bold))
                             .padding(.horizontal, 6)
@@ -110,13 +121,21 @@ private struct LogEntryView: View, Equatable {
         .accessibilityLabel(accessibilityDescription)
         // Use simple opacity transition - complex spring animations block input handling
         .transition(.opacity)
-    }
+	}
 
-    private var accessibilityDescription: String {
-			let buttonNames = entry.buttons.map { $0.displayName(forDualSense: isPlayStation, forNintendo: isNintendo, forAppleTVRemote: isAppleTVRemote) }.joined(separator: " plus ")
-        let typeDescription = entry.type == .singlePress ? "" : ", \(entry.type.rawValue)"
-        return "\(buttonNames)\(typeDescription): \(entry.actionDescription)"
-    }
+	private var accessibilityDescription: String {
+		let buttonNames = entry.buttons
+			.map {
+				$0.displayName(
+					forDualSense: presentationState.isPlayStation,
+					forNintendo: presentationState.isNintendo,
+					forAppleTVRemote: presentationState.isAppleTVRemote
+				)
+			}
+			.joined(separator: " plus ")
+		let typeDescription = entry.type == .singlePress ? "" : ", \(entry.type.rawValue)"
+		return "\(buttonNames)\(typeDescription): \(entry.actionDescription)"
+	}
 
     private func badgeColor(for type: InputEventType) -> Color {
         switch type {

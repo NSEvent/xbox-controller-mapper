@@ -38,17 +38,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 80_000_000)
 
         await MainActor.run {
-            controllerService?.onButtonPressed = nil
-            controllerService?.onButtonReleased = nil
-            controllerService?.onChordDetected = nil
-            controllerService?.onLeftStickMoved = nil
-            controllerService?.onRightStickMoved = nil
-            controllerService?.onTouchpadMoved = nil
-            controllerService?.onTouchpadGesture = nil
-            controllerService?.onTouchpadTap = nil
-            controllerService?.onTouchpadTwoFingerTap = nil
-            controllerService?.onTouchpadLongTap = nil
-            controllerService?.onTouchpadTwoFingerLongTap = nil
+            controllerService?.onInputEvent = nil
             controllerService?.cleanup()
 
             mappingEngine = nil
@@ -637,8 +627,8 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
     func testReset_clearsAllStickHeldKeys() async throws {
         await MainActor.run {
             var profile = Profile(name: "WASD", buttonMappings: [:])
-            profile.joystickSettings.leftStickMode = .wasdKeys
-            profile.joystickSettings.mouseDeadzone = 0.05
+            profile.joystickSettings.leftStick.mode = .wasdKeys
+            profile.joystickSettings.leftStick.mouseDeadzone = 0.05
             installActiveProfile(profile)
             controllerService.isConnected = true
         }

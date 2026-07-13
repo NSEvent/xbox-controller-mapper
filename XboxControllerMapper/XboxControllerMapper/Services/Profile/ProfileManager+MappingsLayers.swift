@@ -10,6 +10,7 @@ extension ProfileManager {
 
         targetProfile.buttonMappings[button] = mapping
         targetProfile.updateDPadPresetIfNeeded(afterChanging: button)
+		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
     }
 
@@ -18,6 +19,7 @@ extension ProfileManager {
 
         targetProfile.buttonMappings.removeValue(forKey: button)
         targetProfile.updateDPadPresetIfNeeded(afterChanging: button)
+		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button)
         updateProfile(targetProfile)
     }
 
@@ -47,16 +49,26 @@ extension ProfileManager {
 		updateProfile(targetProfile)
 	}
 
+	func setOuraMotionOutputMode(_ mode: OuraMotionOutputMode, in profile: Profile? = nil) {
+		guard var targetProfile = profile ?? activeProfile else { return }
+
+		targetProfile.setOuraMotionOutputMode(mode)
+		updateProfile(targetProfile)
+	}
+
     func setStickDirectionPreset(_ preset: StickDirectionPreset, side: JoystickSide, in profile: Profile? = nil) {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         preset.apply(to: &targetProfile.buttonMappings, side: side)
         switch side {
         case .left:
-            targetProfile.joystickSettings.leftStickMode = .custom
+            targetProfile.joystickSettings.leftStick.mode = .custom
         case .right:
-            targetProfile.joystickSettings.rightStickMode = .custom
+            targetProfile.joystickSettings.rightStick.mode = .custom
         }
+		targetProfile.updateOuraMotionOutputModeIfNeeded(
+			afterChanging: ControllerButton.joystickDirectionButton(side: side, direction: .up)
+		)
         updateProfile(targetProfile)
     }
 
@@ -90,6 +102,8 @@ extension ProfileManager {
 
         targetProfile.updateDPadPresetIfNeeded(afterChanging: button1)
         targetProfile.updateDPadPresetIfNeeded(afterChanging: button2)
+		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button1)
+		targetProfile.updateOuraMotionOutputModeIfNeeded(afterChanging: button2)
         updateProfile(targetProfile)
     }
 

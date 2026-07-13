@@ -122,8 +122,8 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 10) {
-                upcomingRow(icon: "accessibility", title: "Accessibility", subtitle: "Required — move the mouse and press keys")
                 upcomingRow(icon: "keyboard", title: "Input Monitoring", subtitle: "Required — read every controller type")
+		upcomingRow(icon: "accessibility", title: "Accessibility", subtitle: "Required — move the mouse and press keys")
                 upcomingRow(icon: "dot.radiowaves.left.and.right", title: "Bluetooth", subtitle: "Optional — wireless battery level")
             }
             .padding(12)
@@ -193,8 +193,9 @@ struct OnboardingView: View {
 
             instructionList([
                 "Click **Open System Settings** below.",
+		"If macOS asks first, choose **Open System Settings** in that prompt too.",
+		"Add **ControllerKeys** if it is missing: drag the icon below into the list, or click **+** there and pick it.",
                 "Turn on the switch next to **ControllerKeys**.",
-                "**Don't see it in the list?** Drag the **ControllerKeys** icon below straight into the list (or click **+** there and pick it).",
                 "Return here — the status updates automatically."
             ])
 

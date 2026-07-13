@@ -57,14 +57,14 @@ final class JoystickMathTests: XCTestCase {
     func testMouseAccelerationExponentMapping() {
         var settings = JoystickSettings()
 
-        settings.mouseAcceleration = 0.0
-        XCTAssertEqual(settings.mouseAccelerationExponent, 1.0, "Acceleration 0 -> exponent 1.0 (linear)")
+        settings.leftStick.mouseAcceleration = 0.0
+        XCTAssertEqual(settings.leftStick.mouseAccelerationExponent, 1.0, "Acceleration 0 -> exponent 1.0 (linear)")
 
-        settings.mouseAcceleration = 0.5
-        XCTAssertEqual(settings.mouseAccelerationExponent, 2.0, "Acceleration 0.5 -> exponent 2.0 (quadratic)")
+        settings.leftStick.mouseAcceleration = 0.5
+        XCTAssertEqual(settings.leftStick.mouseAccelerationExponent, 2.0, "Acceleration 0.5 -> exponent 2.0 (quadratic)")
 
-        settings.mouseAcceleration = 1.0
-        XCTAssertEqual(settings.mouseAccelerationExponent, 3.0, "Acceleration 1.0 -> exponent 3.0 (cubic)")
+        settings.leftStick.mouseAcceleration = 1.0
+        XCTAssertEqual(settings.leftStick.mouseAccelerationExponent, 3.0, "Acceleration 1.0 -> exponent 3.0 (cubic)")
     }
 
     func testMouseAccelerationCurveAtKeyPoints() {
@@ -82,37 +82,37 @@ final class JoystickMathTests: XCTestCase {
     func testScrollAccelerationExponentMapping() {
         var settings = JoystickSettings()
 
-        settings.scrollAcceleration = 0.0
-        XCTAssertEqual(settings.scrollAccelerationExponent, 1.0, "Scroll acceleration 0 -> exponent 1.0 (linear)")
+        settings.rightStick.scrollAcceleration = 0.0
+        XCTAssertEqual(settings.rightStick.scrollAccelerationExponent, 1.0, "Scroll acceleration 0 -> exponent 1.0 (linear)")
 
-        settings.scrollAcceleration = 0.5
-        XCTAssertEqual(settings.scrollAccelerationExponent, 1.75, "Scroll acceleration 0.5 -> exponent 1.75")
+        settings.rightStick.scrollAcceleration = 0.5
+        XCTAssertEqual(settings.rightStick.scrollAccelerationExponent, 1.75, "Scroll acceleration 0.5 -> exponent 1.75")
 
-        settings.scrollAcceleration = 1.0
-        XCTAssertEqual(settings.scrollAccelerationExponent, 2.5, "Scroll acceleration 1.0 -> exponent 2.5")
+        settings.rightStick.scrollAcceleration = 1.0
+        XCTAssertEqual(settings.rightStick.scrollAccelerationExponent, 2.5, "Scroll acceleration 1.0 -> exponent 2.5")
     }
 
     // MARK: - Mouse Multiplier Tests
 
     func testMouseMultiplierAtZero() {
         var settings = JoystickSettings()
-        settings.mouseSensitivity = 0.0
-        XCTAssertEqual(settings.mouseMultiplier, 2.0, accuracy: 1e-10,
+        settings.leftStick.mouseSensitivity = 0.0
+        XCTAssertEqual(settings.leftStick.mouseMultiplier, 2.0, accuracy: 1e-10,
                         "Minimum sensitivity should give minimum multiplier of 2.0")
     }
 
     func testMouseMultiplierAtHalf() {
         var settings = JoystickSettings()
-        settings.mouseSensitivity = 0.5
+        settings.leftStick.mouseSensitivity = 0.5
         // pow(0.5, 3) = 0.125, 2.0 + 0.125 * 118.0 = 16.75
-        XCTAssertEqual(settings.mouseMultiplier, 16.75, accuracy: 1e-10,
+        XCTAssertEqual(settings.leftStick.mouseMultiplier, 16.75, accuracy: 1e-10,
                         "Mid sensitivity should use cubic mapping: 2 + 0.125 * 118 = 16.75")
     }
 
     func testMouseMultiplierAtFull() {
         var settings = JoystickSettings()
-        settings.mouseSensitivity = 1.0
-        XCTAssertEqual(settings.mouseMultiplier, 120.0, accuracy: 1e-10,
+        settings.leftStick.mouseSensitivity = 1.0
+        XCTAssertEqual(settings.leftStick.mouseMultiplier, 120.0, accuracy: 1e-10,
                         "Maximum sensitivity should give maximum multiplier of 120.0")
     }
 
@@ -120,22 +120,22 @@ final class JoystickMathTests: XCTestCase {
 
     func testScrollMultiplierAtZero() {
         var settings = JoystickSettings()
-        settings.scrollSensitivity = 0.0
-        XCTAssertEqual(settings.scrollMultiplier, 1.0, accuracy: 1e-10,
+        settings.rightStick.scrollSensitivity = 0.0
+        XCTAssertEqual(settings.rightStick.scrollMultiplier, 1.0, accuracy: 1e-10,
                         "Minimum scroll sensitivity should give multiplier of 1.0")
     }
 
     func testScrollMultiplierAtHalf() {
         var settings = JoystickSettings()
-        settings.scrollSensitivity = 0.5
+        settings.rightStick.scrollSensitivity = 0.5
         let expected = 1.0 + pow(0.5, 1.5) * 29.0
-        XCTAssertEqual(settings.scrollMultiplier, expected, accuracy: 1e-10)
+        XCTAssertEqual(settings.rightStick.scrollMultiplier, expected, accuracy: 1e-10)
     }
 
     func testScrollMultiplierAtFull() {
         var settings = JoystickSettings()
-        settings.scrollSensitivity = 1.0
-        XCTAssertEqual(settings.scrollMultiplier, 30.0, accuracy: 1e-10,
+        settings.rightStick.scrollSensitivity = 1.0
+        XCTAssertEqual(settings.rightStick.scrollMultiplier, 30.0, accuracy: 1e-10,
                         "Maximum scroll sensitivity should give multiplier of 30.0")
     }
 
@@ -148,9 +148,9 @@ final class JoystickMathTests: XCTestCase {
         let stickY = 0.0
 
         var settings = JoystickSettings()
-        settings.mouseSensitivity = 0.5
-        settings.mouseAcceleration = 0.5
-        settings.mouseDeadzone = deadzone
+        settings.leftStick.mouseSensitivity = 0.5
+        settings.leftStick.mouseAcceleration = 0.5
+        settings.leftStick.mouseDeadzone = deadzone
 
         guard let magnitude = JoystickMath.circularDeadzone(x: stickX, y: stickY, deadzone: deadzone) else {
             XCTFail("Input should be outside deadzone")
@@ -158,8 +158,8 @@ final class JoystickMathTests: XCTestCase {
         }
 
         let normalizedMag = JoystickMath.normalizedMagnitude(magnitude, deadzone: deadzone)
-        let acceleratedMag = pow(normalizedMag, settings.mouseAccelerationExponent)
-        let scale = acceleratedMag * settings.mouseMultiplier / magnitude
+        let acceleratedMag = pow(normalizedMag, settings.leftStick.mouseAccelerationExponent)
+        let scale = acceleratedMag * settings.leftStick.mouseMultiplier / magnitude
         let dx = stickX * scale
 
         XCTAssertEqual(magnitude, 0.7, accuracy: 1e-10)
@@ -529,13 +529,13 @@ final class JoystickMathTests: XCTestCase {
         {"mouseDeadzone": 1.0, "scrollDeadzone": 1.0}
         """.data(using: .utf8)!
         let settings = try! JSONDecoder().decode(JoystickSettings.self, from: json)
-        XCTAssertLessThanOrEqual(settings.mouseDeadzone, 0.99,
+        XCTAssertLessThanOrEqual(settings.leftStick.mouseDeadzone, 0.99,
                                   "mouseDeadzone must be clamped below 1.0 to prevent division by zero")
-        XCTAssertLessThanOrEqual(settings.scrollDeadzone, 0.99,
+        XCTAssertLessThanOrEqual(settings.rightStick.scrollDeadzone, 0.99,
                                   "scrollDeadzone must be clamped below 1.0 to prevent division by zero")
 
         // Verify normalizedMagnitude produces a finite result at the clamped max
-        let result = JoystickMath.normalizedMagnitude(1.0, deadzone: settings.mouseDeadzone)
+        let result = JoystickMath.normalizedMagnitude(1.0, deadzone: settings.leftStick.mouseDeadzone)
         XCTAssertTrue(result.isFinite, "normalizedMagnitude must be finite at max clamped deadzone")
     }
 
@@ -546,8 +546,8 @@ final class JoystickMathTests: XCTestCase {
         // NaN string will fail to decode as Double, falling back to default
         // Negative value will be clamped to 0.0
         if let settings = try? JSONDecoder().decode(JoystickSettings.self, from: json) {
-            XCTAssertTrue(settings.mouseDeadzone.isFinite)
-            XCTAssertGreaterThanOrEqual(settings.scrollDeadzone, 0.0)
+            XCTAssertTrue(settings.leftStick.mouseDeadzone.isFinite)
+            XCTAssertGreaterThanOrEqual(settings.rightStick.scrollDeadzone, 0.0)
         }
     }
 }

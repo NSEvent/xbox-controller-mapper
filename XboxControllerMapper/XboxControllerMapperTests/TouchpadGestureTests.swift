@@ -23,7 +23,7 @@ final class TouchpadGestureTests: MappingEngineTestCase {
 
         // Simulate tap gesture callback
         await MainActor.run {
-            controllerService.onTouchpadTap?()
+            controllerService.emitInputEvent(.touchpadTap)
         }
         await waitForTasks()
 
@@ -53,7 +53,7 @@ final class TouchpadGestureTests: MappingEngineTestCase {
 
         // Simulate two-finger tap callback
         await MainActor.run {
-            controllerService.onTouchpadTwoFingerTap?()
+            controllerService.emitInputEvent(.touchpadTwoFingerTap)
         }
         await waitForTasks()
 

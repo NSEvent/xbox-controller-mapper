@@ -135,7 +135,7 @@ final class ProfileEqualityTests: XCTestCase {
 
     func testProfilesWithDifferentJoystickSettingsAreNotEqual() {
         var js = JoystickSettings.default
-        js.mouseSensitivity = 1.0
+        js.leftStick.mouseSensitivity = 1.0
         let a = makeProfile(joystickSettings: js)
         let b = makeProfile(joystickSettings: .default)
         XCTAssertNotEqual(a, b)

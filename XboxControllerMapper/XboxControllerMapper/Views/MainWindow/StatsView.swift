@@ -335,24 +335,34 @@ struct StatsView: View, ControllerTypeProviding {
 
     // MARK: - Top Buttons
 
-    private var topButtonsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("TOP BUTTONS")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.secondary)
+	private var topButtonsSection: some View {
+		let presentationState = controllerPresentationState
+
+		return VStack(alignment: .leading, spacing: 12) {
+			Text("TOP BUTTONS")
+				.font(.system(size: 10, weight: .bold))
+				.foregroundColor(.secondary)
 
             let top = Array(stats.topButtons.prefix(5))
             let maxCount = top.first?.count ?? 1
 
-            ForEach(top, id: \.button) { item in
-                HStack(spacing: 12) {
-                    ButtonIconView(button: item.button, isDualSense: isPlayStation, isNintendo: isNintendo, isSteamController: isSteamController)
-                        .frame(width: ButtonIconView.maxIconWidth)
+			ForEach(top, id: \.button) { item in
+				HStack(spacing: 12) {
+					ButtonIconView(
+						button: item.button,
+						isDualSense: presentationState.isPlayStation,
+						isNintendo: presentationState.isNintendo,
+						isSteamController: presentationState.isSteamController
+					)
+						.frame(width: ButtonIconView.maxIconWidth)
 
-                    Text(item.button.displayName(forDualSense: isPlayStation, forNintendo: isNintendo))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(width: 90, alignment: .leading)
+					Text(item.button.displayName(
+						forDualSense: presentationState.isPlayStation,
+						forNintendo: presentationState.isNintendo
+					))
+						.font(.system(size: 13, weight: .medium))
+						.foregroundColor(.white)
+						.frame(width: 90, alignment: .leading)
 
                     GeometryReader { geo in
                         let fraction = CGFloat(item.count) / CGFloat(maxCount)

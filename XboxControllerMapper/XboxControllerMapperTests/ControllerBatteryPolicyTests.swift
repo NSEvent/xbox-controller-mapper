@@ -29,6 +29,18 @@ final class ControllerBatteryPolicyTests: XCTestCase {
 		XCTAssertEqual(reading?.state, .discharging)
 	}
 
+	func testGameControllerBatteryFivePercentStepsArePreserved() {
+		let reading = ControllerBatteryReadingResolver.resolve(
+			prefersBluetoothBattery: false,
+			bluetoothLevel: nil,
+			bluetoothIsCharging: false,
+			controllerBatteryLevel: 0.45,
+			controllerBatteryState: .discharging
+		)
+
+		XCTAssertEqual(reading?.level ?? -1, 0.45, accuracy: 0.001)
+	}
+
 	func testXboxBluetoothBatteryIsClamped() {
 		let reading = ControllerBatteryReadingResolver.resolve(
 			prefersBluetoothBattery: true,

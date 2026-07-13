@@ -254,7 +254,6 @@ extension ControllerService {
             guard let self else { return }
             storage.lock.lock()
             let mode = storage.touchpadInputMode
-            let callback = storage.onControllerButtonTap
             storage.lock.unlock()
 
             let button: ControllerButton?
@@ -265,7 +264,7 @@ extension ControllerService {
                 button = ControllerButton.from(steamTouchpadSide: side, region: region, trigger: .touch)
             }
             if let button {
-                callback?(button)
+                emitInputEvent(.controllerButtonTap(button))
             }
         }
         controller.onBatteryChanged = { [weak self, weak controller] level, state in
@@ -343,15 +342,7 @@ extension ControllerService {
         storage.lock.lock()
         resetMotionStateLocked()
         resetTouchpadStateLocked()
-        storage.isDualSense = false
-        storage.isDualSenseEdge = false
-        storage.isDualShock = false
-        storage.isNintendo = false
-			storage.isJoyConLeft = false
-				storage.isJoyConRight = false
-				storage.isXboxElite = false
-				storage.isAppleTVRemote = false
-				storage.isSteamController = true
+        storage.applyControllerTypeLocked(.steam)
 			storage.elitePaddleEventSource = .none
 			storage.lock.unlock()
 

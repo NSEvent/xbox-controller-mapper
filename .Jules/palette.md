@@ -29,3 +29,6 @@
 ## 2023-10-25 - Added Context to Icon-Only List Buttons
 **Learning:** Found an icon-only list item checkbox button (`onToggleSelect` in `CommunityProfileRow`) missing accessibility/help labels. Unlike standard text buttons, icon-only interaction targets must always explicitly provide context (via `.help` and `.accessibilityLabel`), particularly within repeated lists where context comes from dynamic adjacent content (`profileInfo.displayName`).
 **Action:** Always verify icon-only interactive elements in loops or lists. Append `.help` and `.accessibilityLabel` with dynamic context using the current loop variable's properties to explicitly specify *what* the button is selecting/deselecting.
+## 2024-07-12 - [Dynamic Accessibility Labels for List Item Actions]
+**Learning:** Icon-only buttons (like Edit/Delete) inside lists pose a major accessibility challenge for VoiceOver users when identical labels ("Edit") are repeated without context, making it impossible to know which row is being acted on.
+**Action:** Always interpolate the dynamic item context (e.g., `item.name`) into both `.help()` tooltips and `.accessibilityLabel()` modifiers in repeated SwiftUI lists. Include fallback text for empty states (e.g., `"Unnamed Item"`).

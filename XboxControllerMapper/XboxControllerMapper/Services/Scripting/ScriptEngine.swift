@@ -6,7 +6,12 @@ import AppKit
 /// Thread-safe atomic boolean for timeout tracking between the timer (global queue) and
 /// script execution (inputQueue). Replaces the previous UnsafeMutablePointer<Bool> which
 /// had no synchronization and could leak on exceptions.
-private final class AtomicBool {
+///
+/// nonisolated: the project's default MainActor isolation gives classes an
+/// isolated deinit, and the back-deploy shim intermittently crashes (bad free
+/// in malloc) when the instance deallocates off-main — which this one does,
+/// on inputQueue/global. Same failure signature as OuraGestureEventClassifier.
+nonisolated private final class AtomicBool {
     private var _value: Bool
     private let lock = NSLock()
 

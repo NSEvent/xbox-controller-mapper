@@ -1,7 +1,7 @@
 # Refactoring Backlog — June 2026
 
 **Date:** 2026-06-10
-**Status:** Tier 1 + 2 landed; this doc tracks the deferred Tier 3 items.
+**Status:** Tier 1 + most Tier 2 landed; this doc tracks deferred and partial Tier 3 items.
 
 Ranking method: git churn (commits/6 weeks) × file complexity. The hot files were
 `ControllerService` (33 commits, 2.7k lines + 7.9k in extensions), `ControllerVisualView`
@@ -18,17 +18,40 @@ Ranking method: git churn (commits/6 weeks) × file complexity. The hot files we
 - `ControllerService` 15Hz display timer → `+DisplayUpdates.swift`, battery polling/LED
   animation → `+Battery.swift`.
 - `LEDSettingsView` + `LightBarColorPicker` → `LEDSettingsView.swift`.
+- `ControllerVisualDescriptor` centralizes preview capabilities/row selection with tests.
+- `ControllerInputEvent` centralizes MappingEngine callback queue routing with tests.
+- `HIDControllerDriverDescriptor` centralizes raw-HID matching criteria with tests.
+- `ModifierKeyEmissionPolicy` owns side-aware modifier-key selection with tests.
 
 ## Tier 3 — deferred, do when the area is next touched
 
-### 1. Data-driven controller layouts (do alongside the next new controller type)
+### 0. Controller input event envelope (partially started; finish when callback surface changes)
+
+MappingEngine now wraps every ControllerService callback in a `ControllerInputEvent` before routing
+to `inputQueue` or `pollingQueue`. That gives the input boundary a single dispatch function and a
+unit-tested queue policy without changing chord timing, touchpad polling, or remote relay behavior.
+
+Remaining plan: replace ControllerService's many callback properties with one event callback, then
+move tests from "callback slot fired" assertions to "event emitted" assertions. Do not move chord
+detection out of ControllerService unless a latency/behavior bug forces that design decision.
+
+- Payoff: `setupBindings()` becomes subscription plumbing instead of input taxonomy.
+- Risk: medium — the current partial step is low risk, but the full callback migration touches
+  hardware-facing event timing.
+- Effort: ~3-5 hours.
+
+### 1. Data-driven controller layouts (partially started; continue with next new controller type)
 
 `ControllerVisualView` + `ControllerAnalogOverlay` contain ~56 per-controller-type branches
 (`isXboxElite` / `isDualSense` / `isSteamController` / `isAppleTVRemote` / ...) and four
 near-duplicate mini-overlay builders (`xboxOverlay`, `steamOverlay`, `nintendoOverlay`,
 `dualSenseOverlay`) with hardcoded positions/spacing.
 
-Plan: introduce a per-controller `LayoutMetrics` value type (preview size, button positions,
+Progress: `ControllerVisualDescriptor` now owns preview family/capability resolution, shoulder
+rows, system rows, touchpad section visibility, and special section labels. This removes a
+chunk of boolean routing from `ControllerVisualView` and gives the behavior unit coverage.
+
+Remaining plan: introduce a per-controller `LayoutMetrics` value type (preview size, button positions,
 touchpad geometry) and collapse the overlay builders into one data-driven builder. Also unify
 `miniTouchpad()` vs `miniSteamTouchpad()` (shared quadrant divider/highlight/tap-zone code) and
 `compactActionTile()` vs `referenceRow()` (near-identical context menu + layer indicator logic).
@@ -38,7 +61,7 @@ touchpad geometry) and collapse the overlay builders into one data-driven builde
   side-by-side screenshots per controller type.
 - Effort: ~3-5 hours.
 
-### 2. HID driver protocol (do when adding the next HID controller)
+### 2. HID driver protocol (partially started; do lifecycle/callback split with next HID controller)
 
 ~80% of the IOHIDManager setup (Create → SetDeviceMatching → RegisterCallback → Open, plus
 teardown) is duplicated across `+SteamHID.swift`, `+GenericHID.swift`, `+AppleTVRemoteHID.swift`,
@@ -46,7 +69,11 @@ teardown) is duplicated across `+SteamHID.swift`, `+GenericHID.swift`, `+AppleTV
 etc. repeats per extension. Apple TV additionally has three separate button-routing paths
 (HID buttons, system events, touchpad events) where Steam/Generic centralize.
 
-Plan: a `HIDControllerDriver` protocol (device matching, lifecycle, callback surface) + a setup
+Progress: `HIDControllerDriverDescriptor` now centralizes the pure matching criteria used by
+Generic HID, Nintendo HID, and 8BitDo D-input HID. This gives new backends a testable descriptor
+before any IOHIDManager wiring is touched.
+
+Remaining plan: a `HIDControllerDriver` protocol (device matching, lifecycle, callback surface) + a setup
 helper for the manager boilerplate. ControllerService talks to drivers through the protocol.
 
 - Payoff: one place to debug HID lifecycle; drivers swappable for tests.

@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-07-13
+
+### Added
+
+- **Oura Ring motion control**: ControllerKeys can now read an Oura smart ring as a controller—tilt your hand to steer the mouse, or route the same motion to scrolling, arrow keys, WASD, the D-pad, or four custom directional actions. A dedicated Ring tab (Settings → Ring) handles pairing plus a full calibration pass: orientation, invert X/Y, sensitivity, horizontal and left-hand boost for wide screens, deadzone, and smoothing, with Scan, Center, Pause Motion, and Forget Pairing controls. The ring auto-recenters when your hand drifts at rest so a stale neutral pose stops manufacturing phantom cursor drift, and the connection recovers on its own after Bluetooth drops or the stream stalls.
+
+- **Oura Ring gestures**: Finger taps (single, double, triple, and five-tap), tap-and-hold, and directional flicks (up, down, left, right) register as bindable virtual buttons. Out of the box a tap left-clicks, a double-tap re-centers the ring, and a triple-tap toggles motion; remap any of them like a normal controller button. Gestures are recognized on-device by a Core ML classifier trained on labeled ring sessions, tuned to fire taps quickly while rejecting the hand-settle rebound that used to read as a phantom second tap.
+
+### Changed
+
+- **First-run onboarding requests Input Monitoring before Accessibility**: Granting Accessibility first could make macOS report input access as already granted without ever registering ControllerKeys in the Input Monitoring list, leaving you to add it by hand. The setup wizard now requests Input Monitoring first—pausing briefly so macOS finishes registering before System Settings opens the list—so the app appears on its own, and the manual-add fallback is spelled out as numbered steps.
+
+### Fixed
+
+- **No-controller chooser no longer drops rows after scrolling**: In a short window, scrolling the Buttons tab so the "No controller connected" chooser is partly clipped and then returning to the top could leave some controller-family buttons missing after SwiftUI refreshed the view. The chooser now uses an eager static grid instead of a nested `LazyVGrid`, so the small fixed set of controller buttons stays mounted and redraws reliably. Each pick also labels its console family (PS5, PS4, Switch, Xbox) under the name, so it's clear which layout you're choosing.
+
+- **Live permission status stays current with more than one view open**: The permissions poller is now reference-counted, so closing one permissions view—like the first-run wizard—no longer stops the status pills in another open view (Settings → General → Permissions) from flipping to "Granted" the moment you toggle a switch in System Settings.
+
+## [2.5.1] - 2026-07-03
+
+### Added
+
+- **Analog trigger precision control**: Use LT/L2, RT/R2, or either trigger as a continuous precision control for thumbstick and touchpad cursor movement. The deeper you pull, the slower the cursor moves, with sliders for minimum speed, trigger deadzone, and response curve. It is off by default and stacks with existing trigger button mappings instead of replacing them; the Joysticks settings UI now recommends RT/R2 first and warns when the selected trigger also has a button action or overlaps with left-trigger swipe typing.
+
+## [2.5.0] - 2026-07-02
+
+### Added
+
+- **FPS / pointer-lock relative mouse mode**: Games that capture the mouse—browser FPS games, aim trainers, anything using the Pointer Lock API—need an endless stream of relative mouse motion, but stick aiming previously moved the real cursor to absolute screen positions, so aiming died at the screen edge and the cursor could escape the game onto the desktop. A new mode in Settings → Joysticks posts true relative movement while a game has the mouse captured: full 360° aiming, no edge stops, and the cursor stays pinned inside the game. Auto (the default) detects capture by watching for the game hiding the system cursor and switches back the moment it's released; Always is for dedicated per-app game profiles. One caveat: games that opt into raw input (`unadjustedMovement`) read the physical mouse hardware directly and can't see synthetic input from any macOS software—turn the game's raw-input setting off to aim with ControllerKeys.
+
+- **Google Slides / PowerPoint community profile**: A presentation-remote profile with a Start Presentation button, so a controller can drive slide decks out of the box.
+
+### Fixed
+
+- **Controller switching is harder to break**: Handing control to a second connected controller now waits for the active controller to go quiet and return to neutral first, so a drifting stick or a held button can no longer yank control away mid-input. Haptic sessions are also invalidated on switch, so rumble queued by the previous controller no longer fires on the new one.
+
+- **8BitDo Micro d-pad routes as a d-pad**: When macOS exposes the Micro's physical d-pad as a Direction Pad (Android mode), it now binds as real d-pad buttons instead of doubling as the left-stick fallback, matching what the mapping canvas shows.
+
+## [2.4.0] - 2026-06-25
+
+### Added
+
+- **Independent left/right stick tuning**: Each analog stick now has its own sensitivity, acceleration, and deadzone, so you can keep one stick slow for pixel-precise aiming and the other fast to fling the cursor across a wide monitor—even with both sticks set to mouse mode. Previously the two sticks shared a single sensitivity, so tuning one changed the other. Set them independently in Settings → Joysticks.
+
+- **Per-layer joystick overrides**: Any layer can now override a stick's mode and tuning while it's held, and anything you don't set falls through to your base settings—the same transparency model layers already use for button mappings. Hold a layer trigger to make the left stick fast and release for fine control, without touching the other stick. Configure them in the new Per-Layer Overrides section of the Joysticks tab.
+
+### Fixed
+
+- **Joystick deadzone and invert controls follow the selected mode**: The Deadzone slider and Invert Y toggle edited the scroll-mode field on the right stick and the mouse-mode field on the left regardless of which mode was actually selected, so they had no effect once a stick was switched away from its default mode. They now bind to the field the chosen mode actually uses.
+
+## [2.3.0] - 2026-06-25
+
+### Added
+
+- **⌘K command palette**: A Spotlight-style jump bar — press ⌘K or the new toolbar button — to go straight to any section, controller button, or bound shortcut without walking the nested tab bar. Sections are searchable by what they do (typing "javascript" finds Scripts, "latency" finds Input), with arrow-key, Return, and Escape navigation.
+
+### Fixed
+
+- **Touchpad cursor lag and path replay**: Using the DualSense touchpad as a mouse could feel laggy and re-trace the path you just swiped under high-rate input — most noticeable through a Bluetooth-to-USB controller adapter, but reproducible wired too. Touchpad samples are now coalesced into a single net movement per drain, so a burst can no longer back up the input queue and replay the motion.
+
+- **Expanded automation URL-scheme blocklist**: TriggerKit automation URL handling now also rejects `shortcuts`, `terminal`, `ssh`, `telnet`, `vnc`, `ftp`, `smb`, and `afp` schemes, closing local-execution and sandbox-escape vectors that the earlier `file` and system-scheme block didn't cover.
+
+- **OBS WebSocket password no longer falls back to plaintext**: When Keychain storage failed, the OBS password used by automation commands was previously written to disk in plaintext as a fallback. It now fails securely and discards the password instead of persisting it unencrypted.
+
+- **Accessibility labels for tooltip-only buttons**: Controls that previously exposed only a hover tooltip — the ⌘K command palette, Settings, Profiles, trial status, and several mapping panels — now carry VoiceOver accessibility labels.
+
 ## [2.2.1] - 2026-06-19
 
 ### Fixed

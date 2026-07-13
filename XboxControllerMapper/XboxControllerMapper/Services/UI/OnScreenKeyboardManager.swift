@@ -15,7 +15,7 @@ enum KeyboardNavigationItem: Hashable {
 @MainActor
 class OnScreenKeyboardManager: ObservableObject {
     static let shared = OnScreenKeyboardManager()
-    private static let cursorHiddenDefaultsKey = "onScreenKeyboardCursorHidden"
+    private static let cursorHiddenDefaultsKey = Config.onScreenKeyboardCursorHiddenDefaultsKey
 
     @Published private(set) var isVisible = false
     @Published private(set) var typingBuffer: String = ""

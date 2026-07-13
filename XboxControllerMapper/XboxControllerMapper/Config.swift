@@ -6,6 +6,12 @@ struct Config {
 	// MARK: - Event Tagging
 	static let controllerKeysSyntheticMediaEventUserData: Int64 = 0x434B4D45444941
 
+	// MARK: - Cursor State
+	/// UserDefaults flag set while on-screen-keyboard navigation mode has hidden the
+	/// cursor. Read by InputSimulator so pointer-lock auto-detection doesn't mistake
+	/// the app's own cursor hide for a game's pointer lock.
+	static let onScreenKeyboardCursorHiddenDefaultsKey = "onScreenKeyboardCursorHidden"
+
     // MARK: - Chord Detection
     /// Time window for detecting simultaneous button presses as a chord (seconds)
     static let chordDetectionWindow: TimeInterval = 0.15
