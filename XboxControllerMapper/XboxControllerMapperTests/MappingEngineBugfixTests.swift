@@ -42,7 +42,17 @@ final class ProfileChangeDuringActiveInputTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 80_000_000)
 
         await MainActor.run {
-            controllerService?.onInputEvent = nil
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.onLeftStickMoved = nil
+            controllerService?.onRightStickMoved = nil
+            controllerService?.onTouchpadMoved = nil
+            controllerService?.onTouchpadGesture = nil
+            controllerService?.onTouchpadTap = nil
+            controllerService?.onTouchpadTwoFingerTap = nil
+            controllerService?.onTouchpadLongTap = nil
+            controllerService?.onTouchpadTwoFingerLongTap = nil
             controllerService?.cleanup()
 
             mappingEngine = nil
@@ -288,7 +298,17 @@ final class SequenceDetectorProfileChangeIntegrationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 80_000_000)
 
         await MainActor.run {
-            controllerService?.onInputEvent = nil
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.onLeftStickMoved = nil
+            controllerService?.onRightStickMoved = nil
+            controllerService?.onTouchpadMoved = nil
+            controllerService?.onTouchpadGesture = nil
+            controllerService?.onTouchpadTap = nil
+            controllerService?.onTouchpadTwoFingerTap = nil
+            controllerService?.onTouchpadLongTap = nil
+            controllerService?.onTouchpadTwoFingerLongTap = nil
             controllerService?.cleanup()
 
             mappingEngine = nil
@@ -409,7 +429,17 @@ final class TimerCleanupTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 80_000_000)
 
         await MainActor.run {
-            controllerService?.onInputEvent = nil
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.onLeftStickMoved = nil
+            controllerService?.onRightStickMoved = nil
+            controllerService?.onTouchpadMoved = nil
+            controllerService?.onTouchpadGesture = nil
+            controllerService?.onTouchpadTap = nil
+            controllerService?.onTouchpadTwoFingerTap = nil
+            controllerService?.onTouchpadLongTap = nil
+            controllerService?.onTouchpadTwoFingerLongTap = nil
             controllerService?.cleanup()
 
             mappingEngine = nil
@@ -624,7 +654,17 @@ final class GestureDetectorProfileChangeIntegrationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 80_000_000)
 
         await MainActor.run {
-            controllerService?.onInputEvent = nil
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.onLeftStickMoved = nil
+            controllerService?.onRightStickMoved = nil
+            controllerService?.onTouchpadMoved = nil
+            controllerService?.onTouchpadGesture = nil
+            controllerService?.onTouchpadTap = nil
+            controllerService?.onTouchpadTwoFingerTap = nil
+            controllerService?.onTouchpadLongTap = nil
+            controllerService?.onTouchpadTwoFingerLongTap = nil
             controllerService?.cleanup()
 
             mappingEngine = nil
@@ -732,7 +772,17 @@ final class NilProfileHandlingTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 80_000_000)
 
         await MainActor.run {
-            controllerService?.onInputEvent = nil
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.onLeftStickMoved = nil
+            controllerService?.onRightStickMoved = nil
+            controllerService?.onTouchpadMoved = nil
+            controllerService?.onTouchpadGesture = nil
+            controllerService?.onTouchpadTap = nil
+            controllerService?.onTouchpadTwoFingerTap = nil
+            controllerService?.onTouchpadLongTap = nil
+            controllerService?.onTouchpadTwoFingerLongTap = nil
             controllerService?.cleanup()
 
             mappingEngine = nil

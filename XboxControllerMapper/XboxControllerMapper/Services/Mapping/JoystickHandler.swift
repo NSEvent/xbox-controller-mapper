@@ -66,10 +66,6 @@ extension MappingEngine {
         // Single lock acquisition for all controller input state (cache-friendly snapshot)
         let controllerSnapshot = controllerService.snapshot()
         let leftStick = controllerSnapshot.leftStick
-		let analogPrecisionMultiplier = settings.analogPrecisionMultiplier(
-			leftTrigger: Double(controllerSnapshot.leftTrigger),
-			rightTrigger: Double(controllerSnapshot.rightTrigger)
-		)
 		processGyroAiming(
 			settings: settings,
 			now: now,
@@ -216,15 +212,11 @@ extension MappingEngine {
             return
         }
 
-        // Resolve effective per-side tuning: active layer override (if any) is
-        // overlaid onto the profile's base stick tuning, per field. Mode is part
-        // of that tuning, so this also resolves the effective stick mode.
+        // Resolve effective per-side modes: active layer override (if any) wins over profile default.
         // Lock is held for the whole function, so reading state.activeLayerIds + state.layersById here is safe.
         let activeLayer = state.activeLayerIds.last.flatMap { state.layersById[$0] }
-        let leftTuning = activeLayer?.leftStickTuning?.applied(to: settings.leftStick) ?? settings.leftStick
-        let rightTuning = activeLayer?.rightStickTuning?.applied(to: settings.rightStick) ?? settings.rightStick
-        let effectiveLeftMode = leftTuning.mode
-        let effectiveRightMode = rightTuning.mode
+        let effectiveLeftMode = activeLayer?.leftStickModeOverride ?? settings.leftStickMode
+        let effectiveRightMode = activeLayer?.rightStickModeOverride ?? settings.rightStickMode
 
         if JoystickHandlerDiagnostics.pollDumpEnabled,
            abs(leftStick.x) > 0.05 || abs(leftStick.y) > 0.05 {
@@ -236,8 +228,6 @@ extension MappingEngine {
             stick: leftStick,
             side: .left,
             settings: settings,
-            tuning: leftTuning,
-			analogPrecisionMultiplier: analogPrecisionMultiplier,
             dt: dt,
             now: now
         )
@@ -255,8 +245,6 @@ extension MappingEngine {
                 stick: rightStick,
                 side: .right,
                 settings: settings,
-                tuning: rightTuning,
-				analogPrecisionMultiplier: analogPrecisionMultiplier,
                 dt: dt,
                 now: now
             )
@@ -270,7 +258,7 @@ extension MappingEngine {
     /// Uses a deadzone + throttle approach: the first deflection triggers immediately,
     /// then repeats at the D-pad repeat interval while held.
     nonisolated func processDirectoryNavigatorStick(_ stick: CGPoint, now: CFAbsoluteTime, deferring deferredIO: inout [() -> Void]) {
-        let deadzone: Double = state.joystickSettings?.rightStick.mouseDeadzone ?? 0.4
+        let deadzone: Double = state.joystickSettings?.mouseDeadzone ?? 0.4
         let magnitude = sqrt(Double(stick.x * stick.x + stick.y * stick.y))
 
         guard magnitude > deadzone else {
@@ -347,8 +335,8 @@ extension MappingEngine {
 
     // MARK: - Scroll Double-Tap Boost
 
-    nonisolated func updateScrollDoubleTapState(rawStick: CGPoint, tuning: StickTuning, now: TimeInterval) {
-        let deadzone = tuning.scrollDeadzone
+    nonisolated func updateScrollDoubleTapState(rawStick: CGPoint, settings: JoystickSettings, now: TimeInterval) {
+        let deadzone = settings.scrollDeadzone
         let magnitudeSquared = rawStick.x * rawStick.x + rawStick.y * rawStick.y
         let deadzoneSquared = deadzone * deadzone
         let isOutside = magnitudeSquared > deadzoneSquared
@@ -506,13 +494,7 @@ extension MappingEngine {
         }
     }
 
-    nonisolated func processMouseMovement(
-		_ stick: CGPoint,
-		tuning: StickTuning,
-		settings: JoystickSettings,
-		analogPrecisionMultiplier: Double,
-		now: CFAbsoluteTime
-    ) {
+    nonisolated func processMouseMovement(_ stick: CGPoint, settings: JoystickSettings, now: CFAbsoluteTime) {
         let focusFlags = settings.focusModeModifier.cgEventFlags
         let isFocusActive = focusFlags.rawValue != 0 && inputSimulator.isHoldingModifiers(focusFlags)
 
@@ -521,14 +503,13 @@ extension MappingEngine {
         }
 
         guard let magnitude = JoystickMath.circularDeadzone(
-            x: Double(stick.x), y: Double(stick.y), deadzone: tuning.mouseDeadzone
+            x: Double(stick.x), y: Double(stick.y), deadzone: settings.mouseDeadzone
         ) else { return }
 
-        let normalizedMagnitude = JoystickMath.normalizedMagnitude(magnitude, deadzone: tuning.mouseDeadzone)
-        let acceleratedMagnitude = pow(normalizedMagnitude, tuning.mouseAccelerationExponent)
+        let normalizedMagnitude = JoystickMath.normalizedMagnitude(magnitude, deadzone: settings.mouseDeadzone)
+        let acceleratedMagnitude = pow(normalizedMagnitude, settings.mouseAccelerationExponent)
 
-		let baseTargetMultiplier = isFocusActive ? settings.focusMultiplier : tuning.mouseMultiplier
-		let targetMultiplier = baseTargetMultiplier * analogPrecisionMultiplier
+        let targetMultiplier = isFocusActive ? settings.focusMultiplier : settings.mouseMultiplier
 
         if state.currentMultiplier == 0 {
             state.currentMultiplier = targetMultiplier
@@ -540,7 +521,7 @@ extension MappingEngine {
         let dx = stick.x * scale
         var dy = stick.y * scale
 
-        dy = tuning.invertMouseY ? dy : -dy
+        dy = settings.invertMouseY ? dy : -dy
 
         inputSimulator.moveMouse(dx: dx, dy: dy)
         usageStatsService?.recordJoystickMouseDistance(dx: Double(dx), dy: Double(dy))
@@ -548,14 +529,14 @@ extension MappingEngine {
 
     // MARK: - Scrolling
 
-    nonisolated func processScrolling(_ stick: CGPoint, rawStick: CGPoint, tuning: StickTuning, settings: JoystickSettings, now: TimeInterval) {
+    nonisolated func processScrolling(_ stick: CGPoint, rawStick: CGPoint, settings: JoystickSettings, now: TimeInterval) {
         guard let magnitude = JoystickMath.circularDeadzone(
-            x: Double(stick.x), y: Double(stick.y), deadzone: tuning.scrollDeadzone
+            x: Double(stick.x), y: Double(stick.y), deadzone: settings.scrollDeadzone
         ) else { return }
 
-        let normalizedMag = JoystickMath.normalizedMagnitude(magnitude, deadzone: tuning.scrollDeadzone)
-        let acceleratedMagnitude = pow(normalizedMag, tuning.scrollAccelerationExponent)
-        let scale = acceleratedMagnitude * tuning.scrollMultiplier / magnitude
+        let normalizedMag = JoystickMath.normalizedMagnitude(magnitude, deadzone: settings.scrollDeadzone)
+        let acceleratedMagnitude = pow(normalizedMag, settings.scrollAccelerationExponent)
+        let scale = acceleratedMagnitude * settings.scrollMultiplier / magnitude
 
         let effectiveX = JoystickMath.scrollEffectiveX(
             stickX: Double(stick.x), stickY: Double(stick.y),
@@ -565,7 +546,7 @@ extension MappingEngine {
         let dx = -effectiveX * scale
         var dy = stick.y * scale
 
-        dy = tuning.invertScrollY ? -dy : dy
+        dy = settings.invertScrollY ? -dy : dy
 
         if state.scrollBoostDirection != 0,
            (rawStick.y >= 0 ? 1 : -1) == state.scrollBoostDirection {
@@ -663,11 +644,11 @@ extension MappingEngine {
     nonisolated func processDPadDirectionButtons(
         stick: CGPoint,
         side: JoystickSide,
-        tuning: StickTuning,
+        settings: JoystickSettings,
         heldButtons: inout Set<ControllerButton>
     ) {
-        let deadzone = side == .left ? tuning.mouseDeadzone : tuning.scrollDeadzone
-        let invertY = side == .left ? tuning.invertMouseY : tuning.invertScrollY
+        let deadzone = side == .left ? settings.mouseDeadzone : settings.scrollDeadzone
+        let invertY = side == .left ? settings.invertMouseY : settings.invertScrollY
         let directions = JoystickDirectionResolver.activeAxisDirections(
             stick: stick,
             deadzone: deadzone,
@@ -695,22 +676,22 @@ extension MappingEngine {
     nonisolated func processCustomDirectionButtons(
         stick: CGPoint,
         side: JoystickSide,
-        tuning: StickTuning,
+        settings: JoystickSettings,
         heldButtons: inout Set<ControllerButton>
     ) {
 		let targetButtons = customDirectionMappingsUseAxisMovement(side: side)
 			? JoystickDirectionResolver.activeAxisButtons(
 				stick: stick,
 				side: side,
-				tuning: tuning
+				settings: settings
 			)
 			: JoystickDirectionResolver.activeButtons(
 				stick: stick,
 				side: side,
-				tuning: tuning
+				settings: settings
 			)
         updateHeldDirectionButtons(targetButtons, heldButtons: &heldButtons)
-		processCustomDirectionScrollActions(targetButtons, stick: stick, side: side, tuning: tuning)
+		processCustomDirectionScrollActions(targetButtons, stick: stick, side: side, settings: settings)
     }
 
 	nonisolated private func customDirectionMappingsUseAxisMovement(side: JoystickSide) -> Bool {
@@ -734,7 +715,7 @@ extension MappingEngine {
 		_ targetButtons: Set<ControllerButton>,
 		stick: CGPoint,
 		side: JoystickSide,
-		tuning: StickTuning
+		settings: JoystickSettings
 	) {
 		guard let profile = state.activeProfile else { return }
 
@@ -752,7 +733,7 @@ extension MappingEngine {
 					button: button,
 					stick: stick,
 					side: side,
-					tuning: tuning,
+					settings: settings,
 					scrollActionSettings: mapping.scrollActionSettings
 				)
 			else {
@@ -781,12 +762,18 @@ extension MappingEngine {
 		button: ControllerButton,
 		stick: CGPoint,
 		side: JoystickSide,
-		tuning: StickTuning,
+		settings: JoystickSettings,
 		scrollActionSettings: ScrollActionSettings?
 	) -> CGFloat? {
 		guard let direction = button.joystickDirection else { return nil }
 
-		let deadzone = tuning.customDeadzone
+		let deadzone: Double
+		switch side {
+		case .left:
+			deadzone = settings.leftStickCustomDeadzone
+		case .right:
+			deadzone = settings.rightStickCustomDeadzone
+		}
 
 		let axisMagnitude: Double
 		switch direction {
@@ -800,8 +787,8 @@ extension MappingEngine {
 
 		guard axisMagnitude > deadzone else { return nil }
 		let normalized = min(1.0, max(0.0, JoystickMath.normalizedMagnitude(axisMagnitude, deadzone: deadzone)))
-		let accelerationExponent = scrollActionSettings?.accelerationExponent ?? tuning.scrollAccelerationExponent
-		let multiplier = scrollActionSettings?.scrollMultiplier ?? tuning.scrollMultiplier
+		let accelerationExponent = scrollActionSettings?.accelerationExponent ?? settings.scrollAccelerationExponent
+		let multiplier = scrollActionSettings?.scrollMultiplier ?? settings.scrollMultiplier
 		let accelerated = pow(normalized, accelerationExponent)
 		let amount = accelerated * multiplier
 		guard amount > 0 else { return nil }

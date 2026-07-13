@@ -78,8 +78,8 @@ struct GestureRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit \(gestureType.displayName)")
-                .accessibilityLabel("Edit \(gestureType.displayName)")
+                .help("Edit")
+                .accessibilityLabel("Edit")
 
                 if mapping?.hasAction == true {
                     Button(action: onClear) {
@@ -87,8 +87,8 @@ struct GestureRow: View {
                             .foregroundColor(.red.opacity(0.8))
                     }
                     .buttonStyle(.borderless)
-                    .help("Clear \(gestureType.displayName)")
-                    .accessibilityLabel("Clear \(gestureType.displayName)")
+                    .help("Clear")
+                    .accessibilityLabel("Clear")
                 }
             }
         }

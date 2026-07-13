@@ -91,11 +91,7 @@ release/
 DerivedData/
 
 # Debug/diagnostic tools
-Tools/*
-!Tools/oura-calibration/
-!Tools/oura-calibration/**
-Tools/oura-calibration/captures/
-Tools/oura-calibration/__pycache__/
+Tools/
 
 # Marketing docs
 marketing/

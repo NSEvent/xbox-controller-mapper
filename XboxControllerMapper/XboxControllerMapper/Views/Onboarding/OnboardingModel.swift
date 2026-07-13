@@ -8,18 +8,15 @@ extension Notification.Name {
 
 /// The ordered steps of the first-run permissions wizard.
 ///
-/// Input Monitoring and Accessibility are *required* for the app to do anything
-/// useful and are requested first. Input Monitoring intentionally comes before
-/// Accessibility: once Accessibility is granted, macOS can report listen access
-/// as granted without having separately registered the app in the Input
-/// Monitoring list. Bluetooth is *optional* (wireless battery %) and is
-/// skippable. Local Network is deliberately **absent** — it's requested lazily
-/// when the user sets up the cross-Mac relay via the sync button, so a user who
-/// never touches that feature never sees the prompt.
+/// Accessibility and Input Monitoring are *required* for the app to do anything
+/// useful and are requested first. Bluetooth is *optional* (wireless battery %)
+/// and is skippable. Local Network is deliberately **absent** — it's requested
+/// lazily when the user sets up the cross-Mac relay via the sync button, so a
+/// user who never touches that feature never sees the prompt.
 enum OnboardingStep: Int, CaseIterable, Identifiable {
     case welcome
-    case inputMonitoring
     case accessibility
+    case inputMonitoring
     case bluetooth
     case done
 
@@ -44,7 +41,7 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
 
     /// Index (1-based) and total of the *permission* steps, for the "Step 2 of 3"
     /// progress label. Welcome and Done aren't counted.
-    static var permissionSteps: [OnboardingStep] { [.inputMonitoring, .accessibility, .bluetooth] }
+    static var permissionSteps: [OnboardingStep] { [.accessibility, .inputMonitoring, .bluetooth] }
 }
 
 /// Pure snapshot of the permission states the wizard reacts to. Kept free of any
@@ -79,8 +76,8 @@ struct OnboardingStepState: Equatable {
     /// `.done` when every required permission is granted — used to resume the
     /// wizard at the right place rather than always starting at `.welcome`.
     var firstIncompleteStep: OnboardingStep {
+        if accessibility != .granted { return .accessibility }
         if inputMonitoring != .granted { return .inputMonitoring }
-	if accessibility != .granted { return .accessibility }
         return .done
     }
 }

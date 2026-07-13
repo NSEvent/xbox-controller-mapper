@@ -261,20 +261,6 @@ extension ControllerPreviewLayout {
                 // Volume Up (+) + Back button.
                 pairingButtons: [.appleTVRemoteVolumeUp, .view]
             )
-		case .ouraRing:
-			return ControllerPairingGuide(
-				title: loc("Connect Your Oura Ring"),
-				tagline: loc("Oura Ring 3 or 4 with realtime accelerometer input"),
-				systemImage: systemImage,
-				bluetoothSteps: [
-					loc("Open **ControllerKeys Settings → Joystick → Oura Ring** and enable **Use Oura Ring**."),
-					loc("Keep the ring nearby and unlocked from the official Oura app if needed."),
-					loc("If this is a reset ring, leave **Adopt reset ring** enabled so ControllerKeys can install its local auth key."),
-					loc("Wait for the Oura status to show **Authenticated**; the Buttons tab then shows the Oura Ring layout.")
-				],
-				tip: loc("Use **Reset Center** while pointing your finger at the screen to recalibrate the motion plane."),
-				pairingButtons: [.ouraTap, .ouraTapHold, .ouraFlickLeft, .ouraFlickRight]
-			)
         }
     }
 

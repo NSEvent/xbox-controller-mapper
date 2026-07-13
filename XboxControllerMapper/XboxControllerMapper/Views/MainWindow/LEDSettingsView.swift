@@ -11,12 +11,8 @@ struct LEDSettingsView: View {
         profileManager.activeProfile?.dualSenseLEDSettings ?? .default
     }
 
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
-
     private var isDualShock: Bool {
-		controllerPresentationState.isDualShock
+        controllerService.threadSafeIsDualShock
     }
 
     var body: some View {

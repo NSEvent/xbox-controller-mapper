@@ -124,8 +124,6 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
                 case .openLink: return "globe"
                 case .httpRequest: return "network"
                 case .obsWebSocket: return "video"
-				case .centerOuraRing: return "scope"
-				case .toggleOuraMotion: return "cursorarrow.motionlines"
                 }
             }
             return "gearshape"

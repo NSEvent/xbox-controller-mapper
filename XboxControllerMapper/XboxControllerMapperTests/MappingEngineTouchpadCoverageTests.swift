@@ -49,7 +49,19 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         }
 
         await MainActor.run {
-            controllerService?.onInputEvent = nil
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.onLeftStickMoved = nil
+            controllerService?.onRightStickMoved = nil
+            controllerService?.onTouchpadMoved = nil
+            controllerService?.onSteamLeftTouchpadMoved = nil
+			controllerService?.onAppleTVRemoteCircularScroll = nil
+            controllerService?.onTouchpadGesture = nil
+            controllerService?.onTouchpadTap = nil
+            controllerService?.onTouchpadTwoFingerTap = nil
+            controllerService?.onTouchpadLongTap = nil
+            controllerService?.onTouchpadTwoFingerLongTap = nil
             controllerService?.cleanup()
 
             mappingEngine = nil
@@ -69,8 +81,8 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
     func testRightStickScrollModeGeneratesScrollEvents() async throws {
         await MainActor.run {
             var profile = Profile(name: "RightScroll", buttonMappings: [:])
-            profile.joystickSettings.rightStick.mode = .scroll
-            profile.joystickSettings.rightStick.scrollDeadzone = 0.05
+            profile.joystickSettings.rightStickMode = .scroll
+            profile.joystickSettings.scrollDeadzone = 0.05
             profileManager.setActiveProfile(profile)
             controllerService.isConnected = true
         }
@@ -102,7 +114,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.6, y: 0.4)))
+            controllerService.onTouchpadMoved?(CGPoint(x: 0.6, y: 0.4))
         }
         await waitForTasks(0.2)
 
@@ -117,52 +129,6 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         }
     }
 
-	func testAnalogPrecisionTriggerScalesTouchpadMouseMovement() async throws {
-		await MainActor.run {
-			var profile = Profile(name: "TouchAnalogPrecision", buttonMappings: [:])
-			profile.joystickSettings.touchpadDeadzone = 0.00001
-			profile.joystickSettings.touchpadSmoothing = 0
-			profile.joystickSettings.analogPrecisionTriggerMode = .right
-			profile.joystickSettings.analogPrecisionMinimumSpeed = 0.25
-			profile.joystickSettings.analogPrecisionDeadzone = 0.0
-			profile.joystickSettings.analogPrecisionCurve = 0.0
-			profileManager.setActiveProfile(profile)
-		}
-		try? await Task.sleep(nanoseconds: 10_000_000)
-
-		await MainActor.run {
-			controllerService.updateRightTrigger(0.0, pressed: false)
-			mockInputSimulator.clearEvents()
-			controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.6, y: 0.4)))
-		}
-		await waitForTasks(0.2)
-		let normal = averageRecentTouchpadMouseMagnitude()
-
-		await MainActor.run {
-			controllerService.updateRightTrigger(1.0, pressed: false)
-			mockInputSimulator.clearEvents()
-			controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.6, y: 0.4)))
-		}
-		await waitForTasks(0.2)
-		let precise = averageRecentTouchpadMouseMagnitude()
-
-		XCTAssertGreaterThan(normal, 0.1)
-		XCTAssertGreaterThan(precise, 0.1)
-		XCTAssertLessThan(precise, normal * 0.6)
-	}
-
-	private func averageRecentTouchpadMouseMagnitude(limit: Int = 4) -> CGFloat {
-		let magnitudes = mockInputSimulator.events.compactMap { event -> CGFloat? in
-			if case .moveMouse(let dx, let dy) = event {
-				return hypot(dx, dy)
-			}
-			return nil
-		}
-		let recent = Array(magnitudes.suffix(limit))
-		XCTAssertFalse(recent.isEmpty, "Expected touchpad mouse movement events")
-		return recent.reduce(0, +) / CGFloat(max(recent.count, 1))
-	}
-
     func testTouchpadMovementSuppressedDuringTwoFingerGesture() async throws {
         await MainActor.run {
             var profile = Profile(name: "TouchSuppressed", buttonMappings: [:])
@@ -172,16 +138,16 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: true,
                     isSecondaryTouching: true
                 )
-            ))
+            )
             mockInputSimulator.clearEvents()
-            controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.7, y: 0.7)))
+            controllerService.onTouchpadMoved?(CGPoint(x: 0.7, y: 0.7))
         }
         await waitForTasks(0.2)
 
@@ -192,14 +158,14 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             }
             XCTAssertFalse(hasMove, "Touchpad movement should be suppressed while two-finger gesture is active")
 
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: false,
                     isSecondaryTouching: false
                 )
-            ))
+            )
         }
     }
 
@@ -214,11 +180,11 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadTap)
+            controllerService.onTouchpadTap?()
         }
         await waitForTasks(0.04)
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadTap)
+            controllerService.onTouchpadTap?()
         }
         await waitForTasks(0.25)
 
@@ -249,11 +215,11 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadTap)      // schedules pending single tap
+            controllerService.onTouchpadTap?()      // schedules pending single tap
         }
         await waitForTasks(0.05)
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadLongTap)  // should cancel pending tap and run long-hold action
+            controllerService.onTouchpadLongTap?()  // should cancel pending tap and run long-hold action
         }
         await waitForTasks(0.30)
 
@@ -284,11 +250,11 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadTwoFingerTap)
+            controllerService.onTouchpadTwoFingerTap?()
         }
         await waitForTasks(0.05)
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadTwoFingerLongTap)
+            controllerService.onTouchpadTwoFingerLongTap?()
         }
         await waitForTasks(0.30)
 
@@ -317,14 +283,14 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0.24,
                     isPrimaryTouching: true,
                     isSecondaryTouching: true
                 )
-            ))
+            )
         }
         await waitForTasks(0.15)
 
@@ -337,14 +303,14 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             }.count
             XCTAssertGreaterThan(plusPresses, 0, "Pinch out should trigger Cmd+Equal zoom-in keypress")
 
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: false,
                     isSecondaryTouching: false
                 )
-            ))
+            )
         }
     }
 
@@ -358,14 +324,14 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: -0.24,
                     isPrimaryTouching: true,
                     isSecondaryTouching: true
                 )
-            ))
+            )
         }
         await waitForTasks(0.15)
 
@@ -378,14 +344,14 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             }.count
             XCTAssertGreaterThan(minusPresses, 0, "Pinch in should trigger Cmd+Minus zoom-out keypress")
 
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: false,
                     isSecondaryTouching: false
                 )
-            ))
+            )
         }
     }
 
@@ -400,7 +366,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: Config.touchpadPinchDeadzone + 0.02,
@@ -409,7 +375,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                     primaryDelta: CGPoint(x: 0.04, y: 0),
                     secondaryDelta: CGPoint(x: -0.04, y: 0)
                 )
-            ))
+            )
         }
         await waitForTasks(0.15)
 
@@ -423,7 +389,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             XCTAssertEqual(plusPressesBeforeThreshold, 0, "Steam two-pad pinch should ignore small distance changes")
             mockInputSimulator.clearEvents()
 
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: Config.steamTouchpadPinchDeadzone + 0.02,
@@ -432,7 +398,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                     primaryDelta: CGPoint(x: 0.06, y: 0),
                     secondaryDelta: CGPoint(x: -0.06, y: 0)
                 )
-            ))
+            )
         }
         await waitForTasks(0.15)
 
@@ -445,14 +411,14 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             }.count
             XCTAssertGreaterThan(plusPressesAfterThreshold, 0, "Steam two-pad pinch should trigger after the larger threshold")
 
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: false,
                     isSecondaryTouching: false
                 )
-            ))
+            )
         }
     }
 
@@ -469,25 +435,25 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         await waitForTasks(0.15)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: CGPoint(x: 0.9, y: 0.7),
                     distanceDelta: 0.0,
                     isPrimaryTouching: true,
                     isSecondaryTouching: true
                 )
-            ))
+            )
         }
         await waitForTasks(0.05)
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: CGPoint(x: 0.9, y: 0.7),
                     distanceDelta: 0.0,
                     isPrimaryTouching: true,
                     isSecondaryTouching: true
                 )
-            ))
+            )
         }
         await waitForTasks(0.35)
 
@@ -500,14 +466,14 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             }.count
             XCTAssertGreaterThan(nonZeroScrollCount, 0, "Two-finger pan should emit non-zero scroll deltas")
 
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: false,
                     isSecondaryTouching: false
                 )
-            ))
+            )
         }
         await waitForTasks(0.1)
     }
@@ -527,25 +493,25 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         await waitForTasks(0.15)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: CGPoint(x: 0.9, y: 0.7),
                     distanceDelta: 0.0,
                     isPrimaryTouching: true,
                     isSecondaryTouching: true
                 )
-            ))
+            )
         }
         await waitForTasks(0.05)
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: CGPoint(x: 0.9, y: 0.7),
                     distanceDelta: 0.0,
                     isPrimaryTouching: true,
                     isSecondaryTouching: true
                 )
-            ))
+            )
         }
         await waitForTasks(0.35)
 
@@ -561,14 +527,14 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                 "Touchpad pan inversion should reverse both horizontal and vertical scroll"
             )
 
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: false,
                     isSecondaryTouching: false
                 )
-            ))
+            )
         }
         await waitForTasks(0.1)
     }
@@ -587,7 +553,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         await waitForTasks(0.15)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: CGPoint(x: 0.9, y: 0.7),
                     distanceDelta: 0,
@@ -596,7 +562,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                     primaryDelta: CGPoint(x: 0.1, y: 0.1),
                     secondaryDelta: CGPoint(x: 0.1, y: 0.1)
                 )
-            ))
+            )
         }
         await waitForTasks(0.35)
 
@@ -624,7 +590,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         await waitForTasks(0.15)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: CGPoint(x: 0.05, y: 0),
                     distanceDelta: 0,
@@ -633,9 +599,9 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                     primaryDelta: CGPoint(x: 0.1, y: 0),
                     secondaryDelta: .zero
                 )
-            ))
+            )
             mockInputSimulator.clearEvents()
-            controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.7, y: 0.7)))
+            controllerService.onTouchpadMoved?(CGPoint(x: 0.7, y: 0.7))
         }
         await waitForTasks(0.2)
 
@@ -659,7 +625,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         await waitForTasks(0.15)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.touchpadGesture(
+            controllerService.onTouchpadGesture?(
                 TouchpadGesture(
                     centerDelta: CGPoint(x: 0.02, y: 0),
                     distanceDelta: Config.steamTouchpadPinchDeadzone + 0.02,
@@ -668,9 +634,9 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
                     primaryDelta: CGPoint(x: 0.1, y: 0),
                     secondaryDelta: CGPoint(x: -0.1, y: 0)
                 )
-            ))
+            )
             mockInputSimulator.clearEvents()
-            controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.7, y: 0.7)))
+            controllerService.onTouchpadMoved?(CGPoint(x: 0.7, y: 0.7))
         }
         await waitForTasks(0.2)
 
@@ -694,7 +660,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         await waitForTasks(0.15)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.steamLeftTouchpadMoved(CGPoint(x: 0.1, y: -0.1)))
+            controllerService.onSteamLeftTouchpadMoved?(CGPoint(x: 0.1, y: -0.1))
         }
         await waitForTasks(0.2)
 
@@ -729,7 +695,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
         await waitForTasks(0.15)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.steamLeftTouchpadMoved(CGPoint(x: 0.1, y: -0.1)))
+            controllerService.onSteamLeftTouchpadMoved?(CGPoint(x: 0.1, y: -0.1))
         }
         await waitForTasks(0.2)
 
@@ -757,7 +723,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
 		await waitForTasks(0.15)
 
 		await MainActor.run {
-			controllerService.emitInputEvent(.appleTVRemoteCircularScroll(0.12))
+			controllerService.onAppleTVRemoteCircularScroll?(0.12)
 		}
 		await waitForTasks(0.2)
 
@@ -786,7 +752,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
 		await waitForTasks(0.15)
 
 		await MainActor.run {
-			controllerService.emitInputEvent(.appleTVRemoteCircularScroll(0.12))
+			controllerService.onAppleTVRemoteCircularScroll?(0.12)
 		}
 		await waitForTasks(0.2)
 
@@ -814,7 +780,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
 		await waitForTasks(0.15)
 
 		await MainActor.run {
-			controllerService.emitInputEvent(.appleTVRemoteCircularScroll(0.12))
+			controllerService.onAppleTVRemoteCircularScroll?(0.12)
 		}
 		await waitForTasks(0.2)
 
@@ -838,7 +804,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
 		await waitForTasks(0.15)
 
 		await MainActor.run {
-			controllerService.emitInputEvent(.appleTVRemoteCircularScroll(0.12))
+			controllerService.onAppleTVRemoteCircularScroll?(0.12)
 		}
 		await waitForTasks(0.2)
 

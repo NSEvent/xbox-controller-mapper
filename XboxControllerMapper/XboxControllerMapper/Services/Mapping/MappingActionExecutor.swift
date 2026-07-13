@@ -118,8 +118,6 @@ struct MappingExecutor {
                 if inTerminal {
                     service.recordTerminalCommand()
                 }
-			case .centerOuraRing, .toggleOuraMotion:
-				break
             }
             return
         }

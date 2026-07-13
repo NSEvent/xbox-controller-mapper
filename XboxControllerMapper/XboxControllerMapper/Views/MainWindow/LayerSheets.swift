@@ -11,37 +11,30 @@ struct AddLayerSheet: View {
     @State private var selectedActivator: ControllerButton? = .leftBumper
     @State private var ledColor: Color = .blue
 
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
-
     /// Buttons that are already used as layer activators
     private var usedActivators: Set<ControllerButton> {
         Set(profileManager.activeProfile?.layers.compactMap { $0.activatorButton } ?? [])
     }
 
     /// Available activator buttons (exclude already-used ones)
-    private var availableButtons: [ControllerButton] {
-		// Good candidates for layer activators: bumpers, triggers, share, view, menu
-		var candidates: [ControllerButton] = [
-			.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
-			.share, .view, .menu, .xbox,
-			.leftThumbstick, .rightThumbstick
-		]
-		let presentationState = controllerPresentationState
-		if presentationState.isAppleTVRemote {
-			candidates = [.view, .menu, .xbox, .siri]
-		}
-		// Add Edge-specific buttons when Edge controller is connected
-		if presentationState.isDualSenseEdge {
-			candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
+	    private var availableButtons: [ControllerButton] {
+			// Good candidates for layer activators: bumpers, triggers, share, view, menu
+			var candidates: [ControllerButton] = [
+				.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
+				.share, .view, .menu, .xbox,
+				.leftThumbstick, .rightThumbstick
+			]
+			if controllerService.threadSafeIsAppleTVRemote {
+				candidates = [.view, .menu, .xbox, .siri]
+			}
+			// Add Edge-specific buttons when Edge controller is connected
+			if controllerService.threadSafeIsDualSenseEdge {
+				candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
         }
         return candidates.filter { !usedActivators.contains($0) }
     }
 
     var body: some View {
-		let presentationState = controllerPresentationState
-
         VStack(spacing: 20) {
             Text("Add Layer")
                 .font(.headline)
@@ -64,21 +57,16 @@ struct AddLayerSheet: View {
                         .foregroundColor(.secondary)
 
                     Picker("Activator", selection: $selectedActivator) {
-						Text("None (assign later)").tag(nil as ControllerButton?)
-						ForEach(availableButtons, id: \.self) { button in
-							Text(button.displayName(
-								forDualSense: presentationState.isPlayStation,
-								forNintendo: presentationState.isNintendo,
-								forAppleTVRemote: presentationState.isAppleTVRemote,
-								forEightBitDo: presentationState.eightBitDoModel != nil
-							))
-							.tag(button as ControllerButton?)
-						}
+							Text("None (assign later)").tag(nil as ControllerButton?)
+							ForEach(availableButtons, id: \.self) { button in
+								Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo, forAppleTVRemote: controllerService.threadSafeIsAppleTVRemote))
+									.tag(button as ControllerButton?)
+							}
                     }
                     .pickerStyle(.menu)
                 }
 
-				if presentationState.isPlayStation {
+                if controllerService.threadSafeIsPlayStation {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Light Bar Color")
                             .font(.subheadline)
@@ -147,10 +135,6 @@ struct EditLayerSheet: View {
     @State private var enableCustomLED: Bool = false
     @State private var ledColor: Color = .blue
 
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
-
     /// Buttons that are already used as layer activators (excluding current layer)
     private var usedActivators: Set<ControllerButton> {
         Set(profileManager.activeProfile?.layers
@@ -159,26 +143,23 @@ struct EditLayerSheet: View {
     }
 
     /// Available activator buttons (exclude already-used ones, but include current)
-    private var availableButtons: [ControllerButton] {
-		var candidates: [ControllerButton] = [
-			.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
-			.share, .view, .menu, .xbox,
-			.leftThumbstick, .rightThumbstick
-		]
-		let presentationState = controllerPresentationState
-		if presentationState.isAppleTVRemote {
-			candidates = [.view, .menu, .xbox, .siri]
-		}
-		// Add Edge-specific buttons when Edge controller is connected
-		if presentationState.isDualSenseEdge {
-			candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
+	    private var availableButtons: [ControllerButton] {
+			var candidates: [ControllerButton] = [
+				.leftBumper, .rightBumper, .leftTrigger, .rightTrigger,
+				.share, .view, .menu, .xbox,
+				.leftThumbstick, .rightThumbstick
+			]
+			if controllerService.threadSafeIsAppleTVRemote {
+				candidates = [.view, .menu, .xbox, .siri]
+			}
+			// Add Edge-specific buttons when Edge controller is connected
+			if controllerService.threadSafeIsDualSenseEdge {
+				candidates.append(contentsOf: [.leftFunction, .rightFunction, .leftPaddle, .rightPaddle])
         }
         return candidates.filter { !usedActivators.contains($0) }
     }
 
     var body: some View {
-		let presentationState = controllerPresentationState
-
         VStack(spacing: 20) {
             Text("Edit Layer")
                 .font(.headline)
@@ -198,21 +179,16 @@ struct EditLayerSheet: View {
                         .foregroundColor(.secondary)
 
                     Picker("Activator", selection: $selectedActivator) {
-						Text("None (assign later)").tag(nil as ControllerButton?)
-						ForEach(availableButtons, id: \.self) { button in
-							Text(button.displayName(
-								forDualSense: presentationState.isPlayStation,
-								forNintendo: presentationState.isNintendo,
-								forAppleTVRemote: presentationState.isAppleTVRemote,
-								forEightBitDo: presentationState.eightBitDoModel != nil
-							))
-							.tag(button as ControllerButton?)
-						}
+							Text("None (assign later)").tag(nil as ControllerButton?)
+							ForEach(availableButtons, id: \.self) { button in
+								Text(button.displayName(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo, forAppleTVRemote: controllerService.threadSafeIsAppleTVRemote))
+									.tag(button as ControllerButton?)
+							}
                     }
                     .pickerStyle(.menu)
                 }
 
-				if presentationState.isPlayStation {
+                if controllerService.threadSafeIsPlayStation {
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle("Custom Light Bar Color", isOn: $enableCustomLED)
                             .font(.subheadline)

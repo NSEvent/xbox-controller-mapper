@@ -47,6 +47,10 @@ extension ControllerService {
 
     private static let nintendoHIDReportBufferSize = 64
 
+    /// Nintendo Switch Pro Controller identifiers
+    private static let nintendoVendorID = 0x057E
+    private static let proControllerProductID = 0x2009
+
     func setupNintendoHIDMonitoring() {
         // Clean up any previous monitoring
         if nintendoHIDManager != nil || !nintendoHIDRegistrations.isEmpty {
@@ -56,7 +60,12 @@ extension ControllerService {
         nintendoHIDManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         guard let manager = nintendoHIDManager else { return }
 
-		IOHIDManagerSetDeviceMatchingMultiple(manager, NintendoHIDDriverDescriptor().matchingCFArray)
+        // Match Nintendo Pro Controller
+        let proControllerDict: [String: Any] = [
+            kIOHIDVendorIDKey as String: Self.nintendoVendorID,
+            kIOHIDProductIDKey as String: Self.proControllerProductID,
+        ]
+        IOHIDManagerSetDeviceMatchingMultiple(manager, [proControllerDict] as CFArray)
 
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
         IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))

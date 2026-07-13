@@ -90,7 +90,6 @@ final class PermissionsManager: ObservableObject {
     var requestBluetoothAction: (@MainActor () -> Void)?
 
     private var pollTimer: Timer?
-    private var pollers = 0
 
     private init() {
         refresh()
@@ -131,26 +130,18 @@ final class PermissionsManager: ObservableObject {
     /// Begins ~1s polling of TCC state. Used while the onboarding wizard (or the
     /// revoked-permission banner) is on screen so cards flip to "Granted ✓" the
     /// instant the user toggles a switch in System Settings — no relaunch, no
-    /// guessing. **Reference-counted** — pair every startPolling() with exactly
-    /// one stopPolling(). With the shared manager, two overlapping views
-    /// (onboarding sheet + revoked-permission banner) share one timer; the first
-    /// to disappear must not kill it for the one still on screen.
+    /// guessing. Idempotent.
     func startPolling() {
-        pollers += 1
         guard pollTimer == nil else { return }
         refresh()
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
-            // Already fires on RunLoop.main; hop via Task to match the canonical
-            // block (MainActor.assumeIsolated requires macOS 14).
-            Task { @MainActor in self?.refresh() }
+            MainActor.assumeIsolated { self?.refresh() }
         }
         RunLoop.main.add(timer, forMode: .common)
         pollTimer = timer
     }
 
     func stopPolling() {
-        pollers = max(0, pollers - 1)
-        guard pollers == 0 else { return }
         pollTimer?.invalidate()
         pollTimer = nil
     }
@@ -167,15 +158,11 @@ final class PermissionsManager: ObservableObject {
         openSettings("com.apple.preference.security?Privacy_Accessibility")
     }
 
-    /// Triggers the Input Monitoring system prompt (which should register the
-    /// app in the list on first run), then deep-links to the pane for repeat
-    /// visits. The pane open is delayed slightly so macOS can finish processing
-    /// the prompt/registration path before System Settings renders the list.
+    /// Triggers the Input Monitoring system prompt (and adds the app to the
+    /// list) the first time, then deep-links to the pane for repeat visits.
     func requestInputMonitoring() {
         _ = IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)
-	DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-	    self?.openSettings("com.apple.preference.security?Privacy_ListenEvent")
-	}
+        openSettings("com.apple.preference.security?Privacy_ListenEvent")
     }
 
     /// Starts the Bluetooth battery monitor, which constructs the

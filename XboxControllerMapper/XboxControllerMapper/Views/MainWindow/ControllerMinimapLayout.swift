@@ -14,7 +14,7 @@ import SwiftUI
 /// resolved visual style.
 /// Which of the small 8BitDo pads a minimap renders. Carried as one optional
 /// alongside the older boolean style flags (`isPlayStation` etc.).
-enum EightBitDoMinimapModel: String, CaseIterable, Sendable {
+enum EightBitDoMinimapModel: String, CaseIterable {
     case zero2
     case micro
     case lite2
@@ -34,7 +34,7 @@ enum EightBitDoMinimapModel: String, CaseIterable, Sendable {
     }
 }
 
-enum ControllerMinimapStyle: CaseIterable, Hashable, Sendable {
+enum ControllerMinimapStyle {
     case xbox
     case xboxElite
     case dualSense

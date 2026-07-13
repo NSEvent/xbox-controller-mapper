@@ -25,7 +25,7 @@ final class ChordMappingEngineTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.chordDetected([.a, .b, .x]))
+            controllerService.onChordDetected?([.a, .b, .x])
         }
         await waitForTasks()
 
@@ -51,14 +51,14 @@ final class ChordMappingEngineTests: MappingEngineTestCase {
 
         await MainActor.run {
             // Only 2 buttons - should fallback to individual
-            controllerService.emitInputEvent(.chordDetected([.a, .b]))
+            controllerService.onChordDetected?([.a, .b])
         }
         await waitForTasks()
 
         // Release both
         await MainActor.run {
-            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.05))
-            controllerService.emitInputEvent(.buttonReleased(.b, holdDuration: 0.05))
+            controllerService.onButtonReleased?(.a, 0.05)
+            controllerService.onButtonReleased?(.b, 0.05)
         }
         await waitForTasks()
 
@@ -96,7 +96,7 @@ final class ChordMappingEngineTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.chordDetected([.x, .y]))
+            controllerService.onChordDetected?([.x, .y])
         }
         await waitForTasks()
 
@@ -125,7 +125,7 @@ final class ChordMappingEngineTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.chordDetected([.a, .b]))
+            controllerService.onChordDetected?([.a, .b])
         }
         await waitForTasks()
 
@@ -152,7 +152,7 @@ final class ChordMappingEngineTests: MappingEngineTestCase {
 
         // Trigger 3-button chord
         await MainActor.run {
-            controllerService.emitInputEvent(.chordDetected([.a, .b, .x]))
+            controllerService.onChordDetected?([.a, .b, .x])
         }
         await waitForTasks()
 

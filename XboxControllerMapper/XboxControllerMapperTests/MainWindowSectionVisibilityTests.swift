@@ -20,13 +20,9 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
 
         XCTAssertEqual(groupedSections[.map], [.buttons, .chords, .sequences, .gestures])
         XCTAssertEqual(groupedSections[.automate], [.macros, .scripts, .wheel, .keyboard])
-		XCTAssertEqual(groupedSections[.hardware], [.input, .ring, .joysticks, .touchpad, .leds, .microphone])
+        XCTAssertEqual(groupedSections[.hardware], [.input, .joysticks, .touchpad, .leds, .microphone])
         XCTAssertEqual(groupedSections[.activity], [.stats, .history])
     }
-
-	func testRingSectionUsesStableNewTabId() {
-		XCTAssertEqual(MainWindowSection.ring.rawValue, 15)
-	}
 
     func testTabItemsExposeNavigationMetadata() {
         let buttonTab = MainWindowSection.buttons.tabItem
@@ -55,7 +51,6 @@ final class MainWindowSectionVisibilityTests: XCTestCase {
         XCTAssertFalse(sections.contains(.leds))
         XCTAssertFalse(sections.contains(.microphone))
         XCTAssertTrue(sections.contains(.buttons))
-		XCTAssertTrue(sections.contains(.ring))
         XCTAssertTrue(sections.contains(.joysticks))
     }
 

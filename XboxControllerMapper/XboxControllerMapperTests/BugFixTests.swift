@@ -128,17 +128,13 @@ final class ControllerDisconnectStateResetTests: XCTestCase {
 		let pressed = expectation(description: "Lite 2 Home press emits Xbox button")
 		let released = expectation(description: "Lite 2 Home release emits Xbox button")
 
-		controllerService.onInputEvent = { event in
-			switch event {
-			case .buttonPressed(let button):
-				XCTAssertEqual(button, .xbox)
-				pressed.fulfill()
-			case .buttonReleased(let button, _):
-				XCTAssertEqual(button, .xbox)
-				released.fulfill()
-			default:
-				break
-			}
+		controllerService.onButtonPressed = { button in
+			XCTAssertEqual(button, .xbox)
+			pressed.fulfill()
+		}
+		controllerService.onButtonReleased = { button, _ in
+			XCTAssertEqual(button, .xbox)
+			released.fulfill()
 		}
 
 		var pressReport = [UInt8](repeating: 0, count: 10)
@@ -171,162 +167,6 @@ final class ControllerDisconnectStateResetTests: XCTestCase {
 			productCategory: "8BitDo Lite 2"
 		)
 		XCTAssertEqual(model, .lite2)
-	}
-
-	func testEightBitDoMicroPhysicalDPadIsSticklessDPadNotLeftStickFallback() {
-		XCTAssertTrue(ControllerService.isSticklessEightBitDoModel(
-			vendorName: "HID",
-			productCategory: "8BitDo Micro gamepad"
-		))
-		XCTAssertTrue(ControllerService.isSticklessEightBitDoModel(
-			vendorName: nil,
-			productCategory: "8BitDo Micro Controller"
-		))
-		XCTAssertFalse(ControllerService.shouldUsePhysicalDirectionPadAsLeftStickFallback(
-			vendorName: "HID",
-			productCategory: "8BitDo Micro gamepad"
-		))
-		XCTAssertFalse(ControllerService.isSticklessEightBitDoModel(
-			vendorName: "HID",
-			productCategory: "8BitDo Lite 2"
-		))
-		XCTAssertTrue(ControllerService.shouldUsePhysicalDirectionPadAsLeftStickFallback(
-			vendorName: "HID",
-			productCategory: "8BitDo Lite 2"
-		))
-	}
-
-	func testInactiveControllerTakeoverWaitsForActiveControllerQuietWindow() {
-		XCTAssertFalse(ControllerService.shouldActivateInactiveControllerInput(
-			meaningful: false,
-			activeControllerHasInput: false,
-			activeControllerLastInputTime: 10.0,
-			now: 12.0,
-			quietInterval: 0.75
-		))
-		XCTAssertTrue(ControllerService.shouldActivateInactiveControllerInput(
-			meaningful: true,
-			activeControllerHasInput: false,
-			activeControllerLastInputTime: 0,
-			now: 10.0,
-			quietInterval: 0.75
-		))
-		XCTAssertFalse(ControllerService.shouldActivateInactiveControllerInput(
-			meaningful: true,
-			activeControllerHasInput: false,
-			activeControllerLastInputTime: 10.0,
-			now: 10.4,
-			quietInterval: 0.75
-		))
-		XCTAssertTrue(ControllerService.shouldActivateInactiveControllerInput(
-			meaningful: true,
-			activeControllerHasInput: false,
-			activeControllerLastInputTime: 10.0,
-			now: 10.75,
-			quietInterval: 0.75
-		))
-	}
-
-	func testInactiveControllerTakeoverWaitsUntilActiveControllerIsNeutral() {
-		XCTAssertFalse(ControllerService.shouldActivateInactiveControllerInput(
-			meaningful: true,
-			activeControllerHasInput: true,
-			activeControllerLastInputTime: 10.0,
-			now: 30.0,
-			quietInterval: 0.75
-		))
-		XCTAssertTrue(ControllerService.shouldActivateInactiveControllerInput(
-			meaningful: true,
-			activeControllerHasInput: false,
-			activeControllerLastInputTime: 10.0,
-			now: 30.0,
-			quietInterval: 0.75
-		))
-	}
-
-	func testActiveGameControllerInputDetectsHeldButtonsAnalogAndTouch() {
-		XCTAssertFalse(ControllerService.hasActiveGameControllerInput(
-			activeButtons: [],
-			leftStick: .zero,
-			rightStick: .zero,
-			leftTrigger: 0,
-			rightTrigger: 0,
-			touchpadIsActive: false,
-			deadzone: 0.18
-		))
-		XCTAssertTrue(ControllerService.hasActiveGameControllerInput(
-			activeButtons: [.a],
-			leftStick: .zero,
-			rightStick: .zero,
-			leftTrigger: 0,
-			rightTrigger: 0,
-			touchpadIsActive: false,
-			deadzone: 0.18
-		))
-		XCTAssertTrue(ControllerService.hasActiveGameControllerInput(
-			activeButtons: [],
-			leftStick: CGPoint(x: 0.2, y: 0),
-			rightStick: .zero,
-			leftTrigger: 0,
-			rightTrigger: 0,
-			touchpadIsActive: false,
-			deadzone: 0.18
-		))
-		XCTAssertTrue(ControllerService.hasActiveGameControllerInput(
-			activeButtons: [],
-			leftStick: .zero,
-			rightStick: .zero,
-			leftTrigger: 0,
-			rightTrigger: 0.2,
-			touchpadIsActive: false,
-			deadzone: 0.18
-		))
-		XCTAssertTrue(ControllerService.hasActiveGameControllerInput(
-			activeButtons: [],
-			leftStick: .zero,
-			rightStick: .zero,
-			leftTrigger: 0,
-			rightTrigger: 0,
-			touchpadIsActive: true,
-			deadzone: 0.18
-		))
-	}
-
-	func testStopHapticsInvalidatesCurrentHapticSession() {
-		let initialGeneration = controllerService.currentHapticSessionGeneration()
-
-		controllerService.stopHaptics()
-
-		let stoppedGeneration = controllerService.currentHapticSessionGeneration()
-		XCTAssertGreaterThan(stoppedGeneration, initialGeneration)
-		XCTAssertFalse(controllerService.isCurrentHapticSession(initialGeneration))
-		XCTAssertTrue(controllerService.isCurrentHapticSession(stoppedGeneration))
-	}
-
-	func testQueuedHapticRequestInvalidatedBeforePlaybackDoesNotRun() {
-		let blocker = DispatchSemaphore(value: 0)
-		let queueDrained = expectation(description: "haptic queue drained")
-		let accepted = expectation(description: "stale haptic request accepted")
-		accepted.isInverted = true
-
-		controllerService.hapticQueue.async {
-			blocker.wait()
-		}
-		controllerService.hapticSessionAcceptedForTesting = { _ in
-			accepted.fulfill()
-		}
-
-		controllerService.playHaptic()
-		controllerService.invalidateHapticSessionForTesting()
-
-		blocker.signal()
-		controllerService.hapticQueue.async {
-			queueDrained.fulfill()
-		}
-
-		wait(for: [queueDrained], timeout: 1.0)
-		wait(for: [accepted], timeout: 0.1)
-		controllerService.hapticSessionAcceptedForTesting = nil
 	}
 
     func testTriggerResetExistsInDisconnectHandler() {

@@ -48,10 +48,6 @@ struct LayerTabBar: View {
     /// True once measured and the bar is too narrow for full text labels.
     private var compact: Bool { barWidth > 1 && barWidth < compactThreshold }
 
-    private var controllerPresentationState: ControllerPresentationState {
-		controllerService.threadSafeControllerPresentationState
-    }
-
     /// Returns the layer's configured LED color, or a fallback purple if none is set.
     private func layerBadgeColor(_ layer: Layer) -> Color {
         if let led = layer.dualSenseLEDSettings, led.lightBarEnabled {
@@ -61,8 +57,6 @@ struct LayerTabBar: View {
     }
 
     var body: some View {
-		let presentationState = controllerPresentationState
-
         HStack(spacing: 8) {
             // Base Layer tab (always present)
             Button {
@@ -110,11 +104,7 @@ struct LayerTabBar: View {
                             }
                             // Activator button badge (or "No Activator" if unassigned)
                             if let activator = layer.activatorButton {
-								Text(activator.shortLabel(
-									forDualSense: presentationState.isPlayStation,
-									forNintendo: presentationState.isNintendo,
-									forAppleTVRemote: presentationState.isAppleTVRemote
-								))
+									Text(activator.shortLabel(forDualSense: controllerService.threadSafeIsPlayStation, forNintendo: controllerService.threadSafeIsNintendo, forAppleTVRemote: controllerService.threadSafeIsAppleTVRemote))
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 5)
