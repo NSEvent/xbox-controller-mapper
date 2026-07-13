@@ -5,11 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.6.0] - 2026-07-13
+
+### Added
+
+- **Oura Ring motion control**: ControllerKeys can now read an Oura smart ring as a controller—tilt your hand to steer the mouse, or route the same motion to scrolling, arrow keys, WASD, the D-pad, or four custom directional actions. A dedicated Ring tab (Settings → Ring) handles pairing plus a full calibration pass: orientation, invert X/Y, sensitivity, horizontal and left-hand boost for wide screens, deadzone, and smoothing, with Scan, Center, Pause Motion, and Forget Pairing controls. The ring auto-recenters when your hand drifts at rest so a stale neutral pose stops manufacturing phantom cursor drift, and the connection recovers on its own after Bluetooth drops or the stream stalls.
+
+- **Oura Ring gestures**: Finger taps (single, double, triple, and five-tap), tap-and-hold, and directional flicks (up, down, left, right) register as bindable virtual buttons. Out of the box a tap left-clicks, a double-tap re-centers the ring, and a triple-tap toggles motion; remap any of them like a normal controller button. Gestures are recognized on-device by a Core ML classifier trained on labeled ring sessions, tuned to fire taps quickly while rejecting the hand-settle rebound that used to read as a phantom second tap.
+
+### Changed
+
+- **First-run onboarding requests Input Monitoring before Accessibility**: Granting Accessibility first could make macOS report input access as already granted without ever registering ControllerKeys in the Input Monitoring list, leaving you to add it by hand. The setup wizard now requests Input Monitoring first—pausing briefly so macOS finishes registering before System Settings opens the list—so the app appears on its own, and the manual-add fallback is spelled out as numbered steps.
 
 ### Fixed
 
-- **No-controller chooser no longer drops rows after scrolling**: In a short window, scrolling the Buttons tab so the "No controller connected" chooser is partly clipped and then returning to the top could leave some controller-family buttons missing after SwiftUI refreshed the view. The chooser now uses an eager static grid instead of a nested `LazyVGrid`, so the small fixed set of controller buttons stays mounted and redraws reliably.
+- **No-controller chooser no longer drops rows after scrolling**: In a short window, scrolling the Buttons tab so the "No controller connected" chooser is partly clipped and then returning to the top could leave some controller-family buttons missing after SwiftUI refreshed the view. The chooser now uses an eager static grid instead of a nested `LazyVGrid`, so the small fixed set of controller buttons stays mounted and redraws reliably. Each pick also labels its console family (PS5, PS4, Switch, Xbox) under the name, so it's clear which layout you're choosing.
+
+- **Live permission status stays current with more than one view open**: The permissions poller is now reference-counted, so closing one permissions view—like the first-run wizard—no longer stops the status pills in another open view (Settings → General → Permissions) from flipping to "Granted" the moment you toggle a switch in System Settings.
 
 ## [2.5.1] - 2026-07-03
 
