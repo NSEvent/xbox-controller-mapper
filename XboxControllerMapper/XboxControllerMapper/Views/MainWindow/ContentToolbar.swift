@@ -9,7 +9,6 @@ struct ContentToolbar: View {
     @ObservedObject private var license = LicenseManager.shared
     @Binding var showingSettingsSheet: Bool
 	@Binding var profileSidebarVisible: Bool
-	@Binding var showingCommandPalette: Bool
 
     var body: some View {
         HStack {
@@ -24,27 +23,18 @@ struct ContentToolbar: View {
 					.foregroundColor(.secondary)
 			}
 
-			Button {
-				showingCommandPalette = true
-			} label: {
-				HStack(spacing: 5) {
-					Image(systemName: "magnifyingglass")
-						.font(.system(size: 10, weight: .semibold))
-					Text("⌘K")
-						.font(.caption.bold())
+			if !controllerService.isConnected {
+				Button {
+					ControllerSupportDumpService.runInteractiveDump()
+				} label: {
+					Image(systemName: "doc.text.magnifyingglass")
+						.foregroundColor(.secondary)
 				}
-				.foregroundStyle(Color.white.opacity(0.6))
-				.padding(.horizontal, 9)
-				.padding(.vertical, 5)
-				.background(Capsule(style: .continuous).fill(Color.white.opacity(0.08)))
-				.overlay(
-					Capsule(style: .continuous)
-						.strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-				)
+				.buttonStyle(.plain)
+				.hoverableIconButton()
+				.help("Controller Support Dump")
+				.accessibilityLabel("Controller Support Dump")
 			}
-			.buttonStyle(.plain)
-			.help("Command Palette — jump to anything (⌘K)")
-			.accessibilityLabel("Command Palette")
 
             // Connection status — sits on the right, just left of the toggle
             HStack(spacing: 8) {

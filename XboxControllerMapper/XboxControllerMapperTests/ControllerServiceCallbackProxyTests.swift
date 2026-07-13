@@ -28,63 +28,43 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		wait(for: [expectation], timeout: 1.0)
 	}
 
-    func testInputEventSinkReceivesControllerEvents() {
+    func testCallbackProxiesInvokeStoredHandlers() {
         var events: [String] = []
 
-        controllerService.onInputEvent = { event in
-            switch event {
-            case .buttonPressed:
-                events.append("buttonPressed")
-            case .buttonReleased:
-                events.append("buttonReleased")
-            case .chordDetected:
-                events.append("chordDetected")
-            case .touchpadMoved:
-                events.append("touchpadMoved")
-            case .steamLeftTouchpadMoved:
-                events.append("steamLeftTouchpadMoved")
-            case .appleTVRemoteCircularScroll:
-                events.append("appleTVRemoteCircularScroll")
-            case .touchpadGesture:
-                events.append("touchpadGesture")
-            case .touchpadTap:
-                events.append("touchpadTap")
-            case .controllerButtonTap:
-                events.append("controllerButtonTap")
-            case .touchpadTwoFingerTap:
-                events.append("touchpadTwoFingerTap")
-            case .touchpadLongTap:
-                events.append("touchpadLongTap")
-            case .touchpadTwoFingerLongTap:
-                events.append("touchpadTwoFingerLongTap")
-            case .touchpadRegionTap:
-                events.append("touchpadRegionTap")
-            case .motionGesture:
-                events.append("motionGesture")
-            }
-        }
+        controllerService.onButtonPressed = { _ in events.append("buttonPressed") }
+        controllerService.onButtonReleased = { _, _ in events.append("buttonReleased") }
+        controllerService.onChordDetected = { _ in events.append("chordDetected") }
+        controllerService.onLeftStickMoved = { _ in events.append("leftStickMoved") }
+        controllerService.onRightStickMoved = { _ in events.append("rightStickMoved") }
+        controllerService.onTouchpadMoved = { _ in events.append("touchpadMoved") }
+        controllerService.onSteamLeftTouchpadMoved = { _ in events.append("steamLeftTouchpadMoved") }
+        controllerService.onTouchpadGesture = { _ in events.append("touchpadGesture") }
+        controllerService.onTouchpadTap = { events.append("touchpadTap") }
+        controllerService.onControllerButtonTap = { _ in events.append("controllerButtonTap") }
+        controllerService.onTouchpadTwoFingerTap = { events.append("touchpadTwoFingerTap") }
+        controllerService.onTouchpadLongTap = { events.append("touchpadLongTap") }
+        controllerService.onTouchpadTwoFingerLongTap = { events.append("touchpadTwoFingerLongTap") }
 
-        controllerService.emitInputEvent(.buttonPressed(.a))
-        controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.08))
-        controllerService.emitInputEvent(.chordDetected([.a, .b]))
-        controllerService.emitInputEvent(.touchpadMoved(CGPoint(x: 0.3, y: 0.2)))
-        controllerService.emitInputEvent(.steamLeftTouchpadMoved(CGPoint(x: -0.3, y: 0.2)))
-        controllerService.emitInputEvent(.appleTVRemoteCircularScroll(0.3))
-        controllerService.emitInputEvent(.touchpadGesture(
+        controllerService.onButtonPressed?(.a)
+        controllerService.onButtonReleased?(.a, 0.08)
+        controllerService.onChordDetected?([.a, .b])
+        controllerService.onLeftStickMoved?(CGPoint(x: 0.2, y: -0.1))
+        controllerService.onRightStickMoved?(CGPoint(x: -0.4, y: 0.7))
+        controllerService.onTouchpadMoved?(CGPoint(x: 0.3, y: 0.2))
+        controllerService.onSteamLeftTouchpadMoved?(CGPoint(x: -0.3, y: 0.2))
+        controllerService.onTouchpadGesture?(
             TouchpadGesture(
                 centerDelta: CGPoint(x: 0.05, y: 0.01),
                 distanceDelta: 0.02,
                 isPrimaryTouching: true,
                 isSecondaryTouching: false
             )
-        ))
-        controllerService.emitInputEvent(.touchpadTap)
-        controllerService.emitInputEvent(.controllerButtonTap(.rightTouchpadTap))
-        controllerService.emitInputEvent(.touchpadTwoFingerTap)
-        controllerService.emitInputEvent(.touchpadLongTap)
-        controllerService.emitInputEvent(.touchpadTwoFingerLongTap)
-        controllerService.emitInputEvent(.touchpadRegionTap(.topLeft))
-        controllerService.emitInputEvent(.motionGesture(.tiltBack))
+        )
+        controllerService.onTouchpadTap?()
+        controllerService.onControllerButtonTap?(.rightTouchpadTap)
+        controllerService.onTouchpadTwoFingerTap?()
+        controllerService.onTouchpadLongTap?()
+        controllerService.onTouchpadTwoFingerLongTap?()
 
         XCTAssertEqual(
             events,
@@ -92,61 +72,44 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
                 "buttonPressed",
                 "buttonReleased",
                 "chordDetected",
+                "leftStickMoved",
+                "rightStickMoved",
                 "touchpadMoved",
                 "steamLeftTouchpadMoved",
-                "appleTVRemoteCircularScroll",
                 "touchpadGesture",
                 "touchpadTap",
                 "controllerButtonTap",
                 "touchpadTwoFingerTap",
                 "touchpadLongTap",
                 "touchpadTwoFingerLongTap",
-                "touchpadRegionTap",
-                "motionGesture",
             ]
         )
     }
 
-    func testInputEventSinkAllowsReplacementAndClearing() {
+    func testCallbackProxiesAllowReplacementAndClearing() {
         var firstCount = 0
         var secondCount = 0
 
-        controllerService.onInputEvent = { event in
-            if case .touchpadTap = event {
-                firstCount += 1
-            }
-        }
-        controllerService.emitInputEvent(.touchpadTap)
+        controllerService.onTouchpadTap = { firstCount += 1 }
+        controllerService.onTouchpadTap?()
 
-        controllerService.onInputEvent = { event in
-            if case .touchpadTap = event {
-                secondCount += 1
-            }
-        }
-        controllerService.emitInputEvent(.touchpadTap)
+        controllerService.onTouchpadTap = { secondCount += 1 }
+        controllerService.onTouchpadTap?()
 
-        controllerService.onInputEvent = nil
-        controllerService.emitInputEvent(.touchpadTap)
+        controllerService.onTouchpadTap = nil
+        controllerService.onTouchpadTap?()
 
         XCTAssertEqual(firstCount, 1)
         XCTAssertEqual(secondCount, 1)
-        XCTAssertNil(controllerService.onInputEvent)
+        XCTAssertNil(controllerService.onTouchpadTap)
     }
 
     func testSteamTwoPadGestureLatchSuppressesSinglePadMovementBetweenAlternatingReports() {
         controllerService.storage.isSteamController = true
         var movements: [CGPoint] = []
         var gestures: [TouchpadGesture] = []
-        controllerService.onInputEvent = { event in
-            switch event {
-            case .touchpadMoved(let delta):
-                movements.append(delta)
-            case .touchpadGesture(let gesture):
-                gestures.append(gesture)
-            default:
-                break
-            }
-        }
+        controllerService.onTouchpadMoved = { movements.append($0) }
+        controllerService.onTouchpadGesture = { gestures.append($0) }
 
         controllerService.updateSteamTouchpad(side: .left, x: 0.0, y: 0.0, isTouching: true)
         controllerService.updateSteamTouchpad(side: .right, x: 0.0, y: 0.0, isTouching: true)
@@ -171,11 +134,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
     func testSteamLeftTouchpadSinglePadMovementUsesDedicatedCallback() {
         controllerService.storage.isSteamController = true
         var leftPadMovements: [CGPoint] = []
-        controllerService.onInputEvent = { event in
-            if case .steamLeftTouchpadMoved(let delta) = event {
-                leftPadMovements.append(delta)
-            }
-        }
+        controllerService.onSteamLeftTouchpadMoved = { leftPadMovements.append($0) }
 
         controllerService.updateSteamTouchpad(side: .left, x: 0.0, y: 0.0, isTouching: true)
         controllerService.updateSteamTouchpad(side: .left, x: 0.01, y: 0.0, isTouching: true)
@@ -191,11 +150,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 	func testSteamRightTouchpadClickSuppressesClickInducedTouchJitter() {
 		var movements: [CGPoint] = []
 		controllerService.storage.isSteamController = true
-		controllerService.onInputEvent = { event in
-			if case .touchpadMoved(let delta) = event {
-				movements.append(delta)
-			}
-		}
+		controllerService.onTouchpadMoved = { movements.append($0) }
 
 		controllerService.updateSteamTouchpad(side: .right, x: 0.0, y: 0.0, isTouching: true)
 		controllerService.storage.touchpadFramesSinceTouch = 3
@@ -228,11 +183,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 	func testSteamLeftTouchpadClickSuppressesClickInducedTouchJitter() {
 		var movements: [CGPoint] = []
 		controllerService.storage.isSteamController = true
-		controllerService.onInputEvent = { event in
-			if case .steamLeftTouchpadMoved(let delta) = event {
-				movements.append(delta)
-			}
-		}
+		controllerService.onSteamLeftTouchpadMoved = { movements.append($0) }
 
 		controllerService.updateSteamTouchpad(side: .left, x: 0.0, y: 0.0, isTouching: true)
 		controllerService.storage.touchpadSecondaryFramesSinceTouch = 3
@@ -268,11 +219,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
         var pressed: [ControllerButton] = []
         controllerService.lowLatencyInputEnabled = true
         controllerService.chordParticipantButtons = [.b]
-        controllerService.onInputEvent = { event in
-            if case .buttonPressed(let button) = event {
-                pressed.append(button)
-            }
-        }
+        controllerService.onButtonPressed = { pressed.append($0) }
 
         controllerService.buttonPressed(.a)
 
@@ -285,16 +232,8 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		controllerService.storage.isAppleTVRemote = true
 		controllerService.storage.isSteamController = false
 		controllerService.touchpadInputMode = .quadrants
-		controllerService.onInputEvent = { event in
-			switch event {
-			case .touchpadTap:
-				tapCount += 1
-			case .touchpadRegionTap:
-				regionTapCount += 1
-			default:
-				break
-			}
-		}
+		controllerService.onTouchpadTap = { tapCount += 1 }
+		controllerService.onTouchpadRegionTap = { _ in regionTapCount += 1 }
 
 		controllerService.updateTouchpad(x: 0.5, y: 0.5, isTouching: true)
 		controllerService.updateTouchpad(x: 0.5, y: 0.5, isTouching: false)
@@ -306,16 +245,8 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 	func testAppleTVRemoteClickpadButtonAggregatesDuplicateHIDSources() {
 		var events: [ControllerButtonEvent] = []
 		controllerService.lowLatencyInputEnabled = true
-		controllerService.onInputEvent = { event in
-			switch event {
-			case .buttonPressed(let button):
-				events.append(ControllerButtonEvent(button: button, pressed: true))
-			case .buttonReleased(let button, _):
-				events.append(ControllerButtonEvent(button: button, pressed: false))
-			default:
-				break
-			}
-		}
+		controllerService.onButtonPressed = { events.append(ControllerButtonEvent(button: $0, pressed: true)) }
+		controllerService.onButtonReleased = { button, _ in events.append(ControllerButtonEvent(button: button, pressed: false)) }
 
 		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 1, isPressed: true)
 		drainControllerQueue()
@@ -339,11 +270,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		var movements: [CGPoint] = []
 		controllerService.storage.isAppleTVRemote = true
 		controllerService.storage.isSteamController = false
-		controllerService.onInputEvent = { event in
-			if case .touchpadMoved(let delta) = event {
-				movements.append(delta)
-			}
-		}
+		controllerService.onTouchpadMoved = { movements.append($0) }
 
 		controllerService.updateTouchpad(x: 0.40, y: 0.40, isTouching: true)
 		controllerService.storage.touchpadFramesSinceTouch = 3
@@ -371,18 +298,9 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 		controllerService.lowLatencyInputEnabled = true
 		controllerService.storage.isAppleTVRemote = true
 		controllerService.storage.isSteamController = false
-		controllerService.onInputEvent = { event in
-			switch event {
-			case .buttonPressed(let button):
-				buttonEvents.append(ControllerButtonEvent(button: button, pressed: true))
-			case .buttonReleased(let button, _):
-				buttonEvents.append(ControllerButtonEvent(button: button, pressed: false))
-			case .touchpadTap:
-				tapCount += 1
-			default:
-				break
-			}
-		}
+		controllerService.onButtonPressed = { buttonEvents.append(ControllerButtonEvent(button: $0, pressed: true)) }
+		controllerService.onButtonReleased = { button, _ in buttonEvents.append(ControllerButtonEvent(button: button, pressed: false)) }
+		controllerService.onTouchpadTap = { tapCount += 1 }
 
 		controllerService.updateTouchpad(x: 0.5, y: 0.5, isTouching: true)
 		controllerService.dispatchAppleTVRemoteButtonState(.touchpadButton, sourceKey: 1, isPressed: true)
@@ -648,11 +566,7 @@ final class ControllerServiceCallbackProxyTests: XCTestCase {
 
 	func testAppleTVRemoteTouchReportsFeedTouchpadMovement() {
 		var movements: [CGPoint] = []
-		controllerService.onInputEvent = { event in
-			if case .touchpadMoved(let delta) = event {
-				movements.append(delta)
-			}
-		}
+		controllerService.onTouchpadMoved = { movements.append($0) }
 
 		for x in [75, 82, 90, 100, 112] {
 			let report = currentAppleTVRemoteTouchReport(x: x, y: 52, pressure: 17)

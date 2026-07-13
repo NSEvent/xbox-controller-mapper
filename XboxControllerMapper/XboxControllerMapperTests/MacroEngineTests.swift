@@ -158,7 +158,7 @@ final class MacroEngineTests: MappingEngineTestCase {
         try? await Task.sleep(nanoseconds: 10_000_000)
 
         await MainActor.run {
-            controllerService.emitInputEvent(.chordDetected([.a, .b]))
+            controllerService.onChordDetected?([.a, .b])
         }
         await waitForTasks()
 

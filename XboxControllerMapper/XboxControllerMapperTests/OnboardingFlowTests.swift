@@ -17,31 +17,19 @@ final class OnboardingFlowTests: XCTestCase {
     }
 
     func testStepOrdering() {
-	XCTAssertEqual(OnboardingStep.welcome.next, .inputMonitoring)
-	XCTAssertEqual(OnboardingStep.inputMonitoring.next, .accessibility)
-	XCTAssertEqual(OnboardingStep.accessibility.next, .bluetooth)
+        XCTAssertEqual(OnboardingStep.welcome.next, .accessibility)
+        XCTAssertEqual(OnboardingStep.accessibility.next, .inputMonitoring)
+        XCTAssertEqual(OnboardingStep.inputMonitoring.next, .bluetooth)
         XCTAssertEqual(OnboardingStep.bluetooth.next, .done)
         XCTAssertNil(OnboardingStep.done.next)
 
         XCTAssertNil(OnboardingStep.welcome.previous)
-	XCTAssertEqual(OnboardingStep.inputMonitoring.previous, .welcome)
-	XCTAssertEqual(OnboardingStep.accessibility.previous, .inputMonitoring)
+        XCTAssertEqual(OnboardingStep.accessibility.previous, .welcome)
         XCTAssertEqual(OnboardingStep.done.previous, .bluetooth)
     }
 
     func testPermissionStepsExcludeWelcomeAndDone() {
-	XCTAssertEqual(OnboardingStep.permissionSteps, [.inputMonitoring, .accessibility, .bluetooth])
-    }
-
-    func testInputMonitoringComesBeforeAccessibility() {
-	// Accessibility can make macOS report listen access as granted without
-	// separately registering the app in Input Monitoring. Ask for Input
-	// Monitoring first so first-run onboarding can add the app to that list.
-	XCTAssertEqual(OnboardingStep.welcome.next, .inputMonitoring)
-	XCTAssertLessThan(
-	    OnboardingStep.permissionSteps.firstIndex(of: .inputMonitoring)!,
-	    OnboardingStep.permissionSteps.firstIndex(of: .accessibility)!
-	)
+        XCTAssertEqual(OnboardingStep.permissionSteps, [.accessibility, .inputMonitoring, .bluetooth])
     }
 
     // MARK: - canAdvance gating
@@ -74,16 +62,12 @@ final class OnboardingFlowTests: XCTestCase {
     func testFirstIncompleteStepWalksRequiredPermissionsInOrder() {
         XCTAssertEqual(
             OnboardingStepState(accessibility: .notDetermined, inputMonitoring: .notDetermined, bluetooth: .notDetermined).firstIncompleteStep,
-	    .inputMonitoring
+            .accessibility
         )
         XCTAssertEqual(
             OnboardingStepState(accessibility: .granted, inputMonitoring: .notDetermined, bluetooth: .notDetermined).firstIncompleteStep,
             .inputMonitoring
         )
-	XCTAssertEqual(
-	    OnboardingStepState(accessibility: .notDetermined, inputMonitoring: .granted, bluetooth: .notDetermined).firstIncompleteStep,
-	    .accessibility
-	)
     }
 
     func testFirstIncompleteStepIgnoresOptionalBluetooth() {

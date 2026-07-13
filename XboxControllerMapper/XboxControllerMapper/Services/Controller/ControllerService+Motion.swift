@@ -50,10 +50,13 @@ extension ControllerService {
 
         storage.lock.lock()
         let gestures = storage.motionGestureDetector.processAll((pitchVelocity, rollVelocity), at: now)
+        let callback = storage.onMotionGesture
         storage.lock.unlock()
 
+        guard let callback = callback else { return }
+
         for gesture in gestures {
-            emitInputEvent(.motionGesture(gesture))
+            callback(gesture)
         }
     }
 

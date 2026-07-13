@@ -136,8 +136,6 @@ final class ModelCodableCoverageTests: XCTestCase {
         let obs = SystemCommand.obsWebSocket(url: "ws://127.0.0.1:4455", password: nil, requestType: "VeryLongRequestTypeNameThatShouldTruncate", requestData: nil)
 		let profileId = UUID()
 		let profile = SystemCommand.switchProfile(profileId: profileId, profileName: "Gaming")
-		let centerRing = SystemCommand.centerOuraRing
-		let toggleRing = SystemCommand.toggleOuraMotion
 
 		XCTAssertEqual(profile.category, .profile)
         XCTAssertEqual(launch.category, .app)
@@ -145,16 +143,12 @@ final class ModelCodableCoverageTests: XCTestCase {
         XCTAssertEqual(link.category, .link)
         XCTAssertEqual(webhook.category, .webhook)
         XCTAssertEqual(obs.category, .obs)
-		XCTAssertEqual(centerRing.category, .ring)
-		XCTAssertEqual(toggleRing.category, .ring)
 
 		XCTAssertEqual(profile.displayName, "Switch to Gaming")
         XCTAssertEqual(launch.displayName, "com.fake.app (New Window)")
         XCTAssertTrue(shell.displayName.hasSuffix("..."))
         XCTAssertTrue(link.displayName.hasSuffix("..."))
         XCTAssertTrue(obs.displayName.hasSuffix("..."))
-		XCTAssertEqual(centerRing.displayName, "Center Ring")
-		XCTAssertEqual(toggleRing.displayName, "Toggle Ring Mouse Control")
     }
 
     func testSystemCommandCodable_DefaultsForMissingFields() throws {
@@ -163,8 +157,6 @@ final class ModelCodableCoverageTests: XCTestCase {
         let link = try JSONDecoder().decode(SystemCommand.self, from: Data(#"{"type":"openLink"}"#.utf8))
         let request = try JSONDecoder().decode(SystemCommand.self, from: Data(#"{"type":"httpRequest"}"#.utf8))
         let obs = try JSONDecoder().decode(SystemCommand.self, from: Data(#"{"type":"obsWebSocket"}"#.utf8))
-		let centerRing = try JSONDecoder().decode(SystemCommand.self, from: Data(#"{"type":"centerOuraRing"}"#.utf8))
-		let toggleRing = try JSONDecoder().decode(SystemCommand.self, from: Data(#"{"type":"toggleOuraMotion"}"#.utf8))
 		let profileId = UUID()
 		let profileData = Data(#"{"type":"switchProfile","profileId":"\#(profileId.uuidString)","profileName":"Gaming"}"#.utf8)
 		let profile = try JSONDecoder().decode(SystemCommand.self, from: profileData)
@@ -174,8 +166,6 @@ final class ModelCodableCoverageTests: XCTestCase {
         XCTAssertEqual(link, .openLink(url: ""))
         XCTAssertEqual(request, .httpRequest(url: "", method: .POST, headers: nil, body: nil))
         XCTAssertEqual(obs, .obsWebSocket(url: "", password: nil, requestType: "", requestData: nil))
-		XCTAssertEqual(centerRing, .centerOuraRing)
-		XCTAssertEqual(toggleRing, .toggleOuraMotion)
 		XCTAssertEqual(profile, .switchProfile(profileId: profileId, profileName: "Gaming"))
     }
 
@@ -322,11 +312,11 @@ final class ModelCodableCoverageTests: XCTestCase {
 
         let decoded = try JSONDecoder().decode(JoystickSettings.self, from: Data(json.utf8))
 
-        XCTAssertEqual(decoded.leftStick.mouseSensitivity, 0.0, accuracy: 0.0001)
-        XCTAssertEqual(decoded.rightStick.scrollSensitivity, 1.0, accuracy: 0.0001)
-        XCTAssertEqual(decoded.leftStick.mouseDeadzone, 0.0, accuracy: 0.0001)
-        XCTAssertEqual(decoded.rightStick.scrollDeadzone, 0.99, accuracy: 0.0001)
-        XCTAssertEqual(decoded.leftStick.mouseAcceleration, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.mouseSensitivity, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.scrollSensitivity, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.mouseDeadzone, 0.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.scrollDeadzone, 0.99, accuracy: 0.0001)
+        XCTAssertEqual(decoded.mouseAcceleration, 1.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.touchpadSensitivity, 0.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.touchpadAcceleration, 1.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.touchpadDeadzone, 0.03, accuracy: 0.0001)
@@ -335,7 +325,7 @@ final class ModelCodableCoverageTests: XCTestCase {
         XCTAssertTrue(decoded.touchpadInvertScrollX)
         XCTAssertTrue(decoded.touchpadInvertScrollY)
         XCTAssertEqual(decoded.touchpadZoomToPanRatio, 0.5, accuracy: 0.0001)
-        XCTAssertEqual(decoded.rightStick.scrollAcceleration, 1.0, accuracy: 0.0001)
+        XCTAssertEqual(decoded.scrollAcceleration, 1.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.scrollBoostMultiplier, 4.0, accuracy: 0.0001)
         XCTAssertEqual(decoded.focusModeSensitivity, 0.0, accuracy: 0.0001)
         XCTAssertTrue(decoded.isValid())

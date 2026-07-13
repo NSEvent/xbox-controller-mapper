@@ -554,11 +554,6 @@ struct Profile: Codable, Identifiable, Equatable {
         mappings[.rightTouchpadButton] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
         mappings[.rightTouchpadTap] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
 
-		// Oura Ring tap gestures. Single tap behaves like the default click;
-		// multi-tap gestures keep calibration controls editable.
-		mappings[.ouraTap] = KeyMapping(keyCode: KeyCodeMapping.mouseLeftClick, isHoldModifier: true)
-		applyOuraGestureDefaults(to: &mappings)
-
         // Chord mappings
         let chords: [ChordMapping] = [
             // RB + X = Cmd+Delete
@@ -586,13 +581,19 @@ struct Profile: Codable, Identifiable, Equatable {
 
         // Joystick settings tuned for comfortable use
         let joystick = JoystickSettings(
-            leftStick: .leftDefault,
-            rightStick: .rightDefault,
+            mouseSensitivity: 0.5,
+            scrollSensitivity: 0.5,
+            mouseDeadzone: 0.15,
+            scrollDeadzone: 0.15,
+            invertMouseY: false,
+            invertScrollY: false,
+            mouseAcceleration: 0.5,
             touchpadSensitivity: 0.5,
             touchpadAcceleration: 0.5,
             touchpadDeadzone: JoystickSettings.defaultTouchpadDeadzone,
             touchpadSmoothing: 0.4,
             touchpadPanSensitivity: 0.5,
+            scrollAcceleration: 0.5,
             scrollBoostMultiplier: 4.0,
             focusModeSensitivity: 0.1,
             focusModeModifier: .command
@@ -607,15 +608,6 @@ struct Profile: Codable, Identifiable, Equatable {
             joystickSettings: joystick
         )
     }
-
-	private static func applyOuraGestureDefaults(to mappings: inout [ControllerButton: KeyMapping]) {
-		if mappings[.ouraDoubleTap] == nil {
-			mappings[.ouraDoubleTap] = KeyMapping(systemCommand: .centerOuraRing, hint: "Center Ring")
-		}
-		if mappings[.ouraTripleTap] == nil {
-			mappings[.ouraTripleTap] = KeyMapping(systemCommand: .toggleOuraMotion, hint: "Toggle Ring Mouse")
-		}
-	}
 }
 
 // MARK: - Custom Codable for Dictionary with enum keys
@@ -663,7 +655,6 @@ extension Profile {
             }
             return (button, value)
         })
-		Self.applyOuraGestureDefaults(to: &buttonMappings)
         dpadPreset = try container.decode(.dpadPreset, default: DPadPreset.resolved(from: buttonMappings))
 
         chordMappings = try container.decode(.chordMappings, default: [])
@@ -798,107 +789,6 @@ extension Profile {
     }
 }
 
-// MARK: - Oura Ring Motion Output
-
-extension Profile {
-	var ouraMotionOutputMode: OuraMotionOutputMode {
-		guard joystickSettings.ouraMotion.motionOutputEnabled else { return .off }
-		if let outputMode = joystickSettings.ouraMotion.outputMode,
-		   ouraMotionOutputModeMatchesCurrentRouting(outputMode) {
-			return outputMode
-		}
-
-		let mode = joystickSettings.inferredOuraMotionOutputMode
-		guard mode == .custom else { return mode }
-		return inferredCustomDirectionPresetOutputMode ?? .custom
-	}
-
-	mutating func reconcileOuraMotionOutputModeWithCurrentRouting() {
-		guard joystickSettings.ouraMotion.motionOutputEnabled,
-			  let outputMode = joystickSettings.ouraMotion.outputMode,
-			  !ouraMotionOutputModeMatchesCurrentRouting(outputMode) else {
-			return
-		}
-
-		let inferred = joystickSettings.inferredOuraMotionOutputMode
-		joystickSettings.ouraMotion.outputMode = inferred == .custom
-			? inferredCustomDirectionPresetOutputMode ?? .custom
-			: inferred == .off ? nil : inferred
-	}
-
-	private var inferredCustomDirectionPresetOutputMode: OuraMotionOutputMode? {
-		switch StickDirectionPreset.resolved(
-			from: buttonMappings,
-			side: joystickSettings.ouraMotion.targetStick
-		) {
-		case .some(.arrows):
-			return .arrowKeys
-		case .some(.wasd):
-			return .wasdKeys
-		case nil:
-			return nil
-		}
-	}
-
-	private func ouraMotionOutputModeMatchesCurrentRouting(_ mode: OuraMotionOutputMode) -> Bool {
-		switch mode {
-		case .arrowKeys:
-			return ouraMotionUsesLeftCustomPreset(.arrows) ||
-				   joystickSettings.ouraMotionOutputModeMatchesCurrentRouting(mode)
-		case .wasdKeys:
-			return ouraMotionUsesLeftCustomPreset(.wasd) ||
-				   joystickSettings.ouraMotionOutputModeMatchesCurrentRouting(mode)
-		case .mouse, .scroll, .custom, .dpad, .off:
-			return joystickSettings.ouraMotionOutputModeMatchesCurrentRouting(mode)
-		}
-	}
-
-	private func ouraMotionUsesLeftCustomPreset(_ preset: StickDirectionPreset) -> Bool {
-		joystickSettings.ouraMotion.motionOutputEnabled &&
-		joystickSettings.ouraMotion.targetStick == .left &&
-		joystickSettings.leftStick.mode == .custom &&
-		StickDirectionPreset.resolved(from: buttonMappings, side: .left) == preset
-	}
-
-	mutating func setOuraMotionOutputMode(_ mode: OuraMotionOutputMode) {
-		joystickSettings.setOuraMotionOutputMode(mode)
-
-		switch mode {
-		case .arrowKeys:
-			joystickSettings.leftStick.mode = .custom
-			joystickSettings.leftStick.customDeadzone = joystickSettings.leftStick.mouseDeadzone
-			StickDirectionPreset.arrows.apply(to: &buttonMappings, side: .left)
-		case .wasdKeys:
-			joystickSettings.leftStick.mode = .custom
-			joystickSettings.leftStick.customDeadzone = joystickSettings.leftStick.mouseDeadzone
-			StickDirectionPreset.wasd.apply(to: &buttonMappings, side: .left)
-		case .custom:
-			joystickSettings.leftStick.mode = .custom
-		case .mouse, .scroll, .dpad, .off:
-			break
-		}
-	}
-
-	mutating func updateOuraMotionOutputModeIfNeeded(afterChanging button: ControllerButton) {
-		guard joystickSettings.ouraMotion.targetStick == .left,
-			  ControllerButton.joystickDirectionButtons(side: .left).contains(button),
-			  joystickSettings.ouraMotion.outputMode == .arrowKeys ||
-			  joystickSettings.ouraMotion.outputMode == .wasdKeys else {
-			return
-		}
-
-		joystickSettings.leftStick.mode = .custom
-		switch StickDirectionPreset.resolved(from: buttonMappings, side: .left) {
-		case .some(.arrows):
-			joystickSettings.ouraMotion.outputMode = .arrowKeys
-		case .some(.wasd):
-			joystickSettings.ouraMotion.outputMode = .wasdKeys
-		case nil:
-			joystickSettings.ouraMotion.outputMode = .custom
-		}
-	}
-}
-
 // MARK: - Custom Equatable (excludes timestamps)
 
 extension Profile {
@@ -908,17 +798,23 @@ extension Profile {
     }
 
     private mutating func migrateLegacyStickKeyMode(side: JoystickSide) {
-        let mode = joystickSettings.stick(side).mode
+        let mode: StickMode
+        switch side {
+        case .left:
+            mode = joystickSettings.leftStickMode
+        case .right:
+            mode = joystickSettings.rightStickMode
+        }
 
         guard mode == .wasdKeys || mode == .arrowKeys else { return }
 
         switch side {
         case .left:
-            joystickSettings.leftStick.mode = .custom
-            joystickSettings.leftStick.customDeadzone = joystickSettings.leftStick.mouseDeadzone
+            joystickSettings.leftStickMode = .custom
+            joystickSettings.leftStickCustomDeadzone = joystickSettings.mouseDeadzone
         case .right:
-            joystickSettings.rightStick.mode = .custom
-            joystickSettings.rightStick.customDeadzone = joystickSettings.rightStick.scrollDeadzone
+            joystickSettings.rightStickMode = .custom
+            joystickSettings.rightStickCustomDeadzone = joystickSettings.scrollDeadzone
         }
 
         let preset: StickDirectionPreset = mode == .wasdKeys ? .wasd : .arrows

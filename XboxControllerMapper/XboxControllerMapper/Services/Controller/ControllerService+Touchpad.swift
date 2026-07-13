@@ -357,6 +357,7 @@ extension ControllerService {
         let newPosition = CGPoint(x: CGFloat(x), y: CGFloat(y))
         let wasTouching = storage.isTouchpadTouching
         let wasTwoFinger = storage.isTouchpadTouching && storage.isTouchpadSecondaryTouching
+        let gestureCallback = storage.onTouchpadGesture
         let now = CFAbsoluteTimeGetCurrent()
         let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
         // Secondary finger block is handled by secondaryFresh checks below.
@@ -438,10 +439,11 @@ extension ControllerService {
                     }
                     storage.touchpadPosition = newPosition
                     let gesture = shouldHandleAsPreSettleGesture ? computeTwoFingerGestureLocked(secondaryFresh: secondaryFresh) : nil
+                    let gestureCallback = storage.onTouchpadGesture
                     storage.lock.unlock()
 
                     if let gesture {
-                        emitInputEvent(.touchpadGesture(gesture))
+                        gestureCallback?(gesture)
                     }
                     return
                 }
@@ -542,6 +544,7 @@ extension ControllerService {
 							current: storage.touchpadPosition
 						)
 						: nil
+					let circularScrollCallback = storage.onAppleTVRemoteCircularScroll
 					if circularScrollAngleDelta != nil {
 						storage.appleTVRemoteCircularScrollActive = true
 					}
@@ -550,6 +553,8 @@ extension ControllerService {
 				// Apply the PREVIOUS pending delta (if any), then store current as pending.
 				// This 1-frame delay filters out artifacts right before finger lift.
 				let previousPending = circularScrollActive ? nil : storage.pendingTouchpadDelta
+				let callback = storage.onTouchpadMoved
+
 				// Store current delta as pending for next frame unless ring scrolling owns this motion.
 				if circularScrollActive {
 					storage.pendingTouchpadDelta = nil
@@ -575,30 +580,30 @@ extension ControllerService {
                 let shouldHandleAsGesture = secondaryFresh && (!storage.isSteamController || steamTwoPadGesture)
                 let gesture = computeTwoFingerGestureLocked(secondaryFresh: secondaryFresh)
 
-				let isSecondaryTouching = storage.isTouchpadSecondaryTouching
-				let shouldAllowSinglePadMovement = !circularScrollActive && (!isSecondaryTouching || (storage.isSteamController && !shouldHandleAsGesture))
+					let isSecondaryTouching = storage.isTouchpadSecondaryTouching
+					let shouldAllowSinglePadMovement = !circularScrollActive && (!isSecondaryTouching || (storage.isSteamController && !shouldHandleAsGesture))
 				let shouldSendInactiveGesture = isSecondaryTouching && !shouldHandleAsGesture && shouldSendSteamTwoPadGestureEndLocked()
 				let inactiveGesture = shouldSendInactiveGesture
                     ? inactiveTouchpadGesture(primaryTouching: true, secondaryTouching: false)
                     : nil
                 storage.lock.unlock()
 
-				if let gesture, shouldHandleAsGesture {
-					emitInputEvent(.touchpadGesture(gesture))
+					if let gesture, shouldHandleAsGesture {
+						gestureCallback?(gesture)
 					if let circularScrollAngleDelta {
-						emitInputEvent(.appleTVRemoteCircularScroll(circularScrollAngleDelta))
+						circularScrollCallback?(circularScrollAngleDelta)
 					}
-				} else {
-					if let inactiveGesture {
-						emitInputEvent(.touchpadGesture(inactiveGesture))
-					}
+					} else {
+						if let inactiveGesture {
+							gestureCallback?(inactiveGesture)
+						}
 					if let circularScrollAngleDelta {
-						emitInputEvent(.appleTVRemoteCircularScroll(circularScrollAngleDelta))
+						circularScrollCallback?(circularScrollAngleDelta)
 					}
-					if let pending = previousPending, shouldAllowSinglePadMovement {
-						emitInputEvent(.touchpadMoved(pending))
+						if let pending = previousPending, shouldAllowSinglePadMovement {
+							callback?(pending)
+						}
 					}
-				}
             } else {
                 // Finger just touched - initialize position, no delta yet
                 storage.touchpadPosition = newPosition
@@ -610,14 +615,14 @@ extension ControllerService {
                 storage.touchpadGesturePreviousDistance = 0
                 storage.touchpadFramesSinceTouch = 0
                 storage.pendingTouchpadDelta = nil
-				storage.touchpadTouchStartTime = now
-				storage.touchpadTouchStartPosition = newPosition
-				storage.touchpadMaxDistanceFromStart = 0
+					storage.touchpadTouchStartTime = now
+					storage.touchpadTouchStartPosition = newPosition
+					storage.touchpadMaxDistanceFromStart = 0
 				storage.appleTVRemoteCircularScrollActive = false
 				storage.appleTVRemoteCircularScrollStartedInOuterRing = storage.isAppleTVRemote &&
 					storage.appleTVRemoteCircularScrollEnabled &&
 					Self.appleTVRemoteCircularScrollPositionIsOuterRing(newPosition)
-				// Check if secondary is already touching (for two-finger tap detection)
+					// Check if secondary is already touching (for two-finger tap detection)
                 let secondaryFresh = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
                 storage.touchpadWasTwoFingerDuringTouch = secondaryFresh
                 storage.touchpadTwoFingerGestureDistance = 0  // Reset for new touch session
@@ -636,8 +641,8 @@ extension ControllerService {
                 storage.touchpadLongTapFired = false
 
                 // Start long tap timer
-                let shouldStartLongTapTimer = storage.onInputEvent != nil
-                if shouldStartLongTapTimer {
+                let longTapCallback = secondaryFresh ? storage.onTouchpadTwoFingerLongTap : storage.onTouchpadLongTap
+                if longTapCallback != nil {
                     let workItem = DispatchWorkItem { [weak self] in
                         guard let self = self else { return }
                         self.storage.lock.lock()
@@ -645,12 +650,11 @@ extension ControllerService {
                         let distance = self.storage.touchpadMaxDistanceFromStart
                         let stillTouching = self.storage.isTouchpadTouching
                         let isTwoFinger = self.storage.touchpadWasTwoFingerDuringTouch
+                        let callback = isTwoFinger ? self.storage.onTouchpadTwoFingerLongTap : self.storage.onTouchpadLongTap
                         if stillTouching && distance < Config.touchpadLongTapMaxMovement {
                             self.storage.touchpadLongTapFired = true
                             self.storage.lock.unlock()
-                            self.controllerQueue.async {
-                                self.emitInputEvent(isTwoFinger ? .touchpadTwoFingerLongTap : .touchpadLongTap)
-                            }
+                            self.controllerQueue.async { callback?() }
                         } else {
                             self.storage.lock.unlock()
                         }
@@ -694,18 +698,21 @@ extension ControllerService {
                 !clickFiredDuringTouch &&
                 touchDuration < Config.touchpadTapMaxDuration &&
                 touchDistance < Config.touchpadTapMaxMovement
-            let isAppleTVRemote = storage.isAppleTVRemote
-            let mode = isAppleTVRemote ? TouchpadInputMode.wholePad : storage.touchpadInputMode
-            let shouldEmitTap = isSingleTap && mode == .wholePad && !isSteamController
+			let isAppleTVRemote = storage.isAppleTVRemote
+			let mode = isAppleTVRemote ? TouchpadInputMode.wholePad : storage.touchpadInputMode
+            let tapCallback = (isSingleTap && mode == .wholePad && !isSteamController) ? storage.onTouchpadTap : nil
 
+            let regionTapCallback: ((TouchpadRegion) -> Void)?
             let tapRegion: TouchpadRegion?
-            if isSingleTap && mode == .quadrants && !isSteamController && !isAppleTVRemote {
+			if isSingleTap && mode == .quadrants && !isSteamController && !isAppleTVRemote {
+                regionTapCallback = storage.onTouchpadRegionTap
                 let regionPosition = ControllerService.preferredTouchpadRegionPosition(
                     currentPosition: storage.touchpadPosition,
                     touchStartPosition: storage.touchpadTouchStartPosition
                 )
                 tapRegion = TouchpadRegion.from(position: regionPosition)
             } else {
+                regionTapCallback = nil
                 tapRegion = nil
             }
 
@@ -726,7 +733,7 @@ extension ControllerService {
                 secondaryTouchDistance < Config.touchpadTwoFingerTapMaxMovement &&
                 gestureDistance < Config.touchpadTwoFingerTapMaxGestureDistance &&
                 pinchDistance < Config.touchpadTwoFingerTapMaxPinchDistance
-            let shouldEmitTwoFingerTap = isTwoFingerTap && !isSteamController
+            let twoFingerTapCallback = (isTwoFingerTap && !isSteamController) ? storage.onTouchpadTwoFingerTap : nil
 
             if isSingleTap || isTwoFingerTap {
                 storage.touchpadLastTapTime = now
@@ -739,33 +746,29 @@ extension ControllerService {
             storage.touchpadFramesSinceTouch = 0
             storage.pendingTouchpadDelta = nil
             storage.touchpadClickArmed = false
-            storage.touchpadClickFiredDuringTouch = false
-            storage.touchpadMovementBlocked = false
-            storage.touchpadLongTapFired = false
-            storage.appleTVRemoteCircularScrollActive = false
-            storage.appleTVRemoteCircularScrollStartedInOuterRing = false
-            let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
+				storage.touchpadClickFiredDuringTouch = false
+				storage.touchpadMovementBlocked = false
+				storage.touchpadLongTapFired = false
+				storage.appleTVRemoteCircularScrollActive = false
+				storage.appleTVRemoteCircularScrollStartedInOuterRing = false
+				let isSecondaryTouching = (now - storage.touchpadSecondaryLastTouchTime) < Config.touchpadSecondaryStaleInterval
             let isTwoFinger = storage.isTouchpadTouching && isSecondaryTouching
             storage.lock.unlock()
 
             // Fire tap callback if it was a tap (not if long tap was fired)
-            if shouldEmitTap {
-                emitInputEvent(.touchpadTap)
+            tapCallback?()
+            if let regionTapCallback, let tapRegion {
+                regionTapCallback(tapRegion)
             }
-            if let tapRegion {
-                emitInputEvent(.touchpadRegionTap(tapRegion))
-            }
-            if shouldEmitTwoFingerTap {
-                emitInputEvent(.touchpadTwoFingerTap)
-            }
+            twoFingerTapCallback?()
 
             if wasTwoFinger && !isTwoFinger {
-                emitInputEvent(.touchpadGesture(TouchpadGesture(
+                gestureCallback?(TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: false,
                     isSecondaryTouching: isSecondaryTouching
-                )))
+                ))
             }
         }
     }
@@ -785,6 +788,8 @@ extension ControllerService {
         let newPosition = CGPoint(x: CGFloat(x), y: CGFloat(y))
         let wasTouching = storage.isTouchpadSecondaryTouching
         let wasTwoFinger = storage.isTouchpadTouching && storage.isTouchpadSecondaryTouching
+        let gestureCallback = storage.onTouchpadGesture
+        let steamLeftTouchpadCallback = storage.onSteamLeftTouchpadMoved
         let now = CFAbsoluteTimeGetCurrent()
 
         // Detect if finger is on touchpad (non-zero position indicates touch)
@@ -884,16 +889,17 @@ extension ControllerService {
                 if isPrimaryTouching {
                     storage.touchpadWasTwoFingerDuringTouch = true
                 }
+                let gestureCallback = storage.onTouchpadGesture
                 let shouldSendInitialGesture = isPrimaryTouching && !storage.isSteamController
                 storage.lock.unlock()
 
                 if shouldSendInitialGesture {
-                    emitInputEvent(.touchpadGesture(TouchpadGesture(
+                    gestureCallback?(TouchpadGesture(
                         centerDelta: .zero,
                         distanceDelta: 0,
                         isPrimaryTouching: true,
                         isSecondaryTouching: true
-                    )))
+                    ))
                 }
                 return
             }
@@ -923,13 +929,13 @@ extension ControllerService {
                 : nil
             storage.lock.unlock()
             if let gesture, shouldHandleAsGesture {
-                emitInputEvent(.touchpadGesture(gesture))
+                gestureCallback?(gesture)
             } else {
                 if let inactiveGesture {
-                    emitInputEvent(.touchpadGesture(inactiveGesture))
+                    gestureCallback?(inactiveGesture)
                 }
                 if let steamLeftTouchpadDelta {
-                    emitInputEvent(.steamLeftTouchpadMoved(steamLeftTouchpadDelta))
+                    steamLeftTouchpadCallback?(steamLeftTouchpadDelta)
                 }
             }
         } else {
@@ -950,19 +956,19 @@ extension ControllerService {
             storage.lock.unlock()
 
             if wasTwoFinger && !isTwoFinger {
-                emitInputEvent(.touchpadGesture(TouchpadGesture(
+                gestureCallback?(TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: isPrimaryTouching,
                     isSecondaryTouching: false
-                )))
+                ))
             } else if isPrimaryTouching {
-                emitInputEvent(.touchpadGesture(TouchpadGesture(
+                gestureCallback?(TouchpadGesture(
                     centerDelta: .zero,
                     distanceDelta: 0,
                     isPrimaryTouching: true,
                     isSecondaryTouching: false
-                )))
+                ))
             }
         }
     }

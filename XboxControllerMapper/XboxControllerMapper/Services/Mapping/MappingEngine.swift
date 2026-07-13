@@ -143,10 +143,15 @@ class MappingEngine: ObservableObject {
 	self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
         self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
-        self.state.applyProfileIndex(MappingProfileIndex(profile: profileManager.activeProfile))
+        // Build precomputed lookup caches
+        let initialChords = profileManager.activeProfile?.chordMappings ?? []
+		self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: initialChords.flatMap { $0.buttons })
+		self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profileManager.activeProfile?.sequenceMappings ?? []).flatMap { $0.steps })
+        self.state.chordLookup = Dictionary(uniqueKeysWithValues: initialChords.map { ($0.buttons, $0) })
+        self.state.layersById = Self.layersById(for: profileManager.activeProfile)
+        rebuildLayerActivatorMap(profile: profileManager.activeProfile)
         syncLatencySettings(for: profileManager.activeProfile)
         syncGestureSettings(from: profileManager.activeProfile?.joystickSettings)
-        syncPointerLockMouseMode(from: profileManager.activeProfile?.joystickSettings)
         syncTouchpadSettings(from: profileManager.activeProfile)
         syncMotionActivation(for: profileManager.activeProfile)
     }
@@ -159,11 +164,34 @@ class MappingEngine: ObservableObject {
         joystickTimer = nil
     }
 
+    /// Rebuilds the layer activator button -> layer ID lookup map
+    private func rebuildLayerActivatorMap(profile: Profile?) {
+        state.layerActivatorMap.removeAll()
+        guard let profile = profile else { return }
+        for layer in profile.layers {
+            if let activatorButton = layer.activatorButton {
+                state.layerActivatorMap[activatorButton] = layer.id
+            }
+        }
+    }
+
     private func syncLatencySettings(for profile: Profile?) {
-		let chordButtons = MappingProfileIndex(profile: profile).chordParticipantButtons
+		let chordButtons = Self.expandedParticipantButtons(for: (profile?.chordMappings ?? []).flatMap { $0.buttons })
         controllerService.chordParticipantButtons = chordButtons
         controllerService.lowLatencyInputEnabled = profile?.inputLatencyMode == .realtime
     }
+
+	private static func expandedParticipantButtons(for buttons: [ControllerButton]) -> Set<ControllerButton> {
+		Set(buttons.flatMap { button in
+			[button] + button.physicalEquivalentButtons
+		})
+	}
+
+	/// O(1) layer lookup cache for the 120Hz joystick poll. Tolerates duplicate
+	/// layer IDs in hand-edited configs by keeping the first occurrence.
+	private static func layersById(for profile: Profile?) -> [UUID: Layer] {
+		Dictionary((profile?.layers ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+	}
 
     /// Pushes effective gesture detection settings from the profile into ControllerStorage
     /// so the motion callback thread can read them without accessing JoystickSettings.
@@ -187,10 +215,6 @@ class MappingEngine: ObservableObject {
         let settings = settings ?? .default
         controllerService.requireActiveTouchForRegionClick = settings.requireActiveTouchForRegionClick
 		controllerService.appleTVRemoteCircularScrollEnabled = settings.appleTVRemoteCircularScrollEnabled
-    }
-
-    private func syncPointerLockMouseMode(from settings: JoystickSettings?) {
-        inputSimulator.setPointerLockMouseMode((settings ?? .default).pointerLockMouseMode)
     }
 
     private func syncGestureSettings(from settings: JoystickSettings?) {
@@ -242,15 +266,21 @@ class MappingEngine: ObservableObject {
 		    self.state.swipeTypingSensitivity = osk.swipeTypingSensitivity
                     self.state.activeLayerIds.removeAll()
                     self.state.buttonsActingAsLayerActivators.removeAll()
+                    self.rebuildLayerActivatorMap(profile: profile)
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
-                    self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
+
+                    // Build precomputed lookup caches
+                    let chords = profile?.chordMappings ?? []
+					self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
+					self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
+                    self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
+                    self.state.layersById = Self.layersById(for: profile)
                     return heldDirections
                 }
                 for button in directionButtonsToRelease {
                     self.controllerService.handleButton(button, pressed: false)
                 }
                 self.syncGestureSettings(from: profile?.joystickSettings)
-                self.syncPointerLockMouseMode(from: profile?.joystickSettings)
                 self.syncTouchpadSettings(from: profile)
                 self.syncMotionActivation(for: profile)
                 self.syncLatencySettings(for: profile)
@@ -268,10 +298,24 @@ class MappingEngine: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Controller input events — ControllerService owns event emission;
-        // MappingEngine owns queue routing and mapping behavior.
-        controllerService.onInputEvent = { [weak self] event in
-            self?.enqueueControllerInputEvent(event)
+        // Controller input callbacks — route each event to the appropriate queue.
+        controllerService.onButtonPressed = { [weak self] button in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.handleButtonPressed(button)
+            }
+        }
+        controllerService.onButtonReleased = { [weak self] button, duration in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.handleButtonReleased(button, holdDuration: duration)
+            }
+        }
+        controllerService.onChordDetected = { [weak self] buttons in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.handleChord(buttons)
+            }
         }
 
         // Joystick polling
@@ -302,10 +346,76 @@ class MappingEngine: ObservableObject {
             }
             .store(in: &cancellables)
 
+        controllerService.onTouchpadMoved = { [weak self] delta in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadMovement(delta)
+            }
+        }
+        controllerService.onSteamLeftTouchpadMoved = { [weak self] delta in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processSteamLeftTouchpadScroll(delta)
+            }
+        }
+		controllerService.onAppleTVRemoteCircularScroll = { [weak self] angleDelta in
+			guard let self = self else { return }
+			self.pollingQueue.async {
+				self.processAppleTVRemoteCircularScroll(angleDelta)
+			}
+		}
+        controllerService.onTouchpadGesture = { [weak self] gesture in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadGesture(gesture)
+            }
+        }
+        controllerService.onTouchpadTap = { [weak self] in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadTap()
+            }
+        }
+        controllerService.onControllerButtonTap = { [weak self] button in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.processTapGesture(button)
+            }
+        }
+        controllerService.onTouchpadTwoFingerTap = { [weak self] in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadTwoFingerTap()
+            }
+        }
+        controllerService.onTouchpadLongTap = { [weak self] in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadLongTap()
+            }
+        }
+        controllerService.onTouchpadTwoFingerLongTap = { [weak self] in
+            guard let self = self else { return }
+            self.pollingQueue.async {
+                self.processTouchpadTwoFingerLongTap()
+            }
+        }
+        controllerService.onTouchpadRegionTap = { [weak self] region in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.processTouchpadRegionEvent(region, trigger: .touch)
+            }
+        }
         // Region clicks no longer use a callback. ControllerService dispatches
         // them directly as `handleButton(.touchpadRegion*Click, pressed:)`,
         // which goes through the standard press/release machinery (long hold,
         // double tap, repeat, layer overrides all work for free).
+        controllerService.onMotionGesture = { [weak self] gestureType in
+            guard let self = self else { return }
+            self.inputQueue.async {
+                self.processMotionGesture(gestureType)
+            }
+        }
 
         // Enable/Disable toggle sync
         $isEnabled
@@ -314,9 +424,15 @@ class MappingEngine: ObservableObject {
                 let cleanup: (leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)? = self.state.lock.withLock {
                     self.state.isEnabled = enabled
                     if enabled {
+                        // Rebuild precomputed lookup caches that were cleared by reset()
                         let profile = self.state.activeProfile
+                        let chords = profile?.chordMappings ?? []
+						self.state.chordParticipantButtons = Self.expandedParticipantButtons(for: chords.flatMap { $0.buttons })
+						self.state.sequenceParticipantButtons = Self.expandedParticipantButtons(for: (profile?.sequenceMappings ?? []).flatMap { $0.steps })
+                        self.state.chordLookup = Dictionary(uniqueKeysWithValues: chords.map { ($0.buttons, $0) })
+                        self.state.layersById = Self.layersById(for: profile)
                         self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
-                        self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
+                        self.rebuildLayerActivatorMap(profile: profile)
                         self.syncLatencySettings(for: profile)
                         return nil
                     }
@@ -940,9 +1056,7 @@ class MappingEngine: ObservableObject {
         } else {
             cleanup = nil
         }
-		state.lock.unlock()
-
-		_ = OuraRingCommandCenter.shared.centerRing()
+        state.lock.unlock()
 
         if nowLocked {
             inputSimulator.releaseAllModifiers()
@@ -1448,91 +1562,6 @@ class MappingEngine: ObservableObject {
         }
     }
 
-	nonisolated private func enqueueControllerInputEvent(_ event: ControllerInputEvent) {
-		// Coalesce high-rate touchpad movement so a bursty transport can't backlog
-		// the serial pollingQueue and replay the swipe path. All other events keep
-		// their 1:1 routing.
-		if case .touchpadMoved(let delta) = event {
-			enqueueCoalescedTouchpadMovement(delta)
-			return
-		}
-		switch ControllerInputEventRouting.queue(for: event) {
-		case .input:
-			inputQueue.async { [weak self] in
-				self?.handleControllerInputEvent(event)
-			}
-		case .polling:
-			pollingQueue.async { [weak self] in
-				self?.handleControllerInputEvent(event)
-			}
-		}
-	}
-
-	/// Coalesces high-rate touchpad movement into a single net delta per drain.
-	///
-	/// Bursty transports — BT→USB bridge dongles, and even a wired DualSense at
-	/// its native high report rate — deliver touchpad samples faster than the
-	/// serial `pollingQueue` can post Quartz mouse-moves. Enqueuing one block per
-	/// sample backlogs the queue, so the queued moves drain late and the cursor
-	/// re-traces the swipe path ("laggy + repeating paths"). Summing the deltas
-	/// and draining once per scheduled flush preserves total displacement,
-	/// eliminates the backlog, and lowers latency. Under normal (non-bursty)
-	/// input each sample drains before the next arrives, so per-sample behavior
-	/// is unchanged.
-	nonisolated private func enqueueCoalescedTouchpadMovement(_ delta: CGPoint) {
-		let shouldSchedule: Bool = state.lock.withLock { () -> Bool in
-			state.coalescedTouchpadDelta.x += delta.x
-			state.coalescedTouchpadDelta.y += delta.y
-			if state.touchpadFlushScheduled { return false }
-			state.touchpadFlushScheduled = true
-			return true
-		}
-		guard shouldSchedule else { return }
-		pollingQueue.async { [weak self] in
-			guard let self else { return }
-			let summed: CGPoint = self.state.lock.withLock { () -> CGPoint in
-				let accumulated = self.state.coalescedTouchpadDelta
-				self.state.coalescedTouchpadDelta = .zero
-				self.state.touchpadFlushScheduled = false
-				return accumulated
-			}
-			self.processTouchpadMovement(summed)
-		}
-	}
-
-	nonisolated private func handleControllerInputEvent(_ event: ControllerInputEvent) {
-		switch event {
-		case .buttonPressed(let button):
-			handleButtonPressed(button)
-		case .buttonReleased(let button, let holdDuration):
-			handleButtonReleased(button, holdDuration: holdDuration)
-		case .chordDetected(let buttons):
-			handleChord(buttons)
-		case .touchpadMoved(let delta):
-			processTouchpadMovement(delta)
-		case .steamLeftTouchpadMoved(let delta):
-			processSteamLeftTouchpadScroll(delta)
-		case .appleTVRemoteCircularScroll(let angleDelta):
-			processAppleTVRemoteCircularScroll(angleDelta)
-		case .touchpadGesture(let gesture):
-			processTouchpadGesture(gesture)
-		case .touchpadTap:
-			processTouchpadTap()
-		case .controllerButtonTap(let button):
-			processTapGesture(button)
-		case .touchpadTwoFingerTap:
-			processTouchpadTwoFingerTap()
-		case .touchpadLongTap:
-			processTouchpadLongTap()
-		case .touchpadTwoFingerLongTap:
-			processTouchpadTwoFingerLongTap()
-		case .touchpadRegionTap(let region):
-			processTouchpadRegionEvent(region, trigger: .touch)
-		case .motionGesture(let gestureType):
-			processMotionGesture(gestureType)
-		}
-	}
-
     // MARK: - Control
 
     func enable() {
@@ -1551,15 +1580,21 @@ class MappingEngine: ObservableObject {
     // MARK: - Remote Controller Relay
 
     nonisolated func handleRemoteControllerButtonPressed(_ button: ControllerButton) {
-		enqueueControllerInputEvent(.buttonPressed(button))
+        inputQueue.async { [weak self] in
+            self?.handleButtonPressed(button)
+        }
     }
 
     nonisolated func handleRemoteControllerButtonReleased(_ button: ControllerButton, holdDuration: TimeInterval) {
-		enqueueControllerInputEvent(.buttonReleased(button, holdDuration: holdDuration))
+        inputQueue.async { [weak self] in
+            self?.handleButtonReleased(button, holdDuration: holdDuration)
+        }
     }
 
     nonisolated func handleRemoteControllerChord(_ buttons: Set<ControllerButton>) {
-		enqueueControllerInputEvent(.chordDetected(buttons))
+        inputQueue.async { [weak self] in
+            self?.handleChord(buttons)
+        }
     }
 
     nonisolated func resetRemoteControllerInputState() {

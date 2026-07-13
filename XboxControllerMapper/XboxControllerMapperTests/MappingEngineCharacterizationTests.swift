@@ -39,7 +39,18 @@ final class MappingEngineCharacterizationTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 80_000_000)
 
         await MainActor.run {
-            controllerService?.onInputEvent = nil
+            controllerService?.onButtonPressed = nil
+            controllerService?.onButtonReleased = nil
+            controllerService?.onChordDetected = nil
+            controllerService?.onLeftStickMoved = nil
+            controllerService?.onRightStickMoved = nil
+            controllerService?.onTouchpadMoved = nil
+            controllerService?.onTouchpadGesture = nil
+            controllerService?.onTouchpadTap = nil
+            controllerService?.onControllerButtonTap = nil
+            controllerService?.onTouchpadTwoFingerTap = nil
+            controllerService?.onTouchpadLongTap = nil
+            controllerService?.onTouchpadTwoFingerLongTap = nil
             controllerService?.cleanup()
 
             mappingEngine = nil

@@ -30,9 +30,6 @@ protocol InputSimulatorProtocol: Sendable {
     func getHeldModifiers() -> CGEventFlags
     func moveMouse(dx: CGFloat, dy: CGFloat)
     func moveMouseNative(dx: Int, dy: Int)
-    /// Configures pointer-lock (FPS) relative mouse mode. Default implementation
-    /// is a no-op for conformers that don't post real mouse events.
-    func setPointerLockMouseMode(_ mode: PointerLockMouseMode)
     func warpMouseTo(point: CGPoint)
     var isLeftMouseButtonHeld: Bool { get }
     func scroll(event: ScrollEvent)
@@ -43,8 +40,6 @@ protocol InputSimulatorProtocol: Sendable {
 }
 
 extension InputSimulatorProtocol {
-    func setPointerLockMouseMode(_ mode: PointerLockMouseMode) {}
-
     func scroll(dx: CGFloat, dy: CGFloat) {
         scroll(event: ScrollEvent(dx: dx, dy: dy))
     }
@@ -64,7 +59,7 @@ extension InputSimulatorProtocol {
     }
 
     func holdModifiers(_ modifiers: ModifierFlags) {
-		for mask in ModifierKeyEmissionPolicy.modifierPressOrder where modifiers.cgEventFlags.contains(mask) {
+		for mask in ModifierKeyState.modifierPressOrder where modifiers.cgEventFlags.contains(mask) {
 			if let keyCode = modifiers.virtualKey(forMask: mask) {
 				holdModifierKey(keyCode)
 			}
@@ -72,7 +67,7 @@ extension InputSimulatorProtocol {
     }
 
     func releaseModifiers(_ modifiers: ModifierFlags) {
-		for mask in ModifierKeyEmissionPolicy.modifierReleaseOrder where modifiers.cgEventFlags.contains(mask) {
+		for mask in ModifierKeyState.modifierReleaseOrder where modifiers.cgEventFlags.contains(mask) {
 			if let keyCode = modifiers.virtualKey(forMask: mask) {
 				releaseModifierKey(keyCode)
 			}
@@ -80,12 +75,51 @@ extension InputSimulatorProtocol {
     }
 }
 
+// MARK: - Modifier Key Handler
+
+/// Helper class to manage modifier key reference counting and state
+private class ModifierKeyState {
+    /// Maps modifier mask to virtual key code
+    static let maskToKeyCode: [UInt64: Int] = [
+        CGEventFlags.maskCommand.rawValue: kVK_Command,
+        CGEventFlags.maskAlternate.rawValue: kVK_Option,
+        CGEventFlags.maskShift.rawValue: kVK_Shift,
+        CGEventFlags.maskControl.rawValue: kVK_Control
+    ]
+
+    /// List of modifier masks in order for iteration
+    static let modifierMasks: [CGEventFlags] = [
+        .maskCommand, .maskAlternate, .maskShift, .maskControl
+    ]
+
+    static let modifierPressOrder: [CGEventFlags] = [
+		.maskCommand, .maskShift, .maskAlternate, .maskControl
+    ]
+
+    static let modifierReleaseOrder: [CGEventFlags] = [
+		.maskControl, .maskAlternate, .maskShift, .maskCommand
+    ]
+}
+
+
 /// Service for simulating keyboard and mouse input via CGEvent and IOHIDPostEvent.
 class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
+    /// Static tracked cursor position for use by other services (e.g., ActionFeedbackIndicator)
+    /// when Accessibility Zoom is active. Access via getTrackedCursorPosition().
+    private static var sharedTrackedPosition: CGPoint?
+    private static var sharedLastMoveTime: CFAbsoluteTime = 0
+    private static var sharedLock = NSLock()
+
+    /// Accumulated movement delta since last consumption (for hint positioning during zoom)
+    private static var accumulatedDelta: CGPoint = .zero
+
     /// Returns the tracked cursor position if available and Accessibility Zoom is active,
     /// otherwise returns nil (caller should fall back to NSEvent.mouseLocation)
     static func getTrackedCursorPosition() -> CGPoint? {
-        InputSimulatorCursorState.trackedPositionIfZoomEnabled()
+        guard UAZoomEnabled() else { return nil }
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return sharedTrackedPosition
     }
 
     /// Returns true if cursor was moved very recently by the controller
@@ -94,48 +128,89 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// The short 50ms window skips the immediate unreliable reading but allows
     /// frequent updates to follow the cursor during long drags.
     static func isCursorBeingMoved() -> Bool {
-        InputSimulatorCursorState.isCursorBeingMoved()
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return CFAbsoluteTimeGetCurrent() - sharedLastMoveTime < 0.05
     }
 
     /// Consumes and returns the accumulated movement delta since last call.
     /// Used by ActionFeedbackIndicator to apply relative movement during zoom.
     /// Delta is in screen points (positive X = right, positive Y = down in CG coords).
     static func consumeMovementDelta() -> CGPoint {
-        InputSimulatorCursorState.consumeMovementDelta()
+        sharedLock.lock()
+        let delta = accumulatedDelta
+        accumulatedDelta = .zero
+        sharedLock.unlock()
+        return delta
     }
 
     /// Resets the accumulated movement delta without consuming it.
     /// Called when resyncing hint position to absolute coordinates.
     static func resetMovementDelta() {
-        InputSimulatorCursorState.resetMovementDelta()
+        sharedLock.lock()
+        accumulatedDelta = .zero
+        sharedLock.unlock()
     }
 
     /// Returns the current Accessibility Zoom level (1.0 = no zoom, 2.0 = 2x zoom, etc.)
     static func getZoomLevel() -> CGFloat {
-        InputSimulatorCursorState.zoomLevel()
+        CGFloat(UserDefaults(suiteName: "com.apple.universalaccess")?.double(forKey: "closeViewZoomFactor") ?? 1.0)
     }
 
     /// Returns whether Accessibility Zoom is currently active by checking UserDefaults directly.
     /// More reliable than `UAZoomEnabled()` which may return stale results on some macOS versions.
     /// Result is cached for 0.5s to avoid expensive inter-process UserDefaults reads at 120Hz.
+    private static var cachedZoomActive: Bool = false
+    private static var cachedZoomCheckTime: CFAbsoluteTime = 0
+    private static let zoomCacheInterval: CFAbsoluteTime = 0.5
+    /// Lock protecting zoom cache static vars (cachedZoomActive, cachedZoomCheckTime)
+    private static let zoomCacheLock = NSLock()
+
     static func isZoomCurrentlyActive() -> Bool {
-        InputSimulatorCursorState.isZoomCurrentlyActive()
+        let now = CFAbsoluteTimeGetCurrent()
+        zoomCacheLock.lock()
+        if now - cachedZoomCheckTime < zoomCacheInterval {
+            let cached = cachedZoomActive
+            zoomCacheLock.unlock()
+            return cached
+        }
+        cachedZoomCheckTime = now
+        zoomCacheLock.unlock()
+
+        // UserDefaults read is thread-safe and potentially slow -- do it outside the lock
+        let defaults = UserDefaults(suiteName: "com.apple.universalaccess")
+        let active = (defaults?.bool(forKey: "closeViewZoomedIn") ?? false)
+            && (defaults?.double(forKey: "closeViewZoomFactor") ?? 1.0) > 1.0
+
+        zoomCacheLock.lock()
+        cachedZoomActive = active
+        zoomCacheLock.unlock()
+        return active
     }
 
     /// Returns the last tracked cursor position regardless of zoom state.
     /// Unlike `getTrackedCursorPosition()`, this does not gate on `UAZoomEnabled()`.
     /// Used by overlay indicators that manage their own zoom detection via UserDefaults.
     static func getLastTrackedPosition() -> CGPoint? {
-        InputSimulatorCursorState.lastTrackedPosition()
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return sharedTrackedPosition
     }
 
     static func getLastTrackedPositionSnapshot() -> (position: CGPoint?, lastMoveTime: CFAbsoluteTime) {
-        InputSimulatorCursorState.lastTrackedPositionSnapshot()
+        sharedLock.lock()
+        defer { sharedLock.unlock() }
+        return (sharedTrackedPosition, sharedLastMoveTime)
     }
 
     /// Updates the shared tracked position (called from moveMouse)
     private static func updateSharedTrackedPosition(_ point: CGPoint?, delta: CGPoint = .zero) {
-        InputSimulatorCursorState.updateTrackedPosition(point, delta: delta)
+        sharedLock.lock()
+        sharedTrackedPosition = point
+        sharedLastMoveTime = CFAbsoluteTimeGetCurrent()
+        accumulatedDelta.x += delta.x
+        accumulatedDelta.y += delta.y
+        sharedLock.unlock()
     }
     private let eventSource: CGEventSource?
 
@@ -175,134 +250,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Lock for protecting shared state
     private let stateLock = NSLock()
 
-    // MARK: - Pointer-Lock (FPS) Relative Mouse Mode
-
-    /// Configured mode; pushed in by MappingEngine on profile/settings changes. (stateLock)
-    private var pointerLockMouseMode: PointerLockMouseMode = .auto
-    /// Throttled cursor-visibility poll state. (stateLock)
-    private var lastCursorVisibilityPollTime: CFAbsoluteTime?
-    private var cachedCursorVisible: Bool?
-    private var cachedAppInitiatedCursorHide = false
-
-    /// Last logged (decision, cursorVisible) for state-change diagnostics. (stateLock)
-    private var lastLoggedRelativeModeState: (decision: Bool, cursorVisible: Bool?)?
-    /// Throttle for the liveness trace line. (stateLock)
-    private var lastRelativeModeTraceTime: CFAbsoluteTime = 0
-
-    /// Opt-in support diagnostics: `defaults write KevinTang.XboxControllerMapper
-    /// pointerLockTraceLogging -bool true` then relaunch. NSLog from the release app
-    /// doesn't reach the unified log reliably, so pointer-lock diagnostics append to
-    /// /tmp/controllerkeys-pointerlock-trace.log instead.
-    private static let pointerLockTraceEnabled = UserDefaults.standard.bool(forKey: "pointerLockTraceLogging")
-
-    private static func pointerLockTrace(_ message: String) {
-        guard pointerLockTraceEnabled else { return }
-        let line = "\(Date()) \(message)\n"
-        if let data = line.data(using: .utf8),
-           let handle = FileHandle(forWritingAtPath: "/tmp/controllerkeys-pointerlock-trace.log") {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            handle.closeFile()
-        } else {
-            FileManager.default.createFile(
-                atPath: "/tmp/controllerkeys-pointerlock-trace.log",
-                contents: line.data(using: .utf8)
-            )
-        }
-    }
-
-    func setPointerLockMouseMode(_ mode: PointerLockMouseMode) {
-        stateLock.lock()
-        pointerLockMouseMode = mode
-        // Force a fresh visibility poll on the next move so mode changes apply immediately.
-        lastCursorVisibilityPollTime = nil
-        stateLock.unlock()
-        Self.pointerLockTrace("mode set: \(mode.rawValue)")
-    }
-
-    /// Decides whether the current move should post relative deltas instead of the
-    /// absolute tracked/clamped path. Caller must hold `stateLock`.
-    private func shouldUseRelativeMouseMovementLocked(now: CFAbsoluteTime, zoomActive: Bool) -> Bool {
-        let mode = pointerLockMouseMode
-        guard mode != .off else { return false }
-        if PointerLockMousePolicy.shouldRefreshCursorVisibility(now: now, lastPoll: lastCursorVisibilityPollTime) {
-            lastCursorVisibilityPollTime = now
-            cachedCursorVisible = CursorVisibility.isCursorVisible()
-            cachedAppInitiatedCursorHide = UserDefaults.standard.bool(
-                forKey: Config.onScreenKeyboardCursorHiddenDefaultsKey
-            )
-        }
-        let decision = PointerLockMousePolicy.shouldUseRelativeMovement(
-            mode: mode,
-            cursorVisible: cachedCursorVisible,
-            zoomActive: zoomActive,
-            universalControlRelayActive: universalControlRelayActive,
-            appInitiatedCursorHide: cachedAppInitiatedCursorHide
-        )
-        let stateChanged = lastLoggedRelativeModeState?.decision != decision
-            || lastLoggedRelativeModeState?.cursorVisible != cachedCursorVisible
-        if stateChanged || now - lastRelativeModeTraceTime > 1.0 {
-            lastLoggedRelativeModeState = (decision, cachedCursorVisible)
-            lastRelativeModeTraceTime = now
-            Self.pointerLockTrace(
-                "decision: mode=\(mode.rawValue)"
-                + " cursorVisible=\(cachedCursorVisible.map { $0 ? "yes" : "no" } ?? "unknown")"
-                + " appHide=\(cachedAppInitiatedCursorHide)"
-                + " relay=\(universalControlRelayActive)"
-                + " zoom=\(zoomActive)"
-                + " -> relative=\(decision)\(stateChanged ? " [CHANGED]" : "")"
-            )
-        }
-        return decision
-    }
-
-    /// Posts a delta-only mouse event at the current cursor position. Under pointer
-    /// lock the app receives movementX/Y 1:1, the cursor stays pinned, and the lock
-    /// stays engaged (verified against Chrome's Pointer Lock API 2026-07-02).
-    private func postRelativeMouseMove(dx: Int, dy: Int, heldButtons: Set<CGMouseButton>, eventNumber: Int64) {
-        let eventType: CGEventType
-        let mouseButton: CGMouseButton
-        if heldButtons.contains(.left) {
-            eventType = .leftMouseDragged
-            mouseButton = .left
-        } else if heldButtons.contains(.right) {
-            eventType = .rightMouseDragged
-            mouseButton = .right
-        } else if heldButtons.contains(.center) {
-            eventType = .otherMouseDragged
-            mouseButton = .center
-        } else {
-            eventType = .mouseMoved
-            mouseButton = .left
-        }
-
-        let cursorPos: CGPoint
-        if let locEvent = CGEvent(source: nil) {
-            cursorPos = locEvent.location
-        } else {
-            let ns = NSEvent.mouseLocation
-            let screenH = NSScreen.main?.frame.height ?? 1080
-            cursorPos = CGPoint(x: ns.x, y: screenH - ns.y)
-        }
-
-        guard let event = CGEvent(
-            mouseEventSource: eventSource,
-            mouseType: eventType,
-            mouseCursorPosition: cursorPos,
-            mouseButton: mouseButton
-        ) else {
-            NSLog("[InputSimulator] Failed to create relative mouse move event - check Accessibility permissions")
-            return
-        }
-        event.setIntegerValueField(.mouseEventDeltaX, value: Int64(dx))
-        event.setIntegerValueField(.mouseEventDeltaY, value: Int64(dy))
-        if eventType != .mouseMoved {
-            event.setIntegerValueField(.mouseEventNumber, value: eventNumber)
-            event.setDoubleValueField(.mouseEventPressure, value: 1.0)
-        }
-        event.post(tap: .cghidEventTap)
-    }
-
     // MARK: - Keyboard Simulation
 
     /// Simulates a key press with optional modifiers
@@ -317,8 +264,17 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     /// Picks the modifier pre-press keycode for a given mask. Honors `modifierSides`
     /// when supplied; otherwise defaults to the Left variant (existing behavior).
-    private static func modifierVirtualKey(for mask: CGEventFlags, sides: ModifierFlags?) -> CGKeyCode {
-		ModifierKeyEmissionPolicy.keyCode(for: mask, sides: sides) ?? 0
+    private static func modifierVirtualKey(for mask: CGEventFlags, sides: ModifierFlags?) -> Int {
+        if let sides, let keyCode = sides.virtualKey(forMask: mask) {
+            return Int(keyCode)
+        }
+        switch mask {
+        case .maskCommand: return kVK_Command
+        case .maskAlternate: return kVK_Option
+        case .maskShift: return kVK_Shift
+        case .maskControl: return kVK_Control
+        default: return 0
+        }
     }
 
     private func pressKeyInternal(_ keyCode: CGKeyCode, modifiers: CGEventFlags, modifierSides: ModifierFlags?) {
@@ -373,7 +329,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             func pressMod(flag: CGEventFlags) {
                 let key = InputSimulator.modifierVirtualKey(for: flag, sides: modifierSides)
                 currentFlags.insert(flag)
-				self.postKeyEvent(keyCode: key, keyDown: true, flags: currentFlags)
+                self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: true, flags: currentFlags)
                 usleep(Config.modifierPressDelay)
             }
 
@@ -402,7 +358,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             func releaseMod(flag: CGEventFlags) {
                 let key = InputSimulator.modifierVirtualKey(for: flag, sides: modifierSides)
                 currentFlags.remove(flag)
-				self.postKeyEvent(keyCode: key, keyDown: false, flags: currentFlags)
+                self.postKeyEvent(keyCode: CGKeyCode(key), keyDown: false, flags: currentFlags)
                 usleep(Config.modifierPressDelay)
             }
 
@@ -550,7 +506,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
+        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             modifierCounts[key] = count + 1
@@ -558,9 +514,9 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if count == 0 {
                 // First time this modifier is being held
                 heldModifiers.insert(mask)
-				if let vKey = ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key) {
-					modifierHeldKeyCodes[key] = vKey
-					if let event = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true) {
+                if let vKey = ModifierKeyState.maskToKeyCode[key] {
+					modifierHeldKeyCodes[key] = CGKeyCode(vKey)
+                    if let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(vKey), keyDown: true) {
                         event.flags = heldModifiers
                         event.post(tap: .cghidEventTap)
                     } else {
@@ -585,7 +541,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
+        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             guard count > 0 else {
@@ -595,7 +551,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
                 if heldModifiers.contains(mask) {
                     NSLog("[InputSimulator] WARNING: modifier 0x%llx in heldModifiers but count is 0 — force-removing to prevent stuck modifier", key)
                     heldModifiers.remove(mask)
-					let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
+					let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyState.maskToKeyCode[key].map(CGKeyCode.init)
 					modifierHeldKeyCodes[key] = nil
 					if let releaseKeyCode {
 						if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
@@ -611,7 +567,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             if count == 1 {
                 // Last button holding this modifier released
                 heldModifiers.remove(mask)
-				let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
+				let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyState.maskToKeyCode[key].map(CGKeyCode.init)
 				modifierHeldKeyCodes[key] = nil
 				if let releaseKeyCode {
 					if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
@@ -746,10 +702,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         defer { stateLock.unlock() }
 
         // Post key-up events for each modifier that is currently held
-		for mask in ModifierKeyEmissionPolicy.modifierMasks where heldModifiers.contains(mask) {
+        for mask in ModifierKeyState.modifierMasks where heldModifiers.contains(mask) {
             let key = mask.rawValue
             heldModifiers.remove(mask)
-			let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
+			let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyState.maskToKeyCode[key].map(CGKeyCode.init)
 			modifierHeldKeyCodes[key] = nil
 			if let releaseKeyCode {
 				if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
@@ -773,12 +729,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
+        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
 			let count = modifierCounts[key] ?? 0
 			modifierCounts[key] = count + 1
-			if count == 0, let vKey = ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key) {
-				modifierHeldKeyCodes[key] = vKey
+			if count == 0, let vKey = ModifierKeyState.maskToKeyCode[key] {
+				modifierHeldKeyCodes[key] = CGKeyCode(vKey)
 			}
 			heldModifiers.insert(mask)
 		}
@@ -789,7 +745,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 		stateLock.lock()
 		defer { stateLock.unlock() }
 
-		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
+		for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
 			let key = mask.rawValue
 			let count = modifierCounts[key] ?? 0
 			modifierCounts[key] = count + 1
@@ -804,7 +760,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         stateLock.lock()
         defer { stateLock.unlock() }
 
-		for mask in ModifierKeyEmissionPolicy.modifierMasks where modifier.contains(mask) {
+        for mask in ModifierKeyState.modifierMasks where modifier.contains(mask) {
             let key = mask.rawValue
             let count = modifierCounts[key] ?? 0
             if count <= 1 {
@@ -1005,23 +961,6 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // cursor "reset" behavior when reading position each frame
             let now = CFAbsoluteTimeGetCurrent()
             let zoomActive = Self.isZoomCurrentlyActive()
-
-            // Pointer-lock (FPS) relative mode: bypass the tracked/clamped absolute
-            // path entirely so aiming never dies at a screen edge. Tracking is
-            // cleared so absolute mode re-syncs from the system on exit.
-            if self.shouldUseRelativeMouseMovementLocked(now: now, zoomActive: zoomActive) {
-                self.trackedCursorPosition = nil
-                self.lastMouseMoveTime = now
-                self.stateLock.unlock()
-                self.postRelativeMouseMove(
-                    dx: Int(moveX),
-                    dy: Int(moveY),
-                    heldButtons: heldButtons,
-                    eventNumber: eventNumber
-                )
-                return
-            }
-
             let currentCGPoint: CGPoint
 
             // If there's been no movement for 2+ seconds, clear tracked position

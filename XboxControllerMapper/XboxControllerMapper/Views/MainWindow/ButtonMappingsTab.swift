@@ -493,33 +493,32 @@ struct ButtonMappingsTab: View {
 		}
 
 		if controllerService.isConnected {
-			let presentationState = controllerService.threadSafeControllerPresentationState
-			if presentationState.isAppleTVRemote {
+			if controllerService.threadSafeIsAppleTVRemote {
 				layouts.insert(.appleTVRemote)
 			}
-			if presentationState.isSteamController {
+			if controllerService.threadSafeIsSteamController {
 				layouts.insert(.steam)
 			}
-			if presentationState.isNintendo {
+			if controllerService.threadSafeIsNintendo {
 				layouts.insert(.nintendo)
 			}
-			if presentationState.isXboxElite {
+			if controllerService.threadSafeIsXboxElite {
 				layouts.insert(.xboxElite)
 			} else if controllerService.connectedController?.extendedGamepad is GCXboxGamepad {
 				layouts.insert(.xbox)
 			}
-			if presentationState.isDualSenseEdge {
+			if controllerService.threadSafeIsDualSenseEdge {
 				layouts.insert(.dualSenseEdge)
-			} else if presentationState.isDualSense {
+			} else if controllerService.threadSafeIsDualSense {
 				layouts.insert(.dualSense)
 			}
-			if presentationState.isDualShock {
+			if controllerService.threadSafeIsDualShock {
 				layouts.insert(.dualShock)
 			}
 			// Small 8BitDo pads connected in D-input mode (the generic HID
 			// path identifies them by SDL product name). In Switch mode they
 			// are byte-perfect Pro Controller clones and land on .nintendo.
-			switch presentationState.eightBitDoModel {
+			switch controllerService.threadSafeEightBitDoMinimapModel {
 			case .zero2: layouts.insert(.eightBitDoZero2)
 			case .micro: layouts.insert(.eightBitDoMicro)
 			case .lite2: layouts.insert(.eightBitDoLite2)
@@ -530,9 +529,6 @@ struct ButtonMappingsTab: View {
 
 		if controllerService.appleTVRemoteHIDDevice != nil || controllerService.appleTVRemoteHIDTouchDevice != nil {
 			layouts.insert(.appleTVRemote)
-		}
-		if controllerService.isOuraRingConnected {
-			layouts.insert(.ouraRing)
 		}
 
 		return layouts

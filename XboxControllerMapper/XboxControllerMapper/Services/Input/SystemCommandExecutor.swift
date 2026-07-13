@@ -88,24 +88,6 @@ class SystemCommandExecutor: @unchecked Sendable {
 
         case .obsWebSocket(let url, let password, let requestType, let requestData):
             executeOBSWebSocket(url: url, password: password, requestType: requestType, requestData: requestData)
-		case .centerOuraRing:
-			executeOuraRingCommand(.centerRing)
-		case .toggleOuraMotion:
-			executeOuraRingCommand(.toggleMouseControl)
-		}
-	}
-
-	private func executeOuraRingCommand(_ option: OuraRingSystemCommandOption) {
-		let handled: Bool
-		switch option {
-		case .centerRing:
-			handled = OuraRingCommandCenter.shared.centerRing()
-		case .toggleMouseControl:
-			handled = OuraRingCommandCenter.shared.toggleMotionOutput()
-		}
-
-		if !handled {
-			NSLog("[SystemCommand] Oura Ring command ignored because the ring service is unavailable: %@", option.displayName)
 		}
 	}
 

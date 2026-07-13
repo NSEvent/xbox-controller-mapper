@@ -7,6 +7,11 @@ import XCTest
 /// layout without a guide fails here.
 final class ControllerPairingGuideTests: XCTestCase {
 
+    /// All previewable controllers except `.active` (which has no single device).
+    private var concreteLayouts: [ControllerPreviewLayout] {
+        ControllerPreviewLayout.allCases.filter { $0 != .active }
+    }
+
     func testActiveLayoutHasNoGuide() {
         // `.active` resolves to a real device at runtime; the empty state shows a
         // chooser instead of a single guide.
@@ -14,7 +19,7 @@ final class ControllerPairingGuideTests: XCTestCase {
     }
 
     func testEveryConcreteLayoutHasAGuide() {
-        for layout in ControllerPreviewLayout.concreteLayouts {
+        for layout in concreteLayouts {
             XCTAssertNotNil(
                 layout.pairingGuide,
                 "\(layout.displayName) is missing a pairing guide"
@@ -23,7 +28,7 @@ final class ControllerPairingGuideTests: XCTestCase {
     }
 
     func testGuidesAreWellFormed() {
-        for layout in ControllerPreviewLayout.concreteLayouts {
+        for layout in concreteLayouts {
             guard let guide = layout.pairingGuide else {
                 XCTFail("\(layout.displayName) is missing a pairing guide")
                 continue
@@ -55,7 +60,7 @@ final class ControllerPairingGuideTests: XCTestCase {
     func testIconMatchesPickerIcon() {
         // The guide header should reuse the picker's icon for the controller so
         // the empty state and the dropdown stay visually consistent.
-        for layout in ControllerPreviewLayout.concreteLayouts {
+        for layout in concreteLayouts {
             XCTAssertEqual(
                 layout.pairingGuide?.systemImage,
                 layout.systemImage,
@@ -64,23 +69,8 @@ final class ControllerPairingGuideTests: XCTestCase {
         }
     }
 
-    func testChooserPlatformLabelsExplainConsoleFamilies() {
-	XCTAssertEqual(ControllerPreviewLayout.dualSense.platformLabel, "PS5")
-	XCTAssertEqual(ControllerPreviewLayout.dualSenseEdge.platformLabel, "PS5 (Edge)")
-	XCTAssertEqual(ControllerPreviewLayout.dualShock.platformLabel, "PS4")
-	XCTAssertTrue(ControllerPreviewLayout.nintendo.platformLabel.contains("Switch"))
-	XCTAssertTrue(ControllerPreviewLayout.xbox.platformLabel.contains("Xbox"))
-
-	for layout in ControllerPreviewLayout.concreteLayouts {
-	    XCTAssertFalse(
-		layout.platformLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-		"\(layout.displayName) needs a platform label for the guide chooser"
-	    )
-	}
-    }
-
     func testGuideURLsAreSecure() {
-        for layout in ControllerPreviewLayout.concreteLayouts {
+        for layout in concreteLayouts {
             guard let url = layout.pairingGuide?.guideURL else { continue }
             XCTAssertEqual(
                 url.scheme, "https",
@@ -97,7 +87,7 @@ final class ControllerPairingGuideTests: XCTestCase {
         // each string the way the view does and assert the emphasis markers were
         // actually consumed: a surviving '*' means an unbalanced `**…` span that
         // would show literal asterisks in the card.
-        for layout in ControllerPreviewLayout.concreteLayouts {
+        for layout in concreteLayouts {
             guard let guide = layout.pairingGuide else { continue }
 
             let markdownStrings = guide.bluetoothSteps

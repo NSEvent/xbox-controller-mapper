@@ -10,7 +10,15 @@ import Combine
 /// values change, preventing cascading redraws of the mapping reference rows.
 struct ControllerAnalogOverlay: View {
     let controllerService: ControllerService
-    let descriptor: ControllerVisualDescriptor
+    let isPlayStation: Bool
+    let isNintendo: Bool
+    let isXboxElite: Bool
+    let isSteamController: Bool
+    var isDualShock: Bool = false
+    var isDualSenseEdge: Bool = false
+    /// Non-nil when previewing one of the small 8BitDo pads; selects the
+    /// dedicated silhouette + layout instead of the boolean style families.
+    var eightBitDoModel: EightBitDoMinimapModel? = nil
     /// Buttons the Elite/Steam back paddles currently resolve to (paddles
     /// can be hardware-assigned to act as another button; connector lines
     /// must anchor whatever the reference rows resolve to). Order:
@@ -48,16 +56,17 @@ struct ControllerAnalogOverlay: View {
     @State private var batteryLevel: Float = -1
     @State private var batteryState: GCDeviceBattery.State = .unknown
 
-    private var isPlayStation: Bool { descriptor.isPlayStation }
-    private var isNintendo: Bool { descriptor.isNintendo }
-    private var isXboxElite: Bool { descriptor.isXboxElite }
-    private var isSteamController: Bool { descriptor.isSteamController }
-    private var isDualShock: Bool { descriptor.isDualShock }
-    private var isDualSenseEdge: Bool { descriptor.isDualSenseEdge }
-    private var eightBitDoModel: EightBitDoMinimapModel? { descriptor.eightBitDoModel }
-
     /// Resolved visual style for layout lookups.
-    var minimapStyle: ControllerMinimapStyle { descriptor.minimapStyle ?? .xbox }
+    var minimapStyle: ControllerMinimapStyle {
+        if let eightBitDoModel { return eightBitDoModel.minimapStyle }
+        if isSteamController { return .steam }
+        if isDualShock { return .dualShock }
+        if isDualSenseEdge { return .dualSenseEdge }
+        if isPlayStation { return .dualSense }
+        if isNintendo { return .nintendo }
+        if isXboxElite { return .xboxElite }
+        return .xbox
+    }
 
     /// Preview frame the overlay is laid out in (matches the body silhouette).
     private var frameSize: CGSize { minimapStyle.previewSize }

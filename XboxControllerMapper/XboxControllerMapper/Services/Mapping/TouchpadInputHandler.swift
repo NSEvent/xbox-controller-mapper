@@ -84,21 +84,11 @@ extension MappingEngine {
         guard magnitude > deadzone else { return }
 
         let sensitivity = Config.touchpadNativeScale * settings.touchpadSensitivityMultiplier
-		let analogPrecisionMultiplier: Double
-		if settings.analogPrecisionTriggerMode == .off {
-			analogPrecisionMultiplier = 1.0
-		} else {
-			let controllerSnapshot = controllerService.snapshot()
-			analogPrecisionMultiplier = settings.analogPrecisionMultiplier(
-				leftTrigger: Double(controllerSnapshot.leftTrigger),
-				rightTrigger: Double(controllerSnapshot.rightTrigger)
-			)
-		}
 
-		let dx = Double(smoothedDelta.x) * sensitivity * analogPrecisionMultiplier
-		var dy = -Double(smoothedDelta.y) * sensitivity * analogPrecisionMultiplier
+        let dx = Double(smoothedDelta.x) * sensitivity
+        var dy = -Double(smoothedDelta.y) * sensitivity
 
-        if settings.leftStick.invertMouseY {
+        if settings.invertMouseY {
             dy = -dy
         }
 

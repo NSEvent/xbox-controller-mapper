@@ -115,16 +115,16 @@ struct ChordRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit \(chord.buttonsDisplayString)")
-                .accessibilityLabel("Edit \(chord.buttonsDisplayString)")
+                .help("Edit")
+                .accessibilityLabel("Edit")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete \(chord.buttonsDisplayString)")
-                .accessibilityLabel("Delete \(chord.buttonsDisplayString)")
+                .help("Delete")
+                .accessibilityLabel("Delete")
             }
         }
         .padding(.horizontal, 12)
@@ -261,16 +261,16 @@ struct SequenceRow: View {
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.borderless)
-                .help("Edit \(sequence.stepsDisplayString)")
-                .accessibilityLabel("Edit \(sequence.stepsDisplayString)")
+                .help("Edit")
+                .accessibilityLabel("Edit")
 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
                         .foregroundColor(.red.opacity(0.8))
                 }
                 .buttonStyle(.borderless)
-                .help("Delete \(sequence.stepsDisplayString)")
-                .accessibilityLabel("Delete \(sequence.stepsDisplayString)")
+                .help("Delete")
+                .accessibilityLabel("Delete")
             }
         }
         .padding(.horizontal, 12)

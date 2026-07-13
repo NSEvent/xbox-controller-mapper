@@ -94,7 +94,6 @@ final class ServiceContainer {
     let usageStatsService: UsageStatsService
     let batteryNotificationManager: BatteryNotificationManager
     let updateCheckService: UpdateCheckService
-    let ouraRingInputService: OuraRingInputService
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -116,10 +115,6 @@ final class ServiceContainer {
         self.inputMonitor = inputMonitor
         self.inputLogService = inputLogService
         self.usageStatsService = usageStatsService
-		self.ouraRingInputService = OuraRingInputService(
-			controllerService: controllerService,
-			profileManager: profileManager
-		)
         self.mappingEngine = MappingEngine(
             controllerService: controllerService,
             profileManager: profileManager,
@@ -507,7 +502,6 @@ struct XboxControllerMapperApp: App {
 					.environmentObject(ServiceContainer.shared.inputMonitor)
 					.environmentObject(ServiceContainer.shared.inputLogService)
 					.environmentObject(ServiceContainer.shared.usageStatsService)
-					.environmentObject(ServiceContainer.shared.ouraRingInputService)
 			}
 		}
 		.windowResizability(.contentSize)
@@ -542,7 +536,6 @@ struct XboxControllerMapperApp: App {
 					.environmentObject(ServiceContainer.shared.mappingEngine)
 					.environmentObject(ServiceContainer.shared.inputMonitor)
 					.environmentObject(ServiceContainer.shared.inputLogService)
-					.environmentObject(ServiceContainer.shared.ouraRingInputService)
 			}
 		} label: {
 			if AppRuntime.isRunningTests {
@@ -589,7 +582,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard !AppRuntime.isRunningTests else { return }
 
         ServiceContainer.shared.controllerService.cleanup()
-		ServiceContainer.shared.ouraRingInputService.stop()
         ServiceContainer.shared.usageStatsService.endSession()
         ServiceContainer.shared.profileManager.flushPendingSaves()
     }
@@ -635,7 +627,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         permissions.requestBluetoothAction = {
             ServiceContainer.shared.controllerService.startBluetoothBattery()
-			ServiceContainer.shared.ouraRingInputService.startIfEnabled()
         }
     }
 
