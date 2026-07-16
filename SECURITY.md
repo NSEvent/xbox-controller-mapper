@@ -34,8 +34,16 @@ ControllerKeys requires macOS Accessibility permissions to function. This permis
 - Simulate scroll events
 
 **The app does NOT:**
-- Log or record your keystrokes
+- Transmit raw controller reports, typed text, mappings, scripts, or quick text as analytics
 - Run any background processes when quit
+
+ControllerKeys does keep aggregate button/action counts, movement distances, and session totals locally for recommendations and Controller Wrapped.
+
+### Data and Network Activity
+
+ControllerKeys sends pseudonymous, opt-out lifecycle analytics: a random install ID, app/build and Mac details, locale, install channel, and trial/license state. License activation includes its Gumroad sale ID, making the install linkable to that purchase record; the analytics database does not store buyer names or email addresses. The server stores approximate country and a salted IP hash rather than the raw IP. Disable this in **Settings → General → Privacy**; the same toggle disables Sparkle system profiling. Update and license checks still connect.
+
+Other connections support explicit features: Sparkle/GitHub updates, Gumroad license verification, GitHub community profiles and controller-database refreshes, website favicon downloads, local Mac-to-Mac relay, and user-configured webhooks, OBS endpoints, scripts, and links. See the [Privacy Policy](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html) for the current inventory.
 
 ### Remote Mouse Relay
 
@@ -53,23 +61,25 @@ The relay secret is stored in Keychain. A manually supplied shared secret can be
 
 ControllerKeys is not sandboxed because system-wide controller remapping requires Accessibility event posting, app launching, optional Apple Events automation, and user-configured shell/webhook actions.
 
-### Why Open Source?
+### Why Source Available?
 
-The source code is publicly available specifically so users can verify the app's behavior before granting sensitive permissions. You are encouraged to:
+The app source is publicly available under the PolyForm Noncommercial 1.0.0 license so users can inspect its behavior before granting sensitive permissions. You are encouraged to:
 
 - Audit the source code
-- Build from source to verify the binary
+- Build your own copy from source
 - Report any concerns
+
+Source inspection or a local build does not prove that an official binary is byte-for-byte identical to the repository.
 
 ### Code Signing & Notarization
 
 Official releases are:
 - Signed with an Apple Developer ID certificate
 - Notarized by Apple
-- Distributed via Gumroad
+- Distributed through GitHub Releases and Homebrew
 
-This ensures the binary hasn't been tampered with and matches what Apple has verified.
+Code signing establishes the publisher and protects release integrity. Apple notarization scans the submitted build for known malicious content; neither mechanism proves equivalence with the public source.
 
 ## Supported Versions
 
-Only the latest version receives security updates. Please keep your installation up to date by downloading the newest release from [Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper).
+Only the latest version receives security updates. Keep ControllerKeys current through its built-in updater, Homebrew, or the latest [GitHub Release](https://github.com/NSEvent/xbox-controller-mapper/releases/latest).

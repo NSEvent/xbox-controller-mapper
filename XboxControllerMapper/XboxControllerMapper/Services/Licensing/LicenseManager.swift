@@ -60,7 +60,7 @@ final class LicenseManager: ObservableObject {
         return 0
     }
 
-    /// Compact status string for anonymous telemetry.
+    /// Compact status string for pseudonymous telemetry.
     var telemetryStatus: String { Self.telemetryString(status) }
 
     static func telemetryString(_ status: Status) -> String {

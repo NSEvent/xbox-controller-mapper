@@ -4,16 +4,16 @@
 
 ### System Requirements
 
-- **macOS 14.0 (Sonoma)** or later
-- Xbox controller with Bluetooth support (Xbox One S/X, Xbox Series S/X controllers)
+- **macOS 14.6 (Sonoma)** or later
+- A supported controller. ControllerKeys supports Xbox, PlayStation, Steam Controller, Nintendo, Apple TV Remote, 8BitDo, and hundreds of SDL-database-compatible models; features vary by hardware.
 - Accessibility permissions (required for input simulation)
 
 ### Installation
 
-1. Download the DMG from [Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper)
-2. Open the DMG and drag `ControllerKeys.app` to `/Applications`
-3. Launch the app
-4. Grant Accessibility permissions when prompted (see below)
+1. Install with `brew install --cask nsevent/tap/controllerkeys`, or download the latest DMG from [GitHub Releases](https://github.com/NSEvent/xbox-controller-mapper/releases/latest)
+2. For a DMG install, drag `ControllerKeys.app` to `/Applications`
+3. Launch the app and follow the guided permission setup
+4. ControllerKeys includes a free 14-day trial. To continue afterward, [buy a license on Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper) and enter it in **Settings → General**
 
 ### Granting Accessibility Permissions
 
@@ -29,10 +29,10 @@ The app requires Accessibility permissions to simulate keyboard and mouse input.
 
 ### Connecting Your Controller
 
-1. Put your Xbox controller in pairing mode (hold the pairing button until the Xbox logo flashes rapidly)
-2. Open System Settings > Bluetooth
-3. Select your controller from the available devices
-4. Once connected, launch ControllerKeys
+1. Put the controller in its Bluetooth pairing mode, or connect it by USB
+2. For Bluetooth, open System Settings > Bluetooth and select the controller
+3. Once macOS shows it as connected, launch ControllerKeys
+4. See the [controller-specific guides](https://www.kevintang.xyz/apps/controller-keys/guides/) for Xbox, PlayStation, Steam Controller, and other hardware notes
 
 ---
 
@@ -60,8 +60,10 @@ Configure chords in the "Chords" tab.
 
 ### Joystick Settings
 
-- **Left Joystick**: Controls mouse movement
-- **Right Joystick**: Controls scroll wheel
+- **Left Joystick**: Defaults to mouse movement
+- **Right Joystick**: Defaults to scrolling
+
+Each stick can instead be disabled or configured for mouse, scroll, custom direction mappings, or D-pad behavior. Stick behavior can vary by profile and layer.
 
 Adjustable settings include:
 
@@ -108,7 +110,7 @@ Create multiple profiles for different use cases:
 
 ### App Won't Launch / Crashes
 
-1. **Check macOS version**: Requires macOS 14.0 or later
+1. **Check macOS version**: Requires macOS 14.6 or later
 2. **Reset configuration**: Delete `~/.config/controllerkeys/config.json` and relaunch
 3. **Check Console.app**: Look for crash logs under "Crash Reports"
 
@@ -129,15 +131,19 @@ The app uses reference counting to prevent stuck keys, but rapid disconnection c
 
 **Q: Is my data safe? This app requires Accessibility permissions.**
 
-A: Yes. The app is fully open source so you can verify exactly what it does. It does not connect to the internet, collect data, or log your inputs. Controller inputs are translated to keyboard/mouse events in real-time and immediately discarded. The app is signed with an Apple Developer ID and notarized by Apple.
+A: The app source is public for inspection under the PolyForm Noncommercial 1.0.0 license. Official releases are signed with Kevin Tang's Apple Developer ID, notarized by Apple, and verified by Gatekeeper.
+
+ControllerKeys uses pseudonymous, opt-out usage analytics: a random install ID, app/build and Mac details, locale, install channel, and trial/license events. License activation includes its Gumroad sale ID, which makes that installation linkable to a purchase record; the analytics database does not store buyer names or email addresses. Approximate country and a salted IP hash are stored, not the raw IP. Turn this off in **Settings → General → Privacy**; that also disables Sparkle system profiling. Update and license checks still connect.
+
+Raw HID reports, typed text, mappings, scripts, quick text, and configuration are never sent as analytics. Aggregate button/action counts, movement distances, and session totals are stored locally for recommendations and Controller Wrapped. Other network activity occurs for updates, license verification, community profiles/controller-database refreshes, favicon downloads, Mac-to-Mac relay, and destinations you configure through webhooks, OBS, scripts, or links. See the [Privacy Policy](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html).
 
 **Q: Does the app work with third-party Xbox controllers?**
 
-A: The app uses Apple's GameController framework, which supports official Xbox controllers. Third-party controllers may work if they're recognized by macOS as Xbox controllers, but compatibility varies.
+A: ControllerKeys uses Apple's GameController framework plus direct HID support and the SDL controller database. Hundreds of third-party models are recognized, but available buttons, touchpads, motion sensors, and advanced features vary by controller.
 
 **Q: Can I use multiple controllers at once?**
 
-A: Currently, the app supports one controller at a time. The first connected Xbox controller will be used.
+A: ControllerKeys detects multiple connected controllers but routes mappings from one active controller at a time. After the active controller is idle, meaningful input from another connected controller can take over automatically.
 
 **Q: Does this work with games?**
 
@@ -177,7 +183,7 @@ A: Use Focus Mode. Configure a modifier key as the focus mode trigger, then hold
 
 **Q: Can I swap the left and right joystick functions?**
 
-A: Currently, left joystick is always mouse and right joystick is always scroll. This is not configurable.
+A: Mouse and scroll are the defaults. Click a stick in the controller view to choose its mode and tune it independently; profiles and layers can use different stick behavior.
 
 **Q: Why is scrolling jerky in some apps?**
 
@@ -221,6 +227,8 @@ A: The app continuously monitors controller input and translates it to keyboard/
 
 - **Issues & Bug Reports**: [GitHub Issues](https://github.com/NSEvent/xbox-controller-mapper/issues)
 - **Source Code**: [GitHub Repository](https://github.com/NSEvent/xbox-controller-mapper)
+- **Website & Guides**: [ControllerKeys](https://www.kevintang.xyz/apps/controller-keys/)
+- **Privacy Policy**: [Data and network activity](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html)
 - **Purchase**: [Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper)
 
 ---

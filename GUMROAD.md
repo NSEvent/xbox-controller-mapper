@@ -84,9 +84,9 @@ Pair any button with a voice transcription app (mine is the open-source VoiceInk
 
 Nearly 40 releases since January, with new features shipping monthly — Steam Controller and Apple TV Remote support, Mac-to-Mac handoff, and realtime input mode all landed in the last few weeks. See the [full changelog on GitHub](https://github.com/NSEvent/xbox-controller-mapper/blob/main/CHANGELOG.md), and join the [Discord community](https://discord.gg/WsZJkRsPPg) for profiles, support, and feature requests.
 
-## Open source for transparency
+## Source available for transparency
 
-ControllerKeys needs macOS Accessibility permissions to simulate input, so the [complete source code is public](https://github.com/NSEvent/xbox-controller-mapper) for security audit. Official binaries are signed and notarized by Apple. Your purchase funds continued development.
+ControllerKeys needs macOS Accessibility permissions to simulate input, so the [complete app source is public](https://github.com/NSEvent/xbox-controller-mapper) for security review under the PolyForm Noncommercial 1.0.0 license. Official binaries are signed with Kevin Tang's Apple Developer ID and notarized by Apple. Your purchase funds continued development.
 
 ## Requirements
 

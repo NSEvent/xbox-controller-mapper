@@ -1,10 +1,10 @@
 import Foundation
 
-/// Anonymous, opt-out usage telemetry.
+/// Pseudonymous, opt-out usage telemetry.
 ///
 /// ControllerKeys used to be downloaded through Gumroad, which gave rich
 /// per-download data. Now the app is distributed free via GitHub Releases and
-/// Homebrew, so that visibility is gone. This service posts small, anonymous
+/// Homebrew, so that visibility is gone. This service posts small, pseudonymous
 /// JSON events to the ControllerKeys analytics Worker so we can see active
 /// installs, version adoption, rough geography, and trial → license conversion.
 ///
@@ -12,10 +12,14 @@ import Foundation
 /// - A random install UUID (no account, no name, no email) is stored in
 ///   `UserDefaults` and wiped on a clean uninstall (`brew uninstall --zap` or
 ///   trashing the prefs). It is the only identifier sent.
+/// - On license activation, the Gumroad sale ID is sent so the install can be
+///   joined to purchase metadata. The analytics database does not store the
+///   buyer's name or email, but licensed events are linkable to that purchase.
 /// - Country is derived server-side from the request IP and is **never** sent by
 ///   the app; the server stores only a salted hash of the IP, not the IP.
-/// - Opt out any time with Settings → "Share Anonymous Usage Data"
-///   (the `telemetryEnabled` default; on by default).
+/// - Opt out any time with Settings → "Share Usage Analytics"
+///   (the `telemetryEnabled` default; on by default). The same setting controls
+///   Sparkle system profiling through `UpdaterManager`.
 ///
 /// Every call is fire-and-forget: it never blocks the UI and never surfaces an
 /// error. If the network or backend is down, events are simply dropped.
@@ -41,7 +45,7 @@ final class TelemetryService {
     /// Honors the Settings opt-out toggle.
     var isEnabled: Bool { defaults.bool(forKey: Key.enabled) }
 
-    // MARK: - Anonymous identity
+    // MARK: - Pseudonymous identity
 
     private var installID: String {
         if let existing = defaults.string(forKey: Key.installID) { return existing }
@@ -80,7 +84,8 @@ final class TelemetryService {
     }
 
     /// Fire-and-forget activation event carrying the Gumroad `sale_id` so the
-    /// backend can join this install to its purchase (no PII in the join).
+    /// backend can join this install to its purchase without storing buyer
+    /// name or email in the analytics database.
     func licenseActivated(saleID: String?) {
         guard isEnabled else { return }
         send(event: "license_activated", status: "licensed", saleID: saleID)

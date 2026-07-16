@@ -205,12 +205,15 @@ struct SettingsSheet: View {
         Section {
             Toggle(isOn: $shareUsageData) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Share Anonymous Usage Data")
-                    Text("Sends an anonymous ping — app version, macOS version, and Mac type — so I can see how many people use ControllerKeys and which versions to keep supporting. No account, no name, no personal data. [Privacy details](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics)")
+					Text("Share Usage Analytics")
+					Text("Shares a random install ID, app and Mac details, locale, install channel, and trial/license events. License activation includes its Gumroad sale ID. Never shares controller input, mappings, scripts, or text. Turning this off also disables Sparkle system profiling; update and license checks still connect. [Privacy details](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
+			.onChange(of: shareUsageData) { _, enabled in
+				updater.setUsageAnalyticsEnabled(enabled)
+			}
         } header: {
             Text("Privacy")
         }

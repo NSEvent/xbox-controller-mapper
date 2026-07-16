@@ -14,6 +14,9 @@ import Sparkle
 final class UpdaterManager: ObservableObject {
     static let shared = UpdaterManager()
 
+	private static let usageAnalyticsDefaultsKey = "telemetryEnabled"
+	private static let sparkleProfileDefaultsKey = "SUSendProfileInfo"
+
     private var updaterController: SPUStandardUpdaterController?
 
     /// Mirrors Sparkle's `canCheckForUpdates` so the menu/button can disable
@@ -30,6 +33,7 @@ final class UpdaterManager: ObservableObject {
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
+		controller.updater.sendsSystemProfile = Self.usageAnalyticsEnabled
         controller.updater.publisher(for: \.canCheckForUpdates)
             .receive(on: RunLoop.main)
             .assign(to: &$canCheckForUpdates)
@@ -40,4 +44,19 @@ final class UpdaterManager: ObservableObject {
     func checkForUpdates() {
         updaterController?.updater.checkForUpdates()
     }
+
+    /// Keeps Sparkle's weekly system profile under the same privacy control as
+    /// ControllerKeys lifecycle telemetry. Update checks still work when off.
+	func setUsageAnalyticsEnabled(_ enabled: Bool) {
+		UserDefaults.standard.set(enabled, forKey: Self.sparkleProfileDefaultsKey)
+		updaterController?.updater.sendsSystemProfile = enabled
+	}
+
+	private static var usageAnalyticsEnabled: Bool {
+		let defaults = UserDefaults.standard
+		if defaults.object(forKey: usageAnalyticsDefaultsKey) == nil {
+			return true
+		}
+		return defaults.bool(forKey: usageAnalyticsDefaultsKey)
+	}
 }

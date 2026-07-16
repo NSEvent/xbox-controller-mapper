@@ -82,7 +82,7 @@ There are other controller mapping apps for macOS, but none offered everything I
 | Third-party controllers (~313) | ✅ | ✅ | ✅ | ✅ |
 | Native Apple Silicon | ✅ | ❌ | ❌ | ✅ |
 | Actively maintained (2026) | ✅ | ❌ | ❌ | ✅ |
-| Open source | ✅ | ❌ | ✅ | ❌ |
+| Source available | ✅ | ❌ | ✅ | ❌ |
 
 **Joystick Mapper** hasn't been updated since November 2019 and lacks modern controller support. **Enjoyable** is abandoned since 2014. **Controlly** is solid but doesn't support touchpad gestures, on-screen keyboard, or scripting. **Steam's controller mapping** only works within Steam games, not system-wide.
 
@@ -103,7 +103,7 @@ There are other controller mapping apps for macOS, but none offered everything I
   - Hover connector lines between buttons and their actions
 
 - **Layers**: Create alternate button mapping sets activated by holding a designated button
-  - Up to 3 layers total (base + 2 additional)
+  - Up to 12 additional layers per profile
   - Momentary activation while holding the activator button
   - Fallthrough behavior for unmapped buttons
   - Name your layers (e.g., "Combat Mode", "Navigation")
@@ -382,17 +382,19 @@ Want a tour first? The [website](https://www.kevintang.xyz/apps/controller-keys)
 
 ## Trust & Transparency
 
-This app requires **Accessibility permissions** to simulate keyboard and mouse input. We understand this is a sensitive permission, which is why this project is fully open source.
+This app requires **Accessibility permissions** to simulate keyboard and mouse input. We understand this is a sensitive permission, so the app's complete source is public for inspection under the PolyForm Noncommercial 1.0.0 license.
 
 **Why this app is safe:**
 
-- **Open Source**: The complete source code is available for audit. You can verify exactly what the app does with your input data.
+- **Source Available**: The app source is available for audit. You can inspect it or build your own copy for noncommercial purposes under the PolyForm Noncommercial 1.0.0 license; it is not permissively licensed open-source software.
 
-- **Anonymous, Opt-Out Analytics**: Now that the app is distributed free via GitHub and Homebrew (rather than a gated download), it sends a small **anonymous** usage ping — a random install ID (no account, no personal data), app version, macOS version, Mac type, locale, and trial/license status — so I can see active installs and which versions to keep supporting. Your IP is never stored (only a one-way salted hash; approximate country is derived at the edge). **No controller input, profiles, scripts, or settings are ever sent.** Turn it off any time in **Settings → General → Privacy**; full details are in the [Privacy Policy](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics). Other network access only occurs when you explicitly configure webhooks, OBS WebSocket commands, or community profile imports, or when the app checks for updates.
+- **Pseudonymous, Opt-Out Usage Analytics**: ControllerKeys sends a random install ID, app/build and Mac details, locale, install channel, and trial/license lifecycle events. License activation also sends the Gumroad sale ID, making that install linkable to its purchase record; the analytics database does not store buyer names or email addresses. The server derives approximate country and stores a salted IP hash, not the raw IP. **Controller input, mappings, scripts, quick text, and configuration are never sent as analytics.** Turn this off in **Settings → General → Privacy**; the toggle also disables Sparkle's weekly system profile, while update and license checks still connect. See the [Privacy Policy](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics).
 
-- **No Input Data Collection**: The app does not log, store, or transmit any controller input data. Controller inputs are translated to keyboard/mouse events in real-time and immediately discarded.
+- **Local Input Statistics**: Raw HID reports, typed text, and mapping contents are not transmitted as analytics. ControllerKeys does store aggregate button/action counts, movement distances, and session totals locally for recommendations and Controller Wrapped; these remain on your Mac.
 
-- **Signed & Notarized**: Releases are signed with an Apple Developer ID certificate and notarized by Apple, ensuring the binary matches the source code and hasn't been tampered with.
+- **Signed & Notarized**: Official releases are signed with Kevin Tang's Apple Developer ID, notarized by Apple, and verified by Gatekeeper. This establishes publisher identity and release integrity; it does not prove byte-for-byte equivalence with the public source.
+
+Other connections are feature-driven: license verification uses Gumroad; updates and community profiles use the ControllerKeys feed/GitHub; controller-database refreshes use GitHub; website shortcuts may fetch favicons; and user-configured webhooks, OBS, scripts, links, and Mac-to-Mac relay contact the destinations you choose.
 
 **What the Accessibility permission is used for:**
 
@@ -404,7 +406,7 @@ The app uses Apple's `CGEvent` API to generate these input events. This is the s
 
 ## Architecture
 
-Architecture overview — useful for security review and contributors. The complete source is open for transparency; if ControllerKeys is useful to you, please support its development by [buying a license on Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper).
+Architecture overview — useful for security review and contributors. The app source is public for transparency; if ControllerKeys is useful to you, please support its development by [buying a license on Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper).
 
 ```mermaid
 flowchart LR
@@ -604,7 +606,7 @@ The more detail you provide, the easier it is to diagnose and fix the issue.
 
 Source Available - See [LICENSE](LICENSE) for details.
 
-The source code is open for transparency and security auditing. ControllerKeys is free to try for 14 days; a [license on Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper) unlocks continued use.
+The app source is public for transparency and security auditing under the PolyForm Noncommercial 1.0.0 license. ControllerKeys is free to try for 14 days; a [license on Gumroad](https://thekevintang.gumroad.com/l/xbox-controller-mapper) unlocks continued use.
 
 ## Star History
 

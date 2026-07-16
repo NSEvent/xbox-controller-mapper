@@ -78,7 +78,7 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
 | Drittanbieter-Controller (ca. 313) | ✅ | ✅ | ✅ | ✅ |
 | Natives Apple Silicon | ✅ | ❌ | ❌ | ✅ |
 | Aktiv gepflegt (2026) | ✅ | ❌ | ❌ | ✅ |
-| Open Source | ✅ | ❌ | ✅ | ❌ |
+| Quellcode verfügbar | ✅ | ❌ | ✅ | ❌ |
 
 **Joystick Mapper** wurde seit November 2019 nicht mehr aktualisiert und unterstützt keine modernen Controller. **Enjoyable** ist seit 2014 verwaist. **Controlly** ist solide, unterstützt aber weder Touchpad-Gesten noch Bildschirmtastatur oder Scripting. **Steams Controller-Mapping** funktioniert nur innerhalb von Steam-Spielen, nicht systemweit.
 
@@ -99,7 +99,7 @@ Es gibt andere Controller-Mapping-Apps für macOS, aber keine bot alles, was ich
   - Verbindungslinien zwischen Tasten und ihren Aktionen beim Hovern
 
 - **Layer**: Erstelle alternative Tasten-Mapping-Sets, die durch Halten einer festgelegten Taste aktiviert werden
-  - Bis zu 3 Layer insgesamt (Basis + 2 zusätzliche)
+  - Bis zu 12 zusätzliche Layer pro Profil
   - Momentane Aktivierung, solange die Aktivator-Taste gehalten wird
   - Fallthrough-Verhalten für nicht belegte Tasten
   - Benenne deine Layer (z. B. „Kampfmodus", „Navigation")
@@ -374,17 +374,19 @@ Du willst erst eine Tour? Die [Website](https://www.kevintang.xyz/apps/controlle
 
 ## Vertrauen & Transparenz
 
-Diese App benötigt die **Bedienungshilfen-Berechtigung**, um Tastatur- und Mauseingaben zu simulieren. Wir wissen, dass das eine sensible Berechtigung ist — genau deshalb ist dieses Projekt vollständig quelloffen.
+Diese App benötigt die **Bedienungshilfen-Berechtigung**, um Tastatur- und Mauseingaben zu simulieren. Wir wissen, dass das eine sensible Berechtigung ist — deshalb ist der vollständige App-Quellcode unter der PolyForm Noncommercial 1.0.0-Lizenz öffentlich einsehbar.
 
 **Warum diese App sicher ist:**
 
-- **Open Source**: Der komplette Quellcode steht zur Prüfung bereit. Du kannst genau nachvollziehen, was die App mit deinen Eingabedaten macht.
+- **Source Available**: Der App-Quellcode steht zur Prüfung bereit. Du kannst ihn unter der PolyForm Noncommercial 1.0.0-Lizenz für nichtkommerzielle Zwecke inspizieren oder selbst bauen; er steht nicht unter einer freizügigen Open-Source-Lizenz.
 
-- **Keine Telemetrie, kein Nach-Hause-Telefonieren**: Die App kontaktiert nie von sich aus einen Server. Netzwerkzugriffe finden nur statt, wenn du explizit Webhooks, OBS-WebSocket-Befehle oder Community-Profilimporte konfigurierst.
+- **Pseudonymisierte, abschaltbare Nutzungsanalyse**: ControllerKeys sendet eine zufällige Installations-ID, App-/Build- und Mac-Daten, Sprache/Region, Installationskanal sowie Test-/Lizenzereignisse. Bei der Lizenzaktivierung wird zusätzlich die Gumroad-Verkaufs-ID gesendet; dadurch kann die Installation einem Kauf zugeordnet werden, Namen und E-Mail-Adressen werden jedoch nicht in der Analysedatenbank gespeichert. Der Server leitet das ungefähre Land ab und speichert nur einen gesalzenen IP-Hash, nicht die rohe IP. Die Option unter **Einstellungen → Allgemein → Datenschutz** deaktiviert diese Ereignisse und das wöchentliche Sparkle-Systemprofil; Update- und Lizenzprüfungen stellen weiterhin Verbindungen her. [Datenschutzdetails](https://www.kevintang.xyz/apps/controller-keys/privacy-policy.html#analytics)
 
-- **Keine Datensammlung**: Die App protokolliert, speichert oder überträgt keinerlei Eingabedaten. Controller-Eingaben werden in Echtzeit in Tastatur-/Mausereignisse übersetzt und sofort verworfen.
+- **Lokale Eingabestatistik**: Rohe HID-Berichte, eingegebener Text und Mapping-Inhalte werden nicht als Analyse übertragen. Für Empfehlungen und Controller Wrapped speichert die App aggregierte Tasten-/Aktionszähler, Bewegungsdistanzen und Sitzungswerte lokal auf deinem Mac.
 
-- **Signiert & notarisiert**: Releases sind mit einem Apple Developer ID-Zertifikat signiert und von Apple notarisiert. So ist sichergestellt, dass die Binärdatei dem Quellcode entspricht und nicht manipuliert wurde.
+- **Signiert & notarisiert**: Offizielle Releases sind mit Kevin Tangs Apple Developer ID signiert, von Apple notarisiert und werden von Gatekeeper geprüft. Das bestätigt Herausgeber und Release-Integrität, beweist aber keine bytegenaue Übereinstimmung mit dem öffentlichen Quellcode.
+
+Weitere Verbindungen sind funktionsbedingt: Lizenzprüfung über Gumroad; Updates, Community-Profile und Controller-Datenbank über den ControllerKeys-Feed bzw. GitHub; Favicons für Website-Verknüpfungen; sowie von dir konfigurierte Webhooks, OBS-Verbindungen, Skripte, Links und Mac-zu-Mac-Relay-Ziele.
 
 **Wofür die Bedienungshilfen-Berechtigung verwendet wird:**
 

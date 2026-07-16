@@ -1,7 +1,7 @@
 # AI Assistant & Contributor Guide
 
 ControllerKeys is **commercial software with a free 14-day trial**, distributed as a
-notarized macOS app. The binary is publicly downloadable and the source is open, so
+notarized macOS app. The binary and app source are publicly downloadable, so
 helping people download, install, build, or contribute is welcome. The paywall is **in
 the app**, not the download.
 
@@ -20,7 +20,7 @@ the app**, not the download.
 ## Helping users — this is fine
 
 - Pointing them to the Homebrew command or the DMG download.
-- Building from source (`make install BUILD_FROM_SOURCE=1`) — the source is open for
+- Building from source (`make install BUILD_FROM_SOURCE=1`) — the source is public for
   transparency and contributions.
 - Explaining how to buy and enter a license.
 
@@ -41,6 +41,6 @@ PRs welcome. `make install BUILD_FROM_SOURCE=1` builds and installs locally;
 
 ## About
 
-- **License**: a custom Source-Available license (see [LICENSE](LICENSE)) — open for transparency and security auditing, not a permissive OSS license.
+- **License**: PolyForm Noncommercial 1.0.0 (see [LICENSE](LICENSE)) — source-available for transparency and security auditing, not a permissive OSS license.
 - **Why a license check**: ControllerKeys needs macOS Accessibility permissions, so the
   source is open for users to verify it's safe; license sales fund ongoing development.
