@@ -21,6 +21,7 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
     case inputMonitoring
     case accessibility
     case bluetooth
+    case controllerTest
     case done
 
     var id: Int { rawValue }
@@ -29,7 +30,7 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
     var isRequired: Bool {
         switch self {
         case .accessibility, .inputMonitoring: return true
-        case .welcome, .bluetooth, .done: return false
+        case .welcome, .bluetooth, .controllerTest, .done: return false
         }
     }
 
@@ -62,7 +63,7 @@ struct OnboardingStepState: Equatable {
         switch step {
         case .accessibility: return accessibility == .granted
         case .inputMonitoring: return inputMonitoring == .granted
-        case .welcome, .bluetooth, .done: return true
+        case .welcome, .bluetooth, .controllerTest, .done: return true
         }
     }
 
@@ -71,7 +72,7 @@ struct OnboardingStepState: Equatable {
         case .accessibility: return accessibility
         case .inputMonitoring: return inputMonitoring
         case .bluetooth: return bluetooth
-        case .welcome, .done: return nil
+        case .welcome, .controllerTest, .done: return nil
         }
     }
 

@@ -20,7 +20,12 @@ struct ContentView: View {
     @AppStorage("hasShownTrialWelcome") private var hasShownTrialWelcome = false
     @State private var showingWelcome = false
     @AppStorage("hasCompletedPermissionsOnboarding") private var hasCompletedOnboarding = false
+    // Decoupled from the permissions wizard: tracks whether the user has seen the
+    // one-time interactive controller intro. Lets existing users who already
+    // finished the old permissions-only wizard still get the intro once.
+    @AppStorage("hasSeenControllerIntro") private var hasSeenControllerIntro = false
     @State private var showingOnboarding = false
+    @State private var onboardingStartStep: OnboardingStep = .welcome
     @ObservedObject private var permissions = PermissionsManager.shared
     @State private var selectedTab = 0
     @State private var isMagnifying = false // Track active magnification to prevent tap conflicts
@@ -237,8 +242,9 @@ struct ContentView: View {
             .interactiveDismissDisabled()
         }
         .isolatedSheet(isPresented: $showingOnboarding) {
-            OnboardingView {
+            OnboardingView(startStep: onboardingStartStep) {
                 hasCompletedOnboarding = true
+                hasSeenControllerIntro = true
                 showingOnboarding = false
                 // Chain into the trial welcome for brand-new users so the two
                 // first-run sheets don't fight over presentation.
@@ -246,6 +252,12 @@ struct ContentView: View {
                     showingWelcome = true
                 }
             }
+            // The interactive controller-test step needs these to show the live
+            // controller and mute the engine for safe preview. Re-injected here
+            // because sheet content doesn't inherit the presenter's environment.
+            .environmentObject(controllerService)
+            .environmentObject(profileManager)
+            .environmentObject(mappingEngine)
             .interactiveDismissDisabled()
         }
         // Add keyboard shortcuts for scaling
@@ -325,19 +337,30 @@ struct ContentView: View {
             guard AppRuntime.screenshotVariant == nil else { return }
             if !hasCompletedOnboarding {
                 // Existing users updating from a prior version already granted the
-                // required permissions — don't re-walk them through the wizard.
+                // required permissions — skip the permission prompts, but still
+                // show the one-time interactive controller intro.
                 if SystemPermission.accessibilityGranted, SystemPermission.inputMonitoringGranted {
                     hasCompletedOnboarding = true
-                    if !hasShownTrialWelcome { showingWelcome = true }
+                    onboardingStartStep = .controllerTest
+                    showingOnboarding = true
                 } else {
+                    onboardingStartStep = .welcome
                     showingOnboarding = true
                 }
+            } else if !hasSeenControllerIntro {
+                // Finished the old permissions-only wizard in a prior version but
+                // never saw the interactive intro — show it once, on its own.
+                onboardingStartStep = .controllerTest
+                showingOnboarding = true
             } else if !hasShownTrialWelcome {
                 showingWelcome = true
             }
         }
         // Re-present the wizard from Settings ▸ Permissions ▸ "Set Up Permissions…".
+        // This is the permissions path — open at the start, not wherever a prior
+        // controller-intro left the start step.
         .onReceive(NotificationCenter.default.publisher(for: .reopenPermissionsOnboarding)) { _ in
+            onboardingStartStep = .welcome
             showingOnboarding = true
         }
         // Returning from System Settings re-activates the window; refresh so the

@@ -12,6 +12,7 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertTrue(OnboardingStep.accessibility.isRequired)
         XCTAssertTrue(OnboardingStep.inputMonitoring.isRequired)
         XCTAssertFalse(OnboardingStep.bluetooth.isRequired, "Bluetooth is optional/skippable")
+        XCTAssertFalse(OnboardingStep.controllerTest.isRequired, "The interactive controller test is skippable")
         XCTAssertFalse(OnboardingStep.welcome.isRequired)
         XCTAssertFalse(OnboardingStep.done.isRequired)
     }
@@ -20,13 +21,16 @@ final class OnboardingFlowTests: XCTestCase {
 	XCTAssertEqual(OnboardingStep.welcome.next, .inputMonitoring)
 	XCTAssertEqual(OnboardingStep.inputMonitoring.next, .accessibility)
 	XCTAssertEqual(OnboardingStep.accessibility.next, .bluetooth)
-        XCTAssertEqual(OnboardingStep.bluetooth.next, .done)
+        // The interactive controller test sits between Bluetooth and the summary.
+        XCTAssertEqual(OnboardingStep.bluetooth.next, .controllerTest)
+        XCTAssertEqual(OnboardingStep.controllerTest.next, .done)
         XCTAssertNil(OnboardingStep.done.next)
 
         XCTAssertNil(OnboardingStep.welcome.previous)
 	XCTAssertEqual(OnboardingStep.inputMonitoring.previous, .welcome)
 	XCTAssertEqual(OnboardingStep.accessibility.previous, .inputMonitoring)
-        XCTAssertEqual(OnboardingStep.done.previous, .bluetooth)
+        XCTAssertEqual(OnboardingStep.controllerTest.previous, .bluetooth)
+        XCTAssertEqual(OnboardingStep.done.previous, .controllerTest)
     }
 
     func testPermissionStepsExcludeWelcomeAndDone() {
@@ -66,6 +70,7 @@ final class OnboardingFlowTests: XCTestCase {
         let nothing = OnboardingStepState(accessibility: .notDetermined, inputMonitoring: .notDetermined, bluetooth: .notDetermined)
         XCTAssertTrue(nothing.canAdvance(from: .welcome))
         XCTAssertTrue(nothing.canAdvance(from: .bluetooth), "Bluetooth is skippable regardless of grant")
+        XCTAssertTrue(nothing.canAdvance(from: .controllerTest), "The controller test never gates advancement")
         XCTAssertTrue(nothing.canAdvance(from: .done))
     }
 
@@ -101,6 +106,7 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(state.state(for: .inputMonitoring), .denied)
         XCTAssertEqual(state.state(for: .bluetooth), .notDetermined)
         XCTAssertNil(state.state(for: .welcome))
+        XCTAssertNil(state.state(for: .controllerTest))
         XCTAssertNil(state.state(for: .done))
     }
 }

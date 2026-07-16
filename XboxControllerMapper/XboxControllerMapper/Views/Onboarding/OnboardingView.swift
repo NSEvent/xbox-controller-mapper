@@ -11,6 +11,16 @@ import AppKit
 /// disclosure and a relaunch fallback for the stale-TCC-after-update case.
 struct OnboardingView: View {
     @ObservedObject private var permissions = PermissionsManager.shared
+    // Injected by the presenter so the interactive controller-test step can show
+    // the live controller and mute the engine for safe preview.
+    @EnvironmentObject private var controllerService: ControllerService
+    @EnvironmentObject private var profileManager: ProfileManager
+    @EnvironmentObject private var mappingEngine: MappingEngine
+
+    /// Where the wizard opens. `.welcome` for a fresh first run; `.controllerTest`
+    /// for the one-time interactive intro shown to existing users who already
+    /// granted permissions in a prior version.
+    var startStep: OnboardingStep = .welcome
     /// Called when the user finishes (or skips through) the wizard.
     var onComplete: () -> Void
 
@@ -45,11 +55,7 @@ struct OnboardingView: View {
         .frame(width: 480, height: 580)
         .onAppear {
             permissions.startPolling()
-            // Re-running setup with everything already granted? Jump near the end
-            // so the user isn't re-walked through prompts they've already handled.
-            if stepState.firstIncompleteStep == .done {
-                step = .done
-            }
+            step = resolvedInitialStep()
         }
         .onChange(of: permissions.accessibility) { _, _ in advancePastGrantedRequiredStepIfNeeded() }
         .onChange(of: permissions.inputMonitoring) { _, _ in advancePastGrantedRequiredStepIfNeeded() }
@@ -68,7 +74,7 @@ struct OnboardingView: View {
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
 
-            if step != .welcome && step != .done {
+            if OnboardingStep.permissionSteps.contains(step) {
                 progressDots
             }
         }
@@ -80,6 +86,7 @@ struct OnboardingView: View {
         case .accessibility: return "Allow Accessibility"
         case .inputMonitoring: return "Allow Input Monitoring"
         case .bluetooth: return "Bluetooth (Optional)"
+        case .controllerTest: return "Try Your Controller"
         case .done: return "You're all set"
         }
     }
@@ -107,6 +114,8 @@ struct OnboardingView: View {
             inputMonitoringContent
         case .bluetooth:
             bluetoothContent
+        case .controllerTest:
+            OnboardingControllerTestView()
         case .done:
             doneContent
         }
@@ -269,7 +278,7 @@ struct OnboardingView: View {
 
     private var footer: some View {
         HStack {
-            if let previous = step.previous, step != .done {
+            if let previous = step.previous, step != .done, step.rawValue > startStep.rawValue {
                 Button("Back") { withAnimation { step = previous } }
                     .controlSize(.large)
             }
@@ -371,6 +380,18 @@ struct OnboardingView: View {
     }
 
     // MARK: - Navigation
+
+    /// The step the wizard should open on.
+    ///
+    /// - A caller-pinned `startStep` (the upgrader intro) always wins.
+    /// - Otherwise, if every required permission is already granted, skip the
+    ///   prompts and open straight on the interactive controller-test step.
+    /// - Otherwise start at the welcome page.
+    private func resolvedInitialStep() -> OnboardingStep {
+        if startStep != .welcome { return startStep }
+        if stepState.firstIncompleteStep == .done { return .controllerTest }
+        return .welcome
+    }
 
     private func goNext() {
         guard let next = step.next else { onComplete(); return }
