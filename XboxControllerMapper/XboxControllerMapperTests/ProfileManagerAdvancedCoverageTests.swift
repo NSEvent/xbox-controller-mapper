@@ -56,6 +56,27 @@ final class ProfileManagerAdvancedCoverageTests: XCTestCase {
 		XCTAssertEqual(updatedFirst?.controllerPreviewLayout, .dualSense)
 	}
 
+	func testMoveProfilesReordersAndPersistsWithoutChangingActiveProfile() {
+		let first = Profile(name: "First")
+		let second = Profile(name: "Second", isDefault: true)
+		let third = Profile(name: "Third")
+		profileManager.profiles = [first, second, third]
+		profileManager.setActiveProfile(second)
+
+		profileManager.moveProfiles(from: IndexSet(integer: 0), to: 3)
+
+		XCTAssertEqual(profileManager.profiles.map(\.id), [second.id, third.id, first.id])
+		XCTAssertEqual(profileManager.activeProfileId, second.id)
+		XCTAssertEqual(profileManager.activeProfile?.id, second.id)
+		XCTAssertEqual(profileManager.profiles.first(where: { $0.isDefault })?.id, second.id)
+
+		profileManager.flushPendingSaves()
+		let reloadedManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
+
+		XCTAssertEqual(reloadedManager.profiles.map(\.id), [second.id, third.id, first.id])
+		XCTAssertEqual(reloadedManager.activeProfileId, second.id)
+	}
+
     func testLayerCreationActivatorRulesAndQueries() {
         let first = profileManager.createLayer(name: "Layer 1", activatorButton: .leftBumper)
         XCTAssertNotNil(first)

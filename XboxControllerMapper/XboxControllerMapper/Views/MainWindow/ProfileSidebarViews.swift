@@ -3,6 +3,38 @@ import UniformTypeIdentifiers
 
 // MARK: - Profile Sidebar
 
+private struct ProfileDropDelegate: DropDelegate {
+	let profile: Profile
+	let profiles: [Profile]
+	@Binding var draggedProfile: Profile?
+	let moveProfiles: (IndexSet, Int) -> Void
+
+	func performDrop(info: DropInfo) -> Bool {
+		draggedProfile = nil
+		return true
+	}
+
+	func dropEntered(info: DropInfo) {
+		guard let draggedProfile,
+		      draggedProfile.id != profile.id,
+		      let sourceIndex = profiles.firstIndex(where: { $0.id == draggedProfile.id }),
+		      let destinationIndex = profiles.firstIndex(where: { $0.id == profile.id }) else {
+			return
+		}
+
+		withAnimation(.easeInOut(duration: 0.2)) {
+			moveProfiles(
+				IndexSet(integer: sourceIndex),
+				destinationIndex > sourceIndex ? destinationIndex + 1 : destinationIndex
+			)
+		}
+	}
+
+	func dropUpdated(info: DropInfo) -> DropProposal? {
+		DropProposal(operation: .move)
+	}
+}
+
 struct ProfileSidebar: View {
     @EnvironmentObject var profileManager: ProfileManager
     @EnvironmentObject var controllerService: ControllerService
@@ -21,6 +53,7 @@ struct ProfileSidebar: View {
     @State private var profileToLink: Profile?
     @State private var profileToLinkController: Profile?
     @State private var showingCommunityProfiles = false
+	@State private var draggedProfile: Profile?
 
     // Safety approval (shell commands / scripts in imported profile)
     @State private var pendingSafetyApproval: SafetyApprovalRequest?
@@ -90,6 +123,17 @@ struct ProfileSidebar: View {
                                 profileManager.setActiveProfile(profile)
                             }
                             .padding(.horizontal, 12)
+							.onDrag {
+								draggedProfile = profile
+								return NSItemProvider(object: profile.id.uuidString as NSString)
+							}
+							.onDrop(of: [.text], delegate: ProfileDropDelegate(
+								profile: profile,
+								profiles: profileManager.profiles,
+								draggedProfile: $draggedProfile,
+								moveProfiles: profileManager.moveProfiles
+							))
+							.help("Drag to reorder profiles")
                             .contextMenu {
                                 ProfileContextMenu(
                                     profile: profile,

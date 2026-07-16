@@ -330,6 +330,20 @@ class ProfileManager: ObservableObject {
         createProfile(name: "\(profile.name) Copy", basedOn: profile)
     }
 
+	func moveProfiles(from source: IndexSet, to destination: Int) {
+		guard !source.isEmpty,
+		      source.allSatisfy({ profiles.indices.contains($0) }),
+		      (0...profiles.count).contains(destination) else {
+			return
+		}
+
+		let previousOrder = profiles.map(\.id)
+		profiles.move(fromOffsets: source, toOffset: destination)
+		guard profiles.map(\.id) != previousOrder else { return }
+
+		saveConfiguration()
+	}
+
     func updateProfile(_ profile: Profile) {
         var updatedProfile = profile
         updatedProfile.modifiedAt = Date()
