@@ -124,7 +124,7 @@ final class CodexMicroBridgeTests: XCTestCase {
 		XCTAssertEqual(decoded.appleTVRemoteCircularInputMode, .codexMicroDial)
 	}
 
-	func testAppleTVRemoteCommunityProfileDecodesWithCodexMappings() throws {
+	func testAppleTVRemoteCommunityProfileDecodesWithV3CodexMappings() throws {
 		let repositoryRoot = URL(fileURLWithPath: #filePath)
 			.deletingLastPathComponent()
 			.deletingLastPathComponent()
@@ -138,11 +138,21 @@ final class CodexMicroBridgeTests: XCTestCase {
 
 		XCTAssertEqual(profile.linkedApps, ["com.openai.chat"])
 		XCTAssertEqual(profile.joystickSettings.appleTVRemoteCircularInputMode, .codexMicroDial)
-		XCTAssertEqual(profile.buttonMappings[.siri]?.keyCode, CodexMicroControl.pushToTalk.keyCode)
-		XCTAssertTrue(profile.buttonMappings[.siri]?.isHoldModifier == true)
+		XCTAssertNil(profile.buttonMappings[.siri])
+		XCTAssertNil(profile.buttonMappings[.appleTVRemotePower])
+		XCTAssertEqual(profile.buttonMappings[.appleTVRemoteMute]?.keyCode, CodexMicroControl.pushToTalk.keyCode)
+		XCTAssertTrue(profile.buttonMappings[.appleTVRemoteMute]?.isHoldModifier == true)
+		XCTAssertEqual(profile.buttonMappings[.touchpadButton]?.keyCode, CodexMicroControl.dialClick.keyCode)
+		XCTAssertTrue(profile.buttonMappings[.touchpadButton]?.isHoldModifier == true)
 		let agentLayer = try XCTUnwrap(profile.layers.first)
-		XCTAssertEqual(agentLayer.activatorButton, .appleTVRemotePower)
-		XCTAssertEqual(agentLayer.buttonMappings[.xbox]?.keyCode, CodexMicroControl.agent1.keyCode)
-		XCTAssertEqual(agentLayer.buttonMappings[.menu]?.keyCode, CodexMicroControl.agent6.keyCode)
+		XCTAssertEqual(agentLayer.activatorButton, .siri)
+		XCTAssertEqual(agentLayer.buttonMappings.count, 6)
+		XCTAssertTrue(agentLayer.buttonMappings.values.allSatisfy { !$0.isHoldModifier })
+		XCTAssertEqual(agentLayer.buttonMappings[.view]?.keyCode, CodexMicroControl.agent1.keyCode)
+		XCTAssertEqual(agentLayer.buttonMappings[.xbox]?.keyCode, CodexMicroControl.agent2.keyCode)
+		XCTAssertEqual(agentLayer.buttonMappings[.menu]?.keyCode, CodexMicroControl.agent3.keyCode)
+		XCTAssertEqual(agentLayer.buttonMappings[.appleTVRemoteMute]?.keyCode, CodexMicroControl.agent4.keyCode)
+		XCTAssertEqual(agentLayer.buttonMappings[.appleTVRemoteVolumeUp]?.keyCode, CodexMicroControl.agent5.keyCode)
+		XCTAssertEqual(agentLayer.buttonMappings[.appleTVRemoteVolumeDown]?.keyCode, CodexMicroControl.agent6.keyCode)
 	}
 }

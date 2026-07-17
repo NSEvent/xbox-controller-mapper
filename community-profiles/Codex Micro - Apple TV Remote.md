@@ -9,15 +9,22 @@ ChatGPT does not listen for ordinary keyboard shortcuts from Codex Micro. It dis
 | Remote input | Codex Micro input |
 | --- | --- |
 | Clickpad edge rotation | Dial rotation |
-| Clickpad click | Dial click |
+| Clickpad click | Dial click; hold 500 ms for Codex Micro settings |
 | Clickpad directions | Analog stick |
 | TV/Home | Fast |
 | Volume Up | Approve |
 | Volume Down | Decline |
 | Back | Fork |
-| Hold Siri | Push to talk |
+| Mute (hold / double-tap) | Push to talk / hands-free recording |
 | Play/Pause | Submit |
-| Hold Power + the six side buttons above | Agent 1–6 |
+| Hold Siri + Back | Agent 1 |
+| Hold Siri + TV/Home | Agent 2 |
+| Hold Siri + Play/Pause | Agent 3 |
+| Hold Siri + Mute | Agent 4 |
+| Hold Siri + Volume Up | Agent 5 |
+| Hold Siri + Volume Down | Agent 6 |
+
+While holding Siri, press an Agent button once to switch chats without foregrounding ChatGPT. Double-tap it within 350 ms—keeping Siri held through both taps—to switch and bring ChatGPT forward. Power is intentionally unmapped to avoid TV power side effects.
 
 ## One-time setup
 
