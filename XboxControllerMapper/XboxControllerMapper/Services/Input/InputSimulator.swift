@@ -138,6 +138,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         InputSimulatorCursorState.updateTrackedPosition(point, delta: delta)
     }
     private let eventSource: CGEventSource?
+	private let codexMicroOutput: any CodexMicroOutputProtocol
 
     /// Currently held modifier flags (for hold-type mappings)
     private var heldModifiers: CGEventFlags = []
@@ -323,6 +324,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
     private func pressKeyInternal(_ keyCode: CGKeyCode, modifiers: CGEventFlags, modifierSides: ModifierFlags?) {
         LatencyDiagnostics.mark("input.pressKey \(keyCode)")
+		if let control = CodexMicroControl(keyCode: keyCode) {
+			codexMicroOutput.tap(control)
+			return
+		}
         if shouldRelayUniversalControlAction(),
 		   sendUniversalControlKeyPress(keyCode, modifiers: modifiers, modifierSides: modifierSides) {
             return
@@ -463,6 +468,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Holds a key down (for continuous actions)
     func keyDown(_ keyCode: CGKeyCode, modifiers: CGEventFlags = []) {
         LatencyDiagnostics.mark("input.keyDown \(keyCode)")
+		if let control = CodexMicroControl(keyCode: keyCode) {
+			codexMicroOutput.press(control)
+			return
+		}
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyDown(keyCode, modifiers: modifiers) {
             return
@@ -500,6 +509,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Releases a held key
     func keyUp(_ keyCode: CGKeyCode) {
         LatencyDiagnostics.mark("input.keyUp \(keyCode)")
+		if let control = CodexMicroControl(keyCode: keyCode) {
+			codexMicroOutput.release(control)
+			return
+		}
         if shouldRelayUniversalControlAction(),
            UniversalControlMouseRelay.shared.sendKeyUp(keyCode) {
             return
@@ -899,7 +912,8 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     /// Reusable event source for warp suppression interval (avoids creating one per frame)
     private let warpEventSource: CGEventSource?
 
-    init() {
+    init(codexMicroOutput: any CodexMicroOutputProtocol = CodexMicroBridgeService.shared) {
+		self.codexMicroOutput = codexMicroOutput
         // .hidSystemState simulates hardware-level events, which are often more reliable for system shortcuts
         eventSource = CGEventSource(stateID: .hidSystemState)
 

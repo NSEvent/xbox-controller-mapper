@@ -104,6 +104,7 @@ extension MappingEngine {
         var touchpadMagnifyGestureActive: Bool = false
         var touchpadMagnifyDirection: Double = 0
         var touchpadMagnifyDirectionLockUntil: TimeInterval = 0
+		var appleTVRemoteCodexMicroDialAccumulator: Double = 0
 
         var rightStickWasOutsideDeadzone = false
         var rightStickPeakYAbs: Double = 0
@@ -226,6 +227,7 @@ extension MappingEngine {
             touchpadMagnifyGestureActive = false
             touchpadMagnifyDirection = 0
             touchpadMagnifyDirectionLockUntil = 0
+			appleTVRemoteCodexMicroDialAccumulator = 0
             rightStickWasOutsideDeadzone = false
             rightStickPeakYAbs = 0
             rightStickLastDirection = 0

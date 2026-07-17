@@ -1,6 +1,28 @@
 import Foundation
 import CoreGraphics
 
+enum AppleTVRemoteCircularInputPolicy {
+	static func codexMicroDialTicks(
+		angleDelta: CGFloat,
+		sensitivity: Double,
+		isInverted: Bool,
+		accumulator: inout Double
+	) -> Int {
+		let clampedSensitivity = min(1, max(0, sensitivity))
+		// 16–48 encoder ticks per full rotation; 24 at the default midpoint.
+		let radiansPerTick = (2 * Double.pi / 24) * (1.5 - clampedSensitivity)
+		let signedDelta = Double(angleDelta) * (isInverted ? -1 : 1)
+		accumulator += signedDelta
+		let availableTicks = Int(abs(accumulator) / radiansPerTick)
+		guard availableTicks > 0 else { return 0 }
+
+		let direction = accumulator > 0 ? 1 : -1
+		let emittedTicks = min(availableTicks, 8)
+		accumulator -= Double(direction * emittedTicks) * radiansPerTick
+		return direction * emittedTicks
+	}
+}
+
 /// Handles DualSense touchpad input: single-finger movement, two-finger gestures (pan/pinch),
 /// tap gestures, long-tap gestures, and momentum scrolling.
 ///
@@ -149,17 +171,41 @@ extension MappingEngine {
     }
 
     /// - Precondition: Must be called on pollingQueue
-    nonisolated func processAppleTVRemoteCircularScroll(_ angleDelta: CGFloat) {
+	nonisolated func processAppleTVRemoteCircularScroll(_ angleDelta: CGFloat) {
 		dispatchPrecondition(condition: .onQueue(pollingQueue))
-		guard controllerService.threadSafeIsAppleTVRemote,
-			  let settings = state.lock.withLock({ () -> JoystickSettings? in
-				  guard state.isEnabled, !state.isLocked, let settings = state.joystickSettings else { return nil }
-				  return settings
-			  }),
-			  settings.appleTVRemoteCircularScrollEnabled else { return }
+		guard controllerService.threadSafeIsAppleTVRemote else { return }
+		let route = state.lock.withLock { () -> (settings: JoystickSettings, dialTicks: Int?)? in
+			guard state.isEnabled,
+				  !state.isLocked,
+				  let settings = state.joystickSettings,
+				  settings.appleTVRemoteCircularScrollEnabled else { return nil }
+
+			guard settings.appleTVRemoteCircularInputMode == .codexMicroDial else {
+				state.appleTVRemoteCodexMicroDialAccumulator = 0
+				return (settings, nil)
+			}
+			let ticks = AppleTVRemoteCircularInputPolicy.codexMicroDialTicks(
+				angleDelta: angleDelta,
+				sensitivity: settings.appleTVRemoteCircularScrollSensitivity,
+				isInverted: settings.touchpadInvertScrollY,
+				accumulator: &state.appleTVRemoteCodexMicroDialAccumulator
+			)
+			return (settings, ticks)
+		}
+		guard let route else { return }
+
+		if let dialTicks = route.dialTicks {
+			guard dialTicks != 0 else { return }
+			let control: CodexMicroControl = dialTicks > 0 ? .dialClockwise : .dialCounterclockwise
+			for _ in 0..<abs(dialTicks) {
+				codexMicroOutput.tap(control)
+			}
+			return
+		}
+		let settings = route.settings
 
 		let scale = settings.appleTVRemoteCircularScrollSensitivity * Config.appleTVRemoteCircularScrollSensitivityMultiplier
-			var dy = -Double(angleDelta) * scale
+		var dy = -Double(angleDelta) * scale
 		if settings.touchpadInvertScrollY {
 			dy = -dy
 		}

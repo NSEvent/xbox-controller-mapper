@@ -42,6 +42,7 @@ class MappingEngine: ObservableObject {
     let profileManager: ProfileManager
     private let appMonitor: AppMonitor
     nonisolated let inputSimulator: InputSimulatorProtocol
+	nonisolated let codexMicroOutput: any CodexMicroOutputProtocol
     let inputLogService: InputLogService?
     nonisolated let usageStatsService: UsageStatsService?
     nonisolated let mappingExecutor: MappingExecutor
@@ -59,11 +60,20 @@ class MappingEngine: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(controllerService: ControllerService, profileManager: ProfileManager, appMonitor: AppMonitor, inputSimulator: InputSimulatorProtocol = InputSimulator(), inputLogService: InputLogService? = nil, usageStatsService: UsageStatsService? = nil) {
+    init(
+		controllerService: ControllerService,
+		profileManager: ProfileManager,
+		appMonitor: AppMonitor,
+		inputSimulator: InputSimulatorProtocol = InputSimulator(),
+		inputLogService: InputLogService? = nil,
+		usageStatsService: UsageStatsService? = nil,
+		codexMicroOutput: any CodexMicroOutputProtocol = CodexMicroBridgeService.shared
+	) {
         self.controllerService = controllerService
         self.profileManager = profileManager
         self.appMonitor = appMonitor
         self.inputSimulator = inputSimulator
+		self.codexMicroOutput = codexMicroOutput
         self.inputLogService = inputLogService
         self.usageStatsService = usageStatsService
 

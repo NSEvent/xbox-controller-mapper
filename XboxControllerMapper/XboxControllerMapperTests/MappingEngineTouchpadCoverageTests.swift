@@ -7,6 +7,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
     var profileManager: ProfileManager!
     var appMonitor: AppMonitor!
     var mockInputSimulator: MockInputSimulator!
+	var mockCodexMicroOutput: MockCodexMicroOutput!
     var mappingEngine: MappingEngine!
     private var testConfigDirectory: URL!
 
@@ -19,13 +20,15 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
             appMonitor = AppMonitor()
             mockInputSimulator = MockInputSimulator()
+			mockCodexMicroOutput = MockCodexMicroOutput()
             controllerService.storage.isSteamController = false
 
             mappingEngine = MappingEngine(
                 controllerService: controllerService,
                 profileManager: profileManager,
                 appMonitor: appMonitor,
-                inputSimulator: mockInputSimulator
+				inputSimulator: mockInputSimulator,
+				codexMicroOutput: mockCodexMicroOutput
             )
             mappingEngine.enable()
         }
@@ -57,6 +60,7 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
             profileManager = nil
             appMonitor = nil
             mockInputSimulator = nil
+			mockCodexMicroOutput = nil
         }
     }
 
@@ -851,6 +855,30 @@ final class MappingEngineTouchpadCoverageTests: XCTestCase {
 			}
 			let expected = CGFloat(-0.12 * 0.25 * Config.appleTVRemoteCircularScrollSensitivityMultiplier)
 			XCTAssertEqual(scrollEvents.last ?? 0, expected, accuracy: 0.001)
+		}
+	}
+
+	func testAppleTVRemoteCircularInputCanEmitCodexMicroDialTicks() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "AppleTVCodexMicroDial", buttonMappings: [:])
+			profile.joystickSettings.appleTVRemoteCircularInputMode = .codexMicroDial
+			profile.joystickSettings.appleTVRemoteCircularScrollSensitivity = 0.5
+			profileManager.setActiveProfile(profile)
+			controllerService.storage.isAppleTVRemote = true
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			controllerService.emitInputEvent(.appleTVRemoteCircularScroll(0.3))
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			XCTAssertEqual(mockCodexMicroOutput.events, [.tap(.dialClockwise)])
+			XCTAssertFalse(mockInputSimulator.events.contains { event in
+				if case .scroll = event { return true }
+				return false
+			})
 		}
 	}
 }

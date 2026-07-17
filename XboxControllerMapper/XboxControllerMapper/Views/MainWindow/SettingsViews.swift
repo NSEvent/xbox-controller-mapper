@@ -632,27 +632,40 @@ struct TouchpadSettingsView: View {
             }
 
 			if isAppleTVRemote {
-				Section("Clickpad Edge Scroll") {
+				Section("Clickpad Edge Input") {
 					Toggle(isOn: Binding(
 						get: { settings.appleTVRemoteCircularScrollEnabled },
 						set: { updateSettings(\.appleTVRemoteCircularScrollEnabled, $0) }
 					)) {
 						VStack(alignment: .leading) {
-							Text("Edge Scroll")
-							Text("Drag around the outer clickpad edge to scroll.")
+							Text("Edge Input")
+							Text("Drag around the outer clickpad edge for continuous input.")
 								.font(.caption)
 								.foregroundColor(.secondary)
 						}
 					}
 
+					Picker("Edge Action", selection: Binding(
+						get: { settings.appleTVRemoteCircularInputMode },
+						set: { updateSettings(\.appleTVRemoteCircularInputMode, $0) }
+					)) {
+						ForEach(AppleTVRemoteCircularInputMode.allCases) { mode in
+							Text(mode.displayName).tag(mode)
+						}
+					}
+					.pickerStyle(.menu)
+					.disabled(!settings.appleTVRemoteCircularScrollEnabled)
+
 					SliderRow(
-						label: "Scroll Speed",
+						label: settings.appleTVRemoteCircularInputMode == .scroll ? "Scroll Speed" : "Dial Speed",
 						value: Binding(
 							get: { settings.appleTVRemoteCircularScrollSensitivity },
 							set: { updateSettings(\.appleTVRemoteCircularScrollSensitivity, $0) }
 						),
 						range: 0...1,
-						description: "Speed for circular edge scrolling"
+						description: settings.appleTVRemoteCircularInputMode == .scroll
+							? "Speed for circular edge scrolling"
+							: "Encoder ticks emitted per clickpad rotation"
 					)
 					.disabled(!settings.appleTVRemoteCircularScrollEnabled)
 				}

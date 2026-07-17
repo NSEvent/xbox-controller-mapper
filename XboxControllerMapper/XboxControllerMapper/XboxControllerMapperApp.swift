@@ -569,6 +569,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 		// Start controller monitoring immediately, even when SwiftUI defers scene content.
 		_ = ServiceContainer.shared
+		CodexMicroBridgeService.shared.start()
 
         // Disable App Nap to ensure controller events are received in background
         disableAppNap()
@@ -589,6 +590,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard !AppRuntime.isRunningTests else { return }
 
         ServiceContainer.shared.controllerService.cleanup()
+		CodexMicroBridgeService.shared.stop()
 		ServiceContainer.shared.ouraRingInputService.stop()
         ServiceContainer.shared.usageStatsService.endSession()
         ServiceContainer.shared.profileManager.flushPendingSaves()

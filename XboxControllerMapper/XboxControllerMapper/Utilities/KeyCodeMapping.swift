@@ -304,7 +304,10 @@ enum KeyCodeMapping {
 
     /// Returns a human-readable name for a key code
     static func displayName(for keyCode: CGKeyCode) -> String {
-	displayNames[Int(keyCode)] ?? "Key \(keyCode)"
+	if let codexMicroControl = CodexMicroControl(keyCode: keyCode) {
+		return codexMicroControl.displayName
+	}
+	return displayNames[Int(keyCode)] ?? "Key \(keyCode)"
     }
 
     /// Returns all available key codes for picker UI
@@ -399,6 +402,9 @@ enum KeyCodeMapping {
         options.append(("Controller Lock", controllerLock))
         options.append(("Directory Navigator", showDirectoryNavigator))
 
+		// Codex Micro hardware actions
+		options.append(contentsOf: CodexMicroControl.allCases.map { ($0.displayName, $0.keyCode) })
+
         // Media keys - Playback
         options.append(("Play/Pause", mediaPlayPause))
         options.append(("Next Track", mediaNext))
@@ -483,7 +489,11 @@ enum KeyCodeMapping {
 
     /// Checks if a key code is a special marker that shouldn't be sent as a key event
     static func isSpecialMarker(_ keyCode: CGKeyCode) -> Bool {
-        isMouseButton(keyCode) || isScrollAction(keyCode) || isSpecialAction(keyCode) || isMediaKey(keyCode)
+		isMouseButton(keyCode) ||
+		isScrollAction(keyCode) ||
+		isSpecialAction(keyCode) ||
+		isMediaKey(keyCode) ||
+		CodexMicroControl(keyCode: keyCode) != nil
     }
 
     /// Checks if a key code represents a modifier key (left or right variant)

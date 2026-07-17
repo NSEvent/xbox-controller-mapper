@@ -1,0 +1,191 @@
+{
+  "buttonMappings": {
+    "appleTVRemoteVolumeDown": {
+      "hint": "Codex Micro: Decline",
+      "isHoldModifier": false,
+      "keyCode": 61704,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "appleTVRemoteVolumeUp": {
+      "hint": "Codex Micro: Approve",
+      "isHoldModifier": false,
+      "keyCode": 61703,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadDown": {
+      "hint": "Codex Micro: Stick Down",
+      "isHoldModifier": true,
+      "keyCode": 61730,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadLeft": {
+      "hint": "Codex Micro: Stick Left",
+      "isHoldModifier": true,
+      "keyCode": 61731,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadRight": {
+      "hint": "Codex Micro: Stick Right",
+      "isHoldModifier": true,
+      "keyCode": 61729,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "dpadUp": {
+      "hint": "Codex Micro: Stick Up",
+      "isHoldModifier": true,
+      "keyCode": 61728,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "menu": {
+      "hint": "Codex Micro: Submit",
+      "isHoldModifier": false,
+      "keyCode": 61708,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "siri": {
+      "hint": "Codex Micro: Hold to Talk",
+      "isHoldModifier": true,
+      "keyCode": 61706,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "touchpadButton": {
+      "hint": "Codex Micro: Dial Click",
+      "isHoldModifier": false,
+      "keyCode": 61714,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "view": {
+      "hint": "Codex Micro: Fork",
+      "isHoldModifier": false,
+      "keyCode": 61705,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    },
+    "xbox": {
+      "hint": "Codex Micro: Fast",
+      "isHoldModifier": false,
+      "keyCode": 61702,
+      "modifiers": {
+        "command": false,
+        "control": false,
+        "option": false,
+        "shift": false
+      }
+    }
+  },
+  "chordMappings": [],
+  "createdAt": "2026-07-16T12:00:00Z",
+  "dpadPreset": "custom",
+  "gestureMappings": [],
+  "icon": "keyboard.fill",
+  "id": "B4078DB1-B415-4E28-94E7-24A95C837390",
+  "isDefault": false,
+  "joystickSettings": {
+    "appleTVRemoteCircularInputMode": "codexMicroDial",
+    "appleTVRemoteCircularScrollEnabled": true,
+    "appleTVRemoteCircularScrollSensitivity": 0.5,
+    "disableTouchpadAsMouse": true,
+    "touchpadInvertScrollY": false
+  },
+  "layers": [
+    {
+      "activatorButton": "appleTVRemotePower",
+      "buttonMappings": {
+        "appleTVRemoteVolumeDown": {
+          "hint": "Codex Micro: Agent 3",
+          "isHoldModifier": false,
+          "keyCode": 61698,
+          "modifiers": {}
+        },
+        "appleTVRemoteVolumeUp": {
+          "hint": "Codex Micro: Agent 2",
+          "isHoldModifier": false,
+          "keyCode": 61697,
+          "modifiers": {}
+        },
+        "menu": {
+          "hint": "Codex Micro: Agent 6",
+          "isHoldModifier": false,
+          "keyCode": 61701,
+          "modifiers": {}
+        },
+        "siri": {
+          "hint": "Codex Micro: Agent 5",
+          "isHoldModifier": false,
+          "keyCode": 61700,
+          "modifiers": {}
+        },
+        "view": {
+          "hint": "Codex Micro: Agent 4",
+          "isHoldModifier": false,
+          "keyCode": 61699,
+          "modifiers": {}
+        },
+        "xbox": {
+          "hint": "Codex Micro: Agent 1",
+          "isHoldModifier": false,
+          "keyCode": 61696,
+          "modifiers": {}
+        }
+      },
+      "id": "AE5B2FA7-A6D9-4549-9822-48420B52733F",
+      "name": "Codex Agent Keys"
+    }
+  ],
+  "linkedApps": [
+    "com.openai.chat"
+  ],
+  "macros": [],
+  "modifiedAt": "2026-07-16T12:00:00Z",
+  "name": "Codex Micro - Apple TV Remote",
+  "sequenceMappings": []
+}

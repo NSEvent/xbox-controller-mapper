@@ -213,6 +213,20 @@ struct OuraMotionSettings: Codable, Equatable {
     }
 }
 
+enum AppleTVRemoteCircularInputMode: String, Codable, CaseIterable, Identifiable {
+	case scroll
+	case codexMicroDial
+
+	var id: String { rawValue }
+
+	var displayName: String {
+		switch self {
+		case .scroll: return "Scroll"
+		case .codexMicroDial: return "Codex Micro Dial"
+		}
+	}
+}
+
 /// Settings for joystick behavior.
 ///
 /// Per-stick response (mode, sensitivity, acceleration, deadzone, invert, custom
@@ -255,6 +269,9 @@ struct JoystickSettings: Codable, Equatable {
 
 	/// Enables one-finger circular scrolling around the Apple TV remote clickpad edge.
 	var appleTVRemoteCircularScrollEnabled: Bool = true
+
+	/// Selects regular scrolling or Codex Micro encoder ticks for edge rotation.
+	var appleTVRemoteCircularInputMode: AppleTVRemoteCircularInputMode = .scroll
 
 	/// Apple TV remote circular edge-scroll sensitivity (0.0 - 1.0).
 	var appleTVRemoteCircularScrollSensitivity: Double = 0.5
@@ -547,6 +564,7 @@ extension JoystickSettings {
         case requireActiveTouchForRegionClick
         case touchpadPanSensitivity
 		case appleTVRemoteCircularScrollEnabled
+		case appleTVRemoteCircularInputMode
 		case appleTVRemoteCircularScrollSensitivity
         case touchpadInvertScrollX
         case touchpadInvertScrollY
@@ -607,6 +625,10 @@ extension JoystickSettings {
         requireActiveTouchForRegionClick = try container.decode(.requireActiveTouchForRegionClick, default: true)
         touchpadPanSensitivity = try container.decode(.touchpadPanSensitivity, default: 0.5, clampedTo: unit)
 		appleTVRemoteCircularScrollEnabled = try container.decode(.appleTVRemoteCircularScrollEnabled, default: true)
+		appleTVRemoteCircularInputMode = try container.decodeLenient(
+			.appleTVRemoteCircularInputMode,
+			default: AppleTVRemoteCircularInputMode.scroll
+		)
 		appleTVRemoteCircularScrollSensitivity = try container.decode(
 			.appleTVRemoteCircularScrollSensitivity,
 			default: touchpadPanSensitivity,
@@ -665,6 +687,7 @@ extension JoystickSettings {
         try container.encode(requireActiveTouchForRegionClick, forKey: .requireActiveTouchForRegionClick)
         try container.encode(touchpadPanSensitivity, forKey: .touchpadPanSensitivity)
 		try container.encode(appleTVRemoteCircularScrollEnabled, forKey: .appleTVRemoteCircularScrollEnabled)
+		try container.encode(appleTVRemoteCircularInputMode, forKey: .appleTVRemoteCircularInputMode)
 		try container.encode(appleTVRemoteCircularScrollSensitivity, forKey: .appleTVRemoteCircularScrollSensitivity)
         try container.encode(touchpadInvertScrollX, forKey: .touchpadInvertScrollX)
         try container.encode(touchpadInvertScrollY, forKey: .touchpadInvertScrollY)

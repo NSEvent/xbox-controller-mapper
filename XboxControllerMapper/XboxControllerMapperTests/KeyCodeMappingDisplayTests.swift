@@ -20,6 +20,10 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.mouseForwardClick), "Forward Button")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.mediaPlayPause), "Play/Pause")
         XCTAssertEqual(KeyCodeMapping.displayName(for: KeyCodeMapping.brightnessDown), "Brightness Down")
+		XCTAssertEqual(
+			KeyCodeMapping.displayName(for: CodexMicroControl.pushToTalk.keyCode),
+			"Codex Micro: Push to Talk"
+		)
     }
 
     func testDisplayName_ForUnknownKeyFallsBackToGenericLabel() {
@@ -38,6 +42,8 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertTrue(options.contains(where: { $0.name == "Scroll Right" }))
         XCTAssertTrue(options.contains(where: { $0.name == "Back Button" }))
         XCTAssertTrue(options.contains(where: { $0.name == "Forward Button" }))
+		XCTAssertTrue(options.contains(where: { $0.code == CodexMicroControl.agent1.keyCode }))
+		XCTAssertTrue(options.contains(where: { $0.code == CodexMicroControl.dialClick.keyCode }))
 
         for option in options {
             XCTAssertFalse(option.name.isEmpty)
@@ -191,6 +197,8 @@ final class KeyCodeMappingDisplayTests: XCTestCase {
         XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.mouseForwardClick))
         XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.showOnScreenKeyboard))
         XCTAssertTrue(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.mediaNext))
+		XCTAssertTrue(KeyCodeMapping.isSpecialMarker(CodexMicroControl.submit.keyCode))
+		XCTAssertTrue(KeyCodeMapping.isSpecialMarker(CodexMicroControl.stickUp.keyCode))
         XCTAssertFalse(KeyCodeMapping.isSpecialMarker(KeyCodeMapping.keyA))
     }
 
