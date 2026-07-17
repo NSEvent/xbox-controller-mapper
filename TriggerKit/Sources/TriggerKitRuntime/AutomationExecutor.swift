@@ -349,14 +349,31 @@ public final class AutomationExecutor {
 			process.standardOutput = pipe
 			process.standardError = pipe
 
+			var outputData = Data()
+			let lock = NSLock()
+			pipe.fileHandleForReading.readabilityHandler = { handle in
+				let chunk = handle.availableData
+				if !chunk.isEmpty {
+					lock.lock()
+					outputData.append(chunk)
+					lock.unlock()
+				}
+			}
+
 			do {
 				try process.run()
 			} catch {
+				pipe.fileHandleForReading.readabilityHandler = nil
 				return .failure("\(name) launch failed: \(error.localizedDescription)")
 			}
 			process.waitUntilExit()
 
-			let data = pipe.fileHandleForReading.readDataToEndOfFile()
+			pipe.fileHandleForReading.readabilityHandler = nil
+			let remaining = pipe.fileHandleForReading.readDataToEndOfFile()
+			lock.lock()
+			outputData.append(remaining)
+			let data = outputData
+			lock.unlock()
 			let output = String(data: data, encoding: .utf8)?
 				.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -729,13 +746,29 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		let pipe = Pipe()
 		pgrep.standardOutput = pipe
 		pgrep.standardError = FileHandle.nullDevice
+		var outputData = Data()
+		let lock = NSLock()
+		pipe.fileHandleForReading.readabilityHandler = { handle in
+			let chunk = handle.availableData
+			if !chunk.isEmpty {
+				lock.lock()
+				outputData.append(chunk)
+				lock.unlock()
+			}
+		}
 		do {
 			try pgrep.run()
 		} catch {
+			pipe.fileHandleForReading.readabilityHandler = nil
 			return []
 		}
-		let data = pipe.fileHandleForReading.readDataToEndOfFile()
 		pgrep.waitUntilExit()
+		pipe.fileHandleForReading.readabilityHandler = nil
+		let remaining = pipe.fileHandleForReading.readDataToEndOfFile()
+		lock.lock()
+		outputData.append(remaining)
+		let data = outputData
+		lock.unlock()
 		let output = String(data: data, encoding: .utf8) ?? ""
 		return output
 			.split(whereSeparator: \.isNewline)
