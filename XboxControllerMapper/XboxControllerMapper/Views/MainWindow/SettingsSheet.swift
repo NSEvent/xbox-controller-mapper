@@ -688,6 +688,10 @@ struct SettingsSheet: View {
             }
         }
 
+		Section("Feedback") {
+			FeedbackLink(config: FeedbackConfig(appName: "ControllerKeys"))
+		}
+
         Section {
             Text("\u{00A9} 2026 Kevin Tang. All rights reserved.")
                 .font(.caption2)
