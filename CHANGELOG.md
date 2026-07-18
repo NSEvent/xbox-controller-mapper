@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Interactive “Try Your Controller” onboarding**: A new first-run step shows the connected controller, lights buttons as they are pressed, and explains each binding so setup ends with a clear confirmation that everything works. The mapping engine stays muted during the test, preventing exploratory presses from triggering real actions, and pairing guidance appears automatically when no controller is connected.
+
+- **Codex Micro controls from an Apple TV Siri Remote**: A new community profile turns a paired second-generation Siri Remote into a Codex Micro control surface for the ChatGPT macOS app. The clickpad supplies dial and stick input; remote buttons cover agent switching, Fast, Approve, Decline, Fork, push-to-talk, and Submit through an opt-in local shim and user-only socket.
+
+- **Beamdesk hand microgestures**: Left- and right-hand Meta Quest microgestures from Beamdesk—four swipe directions plus thumb tap per hand—now enter the normal ControllerKeys mapping pipeline. They support profiles, layers, holds, chords, sequences, macros, and scripts, with a dedicated live hand visualization.
+
+- **Developer power-user community profile**: Kevin’s sanitized daily profile is now available to import, with dense mappings for pointer and text control, window management, terminal work, screenshots, voice transcription, and DualSense Edge extras.
+
+- **In-app feedback form**: Settings now includes a feedback form with categories, optional reply email and beta-testing opt-in. Submissions include basic app/device diagnostics, use email as a fallback when the feedback service is unavailable, and never include controller input or mappings.
+
+### Changed
+
+- **Profiles can be reordered**: Drag profiles in the sidebar to set their order; the new order is saved immediately.
+
+- **Clearer privacy and trust controls**: Settings and documentation now accurately describe pseudonymous usage analytics, Gumroad sale-ID linkage on license activation, local-only input statistics, and feature-driven network activity. Disabling usage analytics now also disables Sparkle system profiling while preserving update and license checks, and the public license is standardized on PolyForm Noncommercial 1.0.0.
+
+- **More descriptive accessibility actions**: VoiceOver labels and tooltips for editing, clearing, and deleting macros, chords, gestures, and scripts now include the affected item’s name.
+
+### Fixed
+
+- **Low-battery notifications no longer repeat continuously**: Each controller now alerts once at 20%, 15%, 10%, and 5% during a discharge cycle. Reconnecting the same controller does not re-arm an alert; charging above 25% or switching controllers starts a new cycle.
+
+- **Universal Control relay status checks no longer risk hanging**: Tailscale process output is drained before waiting for the process to exit, avoiding a pipe-buffer deadlock during peer discovery.
+
 ## [2.6.0] - 2026-07-13
 
 ### Added
