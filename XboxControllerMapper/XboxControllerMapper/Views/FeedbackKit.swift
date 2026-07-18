@@ -36,6 +36,7 @@
 //  ───────────────────────────────────────────────────────────────────────────
 
 import SwiftUI
+import Combine
 #if canImport(Darwin)
 import Darwin
 #endif
