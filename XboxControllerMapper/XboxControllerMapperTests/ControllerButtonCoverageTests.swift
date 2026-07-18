@@ -101,6 +101,7 @@ final class ControllerButtonCoverageTests: XCTestCase {
 				XCTAssertFalse(ControllerButton.xboxButtons.contains(.appleTVRemotePower))
 				XCTAssertFalse(ControllerButton.xboxButtons.contains(.ouraTap))
 				XCTAssertFalse(ControllerButton.xboxButtons.contains(.ouraDoubleTap))
+				XCTAssertFalse(ControllerButton.xboxButtons.contains(.beamdeskLeftThumbTap))
 
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.share), "Standard DualSense does not expose Share")
 				XCTAssertTrue(ControllerButton.dualSenseButtons.contains(.touchpadButton))
@@ -109,11 +110,22 @@ final class ControllerButtonCoverageTests: XCTestCase {
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.appleTVRemoteVolumeUp))
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.ouraTap))
 				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.ouraTripleTap))
+				XCTAssertFalse(ControllerButton.dualSenseButtons.contains(.beamdeskRightSwipeLeft))
 
 				XCTAssertFalse(ControllerButton.dualShockButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.siri))
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.ouraTap))
 				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.ouraFiveTap))
+				XCTAssertFalse(ControllerButton.nintendoButtons.contains(.beamdeskRightThumbTap))
+				XCTAssertEqual(
+					ControllerButton.beamdeskHandButtons,
+					[
+						.beamdeskLeftSwipeLeft, .beamdeskLeftSwipeRight,
+						.beamdeskLeftSwipeForward, .beamdeskLeftSwipeBack, .beamdeskLeftThumbTap,
+						.beamdeskRightSwipeLeft, .beamdeskRightSwipeRight,
+						.beamdeskRightSwipeForward, .beamdeskRightSwipeBack, .beamdeskRightThumbTap,
+					]
+				)
 				XCTAssertEqual(
 					ControllerButton.ouraRingTapButtons,
 					[.ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap, .ouraTapHold]

@@ -17,6 +17,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.eightBitDoLiteSE: .eightBitDo(.liteSE),
 			.appleTVRemote: .appleTVRemote,
 			.ouraRing: .ouraRing,
+			.beamdeskHands: .beamdeskHands,
 		]
 
 		for layout in ControllerPreviewLayout.concreteLayouts {
@@ -64,6 +65,7 @@ final class ControllerVisualDescriptorTests: XCTestCase {
 			.eightBitDoLiteSE: .eightBitDoLiteSE,
 			.appleTVRemote: nil,
 			.ouraRing: nil,
+			.beamdeskHands: nil,
 		]
 
 		for layout in ControllerPreviewLayout.concreteLayouts {

@@ -143,6 +143,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 	var isNintendo: Bool { visualDescriptor.isNintendo }
 	var isAppleTVRemote: Bool { visualDescriptor.isAppleTVRemote }
 	var isOuraRing: Bool { visualDescriptor.isOuraRing }
+	var isBeamdeskHands: Bool { visualDescriptor.isBeamdeskHands }
 	var eightBitDoModel: EightBitDoMinimapModel? { visualDescriptor.eightBitDoModel }
 	var isStickless: Bool { visualDescriptor.isStickless }
 	var hasSticks: Bool { visualDescriptor.hasSticks }
@@ -219,7 +220,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
 	    var body: some View {
 			Group {
-				if isOuraRing {
+				if isBeamdeskHands {
+					beamdeskHandsLayout
+				} else if isOuraRing {
 					ouraRingLayout
 				} else if isAppleTVRemote {
 					appleTVRemoteLayout

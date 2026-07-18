@@ -131,6 +131,18 @@ enum ControllerButton: String, Codable, CaseIterable, Identifiable, Sendable {
     case ouraFlickLeft            // Quick directional flick left
     case ouraFlickRight           // Quick directional flick right
 
+    // Beamdesk Meta Quest hand microgestures
+    case beamdeskLeftSwipeLeft
+    case beamdeskLeftSwipeRight
+    case beamdeskLeftSwipeForward
+    case beamdeskLeftSwipeBack
+    case beamdeskLeftThumbTap
+    case beamdeskRightSwipeLeft
+    case beamdeskRightSwipeRight
+    case beamdeskRightSwipeForward
+    case beamdeskRightSwipeBack
+    case beamdeskRightThumbTap
+
     var id: String { rawValue }
 
 }

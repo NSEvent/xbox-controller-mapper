@@ -95,6 +95,7 @@ final class ServiceContainer {
     let batteryNotificationManager: BatteryNotificationManager
     let updateCheckService: UpdateCheckService
     let ouraRingInputService: OuraRingInputService
+    let beamdeskInputService: BeamdeskInputService
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -127,6 +128,7 @@ final class ServiceContainer {
             inputLogService: inputLogService,
             usageStatsService: usageStatsService
         )
+        self.beamdeskInputService = BeamdeskInputService(controllerService: controllerService)
         // The cross-Mac relay listener publishes a Bonjour service, which
         // triggers the Local Network prompt. Only start it at launch if the user
         // has actually set up the relay — otherwise the prompt is deferred to
@@ -592,6 +594,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ServiceContainer.shared.controllerService.cleanup()
 		CodexMicroBridgeService.shared.stop()
 		ServiceContainer.shared.ouraRingInputService.stop()
+		ServiceContainer.shared.beamdeskInputService.stop()
         ServiceContainer.shared.usageStatsService.endSession()
         ServiceContainer.shared.profileManager.flushPendingSaves()
     }

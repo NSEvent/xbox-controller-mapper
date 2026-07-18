@@ -47,6 +47,11 @@ extension ControllerButton {
 		case .ouraTap, .ouraDoubleTap, .ouraTripleTap, .ouraFiveTap,
 			.ouraTapHold, .ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight:
 			return .special
+		case .beamdeskLeftSwipeLeft, .beamdeskLeftSwipeRight,
+			.beamdeskLeftSwipeForward, .beamdeskLeftSwipeBack, .beamdeskLeftThumbTap,
+			.beamdeskRightSwipeLeft, .beamdeskRightSwipeRight,
+			.beamdeskRightSwipeForward, .beamdeskRightSwipeBack, .beamdeskRightThumbTap:
+			return .special
 		}
 	}
 }

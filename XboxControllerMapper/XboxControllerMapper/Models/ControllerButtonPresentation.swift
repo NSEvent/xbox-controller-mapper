@@ -97,6 +97,16 @@ extension ControllerButton {
 		case .ouraFlickDown: return "Oura Flick Down"
 		case .ouraFlickLeft: return "Oura Flick Left"
 		case .ouraFlickRight: return "Oura Flick Right"
+        case .beamdeskLeftSwipeLeft: return "Left Hand Swipe Left"
+        case .beamdeskLeftSwipeRight: return "Left Hand Swipe Right"
+        case .beamdeskLeftSwipeForward: return "Left Hand Swipe Forward"
+        case .beamdeskLeftSwipeBack: return "Left Hand Swipe Back"
+        case .beamdeskLeftThumbTap: return "Left Hand Thumb Tap"
+        case .beamdeskRightSwipeLeft: return "Right Hand Swipe Left"
+        case .beamdeskRightSwipeRight: return "Right Hand Swipe Right"
+        case .beamdeskRightSwipeForward: return "Right Hand Swipe Forward"
+        case .beamdeskRightSwipeBack: return "Right Hand Swipe Back"
+        case .beamdeskRightThumbTap: return "Right Hand Thumb Tap"
         }
     }
 
@@ -294,6 +304,16 @@ extension ControllerButton {
 		case .ouraFlickDown: return "↓"
 		case .ouraFlickLeft: return "←"
 		case .ouraFlickRight: return "→"
+        case .beamdeskLeftSwipeLeft: return "L←"
+        case .beamdeskLeftSwipeRight: return "L→"
+        case .beamdeskLeftSwipeForward: return "L↑"
+        case .beamdeskLeftSwipeBack: return "L↓"
+        case .beamdeskLeftThumbTap: return "L Tap"
+        case .beamdeskRightSwipeLeft: return "R←"
+        case .beamdeskRightSwipeRight: return "R→"
+        case .beamdeskRightSwipeForward: return "R↑"
+        case .beamdeskRightSwipeBack: return "R↓"
+        case .beamdeskRightThumbTap: return "R Tap"
         }
     }
 

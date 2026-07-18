@@ -275,6 +275,20 @@ extension ControllerPreviewLayout {
 				tip: loc("Use **Reset Center** while pointing your finger at the screen to recalibrate the motion plane."),
 				pairingButtons: [.ouraTap, .ouraTapHold, .ouraFlickLeft, .ouraFlickRight]
 			)
+
+		case .beamdeskHands:
+			return ControllerPairingGuide(
+				title: loc("Connect Beamdesk Hands"),
+				tagline: loc("Meta Quest hand microgestures over your Beamdesk session"),
+				systemImage: systemImage,
+				bluetoothSteps: [
+					loc("Start the **Beamdesk Mac agent** and connect the Beamdesk app on your Meta Quest."),
+					loc("Enable **hand tracking** on Quest, then perform a swipe or thumb tap while ControllerKeys is running."),
+					loc("Choose **Beamdesk Hands** in the Buttons tab and assign any shortcut, macro, script, or system command to each gesture.")
+				],
+				tip: loc("Left and right hands are independent inputs, and press/release events support holds, layers, chords, and sequences."),
+				pairingButtons: [.beamdeskLeftThumbTap, .beamdeskRightThumbTap]
+			)
         }
     }
 

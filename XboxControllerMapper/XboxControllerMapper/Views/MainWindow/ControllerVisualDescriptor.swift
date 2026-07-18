@@ -14,6 +14,7 @@ enum ControllerVisualFamily: Equatable {
 	case eightBitDo(EightBitDoMinimapModel)
 	case appleTVRemote
 	case ouraRing
+	case beamdeskHands
 }
 
 struct ControllerVisualDescriptor: Equatable {
@@ -25,6 +26,10 @@ struct ControllerVisualDescriptor: Equatable {
 
 	var isOuraRing: Bool {
 		family == .ouraRing
+	}
+
+	var isBeamdeskHands: Bool {
+		family == .beamdeskHands
 	}
 
 	var isPlayStation: Bool {
@@ -77,11 +82,11 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var hasSticks: Bool {
-		!isStickless && !isOuraRing
+		!isStickless && !isOuraRing && !isBeamdeskHands
 	}
 
 	var hasTriggers: Bool {
-		eightBitDoModel != .zero2 && !isOuraRing
+		eightBitDoModel != .zero2 && !isOuraRing && !isBeamdeskHands
 	}
 
 	var showsPlayStationTouchpad: Bool {
@@ -126,11 +131,13 @@ struct ControllerVisualDescriptor: Equatable {
 			return nil
 		case .ouraRing:
 			return nil
+		case .beamdeskHands:
+			return nil
 		}
 	}
 
 	func shoulderButtons(side: JoystickSide) -> [ControllerButton] {
-		if isOuraRing { return [] }
+		if isOuraRing || isBeamdeskHands { return [] }
 		switch side {
 		case .left:
 			return hasTriggers ? [.leftTrigger, .leftBumper] : [.leftBumper]
@@ -140,7 +147,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var leftSystemButtons: [ControllerButton] {
-		if isOuraRing { return [] }
+		if isOuraRing || isBeamdeskHands { return [] }
 		var buttons: [ControllerButton] = [.view]
 		if eightBitDoModel != .zero2 {
 			buttons.append(.xbox)
@@ -149,7 +156,7 @@ struct ControllerVisualDescriptor: Equatable {
 	}
 
 	var rightSystemButtons: [ControllerButton] {
-		if isOuraRing { return [] }
+		if isOuraRing || isBeamdeskHands { return [] }
 		var buttons: [ControllerButton] = [.menu]
 		if isDualSense {
 			buttons.append(.micMute)
@@ -191,6 +198,8 @@ extension ControllerVisualDescriptor {
 			return ControllerVisualDescriptor(family: .appleTVRemote)
 		case .ouraRing:
 			return ControllerVisualDescriptor(family: .ouraRing)
+		case .beamdeskHands:
+			return ControllerVisualDescriptor(family: .beamdeskHands)
 		}
 	}
 

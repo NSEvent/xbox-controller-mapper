@@ -73,6 +73,18 @@ extension ControllerButton {
 		}
     }
 
+    var isBeamdeskHandOnly: Bool {
+        switch self {
+        case .beamdeskLeftSwipeLeft, .beamdeskLeftSwipeRight,
+             .beamdeskLeftSwipeForward, .beamdeskLeftSwipeBack, .beamdeskLeftThumbTap,
+             .beamdeskRightSwipeLeft, .beamdeskRightSwipeRight,
+             .beamdeskRightSwipeForward, .beamdeskRightSwipeBack, .beamdeskRightThumbTap:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Whether this button represents one of the eight touchpad quadrant
     /// variants (4 regions × {touch, click}). Used by the mapping engine for
     /// dispatch and by UI to know how to render the region group.
@@ -358,7 +370,10 @@ extension ControllerButton {
 
     /// Buttons available for Xbox controllers (excludes Elite-only paddles)
     static var xboxButtons: [ControllerButton] {
-		allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly }
+        allCases.filter {
+            !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
+                && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
+        }
     }
 
     /// Buttons available only on Xbox Elite controllers
@@ -369,18 +384,29 @@ extension ControllerButton {
     /// Buttons available for DualShock 4 controllers (has touchpad, no mic mute or paddles)
     /// Note: DualShock 4's physical Share button maps to .view (buttonOptions), not .share
     static var dualShockButtons: [ControllerButton] {
-		allCases.filter { !$0.isDualSenseOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && $0 != .share }
+        allCases.filter {
+            !$0.isDualSenseOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
+                && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
+                && $0 != .share
+        }
     }
 
     /// Buttons available for DualSense controllers (excludes Share which doesn't exist on standard DualSense)
     static var dualSenseButtons: [ControllerButton] {
-		allCases.filter { $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly }
+        allCases.filter {
+            $0 != .share && !$0.isDualSenseEdgeOnly && !$0.isGestureButton
+                && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
+                && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
+        }
     }
 
     /// Buttons available for Nintendo controllers (Joy-Con, Pro Controller)
     /// Same as Xbox — no touchpad, mic, paddles, or gyro gestures
     static var nintendoButtons: [ControllerButton] {
-		allCases.filter { !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly }
+        allCases.filter {
+            !$0.isPlayStationOnly && !$0.isXboxEliteOnly && !$0.isSteamControllerOnly
+                && !$0.isAppleTVRemoteOnly && !$0.isOuraRingOnly && !$0.isBeamdeskHandOnly
+        }
     }
 
     /// Buttons available for Apple TV/Siri Remote devices.
@@ -407,4 +433,22 @@ extension ControllerButton {
 	static var ouraRingFlickButtons: [ControllerButton] {
 		[.ouraFlickUp, .ouraFlickDown, .ouraFlickLeft, .ouraFlickRight]
 	}
+
+    static var beamdeskLeftHandButtons: [ControllerButton] {
+        [
+            .beamdeskLeftSwipeLeft, .beamdeskLeftSwipeRight,
+            .beamdeskLeftSwipeForward, .beamdeskLeftSwipeBack, .beamdeskLeftThumbTap,
+        ]
+    }
+
+    static var beamdeskRightHandButtons: [ControllerButton] {
+        [
+            .beamdeskRightSwipeLeft, .beamdeskRightSwipeRight,
+            .beamdeskRightSwipeForward, .beamdeskRightSwipeBack, .beamdeskRightThumbTap,
+        ]
+    }
+
+    static var beamdeskHandButtons: [ControllerButton] {
+        beamdeskLeftHandButtons + beamdeskRightHandButtons
+    }
 }
