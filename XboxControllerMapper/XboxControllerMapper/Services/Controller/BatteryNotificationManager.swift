@@ -7,59 +7,53 @@ import GameController
 @MainActor
 class BatteryNotificationManager {
 	private var cancellables = Set<AnyCancellable>()
-	private var hasNotifiedAt20 = false
-	private var hasNotifiedAt10 = false
+	private var policy = BatteryNotificationPolicy()
 	private var hasRequestedPermission = false
-
-	private let warningThreshold: Float = 0.20
-	private let criticalThreshold: Float = 0.10
-	private let resetMargin: Float = 0.05
 
 	func startMonitoring(controllerService: ControllerService) {
 		controllerService.$batteryLevel
-			.combineLatest(controllerService.$batteryState, controllerService.$isConnected)
+			.combineLatest(
+				controllerService.$batteryState,
+				controllerService.$isConnected,
+				controllerService.$currentControllerIdentity
+			)
 			.receive(on: DispatchQueue.main)
 			.sink { [weak self] update in
-				let (level, state, isConnected) = update
-				if isConnected {
-					self?.handleBatteryUpdate(level: level, state: state)
-				} else {
-					self?.reset()
-				}
+				let (level, state, isConnected, identity) = update
+				self?.handleBatteryUpdate(
+					level: level,
+					state: state,
+					isConnected: isConnected,
+					identity: identity
+				)
 			}
 			.store(in: &cancellables)
 	}
 
-	private func handleBatteryUpdate(level: Float, state: GCDeviceBattery.State) {
-		guard ControllerBatteryDisplayPolicy.isKnown(level: level, state: state) else { return }
-
-		// Reset flags when charged above threshold + margin
-		if level > warningThreshold + resetMargin {
-			hasNotifiedAt20 = false
+	private func handleBatteryUpdate(
+		level: Float,
+		state: GCDeviceBattery.State,
+		isConnected: Bool,
+		identity: ControllerIdentity?
+	) {
+		guard let threshold = policy.thresholdToNotify(
+			level: level,
+			state: state,
+			isConnected: isConnected,
+			identity: identity
+		), let percentage = ControllerBatteryDisplayPolicy.percentage(level: level, state: state) else {
+			return
 		}
-		if level > criticalThreshold + resetMargin {
-			hasNotifiedAt10 = false
-		}
 
-        // Check critical threshold (10%)
-        if level <= criticalThreshold && !hasNotifiedAt10 {
-            hasNotifiedAt10 = true
-            sendNotification(
-                title: "Controller Battery Critical",
-                body: "Battery at \(Int(level * 100))%. Connect charger soon.",
-                identifier: "controllerkeys-battery-critical"
-            )
-        }
-        // Check warning threshold (20%)
-        else if level <= warningThreshold && !hasNotifiedAt20 {
-            hasNotifiedAt20 = true
-            sendNotification(
-                title: "Controller Battery Low",
-                body: "Battery at \(Int(level * 100))%.",
-                identifier: "controllerkeys-battery-warning"
-            )
-        }
-    }
+		let isCritical = threshold <= 10
+		sendNotification(
+			title: isCritical ? "Controller Battery Critical" : "Controller Battery Low",
+			body: isCritical
+				? "Battery at \(percentage)%. Connect charger soon."
+				: "Battery at \(percentage)%.",
+			identifier: "controllerkeys-battery-\(threshold)"
+		)
+	}
 
     private func sendNotification(title: String, body: String, identifier: String) {
         let center = UNUserNotificationCenter.current()
@@ -95,9 +89,64 @@ class BatteryNotificationManager {
         }
     }
 
-    /// Reset notification state (called on controller disconnect)
-    func reset() {
-        hasNotifiedAt20 = false
-        hasNotifiedAt10 = false
-    }
+	/// Explicitly clears the discharge-cycle state. Ordinary disconnects retain it
+	/// so a controller reconnect at the same battery level cannot alert again.
+	func reset() {
+		policy.reset()
+	}
+}
+
+/// Tracks the lowest low-battery threshold announced in the current discharge
+/// cycle. Connection churn from the same physical controller deliberately does
+/// not reset this state.
+struct BatteryNotificationPolicy {
+	static let thresholds = [20, 15, 10, 5]
+	static let rechargeResetPercentage = 25
+
+	private var activeControllerIdentity: ControllerIdentity?
+	private var lowestNotifiedThreshold: Int?
+
+	mutating func thresholdToNotify(
+		level: Float,
+		state: GCDeviceBattery.State,
+		isConnected: Bool,
+		identity: ControllerIdentity?
+	) -> Int? {
+		guard isConnected else { return nil }
+
+		if let identity {
+			if let activeControllerIdentity,
+			   !activeControllerIdentity.matches(identity) {
+				lowestNotifiedThreshold = nil
+			}
+			activeControllerIdentity = identity
+		}
+
+		guard let percentage = ControllerBatteryDisplayPolicy.percentage(
+			level: level,
+			state: state
+		) else {
+			return nil
+		}
+
+		if percentage > Self.rechargeResetPercentage {
+			lowestNotifiedThreshold = nil
+			return nil
+		}
+
+		guard let threshold = Self.thresholds.last(where: { percentage <= $0 }) else {
+			return nil
+		}
+		guard lowestNotifiedThreshold.map({ threshold < $0 }) ?? true else {
+			return nil
+		}
+
+		lowestNotifiedThreshold = threshold
+		return threshold
+	}
+
+	mutating func reset() {
+		activeControllerIdentity = nil
+		lowestNotifiedThreshold = nil
+	}
 }
