@@ -119,17 +119,64 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         XCTAssertEqual(directions, [.up, .right], "WASD/arrows should expose one direction per active axis")
     }
 
-    func testAxisResolverHonorsInvertY() {
+	func testAxisResolverHonorsInvertY() {
         let directions = JoystickDirectionResolver.activeAxisDirections(
             stick: CGPoint(x: 0, y: 0.9),
             deadzone: 0.1,
             invertY: true
         )
 
-        XCTAssertEqual(directions, [.down], "Invert Y should flip the virtual direction just like the emitted key")
-    }
+		XCTAssertEqual(directions, [.down], "Invert Y should flip the virtual direction just like the emitted key")
+	}
 
-    func testChordSequenceDirectionButtonsAreAvailableOnlyForCustomMode() {
+	func testResolver_eightWayCentersEmitOneDistinctDirection() {
+		let samples: [(CGPoint, JoystickDirection)] = [
+			(CGPoint(x: 0, y: 1), .up),
+			(CGPoint(x: 1, y: 1), .upRight),
+			(CGPoint(x: 1, y: 0), .right),
+			(CGPoint(x: 1, y: -1), .downRight),
+			(CGPoint(x: 0, y: -1), .down),
+			(CGPoint(x: -1, y: -1), .downLeft),
+			(CGPoint(x: -1, y: 0), .left),
+			(CGPoint(x: -1, y: 1), .upLeft)
+		]
+
+		for (stick, expected) in samples {
+			XCTAssertEqual(
+				JoystickDirectionResolver.activeEightWayDirections(
+					stick: stick,
+					deadzone: 0.1,
+					invertY: false
+				),
+				[expected]
+			)
+		}
+	}
+
+	func testResolver_eightWayHysteresisStabilizesSectorBoundary() {
+		XCTAssertEqual(
+			JoystickDirectionResolver.activeEightWayDirections(
+				stick: CGPoint(x: 0.9, y: 0.4),
+				deadzone: 0.1,
+				invertY: false,
+				previousDirection: .right
+			),
+			[.right],
+			"A held sector should survive five degrees beyond its ordinary boundary"
+		)
+		XCTAssertEqual(
+			JoystickDirectionResolver.activeEightWayDirections(
+				stick: CGPoint(x: 0.9, y: 0.48),
+				deadzone: 0.1,
+				invertY: false,
+				previousDirection: .right
+			),
+			[.upRight],
+			"Moving beyond the hysteresis buffer should select the adjacent sector"
+		)
+	}
+
+	func testChordSequenceDirectionButtonsAreAvailableOnlyForCustomMode() {
         var customSettings = JoystickSettings.default
         customSettings.leftStick.mode = .custom
         customSettings.rightStick.mode = .custom
@@ -139,11 +186,22 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
             [.leftStickUp, .leftStickLeft, .leftStickRight, .leftStickDown],
             "Custom left stick should expose selectable virtual directions in chord/sequence editors"
         )
-        XCTAssertEqual(
-            customSettings.chordSequenceJoystickDirectionButtons(side: .right),
+		XCTAssertEqual(
+			customSettings.chordSequenceJoystickDirectionButtons(side: .right),
             [.rightStickUp, .rightStickLeft, .rightStickRight, .rightStickDown],
-            "Custom right stick should expose selectable virtual directions in chord/sequence editors"
-        )
+			"Custom right stick should expose selectable virtual directions in chord/sequence editors"
+		)
+
+		customSettings.leftStick.customDirectionLayout = .eightWay
+		XCTAssertEqual(
+			customSettings.chordSequenceJoystickDirectionButtons(side: .left),
+			[
+				.leftStickUpLeft, .leftStickUp, .leftStickUpRight,
+				.leftStickLeft, .leftStickRight,
+				.leftStickDownLeft, .leftStickDown, .leftStickDownRight
+			],
+			"Eight-way custom sticks should expose diagonal virtual directions in chord/sequence editors"
+		)
 
         for mode in [StickMode.none, .mouse, .scroll, .wasdKeys, .arrowKeys] {
             var settings = JoystickSettings.default
@@ -155,9 +213,11 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         }
     }
 
-    func testDefaultCustomTuningLeavesUsableCardinalSlicesAndDiagonalGaps() {
-        let settings = JoystickSettings.default
+	func testDefaultCustomTuningLeavesUsableCardinalSlicesAndDiagonalGaps() {
+		let settings = JoystickSettings.default
 
+		XCTAssertEqual(settings.leftStick.customDirectionLayout, .fourWay)
+		XCTAssertEqual(settings.rightStick.customDirectionLayout, .fourWay)
         XCTAssertEqual(settings.leftStick.customHorizontalSliceSize, 0.75, accuracy: 0.0001)
         XCTAssertEqual(settings.leftStick.customVerticalSliceSize, 0.75, accuracy: 0.0001)
         XCTAssertEqual(settings.leftStick.customDeadzone, 0.22, accuracy: 0.0001)
@@ -195,16 +255,29 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
         )
     }
 
-    func testDecodedCustomTuningUsesNewDefaultsWhenFieldsAreMissing() throws {
-        let settings = try JSONDecoder().decode(JoystickSettings.self, from: Data("{}".utf8))
+	func testDecodedCustomTuningUsesNewDefaultsWhenFieldsAreMissing() throws {
+		let settings = try JSONDecoder().decode(JoystickSettings.self, from: Data("{}".utf8))
 
+		XCTAssertEqual(settings.leftStick.customDirectionLayout, .fourWay)
+		XCTAssertEqual(settings.rightStick.customDirectionLayout, .fourWay)
         XCTAssertEqual(settings.leftStick.customHorizontalSliceSize, 0.75, accuracy: 0.0001)
         XCTAssertEqual(settings.leftStick.customVerticalSliceSize, 0.75, accuracy: 0.0001)
         XCTAssertEqual(settings.leftStick.customDeadzone, 0.22, accuracy: 0.0001)
         XCTAssertEqual(settings.rightStick.customHorizontalSliceSize, 0.75, accuracy: 0.0001)
         XCTAssertEqual(settings.rightStick.customVerticalSliceSize, 0.75, accuracy: 0.0001)
-        XCTAssertEqual(settings.rightStick.customDeadzone, 0.22, accuracy: 0.0001)
-    }
+		XCTAssertEqual(settings.rightStick.customDeadzone, 0.22, accuracy: 0.0001)
+	}
+
+	func testEightWayLayoutSurvivesCodableRoundTrip() throws {
+		var settings = JoystickSettings.default
+		settings.leftStick.customDirectionLayout = .eightWay
+
+		let data = try JSONEncoder().encode(settings)
+		let decoded = try JSONDecoder().decode(JoystickSettings.self, from: data)
+
+		XCTAssertEqual(decoded.leftStick.customDirectionLayout, .eightWay)
+		XCTAssertEqual(decoded.rightStick.customDirectionLayout, .fourWay)
+	}
 
     func testCustomLeftStickDirectionStartsAndStopsHoldMapping() async throws {
         await MainActor.run {
@@ -293,6 +366,37 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 		let rightIsActive = await isActiveButton(.leftStickRight)
 		XCTAssertTrue(upIsActive)
 		XCTAssertTrue(rightIsActive)
+	}
+
+	func testCustomEightWayDiagonalTriggersOnlyDedicatedAction() async throws {
+		await MainActor.run {
+			var profile = Profile(name: "Eight-Way Actions", buttonMappings: [
+				.leftStickUp: holdMapping(10),
+				.leftStickRight: holdMapping(11),
+				.leftStickUpRight: holdMapping(12)
+			])
+			profile.joystickSettings.leftStick.mode = .custom
+			profile.joystickSettings.leftStick.customDirectionLayout = .eightWay
+			profile.joystickSettings.leftStick.customDeadzone = 0.1
+			installActiveProfile(profile)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.12)
+
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: 0.9, y: 0.9))
+		}
+		await waitForTasks(0.2)
+
+		XCTAssertEqual(startHoldCount(for: 12), 1)
+		XCTAssertEqual(startHoldCount(for: 10), 0, "Eight-way diagonal input must not also trigger Up")
+		XCTAssertEqual(startHoldCount(for: 11), 0, "Eight-way diagonal input must not also trigger Right")
+		let diagonalIsActive = await isActiveButton(.leftStickUpRight)
+		let upIsActive = await isActiveButton(.leftStickUp)
+		let rightIsActive = await isActiveButton(.leftStickRight)
+		XCTAssertTrue(diagonalIsActive)
+		XCTAssertFalse(upIsActive)
+		XCTAssertFalse(rightIsActive)
 	}
 
 	func testCustomDirectionScrollRepeatsWhileStickHeldAndStopsAtCenter() async throws {

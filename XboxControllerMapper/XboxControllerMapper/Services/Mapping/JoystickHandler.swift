@@ -698,7 +698,12 @@ extension MappingEngine {
         tuning: StickTuning,
         heldButtons: inout Set<ControllerButton>
     ) {
-		let targetButtons = customDirectionMappingsUseAxisMovement(side: side)
+		let usesAxisMovement = tuning.customDirectionLayout == .fourWay &&
+			customDirectionMappingsUseAxisMovement(side: side)
+		let previousDirection = heldButtons.count == 1
+			? heldButtons.first?.joystickDirection
+			: nil
+		let targetButtons = usesAxisMovement
 			? JoystickDirectionResolver.activeAxisButtons(
 				stick: stick,
 				side: side,
@@ -707,7 +712,8 @@ extension MappingEngine {
 			: JoystickDirectionResolver.activeButtons(
 				stick: stick,
 				side: side,
-				tuning: tuning
+				tuning: tuning,
+				previousDirection: previousDirection
 			)
         updateHeldDirectionButtons(targetButtons, heldButtons: &heldButtons)
 		processCustomDirectionScrollActions(targetButtons, stick: stick, side: side, tuning: tuning)

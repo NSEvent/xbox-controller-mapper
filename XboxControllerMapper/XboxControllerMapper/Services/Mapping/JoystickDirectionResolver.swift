@@ -5,16 +5,29 @@ enum JoystickDirectionResolver {
     static func activeButtons(
         stick: CGPoint,
         side: JoystickSide,
-        tuning: StickTuning
+		tuning: StickTuning,
+		previousDirection: JoystickDirection? = nil
     ) -> Set<ControllerButton> {
         let config = customConfig(side: side, tuning: tuning)
-        return activeDirections(
-            stick: stick,
-            deadzone: config.deadzone,
-            horizontalSliceSize: config.horizontalSliceSize,
-            verticalSliceSize: config.verticalSliceSize,
-            invertY: config.invertY
-        ).map { ControllerButton.joystickDirectionButton(side: side, direction: $0) }
+		let directions: [JoystickDirection]
+		switch tuning.customDirectionLayout {
+		case .fourWay:
+			directions = activeDirections(
+				stick: stick,
+				deadzone: config.deadzone,
+				horizontalSliceSize: config.horizontalSliceSize,
+				verticalSliceSize: config.verticalSliceSize,
+				invertY: config.invertY
+			)
+		case .eightWay:
+			directions = activeEightWayDirections(
+				stick: stick,
+				deadzone: config.deadzone,
+				invertY: config.invertY,
+				previousDirection: previousDirection
+			)
+		}
+		return directions.map { ControllerButton.joystickDirectionButton(side: side, direction: $0) }
             .asSet()
     }
 
@@ -41,6 +54,34 @@ enum JoystickDirectionResolver {
         }
         return [direction]
     }
+
+	/// Resolves one of eight equal 45° sectors. Once a sector is active it retains
+	/// the stick for 5° past the ordinary boundary, preventing noisy samples around
+	/// a boundary from rapidly firing adjacent actions.
+	static func activeEightWayDirections(
+		stick: CGPoint,
+		deadzone: Double,
+		invertY: Bool,
+		previousDirection: JoystickDirection? = nil
+	) -> [JoystickDirection] {
+		let magnitudeSquared = stick.x * stick.x + stick.y * stick.y
+		guard magnitudeSquared > deadzone * deadzone else { return [] }
+
+		let x = Double(stick.x)
+		let y = Double(stick.y) * (invertY ? -1.0 : 1.0)
+		let angle = normalizedDegrees(atan2(y, x) * 180.0 / .pi)
+
+		if let previousDirection,
+		   angularDistance(angle, centerDegrees(for: previousDirection)) <= 27.5 {
+			return [previousDirection]
+		}
+
+		let direction = StickDirectionLayout.eightWay.directions.min {
+			angularDistance(angle, centerDegrees(for: $0)) <
+				angularDistance(angle, centerDegrees(for: $1))
+		}
+		return direction.map { [$0] } ?? []
+	}
 
     static func activeAxisButtons(
         stick: CGPoint,
@@ -145,6 +186,19 @@ enum JoystickDirectionResolver {
             }?
             .direction
     }
+
+	private static func centerDegrees(for direction: JoystickDirection) -> Double {
+		switch direction {
+		case .right: return 0
+		case .upRight: return 45
+		case .up: return 90
+		case .upLeft: return 135
+		case .left: return 180
+		case .downLeft: return 225
+		case .down: return 270
+		case .downRight: return 315
+		}
+	}
 
     private static func halfWidthDegrees(
         for direction: JoystickDirection,

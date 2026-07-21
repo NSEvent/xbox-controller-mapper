@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Eight-way joystick actions**: Custom stick mode can split either joystick into eight equal directional sectors, including independent diagonal bindings. A small boundary buffer keeps a held action stable near sector edges, and the same eight directions are available in layers, chords, and sequences.
+
 - **Interactive “Try Your Controller” onboarding**: A new first-run step shows the connected controller, lights buttons as they are pressed, and explains each binding so setup ends with a clear confirmation that everything works. The mapping engine stays muted during the test, preventing exploratory presses from triggering real actions, and pairing guidance appears automatically when no controller is connected.
 
 - **Codex Micro controls from an Apple TV Siri Remote**: A new community profile turns a paired second-generation Siri Remote into a Codex Micro control surface for the ChatGPT macOS app. The clickpad supplies dial and stick input; remote buttons cover agent switching, Fast, Approve, Decline, Fork, push-to-talk, and Submit through an opt-in local shim and user-only socket.

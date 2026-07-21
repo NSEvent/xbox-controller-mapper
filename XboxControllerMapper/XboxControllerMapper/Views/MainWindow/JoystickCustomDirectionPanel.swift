@@ -4,6 +4,7 @@ struct JoystickCustomDirectionPanel: View {
     @EnvironmentObject private var profileManager: ProfileManager
 
     let side: JoystickSide
+	@Binding var layout: StickDirectionLayout
     @Binding var horizontalSliceSize: Double
     @Binding var verticalSliceSize: Double
     @Binding var deadzone: Double
@@ -38,6 +39,7 @@ struct JoystickCustomDirectionPanel: View {
 
     private var directionPreview: some View {
         JoystickDirectionRadialPreview(
+			layout: layout,
             horizontalSliceSize: horizontalSliceSize,
             verticalSliceSize: verticalSliceSize,
             deadzone: deadzone,
@@ -48,21 +50,35 @@ struct JoystickCustomDirectionPanel: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 12) {
-            presetMenu
+			Picker("Directions", selection: $layout) {
+				ForEach(StickDirectionLayout.allCases) { layout in
+					Text(layout.displayName).tag(layout)
+				}
+			}
+			.pickerStyle(.segmented)
 
-            JoystickTuningSlider(
-                label: "Horizontal Slice Width",
-                systemImage: "arrow.left.and.right.circle",
-                value: $horizontalSliceSize,
-                range: 0...1.0
-            )
+			if layout == .fourWay {
+				presetMenu
 
-            JoystickTuningSlider(
-                label: "Vertical Slice Width",
-                systemImage: "arrow.up.and.down.circle",
-                value: $verticalSliceSize,
-                range: 0...1.0
-            )
+				JoystickTuningSlider(
+					label: "Horizontal Slice Width",
+					systemImage: "arrow.left.and.right.circle",
+					value: $horizontalSliceSize,
+					range: 0...1.0
+				)
+
+				JoystickTuningSlider(
+					label: "Vertical Slice Width",
+					systemImage: "arrow.up.and.down.circle",
+					value: $verticalSliceSize,
+					range: 0...1.0
+				)
+			} else {
+				Text("Eight equal sectors with boundary stabilization for reliable action selection.")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+			}
 
             JoystickTuningSlider(
                 label: "Center Deadzone",
@@ -118,15 +134,18 @@ struct JoystickCustomDirectionPanel: View {
 struct JoystickDirectionSelectionGrid<ButtonContent: View>: View {
     let side: JoystickSide
     let mode: StickMode
+	let layout: StickDirectionLayout
     let buttonContent: (ControllerButton) -> ButtonContent
 
     init(
         side: JoystickSide,
         mode: StickMode,
+		layout: StickDirectionLayout,
         @ViewBuilder buttonContent: @escaping (ControllerButton) -> ButtonContent
     ) {
         self.side = side
         self.mode = mode
+		self.layout = layout
         self.buttonContent = buttonContent
     }
 
@@ -157,19 +176,35 @@ struct JoystickDirectionSelectionGrid<ButtonContent: View>: View {
                     .clipShape(Capsule())
             }
 
-            VStack(spacing: 2) {
-                buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: .up))
-
-                HStack(spacing: 25) {
-                    buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: .left))
-                    buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: .right))
+			Grid(horizontalSpacing: 8, verticalSpacing: 6) {
+				GridRow {
+					directionCell(.upLeft)
+					directionCell(.up)
+					directionCell(.upRight)
+				}
+				GridRow {
+					directionCell(.left)
+					Color.clear.frame(width: 28, height: 28)
+					directionCell(.right)
+				}
+				GridRow {
+					directionCell(.downLeft)
+					directionCell(.down)
+					directionCell(.downRight)
                 }
-
-                buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: .down))
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(sideLabel), \(mode.displayName)")
+		.accessibilityLabel("\(sideLabel), \(mode.displayName), \(layout.displayName)")
+	}
+
+	@ViewBuilder
+	private func directionCell(_ direction: JoystickDirection) -> some View {
+		if layout.directions.contains(direction) {
+			buttonContent(ControllerButton.joystickDirectionButton(side: side, direction: direction))
+		} else {
+			Color.clear.frame(width: 28, height: 28)
+		}
     }
 }
 
@@ -210,13 +245,14 @@ private struct JoystickTuningSlider: View {
 }
 
 private struct JoystickDirectionRadialPreview: View {
+	let layout: StickDirectionLayout
     let horizontalSliceSize: Double
     let verticalSliceSize: Double
     let deadzone: Double
     let invertY: Bool
 
     private var directions: [JoystickDirection] {
-        [.up, .right, .down, .left]
+		layout.directions
     }
 
     var body: some View {
@@ -312,6 +348,7 @@ private struct JoystickDirectionRadialPreview: View {
     }
 
     private func sweepDegrees(for direction: JoystickDirection) -> CGFloat {
+		if layout == .eightWay { return 45 }
         switch direction {
         case .left, .right:
             return sliceSweepDegrees(horizontalSliceSize)

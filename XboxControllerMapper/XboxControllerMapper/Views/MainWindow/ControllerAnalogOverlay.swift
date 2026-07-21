@@ -1372,8 +1372,8 @@ struct ControllerAnalogOverlay: View {
     /// the live analog position.
     private func miniStick(_ button: ControllerButton, pos: CGPoint, wellSize: CGFloat = 30, eliteRing: Bool = false, lightCap: Bool = false) -> some View {
         let directionButtons = button == .leftThumbstick
-            ? ControllerButton.joystickDirectionButtons(side: .left)
-            : ControllerButton.joystickDirectionButtons(side: .right)
+			? ControllerButton.joystickDirectionButtons(side: .left, layout: .eightWay)
+			: ControllerButton.joystickDirectionButtons(side: .right, layout: .eightWay)
         let isStickActive = isPressed(button) || directionButtons.contains(where: isPressed)
         let capSize = wellSize * 0.72
 

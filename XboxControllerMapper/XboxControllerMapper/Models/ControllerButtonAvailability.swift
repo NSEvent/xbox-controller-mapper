@@ -334,7 +334,12 @@ extension ControllerButton {
     }
 
     static func joystickDirectionButtons(side: JoystickSide) -> [ControllerButton] {
-        [.up, .left, .right, .down]
+		StickDirectionLayout.fourWay.directions
+			.map { joystickDirectionButton(side: side, direction: $0) }
+	}
+
+	static func joystickDirectionButtons(side: JoystickSide, layout: StickDirectionLayout) -> [ControllerButton] {
+		layout.directions
             .map { joystickDirectionButton(side: side, direction: $0) }
     }
 

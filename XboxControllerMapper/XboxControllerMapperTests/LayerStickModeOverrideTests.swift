@@ -108,13 +108,20 @@ final class LayerStickModeOverrideTests: XCTestCase {
     }
 
     /// `applied(to:)` overlays only the fields the override explicitly sets.
-    func testStickTuningOverride_appliedOverlaysOnlySetFields() {
-        let base = StickTuning(mode: .mouse, mouseSensitivity: 0.5, mouseDeadzone: 0.15)
-        var override = StickTuningOverride()
-        override.mouseSensitivity = 0.9
+	func testStickTuningOverride_appliedOverlaysOnlySetFields() {
+		let base = StickTuning(
+			mode: .mouse,
+			mouseSensitivity: 0.5,
+			mouseDeadzone: 0.15,
+			customDirectionLayout: .fourWay
+		)
+		var override = StickTuningOverride()
+		override.mouseSensitivity = 0.9
+		override.customDirectionLayout = .eightWay
 
-        let resolved = override.applied(to: base)
-        XCTAssertEqual(resolved.mouseSensitivity, 0.9, "Set field is overridden.")
+		let resolved = override.applied(to: base)
+		XCTAssertEqual(resolved.mouseSensitivity, 0.9, "Set field is overridden.")
+		XCTAssertEqual(resolved.customDirectionLayout, .eightWay, "Direction layout is overridden.")
         XCTAssertEqual(resolved.mode, .mouse, "Unset mode inherits base.")
         XCTAssertEqual(resolved.mouseDeadzone, 0.15, "Unset deadzone inherits base.")
         XCTAssertTrue(StickTuningOverride().isEmpty)
@@ -122,16 +129,21 @@ final class LayerStickModeOverrideTests: XCTestCase {
     }
 
     /// A full tuning override survives a Codable round-trip (matters for config persistence).
-    func testLayer_codableRoundTripPreservesOverrides() throws {
-        var layer = Layer(name: "RT", activatorButton: .leftBumper)
-        layer.leftStickTuning = StickTuningOverride(mode: .scroll, mouseSensitivity: 0.9)
+	func testLayer_codableRoundTripPreservesOverrides() throws {
+		var layer = Layer(name: "RT", activatorButton: .leftBumper)
+		layer.leftStickTuning = StickTuningOverride(
+			mode: .scroll,
+			mouseSensitivity: 0.9,
+			customDirectionLayout: .eightWay
+		)
         layer.rightStickTuning = StickTuningOverride(mode: .mouse)
 
         let data = try JSONEncoder().encode(layer)
         let decoded = try JSONDecoder().decode(Layer.self, from: data)
 
         XCTAssertEqual(decoded.leftStickTuning?.mode, .scroll)
-        XCTAssertEqual(decoded.leftStickTuning?.mouseSensitivity, 0.9)
+		XCTAssertEqual(decoded.leftStickTuning?.mouseSensitivity, 0.9)
+		XCTAssertEqual(decoded.leftStickTuning?.customDirectionLayout, .eightWay)
         XCTAssertEqual(decoded.rightStickTuning?.mode, .mouse)
     }
 

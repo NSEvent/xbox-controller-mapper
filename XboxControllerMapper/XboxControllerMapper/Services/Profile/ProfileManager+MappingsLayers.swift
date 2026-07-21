@@ -63,8 +63,10 @@ extension ProfileManager {
         switch side {
         case .left:
             targetProfile.joystickSettings.leftStick.mode = .custom
+			targetProfile.joystickSettings.leftStick.customDirectionLayout = .fourWay
         case .right:
             targetProfile.joystickSettings.rightStick.mode = .custom
+			targetProfile.joystickSettings.rightStick.customDirectionLayout = .fourWay
         }
 		targetProfile.updateOuraMotionOutputModeIfNeeded(
 			afterChanging: ControllerButton.joystickDirectionButton(side: side, direction: .up)

@@ -74,6 +74,10 @@ struct JoystickSettingsView: View {
                 if settings.leftStick.mode == .custom {
                     JoystickCustomDirectionPanel(
                         side: .left,
+						layout: Binding(
+							get: { settings.leftStick.customDirectionLayout },
+							set: { updateSettings(\.leftStick.customDirectionLayout, $0) }
+						),
                         horizontalSliceSize: Binding(
                             get: { settings.leftStick.customHorizontalSliceSize },
                             set: { updateSettings(\.leftStick.customHorizontalSliceSize, $0) }
@@ -327,6 +331,10 @@ struct JoystickSettingsView: View {
                 if settings.rightStick.mode == .custom {
                     JoystickCustomDirectionPanel(
                         side: .right,
+						layout: Binding(
+							get: { settings.rightStick.customDirectionLayout },
+							set: { updateSettings(\.rightStick.customDirectionLayout, $0) }
+						),
                         horizontalSliceSize: Binding(
                             get: { settings.rightStick.customHorizontalSliceSize },
                             set: { updateSettings(\.rightStick.customHorizontalSliceSize, $0) }
@@ -492,7 +500,9 @@ struct JoystickSettingsView: View {
                 layerOverrideSlider("Sensitivity", side: side, layer: layer, keyPath: \.scrollSensitivity, base: base.scrollSensitivity, range: 0...1)
                 layerOverrideSlider("Acceleration", side: side, layer: layer, keyPath: \.scrollAcceleration, base: base.scrollAcceleration, range: 0...1)
                 layerOverrideSlider("Deadzone", side: side, layer: layer, keyPath: \.scrollDeadzone, base: base.scrollDeadzone, range: 0...0.5)
-            case .none, .custom, .dpad, .wasdKeys, .arrowKeys:
+			case .custom:
+				layerOverrideDirectionLayoutPicker(side: side, layer: layer, base: base.customDirectionLayout)
+			case .none, .dpad, .wasdKeys, .arrowKeys:
                 Text("No tunable sensitivity for \(effectiveMode.displayName) mode.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -500,6 +510,32 @@ struct JoystickSettingsView: View {
         }
         .padding(.vertical, 2)
     }
+
+	@ViewBuilder
+	private func layerOverrideDirectionLayoutPicker(
+		side: JoystickSide,
+		layer: Layer,
+		base: StickDirectionLayout
+	) -> some View {
+		let override = side == .left ? layer.leftStickTuning : layer.rightStickTuning
+
+		Picker("Directions", selection: Binding(
+			get: { override?.customDirectionLayout },
+			set: {
+				profileManager.setLayerStickOverride(
+					\.customDirectionLayout,
+					$0,
+					side: side,
+					layerId: layer.id
+				)
+			}
+		)) {
+			Text("Inherit (\(base.displayName))").tag(StickDirectionLayout?.none)
+			ForEach(StickDirectionLayout.allCases) { layout in
+				Text(layout.displayName).tag(layout as StickDirectionLayout?)
+			}
+		}
+	}
 
     @ViewBuilder
     private func layerOverrideSlider(

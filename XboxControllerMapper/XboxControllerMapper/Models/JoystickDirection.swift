@@ -1,5 +1,30 @@
 import Foundation
 
+/// How Custom mode partitions an analog stick into independently mappable actions.
+enum StickDirectionLayout: String, Codable, CaseIterable, Identifiable {
+	case fourWay
+	case eightWay
+
+	var id: String { rawValue }
+
+	var displayName: String {
+		switch self {
+		case .fourWay: return "4 Directions"
+		case .eightWay: return "8 Directions"
+		}
+	}
+
+	/// Mapping/UI order. Eight-way follows a 3×3 grid with the stick click in the center.
+	var directions: [JoystickDirection] {
+		switch self {
+		case .fourWay:
+			return [.up, .left, .right, .down]
+		case .eightWay:
+			return [.upLeft, .up, .upRight, .left, .right, .downLeft, .down, .downRight]
+		}
+	}
+}
+
 /// A discrete direction that can be emitted by a joystick in Custom mode.
 enum JoystickDirection: String, Codable, CaseIterable, Identifiable {
     case up

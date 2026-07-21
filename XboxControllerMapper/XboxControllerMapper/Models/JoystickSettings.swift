@@ -437,9 +437,9 @@ struct JoystickSettings: Codable, Equatable {
     }
 
     func chordSequenceJoystickDirectionButtons(side: JoystickSide) -> [ControllerButton] {
-        let mode = stick(side).mode
-        guard mode.exposesJoystickDirections else { return [] }
-        return ControllerButton.joystickDirectionButtons(side: side)
+		let tuning = stick(side)
+		guard tuning.mode.exposesJoystickDirections else { return [] }
+		return ControllerButton.joystickDirectionButtons(side: side, layout: tuning.customDirectionLayout)
     }
 
     // MARK: - Gesture Detection Computed Properties
@@ -606,8 +606,8 @@ extension JoystickSettings {
         case rightStickCustomDeadzone
         case leftStickCustomSliceDeadzone // Legacy shared neutral gap.
         case rightStickCustomSliceDeadzone // Legacy shared neutral gap.
-        case leftStickCustomEightWay // Legacy, ignored after 4-way-only custom mode.
-        case rightStickCustomEightWay // Legacy, ignored after 4-way-only custom mode.
+		case leftStickCustomEightWay // Legacy flag; new layouts live in nested per-stick tuning.
+		case rightStickCustomEightWay // Legacy flag; new layouts live in nested per-stick tuning.
         case leftStickHorizontalAxisRange // Legacy axis UI, migrated as horizontal slice size.
         case leftStickVerticalAxisRange // Legacy axis UI, migrated as vertical slice size.
         case rightStickHorizontalAxisRange // Legacy axis UI, migrated as horizontal slice size.

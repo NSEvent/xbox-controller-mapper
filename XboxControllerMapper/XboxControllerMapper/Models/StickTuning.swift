@@ -52,6 +52,7 @@ struct StickTuning: Codable, Equatable {
     var invertScrollY: Bool
 
     // MARK: Custom-direction knobs
+	var customDirectionLayout: StickDirectionLayout
     var customHorizontalSliceSize: Double
     var customVerticalSliceSize: Double
     var customDeadzone: Double
@@ -66,6 +67,7 @@ struct StickTuning: Codable, Equatable {
         scrollAcceleration: Double = 0.5,
         scrollDeadzone: Double = 0.15,
         invertScrollY: Bool = false,
+		customDirectionLayout: StickDirectionLayout = .fourWay,
         customHorizontalSliceSize: Double = JoystickSettings.defaultCustomSliceSize,
         customVerticalSliceSize: Double = JoystickSettings.defaultCustomSliceSize,
         customDeadzone: Double = JoystickSettings.defaultCustomDeadzone
@@ -79,6 +81,7 @@ struct StickTuning: Codable, Equatable {
         self.scrollAcceleration = scrollAcceleration
         self.scrollDeadzone = scrollDeadzone
         self.invertScrollY = invertScrollY
+		self.customDirectionLayout = customDirectionLayout
         self.customHorizontalSliceSize = customHorizontalSliceSize
         self.customVerticalSliceSize = customVerticalSliceSize
         self.customDeadzone = customDeadzone
@@ -114,7 +117,7 @@ struct StickTuning: Codable, Equatable {
         case mode
         case mouseSensitivity, mouseAcceleration, mouseDeadzone, invertMouseY
         case scrollSensitivity, scrollAcceleration, scrollDeadzone, invertScrollY
-        case customHorizontalSliceSize, customVerticalSliceSize, customDeadzone
+		case customDirectionLayout, customHorizontalSliceSize, customVerticalSliceSize, customDeadzone
     }
 
     init(from decoder: Decoder) throws {
@@ -129,6 +132,7 @@ struct StickTuning: Codable, Equatable {
         scrollAcceleration = try container.decode(.scrollAcceleration, default: 0.5, clampedTo: unit)
         scrollDeadzone = try container.decode(.scrollDeadzone, default: 0.15, clampedTo: 0.0...0.99)
         invertScrollY = try container.decode(.invertScrollY, default: false)
+		customDirectionLayout = try container.decodeLenient(.customDirectionLayout, default: .fourWay)
         customHorizontalSliceSize = try container.decode(
             .customHorizontalSliceSize, default: JoystickSettings.defaultCustomSliceSize, clampedTo: unit)
         customVerticalSliceSize = try container.decode(
@@ -153,6 +157,7 @@ struct StickTuningOverride: Codable, Equatable {
     var scrollAcceleration: Double?
     var scrollDeadzone: Double?
     var invertScrollY: Bool?
+	var customDirectionLayout: StickDirectionLayout?
     var customHorizontalSliceSize: Double?
     var customVerticalSliceSize: Double?
     var customDeadzone: Double?
@@ -162,7 +167,8 @@ struct StickTuningOverride: Codable, Equatable {
         mode == nil &&
             mouseSensitivity == nil && mouseAcceleration == nil && mouseDeadzone == nil && invertMouseY == nil &&
             scrollSensitivity == nil && scrollAcceleration == nil && scrollDeadzone == nil && invertScrollY == nil &&
-            customHorizontalSliceSize == nil && customVerticalSliceSize == nil && customDeadzone == nil
+			customDirectionLayout == nil && customHorizontalSliceSize == nil &&
+			customVerticalSliceSize == nil && customDeadzone == nil
     }
 
     /// Overlays the set fields onto `base`, leaving unset fields inherited.
@@ -177,6 +183,7 @@ struct StickTuningOverride: Codable, Equatable {
         if let scrollAcceleration { t.scrollAcceleration = scrollAcceleration }
         if let scrollDeadzone { t.scrollDeadzone = scrollDeadzone }
         if let invertScrollY { t.invertScrollY = invertScrollY }
+		if let customDirectionLayout { t.customDirectionLayout = customDirectionLayout }
         if let customHorizontalSliceSize { t.customHorizontalSliceSize = customHorizontalSliceSize }
         if let customVerticalSliceSize { t.customVerticalSliceSize = customVerticalSliceSize }
         if let customDeadzone { t.customDeadzone = customDeadzone }
@@ -189,7 +196,7 @@ struct StickTuningOverride: Codable, Equatable {
         case mode
         case mouseSensitivity, mouseAcceleration, mouseDeadzone, invertMouseY
         case scrollSensitivity, scrollAcceleration, scrollDeadzone, invertScrollY
-        case customHorizontalSliceSize, customVerticalSliceSize, customDeadzone
+		case customDirectionLayout, customHorizontalSliceSize, customVerticalSliceSize, customDeadzone
     }
 
     init(
@@ -202,6 +209,7 @@ struct StickTuningOverride: Codable, Equatable {
         scrollAcceleration: Double? = nil,
         scrollDeadzone: Double? = nil,
         invertScrollY: Bool? = nil,
+		customDirectionLayout: StickDirectionLayout? = nil,
         customHorizontalSliceSize: Double? = nil,
         customVerticalSliceSize: Double? = nil,
         customDeadzone: Double? = nil
@@ -215,6 +223,7 @@ struct StickTuningOverride: Codable, Equatable {
         self.scrollAcceleration = scrollAcceleration
         self.scrollDeadzone = scrollDeadzone
         self.invertScrollY = invertScrollY
+		self.customDirectionLayout = customDirectionLayout
         self.customHorizontalSliceSize = customHorizontalSliceSize
         self.customVerticalSliceSize = customVerticalSliceSize
         self.customDeadzone = customDeadzone
@@ -233,6 +242,7 @@ struct StickTuningOverride: Codable, Equatable {
         scrollAcceleration = try container.decodeIfPresent(Double.self, forKey: .scrollAcceleration)
         scrollDeadzone = try container.decodeIfPresent(Double.self, forKey: .scrollDeadzone)
         invertScrollY = try container.decodeIfPresent(Bool.self, forKey: .invertScrollY)
+		customDirectionLayout = try container.decodeLenient(.customDirectionLayout)
         customHorizontalSliceSize = try container.decodeIfPresent(Double.self, forKey: .customHorizontalSliceSize)
         customVerticalSliceSize = try container.decodeIfPresent(Double.self, forKey: .customVerticalSliceSize)
         customDeadzone = try container.decodeIfPresent(Double.self, forKey: .customDeadzone)
@@ -249,6 +259,7 @@ struct StickTuningOverride: Codable, Equatable {
         try container.encodeIfPresent(scrollAcceleration, forKey: .scrollAcceleration)
         try container.encodeIfPresent(scrollDeadzone, forKey: .scrollDeadzone)
         try container.encodeIfPresent(invertScrollY, forKey: .invertScrollY)
+		try container.encodeIfPresent(customDirectionLayout, forKey: .customDirectionLayout)
         try container.encodeIfPresent(customHorizontalSliceSize, forKey: .customHorizontalSliceSize)
         try container.encodeIfPresent(customVerticalSliceSize, forKey: .customVerticalSliceSize)
         try container.encodeIfPresent(customDeadzone, forKey: .customDeadzone)

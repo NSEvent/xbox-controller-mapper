@@ -152,14 +152,6 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         profileManager.activeProfile?.joystickSettings ?? .default
     }
 
-    private var leftStickDirectionButtons: [ControllerButton] {
-        joystickSettings.chordSequenceJoystickDirectionButtons(side: .left)
-    }
-
-    private var rightStickDirectionButtons: [ControllerButton] {
-        joystickSettings.chordSequenceJoystickDirectionButtons(side: .right)
-    }
-
     /// Returns the currently selected layer, if any
     private var selectedLayer: Layer? {
         guard let layerId = selectedLayerId,
@@ -653,8 +645,11 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
     @ViewBuilder
     func stickModeSection(title: String, side: JoystickSide, center: ControllerButton) -> some View {
-        let mode = stickMode(side: side)
-        let buttons = Set(side == .left ? leftStickDirectionButtons : rightStickDirectionButtons)
+		let tuning = stickTuning(side: side)
+		let mode = tuning.mode
+		let buttons = mode.exposesJoystickDirections
+			? Set(ControllerButton.joystickDirectionButtons(side: side, layout: tuning.customDirectionLayout))
+			: []
 
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 8) {
@@ -686,9 +681,15 @@ struct ControllerVisualView: View, ControllerTypeProviding {
 
             if mode.exposesJoystickDirections {
                 directionClusterGrid(
+					upLeft: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .upLeft))
+						? ControllerButton.joystickDirectionButton(side: side, direction: .upLeft)
+						: nil,
                     up: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .up))
                         ? ControllerButton.joystickDirectionButton(side: side, direction: .up)
                         : nil,
+					upRight: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .upRight))
+						? ControllerButton.joystickDirectionButton(side: side, direction: .upRight)
+						: nil,
                     left: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .left))
                         ? ControllerButton.joystickDirectionButton(side: side, direction: .left)
                         : nil,
@@ -696,8 +697,14 @@ struct ControllerVisualView: View, ControllerTypeProviding {
                     right: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .right))
                         ? ControllerButton.joystickDirectionButton(side: side, direction: .right)
                         : nil,
+					downLeft: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .downLeft))
+						? ControllerButton.joystickDirectionButton(side: side, direction: .downLeft)
+						: nil,
                     down: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .down))
                         ? ControllerButton.joystickDirectionButton(side: side, direction: .down)
+						: nil,
+					downRight: buttons.contains(ControllerButton.joystickDirectionButton(side: side, direction: .downRight))
+						? ControllerButton.joystickDirectionButton(side: side, direction: .downRight)
                         : nil
                 )
             } else {
@@ -842,7 +849,7 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     /// users don't get silently confused after switching mode away from Custom.
     private func hasOrphanedStickDirectionMappings(side: JoystickSide) -> Bool {
         guard !stickMode(side: side).exposesJoystickDirections else { return false }
-        let directionButtons = Set(ControllerButton.joystickDirectionButtons(side: side))
+		let directionButtons = Set(ControllerButton.joystickDirectionButtons(side: side, layout: .eightWay))
 
         // Editing a layer: check that layer's own mappings (not the base).
         // Editing the base: check the profile-level mappings.
@@ -855,10 +862,6 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         return scopedMappings.keys.contains { directionButtons.contains($0) }
     }
 
-    private func profileStickMode(side: JoystickSide) -> StickMode {
-        joystickSettings.stick(side).mode
-    }
-
     /// The active layer's tuning override for this side, if any (nil when editing base).
     private func selectedLayerStickOverride(side: JoystickSide) -> StickTuningOverride? {
         guard let layer = selectedLayer else { return nil }
@@ -869,10 +872,15 @@ struct ControllerVisualView: View, ControllerTypeProviding {
         selectedLayerStickOverride(side: side)?.mode
     }
 
+	private func stickTuning(side: JoystickSide) -> StickTuning {
+		let base = joystickSettings.stick(side)
+		return selectedLayerStickOverride(side: side)?.applied(to: base) ?? base
+	}
+
     /// Effective mode resolved at the current editing scope: layer override (if any) → profile default.
     /// Mirrors `JoystickHandler`'s runtime resolution so the picker label and the actual behavior stay aligned.
     private func stickMode(side: JoystickSide) -> StickMode {
-        layerStickModeOverride(side: side) ?? profileStickMode(side: side)
+		stickTuning(side: side).mode
     }
 
     /// True when editing a layer AND that layer has no override for this side, so the displayed
@@ -1021,17 +1029,21 @@ struct ControllerVisualView: View, ControllerTypeProviding {
     }
 
     private func directionClusterGrid(
+		upLeft: ControllerButton? = nil,
         up: ControllerButton?,
+		upRight: ControllerButton? = nil,
         left: ControllerButton?,
         center: DirectionClusterCenter,
         right: ControllerButton?,
-        down: ControllerButton?
+		downLeft: ControllerButton? = nil,
+		down: ControllerButton?,
+		downRight: ControllerButton? = nil
     ) -> some View {
         Grid(horizontalSpacing: 4, verticalSpacing: 6) {
             GridRow {
-                compactClusterSpacer()
+				compactDirectionCell(upLeft)
                 compactDirectionCell(up)
-                compactClusterSpacer()
+				compactDirectionCell(upRight)
             }
 
             GridRow {
@@ -1041,9 +1053,9 @@ struct ControllerVisualView: View, ControllerTypeProviding {
             }
 
             GridRow {
-                compactClusterSpacer()
+				compactDirectionCell(downLeft)
                 compactDirectionCell(down)
-                compactClusterSpacer()
+				compactDirectionCell(downRight)
             }
         }
         .frame(width: 212)
