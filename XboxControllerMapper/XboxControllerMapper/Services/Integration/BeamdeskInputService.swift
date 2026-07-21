@@ -5,6 +5,11 @@ enum BeamdeskInputPhase: String, Equatable {
     case released
 }
 
+enum BeamdeskInputHand: Hashable {
+	case left
+	case right
+}
+
 enum BeamdeskHandInput: String, CaseIterable {
     case leftSwipeLeft = "controllerkeys.beamdesk-hand.left.swipe-left"
     case leftSwipeRight = "controllerkeys.beamdesk-hand.left.swipe-right"
@@ -31,6 +36,37 @@ enum BeamdeskHandInput: String, CaseIterable {
         case .rightThumbTap: return .beamdeskRightThumbTap
         }
     }
+
+	var hand: BeamdeskInputHand {
+		switch self {
+		case .leftSwipeLeft, .leftSwipeRight, .leftSwipeForward, .leftSwipeBack, .leftThumbTap:
+			return .left
+		case .rightSwipeLeft, .rightSwipeRight, .rightSwipeForward, .rightSwipeBack, .rightThumbTap:
+			return .right
+		}
+	}
+}
+
+struct BeamdeskGestureCooldown {
+	/// Matches the Oura directional-flick cooldown: long enough to absorb a
+	/// second recognition emitted while the hand settles after one gesture.
+	static let defaultDuration: TimeInterval = 0.65
+
+	var duration = defaultDuration
+	private var lastAcceptedPressByHand: [BeamdeskInputHand: TimeInterval] = [:]
+
+	mutating func accepts(_ input: BeamdeskHandInput, at timestamp: TimeInterval) -> Bool {
+		let hand = input.hand
+		if let previous = lastAcceptedPressByHand[hand], timestamp - previous < duration {
+			return false
+		}
+		lastAcceptedPressByHand[hand] = timestamp
+		return true
+	}
+
+	mutating func reset() {
+		lastAcceptedPressByHand.removeAll()
+	}
 }
 
 struct BeamdeskInputEvent: Equatable {
@@ -58,6 +94,7 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
     private let notificationCenter: DistributedNotificationCenter
     private let lock = NSLock()
     private var pressedButtons: Set<ControllerButton> = []
+	private var gestureCooldown = BeamdeskGestureCooldown()
     private var observing = false
 
     init(
@@ -76,6 +113,7 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
         observing = false
         let buttons = pressedButtons
         pressedButtons.removeAll()
+		gestureCooldown.reset()
         lock.unlock()
 
         if wasObserving {
@@ -119,10 +157,18 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
         lock.lock()
         let changed: Bool
         switch event.phase {
-        case .pressed:
-            changed = pressedButtons.insert(button).inserted
-        case .released:
-            changed = pressedButtons.remove(button) != nil
+		case .pressed:
+			if pressedButtons.contains(button)
+				|| !gestureCooldown.accepts(
+					event.input,
+					at: ProcessInfo.processInfo.systemUptime
+				) {
+				changed = false
+			} else {
+				changed = pressedButtons.insert(button).inserted
+			}
+		case .released:
+			changed = pressedButtons.remove(button) != nil
         }
         lock.unlock()
 

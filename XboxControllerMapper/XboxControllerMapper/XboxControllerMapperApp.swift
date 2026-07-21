@@ -3,9 +3,10 @@ import GameController
 import Combine
 
 enum AppRuntime {
-    static var isRunningTests: Bool {
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-    }
+	static var isRunningTests: Bool {
+		ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+			ProcessInfo.processInfo.processName == "xctest"
+	}
 
     /// Screenshot capture mode, set via `--screenshot-variant <name>` by
     /// Scripts/capture-screenshots.sh. Valid names: dualsense, dualsense-edge,

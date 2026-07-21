@@ -47,6 +47,32 @@ final class BeamdeskInputServiceTests: XCTestCase {
             )
         )
     }
+
+	func testCooldownRejectsSecondRecognitionFromSameHand() {
+		var cooldown = BeamdeskGestureCooldown()
+
+		XCTAssertTrue(cooldown.accepts(.leftSwipeLeft, at: 10))
+		XCTAssertFalse(cooldown.accepts(.leftSwipeRight, at: 10.64))
+	}
+
+	func testCooldownAllowsSimultaneousOppositeHandGesture() {
+		var cooldown = BeamdeskGestureCooldown()
+
+		XCTAssertTrue(cooldown.accepts(.leftThumbTap, at: 10))
+		XCTAssertTrue(cooldown.accepts(.rightThumbTap, at: 10))
+	}
+
+	func testCooldownAllowsSameHandAfterWindow() {
+		var cooldown = BeamdeskGestureCooldown()
+
+		XCTAssertTrue(cooldown.accepts(.rightSwipeForward, at: 10))
+		XCTAssertTrue(
+			cooldown.accepts(
+				.rightSwipeBack,
+				at: 10 + BeamdeskGestureCooldown.defaultDuration
+			)
+		)
+	}
 }
 
 private extension BeamdeskInputEvent {
