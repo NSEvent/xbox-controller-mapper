@@ -33,3 +33,7 @@
 ## 2024-07-21 - [Accessibility] Use Button Instead of .onTapGesture for List Rows
 **Learning:** In SwiftUI lists, using `.onTapGesture` combined with `.contentShape(Rectangle())` to make a row interactive lacks built-in keyboard accessibility and native VoiceOver traits. Users navigating via keyboard cannot focus or activate the row.
 **Action:** Always wrap the entire interactive row content in a `Button` with `.buttonStyle(.plain)` and explicitly provide an `.accessibilityLabel()`. This ensures the row remains visually identical while becoming fully accessible to keyboard and screen reader users.
+
+## 2024-07-21 - [Process] Handle Foundation.Process cleanly in Tests
+**Learning:** Found existing tests that threw uncatchable exceptions by calling `waitUntilExit()` on processes whose `run()` threw an error. Also found unread pipes that could cause deadlocks.
+**Action:** Fixed them in `OBSWebSocketLiveIntegrationTests.swift` to align with the repository guidelines.
