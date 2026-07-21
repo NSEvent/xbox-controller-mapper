@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-07-21
+
 ### Added
 
 - **Eight-way joystick actions**: Custom stick mode can split either joystick into eight equal directional sectors, including independent diagonal bindings. A small boundary buffer keeps a held action stable near sector edges, and the same eight directions are available in layers, chords, and sequences.
