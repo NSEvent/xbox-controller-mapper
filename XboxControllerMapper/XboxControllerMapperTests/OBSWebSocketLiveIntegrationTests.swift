@@ -170,7 +170,7 @@ private enum OBSMediaMTXManager {
         do {
             try which.run()
         } catch {
-            return nil
+            throw XCTSkip("mediamtx not found. Install with `brew install mediamtx` or set MEDIAMTX_BIN")
         }
 
         let data = outPipe.fileHandleForReading.readDataToEndOfFile()
