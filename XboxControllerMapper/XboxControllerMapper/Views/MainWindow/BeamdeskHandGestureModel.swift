@@ -45,11 +45,20 @@ struct BeamdeskThumbArticulation: Equatable {
   let cmcFlex: CGFloat
   let mcpFlex: CGFloat
   let ipFlex: CGFloat
+  let lateralSweep: CGFloat
 
-  static let rest = Self(cmcFlex: -0.04, mcpFlex: 0.08, ipFlex: 0.10)
-  static let contact = Self(cmcFlex: 0.22, mcpFlex: 0.44, ipFlex: 0.38)
-  static let tap = Self(cmcFlex: 0.42, mcpFlex: 0.76, ipFlex: 0.68)
-  static let slide = Self(cmcFlex: 0.32, mcpFlex: 0.60, ipFlex: 0.54)
+  static let rest = Self(cmcFlex: -0.04, mcpFlex: 0.08, ipFlex: 0.10, lateralSweep: 0)
+  static let contact = Self(cmcFlex: 0.22, mcpFlex: 0.44, ipFlex: 0.38, lateralSweep: 0)
+  static let tap = Self(cmcFlex: 0.42, mcpFlex: 0.76, ipFlex: 0.68, lateralSweep: 0)
+  static let slide = Self(cmcFlex: 0.32, mcpFlex: 0.60, ipFlex: 0.54, lateralSweep: 0)
+  static let slideLeft = Self(
+    cmcFlex: 0.22, mcpFlex: 0.44, ipFlex: 0.38, lateralSweep: 0.72)
+  static let slideRight = Self(
+    cmcFlex: 0.22, mcpFlex: 0.44, ipFlex: 0.38, lateralSweep: -0.72)
+  static let outwardLeft = Self(
+    cmcFlex: 0.22, mcpFlex: 0.44, ipFlex: 0.38, lateralSweep: 0.34)
+  static let outwardRight = Self(
+    cmcFlex: 0.22, mcpFlex: 0.44, ipFlex: 0.38, lateralSweep: -0.34)
 }
 
 @MainActor
@@ -95,25 +104,41 @@ struct BeamdeskGesturePresentation: Equatable {
       .flatMap(BeamdeskGesturePresentation.init(button:))
   }
 
-  /// Meta recognizes left/right as a thumb slide along the index finger.
-  /// The physical direction reverses between hands.
+  /// Screen-space motion used by the animated thumb root and motion trail.
+  /// Horizontal gestures stay horizontal in the first-person preview; depth
+  /// gestures mirror between hands as each thumb travels along its index finger.
   var thumbSlideOffset: SCNVector3 {
     let sign = side.inwardSign
+    let horizontalTravel: CGFloat = isOutwardHorizontalSwipe ? 0.30 : 0.58
     switch gesture {
     case .swipeLeft:
-      return SCNVector3(0, -sign * 0.66, 0)
+      return SCNVector3(-horizontalTravel, 0, 0)
     case .swipeRight:
-      return SCNVector3(0, sign * 0.66, 0)
+      return SCNVector3(horizontalTravel, 0, 0)
     case .swipeForward:
-      return SCNVector3(sign * -0.36, 0.18, -0.50)
+      return SCNVector3(sign * 0.36, 0.18, -0.50)
     case .swipeBack:
-      return SCNVector3(sign * 0.32, -0.22, 0.50)
+      return SCNVector3(sign * -0.32, -0.22, 0.50)
     case .thumbTap:
       return SCNVector3Zero
     }
   }
 
   var finalArticulation: BeamdeskThumbArticulation {
-    gesture == .thumbTap ? .tap : .slide
+    switch gesture {
+    case .thumbTap:
+      return .tap
+    case .swipeLeft:
+      return isOutwardHorizontalSwipe ? .outwardLeft : .slideLeft
+    case .swipeRight:
+      return isOutwardHorizontalSwipe ? .outwardRight : .slideRight
+    case .swipeForward, .swipeBack:
+      return .slide
+    }
+  }
+
+  private var isOutwardHorizontalSwipe: Bool {
+    (side == .left && gesture == .swipeLeft)
+      || (side == .right && gesture == .swipeRight)
   }
 }

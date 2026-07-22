@@ -132,17 +132,19 @@ private final class BeamdeskHandRig {
     setArticulation(.rest)
     setEmphasized(true)
 
+    let isHorizontalSwipe =
+      presentation.gesture == .swipeLeft || presentation.gesture == .swipeRight
     let contact = SCNVector3(
       restThumbPosition.x - side.profileSign * 0.04,
       restThumbPosition.y + 0.06,
-      0.34
+      isHorizontalSwipe ? 0.58 : 0.34
     )
     let semanticOffset = presentation.thumbSlideOffset
     // Keep the CMC attached to the hand. Joint flex supplies most of the visible
     // travel while a smaller root translation traces the recognized direction.
     let rootMotionScale: CGFloat = 0.38
     let offset = SCNVector3(
-      -semanticOffset.x * rootMotionScale,
+      semanticOffset.x * rootMotionScale,
       semanticOffset.y * rootMotionScale,
       semanticOffset.z * rootMotionScale
     )
@@ -165,21 +167,24 @@ private final class BeamdeskHandRig {
       keyPath: \BeamdeskThumbArticulation.cmcFlex,
       on: thumbCMCJoint,
       final: presentation.finalArticulation,
-      gestureDuration: gestureDuration
+      gestureDuration: gestureDuration,
+      finalZ: presentation.finalArticulation.lateralSweep
     )
     animateArticulation(
       keyPath: \BeamdeskThumbArticulation.mcpFlex,
       on: thumbMCPJoint,
       final: presentation.finalArticulation,
       gestureDuration: gestureDuration,
-      restZ: -side.profileSign * 0.035
+      restZ: -side.profileSign * 0.035,
+      finalZ: -side.profileSign * 0.035 + presentation.finalArticulation.lateralSweep * 0.42
     )
     animateArticulation(
       keyPath: \BeamdeskThumbArticulation.ipFlex,
       on: thumbIPJoint,
       final: presentation.finalArticulation,
       gestureDuration: gestureDuration,
-      restZ: side.profileSign * 0.025
+      restZ: side.profileSign * 0.025,
+      finalZ: side.profileSign * 0.025 + presentation.finalArticulation.lateralSweep * 0.14
     )
 
     showMotionTrail(from: contact, to: end, gesture: presentation.gesture)
@@ -291,12 +296,14 @@ private final class BeamdeskHandRig {
   private func buildThumb() {
     thumbRoot.position = restThumbPosition
     // The photo reference shows the nail-facing back of a nearly vertical thumb.
-    // Three true pivot nodes represent its CMC, MCP, and IP joints.
+    // The thenar bridge visibly joins the palm to the CMC; from there the
+    // metacarpal and two phalanges each terminate at a true pivot node.
     thumbRoot.eulerAngles.z = -side.profileSign * 0.12
     root.addChildNode(thumbRoot)
 
+    addThumbBaseBridge()
     thumbRoot.addChildNode(thumbCMCJoint)
-    addJointMass(radius: 0.205, to: thumbCMCJoint, showsCrease: false)
+    addJointMass(radius: 0.205, to: thumbCMCJoint, showsCrease: true)
     addThumbSegment(radius: 0.19, height: 0.46, y: 0.17, to: thumbCMCJoint)
 
     thumbMCPJoint.position = SCNVector3(0, 0.35, 0)
@@ -316,6 +323,26 @@ private final class BeamdeskHandRig {
     thumbIPJoint.addChildNode(nailNode)
 
     setArticulation(.rest)
+  }
+
+  private func addThumbBaseBridge() {
+    // This short thenar/carpal mass was previously hidden inside the palm,
+    // making the metacarpal look detached. Pulling its silhouette forward
+    // gives the thumb a readable fourth section without adding a fake joint.
+    let inward = -side.profileSign
+    let bridge = capsuleNode(radius: 0.205, height: 0.54)
+    bridge.position = SCNVector3(inward * 0.13, -0.14, -0.03)
+    bridge.eulerAngles.z = side.profileSign * 0.72
+    bridge.scale = SCNVector3(1.08, 1, 0.92)
+    thumbRoot.addChildNode(bridge)
+
+    let thenar = SCNSphere(radius: 0.225)
+    thenar.firstMaterial = skinMaterial
+    let thenarNode = SCNNode(geometry: thenar)
+    thenarNode.name = "skin"
+    thenarNode.position = SCNVector3(inward * 0.22, -0.24, -0.08)
+    thenarNode.scale = SCNVector3(1.08, 0.84, 0.88)
+    thumbRoot.addChildNode(thenarNode)
   }
 
   private func addThumbSegment(radius: CGFloat, height: CGFloat, y: CGFloat, to parent: SCNNode) {
@@ -341,11 +368,18 @@ private final class BeamdeskHandRig {
   }
 
   private func setArticulation(_ articulation: BeamdeskThumbArticulation) {
-    thumbCMCJoint.eulerAngles = SCNVector3(-articulation.cmcFlex, 0, 0)
+    thumbCMCJoint.eulerAngles = SCNVector3(
+      -articulation.cmcFlex, 0, articulation.lateralSweep)
     thumbMCPJoint.eulerAngles = SCNVector3(
-      -articulation.mcpFlex, 0, -side.profileSign * 0.035)
+      -articulation.mcpFlex,
+      0,
+      -side.profileSign * 0.035 + articulation.lateralSweep * 0.42
+    )
     thumbIPJoint.eulerAngles = SCNVector3(
-      -articulation.ipFlex, 0, side.profileSign * 0.025)
+      -articulation.ipFlex,
+      0,
+      side.profileSign * 0.025 + articulation.lateralSweep * 0.14
+    )
   }
 
   private func animateArticulation(
@@ -353,13 +387,18 @@ private final class BeamdeskHandRig {
     on joint: SCNNode,
     final: BeamdeskThumbArticulation,
     gestureDuration: TimeInterval,
-    restZ: CGFloat = 0
+    restZ: CGFloat = 0,
+    finalZ: CGFloat = 0
   ) {
-    func rotate(to articulation: BeamdeskThumbArticulation, duration: TimeInterval) -> SCNAction {
+    func rotate(
+      to articulation: BeamdeskThumbArticulation,
+      z: CGFloat,
+      duration: TimeInterval
+    ) -> SCNAction {
       let action = SCNAction.rotateTo(
         x: -articulation[keyPath: keyPath],
         y: 0,
-        z: restZ,
+		z: z,
         duration: duration,
         usesShortestUnitArc: true
       )
@@ -369,10 +408,10 @@ private final class BeamdeskHandRig {
 
     joint.runAction(
       .sequence([
-        rotate(to: .contact, duration: 0.20),
-        rotate(to: final, duration: gestureDuration),
+		rotate(to: .contact, z: restZ, duration: 0.20),
+		rotate(to: final, z: finalZ, duration: gestureDuration),
         .wait(duration: 0.12),
-        rotate(to: .rest, duration: 0.26),
+		rotate(to: .rest, z: restZ, duration: 0.26),
       ]))
   }
 
