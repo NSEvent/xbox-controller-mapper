@@ -114,6 +114,19 @@ final class BeamdeskHandGeometryTests: XCTestCase {
         XCTAssertEqual(simd_length(normal), 1, accuracy: 1e-3)
         XCTAssertTrue(vertex.x.isFinite && vertex.y.isFinite && vertex.z.isFinite)
       }
+
+      // The full fist must stay a closed, consistently wound shell even
+      // where creases cross (the weld pass guards against pinches).
+      var directed = Set<[Int32]>()
+      for t in stride(from: 0, to: mesh.indices.count, by: 3) {
+        let (a, b, c) = (mesh.indices[t], mesh.indices[t + 1], mesh.indices[t + 2])
+        for edge in [[a, b], [b, c], [c, a]] {
+          XCTAssertTrue(directed.insert(edge).inserted, "pinched shell at edge \(edge)")
+        }
+      }
+      for edge in directed {
+        XCTAssertTrue(directed.contains([edge[1], edge[0]]), "open shell at edge \(edge)")
+      }
     }
   }
 

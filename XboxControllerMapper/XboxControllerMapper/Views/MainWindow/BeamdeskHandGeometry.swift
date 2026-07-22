@@ -55,6 +55,12 @@ enum BeamdeskHandGeometry {
     return min(a, b) - h * h * k * 0.25
   }
 
+  /// Smooth maximum; `smoothMax(d, -cutter, k)` carves `cutter` out of `d`
+  /// with a filleted edge instead of a hard boolean seam.
+  static func smoothMax(_ a: Float, _ b: Float, _ k: Float) -> Float {
+    -smoothMin(-a, -b, k)
+  }
+
   // MARK: - Authored fields
 
   /// The unified fist shell, sans thumb, posed as a first-person thumbs-up:
@@ -85,22 +91,45 @@ enum BeamdeskHandGeometry {
         d, taperedCapsule(p, SIMD3(-s * 0.16, -1.05, -0.10), SIMD3(-s * 0.44, -2.35, -0.24), 0.26, 0.32),
         0.10)
 
-      // Curled digits: chunky proximal lobes with a knuckle wrap tucking away
-      // from camera. Tight blends between neighbors keep the grooves readable;
-      // a softer blend melts the stack into the fist as one shell.
+      // Curled digits: each is a horizontal hook seen edge-on — the proximal
+      // phalanx emerges from the shell toward screen-center, crowns at a PIP
+      // knuckle on the leading edge, and the middle phalanx folds away from
+      // camera around it, shading darker as it recedes. Tight blends at the
+      // bend and between neighbors keep crease lines readable; a softer
+      // blend melts the stack into the fist as one shell. Lower digits curl
+      // shorter and sit deeper, like a relaxed fist.
       let rows: [Float] = [0.24, -0.01, -0.26, -0.49]
       var fingers = Float.greatestFiniteMagnitude
       for (index, y) in rows.enumerated() {
         let taper = 1 - Float(index) * 0.05
-        let reach = 0.02 * Float(index)
+        let reach = 0.025 * Float(index)
+        let sink = 0.01 * Float(index)
+        let pipX = s * (0.475 - reach)
         var finger = taperedCapsule(
-          p, SIMD3(s * 0.27, y, 0.095), SIMD3(s * (0.46 - reach), y - 0.02, 0.12),
-          0.150 * taper, 0.130 * taper)
+          p, SIMD3(s * 0.25, y, 0.10 - sink), SIMD3(pipX - s * 0.03, y - 0.015, 0.115 - sink),
+          0.145 * taper, 0.126 * taper)
         finger = smoothMin(
-          finger, sphere(p, SIMD3(s * (0.50 - reach), y - 0.045, 0.055), 0.105 * taper), 0.065)
-        fingers = index == 0 ? finger : smoothMin(fingers, finger, 0.03)
+          finger,
+          ellipsoid(
+            p, SIMD3(pipX, y - 0.025, 0.075 - sink),
+            SIMD3(0.128 * taper, 0.108 * taper, 0.105 * taper)),
+          0.045)
+        finger = smoothMin(
+          finger,
+          taperedCapsule(
+            p, SIMD3(pipX - s * 0.005, y - 0.03, 0.05 - sink),
+            SIMD3(pipX - s * 0.045, y - 0.045, -0.09),
+            0.120 * taper, 0.100 * taper),
+          0.045)
+        fingers = index == 0 ? finger : smoothMin(fingers, finger, 0.028)
       }
-      return smoothMin(d, fingers, 0.10)
+      // Crease where the digits press against the dorsal mass: a carved
+      // channel running down the emergence line separates the knuckle stack
+      // from the back of the hand instead of melting into it. Kept wider
+      // than the polygonizer cell so the cut never pinches the shell.
+      let groove = taperedCapsule(
+        p, SIMD3(s * 0.335, 0.34, 0.27), SIMD3(s * 0.315, -0.58, 0.23), 0.065, 0.065)
+      return smoothMax(smoothMin(d, fingers, 0.10), -groove, 0.065)
     }
   }
 
@@ -222,6 +251,35 @@ enum BeamdeskHandGeometry {
           }
         }
       }
+    }
+
+    // Sub-cell features (e.g. two creases crossing) can pinch naive surface
+    // nets, folding the shell so one directed edge is emitted twice. Weld
+    // such edges shut: merge their endpoints and drop the triangles the
+    // collapse degenerates. Runs 0 times on a clean field; capped defensively.
+    var welds = 0
+    while welds < 16 {
+      var seen = Set<Int64>()
+      var pinched: (Int32, Int32)?
+      scan: for t in stride(from: 0, to: indices.count, by: 3) {
+        let tri = (indices[t], indices[t + 1], indices[t + 2])
+        for (a, b) in [(tri.0, tri.1), (tri.1, tri.2), (tri.2, tri.0)] {
+          if !seen.insert(Int64(a) << 32 | Int64(UInt32(bitPattern: b))).inserted {
+            pinched = (a, b)
+            break scan
+          }
+        }
+      }
+      guard let (keep, drop) = pinched else { break }
+      vertices[Int(keep)] = (vertices[Int(keep)] + vertices[Int(drop)]) * 0.5
+      var healed: [Int32] = []
+      healed.reserveCapacity(indices.count)
+      for t in stride(from: 0, to: indices.count, by: 3) {
+        let tri = (0..<3).map { indices[t + $0] == drop ? keep : indices[t + $0] }
+        if tri[0] != tri[1] && tri[1] != tri[2] && tri[2] != tri[0] { healed += tri }
+      }
+      indices = healed
+      welds += 1
     }
 
     let eps = cellSize * 0.5
