@@ -50,7 +50,9 @@ struct BeamdeskThumbArticulation: Equatable {
   static let rest = Self(cmcFlex: -0.04, mcpFlex: 0.08, ipFlex: 0.10, lateralSweep: 0)
   static let contact = Self(cmcFlex: 0.22, mcpFlex: 0.44, ipFlex: 0.38, lateralSweep: 0)
   static let tap = Self(cmcFlex: 0.42, mcpFlex: 0.76, ipFlex: 0.68, lateralSweep: 0)
-  static let slide = Self(cmcFlex: 0.32, mcpFlex: 0.60, ipFlex: 0.54, lateralSweep: 0)
+  // Depth slides keep the column upright so it stays readable against the
+  // fist directly behind it; the push is carried by the distal hook alone.
+  static let slide = Self(cmcFlex: 0.10, mcpFlex: 0.18, ipFlex: 0.54, lateralSweep: 0)
   static let slideLeft = Self(
     cmcFlex: 0.22, mcpFlex: 0.44, ipFlex: 0.38, lateralSweep: 0.72)
   static let slideRight = Self(
@@ -105,8 +107,12 @@ struct BeamdeskGesturePresentation: Equatable {
   }
 
   /// Screen-space motion used by the animated thumb root and motion trail.
-  /// Horizontal gestures stay horizontal in the first-person preview; depth
-  /// gestures mirror between hands as each thumb travels along its index finger.
+  /// Horizontal gestures stay horizontal in the first-person preview. Depth
+  /// gestures carry their direction in z but, under the orthographic camera,
+  /// read through their y travel: forward climbs up along the curled index,
+  /// back retreats down toward the wrist. The x drift is a slight
+  /// along-the-index garnish that mirrors between hands; it stays small so
+  /// the thumb glides over the knuckle stack instead of sinking into it.
   var thumbSlideOffset: SCNVector3 {
     let sign = side.inwardSign
     let horizontalTravel: CGFloat = isOutwardHorizontalSwipe ? 0.30 : 0.58
@@ -116,9 +122,9 @@ struct BeamdeskGesturePresentation: Equatable {
     case .swipeRight:
       return SCNVector3(horizontalTravel, 0, 0)
     case .swipeForward:
-      return SCNVector3(sign * 0.36, 0.18, -0.50)
+      return SCNVector3(sign * 0.12, 0.40, -0.50)
     case .swipeBack:
-      return SCNVector3(sign * -0.32, -0.22, 0.50)
+      return SCNVector3(sign * -0.12, -0.36, 0.50)
     case .thumbTap:
       return SCNVector3Zero
     }

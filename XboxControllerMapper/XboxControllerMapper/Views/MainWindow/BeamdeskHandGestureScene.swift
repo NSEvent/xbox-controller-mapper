@@ -101,11 +101,12 @@ private final class BeamdeskHandRig {
   private let accentMaterial = SCNMaterial()
   private let motionMaterial = SCNMaterial()
   private let nailMaterial = SCNMaterial()
-  private let creaseMaterial = SCNMaterial()
   private var animationToken = 0
 
   private var restThumbPosition: SCNVector3 {
-    SCNVector3(side.profileSign * 0.30, -0.14, 0.50)
+    // POV fists: each thumb rises from its fist's inner edge, matching the
+    // first-person reference photo (left thumb screen-right of its fist).
+    SCNVector3(side.inwardSign * 0.30, -0.14, 0.50)
   }
 
   init(side: BeamdeskHandSide) {
@@ -134,19 +135,24 @@ private final class BeamdeskHandRig {
 
     let isHorizontalSwipe =
       presentation.gesture == .swipeLeft || presentation.gesture == .swipeRight
+    // Depth gestures stay on the 0.42 plane so the thumb grazes the sculpted
+    // fist shell while it slides instead of submerging into the mesh.
     let contact = SCNVector3(
       restThumbPosition.x - side.profileSign * 0.04,
       restThumbPosition.y + 0.06,
-      isHorizontalSwipe ? 0.58 : 0.34
+      isHorizontalSwipe ? 0.58 : 0.42
     )
     let semanticOffset = presentation.thumbSlideOffset
     // Keep the CMC attached to the hand. Joint flex supplies most of the visible
     // travel while a smaller root translation traces the recognized direction.
+    // Depth (z) travel is damped further: under the orthographic camera it adds
+    // no on-screen motion, it only sinks the thumb behind the sculpted shell.
     let rootMotionScale: CGFloat = 0.38
+    let depthMotionScale: CGFloat = 0.22
     let offset = SCNVector3(
       semanticOffset.x * rootMotionScale,
       semanticOffset.y * rootMotionScale,
-      semanticOffset.z * rootMotionScale
+      semanticOffset.z * depthMotionScale
     )
     let end = SCNVector3(contact.x + offset.x, contact.y + offset.y, contact.z + offset.z)
 
@@ -215,156 +221,82 @@ private final class BeamdeskHandRig {
     motionMaterial.emission.contents = NSColor(
       calibratedRed: 0.10, green: 0.72, blue: 0.82, alpha: 1)
     motionMaterial.blendMode = .add
+    // The trail is HUD feedback, not anatomy: render it over the hands so
+    // depth-gesture trails aren't swallowed by the fist mesh.
+    motionMaterial.readsFromDepthBuffer = false
 
     nailMaterial.diffuse.contents = NSColor(
       calibratedRed: 0.66, green: 0.96, blue: 0.98, alpha: 1)
     nailMaterial.roughness.contents = 0.38
     nailMaterial.metalness.contents = 0.02
     nailMaterial.lightingModel = .physicallyBased
-
-    creaseMaterial.diffuse.contents = NSColor(
-      calibratedRed: 0.08, green: 0.40, blue: 0.47, alpha: 0.72)
-    creaseMaterial.roughness.contents = 0.72
-    creaseMaterial.lightingModel = .physicallyBased
   }
 
   private func buildHand() {
-    // Meta's microgesture pose is a thumb-side profile, not an open palm.
-    // Tilt the wrist toward the viewer, hide the curled fingers behind the
-    // back-of-hand mass, and leave only their inner silhouettes visible.
+    // First-person thumbs-up pose from the reference photo: backs of the
+    // hands and thumb-side surfaces face the viewer, palms stay hidden.
+    // The whole fist — dorsal dome, curled digits, wrist, forearm — is one
+    // sculpted signed-distance shell (see BeamdeskHandGeometry) so the
+    // silhouette reads as a single form; only the animated thumb is separate.
     root.eulerAngles.x = -.pi / 8
     root.eulerAngles.y = side.profileSign * .pi / 24
     root.eulerAngles.z = side.profileSign * .pi / 20
     root.scale = SCNVector3(0.98, 0.98, 0.98)
 
-    addBox(width: 0.74, height: 0.96, length: 0.58, chamfer: 0.28, at: SCNVector3(0, -0.20, 0))
-    addBackOfHandSurface()
-    addCapsule(
-      radius: 0.29,
-      height: 1.24,
-      at: SCNVector3(side.profileSign * 0.10, -1.00, -0.10),
-      angle: side.profileSign * 0.14
-    )
-    addCurledFingers()
+    addSculptedNode(mesh: BeamdeskHandGeometry.fistMesh(inward: inwardSign), to: root)
     buildThumb()
   }
 
-  private func addBackOfHandSurface() {
-    let back = SCNSphere(radius: 0.52)
-    back.firstMaterial = skinMaterial
-    let backNode = SCNNode(geometry: back)
-    backNode.name = "skin"
-    backNode.position = SCNVector3(-side.profileSign * 0.03, -0.22, 0.23)
-    backNode.scale = SCNVector3(0.69, 1.08, 0.54)
-    root.addChildNode(backNode)
-  }
+  private var inwardSign: Float { Float(side.inwardSign) }
 
-  private func addCurledFingers() {
-    let inward = -side.profileSign
-    let rows: [CGFloat] = [0.24, -0.01, -0.26, -0.49]
-
-    for (index, y) in rows.enumerated() {
-      let taper = 1 - CGFloat(index) * 0.045
-
-      let middle = capsuleNode(radius: 0.125 * taper, height: 0.39 * taper)
-      middle.position = SCNVector3(inward * 0.34, y, 0.13)
-      middle.eulerAngles.z = -inward * .pi / 2
-      root.addChildNode(middle)
-
-      let distal = capsuleNode(radius: 0.112 * taper, height: 0.32 * taper)
-      distal.position = SCNVector3(inward * 0.50, y - 0.055, 0.18)
-      distal.eulerAngles.z = inward * 0.62
-      root.addChildNode(distal)
-
-      let fingertip = SCNSphere(radius: 0.122 * taper)
-      fingertip.firstMaterial = skinMaterial
-      let fingertipNode = SCNNode(geometry: fingertip)
-      fingertipNode.name = "skin"
-      fingertipNode.position = SCNVector3(inward * 0.57, y - 0.11, 0.19)
-      fingertipNode.scale = SCNVector3(0.82, 1, 0.72)
-      root.addChildNode(fingertipNode)
-
-      let crease = SCNTorus(ringRadius: 0.088 * taper, pipeRadius: 0.009)
-      crease.firstMaterial = creaseMaterial
-      let creaseNode = SCNNode(geometry: crease)
-      creaseNode.position = SCNVector3(inward * 0.54, y - 0.08, 0.24)
-      creaseNode.eulerAngles.x = .pi / 2
-      root.addChildNode(creaseNode)
-    }
+  private func addSculptedNode(mesh: BeamdeskSurfaceMesh, to parent: SCNNode) {
+    let node = SCNNode(geometry: BeamdeskHandGeometry.geometry(from: mesh, material: skinMaterial))
+    node.name = "skin"
+    parent.addChildNode(node)
   }
 
   private func buildThumb() {
     thumbRoot.position = restThumbPosition
-    // The photo reference shows the nail-facing back of a nearly vertical thumb.
-    // The thenar bridge visibly joins the palm to the CMC; from there the
-    // metacarpal and two phalanges each terminate at a true pivot node.
+    // The photo reference shows the nail-facing back of a nearly vertical
+    // thumb. The sculpted thenar bridge joins the fist to the CMC; from there
+    // the metacarpal and both phalanges are sculpted shells whose bases bulge
+    // over their pivot and whose shafts overrun the next joint, so the
+    // silhouette stays sealed through the full articulation range.
     thumbRoot.eulerAngles.z = -side.profileSign * 0.12
     root.addChildNode(thumbRoot)
 
-    addThumbBaseBridge()
+    addSculptedNode(mesh: BeamdeskHandGeometry.thumbBridgeMesh(inward: inwardSign), to: thumbRoot)
+
+    // Radii nest downward (each joint's base cap swallows its parent's tip)
+    // so the overlapping shells never show a ridge along the column.
     thumbRoot.addChildNode(thumbCMCJoint)
-    addJointMass(radius: 0.205, to: thumbCMCJoint, showsCrease: true)
-    addThumbSegment(radius: 0.19, height: 0.46, y: 0.17, to: thumbCMCJoint)
+    addSculptedNode(
+      mesh: BeamdeskHandGeometry.thumbSegmentMesh(
+        baseRadius: 0.15, tipRadius: 0.120, length: 0.42),
+      to: thumbCMCJoint)
 
     thumbMCPJoint.position = SCNVector3(0, 0.35, 0)
     thumbCMCJoint.addChildNode(thumbMCPJoint)
-    addJointMass(radius: 0.18, to: thumbMCPJoint, showsCrease: true)
-    addThumbSegment(radius: 0.175, height: 0.50, y: 0.20, to: thumbMCPJoint)
+    addSculptedNode(
+      mesh: BeamdeskHandGeometry.thumbSegmentMesh(
+        baseRadius: 0.152, tipRadius: 0.116, length: 0.44),
+      to: thumbMCPJoint)
 
     thumbIPJoint.position = SCNVector3(0, 0.41, 0)
     thumbMCPJoint.addChildNode(thumbIPJoint)
-    addJointMass(radius: 0.16, to: thumbIPJoint, showsCrease: true)
-    addThumbSegment(radius: 0.155, height: 0.46, y: 0.17, to: thumbIPJoint)
+    addSculptedNode(
+      mesh: BeamdeskHandGeometry.thumbSegmentMesh(
+        baseRadius: 0.148, tipRadius: 0.104, length: 0.30),
+      to: thumbIPJoint)
 
-    let nail = SCNBox(width: 0.15, height: 0.27, length: 0.025, chamferRadius: 0.055)
+    let nail = SCNBox(width: 0.12, height: 0.20, length: 0.025, chamferRadius: 0.05)
     nail.firstMaterial = nailMaterial
     let nailNode = SCNNode(geometry: nail)
-    nailNode.position = SCNVector3(0, 0.22, 0.16)
+    nailNode.position = SCNVector3(0, 0.17, 0.128)
+    nailNode.eulerAngles.x = -0.12
     thumbIPJoint.addChildNode(nailNode)
 
     setArticulation(.rest)
-  }
-
-  private func addThumbBaseBridge() {
-    // This short thenar/carpal mass was previously hidden inside the palm,
-    // making the metacarpal look detached. Pulling its silhouette forward
-    // gives the thumb a readable fourth section without adding a fake joint.
-    let inward = -side.profileSign
-    let bridge = capsuleNode(radius: 0.205, height: 0.54)
-    bridge.position = SCNVector3(inward * 0.13, -0.14, -0.03)
-    bridge.eulerAngles.z = side.profileSign * 0.72
-    bridge.scale = SCNVector3(1.08, 1, 0.92)
-    thumbRoot.addChildNode(bridge)
-
-    let thenar = SCNSphere(radius: 0.225)
-    thenar.firstMaterial = skinMaterial
-    let thenarNode = SCNNode(geometry: thenar)
-    thenarNode.name = "skin"
-    thenarNode.position = SCNVector3(inward * 0.22, -0.24, -0.08)
-    thenarNode.scale = SCNVector3(1.08, 0.84, 0.88)
-    thumbRoot.addChildNode(thenarNode)
-  }
-
-  private func addThumbSegment(radius: CGFloat, height: CGFloat, y: CGFloat, to parent: SCNNode) {
-    let segment = capsuleNode(radius: radius, height: height)
-    segment.position = SCNVector3(0, y, 0)
-    parent.addChildNode(segment)
-  }
-
-  private func addJointMass(radius: CGFloat, to parent: SCNNode, showsCrease: Bool) {
-    let sphere = SCNSphere(radius: radius)
-    sphere.firstMaterial = skinMaterial
-    let sphereNode = SCNNode(geometry: sphere)
-    sphereNode.name = "skin"
-    sphereNode.scale = SCNVector3(1, 0.82, 0.94)
-    parent.addChildNode(sphereNode)
-
-    guard showsCrease else { return }
-    let crease = SCNTorus(ringRadius: radius * 0.87, pipeRadius: 0.012)
-    crease.firstMaterial = creaseMaterial
-    let creaseNode = SCNNode(geometry: crease)
-    creaseNode.position = SCNVector3(0, 0.012, 0)
-    parent.addChildNode(creaseNode)
   }
 
   private func setArticulation(_ articulation: BeamdeskThumbArticulation) {
@@ -458,39 +390,4 @@ private final class BeamdeskHandRig {
       ]))
   }
 
-  private func addBox(
-    width: CGFloat,
-    height: CGFloat,
-    length: CGFloat,
-    chamfer: CGFloat,
-    at position: SCNVector3
-  ) {
-    let box = SCNBox(
-      width: width,
-      height: height,
-      length: length,
-      chamferRadius: chamfer
-    )
-    box.firstMaterial = skinMaterial
-    let node = SCNNode(geometry: box)
-    node.name = "skin"
-    node.position = position
-    root.addChildNode(node)
-  }
-
-  private func addCapsule(radius: CGFloat, height: CGFloat, at position: SCNVector3, angle: CGFloat)
-  {
-    let node = capsuleNode(radius: radius, height: height)
-    node.position = position
-    node.eulerAngles.z = angle
-    root.addChildNode(node)
-  }
-
-  private func capsuleNode(radius: CGFloat, height: CGFloat) -> SCNNode {
-    let capsule = SCNCapsule(capRadius: radius, height: max(height, radius * 2.02))
-    capsule.firstMaterial = skinMaterial
-    let node = SCNNode(geometry: capsule)
-    node.name = "skin"
-    return node
-  }
 }
