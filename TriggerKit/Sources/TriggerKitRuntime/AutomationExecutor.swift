@@ -653,7 +653,9 @@ private final class ShellCommandRunner: @unchecked Sendable {
 		}
 
 		clearStoredProcess()
+
 		pipe.fileHandleForReading.readabilityHandler = nil
+		process.waitUntilExit()
 		let remainingData = pipe.fileHandleForReading.readDataToEndOfFile()
 		if !remainingData.isEmpty {
 			outputBuffer.append(remainingData)
