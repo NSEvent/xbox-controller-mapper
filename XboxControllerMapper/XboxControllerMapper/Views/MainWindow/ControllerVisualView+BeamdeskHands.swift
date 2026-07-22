@@ -12,14 +12,12 @@ extension ControllerVisualView {
 			.frame(width: 270)
 
 			VStack(spacing: 12) {
+				// Like the main controller layout, the layer chip sits above the
+				// card so it never covers the live gesture caption rendered at
+				// the card's bottom edge.
+				layerScopeChip(nameMaxWidth: 120)
+
 				BeamdeskHandsMinimapView(pressedButtons: controllerService.activeButtons)
-					.overlay(alignment: .bottom) {
-						layerScopeChip(nameMaxWidth: 120)
-							.frame(maxWidth: BeamdeskHandsMinimapView.previewSize.width - 40)
-							.padding(.horizontal, 20)
-							.padding(.bottom, 18)
-							.allowsHitTesting(false)
-					}
 					.accessibilityHidden(true)
 
 				Text("META QUEST MICROGESTURES")
