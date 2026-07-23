@@ -82,6 +82,38 @@ struct BeamdeskInputEvent: Equatable {
     }
 }
 
+/// Gives every accepted press a lease so a delayed failsafe release cannot clear a newer press.
+struct BeamdeskInputLeaseState {
+	private(set) var pressedButtons: Set<ControllerButton> = []
+	private var nextLease: UInt64 = 0
+	private var leaseByButton: [ControllerButton: UInt64] = [:]
+
+	func contains(_ button: ControllerButton) -> Bool {
+		pressedButtons.contains(button)
+	}
+
+	mutating func press(_ button: ControllerButton) -> UInt64? {
+		guard pressedButtons.insert(button).inserted else { return nil }
+		nextLease &+= 1
+		leaseByButton[button] = nextLease
+		return nextLease
+	}
+
+	mutating func release(_ button: ControllerButton, lease: UInt64? = nil) -> Bool {
+		if let lease, leaseByButton[button] != lease { return false }
+		guard pressedButtons.remove(button) != nil else { return false }
+		leaseByButton.removeValue(forKey: button)
+		return true
+	}
+
+	mutating func releaseAll() -> Set<ControllerButton> {
+		let buttons = pressedButtons
+		pressedButtons.removeAll()
+		leaseByButton.removeAll()
+		return buttons
+	}
+}
+
 /// Adapts Beamdesk's distributed notifications to ControllerKeys' normal
 /// press/release pipeline. The mapping engine then supplies profiles, layers,
 /// holds, chords, sequences, macros, scripts, and action feedback unchanged.
@@ -92,8 +124,9 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
 
     private let controllerService: ControllerService
     private let notificationCenter: DistributedNotificationCenter
+	private let releaseQueue = DispatchQueue(label: "xyz.kevintang.controllerkeys.beamdesk-release")
     private let lock = NSLock()
-    private var pressedButtons: Set<ControllerButton> = []
+	private var inputLeases = BeamdeskInputLeaseState()
 	private var gestureCooldown = BeamdeskGestureCooldown()
     private var observing = false
 
@@ -111,8 +144,7 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
         lock.lock()
         let wasObserving = observing
         observing = false
-        let buttons = pressedButtons
-        pressedButtons.removeAll()
+		let buttons = inputLeases.releaseAll()
 		gestureCooldown.reset()
         lock.unlock()
 
@@ -154,25 +186,37 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
 
     private func handle(_ event: BeamdeskInputEvent) {
         let button = event.input.button
-        lock.lock()
-        let changed: Bool
-        switch event.phase {
+		switch event.phase {
 		case .pressed:
-			if pressedButtons.contains(button)
-				|| !gestureCooldown.accepts(
-					event.input,
-					at: ProcessInfo.processInfo.systemUptime
-				) {
-				changed = false
-			} else {
-				changed = pressedButtons.insert(button).inserted
-			}
+			handlePress(event.input, button: button)
 		case .released:
-			changed = pressedButtons.remove(button) != nil
-        }
+			release(button)
+		}
+	}
+
+	private func handlePress(_ input: BeamdeskHandInput, button: ControllerButton) {
+        lock.lock()
+		guard !inputLeases.contains(button),
+			  gestureCooldown.accepts(input, at: ProcessInfo.processInfo.systemUptime),
+			  let lease = inputLeases.press(button) else {
+			lock.unlock()
+			return
+		}
         lock.unlock()
 
-        guard changed else { return }
-        controllerService.handleButton(button, pressed: event.phase == .pressed)
+		controllerService.handleButton(button, pressed: true)
+		releaseQueue.asyncAfter(deadline: .now() + Self.maximumPressDuration) { [weak self] in
+			self?.release(button, lease: lease)
+		}
+	}
+
+	private func release(_ button: ControllerButton, lease: UInt64? = nil) {
+		lock.lock()
+		let changed = inputLeases.release(button, lease: lease)
+		lock.unlock()
+		guard changed else { return }
+		controllerService.handleButton(button, pressed: false)
     }
+
+	private static let maximumPressDuration: TimeInterval = 0.25
 }

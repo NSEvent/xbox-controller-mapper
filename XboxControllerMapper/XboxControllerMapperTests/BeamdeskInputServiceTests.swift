@@ -73,6 +73,30 @@ final class BeamdeskInputServiceTests: XCTestCase {
 			)
 		)
 	}
+
+	func testMissingReleaseFailsafeClearsHeldGesture() throws {
+		var state = BeamdeskInputLeaseState()
+		let button = ControllerButton.beamdeskRightThumbTap
+		let lease = try XCTUnwrap(state.press(button))
+
+		XCTAssertTrue(state.contains(button))
+		XCTAssertTrue(state.release(button, lease: lease))
+		XCTAssertFalse(state.contains(button))
+		XCTAssertFalse(state.release(button), "A late wire release must be harmless")
+	}
+
+	func testStaleFailsafeCannotReleaseANewerGesturePress() throws {
+		var state = BeamdeskInputLeaseState()
+		let button = ControllerButton.beamdeskLeftSwipeLeft
+		let oldLease = try XCTUnwrap(state.press(button))
+		XCTAssertTrue(state.release(button))
+		let newLease = try XCTUnwrap(state.press(button))
+
+		XCTAssertNotEqual(oldLease, newLease)
+		XCTAssertFalse(state.release(button, lease: oldLease))
+		XCTAssertTrue(state.contains(button))
+		XCTAssertTrue(state.release(button, lease: newLease))
+	}
 }
 
 private extension BeamdeskInputEvent {
