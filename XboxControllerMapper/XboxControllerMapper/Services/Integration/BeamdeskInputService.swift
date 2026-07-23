@@ -82,6 +82,60 @@ struct BeamdeskInputEvent: Equatable {
     }
 }
 
+/// Link-state announcement from the Beamdesk Mac client, carried on the same
+/// distributed-notification channel as gestures. The agent posts `connected`
+/// on Quest-session connect and as a periodic heartbeat, and `disconnected`
+/// on session teardown. IDs must stay in sync with beamdesk's
+/// `protocol/CONTROLLERKEYS.md`.
+enum BeamdeskLinkAnnouncement: String, Equatable {
+	case connected
+	case disconnected
+
+	static let notificationID = "controllerkeys.beamdesk-hands.state"
+
+	init?(notificationID: String, argument: String?) {
+		guard notificationID == Self.notificationID,
+			  let argument,
+			  let announcement = Self(rawValue: argument) else { return nil }
+		self = announcement
+	}
+}
+
+/// Liveness of the Beamdesk client link. Any signal (state announcement,
+/// heartbeat, or gesture traffic) proves the link; it expires when every
+/// signal goes quiet for `staleInterval` so a crashed client cannot leave a
+/// phantom connected controller behind.
+struct BeamdeskLinkState {
+	/// Three missed 5-second agent heartbeats.
+	static let staleInterval: TimeInterval = 15
+
+	private(set) var isConnected = false
+	private var lastSignal: TimeInterval?
+
+	/// Returns true when this signal newly connected the link.
+	mutating func registerSignal(at timestamp: TimeInterval) -> Bool {
+		lastSignal = timestamp
+		let becameConnected = !isConnected
+		isConnected = true
+		return becameConnected
+	}
+
+	/// Returns true when the link was connected and is now closed.
+	mutating func registerDisconnect() -> Bool {
+		lastSignal = nil
+		let wasConnected = isConnected
+		isConnected = false
+		return wasConnected
+	}
+
+	/// Returns true when the link just expired from silence.
+	mutating func expireIfStale(at timestamp: TimeInterval) -> Bool {
+		guard isConnected, let lastSignal,
+			  timestamp - lastSignal >= Self.staleInterval else { return false }
+		return registerDisconnect()
+	}
+}
+
 /// Gives every accepted press a lease so a delayed failsafe release cannot clear a newer press.
 struct BeamdeskInputLeaseState {
 	private(set) var pressedButtons: Set<ControllerButton> = []
@@ -128,6 +182,8 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
     private let lock = NSLock()
 	private var inputLeases = BeamdeskInputLeaseState()
 	private var gestureCooldown = BeamdeskGestureCooldown()
+	private var linkState = BeamdeskLinkState()
+	private var linkExpiryWorkItem: DispatchWorkItem?
     private var observing = false
 
     init(
@@ -146,6 +202,9 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
         observing = false
 		let buttons = inputLeases.releaseAll()
 		gestureCooldown.reset()
+		let linkWasConnected = linkState.registerDisconnect()
+		linkExpiryWorkItem?.cancel()
+		linkExpiryWorkItem = nil
         lock.unlock()
 
         if wasObserving {
@@ -154,6 +213,9 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
         for button in buttons {
             controllerService.handleButton(button, pressed: false)
         }
+		if linkWasConnected {
+			publishLinkConnected(false)
+		}
     }
 
     deinit {
@@ -161,13 +223,69 @@ final class BeamdeskInputService: NSObject, @unchecked Sendable {
     }
 
     @objc private func receive(_ notification: Notification) {
-        guard let notificationID = notification.object as? String,
-              let event = BeamdeskInputEvent(
-                  notificationID: notificationID,
-                  argument: notification.userInfo?["argument"] as? String
-              ) else { return }
+        guard let notificationID = notification.object as? String else { return }
+        let argument = notification.userInfo?["argument"] as? String
+        if let announcement = BeamdeskLinkAnnouncement(
+            notificationID: notificationID, argument: argument
+        ) {
+            handleLink(announcement)
+            return
+        }
+        guard let event = BeamdeskInputEvent(
+            notificationID: notificationID, argument: argument
+        ) else { return }
+        // Gesture traffic is proof of a live link even without announcements.
+        registerLinkSignal()
         handle(event)
     }
+
+	private func handleLink(_ announcement: BeamdeskLinkAnnouncement) {
+		switch announcement {
+		case .connected:
+			registerLinkSignal()
+		case .disconnected:
+			lock.lock()
+			let changed = linkState.registerDisconnect()
+			linkExpiryWorkItem?.cancel()
+			linkExpiryWorkItem = nil
+			lock.unlock()
+			if changed {
+				publishLinkConnected(false)
+			}
+		}
+	}
+
+	private func registerLinkSignal() {
+		lock.lock()
+		let becameConnected = linkState.registerSignal(
+			at: ProcessInfo.processInfo.systemUptime)
+		linkExpiryWorkItem?.cancel()
+		let expiry = DispatchWorkItem { [weak self] in self?.expireLinkIfStale() }
+		linkExpiryWorkItem = expiry
+		lock.unlock()
+
+		releaseQueue.asyncAfter(
+			deadline: .now() + BeamdeskLinkState.staleInterval + 0.5, execute: expiry)
+		if becameConnected {
+			publishLinkConnected(true)
+		}
+	}
+
+	private func expireLinkIfStale() {
+		lock.lock()
+		let expired = linkState.expireIfStale(at: ProcessInfo.processInfo.systemUptime)
+		lock.unlock()
+		if expired {
+			publishLinkConnected(false)
+		}
+	}
+
+	private func publishLinkConnected(_ connected: Bool) {
+		let controllerService = controllerService
+		Task { @MainActor in
+			controllerService.setBeamdeskHandsConnected(connected)
+		}
+	}
 
     private func start() {
         lock.lock()

@@ -97,6 +97,97 @@ final class BeamdeskInputServiceTests: XCTestCase {
 		XCTAssertTrue(state.contains(button))
 		XCTAssertTrue(state.release(button, lease: newLease))
 	}
+
+	// MARK: - Link state
+
+	func testParsesLinkAnnouncementsAndRejectsGestureIDs() {
+		XCTAssertEqual(
+			BeamdeskLinkAnnouncement(
+				notificationID: "controllerkeys.beamdesk-hands.state", argument: "connected"),
+			.connected
+		)
+		XCTAssertEqual(
+			BeamdeskLinkAnnouncement(
+				notificationID: "controllerkeys.beamdesk-hands.state", argument: "disconnected"),
+			.disconnected
+		)
+		XCTAssertNil(
+			BeamdeskLinkAnnouncement(
+				notificationID: "controllerkeys.beamdesk-hand.left.thumb-tap",
+				argument: "connected"
+			)
+		)
+		XCTAssertNil(
+			BeamdeskLinkAnnouncement(
+				notificationID: "controllerkeys.beamdesk-hands.state", argument: nil))
+	}
+
+	func testLinkConnectsOnceAndHeartbeatsAreQuiet() {
+		var link = BeamdeskLinkState()
+
+		XCTAssertTrue(link.registerSignal(at: 10), "first signal must announce the connection")
+		XCTAssertFalse(link.registerSignal(at: 14), "heartbeat must not re-announce")
+		XCTAssertTrue(link.isConnected)
+	}
+
+	func testLinkExpiresOnlyAfterHeartbeatSilence() {
+		var link = BeamdeskLinkState()
+		_ = link.registerSignal(at: 10)
+
+		XCTAssertFalse(link.expireIfStale(at: 10 + BeamdeskLinkState.staleInterval - 1))
+		XCTAssertTrue(link.isConnected)
+		XCTAssertTrue(link.expireIfStale(at: 10 + BeamdeskLinkState.staleInterval))
+		XCTAssertFalse(link.isConnected)
+		XCTAssertFalse(link.expireIfStale(at: 100), "an expired link cannot expire twice")
+	}
+
+	func testLinkDisconnectAnnouncementClosesImmediately() {
+		var link = BeamdeskLinkState()
+		_ = link.registerSignal(at: 10)
+
+		XCTAssertTrue(link.registerDisconnect())
+		XCTAssertFalse(link.registerDisconnect(), "a repeated disconnect must be harmless")
+		XCTAssertFalse(link.isConnected)
+	}
+
+	@MainActor
+	func testConnectionPublishesBeamdeskHandsAsTheActiveController() {
+		let controllerService = ControllerService(enableHardwareMonitoring: false)
+
+		controllerService.setBeamdeskHandsConnected(true)
+
+		XCTAssertTrue(controllerService.isConnected)
+		XCTAssertTrue(controllerService.isBeamdeskHandsActiveInputSource)
+		XCTAssertEqual(controllerService.controllerName, "Beamdesk Hands")
+		XCTAssertEqual(
+			ControllerVisualDescriptor.active(using: controllerService).family, .beamdeskHands)
+
+		controllerService.setBeamdeskHandsConnected(false)
+
+		XCTAssertFalse(controllerService.isConnected)
+		XCTAssertEqual(controllerService.controllerName, "")
+		controllerService.cleanup()
+	}
+
+	@MainActor
+	func testOuraRingOutranksBeamdeskHandsAndHandsBackOnDisconnect() {
+		let controllerService = ControllerService(enableHardwareMonitoring: false)
+
+		controllerService.setOuraRingConnected(true)
+		controllerService.setBeamdeskHandsConnected(true)
+
+		XCTAssertEqual(controllerService.controllerName, "Oura Ring")
+		XCTAssertEqual(
+			ControllerVisualDescriptor.active(using: controllerService).family, .ouraRing)
+
+		controllerService.setOuraRingConnected(false)
+
+		XCTAssertTrue(controllerService.isConnected, "Beamdesk must take over the display")
+		XCTAssertEqual(controllerService.controllerName, "Beamdesk Hands")
+		XCTAssertEqual(
+			ControllerVisualDescriptor.active(using: controllerService).family, .beamdeskHands)
+		controllerService.cleanup()
+	}
 }
 
 private extension BeamdeskInputEvent {

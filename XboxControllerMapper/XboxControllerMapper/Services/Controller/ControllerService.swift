@@ -219,6 +219,7 @@ class ControllerService: ObservableObject {
     @Published var controllerName: String = ""
 	@Published var controllerMappingSource: String?
     @Published private(set) var isOuraRingConnected = false
+    @Published private(set) var isBeamdeskHandsConnected = false
 
     /// Currently pressed buttons (UI use only, updated asynchronously)
     @Published var activeButtons: Set<ControllerButton> = []
@@ -1255,6 +1256,8 @@ class ControllerService: ObservableObject {
 
 		if isOuraRingConnected {
 			publishOuraRingConnection()
+		} else if isBeamdeskHandsConnected {
+			publishBeamdeskHandsConnection()
 		}
     }
 
@@ -1273,11 +1276,37 @@ class ControllerService: ObservableObject {
 				controllerMappingSource = nil
 				activeButtons.removeAll()
 				stopDisplayUpdateTimer()
+				if isBeamdeskHandsConnected {
+					publishBeamdeskHandsConnection()
+				}
 			} else {
 				releaseOuraRingButtons()
 			}
 		}
     }
+
+	/// Beamdesk announces its link over the same distributed-notification
+	/// channel as gestures; this mirrors the Oura ring's virtual-controller
+	/// connection so the hands read as a connected controller. Physical
+	/// controllers and the Oura ring take display precedence.
+	func setBeamdeskHandsConnected(_ connected: Bool) {
+		guard isBeamdeskHandsConnected != connected else { return }
+		isBeamdeskHandsConnected = connected
+
+		if connected {
+			publishBeamdeskHandsConnection()
+		} else {
+			releaseBeamdeskHandsButtons()
+			if !hasActiveHardwareInputSource && !isOuraRingConnected {
+				isConnected = false
+				currentControllerIdentity = nil
+				controllerName = ""
+				controllerMappingSource = nil
+				activeButtons.removeAll()
+				stopDisplayUpdateTimer()
+			}
+		}
+	}
 
 	private var hasActiveHardwareInputSource: Bool {
 		connectedController != nil ||
@@ -1293,6 +1322,12 @@ class ControllerService: ObservableObject {
 		controllerMappingSource == "Oura Ring"
 	}
 
+	var isBeamdeskHandsActiveInputSource: Bool {
+		isBeamdeskHandsConnected &&
+		controllerName == "Beamdesk Hands" &&
+		controllerMappingSource == "Beamdesk Hands"
+	}
+
     private func publishOuraRingConnection() {
 		guard !hasActiveHardwareInputSource else { return }
 		isConnected = true
@@ -1303,6 +1338,17 @@ class ControllerService: ObservableObject {
 			startDisplayUpdateTimer()
 		}
     }
+
+	private func publishBeamdeskHandsConnection() {
+		guard !hasActiveHardwareInputSource, !isOuraRingConnected else { return }
+		isConnected = true
+		currentControllerIdentity = nil
+		controllerName = "Beamdesk Hands"
+		controllerMappingSource = "Beamdesk Hands"
+		if !AppRuntime.isRunningTests {
+			startDisplayUpdateTimer()
+		}
+	}
 
     func resetTouchpadStateLocked() {
         storage.isTouchpadTouching = false
@@ -2365,6 +2411,12 @@ class ControllerService: ObservableObject {
 
 	nonisolated private func releaseOuraRingButtons() {
 		for button in ControllerButton.ouraRingButtons {
+			handleButton(button, pressed: false)
+		}
+	}
+
+	nonisolated private func releaseBeamdeskHandsButtons() {
+		for button in ControllerButton.beamdeskHandButtons {
 			handleButton(button, pressed: false)
 		}
 	}

@@ -234,6 +234,9 @@ extension ControllerVisualDescriptor {
 		if service.isOuraRingConnected {
 			return ControllerVisualDescriptor(family: .ouraRing)
 		}
+		if service.isBeamdeskHandsConnected {
+			return ControllerVisualDescriptor(family: .beamdeskHands)
+		}
 		return active(from: service.threadSafeControllerPresentationState)
 	}
 
