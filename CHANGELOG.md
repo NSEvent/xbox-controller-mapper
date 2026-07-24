@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Held controller modifiers now reach pen and pointer input**: Shift, Control, Option, and Command held through a controller mapping are added to concurrent mouse and tablet events. This fixes apps such as Photoshop missing a controller-held Shift during Wacom strokes even though ControllerKeys still showed the mapping as held.
+
 ## [2.6.1] - 2026-07-21
 
 ### Added

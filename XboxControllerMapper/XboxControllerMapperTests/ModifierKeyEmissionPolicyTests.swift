@@ -47,4 +47,38 @@ final class ModifierKeyEmissionPolicyTests: XCTestCase {
 			[.maskControl, .maskAlternate, .maskShift, .maskCommand]
 		)
 	}
+
+	func testShiftHoldEventsUseFlagsChangedAndExpectedFlags() throws {
+		let source = CGEventSource(stateID: .hidSystemState)
+		let down = try XCTUnwrap(
+			ModifierKeyEmissionPolicy.makeEvent(
+				source: source,
+				keyCode: CGKeyCode(kVK_Shift),
+				keyDown: true,
+				flags: [.maskShift]
+			)
+		)
+		let up = try XCTUnwrap(
+			ModifierKeyEmissionPolicy.makeEvent(
+				source: source,
+				keyCode: CGKeyCode(kVK_Shift),
+				keyDown: false,
+				flags: []
+			)
+		)
+
+		XCTAssertEqual(down.type, .flagsChanged)
+		XCTAssertEqual(
+			down.getIntegerValueField(.keyboardEventKeycode),
+			Int64(kVK_Shift)
+		)
+		XCTAssertTrue(down.flags.contains(.maskShift))
+
+		XCTAssertEqual(up.type, .flagsChanged)
+		XCTAssertEqual(
+			up.getIntegerValueField(.keyboardEventKeycode),
+			Int64(kVK_Shift)
+		)
+		XCTAssertFalse(up.flags.contains(.maskShift))
+	}
 }

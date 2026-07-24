@@ -139,6 +139,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     }
     private let eventSource: CGEventSource?
 	private let codexMicroOutput: any CodexMicroOutputProtocol
+	private var heldModifierPointerEventBridge: HeldModifierPointerEventBridge?
 
     /// Currently held modifier flags (for hold-type mappings)
     private var heldModifiers: CGEventFlags = []
@@ -559,6 +560,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
+		heldModifierPointerEventBridge?.startIfNeeded()
 
         stateLock.lock()
         defer { stateLock.unlock() }
@@ -569,12 +571,16 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             modifierCounts[key] = count + 1
 
             if count == 0 {
-                // First time this modifier is being held
-                heldModifiers.insert(mask)
+				// First time this modifier is being held
+				heldModifiers.insert(mask)
 				if let vKey = ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key) {
 					modifierHeldKeyCodes[key] = vKey
-					if let event = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true) {
-                        event.flags = heldModifiers
+					if let event = ModifierKeyEmissionPolicy.makeEvent(
+						source: source,
+						keyCode: vKey,
+						keyDown: true,
+						flags: heldModifiers
+					) {
                         event.post(tap: .cghidEventTap)
                     } else {
                         NSLog("[InputSimulator] Failed to create modifier key-down event for mask 0x%llx - check Accessibility permissions", key)
@@ -611,8 +617,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 					let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
 					modifierHeldKeyCodes[key] = nil
 					if let releaseKeyCode {
-						if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
-                            event.flags = heldModifiers
+						if let event = ModifierKeyEmissionPolicy.makeEvent(
+							source: source,
+							keyCode: releaseKeyCode,
+							keyDown: false,
+							flags: heldModifiers
+						) {
                             event.post(tap: .cghidEventTap)
                         }
                     }
@@ -627,8 +637,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 				let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
 				modifierHeldKeyCodes[key] = nil
 				if let releaseKeyCode {
-					if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
-                        event.flags = heldModifiers
+					if let event = ModifierKeyEmissionPolicy.makeEvent(
+						source: source,
+						keyCode: releaseKeyCode,
+						keyDown: false,
+						flags: heldModifiers
+					) {
                         event.post(tap: .cghidEventTap)
                     } else {
                         NSLog("[InputSimulator] Failed to create modifier key-up event for mask 0x%llx - check Accessibility permissions", key)
@@ -661,6 +675,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 
         guard checkAccessibility() else { return }
         guard let source = eventSource else { return }
+		heldModifierPointerEventBridge?.startIfNeeded()
 
         stateLock.lock()
         defer { stateLock.unlock() }
@@ -672,8 +687,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         if count == 0 {
             heldModifiers.insert(mask)
 			modifierHeldKeyCodes[key] = keyCode
-            if let event = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
-                event.flags = heldModifiers
+			if let event = ModifierKeyEmissionPolicy.makeEvent(
+				source: source,
+				keyCode: keyCode,
+				keyDown: true,
+				flags: heldModifiers
+			) {
                 event.post(tap: .cghidEventTap)
             } else {
                 NSLog("[InputSimulator] Failed to create modifier key-down event for keyCode %d - check Accessibility permissions", keyCode)
@@ -704,11 +723,15 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             // Underflow protection — mirrors releaseModifier behavior
             if heldModifiers.contains(mask) {
                 NSLog("[InputSimulator] WARNING: modifier 0x%llx in heldModifiers but count is 0 — force-removing to prevent stuck modifier", key)
-                heldModifiers.remove(mask)
+				heldModifiers.remove(mask)
 				let releaseKeyCode = modifierHeldKeyCodes[key] ?? keyCode
 				modifierHeldKeyCodes[key] = nil
-				if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
-                    event.flags = heldModifiers
+				if let event = ModifierKeyEmissionPolicy.makeEvent(
+					source: source,
+					keyCode: releaseKeyCode,
+					keyDown: false,
+					flags: heldModifiers
+				) {
                     event.post(tap: .cghidEventTap)
                 }
             }
@@ -720,8 +743,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
             heldModifiers.remove(mask)
 			let releaseKeyCode = modifierHeldKeyCodes[key] ?? keyCode
 			modifierHeldKeyCodes[key] = nil
-			if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
-                event.flags = heldModifiers
+			if let event = ModifierKeyEmissionPolicy.makeEvent(
+				source: source,
+				keyCode: releaseKeyCode,
+				keyDown: false,
+				flags: heldModifiers
+			) {
                 event.post(tap: .cghidEventTap)
             } else {
                 NSLog("[InputSimulator] Failed to create modifier key-up event for keyCode %d - check Accessibility permissions", keyCode)
@@ -765,8 +792,12 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
 			let releaseKeyCode = modifierHeldKeyCodes[key] ?? ModifierKeyEmissionPolicy.defaultKeyCode(forRawMask: key)
 			modifierHeldKeyCodes[key] = nil
 			if let releaseKeyCode {
-				if let event = CGEvent(keyboardEventSource: source, virtualKey: releaseKeyCode, keyDown: false) {
-                    event.flags = heldModifiers
+				if let event = ModifierKeyEmissionPolicy.makeEvent(
+					source: source,
+					keyCode: releaseKeyCode,
+					keyDown: false,
+					flags: heldModifiers
+				) {
                     event.post(tap: .cghidEventTap)
                 } else {
                     NSLog("[InputSimulator] Failed to create modifier key-up event for mask 0x%llx during releaseAll", key)
@@ -922,6 +953,10 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
         let warpSource = CGEventSource(stateID: .combinedSessionState)
         warpSource?.localEventsSuppressionInterval = 0.0
         warpEventSource = warpSource
+		heldModifierPointerEventBridge = HeldModifierPointerEventBridge { [weak self] in
+			guard let self, !self.shouldRelayUniversalControlAction() else { return [] }
+			return self.getHeldModifiers()
+		}
 
         // Check accessibility once on init
         isAccessibilityTrusted = AXIsProcessTrusted()
@@ -937,6 +972,7 @@ class InputSimulator: InputSimulatorProtocol, @unchecked Sendable {
     }
 
     deinit {
+		heldModifierPointerEventBridge?.stop()
         if let token = screenChangeObserver {
             NotificationCenter.default.removeObserver(token)
         }

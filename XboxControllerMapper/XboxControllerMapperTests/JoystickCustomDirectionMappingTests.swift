@@ -399,6 +399,48 @@ final class JoystickCustomDirectionMappingTests: XCTestCase {
 		XCTAssertFalse(rightIsActive)
 	}
 
+	func testCustomEightWayDirectionHoldsShiftUntilStickReturnsToCenter() async throws {
+		await MainActor.run {
+			var profile = Profile(
+				name: "Photoshop Shift",
+				buttonMappings: [
+					.leftStickUpRight: KeyMapping(
+						keyCode: KeyCodeMapping.shift,
+						isHoldModifier: true
+					)
+				]
+			)
+			profile.joystickSettings.leftStick.mode = .custom
+			profile.joystickSettings.leftStick.customDirectionLayout = .eightWay
+			profile.joystickSettings.leftStick.customDeadzone = 0.1
+			installActiveProfile(profile)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.12)
+
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(CGPoint(x: 0.9, y: 0.9))
+		}
+		await waitForTasks(0.2)
+
+		XCTAssertTrue(
+			mockInputSimulator.getHeldModifiers().contains(.maskShift),
+			"Entering the mapped direction must keep Shift active for a concurrent pen stroke"
+		)
+		XCTAssertEqual(startHoldCount(for: KeyCodeMapping.shift), 1)
+
+		await MainActor.run {
+			controllerService.setLeftStickForTesting(.zero)
+		}
+		await waitForTasks(0.2)
+
+		XCTAssertFalse(
+			mockInputSimulator.getHeldModifiers().contains(.maskShift),
+			"Centering the stick must release Shift"
+		)
+		XCTAssertEqual(stopHoldCount(for: KeyCodeMapping.shift), 1)
+	}
+
 	func testCustomDirectionScrollRepeatsWhileStickHeldAndStopsAtCenter() async throws {
 		await MainActor.run {
 			var profile = Profile(name: "Custom Scroll Direction", buttonMappings: [

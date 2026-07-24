@@ -180,7 +180,11 @@ class MockInputSimulator: InputSimulatorProtocol {
             holdModifier(mapping.modifiers.cgEventFlags)
         }
         if let keyCode = mapping.keyCode {
-            keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+			if KeyCodeMapping.isModifierKey(keyCode) {
+				holdModifierKey(keyCode)
+			} else {
+				keyDown(keyCode, modifiers: mapping.modifiers.cgEventFlags)
+			}
         }
 
         lock.lock()
@@ -190,7 +194,11 @@ class MockInputSimulator: InputSimulatorProtocol {
 
     func stopHoldMapping(_ mapping: KeyMapping) {
         if let keyCode = mapping.keyCode {
-            keyUp(keyCode)
+			if KeyCodeMapping.isModifierKey(keyCode) {
+				releaseModifierKey(keyCode)
+			} else {
+				keyUp(keyCode)
+			}
         }
         if mapping.modifiers.hasAny {
             releaseModifier(mapping.modifiers.cgEventFlags)

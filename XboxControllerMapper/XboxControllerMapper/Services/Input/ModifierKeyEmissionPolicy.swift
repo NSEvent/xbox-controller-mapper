@@ -38,4 +38,21 @@ enum ModifierKeyEmissionPolicy {
 		}
 		return defaultKeyCode(for: mask)
 	}
+
+	static func makeEvent(
+		source: CGEventSource?,
+		keyCode: CGKeyCode,
+		keyDown: Bool,
+		flags: CGEventFlags
+	) -> CGEvent? {
+		guard let event = CGEvent(
+			keyboardEventSource: source,
+			virtualKey: keyCode,
+			keyDown: keyDown
+		) else {
+			return nil
+		}
+		event.flags = flags
+		return event
+	}
 }
