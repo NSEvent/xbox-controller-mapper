@@ -27,10 +27,15 @@ extension MappingEngine {
         joystickTimer?.cancel()
         joystickTimer = nil
 
-        releaseAllDirectionKeys()
-        state.lock.withLock {
-            state.resetTransientInputState()
+		let cleanup = state.lock.withLock {
+			let cleanup = RoutingBoundaryCleanup(
+				state: state,
+				releaseAllModifiers: true
+			)
+			state.resetTransientInputState(consumingPendingButtonReleases: true)
+			return cleanup
         }
+		performRoutingBoundaryCleanup(cleanup)
     }
 
     // MARK: - Joystick Processing (called at 120Hz from pollingQueue)

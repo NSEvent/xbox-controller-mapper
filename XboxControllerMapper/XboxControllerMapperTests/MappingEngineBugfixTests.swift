@@ -772,7 +772,7 @@ final class NilProfileHandlingTests: XCTestCase {
         // No crash occurred - verify no events were fired
         let events = mockInputSimulator.events
         XCTAssertTrue(events.isEmpty,
-            "No key events should fire when profile is nil")
+			"No key events should fire when profile is nil; got \(events)")
     }
 
     /// Bug 5: Setting profile to nil and then pressing buttons should not crash.

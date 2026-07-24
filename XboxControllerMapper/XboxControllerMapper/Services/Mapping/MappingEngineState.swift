@@ -71,6 +71,10 @@ extension MappingEngine {
         // Buttons whose press was consumed by a special action (e.g., double-tap unlock)
         // — release should be a no-op so the single-tap doesn't fire.
         var pressConsumedByAction: Set<ControllerButton> = []
+		// Buttons whose in-flight action was cancelled by a routing boundary.
+		// Unlike `pressConsumedByAction`, this is checked only on release so a
+		// disconnect that never delivers key-up cannot poison the next press.
+		var cancelledPhysicalButtonReleases: Set<ControllerButton> = []
 
         // Joystick State
         var smoothedLeftStick: CGPoint = .zero
@@ -152,8 +156,84 @@ extension MappingEngine {
         }
 
         /// Resets input/session state that should not survive a routing boundary.
+		///
+		/// App-layer changes preserve manually held layers and open overlays: those
+		/// are user-owned context, not outputs from the outgoing app layer. Profile
+		/// changes preserve overlays but clear manual layers because their IDs belong
+		/// to the old profile. In both cases, physical releases for cancelled actions
+		/// are consumed so they cannot fire a mapping from the incoming context.
+		///
         /// Caller MUST already hold `lock`.
-        func resetTransientInputState() {
+		func resetTransientInputState(
+			preservingManualLayers: Bool = false,
+			preservingUIOverlays: Bool = false,
+			consumingPendingButtonReleases: Bool = false
+		) {
+			let preservedActiveLayerIds = preservingManualLayers ? activeLayerIds : []
+			let preservedLayerActivatorButtons = preservingManualLayers
+				? buttonsActingAsLayerActivators
+				: []
+
+			let preservedOnScreenKeyboardButton = preservingUIOverlays ? onScreenKeyboardButton : nil
+			let preservedOnScreenKeyboardHoldMode = preservingUIOverlays && onScreenKeyboardHoldMode
+			let preservedLaserPointerButton = preservingUIOverlays ? laserPointerButton : nil
+			let preservedLaserPointerHoldMode = preservingUIOverlays && laserPointerHoldMode
+			let preservedDirectoryNavigatorButton = preservingUIOverlays ? directoryNavigatorButton : nil
+			let preservedDirectoryNavigatorHoldMode = preservingUIOverlays && directoryNavigatorHoldMode
+			let preservedCommandWheelButton = preservingUIOverlays ? commandWheelButton : nil
+			let preservedCommandWheelHoldMode = preservingUIOverlays && commandWheelHoldMode
+			let preservedCommandWheelActive = preservingUIOverlays && commandWheelActive
+			let preservedWheelAlternateModifiers = preservingUIOverlays
+				? wheelAlternateModifiers
+				: ModifierFlags()
+
+			let preservedPhysicalButtonResolutions = consumingPendingButtonReleases
+				? physicalButtonResolutions
+				: [:]
+			let previouslyCancelledPhysicalButtonReleases = consumingPendingButtonReleases
+				? cancelledPhysicalButtonReleases
+				: []
+			var cancelledButtons: Set<ControllerButton> = []
+			if consumingPendingButtonReleases {
+				cancelledButtons.formUnion(pressConsumedByAction)
+				cancelledButtons.formUnion(heldButtons.keys)
+				cancelledButtons.formUnion(activeChordButtons)
+				cancelledButtons.formUnion(pendingSingleTap.keys)
+				cancelledButtons.formUnion(pendingReleaseActions.keys)
+				cancelledButtons.formUnion(longHoldTimers.keys)
+				cancelledButtons.formUnion(repeatTimers.keys)
+				cancelledButtons.formUnion(holdRepeatTimers.keys)
+				cancelledButtons.formUnion(smoothScrollMappings.keys)
+				cancelledButtons.formUnion(smoothScrollTimers.keys)
+				cancelledButtons.formUnion(physicalButtonResolutions.values)
+
+				if preservingManualLayers {
+					cancelledButtons.subtract(buttonsActingAsLayerActivators)
+				} else {
+					cancelledButtons.formUnion(buttonsActingAsLayerActivators)
+				}
+
+				if preservingUIOverlays {
+					[
+						onScreenKeyboardButton,
+						laserPointerButton,
+						directoryNavigatorButton,
+						commandWheelButton
+					]
+					.compactMap { $0 }
+					.forEach { cancelledButtons.remove($0) }
+				}
+			}
+			let resolvedButtonsWithPhysicalInputs = Set(physicalButtonResolutions.values)
+			var cancelledPhysicalButtons = Set(
+				physicalButtonResolutions.compactMap { physicalButton, resolvedButton in
+					cancelledButtons.contains(resolvedButton) ? physicalButton : nil
+				}
+			)
+			cancelledPhysicalButtons.formUnion(
+				cancelledButtons.subtracting(resolvedButtonsWithPhysicalInputs)
+			)
+
             heldButtons.removeAll()
             activeChordButtons.removeAll()
             lastTapTime.removeAll()
@@ -199,6 +279,7 @@ extension MappingEngine {
             activeLayerIds.removeAll()
             buttonsActingAsLayerActivators.removeAll()
             pressConsumedByAction.removeAll()
+			cancelledPhysicalButtonReleases.removeAll()
             // layerActivatorMap is rebuilt on profile updates.
 
             smoothedLeftStick = .zero
@@ -256,15 +337,41 @@ extension MappingEngine {
             gyroFilterX.reset()
             gyroFilterY.reset()
             lastGyroTime = 0
+
+			if preservingManualLayers {
+				activeLayerIds = preservedActiveLayerIds
+				buttonsActingAsLayerActivators = preservedLayerActivatorButtons
+			}
+
+			if preservingUIOverlays {
+				onScreenKeyboardButton = preservedOnScreenKeyboardButton
+				onScreenKeyboardHoldMode = preservedOnScreenKeyboardHoldMode
+				laserPointerButton = preservedLaserPointerButton
+				laserPointerHoldMode = preservedLaserPointerHoldMode
+				directoryNavigatorButton = preservedDirectoryNavigatorButton
+				directoryNavigatorHoldMode = preservedDirectoryNavigatorHoldMode
+				commandWheelButton = preservedCommandWheelButton
+				commandWheelHoldMode = preservedCommandWheelHoldMode
+				commandWheelActive = preservedCommandWheelActive
+				wheelAlternateModifiers = preservedWheelAlternateModifiers
+			}
+
+			if consumingPendingButtonReleases {
+				physicalButtonResolutions = preservedPhysicalButtonResolutions
+				cancelledPhysicalButtonReleases =
+					previouslyCancelledPhysicalButtonReleases.union(cancelledPhysicalButtons)
+			}
         }
 
         /// Resets all transient state. Caller MUST already hold `lock`.
-        func reset() {
+		func reset(consumingPendingButtonReleases: Bool = false) {
             chordParticipantButtons.removeAll()
             sequenceParticipantButtons.removeAll()
             chordLookup.removeAll()
             layersById.removeAll()
-            resetTransientInputState()
+			resetTransientInputState(
+				consumingPendingButtonReleases: consumingPendingButtonReleases
+			)
         }
     }
 }

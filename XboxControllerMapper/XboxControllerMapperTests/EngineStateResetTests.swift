@@ -84,6 +84,7 @@ final class EngineStateResetTests: XCTestCase {
         state.holdRepeatTimers = [dummyButton: dummyTimer]
 		state.smoothScrollMappings = [dummyButton: dummyMapping]
 		state.smoothScrollTimers = [dummyButton: dummyTimer]
+		state.physicalButtonResolutions = [dummyButton: dummyButton]
 
         state.sequenceDetector.configure(sequences: [
             SequenceMapping(steps: [.a, .b])
@@ -107,6 +108,7 @@ final class EngineStateResetTests: XCTestCase {
         state.activeLayerIds = [UUID()]
         state.buttonsActingAsLayerActivators = [dummyButton]
         state.pressConsumedByAction = [dummyButton]
+		state.cancelledPhysicalButtonReleases = [dummyButton]
 
         state.smoothedLeftStick = CGPoint(x: 0.5, y: 0.5)
         state.smoothedRightStick = CGPoint(x: 0.5, y: 0.5)
@@ -185,6 +187,7 @@ final class EngineStateResetTests: XCTestCase {
         XCTAssertTrue(state.holdRepeatTimers.isEmpty, "[\(label)] holdRepeatTimers")
 		XCTAssertTrue(state.smoothScrollMappings.isEmpty, "[\(label)] smoothScrollMappings")
 		XCTAssertTrue(state.smoothScrollTimers.isEmpty, "[\(label)] smoothScrollTimers — scroll would continue post-reset")
+		XCTAssertTrue(state.physicalButtonResolutions.isEmpty, "[\(label)] physicalButtonResolutions")
 
         XCTAssertTrue(state.sequenceDetector.activeSequences.isEmpty, "[\(label)] sequenceDetector — partial sequences could complete spuriously")
 
@@ -205,6 +208,10 @@ final class EngineStateResetTests: XCTestCase {
         XCTAssertTrue(state.activeLayerIds.isEmpty, "[\(label)] activeLayerIds — locked-in layer would persist")
         XCTAssertTrue(state.buttonsActingAsLayerActivators.isEmpty, "[\(label)] buttonsActingAsLayerActivators")
         XCTAssertTrue(state.pressConsumedByAction.isEmpty, "[\(label)] pressConsumedByAction")
+		XCTAssertTrue(
+			state.cancelledPhysicalButtonReleases.isEmpty,
+			"[\(label)] cancelledPhysicalButtonReleases"
+		)
 
         XCTAssertEqual(state.smoothedLeftStick, .zero, "[\(label)] smoothedLeftStick — residual smoothing would bleed across sessions")
         XCTAssertEqual(state.smoothedRightStick, .zero, "[\(label)] smoothedRightStick")

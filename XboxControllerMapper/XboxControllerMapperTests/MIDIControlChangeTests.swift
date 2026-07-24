@@ -90,6 +90,7 @@ final class MIDIControlChangeModelTests: XCTestCase {
 	}
 }
 
+@MainActor
 final class MIDIButtonLifecycleTests: MappingEngineTestCase {
 	func testButtonMappingSendsPressAndReleaseValues() async {
 		let message = MIDIControlChange(channel: 4, controller: 22, pressValue: 127, releaseValue: 0)
@@ -120,5 +121,53 @@ final class MIDIButtonLifecycleTests: MappingEngineTestCase {
 		}
 
 		XCTAssertEqual(mockMIDIService.events, [.pulse(message)])
+	}
+
+	func testDisablingEngineReleasesHeldMIDIControl() async {
+		let message = MIDIControlChange(channel: 2, controller: 31)
+		await MainActor.run {
+			profileManager.setActiveProfile(
+				Profile(name: "MIDI", buttonMappings: [.a: KeyMapping(midiControlChange: message)])
+			)
+		}
+		await waitForTasks(0.05)
+
+		await MainActor.run { controllerService.buttonPressed(.a) }
+		await waitForTasks(0.2)
+		await MainActor.run { mappingEngine.disable() }
+		await waitForTasks(0.1)
+
+		XCTAssertEqual(mockMIDIService.events, [.press(message), .release(message)])
+	}
+
+	func testControllerDisconnectReleasesHeldMIDIControlAndDoesNotPoisonReconnect() async {
+		let message = MIDIControlChange(channel: 3, controller: 32)
+		await MainActor.run {
+			profileManager.setActiveProfile(
+				Profile(name: "MIDI", buttonMappings: [.a: KeyMapping(midiControlChange: message)])
+			)
+			controllerService.isConnected = true
+		}
+		await waitForTasks(0.1)
+
+		await MainActor.run { controllerService.buttonPressed(.a) }
+		await waitForTasks(0.2)
+		await MainActor.run { controllerService.isConnected = false }
+		await waitForTasks(0.1)
+
+		XCTAssertEqual(mockMIDIService.events, [.press(message), .release(message)])
+
+		await MainActor.run {
+			controllerService.isConnected = true
+			mappingEngine.handleRemoteControllerButtonPressed(.a)
+		}
+		await waitForTasks(0.2)
+		await MainActor.run { mappingEngine.handleRemoteControllerButtonReleased(.a, holdDuration: 0.2) }
+		await waitForTasks(0.1)
+
+		XCTAssertEqual(
+			mockMIDIService.events,
+			[.press(message), .release(message), .press(message), .release(message)]
+		)
 	}
 }

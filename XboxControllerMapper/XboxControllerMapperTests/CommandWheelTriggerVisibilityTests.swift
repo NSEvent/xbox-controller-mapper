@@ -102,26 +102,73 @@ final class CommandWheelTriggerVisibilityTests: XCTestCase {
     /// so there is nothing else to gate it on.
     func testStandaloneCommandWheelTrigger_ShowsWheelImmediately() async throws {
         await MainActor.run {
-            guard var profile = profileManager.activeProfile else {
-                XCTFail("ProfileManager should bootstrap a default profile")
-                return
+			let baseAction = CommandWheelAction(displayName: "Base", keyCode: 0x00)
+			let layerAction = CommandWheelAction(displayName: "Layer", keyCode: 0x01)
+			let layer = Layer(name: "Editing", commandWheelActions: [layerAction])
+			profileManager.setActiveProfile(
+				Profile(
+					name: "Layer Wheel",
+					layers: [layer],
+					commandWheelActions: [baseAction]
+				)
+			)
+			mappingEngine.state.lock.withLock {
+				mappingEngine.state.activeLayerIds = [layer.id]
             }
-            profile.commandWheelActions = [CommandWheelAction(displayName: "Test", keyCode: 0x00)]
-            profileManager.updateProfile(profile)
+
             mappingEngine.handleCommandWheelPressed(.menu, holdMode: true)
+
+			// Simulate a layer release before the enqueued main-thread presentation
+			// block runs. The wheel must still use the press-time snapshot.
+			mappingEngine.state.lock.withLock {
+				mappingEngine.state.activeLayerIds.removeAll()
+			}
         }
         await waitForTasks(0.2)
 
         await MainActor.run {
             XCTAssertTrue(CommandWheelManager.shared.isVisible,
                 "Standalone command wheel should appear immediately on trigger, no joystick required")
-            XCTAssertEqual(CommandWheelManager.shared.items.count, 1,
-                "Wheel should be populated with the configured action")
+			XCTAssertEqual(CommandWheelManager.shared.items.map(\.displayName), ["Layer"],
+				"Wheel should keep the press-time layer snapshot")
         }
 
         await MainActor.run {
             mappingEngine.handleCommandWheelReleased(.menu)
         }
         await waitForTasks(0.1)
+    }
+
+    func testStandaloneCommandWheelReleaseBeforePresentationDoesNotShowWheel() async {
+		await MainActor.run {
+			profileManager.setActiveProfile(
+				Profile(
+					name: "Quick Release",
+					commandWheelActions: [
+						CommandWheelAction(displayName: "Action", keyCode: 0x00)
+					]
+				)
+			)
+			mappingEngine.handleCommandWheelPressed(.menu, holdMode: true)
+			mappingEngine.handleCommandWheelReleased(.menu)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			XCTAssertFalse(CommandWheelManager.shared.isVisible)
+		}
+    }
+
+    func testStandaloneCommandWheelWithoutActiveProfileDoesNotLatchActiveState() async {
+		await MainActor.run {
+			profileManager.activeProfile = nil
+			mappingEngine.handleCommandWheelPressed(.menu, holdMode: true)
+
+			mappingEngine.state.lock.withLock {
+				XCTAssertNil(mappingEngine.state.commandWheelButton)
+				XCTAssertFalse(mappingEngine.state.commandWheelHoldMode)
+				XCTAssertFalse(mappingEngine.state.commandWheelActive)
+			}
+		}
     }
 }

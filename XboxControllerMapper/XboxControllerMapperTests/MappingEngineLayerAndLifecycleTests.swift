@@ -501,6 +501,10 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         }
         await waitForTasks(0.1)
         await MainActor.run {
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks(0.1)
+		await MainActor.run {
             mockInputSimulator.clearEvents()
             mappingEngine.enable()
         }
@@ -581,9 +585,9 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         XCTAssertFalse(heldAfter, "Command should be released after button release following profile switch")
     }
 
-    /// Test 12: Profile switch clears layer state but already-scheduled long-hold timers
-    /// are owned by the DispatchWorkItem, not the profile — they still fire.
-    func testProfileSwitch_longHoldTimerStillFires() async throws {
+    /// Test 12: Profile switch cancels already-scheduled long-hold timers so an
+    /// outgoing profile cannot execute after the routing context changes.
+    func testProfileSwitch_cancelsLongHoldTimer() async throws {
         await MainActor.run {
             let mapping = KeyMapping(
                 keyCode: 1,
@@ -600,7 +604,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         }
         await waitForTasks(0.1) // wait less than threshold
 
-        // Switch profile — layers clear, but the DispatchWorkItem is already scheduled
+		// Switch profile while the old long-hold timer is pending.
         await MainActor.run {
             mockInputSimulator.clearEvents()
             let profile2 = Profile(name: "P2", buttonMappings: [.a: .key(5)])
@@ -617,8 +621,7 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
             if case .pressKey(let keyCode, _) = $0 { return keyCode == 4 }
             return false
         }
-        // The long-hold timer was already in flight — profile switch doesn't cancel it
-        XCTAssertTrue(longHoldFired, "Already-scheduled long-hold timer fires even after profile switch")
+		XCTAssertFalse(longHoldFired, "Outgoing profile long-hold must not fire after profile switch")
     }
 
     // MARK: - State Reset Tests
@@ -678,6 +681,11 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
             mappingEngine.disable()
         }
         await waitForTasks(0.2)
+		await MainActor.run {
+			controllerService.buttonReleased(.a)
+			controllerService.buttonReleased(.b)
+		}
+		await waitForTasks(0.1)
 
         // Re-enable and press just A — should fire normally, not be confused by stale chord state
         await MainActor.run {
@@ -1016,6 +1024,47 @@ final class MappingEngineLayerAndLifecycleTests: XCTestCase {
         }.count
         XCTAssertEqual(remoteKeyCount, 1, "Remote button events should resolve against the receiver's active profile")
     }
+
+	@MainActor
+	func testFreshRemotePressClearsStaleLocalReleaseCancellation() async {
+		await MainActor.run {
+			mappingEngine.state.lock.withLock {
+				mappingEngine.state.physicalButtonResolutions[.a] = .a
+				mappingEngine.state.cancelledPhysicalButtonReleases.insert(.a)
+			}
+		}
+
+		UniversalControlMouseRelay.shared.setDropsOutgoingMessagesForTesting(true)
+		UniversalControlMouseRelay.shared.setRemoteSessionActive(true)
+		defer {
+			UniversalControlMouseRelay.shared.setRemoteSessionActive(false)
+			UniversalControlMouseRelay.shared.setDropsOutgoingMessagesForTesting(false)
+		}
+
+		await MainActor.run {
+			controllerService.buttonPressed(.a)
+		}
+		await waitForTasks(0.1)
+
+		let staleState = await MainActor.run {
+			mappingEngine.state.lock.withLock {
+				(
+					mappingEngine.state.physicalButtonResolutions[.a],
+					mappingEngine.state.cancelledPhysicalButtonReleases.contains(.a)
+				)
+			}
+		}
+		XCTAssertNil(staleState.0)
+		XCTAssertFalse(
+			staleState.1,
+			"A fresh remote press must start a new lifecycle so its release reaches the remote"
+		)
+
+		await MainActor.run {
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks(0.1)
+	}
 
     func testRemoteControllerChord_usesReceiverActiveProfile() async throws {
         UniversalControlMouseRelay.shared.setRemoteSessionActive(false)

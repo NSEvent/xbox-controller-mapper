@@ -254,39 +254,44 @@ extension MappingEngine {
 
         guard holdMode else { return }
 
-        let shouldActivate = state.lock.withLock { () -> Bool in
+		var shouldPlayEmptyHaptic = false
+		let snapshot = state.lock.withLock { () -> (profile: Profile, actions: [CommandWheelAction])? in
             // Don't activate if another wheel is already active
-            guard !state.commandWheelActive else { return false }
+			guard !state.commandWheelActive, let profile = state.activeProfile else {
+				return nil
+			}
+			let actions = CommandWheelActionResolutionPolicy.resolve(
+				profile: profile,
+				activeLayerIds: state.effectiveActiveLayerIds
+			)
+			guard !actions.isEmpty else {
+				shouldPlayEmptyHaptic = true
+				return nil
+			}
+
             state.commandWheelButton = button
             state.commandWheelHoldMode = true
             state.commandWheelActive = true
-            return true
+			return (profile, actions)
         }
 
-        guard shouldActivate else { return }
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-			guard let profile = self.profileManager.activeProfile else { return }
-			let activeLayerIds = self.state.lock.withLock { self.state.effectiveActiveLayerIds }
-			let actions = CommandWheelActionResolutionPolicy.resolve(
-				profile: profile,
-				activeLayerIds: activeLayerIds
-			)
-            guard !actions.isEmpty else {
-                // No actions configured — play error haptic and bail
-                self.controllerService.playHaptic(
+		guard let snapshot else {
+			if shouldPlayEmptyHaptic {
+				controllerService.playHaptic(
                     intensity: 0.3,
                     sharpness: 1.0,
                     transient: true
                 )
-                self.state.lock.withLock {
-                    self.state.commandWheelButton = nil
-                    self.state.commandWheelHoldMode = false
-                    self.state.commandWheelActive = false
-                }
-                return
             }
+			return
+		}
+
+		DispatchQueue.main.async { [weak self] in
+			guard let self = self else { return }
+			let isStillActive = self.state.lock.withLock {
+				self.state.commandWheelActive && self.state.commandWheelButton == button
+			}
+			guard isStillActive else { return }
 
             self.controllerService.playHaptic(
                 intensity: Config.keyboardShowHapticIntensity,
@@ -295,9 +300,9 @@ extension MappingEngine {
                 transient: true
             )
             CommandWheelManager.shared.prepare(
-                actions: actions,
+				actions: snapshot.actions,
                 executor: self.mappingExecutor,
-                profile: self.profileManager.activeProfile
+				profile: snapshot.profile
             )
             CommandWheelManager.shared.show()
             CommandWheelManager.shared.onSegmentChanged = { [weak self] in
@@ -353,6 +358,7 @@ extension MappingEngine {
         if wasWheelButton && wasHoldMode {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
+				guard CommandWheelManager.shared.isVisible else { return }
                 CommandWheelManager.shared.activateSelection()
                 CommandWheelManager.shared.hide()
                 self.controllerService.playHaptic(

@@ -55,11 +55,30 @@ class MappingEngine: ObservableObject {
 
     let state = EngineState()
 
-    private struct RoutingBoundaryCleanup {
+    struct RoutingBoundaryCleanup {
 		let heldMappings: [KeyMapping]
 		let leftKeys: Set<CGKeyCode>
 		let rightKeys: Set<CGKeyCode>
 		let directionButtons: Set<ControllerButton>
+		let releaseAllModifiers: Bool
+
+		init(state: EngineState, releaseAllModifiers: Bool = false) {
+			heldMappings = Array(state.heldButtons.values)
+			leftKeys = state.leftStickHeldKeys
+			rightKeys = state.rightStickHeldKeys
+			directionButtons = state.leftStickHeldDirectionButtons
+				.union(state.rightStickHeldDirectionButtons)
+			let hasActiveRoutingState = !heldMappings.isEmpty
+				|| !leftKeys.isEmpty
+				|| !rightKeys.isEmpty
+				|| !directionButtons.isEmpty
+				|| !state.physicalButtonResolutions.isEmpty
+				|| state.onScreenKeyboardButton != nil
+				|| state.laserPointerButton != nil
+				|| state.directoryNavigatorButton != nil
+				|| state.commandWheelButton != nil
+			self.releaseAllModifiers = releaseAllModifiers && hasActiveRoutingState
+		}
     }
 
     // Joystick polling
@@ -261,36 +280,34 @@ class MappingEngine: ObservableObject {
         profileManager.$activeProfile
             .sink { [weak self] profile in
                 guard let self = self else { return }
-                let directionButtonsToRelease = self.state.lock.withLock { () -> Set<ControllerButton> in
-                    let heldDirections = self.state.leftStickHeldDirectionButtons
-                        .union(self.state.rightStickHeldDirectionButtons)
-                    self.state.leftStickHeldDirectionButtons.removeAll()
-                    self.state.rightStickHeldDirectionButtons.removeAll()
+				let cleanup = self.state.lock.withLock {
+					let cleanup = RoutingBoundaryCleanup(state: self.state)
+					self.state.resetTransientInputState(
+						preservingUIOverlays: true,
+						consumingPendingButtonReleases: true
+					)
                     self.state.activeProfile = profile
                     self.state.joystickSettings = profile?.joystickSettings
-		    let osk = self.profileManager.onScreenKeyboardSettings
-		    self.state.swipeTypingEnabled = osk.swipeTypingEnabled
-		    self.state.swipeTypingSensitivity = osk.swipeTypingSensitivity
-                    self.state.activeLayerIds.removeAll()
+					let osk = self.profileManager.onScreenKeyboardSettings
+					self.state.swipeTypingEnabled = osk.swipeTypingEnabled
+					self.state.swipeTypingSensitivity = osk.swipeTypingSensitivity
 					self.state.appActivatedLayerId = AppLayerActivationPolicy.resolve(
 						bundleId: self.state.frontmostBundleId,
 						controllerKeysBundleId: Bundle.main.bundleIdentifier,
 						profile: profile
 					)
-                    self.state.buttonsActingAsLayerActivators.removeAll()
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                     self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
-                    return heldDirections
+					return cleanup
                 }
-                for button in directionButtonsToRelease {
-                    self.controllerService.handleButton(button, pressed: false)
-                }
+				self.performRoutingBoundaryCleanup(cleanup)
                 self.syncGestureSettings(from: profile?.joystickSettings)
                 self.syncPointerLockMouseMode(from: profile?.joystickSettings)
                 self.syncTouchpadSettings(from: profile)
                 self.syncMotionActivation(for: profile)
                 self.syncLatencySettings(for: profile)
                 self.scriptEngine.clearState()
+				self.applyEffectiveLayerLED()
             }
             .store(in: &cancellables)
 
@@ -343,7 +360,7 @@ class MappingEngine: ObservableObject {
         $isEnabled
             .sink { [weak self] enabled in
                 guard let self = self else { return }
-                let cleanup: (leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)? = self.state.lock.withLock {
+				let cleanup: RoutingBoundaryCleanup? = self.state.lock.withLock {
                     self.state.isEnabled = enabled
                     if enabled {
                         let profile = self.state.activeProfile
@@ -352,24 +369,15 @@ class MappingEngine: ObservableObject {
                         self.syncLatencySettings(for: profile)
                         return nil
                     }
-                    let leftKeys = self.state.leftStickHeldKeys
-                    let rightKeys = self.state.rightStickHeldKeys
-                    let directionButtons = self.state.leftStickHeldDirectionButtons
-                        .union(self.state.rightStickHeldDirectionButtons)
-                    self.state.reset()
-                    return (leftKeys, rightKeys, directionButtons)
+					let cleanup = RoutingBoundaryCleanup(
+						state: self.state,
+						releaseAllModifiers: true
+					)
+					self.state.reset(consumingPendingButtonReleases: true)
+					return cleanup
                 }
                 if let cleanup {
-                    self.inputSimulator.releaseAllModifiers()
-                    for key in cleanup.leftKeys {
-                        self.inputSimulator.keyUp(key)
-                    }
-                    for key in cleanup.rightKeys {
-                        self.inputSimulator.keyUp(key)
-                    }
-                    for button in cleanup.directionButtons {
-                        self.controllerService.handleButton(button, pressed: false)
-                    }
+					self.performRoutingBoundaryCleanup(cleanup)
                 }
             }
             .store(in: &cancellables)
@@ -385,19 +393,22 @@ class MappingEngine: ObservableObject {
 			)
 			guard nextLayerId != state.appActivatedLayerId else { return nil }
 
-			let cleanup = RoutingBoundaryCleanup(
-				heldMappings: Array(state.heldButtons.values),
-				leftKeys: state.leftStickHeldKeys,
-				rightKeys: state.rightStickHeldKeys,
-				directionButtons: state.leftStickHeldDirectionButtons
-					.union(state.rightStickHeldDirectionButtons)
+			let cleanup = RoutingBoundaryCleanup(state: state)
+			state.resetTransientInputState(
+				preservingManualLayers: true,
+				preservingUIOverlays: true,
+				consumingPendingButtonReleases: true
 			)
-			state.resetTransientInputState()
 			state.appActivatedLayerId = nextLayerId
 			return cleanup
 		}
 
 		guard let cleanup else { return }
+		performRoutingBoundaryCleanup(cleanup)
+		applyEffectiveLayerLED()
+    }
+
+    nonisolated func performRoutingBoundaryCleanup(_ cleanup: RoutingBoundaryCleanup) {
 		for mapping in cleanup.heldMappings {
 			stopHeldAction(mapping)
 		}
@@ -410,15 +421,17 @@ class MappingEngine: ObservableObject {
 		for button in cleanup.directionButtons {
 			controllerService.handleButton(button, pressed: false)
 		}
-		inputSimulator.releaseAllModifiers()
-		applyEffectiveLayerLED()
+		if cleanup.releaseAllModifiers {
+			inputSimulator.releaseAllModifiers()
+		}
     }
 
     private func applyEffectiveLayerLED() {
 		guard !controllerService.partyModeEnabled else { return }
-		let (activeLayerIds, profile) = state.lock.withLock {
-			(state.effectiveActiveLayerIds, state.activeProfile)
+		let (isLocked, activeLayerIds, profile) = state.lock.withLock {
+			(state.isLocked, state.effectiveActiveLayerIds, state.activeProfile)
 		}
+		guard !isLocked else { return }
 		if let activeLayerId = activeLayerIds.last,
 		   let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
 		   let layerLED = activeLayer.dualSenseLEDSettings {
@@ -451,6 +464,7 @@ class MappingEngine: ObservableObject {
 		let resolvedButton = resolvedInputButton(for: button)
 		state.lock.withLock {
 			state.physicalButtonResolutions[button] = resolvedButton
+			state.cancelledPhysicalButtonReleases.remove(button)
 		}
 		return resolvedButton
 	}
@@ -624,6 +638,11 @@ class MappingEngine: ObservableObject {
         dispatchPrecondition(condition: .onQueue(inputQueue))
         LatencyDiagnostics.mark("engine.press \(button.rawValue)")
 		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
+			state.lock.withLock {
+				if state.cancelledPhysicalButtonReleases.remove(button) != nil {
+					state.physicalButtonResolutions.removeValue(forKey: button)
+				}
+			}
             _ = UniversalControlMouseRelay.shared.sendControllerButtonPressed(button)
             return
         }
@@ -1140,23 +1159,29 @@ class MappingEngine: ObservableObject {
 		let resolvedButtonForState = peekResolvedReleaseButton(for: button)
 		if UniversalControlMouseRelay.shared.shouldRouteControllerInputToRemote {
 			let hasLocalButtonState = state.lock.withLock {
-					state.heldButtons[resolvedButtonForState] != nil
-						|| state.pendingSingleTap[resolvedButtonForState] != nil
-						|| state.pendingReleaseActions[resolvedButtonForState] != nil
-						|| state.longHoldTimers[resolvedButtonForState] != nil
-						|| state.repeatTimers[resolvedButtonForState] != nil
-						|| state.holdRepeatTimers[resolvedButtonForState] != nil
-						|| state.smoothScrollMappings[resolvedButtonForState] != nil
-						|| state.smoothScrollTimers[resolvedButtonForState] != nil
-						|| state.buttonsActingAsLayerActivators.contains(resolvedButtonForState)
-						|| state.pressConsumedByAction.contains(resolvedButtonForState)
-				}
+				state.heldButtons[resolvedButtonForState] != nil
+					|| state.pendingSingleTap[resolvedButtonForState] != nil
+					|| state.pendingReleaseActions[resolvedButtonForState] != nil
+					|| state.longHoldTimers[resolvedButtonForState] != nil
+					|| state.repeatTimers[resolvedButtonForState] != nil
+					|| state.holdRepeatTimers[resolvedButtonForState] != nil
+					|| state.smoothScrollMappings[resolvedButtonForState] != nil
+					|| state.smoothScrollTimers[resolvedButtonForState] != nil
+					|| state.buttonsActingAsLayerActivators.contains(resolvedButtonForState)
+					|| state.pressConsumedByAction.contains(resolvedButtonForState)
+					|| state.cancelledPhysicalButtonReleases.contains(button)
+			}
             if !hasLocalButtonState {
                 _ = UniversalControlMouseRelay.shared.sendControllerButtonReleased(button, holdDuration: holdDuration)
                 return
             }
         }
-		let button = endPhysicalButtonResolution(for: button)
+		let physicalButton = button
+		let button = endPhysicalButtonResolution(for: physicalButton)
+		let wasCancelledByRoutingBoundary = state.lock.withLock {
+			state.cancelledPhysicalButtonReleases.remove(physicalButton) != nil
+		}
+		if wasCancelledByRoutingBoundary { return }
 
         stopRepeatTimer(for: button)
 
@@ -1657,31 +1682,19 @@ class MappingEngine: ObservableObject {
     }
 
     nonisolated func resetRemoteControllerInputState() {
-        let cleanup = state.lock.withLock { () -> (heldMappings: [KeyMapping], leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>) in
-            let heldMappings = Array(state.heldButtons.values)
-            let leftKeys = state.leftStickHeldKeys
-            let rightKeys = state.rightStickHeldKeys
-            let directionButtons = state.leftStickHeldDirectionButtons.union(state.rightStickHeldDirectionButtons)
-            state.resetTransientInputState()
-            return (heldMappings, leftKeys, rightKeys, directionButtons)
+		let cleanup = state.lock.withLock {
+			let cleanup = RoutingBoundaryCleanup(
+				state: state,
+				releaseAllModifiers: true
+			)
+			state.resetTransientInputState(consumingPendingButtonReleases: true)
+			return cleanup
         }
 
-        for mapping in cleanup.heldMappings {
-			stopHeldAction(mapping)
-        }
-        for key in cleanup.leftKeys {
-            inputSimulator.keyUp(key)
-        }
-        for key in cleanup.rightKeys {
-            inputSimulator.keyUp(key)
-        }
-        for button in cleanup.directionButtons {
-            controllerService.handleButton(button, pressed: false)
-        }
-        inputSimulator.releaseAllModifiers()
+		performRoutingBoundaryCleanup(cleanup)
     }
 
-    nonisolated private func stopHeldAction(_ mapping: KeyMapping) {
+    nonisolated func stopHeldAction(_ mapping: KeyMapping) {
 		if let midiControlChange = mapping.midiControlChange {
 			mappingExecutor.midiService.sendRelease(midiControlChange)
 		} else {
