@@ -413,6 +413,8 @@ Out of scope for the initial feature:
 - CoreMIDI enumerates `ControllerKeys` with stable unique ID `0x434B5953`.
 - 198 affected action, profile, layer, wheel, MIDI, and lifecycle tests pass.
 - Focused app-host regression gate passes: 29 tests.
-- Full app-host suite passes through the new feature suites. One pre-existing
-  `OBSWebSocketCommand_Encoding` test hangs both alone and in the full suite; the
-  full suite was rerun with only that test skipped.
+- Final app-host gate: 1,950 tests passed, 18 skipped, zero failures. Three
+  pre-existing environment-sensitive tests were excluded:
+  `OBSWebSocketCommand_Encoding` hangs both alone and in the full suite, while two
+  Beamdesk controller-priority tests abort the test host in both direct and app-host
+  runs.
