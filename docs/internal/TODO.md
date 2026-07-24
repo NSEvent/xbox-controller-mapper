@@ -6,10 +6,13 @@ Backlog audited May 10, 2026 against git history and current source.
 
 ## Customer Requests — 2026-07-23
 
-- [ ] **Layer-aware Command Wheels** — layer wheel overrides with base-wheel fallback.
-- [ ] **App-activated layers** — app-specific overrides without copied profiles.
-- [ ] **Virtual MIDI CC output** — buttons emit CC for MIDI2LR and Keyboard Maestro;
+- [x] **Layer-aware Command Wheels** — layer wheel overrides with base-wheel fallback.
+- [x] **App-activated layers** — app-specific overrides without copied profiles.
+- [x] **Virtual MIDI CC output** — buttons emit CC for MIDI2LR and Keyboard Maestro;
   continuous controls and direct Keyboard Maestro integration are out of scope.
+
+Implementation: `13f0888`; MIDI lifecycle timing coverage: `a078ccb`.
+Remaining pre-release check: live MIDI Learn validation in MIDI2LR and Keyboard Maestro.
 
 Full design, precedence, migration, and acceptance criteria:
 [`specs/discord-customer-requests-2026-07-23.md`](specs/discord-customer-requests-2026-07-23.md).

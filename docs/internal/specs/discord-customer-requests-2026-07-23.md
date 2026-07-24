@@ -1,6 +1,10 @@
 # Discord Customer Requests — 2026-07-23
 
-Planning only. No feature code has been implemented from this document.
+Status: implemented on 2026-07-23 in `13f0888` and `a078ccb`.
+
+The implementation covers all three approved features. MIDI v1 always emits the
+configured release value (default `0`); optional one-shot CC remains future scope.
+Live customer validation in MIDI2LR and Keyboard Maestro remains before release.
 
 ## Sources
 
@@ -398,7 +402,17 @@ Out of scope for the initial feature:
 
 ## Recommended implementation order
 
-1. Layer-aware Command Wheels.
-2. App-activated layers in the same Contextual Layers release.
-3. CoreMIDI virtual-source proof plus discrete CC action.
-4. Validate button-triggered CC with MIDI2LR and Keyboard Maestro.
+1. [x] Layer-aware Command Wheels.
+2. [x] App-activated layers in the same Contextual Layers release.
+3. [x] CoreMIDI virtual source plus discrete CC action.
+4. [ ] Validate button-triggered CC with MIDI2LR and Keyboard Maestro.
+
+## Implementation verification
+
+- Debug app and test bundle build on `kmacstudio`.
+- CoreMIDI enumerates `ControllerKeys` with stable unique ID `0x434B5953`.
+- 198 affected action, profile, layer, wheel, MIDI, and lifecycle tests pass.
+- Focused app-host regression gate passes: 29 tests.
+- Full app-host suite passes through the new feature suites. One pre-existing
+  `OBSWebSocketCommand_Encoding` test hangs both alone and in the full suite; the
+  full suite was rerun with only that test skipped.
