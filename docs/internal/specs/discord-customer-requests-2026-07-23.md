@@ -17,7 +17,7 @@ Planning only. No feature code has been implemented from this document.
 | --- | --- | --- | --- |
 | P1 | Layer-aware Command Wheels | A layer can replace the base wheel while active | Build as the first half of Contextual Layers |
 | P1 | App-activated layers | App-specific overrides without copied profiles | Build with layer-aware wheels; defer general profile inheritance |
-| P2 | Virtual MIDI CC output | ControllerKeys appears as a MIDI controller to MIDI2LR and Keyboard Maestro | Ship discrete CC actions first; clarify analog workflow before continuous controls |
+| P2 | Virtual MIDI CC output | Controller buttons trigger MIDI2LR commands and Keyboard Maestro macros | Ship button-triggered CC actions; continuous controls and direct Keyboard Maestro integration are out of scope |
 
 The first two requests should ship together as **Contextual Layers**. An app-activated
 layer is much less useful if the Command Wheel remains profile-global, and both features
@@ -244,6 +244,16 @@ and release notes.
 
 ## Feature 3 — Virtual MIDI CC Output
 
+### Scope decision
+
+Kevin confirmed on 2026-07-23:
+
+- Version 1 only needs controller buttons to trigger commands.
+- Receiving MIDI CC from a virtual **ControllerKeys** device is sufficient for Keyboard
+  Maestro.
+- Direct Keyboard Maestro macro discovery/execution is not needed.
+- Sticks, triggers, and touchpad do not need continuous MIDI behavior in this version.
+
 ### Customer outcome
 
 ControllerKeys appears to other macOS apps as a virtual MIDI device named
@@ -268,11 +278,12 @@ References:
 
 - <https://github.com/rsjaffe/MIDI2LR/wiki/MIDI-Controller-Setup>
 - <https://wiki.keyboardmaestro.com/trigger/MIDI>
-- <https://developer.apple.com/documentation/coremidi/midisourcecreatewithprotocol(_:_:_:_:)> 
+- <https://developer.apple.com/documentation/coremidi/midisourcecreatewithprotocol(_:_:_:_:)>
 
-### Phase A — Discrete CC actions
+### Version 1 — Discrete CC actions
 
-Ship the smallest complete slice first: button-like inputs emit MIDI CC.
+Button-like inputs emit MIDI CC. This is the complete approved scope, not a prerequisite
+for continuous controls.
 
 #### Action model
 
@@ -354,10 +365,10 @@ other MIDI clients may intentionally use those values.
 - Profile round-trip coverage across every executable surface.
 - CoreMIDI smoke test with a temporary virtual destination.
 
-### Phase B — Continuous controller inputs
+### Future — Continuous controller inputs
 
-Do not choose continuous semantics until Rodrigo answers which physical controls and
-Lightroom operations he wants.
+Out of scope for version 1. Revisit only after a new customer request identifies a
+specific continuous Lightroom workflow.
 
 A gamepad is not a normal control surface:
 
@@ -368,7 +379,7 @@ A gamepad is not a normal control surface:
 - MIDI2LR supports relative two's-complement, sign-and-magnitude, and binary-offset
   controller modes, but the customer must configure the matching mode.
 
-Candidate Phase B scope after confirmation:
+Possible later scope:
 
 - Per-stick MIDI mode with separate X/Y CC numbers.
 - Relative mode by default for sticks; optional absolute mode.
@@ -383,16 +394,6 @@ Out of scope for the initial feature:
 - Direct Keyboard Maestro macro enumeration/execution; MIDI CC already provides the
   supported integration boundary
 
-### Customer clarification before Phase B
-
-Ask:
-
-1. In MIDI2LR, are controller buttons triggering commands, or should sticks/triggers/
-   touchpad adjust Lightroom sliders continuously?
-2. Which physical inputs should be continuous?
-3. For Keyboard Maestro, does a virtual ControllerKeys MIDI device cover the workflow,
-   or is direct macro selection expected inside ControllerKeys?
-
 ---
 
 ## Recommended implementation order
@@ -400,6 +401,4 @@ Ask:
 1. Layer-aware Command Wheels.
 2. App-activated layers in the same Contextual Layers release.
 3. CoreMIDI virtual-source proof plus discrete CC action.
-4. Validate Phase A with MIDI2LR and Keyboard Maestro.
-5. Add continuous MIDI controls only after the customer answers the workflow questions.
-
+4. Validate button-triggered CC with MIDI2LR and Keyboard Maestro.

@@ -8,8 +8,8 @@ Backlog audited May 10, 2026 against git history and current source.
 
 - [ ] **Layer-aware Command Wheels** — layer wheel overrides with base-wheel fallback.
 - [ ] **App-activated layers** — app-specific overrides without copied profiles.
-- [ ] **Virtual MIDI CC output** — discrete CC actions first; continuous stick/trigger
-  behavior awaits customer workflow clarification.
+- [ ] **Virtual MIDI CC output** — buttons emit CC for MIDI2LR and Keyboard Maestro;
+  continuous controls and direct Keyboard Maestro integration are out of scope.
 
 Full design, precedence, migration, and acceptance criteria:
 [`specs/discord-customer-requests-2026-07-23.md`](specs/discord-customer-requests-2026-07-23.md).
