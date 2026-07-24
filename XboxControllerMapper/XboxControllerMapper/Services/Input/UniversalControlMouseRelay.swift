@@ -1397,7 +1397,7 @@ final class UniversalControlMouseRelay: @unchecked Sendable {
         process.arguments = ["status", "--json"]
         let pipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = Pipe()
+        process.standardError = pipe
 
         do {
             try process.run()
