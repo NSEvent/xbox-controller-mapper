@@ -56,8 +56,15 @@ extension MappingEngine {
         var dpadNavigationButton: ControllerButton? = nil
 
         // Layer State
-        // Ordered list of active layer IDs; latest item takes priority.
+		// Ordered list of manually activated layer IDs; latest item takes priority.
         var activeLayerIds: [UUID] = []
+		// App-activated layer sits below every manually held layer.
+		var appActivatedLayerId: UUID?
+		var effectiveActiveLayerIds: [UUID] {
+			var ids = appActivatedLayerId.map { [$0] } ?? []
+			ids.append(contentsOf: activeLayerIds.filter { $0 != appActivatedLayerId })
+			return ids
+		}
         var layerActivatorMap: [ControllerButton: UUID] = [:]
         // Tracks buttons that actually activated a layer (vs. being remapped within another layer)
         var buttonsActingAsLayerActivators: Set<ControllerButton> = []

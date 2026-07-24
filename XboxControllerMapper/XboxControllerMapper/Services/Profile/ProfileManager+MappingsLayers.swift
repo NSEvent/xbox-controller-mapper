@@ -299,6 +299,7 @@ extension ProfileManager {
         guard var targetProfile = profile ?? activeProfile else { return }
 
         targetProfile.layers.removeAll { $0.id == layer.id }
+		targetProfile.appLayerBindings = targetProfile.appLayerBindings.filter { $0.value != layer.id }
         updateProfile(targetProfile)
     }
 

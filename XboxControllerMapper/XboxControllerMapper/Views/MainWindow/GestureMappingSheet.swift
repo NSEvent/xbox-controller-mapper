@@ -31,6 +31,8 @@ struct GestureMappingSheet: View {
             return editorState.selectedScriptId != nil
         case .systemCommand:
             return editorState.buildSystemCommand() != nil
+		case .midiControlChange:
+			return true
         }
     }
 
@@ -70,10 +72,11 @@ struct GestureMappingSheet: View {
                             Text("Macro").tag(MappingEditorState.MappingType.macro)
                             Text("Script").tag(MappingEditorState.MappingType.script)
                             Text("System").tag(MappingEditorState.MappingType.systemCommand)
+							Text("MIDI").tag(MappingEditorState.MappingType.midiControlChange)
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
-                        .frame(width: 280)
+						.frame(width: 350)
                         .padding(.trailing, 8)
 
                         if editorState.mappingType == .singleKey {
@@ -107,6 +110,8 @@ struct GestureMappingSheet: View {
                         macroContent
                     } else if editorState.mappingType == .script {
                         scriptContent
+					} else if editorState.mappingType == .midiControlChange {
+						ActionMappingEditor(state: $editorState, variant: .longHold)
                     } else {
                         systemCommandContent
                     }
@@ -157,6 +162,9 @@ struct GestureMappingSheet: View {
                 } else if let scriptId = mapping.scriptId {
                     editorState.mappingType = .script
                     editorState.selectedScriptId = scriptId
+				} else if let midiControlChange = mapping.midiControlChange {
+					editorState.mappingType = .midiControlChange
+					editorState.midiControlChange = midiControlChange
                 } else {
                     editorState.mappingType = .singleKey
                 }
@@ -385,6 +393,9 @@ struct GestureMappingSheet: View {
         case .systemCommand:
             gesture = gesture.clearingConflicts(keeping: .systemCommand)
             gesture.systemCommand = editorState.buildSystemCommand()
+		case .midiControlChange:
+			gesture = gesture.clearingConflicts(keeping: .midiControlChange)
+			gesture.midiControlChange = editorState.midiControlChange
         }
 
         gesture.hint = editorState.hint.isEmpty ? nil : editorState.hint

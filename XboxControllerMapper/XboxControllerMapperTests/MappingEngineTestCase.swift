@@ -16,6 +16,7 @@ class MappingEngineTestCase: XCTestCase {
     var profileManager: ProfileManager!
     var appMonitor: AppMonitor!
     var mockInputSimulator: MockInputSimulator!
+    var mockMIDIService: MockMIDIService!
     var mappingEngine: MappingEngine!
     private var testConfigDirectory: URL!
     
@@ -30,12 +31,14 @@ class MappingEngineTestCase: XCTestCase {
             profileManager = ProfileManager(configDirectoryOverride: testConfigDirectory)
             appMonitor = AppMonitor()
             mockInputSimulator = MockInputSimulator()
+			mockMIDIService = MockMIDIService()
 
             mappingEngine = MappingEngine(
                 controllerService: controllerService,
                 profileManager: profileManager,
                 appMonitor: appMonitor,
-                inputSimulator: mockInputSimulator
+				inputSimulator: mockInputSimulator,
+				midiService: mockMIDIService
             )
 
             mappingEngine.enable()
@@ -61,6 +64,7 @@ class MappingEngineTestCase: XCTestCase {
             profileManager = nil
             appMonitor = nil
             mockInputSimulator = nil
+			mockMIDIService = nil
         }
         // Extra delay to let deallocation complete
         try? await Task.sleep(nanoseconds: 50_000_000) // 50ms

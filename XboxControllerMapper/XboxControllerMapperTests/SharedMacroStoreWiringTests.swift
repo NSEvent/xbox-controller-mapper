@@ -43,7 +43,8 @@ final class SharedMacroStoreWiringTests: XCTestCase {
             ),
             systemCommandExecutor: systemCommandExecutor,
             scriptEngine: nil,
-            sharedMacroStore: store
+			sharedMacroStore: store,
+			midiService: VirtualMIDIService.shared
         )
     }
 

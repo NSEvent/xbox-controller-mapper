@@ -309,6 +309,10 @@ struct Profile: Codable, Identifiable, Equatable {
     /// App Bundle IDs that trigger this profile automatically
     var linkedApps: [String]
 
+    /// App Bundle ID to layer ID mappings within this profile.
+    /// Evaluated after profile auto-switching; manual held layers still take priority.
+    var appLayerBindings: [String: UUID]
+
     /// Controllers that trigger this profile automatically when connected
     var linkedControllers: [ControllerProfileBinding]
 
@@ -379,6 +383,7 @@ struct Profile: Codable, Identifiable, Equatable {
         joystickSettings: JoystickSettings = .default,
         dualSenseLEDSettings: DualSenseLEDSettings = .default,
         linkedApps: [String] = [],
+		appLayerBindings: [String: UUID] = [:],
         linkedControllers: [ControllerProfileBinding] = [],
 	inheritedOnScreenKeyboardProfileId: UUID? = nil,
         inputLatencyMode: InputLatencyMode = .standard,
@@ -407,6 +412,7 @@ struct Profile: Codable, Identifiable, Equatable {
         self.joystickSettings = joystickSettings
         self.dualSenseLEDSettings = dualSenseLEDSettings
         self.linkedApps = linkedApps
+		self.appLayerBindings = appLayerBindings
         self.linkedControllers = linkedControllers
 	self.inheritedOnScreenKeyboardProfileId = inheritedOnScreenKeyboardProfileId
         self.inputLatencyMode = inputLatencyMode
@@ -625,7 +631,7 @@ extension Profile {
 			case id, name, isDefault, icon, createdAt, modifiedAt
 			case controllerPreviewLayout
 			case buttonMappings, dpadPreset, chordMappings, sequenceMappings, joystickSettings
-        case dualSenseLEDSettings, linkedApps, linkedControllers, inputLatencyMode, macros, scripts
+		case dualSenseLEDSettings, linkedApps, appLayerBindings, linkedControllers, inputLatencyMode, macros, scripts
 	case inheritedOnScreenKeyboardProfileId
         case onScreenKeyboardSettings, gestureMappings, layers, touchpadRegionMappings, commandWheelActions
         case touchpadRegionTriggerModes
@@ -671,6 +677,7 @@ extension Profile {
         joystickSettings = try container.decode(.joystickSettings, default: .default)
         dualSenseLEDSettings = try container.decode(.dualSenseLEDSettings, default: .default)
         linkedApps = try container.decode(.linkedApps, default: [])
+		appLayerBindings = try container.decode(.appLayerBindings, default: [:])
         linkedControllers = try container.decode(.linkedControllers, default: [])
 	inheritedOnScreenKeyboardProfileId = try container.decodeIfPresent(UUID.self, forKey: .inheritedOnScreenKeyboardProfileId)
         inputLatencyMode = try container.decode(.inputLatencyMode, default: .standard)
@@ -777,6 +784,7 @@ extension Profile {
         try container.encode(joystickSettings, forKey: .joystickSettings)
         try container.encode(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
         try container.encode(linkedApps, forKey: .linkedApps)
+		try container.encode(appLayerBindings, forKey: .appLayerBindings)
         try container.encode(linkedControllers, forKey: .linkedControllers)
 	try container.encodeIfPresent(inheritedOnScreenKeyboardProfileId, forKey: .inheritedOnScreenKeyboardProfileId)
         try container.encode(inputLatencyMode, forKey: .inputLatencyMode)
@@ -978,6 +986,7 @@ extension Profile {
         lhs.joystickSettings == rhs.joystickSettings &&
         lhs.dualSenseLEDSettings == rhs.dualSenseLEDSettings &&
         lhs.linkedApps == rhs.linkedApps &&
+		lhs.appLayerBindings == rhs.appLayerBindings &&
         lhs.linkedControllers == rhs.linkedControllers &&
 	lhs.inheritedOnScreenKeyboardProfileId == rhs.inheritedOnScreenKeyboardProfileId &&
         lhs.inputLatencyMode == rhs.inputLatencyMode &&

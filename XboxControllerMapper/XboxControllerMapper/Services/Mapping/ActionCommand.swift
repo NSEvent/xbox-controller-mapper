@@ -101,6 +101,19 @@ struct ScriptActionCommand: ActionCommand {
     }
 }
 
+/// Emits a momentary MIDI Control Change (press value followed by release value).
+struct MIDIControlChangeActionCommand: ActionCommand {
+    let message: MIDIControlChange
+    let midiService: any MIDIControlChangeSending
+    let hint: String?
+
+    func execute() -> String {
+		midiService.pulse(message)
+		if let hint, !hint.isEmpty { return hint }
+		return message.displayString
+    }
+}
+
 /// Executes a key press with optional modifiers
 struct KeyPressActionCommand: ActionCommand {
     let keyCode: CGKeyCode
@@ -149,7 +162,7 @@ struct NoOpActionCommand: ActionCommand {
 
 /// Creates the appropriate ActionCommand for a given ExecutableAction.
 ///
-/// Encodes the priority chain: systemCommand > macro > script > keyPress.
+/// Encodes the priority chain: systemCommand > macro > script > MIDI > keyPress.
 /// This replaces the if-else chain in MappingExecutor.executeAction.
 struct ActionCommandFactory {
     let inputSimulator: InputSimulatorProtocol
@@ -158,6 +171,7 @@ struct ActionCommandFactory {
     let systemCommandExecutor: SystemCommandExecutor
     let scriptEngine: ScriptEngine?
     let sharedMacroStore: AutomationMacroStore
+    let midiService: any MIDIControlChangeSending
 
     func makeCommand(
         for action: any ExecutableAction,
@@ -208,7 +222,16 @@ struct ActionCommandFactory {
             )
         }
 
-        // Priority 4: Key press or modifier tap
+		// Priority 4: MIDI Control Change
+		if let midiControlChange = action.midiControlChange {
+			return MIDIControlChangeActionCommand(
+				message: midiControlChange,
+				midiService: midiService,
+				hint: action.hint
+			)
+		}
+
+		// Priority 5: Key press or modifier tap
         if let keyCode = action.keyCode {
             return KeyPressActionCommand(
                 keyCode: keyCode,

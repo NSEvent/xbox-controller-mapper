@@ -17,6 +17,7 @@ protocol ExecutableAction: KeyBindingRepresentable {
     var macroId: UUID? { get }
     var scriptId: UUID? { get }
     var systemCommand: SystemCommand? { get }
+    var midiControlChange: MIDIControlChange? { get }
     var hint: String? { get }
     var displayString: String { get }
 }
@@ -43,6 +44,8 @@ enum ActionType: String, Equatable, CaseIterable {
     case script
     /// A system command (shell, launch app, open link, webhook, OBS)
     case systemCommand
+    /// A MIDI 1.0 Control Change message
+    case midiControlChange
     /// No action configured
     case none
 }
@@ -104,13 +107,14 @@ extension ExecutableAction {
         if macroId != nil { count += 1 }
         if scriptId != nil { count += 1 }
         if systemCommand != nil { count += 1 }
+		if midiControlChange != nil { count += 1 }
         return count
     }
 
     /// Whether this mapping has more than one action type set simultaneously.
     ///
     /// When `true`, the execution layer will silently pick one action based on
-    /// priority (systemCommand > macro > script > keyPress) and ignore the rest.
+    /// priority (systemCommand > macro > script > MIDI > keyPress) and ignore the rest.
     /// This property lets callers detect that ambiguous state.
     var hasConflictingActions: Bool {
         activeActionCount > 1
@@ -122,13 +126,15 @@ extension ExecutableAction {
     ///   1. systemCommand
     ///   2. macroId
     ///   3. scriptId
-    ///   4. keyCode / modifiers (key press)
+    ///   4. MIDI Control Change
+    ///   5. keyCode / modifiers (key press)
     ///
     /// Returns `.none` when no action is configured.
     var effectiveActionType: ActionType {
         if systemCommand != nil { return .systemCommand }
         if macroId != nil { return .macro }
         if scriptId != nil { return .script }
+		if midiControlChange != nil { return .midiControlChange }
         if keyCode != nil || modifiers.hasAny { return .keyPress }
         return .none
     }
@@ -140,6 +146,7 @@ extension ExecutableAction {
         if macroId != nil { types.insert(.macro) }
         if scriptId != nil { types.insert(.script) }
         if systemCommand != nil { types.insert(.systemCommand) }
+		if midiControlChange != nil { types.insert(.midiControlChange) }
         return types
     }
 
@@ -218,6 +225,9 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
     /// Optional system command to execute instead of key press
     var systemCommand: SystemCommand?
 
+    /// Optional MIDI Control Change message to emit instead of a key press
+    var midiControlChange: MIDIControlChange?
+
     /// Optional user-provided description of what this mapping does
     var hint: String?
 
@@ -237,6 +247,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         macroId: UUID? = nil,
         scriptId: UUID? = nil,
         systemCommand: SystemCommand? = nil,
+		midiControlChange: MIDIControlChange? = nil,
         hint: String? = nil,
         hapticStyle: HapticStyle? = nil
     ) {
@@ -252,12 +263,13 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         self.macroId = macroId
         self.scriptId = scriptId
         self.systemCommand = systemCommand
+		self.midiControlChange = midiControlChange
         self.hint = hint
         self.hapticStyle = hapticStyle
     }
 
     private enum CodingKeys: String, CodingKey {
-		case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, scrollActionSettings, isHoldModifier, holdRepeatEnabled, holdRepeatInterval, macroId, scriptId, systemCommand, hint, hapticStyle
+		case keyCode, modifiers, longHoldMapping, doubleTapMapping, repeatMapping, scrollActionSettings, isHoldModifier, holdRepeatEnabled, holdRepeatInterval, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -274,6 +286,7 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
+		midiControlChange = try container.decodeIfPresent(MIDIControlChange.self, forKey: .midiControlChange)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
         hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
@@ -304,6 +317,9 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         if scriptId != nil {
             return "Script"
         }
+		if let midiControlChange {
+			return midiControlChange.displayString
+		}
 
         var parts: [String] = []
 
@@ -323,7 +339,8 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
 
     /// Whether this binding has any action
     var isEmpty: Bool {
-        return keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil && systemCommand == nil
+		return keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil
+			&& systemCommand == nil && midiControlChange == nil
     }
 
     /// Compact description including alternate mappings (for UI)
@@ -383,6 +400,9 @@ struct KeyMapping: Codable, Equatable, ExecutableAction {
         if actionType != .systemCommand {
             copy.systemCommand = nil
         }
+		if actionType != .midiControlChange {
+			copy.midiControlChange = nil
+		}
         return copy
     }
 }
@@ -397,6 +417,7 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
     var macroId: UUID?
     var scriptId: UUID?
     var systemCommand: SystemCommand?
+    var midiControlChange: MIDIControlChange?
     var hint: String?
     var hapticStyle: HapticStyle?
 
@@ -405,19 +426,20 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         return threshold
     }
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil, hapticStyle: HapticStyle? = nil) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.5, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, midiControlChange: MIDIControlChange? = nil, hint: String? = nil, hapticStyle: HapticStyle? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = Self.sanitizedThreshold(threshold)
         self.macroId = macroId
         self.scriptId = scriptId
         self.systemCommand = systemCommand
+		self.midiControlChange = midiControlChange
         self.hint = hint
         self.hapticStyle = hapticStyle
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, hint, hapticStyle
+		case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -428,6 +450,7 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
+		midiControlChange = try container.decodeIfPresent(MIDIControlChange.self, forKey: .midiControlChange)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
         hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
@@ -442,6 +465,9 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         if scriptId != nil {
             return "Script"
         }
+		if let midiControlChange {
+			return midiControlChange.displayString
+		}
         var parts: [String] = []
         if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
         if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
@@ -456,7 +482,8 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
     }
 
     var isEmpty: Bool {
-        keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil && systemCommand == nil
+		keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil
+			&& systemCommand == nil && midiControlChange == nil
     }
 
     /// Returns a copy with all action fields cleared except the specified type.
@@ -469,6 +496,7 @@ struct LongHoldMapping: Codable, Equatable, ExecutableAction {
         if actionType != .macro { copy.macroId = nil }
         if actionType != .script { copy.scriptId = nil }
         if actionType != .systemCommand { copy.systemCommand = nil }
+		if actionType != .midiControlChange { copy.midiControlChange = nil }
         return copy
     }
 }
@@ -484,6 +512,7 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
     var macroId: UUID?
     var scriptId: UUID?
     var systemCommand: SystemCommand?
+    var midiControlChange: MIDIControlChange?
     var hint: String?
     var hapticStyle: HapticStyle?
 
@@ -492,19 +521,20 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         return threshold
     }
 
-    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, hint: String? = nil, hapticStyle: HapticStyle? = nil) {
+    init(keyCode: CGKeyCode? = nil, modifiers: ModifierFlags = ModifierFlags(), threshold: TimeInterval = 0.3, macroId: UUID? = nil, scriptId: UUID? = nil, systemCommand: SystemCommand? = nil, midiControlChange: MIDIControlChange? = nil, hint: String? = nil, hapticStyle: HapticStyle? = nil) {
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.threshold = Self.sanitizedThreshold(threshold)
         self.macroId = macroId
         self.scriptId = scriptId
         self.systemCommand = systemCommand
+		self.midiControlChange = midiControlChange
         self.hint = hint
         self.hapticStyle = hapticStyle
     }
 
     private enum CodingKeys: String, CodingKey {
-        case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, hint, hapticStyle
+		case keyCode, modifiers, threshold, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -515,6 +545,7 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
+		midiControlChange = try container.decodeIfPresent(MIDIControlChange.self, forKey: .midiControlChange)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
         hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
@@ -529,6 +560,9 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         if scriptId != nil {
             return "Script"
         }
+		if let midiControlChange {
+			return midiControlChange.displayString
+		}
         var parts: [String] = []
         if modifiers.command { parts.append(ModifierFlags.label(for: modifiers.commandSide) + "⌘") }
         if modifiers.option { parts.append(ModifierFlags.label(for: modifiers.optionSide) + "⌥") }
@@ -543,7 +577,8 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
     }
 
     var isEmpty: Bool {
-        keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil && systemCommand == nil
+		keyCode == nil && !modifiers.hasAny && macroId == nil && scriptId == nil
+			&& systemCommand == nil && midiControlChange == nil
     }
 
     /// Returns a copy with all action fields cleared except the specified type.
@@ -556,6 +591,7 @@ struct DoubleTapMapping: Codable, Equatable, ExecutableAction {
         if actionType != .macro { copy.macroId = nil }
         if actionType != .script { copy.scriptId = nil }
         if actionType != .systemCommand { copy.systemCommand = nil }
+		if actionType != .midiControlChange { copy.midiControlChange = nil }
         return copy
     }
 }

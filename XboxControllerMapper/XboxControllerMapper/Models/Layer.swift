@@ -58,6 +58,10 @@ struct Layer: Codable, Identifiable, Equatable {
     var leftStickTuning: StickTuningOverride?
     var rightStickTuning: StickTuningOverride?
 
+    /// Layer-specific command wheel actions.
+    /// nil = inherit the profile's base wheel; an empty array intentionally disables the wheel.
+    var commandWheelActions: [CommandWheelAction]?
+
     init(
         id: UUID = UUID(),
         name: String,
@@ -65,7 +69,8 @@ struct Layer: Codable, Identifiable, Equatable {
         buttonMappings: [ControllerButton: KeyMapping] = [:],
         dualSenseLEDSettings: DualSenseLEDSettings? = nil,
         leftStickTuning: StickTuningOverride? = nil,
-        rightStickTuning: StickTuningOverride? = nil
+		rightStickTuning: StickTuningOverride? = nil,
+		commandWheelActions: [CommandWheelAction]? = nil
     ) {
         self.id = id
         self.name = name
@@ -74,13 +79,14 @@ struct Layer: Codable, Identifiable, Equatable {
         self.dualSenseLEDSettings = dualSenseLEDSettings
         self.leftStickTuning = leftStickTuning
         self.rightStickTuning = rightStickTuning
+		self.commandWheelActions = commandWheelActions
     }
 
     // MARK: - Custom Codable
 
     private enum CodingKeys: String, CodingKey {
         case id, name, activatorButton, buttonMappings, dualSenseLEDSettings
-        case leftStickTuning, rightStickTuning
+		case leftStickTuning, rightStickTuning, commandWheelActions
         // Legacy mode-only overrides (pre per-stick tuning) — migrated on decode,
         // re-encoded for downgrade safety.
         case leftStickModeOverride, rightStickModeOverride
@@ -110,6 +116,7 @@ struct Layer: Codable, Identifiable, Equatable {
             ?? Self.migrateLegacyModeOverride(try container.decodeLenient(.leftStickModeOverride))
         rightStickTuning = try container.decodeIfPresent(StickTuningOverride.self, forKey: .rightStickTuning)
             ?? Self.migrateLegacyModeOverride(try container.decodeLenient(.rightStickModeOverride))
+		commandWheelActions = try container.decodeIfPresent([CommandWheelAction].self, forKey: .commandWheelActions)
     }
 
     /// Wraps a legacy mode-only override into a full tuning override (or nil).
@@ -134,6 +141,7 @@ struct Layer: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(dualSenseLEDSettings, forKey: .dualSenseLEDSettings)
         try container.encodeIfPresent(leftStickTuning, forKey: .leftStickTuning)
         try container.encodeIfPresent(rightStickTuning, forKey: .rightStickTuning)
+		try container.encodeIfPresent(commandWheelActions, forKey: .commandWheelActions)
         // Downgrade safety: also write the legacy mode-only override so a
         // pre-per-stick build still honors a layer's stick-mode change.
         try container.encodeIfPresent(leftStickTuning?.mode, forKey: .leftStickModeOverride)

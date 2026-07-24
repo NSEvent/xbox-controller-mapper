@@ -529,11 +529,12 @@ final class ActionModelValidationTests: XCTestCase {
 
     func testActionType_allCases() {
         let cases = ActionType.allCases
-        XCTAssertEqual(cases.count, 5)
+		XCTAssertEqual(cases.count, 6)
         XCTAssertTrue(cases.contains(.keyPress))
         XCTAssertTrue(cases.contains(.macro))
         XCTAssertTrue(cases.contains(.script))
         XCTAssertTrue(cases.contains(.systemCommand))
+		XCTAssertTrue(cases.contains(.midiControlChange))
         XCTAssertTrue(cases.contains(.none))
     }
 
@@ -542,6 +543,7 @@ final class ActionModelValidationTests: XCTestCase {
         XCTAssertEqual(ActionType.macro.rawValue, "macro")
         XCTAssertEqual(ActionType.script.rawValue, "script")
         XCTAssertEqual(ActionType.systemCommand.rawValue, "systemCommand")
+		XCTAssertEqual(ActionType.midiControlChange.rawValue, "midiControlChange")
         XCTAssertEqual(ActionType.none.rawValue, "none")
     }
 

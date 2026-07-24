@@ -16,6 +16,9 @@ struct MappingEditorState {
     var selectedMacroId: UUID?
     var selectedScriptId: UUID?
 
+    // MARK: - MIDI Control Change
+    var midiControlChange = MIDIControlChange()
+
     // MARK: - System command
     var systemCommandCategory: SystemCommandCategory = .shell
 	var selectedProfileId: UUID?
@@ -69,6 +72,7 @@ struct MappingEditorState {
         case macro = 1
         case systemCommand = 2
         case script = 3
+		case midiControlChange = 4
     }
 
     // MARK: - Display helpers

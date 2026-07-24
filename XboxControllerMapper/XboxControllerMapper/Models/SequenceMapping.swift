@@ -31,6 +31,9 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
     /// Optional system command to execute instead of key press
     var systemCommand: SystemCommand?
 
+    /// Optional MIDI Control Change message to emit
+    var midiControlChange: MIDIControlChange?
+
     /// Optional user-provided description of what this sequence does
     var hint: String?
 
@@ -46,6 +49,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         macroId: UUID? = nil,
         scriptId: UUID? = nil,
         systemCommand: SystemCommand? = nil,
+		midiControlChange: MIDIControlChange? = nil,
         hint: String? = nil,
         hapticStyle: HapticStyle? = nil
     ) {
@@ -57,12 +61,13 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         self.macroId = macroId
         self.scriptId = scriptId
         self.systemCommand = systemCommand
+		self.midiControlChange = midiControlChange
         self.hint = hint
         self.hapticStyle = hapticStyle
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, steps, stepTimeout, keyCode, modifiers, macroId, scriptId, systemCommand, hint, hapticStyle
+		case id, steps, stepTimeout, keyCode, modifiers, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -75,6 +80,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
+		midiControlChange = try container.decodeIfPresent(MIDIControlChange.self, forKey: .midiControlChange)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
         hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
@@ -89,6 +95,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         try container.encodeIfPresent(macroId, forKey: .macroId)
         try container.encodeIfPresent(scriptId, forKey: .scriptId)
         try container.encodeIfPresent(systemCommand, forKey: .systemCommand)
+		try container.encodeIfPresent(midiControlChange, forKey: .midiControlChange)
         try container.encodeIfPresent(hint, forKey: .hint)
         try container.encodeIfPresent(hapticStyle, forKey: .hapticStyle)
     }
@@ -109,6 +116,9 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         if scriptId != nil {
             return "Script"
         }
+		if let midiControlChange {
+			return midiControlChange.displayString
+		}
 
         var parts: [String] = []
 
@@ -129,7 +139,8 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
 
     /// Whether this sequence mapping has any action configured
     var hasAction: Bool {
-        keyCode != nil || macroId != nil || scriptId != nil || systemCommand != nil || modifiers.hasAny
+		keyCode != nil || macroId != nil || scriptId != nil || systemCommand != nil
+			|| midiControlChange != nil || modifiers.hasAny
     }
 
     /// Returns a copy with all action fields cleared (steps, timing, and id preserved)
@@ -140,6 +151,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         copy.macroId = nil
         copy.scriptId = nil
         copy.systemCommand = nil
+		copy.midiControlChange = nil
         copy.hint = nil
         copy.hapticStyle = nil
         return copy
@@ -160,6 +172,7 @@ struct SequenceMapping: Codable, Identifiable, Equatable, ExecutableAction {
         if actionType != .macro { copy.macroId = nil }
         if actionType != .script { copy.scriptId = nil }
         if actionType != .systemCommand { copy.systemCommand = nil }
+		if actionType != .midiControlChange { copy.midiControlChange = nil }
         return copy
     }
 }

@@ -73,9 +73,13 @@ struct ButtonMappingSheet: View {
 		primaryState.isScrollAction
     }
 
+    private var primaryIsMIDI: Bool {
+		primaryState.mappingType == .midiControlChange
+    }
+
     /// Check if the primary action disables advanced features (mouse click, special action, or smooth scroll)
     private var primaryDisablesAdvancedFeatures: Bool {
-		primaryIsMouseClick || primaryIsOnScreenKeyboard || primaryIsSmoothScrollAction
+		primaryIsMouseClick || primaryIsOnScreenKeyboard || primaryIsSmoothScrollAction || primaryIsMIDI
     }
 
     /// Whether this button is already a layer activator
@@ -368,9 +372,10 @@ struct ButtonMappingSheet: View {
                         Text("Macro").tag(MappingEditorState.MappingType.macro)
                         Text("Script").tag(MappingEditorState.MappingType.script)
                         Text("System").tag(MappingEditorState.MappingType.systemCommand)
+						Text("MIDI").tag(MappingEditorState.MappingType.midiControlChange)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 280)
+					.frame(width: 350)
                 }
 
                 if primaryState.mappingType == .singleKey {
@@ -534,6 +539,7 @@ struct ButtonMappingSheet: View {
     private var primaryDisabledActionDescription: String {
 		if primaryIsMouseClick { return "mouse clicks" }
 		if primaryIsSmoothScrollAction { return "scroll actions" }
+		if primaryIsMIDI { return "MIDI actions" }
 		return "special actions"
     }
 
@@ -543,6 +549,9 @@ struct ButtonMappingSheet: View {
 		}
 		if primaryIsSmoothScrollAction {
 			return "Double tap is not available for scroll actions."
+		}
+		if primaryIsMIDI {
+			return "Double tap is not available for a primary MIDI action."
 		}
 		return "Double tap is not available for special actions."
     }
@@ -712,9 +721,10 @@ struct ButtonMappingSheet: View {
                         Text("Key").tag(MappingEditorState.MappingType.singleKey)
                         Text("Macro").tag(MappingEditorState.MappingType.macro)
                         Text("System").tag(MappingEditorState.MappingType.systemCommand)
+						Text("MIDI").tag(MappingEditorState.MappingType.midiControlChange)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 220)
+					.frame(width: 300)
 
                     ActionMappingEditor(state: $longHoldState, variant: .longHold)
 
@@ -791,9 +801,10 @@ struct ButtonMappingSheet: View {
                         Text("Key").tag(MappingEditorState.MappingType.singleKey)
                         Text("Macro").tag(MappingEditorState.MappingType.macro)
                         Text("System").tag(MappingEditorState.MappingType.systemCommand)
+						Text("MIDI").tag(MappingEditorState.MappingType.midiControlChange)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 220)
+					.frame(width: 300)
 
                     ActionMappingEditor(state: $doubleTapState, variant: .doubleTap)
 
@@ -956,6 +967,9 @@ struct ButtonMappingSheet: View {
             } else if let scriptId = existingMapping.scriptId {
                 primaryState.mappingType = .script
                 primaryState.selectedScriptId = scriptId
+			} else if let midiControlChange = existingMapping.midiControlChange {
+				primaryState.mappingType = .midiControlChange
+				primaryState.midiControlChange = midiControlChange
             } else {
                 primaryState.mappingType = .singleKey
                 primaryState.keyCode = existingMapping.keyCode
@@ -980,6 +994,9 @@ struct ButtonMappingSheet: View {
                 } else if let macroId = longHold.macroId {
                     longHoldState.mappingType = .macro
                     longHoldState.selectedMacroId = macroId
+				} else if let midiControlChange = longHold.midiControlChange {
+					longHoldState.mappingType = .midiControlChange
+					longHoldState.midiControlChange = midiControlChange
                 } else {
                     longHoldState.mappingType = .singleKey
                     longHoldState.keyCode = longHold.keyCode
@@ -998,6 +1015,9 @@ struct ButtonMappingSheet: View {
                 } else if let macroId = doubleTap.macroId {
                     doubleTapState.mappingType = .macro
                     doubleTapState.selectedMacroId = macroId
+				} else if let midiControlChange = doubleTap.midiControlChange {
+					doubleTapState.mappingType = .midiControlChange
+					doubleTapState.midiControlChange = midiControlChange
                 } else {
                     doubleTapState.mappingType = .singleKey
                     doubleTapState.keyCode = doubleTap.keyCode
@@ -1052,6 +1072,12 @@ struct ButtonMappingSheet: View {
         } else if primaryState.mappingType == .script {
             guard let scriptId = primaryState.selectedScriptId else { return }
             newMapping = KeyMapping(scriptId: scriptId, hint: primaryState.hint.isEmpty ? nil : primaryState.hint, hapticStyle: primaryState.hapticStyle)
+		} else if primaryState.mappingType == .midiControlChange {
+			newMapping = KeyMapping(
+				midiControlChange: primaryState.midiControlChange,
+				hint: primaryState.hint.isEmpty ? nil : primaryState.hint,
+				hapticStyle: primaryState.hapticStyle
+			)
         } else {
             newMapping = KeyMapping(
                 keyCode: primaryState.keyCode,
@@ -1084,6 +1110,8 @@ struct ButtonMappingSheet: View {
                 longHoldValid = longHoldState.buildSystemCommand() != nil
             case .script:
                 longHoldValid = false
+			case .midiControlChange:
+				longHoldValid = true
             }
             if longHoldValid {
                 newMapping.longHoldMapping = LongHoldMapping(
@@ -1092,6 +1120,7 @@ struct ButtonMappingSheet: View {
                     threshold: longHoldThreshold,
                     macroId: longHoldState.mappingType == .macro ? longHoldState.selectedMacroId : nil,
                     systemCommand: longHoldState.mappingType == .systemCommand ? longHoldState.buildSystemCommand() : nil,
+					midiControlChange: longHoldState.mappingType == .midiControlChange ? longHoldState.midiControlChange : nil,
                     hint: longHoldState.hint.isEmpty ? nil : longHoldState.hint,
                     hapticStyle: longHoldState.hapticStyle
                 )
@@ -1109,6 +1138,8 @@ struct ButtonMappingSheet: View {
                 doubleTapValid = doubleTapState.buildSystemCommand() != nil
             case .script:
                 doubleTapValid = false
+			case .midiControlChange:
+				doubleTapValid = true
             }
             if doubleTapValid {
                 newMapping.doubleTapMapping = DoubleTapMapping(
@@ -1117,6 +1148,7 @@ struct ButtonMappingSheet: View {
                     threshold: doubleTapThreshold,
                     macroId: doubleTapState.mappingType == .macro ? doubleTapState.selectedMacroId : nil,
                     systemCommand: doubleTapState.mappingType == .systemCommand ? doubleTapState.buildSystemCommand() : nil,
+					midiControlChange: doubleTapState.mappingType == .midiControlChange ? doubleTapState.midiControlChange : nil,
                     hint: doubleTapState.hint.isEmpty ? nil : doubleTapState.hint,
                     hapticStyle: doubleTapState.hapticStyle
                 )

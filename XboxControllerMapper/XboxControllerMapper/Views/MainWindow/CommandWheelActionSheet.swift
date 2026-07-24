@@ -120,6 +120,7 @@ struct CommandWheelActionSheet: View {
                                 Text("Macro").tag(MappingEditorState.MappingType.macro)
                                 Text("System").tag(MappingEditorState.MappingType.systemCommand)
                                 Text("Script").tag(MappingEditorState.MappingType.script)
+								Text("MIDI").tag(MappingEditorState.MappingType.midiControlChange)
                             }
                             .pickerStyle(.segmented)
 
@@ -225,6 +226,9 @@ struct CommandWheelActionSheet: View {
         } else if let scriptId = action.scriptId {
             mappingState.mappingType = .script
             mappingState.selectedScriptId = scriptId
+		} else if let midiControlChange = action.midiControlChange {
+			mappingState.mappingType = .midiControlChange
+			mappingState.midiControlChange = midiControlChange
         } else {
             mappingState.mappingType = .singleKey
             mappingState.keyCode = action.keyCode
@@ -248,6 +252,7 @@ struct CommandWheelActionSheet: View {
         result.macroId = nil
         result.scriptId = nil
         result.systemCommand = nil
+		result.midiControlChange = nil
 
         // Set based on current mapping type
         switch mappingState.mappingType {
@@ -260,6 +265,8 @@ struct CommandWheelActionSheet: View {
             result.scriptId = mappingState.selectedScriptId
         case .systemCommand:
             result.systemCommand = mappingState.buildSystemCommand()
+		case .midiControlChange:
+			result.midiControlChange = mappingState.midiControlChange
         }
 
         onSave(result)

@@ -55,6 +55,13 @@ class MappingEngine: ObservableObject {
 
     let state = EngineState()
 
+    private struct RoutingBoundaryCleanup {
+		let heldMappings: [KeyMapping]
+		let leftKeys: Set<CGKeyCode>
+		let rightKeys: Set<CGKeyCode>
+		let directionButtons: Set<ControllerButton>
+    }
+
     // Joystick polling
     var joystickTimer: DispatchSourceTimer?
 
@@ -67,7 +74,8 @@ class MappingEngine: ObservableObject {
 		inputSimulator: InputSimulatorProtocol = InputSimulator(),
 		inputLogService: InputLogService? = nil,
 		usageStatsService: UsageStatsService? = nil,
-		codexMicroOutput: any CodexMicroOutputProtocol = CodexMicroBridgeService.shared
+		codexMicroOutput: any CodexMicroOutputProtocol = CodexMicroBridgeService.shared,
+		midiService: any MIDIControlChangeSending = VirtualMIDIService.shared
 	) {
         self.controllerService = controllerService
         self.profileManager = profileManager
@@ -86,7 +94,15 @@ class MappingEngine: ObservableObject {
         )
         self.scriptEngine = engine
 
-        self.mappingExecutor = MappingExecutor(inputSimulator: inputSimulator, inputQueue: inputQueue, inputLogService: inputLogService, profileManager: profileManager, usageStatsService: usageStatsService, scriptEngine: engine)
+		self.mappingExecutor = MappingExecutor(
+			inputSimulator: inputSimulator,
+			inputQueue: inputQueue,
+			inputLogService: inputLogService,
+			profileManager: profileManager,
+			usageStatsService: usageStatsService,
+			scriptEngine: engine,
+			midiService: midiService
+		)
 
         // Set up on-screen keyboard manager with our input simulator
         OnScreenKeyboardManager.shared.setInputSimulator(inputSimulator)
@@ -152,6 +168,11 @@ class MappingEngine: ObservableObject {
 	self.state.swipeTypingEnabled = oskSettings.swipeTypingEnabled
 	self.state.swipeTypingSensitivity = oskSettings.swipeTypingSensitivity
         self.state.frontmostBundleId = appMonitor.frontmostBundleId
+		self.state.appActivatedLayerId = AppLayerActivationPolicy.resolve(
+			bundleId: appMonitor.frontmostBundleId,
+			controllerKeysBundleId: Bundle.main.bundleIdentifier,
+			profile: profileManager.activeProfile
+		)
         self.state.sequenceDetector.configure(sequences: profileManager.activeProfile?.sequenceMappings ?? [])
         self.state.applyProfileIndex(MappingProfileIndex(profile: profileManager.activeProfile))
         syncLatencySettings(for: profileManager.activeProfile)
@@ -251,6 +272,11 @@ class MappingEngine: ObservableObject {
 		    self.state.swipeTypingEnabled = osk.swipeTypingEnabled
 		    self.state.swipeTypingSensitivity = osk.swipeTypingSensitivity
                     self.state.activeLayerIds.removeAll()
+					self.state.appActivatedLayerId = AppLayerActivationPolicy.resolve(
+						bundleId: self.state.frontmostBundleId,
+						controllerKeysBundleId: Bundle.main.bundleIdentifier,
+						profile: profile
+					)
                     self.state.buttonsActingAsLayerActivators.removeAll()
                     self.state.sequenceDetector.configure(sequences: profile?.sequenceMappings ?? [])
                     self.state.applyProfileIndex(MappingProfileIndex(profile: profile))
@@ -272,9 +298,7 @@ class MappingEngine: ObservableObject {
         appMonitor.$frontmostBundleId
             .sink { [weak self] bundleId in
                 guard let self = self else { return }
-                self.state.lock.withLock {
-                    self.state.frontmostBundleId = bundleId
-                }
+				self.transitionAppActivatedLayer(for: bundleId)
             }
             .store(in: &cancellables)
 
@@ -302,11 +326,9 @@ class MappingEngine: ObservableObject {
             .filter { $0 == true }
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                if self.controllerService.threadSafeIsPlayStation,
-                   let ledSettings = self.profileManager.activeProfile?.dualSenseLEDSettings {
+				if self.controllerService.threadSafeIsPlayStation {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                        self?.controllerService.applyLEDSettings(ledSettings)
-                        self?.controllerService.updateBatteryLightBar()
+						self?.applyEffectiveLayerLED()
                     }
                 }
             }
@@ -353,6 +375,60 @@ class MappingEngine: ObservableObject {
             .store(in: &cancellables)
     }
 
+    private func transitionAppActivatedLayer(for bundleId: String?) {
+		let cleanup = state.lock.withLock { () -> RoutingBoundaryCleanup? in
+			state.frontmostBundleId = bundleId
+			let nextLayerId = AppLayerActivationPolicy.resolve(
+				bundleId: bundleId,
+				controllerKeysBundleId: Bundle.main.bundleIdentifier,
+				profile: state.activeProfile
+			)
+			guard nextLayerId != state.appActivatedLayerId else { return nil }
+
+			let cleanup = RoutingBoundaryCleanup(
+				heldMappings: Array(state.heldButtons.values),
+				leftKeys: state.leftStickHeldKeys,
+				rightKeys: state.rightStickHeldKeys,
+				directionButtons: state.leftStickHeldDirectionButtons
+					.union(state.rightStickHeldDirectionButtons)
+			)
+			state.resetTransientInputState()
+			state.appActivatedLayerId = nextLayerId
+			return cleanup
+		}
+
+		guard let cleanup else { return }
+		for mapping in cleanup.heldMappings {
+			stopHeldAction(mapping)
+		}
+		for key in cleanup.leftKeys {
+			inputSimulator.keyUp(key)
+		}
+		for key in cleanup.rightKeys {
+			inputSimulator.keyUp(key)
+		}
+		for button in cleanup.directionButtons {
+			controllerService.handleButton(button, pressed: false)
+		}
+		inputSimulator.releaseAllModifiers()
+		applyEffectiveLayerLED()
+    }
+
+    private func applyEffectiveLayerLED() {
+		guard !controllerService.partyModeEnabled else { return }
+		let (activeLayerIds, profile) = state.lock.withLock {
+			(state.effectiveActiveLayerIds, state.activeProfile)
+		}
+		if let activeLayerId = activeLayerIds.last,
+		   let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
+		   let layerLED = activeLayer.dualSenseLEDSettings {
+			controllerService.applyLEDSettings(layerLED)
+		} else if let profileLED = profile?.dualSenseLEDSettings {
+			controllerService.applyLEDSettings(profileLED)
+		}
+		controllerService.updateBatteryLightBar()
+    }
+
     // MARK: - Button Handling (Background Queue)
 
     nonisolated private func isButtonUsedInChords(_ button: ControllerButton, profile: Profile) -> Bool {
@@ -365,7 +441,7 @@ class MappingEngine: ObservableObject {
 			return ButtonMappingResolutionPolicy.resolvedButton(
 				button: button,
 				profile: profile,
-				activeLayerIds: state.activeLayerIds,
+				activeLayerIds: state.effectiveActiveLayerIds,
 				layerActivatorMap: state.layerActivatorMap
 			)
 		}
@@ -876,7 +952,11 @@ class MappingEngine: ObservableObject {
             state.heldButtons[button] = mapping
         }
 
-        inputSimulator.startHoldMapping(mapping)
+		if let midiControlChange = mapping.midiControlChange {
+			mappingExecutor.midiService.sendPress(midiControlChange)
+		} else {
+			inputSimulator.startHoldMapping(mapping)
+		}
 
         if mapping.holdRepeatEnabled,
            let keyCode = mapping.keyCode,
@@ -890,7 +970,7 @@ class MappingEngine: ObservableObject {
 
     /// Toggles the controller lock state
     nonisolated func performLockToggle() -> Bool {
-        let cleanup: (leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)?
+		let cleanup: (heldMappings: [KeyMapping], leftKeys: Set<CGKeyCode>, rightKeys: Set<CGKeyCode>, directionButtons: Set<ControllerButton>)?
         let nowLocked: Bool
 
         state.lock.lock()
@@ -902,6 +982,7 @@ class MappingEngine: ObservableObject {
             let leftKeys = state.leftStickHeldKeys
             let rightKeys = state.rightStickHeldKeys
             let directionButtons = state.leftStickHeldDirectionButtons.union(state.rightStickHeldDirectionButtons)
+			let heldMappings = Array(state.heldButtons.values)
 
             state.heldButtons.removeAll()
             state.activeChordButtons.removeAll()
@@ -946,7 +1027,7 @@ class MappingEngine: ObservableObject {
             state.directoryNavigatorHoldMode = false
             state.commandWheelActive = false
 
-            cleanup = (leftKeys, rightKeys, directionButtons)
+			cleanup = (heldMappings, leftKeys, rightKeys, directionButtons)
         } else {
             cleanup = nil
         }
@@ -957,6 +1038,9 @@ class MappingEngine: ObservableObject {
         if nowLocked {
             inputSimulator.releaseAllModifiers()
             if let cleanup {
+				for mapping in cleanup.heldMappings {
+					stopHeldAction(mapping)
+				}
                 for key in cleanup.leftKeys {
                     inputSimulator.keyUp(key)
                 }
@@ -1016,7 +1100,7 @@ class MappingEngine: ObservableObject {
                 self.controllerService.applyLEDSettings(lockedSettings)
             } else {
                 let (activeLayerIds, profile) = self.state.lock.withLock {
-                    (self.state.activeLayerIds, self.state.activeProfile)
+					(self.state.effectiveActiveLayerIds, self.state.activeProfile)
                 }
                 if let activeLayerId = activeLayerIds.last,
                    let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
@@ -1122,7 +1206,7 @@ class MappingEngine: ObservableObject {
                 guard let self = self,
                       !self.controllerService.partyModeEnabled else { return }
                 let (remainingLayerIds, profile) = self.state.lock.withLock {
-                    (self.state.activeLayerIds, self.state.activeProfile)
+					(self.state.effectiveActiveLayerIds, self.state.activeProfile)
                 }
                 if let activeLayerId = remainingLayerIds.last,
                    let activeLayer = profile?.layers.first(where: { $0.id == activeLayerId }),
@@ -1167,7 +1251,7 @@ class MappingEngine: ObservableObject {
         if let releaseResult = cleanupReleaseTimers(for: button) {
 			switch releaseResult {
 			case .heldMapping(let heldMapping):
-                inputSimulator.stopHoldMapping(heldMapping)
+				stopHeldAction(heldMapping)
                 inputLogService?.dismissHeldFeedback(action: heldMapping.feedbackString)
 			case .smoothScrollMapping(let scrollMapping):
 				inputLogService?.dismissHeldFeedback(action: scrollMapping.feedbackString)
@@ -1242,7 +1326,7 @@ class MappingEngine: ObservableObject {
     /// Returns the effective mapping for a button, considering active layers.
     nonisolated func effectiveMapping(for button: ControllerButton, in profile: Profile) -> KeyMapping? {
         let (layerActivatorMap, activeLayerIds) = state.lock.withLock {
-            (state.layerActivatorMap, state.activeLayerIds)
+			(state.layerActivatorMap, state.effectiveActiveLayerIds)
         }
 
         return ButtonMappingResolutionPolicy.resolve(
@@ -1583,7 +1667,7 @@ class MappingEngine: ObservableObject {
         }
 
         for mapping in cleanup.heldMappings {
-            inputSimulator.stopHoldMapping(mapping)
+			stopHeldAction(mapping)
         }
         for key in cleanup.leftKeys {
             inputSimulator.keyUp(key)
@@ -1595,5 +1679,13 @@ class MappingEngine: ObservableObject {
             controllerService.handleButton(button, pressed: false)
         }
         inputSimulator.releaseAllModifiers()
+    }
+
+    nonisolated private func stopHeldAction(_ mapping: KeyMapping) {
+		if let midiControlChange = mapping.midiControlChange {
+			mappingExecutor.midiService.sendRelease(midiControlChange)
+		} else {
+			inputSimulator.stopHoldMapping(mapping)
+		}
     }
 }

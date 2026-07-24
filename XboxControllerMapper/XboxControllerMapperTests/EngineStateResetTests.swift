@@ -38,6 +38,8 @@ final class EngineStateResetTests: XCTestCase {
         state.frontmostBundleId = "com.example.test"
         state.joystickSettings = .default
         state.layerActivatorMap = [.a: UUID()]
+		let appLayerId = UUID()
+		state.appActivatedLayerId = appLayerId
         state.swipeTypingEnabled = true
         state.swipeTypingSensitivity = 0.9
 
@@ -49,6 +51,7 @@ final class EngineStateResetTests: XCTestCase {
         XCTAssertEqual(state.frontmostBundleId, "com.example.test", "frontmostBundleId is set externally")
         XCTAssertNotNil(state.joystickSettings, "joystickSettings is a config mirror")
         XCTAssertFalse(state.layerActivatorMap.isEmpty, "layerActivatorMap is rebuilt on profile changes, not reset")
+		XCTAssertEqual(state.appActivatedLayerId, appLayerId, "appActivatedLayerId is config-derived")
         XCTAssertTrue(state.swipeTypingEnabled, "swipeTypingEnabled is config-derived")
         XCTAssertEqual(state.swipeTypingSensitivity, 0.9, accuracy: 1e-10, "swipeTypingSensitivity is config-derived")
     }

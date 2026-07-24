@@ -6,9 +6,23 @@ struct CommandWheelSettingsView: View {
     @State private var selectedItemId: UUID?
     @State private var showingAddSheet = false
     @State private var editingAction: CommandWheelAction?
+    @State private var selectedLayerId: UUID?
 
     private var actions: [CommandWheelAction] {
-        profileManager.activeProfile?.commandWheelActions ?? []
+		profileManager.commandWheelActions(layerId: selectedLayerId)
+    }
+
+    private var layers: [Layer] {
+		profileManager.activeProfile?.layers ?? []
+    }
+
+    private var inheritsBaseWheel: Bool {
+		guard let selectedLayerId else { return false }
+		return profileManager.layerCommandWheelInheritsBase(layerId: selectedLayerId)
+    }
+
+    private var canEdit: Bool {
+		selectedLayerId == nil || !inheritsBaseWheel
     }
 
     private let maxItems = 12
@@ -33,6 +47,39 @@ struct CommandWheelSettingsView: View {
                 .padding(.vertical, 4)
             }
 
+			Section("Configuration") {
+				Picker("Command Wheel", selection: $selectedLayerId) {
+					Text("Base").tag(Optional<UUID>.none)
+					ForEach(layers) { layer in
+						Text(layer.name).tag(Optional(layer.id))
+					}
+				}
+
+				if let selectedLayerId {
+					Toggle(
+						"Use Base Wheel",
+						isOn: Binding(
+							get: { inheritsBaseWheel },
+							set: {
+								profileManager.setLayerCommandWheelInheritsBase(
+									$0,
+									layerId: selectedLayerId
+								)
+							}
+						)
+					)
+
+					if inheritsBaseWheel {
+						Label(
+							"This layer inherits the Base wheel. Turn off Use Base Wheel to customize a copy.",
+							systemImage: "arrow.triangle.branch"
+						)
+						.font(.callout)
+						.foregroundColor(.secondary)
+					}
+				}
+			}
+
             // Wheel Preview
             Section {
                 HStack {
@@ -41,10 +88,17 @@ struct CommandWheelSettingsView: View {
                         items: actions,
                         selectedItemId: $selectedItemId,
                         onItemTapped: { action in
-                            editingAction = action
+							if canEdit {
+								editingAction = action
+							}
                         },
                         onMoveItem: { source, destination in
-                            profileManager.moveCommandWheelActions(from: source, to: destination)
+							guard canEdit else { return }
+							profileManager.moveCommandWheelActions(
+								from: source,
+								to: destination,
+								layerId: selectedLayerId
+							)
                         }
                     )
                     .frame(minHeight: 300, maxHeight: 500)
@@ -80,8 +134,11 @@ struct CommandWheelSettingsView: View {
                             action: action,
                             isSelected: selectedItemId == action.id,
                             onEdit: { editingAction = action },
-                            onDelete: { profileManager.removeCommandWheelAction(action) }
+							onDelete: {
+								profileManager.removeCommandWheelAction(action, layerId: selectedLayerId)
+							}
                         )
+						.allowsHitTesting(canEdit)
                         .onTapGesture {
                             selectedItemId = action.id
                             editingAction = action
@@ -94,7 +151,7 @@ struct CommandWheelSettingsView: View {
                 } label: {
                     Label("Add Action", systemImage: "plus.circle")
                 }
-                .disabled(actions.count >= maxItems)
+				.disabled(!canEdit || actions.count >= maxItems)
                 .help(actions.count >= maxItems ? "Maximum \(maxItems) actions" : "")
                 .accessibilityLabel("Add Action" + (actions.count >= maxItems ? ", maximum \(maxItems) actions reached" : ""))
             } header: {
@@ -112,7 +169,7 @@ struct CommandWheelSettingsView: View {
             CommandWheelActionSheet(
                 action: nil,
                 onSave: { newAction in
-                    profileManager.addCommandWheelAction(newAction)
+					profileManager.addCommandWheelAction(newAction, layerId: selectedLayerId)
                     selectedItemId = newAction.id
                 }
             )
@@ -122,11 +179,20 @@ struct CommandWheelSettingsView: View {
             CommandWheelActionSheet(
                 action: action,
                 onSave: { updatedAction in
-                    profileManager.updateCommandWheelAction(updatedAction)
+					profileManager.updateCommandWheelAction(updatedAction, layerId: selectedLayerId)
                 }
             )
             .environmentObject(profileManager)
         }
+		.onChange(of: profileManager.activeProfile?.id) {
+			selectedLayerId = nil
+			selectedItemId = nil
+			editingAction = nil
+		}
+		.onChange(of: selectedLayerId) {
+			selectedItemId = nil
+			editingAction = nil
+		}
     }
 }
 
@@ -221,6 +287,7 @@ struct CommandWheelActionRow: View {
         case .macro: Text("Macro")
         case .script: Text("Script")
         case .systemCommand: Text("System")
+		case .midiControlChange: Text("MIDI")
         case .none: Text("None")
         }
     }
@@ -231,6 +298,7 @@ struct CommandWheelActionRow: View {
         case .macro: return .purple
         case .script: return .orange
         case .systemCommand: return .green
+		case .midiControlChange: return .cyan
         case .none: return .gray
         }
     }

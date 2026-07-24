@@ -267,7 +267,12 @@ extension MappingEngine {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            let actions = self.profileManager.activeProfile?.commandWheelActions ?? []
+			guard let profile = self.profileManager.activeProfile else { return }
+			let activeLayerIds = self.state.lock.withLock { self.state.effectiveActiveLayerIds }
+			let actions = CommandWheelActionResolutionPolicy.resolve(
+				profile: profile,
+				activeLayerIds: activeLayerIds
+			)
             guard !actions.isEmpty else {
                 // No actions configured — play error haptic and bail
                 self.controllerService.playHaptic(

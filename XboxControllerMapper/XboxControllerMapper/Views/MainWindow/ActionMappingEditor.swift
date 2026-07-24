@@ -34,10 +34,81 @@ struct ActionMappingEditor: View {
                 macroContent
             } else if state.mappingType == .script {
                 scriptContent
+			} else if state.mappingType == .midiControlChange {
+				midiContent
             } else {
                 systemCommandContent
             }
         }
+    }
+
+    // MARK: - MIDI Control Change
+
+    @ViewBuilder
+    private var midiContent: some View {
+		VStack(alignment: .leading, spacing: 10) {
+			Text("Sends from the virtual MIDI source “\(VirtualMIDIService.sourceName)”.")
+				.font(.caption)
+				.foregroundColor(.secondary)
+
+			HStack(spacing: 20) {
+				Stepper(
+					"Channel \(state.midiControlChange.channel)",
+					value: midiBinding(\.channel),
+					in: 1...16
+				)
+				Stepper(
+					"CC \(state.midiControlChange.controller)",
+					value: midiBinding(\.controller),
+					in: 0...127
+				)
+			}
+
+			HStack(spacing: 20) {
+				Stepper(
+					"Press \(state.midiControlChange.pressValue)",
+					value: midiBinding(\.pressValue),
+					in: 0...127
+				)
+				Stepper(
+					"Release \(state.midiControlChange.releaseValue)",
+					value: midiBinding(\.releaseValue),
+					in: 0...127
+				)
+			}
+
+			if let warning = state.midiControlChange.controllerWarning {
+				Label(warning, systemImage: "exclamationmark.triangle.fill")
+					.font(.caption)
+					.foregroundColor(.orange)
+			}
+
+			Button {
+				VirtualMIDIService.shared.pulse(state.midiControlChange)
+			} label: {
+				Label("Send Test", systemImage: "waveform")
+			}
+			.controlSize(.small)
+
+			if variant == .primary {
+				HStack {
+					Text("Hint:")
+						.font(.subheadline)
+						.foregroundColor(.secondary)
+					TextField("e.g. Lightroom Copy Settings", text: $state.hint)
+						.textFieldStyle(.roundedBorder)
+						.font(.subheadline)
+				}
+				HapticStylePicker(hapticStyle: $state.hapticStyle)
+			}
+		}
+    }
+
+    private func midiBinding(_ keyPath: WritableKeyPath<MIDIControlChange, Int>) -> Binding<Int> {
+		Binding(
+			get: { state.midiControlChange[keyPath: keyPath] },
+			set: { state.midiControlChange[keyPath: keyPath] = $0 }
+		)
     }
 
     // MARK: - Single Key

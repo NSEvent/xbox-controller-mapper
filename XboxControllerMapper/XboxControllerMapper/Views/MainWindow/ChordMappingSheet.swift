@@ -32,6 +32,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
     @State private var mappingType: MappingType = .singleKey
     @State private var selectedMacroId: UUID?
     @State private var selectedScriptId: UUID?
+    @State private var midiControlChange = MIDIControlChange()
 
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
@@ -69,6 +70,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
         case macro = 1
         case systemCommand = 2
         case script = 3
+		case midiControlChange = 4
     }
 
     private var isEditing: Bool { editingChord != nil }
@@ -109,6 +111,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
         let finalMacroId = mappingType == .macro ? selectedMacroId : nil
         let finalScriptId = mappingType == .script ? selectedScriptId : nil
         let finalSystemCommand: SystemCommand? = mappingType == .systemCommand ? buildChordSystemCommand() : nil
+		let finalMIDIControlChange = mappingType == .midiControlChange ? midiControlChange : nil
 
         if let existingChord = editingChord {
             var updatedChord = existingChord
@@ -118,6 +121,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
             updatedChord.macroId = finalMacroId
             updatedChord.scriptId = finalScriptId
             updatedChord.systemCommand = finalSystemCommand
+			updatedChord.midiControlChange = finalMIDIControlChange
             updatedChord.hint = hintValue
             updatedChord.hapticStyle = hapticStyle
             profileManager.updateChord(updatedChord)
@@ -129,6 +133,7 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                 macroId: finalMacroId,
                 scriptId: finalScriptId,
                 systemCommand: finalSystemCommand,
+				midiControlChange: finalMIDIControlChange,
                 hint: hintValue,
                 hapticStyle: hapticStyle
             )
@@ -362,10 +367,11 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                         Text("Macro").tag(MappingType.macro)
                         Text("Script").tag(MappingType.script)
                         Text("System").tag(MappingType.systemCommand)
+						Text("MIDI").tag(MappingType.midiControlChange)
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(width: 280)
+					.frame(width: 350)
                     .padding(.trailing, 8)
 
                     if mappingType == .singleKey {
@@ -461,6 +467,8 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                         .background(Color.black.opacity(0.05))
                         .cornerRadius(8)
                     }
+				} else if mappingType == .midiControlChange {
+					MIDIControlChangeEditor(message: $midiControlChange)
                 } else {
                     // SYSTEM COMMAND SELECTION
                     chordSystemCommandContent
@@ -517,6 +525,9 @@ struct ChordMappingSheet: View, ControllerTypeProviding {
                 } else if let scriptId = chord.scriptId {
                     mappingType = .script
                     selectedScriptId = scriptId
+				} else if let midiControlChange = chord.midiControlChange {
+					mappingType = .midiControlChange
+					self.midiControlChange = midiControlChange
                 } else {
                     mappingType = .singleKey
                 }

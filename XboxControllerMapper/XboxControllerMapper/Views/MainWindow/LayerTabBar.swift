@@ -10,6 +10,10 @@ private struct LayerBarWidthPreferenceKey: PreferenceKey {
     }
 }
 
+private struct LayerAppSheetSelection: Identifiable {
+    let id: UUID
+}
+
 /// Tab bar for switching between base layer and custom layers, with swap mode
 /// and overlay toggles.
 struct LayerTabBar: View {
@@ -26,6 +30,7 @@ struct LayerTabBar: View {
 
     @State private var colorEditingLayerId: UUID? = nil
     @State private var colorEditingColor: Color = .blue
+    @State private var appEditingLayer: LayerAppSheetSelection?
     /// Measured outer width of the bar; drives the compact (icon-only) collapse.
     @State private var barWidth: CGFloat = 0
 
@@ -126,6 +131,13 @@ struct LayerTabBar: View {
                                     .font(.system(size: 10))
                                     .foregroundColor(.orange)
                             }
+							let linkedAppCount = profile.appLayerBindings.values.filter { $0 == layer.id }.count
+							if linkedAppCount > 0 {
+								Label("\(linkedAppCount)", systemImage: "app.badge")
+									.font(.system(size: 9, weight: .semibold))
+									.foregroundColor(selectedLayerId == layer.id ? .white : .secondary)
+									.labelStyle(.titleAndIcon)
+							}
                         }
                         .padding(.horizontal, compact ? 8 : 12)
                         .frame(height: controlHeight)
@@ -145,6 +157,9 @@ struct LayerTabBar: View {
                             colorEditingColor = layer.dualSenseLEDSettings?.lightBarColor.color ?? .blue
                             colorEditingLayerId = layer.id
                         }
+						Button("Linked Apps...") {
+							appEditingLayer = LayerAppSheetSelection(id: layer.id)
+						}
                         Button("Delete", role: .destructive) {
                             profileManager.deleteLayer(layer)
                             if selectedLayerId == layer.id {
@@ -312,6 +327,11 @@ struct LayerTabBar: View {
 	.onPreferenceChange(LayerBarWidthPreferenceKey.self) { newValue in
 		scheduleBarWidthUpdate(newValue)
 	}
+    .sheet(item: $appEditingLayer) { selection in
+		if let profileId = profileManager.activeProfile?.id {
+			LayerLinkedAppsSheet(profileId: profileId, layerId: selection.id)
+		}
+    }
 	}
 
 	private func scheduleBarWidthUpdate(_ newValue: CGFloat) {

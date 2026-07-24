@@ -28,6 +28,7 @@ enum ButtonInteractionFlowPolicy {
 		let hasDoubleTap = mapping.doubleTapMapping.map { !$0.isEmpty } ?? false
 
 		return mapping.isHoldModifier
+			|| mapping.midiControlChange != nil
 			|| shouldHoldDPadPresetDirection(button: button, mapping: mapping, isDPadPresetDirection: isDPadPresetDirection)
 			|| (isMouseClick && !isChordPart && !hasDoubleTap)
 	}

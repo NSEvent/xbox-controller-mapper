@@ -7,7 +7,7 @@ import TriggerKitLibrary
 
 /// Executes action mappings via ActionCommandFactory (command pattern).
 ///
-/// Priority chain: systemCommand > macro > script > keyPress/modifier.
+/// Priority chain: systemCommand > macro > script > MIDI > keyPress/modifier.
 /// The factory creates the appropriate ActionCommand, which is then executed polymorphically.
 struct MappingExecutor {
     private let inputLogService: InputLogService?
@@ -16,6 +16,7 @@ struct MappingExecutor {
     let macroExecutor: MacroExecutor
     private let sharedMacroStore: AutomationMacroStore
     private let commandFactory: ActionCommandFactory
+    let midiService: any MIDIControlChangeSending
 
     init(
         inputSimulator: InputSimulatorProtocol,
@@ -23,7 +24,8 @@ struct MappingExecutor {
         inputLogService: InputLogService?,
         profileManager: ProfileManager,
         usageStatsService: UsageStatsService? = nil,
-        scriptEngine: ScriptEngine? = nil
+		scriptEngine: ScriptEngine? = nil,
+		midiService: any MIDIControlChangeSending = VirtualMIDIService.shared
     ) {
         self.inputLogService = inputLogService
         self.usageStatsService = usageStatsService
@@ -33,13 +35,15 @@ struct MappingExecutor {
             systemCommandExecutor: self.systemCommandExecutor
         )
         self.sharedMacroStore = profileManager.sharedMacroStore
+		self.midiService = midiService
         self.commandFactory = ActionCommandFactory(
             inputSimulator: inputSimulator,
             inputQueue: inputQueue,
             macroExecutor: self.macroExecutor,
             systemCommandExecutor: self.systemCommandExecutor,
             scriptEngine: scriptEngine,
-            sharedMacroStore: self.sharedMacroStore
+			sharedMacroStore: self.sharedMacroStore,
+			midiService: midiService
         )
     }
 
@@ -142,6 +146,10 @@ struct MappingExecutor {
             service.recordMacro(stepCount: 1)
             return
         }
+
+		if action.midiControlChange != nil {
+			return
+		}
 
         // Key press or mouse click
         if let keyCode = action.keyCode {

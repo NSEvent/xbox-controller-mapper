@@ -219,8 +219,8 @@ extension MappingEngine {
         // Resolve effective per-side tuning: active layer override (if any) is
         // overlaid onto the profile's base stick tuning, per field. Mode is part
         // of that tuning, so this also resolves the effective stick mode.
-        // Lock is held for the whole function, so reading state.activeLayerIds + state.layersById here is safe.
-        let activeLayer = state.activeLayerIds.last.flatMap { state.layersById[$0] }
+		// Lock is held for the whole function, so effective layer state is safe to read.
+		let activeLayer = state.effectiveActiveLayerIds.last.flatMap { state.layersById[$0] }
         let leftTuning = activeLayer?.leftStickTuning?.applied(to: settings.leftStick) ?? settings.leftStick
         let rightTuning = activeLayer?.rightStickTuning?.applied(to: settings.rightStick) ?? settings.rightStick
         let effectiveLeftMode = leftTuning.mode
@@ -726,7 +726,7 @@ extension MappingEngine {
 			guard let mapping = ButtonMappingResolutionPolicy.resolve(
 				button: button,
 				profile: profile,
-				activeLayerIds: state.activeLayerIds,
+				activeLayerIds: state.effectiveActiveLayerIds,
 				layerActivatorMap: state.layerActivatorMap
 			) else {
 				return false
@@ -748,7 +748,7 @@ extension MappingEngine {
 			guard let mapping = ButtonMappingResolutionPolicy.resolve(
 				button: button,
 				profile: profile,
-				activeLayerIds: state.activeLayerIds,
+				activeLayerIds: state.effectiveActiveLayerIds,
 				layerActivatorMap: state.layerActivatorMap
 			),
 				mapping.effectiveActionType == .keyPress,

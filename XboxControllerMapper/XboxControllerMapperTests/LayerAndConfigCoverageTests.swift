@@ -34,6 +34,85 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertEqual(decoded.buttonMappings[.b]?.modifiers, .command)
     }
 
+    func testLayerCodableRoundTripPreservesCommandWheelOverride() throws {
+		let action = CommandWheelAction(displayName: "Layer Action", keyCode: 12)
+		let layer = Layer(name: "Editing", commandWheelActions: [action])
+
+		let data = try JSONEncoder().encode(layer)
+		let decoded = try JSONDecoder().decode(Layer.self, from: data)
+
+		XCTAssertEqual(decoded.commandWheelActions, [action])
+    }
+
+    func testLayerDecodeWithoutCommandWheelInheritsBase() throws {
+		let id = UUID()
+		let json = #"{"id":"\#(id.uuidString)","name":"Legacy","buttonMappings":{}}"#
+
+		let decoded = try JSONDecoder().decode(Layer.self, from: Data(json.utf8))
+
+		XCTAssertNil(decoded.commandWheelActions)
+    }
+
+    func testCommandWheelResolutionUsesTopLayerOverride() {
+		let baseAction = CommandWheelAction(displayName: "Base", keyCode: 1)
+		let inheritedLayer = Layer(name: "Inherited")
+		let customAction = CommandWheelAction(displayName: "Custom", keyCode: 2)
+		let customLayer = Layer(name: "Custom", commandWheelActions: [customAction])
+		let profile = Profile(
+			name: "Wheel Layers",
+			layers: [inheritedLayer, customLayer],
+			commandWheelActions: [baseAction]
+		)
+
+		XCTAssertEqual(
+			CommandWheelActionResolutionPolicy.resolve(
+				profile: profile,
+				activeLayerIds: [inheritedLayer.id]
+			),
+			[baseAction]
+		)
+		XCTAssertEqual(
+			CommandWheelActionResolutionPolicy.resolve(
+				profile: profile,
+				activeLayerIds: [inheritedLayer.id, customLayer.id]
+			),
+			[customAction]
+		)
+    }
+
+    func testCommandWheelResolutionAllowsExplicitlyDisabledLayerWheel() {
+		let layer = Layer(name: "Disabled", commandWheelActions: [])
+		let profile = Profile(
+			name: "Wheel Layers",
+			layers: [layer],
+			commandWheelActions: [CommandWheelAction(displayName: "Base", keyCode: 1)]
+		)
+
+		XCTAssertEqual(
+			CommandWheelActionResolutionPolicy.resolve(
+				profile: profile,
+				activeLayerIds: [layer.id]
+			),
+			[]
+		)
+    }
+
+    func testLayerCommandWheelParticipatesInSharedMacroReferenceWalk() {
+		let sharedMacroId = UUID()
+		let layer = Layer(
+			name: "Macro Wheel",
+			commandWheelActions: [
+				CommandWheelAction(displayName: "Shared", macroId: sharedMacroId)
+			]
+		)
+		let profile = Profile(name: "Wheel Layers", layers: [layer])
+
+		XCTAssertEqual(
+			SharedMacroSnapshotPolicy.referencedSharedMacroIds(in: profile),
+			[sharedMacroId]
+		)
+    }
+
     func testLayerDecodeMissingNameAndUnknownButtonKey() throws {
         let id = UUID()
         let json = """

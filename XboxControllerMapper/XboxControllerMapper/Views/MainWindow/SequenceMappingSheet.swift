@@ -33,6 +33,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
     @State private var mappingType: MappingType = .singleKey
     @State private var selectedMacroId: UUID?
     @State private var selectedScriptId: UUID?
+    @State private var midiControlChange = MIDIControlChange()
 
     // System command support
     @State private var systemCommandCategory: SystemCommandCategory = .shell
@@ -70,6 +71,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
         case macro = 1
         case systemCommand = 2
         case script = 3
+		case midiControlChange = 4
     }
 
     private var isEditing: Bool { editingSequence != nil }
@@ -101,6 +103,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
         let finalMacroId = mappingType == .macro ? selectedMacroId : nil
         let finalScriptId = mappingType == .script ? selectedScriptId : nil
         let finalSystemCommand: SystemCommand? = mappingType == .systemCommand ? buildSystemCommand() : nil
+		let finalMIDIControlChange = mappingType == .midiControlChange ? midiControlChange : nil
 
         if let existingSequence = editingSequence {
             var updated = existingSequence
@@ -111,6 +114,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
             updated.macroId = finalMacroId
             updated.scriptId = finalScriptId
             updated.systemCommand = finalSystemCommand
+			updated.midiControlChange = finalMIDIControlChange
             updated.hint = hintValue
             updated.hapticStyle = hapticStyle
             profileManager.updateSequence(updated)
@@ -123,6 +127,7 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                 macroId: finalMacroId,
                 scriptId: finalScriptId,
                 systemCommand: finalSystemCommand,
+				midiControlChange: finalMIDIControlChange,
                 hint: hintValue,
                 hapticStyle: hapticStyle
             )
@@ -246,10 +251,11 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                             Text("Macro").tag(MappingType.macro)
                             Text("Script").tag(MappingType.script)
                             Text("System").tag(MappingType.systemCommand)
+							Text("MIDI").tag(MappingType.midiControlChange)
                         }
                         .pickerStyle(.segmented)
                         .labelsHidden()
-                        .frame(width: 280)
+						.frame(width: 350)
                         .padding(.trailing, 8)
 
                         if mappingType == .singleKey {
@@ -343,6 +349,8 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                             .background(Color.black.opacity(0.05))
                             .cornerRadius(8)
                         }
+					} else if mappingType == .midiControlChange {
+						MIDIControlChangeEditor(message: $midiControlChange)
                     } else {
                         sequenceSystemCommandContent
                     }
@@ -399,6 +407,9 @@ struct SequenceMappingSheet: View, ControllerTypeProviding {
                 } else if let scriptId = sequence.scriptId {
                     mappingType = .script
                     selectedScriptId = scriptId
+				} else if let midiControlChange = sequence.midiControlChange {
+					mappingType = .midiControlChange
+					self.midiControlChange = midiControlChange
                 } else {
                     mappingType = .singleKey
                 }

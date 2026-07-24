@@ -90,6 +90,14 @@ extension Profile {
                 mapping.accept(&visitor,
                                context: "Layer '\(layerName)' Button \(button.shortLabel)")
             }
+			for action in layer.commandWheelActions ?? [] {
+				let label = action.displayName.isEmpty ? "(unnamed)" : action.displayName
+				let context = "Layer '\(layerName)' Command Wheel: \(label)"
+				visitor.visit(action: action, context: context)
+				if let command = action.systemCommand {
+					visitor.visit(systemCommand: command, context: context)
+				}
+			}
         }
 
         // Macros: visit each step individually so the auditor can switch

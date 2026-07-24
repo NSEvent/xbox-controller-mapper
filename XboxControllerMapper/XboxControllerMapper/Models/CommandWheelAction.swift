@@ -34,6 +34,9 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
     /// Optional system command to execute instead of key press
     var systemCommand: SystemCommand?
 
+    /// Optional MIDI Control Change message to emit
+    var midiControlChange: MIDIControlChange?
+
     /// Optional user-provided description of what this action does
     var hint: String?
 
@@ -50,6 +53,7 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
         macroId: UUID? = nil,
         scriptId: UUID? = nil,
         systemCommand: SystemCommand? = nil,
+		midiControlChange: MIDIControlChange? = nil,
         hint: String? = nil,
         hapticStyle: HapticStyle? = nil
     ) {
@@ -62,6 +66,7 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
         self.macroId = macroId
         self.scriptId = scriptId
         self.systemCommand = systemCommand
+		self.midiControlChange = midiControlChange
         self.hint = hint
         self.hapticStyle = hapticStyle
     }
@@ -70,7 +75,7 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
 
     private enum CodingKeys: String, CodingKey {
         case id, displayName, iconName, iconData
-        case keyCode, modifiers, macroId, scriptId, systemCommand, hint, hapticStyle
+		case keyCode, modifiers, macroId, scriptId, systemCommand, midiControlChange, hint, hapticStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -84,6 +89,7 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
         macroId = try container.decodeIfPresent(UUID.self, forKey: .macroId)
         scriptId = try container.decodeIfPresent(UUID.self, forKey: .scriptId)
         systemCommand = try container.decodeIfPresent(SystemCommand.self, forKey: .systemCommand)
+		midiControlChange = try container.decodeIfPresent(MIDIControlChange.self, forKey: .midiControlChange)
         hint = try container.decodeIfPresent(String.self, forKey: .hint)
         hapticStyle = try container.decodeIfPresent(HapticStyle.self, forKey: .hapticStyle)
     }
@@ -99,12 +105,16 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
         if scriptId != nil {
             return "Script"
         }
+		if let midiControlChange {
+			return midiControlChange.displayString
+		}
         return displayString
     }
 
     /// Whether this action has any executable action configured
     var hasAction: Bool {
-        keyCode != nil || macroId != nil || scriptId != nil || systemCommand != nil || modifiers.hasAny
+		keyCode != nil || macroId != nil || scriptId != nil || systemCommand != nil
+			|| midiControlChange != nil || modifiers.hasAny
     }
 
     // MARK: - Icon Resolution
@@ -129,6 +139,7 @@ struct CommandWheelAction: Codable, Identifiable, Equatable, ExecutableAction {
                 }
             }
             return "gearshape"
+		case .midiControlChange: return "pianokeys"
         case .none: return "questionmark.circle"
         }
     }
