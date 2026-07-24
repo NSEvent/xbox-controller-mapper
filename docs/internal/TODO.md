@@ -4,6 +4,20 @@ Backlog audited May 10, 2026 against git history and current source.
 
 ---
 
+## Customer Requests — 2026-07-23
+
+- [ ] **Layer-aware Command Wheels** — layer wheel overrides with base-wheel fallback.
+- [ ] **App-activated layers** — app-specific overrides without copied profiles.
+- [ ] **Virtual MIDI CC output** — discrete CC actions first; continuous stick/trigger
+  behavior awaits customer workflow clarification.
+
+Full design, precedence, migration, and acceptance criteria:
+[`specs/discord-customer-requests-2026-07-23.md`](specs/discord-customer-requests-2026-07-23.md).
+
+The first two items form one **Contextual Layers** release.
+
+---
+
 ## Backlog
 
 ### 1. Buttons tab — collapse/expand Active Chords and Active Sequences sections
