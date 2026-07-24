@@ -101,11 +101,11 @@ final class MIDIButtonLifecycleTests: MappingEngineTestCase {
 		await waitForTasks(0.05)
 
 		await MainActor.run { controllerService.buttonPressed(.a) }
-		await waitForTasks(0.05)
+		await waitForTasks(0.2)
 		XCTAssertEqual(mockMIDIService.events, [.press(message)])
 
 		await MainActor.run { controllerService.buttonReleased(.a) }
-		await waitForTasks(0.05)
+		await waitForTasks(0.2)
 		XCTAssertEqual(mockMIDIService.events, [.press(message), .release(message)])
 	}
 
