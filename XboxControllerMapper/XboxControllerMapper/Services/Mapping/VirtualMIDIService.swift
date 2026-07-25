@@ -5,6 +5,7 @@ protocol MIDIControlChangeSending: AnyObject, Sendable {
 	func sendPress(_ message: MIDIControlChange)
 	func sendRelease(_ message: MIDIControlChange)
 	func pulse(_ message: MIDIControlChange)
+	func flushPendingOutput()
 }
 
 /// Publishes a stable MIDI 1.0 virtual source named "ControllerKeys".
@@ -17,6 +18,9 @@ final class VirtualMIDIService: MIDIControlChangeSending, @unchecked Sendable {
 	private let queue = DispatchQueue(label: "xyz.kevintang.controllerkeys.midi")
 	private var client = MIDIClientRef()
 	private var source = MIDIEndpointRef()
+	private var pendingPulseReleases: [
+		UUID: (workItem: DispatchWorkItem, message: MIDIControlChange)
+	] = [:]
 
 	private init() {
 		let clientStatus = MIDIClientCreate(
@@ -67,9 +71,28 @@ final class VirtualMIDIService: MIDIControlChangeSending, @unchecked Sendable {
 
 	func pulse(_ message: MIDIControlChange) {
 		queue.async { [weak self] in
-			self?.sendPacket(message, value: message.pressValue)
-			self?.queue.asyncAfter(deadline: .now() + 0.03) { [weak self] in
-				self?.sendPacket(message, value: message.releaseValue)
+			guard let self else { return }
+			self.sendPacket(message, value: message.pressValue)
+			let id = UUID()
+			let release = DispatchWorkItem { [weak self] in
+				guard let self else { return }
+				self.pendingPulseReleases.removeValue(forKey: id)
+				self.sendPacket(message, value: message.releaseValue)
+			}
+			self.pendingPulseReleases[id] = (release, message)
+			self.queue.asyncAfter(deadline: .now() + 0.03, execute: release)
+		}
+	}
+
+	/// Waits for queued output and immediately balances any pulse whose delayed
+	/// release has not fired yet. Used during application termination.
+	func flushPendingOutput() {
+		queue.sync {
+			let pending = Array(pendingPulseReleases.values)
+			pendingPulseReleases.removeAll()
+			for (workItem, message) in pending {
+				workItem.cancel()
+				sendPacket(message, value: message.releaseValue)
 			}
 		}
 	}

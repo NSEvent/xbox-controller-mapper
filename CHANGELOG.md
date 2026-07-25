@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Contextual layers**: A layer can activate automatically for a selected Mac app, while manually held layers still take priority. Command wheels can inherit the base wheel, define a layer-specific wheel, or be disabled for that layer.
+
+- **Virtual MIDI Control Change output**: Controller buttons, layers, holds, chords, sequences, gestures, and command-wheel actions can send MIDI CC through a stable virtual “ControllerKeys” source for MIDI2LR, Keyboard Maestro, and other MIDI-aware apps.
+
+- **Live Beamdesk hand connection and animation**: Beamdesk hands now appear as a connected input source, expire automatically when heartbeats stop, and use an animated 3D first-person hand preview for recognized microgestures.
+
 ### Fixed
 
 - **Held controller modifiers now reach pen and pointer input**: Shift, Control, Option, and Command held through a controller mapping are added to concurrent mouse and tablet events. This fixes apps such as Photoshop missing a controller-held Shift during Wacom strokes even though ControllerKeys still showed the mapping as held.
+
+- **Held outputs are released across every routing boundary**: Disabling mapping, changing profiles or app-activated layers, disconnecting a controller, and quitting ControllerKeys now release active keys, modifiers, stick directions, and MIDI controls instead of leaving them logically held.
+
+- **Beamdesk holds and previews follow the active source**: Hand inputs remain pressed until Beamdesk sends their matching release, so long-hold and layer mappings work at their configured duration. Disconnect and heartbeat expiry still release everything safely, dense hand meshes generate off the main thread, and a background Beamdesk connection no longer replaces an active physical controller’s preview.
+
+- **Keyboard presets replace stale MIDI actions**: Applying D-pad or custom-stick keyboard presets now clears any previous MIDI CC primary action, and pending MIDI releases are flushed before ControllerKeys exits.
 
 ## [2.6.1] - 2026-07-21
 

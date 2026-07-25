@@ -592,12 +592,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         guard !AppRuntime.isRunningTests else { return }
 
-        ServiceContainer.shared.controllerService.cleanup()
+		let services = ServiceContainer.shared
 		CodexMicroBridgeService.shared.stop()
-		ServiceContainer.shared.ouraRingInputService.stop()
-		ServiceContainer.shared.beamdeskInputService.stop()
-        ServiceContainer.shared.usageStatsService.endSession()
-        ServiceContainer.shared.profileManager.flushPendingSaves()
+		services.ouraRingInputService.stop()
+		services.beamdeskInputService.stop()
+		services.mappingEngine.shutdown()
+		services.controllerService.cleanup()
+		services.usageStatsService.endSession()
+		services.profileManager.flushPendingSaves()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

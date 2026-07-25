@@ -1,14 +1,14 @@
 <?xml version="1.0" standalone="yes"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-    <channel>
-        <title>ControllerKeys</title>
-        <item>
-            <title>2.6.1</title>
-            <pubDate>Tue, 21 Jul 2026 01:44:28 -0700</pubDate>
-            <sparkle:version>20</sparkle:version>
-            <sparkle:shortVersionString>2.6.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/NSEvent/xbox-controller-mapper/releases/download/v2.6.1/ControllerKeys-2.6.1.dmg" length="29326547" type="application/octet-stream" sparkle:edSignature="ZmpFQfGGPN4uiIGcA/i5UVplR1y06FhqLODpxyWfMY2ISZ0ndu4qQMolZ/UQg7lqRRyy91tALBbPcsdrP+m4CA=="/>
-        </item>
-    </channel>
+	<channel>
+		<title>ControllerKeys</title>
+		<item>
+			<title>2.6.1</title>
+			<pubDate>Tue, 21 Jul 2026 01:44:28 -0700</pubDate>
+			<sparkle:version>20</sparkle:version>
+			<sparkle:shortVersionString>2.6.1</sparkle:shortVersionString>
+			<sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
+			<enclosure url="https://github.com/NSEvent/xbox-controller-mapper/releases/download/v2.6.1/ControllerKeys-2.6.1.dmg" length="29326547" type="application/octet-stream" sparkle:edSignature="ZmpFQfGGPN4uiIGcA/i5UVplR1y06FhqLODpxyWfMY2ISZ0ndu4qQMolZ/UQg7lqRRyy91tALBbPcsdrP+m4CA=="/>
+		</item>
+	</channel>
 </rss>

@@ -204,10 +204,18 @@ class MappingEngine: ObservableObject {
     /// Tears down all subscriptions and timers. Must be called before dropping
     /// the last reference to avoid leaking Combine subscriptions.
     func tearDown() {
+		controllerService.onInputEvent = nil
         cancellables.removeAll()
         joystickTimer?.cancel()
         joystickTimer = nil
     }
+
+	/// Releases every held output and drains asynchronous transports before exit.
+	func shutdown() {
+		disable()
+		mappingExecutor.midiService.flushPendingOutput()
+		tearDown()
+	}
 
     private func syncLatencySettings(for profile: Profile?) {
 		let chordButtons = MappingProfileIndex(profile: profile).chordParticipantButtons

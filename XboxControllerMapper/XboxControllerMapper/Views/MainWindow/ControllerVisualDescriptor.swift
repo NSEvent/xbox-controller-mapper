@@ -231,13 +231,25 @@ extension ControllerVisualDescriptor {
 	}
 
 	static func active(using service: ControllerService) -> ControllerVisualDescriptor {
-		if service.isOuraRingConnected {
+		active(
+			from: service.threadSafeControllerPresentationState,
+			ouraRingIsActive: service.isOuraRingActiveInputSource,
+			beamdeskHandsAreActive: service.isBeamdeskHandsActiveInputSource
+		)
+	}
+
+	static func active(
+		from state: ControllerPresentationState,
+		ouraRingIsActive: Bool,
+		beamdeskHandsAreActive: Bool
+	) -> ControllerVisualDescriptor {
+		if ouraRingIsActive {
 			return ControllerVisualDescriptor(family: .ouraRing)
 		}
-		if service.isBeamdeskHandsConnected {
+		if beamdeskHandsAreActive {
 			return ControllerVisualDescriptor(family: .beamdeskHands)
 		}
-		return active(from: service.threadSafeControllerPresentationState)
+		return active(from: state)
 	}
 
 	static func resolved(

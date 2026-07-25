@@ -137,7 +137,8 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         var mappings: [ControllerButton: KeyMapping] = [
             .dpadUp: KeyMapping(
                 keyCode: KeyCodeMapping.upArrow,
-                longHoldMapping: LongHoldMapping(keyCode: KeyCodeMapping.space)
+				longHoldMapping: LongHoldMapping(keyCode: KeyCodeMapping.space),
+				midiControlChange: MIDIControlChange(channel: 2, controller: 11)
             )
         ]
 
@@ -147,6 +148,8 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertEqual(mappings[.dpadLeft]?.keyCode, KeyCodeMapping.keyA)
         XCTAssertEqual(mappings[.dpadRight]?.keyCode, KeyCodeMapping.keyD)
         XCTAssertEqual(mappings[.dpadDown]?.keyCode, KeyCodeMapping.keyS)
+		XCTAssertNil(mappings[.dpadUp]?.midiControlChange)
+		XCTAssertEqual(mappings[.dpadUp]?.effectiveActionType, .keyPress)
         XCTAssertEqual(mappings[.dpadUp]?.longHoldMapping?.keyCode, KeyCodeMapping.space)
         XCTAssertEqual(DPadPreset.resolved(from: mappings), .wasd)
     }
@@ -163,7 +166,8 @@ final class LayerAndConfigCoverageTests: XCTestCase {
             .leftStickUp: KeyMapping(
                 keyCode: KeyCodeMapping.keyQ,
                 longHoldMapping: LongHoldMapping(keyCode: KeyCodeMapping.space),
-                repeatMapping: RepeatMapping(enabled: true, interval: 0.1)
+				repeatMapping: RepeatMapping(enabled: true, interval: 0.1),
+				midiControlChange: MIDIControlChange(channel: 3, controller: 12)
             )
         ]
 
@@ -173,6 +177,8 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         assertStickMapping(mappings[.leftStickLeft], keyCode: KeyCodeMapping.leftArrow)
         assertStickMapping(mappings[.leftStickRight], keyCode: KeyCodeMapping.rightArrow)
         assertStickMapping(mappings[.leftStickDown], keyCode: KeyCodeMapping.downArrow)
+		XCTAssertNil(mappings[.leftStickUp]?.midiControlChange)
+		XCTAssertEqual(mappings[.leftStickUp]?.effectiveActionType, .keyPress)
         XCTAssertNil(mappings[.leftStickUp]?.repeatMapping)
         XCTAssertEqual(mappings[.leftStickUp]?.longHoldMapping?.keyCode, KeyCodeMapping.space)
         XCTAssertEqual(StickDirectionPreset.resolved(from: mappings, side: .left), .arrows)

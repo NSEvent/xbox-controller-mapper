@@ -160,6 +160,7 @@ enum DPadPreset: String, Codable, CaseIterable, Identifiable {
             mapping.macroId = nil
             mapping.scriptId = nil
             mapping.systemCommand = nil
+			mapping.midiControlChange = nil
             mapping.hint = nil
             mapping.isHoldModifier = false
             mapping.repeatMapping = RepeatMapping(enabled: true, interval: 0.05)
@@ -184,6 +185,7 @@ enum DPadPreset: String, Codable, CaseIterable, Identifiable {
                    mapping.macroId == nil &&
                    mapping.scriptId == nil &&
                    mapping.systemCommand == nil &&
+				   mapping.midiControlChange == nil &&
                    !mapping.isHoldModifier
         }
     }
@@ -237,6 +239,7 @@ enum StickDirectionPreset: String, Codable, CaseIterable, Identifiable {
             mapping.macroId = nil
             mapping.scriptId = nil
             mapping.systemCommand = nil
+			mapping.midiControlChange = nil
             mapping.hint = nil
             mapping.isHoldModifier = true
             mapping.holdRepeatEnabled = true
@@ -268,6 +271,7 @@ enum StickDirectionPreset: String, Codable, CaseIterable, Identifiable {
                    mapping.macroId == nil &&
                    mapping.scriptId == nil &&
                    mapping.systemCommand == nil &&
+				   mapping.midiControlChange == nil &&
                    mapping.isHoldModifier &&
                    mapping.holdRepeatEnabled
         }

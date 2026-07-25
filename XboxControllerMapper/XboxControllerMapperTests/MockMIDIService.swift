@@ -10,9 +10,14 @@ final class MockMIDIService: MIDIControlChangeSending, @unchecked Sendable {
 
 	private let lock = NSLock()
 	private var storedEvents: [Event] = []
+	private var storedFlushCount = 0
 
 	var events: [Event] {
 		lock.withLock { storedEvents }
+	}
+
+	var flushCount: Int {
+		lock.withLock { storedFlushCount }
 	}
 
 	func sendPress(_ message: MIDIControlChange) {
@@ -27,7 +32,14 @@ final class MockMIDIService: MIDIControlChangeSending, @unchecked Sendable {
 		lock.withLock { storedEvents.append(.pulse(message)) }
 	}
 
+	func flushPendingOutput() {
+		lock.withLock { storedFlushCount += 1 }
+	}
+
 	func clear() {
-		lock.withLock { storedEvents.removeAll() }
+		lock.withLock {
+			storedEvents.removeAll()
+			storedFlushCount = 0
+		}
 	}
 }

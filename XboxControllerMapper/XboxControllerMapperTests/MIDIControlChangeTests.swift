@@ -140,6 +140,24 @@ final class MIDIButtonLifecycleTests: MappingEngineTestCase {
 		XCTAssertEqual(mockMIDIService.events, [.press(message), .release(message)])
 	}
 
+	func testShutdownReleasesHeldMIDIAndFlushesPendingOutput() async {
+		let message = MIDIControlChange(channel: 2, controller: 34)
+		await MainActor.run {
+			profileManager.setActiveProfile(
+				Profile(name: "MIDI", buttonMappings: [.a: KeyMapping(midiControlChange: message)])
+			)
+		}
+		await waitForTasks(0.05)
+
+		await MainActor.run { controllerService.buttonPressed(.a) }
+		await waitForTasks(0.2)
+		await MainActor.run { mappingEngine.shutdown() }
+
+		XCTAssertEqual(mockMIDIService.events, [.press(message), .release(message)])
+		XCTAssertEqual(mockMIDIService.flushCount, 1)
+		XCTAssertNil(controllerService.onInputEvent)
+	}
+
 	func testControllerDisconnectReleasesHeldMIDIControlAndDoesNotPoisonReconnect() async {
 		let message = MIDIControlChange(channel: 3, controller: 32)
 		await MainActor.run {
