@@ -34,7 +34,7 @@ final class LayerAndConfigCoverageTests: XCTestCase {
         XCTAssertEqual(decoded.buttonMappings[.b]?.modifiers, .command)
     }
 
-    func testLayerCodableRoundTripPreservesCommandWheelOverride() throws {
+	func testLayerCodableRoundTripPreservesCommandWheelOverride() throws {
 		let action = CommandWheelAction(displayName: "Layer Action", keyCode: 12)
 		let layer = Layer(name: "Editing", commandWheelActions: [action])
 
@@ -42,7 +42,16 @@ final class LayerAndConfigCoverageTests: XCTestCase {
 		let decoded = try JSONDecoder().decode(Layer.self, from: data)
 
 		XCTAssertEqual(decoded.commandWheelActions, [action])
-    }
+	}
+
+	func testLayerCodableRoundTripPreservesExplicitlyDisabledCommandWheel() throws {
+		let layer = Layer(name: "Disabled", commandWheelActions: [])
+
+		let data = try JSONEncoder().encode(layer)
+		let decoded = try JSONDecoder().decode(Layer.self, from: data)
+
+		XCTAssertEqual(decoded.commandWheelActions, [])
+	}
 
     func testLayerDecodeWithoutCommandWheelInheritsBase() throws {
 		let id = UUID()

@@ -162,27 +162,33 @@ final class EngineStateAndEdgeCaseTests: MappingEngineTestCase {
         }
         await waitForTasks(0.15)
 
-        let countBeforeRelease = await MainActor.run {
-            return mockInputSimulator.events.filter { event in
+		await MainActor.run {
+			controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.15))
+		}
+		// The controller callback enqueues release handling. Drain that serial queue
+		// before taking the baseline so an in-flight repeat cannot race this assertion.
+		await MainActor.run {
+			mappingEngine.inputQueue.sync {}
+		}
+
+		let countAfterRelease = await MainActor.run {
+			mockInputSimulator.events.filter { event in
                 if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
                 return false
             }.count
-        }
-
-        await MainActor.run {
-            controllerService.emitInputEvent(.buttonReleased(.a, holdDuration: 0.15))
-        }
+		}
+		XCTAssertGreaterThan(countAfterRelease, 1, "Repeat mapping should fire before release")
 
         // Wait to verify no more repeats
         await waitForTasks(0.2)
 
         await MainActor.run {
-            let countAfterRelease = mockInputSimulator.events.filter { event in
+			let finalCount = mockInputSimulator.events.filter { event in
                 if case .executeMapping(let mapping) = event { return mapping.keyCode == 1 }
                 return false
             }.count
 
-            XCTAssertEqual(countBeforeRelease, countAfterRelease, "No additional repeats should occur after release")
+			XCTAssertEqual(countAfterRelease, finalCount, "No additional repeats should occur after release")
         }
     }
 

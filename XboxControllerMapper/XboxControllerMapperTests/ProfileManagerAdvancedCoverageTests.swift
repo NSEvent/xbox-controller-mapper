@@ -134,9 +134,122 @@ final class ProfileManagerAdvancedCoverageTests: XCTestCase {
             "Updated Layer"
         )
 
+		guard let activeProfile = profileManager.activeProfile else {
+			return XCTFail("Expected active profile")
+		}
+		XCTAssertEqual(
+			profileManager.linkApp("com.example.layer", toLayer: layer.id, in: activeProfile),
+			.linked
+		)
+
         profileManager.deleteLayer(updatedLayer)
         XCTAssertFalse(profileManager.activeProfile?.layers.contains(where: { $0.id == layer.id }) ?? true)
+		XCTAssertNil(profileManager.activeProfile?.appLayerBindings["com.example.layer"])
     }
+
+	func testLayerAppLinkRejectsAppOwnedByAnotherProfile() {
+		let layer = Layer(name: "Editing")
+		let layerProfile = Profile(name: "Layer Profile", layers: [layer])
+		let linkedProfile = Profile(
+			name: "Full Profile",
+			linkedApps: ["com.example.editor"]
+		)
+		profileManager.profiles = [layerProfile, linkedProfile]
+		profileManager.setActiveProfile(layerProfile)
+
+		let result = profileManager.linkApp(
+			"com.example.editor",
+			toLayer: layer.id,
+			in: layerProfile
+		)
+
+		XCTAssertEqual(result, .profileConflict(profileName: "Full Profile"))
+		XCTAssertNil(
+			profileManager.profiles
+				.first(where: { $0.id == layerProfile.id })?
+				.appLayerBindings["com.example.editor"]
+		)
+	}
+
+	func testLayerAppLinkAllowsSameProfileToOwnProfileAndLayerLinks() {
+		let layer = Layer(name: "Editing")
+		let profile = Profile(
+			name: "Combined",
+			linkedApps: ["com.example.editor"],
+			layers: [layer]
+		)
+		profileManager.profiles = [profile]
+		profileManager.setActiveProfile(profile)
+
+		XCTAssertEqual(
+			profileManager.linkApp(
+				"com.example.editor",
+				toLayer: layer.id,
+				in: profile
+			),
+			.linked
+		)
+		XCTAssertEqual(
+			profileManager.activeProfile?.appLayerBindings["com.example.editor"],
+			layer.id
+		)
+	}
+
+	func testFullProfileLinkRemovesOtherProfileLayerBindingAndPreservesDestinationBinding() {
+		let bundleId = "com.example.editor"
+		let destinationLayer = Layer(name: "Destination Layer")
+		let otherLayer = Layer(name: "Other Layer")
+		let destination = Profile(
+			name: "Destination",
+			appLayerBindings: [bundleId: destinationLayer.id],
+			layers: [destinationLayer]
+		)
+		let other = Profile(
+			name: "Other",
+			appLayerBindings: [bundleId: otherLayer.id],
+			layers: [otherLayer]
+		)
+		profileManager.profiles = [destination, other]
+		profileManager.setActiveProfile(destination)
+
+		profileManager.addLinkedApp(bundleId, to: destination)
+
+		let storedDestination = profileManager.profiles.first { $0.id == destination.id }
+		let storedOther = profileManager.profiles.first { $0.id == other.id }
+		XCTAssertTrue(storedDestination?.linkedApps.contains(bundleId) == true)
+		XCTAssertEqual(storedDestination?.appLayerBindings[bundleId], destinationLayer.id)
+		XCTAssertNil(storedOther?.appLayerBindings[bundleId])
+	}
+
+	func testLayerCommandWheelMutationPreservesInheritCustomAndDisabledStates() {
+		let baseAction = CommandWheelAction(displayName: "Base", keyCode: 1)
+		let layer = Layer(name: "Editing")
+		let profile = Profile(
+			name: "Wheel",
+			layers: [layer],
+			commandWheelActions: [baseAction]
+		)
+		profileManager.profiles = [profile]
+		profileManager.setActiveProfile(profile)
+
+		XCTAssertTrue(profileManager.layerCommandWheelInheritsBase(layerId: layer.id))
+		XCTAssertEqual(profileManager.commandWheelActions(layerId: layer.id), [baseAction])
+
+		profileManager.setLayerCommandWheelInheritsBase(false, layerId: layer.id)
+		XCTAssertFalse(profileManager.layerCommandWheelInheritsBase(layerId: layer.id))
+		XCTAssertEqual(profileManager.commandWheelActions(layerId: layer.id), [baseAction])
+
+		profileManager.removeCommandWheelAction(baseAction, layerId: layer.id)
+		XCTAssertEqual(profileManager.commandWheelActions(layerId: layer.id), [])
+		XCTAssertEqual(
+			profileManager.activeProfile?.layers.first(where: { $0.id == layer.id })?.commandWheelActions,
+			[]
+		)
+
+		profileManager.setLayerCommandWheelInheritsBase(true, layerId: layer.id)
+		XCTAssertTrue(profileManager.layerCommandWheelInheritsBase(layerId: layer.id))
+		XCTAssertEqual(profileManager.commandWheelActions(layerId: layer.id), [baseAction])
+	}
 
     func testCreateLayerRespectsMaximumLimit() {
         for index in 0..<ProfileManager.maxLayers {

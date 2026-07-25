@@ -61,6 +61,10 @@ extension MappingEngine {
 		// App-activated layer sits below every manually held layer.
 		var appActivatedLayerId: UUID?
 		var effectiveActiveLayerIds: [UUID] {
+			effectiveActiveLayerIds(appActivatedLayerId: appActivatedLayerId)
+		}
+
+		func effectiveActiveLayerIds(appActivatedLayerId: UUID?) -> [UUID] {
 			var ids = appActivatedLayerId.map { [$0] } ?? []
 			ids.append(contentsOf: activeLayerIds.filter { $0 != appActivatedLayerId })
 			return ids
@@ -167,12 +171,19 @@ extension MappingEngine {
 		func resetTransientInputState(
 			preservingManualLayers: Bool = false,
 			preservingUIOverlays: Bool = false,
-			consumingPendingButtonReleases: Bool = false
+			consumingPendingButtonReleases: Bool = false,
+			preservingHeldActionsFor preservedHeldActionButtons: Set<ControllerButton> = []
 		) {
 			let preservedActiveLayerIds = preservingManualLayers ? activeLayerIds : []
 			let preservedLayerActivatorButtons = preservingManualLayers
 				? buttonsActingAsLayerActivators
 				: []
+			let preservedHeldButtons = heldButtons.filter {
+				preservedHeldActionButtons.contains($0.key)
+			}
+			let preservedHoldRepeatTimers = holdRepeatTimers.filter {
+				preservedHeldActionButtons.contains($0.key)
+			}
 
 			let preservedOnScreenKeyboardButton = preservingUIOverlays ? onScreenKeyboardButton : nil
 			let preservedOnScreenKeyboardHoldMode = preservingUIOverlays && onScreenKeyboardHoldMode
@@ -206,6 +217,7 @@ extension MappingEngine {
 				cancelledButtons.formUnion(smoothScrollMappings.keys)
 				cancelledButtons.formUnion(smoothScrollTimers.keys)
 				cancelledButtons.formUnion(physicalButtonResolutions.values)
+				cancelledButtons.subtract(preservedHeldActionButtons)
 
 				if preservingManualLayers {
 					cancelledButtons.subtract(buttonsActingAsLayerActivators)
@@ -234,7 +246,7 @@ extension MappingEngine {
 				cancelledButtons.subtracting(resolvedButtonsWithPhysicalInputs)
 			)
 
-            heldButtons.removeAll()
+			heldButtons.removeAll()
             activeChordButtons.removeAll()
             lastTapTime.removeAll()
 
@@ -251,8 +263,11 @@ extension MappingEngine {
             repeatTimers.values.forEach { $0.cancel() }
             repeatTimers.removeAll()
 
-            holdRepeatTimers.values.forEach { $0.cancel() }
-            holdRepeatTimers.removeAll()
+			holdRepeatTimers
+				.filter { !preservedHeldActionButtons.contains($0.key) }
+				.values
+				.forEach { $0.cancel() }
+			holdRepeatTimers.removeAll()
 
 			smoothScrollTimers.values.forEach { $0.cancel() }
 			smoothScrollTimers.removeAll()
@@ -342,6 +357,9 @@ extension MappingEngine {
 				activeLayerIds = preservedActiveLayerIds
 				buttonsActingAsLayerActivators = preservedLayerActivatorButtons
 			}
+
+			heldButtons = preservedHeldButtons
+			holdRepeatTimers = preservedHoldRepeatTimers
 
 			if preservingUIOverlays {
 				onScreenKeyboardButton = preservedOnScreenKeyboardButton

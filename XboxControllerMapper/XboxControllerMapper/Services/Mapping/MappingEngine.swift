@@ -62,8 +62,14 @@ class MappingEngine: ObservableObject {
 		let directionButtons: Set<ControllerButton>
 		let releaseAllModifiers: Bool
 
-		init(state: EngineState, releaseAllModifiers: Bool = false) {
-			heldMappings = Array(state.heldButtons.values)
+		init(
+			state: EngineState,
+			releaseAllModifiers: Bool = false,
+			preservingHeldActionsFor preservedHeldButtons: Set<ControllerButton> = []
+		) {
+			heldMappings = state.heldButtons.compactMap { button, mapping in
+				preservedHeldButtons.contains(button) ? nil : mapping
+			}
 			leftKeys = state.leftStickHeldKeys
 			rightKeys = state.rightStickHeldKeys
 			directionButtons = state.leftStickHeldDirectionButtons
@@ -401,11 +407,22 @@ class MappingEngine: ObservableObject {
 			)
 			guard nextLayerId != state.appActivatedLayerId else { return nil }
 
-			let cleanup = RoutingBoundaryCleanup(state: state)
+			let nextEffectiveLayerIds = state.effectiveActiveLayerIds(
+				appActivatedLayerId: nextLayerId
+			)
+			let preservedHeldButtons = unchangedHeldButtons(
+				in: state,
+				nextEffectiveLayerIds: nextEffectiveLayerIds
+			)
+			let cleanup = RoutingBoundaryCleanup(
+				state: state,
+				preservingHeldActionsFor: preservedHeldButtons
+			)
 			state.resetTransientInputState(
 				preservingManualLayers: true,
 				preservingUIOverlays: true,
-				consumingPendingButtonReleases: true
+				consumingPendingButtonReleases: true,
+				preservingHeldActionsFor: preservedHeldButtons
 			)
 			state.appActivatedLayerId = nextLayerId
 			return cleanup
@@ -415,6 +432,23 @@ class MappingEngine: ObservableObject {
 		performRoutingBoundaryCleanup(cleanup)
 		applyEffectiveLayerLED()
     }
+
+	nonisolated private func unchangedHeldButtons(
+		in state: EngineState,
+		nextEffectiveLayerIds: [UUID]
+	) -> Set<ControllerButton> {
+		guard let profile = state.activeProfile else { return [] }
+
+		return Set(state.heldButtons.compactMap { button, mapping in
+			let nextMapping = ButtonMappingResolutionPolicy.resolve(
+				button: button,
+				profile: profile,
+				activeLayerIds: nextEffectiveLayerIds,
+				layerActivatorMap: state.layerActivatorMap
+			)
+			return nextMapping == mapping ? button : nil
+		})
+	}
 
     nonisolated func performRoutingBoundaryCleanup(_ cleanup: RoutingBoundaryCleanup) {
 		for mapping in cleanup.heldMappings {
@@ -679,23 +713,16 @@ class MappingEngine: ObservableObject {
                 }
                 return
             }
-            if let layer = profile.layers.first(where: { $0.id == layerId }) {
-                #if DEBUG
-                print("🔷 Layer activated: \(layer.name)")
-                #endif
-                inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
-
-                // Apply layer-specific LED settings if configured
-                if let ledSettings = layer.dualSenseLEDSettings {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.controllerService.applyLEDSettings(ledSettings)
-                        // Layer LEDs default to batteryLightBar=false, so this just stops
-                        // any battery blink/charging animation that might be running.
-                        self?.controllerService.updateBatteryLightBar()
-                    }
-                }
-            }
-            return
+				if let layer = profile.layers.first(where: { $0.id == layerId }) {
+					#if DEBUG
+					print("🔷 Layer activated: \(layer.name)")
+					#endif
+					inputLogService?.log(buttons: [button], type: .singlePress, action: "Layer: \(layer.name)")
+				}
+				DispatchQueue.main.async { [weak self] in
+					self?.applyEffectiveLayerLED()
+				}
+				return
 
         case .ready(let profile, let lastTap):
             if let heldDirectionChord = consumeHeldJoystickDirectionChord(for: button) {

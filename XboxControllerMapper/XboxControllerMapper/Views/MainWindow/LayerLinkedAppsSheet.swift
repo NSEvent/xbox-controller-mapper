@@ -118,6 +118,7 @@ private struct LayerAppPickerSheet: View {
 	let layerId: UUID
 	@State private var searchText = ""
 	@State private var selectedTab = 0
+	@State private var linkErrorMessage: String?
 
 	private var profile: Profile? {
 		profileManager.profiles.first(where: { $0.id == profileId })
@@ -156,15 +157,35 @@ private struct LayerAppPickerSheet: View {
 
 					Spacer()
 
-					if profile?.appLayerBindings[app.bundleIdentifier] == layerId {
+					if let profile,
+					   let conflict = profileManager.fullProfileLinkConflict(
+						for: app.bundleIdentifier,
+						excluding: profile.id
+					   ) {
+						Label("Profile: \(conflict.name)", systemImage: "exclamationmark.triangle.fill")
+							.font(.caption)
+							.foregroundColor(.orange)
+							.help("This app already switches to the \(conflict.name) profile")
+					} else if profile?.appLayerBindings[app.bundleIdentifier] == layerId {
 						Label("Linked", systemImage: "checkmark.circle.fill")
 							.font(.caption)
 							.foregroundColor(.green)
 					} else {
 						Button("Add") {
 							guard let profile else { return }
-							profileManager.linkApp(app.bundleIdentifier, toLayer: layerId, in: profile)
-							dismiss()
+							switch profileManager.linkApp(
+								app.bundleIdentifier,
+								toLayer: layerId,
+								in: profile
+							) {
+							case .linked:
+								dismiss()
+							case .profileConflict(let profileName):
+								linkErrorMessage =
+									"This app already switches to the \(profileName) profile. Remove that profile link before linking it to this layer."
+							case .invalidLayer:
+								linkErrorMessage = "This layer no longer exists."
+							}
 						}
 						.buttonStyle(.bordered)
 						.controlSize(.small)
@@ -187,6 +208,19 @@ private struct LayerAppPickerSheet: View {
 		}
 		.padding(20)
 		.frame(width: 500)
+		.alert(
+			"Cannot Link App",
+			isPresented: Binding(
+				get: { linkErrorMessage != nil },
+				set: { if !$0 { linkErrorMessage = nil } }
+			)
+		) {
+			Button("OK", role: .cancel) {
+				linkErrorMessage = nil
+			}
+		} message: {
+			Text(linkErrorMessage ?? "")
+		}
 	}
 
 	private var filteredApps: [AppInfo] {

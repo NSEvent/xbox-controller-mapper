@@ -8,7 +8,7 @@ import Foundation
 /// but some device drivers create pointer events with their own explicit flags.
 /// Apps that inspect each Wacom/mouse event can then miss a controller-held Shift.
 /// This session event tap adds only ControllerKeys' held modifiers to those events.
-final class HeldModifierPointerEventBridge: @unchecked Sendable {
+nonisolated final class HeldModifierPointerEventBridge: @unchecked Sendable {
 	private enum StartState {
 		case idle
 		case starting
@@ -137,7 +137,7 @@ final class HeldModifierPointerEventBridge: @unchecked Sendable {
 	}
 }
 
-enum HeldModifierPointerEventPolicy {
+nonisolated enum HeldModifierPointerEventPolicy {
 	static let eventTypes: [CGEventType] = [
 		.leftMouseDown,
 		.leftMouseUp,
@@ -165,7 +165,7 @@ enum HeldModifierPointerEventPolicy {
 	}
 }
 
-private func heldModifierPointerEventTapCallback(
+nonisolated private func heldModifierPointerEventTapCallback(
 	proxy: CGEventTapProxy,
 	type: CGEventType,
 	event: CGEvent,

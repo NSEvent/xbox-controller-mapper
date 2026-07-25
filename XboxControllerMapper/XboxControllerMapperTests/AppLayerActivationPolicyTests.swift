@@ -95,6 +95,205 @@ final class AppLayerActivationPolicyTests: XCTestCase {
 
 @MainActor
 final class AppLayerRuntimeTransitionTests: MappingEngineTestCase {
+	func testAppLayerChangePreservesUnchangedHeldBaseAction() async {
+		let firstBundleId = "com.example.first"
+		let secondBundleId = "com.example.second"
+		let firstAppLayer = Layer(name: "First App")
+		let secondAppLayer = Layer(name: "Second App")
+		let shiftMapping = KeyMapping.holdModifier(.shift)
+		let profile = Profile(
+			name: "Contextual",
+			buttonMappings: [.a: shiftMapping],
+			appLayerBindings: [
+				firstBundleId: firstAppLayer.id,
+				secondBundleId: secondAppLayer.id
+			],
+			layers: [firstAppLayer, secondAppLayer]
+		)
+
+		await MainActor.run {
+			profileManager.setActiveProfile(profile)
+			appMonitor.frontmostBundleId = firstBundleId
+			controllerService.buttonPressed(.a)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			XCTAssertTrue(mockInputSimulator.isHoldingModifiers(.maskShift))
+			mockInputSimulator.clearEvents()
+			appMonitor.frontmostBundleId = secondBundleId
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			XCTAssertTrue(
+				mockInputSimulator.isHoldingModifiers(.maskShift),
+				"An unchanged Base action must survive an app-layer change"
+			)
+			XCTAssertFalse(mockInputSimulator.events.contains(.stopHoldMapping(shiftMapping)))
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			XCTAssertFalse(mockInputSimulator.isHoldingModifiers(.maskShift))
+		}
+	}
+
+	func testAppLayerChangePreservesUnchangedHeldManualLayerAction() async {
+		let firstBundleId = "com.example.first"
+		let secondBundleId = "com.example.second"
+		let firstAppLayer = Layer(name: "First App")
+		let secondAppLayer = Layer(name: "Second App")
+		let shiftMapping = KeyMapping.holdModifier(.shift)
+		let manualLayer = Layer(
+			name: "Manual",
+			activatorButton: .leftBumper,
+			buttonMappings: [.a: shiftMapping]
+		)
+		let profile = Profile(
+			name: "Contextual",
+			appLayerBindings: [
+				firstBundleId: firstAppLayer.id,
+				secondBundleId: secondAppLayer.id
+			],
+			layers: [firstAppLayer, secondAppLayer, manualLayer]
+		)
+
+		await MainActor.run {
+			profileManager.setActiveProfile(profile)
+			appMonitor.frontmostBundleId = firstBundleId
+			controllerService.buttonPressed(.leftBumper)
+			controllerService.buttonPressed(.a)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			XCTAssertTrue(mockInputSimulator.isHoldingModifiers(.maskShift))
+			mockInputSimulator.clearEvents()
+			appMonitor.frontmostBundleId = secondBundleId
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			XCTAssertTrue(
+				mockInputSimulator.isHoldingModifiers(.maskShift),
+				"An unchanged held action from the preserved manual layer must survive an app-layer change"
+			)
+			XCTAssertEqual(
+				mappingEngine.state.lock.withLock { mappingEngine.state.heldButtons[.a] },
+				shiftMapping
+			)
+			XCTAssertFalse(mockInputSimulator.events.contains(.stopHoldMapping(shiftMapping)))
+			controllerService.buttonReleased(.a)
+			controllerService.buttonReleased(.leftBumper)
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			XCTAssertFalse(mockInputSimulator.isHoldingModifiers(.maskShift))
+		}
+	}
+
+	func testAppLayerChangeReleasesHeldActionWhenEffectiveMappingChanges() async {
+		let firstBundleId = "com.example.first"
+		let secondBundleId = "com.example.second"
+		let shiftMapping = KeyMapping.holdModifier(.shift)
+		let commandMapping = KeyMapping.holdModifier(.command)
+		let firstAppLayer = Layer(
+			name: "First App",
+			buttonMappings: [.a: shiftMapping]
+		)
+		let secondAppLayer = Layer(
+			name: "Second App",
+			buttonMappings: [.a: commandMapping]
+		)
+		let profile = Profile(
+			name: "Contextual",
+			appLayerBindings: [
+				firstBundleId: firstAppLayer.id,
+				secondBundleId: secondAppLayer.id
+			],
+			layers: [firstAppLayer, secondAppLayer]
+		)
+
+		await MainActor.run {
+			profileManager.setActiveProfile(profile)
+			appMonitor.frontmostBundleId = firstBundleId
+			controllerService.buttonPressed(.a)
+		}
+		await waitForTasks(0.2)
+
+		await MainActor.run {
+			XCTAssertTrue(mockInputSimulator.isHoldingModifiers(.maskShift))
+			appMonitor.frontmostBundleId = secondBundleId
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			XCTAssertFalse(mockInputSimulator.isHoldingModifiers(.maskShift))
+			XCTAssertFalse(mockInputSimulator.isHoldingModifiers(.maskCommand))
+			XCTAssertNil(mappingEngine.state.lock.withLock { mappingEngine.state.heldButtons[.a] })
+			XCTAssertTrue(mockInputSimulator.events.contains(.stopHoldMapping(shiftMapping)))
+			controllerService.buttonReleased(.a)
+		}
+		await waitForTasks(0.1)
+
+		await MainActor.run {
+			XCTAssertFalse(
+				mockInputSimulator.events.contains(.startHoldMapping(commandMapping)),
+				"The release of a cancelled physical press must not start the incoming mapping"
+			)
+		}
+	}
+
+	func testManualLayerWithoutLEDOverrideUsesProfileLEDAboveAppLayer() async {
+		let targetBundleId = "com.example.editor"
+		let profileLED = DualSenseLEDSettings(
+			lightBarColor: CodableColor(red: 0.8, green: 0.1, blue: 0.1)
+		)
+		let appLED = DualSenseLEDSettings(
+			lightBarColor: CodableColor(red: 0.1, green: 0.8, blue: 0.1)
+		)
+		let appLayer = Layer(name: "App", dualSenseLEDSettings: appLED)
+		let manualLayer = Layer(
+			name: "Manual",
+			activatorButton: .leftBumper,
+			dualSenseLEDSettings: nil
+		)
+		let profile = Profile(
+			name: "LED Layers",
+			dualSenseLEDSettings: profileLED,
+			appLayerBindings: [targetBundleId: appLayer.id],
+			layers: [appLayer, manualLayer]
+		)
+
+		await MainActor.run {
+			profileManager.setActiveProfile(profile)
+			appMonitor.frontmostBundleId = targetBundleId
+		}
+		await waitForTasks(0.15)
+		await MainActor.run {
+			XCTAssertEqual(controllerService.threadSafeLEDSettings, appLED)
+			controllerService.buttonPressed(.leftBumper)
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			XCTAssertEqual(
+				controllerService.threadSafeLEDSettings,
+				profileLED,
+				"A top manual layer with no LED override must inherit the profile LED, not the app-layer LED"
+			)
+			controllerService.buttonReleased(.leftBumper)
+		}
+		await waitForTasks(0.15)
+
+		await MainActor.run {
+			XCTAssertEqual(controllerService.threadSafeLEDSettings, appLED)
+		}
+	}
+
 	func testAppLayerChangePreservesHeldManualLayerAndOpenWheelState() async {
 		let firstBundleId = "com.example.first"
 		let secondBundleId = "com.example.second"
