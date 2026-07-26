@@ -191,6 +191,7 @@ struct FeedbackFormView: View {
 					.foregroundStyle(.secondary)
 			}
 			.buttonStyle(.plain)
+			.help("Close")
 			.accessibilityLabel("Close")
 		}
 	}
@@ -604,6 +605,7 @@ private struct NudgeCard: View {
 				Image(systemName: "xmark").font(.caption.weight(.bold)).foregroundStyle(.secondary)
 			}
 			.buttonStyle(.plain)
+			.help("Dismiss")
 			.accessibilityLabel("Dismiss")
 		}
 		.padding(12)
