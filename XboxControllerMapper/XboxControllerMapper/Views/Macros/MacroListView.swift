@@ -180,25 +180,25 @@ struct MacroRow: View {
 
             // Tappable content area
             Button(action: onEdit) {
-                HStack {
-                Image(systemName: "checklist")
-                    .foregroundColor(.white.opacity(0.3))
-                    .font(.caption)
-                    .frame(width: 20)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(macro.name)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
-
-                    Text("\(macro.steps.count) steps")
+                    HStack {
+                    Image(systemName: "checklist")
+                        .foregroundColor(.white.opacity(0.3))
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.5))
-                }
+                        .frame(width: 20)
 
-                Spacer()
-                }
-                .contentShape(Rectangle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(macro.name)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.9))
+
+                        Text("\(macro.steps.count) steps")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+
+                    Spacer()
+                    }
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
