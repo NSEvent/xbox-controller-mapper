@@ -180,7 +180,7 @@ struct MacroRow: View {
 
             // Tappable content area
             Button(action: onEdit) {
-                    HStack {
+                HStack {
                     Image(systemName: "checklist")
                         .foregroundColor(.white.opacity(0.3))
                         .font(.caption)
@@ -197,10 +197,11 @@ struct MacroRow: View {
                     }
 
                     Spacer()
-                    }
-                    .contentShape(Rectangle())
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Edit \(macro.name.isEmpty ? "Unnamed Macro" : macro.name)")
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {

@@ -189,7 +189,7 @@ struct ScriptRow: View {
 
             // Tappable content area
             Button(action: onEdit) {
-                    HStack {
+                HStack {
                     Image(systemName: "applescript.fill")
                         .foregroundColor(.orange.opacity(0.6))
                         .font(.caption)
@@ -213,10 +213,11 @@ struct ScriptRow: View {
                     }
 
                     Spacer()
-                    }
-                    .contentShape(Rectangle())
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Edit \(script.name.isEmpty ? "Untitled Script" : script.name)")
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
