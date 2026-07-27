@@ -179,7 +179,8 @@ struct MacroRow: View {
                 .accessibilityHidden(true)
 
             // Tappable content area
-            HStack {
+            Button(action: onEdit) {
+                HStack {
                 Image(systemName: "checklist")
                     .foregroundColor(.white.opacity(0.3))
                     .font(.caption)
@@ -196,9 +197,10 @@ struct MacroRow: View {
                 }
 
                 Spacer()
+                }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {

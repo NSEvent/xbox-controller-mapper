@@ -188,7 +188,8 @@ struct ScriptRow: View {
                 .accessibilityHidden(true)
 
             // Tappable content area
-            HStack {
+            Button(action: onEdit) {
+                HStack {
                 Image(systemName: "applescript.fill")
                     .foregroundColor(.orange.opacity(0.6))
                     .font(.caption)
@@ -212,9 +213,10 @@ struct ScriptRow: View {
                 }
 
                 Spacer()
+                }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onEdit() }
+            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
