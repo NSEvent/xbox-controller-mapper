@@ -217,7 +217,7 @@ struct ScriptRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Edit \(script.name.isEmpty ? \"Untitled Script\" : script.name)")
+            .accessibilityLabel("Edit \(script.name.isEmpty ? "Untitled Script" : script.name)")
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
