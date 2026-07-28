@@ -201,7 +201,7 @@ struct MacroRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Edit \(macro.name.isEmpty ? "Unnamed Macro" : macro.name)")
+            .accessibilityLabel("Edit \(macro.name.isEmpty ? \"Unnamed Macro\" : macro.name)")
 
             HStack(spacing: 12) {
                 Button(action: onEdit) {
